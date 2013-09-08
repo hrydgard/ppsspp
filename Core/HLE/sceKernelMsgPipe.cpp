@@ -38,6 +38,9 @@
 #define SCE_KERNEL_MPW_FULL 0
 #define SCE_KERNEL_MPW_ASAP 1
 
+static const u32 MSGPIPE_WAIT_VALUE_SEND = 0;
+static const u32 MSGPIPE_WAIT_VALUE_RECV = 1;
+
 // State: the timer for MsgPipe timeouts.
 static int waitTimer = -1;
 
@@ -449,7 +452,7 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 	return 0;
 }
 
-int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll, bool &needsResched, bool &needsWait)
 {
 	u32 curSendAddr = sendBufAddr;
 	SceUID uid = m->GetUID();
@@ -474,7 +477,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 				{
 					thread->Complete(uid, 0);
 					m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
-					hleReSchedule(cbEnabled, "msgpipe data sent");
+					needsResched = true;
 					thread = NULL;
 				}
 			}
@@ -493,10 +496,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 			else
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
-				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe send waited");
-				else
-					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				needsWait = true;
 				return 0;
 			}
 		}
@@ -528,7 +528,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 			sendSize -= bytesToSend;
 
 			if (m->CheckReceiveThreads())
-				hleReSchedule(cbEnabled, "msgpipe data sent");
+				needsResched = true;
 		}
 		else if (sendSize != 0)
 		{
@@ -537,10 +537,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 			else
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
-				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe send waited");
-				else
-					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				needsWait = true;
 				return 0;
 			}
 		}
@@ -551,6 +548,26 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 		Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
 
 	return 0;
+}
+
+int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+{
+	bool needsResched = false;
+	bool needsWait = false;
+
+	int result = __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, cbEnabled, poll, needsResched, needsWait);
+
+	if (needsResched)
+		hleReSchedule(cbEnabled, "msgpipe data sent");
+
+	if (needsWait)
+	{
+		if (__KernelSetMsgPipeTimeout(timeoutPtr))
+			__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), MSGPIPE_WAIT_VALUE_SEND, timeoutPtr, cbEnabled, "msgpipe send waited");
+		else
+			result = SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+	}
+	return result;
 }
 
 int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
@@ -640,7 +657,7 @@ int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSi
 	return 0;
 }
 
-int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll, bool &needsResched, bool &needsWait)
 {
 	u32 curReceiveAddr = receiveBufAddr;
 	SceUID uid = m->GetUID();
@@ -667,7 +684,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 				{
 					thread->Complete(uid, 0);
 					m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
-					hleReSchedule(cbEnabled, "msgpipe data received");
+					needsResched = true;
 					thread = NULL;
 				}
 			}
@@ -686,10 +703,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			else
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
-				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe receive waited");
-				else
-					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				needsWait = true;
 				return 0;
 			}
 		}
@@ -727,10 +741,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			else
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
-				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe receive waited");
-				else
-					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				needsWait = true;
 				return 0;
 			}
 		}
@@ -740,6 +751,26 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 		Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
 
 	return 0;
+}
+
+int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+{
+	bool needsResched = false;
+	bool needsWait = false;
+
+	int result = __KernelReceiveMsgPipe(m, receiveBufAddr, receiveSize, waitMode, resultAddr, timeoutPtr, cbEnabled, poll, needsResched, needsWait);
+
+	if (needsResched)
+		hleReSchedule(cbEnabled, "msgpipe data received");
+
+	if (needsWait)
+	{
+		if (__KernelSetMsgPipeTimeout(timeoutPtr))
+			__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), MSGPIPE_WAIT_VALUE_RECV, timeoutPtr, cbEnabled, "msgpipe receive waited");
+		else
+			return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+	}
+	return result;
 }
 
 int sceKernelReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
