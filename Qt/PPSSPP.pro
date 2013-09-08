@@ -27,7 +27,7 @@ win32 {
 	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32
 }
 linux {
-	LIBS += -L. -lCore -lCommon -lNative -ldl -lz
+	LIBS += -L. -lCore -lCommon -lNative -ldl
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 	!mobile_platform {
 		CONFIG += link_pkgconfig
@@ -38,6 +38,8 @@ linux {
 		FFMPEG_DIR=../ffmpeg/linux/x86_64/lib/
 		LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
 	}
+	# put this at the end avoids problems with some compilers
+	LIBS += -lz
 }
 
 # Main
