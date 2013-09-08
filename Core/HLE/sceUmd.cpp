@@ -23,6 +23,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -33,7 +34,7 @@ static int driveCBId = -1;
 static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
-static std::map<SceUID, u64> umdPausedWaitTimeouts;
+static std::map<SceUID, u64> umdPausedWaits;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -68,7 +69,7 @@ void __UmdDoState(PointerWrap &p)
 	p.Do(umdStatChangeEvent);
 	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
 	p.Do(umdWaitingThreads);
-	p.Do(umdPausedWaitTimeouts);
+	p.Do(umdPausedWaits);
 	p.DoMarker("sceUmd");
 }
 
@@ -92,13 +93,12 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 
 	// Wake anyone waiting on this.
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
-		SceUID threadID = umdWaitingThreads[i];
+		const SceUID threadID = umdWaitingThreads[i];
 
 		u32 error;
-		SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_UMD, error);
 		u32 stat = __KernelGetWaitValue(threadID, error);
 		bool keep = false;
-		if (waitID == 1) {
+		if (HLEKernel::VerifyWait(threadID, WAITTYPE_UMD, 1)) {
 			if ((stat & __KernelUmdGetState()) != 0)
 				__KernelResumeThreadFromWait(threadID, 0);
 			// Only if they are still waiting do we keep them in the list.
@@ -134,21 +134,19 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
-	u32 error;
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_UMD, error);
-	if (waitID == 1)
+	if (HLEKernel::VerifyWait(threadID, WAITTYPE_UMD, 1))
 	{
 		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
 		// TODO: Handle this better?
-		if (umdPausedWaitTimeouts.find(pauseKey) != umdPausedWaitTimeouts.end())
+		if (umdPausedWaits.find(pauseKey) != umdPausedWaits.end())
 			return;
 
 		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
 		if (cyclesLeft != 0)
-			umdPausedWaitTimeouts[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
+			umdPausedWaits[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
 		else
-			umdPausedWaitTimeouts[pauseKey] = 0;
+			umdPausedWaits[pauseKey] = 0;
 
 		for (auto it = umdWaitingThreads.begin(); it < umdWaitingThreads.end(); ++it)
 		{
@@ -167,9 +165,8 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	u32 error;
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_UMD, error);
 	u32 stat = __KernelGetWaitValue(threadID, error);
-	if (umdPausedWaitTimeouts.find(pauseKey) == umdPausedWaitTimeouts.end())
+	if (umdPausedWaits.find(pauseKey) == umdPausedWaits.end())
 	{
 		WARN_LOG_REPORT(SCEIO, "__UmdEndCallback(): UMD paused wait missing");
 
@@ -177,8 +174,8 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 		return;
 	}
 
-	u64 waitDeadline = umdPausedWaitTimeouts[pauseKey];
-	umdPausedWaitTimeouts.erase(pauseKey);
+	u64 waitDeadline = umdPausedWaits[pauseKey];
+	umdPausedWaits.erase(pauseKey);
 
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
@@ -430,9 +427,13 @@ u32 sceUmdCancelWaitDriveStat()
 {
 	DEBUG_LOG(SCEIO, "0=sceUmdCancelWaitDriveStat()");
 
-	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, "umd stat ready", true);
-	// TODO: We should call UnscheduleEvent() event here?
-	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
+	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
+		const SceUID threadID = umdWaitingThreads[i];
+		CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
+		HLEKernel::ResumeFromWait(threadID, WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL);
+	}
+	umdWaitingThreads.clear();
+
 	return 0;
 }
 

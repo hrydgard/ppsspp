@@ -44,7 +44,7 @@ void __GeShutdown();
 bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks);
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks);
 void __GeWaitCurrentThread(WaitType type, SceUID waitId, const char *reason);
-void __GeTriggerWait(WaitType type, SceUID waitId, const char *reason, bool noSwitch = false);
+bool __GeTriggerWait(WaitType type, SceUID waitId);
 bool __GeHasPendingInterrupt();
 
 

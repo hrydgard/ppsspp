@@ -151,13 +151,7 @@ const char *__KernelGetThreadName(SceUID threadID);
 void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled);
 void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled);
 
-// TODO: Replace this with __KernelResumeThreadFromWait over time as it's misguided.
-// It's better that each subsystem keeps track of the list of waiting threads
-// and resumes them manually one by one using __KernelResumeThreadFromWait.
-bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch = false);
-bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, bool dontSwitch);
-u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
-u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval);
+u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval); // can return an error value
 u32 __KernelResumeThreadFromWait(SceUID threadID, u64 retval);
 
 inline u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)

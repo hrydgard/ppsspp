@@ -262,10 +262,12 @@ inline bool VerifyWait(SceUID threadID, WaitType waitType, SceUID uid) {
 
 // Resume a thread from waiting for a particular object.
 template <typename T>
-inline void ResumeFromWait(SceUID threadID, WaitType waitType, SceUID uid, T result) {
+inline bool ResumeFromWait(SceUID threadID, WaitType waitType, SceUID uid, T result) {
 	if (VerifyWait(threadID, waitType, uid)) {
 		__KernelResumeThreadFromWait(threadID, result);
+		return true;
 	}
+	return false;
 }
 
 };
