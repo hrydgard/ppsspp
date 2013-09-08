@@ -998,6 +998,9 @@ namespace MainWindow
 					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 
 					if (Core_IsStepping()) {
+						// If the current PC is on a breakpoint, disabling stepping doesn't work without
+						// explicitly skipping it
+						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 						Core_EnableStepping(false);
 					}
 					NativeMessageReceived("stop", "");
@@ -1005,16 +1008,32 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_RESET:
-					if (Core_IsStepping()) {
-						Core_EnableStepping(false);
-					}
 					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
 					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
+
+					if (Core_IsStepping()) {
+						// If the current PC is on a breakpoint, disabling stepping doesn't work without
+						// explicitly skipping it
+						CBreakPoints::SetSkipFirst(currentMIPS->pc);
+						Core_EnableStepping(false);
+					}
+
 					NativeMessageReceived("reset", "");
 					break;
 				case ID_EMULATION_CHEATS:
 					g_Config.bEnableCheats = !g_Config.bEnableCheats;
 					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
+					
+					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
+
+					if (Core_IsStepping()) {
+						// If the current PC is on a breakpoint, disabling stepping doesn't work without
+						// explicitly skipping it
+						CBreakPoints::SetSkipFirst(currentMIPS->pc);
+						Core_EnableStepping(false);
+					}
+
 					NativeMessageReceived("reset", "");
 					break;
 
