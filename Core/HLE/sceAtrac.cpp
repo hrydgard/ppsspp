@@ -608,14 +608,15 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 							// got a frame
 							int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
 								atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-							u8* out = outbuf;
-							numSamples = atrac->pFrame->nb_samples;
-							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-								(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
-							if (avret < 0) {
-								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+							u8 *out = outbuf;
+							if (out != NULL) {
+								numSamples = atrac->pFrame->nb_samples;
+								avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
+									(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+								if (avret < 0) {
+									ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+								}
 							}
-
 						}
 						av_free_packet(&packet);
 						if (got_frame)
@@ -638,25 +639,26 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}
-				s16* out = (s16*)outbuf;
-				memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 				numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
-				s16* in = (s16*)buf;
-				int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iBGMVolume);
-				if (volumeShift < 0) volumeShift = 0;
-				for (u32 i = 0; i < numSamples; i++) {
-					s16 sampleL = *in++ >> volumeShift; // Max = 4 and Min = 0(no shift)
-					s16 sampleR = sampleL;
-					if (atrac->atracChannels == 2)
-						sampleR = *in++ >> volumeShift; // Max = 4 and Min = 0(no shift)
-					*out++ = sampleL;
-					if (atrac->atracOutputChannels == 2)
-						*out++ = sampleR;
+				s16 *out = (s16*)outbuf;
+				if (out != NULL) {
+					memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
+					s16* in = (s16*)buf;
+					int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iBGMVolume);
+					if (volumeShift < 0) volumeShift = 0;
+					for (u32 i = 0; i < numSamples; i++) {
+						s16 sampleL = *in++ >> volumeShift; // Max = 4 and Min = 0(no shift)
+						s16 sampleR = sampleL;
+						if (atrac->atracChannels == 2)
+							sampleR = *in++ >> volumeShift; // Max = 4 and Min = 0(no shift)
+						*out++ = sampleL;
+						if (atrac->atracOutputChannels == 2)
+							*out++ = sampleR;
+					}
 				}
 				numSamples = ATRAC3PLUS_MAX_SAMPLES;
-			} else
-			{
+			} else {
 				numSamples = atrac->endSample - atrac->currentSample;
 				if (atrac->currentSample >= atrac->endSample) {
 					numSamples = 0;
@@ -667,7 +669,9 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 				if (numSamples == 0 && (atrac->loopNum != 0)) {
 					numSamples = atracSamplesPerFrame;
 				}
-				memset(outbuf, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
+				if (outbuf != NULL) {
+					memset(outbuf, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
+				}
 			}
 
 			*SamplesNum = numSamples;
