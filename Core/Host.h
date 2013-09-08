@@ -44,6 +44,7 @@ public:
 
 	virtual void InitSound(PMixer *mixer) = 0;
 	virtual void UpdateSound() {}
+	virtual void UpdateScreen() {}
 	virtual void ShutdownSound() = 0;
 	virtual void PollControllers(InputState &input_state) {}
 

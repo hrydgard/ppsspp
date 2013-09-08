@@ -37,6 +37,7 @@ public:
 	void UpdateMemView();
 	void UpdateDisassembly();
 	void UpdateUI();
+	virtual void UpdateScreen();
 	void SetDebugMode(bool mode);
 
 	void AddSymbol(std::string name, u32 addr, u32 size, int type);
