@@ -31,6 +31,7 @@
 #include "Framebuffer.h"
 #include "../ge_constants.h"
 #include "../GPUState.h"
+#include "gfx_es2/gl_state.h"
 #include <cstdio>
 
 #define WRITE p+=sprintf
@@ -57,6 +58,13 @@ const bool safeDestFactors[16] = {
 
 
 static bool IsAlphaTestTriviallyTrue() {
+
+#ifdef ANDROID
+	// Always return true when QCOM alpha test extension detected.
+	if (gl_extensions.QCOM_alpha_test)
+		return true;
+#endif
+
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
 	int alphaTestMask = gstate.getAlphaTestMask();

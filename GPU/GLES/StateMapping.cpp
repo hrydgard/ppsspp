@@ -81,6 +81,11 @@ static const GLushort ztests[] = {
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
+static const GLushort atests[] = {
+	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
+	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
+};
+
 static const GLushort stencilOps[] = {
 	GL_KEEP,
 	GL_ZERO,
@@ -261,7 +266,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
 		} else 
 			glstate.stencilTest.disable();
-		
+			
+#ifdef ANDROID
+		// QCOM alpha test
+		if (gl_extensions.QCOM_alpha_test) 
+			glstate.alphaTestQCOM.disable();
+#endif
 	} else {
 
 #if !defined(USING_GLES2)
@@ -307,7 +317,18 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
 		} else 
 			glstate.stencilTest.disable();
-		
+
+#ifdef ANDROID
+		// QCOM alpha test
+		if (gl_extensions.QCOM_alpha_test) {
+			if (gstate.isAlphaTestEnabled()) {
+				glstate.alphaTestQCOM.enable();
+				// AlphaFuncQCOM(enum func, clampf ref)
+				glstate.alphaFuncQCOM.set(atests[gstate.getAlphaTestFunction()], gstate.getAlphaTestRef() * (1.0f / 255.0f));
+			} else 
+				glstate.alphaTestQCOM.disable();
+		}
+#endif		
 	}
 
 	float renderWidthFactor, renderHeightFactor;

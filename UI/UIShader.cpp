@@ -98,8 +98,13 @@ void UIShader_Prepare()
 #if !defined(USING_GLES2)
   	glstate.colorLogicOp.disable();
 #endif 
-	glstate.dither.enable();
 
+#ifdef ANDROID
+	if (gl_extensions.QCOM_alpha_test) 
+		glstate.alphaTestQCOM.disable();
+#endif
+
+	glstate.dither.enable();
 	glstate.blend.enable();
 	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.blendEquation.set(GL_FUNC_ADD);
