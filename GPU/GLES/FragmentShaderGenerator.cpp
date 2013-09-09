@@ -31,6 +31,7 @@
 #include "Framebuffer.h"
 #include "../ge_constants.h"
 #include "../GPUState.h"
+#include "Core/Reporting.h"
 #include <cstdio>
 
 #define WRITE p+=sprintf
@@ -347,6 +348,7 @@ void GenerateFragmentShader(char *buffer) {
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
+			WARN_LOG_REPORT_ONCE(colortest, G3D, "Color test function : %s", colorTestFuncs[colorTestFunc]); 
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
