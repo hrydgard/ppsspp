@@ -86,6 +86,7 @@
 static bool kernelRunning = false;
 KernelObjectPool kernelObjects;
 KernelStats kernelStats;
+// TODO: Savestate this?
 u32 registeredExitCbId;
 
 void __KernelInit()
@@ -261,10 +262,8 @@ int LoadExecForUser_362A956B()
 
 u32 sceKernelRegisterExitCallback(u32 cbId)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelRegisterExitCallback(%i)", cbId);
-	if (__KernelRegisterCallback(THREAD_CALLBACK_EXIT, cbId) == 0) {
-		registeredExitCbId = cbId;
-	}
+	DEBUG_LOG(SCEKERNEL,"sceKernelRegisterExitCallback(%i)", cbId);
+	registeredExitCbId = cbId;
 	return 0;
 }
 

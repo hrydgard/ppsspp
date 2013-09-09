@@ -154,10 +154,8 @@ int scePowerRegisterCallback(int slot, int cbId) {
 		}
 	}
 	if (retval >= 0) {
-		__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
-
 		int arg = PSP_POWER_CB_AC_POWER | PSP_POWER_CB_BATTERY_EXIST | PSP_POWER_CB_BATTERY_FULL;
-		__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, arg);
+		__KernelNotifyCallback(cbId, arg);
 	}
 	return retval;
 }
@@ -175,7 +173,6 @@ int scePowerUnregisterCallback(int slotId) {
 	if (powerCbSlots[slotId] != 0) {
 		int cbId = powerCbSlots[slotId];
 		DEBUG_LOG(HLE, "0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
-		__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
 		powerCbSlots[slotId] = 0;
 	} else {
 		return PSP_POWER_ERROR_EMPTY_SLOT;

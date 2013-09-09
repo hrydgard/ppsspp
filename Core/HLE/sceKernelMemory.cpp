@@ -57,6 +57,11 @@ struct FplWaitingThread
 	SceUID threadID;
 	u32 addrPtr;
 	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const
+	{
+		return threadID == otherThreadID;
+	}
 };
 
 struct NativeFPL
@@ -141,6 +146,11 @@ struct VplWaitingThread
 	SceUID threadID;
 	u32 addrPtr;
 	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const
+	{
+		return threadID == otherThreadID;
+	}
 };
 
 struct SceKernelVplInfo
@@ -292,19 +302,6 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
-void __KernelFplRemoveThread(FPL *fpl, SceUID threadID)
-{
-	for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
-	{
-		FplWaitingThread *t = &fpl->waitingThreads[i];
-		if (t->threadID == threadID)
-		{
-			fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
-			break;
-		}
-	}
-}
-
 bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
 {
 	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
@@ -325,14 +322,7 @@ void __KernelSortFplThreads(FPL *fpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = fpl->GetUID();
-	for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
-	{
-		if (!HLEKernel::VerifyWait(fpl->waitingThreads[i].threadID, WAITTYPE_FPL, uid))
-		{
-			fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
-			--i;
-		}
-	}
+	HLEKernel::CleanupWaitingThreads(WAITTYPE_FPL, uid, fpl->waitingThreads);
 
 	if ((fpl->nf.attr & PSP_FPL_ATTR_PRIORITY) != 0)
 		std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
@@ -489,7 +479,7 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 		} else {
 			SceUID threadID = __KernelGetCurThread();
-			__KernelFplRemoveThread(fpl, threadID);
+			HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
 			FplWaitingThread waiting = {threadID, blockPtrAddr};
 			fpl->waitingThreads.push_back(waiting);
 
@@ -520,7 +510,7 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 		} else {
 			SceUID threadID = __KernelGetCurThread();
-			__KernelFplRemoveThread(fpl, threadID);
+			HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
 			FplWaitingThread waiting = {threadID, blockPtrAddr};
 			fpl->waitingThreads.push_back(waiting);
 
@@ -1179,19 +1169,6 @@ void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
-void __KernelVplRemoveThread(VPL *vpl, SceUID threadID)
-{
-	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
-	{
-		VplWaitingThread *t = &vpl->waitingThreads[i];
-		if (t->threadID == threadID)
-		{
-			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
-			break;
-		}
-	}
-}
-
 bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
 {
 	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
@@ -1212,14 +1189,7 @@ void __KernelSortFplThreads(VPL *vpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = vpl->GetUID();
-	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
-	{
-		if (!HLEKernel::VerifyWait(vpl->waitingThreads[i].threadID, WAITTYPE_VPL, uid))
-		{
-			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
-			--i;
-		}
-	}
+	HLEKernel::CleanupWaitingThreads(WAITTYPE_VPL, uid, vpl->waitingThreads);
 
 	if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
 		std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
@@ -1391,7 +1361,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			if (vpl)
 			{
 				SceUID threadID = __KernelGetCurThread();
-				__KernelVplRemoveThread(vpl, threadID);
+				HLEKernel::RemoveWaitingThread(vpl->waitingThreads, threadID);
 				VplWaitingThread waiting = {threadID, addrPtr};
 				vpl->waitingThreads.push_back(waiting);
 			}
@@ -1416,7 +1386,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			if (vpl)
 			{
 				SceUID threadID = __KernelGetCurThread();
-				__KernelVplRemoveThread(vpl, threadID);
+				HLEKernel::RemoveWaitingThread(vpl->waitingThreads, threadID);
 				VplWaitingThread waiting = {threadID, addrPtr};
 				vpl->waitingThreads.push_back(waiting);
 			}
