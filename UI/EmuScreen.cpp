@@ -330,6 +330,8 @@ void EmuScreen::axis(const AxisInput &axis) {
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction);
+	int resultOpposite = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction);
+
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
 
@@ -369,7 +371,9 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 			if (result != KEYMAP_ERROR_UNKNOWN_KEY)
 				pspKey(result, KEY_UP);
 		} else {
+			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
 			pspKey(result, KEY_UP);
+			pspKey(resultOpposite, KEY_UP);
 		}
 	}
 }
