@@ -82,7 +82,7 @@ void Init()
 {
 	int flags = 0;
 	// This mask is used ONLY after validating the address is in the correct range.
-	// So let's juse use a fixed mask to remove the uncached/user memory bits.
+	// So let's just use a fixed mask to remove the uncached/user memory bits.
 	// Using (Memory::g_MemorySize - 1) won't work for e.g. 0x04C00000.
 	Memory::g_MemoryMask = 0x07FFFFFF;
 

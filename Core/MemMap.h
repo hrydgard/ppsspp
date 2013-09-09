@@ -73,7 +73,7 @@ extern u8 *m_pUncachedRAM;
 extern u8 *m_pPhysicalVRAM;
 extern u8 *m_pUncachedVRAM;
 
-// These replace RAM_SIZE and RAM_MASK, respectively.
+// These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
 extern u32 g_MemorySize;
 extern u32 g_MemoryMask;
 
