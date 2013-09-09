@@ -136,7 +136,7 @@ void CPU_Init() {
 
 	// Default memory settings
 	// Seems to be the safest place currently..
-	Memory::g_MemorySize = 0x02000000; // 32 MB of ram by default
+	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
 
