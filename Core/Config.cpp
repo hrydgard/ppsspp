@@ -194,6 +194,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	// control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
+	control->Get("TiltSensitivity", &iTiltSensitivity, 100);
 	control->Get("ButtonScale", &fButtonScale, 1.15);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
@@ -339,6 +340,7 @@ void Config::Save() {
 		control->Set("ShowTouchControls", bShowTouchControls);
 		// control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
+		control->Set("TiltSensitivity", iTiltSensitivity);
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
 

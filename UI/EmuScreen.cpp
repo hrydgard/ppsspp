@@ -441,9 +441,10 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// Apply tilt to left stick
+	// TODO: Make into an axis
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
-		leftstick_x += clamp1(curve1(input.acc.y) * 2.0f);
+		leftstick_x += clamp1(curve1(input.acc.y) * 2.0f) * g_Config.iTiltSensitivity / 100;
 		__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
 	}
 

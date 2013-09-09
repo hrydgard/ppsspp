@@ -109,6 +109,7 @@ public:
 	int iShowFPSCounter;
 	bool bShowDebugStats;
 	bool bAccelerometerToAnalogHoriz;
+	int iTiltSensitivity;
 
 	// The three tabs.
 	bool bGridView1;
