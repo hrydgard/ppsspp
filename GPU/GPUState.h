@@ -298,6 +298,9 @@ struct GPUgstate
 	bool isTextureSwizzled() const { return texmode & 1; }
 
 	// Lighting
+	bool isMaterialAmbientEnabled() const { return materialupdate & 1; }
+	bool isMaterialDiffuseEnabled() const { return materialupdate & 2; }
+	bool isMaterialSpecularEnabled() const { return materialupdate & 4; } 
 	bool isLightingEnabled() const { return lightingEnable & 1; }
 	bool isLightChanEnabled(int chan) const { return lightEnable[chan] & 1; }
 	GELightComputation getLightComputation(int chan) const { return static_cast<GELightComputation>(ltype[chan] & 0x3); }
