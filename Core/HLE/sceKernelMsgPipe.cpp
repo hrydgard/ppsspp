@@ -241,18 +241,7 @@ struct MsgPipe : public KernelObject
 	void SortThreads(std::vector<MsgPipeWaitingThread> &waitingThreads, bool usePrio)
 	{
 		// Clean up any not waiting at the same time.
-		size_t size = waitingThreads.size();
-		for (size_t i = 0; i < size; ++i)
-		{
-			if (!waitingThreads[i].IsStillWaiting(GetUID()))
-			{
-				// Decrement size and swap what was there with i.
-				std::swap(waitingThreads[i], waitingThreads[--size]);
-				// Now we haven't checked the new i, so go back and do i again.
-				--i;
-			}
-		}
-		waitingThreads.resize(size);
+		HLEKernel::CleanupWaitingThreads(WAITTYPE_MSGPIPE, GetUID(), waitingThreads);
 
 		if (usePrio)
 			std::stable_sort(waitingThreads.begin(), waitingThreads.end(), __KernelMsgPipeThreadSortPriority);
@@ -270,19 +259,14 @@ struct MsgPipe : public KernelObject
 		SortThreads(sendWaitingThreads, usePrio);
 	}
 
-	void RemoveWaitingThread(std::vector<MsgPipeWaitingThread> &waitingThreads, SceUID threadID)
-	{
-		waitingThreads.erase(std::remove(waitingThreads.begin(), waitingThreads.end(), threadID), waitingThreads.end());
-	}
-
 	void RemoveReceiveWaitingThread(SceUID threadID)
 	{
-		RemoveWaitingThread(receiveWaitingThreads, threadID);
+		HLEKernel::RemoveWaitingThread(receiveWaitingThreads, threadID);
 	}
 
 	void RemoveSendWaitingThread(SceUID threadID)
 	{
-		RemoveWaitingThread(sendWaitingThreads, threadID);
+		HLEKernel::RemoveWaitingThread(sendWaitingThreads, threadID);
 	}
 
 	virtual void DoState(PointerWrap &p)

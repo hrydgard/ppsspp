@@ -461,7 +461,7 @@ void __KernelMutexThreadEnd(SceUID threadID)
 	{
 		Mutex *mutex = kernelObjects.Get<Mutex>(waitingMutexID, error);
 		if (mutex)
-			mutex->waitingThreads.erase(std::remove(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID), mutex->waitingThreads.end());
+			HLEKernel::RemoveWaitingThread(mutex->waitingThreads, threadID);
 	}
 
 	// Unlock all mutexes the thread had locked.
@@ -517,12 +517,7 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 		DEBUG_LOG(SCEKERNEL, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
 
 		// Remove threads no longer waiting on this first (so the numWaitThreads value is correct.)
-		for (auto iter = mutex->waitingThreads.begin(); iter != mutex->waitingThreads.end(); ++iter)
-		{
-			// The thread is no longer waiting for this, clean it up.
-			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_MUTEX, uid))
-				mutex->waitingThreads.erase(iter--);
-		}
+		HLEKernel::CleanupWaitingThreads(WAITTYPE_MUTEX, uid, mutex->waitingThreads);
 
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32((u32)mutex->waitingThreads.size(), numWaitThreadsPtr);
@@ -682,12 +677,7 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	// Don't write if the size is 0.  Anything else is A-OK, though, apparently.
 	if (Memory::Read_U32(infoAddr) != 0)
 	{
-		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
-		{
-			// The thread is no longer waiting for this, clean it up.
-			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_MUTEX, id))
-				m->waitingThreads.erase(iter--);
-		}
+		HLEKernel::CleanupWaitingThreads(WAITTYPE_MUTEX, id, m->waitingThreads);
 
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
 		Memory::WriteStruct(infoAddr, &m->nm);
@@ -1065,12 +1055,7 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 	{
 		auto workarea = m->nm.workarea;
 
-		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
-		{
-			// The thread is no longer waiting for this, clean it up.
-			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_LWMUTEX, uid))
-				m->waitingThreads.erase(iter--);
-		}
+		HLEKernel::CleanupWaitingThreads(WAITTYPE_LWMUTEX, uid, m->waitingThreads);
 
 		// Refresh and write
 		m->nm.currentCount = workarea->lockLevel;

@@ -173,27 +173,6 @@ void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue,
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);
 
-// Registered callback types
-enum RegisteredCallbackType {
-	THREAD_CALLBACK_UMD = 0,
-	THREAD_CALLBACK_IO = 1,
-	THREAD_CALLBACK_MEMORYSTICK = 2,
-	THREAD_CALLBACK_MEMORYSTICK_FAT = 3,
-	THREAD_CALLBACK_POWER = 4,
-	THREAD_CALLBACK_EXIT = 5,
-	THREAD_CALLBACK_USER_DEFINED = 6,
-	THREAD_CALLBACK_SIZE = 7,
-	THREAD_CALLBACK_NUM_TYPES = 8,
-};
-
-// These operate on the current thread
-u32 __KernelRegisterCallback(RegisteredCallbackType type, SceUID cbId);
-u32 __KernelUnregisterCallback(RegisteredCallbackType type, SceUID cbId);
-
-// If cbId == -1, all the callbacks of the type on all the threads get notified.
-// If not, only this particular callback gets notified.
-u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int notifyArg);
-
 SceUID __KernelGetCurThread();
 SceUID __KernelGetCurThreadModuleId();
 SceUID __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
@@ -232,7 +211,7 @@ bool __KernelCurHasReadyCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
 bool __KernelExecutePendingMipsCalls(Thread *currentThread, bool reschedAfter);
-void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
+void __KernelNotifyCallback(SceUID cbId, int notifyArg);
 
 // Switch to an idle / non-user thread, if not already on one.
 // Returns whether a switch occurred.

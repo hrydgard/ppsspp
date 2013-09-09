@@ -266,12 +266,7 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 		if (!Memory::IsValidAddress(infoPtr))
 			return -1;
 
-		for (auto iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
-		{
-			// The thread is no longer waiting for this, clean it up.
-			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_SEMA, id))
-				s->waitingThreads.erase(iter--);
-		}
+		HLEKernel::CleanupWaitingThreads(WAITTYPE_SEMA, id, s->waitingThreads);
 
 		s->ns.numWaitThreads = (int) s->waitingThreads.size();
 		if (Memory::Read_U32(infoPtr) != 0)

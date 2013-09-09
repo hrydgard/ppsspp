@@ -114,7 +114,8 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 void __KernelUmdActivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	if (driveCBId != -1)
+		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	// Don't activate immediately, take time to "spin up."
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
@@ -124,7 +125,8 @@ void __KernelUmdActivate()
 void __KernelUmdDeactivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	if (driveCBId != -1)
+		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
 	__UmdStatChange(0, 0);
@@ -148,11 +150,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		else
 			umdPausedWaits[pauseKey] = 0;
 
-		for (auto it = umdWaitingThreads.begin(); it < umdWaitingThreads.end(); ++it)
-		{
-			if (*it == threadID)
-				umdWaitingThreads.erase(it--);
-		}
+		HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
 	}
@@ -256,17 +254,13 @@ int sceUmdDeactivate(u32 mode, const char *name)
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
-	int retVal;
+	int retVal = 0;
 
 	// TODO: If the callback is invalid, return PSP_ERROR_UMD_INVALID_PARAM.
-	if (cbId == 0)
+	if (!kernelObjects.IsValid(cbId)) {
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
-	else {
-		// Remove the old one, we're replacing.
-		if (driveCBId != -1)
-			__KernelUnregisterCallback(THREAD_CALLBACK_UMD, driveCBId);
-
-		retVal = __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
+	} else {
+		// There's only ever one.
 		driveCBId = cbId;
 	}
 
@@ -283,7 +277,6 @@ int sceUmdUnRegisterUMDCallBack(int cbId)
 	else {
 		retVal = cbId;
 		driveCBId = -1;
-		__KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
 	}
 
 	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
@@ -308,10 +301,7 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 	if (waitID == 1)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
-	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
-		if (umdWaitingThreads[i] == threadID)
-			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
-	}
+	HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 }
 
 void __UmdWaitStat(u32 timeout)

@@ -259,7 +259,17 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 }
 
 // Verify that a thread has not been released from waiting, e.g. by sceKernelReleaseWaitThread().
-inline bool VerifyWait(SceUID threadID, WaitType waitType, SceUID uid) {
+// For a waiting thread info struct.
+template <typename T>
+inline bool VerifyWait(const T &waitInfo, WaitType waitType, SceUID uid) {
+	u32 error;
+	SceUID waitID = __KernelGetWaitID(waitInfo.threadID, waitType, error);
+	return waitID == uid && error == 0;
+}
+
+// Verify that a thread has not been released from waiting, e.g. by sceKernelReleaseWaitThread().
+template <>
+inline bool VerifyWait(const SceUID &threadID, WaitType waitType, SceUID uid) {
 	u32 error;
 	SceUID waitID = __KernelGetWaitID(threadID, waitType, error);
 	return waitID == uid && error == 0;
@@ -273,6 +283,28 @@ inline bool ResumeFromWait(SceUID threadID, WaitType waitType, SceUID uid, T res
 		return true;
 	}
 	return false;
+}
+
+// Removes threads that are not waiting anymore from a waitingThreads list.
+template <typename T>
+inline void CleanupWaitingThreads(WaitType waitType, SceUID uid, std::vector<T> &waitingThreads) {
+	size_t size = waitingThreads.size();
+	for (size_t i = 0; i < size; ++i) {
+		if (!VerifyWait(waitingThreads[i], waitType, uid)) {
+			// Decrement size and swap what was there with i.
+			if (--size != i) {
+				std::swap(waitingThreads[i], waitingThreads[size]);
+			}
+			// Now we haven't checked the new i, so go back and do i again.
+			--i;
+		}
+	}
+	waitingThreads.resize(size);
+}
+
+template <typename T>
+inline void RemoveWaitingThread(std::vector<T> &waitingThreads, const SceUID threadID) {
+	waitingThreads.erase(std::remove(waitingThreads.begin(), waitingThreads.end(), threadID), waitingThreads.end());
 }
 
 };
