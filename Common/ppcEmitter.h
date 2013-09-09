@@ -391,6 +391,10 @@ namespace PpcGen
 		void FMADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
 		void FMSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
 
+		// Fpu compare
+		void FCMPU	(int Bf, PPCReg FRa, PPCReg FRb); // unordered
+		void FCMPO	(int Bf, PPCReg FRa, PPCReg FRb); // ordered
+
 
 		// VPU - lvx128
 		void LoadVector(PPCReg Rd, PPCReg Ra, PPCReg Rb);
