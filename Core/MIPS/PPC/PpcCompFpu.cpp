@@ -10,14 +10,17 @@
 #include "ppcEmitter.h"
 #include "PpcJit.h"
 
-#define _RS   ((op>>21) & 0x1F)
-#define _RT   ((op>>16) & 0x1F)
-#define _RD   ((op>>11) & 0x1F)
-#define _FS   ((op>>11) & 0x1F)
-#define _FT   ((op>>16) & 0x1F)
-#define _FD   ((op>>6 ) & 0x1F)
-#define _POS  ((op>>6 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -44,20 +47,6 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 	case 0: FADDS(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: FSUBS(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
-		/*
-		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
-		// Optimization possible if destination is the same
-		if (fd == (int)((nextOp>>6) & 0x1F)) {
-			// VMUL + VNEG -> VNMUL
-			if (!strcmp(MIPSGetName(nextOp), "neg.s")) {
-				if (fd == (int)((nextOp>>11) & 0x1F)) {
-					VNMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
-					EatInstruction(nextOp);
-				}
-				return;
-			}
-		}
-		*/
 		FMULS(fpr.R(fd), fpr.R(fs), fpr.R(ft));
 		break;
 	}
@@ -100,7 +89,6 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-			MOVI2R(R0, addr);
 			MOVI2R(SREG, addr);
 		} else {
 			gpr.MapReg(rs);
@@ -116,8 +104,122 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	}
 }
 
+/**
+This can be made with branch, but i'm trying to do it branch free, not tested yet ...
+**/
 void Jit::Comp_FPUComp(MIPSOpcode op) {
-	Comp_Generic(op);
+	DISABLE;	
+	CONDITIONAL_DISABLE;
+
+
+	int opc = op & 0xF;
+	if (opc >= 8) opc -= 8; // alias
+	if (opc == 0) {  // f, sf (signalling false)
+		MOVI2R(SREG, 0);
+		STW(SREG, CTXREG, offsetof(MIPSState, fpcond));
+		return;
+	}
+
+	int fs = _FS;
+	int ft = _FT;
+	fpr.MapInIn(fs, ft);
+
+	PPCReg _tmp = FPR8;
+	PPCReg _zero = FPR6;
+	PPCReg _one = FPR7;
+
+	//VCMP(fpr.R(fs), fpr.R(ft));
+	//VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+
+	/**
+	Condition-Register Field and Floating-Point Condition Code Interpretation
+	Bit	Name	Description
+	0	FL	(FRA) < (FRB)
+	1	FG	(FRA) > (FRB)
+	2	FE	(FRA) = (FRB)
+	3	FU	(FRA) ? (FRB) (unordered)
+	**/
+	switch(opc)
+	{
+	case 1:		 // un,  ngle (unordered)
+		Break();
+		// CR0 = cmp fs, fs
+		FCMPU(0, fpr.R(fs), fpr.R(ft));
+		// SREG = CR
+		MFCR(SREG);
+		// SREG = (SREG >> 3) & 1
+		SRAWI(SREG, SREG, 3);
+		ANDI(SREG, SREG, 0x1);
+		break;
+	case 2:		 //eq,  seq (equal, ordered)
+		Break();
+		FCMPO(0, fpr.R(fs), fpr.R(ft));
+		MFCR(SREG);
+		// SREG = (SREG >> 2) & 1
+		SRAWI(SREG, SREG, 2);
+		ANDI(SREG, SREG, 0x1);
+		break;
+	case 3:      // ueq, ngl (equal, unordered)
+		Break();
+		FCMPU(0, fpr.R(fs), fpr.R(ft));
+		MFCR(R7);
+		// SREG = (R7 >> 2) & 1
+		SRAWI(SREG, R7, 2);
+		ANDI(SREG, SREG, 0x1);
+		// check unordered
+		// R8 = (R7 >> 3) & 1
+		SRAWI(R8, R7, 3);
+		ANDI(R8, R8, 0x1);
+		// SREG = ((R7 >> 2) & 1) || ((R8 >> 3) & 1)
+		OR(SREG, R7, R8);
+		return;
+	case 4:      // olt, lt (less than, ordered)
+		Break();
+		FCMPO(0, fpr.R(fs), fpr.R(ft));
+		MFCR(SREG);
+		// SREG = SREG & 1
+		ANDI(SREG, SREG, 0x1);
+		break;
+	case 5:      // ult, nge (less than, unordered)
+		Break();
+		FCMPO(0, fpr.R(fs), fpr.R(ft));
+		MFCR(R7);
+		// SREG = SREG & 1
+		ANDI(SREG, R7, 0x1);
+		// check unordered
+		// R8 = (R7 >> 3) & 1
+		SRAWI(R8, R7, 3);
+		ANDI(R8, R8, 0x1);
+		// SREG = (R7 & 1) || ((R8 >> 3) & 1)
+		OR(SREG, R7, R8);
+		break;
+	case 6:      // ole, le (less equal, ordered)
+		Break();
+		FCMPO(0, fpr.R(ft), fpr.R(fs));
+		MFCR(SREG);
+		// SREG = (SREG >> 1) & 1
+		SRAWI(SREG, SREG, 1);
+		ANDI(SREG, SREG, 0x1);
+		break;
+	case 7:      // ule, ngt (less equal, unordered)
+		Break();
+		FCMPO(0, fpr.R(ft), fpr.R(fs));
+		MFCR(R7);
+		// SREG = (SREG >> 1) & 1
+		SRAWI(SREG, R7, 1);
+		ANDI(SREG, SREG, 0x1);
+		// check unordered
+		// R8 = (R7 >> 3) & 1
+		SRAWI(R8, R7, 3);
+		ANDI(R8, R8, 0x1);
+		// SREG = (R7 & 1) || ((R8 >> 3) & 1)
+		OR(SREG, R7, R8);
+		break;
+	default:
+		Comp_Generic(op);
+		return;
+	}
+	STW(SREG, CTXREG, offsetof(MIPSState, fpcond));
 }
 
 void Jit::Comp_FPU2op(MIPSOpcode op) {
@@ -150,8 +252,76 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	}
 }
 
+/**
+Not tested yet
+**/
 void Jit::Comp_mxc1(MIPSOpcode op) {
-	Comp_Generic(op);
+	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	int fs = _FS;
+	MIPSGPReg rt = _RT;
+
+	switch ((op >> 21) & 0x1f)
+	{
+	case 0: // R(rt) = FI(fs); break; //mfc1
+		// Let's just go through RAM for now.
+		fpr.FlushR(fs);
+		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+		LWZ(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
+		return;
+
+	case 2: //cfc1
+		if (fs == 31)
+		{	
+			/* Todo Lazy code ! */
+			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+			PPCReg _rt = gpr.R(rt);
+
+			// SREG = fpcond & 1;
+			LWZ(SREG, CTXREG, offsetof(MIPSState, fpcond));
+			ANDI(SREG, SREG, 1); // Just in case
+			// SREG << 23
+			SLWI(SREG, SREG, 23);
+			
+			// RT = fcr31 & ~(1<<23)
+			LWZ(_rt, CTXREG, offsetof(MIPSState, fcr31));
+			MOVI2R(R8,  ~(1<<23));
+			AND(_rt, _rt, R8);
+
+			// RT = RT | SREG
+			OR(_rt, _rt, SREG);
+		}
+		else if (fs == 0)
+		{
+			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+			LWZ(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr0));
+		}
+		return;
+
+	case 4: //FI(fs) = R(rt);	break; //mtc1
+		// Let's just go through RAM for now.
+		gpr.FlushR(rt);
+		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
+		LFS(fpr.R(fs), CTXREG, gpr.GetMipsRegOffset(rt));
+		return;
+
+	case 6: //ctc1
+		if (fs == 31)
+		{
+			gpr.MapReg(rt, 0);
+
+			// Update MIPS state
+			// fcr31 = rt
+			STW(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+
+			// fpcond = (rt >> 23) & 1;
+			SRWI(SREG, gpr.R(rt), 23);
+			ANDI(SREG, SREG, 1);
+			STW(SREG, CTXREG, offsetof(MIPSState, fpcond));
+		}
+		return;
+	}
 }
 
 }
