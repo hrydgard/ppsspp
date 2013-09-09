@@ -461,7 +461,7 @@ void __KernelMutexThreadEnd(SceUID threadID)
 	{
 		Mutex *mutex = kernelObjects.Get<Mutex>(waitingMutexID, error);
 		if (mutex)
-			mutex->waitingThreads.erase(std::remove(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID), mutex->waitingThreads.end());
+			HLEKernel::RemoveWaitingThread(mutex->waitingThreads, threadID);
 	}
 
 	// Unlock all mutexes the thread had locked.

@@ -47,6 +47,11 @@ struct EventFlagTh
 	u32 wait;
 	u32 outAddr;
 	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const
+	{
+		return threadID == otherThreadID;
+	}
 };
 
 class EventFlag : public KernelObject
@@ -397,19 +402,6 @@ void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), eventFlagWaitTimer, __KernelGetCurThread());
 }
 
-void __KernelEventFlagRemoveThread(EventFlag *e, SceUID threadID)
-{
-	for (size_t i = 0; i < e->waitingThreads.size(); i++)
-	{
-		EventFlagTh *t = &e->waitingThreads[i];
-		if (t->threadID == threadID)
-		{
-			e->waitingThreads.erase(e->waitingThreads.begin() + i);
-			break;
-		}
-	}
-}
-
 int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
@@ -439,7 +431,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 		{
 			// If this thread was left in waitingThreads after a timeout, remove it.
 			// Otherwise we might write the outBitsPtr in the wrong place.
-			__KernelEventFlagRemoveThread(e, __KernelGetCurThread());
+			HLEKernel::RemoveWaitingThread(e->waitingThreads, __KernelGetCurThread());
 
 			u32 timeout = 0xFFFFFFFF;
 			if (Memory::IsValidAddress(timeoutPtr))
@@ -514,7 +506,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 		{
 			// If this thread was left in waitingThreads after a timeout, remove it.
 			// Otherwise we might write the outBitsPtr in the wrong place.
-			__KernelEventFlagRemoveThread(e, __KernelGetCurThread());
+			HLEKernel::RemoveWaitingThread(e->waitingThreads, __KernelGetCurThread());
 
 			u32 timeout = 0xFFFFFFFF;
 			if (Memory::IsValidAddress(timeoutPtr))

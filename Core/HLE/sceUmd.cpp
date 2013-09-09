@@ -150,11 +150,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		else
 			umdPausedWaits[pauseKey] = 0;
 
-		for (auto it = umdWaitingThreads.begin(); it < umdWaitingThreads.end(); ++it)
-		{
-			if (*it == threadID)
-				umdWaitingThreads.erase(it--);
-		}
+		HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
 	}
@@ -305,10 +301,7 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 	if (waitID == 1)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
-	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
-		if (umdWaitingThreads[i] == threadID)
-			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
-	}
+	HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 }
 
 void __UmdWaitStat(u32 timeout)

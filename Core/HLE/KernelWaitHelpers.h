@@ -302,4 +302,9 @@ inline void CleanupWaitingThreads(WaitType waitType, SceUID uid, std::vector<T> 
 	waitingThreads.resize(size);
 }
 
+template <typename T>
+inline void RemoveWaitingThread(std::vector<T> &waitingThreads, const SceUID threadID) {
+	waitingThreads.erase(std::remove(waitingThreads.begin(), waitingThreads.end(), threadID), waitingThreads.end());
+}
+
 };

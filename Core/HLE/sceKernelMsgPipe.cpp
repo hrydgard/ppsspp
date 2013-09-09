@@ -259,19 +259,14 @@ struct MsgPipe : public KernelObject
 		SortThreads(sendWaitingThreads, usePrio);
 	}
 
-	void RemoveWaitingThread(std::vector<MsgPipeWaitingThread> &waitingThreads, SceUID threadID)
-	{
-		waitingThreads.erase(std::remove(waitingThreads.begin(), waitingThreads.end(), threadID), waitingThreads.end());
-	}
-
 	void RemoveReceiveWaitingThread(SceUID threadID)
 	{
-		RemoveWaitingThread(receiveWaitingThreads, threadID);
+		HLEKernel::RemoveWaitingThread(receiveWaitingThreads, threadID);
 	}
 
 	void RemoveSendWaitingThread(SceUID threadID)
 	{
-		RemoveWaitingThread(sendWaitingThreads, threadID);
+		HLEKernel::RemoveWaitingThread(sendWaitingThreads, threadID);
 	}
 
 	virtual void DoState(PointerWrap &p)

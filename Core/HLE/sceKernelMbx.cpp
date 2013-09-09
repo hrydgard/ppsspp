@@ -37,6 +37,11 @@ struct MbxWaitingThread
 	SceUID threadID;
 	u32 packetAddr;
 	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const
+	{
+		return threadID == otherThreadID;
+	}
 };
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
@@ -274,19 +279,6 @@ void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), mbxWaitTimer, __KernelGetCurThread());
 }
 
-void __KernelMbxRemoveThread(Mbx *m, SceUID threadID)
-{
-	for (size_t i = 0; i < m->waitingThreads.size(); i++)
-	{
-		MbxWaitingThread *t = &m->waitingThreads[i];
-		if (t->threadID == threadID)
-		{
-			m->waitingThreads.erase(m->waitingThreads.begin() + i);
-			break;
-		}
-	}
-}
-
 std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
 {
 	_dbg_assert_msg_(SCEKERNEL, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
@@ -480,7 +472,7 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 	else
 	{
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
-		__KernelMbxRemoveThread(m, __KernelGetCurThread());
+		HLEKernel::RemoveWaitingThread(m->waitingThreads, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, false, "mbx waited");
@@ -508,7 +500,7 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 	else
 	{
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
-		__KernelMbxRemoveThread(m, __KernelGetCurThread());
+		HLEKernel::RemoveWaitingThread(m->waitingThreads, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, true, "mbx waited");
