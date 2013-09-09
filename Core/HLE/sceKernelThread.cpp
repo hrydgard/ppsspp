@@ -464,6 +464,10 @@ public:
 
 	~Thread()
 	{
+		// Callbacks are automatically deleted when their owning thread is deleted.
+		for (auto it = callbacks.begin(), end = callbacks.end(); it != end; ++it)
+			kernelObjects.Destroy<Callback>(*it);
+
 		if (pushedStacks.size() != 0)
 		{
 			WARN_LOG_REPORT(SCEKERNEL, "Thread ended within an extended stack");
