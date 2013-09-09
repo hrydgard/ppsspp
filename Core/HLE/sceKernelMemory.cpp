@@ -325,14 +325,7 @@ void __KernelSortFplThreads(FPL *fpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = fpl->GetUID();
-	for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
-	{
-		if (!HLEKernel::VerifyWait(fpl->waitingThreads[i].threadID, WAITTYPE_FPL, uid))
-		{
-			fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
-			--i;
-		}
-	}
+	HLEKernel::CleanupWaitingThreads(WAITTYPE_FPL, uid, fpl->waitingThreads);
 
 	if ((fpl->nf.attr & PSP_FPL_ATTR_PRIORITY) != 0)
 		std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
@@ -1212,14 +1205,7 @@ void __KernelSortFplThreads(VPL *vpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = vpl->GetUID();
-	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
-	{
-		if (!HLEKernel::VerifyWait(vpl->waitingThreads[i].threadID, WAITTYPE_VPL, uid))
-		{
-			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
-			--i;
-		}
-	}
+	HLEKernel::CleanupWaitingThreads(WAITTYPE_VPL, uid, vpl->waitingThreads);
 
 	if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
 		std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);

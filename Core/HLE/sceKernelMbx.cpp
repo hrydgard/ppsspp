@@ -583,12 +583,7 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
 		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);
 
-	for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
-	{
-		// The thread is no longer waiting for this, clean it up.
-		if (!HLEKernel::VerifyWait(iter->threadID, WAITTYPE_MBX, id))
-			m->waitingThreads.erase(iter--);
-	}
+	HLEKernel::CleanupWaitingThreads(WAITTYPE_MBX, id, m->waitingThreads);
 
 	// For whatever reason, it won't write if the size (first member) is 0.
 	if (Memory::Read_U32(infoAddr) != 0)

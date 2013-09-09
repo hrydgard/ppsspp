@@ -622,12 +622,7 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 		if (!Memory::IsValidAddress(statusPtr))
 			return -1;
 
-		for (auto iter = e->waitingThreads.begin(); iter != e->waitingThreads.end(); ++iter)
-		{
-			// The thread is no longer waiting for this, clean it up.
-			if (!HLEKernel::VerifyWait(iter->threadID, WAITTYPE_EVENTFLAG, id))
-				e->waitingThreads.erase(iter--);
-		}
+		HLEKernel::CleanupWaitingThreads(WAITTYPE_EVENTFLAG, id, e->waitingThreads);
 
 		e->nef.numWaitThreads = (int) e->waitingThreads.size();
 		if (Memory::Read_U32(statusPtr) != 0)
