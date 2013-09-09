@@ -198,7 +198,8 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 	getline(is, title2);
 	is.close();
 	os.open(activeCheatFile.c_str(), std::ios::app);
-	if (title2.substr(0, 2) != "_S") {
+	auto it = title.begin();
+	if (title2.substr(0, 2) != "_S" && it != title.end() && (++it) != title.end()) {
 		os << title[0] << "\n" << title[1];
 	}
 	if (newList.size() != 0)
