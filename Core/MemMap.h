@@ -79,6 +79,10 @@ extern u32 g_MemoryMask;
 
 enum
 {
+	// This may be adjusted by remaster games.
+	RAM_NORMAL_SIZE = 0x02000000,
+	RAM_NORMAL_MASK = RAM_NORMAL_SIZE - 1,
+
 	VRAM_SIZE       = 0x200000,
 	VRAM_MASK       = VRAM_SIZE - 1,
 
