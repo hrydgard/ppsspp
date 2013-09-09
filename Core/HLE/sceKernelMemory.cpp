@@ -1358,6 +1358,9 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
+			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
+				return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+
 			if (vpl)
 			{
 				SceUID threadID = __KernelGetCurThread();
@@ -1369,6 +1372,9 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			__KernelSetVplTimeout(timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, false, "vpl waited");
 		}
+		// If anyone else was waiting, the allocation causes a delay.
+		else if (error == 0 && !vpl->waitingThreads.empty())
+			return hleDelayResult(error, "vpl allocated", 50);
 	}
 	return error;
 }
@@ -1383,6 +1389,9 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
+			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
+				return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+
 			if (vpl)
 			{
 				SceUID threadID = __KernelGetCurThread();
@@ -1394,6 +1403,9 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			__KernelSetVplTimeout(timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, true, "vpl waited");
 		}
+		// If anyone else was waiting, the allocation causes a delay.
+		else if (error == 0 && !vpl->waitingThreads.empty())
+			return hleDelayResult(error, "vpl allocated", 50);
 	}
 	return error;
 }
