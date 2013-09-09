@@ -75,9 +75,7 @@ void gettimeofday(timeval *tv, void *ignore)
 
 time_t rtc_timegm(struct tm *tm)
 {
-	struct tm modified;
-	memcpy(&modified, tm, sizeof(modified));
-	return _mkgmtime(&modified);
+	return _mkgmtime(tm);
 }
 
 #elif defined(__GLIBC__) && !defined(ANDROID)
