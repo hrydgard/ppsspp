@@ -54,6 +54,9 @@
     <ClInclude Include="ppc_mnemonics.h">
       <Filter>ppc</Filter>
     </ClInclude>
+    <ClInclude Include="Crypto\sha1.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -83,6 +86,9 @@
     </ClCompile>
     <ClCompile Include="ppcEmitter.cpp">
       <Filter>ppc</Filter>
+    </ClCompile>
+    <ClCompile Include="Crypto\sha1.cpp">
+      <Filter>Crypto</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

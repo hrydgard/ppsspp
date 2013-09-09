@@ -301,6 +301,7 @@
     <ClCompile Include="HLE\sceDmac.cpp" />
     <ClCompile Include="HLE\sceFont.cpp" />
     <ClCompile Include="HLE\sceGe.cpp" />
+    <ClCompile Include="HLE\sceHeap.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
     <ClCompile Include="HLE\sceHttp.cpp" />
     <ClCompile Include="HLE\sceImpose.cpp" />
@@ -321,6 +322,7 @@
     <ClCompile Include="HLE\sceKernelVTimer.cpp" />
     <ClCompile Include="HLE\sceMpeg.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
+    <ClCompile Include="HLE\sceNetAdhoc.cpp" />
     <ClCompile Include="HLE\sceNp.cpp" />
     <ClCompile Include="HLE\sceOpenPSID.cpp" />
     <ClCompile Include="HLE\sceParseHttp.cpp" />
@@ -618,6 +620,7 @@
     <ClInclude Include="HLE\sceDmac.h" />
     <ClInclude Include="HLE\sceFont.h" />
     <ClInclude Include="HLE\sceGe.h" />
+    <ClInclude Include="HLE\sceHeap.h" />
     <ClInclude Include="HLE\sceHprm.h" />
     <ClInclude Include="HLE\sceHttp.h" />
     <ClInclude Include="HLE\sceImpose.h" />
@@ -637,6 +640,7 @@
     <ClInclude Include="HLE\sceKernelTime.h" />
     <ClInclude Include="HLE\sceMpeg.h" />
     <ClInclude Include="HLE\sceNet.h" />
+    <ClInclude Include="HLE\sceNetAdhoc.h" />
     <ClInclude Include="HLE\sceNp.h" />
     <ClInclude Include="HLE\sceOpenPSID.h" />
     <ClInclude Include="HLE\sceParseHttp.h" />

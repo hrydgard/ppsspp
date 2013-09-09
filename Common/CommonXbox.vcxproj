@@ -264,6 +264,7 @@
     <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Crypto\md5.h" />
+    <ClInclude Include="Crypto\sha1.h" />
     <ClInclude Include="DebugInterface.h" />
     <ClInclude Include="ExtendedTrace.h" />
     <ClInclude Include="FifoQueue.h" />
@@ -301,6 +302,7 @@
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="Crypto\md5.cpp" />
+    <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="ExtendedTrace.cpp" />
     <ClCompile Include="FileSearch.cpp" />
     <ClCompile Include="FileUtil.cpp" />
