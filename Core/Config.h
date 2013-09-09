@@ -92,6 +92,8 @@ public:
 	int iCurrentStateSlot;
 	bool bEnableCheats;
 	bool bReloadCheats;
+	bool bDisableStencilTest;
+	bool bAlwaysDepthWrite;
 
 	// Sound
 	bool bEnableSound;
