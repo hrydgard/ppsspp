@@ -84,8 +84,11 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-
+#ifdef defined(Q_WS_X11)
+	g_dpi_scale = 1.0f;
+#else
 	g_dpi_scale = CalculateDPIScale();
+#endif
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	net::Init();
 #ifdef __SYMBIAN32__
