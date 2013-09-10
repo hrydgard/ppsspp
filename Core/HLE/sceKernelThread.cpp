@@ -2368,6 +2368,8 @@ int sceKernelTerminateThread(SceUID threadID)
 		}
 
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateThread(%i)", threadID);
+		// On terminate, we reset the thread priority.  On exit, we don't always (see __KernelResetThread.)
+		t->nt.currentPriority = t->nt.initialPriority;
 		// TODO: Should this reschedule?  Seems like not.
 		__KernelStopThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated");
 
