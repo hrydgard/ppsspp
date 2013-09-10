@@ -92,12 +92,17 @@ enum {
 	PSP_THREAD_ATTR_KERNEL =           0x00001000,
 	PSP_THREAD_ATTR_VFPU =             0x00004000,
 	PSP_THREAD_ATTR_SCRATCH_SRAM =     0x00008000,   // Save/restore scratch as part of context???
-	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // TODO: No filling of 0xff (only with PSP_THREAD_ATTR_LOW_STACK?)
+	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // No filling of 0xff (only with PSP_THREAD_ATTR_LOW_STACK?)
 	PSP_THREAD_ATTR_CLEAR_STACK =      0x00200000,   // TODO: Clear thread stack when deleted
-	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // TODO: Allocate stack from bottom not top.
+	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // Allocate stack from bottom not top.
 	PSP_THREAD_ATTR_USER =             0x80000000,
 	PSP_THREAD_ATTR_USBWLAN =          0xa0000000,
 	PSP_THREAD_ATTR_VSH =              0xc0000000,
+
+	// TODO: Support more, not even sure what all of these mean.
+	PSP_THREAD_ATTR_USER_MASK =        0xf8f060ff,
+	PSP_THREAD_ATTR_USER_ERASE =       0x78800000,
+	PSP_THREAD_ATTR_SUPPORTED =        (PSP_THREAD_ATTR_KERNEL | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK | PSP_THREAD_ATTR_LOW_STACK | PSP_THREAD_ATTR_USER)
 };
 
 struct NativeCallback
@@ -373,14 +378,15 @@ public:
 	{
 		FreeStack();
 
+		bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
 		if (nt.attr & PSP_THREAD_ATTR_KERNEL)
 		{
 			// Allocate stacks for kernel threads (idle) in kernel RAM
-			currentStack.start = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+			currentStack.start = kernelMemory.Alloc(stackSize, fromTop, (std::string("stack/") + nt.name).c_str());
 		}
 		else
 		{
-			currentStack.start = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+			currentStack.start = userMemory.Alloc(stackSize, fromTop, (std::string("stack/") + nt.name).c_str());
 		}
 		if (currentStack.start == (u32)-1)
 		{
@@ -396,7 +402,9 @@ public:
 
 	bool FillStack() {
 		// Fill the stack.
-		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
+			Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		}
 		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
 		currentStack.end = context.r[MIPS_REG_SP];
 		// The k0 section is 256 bytes at the top of the stack.
@@ -762,7 +770,7 @@ private:
 		int size = cur->end - cur->first;
 		if (size >= cur->capacity - 2)
 		{
-			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * sizeof(SceUID));
+			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * 2 * sizeof(SceUID));
 			if (new_data != NULL)
 			{
 				cur->capacity *= 2;
@@ -1385,7 +1393,7 @@ SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
 	else
 	{
 		ERROR_LOG(SCEKERNEL, "__KernelGetWaitID ERROR: thread %i", threadID);
-		return 0;
+		return -1;
 	}
 }
 
@@ -1730,6 +1738,10 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 			}
 		}
 		t->waitingThreads.clear();
+
+		// Stopped threads are never waiting.
+		t->nt.waitType = WAITTYPE_NONE;
+		t->nt.waitID = 0;
 	}
 	else
 		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist", threadID);
@@ -1926,6 +1938,8 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	t->nt.entrypoint = entryPoint;
 	t->nt.nativeSize = sizeof(t->nt);
 	t->nt.attr = attr;
+	// TODO: I have no idea what this value is but the PSP firmware seems to add it on create.
+	t->nt.attr |= 0xFF;
 	t->nt.initialPriority = t->nt.currentPriority = priority;
 	t->nt.stackSize = stacksize;
 	t->nt.status = THREADSTATUS_DORMANT;
@@ -1993,15 +2007,16 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 
-	// TODO: PSP actually fails for many of these cases, but trying for compat.
-	if (stacksize < 0x200 || stacksize >= 0x20000000)
+	if ((u32)stacksize < 0x200)
 	{
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus stack size %08x, using 0x4000", threadName, stacksize);
-		stacksize = 0x4000;
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus stack size %08x", threadName, stacksize);
+		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
 	}
 	if (prio < 0x08 || prio > 0x77)
 	{
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus priority %08x", threadName, prio);
+		// TODO: Should return this error.
+		// return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 		prio = prio < 0x08 ? 0x08 : 0x77;
 	}
 	if (!Memory::IsValidAddress(entry))
@@ -2011,6 +2026,19 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		if (entry != 0)
 			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
+	if ((attr & ~PSP_THREAD_ATTR_USER_MASK) != 0)
+	{
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): illegal attributes %08x", threadName, attr);
+		// TODO: Should return this error.
+		// return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	if ((attr & ~PSP_THREAD_ATTR_SUPPORTED) != 0)
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): unsupported attributes %08x", threadName, attr);
+
+	// TODO: Not sure what these values are, but they are removed from the attr silently.
+	// Some are USB/VSH specific, probably removes when they are from the wrong module?
+	attr &= ~PSP_THREAD_ATTR_USER_ERASE;
 
 	// We're assuming all threads created are user threads.
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
@@ -2027,6 +2055,11 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	INFO_LOG(SCEKERNEL, "%i=sceKernelCreateThread(name=%s, entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
+
+	hleEatCycles(32000);
+	// This won't schedule to the new thread, but it may to one woken from eating cycles.
+	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
+	hleReSchedule("thread created");
 	return id;
 }
 
@@ -2339,6 +2372,8 @@ int sceKernelTerminateThread(SceUID threadID)
 		}
 
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateThread(%i)", threadID);
+		// On terminate, we reset the thread priority.  On exit, we don't always (see __KernelResetThread.)
+		t->nt.currentPriority = t->nt.initialPriority;
 		// TODO: Should this reschedule?  Seems like not.
 		__KernelStopThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated");
 
@@ -2552,7 +2587,7 @@ int sceKernelWakeupThread(SceUID uid)
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
 	{
-		if (!t->isWaitingFor(WAITTYPE_SLEEP, 1)) {
+		if (!t->isWaitingFor(WAITTYPE_SLEEP, 0)) {
 			t->nt.wakeupCount++;
 			DEBUG_LOG(SCEKERNEL,"sceKernelWakeupThread(%i) - wakeupCount incremented to %i", uid, t->nt.wakeupCount);
 		} else {
@@ -2598,7 +2633,7 @@ static int __KernelSleepThread(bool doCallbacks) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 	} else {
 		VERBOSE_LOG(SCEKERNEL, "sceKernelSleepThread()");
-		__KernelWaitCurThread(WAITTYPE_SLEEP, 1, 0, 0, doCallbacks, "thread slept");
+		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 	}
 	return 0;
 }

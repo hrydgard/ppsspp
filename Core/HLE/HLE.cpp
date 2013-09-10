@@ -429,9 +429,15 @@ void CallSyscall(MIPSOpcode op)
 		if (flags != 0)
 		{
 			if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled())
+			{
+				DEBUG_LOG(HLE, "%s: dispatch suspended", moduleDB[modulenum].funcTable[funcnum].name);
 				RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
+			}
 			else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt())
+			{
+				DEBUG_LOG(HLE, "%s: in interrupt", moduleDB[modulenum].funcTable[funcnum].name);
 				RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
+			}
 			else
 				func();
 		}

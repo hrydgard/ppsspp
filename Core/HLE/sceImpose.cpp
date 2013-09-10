@@ -114,6 +114,11 @@ const HLEFunction sceImpose[] =
 	{0xE0887BC8, WrapU_V<sceImposeGetUMDPopup>, "sceImposeGetUMDPopup"},
 	{0x8F6E3518, WrapU_V<sceImposeGetBacklightOffTime>, "sceImposeGetBacklightOffTime"},
 	{0x967F6D4A, WrapU_I<sceImposeSetBacklightOffTime>, "sceImposeSetBacklightOffTime"},
+	{0xfcd44963, 0, "sceImpose_FCD44963"},
+	{0xa9884b00, 0, "sceImpose_A9884B00"},
+	{0xbb3f5dec, 0, "sceImpose_BB3F5DEC"},
+	{0x9ba61b49, 0, "sceImpose_9BA61B49"},
+	{0xff1a2f07, 0, "sceImpose_FF1A2F07"},
 };
 
 void Register_sceImpose()
