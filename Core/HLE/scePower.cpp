@@ -24,6 +24,7 @@
 
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 
 struct VolatileWaitingThread {
 	SceUID threadID;
@@ -275,12 +276,24 @@ int sceKernelVolatileMemUnlock(int type) {
 		}
 	} else {
 		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
+		// I guess it must use a sema.
+		return SCE_KERNEL_ERROR_SEMA_OVF;
 	}
 	return 0;
 }
 
 int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
-	u32 error = __KernelVolatileMemLock(type, paddr, psize);
+	u32 error = 0;
+
+	// If dispatch is disabled or in an interrupt, don't check, just return an error.
+	// But still write the addr and size (some games require this to work, and it's testably true.)
+	if (!__KernelIsDispatchEnabled()) {
+		error = SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	} else if (__IsInInterrupt()) {
+		error = SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+	} else {
+		error = __KernelVolatileMemLock(type, paddr, psize);
+	}
 
 	switch (error) {
 	case 0:
@@ -293,6 +306,22 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 			const VolatileWaitingThread waitInfo = { __KernelGetCurThread(), paddr, psize };
 			volatileWaitingThreads.push_back(waitInfo);
 			__KernelWaitCurThread(WAITTYPE_VMEM, 1, 0, 0, false, "volatile mem waited");
+		}
+		break;
+
+	case SCE_KERNEL_ERROR_CAN_NOT_WAIT:
+		{
+			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): dispatch disabled", type, paddr, psize);
+			Memory::Write_U32(0x08400000, paddr);
+			Memory::Write_U32(0x00400000, psize);
+		}
+		break;
+
+	case SCE_KERNEL_ERROR_ILLEGAL_CONTEXT:
+		{
+			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): dispatch disabled", type, paddr, psize);
+			Memory::Write_U32(0x08400000, paddr);
+			Memory::Write_U32(0x00400000, psize);
 		}
 		break;
 
@@ -443,7 +472,7 @@ static const HLEFunction scePower[] = {
 	{0xa9d22232,0,"scePowerSetCallbackMode"},
 
 	// These seem to be aliases.
-	{0x23c31ffe,&WrapI_IUU<sceKernelVolatileMemLock>,"scePowerVolatileMemLock", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x23c31ffe,&WrapI_IUU<sceKernelVolatileMemLock>,"scePowerVolatileMemLock"},
 	{0xfa97a599,&WrapI_IUU<sceKernelVolatileMemTryLock>,"scePowerVolatileMemTryLock"},
 	{0xb3edd801,&WrapI_I<sceKernelVolatileMemUnlock>,"scePowerVolatileMemUnlock"},
 };
@@ -458,7 +487,7 @@ const HLEFunction sceSuspendForUser[] = {
 	// let you grab it.
 	{0xa14f40b2,&WrapI_IUU<sceKernelVolatileMemTryLock>,"sceKernelVolatileMemTryLock"},
 	{0xa569e425,&WrapI_I<sceKernelVolatileMemUnlock>,"sceKernelVolatileMemUnlock"},
-	{0x3e0271d3,&WrapI_IUU<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED}, //when "acquiring mem pool" (fired up)
+	{0x3e0271d3,&WrapI_IUU<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock"}, //when "acquiring mem pool" (fired up)
 };
 
 
