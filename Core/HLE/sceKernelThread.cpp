@@ -2049,6 +2049,11 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	INFO_LOG(SCEKERNEL, "%i=sceKernelCreateThread(name=%s, entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
+
+	hleEatCycles(32000);
+	// This won't schedule to the new thread, but it may to one woken from eating cycles.
+	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
+	hleReSchedule("thread created");
 	return id;
 }
 
