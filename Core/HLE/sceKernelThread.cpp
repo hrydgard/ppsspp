@@ -1852,7 +1852,7 @@ int sceKernelCheckThreadStack()
 	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
 	if (t) {
 		u32 diff = labs((long)((s64)currentMIPS->r[MIPS_REG_SP] - (s64)t->currentStack.start));
-		WARN_LOG(SCEKERNEL, "%i=sceKernelCheckThreadStack()", diff);
+		DEBUG_LOG(SCEKERNEL, "%i=sceKernelCheckThreadStack()", diff);
 		return diff;
 	} else {
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelCheckThreadStack() - not on thread");
@@ -1989,10 +1989,11 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	strcpy(thread->nt.name, "root");
 
 	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
-	mipsr4k.r[MIPS_REG_A0] = args;
-	mipsr4k.r[MIPS_REG_SP] -= 256;
-	u32 location = mipsr4k.r[MIPS_REG_SP];
-	mipsr4k.r[MIPS_REG_A1] = location;
+	currentMIPS->r[MIPS_REG_A0] = args;
+	currentMIPS->r[MIPS_REG_SP] -= 256;
+	u32 location = currentMIPS->r[MIPS_REG_SP];
+	currentMIPS->r[MIPS_REG_SP] -= (args + 0xf) & ~0xf;
+	currentMIPS->r[MIPS_REG_A1] = location;
 	for (int i = 0; i < args; i++)
 		Memory::Write_U8(argp[i], location + i);
 
@@ -2147,37 +2148,32 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	return 0;
 }
 
-void sceKernelGetThreadStackFreeSize()
+int sceKernelGetThreadStackFreeSize(SceUID threadID)
 {
-	SceUID threadID = PARAM(0);
-	Thread *thread;
-
-	INFO_LOG(SCEKERNEL,"sceKernelGetThreadStackFreeSize(%i)", threadID);
+	DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadStackFreeSize(%i)", threadID);
 
 	if (threadID == 0)
-		thread = __GetCurrentThread();
-	else
+		threadID = currentThread;
+
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	if (thread == 0)
 	{
-		u32 error;
-		thread = kernelObjects.Get<Thread>(threadID, error);
-		if (thread == 0)
-		{
-			ERROR_LOG(SCEKERNEL,"sceKernelGetThreadStackFreeSize: invalid thread id %i", threadID);
-			RETURN(error);
-			return;
-		}
+		ERROR_LOG(SCEKERNEL, "sceKernelGetThreadStackFreeSize: invalid thread id %i", threadID);
+		return error;
 	}
 
-	// Scan the stack for 0xFF
+	// Scan the stack for 0xFF, starting after 0x10 (the thread id is written there.)
+	// Obviously this doesn't work great if PSP_THREAD_ATTR_NO_FILLSTACK is used.
 	int sz = 0;
-	for (u32 addr = thread->currentStack.start; addr < thread->currentStack.start + thread->nt.stackSize; addr++)
+	for (u32 offset = 0x10; offset < thread->nt.stackSize; ++offset)
 	{
-		if (Memory::Read_U8(addr) != 0xFF)
+		if (Memory::Read_U8(thread->currentStack.start + offset) != 0xFF)
 			break;
 		sz++;
 	}
 
-	RETURN(sz & ~3);
+	return sz & ~3;
 }
 
 void __KernelReturnFromThread()

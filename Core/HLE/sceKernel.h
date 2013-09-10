@@ -389,7 +389,7 @@ int sceKernelDcacheWritebackAll();
 int sceKernelDcacheWritebackRange(u32 addr, int size);
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size);
 int sceKernelDcacheWritebackInvalidateAll();
-void sceKernelGetThreadStackFreeSize();
+int sceKernelGetThreadStackFreeSize(SceUID threadID);
 u32 sceKernelIcacheInvalidateAll();
 u32 sceKernelIcacheClearAll();
 int sceKernelIcacheInvalidateRange(u32 addr, int size);

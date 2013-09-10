@@ -319,7 +319,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 
 	case SCE_KERNEL_ERROR_ILLEGAL_CONTEXT:
 		{
-			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): dispatch disabled", type, paddr, psize);
+			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): in interrupt", type, paddr, psize);
 			Memory::Write_U32(0x08400000, paddr);
 			Memory::Write_U32(0x00400000, psize);
 		}
