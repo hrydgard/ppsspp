@@ -20,6 +20,7 @@
 #include "Core/Reporting.h"
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/HLE/sceIo.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceChnnlsv.h"
 #include "Core/ELF/ParamSFO.h"
@@ -836,10 +837,9 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 			for (u32 i = 0; i < (u32)validDir.size(); i++)
 			{
 				entries[i].st_mode = 0x11FF;
-				// TODO
-				memset(&entries[i].st_ctime, 0, sizeof(entries[i].st_ctime));
-				memset(&entries[i].st_atime, 0, sizeof(entries[i].st_atime));
-				memset(&entries[i].st_mtime, 0, sizeof(entries[i].st_mtime));
+				__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
+				__IoCopyDate(entries[i].st_atime, validDir[i].atime);
+				__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
 				memset(entries[i].name, 0, sizeof(entries[i].name));
@@ -966,7 +966,9 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 
 		entry->st_mode = 0x21FF;
 		entry->st_size = file->size + sizeOffset;
-		// TODO: ctime, atime, mtime
+		__IoCopyDate(entry->st_ctime, file->ctime);
+		__IoCopyDate(entry->st_atime, file->atime);
+		__IoCopyDate(entry->st_mtime, file->mtime);
 		// TODO: Probably actually 13 + 3 pad...
 		strncpy(entry->name, file->name.c_str(), 16);
 		entry->name[15] = '\0';
