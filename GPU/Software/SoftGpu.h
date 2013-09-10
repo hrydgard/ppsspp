@@ -49,6 +49,7 @@ public:
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
+	void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight);
 
 private:
 	void CopyDisplayToOutputInternal();

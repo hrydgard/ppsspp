@@ -151,9 +151,9 @@ SoftGPU::~SoftGPU()
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.
-void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
+void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
 {
-    glDisable(GL_BLEND);
+  glDisable(GL_BLEND);
 	glViewport(0, 0, dstwidth, dstheight);
 	glScissor(0, 0, dstwidth, dstheight);
 
@@ -240,7 +240,7 @@ void SoftGPU::CopyDisplayToOutput()
 void SoftGPU::CopyDisplayToOutputInternal()
 {
 	// The display always shows 480x272.
-	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
