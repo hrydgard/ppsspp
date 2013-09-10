@@ -178,12 +178,6 @@
      <addaction name="action_OptionsDisplayRawFramebuffer"/>
      <addaction name="actionFrameskip"/>
     </widget>
-    <widget class="QMenu" name="menuControls">
-     <property name="title">
-      <string>Co&amp;ntrols</string>
-     </property>
-     <addaction name="action_OptionsControls"/>
-    </widget>
     <widget class="QMenu" name="menuCore">
      <property name="title">
       <string>&amp;Core</string>
@@ -196,7 +190,6 @@
      <addaction name="separator"/>
     </widget>
     <addaction name="menuCore"/>
-    <addaction name="menuControls"/>
     <addaction name="menuVideo"/>
     <addaction name="action_Sound"/>
     <addaction name="separator"/>
@@ -355,11 +348,6 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+M</string>
-   </property>
-  </action>
-  <action name="action_OptionsControls">
-   <property name="text">
-    <string>&amp;Keyboard</string>
    </property>
   </action>
   <action name="action_OptionsFullScreen">

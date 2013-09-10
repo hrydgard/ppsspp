@@ -61,3 +61,22 @@ void QtEmuGL::mouseReleaseEvent(QMouseEvent *e)
 	input.id = 0;
 	NativeTouch(input);
 }
+
+void QtEmuGL::mouseMoveEvent(QMouseEvent *e)
+{
+	TouchInput input;
+	input.x = e->x();
+	input.y = e->y();
+	input.flags = TOUCH_MOVE;
+	input.id = 0;
+	NativeTouch(input);
+}
+
+void QtEmuGL::wheelEvent(QWheelEvent *e)
+{
+	KeyInput key;
+	key.deviceId = DEVICE_ID_MOUSE;
+	key.keyCode = e->delta()<0 ? NKCODE_EXT_MOUSEWHEEL_DOWN : NKCODE_EXT_MOUSEWHEEL_UP;
+	key.flags = KEY_DOWN;
+	NativeKey(key);
+}

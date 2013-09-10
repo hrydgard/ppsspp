@@ -10,7 +10,6 @@
 #include "debugger_memory.h"
 #include "debugger_memorytex.h"
 #include "debugger_displaylist.h"
-#include "controls.h"
 
 class QtEmuGL;
 namespace Ui {
@@ -78,9 +77,6 @@ private slots:
 	void on_action_CPUInterpreter_triggered();
 	void on_action_OptionsFastMemory_triggered();
 	void on_action_OptionsIgnoreIllegalReadsWrites_triggered();
-
-	// Controls
-	void on_action_OptionsControls_triggered();
 
 	// Video
 	void on_action_AFOff_triggered();
@@ -155,9 +151,6 @@ private:
 	Debugger_Memory *memoryWindow;
 	Debugger_MemoryTex *memoryTexWindow;
 	Debugger_DisplayList *displaylistWindow;
-	Controls *controls;
-
-	QSet<int> pressedKeys;
 };
 
 #endif // MAINWINDOW_H
