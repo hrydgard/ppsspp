@@ -38,7 +38,31 @@
     Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (c << 6) | (XO << 1) | (Rc)); \
 }
 
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |    BO/crbD   |    BI/crbA   |     crbB     |              XO             |LK|
+#define XL_FORM(OPCD, crbD, crbA, crbB, XO, LK) { \
+    X_FORM(OPCD, crbD, crbA, crbB, XO, LK); \
+}
+
 namespace PpcGen {
+
+	// Mul stuff
+	
+	void PPCXEmitter::DIVW	(PPCReg Rt,	PPCReg Ra, PPCReg Rb) {
+		XO_FORM(31, Rt, Ra, Rb, 0, 491, 0); 
+	}
+	void PPCXEmitter::DIVWU	(PPCReg Rt,	PPCReg Ra, PPCReg Rb) {
+		XO_FORM(31, Rt, Ra, Rb, 0, 459, 0); 
+	}
+	void PPCXEmitter::MULLW	(PPCReg Rt,	PPCReg Ra, PPCReg Rb) {
+		XO_FORM(31, Rt, Ra, Rb, 0, 235, 0); 
+	}
+	void PPCXEmitter::MULHW	(PPCReg Rt,	PPCReg Ra, PPCReg Rb) {
+		XO_FORM(31, Rt, Ra, Rb, 0, 75, 0); 
+	}
+	void PPCXEmitter::MULHWU(PPCReg Rt,	PPCReg Ra, PPCReg Rb) {
+		XO_FORM(31, Rt, Ra, Rb, 0, 11, 0); 
+	}
 
 	// Arithmetics ops	
 	void PPCXEmitter::ADDZE	(PPCReg Rd, PPCReg Ra) {
@@ -393,6 +417,10 @@ namespace PpcGen {
 		Write32(0x7C000120 | (dest << 21) | (0xff<<12));
 	}
 	
+	void PPCXEmitter::CROR	(int bt, int ba, int bb) {
+		XL_FORM(19, bt, ba, bb, 449, 0);
+	}
+
 	void PPCXEmitter::ISEL	(PPCReg Rt, PPCReg Ra, PPCReg Rb, CONDITION_REGISTER cr) {
 		// Not working !!
 		A_FORM(31, Rt, Ra, Rb, cr, 15, 0);
@@ -691,6 +719,16 @@ namespace PpcGen {
 		FSUBS(safe, FRa, FRb);
 		FSEL(FRt, safe, FRa, FRb);
 		//Break();
+	}
+
+	
+
+	void PPCXEmitter::FCMPU	(int Bf, PPCReg FRa, PPCReg FRb) { // unordered
+		X_FORM(63, Bf, FRa, FRb, 0, 0);
+	} 
+
+	void PPCXEmitter::FCMPO	(int Bf, PPCReg FRa, PPCReg FRb) { // ordered
+		X_FORM(63, Bf, FRa, FRb, 32, 0);
 	}
 
 	// Prologue / epilogue

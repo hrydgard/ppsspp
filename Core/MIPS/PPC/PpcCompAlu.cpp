@@ -18,15 +18,17 @@
 
 
 using namespace MIPSAnalyst;
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _SA ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -475,7 +477,82 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_MulDivType(MIPSOpcode op) {
-		Comp_Generic(op);
+		CONDITIONAL_DISABLE;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
+		int rd = _RD;
+
+		switch (op & 63) 
+		{
+		case 16: // R(rd) = HI; //mfhi
+			gpr.MapDirtyIn(rd, MIPSREG_HI);
+			MR(gpr.R(rd), gpr.R(MIPSREG_HI));
+			break; 
+
+		case 17: // HI = R(rs); //mthi
+			gpr.MapDirtyIn(MIPSREG_HI, rs);
+			MR(gpr.R(MIPSREG_HI), gpr.R(rs));
+			break; 
+
+		case 18: // R(rd) = LO; break; //mflo
+			gpr.MapDirtyIn(rd, MIPSREG_LO);
+			MR(gpr.R(rd), gpr.R(MIPSREG_LO));
+			break;
+
+		case 19: // LO = R(rs); break; //mtlo
+			gpr.MapDirtyIn(MIPSREG_LO, rs);
+			MR(gpr.R(MIPSREG_LO), gpr.R(rs));
+			break; 
+
+		case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			MULLW(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
+			MULHW(gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			break;
+
+		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			MULLW(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
+			MULHWU(gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			break;
+
+		case 26: //div
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			DIVW(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
+			MULLW(SREG, gpr.R(rt), gpr.R(MIPSREG_LO));
+			SUB(gpr.R(MIPSREG_HI), gpr.R(rs), SREG);			
+			break;
+
+		case 27: //divu
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			DIVWU(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
+			MULLW(SREG, gpr.R(rt), gpr.R(MIPSREG_LO));
+			SUB(gpr.R(MIPSREG_HI), gpr.R(rs), SREG);
+			break;
+
+		case 28: //madd
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			break;
+
+		case 29: //maddu
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			break;
+
+		case 46: // msub
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			break;
+
+		case 47: // msubu
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			break;
+
+		default:
+			DISABLE;
+		}
 	}
 
 	void Jit::Comp_Special3(MIPSOpcode op) {

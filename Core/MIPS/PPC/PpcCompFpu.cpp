@@ -104,8 +104,9 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	}
 }
 
+#if 0
 /**
-This can be made with branch, but i'm trying to do it branch free, not tested yet ...
+This can be made with branch, but i'm trying to do it branch free, not working correctly yet ...
 **/
 void Jit::Comp_FPUComp(MIPSOpcode op) {
 	DISABLE;	
@@ -133,78 +134,99 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 
 	/**
 	Condition-Register Field and Floating-Point Condition Code Interpretation
-	Bit	Name	Description
-	0	FL	(FRA) < (FRB)
-	1	FG	(FRA) > (FRB)
-	2	FE	(FRA) = (FRB)
-	3	FU	(FRA) ? (FRB) (unordered)
+	Bit		Name	Description
+	1000	FL	(FRA) < (FRB)
+	0100	FG	(FRA) > (FRB)
+	0010	FE	(FRA) = (FRB)
+	0001	FU	(FRA) ? (FRB) (unordered)
 	**/
+	
 	switch(opc)
 	{
+	// OK
 	case 1:		 // un,  ngle (unordered)
-		Break();
-		// CR0 = cmp fs, fs
 		FCMPU(0, fpr.R(fs), fpr.R(ft));
-		// SREG = CR
 		MFCR(SREG);
-		// SREG = (SREG >> 3) & 1
-		SRAWI(SREG, SREG, 3);
+		SRAWI(SREG, SREG, 28);
 		ANDI(SREG, SREG, 0x1);
 		break;
+	// FAIL
 	case 2:		 //eq,  seq (equal, ordered)
-		Break();
+		DISABLE;	
+		//Break();
 		FCMPO(0, fpr.R(fs), fpr.R(ft));
 		MFCR(SREG);
-		// SREG = (SREG >> 2) & 1
+		SRAWI(SREG, SREG, 28);
 		SRAWI(SREG, SREG, 2);
 		ANDI(SREG, SREG, 0x1);
 		break;
+	// FAIL
 	case 3:      // ueq, ngl (equal, unordered)
-		Break();
+		DISABLE;	
+		//Break();
 		FCMPU(0, fpr.R(fs), fpr.R(ft));
 		MFCR(R7);
-		// SREG = (R7 >> 2) & 1
+		SRAWI(R7, R7, 28);
+
 		SRAWI(SREG, R7, 2);
 		ANDI(SREG, SREG, 0x1);
+
 		// check unordered
-		// R8 = (R7 >> 3) & 1
-		SRAWI(R8, R7, 3);
-		ANDI(R8, R8, 0x1);
+		ANDI(R7, R7, 0x1);
 		// SREG = ((R7 >> 2) & 1) || ((R8 >> 3) & 1)
-		OR(SREG, R7, R8);
+		OR(SREG, R7, SREG);
 		return;
+	// OK
 	case 4:      // olt, lt (less than, ordered)
-		Break();
+		//DISABLE;	
+		//Break();
 		FCMPO(0, fpr.R(fs), fpr.R(ft));
-		MFCR(SREG);
+		MFCR(SREG);	
+
+		SRAWI(SREG, SREG, 28);		
+		SRAWI(SREG, SREG, 3);
+
 		// SREG = SREG & 1
 		ANDI(SREG, SREG, 0x1);
 		break;
+	// OK
 	case 5:      // ult, nge (less than, unordered)
-		Break();
+		//DISABLE;	
+		//Break();
 		FCMPO(0, fpr.R(fs), fpr.R(ft));
-		MFCR(R7);
-		// SREG = SREG & 1
-		ANDI(SREG, R7, 0x1);
+		MFCR(R7);		
+		SRAWI(R7, R7, 28);
+
+		// SREG = SREG & 1				
+		SRAWI(SREG, R7, 3);
+		ANDI(SREG, SREG, 0x1);
+
 		// check unordered
-		// R8 = (R7 >> 3) & 1
-		SRAWI(R8, R7, 3);
-		ANDI(R8, R8, 0x1);
-		// SREG = (R7 & 1) || ((R8 >> 3) & 1)
-		OR(SREG, R7, R8);
+		ANDI(R7, R7, 0x1);
+
+		// final
+		OR(SREG, R7, SREG);
 		break;
+	// FAIL
 	case 6:      // ole, le (less equal, ordered)
-		Break();
+		DISABLE;	
+		//Break();
 		FCMPO(0, fpr.R(ft), fpr.R(fs));
 		MFCR(SREG);
+		SRAWI(SREG, SREG, 28);
+
 		// SREG = (SREG >> 1) & 1
-		SRAWI(SREG, SREG, 1);
+		SRAWI(SREG, SREG, 3);
 		ANDI(SREG, SREG, 0x1);
 		break;
+	// FAIL
 	case 7:      // ule, ngt (less equal, unordered)
-		Break();
+		DISABLE;	
+		//Break();
 		FCMPO(0, fpr.R(ft), fpr.R(fs));
 		MFCR(R7);
+		SRAWI(R7, R7, 28);
+
 		// SREG = (SREG >> 1) & 1
 		SRAWI(SREG, R7, 1);
 		ANDI(SREG, SREG, 0x1);
@@ -221,6 +243,94 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	}
 	STW(SREG, CTXREG, offsetof(MIPSState, fpcond));
 }
+#else
+/**
+* 2nd attempt
+**/
+void  Jit::FPUComp(int fs, int ft, PpcGen::FixupBranchType cond, bool unorderer, int bf) {
+	PpcGen::FixupBranch ptr;
+
+	// Default result
+	MOVI2R(SREG, 1);
+
+	// Compare	
+	FCMPU(0, fpr.R(fs), fpr.R(ft));
+
+	if (unorderer) {
+		// 3 = UN
+		CROR(bf, bf, 3);
+	}
+
+	// If result is good jump
+	ptr = B_Cond(cond);
+	
+	MOVI2R(SREG, 0);
+	
+	SetJumpTarget(ptr);
+}
+
+/** https://github.com/gligli/mupen64-360/blob/42bf04f370f00f16be17f3ba9f74b420a7d86422/source/r4300/ppc/MIPS-to-PPC.c#L2916 **/
+/**
+Condition-Register Field and Floating-Point Condition Code Interpretation
+Bit	Name	Description
+0	FL	(FRA) < (FRB)
+1	FG	(FRA) > (FRB)
+2	FE	(FRA) = (FRB)
+3	FU	(FRA) ? (FRB) (unordered)
+**/
+void Jit::Comp_FPUComp(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	int opc = op & 0xF;
+	if (opc >= 8) opc -= 8; // alias
+	if (opc == 0) {  // f, sf (signalling false)
+		MOVI2R(SREG, 0);
+		STW(SREG, CTXREG, offsetof(MIPSState, fpcond));
+		return;
+	}
+
+	int fs = _FS;
+	int ft = _FT;
+	fpr.MapInIn(fs, ft);
+
+	switch(opc)
+	{
+	// FAIL
+	case 1:		 // un,  ngle (unordered)		
+		DISABLE;	
+		break;
+	// OK
+	case 2:		 //eq,  seq (equal, ordered)
+		FPUComp(fs, ft, _BEQ);
+		break;
+	// FAIL
+	case 3:      // ueq, ngl (equal, unordered)
+		FPUComp(fs, ft, _BEQ, true, 2);
+		break;
+	// OK
+	case 4:      // olt, lt (less than, ordered)
+		FPUComp(fs, ft, _BLT);
+		break;
+	// FAIL
+	case 5:      // ult, nge (less than, unordered)
+		FPUComp(fs, ft, _BLT, true, 0);
+		break;
+	// OK
+	case 6:      // ole, le (less equal, ordered)
+		FPUComp(fs, ft, _BLE, true, 1);
+		break;
+	// FAIL
+	case 7:      // ule, ngt (less equal, unordered)
+		FPUComp(fs, ft, _BLE);
+		break;
+	default:
+		Comp_Generic(op);
+		return;
+	}
+	STW(SREG, CTXREG, offsetof(MIPSState, fpcond));
+}
+
+#endif
 
 void Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -253,10 +363,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 }
 
 /**
-Not tested yet
+Seem to work
 **/
 void Jit::Comp_mxc1(MIPSOpcode op) {
-	DISABLE;
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -286,8 +395,7 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 			
 			// RT = fcr31 & ~(1<<23)
 			LWZ(_rt, CTXREG, offsetof(MIPSState, fcr31));
-			MOVI2R(R8,  ~(1<<23));
-			AND(_rt, _rt, R8);
+			RLWINM(_rt, _rt, 0, 9, 7);
 
 			// RT = RT | SREG
 			OR(_rt, _rt, SREG);

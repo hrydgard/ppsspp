@@ -236,7 +236,7 @@ namespace MIPSComp
 		// Utilities to reduce duplicated code
 		void CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, unsigned short imm), u32 (*eval)(u32 a, u32 b));
 		void CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arithOp2)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub = false);
-
+		void FPUComp(int fs, int ft, PpcGen::FixupBranchType cond, bool unorderer = false, int bf = 0);
 		
 		void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 		void ApplyPrefixD(const u8 *vregs, VectorSize sz);

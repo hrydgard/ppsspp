@@ -251,12 +251,12 @@ namespace PpcGen
 		void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 		void SUBFE	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 
-		// Floating ops
-		void DIVW(PPCReg dest, PPCReg dividend, PPCReg divisor);
-		void DIVWU(PPCReg dest, PPCReg dividend, PPCReg divisor);
-		void MULLW(PPCReg dest,	PPCReg src, PPCReg op2);
-		void MULHW (PPCReg dest,	PPCReg src, PPCReg op2);
-		void MULHWS(PPCReg dest,	PPCReg src, PPCReg op2);
+		// integer multiplication ops
+		void DIVW	(PPCReg Rt,	PPCReg Ra, PPCReg Rb);
+		void DIVWU	(PPCReg Rt,	PPCReg Ra, PPCReg Rb);
+		void MULLW	(PPCReg Rt,	PPCReg Ra, PPCReg Rb);
+		void MULHW	(PPCReg Rt,	PPCReg Ra, PPCReg Rb);
+		void MULHWU	(PPCReg Rt,	PPCReg Ra, PPCReg Rb);
 
 		// Memory load/store operations
 		void LI		(PPCReg dest, unsigned short imm);
@@ -325,6 +325,7 @@ namespace PpcGen
 			CR7
 		};
 
+		void CROR	(int bt, int ba, int bb);
 		void CMPLI	(PPCReg dest, unsigned short imm);	
 		void CMPI	(PPCReg dest, unsigned short imm);
 		void CMPL	(PPCReg a, PPCReg b, CONDITION_REGISTER cr = CR0);
