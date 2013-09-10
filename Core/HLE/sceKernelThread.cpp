@@ -1393,7 +1393,7 @@ SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
 	else
 	{
 		ERROR_LOG(SCEKERNEL, "__KernelGetWaitID ERROR: thread %i", threadID);
-		return 0;
+		return -1;
 	}
 }
 
@@ -2587,7 +2587,7 @@ int sceKernelWakeupThread(SceUID uid)
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
 	{
-		if (!t->isWaitingFor(WAITTYPE_SLEEP, 1)) {
+		if (!t->isWaitingFor(WAITTYPE_SLEEP, 0)) {
 			t->nt.wakeupCount++;
 			DEBUG_LOG(SCEKERNEL,"sceKernelWakeupThread(%i) - wakeupCount incremented to %i", uid, t->nt.wakeupCount);
 		} else {
@@ -2633,7 +2633,7 @@ static int __KernelSleepThread(bool doCallbacks) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 	} else {
 		VERBOSE_LOG(SCEKERNEL, "sceKernelSleepThread()");
-		__KernelWaitCurThread(WAITTYPE_SLEEP, 1, 0, 0, doCallbacks, "thread slept");
+		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 	}
 	return 0;
 }
