@@ -287,7 +287,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
-			if (match == NULL || match->last_frame_used < v->last_frame_used) {
+			if (match == NULL || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
 		}
@@ -296,7 +296,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 		return match;
 	}
 
-	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
+	DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", displayFramebufPtr_);
 #if 0  // defined(_DEBUG)
 	std::string debug = "FBOs: ";
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -304,7 +304,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 		sprintf(temp, "%08x %i %i", vfbs_[i]->fb_address, vfbs_[i]->width, vfbs_[i]->height);
 		debug += std::string(temp);
 	}
-	ERROR_LOG(HLE, "FBOs: %s", debug.c_str());
+	ERROR_LOG(SCEGE, "FBOs: %s", debug.c_str());
 #endif
 	return 0;
 }
@@ -321,7 +321,7 @@ void DrawingSize(int &drawing_width, int &drawing_height) {
 	int scissor_height = gstate.getScissorY2() + 1;
 	int fb_width = gstate.fbwidth & 0x3C0;
 
-	DEBUG_LOG(HLE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_width, gstate.isModeThrough());
+	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_width, gstate.isModeThrough());
 
 	// Viewport may return 0x0 for example FF Type-0 and we set it to 480x272
 	if (viewport_width <= 1 && viewport_height <=1) {
@@ -372,7 +372,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
+		currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
 		if (!gstate_c.skipDrawReason)
 			currentRenderVfb_->reallyDirtyAfterDisplay = true;
@@ -381,10 +381,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	gstate_c.framebufChanged = false;
 
 	// Get parameters
-	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
+	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
 	int fb_stride = gstate.fbwidth & 0x3C0;
 
-	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
+	u32 z_address = (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8);
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.
@@ -411,6 +411,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
+			vfb->format = fmt;
 			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
 				v->width = drawing_width;
 				v->height = drawing_height;
@@ -475,7 +476,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
 			} else {
-				ERROR_LOG(HLE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 			}
 		} else {
 			fbo_unbind();
@@ -485,14 +486,14 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		ClearBuffer();
 
 		currentRenderVfb_ = vfb;
 
-		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
@@ -505,10 +506,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			ReadFramebufferToMemory(vfb, true);
 		} 
 		// Use it as a render target.
-		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -552,13 +553,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFlips)	{
+		if (vfb->last_frame_render != gpuStats.numFlips)	{
 			ClearBuffer();
 		}
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -603,7 +604,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
 		} else {
-			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
+			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
 			ClearBuffer();
 		}
@@ -628,7 +629,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	if (vfb->fbo) {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
+		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 
@@ -712,17 +713,17 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
-				ERROR_LOG(HLE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 				return;
 			}
 
-			nvfb->last_frame_used = gpuStats.numFlips;
+			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			fbo_bind_as_render_target(nvfb->fbo); 
 			ClearBuffer();
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			nvfb->last_frame_used = gpuStats.numFlips;
+			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
 #if 0
@@ -732,7 +733,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			// to it. This broke stuff before, so now it only clears on the first use of an
 			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-			if (nvfb->last_frame_used != gpuStats.numFlips)	{
+			if (nvfb->last_frame_render != gpuStats.numFlips)	{
 				ClearBuffer();
 			}
 #endif
@@ -888,7 +889,7 @@ void FramebufferManager::BeginFrame() {
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 
 	if ((framebuf & 0x04000000) == 0) {
-		DEBUG_LOG(HLE, "Non-VRAM display framebuffer address set: %08x", framebuf);
+		DEBUG_LOG(SCEGE, "Non-VRAM display framebuffer address set: %08x", framebuf);
 		ramDisplayFramebufPtr_ = framebuf;
 		displayStride_ = stride;
 		displayFormat_ = format;
@@ -929,7 +930,7 @@ void FramebufferManager::DecimateFBOs() {
 #endif
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if(useMem && age == 0 && !vfb->memoryUpdated) { 
 			ReadFramebufferToMemory(vfb);
@@ -940,7 +941,7 @@ void FramebufferManager::DecimateFBOs() {
 		}
 
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
+			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 				DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
 		}
@@ -949,9 +950,9 @@ void FramebufferManager::DecimateFBOs() {
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		int age = frameLastFramebufUsed - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
+			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 				DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
@@ -967,7 +968,7 @@ void FramebufferManager::DestroyAllFBOs() {
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(HLE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();
@@ -998,7 +999,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 					needUnbind = true;
 					DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
 				} else {
-					INFO_LOG(HLE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 						DestroyFramebuf(vfb);
 					vfbs_.erase(vfbs_.begin() + i--);
 				}

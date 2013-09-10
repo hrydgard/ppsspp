@@ -355,7 +355,7 @@ static const CommandTableEntry commandTable[] = {
 
 DIRECTX9_GPU::DIRECTX9_GPU()
 : resized_(false) {
-	lastVsync_ = g_Config.bVSync;
+	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
 	shaderManager_ = new ShaderManager();
@@ -417,8 +417,8 @@ void DIRECTX9_GPU::InitClear() {
 	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
 }
 void DIRECTX9_GPU::InitClearInternal() {
-	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
-	if (useBufferedRendering) {
+	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
+	if (useNonBufferedRendering) {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(true, true, true, true);
 		/*
@@ -440,8 +440,8 @@ void DIRECTX9_GPU::BeginFrame() {
 
 void DIRECTX9_GPU::BeginFrameInternal() {
 	// Turn off vsync when unthrottled
-	int desiredVSyncInterval = g_Config.bVSync;
-	if (PSP_CoreParameter().unthrottle)
+	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
+	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {
 		dxstate.SetVSyncInterval(desiredVSyncInterval);
@@ -522,8 +522,7 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 	gstate_c.textureChanged = true;
 }
 
-// Render queue
-
+// Maybe should write this in ASM...
 void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
@@ -569,7 +568,7 @@ inline void DIRECTX9_GPU::CheckFlushOp(int cmd, u32 diff) {
 	u8 cmdFlags = commandFlags_[cmd];
 	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 		if (dumpThisFrame_) {
-			NOTICE_LOG(HLE, "================ FLUSH ================");
+			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}
 		transformDraw_.Flush();
 	}
@@ -604,6 +603,9 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			u32 count = data & 0xFFFF;
 			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
 
+			if (count == 0)
+				break;
+				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
 			// Discard AA lines in DOA
@@ -1093,7 +1095,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_ALPHATEST:
 #ifndef USING_GLES2
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
-			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
+			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 		// Intentional fallthrough.
 #endif
 	case GE_CMD_COLORREF:
@@ -1302,6 +1304,16 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
+	if (!Memory::IsValidAddress(srcBasePtr)) {
+		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
+		return;
+	}
+
+	if (!Memory::IsValidAddress(dstBasePtr)) {
+		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
+		return;
+	}
+	
 	// Do the copy!
 	for (int y = 0; y < height; y++) {
 		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);

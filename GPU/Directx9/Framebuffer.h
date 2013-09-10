@@ -46,6 +46,7 @@ enum {
 
 struct VirtualFramebuffer {
 	int last_frame_used;
+	int last_frame_render;
 	bool memoryUpdated; 
 
 	u32 fb_address;

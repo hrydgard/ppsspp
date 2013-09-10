@@ -929,7 +929,7 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
-	//if (pos)  - there's always a position
+	if (pos)  // there's always a position
 	{
 		size = align(size, posalign[pos]);
 		posoff = size;
@@ -958,7 +958,9 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
-	}
+	} else
+		ERROR_LOG_REPORT(G3D, "Vertices without position found") 
+		
 	decFmt.stride = decOff;
 
 	size = align(size, biggest);

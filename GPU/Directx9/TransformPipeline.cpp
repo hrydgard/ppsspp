@@ -665,8 +665,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					reader.ReadUV(ruv);
 
 				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
-				switch (gstate.getUVGenMode())
-				{
+			switch (gstate.getUVGenMode()) {
 				case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
 				case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
 					// Texture scale/offset is only performed in this mode.
@@ -674,18 +673,20 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 					uv[2] = 1.0f;
 					break;
+				
 					case GE_TEXMAP_TEXTURE_MATRIX:
 					{
 						// Projection mapping
 						Vec3f source;
-						switch (gstate.getUVProjMode())
-						{
+					switch (gstate.getUVProjMode())	{
 						case GE_PROJMAP_POSITION: // Use model space XYZ as source
 							source = pos;
 							break;
+						
 						case GE_PROJMAP_UV: // Use unscaled UV as source
 							source = Vec3f(ruv[0], ruv[1], 0.0f);
 							break;
+						
 						case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 							if (reader.hasNormal()) {
 								source = Vec3f(norm).Normalized();
@@ -694,6 +695,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 								source = Vec3f(0.0f, 0.0f, 1.0f);
 							}
 							break;
+						
 						case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 							if (reader.hasNormal()) {
 								source = Vec3f(norm);
@@ -711,6 +713,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						uv[2] = uvw[2];
 					}
 					break;
+				
 				case GE_TEXMAP_ENVIRONMENT_MAP:
 					// Shade mapping - use two light sources to generate U and V.
 					{
@@ -722,8 +725,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						uv[2] = 1.0f;
 					}
 					break;
+				
 				default:
 					// Illegal
+				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 					break;
 				}
 				uv[0] = uv[0] * widthFactor;
@@ -884,7 +889,13 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
+		
+	// TODO: Is this the right thing to do?
+	if (prim == GE_PRIM_KEEP_PREVIOUS) {
+		prim = prevPrim_;
+	}
 	prevPrim_ = prim;
+	
 	SetupVertexDecoder(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
@@ -982,7 +993,7 @@ void TransformDrawEngine::DecodeVerts() {
 
 	// Sanity check
 	if (indexGen.Prim() < 0) {
-		ERROR_LOG(HLE, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
+		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
@@ -1071,7 +1082,7 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 		char *ptr = buffer;
 		ptr += dec->second->ToString(ptr);
 		//		*ptr++ = '\n';
-		NOTICE_LOG(HLE, buffer);
+		NOTICE_LOG(G3D, buffer);
 	}
 #endif
 }
