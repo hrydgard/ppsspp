@@ -1989,10 +1989,11 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	strcpy(thread->nt.name, "root");
 
 	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
-	mipsr4k.r[MIPS_REG_A0] = args;
-	mipsr4k.r[MIPS_REG_SP] -= 256;
-	u32 location = mipsr4k.r[MIPS_REG_SP];
-	mipsr4k.r[MIPS_REG_A1] = location;
+	currentMIPS->r[MIPS_REG_A0] = args;
+	currentMIPS->r[MIPS_REG_SP] -= 256;
+	u32 location = currentMIPS->r[MIPS_REG_SP];
+	currentMIPS->r[MIPS_REG_SP] -= (args + 0xf) & ~0xf;
+	currentMIPS->r[MIPS_REG_A1] = location;
 	for (int i = 0; i < args; i++)
 		Memory::Write_U8(argp[i], location + i);
 
