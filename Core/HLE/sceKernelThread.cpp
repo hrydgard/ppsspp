@@ -1934,6 +1934,8 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	t->nt.entrypoint = entryPoint;
 	t->nt.nativeSize = sizeof(t->nt);
 	t->nt.attr = attr;
+	// TODO: I have no idea what this value is but the PSP firmware seems to add it on create.
+	t->nt.attr |= 0xFF;
 	t->nt.initialPriority = t->nt.currentPriority = priority;
 	t->nt.stackSize = stacksize;
 	t->nt.status = THREADSTATUS_DORMANT;
