@@ -770,7 +770,7 @@ private:
 		int size = cur->end - cur->first;
 		if (size >= cur->capacity - 2)
 		{
-			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * sizeof(SceUID));
+			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * 2 * sizeof(SceUID));
 			if (new_data != NULL)
 			{
 				cur->capacity *= 2;
