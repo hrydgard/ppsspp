@@ -28,12 +28,6 @@ namespace MainWindow
 		FRAMESKIP_8 = 9,
 		FRAMESKIP_MAX = FRAMESKIP_8,
 
-		ZOOM_NATIVE = 1,
-		ZOOM_2X = 2,
-		ZOOM_3X = 3,
-		ZOOM_4X = 4,
-		ZOOM_MAX = ZOOM_4X,
-
 		TEXSCALING_OFF = 1,
 		TEXSCALING_2X = 2,
 		TEXSCALING_3X = 3,

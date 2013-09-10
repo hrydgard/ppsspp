@@ -76,20 +76,22 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
-#ifndef _WIN32
-	if (g_Config.iWindowZoom < 1 || g_Config.iWindowZoom > 2)
-		g_Config.iWindowZoom = 1;
-#endif
-	coreParam.renderWidth = 480 * g_Config.iWindowZoom;
-	coreParam.renderHeight = 272 * g_Config.iWindowZoom;
+
+	if (g_Config.iInternalResolution == 0) {
+		coreParam.renderWidth = dp_xres;
+		coreParam.renderHeight = dp_yres;
+	} else {
+		if (g_Config.iInternalResolution < 0)
+			g_Config.iInternalResolution = 1;
+		coreParam.renderWidth = 480 * g_Config.iInternalResolution;
+		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
+	}
+
 	coreParam.outputWidth = dp_xres;
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-	if (g_Config.bAntiAliasing) {
-		coreParam.renderWidth *= 2;
-		coreParam.renderHeight *= 2;
-	}
+
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;

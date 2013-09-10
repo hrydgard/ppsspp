@@ -174,12 +174,12 @@
 #define ID_DISASM_RENAMEFUNCTION         40021
 #define ID_DISASM_SETPCTOHERE            40022
 #define ID_HELP_OPENWEBSITE              40023
-#define ID_OPTIONS_SCREEN1X              40024
-#define ID_OPTIONS_SCREEN3X              40025
-#define ID_OPTIONS_SCREEN4X              40026
-#define ID_OPTIONS_SCREEN2X              40027
-#define ID_OPTIONS_BUFFEREDRENDERING     40028
-#define ID_DEBUG_SHOWDEBUGSTATISTICS     40029
+#define ID_OPTIONS_SCREENAUTO            40024
+#define ID_OPTIONS_SCREEN1X              40025
+#define ID_OPTIONS_SCREEN2X              40026
+#define ID_OPTIONS_SCREEN3X              40027
+#define ID_OPTIONS_SCREEN4X              40028
+#define ID_OPTIONS_SCREEN5X              40029
 #define ID_OPTIONS_HARDWARETRANSFORM     40030
 #define ID_OPTIONS_FASTMEMORY            40031
 #define IDC_STEPHLE                      40032
@@ -237,8 +237,8 @@
 #define ID_OPTIONS_FRAMESKIP_7           40084
 #define ID_OPTIONS_FRAMESKIP_8           40085
 #define ID_OPTIONS_FRAMESKIP_AUTO        40087
-#define ID_OPTIONS_FRAMESKIPDUMMY		 40088
-#define ID_OPTIONS_SCREENDUMMY			 40089
+#define ID_OPTIONS_FRAMESKIPDUMMY		     40088
+#define ID_OPTIONS_SCREENDUMMY			     40089
 #define ID_DISASM_ASSEMBLE               40090
 #define ID_DISASM_ADDNEWBREAKPOINT       40091
 #define ID_DISASM_EDITBREAKPOINT         40092
@@ -253,6 +253,13 @@
 #define ID_FILE_SAVESTATE_SLOT_3         40101
 #define ID_FILE_SAVESTATE_SLOT_4         40102
 #define ID_FILE_SAVESTATE_SLOT_5         40103
+#define ID_OPTIONS_WINDOW1X              40104
+#define ID_OPTIONS_WINDOW2X              40105
+#define ID_OPTIONS_WINDOW3X              40106
+#define ID_OPTIONS_WINDOW4X              40107
+#define ID_OPTIONS_WINDOW5X              40108
+#define ID_OPTIONS_BUFFEREDRENDERING     40109
+#define ID_DEBUG_SHOWDEBUGSTATISTICS     40110
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

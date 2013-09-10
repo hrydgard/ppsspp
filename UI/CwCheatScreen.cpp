@@ -49,7 +49,7 @@ std::vector<std::string> CwCheatScreen::CreateCodeList() {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList.push_back(cheatList[i].substr(4));
 			enableCheat[j++] = true;
-			locations.push_back(i);
+			locations.push_back((int)i);
 		}
 		if (cheatList[i].substr(0, 3) == "_C0") {
 			formattedList.push_back(cheatList[i].substr(4));

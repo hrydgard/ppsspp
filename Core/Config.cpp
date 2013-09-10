@@ -74,7 +74,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("GridView2", &bGridView2, true);
 	general->Get("GridView3", &bGridView3, true);
 
-
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
@@ -83,6 +82,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("TopMost", &bTopMost);
 	general->Get("WindowX", &iWindowX, 40);
 	general->Get("WindowY", &iWindowY, 100);
+	general->Get("WindowWidth", &iWindowWidth, 0);   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
+	general->Get("WindowHeight", &iWindowHeight, 0);
 #endif
 
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
@@ -124,11 +125,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
-#ifdef _WIN32
-	graphics->Get("ResolutionScale", &iWindowZoom, 2);
-#else
-	graphics->Get("ResolutionScale", &iWindowZoom, 1);
-#endif
 	graphics->Get("RenderingMode", &iRenderingMode, 
 		// Many ARMv6 devices have serious problems with buffered rendering.
 #if defined(ARM) && !defined(ARMV7)
@@ -140,7 +136,13 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
-	graphics->Get("SSAA", &bAntiAliasing, 0);
+	// Auto on Windows, 1x elsewhere. Maybe change to 2x on large screens?
+#ifdef _WIN32
+	graphics->Get("InternalResolution", &iInternalResolution, 0);
+#else
+	graphics->Get("InternalResolution", &iInternalResolution, 1);
+#endif
+
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
 	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 60);
@@ -268,6 +270,8 @@ void Config::Save() {
 		general->Set("TopMost", bTopMost);
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
+		general->Set("WindowWidth", iWindowWidth);
+		general->Set("WindowHeight", iWindowHeight);
 #endif
 		general->Set("Language", languageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
@@ -300,12 +304,11 @@ void Config::Save() {
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
-		graphics->Set("ResolutionScale", iWindowZoom);
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("SoftwareRendering", bSoftwareRendering);
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("TextureFiltering", iTexFiltering);
-		graphics->Set("SSAA", bAntiAliasing);
+		graphics->Set("InternalResolution", iInternalResolution);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);

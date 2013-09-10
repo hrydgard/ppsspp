@@ -158,21 +158,6 @@ namespace MainWindow
 		RegisterClassEx(&wcex);
 	}
 
-	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
-		rcInner.left = 0;
-		rcInner.top = 0;
-
-		rcInner.right=480*zoom;
-		rcInner.bottom=272*zoom;
-
-		rcOuter=rcInner;
-		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
-		rcOuter.right += g_Config.iWindowX - rcOuter.left;
-		rcOuter.bottom += g_Config.iWindowY - rcOuter.top;
-		rcOuter.left = g_Config.iWindowX;
-		rcOuter.top = g_Config.iWindowY;
-	}
-
 	void SavePosition() {
 		WINDOWPLACEMENT placement;
 		GetWindowPlacement(hwndMain, &placement);
@@ -181,48 +166,70 @@ namespace MainWindow
 			GetWindowRect(hwndMain, &rc);
 			g_Config.iWindowX = rc.left;
 			g_Config.iWindowY = rc.top;
+			g_Config.iWindowWidth = rc.right - rc.left;
+			g_Config.iWindowHeight = rc.bottom - rc.top;
 		}
+	}
+
+	void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
+		rcInner.left = 0;
+		rcInner.top = 0;
+
+		rcInner.right = xres;
+		rcInner.bottom = yres;
+
+		rcOuter = rcInner;
+		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
+		rcOuter.right += g_Config.iWindowX - rcOuter.left;
+		rcOuter.bottom += g_Config.iWindowY - rcOuter.top;
+		rcOuter.left = g_Config.iWindowX;
+		rcOuter.top = g_Config.iWindowY;
 	}
 
 	void ResizeDisplay(bool noWindowMovement = false) {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
 		if (!noWindowMovement) {
-
 			if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth &&
 				(rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
 				return;
+
 			PSP_CoreParameter().pixelWidth = rc.right - rc.left;
 			PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
 			MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
 		}
 
 		// Round up to a zoom factor for the render size.
-		int zoom = (rc.right - rc.left + 479) / 480;
-		if (g_Config.bAntiAliasing) zoom *= 2;
+		int zoom = g_Config.iInternalResolution;
+		if (zoom == 0) // auto mode
+			zoom = (rc.right - rc.left + 479) / 480;
+
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
 		PSP_CoreParameter().outputWidth = 480 * zoom;
 		PSP_CoreParameter().outputHeight = 272 * zoom;
 
+		I18NCategory *g = GetI18NCategory("Graphics");
+
+		char message[256];
+		sprintf(message, "%s: %ix%i  %s: %ix%i",
+			g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
+			g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		osm.Show(g->T(message), 2.0f);
+
 		if (gpu)
 			gpu->Resized();
 	}
 
-	void setZoom(float zoom) {
-		if (zoom < 5)
-			g_Config.iWindowZoom = (int) zoom;
-
-		I18NCategory *g = GetI18NCategory("Graphics");
-
-		char message[256];
-		sprintf(message, "%dx Rendering Resolution", g_Config.iWindowZoom);
-		osm.Show(g->T(message));
-
+	void SetWindowSize(int zoom) {
 		RECT rc, rcOuter;
-		GetWindowRectAtZoom((int) zoom, rc, rcOuter);
+		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
 		ResizeDisplay();
+	}
+
+	void SetInternalResolution(int res) {
+		g_Config.iInternalResolution = res;
 	}
 
 	void CorrectCursor() {
@@ -240,10 +247,63 @@ namespace MainWindow
 		}
 	}
 
+	void _ViewNormal(HWND hWnd) {
+		// Put caption and border styles back.
+		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
+		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+
+		// Put back the menu bar.
+		::SetMenu(hWnd, menu);
+
+		// Resize to normal view.
+		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
+		const int x = g_normalRC.left;
+		const int y = g_normalRC.top;
+		const int cx = g_normalRC.right - g_normalRC.left;
+		const int cy = g_normalRC.bottom - g_normalRC.top;
+		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+
+		// Reset full screen indicator.
+		g_bFullScreen = FALSE;
+		CorrectCursor();
+		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, TRUE);
+	}
+
+	void _ViewFullScreen(HWND hWnd) {
+		// Keep in mind normal window rectangle.
+		::GetWindowRect(hWnd, &g_normalRC);
+
+		// Remove caption and border styles.
+		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
+		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+
+		// Remove the menu bar.
+		::SetMenu(hWnd, NULL);
+
+		// Resize to full screen view.
+		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
+		const int x = 0;
+		const int y = 0;
+		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
+		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
+		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+
+		// Set full screen indicator.
+		g_bFullScreen = TRUE;
+		CorrectCursor();
+		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, FALSE);
+		UpdateScreenScale();
+	}
+
+
 	// These are used as an offset
 	// to determine which menu item to change.
 	// Make sure to count(from 0) the separators too, when dealing with submenus!!
-	enum MenuID{
+	enum MenuID {
 		// Main menus
 		MENU_FILE = 0,
 		MENU_EMULATION = 1,
@@ -257,10 +317,11 @@ namespace MainWindow
 
 		// Game Settings submenus
 		SUBMENU_RENDERING_RESOLUTION = 7,
-		SUBMENU_RENDERING_MODE = 8,
-		SUBMENU_FRAME_SKIPPING = 9,
-		SUBMENU_TEXTURE_FILTERING = 10,
-		SUBMENU_TEXTURE_SCALING = 11,
+		SUBMENU_WINDOW_SIZE = 8,
+		SUBMENU_RENDERING_MODE = 9,
+		SUBMENU_FRAME_SKIPPING = 10,
+		SUBMENU_TEXTURE_FILTERING = 11,
+		SUBMENU_TEXTURE_SCALING = 12,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -592,12 +653,20 @@ namespace MainWindow
 	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
 		hInst = hInstance; // Store instance handle in our global variable.
 
-		int zoom = g_Config.iWindowZoom;
-		if (zoom < 1) zoom = 1;
-		if (zoom > 4) zoom = 4;
-		
-		RECT rc, rcOrig;
-		GetWindowRectAtZoom(zoom, rcOrig, rc);
+		RECT rc;
+		rc.left = g_Config.iWindowX;
+		rc.top = g_Config.iWindowY;
+		if (g_Config.iWindowWidth == 0) {
+			RECT rcInner = rc, rcOuter;
+			GetWindowRectAtResolution(2 * 480, 2 * 272, rcInner, rcOuter);
+			rc.right = rc.left + (rcOuter.right - rcOuter.left);
+			rc.bottom = rc.top + (rcOuter.bottom- rcOuter.top);
+			g_Config.iWindowWidth = rc.right - rc.left;
+			g_Config.iWindowHeight = rc.bottom - rc.top;
+		} else {
+			rc.right = g_Config.iWindowX + g_Config.iWindowWidth;
+			rc.bottom = g_Config.iWindowY + g_Config.iWindowHeight;
+		}
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
@@ -606,8 +675,11 @@ namespace MainWindow
 		if (!hwndMain)
 			return FALSE;
 
+		RECT rcClient;
+		GetClientRect(hwndMain, &rcClient);
+
 		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
-			rcOrig.left, rcOrig.top, rcOrig.right - rcOrig.left, rcOrig.bottom - rcOrig.top, hwndMain, 0, hInstance, 0);
+			0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, hwndMain, 0, hInstance, 0);
 		if (!hwndDisplay)
 			return FALSE;
 
@@ -634,7 +706,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		
-		Update();
+		// Update();
 
 		if(g_Config.bFullScreenOnLaunch)
 			_ViewFullScreen(hwndMain);
@@ -730,6 +802,8 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+		int factor = g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
+
 		switch (message) {
 		case WM_ACTIVATE:
 			break;
@@ -741,7 +815,7 @@ namespace MainWindow
 			break;
 
 		case WM_ERASEBKGND:
-	  		return DefWindowProc(hWnd, message, wParam, lParam);
+			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
 		// and as asynchronous touch events for minimal latency.
@@ -755,7 +829,6 @@ namespace MainWindow
 					input_state.mouse_valid = true;
 					input_state.pointer_down[0] = true;
 
-					int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
 					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
 					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 				}
@@ -786,7 +859,6 @@ namespace MainWindow
 
 				{
 					lock_guard guard(input_state.lock);
-					int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
 					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
 					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 				}
@@ -809,7 +881,6 @@ namespace MainWindow
 				{
 					lock_guard guard(input_state.lock);
 					input_state.pointer_down[0] = false;
-					int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
 					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
 					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 				}
@@ -1071,25 +1142,11 @@ namespace MainWindow
 					break;
 				}
 
-				case ID_FILE_SAVESTATE_SLOT_1:
-					g_Config.iCurrentStateSlot = 0;
-					break;
-
-				case ID_FILE_SAVESTATE_SLOT_2:
-					g_Config.iCurrentStateSlot = 1;
-					break;
-
-				case ID_FILE_SAVESTATE_SLOT_3:
-					g_Config.iCurrentStateSlot = 2;
-					break;
-
-				case ID_FILE_SAVESTATE_SLOT_4:
-					g_Config.iCurrentStateSlot = 3;
-					break;
-
-				case ID_FILE_SAVESTATE_SLOT_5:
-					g_Config.iCurrentStateSlot = 4;
-					break;
+				case ID_FILE_SAVESTATE_SLOT_1: g_Config.iCurrentStateSlot = 0; break;
+				case ID_FILE_SAVESTATE_SLOT_2: g_Config.iCurrentStateSlot = 1; break;
+				case ID_FILE_SAVESTATE_SLOT_3: g_Config.iCurrentStateSlot = 2; break;
+				case ID_FILE_SAVESTATE_SLOT_4: g_Config.iCurrentStateSlot = 3; break;
+				case ID_FILE_SAVESTATE_SLOT_5: g_Config.iCurrentStateSlot = 4; break;
 
 				case ID_FILE_QUICKLOADSTATE:
 					SetCursor(LoadCursor(0, IDC_WAIT));
@@ -1101,27 +1158,24 @@ namespace MainWindow
 					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 
-				case ID_OPTIONS_SCREEN1X:
-					setZoom(ZOOM_NATIVE);
-					break;
+				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(0); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN1X:   SetInternalResolution(1); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN2X:   SetInternalResolution(2); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN3X:   SetInternalResolution(3); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN4X:   SetInternalResolution(4); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN5X:   SetInternalResolution(5); ResizeDisplay(true); break;
 
-				case ID_OPTIONS_SCREEN2X:
-					setZoom(ZOOM_2X);
-					break;
+				case ID_OPTIONS_WINDOW1X:   SetWindowSize(1); break;
+				case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
+				case ID_OPTIONS_WINDOW3X:   SetWindowSize(3); break;
+				case ID_OPTIONS_WINDOW4X:   SetWindowSize(4); break;
 
-				case ID_OPTIONS_SCREEN3X:
-					setZoom(ZOOM_3X);
-					break;
 
-				case ID_OPTIONS_SCREEN4X:
-					setZoom(ZOOM_MAX);
-					break;
-
-				case ID_OPTIONS_SCREENDUMMY:
-					g_Config.iWindowZoom = ++g_Config.iWindowZoom > ZOOM_MAX ? ZOOM_NATIVE : g_Config.iWindowZoom;
-
-					setZoom(g_Config.iWindowZoom);
-					break;
+				//case ID_OPTIONS_SCREENDUMMY:
+				//	g_Config.iWindowZoom = ++g_Config.iWindowZoom > ZOOM_MAX ? ZOOM_NATIVE : g_Config.iWindowZoom;
+				//
+				//SetWindowSize(g_Config.iWindowZoom);
+				//break;
 
 				case ID_OPTIONS_MIPMAP:
 					g_Config.bMipMap = !g_Config.bMipMap;
@@ -1131,62 +1185,27 @@ namespace MainWindow
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
 
-				case ID_TEXTURESCALING_OFF:
-					setTexScalingMultiplier(TEXSCALING_OFF);
-					break;
+				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
+				case ID_TEXTURESCALING_2X:  setTexScalingMultiplier(TEXSCALING_2X); break;
+				case ID_TEXTURESCALING_3X:  setTexScalingMultiplier(TEXSCALING_3X); break;
+				case ID_TEXTURESCALING_4X:  setTexScalingMultiplier(TEXSCALING_4X); break;
+				case ID_TEXTURESCALING_5X:  setTexScalingMultiplier(TEXSCALING_MAX); break;
 
-				case ID_TEXTURESCALING_2X:
-					setTexScalingMultiplier(TEXSCALING_2X);
-					break;
-
-				case ID_TEXTURESCALING_3X:
-					setTexScalingMultiplier(TEXSCALING_3X);
-					break;
-
-				case ID_TEXTURESCALING_4X:
-					setTexScalingMultiplier(TEXSCALING_4X);
-					break;
-
-				case ID_TEXTURESCALING_5X:
-					setTexScalingMultiplier(TEXSCALING_MAX);
-					break;
-
-				case ID_TEXTURESCALING_XBRZ:
-					setTexScalingType(TextureScaler::XBRZ);
-					break;
-
-				case ID_TEXTURESCALING_HYBRID:
-					setTexScalingType(TextureScaler::HYBRID);
-					break;
-
-				case ID_TEXTURESCALING_BICUBIC:
-					setTexScalingType(TextureScaler::BICUBIC);
-					break;
-
-				case ID_TEXTURESCALING_HYBRID_BICUBIC:
-					setTexScalingType(TextureScaler::HYBRID_BICUBIC);
-					break;
+				case ID_TEXTURESCALING_XBRZ:            setTexScalingType(TextureScaler::XBRZ); break;
+				case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScaler::HYBRID); break;
+				case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScaler::BICUBIC); break;
+				case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScaler::HYBRID_BICUBIC); break;
 
 				case ID_TEXTURESCALING_DEPOSTERIZE:
 					g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-					if(gpu) gpu->ClearCacheNextFrame();
+					if (gpu)
+						gpu->ClearCacheNextFrame();
 					break;
 
-				case ID_OPTIONS_NONBUFFEREDRENDERING:
-					setRenderingMode(FB_NON_BUFFERED_MODE);
-					break;
-
-				case ID_OPTIONS_BUFFEREDRENDERING:
-					setRenderingMode(FB_BUFFERED_MODE);
-					break;
-
-				case ID_OPTIONS_READFBOTOMEMORYCPU:
-					setRenderingMode(FB_READFBOMEMORY_CPU);
-					break;
-
-				case ID_OPTIONS_READFBOTOMEMORYGPU:
-					setRenderingMode(FB_READFBOMEMORY_GPU);
-					break;
+				case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
+				case ID_OPTIONS_BUFFEREDRENDERING:      setRenderingMode(FB_BUFFERED_MODE); break;
+				case ID_OPTIONS_READFBOTOMEMORYCPU:     setRenderingMode(FB_READFBOMEMORY_CPU); break;
+				case ID_OPTIONS_READFBOTOMEMORYGPU:     setRenderingMode(FB_READFBOMEMORY_GPU); break;
 
 				// Dummy option to let the buffered rendering hotkey cycle through all the options.
 				case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
@@ -1210,45 +1229,16 @@ namespace MainWindow
 						gpu->Resized();  // Easy way to force a clear...
 					break;
 
-				case ID_OPTIONS_FRAMESKIP_0:
-					setFrameSkipping(FRAMESKIP_OFF);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_AUTO:
-					setFrameSkipping(FRAMESKIP_AUTO);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_1:
-					setFrameSkipping(FRAMESKIP_1);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_2:
-					setFrameSkipping(FRAMESKIP_2);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_3:
-					setFrameSkipping(FRAMESKIP_3);
-					break;
-				
-				case ID_OPTIONS_FRAMESKIP_4:
-					setFrameSkipping(FRAMESKIP_4);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_5:
-					setFrameSkipping(FRAMESKIP_5);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_6:
-					setFrameSkipping(FRAMESKIP_6);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_7:
-					setFrameSkipping(FRAMESKIP_7);
-					break;
-
-				case ID_OPTIONS_FRAMESKIP_8:
-					setFrameSkipping(FRAMESKIP_MAX);
-					break;
+				case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
+				case ID_OPTIONS_FRAMESKIP_AUTO: setFrameSkipping(FRAMESKIP_AUTO); break;
+				case ID_OPTIONS_FRAMESKIP_1:    setFrameSkipping(FRAMESKIP_1); break;
+				case ID_OPTIONS_FRAMESKIP_2:    setFrameSkipping(FRAMESKIP_2); break;
+				case ID_OPTIONS_FRAMESKIP_3:    setFrameSkipping(FRAMESKIP_3); break;
+				case ID_OPTIONS_FRAMESKIP_4:    setFrameSkipping(FRAMESKIP_4); break;
+				case ID_OPTIONS_FRAMESKIP_5:    setFrameSkipping(FRAMESKIP_5); break;
+				case ID_OPTIONS_FRAMESKIP_6:    setFrameSkipping(FRAMESKIP_6); break;
+				case ID_OPTIONS_FRAMESKIP_7:    setFrameSkipping(FRAMESKIP_7); break;
+				case ID_OPTIONS_FRAMESKIP_8:    setFrameSkipping(FRAMESKIP_MAX); break;
 
 				case ID_OPTIONS_FRAMESKIPDUMMY:
 					g_Config.iFrameSkip = ++g_Config.iFrameSkip > FRAMESKIP_MAX ? FRAMESKIP_OFF : g_Config.iFrameSkip;
@@ -1349,21 +1339,10 @@ namespace MainWindow
 					g_Config.bFastMemory = !g_Config.bFastMemory;
 					break;
 
-				case ID_OPTIONS_TEXTUREFILTERING_AUTO:
-					setTexFiltering(AUTO);
-					break;
-
-				case ID_OPTIONS_NEARESTFILTERING:
-					setTexFiltering(NEAREST);
-					break;
-
-				case ID_OPTIONS_LINEARFILTERING:
-					setTexFiltering(LINEAR);
-					break;
-
-				case ID_OPTIONS_LINEARFILTERING_CG:
-					setTexFiltering(LINEARFMV);
-					break;
+				case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(AUTO); break;
+				case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(NEAREST); break;
+				case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(LINEAR); break;
+				case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(LINEARFMV); break;
 
 				case ID_OPTIONS_TOPMOST:
 					g_Config.bTopMost = !g_Config.bTopMost;
@@ -1632,7 +1611,6 @@ namespace MainWindow
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
-		CHECKITEM(ID_OPTIONS_ANTIALIASING, g_Config.bAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
@@ -1648,20 +1626,37 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_RENDER_MODE_SOFT, g_Config.bSoftwareRendering == true);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 
-		static const int zoomitems[4] = {
+		static const int zoomitems[6] = {
+			ID_OPTIONS_SCREENAUTO,
 			ID_OPTIONS_SCREEN1X,
 			ID_OPTIONS_SCREEN2X,
 			ID_OPTIONS_SCREEN3X,
 			ID_OPTIONS_SCREEN4X,
+			ID_OPTIONS_SCREEN5X,
 		};
-		if(g_Config.iWindowZoom < ZOOM_NATIVE)
-			g_Config.iWindowZoom = ZOOM_NATIVE;
+		if (g_Config.iInternalResolution < 0)
+			g_Config.iInternalResolution = 0;
 
-		else if(g_Config.iWindowZoom > ZOOM_MAX)
-			g_Config.iWindowZoom = ZOOM_MAX;
+		else if(g_Config.iInternalResolution > 5)
+			g_Config.iInternalResolution = 5;
 
 		for (int i = 0; i < ARRAY_SIZE(zoomitems); i++) {
-			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iInternalResolution) ? MF_CHECKED : MF_UNCHECKED));
+		}
+
+		static const int windowSizeItems[4] = {
+			ID_OPTIONS_WINDOW1X,
+			ID_OPTIONS_WINDOW2X,
+			ID_OPTIONS_WINDOW3X,
+			ID_OPTIONS_WINDOW4X,
+		};
+
+		RECT rc;
+		GetClientRect(GetHWND(), &rc);
+
+		for (int i = 0; i < ARRAY_SIZE(windowSizeItems); i++) {
+			bool check = (i + 1) * 480 == rc.right - rc.left || (i + 1) * 272 == rc.bottom - rc.top;
+			CheckMenuItem(menu, windowSizeItems[i], MF_BYCOMMAND | (check ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int texscalingitems[] = {
@@ -1838,58 +1833,6 @@ namespace MainWindow
 
 	void Redraw() {
 		InvalidateRect(hwndDisplay,0,0);
-	}
-
-	void _ViewNormal(HWND hWnd) {
-		// Put caption and border styles back.
-		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
-		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
-
-		// Put back the menu bar.
-		::SetMenu(hWnd, menu);
-
-		// Resize to normal view.
-		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
-		const int x = g_normalRC.left;
-		const int y = g_normalRC.top;
-		const int cx = g_normalRC.right - g_normalRC.left;
-		const int cy = g_normalRC.bottom - g_normalRC.top;
-		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
-
-		// Reset full screen indicator.
-		g_bFullScreen = FALSE;
-		CorrectCursor();
-		ResizeDisplay();
-		ShowOwnedPopups(hwndMain, TRUE);
-	}
-
-	void _ViewFullScreen(HWND hWnd) {
-		// Keep in mind normal window rectangle.
-		::GetWindowRect(hWnd, &g_normalRC);
-
-		// Remove caption and border styles.
-		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
-		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
-
-		// Remove the menu bar.
-		::SetMenu(hWnd, NULL);
-
-		// Resize to full screen view.
-		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
-		const int x = 0;
-		const int y = 0;
-		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
-		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
-		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
-
-		// Set full screen indicator.
-		g_bFullScreen = TRUE;
-		CorrectCursor();
-		ResizeDisplay();
-		ShowOwnedPopups(hwndMain, FALSE);
-		UpdateScreenScale();
 	}
 
 	void SaveStateActionFinished(bool result, void *userdata) {

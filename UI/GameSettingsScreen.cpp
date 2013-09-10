@@ -119,7 +119,9 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T("Anti-Aliasing")));
+	
+	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, 6, gs, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
 #ifdef BLACKBERRY
 	if (pixel_xres == pixel_yres)
@@ -278,6 +280,11 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
+	gpu->Resized();
 	return UI::EVENT_DONE;
 }
 

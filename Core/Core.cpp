@@ -100,7 +100,7 @@ void UpdateScreenScale() {
 	g_dpi = 72;
 	g_dpi_scale = 1.0f;
 #ifdef _WIN32
-	if (g_Config.iWindowZoom == 1)
+	if (pixel_xres < 480 + 80)
 	{
 		dp_xres *= 2;
 		dp_yres *= 2;
