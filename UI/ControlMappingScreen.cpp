@@ -240,7 +240,6 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
-	I18NCategory *generalI18N = GetI18NCategory("General");
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
