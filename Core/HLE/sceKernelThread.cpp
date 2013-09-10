@@ -98,6 +98,11 @@ enum {
 	PSP_THREAD_ATTR_USER =             0x80000000,
 	PSP_THREAD_ATTR_USBWLAN =          0xa0000000,
 	PSP_THREAD_ATTR_VSH =              0xc0000000,
+
+	// TODO: Support more, not even sure what all of these mean.
+	PSP_THREAD_ATTR_USER_MASK =        0xf8f060ff,
+	PSP_THREAD_ATTR_USER_ERASE =       0x78800000,
+	PSP_THREAD_ATTR_SUPPORTED =        (PSP_THREAD_ATTR_KERNEL | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK | PSP_THREAD_ATTR_LOW_STACK | PSP_THREAD_ATTR_USER)
 };
 
 struct NativeCallback
@@ -1996,15 +2001,16 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 
-	// TODO: PSP actually fails for many of these cases, but trying for compat.
-	if (stacksize < 0x200 || stacksize >= 0x20000000)
+	if ((u32)stacksize < 0x200)
 	{
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus stack size %08x, using 0x4000", threadName, stacksize);
-		stacksize = 0x4000;
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus stack size %08x", threadName, stacksize);
+		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
 	}
 	if (prio < 0x08 || prio > 0x77)
 	{
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus priority %08x", threadName, prio);
+		// TODO: Should return this error.
+		// return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 		prio = prio < 0x08 ? 0x08 : 0x77;
 	}
 	if (!Memory::IsValidAddress(entry))
@@ -2014,6 +2020,19 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		if (entry != 0)
 			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
+	if ((attr & ~PSP_THREAD_ATTR_USER_MASK) != 0)
+	{
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): illegal attributes %08x", threadName, attr);
+		// TODO: Should return this error.
+		// return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	if ((attr & ~PSP_THREAD_ATTR_SUPPORTED) != 0)
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): unsupported attributes %08x", threadName, attr);
+
+	// TODO: Not sure what these values are, but they are removed from the attr silently.
+	// Some are USB/VSH specific, probably removes when they are from the wrong module?
+	attr &= ~PSP_THREAD_ATTR_USER_ERASE;
 
 	// We're assuming all threads created are user threads.
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
