@@ -17,6 +17,10 @@
 #endif
 #include "QtMain.h"
 
+#if defined(Q_WS_X11) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(__SYMBIAN32__) && !defined(BLACKBERRY)
+#define X11LINUXDESKTOP
+#endif
+
 InputState* input_state;
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -84,8 +88,11 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-
+#ifdef X11LINUXDESKTOP
+	g_dpi_scale = 1.0f;
+#else
 	g_dpi_scale = CalculateDPIScale();
+#endif
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	net::Init();
 #ifdef __SYMBIAN32__
