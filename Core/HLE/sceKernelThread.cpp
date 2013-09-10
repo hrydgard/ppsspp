@@ -92,9 +92,9 @@ enum {
 	PSP_THREAD_ATTR_KERNEL =           0x00001000,
 	PSP_THREAD_ATTR_VFPU =             0x00004000,
 	PSP_THREAD_ATTR_SCRATCH_SRAM =     0x00008000,   // Save/restore scratch as part of context???
-	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // TODO: No filling of 0xff (only with PSP_THREAD_ATTR_LOW_STACK?)
+	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // No filling of 0xff (only with PSP_THREAD_ATTR_LOW_STACK?)
 	PSP_THREAD_ATTR_CLEAR_STACK =      0x00200000,   // TODO: Clear thread stack when deleted
-	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // TODO: Allocate stack from bottom not top.
+	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // Allocate stack from bottom not top.
 	PSP_THREAD_ATTR_USER =             0x80000000,
 	PSP_THREAD_ATTR_USBWLAN =          0xa0000000,
 	PSP_THREAD_ATTR_VSH =              0xc0000000,
@@ -373,14 +373,15 @@ public:
 	{
 		FreeStack();
 
+		bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
 		if (nt.attr & PSP_THREAD_ATTR_KERNEL)
 		{
 			// Allocate stacks for kernel threads (idle) in kernel RAM
-			currentStack.start = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+			currentStack.start = kernelMemory.Alloc(stackSize, fromTop, (std::string("stack/") + nt.name).c_str());
 		}
 		else
 		{
-			currentStack.start = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+			currentStack.start = userMemory.Alloc(stackSize, fromTop, (std::string("stack/") + nt.name).c_str());
 		}
 		if (currentStack.start == (u32)-1)
 		{
@@ -396,7 +397,9 @@ public:
 
 	bool FillStack() {
 		// Fill the stack.
-		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
+			Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		}
 		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
 		currentStack.end = context.r[MIPS_REG_SP];
 		// The k0 section is 256 bytes at the top of the stack.
