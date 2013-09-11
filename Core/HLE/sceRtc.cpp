@@ -36,6 +36,7 @@
 // This is a base time that everything is relative to.
 // This way, time doesn't move strangely with savestates, turbo speed, etc.
 static PSPTimeval rtcBaseTime;
+static u64 rtcBaseTicks;
 
 // Grabbed from JPSCP
 // This is the # of microseconds between January 1, 0001 and January 1, 1970.
@@ -54,7 +55,7 @@ const int PSP_TIME_INVALID_MICROSECONDS = -7;
 u64 __RtcGetCurrentTick()
 {
 	// TODO: It's probably expecting ticks since January 1, 0001?
-	return cyclesToUs(CoreTiming::GetTicks()) + rtcMagicOffset;
+	return cyclesToUs(CoreTiming::GetTicks()) + rtcBaseTicks;
 }
 
 #if defined(_WIN32)
@@ -113,11 +114,15 @@ void __RtcInit()
 	gettimeofday(&tv, NULL);
 	rtcBaseTime.tv_sec = tv.tv_sec;
 	rtcBaseTime.tv_usec = tv.tv_usec;
+	// Precalculate the current time in microseconds (rtcMagicOffset is offset to 1970.)
+	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcMagicOffset;
 }
 
 void __RtcDoState(PointerWrap &p)
 {
 	p.Do(rtcBaseTime);
+	// Update the precalc, pointless to savestate this as it's just based on the other value.
+	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcMagicOffset;
 
 	p.DoMarker("sceRtc");
 }
