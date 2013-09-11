@@ -205,7 +205,12 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 }
 
 void PopupMultiChoice::UpdateText() {
-	valueText_ = category_ ? category_->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
+	// Clamp the value to be safe.
+	if (*value_ < minVal_ || *value_ > minVal_ + numChoices_ - 1) {
+		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
+	} else {
+		valueText_ = category_ ? category_->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
+	}
 }
 
 void PopupMultiChoice::ChoiceCallback(int num) {
