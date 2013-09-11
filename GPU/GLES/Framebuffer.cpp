@@ -798,7 +798,9 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->dirtyAfterDisplay = true;
 
 #ifdef USING_GLES2
-			fbo_bind_as_render_target(nvfb->fbo);
+			if (nvfb->fbo) {
+				fbo_bind_as_render_target(nvfb->fbo);
+			}
 
 			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 			// to it. This broke stuff before, so now it only clears on the first use of an
@@ -831,7 +833,9 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 		return;
 	}
 
-	fbo_bind_as_render_target(dst->fbo);
+	if (dst->fbo) {
+		fbo_bind_as_render_target(dst->fbo);
+	}
 	
 	if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		ERROR_LOG(SCEGE, "Incomplete target framebuffer, aborting blit");
@@ -1268,7 +1272,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 				vfb->reallyDirtyAfterDisplay = true;
 				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
 				// However, it doesn't seem to work for Star Ocean, at least
-				if (useBufferedRendering_) {
+				if (useBufferedRendering_ && vfb->fbo) {
 					fbo_bind_as_render_target(vfb->fbo);
 					needUnbind = true;
 					DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
