@@ -77,7 +77,7 @@ BEGIN
     VK_F3,          ID_FILE_SAVESTATE_NEXT_SLOT, VIRTKEY, NOINVERT
     VK_F2,          ID_FILE_QUICKSAVESTATE, VIRTKEY, NOINVERT
     VK_F4,          ID_FILE_QUICKLOADSTATE, VIRTKEY, NOINVERT
-    "1",            ID_OPTIONS_SCREENDUMMY,    VIRTKEY, CONTROL, NOINVERT
+    "1",            ID_OPTIONS_RESOLUTIONDUMMY,    VIRTKEY, CONTROL, NOINVERT
     VK_F5,          ID_OPTIONS_BUFFEREDRENDERINGDUMMY, VIRTKEY, NOINVERT
     VK_F7,          ID_OPTIONS_FRAMESKIPDUMMY, VIRTKEY, NOINVERT
     VK_F6,          ID_OPTIONS_HARDWARETRANSFORM, VIRTKEY, NOINVERT
@@ -356,7 +356,7 @@ BEGIN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
         POPUP "Rendering Resolution"
         BEGIN
-            MENUITEM "&Auto",                               ID_OPTIONS_SCREENAUTO
+            MENUITEM "Auto",                               ID_OPTIONS_SCREENAUTO
             MENUITEM "&1x",                                 ID_OPTIONS_SCREEN1X
             MENUITEM "&2x",                                 ID_OPTIONS_SCREEN2X
             MENUITEM "&3x",                                 ID_OPTIONS_SCREEN3X
