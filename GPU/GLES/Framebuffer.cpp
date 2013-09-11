@@ -405,9 +405,9 @@ void DrawingSize(int &drawing_width, int &drawing_height) {
 	int region_height = gstate.getRegionY2() + 1;
 	int scissor_width = gstate.getScissorX2() + 1;
 	int scissor_height = gstate.getScissorY2() + 1;
-	int fb_width = gstate.fbwidth & 0x3C0;
+	int fb_stride = gstate.fbwidth & 0x3C0;
 
-	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_width, gstate.isModeThrough());
+	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
 
 	// Viewport may return 0x0 for example FF Type-0 and we set it to 480x272
 	if (viewport_width <= 1 && viewport_height <=1) {
@@ -415,9 +415,9 @@ void DrawingSize(int &drawing_width, int &drawing_height) {
 		viewport_height = default_height;
 	} 
 
-	if (fb_width > 0 && fb_width < 512) {
+	if (fb_stride > 0 && fb_stride < 512) {
 		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
-		if (fb_width == scissor_width && region_width != scissor_width) { 
+		if (fb_stride == scissor_width && region_width != scissor_width) { 
 			drawing_width = scissor_width;
 			drawing_height = scissor_height;
 		} else {
@@ -426,7 +426,7 @@ void DrawingSize(int &drawing_width, int &drawing_height) {
 		}
 	} else {
 		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_width == region_width && region_width != scissor_width) { 
+		if (fb_stride == region_width && region_width != scissor_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
 		} else {
@@ -794,7 +794,9 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
+			gstate_c.textureChanged = true;
 			nvfb->last_frame_render = gpuStats.numFlips;
+			frameLastFramebufUsed = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
 #ifdef USING_GLES2
@@ -829,12 +831,14 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
 	// This only works with buffered rendering
-	if (!useBufferedRendering_ || !src->fbo) {
+	if (!useBufferedRendering_ || !src->fbo || !dst->fbo) {
 		return;
 	}
 
 	if (dst->fbo) {
 		fbo_bind_as_render_target(dst->fbo);
+	} else {
+		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
 	}
 	
 	if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
