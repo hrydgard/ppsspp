@@ -335,7 +335,10 @@ struct GPUgstate
 	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
 	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
 	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
-
+	bool isMaterialAmbientColor() const { return materialupdate & 1; }
+	bool isMaterialDiffuseColor() const { return materialupdate & 2; }
+	bool isMaterialSpecularColor() const { return materialupdate & 4; }
+	
 	// UV gen
 	GETexMapMode getUVGenMode() const { return static_cast<GETexMapMode>(texmapmode & 3);}   // 2 bits
 	GETexProjMapMode getUVProjMode() const { return static_cast<GETexProjMapMode>((texmapmode >> 8) & 3);}   // 2 bits

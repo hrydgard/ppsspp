@@ -146,7 +146,6 @@ private:
 	float specCoef_;
 	// Vec3f viewer_;
 	bool doShadeMapping_;
-	int materialUpdate_;
 };
 
 Lighter::Lighter() {
@@ -163,7 +162,6 @@ Lighter::Lighter() {
 	materialSpecular.a = 1.0f;
 	specCoef_ = getFloat24(gstate.materialspecularcoef);
 	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
-	materialUpdate_ = gstate.materialupdate & 7;
 }
 
 void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm)
@@ -171,19 +169,19 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	Color4 in(colorIn);
 
 	const Color4 *ambient;
-	if (materialUpdate_ & 1)
+	if (gstate.isMaterialAmbientColor())
 		ambient = &in;
 	else
 		ambient = &materialAmbient;
 
 	const Color4 *diffuse;
-	if (materialUpdate_ & 2)
+	if (gstate.isMaterialDiffuseColor())
 		diffuse = &in;
 	else
 		diffuse = &materialDiffuse;
 
 	const Color4 *specular;
-	if (materialUpdate_ & 4)
+	if (gstate.isMaterialSpecularColor())
 		specular = &in;
 	else
 		specular = &materialSpecular;
