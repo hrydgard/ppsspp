@@ -62,7 +62,7 @@ private:
 	public:
 		BoolState() : _value(init) {
 			OpenGLState::state_count++;
-        }
+		}
 
 		inline void set(bool value) {
 			if(value && value != _value) {
@@ -100,7 +100,7 @@ private:
 	public: \
 		SavedState1_##func() : p1(p1def) { \
 			OpenGLState::state_count++; \
-        }; \
+    }; \
 		void set(p1type newp1) { \
 			if(newp1 != p1) { \
 				p1 = newp1; \

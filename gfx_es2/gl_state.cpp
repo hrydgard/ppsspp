@@ -37,15 +37,11 @@ void OpenGLState::Initialize() {
 
 void OpenGLState::Restore() {
 	int count = 0;
+
 	blend.restore(); count++;
 	blendEquation.restore(); count++;
 	blendFuncSeparate.restore(); count++;
 	blendColor.restore(); count++;
-
-#if !defined(USING_GLES2)
-	colorLogicOp.restore(); count++;
-	logicOp.restore(); count++;
-#endif
 
 #ifdef ANDROID
 	if (gl_extensions.QCOM_alpha_test) {
@@ -79,6 +75,11 @@ void OpenGLState::Restore() {
 
 	dither.restore(); count++;
 
+#if !defined(USING_GLES2)
+	colorLogicOp.restore(); count++;
+	logicOp.restore(); count++;
+#endif
+
 	if (count != state_count) {
 		FLOG("OpenGLState::Restore is missing some states");
 	}
@@ -102,7 +103,9 @@ void CheckGLExtensions() {
 	}
 
 #ifdef WIN32
-	const char *wglString = wglGetExtensionsStringEXT();
+	const char *wglString = 0;
+	if (wglGetExtensionsStringEXT)
+		wglString = wglGetExtensionsStringEXT();
 	if (wglString) {
 		gl_extensions.EXT_swap_control_tear = strstr(wglString, "WGL_EXT_swap_control_tear") != 0;
 		g_all_egl_extensions = wglString;
@@ -174,8 +177,12 @@ void CheckGLExtensions() {
 	gl_extensions.FBO_ARB = true;
 	gl_extensions.FBO_EXT = false;
 #else
-	gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
-	gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
+	gl_extensions.FBO_ARB = false;
+	gl_extensions.FBO_EXT = false;
+	if (extString) {
+		gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
+		gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
+	}
 #endif
 }
 
