@@ -85,14 +85,13 @@ namespace SaveState
 
 		// Don't actually run it until next CoreTiming::Advance().
 		// It's possible there might be a duplicate but it won't hurt us.
-		if (Core_IsInactive() && __KernelIsRunning())
-		{
+		if (Core_IsInactive() && __KernelIsRunning()) {
 			// Warning: this may run on a different thread.
 			needsProcess = true;
 			Process();
-		}
-		else
+		} else {
 			needsProcess = true;
+		}
 	}
 
 	void Load(const std::string &filename, Callback callback, void *cbUserData)
@@ -137,7 +136,8 @@ namespace SaveState
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to load state. Error in the file system.", 2.0);
-			(*callback)(false, cbUserData);
+			if (callback)
+				(*callback)(false, cbUserData);
 		}
 	}
 
@@ -149,7 +149,8 @@ namespace SaveState
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
-			(*callback)(false, cbUserData);
+			if (callback)
+				(*callback)(false, cbUserData);
 		}
 	}
 
@@ -231,9 +232,9 @@ namespace SaveState
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, state, &reason);
-				if(result)
+				if (result) {
 					osm.Show(s->T("Loaded State"), 2.0);
-				else {
+				} else {
 					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
 				}
 				break;
@@ -243,10 +244,11 @@ namespace SaveState
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
-				if(result)
+				if (result) {
 					osm.Show(s->T("Saved State"), 2.0);
-				else
+				} else {
 					osm.Show(s->T("Save State Failed"), 2.0);
+				}
 				break;
 
 			case SAVESTATE_VERIFY:
@@ -260,7 +262,7 @@ namespace SaveState
 				break;
 			}
 
-			if (op.callback != NULL)
+			if (op.callback)
 				op.callback(result, op.cbUserData);
 		}
 	}

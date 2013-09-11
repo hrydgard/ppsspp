@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -841,7 +842,11 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	glstate.viewport.set(0, 0, dst->width, dst->height);
 	DisableState();
 
-	fbo_bind_color_as_texture(src->fbo, 0);
+	if (src->fbo) {
+		fbo_bind_color_as_texture(src->fbo, 0);
+	} else {
+		ERROR_LOG_REPORT_ONCE(srcfbozero, SCEGE, "BlitFramebuffer_: src->fbo == 0");
+	}
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
