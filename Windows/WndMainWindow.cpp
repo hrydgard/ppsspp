@@ -518,10 +518,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
-		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREENAUTO, desktopUI);
+		// Skip screen 1x-5x...
 		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI, true, true);
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI, true, false);
