@@ -115,14 +115,14 @@ void __RtcInit()
 	rtcBaseTime.tv_sec = tv.tv_sec;
 	rtcBaseTime.tv_usec = tv.tv_usec;
 	// Precalculate the current time in microseconds (rtcMagicOffset is offset to 1970.)
-	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcMagicOffset;
+	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
 }
 
 void __RtcDoState(PointerWrap &p)
 {
 	p.Do(rtcBaseTime);
 	// Update the precalc, pointless to savestate this as it's just based on the other value.
-	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcMagicOffset;
+	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
 
 	p.DoMarker("sceRtc");
 }
