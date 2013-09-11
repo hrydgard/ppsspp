@@ -518,19 +518,18 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
-		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREENAUTO, desktopUI);
+		// Skip rendering resolution 2x-5x..
+		// Skip window size 1x-4x..
 		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI, true, true);
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
+		// Skip frameskipping 1-8..
 		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_CONTROLS, desktopUI);
-		// Skip frameskipping 2-8..
 		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, desktopUI);
@@ -566,6 +565,7 @@ namespace MainWindow
 
 		TranslateSubMenuHeader(menu, desktopUI, "Savestate Slot", MENU_FILE, SUBMENU_FILE_SAVESTATE_SLOT, L"\tF3");
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, desktopUI, "Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
 		TranslateSubMenuHeader(menu, desktopUI, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
 		TranslateSubMenuHeader(menu, desktopUI, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
@@ -1169,13 +1169,15 @@ namespace MainWindow
 				case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
 				case ID_OPTIONS_WINDOW3X:   SetWindowSize(3); break;
 				case ID_OPTIONS_WINDOW4X:   SetWindowSize(4); break;
-
-
-				//case ID_OPTIONS_SCREENDUMMY:
-				//	g_Config.iWindowZoom = ++g_Config.iWindowZoom > ZOOM_MAX ? ZOOM_NATIVE : g_Config.iWindowZoom;
-				//
-				//SetWindowSize(g_Config.iWindowZoom);
-				//break;
+					
+				case ID_OPTIONS_RESOLUTIONDUMMY:
+					{
+						static int resolutionMultiplier = 0;
+						resolutionMultiplier = g_Config.iInternalResolution <= 5 ? ++resolutionMultiplier : 0;
+						SetInternalResolution(resolutionMultiplier);
+						ResizeDisplay(true);
+						break;
+					}
 
 				case ID_OPTIONS_MIPMAP:
 					g_Config.bMipMap = !g_Config.bMipMap;
