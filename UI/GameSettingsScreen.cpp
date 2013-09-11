@@ -284,7 +284,9 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
-	gpu->Resized();
+	if (gpu) {
+		gpu->Resized();
+	}
 	return UI::EVENT_DONE;
 }
 
