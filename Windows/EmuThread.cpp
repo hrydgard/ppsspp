@@ -106,7 +106,9 @@ unsigned int WINAPI TheThread(void *)
 		std::string full_error = StringFromFormat( "Failed initializing OpenGL. Try upgrading your graphics drivers.\n\nError message:\n\n%s", error_string.c_str());
 		MessageBoxA(0, full_error.c_str(), "OpenGL Error", MB_OK | MB_ICONERROR);
 		ERROR_LOG(BOOT, full_error.c_str());
-		goto shutdown;
+
+		// No safe way out without OpenGL.
+		ExitProcess(1);
 	}
 
 	NativeInitGraphics();
@@ -139,6 +141,7 @@ shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
 
 	NativeShutdownGraphics();
+
 	host->ShutdownSound();
 	host = nativeHost;
 	NativeShutdown();

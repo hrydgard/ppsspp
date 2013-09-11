@@ -3,6 +3,7 @@
 #include "Common/CommonWindows.h"
 #include "native/gfx_es2/gl_state.h"
 #include "native/gfx/gl_common.h"
+#include "util/text/utf8.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 
@@ -23,7 +24,7 @@ void GL_Resized() {
 	if (!hWnd)
 		return;
 	RECT rc;
-	GetWindowRect(hWnd,&rc);
+	GetWindowRect(hWnd, &rc);
 	xres = rc.right - rc.left; //account for border :P
 	yres = rc.bottom - rc.top;
 
@@ -92,7 +93,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 	GLuint PixelFormat;
 
 	// TODO: Change to use WGL_ARB_pixel_format instead
-
 	static const PIXELFORMATDESCRIPTOR pfd = {
 		sizeof(PIXELFORMATDESCRIPTOR),							// Size Of This Pixel Format Descriptor
 			1,														// Version Number
@@ -121,26 +121,22 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;											// Return FALSE
 	}
 
-	// Did Windows Find A Matching Pixel Format?
 	if (!(PixelFormat = ChoosePixelFormat(hDC,&pfd)))
 	{
 		*error_message = "Can't Find A Suitable PixelFormat.";
 		return false;
 	}
 
-	// Are We Able To Set The Pixel Format?
 	if (!SetPixelFormat(hDC,PixelFormat,&pfd)) {
 		*error_message = "Can't Set The PixelFormat.";
 		return false;
 	}
 
-	// Are We Able To Get A Rendering Context?
 	if (!(hRC = wglCreateContext(hDC)))	{
 		*error_message = "Can't Create A GL Rendering Context.";
 		return false;
 	}	
 
-	// Try To Activate The Rendering Context
 	if (!wglMakeCurrent(hDC,hRC)) {
 		*error_message = "Can't activate the GL Rendering Context.";
 		return false;
@@ -183,17 +179,24 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	//Checking GL version
-	const char *GLVersionString = (const char *)glGetString(GL_VERSION);
+	std::string renderer = (const char *)glGetString(GL_RENDERER);
+	if (renderer == "GDI Generic") {
+		// Windows XP, no OpenGL driver installed.
+		*error_message = "PPSSPP requires working OpenGL drivers, version 2.0 or higher.\r\nPlease install the latest drivers for your graphics card (GPU).\r\nSee ppsspp.org/faq.html for more information.";
+		return false;
+	}
 
-	//Or better yet, use the GL3 way to get the version number
-	int OpenGLVersion[2];
-	glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
-	glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
+	/*
+	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_VERSION)).c_str(),0,0);
+	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_VENDOR)).c_str(),0,0);
+	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_RENDERER)).c_str(),0,0);
+	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str(),0,0);
+	*/
+
+	CheckGLExtensions();
 
 	glstate.Initialize();
-	CheckGLExtensions();
-	if( wglSwapIntervalEXT )
+	if (wglSwapIntervalEXT)
 		wglSwapIntervalEXT(0);
 	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
