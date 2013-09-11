@@ -426,7 +426,7 @@ private:
 class Slider : public Clickable {
 public:
 	Slider(int *value, int minValue, int maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(50) {}
+		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70) {}
 	virtual void Draw(UIContext &dc);
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
@@ -445,7 +445,7 @@ private:
 class SliderFloat : public Clickable {
 public:
 	SliderFloat(float *value, float minValue, float maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(50) {}
+		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70) {}
 	virtual void Draw(UIContext &dc);
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
