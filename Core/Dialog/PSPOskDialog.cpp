@@ -945,7 +945,11 @@ int PSPOskDialog::Update()
 	}
 
 	u16_le *outText = oskParams->fields[0].outtext;
-	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
+	size_t end = oskParams->fields[0].outtextlength;
+	// Only write the bytes of the output and the null terminator, don't write the rest.
+	if (end > inputChars.size())
+		end = inputChars.size() + 1;
+	for (size_t i = 0; i < end; ++i)
 	{
 		u16 value = 0;
 		if (i < inputChars.size())
