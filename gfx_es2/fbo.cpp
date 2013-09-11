@@ -266,7 +266,9 @@ void fbo_bind_for_read(FBO *fbo) {
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
-	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+	if (fbo) {
+		glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+	}
 }
 
 void fbo_destroy(FBO *fbo) {

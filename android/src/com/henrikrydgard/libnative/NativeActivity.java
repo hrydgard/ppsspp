@@ -57,7 +57,8 @@ class Installation {
                     writeInstallationFile(installation);
                 sID = readInstallationFile(installation);
             } catch (Exception e) {
-                throw new RuntimeException(e);
+            	// We can't even open a file for writing? Then we can't get a unique-ish installation id.
+            	return "BROKENAPPUSERFILESYSTEM";
             }
         }
         return sID;
@@ -108,8 +109,12 @@ public class NativeActivity extends Activity {
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
 		AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-		optimalFramesPerBuffer = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
-		optimalSampleRate = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));		
+		try {
+			optimalFramesPerBuffer = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
+			optimalSampleRate = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
+		} catch (NumberFormatException e) {
+			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
+		}
 	}
 	
 	String getApplicationLibraryDir(ApplicationInfo application) {    
@@ -137,7 +142,7 @@ public class NativeActivity extends Activity {
 	}
 	
 	void GetScreenSize(Point size) {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
 			GetScreenSizeHC(size);
 		} else {
 	        WindowManager w = getWindowManager();

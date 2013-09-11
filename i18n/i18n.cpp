@@ -17,6 +17,9 @@ void I18NRepo::Clear() {
 }
 
 const char *I18NCategory::T(const char *key, const char *def) {
+	if (!key) {
+		return "ERROR";
+	}
 	// Replace the \n's with \\n's so that key values with newlines will be found correctly.
 	std::string modifiedKey = key;
 	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
@@ -65,7 +68,6 @@ bool I18NRepo::IniExists(const std::string &languageID) const {
 		return false;
 	return true;
 }
-
 
 bool I18NRepo::LoadIni(const std::string &languageID) {
 	IniFile ini;

@@ -21,6 +21,9 @@ void ScreenManager::switchScreen(Screen *screen) {
 	if (nextScreen_ != 0) {
 		FLOG("WTF? Already had a nextScreen_");
 	}
+	if (screen == 0) {
+		WLOG("Swiching to a zero screen, this can't be good");
+	}
 	if (stack_.empty() || screen != stack_.back().screen) {
 		nextScreen_ = screen;
 		nextScreen_->setScreenManager(this);
@@ -38,6 +41,10 @@ void ScreenManager::update(InputState &input) {
 }
 
 void ScreenManager::switchToNext() {
+	if (!nextScreen_) {
+		ELOG("switchToNext: No nextScreen_!");
+	}
+
 	Layer temp = {0, 0};
 	if (!stack_.empty()) {
 		temp = stack_.back();
