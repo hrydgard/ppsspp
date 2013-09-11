@@ -528,7 +528,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 		if(DecryptSave(decryptMode, data_base, &saveSize, &align_len, ((param->key[0] != 0)?cryptKey:0)) == 0)
 		{
 			if (param->dataBuf.IsValid())
-				memcpy(data_, data_base, std::min(saveSize, (int)param->dataBufSize));
+				memcpy(data_, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
 			saveDone = true;
 		}
 		delete[] data_base;
@@ -537,7 +537,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	if(!saveDone) // not crypted or decrypt fail
 	{
 		if (param->dataBuf.IsValid())
-			memcpy(data_, saveData, std::min(saveSize, (int)param->dataBufSize));
+			memcpy(data_, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
 	}
 	param->dataSize = (SceSize)saveSize;
 	delete[] saveData;
