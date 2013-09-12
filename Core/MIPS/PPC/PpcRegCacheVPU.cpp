@@ -16,24 +16,24 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <PpcEmitter.h>
-#include "PpcRegCache.h"
+#include "PpcRegCacheVPU.h"
 #include "PpcJit.h"
 
 using namespace PpcGen;
 
-PpcRegCache::PpcRegCache(MIPSState *mips, MIPSComp::PpcJitOptions *options) : mips_(mips), options_(options) {
+PpcRegCacheVPU::PpcRegCacheVPU(MIPSState *mips, MIPSComp::PpcJitOptions *options) : mips_(mips), options_(options) {
 }
 
-void PpcRegCache::Init(PPCXEmitter *emitter) {
+void PpcRegCacheVPU::Init(PPCXEmitter *emitter) {
 	emit_ = emitter;
 }
 
-void PpcRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
-	for (int i = 0; i < NUM_PPCREG; i++) {
+void PpcRegCacheVPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+	for (int i = 0; i < NUM_PPCVPUREG; i++) {
 		ar[i].mipsReg = -1;
 		ar[i].isDirty = false;
 	}
-	for (int i = 0; i < NUM_MIPSREG; i++) {
+	for (int i = 0; i < NUM_MIPSVPUREG; i++) {
 		mr[i].loc = ML_MEM;
 		mr[i].reg = INVALID_REG;
 		mr[i].imm = -1;
@@ -41,7 +41,7 @@ void PpcRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	}
 }
 
-const PPCReg *PpcRegCache::GetMIPSAllocationOrder(int &count) {
+const PPCReg *PpcRegCacheVPU::GetMIPSAllocationOrder(int &count) {
 	// Note that R0 is reserved as scratch for now.
 	// R1 could be used as it's only used for scratch outside "regalloc space" now.
 	// R12 is also potentially usable.
@@ -67,7 +67,7 @@ const PPCReg *PpcRegCache::GetMIPSAllocationOrder(int &count) {
 	}
 }
 
-void PpcRegCache::FlushBeforeCall() {
+void PpcRegCacheVPU::FlushBeforeCall() {
 	// R4-R11 are preserved. Others need flushing.
 	/*
 	FlushPpcReg(R2);
@@ -78,13 +78,13 @@ void PpcRegCache::FlushBeforeCall() {
 
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
-PPCReg PpcRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
+PPCReg PpcRegCacheVPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_PPCREG) {
 		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
-			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG(HLE, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
@@ -148,14 +148,14 @@ allocate:
 	return INVALID_REG;
 }
 
-void PpcRegCache::MapInIn(MIPSReg rd, MIPSReg rs) {
+void PpcRegCacheVPU::MapInIn(MIPSReg rd, MIPSReg rs) {
 	SpillLock(rd, rs);
 	MapReg(rd);
 	MapReg(rs);
 	ReleaseSpillLocks();
 }
 
-void PpcRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
+void PpcRegCacheVPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
 	bool load = !avoidLoad || rd == rs;
 	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
@@ -163,7 +163,7 @@ void PpcRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	ReleaseSpillLocks();
 }
 
-void PpcRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
+void PpcRegCacheVPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
 	bool load = !avoidLoad || (rd == rs || rd == rt);
 	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
@@ -172,7 +172,7 @@ void PpcRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoa
 	ReleaseSpillLocks();
 }
 
-void PpcRegCache::MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
+void PpcRegCacheVPU::MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd1, rd2, rs, rt);
 	bool load1 = !avoidLoad || (rd1 == rs || rd1 == rt);
 	bool load2 = !avoidLoad || (rd2 == rs || rd2 == rt);
@@ -183,7 +183,7 @@ void PpcRegCache::MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSRe
 	ReleaseSpillLocks();
 }
 
-void PpcRegCache::FlushPpcReg(PPCReg r) {
+void PpcRegCacheVPU::FlushPpcReg(PPCReg r) {
 	if (ar[r].mipsReg == -1) {
 		// Nothing to do, reg not mapped.
 		return;
@@ -196,13 +196,13 @@ void PpcRegCache::FlushPpcReg(PPCReg r) {
 		mr[ar[r].mipsReg].reg = INVALID_REG;
 		mr[ar[r].mipsReg].imm = 0;
 	} else {
-		ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		ERROR_LOG(HLE, "Dirty but no mipsreg?");
 	}
 	ar[r].isDirty = false;
 	ar[r].mipsReg = -1;
 }
 
-void PpcRegCache::FlushR(MIPSReg r) {
+void PpcRegCacheVPU::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -212,7 +212,7 @@ void PpcRegCache::FlushR(MIPSReg r) {
 
 	case ML_PPCREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "FlushMipsReg: MipsReg had bad PpcReg");
+			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad PpcReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
 			emit_->STW((PPCReg)mr[r].reg, CTXREG, GetMipsRegOffset(r));
@@ -234,19 +234,19 @@ void PpcRegCache::FlushR(MIPSReg r) {
 	mr[r].imm = 0;
 }
 
-void PpcRegCache::FlushAll() {
-	for (int i = 0; i < NUM_MIPSREG; i++) {
+void PpcRegCacheVPU::FlushAll() {
+	for (int i = 0; i < NUM_MIPSVPUREG; i++) {
 		FlushR(i);
 	}
 	// Sanity check
-	for (int i = 0; i < NUM_PPCREG; i++) {
+	for (int i = 0; i < NUM_PPCVPUREG; i++) {
 		if (ar[i].mipsReg != -1) {
 			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
 	}
 }
 
-void PpcRegCache::SetImm(MIPSReg r, u32 immVal) {
+void PpcRegCacheVPU::SetImm(MIPSReg r, u32 immVal) {
 	if (r == 0)
 		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
 
@@ -260,12 +260,12 @@ void PpcRegCache::SetImm(MIPSReg r, u32 immVal) {
 	mr[r].reg = INVALID_REG;
 }
 
-bool PpcRegCache::IsImm(MIPSReg r) const {
+bool PpcRegCacheVPU::IsImm(MIPSReg r) const {
 	if (r == 0) return true;
 	return mr[r].loc == ML_IMM;
 }
 
-u32 PpcRegCache::GetImm(MIPSReg r) const {
+u32 PpcRegCacheVPU::GetImm(MIPSReg r) const {
 	if (r == 0) return 0;
 	if (mr[r].loc != ML_IMM) {
 		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
@@ -273,7 +273,7 @@ u32 PpcRegCache::GetImm(MIPSReg r) const {
 	return mr[r].imm;
 }
 
-int PpcRegCache::GetMipsRegOffset(MIPSReg r) {
+int PpcRegCacheVPU::GetMipsRegOffset(MIPSReg r) {
 	if (r < 32)
 		return r * 4;
 	switch (r) {
@@ -286,24 +286,24 @@ int PpcRegCache::GetMipsRegOffset(MIPSReg r) {
 	return 0;  // or what?
 }
 
-void PpcRegCache::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
+void PpcRegCacheVPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 	mr[r1].spillLock = true;
 	if (r2 != -1) mr[r2].spillLock = true;
 	if (r3 != -1) mr[r3].spillLock = true;
 	if (r4 != -1) mr[r4].spillLock = true;
 }
 
-void PpcRegCache::ReleaseSpillLocks() {
-	for (int i = 0; i < NUM_MIPSREG; i++) {
+void PpcRegCacheVPU::ReleaseSpillLocks() {
+	for (int i = 0; i < NUM_MIPSVPUREG; i++) {
 		mr[i].spillLock = false;
 	}
 }
 
-void PpcRegCache::ReleaseSpillLock(MIPSReg reg) {
+void PpcRegCacheVPU::ReleaseSpillLock(MIPSReg reg) {
 	mr[reg].spillLock = false;
 }
 
-PPCReg PpcRegCache::R(int mipsReg) {
+PPCReg PpcRegCacheVPU::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_PPCREG) {
 		return (PPCReg)mr[mipsReg].reg;
 	} else {

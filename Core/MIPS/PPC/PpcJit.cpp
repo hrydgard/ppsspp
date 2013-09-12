@@ -10,6 +10,7 @@
 #include "ppcEmitter.h"
 #include "PpcJit.h"
 
+#include <malloc.h>
 #include <ppcintrinsics.h>
 
 using namespace PpcGen;
@@ -30,10 +31,11 @@ void Jit::CompileDelaySlot(int flags)
 		// Save flags register
 		MOVI2R(SREG, (u32)&delaySlotFlagsValue);
 		STW(FLAGREG, SREG);
+		MFCR(R19);
 	}
 
 	js.inDelaySlot = true;
-	u32 op = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode op = Memory::Read_Instruction(js.compilerPC + 4);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -44,6 +46,7 @@ void Jit::CompileDelaySlot(int flags)
 		// Restore flags register
 		MOVI2R(SREG, (u32)&delaySlotFlagsValue);
 		LWZ(FLAGREG, SREG);
+		MTCR(R19);
 	}
 }
 
@@ -116,7 +119,7 @@ void Jit::WriteDownCount(int offset)
 	CMPI(DCNTREG, 0);
 }
 
-void Jit::Comp_Generic(u32 op) {
+void Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 
 	// basic jit !!
@@ -125,21 +128,27 @@ void Jit::Comp_Generic(u32 op) {
 	{
 		// Save mips PC and cycles
 		SaveDowncount(DCNTREG);
+		MOVI2R(SREG, js.compilerPC);
+		MovToPC(SREG);
 
 		// call interpreted function
-		MOVI2R(R3, op);
+		MOVI2R(R3, op.encoding);
 		QuickCallFunction((void *)func);
 
 		// restore pc and cycles
 		RestoreDowncount(DCNTREG);
 	}
-	// Might have eaten prefixes, hard to tell...
-	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
-		js.PrefixStart();
+	const MIPSInfo info = MIPSGetInfo(op);
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
+	{
+		// If it does eat them, it'll happen in MIPSCompileOp().
+		if ((info & OUT_EAT_PREFIX) == 0)
+			js.PrefixUnknown();
+	}
 }
 	
-void Jit::EatInstruction(u32 op) {
-	u32 info = MIPSGetInfo(op);
+void Jit::EatInstruction(MIPSOpcode op) {
+	MIPSInfo info = MIPSGetInfo(op);
 	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
 	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
 
@@ -147,20 +156,41 @@ void Jit::EatInstruction(u32 op) {
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void Jit::Comp_RunBlock(u32 op) {
+void Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
-void Jit::Comp_DoNothing(u32 op) {
+void Jit::Comp_DoNothing(MIPSOpcode op) {
 
 }
 
 void Jit::FlushAll()
 {
 	gpr.FlushAll();
-	//fpr.FlushAll();
-	//FlushPrefixV();
+	fpr.FlushAll();
+	FlushPrefixV();
+}
+
+void Jit::FlushPrefixV()
+{
+	if ((js.prefixSFlag & PpcJitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(SREG, js.prefixS);
+		STW(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		js.prefixSFlag = (PpcJitState::PrefixState) (js.prefixSFlag & ~PpcJitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixTFlag & PpcJitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(SREG, js.prefixT);
+		STW(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		js.prefixTFlag = (PpcJitState::PrefixState) (js.prefixTFlag & ~PpcJitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixDFlag & PpcJitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(SREG, js.prefixD);
+		STW(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		js.prefixDFlag = (PpcJitState::PrefixState) (js.prefixDFlag & ~PpcJitState::PREFIX_DIRTY);
+	}
 }
 
 void Jit::ClearCache() {
@@ -173,10 +203,11 @@ void Jit::ClearCacheAt(u32 em_address, int length) {
 	blocks.InvalidateICache(em_address, length);
 }
 
-Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),fpr(mips),mips_(mips)
 { 
 	blocks.Init();
 	gpr.SetEmitter(this);
+	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
@@ -186,7 +217,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),mips_(mips)
 void Jit::RunLoopUntil(u64 globalticks) {	
 #ifdef _XBOX
 	// force stack alinement
-	_alloca(8*1024);
+	_alloca(16*1024);
 #endif
 	
 	// Run the compiled code

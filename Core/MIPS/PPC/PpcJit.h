@@ -21,6 +21,7 @@
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/PPC/PpcRegCache.h"
+#include "Core/MIPS/PPC/PpcRegCacheFpu.h"
 
 #include "Core/MIPS/MIPS.h"
 #include <ppcEmitter.h>
@@ -142,93 +143,118 @@ namespace MIPSComp
 		JitBlockCache blocks;
 	public:
 		Jit(MIPSState *mips);
+		void DoState(PointerWrap &p) {
+			// Do nothing
+		}
+		static void DoDummyState(PointerWrap &p) {
+			// Do nothing
+		}
 
 		// Compiled ops should ignore delay slots
 		// the compiler will take care of them by itself
 		// OR NOT
-		void Comp_Generic(u32 op);
+		void Comp_Generic(MIPSOpcode op);
 
-		void EatInstruction(u32 op);
-		void Comp_RunBlock(u32 op);
+		void EatInstruction(MIPSOpcode op);
+		void Comp_RunBlock(MIPSOpcode op);
 
 		// TODO: Eat VFPU prefixes here.
-		void EatPrefix() { }
+		void EatPrefix() { js.EatPrefix(); }
 
 		// Ops
-		void Comp_ITypeMem(u32 op);
+		void Comp_ITypeMem(MIPSOpcode op);
 
-		void Comp_RelBranch(u32 op);
-		void Comp_RelBranchRI(u32 op);
-		void Comp_FPUBranch(u32 op);
-		void Comp_FPULS(u32 op);
-		void Comp_FPUComp(u32 op);
-		void Comp_Jump(u32 op);
-		void Comp_JumpReg(u32 op);
-		void Comp_Syscall(u32 op);
-		void Comp_Break(u32 op);
+		void Comp_RelBranch(MIPSOpcode op);
+		void Comp_RelBranchRI(MIPSOpcode op);
+		void Comp_FPUBranch(MIPSOpcode op);
+		void Comp_FPULS(MIPSOpcode op);
+		void Comp_FPUComp(MIPSOpcode op);
+		void Comp_Jump(MIPSOpcode op);
+		void Comp_JumpReg(MIPSOpcode op);
+		void Comp_Syscall(MIPSOpcode op);
+		void Comp_Break(MIPSOpcode op);
 
-		void Comp_IType(u32 op);
-		void Comp_RType2(u32 op);
-		void Comp_RType3(u32 op);
-		void Comp_ShiftType(u32 op);
-		void Comp_Allegrex(u32 op);
-		void Comp_Allegrex2(u32 op);
-		void Comp_VBranch(u32 op);
-		void Comp_MulDivType(u32 op);
-		void Comp_Special3(u32 op);
+		void Comp_IType(MIPSOpcode op);
+		void Comp_RType2(MIPSOpcode op);
+		void Comp_RType3(MIPSOpcode op);
+		void Comp_ShiftType(MIPSOpcode op);
+		void Comp_Allegrex(MIPSOpcode op);
+		void Comp_Allegrex2(MIPSOpcode op);
+		void Comp_VBranch(MIPSOpcode op);
+		void Comp_MulDivType(MIPSOpcode op);
+		void Comp_Special3(MIPSOpcode op);
 
-		void Comp_FPU3op(u32 op);
-		void Comp_FPU2op(u32 op);
-		void Comp_mxc1(u32 op);
+		void Comp_FPU3op(MIPSOpcode op);
+		void Comp_FPU2op(MIPSOpcode op);
+		void Comp_mxc1(MIPSOpcode op);
 
-		void Comp_DoNothing(u32 op);
+		void Comp_DoNothing(MIPSOpcode op);
 
-		void Comp_SV(u32 op);
-		void Comp_SVQ(u32 op);
-		void Comp_VPFX(u32 op);
-		void Comp_VVectorInit(u32 op);	
-		void Comp_VMatrixInit(u32 op);
-		void Comp_VDot(u32 op);
-		void Comp_VecDo3(u32 op);
-		void Comp_VV2Op(u32 op);
-		void Comp_Mftv(u32 op);
-		void Comp_Vmtvc(u32 op);
-		void Comp_Vmmov(u32 op);
-		void Comp_VScl(u32 op);
-		void Comp_Vmmul(u32 op);
-		void Comp_Vmscl(u32 op);
-		void Comp_Vtfm(u32 op);
-		void Comp_VHdp(u32 op);
-		void Comp_VCrs(u32 op);
-		void Comp_VDet(u32 op);
-		void Comp_Vi2x(u32 op);
-		void Comp_Vx2i(u32 op);
-		void Comp_Vf2i(u32 op);
-		void Comp_Vi2f(u32 op);
-		void Comp_Vcst(u32 op);
-		void Comp_Vhoriz(u32 op);	
-		void Comp_VRot(u32 op);
-		void Comp_VIdt(u32 op);
-		void Comp_Vcmp(u32 op);
-		void Comp_Vcmov(u32 op);
-		void Comp_Viim(u32 op);
-		void Comp_Vfim(u32 op);
+		void Comp_SV(MIPSOpcode op);
+		void Comp_SVQ(MIPSOpcode op);
+		void Comp_VPFX(MIPSOpcode op);
+		void Comp_VVectorInit(MIPSOpcode op);	
+		void Comp_VMatrixInit(MIPSOpcode op);
+		void Comp_VDot(MIPSOpcode op);
+		void Comp_VecDo3(MIPSOpcode op);
+		void Comp_VV2Op(MIPSOpcode op);
+		void Comp_Mftv(MIPSOpcode op);
+		void Comp_Vmtvc(MIPSOpcode op);
+		void Comp_Vmmov(MIPSOpcode op);
+		void Comp_VScl(MIPSOpcode op);
+		void Comp_Vmmul(MIPSOpcode op);
+		void Comp_Vmscl(MIPSOpcode op);
+		void Comp_Vtfm(MIPSOpcode op);
+		void Comp_VHdp(MIPSOpcode op);
+		void Comp_VCrs(MIPSOpcode op);
+		void Comp_VDet(MIPSOpcode op);
+		void Comp_Vi2x(MIPSOpcode op);
+		void Comp_Vx2i(MIPSOpcode op);
+		void Comp_Vf2i(MIPSOpcode op);
+		void Comp_Vi2f(MIPSOpcode op);
+		void Comp_Vcst(MIPSOpcode op);
+		void Comp_Vhoriz(MIPSOpcode op);	
+		void Comp_VRot(MIPSOpcode op);
+		void Comp_VIdt(MIPSOpcode op);
+		void Comp_Vcmp(MIPSOpcode op);
+		void Comp_Vcmov(MIPSOpcode op);
+		void Comp_Viim(MIPSOpcode op);
+		void Comp_Vfim(MIPSOpcode op);
+		void Comp_VCrossQuat(MIPSOpcode op);
+		void Comp_Vsge(MIPSOpcode op);
+		void Comp_Vslt(MIPSOpcode op);
 
 
 		// Utility compilation functions
-		void BranchFPFlag(u32 op, PpcGen::FixupBranchType cc, bool likely);
-		void BranchVFPUFlag(u32 op, PpcGen::FixupBranchType cc, bool likely);
-		void BranchRSZeroComp(u32 op, PpcGen::FixupBranchType cc, bool andLink, bool likely);
-		void BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely);
+		void BranchFPFlag(MIPSOpcode op, PpcGen::FixupBranchType cc, bool likely);
+		void BranchVFPUFlag(MIPSOpcode op, PpcGen::FixupBranchType cc, bool likely);
+		void BranchRSZeroComp(MIPSOpcode op, PpcGen::FixupBranchType cc, bool andLink, bool likely);
+		void BranchRSRTComp(MIPSOpcode op, PpcGen::FixupBranchType cc, bool likely);
 
 		void SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset);
 		
 		// Utilities to reduce duplicated code
-		void CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b));
+		void CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, unsigned short imm), u32 (*eval)(u32 a, u32 b));
 		void CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arithOp2)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub = false);
+		void FPUComp(int fs, int ft, PpcGen::FixupBranchType cond, bool unorderer = false, int bf = 0);
+		
+		void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
+		void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+		void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
+			_assert_(js.prefixSFlag & PpcJitState::PREFIX_KNOWN);
+			GetVectorRegs(regs, sz, vectorReg);
+			ApplyPrefixST(regs, js.prefixS, sz);
+		}
+		void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
+			_assert_(js.prefixTFlag & PpcJitState::PREFIX_KNOWN);
+			GetVectorRegs(regs, sz, vectorReg);
+			ApplyPrefixST(regs, js.prefixT, sz);
+		}
+		void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 		
 		// flush regs
 		void FlushAll();
+		void FlushPrefixV();
 
 		void WriteDownCount(int offset = 0);
 		void MovFromPC(PpcGen::PPCReg r);
@@ -257,7 +283,7 @@ namespace MIPSComp
 		PpcJitState js;
 
 		PpcRegCache gpr;
-		//PpcRegCacheFPU fpr;
+		PpcRegCacheFPU fpr;
 
 		MIPSState *mips_;
 
@@ -277,8 +303,8 @@ namespace MIPSComp
 			const u8 *breakpointBailout;
 
 	};
-
-	typedef void (Jit::*MIPSCompileFunc)(u32 opcode);
+	
+	typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
 
 }	// namespace MIPSComp
 
