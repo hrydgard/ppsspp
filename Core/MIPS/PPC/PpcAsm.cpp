@@ -51,7 +51,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(analysis);
-	//fpr.Start(analysis);
+	fpr.Start(analysis);
 
 	int numInstructions = 0;
 	int cycles = 0;
@@ -66,8 +66,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
-		//fpr.SetCompilerPC(js.compilerPC);
-		u32 inst = Memory::Read_Instruction(js.compilerPC);
+		fpr.SetCompilerPC(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);

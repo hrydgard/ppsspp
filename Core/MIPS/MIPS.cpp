@@ -31,6 +31,8 @@
 
 #if defined(ARM)
 #include "ARM/ArmJit.h"
+#elif defined(PPC)
+#include "PPC/PpcJit.h"
 #else
 #include "x86/Jit.h"
 #endif
