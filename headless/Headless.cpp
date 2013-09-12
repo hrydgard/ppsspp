@@ -79,7 +79,8 @@ void printUsage(const char *progname, const char *reason)
 	HeadlessHost h2;
 	if (typeid(h1) != typeid(h2))
 	{
-		fprintf(stderr, "  --graphics            use the full gpu backend (slower)\n");
+		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
+		fprintf(stderr, "                        options: gles, software, directx9\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 
@@ -94,7 +95,7 @@ int main(int argc, const char* argv[])
 	bool fullLog = false;
 	bool useJit = true;
 	bool autoCompare = false;
-	bool useGraphics = false;
+	GPUCore gpuCore = GPU_NULL;
 	
 	const char *bootFilename = 0;
 	const char *mountIso = 0;
@@ -119,8 +120,26 @@ int main(int argc, const char* argv[])
 			useJit = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
+		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
+		{
+			const char *gpuName = argv[i] + strlen("--graphics=");
+			if (!strcasecmp(gpuName, "gles"))
+				gpuCore = GPU_GLES;
+			else if (!strcasecmp(gpuName, "software"))
+				gpuCore = GPU_SOFTWARE;
+			else if (!strcasecmp(gpuName, "directx9"))
+				gpuCore = GPU_DIRECTX9;
+			else if (!strcasecmp(gpuName, "null"))
+				gpuCore = GPU_NULL;
+			else
+			{
+				printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
+				return 1;
+			}
+		}
+		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))
-			useGraphics = true;
+			gpuCore = GPU_GLES;
 		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (bootFilename == 0)
@@ -149,7 +168,7 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	HeadlessHost *headlessHost = useGraphics ? new HEADLESSHOST_CLASS() : new HeadlessHost();
+	HeadlessHost *headlessHost = gpuCore != GPU_NULL ? new HEADLESSHOST_CLASS() : new HeadlessHost();
 	host = headlessHost;
 
 	std::string error_string;
@@ -170,7 +189,7 @@ int main(int argc, const char* argv[])
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParameter.gpuCore = glWorking ? GPU_GLES : GPU_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
@@ -209,6 +228,7 @@ int main(int argc, const char* argv[])
 	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
+	g_Config.iInternalResolution = 1;
 
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
