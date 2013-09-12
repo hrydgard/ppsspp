@@ -83,12 +83,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 	SetCurrentDirectory(modulePath);
 	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
-
+#ifndef _DEBUG
 	bool hideLog = true;
-
-#ifdef _DEBUG
-	hideLog = false;
+#else
+	bool hideLog = false;
 #endif
+
+	// Load config up here, because those changes below would be overwritten
+	// if it's not loaded here first.
+	g_Config.Load();
 
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
@@ -108,6 +111,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				g_Config.bSaveSettings = false;
 				break;
 			}
+
+			if (!strncmp(__argv[i], "--fullscreen", strlen("--fullscreen")))
+				g_Config.bFullScreen = true;
+
+			if (!strncmp(__argv[i], "--windowed", strlen("--windowed")))
+				g_Config.bFullScreen = false;
 		}
 	}
 
@@ -127,8 +136,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	} else {
 		langRegion = "en_US";
 	}
-
-	g_Config.Load();
 
 	LogManager::Init();
 	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
