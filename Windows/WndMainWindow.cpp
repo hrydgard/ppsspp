@@ -250,7 +250,7 @@ namespace MainWindow
 	void _ViewNormal(HWND hWnd) {
 		// Put caption and border styles back.
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
+		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
 		// Put back the menu bar.
@@ -277,7 +277,7 @@ namespace MainWindow
 
 		// Remove caption and border styles.
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
+		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
 		// Remove the menu bar.
@@ -706,9 +706,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		
-		// Update();
-
-		if(g_Config.bFullScreenOnLaunch)
+		if(g_Config.bFullScreen)
 			_ViewFullScreen(hwndMain);
 		
 		ShowWindow(hwndMain, nCmdShow);
