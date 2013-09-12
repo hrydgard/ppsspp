@@ -49,6 +49,6 @@ symbian {
 	MMP_RULES += "ARMFPU vfpv2"
 	DEFINES += USE_FFMPEG __STDC_CONSTANT_MACROS "BOOST_COMPILER_CONFIG=<boost/mpl/aux_/config/gcc.hpp>"
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
-	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis/glib-2.0
+	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis $$EPOCROOT/epoc32/include/stdapis/glib-2.0
 	INCLUDEPATH += ../ffmpeg/symbian/armv6/include
 }

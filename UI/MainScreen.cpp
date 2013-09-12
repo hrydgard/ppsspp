@@ -545,7 +545,9 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+#ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+#endif
 	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
 }
 
