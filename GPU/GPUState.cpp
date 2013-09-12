@@ -21,7 +21,6 @@
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
 #endif
-#ifdef USE_DIRECTX
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 #ifdef USE_DIRECTX
@@ -50,9 +49,12 @@ bool GPU_Init() {
 		gpu = new SoftGPU();
 #endif
 		break;
+
+#ifdef USE_DIRECTX
 	case GPU_DIRECTX9:
 		gpu = new DIRECTX9_GPU();
 		break;
+#endif
 	}
 
 	return gpu != NULL;
