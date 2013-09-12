@@ -2057,6 +2057,9 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	if (optionAddr != 0)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
 
+	// Creating a thread resumes dispatch automatically.  Probably can't create without it.
+	dispatchEnabled = true;
+
 	hleEatCycles(32000);
 	// This won't schedule to the new thread, but it may to one woken from eating cycles.
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
@@ -2134,15 +2137,12 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
 	{
-		// Starting a thread automatically resumes the dispatch thread.
-		// TODO: Maybe this happens even for worse-priority started threads?
-		dispatchEnabled = true;
-
 		__KernelChangeReadyState(cur, currentThread, true);
 		hleReSchedule("thread started");
 	}
-	else if (!dispatchEnabled)
-		WARN_LOG_REPORT(SCEKERNEL, "UNTESTED Dispatch disabled while starting worse-priority thread");
+
+	// Starting a thread automatically resumes the dispatch thread.
+	dispatchEnabled = true;
 
 	__KernelChangeReadyState(startThread, threadToStartID, true);
 	return 0;
