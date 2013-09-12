@@ -706,9 +706,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		
-		// Update();
-
-		if(g_Config.bFullScreenOnLaunch)
+		if(g_Config.bFullScreen)
 			_ViewFullScreen(hwndMain);
 		
 		ShowWindow(hwndMain, nCmdShow);
