@@ -174,8 +174,14 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		}
 		else
 		{
+			// Make sure the block is big enough to split.
+			if (b.start + b.size < alignedPosition + alignedSize)
+			{
+				ERROR_LOG(HLE, "Block allocator AllocAt failed, not enough contiguous space %08x, %i", position, size);
+				return -1;
+			}
 			//good to go
-			if (b.start == alignedPosition)
+			else if (b.start == alignedPosition)
 			{
 				InsertFreeAfter(&b, b.start + alignedSize, b.size - alignedSize);
 				b.taken = true;
@@ -194,6 +200,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 				b.start = alignedPosition;
 				b.size = alignedSize;
 				b.SetTag(tag);
+
 				return position;
 			}
 		}
@@ -312,7 +319,11 @@ void BlockAllocator::CheckBlocks() const
 	{
 		const Block &b = *bp;
 		if (b.start > 0xc0000000) {  // probably free'd debug values
-			ERROR_LOG(HLE, "Bogus block in allocator");
+			ERROR_LOG_REPORT(HLE, "Bogus block in allocator");
+		}
+		// Outside the valid range, probably logic bug in allocation.
+		if (b.start + b.size > rangeStart_ + rangeSize_ || b.start < rangeStart_) {
+			ERROR_LOG_REPORT(HLE, "Bogus block in allocator");
 		}
 	}
 }
