@@ -110,8 +110,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				g_Config.bAutoRun = false;
 				g_Config.bSaveSettings = false;
 				break;
-			case '-':
-			    break;
 			}
 
 			if (!strncmp(__argv[i], "--fullscreen", strlen("--fullscreen")))
