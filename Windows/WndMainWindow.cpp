@@ -497,8 +497,6 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_RUNONLOAD, desktopUI);
 		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI);
 		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI, L"\tCtrl+T");
-		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
-		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
 		
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
@@ -540,11 +538,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, L"\tF6");
 		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_MIPMAP, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
 		TranslateMenuItem(ID_DEBUG_IGNOREILLEGALREADS, desktopUI);
 
 		// Language menu
@@ -1166,10 +1161,6 @@ namespace MainWindow
 						break;
 					}
 
-				case ID_OPTIONS_MIPMAP:
-					g_Config.bMipMap = !g_Config.bMipMap;
-					break;
-
 				case ID_OPTIONS_VSYNC:
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
@@ -1237,18 +1228,6 @@ namespace MainWindow
 
 				case ID_FILE_EXIT:
 					DestroyWindow(hWnd);
-					break;
-
-				case ID_CPU_DYNAREC:
-					g_Config.bJit = !g_Config.bJit;
-					break;
-
-				case ID_CPU_MULTITHREADED:
-					g_Config.bSeparateCPUThread = !g_Config.bSeparateCPUThread;
-					break;
-
-				case ID_IO_MULTITHREADED:
-					g_Config.bSeparateIOThread = !g_Config.bSeparateIOThread;
 					break;
 
 				case ID_DEBUG_RUNONLOAD:
@@ -1322,10 +1301,6 @@ namespace MainWindow
 
 				case ID_OPTIONS_SHOWFPS:
 					g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
-					break;
-
-				case ID_OPTIONS_FASTMEMORY:
-					g_Config.bFastMemory = !g_Config.bFastMemory;
 					break;
 
 				case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(AUTO); break;
@@ -1569,18 +1544,13 @@ namespace MainWindow
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_DYNAREC, g_Config.bJit == true);
-		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
-		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
-		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
-		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
@@ -1753,9 +1723,6 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
-		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
-		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 

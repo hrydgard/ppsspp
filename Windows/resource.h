@@ -31,7 +31,6 @@
 #define ID_CONFIG_RESOLUTION            141
 #define ID_OPTIONS_FULLSCREEN           154
 #define ID_OPTIONS_SETTINGS             155
-#define ID_CPU_DYNAREC                  156
 #define ID_OPTIONS_SHOWERRORS           158
 #define ID_PLUGINS_LOADDEFAULTPLUGINS   159
 #define IDD_MEMORY                      160
@@ -64,8 +63,6 @@
 #define IDD_VFPU                        231
 #define IDD_BREAKPOINT                  233
 #define ID_FILE_LOAD_DIR                234
-#define ID_CPU_MULTITHREADED            235
-#define ID_IO_MULTITHREADED             236
 #define IDR_DEBUGACCELS                 237
 #define ID_DEBUG_DISPLAYMEMVIEW         238
 #define ID_DEBUG_DISPLAYBREAKPOINTLIST  239
@@ -181,7 +178,6 @@
 #define ID_OPTIONS_SCREEN4X              40028
 #define ID_OPTIONS_SCREEN5X              40029
 #define ID_OPTIONS_HARDWARETRANSFORM     40030
-#define ID_OPTIONS_FASTMEMORY            40031
 #define IDC_STEPHLE                      40032
 #define ID_OPTIONS_LINEARFILTERING       40033
 #define ID_FILE_QUICKSAVESTATE           40034
@@ -189,7 +185,6 @@
 #define ID_OPTIONS_CONTROLS              40036
 #define ID_DEBUG_RUNONLOAD               40037
 #define ID_DEBUG_DUMPNEXTFRAME           40038
-#define ID_OPTIONS_ANTIALIASING          40039
 #define ID_OPTIONS_VERTEXCACHE           40040
 #define ID_OPTIONS_SHOWFPS               40041
 #define ID_OPTIONS_STRETCHDISPLAY        40042
