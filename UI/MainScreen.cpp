@@ -559,9 +559,11 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		screenManager()->RecreateAllViews();
 	}
 	if (!strcmp(message, "control mapping")) {
+		globalUIState = UISTATE_MENU;
 		screenManager()->push(new ControlMappingScreen());
 	}
 	if (!strcmp(message, "settings")) {
+		globalUIState = UISTATE_MENU;
 		screenManager()->push(new GameSettingsScreen(""));
 	}
 }

@@ -166,9 +166,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		bootGame(value);
 	}
 	else if (!strcmp(message, "control mapping")) {
+		globalUIState = UISTATE_MENU;
 		screenManager()->push(new ControlMappingScreen());
 	}
 	else if (!strcmp(message, "settings")) {
+		globalUIState = UISTATE_MENU;
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	}
 }
