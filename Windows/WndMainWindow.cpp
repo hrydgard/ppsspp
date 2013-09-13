@@ -159,6 +159,8 @@ namespace MainWindow
 	}
 
 	void SavePosition() {
+		if (g_Config.bFullScreen) return;
+
 		WINDOWPLACEMENT placement;
 		GetWindowPlacement(hwndMain, &placement);
 		if (placement.showCmd == SW_SHOWNORMAL) {
