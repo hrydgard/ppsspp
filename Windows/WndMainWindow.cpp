@@ -644,7 +644,8 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		DefWindowProcW(hwndMain, WM_SETTEXT, 0, (LPARAM)windowTitle.c_str());
+		// Seems to be fine to call now since we use a UNICODE build...
+		SetWindowText(hwndMain, windowTitle.c_str());
 	}
 
 	void SetWindowTitle(const wchar_t *title) {
