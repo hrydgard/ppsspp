@@ -74,6 +74,7 @@
 extern std::map<int, int> windowsTransTable;
 BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
+static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
 extern InputState input_state;
 
@@ -640,6 +641,14 @@ namespace MainWindow
 
 	void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
+	}
+
+	void UpdateWindowTitle() {
+		DefWindowProcW(hwndMain, WM_SETTEXT, 0, (LPARAM)windowTitle.c_str());
+	}
+
+	void SetWindowTitle(const wchar_t *title) {
+		windowTitle = title;
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
@@ -1512,6 +1521,10 @@ namespace MainWindow
 
 		case WM_USER_UPDATE_SCREEN:
 			ResizeDisplay(true);
+			break;
+
+		case WM_USER_WINDOW_TITLE_CHANGED:
+			UpdateWindowTitle();
 			break;
 
 		case WM_MENUSELECT:

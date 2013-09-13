@@ -12,6 +12,7 @@ namespace MainWindow
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
 		WM_USER_UPDATE_UI = WM_USER + 102,
 		WM_USER_UPDATE_SCREEN = WM_USER + 103,
+		WM_USER_WINDOW_TITLE_CHANGED = WM_USER + 104,
 	};
 
 	enum {
@@ -41,6 +42,7 @@ namespace MainWindow
 	void Close();
 	void UpdateMenus();
 	void UpdateCommands();
+	void SetWindowTitle(const wchar_t *title);
 	void Update();
 	void Redraw();
 	HWND GetHWND();
