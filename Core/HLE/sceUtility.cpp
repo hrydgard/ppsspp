@@ -446,7 +446,7 @@ int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilityOskInitStart(%08x): wrong dialog type", paramsAddr);
+		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x): wrong dialog type", paramsAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
