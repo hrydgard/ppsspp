@@ -1205,6 +1205,7 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
+	bool skiptwo = (gpuStats.numFlips % 2 == 0); 
 #ifndef USING_GLES2
 	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 #else
@@ -1214,8 +1215,8 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if(useMem && age == 0 && !vfb->memoryUpdated) { 
-			ReadFramebufferToMemory(vfb);
+		if(useMem && skiptwo && age < FBO_OLD_AGE) { 
+				ReadFramebufferToMemory(vfb);
 		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
