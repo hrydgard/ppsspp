@@ -24,16 +24,16 @@ struct SceUtilityGamedataInstallParam
     pspUtilityDialogCommon common;
     u32 unknown1;
     char gameName[13];
-	char ignore1[3];
+    char ignore1[3];
     char dataName[20];
     char gamedataParamsGameTitle[128];
     char gamedataParamsDataTitle[128];
     char gamedataParamsData[1024];
     u8 unknown2;
-	char ignore2[7];
+    char ignore2[7];
     u32 unknownResult1;
     u32 unknownResult2;
-	char ignore[48];
+    char ignore[48];
 };
 
 class PSPGamedataInstallDialog: public PSPDialog {
