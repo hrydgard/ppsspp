@@ -214,17 +214,17 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 
 		// Is it at least the right stride?
 		if (framebuffer->fb_stride == entry->bufw && compatFormat) {
+			u32 offset = (entry->addr - address) / (entry->dim/entry->bufw);
 			if (framebuffer->format != entry->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
 				// If 'AttachFramebufferInvalid' , Kurohyou 2 will be missing battle scene in-game and FF Type-0 will have black box shadow/'blue fog' and 3rd birthday will have 'blue fog'
 				// If 'AttachFramebufferValid' , DBZ VS Tag will have 'burning effect' , 
 				AttachFramebufferValid(entry, framebuffer);
-			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
-				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
-				// TODO: Keep track of the y offset.
-				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-				AttachFramebufferInvalid(entry, framebuffer);
+			} else if ( offset < framebuffer->fb_stride) {
+				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area with %i offset containing texture at %08x", offset, address);
+				INFO_LOG(HLE, "Render to area with %i offset containing texture at %08x", offset, address);
+				AttachFramebufferValid(entry, framebuffer);
 			}
 		}
 	}
