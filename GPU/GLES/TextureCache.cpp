@@ -223,7 +223,6 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 				AttachFramebufferValid(entry, framebuffer);
 			} else if ( offset < framebuffer->fb_stride) {
 				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area with %i offset containing texture at %08x", offset, address);
-				INFO_LOG(HLE, "Render to area with %i offset containing texture at %08x", offset, address);
 				AttachFramebufferValid(entry, framebuffer);
 			}
 		}
