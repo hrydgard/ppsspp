@@ -925,7 +925,7 @@ namespace MIPSInt
 
 		case 2: //eq
 		case 10: //seq
-			cond = (F(fs) == F(ft));
+			cond = !my_isnan(F(fs)) && !my_isnan(F(ft)) && (F(fs) == F(ft));
 			break;
 
 		case 3: //ueq
