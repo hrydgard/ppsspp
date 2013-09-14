@@ -100,7 +100,8 @@ static VertexData ReadVertex(VertexReader& vreader)
 	VertexData vertex;
 
 	float pos[3];
-	vreader.ReadPos(pos);
+	// VertexDecoder normally scales z, but we want it unscaled.
+	vreader.ReadPosZ16(pos);
 
 	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
 		float uv[2];
