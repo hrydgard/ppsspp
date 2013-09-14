@@ -490,7 +490,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);
 
-			if ((vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
+			if (!gstate.isSkinningEnabled()) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
