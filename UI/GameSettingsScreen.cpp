@@ -334,7 +334,7 @@ void GameSettingsScreen::update(InputState &input) {
 
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "language")) {
-		RecreateViews();
+		screenManager()->RecreateAllViews();
 	}
 }
 
@@ -457,6 +457,12 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new Choice(d->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
+}
+
+void DeveloperToolsScreen::sendMessage(const char *message, const char *value){
+	if (!strcmp(message, "language")) {
+		screenManager()->RecreateAllViews();
+	}
 }
 
 UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {

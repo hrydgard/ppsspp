@@ -87,6 +87,7 @@ public:
 
 protected:
 	virtual void CreateViews();
+	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
 
 private:

@@ -556,7 +556,7 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		screenManager()->switchScreen(new EmuScreen(value));
 	}
 	if (!strcmp(message, "language")) {
-		RecreateViews();
+		screenManager()->RecreateAllViews();
 	}
 	if (!strcmp(message, "control mapping")) {
 		screenManager()->push(new ControlMappingScreen());
@@ -774,6 +774,6 @@ UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "language")) {
-		RecreateViews();
+		screenManager()->RecreateAllViews();
 	}
 }
