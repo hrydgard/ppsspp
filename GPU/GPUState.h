@@ -419,7 +419,6 @@ struct GPUStateCache
 	UVScale uv;
 	bool flipTexture;
 
-	float zMin, zMax;
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];
@@ -513,6 +512,6 @@ extern GPUInterface *gpu;
 extern GPUStatistics gpuStats;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
-	u32 baseExtended = ((gstate.base & 0x0F0000) << 8) | data;
+	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
 	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
 }
