@@ -989,7 +989,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 	if (useBufferedRendering) {
 		// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
 		// But let's still not use random memory.
-		if (entry->framebuffer->fbo && entry->invalidHint != -1) {
+		if (entry->framebuffer->fbo) {
 			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 			// Keep the framebuffer alive.
 			// TODO: Dangerous if it sets a new one?
