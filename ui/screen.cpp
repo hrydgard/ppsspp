@@ -155,6 +155,12 @@ void ScreenManager::pop() {
 	}
 }
 
+void ScreenManager::RecreateAllViews() {
+	for (auto it = stack_.begin(); it != stack_.end(); ++it) {
+		it->screen->RecreateViews();
+	}
+}
+
 void ScreenManager::finishDialog(const Screen *dialog, DialogResult result) {
 	if (dialog != stack_.back().screen) {
 		ELOG("Wrong dialog being finished!");
