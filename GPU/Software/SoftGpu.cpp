@@ -857,18 +857,30 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
-		DEBUG_LOG(G3D,"DL TGEN matrix data # %f", getFloat24(data));
-		gstate.tgenMatrix[gstate.texmtxnum++] = getFloat24(data);
+		{
+			DEBUG_LOG(G3D,"DL TGEN matrix data # %f", getFloat24(data));
+			int num = gstate.texmtxnum & 0xF;
+			if (num < 12) {
+				gstate.tgenMatrix[num] = getFloat24(data);
+			}
+			gstate.texmtxnum = (++num) & 0xF;
+		}
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
 		DEBUG_LOG(G3D,"DL BONE matrix #%i", data);
-		gstate.boneMatrixNumber = data;
+		gstate.boneMatrixNumber = data & 0x7F;
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
-		DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber, getFloat24(data));
-		gstate.boneMatrix[gstate.boneMatrixNumber++] = getFloat24(data);
+		{
+			DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber, getFloat24(data));
+			int num = gstate.boneMatrixNumber & 0x7F;
+			if (num < 96) {
+				gstate.boneMatrix[num] = getFloat24(data);
+			}
+			gstate.boneMatrixNumber = (++num) & 0x7F;
+		}
 		break;
 
 	default:
