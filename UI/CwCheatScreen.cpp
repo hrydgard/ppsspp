@@ -93,6 +93,12 @@ void CwCheatScreen::CreateViews() {
 	}
 }
 
+void CwCheatScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		screenManager()->RecreateAllViews();
+	}
+}
+
 UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 {
 	screenManager()->finishDialog(this, DR_OK);

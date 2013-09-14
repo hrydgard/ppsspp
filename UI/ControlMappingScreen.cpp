@@ -212,6 +212,12 @@ void ControlMappingScreen::CreateViews() {
 	}
 }
 
+void ControlMappingScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		screenManager()->RecreateAllViews();
+	}
+}
+
 UI::EventReturn ControlMappingScreen::OnBack(UI::EventParams &e) {
 	// If we're in-game, return to the game via DR_CANCEL.
 	if(PSP_IsInited()) {
