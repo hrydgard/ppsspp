@@ -270,11 +270,27 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		return;
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
-		fpr.SpillLock(fs, fd);
-		fpr.StoreFromRegister(fd);
-		CVTTSS2SI(EAX, fpr.R(fs));
-		MOV(32, fpr.R(fd), R(EAX));
-		fpr.ReleaseSpillLocks();
+		{
+			fpr.SpillLock(fs, fd);
+			fpr.StoreFromRegister(fd);
+			CVTTSS2SI(EAX, fpr.R(fs));
+
+			// Did we get an indefinite integer value?
+			CMP(32, R(EAX), Imm32(0x80000000));
+			FixupBranch skip = J_CC(CC_NE);
+			MOVSS(XMM0, fpr.R(fs));
+			XORPS(XMM1, R(XMM1));
+			CMPSS(XMM0, R(XMM1), CMP_LT);
+
+			// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
+			// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
+			MOVD_xmm(R(EAX), XMM0);
+			XOR(32, R(EAX), Imm32(0x7fffffff));
+
+			SetJumpTarget(skip);
+			MOV(32, fpr.R(fd), R(EAX));
+			fpr.ReleaseSpillLocks();
+		}
 		break;
 
 	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
