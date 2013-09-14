@@ -449,11 +449,20 @@ public:
 	void ADDS(ARMReg dest, ARMReg src, Operand2 op2);
 	void ADC (ARMReg dest, ARMReg src, Operand2 op2);
 	void ADCS(ARMReg dest, ARMReg src, Operand2 op2);
+
 	void LSL (ARMReg dest, ARMReg src, Operand2 op2);
 	void LSL (ARMReg dest, ARMReg src, ARMReg op2);
 	void LSLS(ARMReg dest, ARMReg src, Operand2 op2);
 	void LSLS(ARMReg dest, ARMReg src, ARMReg op2);
 	void LSR (ARMReg dest, ARMReg src, Operand2 op2);
+	void LSRS(ARMReg dest, ARMReg src, Operand2 op2);
+	void LSR (ARMReg dest, ARMReg src, ARMReg op2);
+	void LSRS(ARMReg dest, ARMReg src, ARMReg op2);
+	void ASR (ARMReg dest, ARMReg src, Operand2 op2);
+	void ASRS(ARMReg dest, ARMReg src, Operand2 op2);
+	void ASR (ARMReg dest, ARMReg src, ARMReg op2);
+	void ASRS(ARMReg dest, ARMReg src, ARMReg op2);
+
 	void SBC (ARMReg dest, ARMReg src, Operand2 op2);
 	void SBCS(ARMReg dest, ARMReg src, Operand2 op2);
 	void RBIT(ARMReg dest, ARMReg src);

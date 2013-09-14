@@ -607,11 +607,20 @@ void ARMXEmitter::SDIV(ARMReg dest, ARMReg dividend, ARMReg divisor)
 		PanicAlert("Trying to use integer divide on hardware that doesn't support it. Bad programmer.");
 	WriteSignedMultiply(1, 0xF, 0, dest, divisor, dividend);
 }
+
 void ARMXEmitter::LSL (ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(0, false, dest, src, op2);}
 void ARMXEmitter::LSLS(ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(0, true, dest, src, op2);}
-void ARMXEmitter::LSL (ARMReg dest, ARMReg src, ARMReg op2)	  { WriteShiftedDataOp(1, false, dest, src, op2);} 
-void ARMXEmitter::LSLS(ARMReg dest, ARMReg src, ARMReg op2)	  { WriteShiftedDataOp(1, true, dest, src, op2);}
-void ARMXEmitter::LSR (ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(3, false, dest, src, op2);}
+void ARMXEmitter::LSL (ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(1, false, dest, src, op2);} 
+void ARMXEmitter::LSLS(ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(1, true, dest, src, op2);}
+void ARMXEmitter::LSR (ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(2, false, dest, src, op2);}
+void ARMXEmitter::LSRS(ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(2, true, dest, src, op2);}
+void ARMXEmitter::LSR (ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(3, false, dest, src, op2);}
+void ARMXEmitter::LSRS(ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(3, true, dest, src, op2);}
+void ARMXEmitter::ASR (ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(4, false, dest, src, op2);}
+void ARMXEmitter::ASRS(ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(4, true, dest, src, op2);}
+void ARMXEmitter::ASR (ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(5, false, dest, src, op2);}
+void ARMXEmitter::ASRS(ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(5, true, dest, src, op2);}
+
 void ARMXEmitter::MUL (ARMReg dest,	ARMReg src, ARMReg op2)
 {
 	Write32(condition | (dest << 16) | (src << 8) | (9 << 4) | op2);
