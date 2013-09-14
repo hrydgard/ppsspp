@@ -60,7 +60,6 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool hasBones = gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -91,7 +90,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		}
 
 		// Bones
-		if (hasBones)
+		if (gstate.isSkinningEnabled())
 			id->d[0] |= (TranslateNumBones(gstate.getNumBoneWeights()) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
@@ -173,7 +172,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		}
 	}
 
-	if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
+	if (gstate.isSkinningEnabled()) {
 		WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
 	}
 
@@ -210,7 +209,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "uniform mat4 u_view;\n");
 		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
-		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
+		if (gstate.isSkinningEnabled()) {
 			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
@@ -298,7 +297,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if (gstate.getWeightMask() == GE_VTYPE_WEIGHT_NONE) {
+		if (!gstate.isSkinningEnabled()) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
