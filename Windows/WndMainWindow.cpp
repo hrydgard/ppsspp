@@ -270,6 +270,7 @@ namespace MainWindow
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, TRUE);
+		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 	}
 
 	void _ViewFullScreen(HWND hWnd) {
