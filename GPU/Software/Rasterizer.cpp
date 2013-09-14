@@ -19,11 +19,12 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
+#include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Colors.h"
 
-extern u8* fb;
-extern u8* depthbuf;
+extern FormatBuffer fb;
+extern FormatBuffer depthbuf;
 
 extern u32 clut[4096];
 
@@ -227,16 +228,16 @@ static inline u32 GetPixelColor(int x, int y)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		return DecodeRGB565(*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]);
+		return DecodeRGB565(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_5551:
-		return DecodeRGBA5551(*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]);
+		return DecodeRGBA5551(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_4444:
-		return DecodeRGBA4444(*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]);
+		return DecodeRGBA4444(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_8888:
-		return *(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()];
+		return fb.Get32(x, y, gstate.FrameBufStride());
 
 	case GE_FORMAT_INVALID:
 		_dbg_assert_msg_(G3D, false, "Software: invalid framebuf format.");
@@ -248,19 +249,19 @@ static inline void SetPixelColor(int x, int y, u32 value)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = RGBA8888To565(value);
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To565(value));
 		break;
 
 	case GE_FORMAT_5551:
-		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = RGBA8888To5551(value);
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To5551(value));
 		break;
 
 	case GE_FORMAT_4444:
-		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = RGBA8888To4444(value);
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To4444(value));
 		break;
 
 	case GE_FORMAT_8888:
-		*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = value;
+		fb.Set32(x, y, gstate.FrameBufStride(), value);
 		break;
 
 	case GE_FORMAT_INVALID:
@@ -270,12 +271,12 @@ static inline void SetPixelColor(int x, int y, u32 value)
 
 static inline u16 GetPixelDepth(int x, int y)
 {
-	return *(u16*)&depthbuf[2*x + 2*y*gstate.DepthBufStride()];
+	return depthbuf.Get16(x, y, gstate.DepthBufStride());
 }
 
 static inline void SetPixelDepth(int x, int y, u16 value)
 {
-	*(u16*)&depthbuf[2*x + 2*y*gstate.DepthBufStride()] = value;
+	depthbuf.Set16(x, y, gstate.DepthBufStride(), value);
 }
 
 static inline u8 GetPixelStencil(int x, int y)
@@ -284,9 +285,10 @@ static inline u8 GetPixelStencil(int x, int y)
 		// TODO: Should we return 0xFF instead here?
 		return 0;
 	} else if (gstate.FrameBufFormat() != GE_FORMAT_8888) {
-		return (((*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]) & 0x8000) != 0) ? 0xFF : 0;
+		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
 	} else {
-		return (((*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()]) & 0x80000000) != 0) ? 0xFF : 0;
+		// TODO: Not the whole value?
+		return ((fb.Get32(x, y, gstate.FrameBufStride()) & 0x80000000) != 0) ? 0xFF : 0;
 	}
 }
 
@@ -295,9 +297,9 @@ static inline void SetPixelStencil(int x, int y, u8 value)
 	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
 		// Do nothing
 	} else if (gstate.FrameBufFormat() != GE_FORMAT_8888) {
-		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = (*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] & ~0x8000) | ((value&0x80)<<8);
+		fb.Set16(x, y, gstate.FrameBufStride(), (fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000) | ((value&0x80)<<8));
 	} else {
-		*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = (*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] & ~0x80000000) | ((value&0x80)<<24);
+		fb.Set32(x, y, gstate.FrameBufStride(), (fb.Get32(x, y, gstate.FrameBufStride()) & ~0x80000000) | ((value&0x80)<<24));
 	}
 }
 

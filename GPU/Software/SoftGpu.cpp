@@ -37,8 +37,8 @@ static GLuint program;
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
-u8* fb = NULL;
-u8* depthbuf = NULL;
+FormatBuffer fb = {NULL};
+FormatBuffer depthbuf = {NULL};
 u32 clut[4096];
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
@@ -140,8 +140,8 @@ SoftGPU::SoftGPU()
 	attr_pos = glGetAttribLocation(program, "pos");
 	attr_tex = glGetAttribLocation(program, "TexCoordIn");
 
-	fb = Memory::GetPointer(0x44000000); // TODO: correct default address?
-	depthbuf = Memory::GetPointer(0x44000000); // TODO: correct default address?
+	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
+	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 }
 
 SoftGPU::~SoftGPU()
@@ -153,7 +153,7 @@ SoftGPU::~SoftGPU()
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
 {
-  glDisable(GL_BLEND);
+	glDisable(GL_BLEND);
 	glViewport(0, 0, dstwidth, dstheight);
 	glScissor(0, 0, dstwidth, dstheight);
 
@@ -167,10 +167,9 @@ void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int
 		// TODO: This should probably be converted in a shader instead..
 		// TODO: Do something less brain damaged to manage this buffer...
 		u32 *buf = new u32[srcwidth * srcheight];
-		const u16 *fb16 = (const u16 *)fb;
 		for (int y = 0; y < srcheight; ++y) {
 			u32 *buf_line = &buf[y * srcwidth];
-			const u16 *fb_line = &fb16[y * gstate.FrameBufStride()];
+			const u16 *fb_line = &fb.as16[y * gstate.FrameBufStride()];
 
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_565:
@@ -240,7 +239,7 @@ void SoftGPU::CopyDisplayToOutput()
 void SoftGPU::CopyDisplayToOutputInternal()
 {
 	// The display always shows 480x272.
-	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	CopyToCurrentFboFromRam(fb.data, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
@@ -476,12 +475,12 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
-		fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
+		fb.data = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
 		DEBUG_LOG(G3D, "DL FramebufPtr: %08x", data);
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
-		fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
+		fb.data = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
 		DEBUG_LOG(G3D, "DL FramebufWidth: %i", data);
 		break;
 
@@ -599,12 +598,12 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ZBUFPTR:
-		depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
+		depthbuf.data = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
 		DEBUG_LOG(G3D,"Zbuf Ptr: %06x", data);
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
-		depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
+		depthbuf.data = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
 		DEBUG_LOG(G3D,"Zbuf Width: %i", data);
 		break;
 
