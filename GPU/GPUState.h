@@ -233,7 +233,7 @@ struct GPUgstate
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
 	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
-	int getBlendEq()    const { return (blend >> 8) & 0x7; }
+	GEBlendMode getBlendEq() const { return static_cast<GEBlendMode>((blend >> 8) & 0x7); }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 
 	// AntiAlias
@@ -309,6 +309,7 @@ struct GPUgstate
 	bool isDirectionalLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_DIRECTIONAL; }
 	bool isPointLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_POINT; }
 	bool isSpotLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_SPOT; }
+	GEShadeMode getShadeMode() const { return static_cast<GEShadeMode>(shademodel & 1); }
 	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
 	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
@@ -352,7 +353,7 @@ struct GPUgstate
 	int getRegionX1() const { return region1 & 0x3FF; }
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
-	int getRegionY2() const { return ((region2 >> 10) & 0x3FF); }
+	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); } 
 	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); } 
 

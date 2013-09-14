@@ -775,7 +775,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				Vec3<int> prim_color_rgb(0, 0, 0);
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
-				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD) {
+				if (gstate.getShadeMode() == GE_SHADE_GOURAUD) {
 					// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
 					// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 					// TODO: Is that the correct way to interpolate?
