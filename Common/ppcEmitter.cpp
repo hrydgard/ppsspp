@@ -559,14 +559,12 @@ namespace PpcGen {
 		D_FORM(48, FRt, Ra, offset);
 	}
 	void PPCXEmitter::LFD	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
-		Break();
 		D_FORM(50, FRt, Ra, offset);
 	}
 	void PPCXEmitter::SFS	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
 		D_FORM(52, FRt, Ra, offset);
 	}
 	void PPCXEmitter::SFD	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
-		Break();
 		D_FORM(54, FRt, Ra, offset);
 	}
 
@@ -733,44 +731,85 @@ namespace PpcGen {
 
 	// Prologue / epilogue
 
+	/** save/load fpr in a static buffer ... **/
+	static double _fprTmp[32];
+
 	void PPCXEmitter::Prologue() {
 		// Save regs
 		u32 regSize = 8; // 4 in 32bit system
-		u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
+		u32 stackFrameSize = 0x1F0;
 
 		// Write Prologue (setup stack frame etc ...)
 		// Save Lr
 		MFLR(R12);
 
+		// Save gpr
 		for(int i = 14; i < 32; i ++) {
 			STD((PPCReg)i, R1, -((33 - i) * regSize));
 		}
 
 		// Save r12
 		STW(R12, R1, -0x8);
-
+#if 0
+		// add fpr frame
+		ADDI(R12, R1, -0x98);
+		
+		// Load fpr
+		for(int i = 14; i < 32; i ++) {
+			SFD((PPCReg)i, R1, -((32 - i) * regSize));
+		}
+#endif
 		// allocate stack
-		STWU(R1, R1, -stackFrameSize);
+		STWU(R1, R1, -stackFrameSize);		
+
+#if 1
+		// load fpr buff
+		MOVI2R(R5, (u32)&_fprTmp);
+		
+		// Save fpr
+		for(int i = 14; i < 32; i ++) {
+			SFD((PPCReg)i, R5, i * regSize);
+		}
+#endif
 	}
 
 	void PPCXEmitter::Epilogue() {		
 		u32 regSize = 8; // 4 in 32bit system
-		u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
+		u32 stackFrameSize = 0x1F0;
+
+		//Break();
 
 		// Write Epilogue (restore stack frame, return)
 		// free stack
 		ADDI(R1, R1, stackFrameSize);	
+#if 0
+		ADDI(R12, R1, -0x98);	
 
-		// Restore regs
+		// Restore fpr
+		for(int i = 14; i < 32; i ++) {
+			LFD((PPCReg)i, R1, -((32 - i) * regSize));
+		}
+#endif
+		// Restore gpr
 		for(int i = 14; i < 32; i ++) {
 			LD((PPCReg)i, R1, -((33 - i) * regSize));
-		}
+		}		
 
 		// recover r12 (LR saved register)
 		LWZ (R12, R1, -0x8);
 
 		// Restore Lr
 		MTLR(R12);
+		
+#if 1
+		// load fpr buff
+		MOVI2R(R5, (u32)&_fprTmp);
+		
+		// Load fpr
+		for(int i = 14; i < 32; i ++) {
+			LFD((PPCReg)i, R5, i * regSize);
+		}
+#endif
 	}
 
 	// Others ...
