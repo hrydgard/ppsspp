@@ -600,13 +600,13 @@ void CtrlMemView::search(bool continueSearch)
 	std::vector<u8> searchData;
 	if (asciiSelected)
 	{
-		for (int i = 0; i < searchQuery.length(); i++)
+		for (size_t i = 0; i < searchQuery.length(); i++)
 		{
 			char c = searchQuery[i];
 			searchData.push_back(c);
 		}
 	} else {
-		int index = 0;
+		size_t index = 0;
 		while (index < searchQuery.size())
 		{
 			if (searchQuery[index] == ' ' || searchQuery[index] == '\t')
@@ -641,7 +641,7 @@ void CtrlMemView::search(bool continueSearch)
 	
 	searching = true;
 	redraw();	// so the cursor is disabled
-	for (int i = 0; i < memoryAreas.size(); i++)
+	for (size_t i = 0; i < memoryAreas.size(); i++)
 	{
 		u32 segmentStart = memoryAreas[i].first;
 		u32 segmentEnd = memoryAreas[i].second;
