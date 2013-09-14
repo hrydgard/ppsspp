@@ -57,6 +57,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 	const u32 vertType = gstate.vertType;
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -82,9 +83,9 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		id->d[0] |= gstate.getUVGenMode() << 16;
 
 		// The next bits are used differently depending on UVgen mode
-		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+		if (doTextureProjection) {
 			id->d[0] |= gstate.getUVProjMode() << 18;
-		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+		} else if (doShadeMapping) {
 			id->d[0] |= gstate.getUVLS0() << 18;
 			id->d[0] |= gstate.getUVLS1() << 20;
 		}
@@ -95,7 +96,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 		// Okay, d[1] coming up. ==============
 
-		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
 				id->d[1] |= gstate.getLightComputation(i) << (i * 4);
@@ -152,18 +153,19 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 
 	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
+	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
-	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
-		int shadeLight0 = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP ? gstate.getUVLS0() : -1;
-		int shadeLight1 = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP ? gstate.getUVLS1() : -1;
+		int shadeLight0 = doShadeMapping ? gstate.getUVLS0() : -1;
+		int shadeLight1 = doShadeMapping ? gstate.getUVLS1() : -1;
 		for (int i = 0; i < 4; i++) {
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
@@ -207,7 +209,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
 		WRITE(p, "uniform mat4 u_world;\n");
 		WRITE(p, "uniform mat4 u_view;\n");
-		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX)
+		if (doTextureProjection)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 		if (gstate.isSkinningEnabled()) {
 			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
