@@ -23,7 +23,7 @@ protected:
 	virtual void CreateViews() = 0;
 	virtual void DrawBackground(UIContext &dc) {}
 
-	void RecreateViews() { recreateViews_ = true; }
+	virtual void  RecreateViews() { recreateViews_ = true; }
 
 	UI::ViewGroup *root_;
 

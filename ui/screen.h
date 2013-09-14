@@ -48,6 +48,8 @@ public:
 	virtual void axis(const AxisInput &touch) {}
 	virtual void sendMessage(const char *msg, const char *value) {}
 
+	virtual void RecreateViews() {}
+
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
 
@@ -88,6 +90,9 @@ public:
 
 	// Push a dialog box in front. Currently 1-level only.
 	void push(Screen *screen, int layerFlags = 0);
+
+	// Recreate all views
+	void RecreateAllViews();
 
 	// Pops the dialog away.
 	void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
