@@ -354,8 +354,14 @@ struct GPUgstate
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
-	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); } 
-	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); } 
+	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); }
+	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); }
+	// Fixed 16 point.
+	int getOffsetX16() const { return offsetx & 0xFFFF; }
+	// Fixed 16 point.
+	int getOffsetY16() const { return offsety & 0xFFFF; }
+	float getOffsetX() const { return (float)getOffsetX16() / 16.0f; }
+	float getOffsetY() const { return (float)getOffsetY16() / 16.0f; }
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }

@@ -371,8 +371,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int regionX2 = gstate_c.curRTWidth;
 	int regionY2 = gstate_c.curRTHeight;
 
-	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
-	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
+	float offsetX = gstate.getOffsetX();
+	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
