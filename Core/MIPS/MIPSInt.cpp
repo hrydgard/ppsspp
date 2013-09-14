@@ -866,13 +866,31 @@ namespace MIPSInt
 		case 5:	F(fd)	= fabsf(F(fs)); break; //abs
 		case 6:	F(fd)	= F(fs); break; //mov
 		case 7:	F(fd)	= -F(fs); break; //neg
-		case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-		case 13: FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
-		case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
-		case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
+		case 12:
+		case 13:
+		case 14:
+		case 15:
+			if (my_isinf(F(fs)) || my_isnan(F(fs)))
+			{
+				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
+			}
+			switch (op & 0x3f)
+			{
+			case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+			case 13: FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
+			case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
+			case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
+			}
+			break;
 		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
 
 		case 36:
+			if (my_isinf(F(fs)) || my_isnan(F(fs)))
+			{
+				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
+			}
 			switch (currentMIPS->fcr31 & 3)
 			{
 			case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
@@ -907,7 +925,7 @@ namespace MIPSInt
 
 		case 2: //eq
 		case 10: //seq
-			cond = (F(fs) == F(ft));
+			cond = !my_isnan(F(fs)) && !my_isnan(F(ft)) && (F(fs) == F(ft));
 			break;
 
 		case 3: //ueq
