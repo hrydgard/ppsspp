@@ -360,7 +360,8 @@ bool IniFile::GetKeys(const char* sectionName, std::vector<std::string>& keys) c
 	{
 		std::string key;
 		ParseLine(*liter, &key, 0, 0);
-		keys.push_back(key);
+		if (!key.empty())
+			keys.push_back(key);
 	}
 	return true;
 }
