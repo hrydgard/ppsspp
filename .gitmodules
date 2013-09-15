@@ -12,4 +12,4 @@
 	url = https://github.com/hrydgard/ppsspp-ffmpeg.git
 [submodule "dx9sdk"]
 	path = dx9sdk
-	url = git@github.com:hrydgard/minidx9.git
+	url = https://github.com/hrydgard/minidx9.git
