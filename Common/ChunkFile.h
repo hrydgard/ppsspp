@@ -161,10 +161,24 @@ public:
 
 	// The returned object can be compared against the version that was loaded.
 	// This can be used to support versions as old as minVer.
+	// Version = 0 means the section was not found.
 	PointerWrapSection Section(const char *title, int minVer, int ver) {
+		char marker[16] = {0};
 		int foundVersion = ver;
-		Do(foundVersion);
-		DoMarker(title);
+
+		strncpy(marker, title, sizeof(marker));
+		if (!ExpectVoid(marker, sizeof(marker)))
+		{
+			// Might be before we added name markers for safety.
+			if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion)))
+				DoMarker(title);
+			// Wasn't found, but maybe we can still load the state.
+			else
+				foundVersion = 0;
+		}
+		else
+			Do(foundVersion);
+
 		if (error == ERROR_FAILURE || foundVersion < minVer || foundVersion > ver) {
 			WARN_LOG(COMMON, "Savestate failure: wrong version %d found for %s", foundVersion, title);
 			SetError(ERROR_FAILURE);
@@ -182,6 +196,19 @@ public:
 			error = error_;
 		if (error > ERROR_WARNING)
 			mode = PointerWrap::MODE_MEASURE;
+	}
+
+	bool ExpectVoid(void *data, int size)
+	{
+		switch (mode) {
+		case MODE_READ:	if (memcmp(data, *ptr, size) != 0) return false; break;
+		case MODE_WRITE: memcpy(*ptr, data, size); break;
+		case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
+		case MODE_VERIFY: for(int i = 0; i < size; i++) _dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]); break;
+		default: break;  // throw an error?
+		}
+		(*ptr) += size;
+		return true;
 	}
 
 	void DoVoid(void *data, int size)
@@ -621,7 +648,9 @@ public:
 };
 
 inline PointerWrapSection::~PointerWrapSection() {
-	p_.DoMarker(title_);
+	if (ver_ > 0) {
+		p_.DoMarker(title_);
+	}
 }
 
 
