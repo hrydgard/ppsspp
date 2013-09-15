@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include "fbo.h"
 
+namespace DX9 {
+
 static LPDIRECT3DSURFACE9 currentRtt;
 static LPDIRECT3DSURFACE9 workingRtt;
 static LPDIRECT3DSURFACE9 deviceRTsurf;
@@ -158,3 +160,5 @@ void SwapBuffer() {
 	// :s
 	//pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0,0 ,0), 0, 0);
 }
+
+};

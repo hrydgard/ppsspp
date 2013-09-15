@@ -19,6 +19,8 @@
 
 #include "Globals.h"
 
+namespace DX9 {
+
 // #define USE_BONE_ARRAY
 
 struct VertexShaderIDDX9
@@ -55,3 +57,5 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform);
 
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.
 int TranslateNumBonesDX9(int bones);
+
+};

@@ -30,6 +30,7 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 
+namespace DX9 {
 
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
@@ -284,10 +285,10 @@ void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h
 	pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 }
 
-VirtualFramebuffer *FramebufferManagerDX9::GetDisplayFBO() {
-	VirtualFramebuffer *match = NULL;
+VirtualFramebufferDX9 *FramebufferManagerDX9::GetDisplayFBO() {
+	VirtualFramebufferDX9 *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *v = vfbs_[i];
+		VirtualFramebufferDX9 *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
 			if (match == NULL || match->last_frame_render < v->last_frame_render) {
@@ -353,7 +354,7 @@ static void DrawingSize(int &drawing_width, int &drawing_height) {
 	}
 }
 
-void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {
+void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebufferDX9 *v) {
 	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
 	if (v->fbo) {
 		fbo_destroy(v->fbo);
@@ -406,9 +407,9 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 	int buffer_height = drawing_height;
 
 	// Find a matching framebuffer
-	VirtualFramebuffer *vfb = 0;
+	VirtualFramebufferDX9 *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *v = vfbs_[i];
+		VirtualFramebufferDX9 *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
@@ -429,7 +430,7 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 	// None found? Create one.
 	if (!vfb) {
 		gstate_c.textureChanged = true;
-		vfb = new VirtualFramebuffer();
+		vfb = new VirtualFramebufferDX9();
 		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
 		vfb->fb_stride = fb_stride;
@@ -598,7 +599,7 @@ void FramebufferManagerDX9::CopyDisplayToOutput() {
 	
 	currentRenderVfb_ = 0;
 
-	VirtualFramebuffer *vfb = GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = GetDisplayFBO();
 	if (!vfb) {
 		if (Memory::IsValidAddress(ramDisplayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
@@ -644,7 +645,7 @@ void FramebufferManagerDX9::CopyDisplayToOutput() {
 	}
 }
 
-void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
+void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, bool sync) {
 	// This only works with buffered rendering
 	if (!useBufferedRendering_) {
 		return;
@@ -660,11 +661,11 @@ void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, boo
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 		// For now we'll keep these on the same struct as the ones that can get displayed
 		// (and blatantly copy work already done above while at it).
-		VirtualFramebuffer *nvfb = 0;
+		VirtualFramebufferDX9 *nvfb = 0;
 
 		// We maintain a separate vector of framebuffer objects for blitting.
 		for (size_t i = 0; i < bvfbs_.size(); ++i) {
-			VirtualFramebuffer *v = bvfbs_[i];
+			VirtualFramebufferDX9 *v = bvfbs_[i];
 			if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
 				if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 					nvfb = v;
@@ -678,7 +679,7 @@ void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, boo
 
 		// Create a new fbo if none was found for the size
 		if(!nvfb) {
-			nvfb = new VirtualFramebuffer();
+			nvfb = new VirtualFramebufferDX9();
 			nvfb->fbo = 0;
 			nvfb->fb_address = vfb->fb_address;
 			nvfb->fb_stride = vfb->fb_stride;
@@ -749,7 +750,7 @@ void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, boo
 	}
 }
 
-void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
+void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebufferDX9 *src, VirtualFramebufferDX9 *dst, bool flip, float upscale, float vscale) {
 	// This only works with buffered rendering
 	if (!useBufferedRendering_ || !src->fbo) {
 		return;
@@ -825,7 +826,7 @@ static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBuff
 #include <xgraphics.h>
 #endif
 
-static void Resolve(u8* data, VirtualFramebuffer *vfb) {
+static void Resolve(u8* data, VirtualFramebufferDX9 *vfb) {
 #ifdef _XBOX
 	D3DTexture * rtt = (D3DTexture*)fbo_get_rtt(vfb->fbo);
 	pD3Ddevice->Resolve(D3DRESOLVE_RENDERTARGET0, NULL, rtt, NULL, 0, 0, NULL, 0.f, 0, NULL);
@@ -839,7 +840,7 @@ static void Resolve(u8* data, VirtualFramebuffer *vfb) {
 #endif
 }
 
-void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
+void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb) {
 	if (useBufferedRendering_ && vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
 	} else {
@@ -910,7 +911,7 @@ std::vector<FramebufferInfo> FramebufferManagerDX9::GetFramebufferList() {
 	std::vector<FramebufferInfo> list;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+		VirtualFramebufferDX9 *vfb = vfbs_[i];
 
 		FramebufferInfo info;
 		info.fb_address = vfb->fb_address;
@@ -934,7 +935,7 @@ void FramebufferManagerDX9::DecimateFBOs() {
 	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
 #endif
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+		VirtualFramebufferDX9 *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if(useMem && age == 0 && !vfb->memoryUpdated) { 
@@ -954,7 +955,7 @@ void FramebufferManagerDX9::DecimateFBOs() {
 
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
+		VirtualFramebufferDX9 *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
@@ -972,7 +973,7 @@ void FramebufferManagerDX9::DestroyAllFBOs() {
 	prevPrevDisplayFramebuf_ = 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
+		VirtualFramebufferDX9 *vfb = vfbs_[i];
 		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		DestroyFramebuf(vfb);
 	}
@@ -993,7 +994,7 @@ void FramebufferManagerDX9::UpdateFromMemory(u32 addr, int size) {
 
 		bool needUnbind = false;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = vfbs_[i];
+			VirtualFramebufferDX9 *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
 				vfb->dirtyAfterDisplay = true;
 				vfb->reallyDirtyAfterDisplay = true;
@@ -1019,3 +1020,5 @@ void FramebufferManagerDX9::UpdateFromMemory(u32 addr, int size) {
 void FramebufferManagerDX9::Resized() {
 	resized_ = true;
 }
+
+};

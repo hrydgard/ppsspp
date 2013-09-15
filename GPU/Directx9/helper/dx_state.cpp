@@ -1,6 +1,8 @@
 #include "dx_state.h"
 #include <assert.h>
 
+namespace DX9 {
+
 
 DirectxState dxstate;
 GLExtensions gl_extensions;
@@ -77,3 +79,5 @@ void DirectxState::SetVSyncInterval(int interval) {
 #endif
 	*/
 }
+
+};

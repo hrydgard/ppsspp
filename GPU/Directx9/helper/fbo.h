@@ -4,6 +4,8 @@
 // Very C-ish API because that's what I felt like, and it's cool to completely
 // hide the data from callers...
 
+namespace DX9 {
+
 struct FBO;
 
 enum FBOColorDepth {
@@ -37,3 +39,5 @@ void * fbo_get_rtt(FBO *fbo);
 
 // To get default depth and rt surface
 void fbo_init();
+
+};

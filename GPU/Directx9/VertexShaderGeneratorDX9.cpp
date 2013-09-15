@@ -33,6 +33,8 @@
 
 #define WRITE p+=sprintf
 
+namespace DX9 {
+
 bool CanUseHardwareTransformDX9(int prim) {
 	if (!g_Config.bHardwareTransform)
 		return false;
@@ -575,3 +577,5 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 	WRITE(p, "}\n");
 }
+
+};

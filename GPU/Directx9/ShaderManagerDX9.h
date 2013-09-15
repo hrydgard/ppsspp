@@ -23,6 +23,8 @@
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
+namespace DX9 {
+
 class PSShader;
 class VSShader;
 
@@ -226,5 +228,7 @@ private:
 
 	typedef std::map<VertexShaderIDDX9, VSShader *> VSCache;
 	VSCache vsCache_;
+
+};
 
 };

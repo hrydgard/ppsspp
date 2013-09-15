@@ -24,6 +24,8 @@
 #include "GPU/Directx9/VertexDecoderDX9.h"
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 
+namespace DX9 {
+
 
 // Always use float for decoding data
 #define USE_WEIGHT_HACK
@@ -1002,3 +1004,5 @@ int VertexDecoderDX9::ToString(char *output) const {
 	output += sprintf(output, " (size: %i)", VertexSize());
 	return output - start;
 }
+
+};

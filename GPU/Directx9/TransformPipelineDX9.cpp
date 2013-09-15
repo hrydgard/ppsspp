@@ -40,6 +40,8 @@
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 
+namespace DX9 {
+
 const D3DPRIMITIVETYPE glprim[8] = {
 	D3DPT_POINTLIST,
 	D3DPT_LINELIST,
@@ -128,6 +130,7 @@ void TransformDrawEngineDX9::DestroyDeviceObjects() {
 }
 
 namespace {
+using namespace DX9;
 
 // Convenient way to do precomputation to save the parts of the lighting calculation
 // that's common between the many vertices of a draw call.
@@ -1330,3 +1333,5 @@ rotateVBO:
 		numDrawCalls = 0;
 		prevPrim_ = GE_PRIM_INVALID;
 }
+
+};
