@@ -31,6 +31,7 @@
 #include "../Dialog/PSPMsgDialog.h"
 #include "../Dialog/PSPPlaceholderDialog.h"
 #include "../Dialog/PSPOskDialog.h"
+#include "../Dialog/PSPGamedataInstallDialog.h"
 
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
@@ -45,6 +46,7 @@ enum UtilityDialogType {
 	UTILITY_DIALOG_NET,
 	UTILITY_DIALOG_SCREENSHOT,
 	UTILITY_DIALOG_GAMESHARING,
+	UTILITY_DIALOG_GAMEDATAINSTALL,
 };
 
 // Only a single dialog is allowed at a time.
@@ -55,6 +57,7 @@ static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
 static PSPPlaceholderDialog netDialog;
 static PSPPlaceholderDialog screenshotDialog;
+static PSPGamedataInstallDialog gamedataInstallDialog;
 
 static std::set<int> currentlyLoadedModules;
 
@@ -79,6 +82,7 @@ void __UtilityDoState(PointerWrap &p)
 	oskDialog.DoState(p);
 	netDialog.DoState(p);
 	screenshotDialog.DoState(p);
+	gamedataInstallDialog.DoState(p);
 	p.Do(currentlyLoadedModules);
 }
 
@@ -89,6 +93,7 @@ void __UtilityShutdown()
 	oskDialog.Shutdown(true);
 	netDialog.Shutdown(true);
 	screenshotDialog.Shutdown(true);
+	gamedataInstallDialog.Shutdown(true);
 }
 
 int __UtilityGetStatus()
@@ -440,16 +445,61 @@ int sceUtilityScreenshotGetStatus()
 	return retval;
 }
 
-void sceUtilityGamedataInstallInitStart(u32 unknown)
+int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 {
-	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unknown);
+	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x): wrong dialog type", paramsAddr);
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
+	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
+	currentDialogActive = true;
+	return gamedataInstallDialog.Init(paramsAddr);
+}
+
+int sceUtilityGamedataInstallShutdownStart() {
+	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallShutdownStart(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogActive = false;
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallShutdownStart()");
+	return gamedataInstallDialog.Shutdown();
+}
+
+int sceUtilityGamedataInstallUpdate(int speed) {
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGamedataInstallUpdate(%08x)", speed);
+	gamedataInstallDialog.Abort();
+	return 0;
 }
 
 int sceUtilityGamedataInstallGetStatus()
 {
-	u32 retval = __UtilityGetStatus();
-	ERROR_LOG(SCEUTILITY, "UNIMPL %i=sceUtilityGamedataInstallGetStatus()", retval);
-	return retval;
+	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallGetStatus(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
+	int status = gamedataInstallDialog.GetStatus();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallGetStatus()", status);
+	return status;
+}
+
+int sceUtilityGamedataInstallAbort()
+{
+	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogActive = false;
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallDialogAbort");
+	return gamedataInstallDialog.Abort();
 }
 
 //TODO: should save to config file
@@ -687,11 +737,11 @@ const HLEFunction sceUtility[] =
 	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
 	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
 
-	{0x24AC31EB, &WrapV_U<sceUtilityGamedataInstallInitStart>, "sceUtilityGamedataInstallInitStart"},
-	{0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
-	{0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
+	{0x24AC31EB, &WrapI_U<sceUtilityGamedataInstallInitStart>, "sceUtilityGamedataInstallInitStart"},
+	{0x32E32DCB, &WrapI_V<sceUtilityGamedataInstallShutdownStart>, "sceUtilityGamedataInstallShutdownStart"},
+	{0x4AECD179, &WrapI_I<sceUtilityGamedataInstallUpdate>, "sceUtilityGamedataInstallUpdate"},
 	{0xB57E95D9, &WrapI_V<sceUtilityGamedataInstallGetStatus>, "sceUtilityGamedataInstallGetStatus"},
-	{0x180F7B62, 0, "sceUtilityGamedataInstallAbort"},
+	{0x180F7B62, &WrapI_V<sceUtilityGamedataInstallAbort>, "sceUtilityGamedataInstallAbort"},
 
 	{0x16D02AF0, 0, "sceUtilityNpSigninInitStart"},
 	{0xE19C97D6, 0, "sceUtilityNpSigninShutdownStart"},
