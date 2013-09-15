@@ -26,6 +26,16 @@ inline float Float16ToFloat(float16 ix) {
 	return x;
 }
 
+inline uint32_t RoundUpToPowerOf2(uint32_t v) {
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
+}
 
 #define PI 3.141592653589793f
 #ifndef M_PI
