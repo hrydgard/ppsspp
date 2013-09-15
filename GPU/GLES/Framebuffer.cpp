@@ -426,9 +426,12 @@ static void DrawingSize(int &drawing_width, int &drawing_height) {
 		}
 	} else {
 		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_stride == region_width && region_width != scissor_width) { 
+		if (fb_stride == region_width && region_width == viewport_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
+		} else if (fb_stride == viewport_width) { 
+			drawing_width = viewport_width;
+			drawing_height = viewport_height;
 		} else {
 			drawing_width = default_width;
 			drawing_height = default_height;
@@ -488,22 +491,40 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
 
-	// Find a matching framebuffer
+	// Find a matching framebuffer, same size or bigger
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
-			// Let's not be so picky for now. Let's say this is the one.
-			vfb = v;
-			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			vfb->format = fmt;
-			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
+		if (MaskedEqual(v->fb_address, fb_address)) {
+			// Okay, let's check the sizes. If the new one is bigger than the old one, recreate.
+			// If the opposite, just use it and hope that the game sets scissors accordingly.
+			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) {
+				// Let's not be so picky for now. Let's say this is the one.
+				vfb = v;
+				// Update fb stride in case it changed
+				vfb->fb_stride = fb_stride;
+				v->format = fmt;
+				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
 				v->width = drawing_width;
 				v->height = drawing_height;
-			} 
-			break; 
-		} 
+				break;
+			} else {
+				INFO_LOG(HLE, "Enlarging framebuffer from (%i, %i) to (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
+				// drawing_width or drawing_height is bigger. Let's recreate with the max.
+				// To do this right we should copy the data over too, but meh.
+				if ((int)v->width >= drawing_width && (int)v->height >= drawing_height) {
+					buffer_width = (int)v->width;
+					buffer_height = (int)v->height;
+				} else {
+					buffer_width = drawing_width;
+					buffer_height = drawing_height;
+				}
+
+				DestroyFramebuf(v);
+				vfbs_.erase(vfbs_.begin() + i--);
+				break;
+			}
+		}
 	}
 
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
