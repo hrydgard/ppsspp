@@ -230,7 +230,7 @@ void CDisasm::changeSubWindow(SubWindowType type)
 
 void CDisasm::stepInto()
 {
-	if (Core_IsActive()) return;
+	if (!Core_IsStepping()) return;
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
@@ -790,7 +790,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	HWND hDlg = m_hDlg;
 
 	// Update Dialog Windows
-	if (_bDebug)
+	if (_bDebug && globalUIState == UISTATE_INGAME)
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
@@ -800,6 +800,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		updateThreadLabel(false);
 
 		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
+		EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
@@ -819,7 +820,16 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	{
 		updateThreadLabel(true);
 		
-		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
+		if (globalUIState == UISTATE_INGAME)
+		{
+			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
+			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
+		}
+		else
+		{
+			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
+			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), FALSE);
+		}
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);

@@ -742,12 +742,10 @@ namespace MainWindow
 	void CreateDebugWindows() {
 		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(disasmWindow[0]);
-		EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
 		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 
 		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(memoryWindow[0]);
-		EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
@@ -1071,9 +1069,6 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
-					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
-					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
-
 					if (Core_IsStepping()) {
 						// If the current PC is on a breakpoint, disabling stepping doesn't work without
 						// explicitly skipping it
@@ -1085,9 +1080,6 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_RESET:
-					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
-					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
-
 					if (Core_IsStepping()) {
 						// If the current PC is on a breakpoint, disabling stepping doesn't work without
 						// explicitly skipping it
@@ -1100,9 +1092,6 @@ namespace MainWindow
 				case ID_EMULATION_CHEATS:
 					g_Config.bEnableCheats = !g_Config.bEnableCheats;
 					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
-					
-					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
-					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 
 					if (Core_IsStepping()) {
 						// If the current PC is on a breakpoint, disabling stepping doesn't work without
@@ -1283,12 +1272,10 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
-					EnableWindow(disasmWindow[0]->GetDlgHandle(),TRUE);
 					disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
-					EnableWindow(memoryWindow[0]->GetDlgHandle(),TRUE);
 					memoryWindow[0]->Show(true);
 					break;
 
@@ -1492,9 +1479,6 @@ namespace MainWindow
 		case WM_USER+1:
 			if (g_Config.bFullScreen)
 				_ViewFullScreen(hWnd);
-			
-			EnableWindow (disasmWindow[0]->GetDlgHandle(),TRUE);
-			EnableWindow (memoryWindow[0]->GetDlgHandle(),TRUE);
 
 			disasmWindow[0]->NotifyMapLoaded();
 			memoryWindow[0]->NotifyMapLoaded();
