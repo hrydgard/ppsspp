@@ -4,6 +4,8 @@
 #include <string.h>
 #include "global.h"
 
+namespace DX9 {
+
 // OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
 // as GL state changes can be expensive on some hardware.
 class DirectxState
@@ -297,3 +299,5 @@ struct GLExtensions {
 extern GLExtensions gl_extensions;
 
 void CheckGLExtensions();
+
+};

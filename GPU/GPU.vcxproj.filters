@@ -16,6 +16,9 @@
     <Filter Include="DirectX9">
       <UniqueIdentifier>{88629970-4774-4122-b031-2128244b795c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="DirectX9\helper">
+      <UniqueIdentifier>{ba434472-5d5e-4b08-ab16-bfb7ec8e7068}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -126,6 +129,15 @@
     <ClInclude Include="..\ext\xbrz\xbrz.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Directx9\helper\dx_state.h">
+      <Filter>DirectX9\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\helper\fbo.h">
+      <Filter>DirectX9\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\helper\global.h">
+      <Filter>DirectX9\helper</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -232,6 +244,15 @@
     </ClCompile>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\helper\dx_state.cpp">
+      <Filter>DirectX9\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\helper\fbo.cpp">
+      <Filter>DirectX9\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\helper\global.cpp">
+      <Filter>DirectX9\helper</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

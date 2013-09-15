@@ -27,6 +27,8 @@
 
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
+namespace DX9 {
+
 static bool IsAlphaTestTriviallyTrue() {
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
@@ -300,3 +302,5 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	}
 	WRITE(p, "}\n");
 }
+
+};

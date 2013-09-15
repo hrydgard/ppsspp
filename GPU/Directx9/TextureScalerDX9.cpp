@@ -28,6 +28,10 @@
 #include <stdlib.h>
 #include <math.h>
 
+#ifndef _XBOX
+#include <D3D9Types.h>
+#endif
+
 #undef min
 #undef max
 
@@ -523,6 +527,8 @@ namespace {
 
 /////////////////////////////////////// Texture Scaler
 
+namespace DX9 {
+
 TextureScalerDX9::TextureScalerDX9() {
 	initBicubicWeights();
 }
@@ -677,3 +683,5 @@ void TextureScalerDX9::ConvertTo8888(u32 format, u32* source, u32* &dest, int wi
 		ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
 	}
 }
+
+};

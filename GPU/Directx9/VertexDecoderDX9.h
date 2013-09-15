@@ -24,6 +24,8 @@
 
 #include "GPU/Common/VertexDecoderCommon.h"
 
+namespace DX9 {
+
 class VertexDecoderDX9;
 
 typedef void (VertexDecoderDX9::*StepFunction)() const;
@@ -150,3 +152,4 @@ public:
 	int stats_[NUM_VERTEX_DECODER_STATS];
 };
 
+};

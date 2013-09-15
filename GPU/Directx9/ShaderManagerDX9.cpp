@@ -36,6 +36,8 @@
 // For matrices convertions
 #include <xnamath.h>
 
+namespace DX9 {
+
 PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
@@ -653,3 +655,5 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim) {
 	lastShader_ = ls;
 	return ls;
 }
+
+};

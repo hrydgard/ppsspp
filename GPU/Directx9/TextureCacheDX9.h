@@ -24,7 +24,9 @@
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
 
-struct VirtualFramebuffer;
+namespace DX9 {
+
+struct VirtualFramebufferDX9;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -56,7 +58,7 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
-	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
+	void NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *framebuffer, FramebufferNotification msg);
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
@@ -88,7 +90,7 @@ private:
 		int status;
 		u32 addr;
 		u32 hash;
-		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
+		VirtualFramebufferDX9 *framebuffer;  // if null, not sourced from an FBO.
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;
@@ -125,8 +127,8 @@ private:
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
-	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, bool exactMatch);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
@@ -134,7 +136,7 @@ private:
 	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
 	TexCache secondCache;
-	std::vector<VirtualFramebuffer *> fbCache_;
+	std::vector<VirtualFramebufferDX9 *> fbCache_;
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
@@ -161,3 +163,4 @@ private:
 	int decimationCounter_;
 };
 
+};

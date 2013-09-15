@@ -17,6 +17,9 @@
 
 #include "Core/MemMap.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
+#include "Gpu/Common/VertexDecoderCommon.h"
+
+namespace DX9 {
 
 // Just to get something on the screen, we'll just not subdivide correctly.
 void TransformDrawEngineDX9::DrawBezier(int ucount, int vcount) {
@@ -192,3 +195,5 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 
 	Flush();
 }
+
+};

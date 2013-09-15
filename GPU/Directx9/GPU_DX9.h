@@ -27,6 +27,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/helper/fbo.h"
 
+namespace DX9 {
+
 class ShaderManagerDX9;
 class LinkedShaderDX9;
 
@@ -95,3 +97,7 @@ private:
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
 };
+
+};
+
+typedef DX9::DIRECTX9_GPU DIRECTX9_GPU;

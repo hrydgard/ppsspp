@@ -37,6 +37,8 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
+namespace DX9 {
+
 enum {
 	FLAG_FLUSHBEFORE = 1,
 	FLAG_FLUSHBEFOREONCHANGE = 2,
@@ -478,7 +480,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayFBO();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -495,7 +497,7 @@ bool DIRECTX9_GPU::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayFBO();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -1379,3 +1381,5 @@ void DIRECTX9_GPU::DoState(PointerWrap &p) {
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 }
+
+};

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <list>
+#include "d3d9.h"
 
 #include "GPU/Directx9/helper/fbo.h"
 // Keeps track of allocated FBOs.
@@ -27,6 +28,8 @@
 
 #include "Globals.h"
 #include "GPU/GPUCommon.h"
+
+namespace DX9 {
 
 struct GLSLProgram;
 class TextureCacheDX9;
@@ -44,7 +47,7 @@ enum {
 	FB_READFBOMEMORY_GPU = 3,
 };
 
-struct VirtualFramebuffer {
+struct VirtualFramebufferDX9 {
 	int last_frame_used;
 	int last_frame_render;
 	bool memoryUpdated; 
@@ -79,6 +82,7 @@ struct VirtualFramebuffer {
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
+
 class ShaderManagerDX9;
 
 class FramebufferManagerDX9 {
@@ -107,10 +111,10 @@ public:
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
+	void ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, bool sync = true);
 
 	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetDisplayFBO();
+	VirtualFramebufferDX9 *GetDisplayFBO();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -128,7 +132,7 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
-	void DestroyFramebuf(VirtualFramebuffer *vfb);
+	void DestroyFramebuf(VirtualFramebufferDX9 *vfb);
 
 private:
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
@@ -136,20 +140,20 @@ private:
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
 
-	VirtualFramebuffer *displayFramebuf_;
-	VirtualFramebuffer *prevDisplayFramebuf_;
-	VirtualFramebuffer *prevPrevDisplayFramebuf_;
+	VirtualFramebufferDX9 *displayFramebuf_;
+	VirtualFramebufferDX9 *prevDisplayFramebuf_;
+	VirtualFramebufferDX9 *prevPrevDisplayFramebuf_;
 	int frameLastFramebufUsed;
 
-	std::vector<VirtualFramebuffer *> vfbs_;
+	std::vector<VirtualFramebufferDX9 *> vfbs_;
 
-	VirtualFramebuffer *currentRenderVfb_;
+	VirtualFramebufferDX9 *currentRenderVfb_;
 
 	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
-	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb);
+	void BlitFramebuffer_(VirtualFramebufferDX9 *src, VirtualFramebufferDX9 *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
+	void PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb);
 	int gpuVendor;
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+	std::vector<VirtualFramebufferDX9 *> bvfbs_; // blitting FBOs
 	
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;
@@ -164,4 +168,6 @@ private:
 
 	bool resized_;
 	bool useBufferedRendering_;
+};
+
 };

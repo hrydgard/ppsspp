@@ -19,6 +19,8 @@
 
 #include "Globals.h"
 
+namespace DX9 {
+
 struct FragmentShaderIDDX9
 {
 	FragmentShaderIDDX9() {d[0] = 0xFFFFFFFF;}
@@ -50,3 +52,5 @@ struct FragmentShaderIDDX9
 void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id);
 
 void GenerateFragmentShaderDX9(char *buffer);
+
+};
