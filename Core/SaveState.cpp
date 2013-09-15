@@ -83,15 +83,10 @@ namespace SaveState
 		std::lock_guard<std::recursive_mutex> guard(mutex);
 		pending.push_back(op);
 
-		// Don't actually run it until next CoreTiming::Advance().
+		// Don't actually run it until next frame.
 		// It's possible there might be a duplicate but it won't hurt us.
-		if (Core_IsInactive() && __KernelIsRunning()) {
-			// Warning: this may run on a different thread.
-			needsProcess = true;
-			Process();
-		} else {
-			needsProcess = true;
-		}
+		needsProcess = true;
+		Core_UpdateSingleStep();
 	}
 
 	void Load(const std::string &filename, Callback callback, void *cbUserData)
