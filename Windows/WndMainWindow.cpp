@@ -381,6 +381,35 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
 	}
 
+	void CreateDumpMenu() {
+		static bool dumpMenuCreated = false;
+
+		if (dumpMenuCreated) {
+			// if menu is alreay created, do nothing
+			return;
+		}
+		// get the debugMenu
+		HMENU debugMenu = GetSubMenu(menu,MENU_DEBUG);
+
+		I18NCategory *c = GetI18NCategory("DesktopUI");
+		const std::wstring dumpMenuKey = L"Dump Memory";
+
+		// Get the new menu's info and then set its ID so we can have it be translatable.
+		MENUITEMINFO menuItemInfo;
+		memset(&menuItemInfo, 0, sizeof(MENUITEMINFO));
+		menuItemInfo.cbSize = sizeof(MENUITEMINFO);
+		GetMenuItemInfo(menu, MENU_DEBUG, TRUE, &menuItemInfo);
+		menuItemInfo.fMask = MIIM_ID;
+		menuItemInfo.wID = ID_DEBUG_DUMPMEMORY;
+		SetMenuItemInfo(menu, MENU_DEBUG, TRUE, &menuItemInfo);
+
+		// append menu items.
+		AppendMenu(debugMenu, MF_SEPARATOR, 0, 0);
+		AppendMenu(debugMenu, MF_STRING | MF_BYPOSITION, ID_DEBUG_DUMPMEMORY, dumpMenuKey.c_str());
+
+		dumpMenuCreated = true;
+	}
+
 	void CreateLanguageMenu() {
 		// Please don't remove this boolean. 
 		// We don't want this menu to be created multiple times.
@@ -512,6 +541,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, L"\tCtrl+L");
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
+		TranslateMenuItem(ID_DEBUG_DUMPMEMORY, desktopUI);
 
 		// Options menu
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, L"\tAlt+Return, F11");
@@ -1047,6 +1077,20 @@ namespace MainWindow
 					}
 					break;
 
+				case ID_DEBUG_DUMPMEMORY:
+					if (!Core_IsStepping()) // If emulator isn't paused
+					{   //pause game
+						SendMessage(MainWindow::GetHWND(),WM_COMMAND,ID_TOGGLE_PAUSE,0);
+					}
+					FILE* outputfile;
+					outputfile= fopen("Ram.dump","wb");
+					fwrite(Memory::GetPointer(0x08800000), 1, 0x01800000, outputfile);
+					fclose(outputfile);
+
+					// continue to run
+					SendMessage(MainWindow::GetHWND(),WM_COMMAND,ID_TOGGLE_PAUSE,0);
+					break;
+
 				case ID_TOGGLE_PAUSE:
 					if (globalUIState == UISTATE_PAUSEMENU) {
 						// Causes hang
@@ -1504,6 +1548,7 @@ namespace MainWindow
 
 		case WM_USER_UPDATE_UI:
 			CreateLanguageMenu();
+			CreateDumpMenu();
 			TranslateMenus();
 			Update();
 			break;
