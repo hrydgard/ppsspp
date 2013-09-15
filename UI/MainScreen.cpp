@@ -559,18 +559,18 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		screenManager()->RecreateAllViews();
 	}
 	if (!strcmp(message, "control mapping")) {
-		globalUIState = UISTATE_MENU;
+		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
 	}
 	if (!strcmp(message, "settings")) {
-		globalUIState = UISTATE_MENU;
+		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));
 	}
 }
 
 void MainScreen::update(InputState &input) {
 	UIScreen::update(input);
-	globalUIState = UISTATE_MENU;
+	UpdateUIState(UISTATE_MENU);
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
@@ -665,7 +665,7 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 }
 
 void GamePauseScreen::update(InputState &input) {
-	globalUIState = UISTATE_PAUSEMENU;
+	UpdateUIState(UISTATE_PAUSEMENU);
 	UIScreen::update(input);
 }
 

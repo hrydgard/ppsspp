@@ -166,11 +166,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		bootGame(value);
 	}
 	else if (!strcmp(message, "control mapping")) {
-		globalUIState = UISTATE_MENU;
+		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
 	}
 	else if (!strcmp(message, "settings")) {
-		globalUIState = UISTATE_MENU;
+		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	}
 }
@@ -423,7 +423,7 @@ void EmuScreen::update(InputState &input) {
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 
-	globalUIState = UISTATE_INGAME;
+	UpdateUIState(UISTATE_INGAME);
 	
 	if (errorMessage_.size()) {
 		I18NCategory *g = GetI18NCategory("Error");

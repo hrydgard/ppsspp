@@ -389,7 +389,7 @@ UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
 
 void CreditsScreen::update(InputState &input_state) {
 	UIScreen::update(input_state);
-	globalUIState = UISTATE_MENU;
+	UpdateUIState(UISTATE_MENU);
 	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
 		screenManager()->finishDialog(this, DR_OK);
 	}

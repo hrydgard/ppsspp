@@ -60,6 +60,7 @@ public:
 	virtual void Update()
 	{
 		UpdateDialog(true);
+		SetDebugMode(Core_IsStepping());
 		breakpointList->update();
 	};
 	void UpdateDialog(bool _bComplete = false);
