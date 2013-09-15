@@ -23,12 +23,14 @@
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Directx9/VertexDecoderDX9.h"
 
+struct DecVtxFormat;
+
+namespace DX9 {
+
 class LinkedShaderDX9;
 class ShaderManagerDX9;
 class TextureCacheDX9;
 class FramebufferManagerDX9;
-
-struct DecVtxFormat;
 
 // States transitions:
 // On creation: DRAWN_NEW
@@ -226,4 +228,6 @@ struct Color4 {
 	void GetFromA(u32 col) {
 		a = (col&0xff)/255.0f;
 	}
+};
+
 };

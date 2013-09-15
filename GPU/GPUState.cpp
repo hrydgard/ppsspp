@@ -23,8 +23,8 @@
 #endif
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
-#ifdef USE_DIRECTX
-#include "Directx9/DisplayListInterpreter.h"
+#if defined(_XBOX)
+#include "GPU/Directx9/GPU_DX9.h"
 #endif
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
@@ -39,22 +39,21 @@ bool GPU_Init() {
 	case GPU_NULL:
 		gpu = new NullGPU();
 		break;
-#ifndef _XBOX	
 	case GPU_GLES:
+#ifndef _XBOX
 		gpu = new GLES_GPU();
+#endif
 		break;
-#endif		
 	case GPU_SOFTWARE:
 #if !(defined(__SYMBIAN32__) || defined(_XBOX))
 		gpu = new SoftGPU();
 #endif
 		break;
-
-#ifdef USE_DIRECTX
 	case GPU_DIRECTX9:
+#if defined(_XBOX)
 		gpu = new DIRECTX9_GPU();
-		break;
 #endif
+		break;
 	}
 
 	return gpu != NULL;

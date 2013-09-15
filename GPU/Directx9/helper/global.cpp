@@ -1,6 +1,8 @@
 #include "global.h"
 #include "fbo.h"
 
+namespace DX9 {
+
 LPDIRECT3DDEVICE9 pD3Ddevice = NULL;
 LPDIRECT3D9 pD3D = NULL;
 
@@ -247,3 +249,5 @@ void DirectxInit() {
 
 	fbo_init();
 }
+
+};

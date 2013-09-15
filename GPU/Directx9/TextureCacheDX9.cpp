@@ -30,6 +30,8 @@
 #include "math/math_util.h"
 #include "native/ext/cityhash/city.h"
 
+namespace DX9 {
+
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
 
 // If a texture hasn't been seen for this many frames, get rid of it.
@@ -164,7 +166,7 @@ void TextureCacheDX9::ClearNextFrame() {
 
 
 template <typename T>
-inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
+inline void AttachFramebufferValid(T &entry, VirtualFramebufferDX9 *framebuffer) {
 	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
@@ -174,14 +176,14 @@ inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
 }
 
 template <typename T>
-inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) {
+inline void AttachFramebufferInvalid(T &entry, VirtualFramebufferDX9 *framebuffer) {
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 	}
 }
 
-inline void TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
+inline void TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, bool exactMatch) {
 		// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
@@ -220,13 +222,13 @@ inline void TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address
 	}
 }
 
-inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
+inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
 		entry->framebuffer = 0;
 	}
 }
 
-void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
+void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *framebuffer, FramebufferNotification msg) {
 	// This is a rough heuristic, because sometimes our framebuffers are too tall.
 	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
 
@@ -1759,3 +1761,5 @@ bool TextureCacheDX9::DecodeTexture(u8* output, GPUgstate state)
 	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
 	return true;
 }
+
+};

@@ -28,6 +28,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 
+namespace DX9 {
+
 static const D3DBLEND aLookup[11] = {
 	D3DBLEND_DESTCOLOR,
 	D3DBLEND_INVDESTCOLOR,
@@ -367,3 +369,5 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight, depthRangeMin, depthRangeMax);
 	}
 }
+
+};
