@@ -51,10 +51,10 @@ int PSPGamedataInstallDialog::Shutdown(bool force) {
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
-	PSPDialog::DoState(p);
-	auto s = p.Section("PSPGamedataInstallDialog", 1);
+	auto s = p.Section("PSPGamedataInstallDialog", 0, 1);
 	if (!s)
 		return;
 
+	PSPDialog::DoState(p);
 	p.Do(request);
 }
