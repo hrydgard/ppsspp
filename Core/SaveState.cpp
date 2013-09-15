@@ -21,6 +21,7 @@
 #include "Common/FileUtil.h"
 
 #include "Core/SaveState.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -230,7 +231,7 @@ namespace SaveState
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, REVISION, state, &reason);
+				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
 				if (result) {
 					osm.Show(s->T("Loaded State"), 2.0);
 				} else {
@@ -242,7 +243,7 @@ namespace SaveState
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, REVISION, state);
+				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
 				if (result) {
 					osm.Show(s->T("Saved State"), 2.0);
 				} else {
