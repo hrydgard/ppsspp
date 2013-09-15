@@ -40,12 +40,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	controllerIniFilename_ = controllerIniFilename != NULL ? controllerIniFilename : "controls.ini";
 
-	INFO_LOG(LOADER, "Loading config: %s", iniFilename_);
+	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFilename_);
+		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
 
@@ -231,12 +231,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
 	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
 
-	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_);
+	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
 	IniFile controllerIniFile;
 	if (!controllerIniFile.Load(controllerIniFilename_)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_);
+		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
