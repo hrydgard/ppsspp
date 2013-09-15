@@ -537,7 +537,7 @@ int kirk_CMD17(u8 * inbuff, int insize) {
 
 int kirk_init()
 {
-  return kirk_init2((u8*)"Lazy Dev should have initialized!",33,0xBABEF00D, 0xDEADBEEF );;
+  return kirk_init2((u8*)"Lazy Dev should have initialized!",33,0xBABEF00D, 0xDEADBEEF );
 }
 
 int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
@@ -551,7 +551,7 @@ int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
   //Set PRNG_DATA initially, otherwise use what ever uninitialized data is in the buffer
   if(seed_size > 0) {
     u8 * seedbuf;
-    KIRK_SHA1_HEADER *seedheader;;
+    KIRK_SHA1_HEADER *seedheader;
     seedbuf=(u8*)malloc(seed_size+4);
     seedheader= (KIRK_SHA1_HEADER *) seedbuf;
     seedheader->data_size = seed_size;
