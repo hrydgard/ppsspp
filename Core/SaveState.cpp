@@ -24,13 +24,14 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Host.h"
+#include "Core/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
 #include "HW/MemoryStick.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/System.h"
 #include "UI/OnScreenDisplay.h"
 #include "i18n/i18n.h"
 
@@ -202,6 +203,21 @@ namespace SaveState
 		return copy;
 	}
 
+	void HandleFailure()
+	{
+		PSP_Shutdown();
+		std::string resetError;
+		if (!PSP_Init(PSP_CoreParameter(), &resetError))
+		{
+			ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
+			// TODO: This probably doesn't clean up well enough.
+			Core_Stop();
+			return;
+		}
+		host->BootDone();
+		host->UpdateDisassembly();
+	}
+
 	void Process()
 	{
 		if (!needsProcess)
@@ -220,7 +236,8 @@ namespace SaveState
 		for (size_t i = 0, n = operations.size(); i < n; ++i)
 		{
 			Operation &op = operations[i];
-			bool result;
+			CChunkFileReader::Error result;
+			bool callbackResult;
 			std::string reason;
 
 			I18NCategory *s = GetI18NCategory("Screen"); 
@@ -232,10 +249,15 @@ namespace SaveState
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
-				if (result) {
+				if (result == CChunkFileReader::ERROR_NONE) {
 					osm.Show(s->T("Loaded State"), 2.0);
+					callbackResult = true;
+				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
+					HandleFailure();
+					callbackResult = false;
 				} else {
 					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
+					callbackResult = false;
 				}
 				break;
 
@@ -244,26 +266,31 @@ namespace SaveState
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
-				if (result) {
+				if (result == CChunkFileReader::ERROR_NONE) {
 					osm.Show(s->T("Saved State"), 2.0);
+					callbackResult = true;
+				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
+					HandleFailure();
+					callbackResult = false;
 				} else {
 					osm.Show(s->T("Save State Failed"), 2.0);
+					callbackResult = false;
 				}
 				break;
 
 			case SAVESTATE_VERIFY:
 				INFO_LOG(COMMON, "Verifying save state system");
-				result = CChunkFileReader::Verify(state);
+				callbackResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
 				break;
 
 			default:
 				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
-				result = false;
+				callbackResult = false;
 				break;
 			}
 
 			if (op.callback)
-				op.callback(result, op.cbUserData);
+				op.callback(callbackResult, op.cbUserData);
 		}
 	}
 

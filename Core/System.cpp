@@ -302,6 +302,9 @@ void PSP_Shutdown() {
 
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
+	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {
+		return;
+	}
 
 	if (cpuThread != NULL) {
 		cpuThreadUntil = globalticks;

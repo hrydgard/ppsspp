@@ -197,6 +197,9 @@ reswitch:
 
 			// Check if there's any pending savestate actions.
 			SaveState::Process();
+			if (coreState == CORE_POWERDOWN) {
+				return;
+			}
 
 			// wait for step command..
 #if defined(USING_QT_UI) || defined(_DEBUG)
