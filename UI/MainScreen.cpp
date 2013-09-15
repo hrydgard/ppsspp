@@ -589,13 +589,23 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	screenManager()->push(new GameScreen(e.s));
+	#ifdef _WIN32
+	std::string path = ReplaceAll(e.s, "//", "/");
+#else
+	std::string path = e.s;
+#endif
+	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
+	#ifdef _WIN32
+	std::string path = ReplaceAll(e.s, "//", "/");
+#else
+	std::string path = e.s;
+#endif
 	// Go directly into the game.
-	screenManager()->switchScreen(new EmuScreen(e.s));
+	screenManager()->switchScreen(new EmuScreen(path));
 	return UI::EVENT_DONE;
 }
 

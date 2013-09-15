@@ -794,6 +794,7 @@ namespace MainWindow
 			_splitpath(fullpath.c_str(), drive, dir, fname, ext);
 
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
+			executable = ReplaceAll(executable, "\\", "/");
 			NativeMessageReceived("boot", executable.c_str());
 		}
 		else {
