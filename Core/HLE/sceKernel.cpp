@@ -184,53 +184,76 @@ void __KernelShutdown()
 
 void __KernelDoState(PointerWrap &p)
 {
-	p.Do(kernelRunning);
-	kernelObjects.DoState(p);
-	p.DoMarker("KernelObjects");
+	{
+		auto s = p.Section("Kernel", 1);
+		if (!s)
+			return;
 
-	__InterruptsDoState(p);
-	// Memory needs to be after kernel objects, which may free kernel memory.
-	__KernelMemoryDoState(p);
-	__KernelThreadingDoState(p);
-	__KernelAlarmDoState(p);
-	__KernelVTimerDoState(p);
-	__KernelEventFlagDoState(p);
-	__KernelMbxDoState(p);
-	__KernelModuleDoState(p);
-	__KernelMsgPipeDoState(p);
-	__KernelMutexDoState(p);
-	__KernelSemaDoState(p);
-	__KernelTimeDoState(p);
+		p.Do(kernelRunning);
+		kernelObjects.DoState(p);
+	}
 
-	__AtracDoState(p);
-	__AudioDoState(p);
-	__CccDoState(p);
-	__CtrlDoState(p);
-	__DisplayDoState(p);
-	__FontDoState(p);
-	__GeDoState(p);
-	__ImposeDoState(p);
-	__IoDoState(p);
-	__JpegDoState(p);
-	__MpegDoState(p);
-	__NetDoState(p);
-	__NetAdhocDoState(p);
-	__PowerDoState(p);
-	__PsmfDoState(p);
-	__PsmfPlayerDoState(p);
-	__RtcDoState(p);
-	__SasDoState(p);
-	__SslDoState(p);
-	__UmdDoState(p);
-	__UtilityDoState(p);
-	__UsbDoState(p);
-	__VaudioDoState(p);
-	__HeapDoState(p);
+	{
+		auto s = p.Section("Kernel Modules", 1);
+		if (!s)
+			return;
 
-	__PPGeDoState(p);
+		__InterruptsDoState(p);
+		// Memory needs to be after kernel objects, which may free kernel memory.
+		__KernelMemoryDoState(p);
+		__KernelThreadingDoState(p);
+		__KernelAlarmDoState(p);
+		__KernelVTimerDoState(p);
+		__KernelEventFlagDoState(p);
+		__KernelMbxDoState(p);
+		__KernelModuleDoState(p);
+		__KernelMsgPipeDoState(p);
+		__KernelMutexDoState(p);
+		__KernelSemaDoState(p);
+		__KernelTimeDoState(p);
+	}
 
-	__InterruptsDoStateLate(p);
-	__KernelThreadingDoStateLate(p);
+	{
+		auto s = p.Section("HLE Modules", 1);
+		if (!s)
+			return;
+
+		__AtracDoState(p);
+		__AudioDoState(p);
+		__CccDoState(p);
+		__CtrlDoState(p);
+		__DisplayDoState(p);
+		__FontDoState(p);
+		__GeDoState(p);
+		__ImposeDoState(p);
+		__IoDoState(p);
+		__JpegDoState(p);
+		__MpegDoState(p);
+		__NetDoState(p);
+		__NetAdhocDoState(p);
+		__PowerDoState(p);
+		__PsmfDoState(p);
+		__PsmfPlayerDoState(p);
+		__RtcDoState(p);
+		__SasDoState(p);
+		__SslDoState(p);
+		__UmdDoState(p);
+		__UtilityDoState(p);
+		__UsbDoState(p);
+		__VaudioDoState(p);
+		__HeapDoState(p);
+
+		__PPGeDoState(p);
+	}
+
+	{
+		auto s = p.Section("Kernel Cleanup", 1);
+		if (!s)
+			return;
+
+		__InterruptsDoStateLate(p);
+		__KernelThreadingDoStateLate(p);
+	}
 }
 
 bool __KernelIsRunning() {
@@ -488,6 +511,10 @@ int KernelObjectPool::GetCount()
 
 void KernelObjectPool::DoState(PointerWrap &p)
 {
+	auto s = p.Section("KernelObjectPool", 1);
+	if (!s)
+		return;
+
 	int _maxCount = maxCount;
 	p.Do(_maxCount);
 
@@ -530,7 +557,6 @@ void KernelObjectPool::DoState(PointerWrap &p)
 		}
 		pool[i]->DoState(p);
 	}
-	p.DoMarker("KernelObjectPool");
 }
 
 KernelObject *KernelObjectPool::CreateByIDType(int type)

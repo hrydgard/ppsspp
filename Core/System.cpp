@@ -252,6 +252,7 @@ void Core_UpdateState(CoreState newState) {
 	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
 		coreStatePending = true;
 	coreState = newState;
+	Core_UpdateSingleStep();
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
@@ -286,7 +287,7 @@ bool PSP_IsInited() {
 
 void PSP_Shutdown() {
 	if (coreState == CORE_RUNNING)
-		coreState = CORE_ERROR;
+		Core_UpdateState(CORE_ERROR);
 	if (cpuThread != NULL) {
 		CPU_SetState(CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(&CPU_IsShutdown);
@@ -301,6 +302,9 @@ void PSP_Shutdown() {
 
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
+	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {
+		return;
+	}
 
 	if (cpuThread != NULL) {
 		cpuThreadUntil = globalticks;

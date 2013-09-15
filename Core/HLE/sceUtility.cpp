@@ -68,6 +68,10 @@ void __UtilityInit()
 
 void __UtilityDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceUtility", 1);
+	if (!s)
+		return;
+
 	p.Do(currentDialogType);
 	p.Do(currentDialogActive);
 	saveDialog.DoState(p);
@@ -76,7 +80,6 @@ void __UtilityDoState(PointerWrap &p)
 	netDialog.DoState(p);
 	screenshotDialog.DoState(p);
 	p.Do(currentlyLoadedModules);
-	p.DoMarker("sceUtility");
 }
 
 void __UtilityShutdown()

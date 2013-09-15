@@ -23,6 +23,7 @@
 #include "i18n/i18n.h"
 
 #include "Core/Core.h"
+#include "Core/Config.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"

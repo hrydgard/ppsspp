@@ -29,6 +29,10 @@ const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
 
 void AudioChannel::DoState(PointerWrap &p)
 {
+	auto s = p.Section("AudioChannel", 1);
+	if (!s)
+		return;
+
 	p.Do(reserved);
 	p.Do(sampleAddress);
 	p.Do(sampleCount);
@@ -37,7 +41,6 @@ void AudioChannel::DoState(PointerWrap &p)
 	p.Do(format);
 	p.Do(waitingThreads);
 	sampleQueue.DoState(p);
-	p.DoMarker("AudioChannel");
 }
 
 void AudioChannel::reset()

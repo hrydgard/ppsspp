@@ -221,6 +221,10 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Module", 1);
+		if (!s)
+			return;
+
 		p.Do(nm);
 		p.Do(memoryBlockAddr);
 		p.Do(memoryBlockSize);
@@ -237,7 +241,6 @@ public:
 		VarSymbolImport vsi = {0};
 		p.Do(importedVars, vsi);
 		RebuildImpExpModuleNames();
-		p.DoMarker("Module");
 	}
 
 	// We don't do this in the destructor to avoid annoying messages on game shutdown.
@@ -328,9 +331,12 @@ public:
 	u32 retValAddr;
 	virtual void run(MipsCall &call);
 	virtual void DoState(PointerWrap &p) {
+		auto s = p.Section("AfterModuleEntryCall", 1);
+		if (!s)
+			return;
+
 		p.Do(moduleID_);
 		p.Do(retValAddr);
-		p.DoMarker("AfterModuleEntryCall");
 	}
 	static Action *Create() {
 		return new AfterModuleEntryCall;
@@ -386,9 +392,12 @@ void __KernelModuleInit()
 
 void __KernelModuleDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelModule", 1);
+	if (!s)
+		return;
+
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
-	p.DoMarker("sceKernelModule");
 }
 
 void __KernelModuleShutdown()

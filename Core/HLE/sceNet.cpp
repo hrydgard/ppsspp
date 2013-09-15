@@ -100,12 +100,15 @@ void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
+	auto s = p.Section("sceNet", 1);
+	if (!s)
+		return;
+
 	p.Do(netInited);
 	p.Do(netInetInited);
 	p.Do(netApctlInited);
 	p.Do(apctlHandlers);
 	p.Do(netMallocStat);
-	p.DoMarker("net");
 }
 
 // TODO: should that struct actually be initialized here?

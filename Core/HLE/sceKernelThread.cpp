@@ -141,13 +141,16 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Callback", 1);
+		if (!s)
+			return;
+
 		p.Do(nc);
 		p.Do(savedPC);
 		p.Do(savedRA);
 		p.Do(savedV0);
 		p.Do(savedV1);
 		p.Do(savedIdRegister);
-		p.DoMarker("Callback");
 	}
 
 	NativeCallback nc;
@@ -260,9 +263,12 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("MipsCallManager", 1);
+		if (!s)
+			return;
+
 		p.Do(calls_);
 		p.Do(idGen_);
-		p.DoMarker("MipsCallManager");
 	}
 
 private:
@@ -289,6 +295,10 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("ActionAfterMipsCall", 1);
+		if (!s)
+			return;
+
 		p.Do(threadID);
 		p.Do(status);
 		p.Do(waitType);
@@ -296,8 +306,6 @@ public:
 		p.Do(waitInfo);
 		p.Do(isProcessingCallbacks);
 		p.Do(currentCallbackId);
-
-		p.DoMarker("ActionAfterMipsCall");
 
 		int chainedActionType = 0;
 		if (chainedAction != NULL)
@@ -343,8 +351,11 @@ public:
 
 	void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("ActionAfterCallback", 1);
+		if (!s)
+			return;
+
 		p.Do(cbId);
-		p.DoMarker("ActionAfterCallback");
 	}
 
 	SceUID cbId;
@@ -502,6 +513,10 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Thread", 1);
+		if (!s)
+			return;
+
 		p.Do(nt);
 		p.Do(waitInfo);
 		p.Do(moduleId);
@@ -515,8 +530,6 @@ public:
 		p.Do(pendingMipsCalls);
 		p.Do(pushedStacks);
 		p.Do(currentStack);
-
-		p.DoMarker("Thread");
 	}
 
 	NativeThread nt;
@@ -688,6 +701,10 @@ struct ThreadQueueList
 
 	void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("ThreadQueueList", 1);
+		if (!s)
+			return;
+
 		int numQueues = NUM_QUEUES;
 		p.Do(numQueues);
 		if (numQueues != NUM_QUEUES)
@@ -721,8 +738,6 @@ struct ThreadQueueList
 			if (size != 0)
 				p.DoArray(&cur->data[cur->first], size);
 		}
-
-		p.DoMarker("ThreadQueueList");
 	}
 
 private:
@@ -870,6 +885,10 @@ Action *__KernelCreateAction(int actionType)
 
 void MipsCall::DoState(PointerWrap &p)
 {
+	auto s = p.Section("MipsCall", 1);
+	if (!s)
+		return;
+
 	p.Do(entryPoint);
 	p.Do(cbId);
 	p.DoArray(args, ARRAY_SIZE(args));
@@ -882,8 +901,6 @@ void MipsCall::DoState(PointerWrap &p)
 	p.Do(tag);
 	p.Do(savedId);
 	p.Do(reschedAfter);
-
-	p.DoMarker("MipsCall");
 
 	int actionTypeID = 0;
 	if (doAfter != NULL)
@@ -1129,6 +1146,10 @@ void __KernelThreadingInit()
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelThread", 1);
+	if (!s)
+		return;
+
 	p.Do(g_inCbCount);
 	p.Do(currentCallbackThreadID);
 	p.Do(readyCallbacksCount);
@@ -1160,8 +1181,6 @@ void __KernelThreadingDoState(PointerWrap &p)
 
 	hleCurrentThreadName = __KernelGetThreadName(currentThread);
 	lastSwitchCycles = CoreTiming::GetTicks();
-
-	p.DoMarker("sceKernelThread");
 }
 
 void __KernelThreadingDoStateLate(PointerWrap &p)

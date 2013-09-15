@@ -1372,6 +1372,10 @@ int SavedataParam::GetLastEmptySave()
 
 void SavedataParam::DoState(PointerWrap &p)
 {
+	auto s = p.Section("SavedataParam", 1);
+	if (!s)
+		return;
+
 	// pspParam is handled in PSPSaveDialog.
 	p.Do(selectedSave);
 	p.Do(saveDataListCount);
@@ -1390,7 +1394,6 @@ void SavedataParam::DoState(PointerWrap &p)
 	}
 	else
 		p.DoArray(saveDataList, saveDataListCount);
-	p.DoMarker("SavedataParam");
 }
 
 bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName)

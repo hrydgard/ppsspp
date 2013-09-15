@@ -654,6 +654,10 @@ std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
 
 void ISOFileSystem::DoState(PointerWrap &p)
 {
+	auto s = p.Section("ISOFileSystem", 1);
+	if (!s)
+		return;
+
 	int n = (int) entries.size();
 	p.Do(n);
 
@@ -706,5 +710,4 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			}
 		}
 	}
-	p.DoMarker("ISOFileSystem");
 }

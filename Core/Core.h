@@ -28,6 +28,7 @@ void Core_ErrorPause();
 // called from gui
 void Core_EnableStepping(bool step);
 void Core_DoSingleStep();
+void Core_UpdateSingleStep();
 
 void Core_Halt(const char *msg);
 

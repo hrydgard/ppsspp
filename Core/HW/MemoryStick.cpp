@@ -7,9 +7,12 @@ static MemStickFatState memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
 
 void MemoryStick_DoState(PointerWrap &p)
 {
+	auto s = p.Section("MemoryStick", 1);
+	if (!s)
+		return;
+
 	p.Do(memStickState);
 	p.Do(memStickFatState);
-	p.DoMarker("MemoryStick");
 }
 
 MemStickState MemoryStick_State()

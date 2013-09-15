@@ -66,6 +66,10 @@ PGF::~PGF() {
 }
 
 void PGF::DoState(PointerWrap &p) {
+	auto s = p.Section("PGF", 1);
+	if (!s)
+		return;
+
 	p.Do(header);
 	p.Do(rev3extra);
 
@@ -98,8 +102,6 @@ void PGF::DoState(PointerWrap &p) {
 	p.Do(glyphs);
 	p.Do(shadowGlyphs);
 	p.Do(firstGlyph);
-
-	p.DoMarker("PGF");
 }
 
 void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {

@@ -72,10 +72,13 @@ void __PowerInit() {
 }
 
 void __PowerDoState(PointerWrap &p) {
+	auto s = p.Section("scePower", 1);
+	if (!s)
+		return;
+
 	p.DoArray(powerCbSlots, ARRAY_SIZE(powerCbSlots));
 	p.Do(volatileMemLocked);
 	p.Do(volatileWaitingThreads);
-	p.DoMarker("scePower");
 }
 
 int scePowerGetBatteryLifePercent() {

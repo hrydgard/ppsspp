@@ -118,6 +118,10 @@ struct FPL : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("FPL", 1);
+		if (!s)
+			return;
+
 		p.Do(nf);
 		if (p.mode == p.MODE_READ)
 			blocks = new bool[nf.numBlocks];
@@ -128,7 +132,6 @@ struct FPL : public KernelObject
 		FplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
 		p.Do(pausedWaits);
-		p.DoMarker("FPL");
 	}
 
 	NativeFPL nf;
@@ -175,13 +178,16 @@ struct VPL : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("VPL", 1);
+		if (!s)
+			return;
+
 		p.Do(nv);
 		p.Do(address);
 		VplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
 		alloc.DoState(p);
 		p.Do(pausedWaits);
-		p.DoMarker("VPL");
 	}
 
 	SceKernelVplInfo nv;
@@ -220,6 +226,10 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelMemory", 1);
+	if (!s)
+		return;
+
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
 
@@ -231,7 +241,6 @@ void __KernelMemoryDoState(PointerWrap &p)
 	p.Do(sdkVersion_);
 	p.Do(compilerVersion_);
 	p.DoArray(tlsUsedIndexes, ARRAY_SIZE(tlsUsedIndexes));
-	p.DoMarker("sceKernelMemory");
 }
 
 void __KernelMemoryShutdown()
@@ -708,9 +717,12 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("PMB", 1);
+		if (!s)
+			return;
+
 		p.Do(address);
 		p.DoArray(name, sizeof(name));
-		p.DoMarker("PMB");
 	}
 
 	u32 address;
@@ -1597,12 +1609,15 @@ struct TLS : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("TLS", 1);
+		if (!s)
+			return;
+
 		p.Do(ntls);
 		p.Do(address);
 		p.Do(waitingThreads);
 		p.Do(next);
 		p.Do(usage);
-		p.DoMarker("TLS");
 	}
 
 	NativeTls ntls;

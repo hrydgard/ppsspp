@@ -220,6 +220,10 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("PsmfStream", 1);
+		if (!s)
+			return;
+
 		p.Do(type);
 		p.Do(channel);
 	}
@@ -289,6 +293,10 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 }
 
 void Psmf::DoState(PointerWrap &p) {
+	auto s = p.Section("Psmf", 1);
+	if (!s)
+		return;
+
 	p.Do(magic);
 	p.Do(version);
 	p.Do(streamOffset);
@@ -313,11 +321,13 @@ void Psmf::DoState(PointerWrap &p) {
 	p.Do(audioFrequency);
 
 	p.Do(streamMap);
-
-	p.DoMarker("Psmf");
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
+	auto s = p.Section("PsmfPlayer", 1);
+	if (!s)
+		return;
+
 	p.Do(videoCodec);
 	p.Do(videoStreamNum);
 	p.Do(audioCodec);
@@ -338,8 +348,6 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 
 	p.Do(status);
 	p.Do(psmfPlayerAvcAu);
-
-	p.DoMarker("PsmfPlayer");
 }
 
 void Psmf::setStreamNum(int num) {
@@ -412,18 +420,22 @@ void __PsmfInit()
 
 void __PsmfDoState(PointerWrap &p)
 {
-	p.Do(psmfMap);
+	auto s = p.Section("scePsmf", 1);
+	if (!s)
+		return;
 
-	p.DoMarker("scePsmf");
+	p.Do(psmfMap);
 }
 
 void __PsmfPlayerDoState(PointerWrap &p)
 {
+	auto s = p.Section("scePsmfPlayer", 1);
+	if (!s)
+		return;
+
 	p.Do(psmfPlayerMap);
 	p.Do(videoPixelMode);
 	p.Do(videoLoopStatus);
-
-	p.DoMarker("scePsmfPlayer");
 }
 
 void __PsmfShutdown()

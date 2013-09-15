@@ -120,11 +120,13 @@ void __RtcInit()
 
 void __RtcDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceRtc", 1);
+	if (!s)
+		return;
+
 	p.Do(rtcBaseTime);
 	// Update the precalc, pointless to savestate this as it's just based on the other value.
 	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
-
-	p.DoMarker("sceRtc");
 }
 
 void __RtcTimeOfDay(PSPTimeval *tv)
