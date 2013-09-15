@@ -8,11 +8,13 @@ Dialog::Dialog(LPCSTR res, HINSTANCE _hInstance, HWND _hParent)
 	m_hInstance = _hInstance;
 	m_hParent = _hParent;
 	m_hResource=res;
+	m_bValid = true;
 	Create();
 }
 
 Dialog::~Dialog()
 {
+	m_bValid = false;
 	Destroy();
 }
 
@@ -38,7 +40,7 @@ void Dialog::Show(bool _bShow)
 INT_PTR Dialog::DlgProcStatic(HWND hdlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	Dialog *dis = (Dialog*)GetWindowLongPtr(hdlg, GWLP_USERDATA);
-	if (dis)
+	if (dis && dis->m_bValid)
 		return dis->DlgProc(message,wParam,lParam);
 	else
 	{
