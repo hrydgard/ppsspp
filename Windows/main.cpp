@@ -118,8 +118,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			continue;
 		if (__argv[i][0] == '-')
 		{
-			if (!strncmp(__argv[i], controlsOption, strlen(controlsOption)) && strlen(__argv[i]) > strlen(controlsOption)) {
-				configFilename = __argv[i] + strlen(controlsOption);
+			if (!strncmp(__argv[i], configOption, strlen(configOption)) && strlen(__argv[i]) > strlen(configOption)) {
+				configFilename = __argv[i] + strlen(configOption);
 			}
 			if (!strncmp(__argv[i], controlsOption, strlen(controlsOption)) && strlen(__argv[i]) > strlen(controlsOption)) {
 				controlsConfigFilename = __argv[i] + strlen(controlsOption);
