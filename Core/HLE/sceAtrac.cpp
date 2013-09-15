@@ -750,6 +750,9 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 	if (!atrac) {
 		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!bufferInfo.IsValid()) {
+		ERROR_LOG_REPORT(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid buffer, should crash", atracID, sample, bufferInfoAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	} else {
 		u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		if ((u32)sample + atracSamplesPerFrame > (u32)atrac->endSample) {
