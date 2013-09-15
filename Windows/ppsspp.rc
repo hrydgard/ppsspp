@@ -343,6 +343,8 @@ BEGIN
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
         MENUITEM "Log Console",	                            ID_DEBUG_LOG
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
+        MENUITEM SEPARATOR
+        MENUITEM "Dump Memory",                          ID_DEBUG_DUMPMEMORY
     END
 
     POPUP "Options"

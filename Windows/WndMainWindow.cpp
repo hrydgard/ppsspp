@@ -381,7 +381,7 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
 	}
 
-	void CreateDumpMenu() {
+/*	void CreateDumpMenu() {
 		static bool dumpMenuCreated = false;
 
 		if (dumpMenuCreated) {
@@ -408,7 +408,7 @@ namespace MainWindow
 		AppendMenu(debugMenu, MF_STRING | MF_BYPOSITION, ID_DEBUG_DUMPMEMORY, dumpMenuKey.c_str());
 
 		dumpMenuCreated = true;
-	}
+	}*/
 
 	void CreateLanguageMenu() {
 		// Please don't remove this boolean. 
@@ -1548,7 +1548,7 @@ namespace MainWindow
 
 		case WM_USER_UPDATE_UI:
 			CreateLanguageMenu();
-			CreateDumpMenu();
+			//CreateDumpMenu();
 			TranslateMenus();
 			Update();
 			break;
