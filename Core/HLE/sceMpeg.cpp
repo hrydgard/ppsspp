@@ -126,6 +126,10 @@ struct MpegContext {
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("MpegContext", 1);
+		if (!s)
+			return;
+
 		p.DoArray(mpegheader, 2048);
 		p.Do(defaultFrameWidth);
 		p.Do(videoFrameCount);
@@ -155,7 +159,6 @@ struct MpegContext {
 		p.Do(isAnalyzed);
 		p.Do<u32, StreamInfo>(streamMap);
 		p.DoClass(mediaengine);
-		p.DoMarker("MpegContext");
 	}
 
 	u8 mpegheader[2048];
@@ -298,7 +301,13 @@ public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
 	static Action *Create() { return new PostPutAction; }
-	void DoState(PointerWrap &p) { p.Do(ringAddr_); p.DoMarker("PostPutAction"); }
+	void DoState(PointerWrap &p) {
+	auto s = p.Section("PostPutAction", 1);
+	if (!s)
+		return;
+
+		p.Do(ringAddr_);
+	}
 	void run(MipsCall &call);
 private:
 	u32 ringAddr_;
@@ -318,6 +327,10 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
+	auto s = p.Section("sceMpeg", 1);
+	if (!s)
+		return;
+
 	p.Do(lastMpegHandle);
 	p.Do(streamIdGen);
 	p.Do(isCurrentMpegAnalyzed);
@@ -326,8 +339,6 @@ void __MpegDoState(PointerWrap &p) {
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
 	p.Do(mpegMap);
-
-	p.DoMarker("sceMpeg");
 }
 
 void __MpegShutdown() {

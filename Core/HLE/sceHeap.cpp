@@ -20,7 +20,9 @@
 #include "Core/HLE/sceHeap.h"
 
 void __HeapDoState(PointerWrap &p) {
-	p.DoMarker("sceHeap");
+	auto s = p.Section("sceHeap", 1);
+	if (!s)
+		return;
 }
 
 int sceHeapReallocHeapMemory(u32 heapPtr, u32 memPtr, int memSize) {

@@ -72,16 +72,22 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_
 
 void Jit::DoState(PointerWrap &p)
 {
+	auto s = p.Section("Jit", 1);
+	if (!s)
+		return;
+
 	p.Do(js.startDefaultPrefix);
-	p.DoMarker("Jit");
 }
 
 // This is here so the savestate matches between jit and non-jit.
 void Jit::DoDummyState(PointerWrap &p)
 {
+	auto s = p.Section("Jit", 1);
+	if (!s)
+		return;
+
 	bool dummy = false;
 	p.Do(dummy);
-	p.DoMarker("Jit");
 }
 
 void Jit::FlushAll()

@@ -54,6 +54,10 @@ private:
 	int demuxStream(bool bdemux, int startCode, int channel);
 public:
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("MpegDemux", 1);
+		if (!s)
+			return;
+
 		p.Do(m_index);
 		p.Do(m_len);
 		p.Do(m_audioChannel);

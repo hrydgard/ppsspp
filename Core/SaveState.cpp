@@ -66,6 +66,10 @@ namespace SaveState
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
+		auto s = p.Section("SaveStart", 1);
+		if (!s)
+			return;
+
 		// Gotta do CoreTiming first since we'll restore into it.
 		CoreTiming::DoState(p);
 

@@ -147,6 +147,10 @@ void MIPSState::Reset()
 }
 
 void MIPSState::DoState(PointerWrap &p) {
+	auto s = p.Section("MIPSState", 1);
+	if (!s)
+		return;
+
 	// Reset the jit if we're loading.
 	if (p.mode == p.MODE_READ)
 		Reset();
@@ -172,7 +176,6 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(inDelaySlot);
 	p.Do(llBit);
 	p.Do(debugCount);
-	p.DoMarker("MIPSState");
 }
 
 void MIPSState::SingleStep()

@@ -419,6 +419,10 @@ u32 BlockAllocator::GetTotalFreeBytes() const
 
 void BlockAllocator::DoState(PointerWrap &p)
 {
+	auto s = p.Section("BlockAllocator", 1);
+	if (!s)
+		return;
+
 	int count = 0;
 
 	if (p.mode == p.MODE_READ)
@@ -458,14 +462,16 @@ void BlockAllocator::DoState(PointerWrap &p)
 	p.Do(rangeStart_);
 	p.Do(rangeSize_);
 	p.Do(grain_);
-	p.DoMarker("BlockAllocator");
 }
 
 void BlockAllocator::Block::DoState(PointerWrap &p)
 {
+	auto s = p.Section("Block", 1);
+	if (!s)
+		return;
+
 	p.Do(start);
 	p.Do(size);
 	p.Do(taken);
 	p.DoArray(tag, sizeof(tag));
-	p.DoMarker("Block");
 }

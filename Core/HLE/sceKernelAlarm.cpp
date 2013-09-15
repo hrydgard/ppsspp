@@ -45,8 +45,11 @@ struct Alarm : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Alarm", 1);
+		if (!s)
+			return;
+
 		p.Do(alm);
-		p.DoMarker("Alarm");
 	}
 
 	NativeAlarm alm;
@@ -130,10 +133,13 @@ void __KernelAlarmInit()
 
 void __KernelAlarmDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelAlarm", 1);
+	if (!s)
+		return;
+
 	p.Do(alarmTimer);
 	p.Do(triggeredAlarm);
 	CoreTiming::RestoreRegisterEvent(alarmTimer, "Alarm", __KernelTriggerAlarm);
-	p.DoMarker("sceKernelAlarm");
 }
 
 KernelObject *__KernelAlarmObject()

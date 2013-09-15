@@ -30,8 +30,11 @@ void __UsbInit()
 
 void __UsbDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceUsb", 1);
+	if (!s)
+		return;
+
 	p.Do(usbActivated);
-	p.DoMarker("sceUsb");
 }
 
 u32 sceUsbActivate() {

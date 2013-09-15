@@ -46,6 +46,10 @@ static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160,
 
 struct Mp3Context {
 	void DoState(PointerWrap &p) {
+	auto s = p.Section("Mp3Context", 1);
+	if (!s)
+		return;
+
 		p.Do(mp3StreamStart);
 		p.Do(mp3StreamEnd);
 		p.Do(mp3Buf);
@@ -60,7 +64,6 @@ struct Mp3Context {
 		p.Do(mp3SamplingRate);
 		p.Do(mp3Version);
 		p.DoClass(mediaengine);
-		p.DoMarker("Mp3Context");
 	}
 
 	int mp3StreamStart;

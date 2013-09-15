@@ -296,12 +296,16 @@ int PSPMsgDialog::Shutdown(bool force)
 void PSPMsgDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
+
+	auto s = p.Section("PSPMsgDialog", 1);
+	if (!s)
+		return;
+
 	p.Do(flag);
 	p.Do(messageDialog);
 	p.Do(messageDialogAddr);
 	p.DoArray(msgText, sizeof(msgText));
 	p.Do(yesnoChoice);
-	p.DoMarker("PSPMsgDialog");
 }
 
 pspUtilityDialogCommon *PSPMsgDialog::GetCommonParam()

@@ -221,6 +221,10 @@ void __GeInit()
 
 void __GeDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceGe", 1);
+	if (!s)
+		return;
+
 	p.DoArray(ge_callback_data, ARRAY_SIZE(ge_callback_data));
 	p.DoArray(ge_used_callbacks, ARRAY_SIZE(ge_used_callbacks));
 	p.Do(ge_pending_cb);
@@ -236,7 +240,6 @@ void __GeDoState(PointerWrap &p)
 	p.Do(drawWaitingThreads);
 
 	// Everything else is done in sceDisplay.
-	p.DoMarker("sceGe");
 }
 
 void __GeShutdown()

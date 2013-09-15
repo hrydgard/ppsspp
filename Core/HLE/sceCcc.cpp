@@ -44,12 +44,15 @@ void __CccInit()
 
 void __CccDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceCcc", 1);
+	if (!s)
+		return;
+
 	p.Do(errorUTF8);
 	p.Do(errorUTF16);
 	p.Do(errorSJIS);
 	p.Do(ucs2jisTable);
 	p.Do(jis2ucsTable);
-	p.DoMarker("sceCcc");
 }
 
 u32 __CccUCStoJIS(u32 c, u32 alt)

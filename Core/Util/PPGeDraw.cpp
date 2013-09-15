@@ -187,6 +187,10 @@ void __PPGeInit()
 
 void __PPGeDoState(PointerWrap &p)
 {
+	auto s = p.Section("PPGeDraw", 1);
+	if (!s)
+		return;
+
 	p.Do(atlasPtr);
 	p.Do(atlasWidth);
 	p.Do(atlasHeight);
@@ -208,8 +212,6 @@ void __PPGeDoState(PointerWrap &p)
 
 	p.Do(char_lines);
 	p.Do(char_lines_metrics);
-
-	p.DoMarker("PPGeDraw");
 }
 
 void __PPGeShutdown()

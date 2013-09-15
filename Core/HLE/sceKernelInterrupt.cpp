@@ -47,8 +47,11 @@ public:
 
 	void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("InterruptState", 1);
+		if (!s)
+			return;
+
 		p.Do(savedCpu);
-		p.DoMarker("InterruptState");
 	}
 
 	ThreadContext savedCpu;
@@ -200,16 +203,22 @@ void IntrHandler::queueUp(int subintr)
 
 void IntrHandler::DoState(PointerWrap &p)
 {
+	auto s = p.Section("IntrHandler", 1);
+	if (!s)
+		return;
+
 	p.Do(intrNumber);
 	p.Do<int, SubIntrHandler>(subIntrHandlers);
-	p.DoMarker("IntrHandler");
 }
 
 void PendingInterrupt::DoState(PointerWrap &p)
 {
+	auto s = p.Section("PendingInterrupt", 1);
+	if (!s)
+		return;
+
 	p.Do(intr);
 	p.Do(subintr);
-	p.DoMarker("PendingInterrupt");
 }
 
 void __InterruptsInit()
@@ -224,6 +233,10 @@ void __InterruptsInit()
 
 void __InterruptsDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelInterrupt", 1);
+	if (!s)
+		return;
+
 	int numInterrupts = PSP_NUMBER_INTERRUPTS;
 	p.Do(numInterrupts);
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
@@ -239,7 +252,6 @@ void __InterruptsDoState(PointerWrap &p)
 	p.Do(interruptsEnabled);
 	p.Do(inInterrupt);
 	p.Do(threadBeforeInterrupt);
-	p.DoMarker("sceKernelInterrupt");
 }
 
 void __InterruptsDoStateLate(PointerWrap &p)

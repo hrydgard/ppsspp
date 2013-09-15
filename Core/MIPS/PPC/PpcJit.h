@@ -144,9 +144,17 @@ namespace MIPSComp
 	public:
 		Jit(MIPSState *mips);
 		void DoState(PointerWrap &p) {
+			auto s = p.Section("Jit", 1);
+			if (!s)
+				return;
+
 			// Do nothing
 		}
 		static void DoDummyState(PointerWrap &p) {
+			auto s = p.Section("Jit", 1);
+			if (!s)
+				return;
+
 			// Do nothing
 		}
 

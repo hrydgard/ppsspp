@@ -44,11 +44,14 @@ void __ImposeInit()
 
 void __ImposeDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceImpose", 1);
+	if (!s)
+		return;
+
 	p.Do(language);
 	p.Do(buttonValue);
 	p.Do(umdPopup);
 	p.Do(backlightOffTime);
-	p.DoMarker("sceImpose");
 }
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)

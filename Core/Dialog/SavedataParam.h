@@ -256,6 +256,10 @@ struct SaveFileInfo
 
 	void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("SaveFileInfo", 1);
+		if (!s)
+			return;
+
 		p.Do(size);
 		p.Do(saveName);
 		p.Do(idx);

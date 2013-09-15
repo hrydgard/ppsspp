@@ -111,6 +111,10 @@ void __AudioInit() {
 }
 
 void __AudioDoState(PointerWrap &p) {
+	auto s = p.Section("sceAudio", 1);
+	if (!s)
+		return;
+
 	p.Do(eventAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
 	p.Do(eventHostAudioUpdate);
@@ -132,8 +136,6 @@ void __AudioDoState(PointerWrap &p) {
 	}
 	for (int i = 0; i < chanCount; ++i)
 		chans[i].DoState(p);
-
-	p.DoMarker("sceAudio");
 }
 
 void __AudioShutdown() {

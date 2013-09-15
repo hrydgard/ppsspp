@@ -320,6 +320,10 @@ void __CtrlInit()
 void __CtrlDoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	
+	auto s = p.Section("sceCtrl", 1);
+	if (!s)
+		return;
 
 	p.Do(analogEnabled);
 	p.Do(ctrlLatchBufs);
@@ -341,7 +345,6 @@ void __CtrlDoState(PointerWrap &p)
 
 	p.Do(ctrlTimer);
 	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);
-	p.DoMarker("sceCtrl");
 }
 
 void __CtrlShutdown()

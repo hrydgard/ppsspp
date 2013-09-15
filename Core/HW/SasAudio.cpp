@@ -137,6 +137,10 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 
 void VagDecoder::DoState(PointerWrap &p)
 {
+	auto s = p.Section("VagDecoder", 1);
+	if (!s)
+		return;
+
 	p.DoArray(samples, ARRAY_SIZE(samples));
 	p.Do(curSample);
 
@@ -190,6 +194,10 @@ int SasAtrac3::addStreamData(u8* buf, u32 addbytes) {
 }
 
 void SasAtrac3::DoState(PointerWrap &p) {
+	auto s = p.Section("SasAtrac3", 1);
+	if (!s)
+		return;
+
 	p.Do(contextAddr);
 	p.Do(atracID);
 	if (p.mode == p.MODE_READ && atracID >= 0 && !sampleQueue) {
@@ -492,6 +500,10 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 }
 
 void SasInstance::DoState(PointerWrap &p) {
+	auto s = p.Section("SasInstance", 1);
+	if (!s)
+		return;
+
 	p.Do(grainSize);
 	if (p.mode == p.MODE_READ) {
 		if (grainSize > 0) {
@@ -525,8 +537,6 @@ void SasInstance::DoState(PointerWrap &p) {
 	}
 	p.DoArray(voices, ARRAY_SIZE(voices));
 	p.Do(waveformEffect);
-
-	p.DoMarker("SasInstance");
 }
 
 void SasVoice::Reset() {
@@ -569,6 +579,10 @@ void SasVoice::ChangedParams(bool changedVag) {
 
 void SasVoice::DoState(PointerWrap &p)
 {
+	auto s = p.Section("SasVoice", 1);
+	if (!s)
+		return;
+
 	p.Do(playing);
 	p.Do(paused);
 	p.Do(on);
@@ -595,8 +609,6 @@ void SasVoice::DoState(PointerWrap &p)
 	p.Do(effectLeft);
 	p.Do(effectRight);
 	p.DoArray(resampleHist, ARRAY_SIZE(resampleHist));
-
-	p.DoMarker("SasVoice");
 
 	envelope.DoState(p);
 	vag.DoState(p);
@@ -789,6 +801,10 @@ void ADSREnvelope::KeyOff() {
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
+	auto s = p.Section("ADSREnvelope", 1);
+	if (!s)
+		return;
+
 	p.Do(attackRate);
 	p.Do(decayRate);
 	p.Do(sustainRate);
@@ -801,5 +817,4 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 	p.Do(state_);
 	p.Do(steps_);
 	p.Do(height_);
-	p.DoMarker("ADSREnvelope");
 }

@@ -200,9 +200,12 @@ public:
 	PGF *GetPGF() { return &pgf_; }
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("Font", 1);
+		if (!s)
+			return;
+
 		p.Do(pgf_);
 		p.Do(style_);
-		p.DoMarker("Font");
 	}
 
 private:
@@ -233,6 +236,10 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("LoadedFont", 1);
+		if (!s)
+			return;
+
 		int numInternalFonts = (int)internalFonts.size();
 		p.Do(numInternalFonts);
 		if (numInternalFonts != (int)internalFonts.size()) {
@@ -249,7 +256,6 @@ public:
 			font_ = internalFonts[internalFont];
 		}
 		p.Do(handle_);
-		p.DoMarker("LoadedFont");
 	}
 
 private:
@@ -263,7 +269,13 @@ class PostAllocCallback : public Action {
 public:
 	PostAllocCallback() {}
 	static Action *Create() { return new PostAllocCallback(); }
-	void DoState(PointerWrap &p) { p.Do(fontLibID_); p.DoMarker("PostAllocCallback"); }
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("PostAllocCallback", 1);
+		if (!s)
+			return;
+
+		p.Do(fontLibID_);
+	}
 	void run(MipsCall &call);
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
 
@@ -275,7 +287,13 @@ class PostOpenCallback : public Action {
 public:
 	PostOpenCallback() {}
 	static Action *Create() { return new PostOpenCallback(); }
-	void DoState(PointerWrap &p) { p.Do(fontLibID_); p.DoMarker("PostOpenCallback"); }
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("PostOpenCallback", 1);
+		if (!s)
+			return;
+
+		p.Do(fontLibID_);
+	}
 	void run(MipsCall &call);
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
 
@@ -381,6 +399,10 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("FontLib", 1);
+		if (!s)
+			return;
+
 		p.Do(fonts_);
 		p.Do(isfontopen_);
 		p.Do(params_);
@@ -389,7 +411,6 @@ public:
 		p.Do(fileFontHandle_);
 		p.Do(handle_);
 		p.Do(altCharCode_);
-		p.DoMarker("FontLib");
 	}
 
 	void SetFileFontHandle(u32 handle) {
@@ -552,6 +573,10 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
+	auto s = p.Section("sceFont", 1);
+	if (!s)
+		return;
+
 	__LoadInternalFonts();
 
 	p.Do(fontLibList);
@@ -562,7 +587,6 @@ void __FontDoState(PointerWrap &p) {
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
 	p.Do(actionPostOpenCallback);
 	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
-	p.DoMarker("sceFont");
 }
 
 u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {

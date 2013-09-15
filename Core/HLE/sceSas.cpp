@@ -59,8 +59,11 @@ void __SasInit() {
 }
 
 void __SasDoState(PointerWrap &p) {
+	auto s = p.Section("sceSas", 1);
+	if (!s)
+		return;
+
 	p.DoClass(sas);
-	p.DoMarker("sceSas");
 }
 
 void __SasShutdown() {

@@ -996,6 +996,11 @@ int PSPSaveDialog::Shutdown(bool force)
 void PSPSaveDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
+
+	auto s = p.Section("PSPSaveDialog", 1);
+	if (!s)
+		return;
+
 	p.Do(display);
 	param.DoState(p);
 	p.Do(request);
@@ -1007,7 +1012,6 @@ void PSPSaveDialog::DoState(PointerWrap &p)
 	p.Do(requestAddr);
 	p.Do(currentSelectedSave);
 	p.Do(yesnoChoice);
-	p.DoMarker("PSPSaveDialog");
 }
 
 pspUtilityDialogCommon *PSPSaveDialog::GetCommonParam()

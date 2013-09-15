@@ -105,6 +105,10 @@ int PSPDialog::Update()
 
 void PSPDialog::DoState(PointerWrap &p)
 {
+	auto s = p.Section("PSPDialog", 1);
+	if (!s)
+		return;
+
 	p.Do(status);
 	p.Do(lastButtons);
 	p.Do(buttons);
@@ -116,7 +120,6 @@ void PSPDialog::DoState(PointerWrap &p)
 	p.Do(cancelButtonImg);
 	p.Do(okButtonFlag);
 	p.Do(cancelButtonFlag);
-	p.DoMarker("PSPDialog");
 }
 
 pspUtilityDialogCommon *PSPDialog::GetCommonParam()

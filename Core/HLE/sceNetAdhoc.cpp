@@ -103,11 +103,14 @@ void __NetAdhocShutdown() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
+	auto s = p.Section("sceNetAdhoc", 1);
+	if (!s)
+		return;
+
 	p.Do(netAdhocInited);
 	p.Do(netAdhocctlInited);
 	p.Do(netAdhocMatchingInited);
 	p.Do(adhocctlHandlers);
-	p.DoMarker("netadhoc");
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {

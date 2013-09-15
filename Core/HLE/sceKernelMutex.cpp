@@ -70,11 +70,14 @@ struct Mutex : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Mutex", 1);
+		if (!s)
+			return;
+
 		p.Do(nm);
 		SceUID dv = 0;
 		p.Do(waitingThreads, dv);
 		p.Do(pausedWaits);
-		p.DoMarker("Mutex");
 	}
 
 	NativeMutex nm;
@@ -132,11 +135,14 @@ struct LwMutex : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("LwMutex", 1);
+		if (!s)
+			return;
+
 		p.Do(nm);
 		SceUID dv = 0;
 		p.Do(waitingThreads, dv);
 		p.Do(pausedWaits);
-		p.DoMarker("LwMutex");
 	}
 
 	NativeLwMutex nm;
@@ -168,12 +174,15 @@ void __KernelMutexInit()
 
 void __KernelMutexDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelMutex", 1);
+	if (!s)
+		return;
+
 	p.Do(mutexWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mutexWaitTimer, "MutexTimeout", __KernelMutexTimeout);
 	p.Do(lwMutexWaitTimer);
 	CoreTiming::RestoreRegisterEvent(lwMutexWaitTimer, "LwMutexTimeout", __KernelLwMutexTimeout);
 	p.Do(mutexHeldLocks);
-	p.DoMarker("sceKernelMutex");
 }
 
 KernelObject *__KernelMutexObject()
