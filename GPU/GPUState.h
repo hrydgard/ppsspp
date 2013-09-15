@@ -233,7 +233,7 @@ struct GPUgstate
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
 	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
-	int getBlendEq()    const { return (blend >> 8) & 0x7; }
+	GEBlendMode getBlendEq() const { return static_cast<GEBlendMode>((blend >> 8) & 0x7); }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 
 	// AntiAlias
@@ -309,6 +309,7 @@ struct GPUgstate
 	bool isDirectionalLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_DIRECTIONAL; }
 	bool isPointLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_POINT; }
 	bool isSpotLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_SPOT; }
+	GEShadeMode getShadeMode() const { return static_cast<GEShadeMode>(shademodel & 1); }
 	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
 	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
@@ -352,9 +353,15 @@ struct GPUgstate
 	int getRegionX1() const { return region1 & 0x3FF; }
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
-	int getRegionY2() const { return ((region2 >> 10) & 0x3FF); }
-	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); } 
-	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); } 
+	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
+	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); }
+	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); }
+	// Fixed 16 point.
+	int getOffsetX16() const { return offsetx & 0xFFFF; }
+	// Fixed 16 point.
+	int getOffsetY16() const { return offsety & 0xFFFF; }
+	float getOffsetX() const { return (float)getOffsetX16() / 16.0f; }
+	float getOffsetY() const { return (float)getOffsetY16() / 16.0f; }
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
@@ -412,7 +419,6 @@ struct GPUStateCache
 	UVScale uv;
 	bool flipTexture;
 
-	float zMin, zMax;
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];
@@ -506,6 +512,6 @@ extern GPUInterface *gpu;
 extern GPUStatistics gpuStats;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
-	u32 baseExtended = ((gstate.base & 0x0F0000) << 8) | data;
+	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
 	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
 }

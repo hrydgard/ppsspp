@@ -159,7 +159,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		int blendFuncA  = gstate.getBlendFuncA();
 		int blendFuncB  = gstate.getBlendFuncB();
-		int blendFuncEq = gstate.getBlendEq();
+		GEBlendMode blendFuncEq = gstate.getBlendEq();
 		if (blendFuncA > GE_SRCBLEND_FIXA) blendFuncA = GE_SRCBLEND_FIXA;
 		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
@@ -225,6 +225,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		} else {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
 		}
+#if !defined(USING_GLES2)
+		if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
+			WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
+		}
+#endif
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
 
@@ -366,8 +371,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int regionX2 = gstate_c.curRTWidth;
 	int regionY2 = gstate_c.curRTHeight;
 
-	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
-	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
+	float offsetX = gstate.getOffsetX();
+	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.

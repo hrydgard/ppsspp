@@ -80,8 +80,8 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 {
 	DrawingCoords ret;
 	// TODO: What to do when offset > coord?
-	ret.x = (((u32)coords.x - (gstate.offsetx&0xffff))/16) & 0x3ff;
-	ret.y = (((u32)coords.y - (gstate.offsety&0xffff))/16) & 0x3ff;
+	ret.x = (((u32)coords.x - gstate.getOffsetX16())/16) & 0x3ff;
+	ret.y = (((u32)coords.y - gstate.getOffsetY16())/16) & 0x3ff;
 	ret.z = coords.z;
 	return ret;
 }
@@ -89,8 +89,8 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 {
 	ScreenCoords ret;
-	ret.x = (((u32)coords.x * 16 + (gstate.offsetx&0xffff)));
-	ret.y = (((u32)coords.y * 16 + (gstate.offsety&0xffff)));
+	ret.x = (((u32)coords.x * 16 + gstate.getOffsetX16()));
+	ret.y = (((u32)coords.y * 16 + gstate.getOffsetY16()));
 	ret.z = coords.z;
 	return ret;
 }
@@ -100,7 +100,8 @@ static VertexData ReadVertex(VertexReader& vreader)
 	VertexData vertex;
 
 	float pos[3];
-	vreader.ReadPos(pos);
+	// VertexDecoder normally scales z, but we want it unscaled.
+	vreader.ReadPosZ16(pos);
 
 	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
 		float uv[2];
@@ -167,8 +168,8 @@ static VertexData ReadVertex(VertexReader& vreader)
 
 		Lighting::Process(vertex);
 	} else {
-		vertex.screenpos.x = (u32)pos[0] * 16 + (gstate.offsetx&0xffff);
-		vertex.screenpos.y = (u32)pos[1] * 16 + (gstate.offsety&0xffff);
+		vertex.screenpos.x = (u32)pos[0] * 16 + gstate.getOffsetX16();
+		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
 	}

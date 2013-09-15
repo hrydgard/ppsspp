@@ -37,8 +37,8 @@ static GLuint program;
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
-u8* fb = NULL;
-u8* depthbuf = NULL;
+FormatBuffer fb = {NULL};
+FormatBuffer depthbuf = {NULL};
 u32 clut[4096];
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
@@ -140,8 +140,8 @@ SoftGPU::SoftGPU()
 	attr_pos = glGetAttribLocation(program, "pos");
 	attr_tex = glGetAttribLocation(program, "TexCoordIn");
 
-	fb = Memory::GetPointer(0x44000000); // TODO: correct default address?
-	depthbuf = Memory::GetPointer(0x44000000); // TODO: correct default address?
+	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
+	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 }
 
 SoftGPU::~SoftGPU()
@@ -153,7 +153,7 @@ SoftGPU::~SoftGPU()
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
 {
-  glDisable(GL_BLEND);
+	glDisable(GL_BLEND);
 	glViewport(0, 0, dstwidth, dstheight);
 	glScissor(0, 0, dstwidth, dstheight);
 
@@ -167,10 +167,9 @@ void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int
 		// TODO: This should probably be converted in a shader instead..
 		// TODO: Do something less brain damaged to manage this buffer...
 		u32 *buf = new u32[srcwidth * srcheight];
-		const u16 *fb16 = (const u16 *)fb;
 		for (int y = 0; y < srcheight; ++y) {
 			u32 *buf_line = &buf[y * srcwidth];
-			const u16 *fb_line = &fb16[y * gstate.FrameBufStride()];
+			const u16 *fb_line = &fb.as16[y * gstate.FrameBufStride()];
 
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_565:
@@ -240,7 +239,7 @@ void SoftGPU::CopyDisplayToOutput()
 void SoftGPU::CopyDisplayToOutputInternal()
 {
 	// The display always shows 480x272.
-	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	CopyToCurrentFboFromRam(fb.data, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
@@ -276,17 +275,14 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	switch (cmd)
 	{
 	case GE_CMD_BASE:
-		DEBUG_LOG(G3D,"DL BASE: %06x", data);
 		break;
 
-	case GE_CMD_VADDR:		/// <<8????
-		gstate_c.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
-		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate_c.vertexAddr);
+	case GE_CMD_VADDR:
+		gstate_c.vertexAddr = gstate_c.getRelativeAddress(data);
 		break;
 
 	case GE_CMD_IADDR:
-		gstate_c.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
-		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate_c.indexAddr);
+		gstate_c.indexAddr	= gstate_c.getRelativeAddress(data);
 		break;
 
 	case GE_CMD_PRIM:
@@ -369,127 +365,81 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_BJUMP:
-		// bounding box jump. Let's just not jump, for now.
-		DEBUG_LOG(G3D,"DL BBOX JUMP - unimplemented");
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
-		// bounding box test. Let's do nothing.
-		DEBUG_LOG(G3D,"DL BBOX TEST - unimplemented");
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		DEBUG_LOG(G3D,"DL SetVertexType: %06x", data);
-		// This sets through-mode or not, as well.
 		break;
 
 	case GE_CMD_REGION1:
-		{
-			int x1 = data & 0x3ff;
-			int y1 = data >> 10;
-			//topleft
-			DEBUG_LOG(G3D,"DL Region TL: %d %d", x1, y1);
-		}
-		break;
-
 	case GE_CMD_REGION2:
-		{
-			int x2 = data & 0x3ff;
-			int y2 = data >> 10;
-			DEBUG_LOG(G3D,"DL Region BR: %d %d", x2, y2);
-		}
 		break;
 
 	case GE_CMD_CLIPENABLE:
-		DEBUG_LOG(G3D, "DL Clip Enable: %i   (ignoring)", data);
 		break;
 
-	case GE_CMD_CULLFACEENABLE: 
-		DEBUG_LOG(G3D, "DL CullFace Enable: %i   (ignoring)", data);
+	case GE_CMD_CULLFACEENABLE:
+	case GE_CMD_CULL:
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE: 
-		DEBUG_LOG(G3D, "DL Texture map enable: %i", data);
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
-		DEBUG_LOG(G3D, "DL Lighting enable: %i", data);
 		break;
 
-	case GE_CMD_FOGENABLE:		
-		DEBUG_LOG(G3D, "DL Fog Enable: %i", gstate.fogEnable);
+	case GE_CMD_FOGCOLOR:
+	case GE_CMD_FOG1:
+	case GE_CMD_FOG2:
+	case GE_CMD_FOGENABLE:
 		break;
 
 	case GE_CMD_DITHERENABLE:
-		DEBUG_LOG(G3D, "DL Dither Enable: %i", gstate.ditherEnable);
 		break;
 
-	case GE_CMD_OFFSETX:		
-		DEBUG_LOG(G3D, "DL Offset X: %i", gstate.offsetx);
+	case GE_CMD_OFFSETX:
 		break;
 
-	case GE_CMD_OFFSETY:		
-		DEBUG_LOG(G3D, "DL Offset Y: %i", gstate.offsety);
+	case GE_CMD_OFFSETY:
 		break;
 
-	case GE_CMD_TEXSCALEU: 
-		gstate_c.uv.uScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uv.uScale);
+	case GE_CMD_TEXSCALEU:
+		gstate_c.uv.uScale = getFloat24(data);
 		break;
 
-	case GE_CMD_TEXSCALEV: 
-		gstate_c.uv.vScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.uv.vScale);
+	case GE_CMD_TEXSCALEV:
+		gstate_c.uv.vScale = getFloat24(data);
 		break;
 
-	case GE_CMD_TEXOFFSETU: 
-		gstate_c.uv.uOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uv.uOff);
+	case GE_CMD_TEXOFFSETU:
+		gstate_c.uv.uOff = getFloat24(data);
 		break;
 
-	case GE_CMD_TEXOFFSETV: 
-		gstate_c.uv.vOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.uv.vOff);
+	case GE_CMD_TEXOFFSETV:
+		gstate_c.uv.vOff = getFloat24(data);
 		break;
 
 	case GE_CMD_SCISSOR1:
-		{
-			int x1 = data & 0x3ff;
-			int y1 = data >> 10;
-			DEBUG_LOG(G3D, "DL Scissor TL: %i, %i", x1,y1);
-		}
-		break;
 	case GE_CMD_SCISSOR2:
-		{
-			int x2 = data & 0x3ff;
-			int y2 = data >> 10;
-			DEBUG_LOG(G3D, "DL Scissor BR: %i, %i", x2, y2);
-		}
 		break;
 
-	case GE_CMD_MINZ: 
-		DEBUG_LOG(G3D, "DL MinZ: %i", data);
-		break;
-
-	case GE_CMD_MAXZ: 
-		DEBUG_LOG(G3D, "DL MaxZ: %i", data);
+	case GE_CMD_MINZ:
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
-		fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
-		DEBUG_LOG(G3D, "DL FramebufPtr: %08x", data);
+		fb.data = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
-		fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
-		DEBUG_LOG(G3D, "DL FramebufWidth: %i", data);
+		fb.data = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged=true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -497,11 +447,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		DEBUG_LOG(G3D,"DL Texture address %i: %06x", cmd-GE_CMD_TEXADDR0, data);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged=true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -509,15 +457,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		DEBUG_LOG(G3D,"DL Texture BUFWIDTHess %i: %06x", cmd-GE_CMD_TEXBUFWIDTH0, data);
 		break;
 
 	case GE_CMD_CLUTADDR:
-		//DEBUG_LOG(G3D,"CLUT base addr: %06x", data);
-		break;
-
 	case GE_CMD_CLUTADDRUPPER:
-		DEBUG_LOG(G3D,"DL CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
 		break;
 
 	case GE_CMD_LOADCLUT:
@@ -529,16 +472,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				Memory::MemcpyUnchecked(clut, clutAddr, clutTotalBytes);
 			} else {
 				// TODO: Does this make any sense?
+				ERROR_LOG_REPORT_ONCE(badClut, G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
 				memset(clut, 0xFF, clutTotalBytes);
-			}
-
-			if (clutAddr)
-			{
-				DEBUG_LOG(G3D,"DL Clut load: %08x", clutAddr);
-			}
-			else
-			{
-				DEBUG_LOG(G3D,"DL Empty Clut load");
 			}
 		}
 		break;
@@ -584,10 +519,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged=true;
-		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
-		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
-		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
 	case GE_CMD_TEXSIZE3:
@@ -595,115 +526,53 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		DEBUG_LOG(G3D,"DL Texture Size: %06x",	data);
 		break;
 
 	case GE_CMD_ZBUFPTR:
-		depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
-		DEBUG_LOG(G3D,"Zbuf Ptr: %06x", data);
+		depthbuf.data = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
-		depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
-		DEBUG_LOG(G3D,"Zbuf Width: %i", data);
+		depthbuf.data = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:
-		DEBUG_LOG(G3D,"DL Ambient Color: %06x",	data);
-		break;
-
 	case GE_CMD_AMBIENTALPHA:
-		DEBUG_LOG(G3D,"DL Ambient Alpha: %06x",	data);
-		break;
-
 	case GE_CMD_MATERIALAMBIENT:
-		DEBUG_LOG(G3D,"DL Material Ambient Color: %06x",	data);
-		break;
-
 	case GE_CMD_MATERIALDIFFUSE:
-		DEBUG_LOG(G3D,"DL Material Diffuse Color: %06x",	data);
-		break;
-
 	case GE_CMD_MATERIALEMISSIVE:
-		DEBUG_LOG(G3D,"DL Material Emissive Color: %06x",	data);
-		break;
-
 	case GE_CMD_MATERIALSPECULAR:
-		DEBUG_LOG(G3D,"DL Material Specular Color: %06x",	data);
-		break;
-
 	case GE_CMD_MATERIALALPHA:
-		DEBUG_LOG(G3D,"DL Material Alpha Color: %06x",	data);
-		break;
-
 	case GE_CMD_MATERIALSPECULARCOEF:
-		DEBUG_LOG(G3D,"DL Material specular coef: %f", getFloat24(data));
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
 	case GE_CMD_LIGHTTYPE1:
 	case GE_CMD_LIGHTTYPE2:
 	case GE_CMD_LIGHTTYPE3:
-		DEBUG_LOG(G3D,"DL Light %i type: %06x", cmd-GE_CMD_LIGHTTYPE0, data);
 		break;
 
 	case GE_CMD_LX0:case GE_CMD_LY0:case GE_CMD_LZ0:
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
 	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
 	case GE_CMD_LX3:case GE_CMD_LY3:case GE_CMD_LZ3:
-		{
-			int n = cmd - GE_CMD_LX0;
-			int l = n / 3;
-			int c = n % 3;
-			float val = getFloat24(data);
-			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
-			gstate_c.lightpos[l][c] = val;
-		}
 		break;
 
 	case GE_CMD_LDX0:case GE_CMD_LDY0:case GE_CMD_LDZ0:
 	case GE_CMD_LDX1:case GE_CMD_LDY1:case GE_CMD_LDZ1:
 	case GE_CMD_LDX2:case GE_CMD_LDY2:case GE_CMD_LDZ2:
 	case GE_CMD_LDX3:case GE_CMD_LDY3:case GE_CMD_LDZ3:
-		{
-			int n = cmd - GE_CMD_LDX0;
-			int l = n / 3;
-			int c = n % 3;
-			float val = getFloat24(data);
-			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
-			gstate_c.lightdir[l][c] = val;
-		}
 		break;
 
 	case GE_CMD_LKA0:case GE_CMD_LKB0:case GE_CMD_LKC0:
 	case GE_CMD_LKA1:case GE_CMD_LKB1:case GE_CMD_LKC1:
 	case GE_CMD_LKA2:case GE_CMD_LKB2:case GE_CMD_LKC2:
 	case GE_CMD_LKA3:case GE_CMD_LKB3:case GE_CMD_LKC3:
-		{
-			int n = cmd - GE_CMD_LKA0;
-			int l = n / 3;
-			int c = n % 3;
-			float val = getFloat24(data);
-			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
-			gstate_c.lightatt[l][c] = val;
-		}
 		break;
-
 
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
-		{
-			float r = (float)(data>>16)/255.0f;
-			float g = (float)((data>>8) & 0xff)/255.0f;
-			float b = (float)(data & 0xff)/255.0f;
-
-			int l = (cmd - GE_CMD_LAC0) / 3;
-			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l][0] = r;
-			gstate_c.lightColor[t][l][1] = g;
-			gstate_c.lightColor[t][l][2] = b;
-		}
 		break;
 
 	case GE_CMD_VIEWPORTX1:
@@ -712,91 +581,57 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_VIEWPORTX2:
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ2:
-		DEBUG_LOG(G3D,"DL Viewport param %i: %f", cmd-GE_CMD_VIEWPORTX1, getFloat24(data));
 		break;
+
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
 	case GE_CMD_LIGHTENABLE2:
 	case GE_CMD_LIGHTENABLE3:
-		DEBUG_LOG(G3D,"DL Light %i enable: %d", cmd-GE_CMD_LIGHTENABLE0, data);
-		break;
-	case GE_CMD_CULL:
-		DEBUG_LOG(G3D,"DL cull: %06x", data);
 		break;
 
 	case GE_CMD_LIGHTMODE:
-		DEBUG_LOG(G3D,"DL Shade mode: %06x", data);
 		break;
 
 	case GE_CMD_PATCHDIVISION:
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
-		DEBUG_LOG(G3D,"DL Material Update: %d", data);
 		break;
-
 
 	//////////////////////////////////////////////////////////////////
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
-		DEBUG_LOG(G3D,"DL Clear mode: %06x", data);
 		break;
-
 
 	//////////////////////////////////////////////////////////////////
 	//	ALPHA BLENDING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_ALPHABLENDENABLE:
-		DEBUG_LOG(G3D,"DL Alpha blend enable: %d", data);
 		break;
 
 	case GE_CMD_BLENDMODE:
-		DEBUG_LOG(G3D,"DL Blend mode: %06x", data);
 		break;
 
 	case GE_CMD_BLENDFIXEDA:
-		DEBUG_LOG(G3D,"DL Blend fix A: %06x", data);
-		break;
-
 	case GE_CMD_BLENDFIXEDB:
-		DEBUG_LOG(G3D,"DL Blend fix B: %06x", data);
 		break;
 
 	case GE_CMD_ALPHATESTENABLE:
-		DEBUG_LOG(G3D,"DL Alpha test enable: %d", data);
-		// This is done in the shader.
-		break;
-
 	case GE_CMD_ALPHATEST:
-		DEBUG_LOG(G3D,"DL Alpha test settings");
 		break;
 
 	case GE_CMD_TEXFUNC:
-		DEBUG_LOG(G3D,"DL TexFunc %i", data&7);
-		break;
 	case GE_CMD_TEXFILTER:
-		{
-			int min = data & 7;
-			int mag = (data >> 8) & 1;
-			DEBUG_LOG(G3D,"DL TexFilter min: %i mag: %i", min, mag);
-		}
-
 		break;
+
 	//////////////////////////////////////////////////////////////////
 	//	Z/STENCIL TESTING
 	//////////////////////////////////////////////////////////////////
 
 	case GE_CMD_ZTESTENABLE:
-		DEBUG_LOG(G3D,"DL Z test enable: %d", data & 1);
-		break;
-
 	case GE_CMD_STENCILTESTENABLE:
-		DEBUG_LOG(G3D,"DL Stencil test enable: %d", data);
-		break;
-
 	case GE_CMD_ZTEST:
-		DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		break;
 
 	case GE_CMD_MORPHWEIGHT0:
@@ -807,69 +642,81 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_MORPHWEIGHT5:
 	case GE_CMD_MORPHWEIGHT6:
 	case GE_CMD_MORPHWEIGHT7:
-		{
-			int index = cmd - GE_CMD_MORPHWEIGHT0;
-			float weight = getFloat24(data);
-			DEBUG_LOG(G3D,"DL MorphWeight %i = %f", index, weight);
-			gstate_c.morphWeights[index] = weight;
-		}
+		gstate_c.morphWeights[cmd - GE_CMD_MORPHWEIGHT0] = getFloat24(data);
 		break;
  
 	case GE_CMD_DITH0:
 	case GE_CMD_DITH1:
 	case GE_CMD_DITH2:
 	case GE_CMD_DITH3:
-		DEBUG_LOG(G3D,"DL DitherMatrix %i = %06x",cmd-GE_CMD_DITH0,data);
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL World matrix # %i", data);
 		gstate.worldmtxnum = data&0xF;
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
-		DEBUG_LOG(G3D,"DL World matrix data # %f", getFloat24(data));
-		gstate.worldMatrix[gstate.worldmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.worldmtxnum & 0xF;
+			if (num < 12) {
+				gstate.worldMatrix[num] = getFloat24(data);
+			}
+			gstate.worldmtxnum = (++num) & 0xF;
+		}
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL VIEW matrix # %i", data);
 		gstate.viewmtxnum = data&0xF;
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
-		DEBUG_LOG(G3D,"DL VIEW matrix data # %f", getFloat24(data));
-		gstate.viewMatrix[gstate.viewmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.viewmtxnum & 0xF;
+			if (num < 12) {
+				gstate.viewMatrix[num] = getFloat24(data);
+			}
+			gstate.viewmtxnum = (++num) & 0xF;
+		}
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL PROJECTION matrix # %i", data);
 		gstate.projmtxnum = data&0xF;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
-		DEBUG_LOG(G3D,"DL PROJECTION matrix data # %f", getFloat24(data));
-		gstate.projMatrix[gstate.projmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.projmtxnum & 0xF;
+			gstate.projMatrix[num] = getFloat24(data);
+			gstate.projmtxnum = (++num) & 0xF;
+		}
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL TGEN matrix # %i", data);
 		gstate.texmtxnum = data&0xF;
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
-		DEBUG_LOG(G3D,"DL TGEN matrix data # %f", getFloat24(data));
-		gstate.tgenMatrix[gstate.texmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.texmtxnum & 0xF;
+			if (num < 12) {
+				gstate.tgenMatrix[num] = getFloat24(data);
+			}
+			gstate.texmtxnum = (++num) & 0xF;
+		}
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL BONE matrix #%i", data);
-		gstate.boneMatrixNumber = data;
+		gstate.boneMatrixNumber = data & 0x7F;
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
-		DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber, getFloat24(data));
-		gstate.boneMatrix[gstate.boneMatrixNumber++] = getFloat24(data);
+		{
+			int num = gstate.boneMatrixNumber & 0x7F;
+			if (num < 96) {
+				gstate.boneMatrix[num] = getFloat24(data);
+			}
+			gstate.boneMatrixNumber = (++num) & 0x7F;
+		}
 		break;
 
 	default:
