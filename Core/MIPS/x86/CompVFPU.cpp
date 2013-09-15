@@ -1780,6 +1780,10 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	// DISABLE;
 	CONDITIONAL_DISABLE;
 
+#if defined(_M_IX86) && !defined(_WIN32)
+	DISABLE;
+#endif
+
 	int vd = _VD;
 	int vs = _VS;
 

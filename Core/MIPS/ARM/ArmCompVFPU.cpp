@@ -1581,9 +1581,7 @@ namespace MIPSComp
 #if !defined(ARMV7) || !defined(ANDROID)
 		DISABLE;
 #endif
-#if defined(_M_IX86) && !defined(_WIN32)
-		DISABLE;
-#endif
+
 		CONDITIONAL_DISABLE;
 
 		// This op doesn't support prefixes anyway..
