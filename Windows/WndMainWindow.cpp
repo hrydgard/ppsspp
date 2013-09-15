@@ -74,6 +74,7 @@
 extern std::map<int, int> windowsTransTable;
 BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
+static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
 extern InputState input_state;
 
@@ -269,6 +270,7 @@ namespace MainWindow
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, TRUE);
+		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 	}
 
 	void _ViewFullScreen(HWND hWnd) {
@@ -433,16 +435,28 @@ namespace MainWindow
 		langMenuCreated = true;
 	}
 
-	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+	void _TranslateMenuItem(const int menuID, const char *text, const char *category, const std::wstring& accelerator = L"") {
 		I18NCategory *c = GetI18NCategory(category);
-		std::string key = c->T(menuText);
+
+		std::string key = c->T(text);
 		std::wstring translated = ConvertUTF8ToWString(key);
 		translated.append(accelerator);
-		ModifyMenu(menu, menuID, MF_STRING
-								| (enabled? MF_ENABLED : MF_GRAYED)
-								| (checked? MF_CHECKED : MF_UNCHECKED),
-								menuID, translated.c_str());
 
+		ModifyMenu(menu, menuID, MF_STRING, menuID, translated.c_str());
+	}
+
+	// Replaces TranslateMenuItemByText. Use this for menu items that change text dynamically
+	// like "Run/Pause".
+	void TranslateMenuItem(const int menuID, const char *category, const char *menuText, const std::wstring& accelerator = L"") {
+		if(menuText == nullptr || !strcmp(menuText, ""))
+			_TranslateMenuItem(menuID, GetMenuItemInitialText(menuID).c_str(), category, accelerator);
+		else
+			_TranslateMenuItem(menuID, menuText, category, accelerator);
+	}
+
+	// Use this one for menu items that don't change.
+	void TranslateMenuItem(const int menuID, const char *category, const std::wstring& accelerator = L"") {
+		_TranslateMenuItem(menuID, GetMenuItemInitialText(menuID).c_str(), category, accelerator);
 	}
 
 	void TranslateMenuHeader(HMENU menu, const char *category, const char *key, const MenuID id, const std::wstring& accelerator = L"") {
@@ -463,17 +477,6 @@ namespace MainWindow
 		ModifyMenu(subMenu, subMenuID, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
 	}
 
-	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
-		I18NCategory *c = GetI18NCategory(category);
-		std::string key = c->T(GetMenuItemInitialText(menuID).c_str());
-		std::wstring translated = ConvertUTF8ToWString(key);
-		translated.append(accelerator);
-		ModifyMenu(menu, menuID, MF_STRING 
-								| (enabled? MF_ENABLED : MF_GRAYED)
-								| (checked? MF_CHECKED : MF_UNCHECKED),
-								menuID, translated.c_str());
-	}
-
 	void TranslateMenus() {
 		const char *desktopUI = "DesktopUI";
 
@@ -482,26 +485,20 @@ namespace MainWindow
 		TranslateMenuItem(ID_FILE_LOAD_DIR, desktopUI);
 		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK, desktopUI);
 		TranslateMenuItem(ID_FILE_MEMSTICK, desktopUI);
-		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, desktopUI, false, false, L"\tF4");
-		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, false, false, L"\tF2");
-		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
-		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
-		TranslateMenuItem(ID_FILE_EXIT, desktopUI, true, false, L"\tAlt+F4");
+		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, desktopUI, L"\tF4");
+		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, L"\tF2");
+		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI);
+		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI);
+		TranslateMenuItem(ID_FILE_EXIT, desktopUI, L"\tAlt+F4");
 
 		// Emulation menu
-		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
-		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
-		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
-		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
+		bool isPaused = Core_IsStepping() && (globalUIState == UISTATE_INGAME);
+		TranslateMenuItem(ID_TOGGLE_PAUSE, desktopUI, isPaused ? "Run" : "Pause", L"\tF8");
+		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, L"\tCtrl+W");
+		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, L"\tCtrl+B");
 		TranslateMenuItem(ID_DEBUG_RUNONLOAD, desktopUI);
-		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI, true, true);
-		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, desktopUI, true, false);
-		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI,true, true, L"\tCtrl+T");
-		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, desktopUI, true, true);
-		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, desktopUI);
-		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
-		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
-		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
+		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI);
+		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI, L"\tCtrl+T");
 		
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
@@ -509,22 +506,22 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, desktopUI);
 		TranslateMenuItem(ID_DEBUG_SHOWDEBUGSTATISTICS, desktopUI);
-		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
-		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
-		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
-		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, true, false, L"\tCtrl+M");
+		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI,  L"\tF12");
+		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, L"\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, L"\tCtrl+L");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
 
 		// Options menu
-		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_SCREENAUTO, desktopUI);
 		// Skip rendering resolution 2x-5x..
 		// Skip window size 1x-4x..
-		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI, true, true);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
 		// Skip frameskipping 1-8..
@@ -541,13 +538,10 @@ namespace MainWindow
 		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, desktopUI);
 		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, desktopUI);
 		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, true, true, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, L"\tF6");
 		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_MIPMAP, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
 		TranslateMenuItem(ID_DEBUG_IGNOREILLEGALREADS, desktopUI);
 
 		// Language menu
@@ -648,6 +642,15 @@ namespace MainWindow
 
 	void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
+	}
+
+	void UpdateWindowTitle() {
+		// Seems to be fine to call now since we use a UNICODE build...
+		SetWindowText(hwndMain, windowTitle.c_str());
+	}
+
+	void SetWindowTitle(const wchar_t *title) {
+		windowTitle = title;
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
@@ -791,6 +794,7 @@ namespace MainWindow
 			_splitpath(fullpath.c_str(), drive, dir, fname, ext);
 
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
+			executable = ReplaceAll(executable, "\\", "/");
 			NativeMessageReceived("boot", executable.c_str());
 		}
 		else {
@@ -1108,14 +1112,6 @@ namespace MainWindow
 					NativeMessageReceived("reset", "");
 					break;
 
-				case ID_EMULATION_RENDER_MODE_OGL:
-					g_Config.bSoftwareRendering = false;
-					break;
-
-				case ID_EMULATION_RENDER_MODE_SOFT:
-					g_Config.bSoftwareRendering = true;
-					break;
-
 				case ID_FILE_LOADSTATEFILE:
 					if (W32Util::BrowseForFileName(true, hWnd, L"Load state",0,L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0",L"ppst",fn)) {
 						SetCursor(LoadCursor(0, IDC_WAIT));
@@ -1176,10 +1172,6 @@ namespace MainWindow
 						ResizeDisplay(true);
 						break;
 					}
-
-				case ID_OPTIONS_MIPMAP:
-					g_Config.bMipMap = !g_Config.bMipMap;
-					break;
 
 				case ID_OPTIONS_VSYNC:
 					g_Config.bVSync = !g_Config.bVSync;
@@ -1248,18 +1240,6 @@ namespace MainWindow
 
 				case ID_FILE_EXIT:
 					DestroyWindow(hWnd);
-					break;
-
-				case ID_CPU_DYNAREC:
-					g_Config.bJit = !g_Config.bJit;
-					break;
-
-				case ID_CPU_MULTITHREADED:
-					g_Config.bSeparateCPUThread = !g_Config.bSeparateCPUThread;
-					break;
-
-				case ID_IO_MULTITHREADED:
-					g_Config.bSeparateIOThread = !g_Config.bSeparateIOThread;
 					break;
 
 				case ID_DEBUG_RUNONLOAD:
@@ -1335,10 +1315,6 @@ namespace MainWindow
 					g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 					break;
 
-				case ID_OPTIONS_FASTMEMORY:
-					g_Config.bFastMemory = !g_Config.bFastMemory;
-					break;
-
 				case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(AUTO); break;
 				case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(NEAREST); break;
 				case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(LINEAR); break;
@@ -1351,35 +1327,17 @@ namespace MainWindow
 
 				case ID_OPTIONS_CONTROLS:
 					NativeMessageReceived("control mapping", "");
-					globalUIState = UISTATE_MENU;
 					break;
 
 				case ID_OPTIONS_MORE_SETTINGS:
 					NativeMessageReceived("settings", "");
-					globalUIState = UISTATE_MENU;
 					break;
 
 				case ID_EMULATION_SOUND:
 					g_Config.bEnableSound = !g_Config.bEnableSound;
 					if(!g_Config.bEnableSound) {
-						EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
 						if(!IsAudioInitialised())
 							Audio_Init();
-					} else {
-						if(Atrac3plus_Decoder::IsInstalled())
-							EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_ENABLED);
-					}
-					break;
-
-				case ID_EMULATION_ATRAC3_SOUND:
-					g_Config.bEnableAtrac3plus = !g_Config.bEnableAtrac3plus;
-
-					if(Atrac3plus_Decoder::IsInstalled()) {
-						if(g_Config.bEnableAtrac3plus)
-							Atrac3plus_Decoder::Init();
-						else Atrac3plus_Decoder::Shutdown();
-					} else {
-						EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
 					}
 					break;
 
@@ -1558,13 +1516,6 @@ namespace MainWindow
 			}
 			break;
 
-		case WM_USER_ATRAC_STATUS_CHANGED:
-			if(g_Config.bEnableAtrac3plus && Atrac3plus_Decoder::IsInstalled())
-				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_ENABLED);
-			else
-				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
-			break;
-
 		case WM_USER_UPDATE_UI:
 			CreateLanguageMenu();
 			TranslateMenus();
@@ -1573,6 +1524,10 @@ namespace MainWindow
 
 		case WM_USER_UPDATE_SCREEN:
 			ResizeDisplay(true);
+			break;
+
+		case WM_USER_WINDOW_TITLE_CHANGED:
+			UpdateWindowTitle();
 			break;
 
 		case WM_MENUSELECT:
@@ -1605,25 +1560,17 @@ namespace MainWindow
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_DYNAREC, g_Config.bJit == true);
-		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
-		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
-		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
-		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
-		CHECKITEM(ID_EMULATION_ATRAC3_SOUND, g_Config.bEnableAtrac3plus);
-		CHECKITEM(ID_EMULATION_RENDER_MODE_OGL, g_Config.bSoftwareRendering == false);
-		CHECKITEM(ID_EMULATION_RENDER_MODE_SOFT, g_Config.bSoftwareRendering == true);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 
 		static const int zoomitems[6] = {
@@ -1780,7 +1727,7 @@ namespace MainWindow
 		HMENU menu = GetMenu(GetHWND());
 
 		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
-		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
+		TranslateMenuItem(ID_TOGGLE_PAUSE, "DesktopUI", isPaused ? "Run" : "Pause", L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
@@ -1792,13 +1739,7 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
-		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
-		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
-		EnableMenuItem(menu, ID_EMULATION_RENDER_MODE_OGL, menuEnable);
-		EnableMenuItem(menu, ID_EMULATION_RENDER_MODE_SOFT, menuEnable);
-		EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, !Atrac3plus_Decoder::IsInstalled());
 	}
 
 	// Message handler for about box.

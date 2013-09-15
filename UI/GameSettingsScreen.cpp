@@ -44,7 +44,6 @@
 namespace MainWindow {
 	enum { 
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
-		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 102,
 	};
 	extern HWND hwndMain;
 }
