@@ -106,9 +106,36 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		langRegion = "en_US";
 	}
 
+	std::string configFilename;
+	const char *configOption = "--config=";
+
+	std::string controlsConfigFilename;
+	const char *controlsOption = "--controlconfig=";
+
+	for (int i = 1; i < __argc; ++i)
+	{
+		if (__argv[i][0] == '\0')
+			continue;
+		if (__argv[i][0] == '-')
+		{
+			if (!strncmp(__argv[i], configOption, strlen(configOption)) && strlen(__argv[i]) > strlen(configOption)) {
+				configFilename = __argv[i] + strlen(configOption);
+			}
+			if (!strncmp(__argv[i], controlsOption, strlen(controlsOption)) && strlen(__argv[i]) > strlen(controlsOption)) {
+				controlsConfigFilename = __argv[i] + strlen(controlsOption);
+			}
+		}
+	}
+
+	if(configFilename.empty())
+		configFilename = "ppsspp.ini";
+
+	if(controlsConfigFilename.empty())
+		controlsConfigFilename = "controls.ini";
+
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.Load();
+	g_Config.Load(configFilename.c_str(), controlsConfigFilename.c_str());
 
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
