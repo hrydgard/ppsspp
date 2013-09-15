@@ -173,7 +173,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 bool BreakpointWindow::exec()
 {
 	bp = this;
-	bool result = (bool) DialogBoxParam(GetModuleHandle(0),MAKEINTRESOURCE(IDD_BREAKPOINT),parentHwnd,dlgFunc,(LPARAM)this);
+	bool result = DialogBoxParam(GetModuleHandle(0),MAKEINTRESOURCE(IDD_BREAKPOINT),parentHwnd,dlgFunc,(LPARAM)this) != 0;
 	return result;
 }
 

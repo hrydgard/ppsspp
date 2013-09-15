@@ -260,6 +260,54 @@ public:
 		}
 	}
 
+	void ReadPosZ16(float pos[3]) const {
+		switch (decFmt_.posfmt) {
+		case DEC_FLOAT_3:
+			{
+				const float *f = (const float *)(data_ + decFmt_.posoff);
+				memcpy(pos, f, 12);
+				// TODO: Does non-through need conversion?
+			}
+			break;
+		case DEC_S16_3:
+			{
+				// X and Y are signed 16 bit, Z is unsigned 16 bit
+				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
+				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
+				if (isThrough()) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = s[i];
+					pos[2] = u[2];
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = s[i] * (1.f / 32767.f);
+					// TODO: Does depth need conversion?
+				}
+			}
+			break;
+		case DEC_S8_3:
+			{
+				// X and Y are signed 8 bit, Z is unsigned 8 bit
+				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
+				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
+				if (isThrough()) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = b[i];
+					pos[2] = u[2];
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = b[i] * (1.f / 127.f);
+					// TODO: Does depth need conversion?
+				}
+			}
+			break;
+		default:
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
+			memset(pos, 0, sizeof(float) * 3);
+			break;
+		}
+	}
+
 	void ReadNrm(float nrm[3]) const {
 		switch (decFmt_.nrmfmt) {
 		case DEC_FLOAT_3:
