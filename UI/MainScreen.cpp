@@ -691,8 +691,10 @@ void GamePauseScreen::DrawBackground(UIContext &dc) {
 }
 
 GamePauseScreen::~GamePauseScreen() {
-	g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
-	g_Config.Save();
+	if (saveSlots_ != NULL) {
+		g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
+		g_Config.Save();
+	}
 }
 
 void GamePauseScreen::CreateViews() {
