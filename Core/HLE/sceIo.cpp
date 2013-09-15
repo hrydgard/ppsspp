@@ -279,7 +279,7 @@ void __IoFreeFd(int fd, u32 &error) {
 		if (f) {
 			// Wake anyone waiting on the file before closing it.
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
-				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), SCE_KERNEL_ERROR_WAIT_DELETE);
+				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
 			}
 		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);

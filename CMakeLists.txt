@@ -999,15 +999,15 @@ add_dependencies(${CoreLibName} GitVersion)
 
 add_library(GPU OBJECT
 	GPU/Common/VertexDecoderCommon.cpp
+	GPU/Common/VertexDecoderCommon.h
 	GPU/Common/IndexGenerator.cpp
+	GPU/Common/IndexGenerator.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/Framebuffer.cpp
 	GPU/GLES/Framebuffer.h
-	GPU/GLES/IndexGenerator.cpp
-	GPU/GLES/IndexGenerator.h
 	GPU/GLES/ShaderManager.cpp
 	GPU/GLES/ShaderManager.h
 	GPU/GLES/Spline.cpp

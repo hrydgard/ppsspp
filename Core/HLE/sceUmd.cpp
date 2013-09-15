@@ -423,7 +423,7 @@ u32 sceUmdCancelWaitDriveStat()
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		const SceUID threadID = umdWaitingThreads[i];
 		CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
-		HLEKernel::ResumeFromWait(threadID, WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL);
+		HLEKernel::ResumeFromWait(threadID, WAITTYPE_UMD, 1, (int)SCE_KERNEL_ERROR_WAIT_CANCEL);
 	}
 	umdWaitingThreads.clear();
 
