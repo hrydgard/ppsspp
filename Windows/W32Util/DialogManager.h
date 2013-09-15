@@ -9,6 +9,7 @@ protected:
 	HWND m_hParent;
 	HWND m_hDlg;
 	LPCSTR m_hResource;
+	bool m_bValid;
 
 	virtual BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) 
 	{

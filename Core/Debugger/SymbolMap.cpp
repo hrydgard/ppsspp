@@ -256,6 +256,7 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 
 int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask) const
 {
+	lock_guard guard(lock_);
 	for (size_t i = 0, n = entries.size(); i < n; i++)
 	{
 		const MapEntry &entry = entries[i];
@@ -278,6 +279,7 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask) const
 
 bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask) const
 {
+	lock_guard guard(lock_);
 	// entryRanges is indexed by end.  The first entry after address should contain address.
 	// Otherwise, we have no entry that contains it, unless things overlap (which they shouldn't.)
 	const auto containingEntry = entryRanges.upper_bound(address);
@@ -314,6 +316,7 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 
 const char* SymbolMap::getDirectSymbol(u32 address)
 {
+	lock_guard guard(lock_);
 	SymbolInfo info;
 	if (GetSymbolInfo(&info,address) == false) return NULL;
 	if (info.address != address) return NULL;	// has to be the START of the function
@@ -332,6 +335,7 @@ const char* SymbolMap::getDirectSymbol(u32 address)
 
 bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
 {
+	lock_guard guard(lock_);
 	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
 		const MapEntry &entry = *it;
@@ -479,6 +483,7 @@ void SymbolMap::FillListBoxBLinks(HWND listbox, int num) const
 
 int SymbolMap::GetNumSymbols() const
 {
+	lock_guard guard(lock_);
 	return (int)entries.size();
 }
 SymbolType SymbolMap::GetSymbolType(int i) const
@@ -507,6 +512,7 @@ u32 SymbolMap::GetSymbolSize(int i) const
 
 int SymbolMap::FindSymbol(const char *name) const
 {
+	lock_guard guard(lock_);
 	for (size_t i = 0; i < entries.size(); i++)
 		if (strcmp(entries[i].name,name)==0)
 			return (int) i;

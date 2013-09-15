@@ -18,10 +18,11 @@
 #pragma once
 
 #include "../Globals.h"
-#include "MemMap.h"
-#include "FileSystems/MetaFileSystem.h"
-#include "CoreParameter.h"
-#include "ELF/ParamSFO.h"
+#include "Core/MemMap.h"
+#include "Core/Host.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/CoreParameter.h"
+#include "Core/ELF/ParamSFO.h"
 
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;
@@ -37,6 +38,13 @@ enum GlobalUIState {
 
 
 extern GlobalUIState globalUIState;
+
+inline static void UpdateUIState(GlobalUIState newState) {
+	if (globalUIState != newState) {
+		globalUIState = newState;
+		host->UpdateDisassembly();
+	}
+}
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_IsInited();
