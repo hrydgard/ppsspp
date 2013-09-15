@@ -24,67 +24,16 @@
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
 
-void PrintDecodedVertex(VertexReader &vtx) {
-	if (vtx.hasNormal())
-	{
-		float nrm[3];
-		vtx.ReadNrm(nrm);
-		printf("N: %f %f %f\n", nrm[0], nrm[1], nrm[2]);
-	}
-	if (vtx.hasUV()) {
-		float uv[2];
-		vtx.ReadUV(uv);
-		printf("TC: %f %f\n", uv[0], uv[1]);
-	}
-	if (vtx.hasColor0()) {
-		float col0[4];
-		vtx.ReadColor0(col0);
-		printf("C0: %f %f %f %f\n", col0[0], col0[1], col0[2], col0[3]);
-	}
-	if (vtx.hasColor1()) {
-		float col1[3];
-		vtx.ReadColor1(col1);
-		printf("C1: %f %f %f\n", col1[0], col1[1], col1[2]);
-	}
-	// Etc..
-	float pos[3];
-	vtx.ReadPos(pos);
-	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
-}
-
-const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
-const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
-const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
-const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
-const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
+static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
+static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
+static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
+static const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
+static const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
 }
 
-int DecFmtSize(u8 fmt) {
-	switch (fmt) {
-	case DEC_NONE: return 0;
-	case DEC_FLOAT_1: return 4;
-	case DEC_FLOAT_2: return 8;
-	case DEC_FLOAT_3: return 12;
-	case DEC_FLOAT_4: return 16;
-	case DEC_S8_3: return 4;
-	case DEC_S16_3: return 8;
-	case DEC_U8_1: return 4;
-	case DEC_U8_2: return 4;
-	case DEC_U8_3: return 4;
-	case DEC_U8_4: return 4;
-	case DEC_U16_1: return 4;
-	case DEC_U16_2: return 4;
-	case DEC_U16_3: return 8;
-	case DEC_U16_4: return 8;
-	case DEC_U8A_2: return 4;
-	case DEC_U16A_2: return 4;
-	default:
-		return 0;
-	}
-}
 #if 0
 // This is what the software transform spits out, and thus w
 DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
@@ -599,11 +548,6 @@ static const StepFunction posstep_through[4] = {
 	&VertexDecoder::Step_PosS16Through,
 	&VertexDecoder::Step_PosFloatThrough,
 };
-
-
-int RoundUp4(int x) {
-	return (x + 3) & ~3;
-}
 
 void VertexDecoder::SetVertexType(u32 fmt) {
 	fmt_ = fmt;

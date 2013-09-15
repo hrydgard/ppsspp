@@ -16,6 +16,9 @@
 #ifndef XBRZ_HEADER_3847894708239054
 #define XBRZ_HEADER_3847894708239054
 
+#undef min
+#undef max
+
 #include <cstddef> //size_t
 #ifdef __SYMBIAN32__
 #include <libc/sys/config.h>

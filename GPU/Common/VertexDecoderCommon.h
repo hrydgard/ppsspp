@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,10 +17,11 @@
 
 #pragma once
 
-#include "../GPUState.h"
-#include "../Globals.h"
 #include "base/basictypes.h"
+#include "Common/Log.h"
+#include "Common/CommonTypes.h"
 #include "Core/Reporting.h"
+#include "GPU/ge_constants.h"
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
@@ -69,12 +70,6 @@ struct TransformedVertex
 	u8 color1[4];   // prelit
 };
 
-DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt);
-
-class VertexDecoder;
-
-typedef void (VertexDecoder::*StepFunction)() const;
-
 void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
 enum {
@@ -82,128 +77,11 @@ enum {
 	NUM_VERTEX_DECODER_STATS = 1
 };
 
-// Right now
-//   - compiles into list of called functions
-// Future TODO
-//   - will compile into lighting fast specialized x86 and ARM
-class VertexDecoder
-{
-public:
-	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
-	~VertexDecoder() {}
+inline int RoundUp4(int x) {
+	return (x + 3) & ~3;
+}
 
-	// prim is needed knowledge for a performance hack (PrescaleUV)
-	void SetVertexType(u32 vtype);
-	u32 VertexType() const { return fmt_; }
-
-	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
-
-	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
-
-	// This could be easily generalized to inject any one component. Don't know another use for it though.
-	u32 InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const;
-
-	bool hasColor() const { return col != 0; }
-	int VertexSize() const { return size; }  // PSP format size
-
-	void Step_WeightsU8() const;
-	void Step_WeightsU16() const;
-	void Step_WeightsFloat() const;
-
-	void Step_TcU8() const;
-	void Step_TcU16() const;
-	void Step_TcFloat() const;
-
-	void Step_TcU8Prescale() const;
-	void Step_TcU16Prescale() const;
-	void Step_TcFloatPrescale() const;
-
-	void Step_TcU16Double() const;
-	void Step_TcU16Through() const;
-	void Step_TcU16ThroughDouble() const;
-	void Step_TcFloatThrough() const;
-
-	// TODO: tcmorph
-
-	void Step_Color4444() const;
-	void Step_Color565() const;
-	void Step_Color5551() const;
-	void Step_Color8888() const;
-
-	void Step_Color4444Morph() const;
-	void Step_Color565Morph() const;
-	void Step_Color5551Morph() const;
-	void Step_Color8888Morph() const;
-
-	void Step_NormalS8() const;
-	void Step_NormalS16() const;
-	void Step_NormalFloat() const;
-
-	void Step_NormalS8Morph() const;
-	void Step_NormalS16Morph() const;
-	void Step_NormalFloatMorph() const;
-
-	void Step_PosS8() const;
-	void Step_PosS16() const;
-	void Step_PosFloat() const;
-
-	void Step_PosS8Morph() const;
-	void Step_PosS16Morph() const;
-	void Step_PosFloatMorph() const;
-
-	void Step_PosS8Through() const;
-	void Step_PosS16Through() const;
-	void Step_PosFloatThrough() const;
-
-	void ResetStats() {
-		memset(stats_, 0, sizeof(stats_));
-	}
-
-	void IncrementStat(int stat, int amount) {
-		stats_[stat] += amount;
-	}
-
-	// output must be big for safety.
-	// Returns number of chars written.
-	// Ugly for speed.
-	int ToString(char *output) const;
-
-	// Mutable decoder state
-	mutable u8 *decoded_;
-	mutable const u8 *ptr_;
-
-	// "Immutable" state, set at startup
-
-	// The decoding steps
-	StepFunction steps_[5];
-	int numSteps_;
-
-	u32 fmt_;
-	DecVtxFormat decFmt;
-
-	bool throughmode;
-	int biggest;
-	int size;
-	int onesize_;
-
-	int weightoff;
-	int tcoff;
-	int coloff;
-	int nrmoff;
-	int posoff;
-
-	int tc;
-	int col;
-	int nrm;
-	int pos;
-	int weighttype;
-	int idx;
-	int morphcount;
-	int nweights;
-
-	int stats_[NUM_VERTEX_DECODER_STATS];
-};
-
+// Reads decoded vertex formats in a convenient way. For software transform and debugging.
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader
 {
@@ -250,6 +128,54 @@ public:
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = b[i] * (1.f / 127.f);
+				}
+			}
+			break;
+		default:
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
+			memset(pos, 0, sizeof(float) * 3);
+			break;
+		}
+	}
+
+	void ReadPosZ16(float pos[3]) const {
+		switch (decFmt_.posfmt) {
+		case DEC_FLOAT_3:
+			{
+				const float *f = (const float *)(data_ + decFmt_.posoff);
+				memcpy(pos, f, 12);
+				// TODO: Does non-through need conversion?
+			}
+			break;
+		case DEC_S16_3:
+			{
+				// X and Y are signed 16 bit, Z is unsigned 16 bit
+				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
+				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
+				if (isThrough()) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = s[i];
+					pos[2] = u[2];
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = s[i] * (1.f / 32767.f);
+					// TODO: Does depth need conversion?
+				}
+			}
+			break;
+		case DEC_S8_3:
+			{
+				// X and Y are signed 8 bit, Z is unsigned 8 bit
+				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
+				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
+				if (isThrough()) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = b[i];
+					pos[2] = u[2];
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = b[i] * (1.f / 127.f);
+					// TODO: Does depth need conversion?
 				}
 			}
 			break;
@@ -324,7 +250,7 @@ public:
 				uv[1] = (float)b[1];
 			}
 			break;
-            		
+
 		case DEC_U16A_2:
 			{
 				const u16 *p = (const u16 *)(data_ + decFmt_.uvoff);
@@ -447,8 +373,6 @@ private:
 	DecVtxFormat decFmt_;
 	int vtype_;
 };
-
 // Debugging utilities
 void PrintDecodedVertex(VertexReader &vtx);
-
 

@@ -20,13 +20,13 @@
 #include "base/basictypes.h"
 #include "../../Globals.h"
 #include <map>
-#include "VertexShaderGenerator.h"
-#include "FragmentShaderGenerator.h"
+#include "GPU/Directx9/VertexShaderGeneratorDX9.h"
+#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 class PSShader;
 class VSShader;
 
-class LinkedShader
+class LinkedShaderDX9
 {
 protected:		
 	// Helper
@@ -40,8 +40,8 @@ protected:
 	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
 	void SetFloat(D3DXHANDLE uniform, float value);
 public:
-	LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform);
-	~LinkedShader();
+	LinkedShaderDX9(VSShader *vs, PSShader *fs, bool useHWTransform);
+	~LinkedShaderDX9();
 
 	void use();
 	void stop();
@@ -76,7 +76,7 @@ public:
 #else
 	D3DXHANDLE u_bone[8];
 #endif
-	D3DXHANDLE numBones;
+	int numBones;
 	
 	// Fragment processing inputs
 	D3DXHANDLE u_alphacolorref;
@@ -180,14 +180,14 @@ protected:
 	bool useHWTransform_;
 };
 
-class ShaderManager
+class ShaderManagerDX9
 {
 public:
-	ShaderManager();
-	~ShaderManager();
+	ShaderManagerDX9();
+	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	LinkedShader *ApplyShader(int prim);
+	LinkedShaderDX9 *ApplyShader(int prim);
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
@@ -202,29 +202,29 @@ private:
 	void Clear();
 
 	struct LinkedShaderCacheEntry {
-		LinkedShaderCacheEntry(VSShader *vs_, PSShader *fs_, LinkedShader *ls_)
+		LinkedShaderCacheEntry(VSShader *vs_, PSShader *fs_, LinkedShaderDX9 *ls_)
 			: vs(vs_), fs(fs_), ls(ls_) { }
 
 		VSShader *vs;
 		PSShader *fs;
-		LinkedShader *ls;
+		LinkedShaderDX9 *ls;
 
 	};
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	LinkedShaderCache linkedShaderCache_;
-	FragmentShaderID lastFSID_;
-	VertexShaderID lastVSID_;
+	FragmentShaderIDDX9 lastFSID_;
+	VertexShaderIDDX9 lastVSID_;
 
-	LinkedShader *lastShader_;
+	LinkedShaderDX9 *lastShader_;
 	u32 globalDirty_;
 	u32 shaderSwitchDirty_;
 	char *codeBuffer_;
 
-	typedef std::map<FragmentShaderID, PSShader *> FSCache;
+	typedef std::map<FragmentShaderIDDX9, PSShader *> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<VertexShaderID, VSShader *> VSCache;
+	typedef std::map<VertexShaderIDDX9, VSShader *> VSCache;
 	VSCache vsCache_;
 
 };

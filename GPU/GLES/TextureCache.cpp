@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 
 #include "ext/xxhash.h"
+#include "math/math_util.h"
 #include "native/ext/cityhash/city.h"
 
 #ifdef _M_SSE
@@ -43,18 +44,6 @@
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
 extern int g_iNumVideos;
-
-u32 RoundUpToPowerOf2(u32 v)
-{
-	v--;
-	v |= v >> 1;
-	v |= v >> 2;
-	v |= v >> 4;
-	v |= v >> 8;
-	v |= v >> 16;
-	v++;
-	return v;
-}
 
 static inline u32 GetLevelBufw(int level, u32 texaddr) {
 	// Special rules for kernel textures (PPGe):

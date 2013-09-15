@@ -22,11 +22,12 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/Directx9/TextureCache.h"
-#include "GPU/Directx9/Framebuffer.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/FramebufferDX9.h"
 #include "Core/Config.h"
 
 #include "ext/xxhash.h"
+#include "math/math_util.h"
 #include "native/ext/cityhash/city.h"
 
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
@@ -41,19 +42,6 @@
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
 extern int g_iNumVideos;
-
-u32 RoundUpToPowerOf2(u32 v)
-{
-	v--;
-	v |= v >> 1;
-	v |= v >> 2;
-	v |= v >> 4;
-	v |= v >> 8;
-	v |= v >> 16;
-	v++;
-	return v;
-}
-
 static inline u32 GetLevelBufw(int level, u32 texaddr) {
 	// Special rules for kernel textures (PPGe):
 	if (texaddr < PSP_GetUserMemoryBase())
@@ -61,7 +49,7 @@ static inline u32 GetLevelBufw(int level, u32 texaddr) {
 	return gstate.texbufwidth[level] & 0x7FF;
 }
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
+TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
@@ -77,12 +65,12 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 #endif
 }
 
-TextureCache::~TextureCache() {
+TextureCacheDX9::~TextureCacheDX9() {
 	delete [] clutBufConverted_;
 	delete [] clutBufRaw_;
 }
 
-void TextureCache::Clear(bool delete_them) {
+void TextureCacheDX9::Clear(bool delete_them) {
 	pD3Ddevice->SetTexture(0, NULL);
 	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
@@ -103,7 +91,7 @@ void TextureCache::Clear(bool delete_them) {
 }
 
 // Removes old textures.
-void TextureCache::Decimate() {
+void TextureCacheDX9::Decimate() {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -131,7 +119,7 @@ void TextureCache::Decimate() {
 	}
 }
 
-void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
+void TextureCacheDX9::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	addr &= 0x0FFFFFFF;
 	u32 addr_end = addr + size;
 
@@ -160,7 +148,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	}
 }
 
-void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
+void TextureCacheDX9::InvalidateAll(GPUInvalidationType /*unused*/) {
 	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
 		if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
 			// Clear status -> STATUS_HASHING.
@@ -170,7 +158,7 @@ void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
 	}
 }
 
-void TextureCache::ClearNextFrame() {
+void TextureCacheDX9::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
@@ -193,7 +181,7 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 	}
 }
 
-inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
+inline void TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 		// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
@@ -232,13 +220,13 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	}
 }
 
-inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
+inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
 		entry->framebuffer = 0;
 	}
 }
 
-void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
+void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
 	// This is a rough heuristic, because sometimes our framebuffers are too tall.
 	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
 
@@ -268,7 +256,7 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	}
 }
 
-void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
+void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
@@ -417,7 +405,7 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 	DeIndexTexture4Optimal(dest, indexed, length, color);
 }
 
-void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt) {
+void *TextureCacheDX9::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt) {
 	int bufw = GetLevelBufw(level, texaddr);
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
@@ -566,7 +554,7 @@ static const u32 MagFilt[2] = {
 
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
-void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
+void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
 	bool sClamp = gstate.isTexCoordClampedS();
@@ -801,7 +789,7 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 	}
 }
 
-void TextureCache::StartFrame() {
+void TextureCacheDX9::StartFrame() {
 	lastBoundTexture = INVALID_TEX;
 	if(clearCacheNextFrame_) {
 		Clear(true);
@@ -912,11 +900,11 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	return check;
 }
 
-inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
+inline bool TextureCacheDX9::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
 }
 
-void TextureCache::LoadClut() {
+void TextureCacheDX9::LoadClut() {
 	u32 clutAddr = gstate.getClutAddress();
 	clutTotalBytes_ = gstate.getClutLoadBytes();
 	if (Memory::IsValidAddress(clutAddr)) {
@@ -928,7 +916,7 @@ void TextureCache::LoadClut() {
 	clutLastFormat_ = 0xFFFFFFFF;
 }
 
-void TextureCache::UpdateCurrentClut() {
+void TextureCacheDX9::UpdateCurrentClut() {
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	const u32 clutBase = gstate.getClutIndexStartPos();
 	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
@@ -975,11 +963,11 @@ void TextureCache::UpdateCurrentClut() {
 }
 
 template <typename T>
-inline const T *TextureCache::GetCurrentClut() {
+inline const T *TextureCacheDX9::GetCurrentClut() {
 	return (const T *)clutBuf_;
 }
 
-inline u32 TextureCache::GetCurrentClutHash() {
+inline u32 TextureCacheDX9::GetCurrentClutHash() {
 	return clutHash_;
 }
 
@@ -1025,7 +1013,7 @@ bool SetDebugTexture() {
 }
 #endif
 
-void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
+void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry)
 {
 	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
@@ -1053,7 +1041,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 	}
 }
 
-void TextureCache::SetTexture() {
+void TextureCacheDX9::SetTexture() {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -1305,7 +1293,7 @@ void TextureCache::SetTexture() {
 	gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
-void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt) {
+void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt) {
 	void *finalBuf = NULL;
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
@@ -1560,7 +1548,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	return finalBuf;
 }
 
-void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, int w, int h) {
+void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;
@@ -1672,7 +1660,7 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 
 }
 
-void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages) {
+void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages) {
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -1723,8 +1711,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 			pD3Ddevice->SetTexture(0, entry.texture);
 		} else {
 			// Create texture
+#ifdef _XBOX
 			pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), NULL, &entry.texture, NULL);
-
+#else
+			pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), D3DPOOL_MANAGED, &entry.texture, NULL);
+#endif
 			D3DLOCKED_RECT rect;
 			entry.texture->LockRect(level, &rect, NULL, 0);
 
@@ -1763,7 +1754,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 }
 
 // Only used by Qt UI?
-bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
+bool TextureCacheDX9::DecodeTexture(u8* output, GPUgstate state)
 {
 	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
 	return true;

@@ -129,23 +129,28 @@ private:
 		DWORD mask;
 	public:
 		SavedColorMask() {
+#ifdef _XBOX
+			// Is this the same as OR-ing them? Probably.
 			mask = D3DCOLORWRITEENABLE_ALL;
+#else
+			mask = D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA;
+#endif
 			DirectxState::state_count++;
 		}
 
 		inline void set(bool r, bool g, bool b, bool a) {
 			mask = 0;
 			if (r) {
-				mask |=D3DCOLORWRITEENABLE_RED;
+				mask |= D3DCOLORWRITEENABLE_RED;
 			}
 			if (g) {
-				mask |=D3DCOLORWRITEENABLE_GREEN;
+				mask |= D3DCOLORWRITEENABLE_GREEN;
 			}
 			if (b) {
-				mask |=D3DCOLORWRITEENABLE_BLUE;
+				mask |= D3DCOLORWRITEENABLE_BLUE;
 			}
 			if (a) {
-				mask |=D3DCOLORWRITEENABLE_ALPHA;
+				mask |= D3DCOLORWRITEENABLE_ALPHA;
 			}
 			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, mask);
 			

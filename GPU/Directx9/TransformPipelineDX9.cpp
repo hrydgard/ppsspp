@@ -33,12 +33,12 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
-#include "StateMapping.h"
-#include "TextureCache.h"
-#include "TransformPipeline.h"
-#include "VertexDecoder.h"
-#include "ShaderManager.h"
-#include "DisplayListInterpreter.h"
+#include "GPU/Directx9/StateMappingDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/TransformPipelineDX9.h"
+#include "GPU/Directx9/VertexDecoderDX9.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/GPU_DX9.h"
 
 const D3DPRIMITIVETYPE glprim[8] = {
 	D3DPT_POINTLIST,
@@ -49,6 +49,19 @@ const D3DPRIMITIVETYPE glprim[8] = {
 	D3DPT_TRIANGLEFAN,
 	D3DPT_TRIANGLELIST,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
+
+#ifndef _XBOX
+// hrydgard's quick guesses - TODO verify
+static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
+	{0, 0}, // invalid
+	{1, 0}, // 1 = D3DPT_POINTLIST,
+	{2, 0}, // 2 = D3DPT_LINELIST,
+	{2, 1}, // 3 = D3DPT_LINESTRIP,
+	{3, 0}, // 4 = D3DPT_TRIANGLELIST,
+	{1, 2}, // 5 = D3DPT_TRIANGLESTRIP,
+	{1, 2}, // 6 = D3DPT_TRIANGLEFAN,
+};
+#endif
 
 int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
@@ -67,7 +80,7 @@ inline float clamp(float in, float min, float max) {
 	return in < min ? min : (in > max ? max : in); 
 }
 
-TransformDrawEngine::TransformDrawEngine()
+TransformDrawEngineDX9::TransformDrawEngineDX9()
 	: collectedVerts(0),
 	prevPrim_(GE_PRIM_INVALID),
 	dec_(0),
@@ -93,7 +106,7 @@ TransformDrawEngine::TransformDrawEngine()
 		InitDeviceObjects();
 }
 
-TransformDrawEngine::~TransformDrawEngine() {
+TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
@@ -106,13 +119,15 @@ TransformDrawEngine::~TransformDrawEngine() {
 	delete [] uvScale;
 }
 
-void TransformDrawEngine::InitDeviceObjects() {
+void TransformDrawEngineDX9::InitDeviceObjects() {
 
 }
 
-void TransformDrawEngine::DestroyDeviceObjects() {
+void TransformDrawEngineDX9::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 }
+
+namespace {
 
 // Convenient way to do precomputation to save the parts of the lighting calculation
 // that's common between the many vertices of a draw call.
@@ -271,31 +286,43 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	}
 }
 
+}  // namespace
+
 struct DeclTypeInfo {
 	u32 type;
 	const char * name;
 };
 
-
-
 static const DeclTypeInfo VComp[] = {
 	{0, "NULL"},						// 	DEC_NONE,
-	{D3DDECLTYPE_FLOAT1		,"D3DDECLTYPE_FLOAT1	"},	// 	DEC_FLOAT_1,
-	{D3DDECLTYPE_FLOAT2		,"D3DDECLTYPE_FLOAT2	"},	// 	DEC_FLOAT_2,
-	{D3DDECLTYPE_FLOAT3		,"D3DDECLTYPE_FLOAT3	"},	// 	DEC_FLOAT_3,
-	{D3DDECLTYPE_FLOAT4		,"D3DDECLTYPE_FLOAT4	"},	// 	DEC_FLOAT_4,
-	{D3DDECLTYPE_BYTE4N		,"D3DDECLTYPE_BYTE4N	"},	// 	DEC_S8_3,
+	{D3DDECLTYPE_FLOAT1		,"D3DDECLTYPE_FLOAT1 "},	// 	DEC_FLOAT_1,
+	{D3DDECLTYPE_FLOAT2		,"D3DDECLTYPE_FLOAT2 "},	// 	DEC_FLOAT_2,
+	{D3DDECLTYPE_FLOAT3		,"D3DDECLTYPE_FLOAT3 "},	// 	DEC_FLOAT_3,
+	{D3DDECLTYPE_FLOAT4		,"D3DDECLTYPE_FLOAT4 "},	// 	DEC_FLOAT_4,
+#ifdef _XBOX
+	{D3DDECLTYPE_BYTE4N		,"D3DDECLTYPE_BYTE4N "},	// 	DEC_S8_3,
+#else
+	// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
+	{D3DDECLTYPE_UBYTE4   ,"D3DDECLTYPE_BYTE4N "},	// 	DEC_S8_3,
+#endif
+
 	{D3DDECLTYPE_SHORT4N	,"D3DDECLTYPE_SHORT4N	"},	// 	DEC_S16_3,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_1,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_2,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_3,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_4,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_1,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_2,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_3,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_4,
-	{D3DDECLTYPE_BYTE4		,"D3DDECLTYPE_BYTE4		"},	// 	DEC_U8A_2,
-	{D3DDECLTYPE_USHORT4	,"D3DDECLTYPE_USHORT4	"},	// 	DEC_U16A_2,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_1,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_2,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_3,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_4,
+#ifdef _XBOX
+	{D3DDECLTYPE_BYTE4		,"D3DDECLTYPE_BYTE4 "},	// 	DEC_U8A_2,
+	{D3DDECLTYPE_USHORT4	,"D3DDECLTYPE_USHORT4 "},	// 	DEC_U16A_2,
+#else
+	// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
+	{D3DDECLTYPE_UBYTE4   ,"D3DDECLTYPE_BYTE4 "},	// 	DEC_U8A_2,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4 "},	// 	DEC_U16A_2,
+#endif
 };
 
 static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
@@ -309,8 +336,6 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->Usage = usage;
 	VertexElement->UsageIndex = usage_index;
 }
-
-
 
 static IDirect3DVertexDeclaration9* pHardwareVertexDecl = NULL;
 static std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap;
@@ -351,7 +376,7 @@ static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
 
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }
-static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u32 pspFmt) {
+static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt) {
 	auto vertexDeclCached = vertexDeclMap.find(pspFmt);
 
 	if (vertexDeclCached==vertexDeclMap.end()) {
@@ -457,7 +482,7 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
-bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
+bool TransformDrawEngineDX9::IsReallyAClear(int numVerts) const {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
@@ -512,8 +537,8 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-void TransformDrawEngine::SoftwareTransformAndDraw(
-	int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
+void TransformDrawEngineDX9::SoftwareTransformAndDraw(
+	int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 
 		bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
@@ -836,17 +861,17 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		}
 }
 
-VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
+VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
 		return iter->second;
-	VertexDecoder *dec = new VertexDecoder(); 
+	VertexDecoderDX9 *dec = new VertexDecoderDX9(); 
 	dec->SetVertexType(vtype);
 	decoderMap_[vtype] = dec;
 	return dec;
 }
 
-void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+void TransformDrawEngineDX9::SetupVertexDecoder(u32 vertType) {
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
 	if (vertType != lastVType_) {
@@ -855,7 +880,7 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 	}
 }
 
-int TransformDrawEngine::EstimatePerVertexCost() {
+int TransformDrawEngineDX9::EstimatePerVertexCost() {
 	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
 	// runs in parallel with transform.
 
@@ -883,7 +908,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
@@ -926,7 +951,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	numDrawCalls++;
 }
 
-void TransformDrawEngine::DecodeVerts() {
+void TransformDrawEngineDX9::DecodeVerts() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 
@@ -999,7 +1024,7 @@ void TransformDrawEngine::DecodeVerts() {
 	}
 }
 
-u32 TransformDrawEngine::ComputeHash() {
+u32 TransformDrawEngineDX9::ComputeHash() {
 	u32 fullhash = 0;
 	int vertexSize = dec_->GetDecVtxFmt().stride;
 	int numDrawCalls_ = std::min(20, numDrawCalls);
@@ -1029,7 +1054,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	return fullhash;
 }
 
-u32 TransformDrawEngine::ComputeFastDCID() {
+u32 TransformDrawEngineDX9::ComputeFastDCID() {
 	u32 hash = 0;
 	for (int i = 0; i < numDrawCalls; i++) {
 		hash ^= (u32)(uintptr_t)drawCalls[i].verts;
@@ -1051,14 +1076,14 @@ enum { VAI_KILL_AGE = 60 };
 enum { VAI_KILL_AGE = 120 };
 #endif
 
-void TransformDrawEngine::ClearTrackedVertexArrays() {
+void TransformDrawEngineDX9::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
 		delete vai->second;
 	}
 	vai_.clear();
 }
 
-void TransformDrawEngine::DecimateTrackedVertexArrays() {
+void TransformDrawEngineDX9::DecimateTrackedVertexArrays() {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -1087,7 +1112,7 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 #endif
 }
 
-VertexArrayInfo::~VertexArrayInfo() {
+VertexArrayInfoDX9::~VertexArrayInfoDX9() {
 	if (vbo) {
 		vbo->Release();
 	}
@@ -1096,7 +1121,7 @@ VertexArrayInfo::~VertexArrayInfo() {
 	}
 }
 
-void TransformDrawEngine::DoFlush() {
+void TransformDrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
 
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -1107,7 +1132,7 @@ void TransformDrawEngine::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShader *program = shaderManager_->ApplyShader(prim);
+	LinkedShaderDX9 *program = shaderManager_->ApplyShader(prim);
 
 		if (program->useHWTransform_) {
 			LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
@@ -1120,22 +1145,22 @@ void TransformDrawEngine::DoFlush() {
 			if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
 				u32 id = ComputeFastDCID();
 				auto iter = vai_.find(id);
-				VertexArrayInfo *vai;
+				VertexArrayInfoDX9 *vai;
 				if (iter != vai_.end()) {
 					// We've seen this before. Could have been a cached draw.
 					vai = iter->second;
 				} else {
-					vai = new VertexArrayInfo();
+					vai = new VertexArrayInfoDX9();
 					vai_[id] = vai;
 				}
 
 				switch (vai->status) {
-				case VertexArrayInfo::VAI_NEW:
+				case VertexArrayInfoDX9::VAI_NEW:
 					{
 						// Haven't seen this one before.
 						u32 dataHash = ComputeHash();
 						vai->hash = dataHash;
-						vai->status = VertexArrayInfo::VAI_HASHING;
+						vai->status = VertexArrayInfoDX9::VAI_HASHING;
 						vai->drawsUntilNextFullHash = 0;
 						DecodeVerts(); // writes to indexGen
 						vai->numVerts = indexGen.VertexCount();
@@ -1145,7 +1170,7 @@ void TransformDrawEngine::DoFlush() {
 
 					// Hashing - still gaining confidence about the buffer.
 					// But if we get this far it's likely to be worth creating a vertex buffer.
-				case VertexArrayInfo::VAI_HASHING:
+				case VertexArrayInfoDX9::VAI_HASHING:
 					{
 						vai->numDraws++;
 						if (vai->lastFrame != gpuStats.numFlips) {
@@ -1154,7 +1179,7 @@ void TransformDrawEngine::DoFlush() {
 						if (vai->drawsUntilNextFullHash == 0) {
 							u32 newHash = ComputeHash();
 							if (newHash != vai->hash) {
-								vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+								vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
 								if (vai->vbo) {
 									vai->vbo->Release();
 									vai->vbo = NULL;
@@ -1223,7 +1248,7 @@ void TransformDrawEngine::DoFlush() {
 					}
 
 					// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-				case VertexArrayInfo::VAI_RELIABLE:
+				case VertexArrayInfoDX9::VAI_RELIABLE:
 					{
 						vai->numDraws++;
 						if (vai->lastFrame != gpuStats.numFlips) {
@@ -1239,7 +1264,7 @@ void TransformDrawEngine::DoFlush() {
 						break;
 					}
 
-				case VertexArrayInfo::VAI_UNRELIABLE:
+				case VertexArrayInfoDX9::VAI_UNRELIABLE:
 					{
 						vai->numDraws++;
 						if (vai->lastFrame != gpuStats.numFlips) {

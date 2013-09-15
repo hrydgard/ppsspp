@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "StateMapping.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -23,10 +22,11 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "DisplayListInterpreter.h"
-#include "ShaderManager.h"
-#include "TextureCache.h"
-#include "Framebuffer.h"
+#include "GPU/Directx9/StateMappingDX9.h"
+#include "GPU/Directx9/GPU_DX9.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/FramebufferDX9.h"
 
 static const D3DBLEND aLookup[11] = {
 	D3DBLEND_DESTCOLOR,
@@ -107,7 +107,7 @@ static bool blendColorSimilar(Vec3f a, Vec3f b, float margin = 0.1f) {
 	return false;
 }
 
-void TransformDrawEngine::ApplyDrawState(int prim) {
+void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged) {

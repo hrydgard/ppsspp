@@ -13,6 +13,9 @@
     <Filter Include="Null">
       <UniqueIdentifier>{b31aa5a1-da08-47e6-9467-ab1d547b6ff3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="DirectX9">
+      <UniqueIdentifier>{88629970-4774-4122-b031-2128244b795c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -20,27 +23,6 @@
     </ClInclude>
     <ClInclude Include="Math3D.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\FragmentShaderGenerator.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\Framebuffer.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\ShaderManager.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\TextureCache.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\TransformPipeline.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\VertexDecoder.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\VertexShaderGenerator.h">
-      <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="GPUState.h">
       <Filter>Common</Filter>
@@ -51,19 +33,8 @@
     <ClInclude Include="Null\NullGpu.h">
       <Filter>Null</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\StateMapping.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\IndexGenerator.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GeDisasm.h" />
     <ClInclude Include="GPUCommon.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\xbrz\xbrz.h" />
-    <ClInclude Include="GLES\TextureScaler.h">
-      <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="Software\Colors.h">
       <Filter>Software</Filter>
@@ -83,34 +54,82 @@
     <ClInclude Include="Software\TransformUnit.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Common\VertexDecoderCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\VertexShaderGenerator.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\StateMapping.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\TextureCache.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\TextureScaler.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\TransformPipeline.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\VertexDecoder.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\FragmentShaderGenerator.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\Framebuffer.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\ShaderManager.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\GPU_DX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\VertexDecoderDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\TransformPipelineDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\TextureScalerDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\TextureCacheDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\StateMappingDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\ShaderManagerDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\FramebufferDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\IndexGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="GLES\GLES_GPU.h">
       <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GeDisasm.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\xbrz\xbrz.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\FragmentShaderGenerator.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\Framebuffer.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\ShaderManager.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\TextureCache.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\TransformPipeline.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexDecoder.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexShaderGenerator.cpp">
-      <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GPUState.cpp">
       <Filter>Common</Filter>
@@ -118,19 +137,8 @@
     <ClCompile Include="Null\NullGpu.cpp">
       <Filter>Null</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\StateMapping.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\IndexGenerator.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GPUCommon.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
-    <ClCompile Include="GLES\TextureScaler.cpp">
-      <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Software\Clipper.cpp">
       <Filter>Software</Filter>
@@ -147,11 +155,83 @@
     <ClCompile Include="Software\TransformUnit.cpp">
       <Filter>Software</Filter>
     </ClCompile>
+    <ClCompile Include="Common\VertexDecoderCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TextureCache.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TransformPipeline.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\VertexDecoder.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\VertexShaderGenerator.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\StateMapping.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\FragmentShaderGenerator.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\Framebuffer.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\ShaderManager.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\GPU_DX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\VertexDecoderDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\TransformPipelineDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\TextureCacheDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\StateMappingDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\SplineDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\ShaderManagerDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\FramebufferDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\TextureScalerDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TextureScaler.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\IndexGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
     <ClCompile Include="GLES\GLES_GPU.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="GeDisasm.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
     <ClCompile Include="GLES\Spline.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\xbrz\xbrz.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

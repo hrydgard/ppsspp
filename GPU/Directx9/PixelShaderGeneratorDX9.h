@@ -19,14 +19,12 @@
 
 #include "Globals.h"
 
-// #define USE_BONE_ARRAY
-
-struct VertexShaderID
+struct FragmentShaderIDDX9
 {
-	VertexShaderID() {d[0] = 0xFFFFFFFF;}
+	FragmentShaderIDDX9() {d[0] = 0xFFFFFFFF;}
 	void clear() {d[0] = 0xFFFFFFFF;}
-	u32 d[2];
-	bool operator < (const VertexShaderID &other) const
+	u32 d[1];
+	bool operator < (const FragmentShaderIDDX9 &other) const
 	{
 		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
 		{
@@ -37,7 +35,7 @@ struct VertexShaderID
 		}
 		return false;
 	}
-	bool operator == (const VertexShaderID &other) const
+	bool operator == (const FragmentShaderIDDX9 &other) const
 	{
 		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
 		{
@@ -48,10 +46,7 @@ struct VertexShaderID
 	}
 };
 
-bool CanUseHardwareTransform(int prim);
 
-void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform);
-void GenerateVertexShader(int prim, char *buffer, bool useHWTransform);
+void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id);
 
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBones(int bones);
+void GenerateFragmentShaderDX9(char *buffer);

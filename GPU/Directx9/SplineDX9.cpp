@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "TransformPipeline.h"
 #include "Core/MemMap.h"
+#include "GPU/Directx9/TransformPipelineDX9.h"
 
 // Just to get something on the screen, we'll just not subdivide correctly.
-void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
+void TransformDrawEngineDX9::DrawBezier(int ucount, int vcount) {
 	u16 indices[3 * 3 * 6];
 
 	static bool reported = false;
@@ -58,7 +58,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	}
 
 	if (!gstate.getTexCoordMask()) {
-		VertexDecoder *dec = GetVertexDecoder(gstate.vertType);
+		VertexDecoderDX9 *dec = GetVertexDecoder(gstate.vertType);
 		dec->SetVertexType(gstate.vertType);
 		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
 		SubmitPrim(decoded2, &indices[0], GE_PRIM_TRIANGLES, c, newVertType, GE_VTYPE_IDX_16BIT, 0);
@@ -86,7 +86,7 @@ struct HWSplinePatch {
 	// float u0, v0, u1, v1;
 };
 
-void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
+static void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
 	memcpy(dest, v1, vertexSize);
 	dest += vertexSize;
 	memcpy(dest, v2, vertexSize);
@@ -95,7 +95,7 @@ void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
 	dest += vertexSize;
 }
 
-void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
+void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	Flush();
 
 	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
@@ -104,11 +104,11 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	}
 
 	// We're not actually going to decode, only reshuffle.
-	VertexDecoder *vdecoder = GetVertexDecoder(vertex_type);
+	VertexDecoderDX9 *vdecoder = GetVertexDecoder(vertex_type);
 
 	int undecodedVertexSize = vdecoder->VertexSize();
 
-	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
+	const DecVtxFormat & vtxfmt = vdecoder->GetDecVtxFmt();
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -180,14 +180,14 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 }
 
 // TODO
-void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertex_type) {
+void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
 		// Only triangles supported!
 		return;
 	}
 
 	// We're not actually going to decode, only reshuffle.
-	VertexDecoder vdecoder;
+	VertexDecoderDX9 vdecoder;
 	vdecoder.SetVertexType(vertex_type);
 
 	Flush();

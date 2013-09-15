@@ -27,11 +27,11 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
-#include "GPU/Directx9/ShaderManager.h"
-#include "GPU/Directx9/DisplayListInterpreter.h"
-#include "GPU/Directx9/Framebuffer.h"
-#include "GPU/Directx9/TransformPipeline.h"
-#include "GPU/Directx9/TextureCache.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/GPU_DX9.h"
+#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/TransformPipelineDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
 
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -358,7 +358,7 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
-	shaderManager_ = new ShaderManager();
+	shaderManager_ = new ShaderManagerDX9();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
@@ -819,11 +819,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_MINZ:
-		gstate_c.zMin = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_MAXZ:
-		gstate_c.zMax = getFloat24(data) / 65535.f;
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:

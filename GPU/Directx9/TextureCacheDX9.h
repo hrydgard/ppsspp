@@ -22,7 +22,7 @@
 #include "helper/fbo.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "TextureScaler.h"
+#include "GPU/Directx9/TextureScalerDX9.h"
 
 struct VirtualFramebuffer;
 
@@ -39,11 +39,11 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
-class TextureCache 
+class TextureCacheDX9 
 {
 public:
-	TextureCache();
-	~TextureCache();
+	TextureCacheDX9();
+	~TextureCacheDX9();
 
 	void SetTexture();
 
@@ -138,7 +138,7 @@ private:
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
-	TextureScaler scaler;
+	TextureScalerDX9 scaler;
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;

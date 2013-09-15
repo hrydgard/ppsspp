@@ -396,7 +396,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 }
 
 // Heuristics to figure out the size of FBO to create.
-void DrawingSize(int &drawing_width, int &drawing_height) {
+static void DrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
 	int viewport_width = (int) gstate.getViewportX1(); 

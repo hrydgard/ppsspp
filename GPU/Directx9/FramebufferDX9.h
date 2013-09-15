@@ -19,17 +19,17 @@
 
 #include <list>
 
-#include "helper/fbo.h"
+#include "GPU/Directx9/helper/fbo.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
 
-#include "../Globals.h"
+#include "Globals.h"
 #include "GPU/GPUCommon.h"
 
 struct GLSLProgram;
-class TextureCache;
+class TextureCacheDX9;
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -79,17 +79,17 @@ struct VirtualFramebuffer {
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
-class ShaderManager;
+class ShaderManagerDX9;
 
-class FramebufferManager {
+class FramebufferManagerDX9 {
 public:
-	FramebufferManager();
-	~FramebufferManager();
+	FramebufferManagerDX9();
+	~FramebufferManagerDX9();
 
-	void SetTextureCache(TextureCache *tc) {
+	void SetTextureCache(TextureCacheDX9 *tc) {
 		textureCache_ = tc;
 	}
-	void SetShaderManager(ShaderManager *sm) {
+	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
 	}
 
@@ -159,8 +159,8 @@ private:
 	GLSLProgram *draw2dprogram;
 
 
-	TextureCache *textureCache_;
-	ShaderManager *shaderManager_;
+	TextureCacheDX9 *textureCache_;
+	ShaderManagerDX9 *shaderManager_;
 
 	bool resized_;
 	bool useBufferedRendering_;

@@ -21,21 +21,22 @@
 #include "Globals.h"
 #include "base/basictypes.h"
 #include "Core/Reporting.h"
+
 #include "GPU/Common/VertexDecoderCommon.h"
 
-class VertexDecoder;
+class VertexDecoderDX9;
 
-typedef void (VertexDecoder::*StepFunction)() const;
+typedef void (VertexDecoderDX9::*StepFunction)() const;
 
 // Right now
 //   - compiles into list of called functions
 // Future TODO
 //   - will compile into lighting fast specialized x86 and ARM
-class VertexDecoder
+class VertexDecoderDX9
 {
 public:
-	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
-	~VertexDecoder() {}
+	VertexDecoderDX9() : coloff(0), nrmoff(0), posoff(0) {}
+	~VertexDecoderDX9() {}
 
 	// prim is needed knowledge for a performance hack (PrescaleUV)
 	void SetVertexType(u32 vtype);
@@ -148,3 +149,4 @@ public:
 
 	int stats_[NUM_VERTEX_DECODER_STATS];
 };
+

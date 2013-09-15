@@ -27,19 +27,19 @@
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 
-#include "GPU/Directx9/VertexShaderGenerator.h"
+#include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 
 #undef WRITE
 
 #define WRITE p+=sprintf
 
-bool CanUseHardwareTransform(int prim) {
+bool CanUseHardwareTransformDX9(int prim) {
 	if (!g_Config.bHardwareTransform)
 		return false;
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
-int TranslateNumBones(int bones) {
+int TranslateNumBonesDX9(int bones) {
 	if (!bones) return 0;
 	if (bones < 4) return 4;
 	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
@@ -47,7 +47,7 @@ int TranslateNumBones(int bones) {
 }
 
 // prim so we can special case for RECTANGLES :(
-void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
+void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransform) {
 	const u32 vertType = gstate.vertType;
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
@@ -86,7 +86,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 		// Bones
 		if (hasBones)
-			id->d[0] |= (TranslateNumBones(gstate.getNumBoneWeights()) - 1) << 22;
+			id->d[0] |= (TranslateNumBonesDX9(gstate.getNumBoneWeights()) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
@@ -124,7 +124,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
+void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	char *p = buffer;
 	const u32 vertType = gstate.vertType;
 
@@ -170,7 +170,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "float4x4 u_texmtx;\n");
 		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
-			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
+			int numBones = TranslateNumBonesDX9(gstate.getNumBoneWeights());
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "float4x4 u_bone[%i];\n", numBones);
 #else
@@ -221,7 +221,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "                                             \n");
 		WRITE(p,  " {                                          \n");
 		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
-			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
+			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(gstate.getNumBoneWeights())]);
 		}
 		if (doTexture) {
 			if (doTextureProjection)
@@ -284,7 +284,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			else
 				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		} else {
-			int numWeights = TranslateNumBones(gstate.getNumBoneWeights());
+			int numWeights = TranslateNumBonesDX9(gstate.getNumBoneWeights());
 
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 			const char *factor = rescale[gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT];

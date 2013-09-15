@@ -25,9 +25,9 @@
 #include <vector>
 
 
-class TextureScaler {
+class TextureScalerDX9 {
 public:
-	TextureScaler();
+	TextureScalerDX9();
 
 	void Scale(u32* &data, u32 &dstfmt, int &width, int &height, int factor);
 

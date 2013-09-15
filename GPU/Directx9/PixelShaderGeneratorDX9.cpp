@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "FragmentShaderGenerator.h"
-#include "../ge_constants.h"
-#include "../GPUState.h"
 #include <cstdio>
+
+#include "PixelShaderGeneratorDX9.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
 #define WRITE p+=sprintf
 
@@ -90,7 +91,7 @@ static bool CanDoubleSrcBlendMode() {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FragmentShaderID *id) {
+void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 	memset(&id->d[0], 0, sizeof(id->d));
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
@@ -132,7 +133,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 
 // Missing: Z depth range
 // Also, logic ops etc, of course. Urgh.
-void GenerateFragmentShader(char *buffer) {
+void GenerateFragmentShaderDX9(char *buffer) {
 	char *p = buffer;
 
 	int lmode = lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();

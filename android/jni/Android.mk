@@ -192,10 +192,11 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
+  $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
-  $(SRC)/GPU/GLES/IndexGenerator.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
   $(SRC)/GPU/GLES/StateMapping.cpp.arm \
   $(SRC)/GPU/GLES/VertexDecoder.cpp.arm \

@@ -18,7 +18,7 @@
 // Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012..
 #include "../native/base/basictypes.h" 
 
-#include "TextureScaler.h"
+#include "GPU/GLES/TextureScaler.h"
 
 #include "Core/Config.h"
 #include "Common/Common.h"

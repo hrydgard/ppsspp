@@ -26,9 +26,9 @@
 #include "helper/dx_state.h"
 #include "helper/fbo.h"
 
-#include "GPU/Directx9/Framebuffer.h"
-#include "GPU/Directx9/TextureCache.h"
-#include "GPU/Directx9/ShaderManager.h"
+#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
 
 
 // Aggressively delete unused FBO:s to save gpu memory.
@@ -52,9 +52,9 @@ inline u16 RGBA8888toRGBA5551(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
+static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
 
-void CenterRect(float *x, float *y, float *w, float *h,
+static void CenterRect(float *x, float *y, float *w, float *h,
 	float origW, float origH, float frameW, float frameH)
 {
 	if (g_Config.bStretchToDisplay)
@@ -94,13 +94,13 @@ void CenterRect(float *x, float *y, float *w, float *h,
 	}
 }
 
-void ClearBuffer() {
+static void ClearBuffer() {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
 }
 
-void DisableState() {
+static void DisableState() {
 	dxstate.blend.disable();
 	dxstate.cullMode.set(false, false);
 	dxstate.depthTest.disable();
@@ -109,7 +109,7 @@ void DisableState() {
 }
 
 
-FramebufferManager::FramebufferManager() :
+FramebufferManagerDX9::FramebufferManagerDX9() :
 ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
 	displayStride_(0),
@@ -127,12 +127,15 @@ ramDisplayFramebufPtr_(0),
 	// by themselves.
 	ClearBuffer();
 
+#ifdef _XBOX
 	pD3Ddevice->CreateTexture(512, 272, 1, 0, D3DFMT(D3DFMT_A8R8G8B8), NULL, &drawPixelsTex_, NULL);
-
+#else
+	pD3Ddevice->CreateTexture(512, 272, 1, 0, D3DFMT(D3DFMT_A8R8G8B8), D3DPOOL_MANAGED, &drawPixelsTex_, NULL);
+#endif
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 }
 
-FramebufferManager::~FramebufferManager() {
+FramebufferManagerDX9::~FramebufferManagerDX9() {
 	if(drawPixelsTex_) {
 		drawPixelsTex_->Release();
 	}
@@ -153,7 +156,7 @@ static inline u32 ABGR2RGBA(u32 src) {
 	return (src >> 8) | (src << 24); 
 }
 
-void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
+void FramebufferManagerDX9::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
 	u8 * convBuf = NULL;
 	D3DLOCKED_RECT rect;
 
@@ -252,7 +255,7 @@ static void ConvertMatrices(Matrix4x4 & in) {
 	in = in * t;
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
+void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
 	float v1 = flip ? 1.0f : 1.0f - vscale;
@@ -281,7 +284,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 }
 
-VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+VirtualFramebuffer *FramebufferManagerDX9::GetDisplayFBO() {
 	VirtualFramebuffer *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
@@ -310,7 +313,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 }
 
 // Heuristics to figure out the size of FBO to create.
-void DrawingSize(int &drawing_width, int &drawing_height) {
+static void DrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
 	int viewport_width = (int) gstate.getViewportX1(); 
@@ -350,7 +353,7 @@ void DrawingSize(int &drawing_width, int &drawing_height) {
 	}
 }
 
-void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
+void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {
 	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
 	if (v->fbo) {
 		fbo_destroy(v->fbo);
@@ -370,7 +373,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 	delete v;
 }
 
-void FramebufferManager::SetRenderFrameBuffer() {
+void FramebufferManagerDX9::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
 		currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
@@ -574,7 +577,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	}
 }
 
-void FramebufferManager::CopyDisplayToOutput() {
+void FramebufferManagerDX9::CopyDisplayToOutput() {
 
 #ifdef _XBOX
 	//if (currentRenderVfb_ && (!currentRenderVfb_->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER))
@@ -641,7 +644,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 }
 
-void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
+void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 	// This only works with buffered rendering
 	if (!useBufferedRendering_) {
 		return;
@@ -746,7 +749,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
+void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
 	// This only works with buffered rendering
 	if (!useBufferedRendering_ || !src->fbo) {
 		return;
@@ -781,7 +784,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 }
 
 // TODO: SSE/NEON
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format) {
+static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format) {
 	if(format == GE_FORMAT_8888) {
 		if(src == dst) {
 			return;
@@ -818,7 +821,9 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferForma
 	}
 }
 
+#ifdef _XBOX
 #include <xgraphics.h>
+#endif
 
 static void Resolve(u8* data, VirtualFramebuffer *vfb) {
 #ifdef _XBOX
@@ -834,7 +839,7 @@ static void Resolve(u8* data, VirtualFramebuffer *vfb) {
 #endif
 }
 
-void FramebufferManager::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
+void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
 	if (useBufferedRendering_ && vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
 	} else {
@@ -867,7 +872,7 @@ void FramebufferManager::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
 
 	fbo_unbind();
 }
-void FramebufferManager::EndFrame() {
+void FramebufferManagerDX9::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs();
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
@@ -875,18 +880,18 @@ void FramebufferManager::EndFrame() {
 	}
 }
 
-void FramebufferManager::DeviceLost() {
+void FramebufferManagerDX9::DeviceLost() {
 	DestroyAllFBOs();
 	resized_ = false;
 }
 
-void FramebufferManager::BeginFrame() {
+void FramebufferManagerDX9::BeginFrame() {
 	DecimateFBOs();
 	currentRenderVfb_ = 0;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 }
 
-void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+void FramebufferManagerDX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 
 	if ((framebuf & 0x04000000) == 0) {
 		DEBUG_LOG(SCEGE, "Non-VRAM display framebuffer address set: %08x", framebuf);
@@ -901,7 +906,7 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBuffe
 	}
 }
 
-std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
+std::vector<FramebufferInfo> FramebufferManagerDX9::GetFramebufferList() {
 	std::vector<FramebufferInfo> list;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -920,7 +925,7 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManager::DecimateFBOs() {
+void FramebufferManagerDX9::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 #ifndef USING_GLES2
@@ -959,7 +964,7 @@ void FramebufferManager::DecimateFBOs() {
 	}
 }
 
-void FramebufferManager::DestroyAllFBOs() {
+void FramebufferManagerDX9::DestroyAllFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
@@ -974,7 +979,7 @@ void FramebufferManager::DestroyAllFBOs() {
 	vfbs_.clear();
 }
 
-void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
+void FramebufferManagerDX9::UpdateFromMemory(u32 addr, int size) {
 	addr &= ~0x40000000;
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
@@ -1011,6 +1016,6 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 	}
 }
 
-void FramebufferManager::Resized() {
+void FramebufferManagerDX9::Resized() {
 	resized_ = true;
 }

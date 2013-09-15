@@ -22,8 +22,7 @@
 #include "CommonTypes.h"
 #include "../ge_constants.h"
 
-class IndexGenerator
-{
+class IndexGenerator {
 public:
 	void Setup(u16 *indexptr);
 	void Reset();

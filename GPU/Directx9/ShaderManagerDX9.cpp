@@ -22,15 +22,16 @@
 #include <map>
 #include "helper/global.h"
 #include "math/lin/matrix4x4.h"
+#include "util/text/utf8.h"
 
 #include "Common/Common.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
-#include "GPU/Directx9/ShaderManager.h"
-#include "GPU/Directx9/TransformPipeline.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/TransformPipelineDX9.h"
+#include "GPU/Directx9/FramebufferDX9.h"
 #include "UI/OnScreenDisplay.h"
-#include "Framebuffer.h"
 
 // For matrices convertions
 #include <xnamath.h>
@@ -38,7 +39,11 @@
 PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
+#ifdef _XBOX
 	OutputDebugString(code);
+#else
+	OutputDebugString(ConvertUTF8ToWString(code).c_str());
+#endif
 #endif
 	bool success;
 
@@ -61,7 +66,11 @@ PSShader::~PSShader() {
 VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
+#ifdef _XBOX
 	OutputDebugString(code);
+#else
+	OutputDebugString(ConvertUTF8ToWString(code).c_str());
+#endif
 #endif
 	bool success;
 
@@ -83,14 +92,14 @@ VSShader::~VSShader() {
 
 
 // Helper
-D3DXHANDLE LinkedShader::GetConstantByName(LPCSTR pName) {
+D3DXHANDLE LinkedShaderDX9::GetConstantByName(LPCSTR pName) {
 	D3DXHANDLE ret = NULL;
 	if ((ret = m_fs->constant->GetConstantByName(NULL, pName)) != NULL)  {
 	} else if ((ret = m_vs->constant->GetConstantByName(NULL, pName)) != NULL)  {}
 	return ret;
 }
 
-LinkedShader::LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform)
+LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, bool useHWTransform)
 		:dirtyUniforms(0), useHWTransform_(useHWTransform) {
 	
 	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
@@ -113,7 +122,7 @@ LinkedShader::LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform)
 	u_texmtx = 	GetConstantByName("u_texmtx");
 
 	if (gstate.getWeightMask() != 0)
-		numBones = TranslateNumBones(gstate.getNumBoneWeights());
+		numBones = TranslateNumBonesDX9(gstate.getNumBoneWeights());
 	else
 		numBones = 0;
 
@@ -177,17 +186,17 @@ LinkedShader::LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform)
 	use();
 }
 
-LinkedShader::~LinkedShader() {
+LinkedShaderDX9::~LinkedShaderDX9() {
 //	glDeleteProgram(program);
 }
 
-void LinkedShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
+void LinkedShaderDX9::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
 	if (m_fs->constant->SetFloatArray(pD3Ddevice, uniform, pArray, len) == D3D_OK); 
 	else
 		m_vs->constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
 }
 
-void LinkedShader::SetFloat(D3DXHANDLE uniform, float value) {
+void LinkedShaderDX9::SetFloat(D3DXHANDLE uniform, float value) {
 	if (m_fs->constant->SetFloat(pD3Ddevice, uniform, value) == D3D_OK); 
 	else
 		m_vs->constant->SetFloat(pD3Ddevice, uniform, value);
@@ -195,7 +204,7 @@ void LinkedShader::SetFloat(D3DXHANDLE uniform, float value) {
 
 
 // Utility
-void LinkedShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
+void LinkedShaderDX9::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
 	const float col[3] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -205,7 +214,7 @@ void LinkedShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
 }
 
 
-void LinkedShader::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
+void LinkedShaderDX9::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -215,7 +224,7 @@ void LinkedShader::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha
 	SetFloatArray(uniform, col, 4);
 }
 
-void LinkedShader::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
+void LinkedShaderDX9::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
 	if (1) {
 		const float col[4] = {
 			(float)((color & 0xFF)) * (1.0f / 255.0f),
@@ -236,7 +245,7 @@ void LinkedShader::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 al
 }
 
 
-void LinkedShader::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
+void LinkedShaderDX9::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -266,7 +275,7 @@ static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
 }
 
 // Utility
-void LinkedShader::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
+void LinkedShaderDX9::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x3, m4x4);
 
@@ -275,7 +284,7 @@ void LinkedShader::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
 		m_fs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
 }
 
-void LinkedShader::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
+void LinkedShaderDX9::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
 	D3DXMATRIX * pDxMat = (D3DXMATRIX*)pMatrix;
 
 	if (m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat) == D3D_OK); 
@@ -297,7 +306,7 @@ static void ConvertMatrices(Matrix4x4 & in) {
 	in = in * t;
 }
 
-void LinkedShader::use() {
+void LinkedShaderDX9::use() {
 	
 	updateUniforms();
 
@@ -305,11 +314,11 @@ void LinkedShader::use() {
 	pD3Ddevice->SetVertexShader(m_vs->shader);
 }
 
-void LinkedShader::stop() {
+void LinkedShaderDX9::stop() {
 
 }
 
-void LinkedShader::updateUniforms() {
+void LinkedShaderDX9::updateUniforms() {
 	if (!dirtyUniforms)
 		return;
 
@@ -501,15 +510,15 @@ void LinkedShader::updateUniforms() {
 	dirtyUniforms = 0;
 }
 
-ShaderManager::ShaderManager() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
+ShaderManagerDX9::ShaderManagerDX9() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
 	codeBuffer_ = new char[16384];
 }
 
-ShaderManager::~ShaderManager() {
+ShaderManagerDX9::~ShaderManagerDX9() {
 	delete [] codeBuffer_;
 }
 
-void ShaderManager::Clear() {
+void ShaderManagerDX9::Clear() {
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
 	}
@@ -528,12 +537,12 @@ void ShaderManager::Clear() {
 	DirtyShader();
 }
 
-void ShaderManager::ClearCache(bool deleteThem) {
+void ShaderManagerDX9::ClearCache(bool deleteThem) {
 	Clear();
 }
 
 
-void ShaderManager::DirtyShader() {
+void ShaderManagerDX9::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.clear();
 	lastVSID_.clear();
@@ -542,14 +551,14 @@ void ShaderManager::DirtyShader() {
 	shaderSwitchDirty_ = 0;
 }
 
-void ShaderManager::EndFrame() { // disables vertex arrays
+void ShaderManagerDX9::EndFrame() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = 0;
 }
 
 
-LinkedShader *ShaderManager::ApplyShader(int prim) {
+LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim) {
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -557,12 +566,12 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 		globalDirty_ = 0;
 	}
 
-	bool useHWTransform = CanUseHardwareTransform(prim);
+	bool useHWTransform = CanUseHardwareTransformDX9(prim);
 
-	VertexShaderID VSID;
-	FragmentShaderID FSID;
-	ComputeVertexShaderID(&VSID, prim, useHWTransform);
-	ComputeFragmentShaderID(&FSID);
+	VertexShaderIDDX9 VSID;
+	FragmentShaderIDDX9 FSID;
+	ComputeVertexShaderIDDX9(&VSID, prim, useHWTransform);
+	ComputeFragmentShaderIDDX9(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
@@ -582,7 +591,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	VSShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, codeBuffer_, useHWTransform);
+		GenerateVertexShaderDX9(prim, codeBuffer_, useHWTransform);
 		vs = new VSShader(codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
@@ -595,7 +604,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShader(prim, codeBuffer_, false);
+			GenerateVertexShaderDX9(prim, codeBuffer_, false);
 			vs = new VSShader(codeBuffer_, false);
 		}
 
@@ -608,7 +617,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	PSShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShader(codeBuffer_);
+		GenerateFragmentShaderDX9(codeBuffer_);
 		fs = new PSShader(codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
@@ -616,7 +625,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	}
 
 	// Okay, we have both shaders. Let's see if there's a linked one.
-	LinkedShader *ls = NULL;
+	LinkedShaderDX9 *ls = NULL;
 
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
@@ -629,7 +638,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
-		ls = new LinkedShader(vs, fs, vs->UseHWTransform());	// This does "use" automatically
+		ls = new LinkedShaderDX9(vs, fs, vs->UseHWTransform());	// This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {

@@ -998,6 +998,8 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 add_dependencies(${CoreLibName} GitVersion)
 
 add_library(GPU OBJECT
+	GPU/Common/VertexDecoderCommon.cpp
+	GPU/Common/IndexGenerator.cpp
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp

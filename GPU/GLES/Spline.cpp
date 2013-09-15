@@ -91,7 +91,7 @@ struct HWSplinePatch {
 	// float u0, v0, u1, v1;
 };
 
-void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
+static void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
 	memcpy(dest, v1, vertexSize);
 	dest += vertexSize;
 	memcpy(dest, v2, vertexSize);

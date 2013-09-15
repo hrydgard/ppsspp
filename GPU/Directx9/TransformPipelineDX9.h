@@ -19,13 +19,14 @@
 
 #include <map>
 
-#include "IndexGenerator.h"
-#include "VertexDecoder.h"
+#include <d3d9.h>
+#include "GPU/Common/IndexGenerator.h"
+#include "GPU/Directx9/VertexDecoderDX9.h"
 
-class LinkedShader;
-class ShaderManager;
-class TextureCache;
-class FramebufferManager;
+class LinkedShaderDX9;
+class ShaderManagerDX9;
+class TextureCacheDX9;
+class FramebufferManagerDX9;
 
 struct DecVtxFormat;
 
@@ -47,9 +48,9 @@ enum {
 };
 
 // Try to keep this POD.
-class VertexArrayInfo {
+class VertexArrayInfoDX9 {
 public:
-	VertexArrayInfo() {
+	VertexArrayInfoDX9() {
 		status = VAI_NEW;
 		vbo = 0;
 		ebo = 0;
@@ -61,7 +62,7 @@ public:
 		numVerts = 0;
 		drawsUntilNextFullHash = 0;
 	}
-	~VertexArrayInfo();
+	~VertexArrayInfoDX9();
 	enum Status {
 		VAI_NEW,
 		VAI_HASHING,
@@ -91,10 +92,10 @@ public:
 
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngine {
+class TransformDrawEngineDX9 {
 public:
-	TransformDrawEngine();
-	virtual ~TransformDrawEngine();
+	TransformDrawEngineDX9();
+	virtual ~TransformDrawEngineDX9();
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertex_type);
@@ -103,13 +104,13 @@ public:
 	void DrawBezier(int ucount, int vcount);
 
 	void DecodeVerts();
-	void SetShaderManager(ShaderManager *shaderManager) {
+	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
-	void SetTextureCache(TextureCache *textureCache) {
+	void SetTextureCache(TextureCacheDX9 *textureCache) {
 		textureCache_ = textureCache;
 	}
-	void SetFramebufferManager(FramebufferManager *fbManager) {
+	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 		framebufferManager_ = fbManager;
 	}
 	void InitDeviceObjects();
@@ -133,7 +134,7 @@ public:
 
 private:
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
 
@@ -141,7 +142,7 @@ private:
 	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.
 
-	VertexDecoder *GetVertexDecoder(u32 vtype);
+	VertexDecoderDX9 *GetVertexDecoder(u32 vtype);
 
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
@@ -162,8 +163,8 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_;
+	std::map<u32, VertexDecoderDX9 *> decoderMap_;
+	VertexDecoderDX9 *dec_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
@@ -173,12 +174,12 @@ private:
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
-	std::map<u32, VertexArrayInfo *> vai_;
+	std::map<u32, VertexArrayInfoDX9 *> vai_;
 	
 	// Other
-	ShaderManager *shaderManager_;
-	TextureCache *textureCache_;
-	FramebufferManager *framebufferManager_;
+	ShaderManagerDX9 *shaderManager_;
+	TextureCacheDX9 *textureCache_;
+	FramebufferManagerDX9 *framebufferManager_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];

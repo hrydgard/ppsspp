@@ -20,15 +20,15 @@
 #include <list>
 #include <deque>
 
-#include "../GPUCommon.h"
-#include "Framebuffer.h"
-#include "VertexDecoder.h"
-#include "TransformPipeline.h"
-#include "TextureCache.h"
-#include "helper/fbo.h"
+#include "GPU/GPUCommon.h"
+#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/VertexDecoderDX9.h"
+#include "GPU/Directx9/TransformPipelineDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/helper/fbo.h"
 
-class ShaderManager;
-class LinkedShader;
+class ShaderManagerDX9;
+class LinkedShaderDX9;
 
 class DIRECTX9_GPU : public GPUCommon
 {
@@ -82,10 +82,10 @@ private:
 	void CopyDisplayToOutputInternal();
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
-	FramebufferManager framebufferManager_;
-	TextureCache textureCache_;
-	TransformDrawEngine transformDraw_;
-	ShaderManager *shaderManager_;
+	FramebufferManagerDX9 framebufferManager_;
+	TextureCacheDX9 textureCache_;
+	TransformDrawEngineDX9 transformDraw_;
+	ShaderManagerDX9 *shaderManager_;
 
 	u8 *commandFlags_;
 
