@@ -149,7 +149,7 @@ namespace MainWindow
 		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
 		RegisterClassEx(&wcex);
 
-		wcex.style = CS_HREDRAW | CS_VREDRAW;;
+		wcex.style = CS_HREDRAW | CS_VREDRAW;
 		wcex.lpfnWndProc = (WNDPROC)DisplayProc;
 		wcex.hIcon = 0;
 		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);

@@ -646,7 +646,7 @@ void XEmitter::UD2()
 
 void XEmitter::PREFETCH(PrefetchLevel level, OpArg arg)
 {
-	if (arg.IsImm()) _assert_msg_(JIT, 0, "PREFETCH - Imm argument");;
+	if (arg.IsImm()) _assert_msg_(JIT, 0, "PREFETCH - Imm argument");
 	arg.operandReg = (u8)level;
 	arg.WriteRex(this, 0, 0);
 	Write8(0x0F);
