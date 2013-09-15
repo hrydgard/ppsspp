@@ -49,10 +49,10 @@ namespace Atrac3plus_Decoder {
 	ATRAC3PLUS_CLOSECONTEXT close_context = 0;
 
 	std::string GetInstalledFilename() {
-#if defined(__linux__)
+#if defined(ANDROID) && defined(ARM)
+		return g_Config.internalDataDirectory + "libat3plusdecoder.so";	
+#elif defined(__linux__)
 		return "/usr/lib/libat3plusdecoder.so";
-#elif defined(ANDROID) && defined(ARM)
-		return g_Config.internalDataDirectory + "libat3plusdecoder.so";
 #elif defined(_WIN32)
 #ifdef _M_X64
 		return "at3plusdecoder64.dll";
