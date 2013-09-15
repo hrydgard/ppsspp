@@ -36,14 +36,16 @@ Config::~Config() { }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 {
-	iniFilename_ = iniFileName;
-	controllerIniFilename_ = controllerIniFilename;
-	INFO_LOG(LOADER, "Loading config: %s", iniFileName);
+	iniFilename_ = iniFileName != NULL ? iniFileName : "ppsspp.ini";
+
+	controllerIniFilename_ = controllerIniFilename != NULL ? controllerIniFilename : "controls.ini";
+
+	INFO_LOG(LOADER, "Loading config: %s", iniFilename_);
 	bSaveSettings = true;
 
 	IniFile iniFile;
-	if (!iniFile.Load(iniFileName)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFileName);
+	if (!iniFile.Load(iniFilename_)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFilename_);
 		// Continue anyway to initialize the config.
 	}
 
@@ -229,12 +231,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
 	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
 
-	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename);
+	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_);
 	bSaveSettings = true;
 
 	IniFile controllerIniFile;
-	if (!controllerIniFile.Load(controllerIniFilename)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename);
+	if (!controllerIniFile.Load(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_);
 		KeyMap::RestoreDefault();
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
