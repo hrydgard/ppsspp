@@ -859,6 +859,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 void GPUCommon::DoState(PointerWrap &p) {
 	easy_guard guard(listLock);
 
+	auto s = p.Section("GPUCommon", 1);
+	if (!s)
+		return;
+
 	p.Do<int>(dlQueue);
 	p.DoArray(dls, ARRAY_SIZE(dls));
 	int currentID = 0;
@@ -877,7 +881,6 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(isbreak);
 	p.Do(drawCompleteTicks);
 	p.Do(busyTicks);
-	p.DoMarker("GPUCommon");
 }
 
 void GPUCommon::InterruptStart(int listid) {

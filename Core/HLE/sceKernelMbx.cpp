@@ -175,11 +175,14 @@ struct Mbx : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Mbx", 1);
+		if (!s)
+			return;
+
 		p.Do(nmb);
 		MbxWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
 		p.Do(pausedWaits);
-		p.DoMarker("Mbx");
 	}
 
 	NativeMbx nmb;
@@ -200,9 +203,12 @@ void __KernelMbxInit()
 
 void __KernelMbxDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelMbx", 1);
+	if (!s)
+		return;
+
 	p.Do(mbxWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
-	p.DoMarker("sceKernelMbx");
 }
 
 KernelObject *__KernelMbxObject()

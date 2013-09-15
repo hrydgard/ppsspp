@@ -613,6 +613,10 @@ void DoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 
+	auto s = p.Section("CoreTiming", 1);
+	if (!s)
+		return;
+
 	int n = (int) event_types.size();
 	p.Do(n);
 	// These (should) be filled in later by the modules.
@@ -625,7 +629,6 @@ void DoState(PointerWrap &p)
 	p.Do(slicelength);
 	p.Do(globalTimer);
 	p.Do(idledCycles);
-	p.DoMarker("CoreTiming");
 }
 
 }	// namespace

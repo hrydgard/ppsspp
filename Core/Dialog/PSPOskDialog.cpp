@@ -971,13 +971,17 @@ int PSPOskDialog::Shutdown(bool force)
 void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
+
+	auto s = p.Section("PSPOskDialog", 1);
+	if (!s)
+		return;
+
 	p.Do(oskParams);
 	p.Do(oskDesc);
 	p.Do(oskIntext);
 	p.Do(oskOuttext);
 	p.Do(selectedChar);
 	p.Do(inputChars);
-	p.DoMarker("PSPOskDialog");
 }
 
 pspUtilityDialogCommon *PSPOskDialog::GetCommonParam()

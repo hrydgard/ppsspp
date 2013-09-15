@@ -146,6 +146,10 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)
 {
+	auto s = p.Section("VirtualDiscFileSystem", 1);
+	if (!s)
+		return;
+
 	int fileListSize = (int)fileList.size();
 	int entryCount = (int)entries.size();
 
@@ -214,8 +218,6 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 	}
 
 	// We don't savestate handlers (loaded on fs load), but if they change, it may not load properly.
-
-	p.DoMarker("VirtualDiscFileSystem");
 }
 
 std::string VirtualDiscFileSystem::GetLocalPath(std::string localpath) {

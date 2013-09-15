@@ -63,11 +63,14 @@ struct Semaphore : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("Semaphore", 1);
+		if (!s)
+			return;
+
 		p.Do(ns);
 		SceUID dv = 0;
 		p.Do(waitingThreads, dv);
 		p.Do(pausedWaits);
-		p.DoMarker("Semaphore");
 	}
 
 	NativeSemaphore ns;
@@ -89,9 +92,12 @@ void __KernelSemaInit()
 
 void __KernelSemaDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelSema", 1);
+	if (!s)
+		return;
+
 	p.Do(semaWaitTimer);
 	CoreTiming::RestoreRegisterEvent(semaWaitTimer, "SemaphoreTimeout", __KernelSemaTimeout);
-	p.DoMarker("sceKernelSema");
 }
 
 KernelObject *__KernelSemaphoreObject()

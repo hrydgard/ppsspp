@@ -89,9 +89,12 @@ void AsyncIOManager::EventResult(u32 handle, AsyncIOResult result) {
 }
 
 void AsyncIOManager::DoState(PointerWrap &p) {
+	auto s = p.Section("AsyncIoManager", 1);
+	if (!s)
+		return;
+
 	SyncThread();
 	lock_guard guard(resultsLock_);
 	p.Do(resultsPending_);
 	p.Do(results_);
-	p.DoMarker("AsyncIOManager");
 }

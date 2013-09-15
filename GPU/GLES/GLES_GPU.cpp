@@ -1450,5 +1450,4 @@ void GLES_GPU::DoState(PointerWrap &p) {
 
 	gstate_c.textureChanged = true;
 	framebufferManager_.DestroyAllFBOs();
-	shaderManager_->ClearCache(true);
 }

@@ -141,6 +141,10 @@ void MediaEngine::closeMedia() {
 }
 
 void MediaEngine::DoState(PointerWrap &p){
+	auto s = p.Section("MediaEngine", 1);
+	if (!s)
+		return;
+
 	p.Do(m_videoStream);
 	p.Do(m_audioStream);
 
@@ -166,7 +170,6 @@ void MediaEngine::DoState(PointerWrap &p){
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
-	p.DoMarker("MediaEngine");
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)

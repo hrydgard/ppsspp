@@ -60,6 +60,10 @@ void __UmdInit()
 
 void __UmdDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceUmd", 1);
+	if (!s)
+		return;
+
 	p.Do(umdActivated);
 	p.Do(umdStatus);
 	p.Do(umdErrorStat);
@@ -70,7 +74,6 @@ void __UmdDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
 	p.Do(umdWaitingThreads);
 	p.Do(umdPausedWaits);
-	p.DoMarker("sceUmd");
 }
 
 u8 __KernelUmdGetState()

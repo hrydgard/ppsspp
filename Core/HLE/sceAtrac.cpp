@@ -150,6 +150,10 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("Atrac", 1);
+		if (!s)
+			return;
+
 		p.Do(atracChannels);
 		p.Do(atracOutputChannels);
 
@@ -189,8 +193,6 @@ struct Atrac {
 		p.Do(loopNum);
 
 		p.Do(atracContext);
-
-		p.DoMarker("Atrac");
 	}
 
 	int Analyze();
@@ -311,6 +313,10 @@ void __AtracInit() {
 }
 
 void __AtracDoState(PointerWrap &p) {
+	auto s = p.Section("sceAtrac", 1);
+	if (!s)
+		return;
+
 	p.Do(atracInited);
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
 		bool valid = atracIDs[i] != NULL;
@@ -323,8 +329,6 @@ void __AtracDoState(PointerWrap &p) {
 		}
 	}
 	p.DoArray(atracIDTypes, PSP_NUM_ATRAC_IDS);
-
-	p.DoMarker("sceAtrac");
 }
 
 void __AtracShutdown() {

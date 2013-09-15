@@ -85,9 +85,12 @@ void HLEInit()
 
 void HLEDoState(PointerWrap &p)
 {
+	auto s = p.Section("HLE", 1);
+	if (!s)
+		return;
+
 	p.Do(delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
-	p.DoMarker("HLE");
 }
 
 void HLEShutdown()

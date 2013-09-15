@@ -75,11 +75,14 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("EventFlag", 1);
+		if (!s)
+			return;
+
 		p.Do(nef);
 		EventFlagTh eft = {0};
 		p.Do(waitingThreads, eft);
 		p.Do(pausedWaits);
-		p.DoMarker("EventFlag");
 	}
 
 	NativeEventFlag nef;
@@ -124,9 +127,12 @@ void __KernelEventFlagInit()
 
 void __KernelEventFlagDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelEventFlag", 1);
+	if (!s)
+		return;
+
 	p.Do(eventFlagWaitTimer);
 	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
-	p.DoMarker("sceKernelEventFlag");
 }
 
 KernelObject *__KernelEventFlagObject()

@@ -271,6 +271,10 @@ struct MsgPipe : public KernelObject
 
 	virtual void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("MsgPipe", 1);
+		if (!s)
+			return;
+
 		p.Do(nmp);
 		MsgPipeWaitingThread mpwt1 = {0}, mpwt2 = {0};
 		p.Do(sendWaitingThreads, mpwt1);
@@ -278,7 +282,6 @@ struct MsgPipe : public KernelObject
 		p.Do(pausedSendWaits);
 		p.Do(pausedReceiveWaits);
 		p.Do(buffer);
-		p.DoMarker("MsgPipe");
 	}
 
 	NativeMsgPipe nmp;
@@ -651,9 +654,12 @@ void __KernelMsgPipeInit()
 
 void __KernelMsgPipeDoState(PointerWrap &p)
 {
+	auto s = p.Section("sceKernelMsgPipe", 1);
+	if (!s)
+		return;
+
 	p.Do(waitTimer);
 	CoreTiming::RestoreRegisterEvent(waitTimer, "MsgPipeTimeout", __KernelMsgPipeTimeout);
-	p.DoMarker("sceKernelMsgPipe");
 }
 
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr)

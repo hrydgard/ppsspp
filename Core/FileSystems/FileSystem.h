@@ -66,6 +66,10 @@ struct PSPFileInfo
 
 	void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("PSPFileInfo", 1);
+		if (!s)
+			return;
+
 		p.Do(name);
 		p.Do(size);
 		p.Do(access);
@@ -78,7 +82,6 @@ struct PSPFileInfo
 		p.Do(startSector);
 		p.Do(numSectors);
 		p.Do(sectorSize);
-		p.DoMarker("PSPFileInfo");
 	}
 
 	std::string name;

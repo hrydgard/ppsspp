@@ -98,6 +98,10 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
+	auto s = p.Section("Memory", 1);
+	if (!s)
+		return;
+
 	p.DoArray(m_pRAM, g_MemorySize);
 	p.DoMarker("RAM");
 	p.DoArray(m_pVRAM, VRAM_SIZE);

@@ -29,9 +29,12 @@ void __JpegInit() {
 }
 
 void __JpegDoState(PointerWrap &p) {
+	auto s = p.Section("sceJpeg", 1);
+	if (!s)
+		return;
+
 	p.Do(mjpegWidth);
 	p.Do(mjpegHeight);
-	p.DoMarker("sceJpeg");
 }
 
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file

@@ -25,6 +25,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #ifdef _WIN32
@@ -36,10 +37,11 @@
 
 #include "Core/Debugger/Breakpoints.h"
 
-event m_hStepEvent;
-recursive_mutex m_hStepMutex;
-event m_hInactiveEvent;
-recursive_mutex m_hInactiveMutex;
+static event m_hStepEvent;
+static recursive_mutex m_hStepMutex;
+static event m_hInactiveEvent;
+static recursive_mutex m_hInactiveMutex;
+static bool singleStepPending = false;
 
 #ifdef _WIN32
 InputState input_state;
@@ -152,6 +154,12 @@ void Core_RunLoop()
 
 void Core_DoSingleStep()
 {
+	singleStepPending = true;
+	m_hStepEvent.notify_one();
+}
+
+void Core_UpdateSingleStep()
+{
 	m_hStepEvent.notify_one();
 }
 
@@ -175,18 +183,25 @@ reswitch:
 		switch (coreState)
 		{
 		case CORE_RUNNING:
-			//1: enter a fast runloop
+			// enter a fast runloop
 			Core_RunLoop();
 			break;
 
 		// We should never get here on Android.
 		case CORE_STEPPING:
+			singleStepPending = false;
 			if (coreStatePending) {
 				coreStatePending = false;
 				m_hInactiveEvent.notify_one();
 			}
 
-			//1: wait for step command..
+			// Check if there's any pending savestate actions.
+			SaveState::Process();
+			if (coreState == CORE_POWERDOWN) {
+				return;
+			}
+
+			// wait for step command..
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
@@ -198,18 +213,21 @@ reswitch:
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->SendCoreWait(false);
 #endif
-			if (coreState == CORE_POWERDOWN)
-				return;
-			if (coreState != CORE_STEPPING)
 #if defined(USING_QT_UI) && !defined(USING_GLES2)
+			if (coreState != CORE_STEPPING)
 				return;
-#else
-				goto reswitch;
 #endif
+			// No step pending?  Let's go back to the wait.
+			if (!singleStepPending || coreState != CORE_STEPPING) {
+				if (coreState == CORE_POWERDOWN) {
+					return;
+				}
+				goto reswitch;
+			}
 
 			currentCPU = &mipsr4k;
 			Core_SingleStep();
-			//4: update disasm dialog
+			// update disasm dialog
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
@@ -218,7 +236,7 @@ reswitch:
 
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
-			//1: Exit loop!!
+			// Exit loop!!
 			if (coreStatePending) {
 				coreStatePending = false;
 				m_hInactiveEvent.notify_one();

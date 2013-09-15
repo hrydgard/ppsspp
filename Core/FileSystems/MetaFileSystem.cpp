@@ -491,6 +491,11 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 void MetaFileSystem::DoState(PointerWrap &p)
 {
 	lock_guard guard(lock);
+	
+	auto s = p.Section("MetaFileSystem", 1);
+	if (!s)
+		return;
+
 	p.Do(current);
 
 	// Save/load per-thread current directory map
@@ -507,7 +512,5 @@ void MetaFileSystem::DoState(PointerWrap &p)
 
 	for (u32 i = 0; i < n; ++i)
 		fileSystems[i].system->DoState(p);
-
-	p.DoMarker("MetaFileSystem");
 }
 

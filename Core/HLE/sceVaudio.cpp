@@ -31,8 +31,11 @@ void __VaudioInit() {
 }
 
 void __VaudioDoState(PointerWrap &p) {
+	auto s = p.Section("sceVaudio", 1);
+	if (!s)
+		return;
+
 	p.Do(vaudioReserved);
-	p.DoMarker("sceVaudio");
 }
 
 u32 sceVaudioChReserve(int sampleCount, int freq, int format) {

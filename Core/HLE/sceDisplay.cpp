@@ -56,6 +56,10 @@ struct WaitVBlankInfo
 
 	void DoState(PointerWrap &p)
 	{
+		auto s = p.Section("WaitVBlankInfo", 1);
+		if (!s)
+			return;
+
 		p.Do(threadID);
 		p.Do(vcountUnblock);
 	}
@@ -175,6 +179,10 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
+	auto s = p.Section("sceDisplay", 1);
+	if (!s)
+		return;
+
 	p.Do(framebuf);
 	p.Do(latchedFramebuf);
 	p.Do(framebufIsLatched);
@@ -212,8 +220,6 @@ void __DisplayDoState(PointerWrap &p) {
 		}
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
-
-	p.DoMarker("sceDisplay");
 }
 
 void __DisplayShutdown() {

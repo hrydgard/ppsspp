@@ -46,9 +46,12 @@ struct VTimer : public KernelObject {
 	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
 
 	virtual void DoState(PointerWrap &p) {
+		auto s = p.Section("VTimer", 1);
+		if (!s)
+			return;
+
 		p.Do(nvt);
 		p.Do(memoryPtr);
-		p.DoMarker("VTimer");
 	}
 
 	NativeVTimer nvt;
@@ -161,10 +164,13 @@ void __KernelTriggerVTimer(u64 userdata, int cyclesLate) {
 }
 
 void __KernelVTimerDoState(PointerWrap &p) {
+	auto s = p.Section("sceKernelVTimer", 1);
+	if (!s)
+		return;
+
 	p.Do(vtimerTimer);
 	p.Do(vtimers);
 	CoreTiming::RestoreRegisterEvent(vtimerTimer, "VTimer", __KernelTriggerVTimer);
-	p.DoMarker("sceKernelVTimer");
 }
 
 void __KernelVTimerInit() {
