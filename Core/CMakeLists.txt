@@ -7,6 +7,7 @@ set(SRCS
   Dialog/PSPSaveDialog.cpp
   Dialog/SavedataParam.cpp
   Dialog/PSPOskDialog.cpp
+  Dialog/PSPGamedataInstallDialog.cpp
   MIPS/MIPS.cpp
   MIPS/MIPSAnalyst.cpp
   MIPS/MIPSCodeUtils.cpp

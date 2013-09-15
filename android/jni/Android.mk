@@ -239,6 +239,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
   $(SRC)/Core/Dialog/PSPDialog.cpp \
+  $(SRC)/Core/Dialog/PSPGamedataInstallDialog.cpp \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskDialog.cpp \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
