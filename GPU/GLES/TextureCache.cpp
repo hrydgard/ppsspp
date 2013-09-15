@@ -184,7 +184,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer || entry->invalidHint == -1) {
+		if (!entry->framebuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
