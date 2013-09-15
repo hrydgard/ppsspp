@@ -49,6 +49,7 @@ SOURCES += ../Core/*.cpp \ # Core
 	../GPU/Math3D.cpp \
 	../GPU/Null/NullGpu.cpp \
 	../GPU/GLES/*.cpp \
+	../GPU/Common/*.cpp \
 	../ext/libkirk/*.c \ # Kirk
 	../ext/xxhash.c \ # xxHash
 	../ext/xbrz/*.cpp # XBRZ
@@ -71,6 +72,7 @@ HEADERS += ../Core/*.h \
 	../Core/MIPS/JitCommon/*.h \
 	../Core/Util/*.h \
 	../GPU/GLES/*.h \
+	../GPU/Common/*.h \
 	../GPU/*.h \
 	../ext/libkirk/*.h \
 	../ext/xbrz/*.h
