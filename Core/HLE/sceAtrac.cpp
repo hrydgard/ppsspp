@@ -43,6 +43,7 @@
 #define ATRAC_ERROR_SIZE_TOO_SMALL           0x80630011
 #define ATRAC_ERROR_SECOND_BUFFER_NEEDED     0x80630012
 #define ATRAC_ERROR_INCORRECT_READ_SIZE      0x80630013
+#define ATRAC_ERROR_BAD_SAMPLE               0x80630015
 #define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
 #define ATRAC_ERROR_UNSET_PARAM              0x80630021
 #define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
@@ -283,6 +284,18 @@ struct Atrac {
 	}
 #endif // USE_FFMPEG
 
+};
+
+struct AtracSingleResetBufferInfo {
+	u32 writePosPtr;
+	u32 writableBytes;
+	u32 minWriteBytes;
+	u32 filePos;
+};
+
+struct AtracResetBufferInfo {
+	AtracSingleResetBufferInfo first;
+	AtracSingleResetBufferInfo second;
 };
 
 const int PSP_NUM_ATRAC_IDS = 6;
@@ -705,7 +718,6 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
-	DEBUG_LOG(ME, "sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
@@ -715,6 +727,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 		Memory::Write_U32(finish, finishFlagAddr);
 		Memory::Write_U32(remains, remainAddr);
 	}
+	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", ret, atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 	if (!ret) {
 		// decode data successfully, delay thread
 		return hleDelayResult(ret, "atrac decode data", atracDecodeDelay);
@@ -728,15 +741,22 @@ u32 sceAtracEndEntry()
 	return 0;
 }
 
-u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr)
+u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr)
 {
-	INFO_LOG(ME, "sceAtracGetBufferInfoForReseting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
+	PSPPointer<AtracResetBufferInfo> bufferInfo;
+	bufferInfo = bufferInfoAddr;
+
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		// TODO: Write the right stuff instead.
-		Memory::Memset(bufferInfoAddr, 0, 32);
-		//return -1;
+		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
 	} else {
+		u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		if ((u32)sample + atracSamplesPerFrame > (u32)atrac->endSample) {
+			WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid sample position", atracID, sample, bufferInfoAddr);
+			return ATRAC_ERROR_BAD_SAMPLE;
+		}
+
 		int Sampleoffset = atrac->getDecodePosBySample(sample);
 		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
 		// reset the temp buf for adding more stream data
@@ -745,16 +765,25 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 		// minWritebytes should not be bigger than writeablebytes
 		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
 
-		Memory::Write_U32(atrac->first.addr, bufferInfoAddr);
-		Memory::Write_U32(atrac->first.writableBytes, bufferInfoAddr + 4);
-		Memory::Write_U32(minWritebytes, bufferInfoAddr + 8);
-		Memory::Write_U32(atrac->first.fileoffset, bufferInfoAddr + 12);
-		Memory::Write_U32(atrac->second.addr, bufferInfoAddr + 16);
-		Memory::Write_U32(atrac->second.writableBytes, bufferInfoAddr + 20);
-		Memory::Write_U32(atrac->second.neededBytes, bufferInfoAddr + 24);
-		Memory::Write_U32(atrac->second.fileoffset, bufferInfoAddr + 28);
+		// If we've already loaded everything, the answer is 0.
+		if (atrac->first.size >= atrac->first.filesize) {
+			Sampleoffset = 0;
+		}
+
+		bufferInfo->first.writePosPtr = atrac->first.addr;
+		bufferInfo->first.writableBytes = atrac->first.writableBytes;
+		bufferInfo->first.minWriteBytes = minWritebytes;
+		bufferInfo->first.filePos = Sampleoffset;
+
+		// TODO: It seems like this is always the same as the first buffer's pos?
+		bufferInfo->second.writePosPtr = atrac->first.addr;
+		bufferInfo->second.writableBytes = atrac->second.writableBytes;
+		bufferInfo->second.minWriteBytes = atrac->second.neededBytes;
+		bufferInfo->second.filePos = atrac->second.fileoffset;
+
+		INFO_LOG(ME, "0=sceAtracGetBufferInfoForResetting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
+		return 0;
 	}
-	return 0;
 }
 
 u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
@@ -1780,7 +1809,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x6a8c3cd5,WrapU_IUUUU<sceAtracDecodeData>,"sceAtracDecodeData"},
 	{0xd5c28cc0,WrapU_V<sceAtracEndEntry>,"sceAtracEndEntry"},
 	{0x780f88d1,WrapU_I<sceAtracGetAtracID>,"sceAtracGetAtracID"},
-	{0xca3ca3d2,WrapU_IIU<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForReseting"},
+	{0xca3ca3d2,WrapU_IIU<sceAtracGetBufferInfoForResetting>,"sceAtracGetBufferInfoForReseting"},
 	{0xa554a158,WrapU_IU<sceAtracGetBitrate>,"sceAtracGetBitrate"},
 	{0x31668baa,WrapU_IU<sceAtracGetChannel>,"sceAtracGetChannel"},
 	{0xfaa4f89b,WrapU_IUU<sceAtracGetLoopStatus>,"sceAtracGetLoopStatus"},
@@ -1803,7 +1832,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x132f1eca,WrapI_II<sceAtracReinit>,"sceAtracReinit"},
 	{0xeca32a99,WrapI_I<sceAtracIsSecondBufferNeeded>,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,WrapI_UUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
-	{0x2DD3E298,WrapU_IIU<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForResetting"},
+	{0x2DD3E298,WrapU_IIU<sceAtracGetBufferInfoForResetting>,"sceAtracGetBufferInfoForResetting"},
 	{0x5CF9D852,WrapI_IUUU<sceAtracSetMOutHalfwayBuffer>,"sceAtracSetMOutHalfwayBuffer"},
 	{0xF6837A1A,WrapU_IUU<sceAtracSetMOutData>,"sceAtracSetMOutData"},
 	{0x472E3825,WrapI_UU<sceAtracSetMOutDataAndGetID>,"sceAtracSetMOutDataAndGetID"},
