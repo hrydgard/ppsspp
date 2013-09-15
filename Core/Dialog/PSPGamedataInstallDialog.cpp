@@ -25,8 +25,7 @@ PSPGamedataInstallDialog::PSPGamedataInstallDialog() {
 PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {
 }
 
-int PSPGamedataInstallDialog::Init(u32 paramAddr)
-{
+int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	// Already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
@@ -37,25 +36,25 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr)
 	Memory::Memcpy(&request, paramAddr, size);
 
 	status = SCE_UTILITY_STATUS_INITIALIZE;
-
 	return 0;
 }
 
-int PSPGamedataInstallDialog::Abort()
-{
+int PSPGamedataInstallDialog::Abort() {
 	return PSPDialog::Shutdown();
 }
 
-int PSPGamedataInstallDialog::Shutdown(bool force)
-{
-    if (status != SCE_UTILITY_STATUS_FINISHED && !force)
-        return SCE_ERROR_UTILITY_INVALID_STATUS;
+int PSPGamedataInstallDialog::Shutdown(bool force) {
+	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-    return PSPDialog::Shutdown();
+	return PSPDialog::Shutdown();
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 	PSPDialog::DoState(p);
+	auto s = p.Section("PSPGamedataInstallDialog", 1);
+	if (!s)
+		return;
+
 	p.Do(request);
-	p.DoMarker("PSPGamedataInstallDialog");
 }
