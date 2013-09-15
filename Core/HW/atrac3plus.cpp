@@ -28,7 +28,7 @@ extern std::string externalDirectory;
 namespace Atrac3plus_Decoder {
 
 	bool IsSupported() {
-#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || defined(MACOSX)
+#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || defined(MACOSX) || defined(__linux__)
 		return true;
 #else
 		return false;
@@ -49,7 +49,9 @@ namespace Atrac3plus_Decoder {
 	ATRAC3PLUS_CLOSECONTEXT close_context = 0;
 
 	std::string GetInstalledFilename() {
-#if defined(ANDROID) && defined(ARM)
+#if defined(__linux__)
+		return "/usr/lib/libat3plusdecoder.so";
+#elif defined(ANDROID) && defined(ARM)
 		return g_Config.internalDataDirectory + "libat3plusdecoder.so";
 #elif defined(_WIN32)
 #ifdef _M_X64
