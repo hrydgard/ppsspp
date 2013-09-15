@@ -70,6 +70,32 @@ struct LinkedListItem : public T
 	LinkedListItem<T> *next;
 };
 
+class PointerWrap;
+
+class PointerWrapSection
+{
+public:
+	PointerWrapSection(PointerWrap &p, int ver, const char *title) : p_(p), ver_(ver), title_(title) {
+	}
+	~PointerWrapSection();
+	
+	bool operator == (const int &v) const { return ver_ == v; }
+	bool operator != (const int &v) const { return ver_ != v; }
+	bool operator <= (const int &v) const { return ver_ <= v; }
+	bool operator >= (const int &v) const { return ver_ >= v; }
+	bool operator <  (const int &v) const { return ver_ < v; }
+	bool operator >  (const int &v) const { return ver_ > v; }
+
+	operator bool() const  {
+		return ver_ > 0;
+	}
+
+private:
+	PointerWrap &p_;
+	int ver_;
+	const char *title_;
+};
+
 // Wrapper class
 class PointerWrap
 {
@@ -129,6 +155,24 @@ public:
 public:
 	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_), error(ERROR_NONE) {}
 	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_), error(ERROR_NONE) {}
+
+	PointerWrapSection Section(const char *title, int ver) {
+		return Section(title, ver, ver);
+	}
+
+	// The returned object can be compared against the version that was loaded.
+	// This can be used to support versions as old as minVer.
+	PointerWrapSection Section(const char *title, int minVer, int ver) {
+		int foundVersion = ver;
+		Do(foundVersion);
+		DoMarker(title);
+		if (error == ERROR_FAILURE || foundVersion < minVer || foundVersion > ver) {
+			WARN_LOG(COMMON, "Savestate failure: wrong version %d found for %s", foundVersion, title);
+			SetError(ERROR_FAILURE);
+			return PointerWrapSection(*this, -1, title);
+		}
+		return PointerWrapSection(*this, foundVersion, title);
+	}
 
 	void SetMode(Mode mode_) {mode = mode_;}
 	Mode GetMode() const {return mode;}
@@ -576,6 +620,10 @@ public:
 		}
 	}
 };
+
+inline PointerWrapSection::~PointerWrapSection() {
+	p_.DoMarker(title_);
+}
 
 
 class CChunkFileReader
