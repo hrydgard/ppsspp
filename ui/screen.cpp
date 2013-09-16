@@ -162,12 +162,12 @@ void ScreenManager::RecreateAllViews() {
 }
 
 void ScreenManager::finishDialog(const Screen *dialog, DialogResult result) {
-	if (dialog != stack_.back().screen) {
-		ELOG("Wrong dialog being finished!");
+	if (stack_.empty()) {
+		ELOG("Must be in a dialog to finishDialog");
 		return;
 	}
-	if (!stack_.size()) {
-		ELOG("Must be in a dialog to finishDialog");
+	if (dialog != stack_.back().screen) {
+		ELOG("Wrong dialog being finished!");
 		return;
 	}
 	dialogFinished_ = dialog;
@@ -176,15 +176,27 @@ void ScreenManager::finishDialog(const Screen *dialog, DialogResult result) {
 
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
-		if (stack_.size()) {
-			stack_.pop_back();
+		// Another dialog may have been pushed before the render, so search for it.
+		Screen *caller = 0;
+		for (size_t i = 0; i < stack_.size(); ++i) {
+			if (stack_[i].screen != dialogFinished_) {
+				continue;
+			}
+
+			stack_.erase(stack_.begin() + i);
+			// The previous screen was the caller (not necessarily the topmost.)
+			if (i > 0) {
+				caller = stack_[i - 1].screen;
+			}
 		}
 
-		Screen *caller = topScreen();
-		if (caller) {
-			caller->dialogFinished(dialogFinished_, dialogResult_);
-		} else {
+		if (!caller) {
 			ELOG("ERROR: no top screen when finishing dialog");
+		} else if (caller != topScreen()) {
+			// The caller may get confused if we call dialogFinished() now.
+			WLOG("Skipping non-top dialog when finishing dialog.");
+		} else {
+			caller->dialogFinished(dialogFinished_, dialogResult_);
 		}
 		delete dialogFinished_;
 		dialogFinished_ = 0;
