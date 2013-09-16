@@ -24,6 +24,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 
 #include "ext/xxhash.h"
@@ -44,12 +45,6 @@ namespace DX9 {
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
 extern int g_iNumVideos;
-static inline u32 GetLevelBufw(int level, u32 texaddr) {
-	// Special rules for kernel textures (PPGe):
-	if (texaddr < PSP_GetUserMemoryBase())
-		return gstate.texbufwidth[level] & 0x1FFF;
-	return gstate.texbufwidth[level] & 0x7FF;
-}
 
 TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = INVALID_TEX;
@@ -407,8 +402,7 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 	DeIndexTexture4Optimal(dest, indexed, length, color);
 }
 
-void *TextureCacheDX9::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt) {
-	int bufw = GetLevelBufw(level, texaddr);
+void *TextureCacheDX9::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt, int bufw) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	int length = bufw * h;
@@ -801,25 +795,6 @@ void TextureCacheDX9::StartFrame() {
 	}
 }
 
-static const u8 bitsPerPixel[16] = {
-	16,  //GE_TFMT_5650,
-	16,  //GE_TFMT_5551,
-	16,  //GE_TFMT_4444,
-	32,  //GE_TFMT_8888,
-	4,   //GE_TFMT_CLUT4,
-	8,   //GE_TFMT_CLUT8,
-	16,  //GE_TFMT_CLUT16,
-	32,  //GE_TFMT_CLUT32,
-	4,   //GE_TFMT_DXT1,
-	8,   //GE_TFMT_DXT3,
-	8,   //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
-
 static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
@@ -856,7 +831,7 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
-	const u32 sizeInRAM = (bitsPerPixel[format] * bufw * h) / 8;
+	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 
@@ -1083,7 +1058,7 @@ void TextureCacheDX9::SetTexture() {
 
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	int bufw = GetLevelBufw(0, texaddr);
+	int bufw = GetTextureBufw(0, texaddr, format);
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
@@ -1236,7 +1211,7 @@ void TextureCacheDX9::SetTexture() {
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (bitsPerPixel[format] * bufw * h / 2) / 8;
+	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
 	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
 	entry->cluthash = cluthash;
@@ -1300,7 +1275,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 
-	int bufw = GetLevelBufw(level, texaddr);
+	int bufw = GetTextureBufw(level, texaddr, format);
 
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
@@ -1310,9 +1285,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 	case GE_TFMT_CLUT4:
 		{
 		dstFmt = getClutDestFormat(clutformat);
-		// Don't allow this to be less than 16 bytes (32 * 4 / 8 = 16.)
-		if (bufw < 32)
-			bufw = 32;
 
 		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
@@ -1371,34 +1343,26 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		break;
 
 	case GE_TFMT_CLUT8:
-		if (bufw < 8)
-			bufw = 8;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = readIndexedTex(level, texaddr, 1, dstFmt);
+		finalBuf = ReadIndexedTex(level, texaddr, 1, dstFmt, bufw);
 		break;
 
 	case GE_TFMT_CLUT16:
-		if (bufw < 8)
-			bufw = 8;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = readIndexedTex(level, texaddr, 2, dstFmt);
+		finalBuf = ReadIndexedTex(level, texaddr, 2, dstFmt, bufw);
 		break;
 
 	case GE_TFMT_CLUT32:
-		if (bufw < 4)
-			bufw = 4;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = readIndexedTex(level, texaddr, 4, dstFmt);
+		finalBuf = ReadIndexedTex(level, texaddr, 4, dstFmt, bufw);
 		break;
 
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
-		if (bufw < 8)
-			bufw = 8;
 		if (format == GE_TFMT_4444)
 			dstFmt = D3DFMT_A4R4G4B4;
 		else if (format == GE_TFMT_5551)
@@ -1422,8 +1386,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		break;
 
 	case GE_TFMT_8888:
-		if (bufw < 4)
-			bufw = 4;
 		dstFmt = D3DFMT_A8R8G8B8;
 		if (!gstate.isTextureSwizzled()) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.

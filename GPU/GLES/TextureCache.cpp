@@ -24,6 +24,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 
 #include "ext/xxhash.h"
@@ -44,13 +45,6 @@
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
 extern int g_iNumVideos;
-
-static inline u32 GetLevelBufw(int level, u32 texaddr) {
-	// Special rules for kernel textures (PPGe):
-	if (texaddr < PSP_GetUserMemoryBase())
-		return gstate.texbufwidth[level] & 0x1FFF;
-	return gstate.texbufwidth[level] & 0x7FF;
-}
 
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = -1;
@@ -776,45 +770,6 @@ void TextureCache::StartFrame() {
 	}
 }
 
-static const u8 bitsPerPixel[16] = {
-	16,  //GE_TFMT_5650,
-	16,  //GE_TFMT_5551,
-	16,  //GE_TFMT_4444,
-	32,  //GE_TFMT_8888,
-	4,   //GE_TFMT_CLUT4,
-	8,   //GE_TFMT_CLUT8,
-	16,  //GE_TFMT_CLUT16,
-	32,  //GE_TFMT_CLUT32,
-	4,   //GE_TFMT_DXT1,
-	8,   //GE_TFMT_DXT3,
-	8,   //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
-
-// Masks to downalign bufw to 16 bytes.
-static const u32 alignMask16[16] = {
-	~(((8 * 16) / 16) - 1),  //GE_TFMT_5650,
-	~(((8 * 16) / 16) - 1),  //GE_TFMT_5551,
-	~(((8 * 16) / 16) - 1),  //GE_TFMT_4444,
-	~(((8 * 16) / 32) - 1),  //GE_TFMT_8888,
-	~(((8 * 16) / 4) - 1),   //GE_TFMT_CLUT4,
-	~(((8 * 16) / 8) - 1),   //GE_TFMT_CLUT8,
-	~(((8 * 16) / 16) - 1),  //GE_TFMT_CLUT16,
-	~(((8 * 16) / 32) - 1),  //GE_TFMT_CLUT32,
-	~(((8 * 16) / 4) - 1),   //GE_TFMT_DXT1,
-	~(((8 * 16) / 8) - 1),   //GE_TFMT_DXT3,
-	~(((8 * 16) / 8) - 1),   //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
-
 static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
@@ -851,7 +806,7 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
-	const u32 sizeInRAM = (bitsPerPixel[format] * bufw * h) / 8;
+	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 
@@ -1055,10 +1010,10 @@ void TextureCache::SetTexture() {
 	} else {
 		cluthash = 0;
 	}
-
+	
+	int bufw = GetTextureBufw(0, texaddr, format);
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	int bufw = GetLevelBufw(0, texaddr);
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
@@ -1211,7 +1166,7 @@ void TextureCache::SetTexture() {
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (bitsPerPixel[format] * bufw * h / 2) / 8;
+	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
 	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
 	entry->cluthash = cluthash;
@@ -1308,12 +1263,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 
-	int bufw = GetLevelBufw(level, texaddr) & alignMask16[format];
-	if (bufw == 0) {
-		// If it's less than 16 bytes, use 16 bytes.
-		bufw = (8 * 16) / bitsPerPixel[format];
-	}
-
+	int bufw = GetTextureBufw(level, texaddr, format);
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
@@ -1678,8 +1628,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	u8 level = 0;
 
-	int bufw = GetLevelBufw(level, texaddr);
-
+	int bufw = GetTextureBufw(level, texaddr, format);
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 

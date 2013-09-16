@@ -19,6 +19,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Colors.h"
@@ -171,8 +172,7 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
 
-	// Special rules for kernel textures (PPGe), TODO: Verify!
-	int texbufwidth = (texaddr < PSP_GetUserMemoryBase()) ? gstate.texbufwidth[level] & 0x1FFF : gstate.texbufwidth[level] & 0x7FF;
+	int texbufwidth = GetTextureBufw(level, texaddr, texfmt);
 
 	// TODO: Should probably check if textures are aligned properly...
 
