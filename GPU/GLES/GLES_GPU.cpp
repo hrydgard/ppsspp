@@ -751,6 +751,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 			}
 
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (gstate.isSkinningEnabled()) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", gstate.getNumBoneWeights());
+			}
+
 			// TODO: Get rid of this old horror...
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
@@ -778,7 +785,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 				break;
 			}
-			
+
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (gstate.isSkinningEnabled()) {
+				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", gstate.getNumBoneWeights());
+			}
+
 			int sp_ucount = data & 0xFF;
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
