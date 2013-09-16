@@ -55,7 +55,7 @@ inline u16 RGBA8888toRGBA5551(u32 px) {
 
 static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
 
-static void CenterRect(float *x, float *y, float *w, float *h,
+void CenterRect(float *x, float *y, float *w, float *h,
 	float origW, float origH, float frameW, float frameH)
 {
 	if (g_Config.bStretchToDisplay)

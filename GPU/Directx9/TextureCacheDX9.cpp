@@ -31,6 +31,8 @@
 #include "math/math_util.h"
 #include "native/ext/cityhash/city.h"
 
+extern int g_iNumVideos;
+
 namespace DX9 {
 
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
@@ -43,8 +45,6 @@ namespace DX9 {
 
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
-
-extern int g_iNumVideos;
 
 TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = INVALID_TEX;
