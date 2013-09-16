@@ -64,6 +64,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
+#include "Core/HLE/sceUtility.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -1373,6 +1374,13 @@ namespace MainWindow
 							else
 								g_Config.languageIni = oldLang;
 
+							auto  langValuesMapping = GetLangValuesMapping();
+							if (langValuesMapping.find(g_Config.languageIni) == langValuesMapping.end()) {
+								// Fallback to English
+								g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+							} else {
+								g_Config.ilanguage = langValuesMapping[g_Config.languageIni].second;
+							}
 							break;
 						}
 						MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
