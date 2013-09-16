@@ -34,6 +34,8 @@ extern int g_iNumVideos;
 
 namespace DX9 {
 
+
+
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
 
 // If a texture hasn't been seen for this many frames, get rid of it.
@@ -44,6 +46,12 @@ namespace DX9 {
 
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
+
+template <typename T> static void SafeRelease(T obj) {
+	if (obj != NULL && obj != (T)-1) {
+		obj->Release();
+	}
+}
 
 TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = INVALID_TEX;
@@ -72,11 +80,11 @@ void TextureCacheDX9::Clear(bool delete_them) {
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 		}
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 		}
 	}
 	if (cache.size() + secondCache.size()) {
@@ -99,7 +107,7 @@ void TextureCacheDX9::Decimate() {
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 			cache.erase(iter++);
 		}
 		else
@@ -107,7 +115,7 @@ void TextureCacheDX9::Decimate() {
 	}
 	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 			secondCache.erase(iter++);
 		}
 		else
@@ -983,7 +991,7 @@ void TextureCacheDX9::SetTexture() {
 					if (entry->texture == lastBoundTexture) {
 						lastBoundTexture = INVALID_TEX;
 					}
-					entry->texture->Release();
+					SafeRelease(entry->texture);
 				}
 			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
