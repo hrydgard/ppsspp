@@ -15,22 +15,182 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Compare.h"
-#include "FileUtil.h"
+#include "headless/Compare.h"
+#include "Common/FileUtil.h"
+#include "Core/Host.h"
 
-#include <math.h>
+#include <cmath>
+#include <cstdarg>
+#include <iostream>
+#include <fstream>
 
-bool CompareOutput(const std::string bootFilename)
+bool teamCityMode = false;
+std::string teamCityName = "";
+
+void TeamCityPrint(const char *fmt, ...)
 {
-	std::string expect_filename = bootFilename.substr(bootFilename.length() - 4) + ".expected";
-	if (File::Exists(expect_filename))
-	{
-		// TODO: Do the compare here
+	if (!teamCityMode)
+		return;
+
+	const int TEMP_BUFFER_SIZE = 32768;
+	char temp[TEMP_BUFFER_SIZE];
+
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(temp, TEMP_BUFFER_SIZE - 1, fmt, args);
+	temp[TEMP_BUFFER_SIZE - 1] = '\0';
+	va_end(args);
+
+	printf("%s", temp);
+}
+
+struct BufferedLineReader {
+	const static int MAX_BUFFER = 5;
+	const static int TEMP_BUFFER_SIZE = 32768;
+
+	BufferedLineReader(const std::string &data) : valid_(0), data_(data), pos_(0) {
+	}
+
+	void Fill() {
+		while (valid_ < MAX_BUFFER && HasLines()) {
+			buffer_[valid_++] = ReadLine();
+		}
+	}
+
+	const std::string Peek(int pos) {
+		if (pos >= valid_) {
+			Fill();
+		}
+		if (pos >= valid_) {
+			return "";
+		}
+		return buffer_[pos];
+	}
+
+	void Skip(int count) {
+		if (count > valid_) {
+			count = valid_;
+		}
+		valid_ -= count;
+		for (int i = 0; i < valid_; ++i) {
+			buffer_[i] = buffer_[i + count];
+		}
+		Fill();
+	}
+
+	const std::string Consume() {
+		const std::string result = Peek(0);
+		Skip(1);
+		return result;
+	}
+
+	virtual bool HasLines() {
+		return pos_ != data_.npos;
+	}
+
+	bool Compare(BufferedLineReader &other) {
+		if (Peek(0) != other.Peek(0)) {
+			return false;
+		}
+
+		Skip(1);
+		other.Skip(1);
 		return true;
+	}
+
+protected:
+	BufferedLineReader() : valid_(0) {
+	}
+
+	virtual std::string ReadLine() {
+		size_t next = data_.find('\n', pos_);
+		if (next == data_.npos) {
+			std::string result = data_.substr(pos_);
+			pos_ = next;
+			return result;
+		} else {
+			std::string result = data_.substr(pos_, next - pos_);
+			pos_ = next + 1;
+			return result;
+		}
+	}
+
+	int valid_;
+	std::string buffer_[MAX_BUFFER];
+	const std::string data_;
+	size_t pos_;
+};
+
+struct BufferedLineReaderFile : public BufferedLineReader {
+	BufferedLineReaderFile(std::ifstream &in) : BufferedLineReader(), in_(in) {
+	}
+
+	virtual bool HasLines() {
+		return !in_.eof();
+	}
+
+protected:
+	virtual std::string ReadLine() {
+		char temp[TEMP_BUFFER_SIZE];
+		in_.getline(temp, TEMP_BUFFER_SIZE);
+		return temp;
+	}
+
+	std::ifstream &in_;
+};
+
+bool CompareOutput(const std::string &bootFilename, const std::string &output)
+{
+	std::string expect_filename = bootFilename.substr(0, bootFilename.length() - 4) + ".expected";
+	std::ifstream in;
+	in.open(expect_filename.c_str(), std::ios::in);
+	if (!in.fail())
+	{
+		BufferedLineReaderFile expected(in);
+		BufferedLineReader actual(output);
+
+		bool failed = false;
+		while (expected.HasLines())
+		{
+			if (expected.Compare(actual))
+				continue;
+
+			if (!failed)
+			{
+				TeamCityPrint("##teamcity[testFailed name='%s' message='Output different from expected file']\n", teamCityName.c_str());
+				failed = true;
+			}
+
+			// This is a really dirt simple comparing algorithm.
+
+			// Perhaps it was an extra line?
+			if (expected.Peek(0) == actual.Peek(1))
+				printf("+ %s\n", actual.Consume().c_str());
+			// A single missing line?
+			else if (expected.Peek(1) == actual.Peek(0))
+				printf("- %s\n", expected.Consume().c_str());
+			else
+			{
+				printf("O %s\n", actual.Consume().c_str());
+				printf("E %s\n", expected.Consume().c_str());
+			}
+		}
+
+		while (actual.HasLines())
+		{
+			// If it's a blank line, this will pass.
+			if (actual.Compare(expected))
+				continue;
+
+			printf("+ %s\n", actual.Consume().c_str());
+		}
+
+		return failed;
 	}
 	else
 	{
-		fprintf(stderr, "Expectation file %s not found", expect_filename.c_str());
+		fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
+		TeamCityPrint("##teamcity[testIgnored name='%s' message='Expects file missing']\n", teamCityName.c_str());
 		return false;
 	}
 }

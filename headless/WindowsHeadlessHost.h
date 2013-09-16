@@ -40,10 +40,10 @@ public:
 private:
 	bool ResizeGL();
 	void LoadNativeAssets();
+	void SendOrCollectDebugOutput(const std::string &output);
 
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
-	FILE *out;
 	std::string comparisonScreenshot;
 };
