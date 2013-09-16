@@ -134,7 +134,7 @@ public:
 
 	// SystemParam
 	std::string sNickName;
-	int ilanguage;
+	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
 	int iTimeZone;

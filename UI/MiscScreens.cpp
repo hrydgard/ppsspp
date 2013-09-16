@@ -260,9 +260,9 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {
 			// Fallback to English
-			g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		} else {
-			g_Config.ilanguage = langValuesMapping[code].second;
+			g_Config.iLanguage = langValuesMapping[code].second;
 		}
 		RecreateViews();
 	} else {
