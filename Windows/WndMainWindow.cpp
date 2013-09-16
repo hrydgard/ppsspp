@@ -457,7 +457,6 @@ namespace MainWindow
 	}
 
 	void TranslateMenus() {
-
 		// Menu headers and submenu headers don't have resource IDs,
 		// So we have to hardcode strings here, unfortunately.
 		TranslateMenu("File", MENU_FILE);
@@ -479,7 +478,6 @@ namespace MainWindow
 		TranslateMenuItem(ID_FILE_EXIT, L"\tAlt+F4");
 
 		// Emulation menu
-		bool isPaused = Core_IsStepping() && (globalUIState == UISTATE_INGAME);
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", "Pause");
 		TranslateMenuItem(ID_EMULATION_STOP,  L"\tCtrl+W");
 		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");	
