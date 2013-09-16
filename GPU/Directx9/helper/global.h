@@ -24,6 +24,7 @@ extern IDirect3DVertexDeclaration9* pSoftVertexDecl;
 
 bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable);
 bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable);
+void DirectxInit();
 
 #define D3DBLEND_UNK	D3DSTENCILOP_FORCE_DWORD
 

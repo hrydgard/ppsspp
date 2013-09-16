@@ -27,6 +27,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
+#include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"

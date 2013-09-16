@@ -54,10 +54,15 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	pD3Ddevice->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
 	*/
 	// Only needed on xbox
+#ifdef _XBOX
 	pD3Ddevice->CreateTexture(fbo->width/FB_DIV, fbo->height/FB_DIV, 1, 0, D3DFMT_A8R8G8B8, 0, &fbo->tex, NULL);
 	if (workingRtt == NULL) {
 		pD3Ddevice->CreateRenderTarget(fbo->width/FB_DIV, fbo->height/FB_DIV, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &workingRtt, NULL);
 	}
+#else
+	pD3Ddevice->CreateRenderTarget(fbo->width/4, fbo->height/4, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->surf, NULL);
+	pD3Ddevice->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
+#endif
 
 	fbo->stencil_buffer = 8;
 	fbo->z_buffer = 24;
@@ -72,9 +77,13 @@ void * fbo_get_rtt(FBO *fbo) {
 void fbo_unbind() {
 	if (current_fbo != NULL) {
 		
+#ifdef _XBOX
 		D3DVECTOR4 White = {0.0f, 0.0f, 0.0f, 0.0f};
 		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS|D3DRESOLVE_CLEARRENDERTARGET|D3DRESOLVE_CLEARDEPTHSTENCIL, NULL, 
 			current_fbo->tex, NULL, 0, 0, &White, 0.0f, 0, NULL );
+#else
+		// TODO?
+#endif
 		/*
 		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS, NULL, 
 			current_fbo->tex, NULL, 0, 0, 0, 0.0f, 0, NULL );
@@ -91,11 +100,13 @@ void fbo_unbind() {
 	currentRtt = deviceRTsurf;
 }
 
-	D3DVECTOR4 White = {1.0f, 1.0f, 1.0f, 1.0f};
-
 void fbo_resolve(FBO *fbo) {
 	if (fbo && fbo->tex) {
+#ifdef _XBOX
 		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS, NULL, fbo->tex, NULL, 0, 0, NULL, 0.0f, 0, NULL );
+#else
+		// TODO?
+#endif
 	}
 #if 0
 		// Hack save to disk ...
@@ -145,7 +156,12 @@ void fbo_destroy(FBO *fbo) {
 	fbo->depthstencil->Release();
 	*/
 	//fbo->surf->Release();
+#ifdef _XBOX
 	fbo->tex->Release();
+#else
+	fbo->depthstencil->Release();
+	fbo->surf->Release();
+#endif
 	delete fbo;
 }
 
