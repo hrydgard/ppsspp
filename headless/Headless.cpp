@@ -2,7 +2,9 @@
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 
-#include <stdio.h>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
 
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -14,6 +16,7 @@
 #include "LogManager.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"
+#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
@@ -84,6 +87,7 @@ void printUsage(const char *progname, const char *reason)
 		fprintf(stderr, "                        options: gles, software, directx9\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
+	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
 	fprintf(stderr, "  -i                    use the interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
@@ -134,6 +138,7 @@ int main(int argc, const char* argv[])
 	const char *mountIso = 0;
 	const char *screenshotFilename = 0;
 	bool readMount = false;
+	double timeout = -1.0;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -175,6 +180,8 @@ int main(int argc, const char* argv[])
 			gpuCore = GPU_GLES;
 		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
+		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
+			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
 		else if (bootFilename == 0)
@@ -295,6 +302,10 @@ int main(int argc, const char* argv[])
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
 
+	time_update();
+	bool doCompare = true;
+	double deadline = timeout < 0.0 ? std::numeric_limits<float>::infinity() : time_now() + timeout;
+
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
@@ -305,6 +316,16 @@ int main(int argc, const char* argv[])
 		if (coreState == CORE_NEXTFRAME) {
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
+		}
+		time_update();
+		if (time_now() > deadline) {
+			// Don't compare, print the output at least up to this point, and bail.
+			printf("%s", output.c_str());
+			doCompare = false;
+
+			host->SendDebugOutput("TIMEOUT\n");
+			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			Core_Stop();
 		}
 	}
 
@@ -317,7 +338,7 @@ int main(int argc, const char* argv[])
 	host = NULL;
 	headlessHost = NULL;
 
-	if (autoCompare)
+	if (autoCompare && doCompare)
 		CompareOutput(bootFilename, output);
 
 	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
