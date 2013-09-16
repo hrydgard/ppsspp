@@ -19,6 +19,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Colors.h"
@@ -165,55 +166,50 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	}	
 }
 
-static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
+static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *srcptr, int texbufwidthbits)
 {
 	GETextureFormat texfmt = gstate.getTextureFormat();
-	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
-	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
-
-	// Special rules for kernel textures (PPGe), TODO: Verify!
-	int texbufwidth = (texaddr < PSP_GetUserMemoryBase()) ? gstate.texbufwidth[level] & 0x1FFF : gstate.texbufwidth[level] & 0x7FF;
 
 	// TODO: Should probably check if textures are aligned properly...
 
 	switch (texfmt) {
 	case GE_TFMT_4444:
-		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
+		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
 		return DecodeRGBA4444(*(u16*)srcptr);
 	
 	case GE_TFMT_5551:
-		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
+		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
 		return DecodeRGBA5551(*(u16*)srcptr);
 
 	case GE_TFMT_5650:
-		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
+		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
 		return DecodeRGB565(*(u16*)srcptr);
 
 	case GE_TFMT_8888:
-		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
+		srcptr += GetPixelDataOffset(32, texbufwidthbits, u, v);
 		return DecodeRGBA8888(*(u32*)srcptr);
 
 	case GE_TFMT_CLUT32:
 		{
-			srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
+			srcptr += GetPixelDataOffset(32, texbufwidthbits, u, v);
 			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT16:
 		{
-			srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
+			srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
 			u16 val = srcptr[0] + (srcptr[1] << 8);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT8:
 		{
-			srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
+			srcptr += GetPixelDataOffset(8, texbufwidthbits, u, v);
 			u8 val = *srcptr;
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT4:
 		{
-			srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
+			srcptr += GetPixelDataOffset(4, texbufwidthbits, u, v);
 			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
@@ -750,6 +746,17 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
 	int bias2 = IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0;
 
+	int texlevel = 0;
+	int texbufwidthbits = 0;
+	u8 *texptr = NULL;
+	if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
+		// TODO: Always using level 0.
+		GETextureFormat texfmt = gstate.getTextureFormat();
+		u32 texaddr = gstate.getTextureAddress(texlevel);
+		texbufwidthbits = GetTextureBufw(texlevel, texaddr, texfmt) * 8;
+		texptr = Memory::GetPointer(texaddr);
+	}
+
 	ScreenCoords pprime(minX, minY, 0);
 	int w0_base = orient2d(v1.screenpos, v2.screenpos, pprime);
 	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
@@ -806,7 +813,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						GetTexelCoordinates(0, s, t, u, v);
 					}
 
-					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(0, u, v));
+					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u, v, texptr, texbufwidthbits));
 					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
 					prim_color_rgb = out.rgb();
 					prim_color_a = out.a();

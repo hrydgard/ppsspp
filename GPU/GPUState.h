@@ -276,6 +276,8 @@ struct GPUgstate
 	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
 
 	// Texturing
+	// TODO: Verify getTextureAddress() alignment?
+	u32 getTextureAddress(int level) const { return (texaddr[level] & 0xFFFFF0) | ((texbufwidth[level] << 8) & 0x0F000000); }
 	int getTextureWidth(int level) const { return 1 << (texsize[level] & 0xf);}
 	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}

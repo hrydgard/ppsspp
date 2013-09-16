@@ -1002,6 +1002,8 @@ add_library(GPU OBJECT
 	GPU/Common/VertexDecoderCommon.h
 	GPU/Common/IndexGenerator.cpp
 	GPU/Common/IndexGenerator.h
+	GPU/Common/TextureDecoder.cpp
+	GPU/Common/TextureDecoder.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp
