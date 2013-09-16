@@ -44,6 +44,5 @@ private:
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
-	FILE *out;
 	std::string comparisonScreenshot;
 };
