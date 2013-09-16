@@ -200,7 +200,7 @@ void CompileShaders() {
 
 bool useVsync = false;
 
-void DirectxInit() {
+void DirectxInit(HWND window) {
 
 	pD3D = Direct3DCreate9( D3D_SDK_VERSION );
 	
@@ -226,10 +226,11 @@ void DirectxInit() {
     // format.
     D3DPRESENT_PARAMETERS d3dpp;
     ZeroMemory( &d3dpp, sizeof( d3dpp ) );
+#ifdef _XBOX
     d3dpp.BackBufferWidth = 1280;
     d3dpp.BackBufferHeight = 720;
     d3dpp.BackBufferFormat =  ( D3DFORMAT )( D3DFMT_A8R8G8B8 );
-#ifdef _XBOX
+
     d3dpp.FrontBufferFormat = ( D3DFORMAT )( D3DFMT_LE_A8R8G8B8 );
 #else
 	// TODO?
@@ -244,8 +245,8 @@ void DirectxInit() {
 	d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 	//d3dpp.PresentationInterval = (useVsync == true)?D3DPRESENT_INTERVAL_ONE:D3DPRESENT_INTERVAL_IMMEDIATE;
 	//d3dpp.RingBufferParameters = d3dr;
-	
-	HRESULT hr = pD3D->CreateDevice( D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, NULL,
+
+	HRESULT hr = pD3D->CreateDevice( D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, window,
                                       D3DCREATE_HARDWARE_VERTEXPROCESSING,
                                       &d3dpp, &pD3Ddevice);
 	if (hr != D3D_OK) {
