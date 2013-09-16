@@ -51,23 +51,6 @@ const D3DPRIMITIVETYPE glprim[8] = {
 	D3DPT_TRIANGLELIST,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
 
-#ifndef _XBOX
-// hrydgard's quick guesses - TODO verify
-static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
-	{0, 0}, // invalid
-	{1, 0}, // 1 = D3DPT_POINTLIST,
-	{2, 0}, // 2 = D3DPT_LINELIST,
-	{2, 1}, // 3 = D3DPT_LINESTRIP,
-	{3, 0}, // 4 = D3DPT_TRIANGLELIST,
-	{1, 2}, // 5 = D3DPT_TRIANGLESTRIP,
-	{1, 2}, // 6 = D3DPT_TRIANGLEFAN,
-};
-#endif
-
-int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
-	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
-}
-
 enum {
 	VERTEX_BUFFER_MAX = 65536,
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 48,
@@ -859,9 +842,9 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 
 		if (drawIndexed) {
-			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+			pD3Ddevice->DrawIndexedVerticesUP(glprim[prim], 0, vertexCount, numTrans, inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 		} else {
-			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+			pD3Ddevice->DrawVerticesUP(glprim[prim], numTrans, drawBuffer, sizeof(TransformedVertex));
 		}
 }
 
@@ -1300,9 +1283,9 @@ rotateVBO:
 
 			if (vb_ == NULL) {
 				if (useElements) {
-					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					pD3Ddevice->DrawIndexedVerticesUP(glprim[prim], 0, vertexCount, vertexCount, decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
 				} else {
-					pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+					pD3Ddevice->DrawVerticesUP(glprim[prim], vertexCount, decoded, dec_->GetDecVtxFmt().stride);
 				}
 			} else {
 				pD3Ddevice->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
@@ -1310,9 +1293,9 @@ rotateVBO:
 				if (useElements) {					
 					pD3Ddevice->SetIndices(ib_);
 
-					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], vertexCount));
+					pD3Ddevice->DrawIndexedVertices(glprim[prim], 0, 0, vertexCount);
 				} else {
-					pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+					pD3Ddevice->DrawVertices(glprim[prim], 0, vertexCount);
 				}
 			}
 		} else {
