@@ -64,11 +64,12 @@ static const GLushort eqLookup[] = {
 #if defined(USING_GLES2)
 	GL_FUNC_ADD,
 	GL_FUNC_ADD,
+	GL_FUNC_ADD, // this is GE_BLENDMODE_ABSDIFF
 #else
 	GL_MIN,
 	GL_MAX,
+	GL_MAX, // this is GE_BLENDMODE_ABSDIFF
 #endif
-	GL_FUNC_ADD, // should be abs(diff)
 };
 
 static const GLushort cullingMode[] = {
