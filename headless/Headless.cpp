@@ -102,6 +102,27 @@ static HeadlessHost * getHost(GPUCore gpuCore) {
 	}
 }
 
+static std::string ChopFront(std::string s, std::string front)
+{
+	if (s.size() >= front.size())
+	{
+		if (s.substr(0, front.size()) == front)
+			return s.substr(front.size());
+	}
+	return s;
+}
+
+static std::string ChopEnd(std::string s, std::string end)
+{
+	if (s.size() >= end.size())
+	{
+		size_t endpos = s.size() - end.size();
+		if (s.substr(endpos) == end)
+			return s.substr(0, endpos);
+	}
+	return s;
+}
+
 int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
@@ -154,6 +175,8 @@ int main(int argc, const char* argv[])
 			gpuCore = GPU_GLES;
 		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
+		else if (!strcmp(argv[i], "--teamcity"))
+			teamCityMode = true;
 		else if (bootFilename == 0)
 			bootFilename = argv[i];
 		else
@@ -199,6 +222,8 @@ int main(int argc, const char* argv[])
 		logman->AddListener(type, printfLogger);
 	}
 
+	std::string output;
+
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
@@ -207,7 +232,9 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.enableDebugging = false;
-	coreParameter.printfEmuLog = true;
+	coreParameter.printfEmuLog = !autoCompare;
+	if (autoCompare)
+		coreParameter.collectEmuLog = &output;
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
@@ -249,11 +276,19 @@ int main(int argc, const char* argv[])
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
+	if (teamCityMode) {
+		// Kinda ugly, trying to guesstimate the test name from filename...
+		teamCityName = ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
+	}
+
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
+		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
 		return 1;
 	}
+
+	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
 
 	host->BootDone();
 
@@ -277,12 +312,15 @@ int main(int argc, const char* argv[])
 	PSP_Shutdown();
 
 	headlessHost->FlushDebugOutput();
+
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
 
 	if (autoCompare)
-		CompareOutput(bootFilename);
+		CompareOutput(bootFilename, output);
+
+	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
 
 	return 0;
 }

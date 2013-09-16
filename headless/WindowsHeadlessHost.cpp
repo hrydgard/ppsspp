@@ -22,6 +22,9 @@
 #include "Common/CommonWindows.h"
 #include <io.h>
 
+#include "Core/CoreParameter.h"
+#include "Core/System.h"
+
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
@@ -87,6 +90,16 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 	OutputDebugStringUTF8(output.c_str());
 }
 
+void WindowsHeadlessHost::SendOrCollectDebugOutput(const std::string &data)
+{
+	if (PSP_CoreParameter().printfEmuLog)
+		SendDebugOutput(data);
+	else if (PSP_CoreParameter().collectEmuLog)
+		*PSP_CoreParameter().collectEmuLog += data;
+	else
+		DEBUG_LOG(COMMON, "%s", data.c_str());
+}
+
 void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 {
 	// We ignore the current framebuffer parameters and just grab the full screen.
@@ -101,14 +114,17 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	std::string error;
 	double errors = CompareScreenshot(pixels, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, comparisonScreenshot, error);
 	if (errors < 0)
-		SendDebugOutput(error);
+		SendOrCollectDebugOutput(error);
 
 	if (errors > 0)
 	{
 		char temp[256];
 		sprintf_s(temp, "Screenshot error: %f%%\n", errors * 100.0f);
-		SendDebugOutput(temp);
+		SendOrCollectDebugOutput(temp);
+	}
 
+	if (errors > 0 && !teamCityMode)
+	{
 		// Lazy, just read in the original header to output the failed screenshot.
 		u8 header[14 + 40] = {0};
 		FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
@@ -125,7 +141,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 			fwrite(pixels, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, saved);
 			fclose(saved);
 
-			SendDebugOutput("Actual output written to: __testfailure.bmp\n");
+			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
 		}
 	}
 
