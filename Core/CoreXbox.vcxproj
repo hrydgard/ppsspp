@@ -120,7 +120,7 @@
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>USE_DIRECTX;NO_UNICODE;_XBOX;PPC;BIG_ENDIAN;_DEBUG;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USE_FFMPEG;USE_DIRECTX;NO_UNICODE;_XBOX;PPC;BIG_ENDIAN;_DEBUG;_LIB</PreprocessorDefinitions>
       <CallAttributedProfiling>Callcap</CallAttributedProfiling>
       <ForcedIncludeFiles>Core/x360_compat.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -219,7 +219,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PreprocessorDefinitions>_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;_XBOX;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USE_FFMPEG;NO_UNICODE;_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;_XBOX;_LIB</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>Core/x360_compat.h</ForcedIncludeFiles>
@@ -271,6 +271,7 @@
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
     <ClCompile Include="Dialog\PSPDialog.cpp" />
+    <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
     <ClCompile Include="Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
@@ -588,6 +589,7 @@
     <ClInclude Include="Debugger\DebugInterface.h" />
     <ClInclude Include="Debugger\SymbolMap.h" />
     <ClInclude Include="Dialog\PSPDialog.h" />
+    <ClInclude Include="Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="Dialog\PSPMsgDialog.h" />
     <ClInclude Include="Dialog\PSPOskDialog.h" />
     <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />

@@ -215,7 +215,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PreprocessorDefinitions>_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;_XBOX;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NO_UNICODE;_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;_XBOX;_LIB</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../native;../Common</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>

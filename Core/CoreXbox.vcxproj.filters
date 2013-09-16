@@ -493,6 +493,9 @@
     <ClCompile Include="HLE\sceNetAdhoc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -899,6 +902,9 @@
     </ClInclude>
     <ClInclude Include="HLE\sceNetAdhoc.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPGamedataInstallDialog.h">
+      <Filter>Dialog</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
