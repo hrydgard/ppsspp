@@ -946,7 +946,75 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vi2f(MIPSOpcode op) {
-		DISABLE;
+		//DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix() || disablePrefixes)
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+		const float mult = 1.0f / (float)(1UL << imm);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		if (mult != 1.0f)
+			MOVI2F(FPR5, mult, false);
+		
+		u64 tmp = 0;
+		MOVI2R(SREG, (u32)&tmp);
+		
+		//Break();
+
+		for (int i = 0; i < n; i++) {
+			// Crappy code !!
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+
+			// float => mem
+			SFS(fpr.V(sregs[i]), SREG, 0);
+
+			// int <= mem
+			LWZ(R6, SREG, 0);
+			//RLDICL(R6, R6, 0, 23);
+			EXTSW(R6, R6);
+
+			// int => mem
+			STD(R6, SREG, 0);
+
+			// float <= mem
+			LFD(fpr.V(tempregs[i]), SREG, 0);
+			
+			FCFID(fpr.V(tempregs[i]), fpr.V(tempregs[i]));			
+			FRSP(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
+
+			if (mult != 1.0f) 
+				FMULS(fpr.V(tempregs[i]), fpr.V(tempregs[i]), FPR5);
+		}
+		
+		//Break();
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				FMR(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vh2f(MIPSOpcode op) {
