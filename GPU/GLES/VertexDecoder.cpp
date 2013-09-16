@@ -719,36 +719,6 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 }
 
-void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
-	// Find index bounds. Could cache this in display lists.
-	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck.
-	int lowerBound = 0x7FFFFFFF;
-	int upperBound = 0;
-	u32 idx = vertType & GE_VTYPE_IDX_MASK;
-	if (idx == GE_VTYPE_IDX_8BIT) {
-		const u8 *ind8 = (const u8 *)inds;
-		for (int i = 0; i < count; i++) {
-			if (ind8[i] > upperBound)
-				upperBound = ind8[i];
-			if (ind8[i] < lowerBound)
-				lowerBound = ind8[i];
-		}
-	} else if (idx == GE_VTYPE_IDX_16BIT) {
-		const u16 *ind16 = (const u16*)inds;
-		for (int i = 0; i < count; i++) {
-			if (ind16[i] > upperBound)
-				upperBound = ind16[i];
-			if (ind16[i] < lowerBound)
-				lowerBound = ind16[i];
-		}
-	} else {
-		lowerBound = 0;
-		upperBound = count - 1;
-	}
-	*indexLowerBound = (u16)lowerBound;
-	*indexUpperBound = (u16)upperBound;
-}
-
 void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
 	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
