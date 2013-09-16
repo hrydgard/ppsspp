@@ -20,6 +20,7 @@
 #ifdef _WIN32
 #include "Windows/OpenGLBase.h"
 #include "WindowsHeadlessHost.h"
+#include "WindowsHeadlessHostDx9.h"
 #endif
 
 class PrintfLogger : public LogListener
@@ -88,6 +89,17 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
+}
+
+static HeadlessHost * getHost(GPUCore gpuCore) {
+	switch(gpuCore) {
+	case GPU_NULL:
+		return new HeadlessHost();
+	case GPU_DIRECTX9:
+		return new WindowsHeadlessHostDx9();
+	default:
+		return new HEADLESSHOST_CLASS();
+	}
 }
 
 int main(int argc, const char* argv[])
@@ -168,7 +180,7 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	HeadlessHost *headlessHost = gpuCore != GPU_NULL ? new HEADLESSHOST_CLASS() : new HeadlessHost();
+	HeadlessHost *headlessHost = getHost(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
@@ -211,7 +223,7 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost = "";
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = true;
+	g_Config.iRenderingMode = 0;
 	g_Config.bHardwareTransform = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
