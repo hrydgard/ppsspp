@@ -366,13 +366,13 @@ namespace MainWindow
 	}
 
 	void CreateHelpMenu() {
-		I18NCategory *desktopUI = GetI18NCategory("DesktopUI");
+		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		const std::wstring help = ConvertUTF8ToWString(desktopUI->T("Help"));
-		const std::wstring visitMainWebsite = ConvertUTF8ToWString(desktopUI->T("www.ppsspp.org"));
-		const std::wstring visitForum = ConvertUTF8ToWString(desktopUI->T("PPSSPP Forums"));
-		const std::wstring buyGold = ConvertUTF8ToWString(desktopUI->T("Buy Gold"));
-		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(desktopUI->T("About PPSSPP..."));
+		const std::wstring help = ConvertUTF8ToWString(des->T("Help"));
+		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
+		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
+		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy Gold"));
+		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(des->T("About PPSSPP..."));
 
 		// Simply remove the old help menu and create a new one.
 		RemoveMenu(menu, MENU_HELP, MF_BYPOSITION);
@@ -384,7 +384,7 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
 		if(g_Config.languageIni == "zh_CN" || g_Config.languageIni == "zh_TW") {
-			const std::wstring visitChineseForum = ConvertUTF8ToWString(desktopUI->T("PPSSPP Chinese Forum"));
+			const std::wstring visitChineseForum = ConvertUTF8ToWString(des->T("PPSSPP Chinese Forum"));
 			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
 		}
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
@@ -431,9 +431,9 @@ namespace MainWindow
 	}
 
 	void _TranslateMenuItem(const int menuIDOrPosition, const char *key, bool byCommand = false, const std::wstring& accelerator = L"", const HMENU hMenu = menu) {
-		I18NCategory *c = GetI18NCategory("DesktopUI");
+		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		std::wstring translated = ConvertUTF8ToWString(c->T(key));
+		std::wstring translated = ConvertUTF8ToWString(des->T(key));
 		translated.append(accelerator);
 
 		u32 flags = MF_STRING | (byCommand ? MF_BYCOMMAND : MF_BYPOSITION);
