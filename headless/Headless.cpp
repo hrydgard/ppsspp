@@ -2,7 +2,9 @@
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 
-#include <stdio.h>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
 
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -14,6 +16,7 @@
 #include "LogManager.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"
+#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
@@ -84,6 +87,7 @@ void printUsage(const char *progname, const char *reason)
 		fprintf(stderr, "                        options: gles, software, directx9\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
+	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
 	fprintf(stderr, "  -i                    use the interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
@@ -102,6 +106,27 @@ static HeadlessHost * getHost(GPUCore gpuCore) {
 	}
 }
 
+static std::string ChopFront(std::string s, std::string front)
+{
+	if (s.size() >= front.size())
+	{
+		if (s.substr(0, front.size()) == front)
+			return s.substr(front.size());
+	}
+	return s;
+}
+
+static std::string ChopEnd(std::string s, std::string end)
+{
+	if (s.size() >= end.size())
+	{
+		size_t endpos = s.size() - end.size();
+		if (s.substr(endpos) == end)
+			return s.substr(0, endpos);
+	}
+	return s;
+}
+
 int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
@@ -113,6 +138,7 @@ int main(int argc, const char* argv[])
 	const char *mountIso = 0;
 	const char *screenshotFilename = 0;
 	bool readMount = false;
+	double timeout = -1.0;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -154,6 +180,10 @@ int main(int argc, const char* argv[])
 			gpuCore = GPU_GLES;
 		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
+		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
+			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
+		else if (!strcmp(argv[i], "--teamcity"))
+			teamCityMode = true;
 		else if (bootFilename == 0)
 			bootFilename = argv[i];
 		else
@@ -199,6 +229,8 @@ int main(int argc, const char* argv[])
 		logman->AddListener(type, printfLogger);
 	}
 
+	std::string output;
+
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
@@ -207,7 +239,9 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.enableDebugging = false;
-	coreParameter.printfEmuLog = true;
+	coreParameter.printfEmuLog = !autoCompare;
+	if (autoCompare)
+		coreParameter.collectEmuLog = &output;
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
@@ -249,16 +283,28 @@ int main(int argc, const char* argv[])
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
+	if (teamCityMode) {
+		// Kinda ugly, trying to guesstimate the test name from filename...
+		teamCityName = ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
+	}
+
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
+		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
 		return 1;
 	}
+
+	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
 
 	host->BootDone();
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
+
+	time_update();
+	bool doCompare = true;
+	double deadline = timeout < 0.0 ? std::numeric_limits<float>::infinity() : time_now() + timeout;
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -271,17 +317,31 @@ int main(int argc, const char* argv[])
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
 		}
+		time_update();
+		if (time_now() > deadline) {
+			// Don't compare, print the output at least up to this point, and bail.
+			printf("%s", output.c_str());
+			doCompare = false;
+
+			host->SendDebugOutput("TIMEOUT\n");
+			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			Core_Stop();
+		}
 	}
 
 	host->ShutdownGL();
 	PSP_Shutdown();
 
+	headlessHost->FlushDebugOutput();
+
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
 
-	if (autoCompare)
-		CompareOutput(bootFilename);
+	if (autoCompare && doCompare)
+		CompareOutput(bootFilename, output);
+
+	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
 
 	return 0;
 }

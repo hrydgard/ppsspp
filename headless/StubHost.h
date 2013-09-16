@@ -46,11 +46,29 @@ public:
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
 
-	virtual void SendDebugOutput(const std::string &output) { fwrite(output.data(), sizeof(char), output.length(), stdout); }
+	virtual void SendDebugOutput(const std::string &output) {
+		if (output.find('\n') != output.npos) {
+			DoFlushDebugOutput();
+			fwrite(output.data(), sizeof(char), output.length(), stdout);
+		} else {
+			debugOutputBuffer_ += output;
+		}
+	}
+	virtual void FlushDebugOutput() {
+		DoFlushDebugOutput();
+	}
+	inline void DoFlushDebugOutput() {
+		if (!debugOutputBuffer_.empty()) {
+			fwrite(debugOutputBuffer_.data(), sizeof(char), debugOutputBuffer_.length(), stdout);
+			debugOutputBuffer_.clear();
+		}
+	}
 	virtual void SetComparisonScreenshot(const std::string &filename) {}
 
 
 	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}
 
+protected:
+	std::string debugOutputBuffer_;
 };

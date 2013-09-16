@@ -22,6 +22,9 @@
 #include "Common/CommonWindows.h"
 #include <io.h>
 
+#include "Core/CoreParameter.h"
+#include "Core/System.h"
+
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
@@ -72,10 +75,6 @@ void SetVSync(int value)
 
 void WindowsHeadlessHost::LoadNativeAssets()
 {
-	// Native is kinda talkative, but that's annoying in our case.
-	out = _fdopen(_dup(_fileno(stdout)), "wt");
-	freopen("NUL", "wt", stdout);
-
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 	VFSRegister("", new DirectoryAssetReader("../"));
@@ -83,14 +82,22 @@ void WindowsHeadlessHost::LoadNativeAssets()
 	VFSRegister("", new DirectoryAssetReader("../Windows/"));
 
 	gl_lost_manager_init();
-
-	// See SendDebugOutput() for how things get back on track.
 }
 
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 {
-	fwrite(output.data(), sizeof(char), output.length(), out);
+	fwrite(output.data(), sizeof(char), output.length(), stdout);
 	OutputDebugStringUTF8(output.c_str());
+}
+
+void WindowsHeadlessHost::SendOrCollectDebugOutput(const std::string &data)
+{
+	if (PSP_CoreParameter().printfEmuLog)
+		SendDebugOutput(data);
+	else if (PSP_CoreParameter().collectEmuLog)
+		*PSP_CoreParameter().collectEmuLog += data;
+	else
+		DEBUG_LOG(COMMON, "%s", data.c_str());
 }
 
 void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
@@ -100,19 +107,24 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	const static int FRAME_HEIGHT = 272;
 	u8 *pixels = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
 
-	// TODO: Maybe this code should be moved into GLES_GPU.
+	// TODO: Maybe this code should be moved into GLES_GPU to support DirectX/etc.
 	glReadBuffer(GL_FRONT);
 	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 
 	std::string error;
 	double errors = CompareScreenshot(pixels, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, comparisonScreenshot, error);
 	if (errors < 0)
-		fprintf_s(out, "%s\n", error.c_str());
+		SendOrCollectDebugOutput(error);
 
 	if (errors > 0)
 	{
-		fprintf_s(out, "Screenshot error: %f%%\n", errors * 100.0f);
+		char temp[256];
+		sprintf_s(temp, "Screenshot error: %f%%\n", errors * 100.0f);
+		SendOrCollectDebugOutput(temp);
+	}
 
+	if (errors > 0 && !teamCityMode)
+	{
 		// Lazy, just read in the original header to output the failed screenshot.
 		u8 header[14 + 40] = {0};
 		FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
@@ -129,7 +141,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 			fwrite(pixels, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, saved);
 			fclose(saved);
 
-			fprintf_s(out, "Actual output written to: __testfailure.bmp\n");
+			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
 		}
 	}
 

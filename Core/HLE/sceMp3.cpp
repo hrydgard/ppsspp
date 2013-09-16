@@ -20,7 +20,7 @@
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/Reporting.h"
-#include "../HW/MediaEngine.h"
+#include "Core/HW/MediaEngine.h"
 
 #ifdef USE_FFMPEG
 #ifndef PRId64
@@ -337,6 +337,8 @@ int sceMp3Init(u32 mp3) {
 	ctx->mp3Version = ((header >> 19) & 0x3);
 
 #ifdef USE_FFMPEG
+	InitFFmpeg();
+
 	u8* avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
 	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
 	ctx->avformat_context = avformat_alloc_context();

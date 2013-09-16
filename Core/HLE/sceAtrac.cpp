@@ -24,6 +24,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/HW/MediaEngine.h"
 #include "Common/ChunkFile.h"
 
 #include "sceKernel.h"
@@ -1089,6 +1090,8 @@ int __AtracSetContext(Atrac *atrac)
 	}
 
 #ifdef USE_FFMPEG
+	InitFFmpeg();
+
 	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
 
 	atrac->pFormatCtx = avformat_alloc_context();
