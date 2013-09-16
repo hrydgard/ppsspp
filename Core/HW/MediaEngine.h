@@ -41,6 +41,8 @@ inline s64 getMpegTimeStamp(u8* buf) {
 		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
 }
 
+bool InitFFmpeg();
+
 class MediaEngine
 {
 public:

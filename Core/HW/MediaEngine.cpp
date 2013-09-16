@@ -83,6 +83,23 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
+void ffmpeg_logger(void *, int, const char *format, va_list va_args) {
+	char tmp[1024];
+	vsprintf(tmp, format, va_args);
+	INFO_LOG(ME, "%s", tmp);
+}
+
+bool InitFFmpeg() {
+#ifdef _DEBUG
+	av_log_set_level(AV_LOG_VERBOSE);
+#else
+	av_log_set_level(AV_LOG_ERROR);
+#endif
+	av_log_set_callback(&ffmpeg_logger);
+
+	return true;
+}
+
 MediaEngine::MediaEngine(): m_pdata(0) {
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
@@ -192,21 +209,9 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 	return size;
 }
 
-void ffmpeg_logger(void *, int, const char *format, va_list va_args) {
-	char tmp[1024];
-	vsprintf(tmp, format, va_args);
-	INFO_LOG(ME, "%s", tmp);
-}
-
 bool MediaEngine::openContext() {
 #ifdef USE_FFMPEG
-
-#ifdef _DEBUG
-	av_log_set_level(AV_LOG_VERBOSE);
-#else
-	av_log_set_level(AV_LOG_ERROR);
-#endif 
-	av_log_set_callback(&ffmpeg_logger);
+	InitFFmpeg();
 
 	if (m_pFormatCtx || !m_pdata)
 		return false;
