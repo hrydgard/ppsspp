@@ -276,6 +276,7 @@ int main(int argc, const char* argv[])
 	host->ShutdownGL();
 	PSP_Shutdown();
 
+	headlessHost->FlushDebugOutput();
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
