@@ -195,6 +195,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="WindowsHeadlessHost.cpp" />
+    <ClCompile Include="WindowsHeadlessHostDx9.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
@@ -224,6 +225,7 @@
     <ClInclude Include="Compare.h" />
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />
+    <ClInclude Include="WindowsHeadlessHostDx9.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

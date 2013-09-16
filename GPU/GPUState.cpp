@@ -54,7 +54,6 @@ bool GPU_Init() {
 #if defined(_XBOX)
 		gpu = new DIRECTX9_GPU();
 #elif defined(_WIN32)
-		DX9::DirectxInit();
 		gpu = new DIRECTX9_GPU();
 #endif
 		break;

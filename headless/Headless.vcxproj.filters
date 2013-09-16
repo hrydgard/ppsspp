@@ -6,6 +6,7 @@
     <ClCompile Include="WindowsHeadlessHost.cpp" />
     <ClCompile Include="Compare.cpp" />
     <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
+    <ClCompile Include="WindowsHeadlessHostDx9.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
@@ -15,5 +16,6 @@
     <ClInclude Include="WindowsHeadlessHost.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="..\UI\OnScreenDisplay.h" />
+    <ClInclude Include="WindowsHeadlessHostDx9.h" />
   </ItemGroup>
 </Project>
