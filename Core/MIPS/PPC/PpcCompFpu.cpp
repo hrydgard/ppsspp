@@ -333,6 +333,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 #endif
 
 void Jit::Comp_FPU2op(MIPSOpcode op) {
+	DISABLE
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -356,6 +357,27 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.MapDirtyIn(fd, fs);
 		FNEG(fpr.R(fd), fpr.R(fs));
 		break;
+
+	case 13: //	FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs));	break;	//trunc.w.s
+		fpr.MapDirtyIn(fd, fs);
+		FRIZ(fpr.R(fd), fpr.R(fs));
+		break;
+		/*
+	case 12: //	FsI(fd) = (int)floorf(F(fs)+0.5f);								break;	//round.w.s
+	case 14: //	FsI(fd) = (int)ceilf (F(fs));									break;	//ceil.w.s
+	case 15: //	FsI(fd) = (int)floorf(F(fs));									break;	//floor.w.s
+	case 32: //	F(fd) = (float)FsI(fs);											break;	//cvt.s.w
+
+	case 36:
+		//switch (currentMIPS->fcr31 & 3)
+		//{
+		//case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
+		//case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
+		//case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
+		//case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
+		//}
+		//break; //cvt.w.s
+		*/
 	default:
 	Comp_Generic(op);
 		break;
