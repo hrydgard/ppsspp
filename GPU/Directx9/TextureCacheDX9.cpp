@@ -1027,7 +1027,7 @@ void TextureCacheDX9::SetTexture() {
 	}
 #endif
 
-	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
+	u32 texaddr = gstate.getTextureAddress(0);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		pD3Ddevice->SetTexture(0, NULL);
@@ -1249,7 +1249,7 @@ void TextureCacheDX9::SetTexture() {
 	// Adjust maxLevel to actually present levels..
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
 			maxLevel = i - 1;
 			break;
@@ -1273,7 +1273,7 @@ void TextureCacheDX9::SetTexture() {
 void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt) {
 	void *finalBuf = NULL;
 
-	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
+	u32 texaddr = gstate.getTextureAddress(level);
 
 	int bufw = GetTextureBufw(level, texaddr, format);
 
