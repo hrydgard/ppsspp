@@ -44,6 +44,13 @@
     X_FORM(OPCD, crbD, crbA, crbB, XO, LK); \
 }
 
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       S      |       A      |      SH      |      MB      |      ME      |Rc|
+#define M_FORM(OPCD, RS, RA, SH, MB, ME, Rc) { \
+        int rs = (RS), ra = (RA), sh = (SH); \
+        Write32((OPCD << 26) | (rs << 21) | (ra << 16) | (sh << 11) | ((MB) << 6) | ((ME) << 1) | (Rc)); \
+}
+
 namespace PpcGen {
 
 	// Mul stuff
@@ -507,6 +514,10 @@ namespace PpcGen {
 	void PPCXEmitter::EXTSH	(PPCReg dest, PPCReg src) {
 		Write32(0x7C000734 | (src << 21) | (dest << 16));
 	}
+	
+	void PPCXEmitter::EXTSW	(PPCReg Rt, PPCReg Ra) {
+		X_FORM(31, Rt, Ra, 0, 986, 0);
+	}
 
 	void PPCXEmitter::EQV	(PPCReg Ra, PPCReg Rs, PPCReg Rb) {
 		X_FORM(31, Rs, Ra, Rb, 284, 0);
@@ -514,6 +525,10 @@ namespace PpcGen {
 
 	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {
 		Write32((21<<26) | (src << 21) | (dest << 16) | (shift << 11) | (start << 6) | (end << 1));
+	}
+
+	void PPCXEmitter::RLDICL (PPCReg Rs,	PPCReg Ra, int sh, int mb) {
+		Write32((30 << 26) | (Rs << 21) | (Ra << 16) | (sh << 11) | ((mb) << 6) | ((sh) << 1) | (0));		
 	}
 
 	// Shift Instructions
@@ -621,6 +636,24 @@ namespace PpcGen {
 
 		// Load the final value
 		LFS(FRt, R7, 0);
+	}
+	void PPCXEmitter::MTFSB0(int bt) {
+		X_FORM(63, bt, 0, 0, 70, 0);
+	}
+	void PPCXEmitter::FCTID	(PPCReg FRt, PPCReg FRb) {
+		X_FORM(63, FRt, 0, FRb, 846, 0);
+	}
+	void PPCXEmitter::FCFID	(PPCReg FRt, PPCReg FRb) {
+		X_FORM(63, FRt, 0, FRb, 846, 0);
+	}
+	void PPCXEmitter::FRSP	(PPCReg FRt, PPCReg FRb) {
+		X_FORM(63, FRt, 0, FRb, 12, 0);
+	}
+	void PPCXEmitter::FCTIW	(PPCReg FRt, PPCReg FRb) {		
+		X_FORM(63, FRt, 0, FRb, 14, 0);
+	}
+	void PPCXEmitter::STFIWX(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		X_FORM(31, FRt, FRa, FRb, 983, 0);
 	}
 
 	// Fpu move instruction

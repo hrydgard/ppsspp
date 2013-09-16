@@ -293,9 +293,12 @@ namespace PpcGen
 		// sign
 		void EXTSB	(PPCReg dest, PPCReg src);
 		void EXTSH	(PPCReg dest, PPCReg src);
+		void EXTSW	(PPCReg dest, PPCReg src);
 
 		// 
 		void RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end);
+
+		void RLDICL (PPCReg Rt,	PPCReg Rs, int sh, int mb);
 
 		// Shift Instructions
 		void SRAW	(PPCReg dest, PPCReg src, PPCReg shift);
@@ -359,6 +362,16 @@ namespace PpcGen
 
 		// Fpu move instruction
 		void FMR	(PPCReg FRt, PPCReg FRb);
+
+		// fpu
+		void MTFSB0	(int bt);
+		void FCFID	(PPCReg FRt, PPCReg FRb);
+		void FCTID	(PPCReg FRt, PPCReg FRb);
+		void FRSP	(PPCReg FRt, PPCReg FRb);
+		void FCTIW	(PPCReg FRt, PPCReg FRb);
+		void STFIWX	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+
+		// Fpu
 		void FNEG	(PPCReg FRt, PPCReg FRb);
 		void FABS	(PPCReg FRt, PPCReg FRb);
 		void FNABS	(PPCReg FRt, PPCReg FRb);
