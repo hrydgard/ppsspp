@@ -57,7 +57,7 @@ public:
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
-	std::string languageIni;
+	std::string sLanguageIni;
 
 	// GFX
 	bool bSoftwareRendering;

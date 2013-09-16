@@ -509,12 +509,12 @@ UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnSaveLanguageIni(UI::EventParams &e) {
-	i18nrepo.SaveIni(g_Config.languageIni);
+	i18nrepo.SaveIni(g_Config.sLanguageIni);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
-	i18nrepo.LoadIni(g_Config.languageIni);
+	i18nrepo.LoadIni(g_Config.sLanguageIni);
 	return UI::EVENT_DONE;
 }
 

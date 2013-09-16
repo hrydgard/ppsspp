@@ -383,7 +383,7 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
-		if(g_Config.languageIni == "zh_CN" || g_Config.languageIni == "zh_TW") {
+		if(g_Config.sLanguageIni == "zh_CN" || g_Config.sLanguageIni == "zh_TW") {
 			const std::wstring visitChineseForum = ConvertUTF8ToWString(des->T("PPSSPP Chinese Forum"));
 			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
 		}
@@ -419,10 +419,10 @@ namespace MainWindow
 
 			checkedStatus = MF_UNCHECKED;
 
-			if(g_Config.languageIni == i->first) {
+			if(g_Config.sLanguageIni == i->first) {
 				checkedStatus = MF_CHECKED;
 				// Update iLanguage so games boot with the proper language, if available.
-				g_Config.iLanguage = langValuesMap[g_Config.languageIni].second;
+				g_Config.iLanguage = langValuesMap[g_Config.sLanguageIni].second;
 			}
 
 			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, fullLanguageName.c_str());
@@ -1341,15 +1341,15 @@ namespace MainWindow
 						// ID_LANGUAGE_BASE and an additional 1 off it.
 						u32 index = (wParam - ID_LANGUAGE_BASE - 1);
 						if(index >= 0 && index < countryCodes.size()) {
-							std::string oldLang = g_Config.languageIni;
-							g_Config.languageIni = countryCodes[index];
+							std::string oldLang = g_Config.sLanguageIni;
+							g_Config.sLanguageIni = countryCodes[index];
 
-							if(i18nrepo.LoadIni(g_Config.languageIni)) {
+							if(i18nrepo.LoadIni(g_Config.sLanguageIni)) {
 								NativeMessageReceived("language", "");
 								PostMessage(hwndMain, WM_USER_UPDATE_UI, 0, 0);
 							}
 							else
-								g_Config.languageIni = oldLang;
+								g_Config.sLanguageIni = oldLang;
 
 							break;
 						}
