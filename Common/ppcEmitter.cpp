@@ -729,6 +729,20 @@ namespace PpcGen {
 		X_FORM(63, Bf, FRa, FRb, 32, 0);
 	}
 
+	// fpu convert
+	void PPCXEmitter::FRIN	(PPCReg FRt, PPCReg FRb) {	// round
+		X_FORM(63, FRt, 0, FRb, 392, 0);
+	}
+	void PPCXEmitter::FRIZ	(PPCReg FRt, PPCReg FRb) {	// trunc
+		X_FORM(63, FRt, 0, FRb, 456, 0);
+	}
+	void PPCXEmitter::FRIP	(PPCReg FRt, PPCReg FRb) {	// ceil
+		X_FORM(63, FRt, 0, FRb, 424, 0);
+	}
+	void PPCXEmitter::FRIM	(PPCReg FRt, PPCReg FRb) {	// floor
+		X_FORM(63, FRt, 0, FRb, 488, 0);
+	}
+
 	// Prologue / epilogue
 
 	/** save/load fpr in a static buffer ... **/

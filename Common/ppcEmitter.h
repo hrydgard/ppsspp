@@ -395,6 +395,12 @@ namespace PpcGen
 		void FCMPU	(int Bf, PPCReg FRa, PPCReg FRb); // unordered
 		void FCMPO	(int Bf, PPCReg FRa, PPCReg FRb); // ordered
 
+		// Fpu convert
+		void FRIN	(PPCReg FRt, PPCReg FRb);	// round
+		void FRIZ	(PPCReg FRt, PPCReg FRb);	// trunc
+		void FRIP	(PPCReg FRt, PPCReg FRb);	// ceil
+		void FRIM	(PPCReg FRt, PPCReg FRb);	// floor
+
 
 		// VPU - lvx128
 		void LoadVector(PPCReg Rd, PPCReg Ra, PPCReg Rb);
