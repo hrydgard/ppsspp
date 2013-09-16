@@ -138,6 +138,9 @@
     <ClInclude Include="Directx9\helper\global.h">
       <Filter>DirectX9\helper</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TextureDecoder.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -253,6 +256,9 @@
     </ClCompile>
     <ClCompile Include="Directx9\helper\global.cpp">
       <Filter>DirectX9\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TextureDecoder.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

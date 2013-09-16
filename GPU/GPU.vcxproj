@@ -193,6 +193,7 @@
     <ClInclude Include="Software\Rasterizer.h" />
     <ClInclude Include="Software\SoftGpu.h" />
     <ClInclude Include="Software\TransformUnit.h" />
+    <ClInclude Include="Common\TextureDecoder.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
@@ -243,6 +244,7 @@
     <ClCompile Include="Software\Rasterizer.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
+    <ClCompile Include="Common\TextureDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
