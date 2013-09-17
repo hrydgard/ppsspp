@@ -312,6 +312,7 @@ void __CtrlInit()
 
 	memset(&ctrlCurrent, 0, sizeof(ctrlCurrent));
 	memset(ctrlCurrent.analog, CTRL_ANALOG_CENTER, sizeof(ctrlCurrent.analog));
+	analogEnabled = false;
 
 	for (u32 i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
