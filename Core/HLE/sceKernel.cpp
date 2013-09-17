@@ -424,7 +424,7 @@ u32 sceKernelIcacheClearAll()
 KernelObjectPool::KernelObjectPool()
 {
 	memset(occupied, 0, sizeof(bool)*maxCount);
-	nextID = 16;
+	nextID = initialNextID;
 }
 
 SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop)
@@ -470,6 +470,7 @@ void KernelObjectPool::Clear()
 		occupied[i]=false;
 	}
 	memset(pool, 0, sizeof(KernelObject*)*maxCount);
+	nextID = initialNextID;
 }
 
 KernelObject *&KernelObjectPool::operator [](SceUID handle)
