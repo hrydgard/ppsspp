@@ -152,9 +152,19 @@ protected:
 	std::ifstream &in_;
 };
 
+std::string ExpectedFromFilename(const std::string &bootFilename)
+{
+	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected";
+}
+
+std::string ExpectedScreenshotFromFilename(const std::string &bootFilename)
+{
+	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected.bmp";
+}
+
 bool CompareOutput(const std::string &bootFilename, const std::string &output)
 {
-	std::string expect_filename = bootFilename.substr(0, bootFilename.length() - 4) + ".expected";
+	std::string expect_filename = ExpectedFromFilename(bootFilename);
 	std::ifstream in;
 	in.open(expect_filename.c_str(), std::ios::in);
 	if (!in.fail())
