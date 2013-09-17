@@ -74,7 +74,7 @@ void printUsage(const char *progname, const char *reason)
 		fprintf(stderr, "Error: %s\n\n", reason);
 	fprintf(stderr, "PPSSPP Headless\n");
 	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
-	fprintf(stderr, "Usage: %s file.elf [options]\n\n", progname);
+	fprintf(stderr, "Usage: %s file.elf... [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
@@ -89,6 +89,7 @@ void printUsage(const char *progname, const char *reason)
 	}
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
+	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
 	fprintf(stderr, "  -i                    use the interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
@@ -106,25 +107,70 @@ static HeadlessHost * getHost(GPUCore gpuCore) {
 	}
 }
 
-static std::string ChopFront(std::string s, std::string front)
+bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
-	if (s.size() >= front.size())
-	{
-		if (s.substr(0, front.size()) == front)
-			return s.substr(front.size());
+	if (teamCityMode) {
+		// Kinda ugly, trying to guesstimate the test name from filename...
+		teamCityName = GetTestName(coreParameter.fileToStart);
 	}
-	return s;
-}
 
-static std::string ChopEnd(std::string s, std::string end)
-{
-	if (s.size() >= end.size())
-	{
-		size_t endpos = s.size() - end.size();
-		if (s.substr(endpos) == end)
-			return s.substr(0, endpos);
+	std::string output;
+	if (autoCompare)
+		coreParameter.collectEmuLog = &output;
+
+	std::string error_string;
+	if (!PSP_Init(coreParameter, &error_string)) {
+		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
+		printf("TESTERROR\n");
+		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
+		return 1;
 	}
-	return s;
+
+	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
+
+	host->BootDone();
+
+	if (autoCompare)
+		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
+
+	time_update();
+	bool passed = true;
+	double deadline = time_now() + timeout;
+
+	coreState = CORE_RUNNING;
+	while (coreState == CORE_RUNNING)
+	{
+		int blockTicks = usToCycles(1000000 / 10);
+		PSP_RunLoopFor(blockTicks);
+
+		// If we were rendering, this might be a nice time to do something about it.
+		if (coreState == CORE_NEXTFRAME) {
+			coreState = CORE_RUNNING;
+			headlessHost->SwapBuffers();
+		}
+		time_update();
+		if (time_now_d() > deadline) {
+			// Don't compare, print the output at least up to this point, and bail.
+			printf("%s", output.c_str());
+			passed = false;
+
+			host->SendDebugOutput("TIMEOUT\n");
+			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			Core_Stop();
+		}
+	}
+
+	host->ShutdownGL();
+	PSP_Shutdown();
+
+	headlessHost->FlushDebugOutput();
+
+	if (autoCompare && passed)
+		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
+
+	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
+
+	return passed;
 }
 
 int main(int argc, const char* argv[])
@@ -132,13 +178,14 @@ int main(int argc, const char* argv[])
 	bool fullLog = false;
 	bool useJit = true;
 	bool autoCompare = false;
+	bool verbose = false;
 	GPUCore gpuCore = GPU_NULL;
 	
-	const char *bootFilename = 0;
+	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
 	const char *screenshotFilename = 0;
 	bool readMount = false;
-	double timeout = -1.0;
+	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -158,6 +205,8 @@ int main(int argc, const char* argv[])
 			useJit = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
+		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
+			verbose = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
@@ -184,19 +233,13 @@ int main(int argc, const char* argv[])
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
-		else if (bootFilename == 0)
-			bootFilename = argv[i];
-		else
+		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
 		{
-			if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-				printUsage(argv[0], NULL);
-			else
-			{
-				std::string reason = "Unexpected argument " + std::string(argv[i]);
-				printUsage(argv[0], reason.c_str());
-			}
+			printUsage(argv[0], NULL);
 			return 1;
 		}
+		else
+			testFilenames.push_back(argv[i]);
 	}
 
 	if (readMount)
@@ -204,9 +247,9 @@ int main(int argc, const char* argv[])
 		printUsage(argv[0], "Missing argument after -m");
 		return 1;
 	}
-	if (!bootFilename)
+	if (testFilenames.empty())
 	{
-		printUsage(argv[0], argc <= 1 ? NULL : "No executable specified");
+		printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 		return 1;
 	}
 
@@ -229,19 +272,14 @@ int main(int argc, const char* argv[])
 		logman->AddListener(type, printfLogger);
 	}
 
-	std::string output;
-
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
 	coreParameter.enableSound = false;
-	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.enableDebugging = false;
 	coreParameter.printfEmuLog = !autoCompare;
-	if (autoCompare)
-		coreParameter.collectEmuLog = &output;
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
@@ -283,65 +321,45 @@ int main(int argc, const char* argv[])
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
-	if (teamCityMode) {
-		// Kinda ugly, trying to guesstimate the test name from filename...
-		teamCityName = ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
-	}
-
-	if (!PSP_Init(coreParameter, &error_string)) {
-		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
-		printf("TESTERROR\n");
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
-		return 1;
-	}
-
-	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
-
-	host->BootDone();
-
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
 
-	time_update();
-	bool doCompare = true;
-	double deadline = timeout < 0.0 ? std::numeric_limits<float>::infinity() : time_now() + timeout;
-
-	coreState = CORE_RUNNING;
-	while (coreState == CORE_RUNNING)
+	std::vector<std::string> failedTests;
+	std::vector<std::string> passedTests;
+	for (size_t i = 0; i < testFilenames.size(); ++i)
 	{
-		int blockTicks = usToCycles(1000000 / 10);
-		PSP_RunLoopFor(blockTicks);
-
-		// If we were rendering, this might be a nice time to do something about it.
-		if (coreState == CORE_NEXTFRAME) {
-			coreState = CORE_RUNNING;
-			headlessHost->SwapBuffers();
-		}
-		time_update();
-		if (time_now() > deadline) {
-			// Don't compare, print the output at least up to this point, and bail.
-			printf("%s", output.c_str());
-			doCompare = false;
-
-			host->SendDebugOutput("TIMEOUT\n");
-			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
-			Core_Stop();
+		coreParameter.fileToStart = testFilenames[i];
+		if (autoCompare)
+			printf("%s:\n", coreParameter.fileToStart.c_str());
+		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, verbose, timeout);
+		if (autoCompare)
+		{
+			std::string testName = GetTestName(coreParameter.fileToStart);
+			if (passed)
+			{
+				passedTests.push_back(testName);
+				printf("  %s - passed!\n", testName.c_str());
+			}
+			else
+				failedTests.push_back(testName);
 		}
 	}
 
-	host->ShutdownGL();
-	PSP_Shutdown();
-
-	headlessHost->FlushDebugOutput();
+	if (autoCompare)
+	{
+		printf("%d tests passed, %d tests failed.\n", (int)passedTests.size(), (int)failedTests.size());
+		if (!failedTests.empty())
+		{
+			printf("Failed tests:\n");
+			for (int i = 0; i < failedTests.size(); ++i) {
+				printf("  %s", failedTests[i].c_str());
+			}
+		}
+	}
 
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
-
-	if (autoCompare && doCompare)
-		CompareOutput(bootFilename, output);
-
-	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
 
 	return 0;
 }
