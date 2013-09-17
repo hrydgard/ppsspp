@@ -302,7 +302,7 @@ struct GLExtensions {
 	bool QCOM_binning_control;
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
-	bool GL_NV_shader_framebuffer_fetch;
+	bool GL_EXT_shader_framebuffer_fetch;
 	
 	// EGL extensions
 
