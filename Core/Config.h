@@ -70,6 +70,7 @@ public:
 	bool bStretchToDisplay;
 	bool bVSync;
 	int iFrameSkip;
+	bool bFrameSkipUnthrottle;
 
 	int iWindowX;
 	int iWindowY;
