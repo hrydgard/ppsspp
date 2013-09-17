@@ -33,6 +33,8 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
 
+#include <algorithm>
+
 #if defined(USING_GLES2)
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER

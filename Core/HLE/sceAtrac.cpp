@@ -32,6 +32,7 @@
 #include "sceKernelMemory.h"
 #include "sceAtrac.h"
 
+#include <algorithm>
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
