@@ -316,8 +316,12 @@ void LogoScreen::render() {
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
 	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
-
-	dc.Draw()->DrawImage(I_LOGO, dp_xres / 2, dp_yres / 2 - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+#ifdef GOLD
+	dc.Draw()->DrawImage(I_ICONGOLD, (dp_xres / 2) - 120, (dp_yres / 2) - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+#else
+	dc.Draw()->DrawImage(I_ICON, (dp_xres / 2) - 120, (dp_yres / 2) - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+#endif
+	dc.Draw()->DrawImage(I_LOGO, (dp_xres / 2) + 40, dp_yres / 2 - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
