@@ -13,10 +13,7 @@
 // If not, see http://www.gnu.org/licenses/
 
 // Official git repository and contact information can be found at
-// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-
-// Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012..
-#include "../native/base/basictypes.h" 
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
 #include "GPU/GLES/TextureScaler.h"
 
