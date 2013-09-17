@@ -352,7 +352,7 @@ int main(int argc, const char* argv[])
 		{
 			printf("Failed tests:\n");
 			for (int i = 0; i < failedTests.size(); ++i) {
-				printf("  %s", failedTests[i].c_str());
+				printf("  %s\n", failedTests[i].c_str());
 			}
 		}
 	}

@@ -38,9 +38,8 @@ class Command(object):
 
   def run(self, timeout):
     def target():
-      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-      self.output, _ = self.process.communicate()
-      self.output = self.output.decode("utf-8")
+      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE)
+      self.process.communicate()
 
     thread = threading.Thread(target=target)
     thread.start()
@@ -295,103 +294,25 @@ def run_tests(test_list, args):
   tests_passed = []
   tests_failed = []
 
+  test_filenames = []
   for test in test_list:
     # Try prx first
-    expected_filename = TEST_ROOT + test + ".expected"
-
     elf_filename = TEST_ROOT + test + ".prx"
-    print(elf_filename)
-
     if not os.path.exists(elf_filename):
       print("WARNING: no prx, trying elf")
       elf_filename = TEST_ROOT + test + ".elf"
 
-    if not os.path.exists(elf_filename):
-      print("ERROR: PRX/ELF file missing, failing test: " + test)
-      tests_failed.append(test)
-      tcprint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']" % test)
-      continue
+    test_filenames.append(elf_filename)
 
-    if not os.path.exists(expected_filename):
-      print("WARNING: expects file missing, failing test: " + test)
-      tests_failed.append(test)
-      tcprint("##teamcity[testIgnored name='%s' message='Expects file missing']" % test)
-      continue
-
-    expected_output = open(expected_filename).read().strip()
-
-    tcprint("##teamcity[testStarted name='%s' captureStandardOutput='true']" % test)
-
-    cmdline = [PPSSPP_EXE, elf_filename]
-    cmdline.extend([i for i in args if i not in ['-v', '-g']])
-    if os.path.exists(expected_filename + ".bmp"):
-      cmdline.extend(["--screenshot=" + expected_filename + ".bmp", "--graphics"])
+  if len(test_filenames):
+    # TODO: Maybe --compare should detect --graphics?
+    cmdline = [PPSSPP_EXE, '--graphics', '--compare', '--timeout=' + str(TIMEOUT)] + test_filenames
+    cmdline.extend([i for i in args if i not in ['-g']])
 
     c = Command(cmdline)
-    c.run(TIMEOUT)
+    c.run(TIMEOUT * len(test_filenames))
 
-    output = c.output.strip()
-
-    if c.timeout:
-      print(output)
-      print("Test exceded limit of %d seconds." % TIMEOUT)
-      tests_failed.append(test)
-      tcprint("##teamcity[testFailed name='%s' message='Test timeout']" % test)
-      tcprint("##teamcity[testFinished name='%s']" % test)
-      continue
-
-    if output.startswith("TESTERROR"):
-      print("Failed to run test " + elf_filename + "!")
-      tests_failed.append(test)
-      tcprint("##teamcity[testFailed name='%s' message='Failed to run test']" % test)
-      tcprint("##teamcity[testFinished name='%s']" % test)
-      continue
-
-    different = False
-    expected_lines = [x.strip() for x in expected_output.splitlines()]
-    output_lines = [x.strip() for x in output.splitlines()]
-
-    for i in range(0, min(len(output_lines), len(expected_lines))):
-      if output_lines[i] != expected_lines[i]:
-        print("E%i < %s" % (i + 1, expected_lines[i]))
-        print("O%i > %s" % (i + 1, output_lines[i]))
-        different = True
-
-    if len(output_lines) != len(expected_lines):
-      for i in range(len(output_lines), len(expected_lines)):
-        print("E%i < %s" % (i + 1, expected_lines[i]))
-      for i in range(len(expected_lines), len(output_lines)):
-        print("O%i > %s" % (i + 1, output_lines[i]))
-      print("*** Different number of lines!")
-      different = True
-
-    if not different:
-      if '-v' in args:
-        print("++++++++++++++ The Equal Output +++++++++++++")
-        print("\n".join(output_lines))
-        print("+++++++++++++++++++++++++++++++++++++++++++++")
-      print("  " + test + " - passed!")
-      tests_passed.append(test)
-      tcprint("##teamcity[testFinished name='%s']" % test)
-    else:
-      if '-v' in args:
-        print("============== output from failed " + test + " :")
-        print(output)
-        print("============== expected output:")
-        print(expected_output)
-        print("===============================")
-      tests_failed.append(test)
-      tcprint("##teamcity[testFailed name='%s' message='Output different from expected file']" % test)
-      tcprint("##teamcity[testFinished name='%s']" % test)
-
-  print("%i tests passed, %i tests failed." % (
-      len(tests_passed), len(tests_failed)))
-
-  if len(tests_failed):
-    print("Failed tests:")
-    for t in tests_failed:
-      print("  " + t)
-  print("Ran " + PPSSPP_EXE)
+    print("Ran " + PPSSPP_EXE)
 
 
 def main():
