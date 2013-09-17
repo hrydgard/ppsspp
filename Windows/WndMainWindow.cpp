@@ -1150,6 +1150,11 @@ namespace MainWindow
 				case ID_OPTIONS_SCREEN3X:   SetInternalResolution(3); ResizeDisplay(true); break;
 				case ID_OPTIONS_SCREEN4X:   SetInternalResolution(4); ResizeDisplay(true); break;
 				case ID_OPTIONS_SCREEN5X:   SetInternalResolution(5); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN6X:   SetInternalResolution(6); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN7X:   SetInternalResolution(7); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN8X:   SetInternalResolution(8); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN9X:   SetInternalResolution(9); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREEN10X:   SetInternalResolution(10); ResizeDisplay(true); break;
 
 				case ID_OPTIONS_WINDOW1X:   SetWindowSize(1); break;
 				case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
@@ -1159,7 +1164,7 @@ namespace MainWindow
 				case ID_OPTIONS_RESOLUTIONDUMMY:
 					{
 						static int resolutionMultiplier = 0;
-						resolutionMultiplier = g_Config.iInternalResolution <= 5 ? ++resolutionMultiplier : 0;
+						resolutionMultiplier = g_Config.iInternalResolution <= 10 ? ++resolutionMultiplier : 0;
 						SetInternalResolution(resolutionMultiplier);
 						ResizeDisplay(true);
 						break;
@@ -1567,18 +1572,23 @@ namespace MainWindow
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 
-		static const int zoomitems[6] = {
+		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,
 			ID_OPTIONS_SCREEN1X,
 			ID_OPTIONS_SCREEN2X,
 			ID_OPTIONS_SCREEN3X,
 			ID_OPTIONS_SCREEN4X,
 			ID_OPTIONS_SCREEN5X,
+			ID_OPTIONS_SCREEN6X,
+			ID_OPTIONS_SCREEN7X,
+			ID_OPTIONS_SCREEN8X,
+			ID_OPTIONS_SCREEN9X,
+			ID_OPTIONS_SCREEN10X,
 		};
 		if (g_Config.iInternalResolution < 0)
 			g_Config.iInternalResolution = 0;
 
-		else if(g_Config.iInternalResolution > 5)
+		else if(g_Config.iInternalResolution > 10)
 			g_Config.iInternalResolution = 5;
 
 		for (int i = 0; i < ARRAY_SIZE(zoomitems); i++) {

@@ -362,6 +362,11 @@ BEGIN
             MENUITEM "&3x",                                 ID_OPTIONS_SCREEN3X
             MENUITEM "&4x",                                 ID_OPTIONS_SCREEN4X
             MENUITEM "&5x",                                 ID_OPTIONS_SCREEN5X
+            MENUITEM "&6x",                                 ID_OPTIONS_SCREEN6X
+            MENUITEM "&7x",                                 ID_OPTIONS_SCREEN7X
+            MENUITEM "&8x",                                 ID_OPTIONS_SCREEN8X
+            MENUITEM "&9x",                                 ID_OPTIONS_SCREEN9X
+            MENUITEM "&10x",                                ID_OPTIONS_SCREEN10X
         END
         POPUP "Window Size"
         BEGIN
