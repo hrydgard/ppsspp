@@ -371,7 +371,7 @@ void NativeInit(int argc, const char *argv[],
 	g_Config.memCardDirectory = "MemStick/";
 #endif	
 
-	i18nrepo.LoadIni(g_Config.languageIni);
+	i18nrepo.LoadIni(g_Config.sLanguageIni);
 	I18NCategory *d = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files. 
 	// It's intended to be custom for every user. 

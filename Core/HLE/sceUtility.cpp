@@ -556,7 +556,7 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Daylight Savings");
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
-		param = g_Config.ilanguage;
+		param = g_Config.iLanguage;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
 		param = g_Config.iButtonPreference;

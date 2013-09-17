@@ -67,7 +67,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 		// TODO: Be smart about same language, different country
 	}
 
-	general->Get("Language", &languageIni, defaultLangRegion.c_str());
+	general->Get("Language", &sLanguageIni, defaultLangRegion.c_str());
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("EnableCheats", &bEnableCheats, false);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
@@ -203,7 +203,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
-	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+	pspConfig->Get("Language", &iLanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
 	pspConfig->Get("TimeZone", &iTimeZone, 0);
@@ -275,7 +275,7 @@ void Config::Save() {
 		general->Set("WindowWidth", iWindowWidth);
 		general->Set("WindowHeight", iWindowHeight);
 #endif
-		general->Set("Language", languageIni);
+		general->Set("Language", sLanguageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
 		general->Set("EnableCheats", bEnableCheats);
 		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
@@ -351,7 +351,7 @@ void Config::Save() {
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("NickName", sNickName.c_str());
-		pspConfig->Set("Language", ilanguage);
+		pspConfig->Set("Language", iLanguage);
 		pspConfig->Set("TimeFormat", iTimeFormat);
 		pspConfig->Set("DateFormat", iDateFormat);
 		pspConfig->Set("TimeZone", iTimeZone);
