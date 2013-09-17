@@ -390,7 +390,7 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	for (int i = 0; i < 0xEF; i++) {
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
 			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
-	}
+		}
 	}
 
 	BuildReportingInfo();
