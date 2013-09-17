@@ -52,7 +52,7 @@ struct BufferedLineReader {
 	}
 
 	void Fill() {
-		while (valid_ < MAX_BUFFER && HasLines()) {
+		while (valid_ < MAX_BUFFER && HasMoreLines()) {
 			buffer_[valid_++] = ReadLine();
 		}
 	}
@@ -84,8 +84,17 @@ struct BufferedLineReader {
 		return result;
 	}
 
-	virtual bool HasLines() {
-		return pos_ != data_.npos;
+	bool HasLines() {
+		if (HasMoreLines()) {
+			return true;
+		}
+		// Don't say yes if it's a blank line.
+		for (int i = 0; i < valid_; ++i) {
+			if (!buffer_[i].empty()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	bool Compare(BufferedLineReader &other) {
@@ -100,6 +109,10 @@ struct BufferedLineReader {
 
 protected:
 	BufferedLineReader() : valid_(0) {
+	}
+
+	virtual bool HasMoreLines() {
+		return pos_ != data_.npos;
 	}
 
 	virtual std::string ReadLine() {
@@ -125,11 +138,11 @@ struct BufferedLineReaderFile : public BufferedLineReader {
 	BufferedLineReaderFile(std::ifstream &in) : BufferedLineReader(), in_(in) {
 	}
 
-	virtual bool HasLines() {
+protected:
+	virtual bool HasMoreLines() {
 		return !in_.eof();
 	}
 
-protected:
 	virtual std::string ReadLine() {
 		char temp[TEMP_BUFFER_SIZE];
 		in_.getline(temp, TEMP_BUFFER_SIZE);
@@ -139,14 +152,51 @@ protected:
 	std::ifstream &in_;
 };
 
-bool CompareOutput(const std::string &bootFilename, const std::string &output)
+std::string ExpectedFromFilename(const std::string &bootFilename)
 {
-	std::string expect_filename = bootFilename.substr(0, bootFilename.length() - 4) + ".expected";
-	std::ifstream in;
-	in.open(expect_filename.c_str(), std::ios::in);
-	if (!in.fail())
+	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected";
+}
+
+std::string ExpectedScreenshotFromFilename(const std::string &bootFilename)
+{
+	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected.bmp";
+}
+
+static std::string ChopFront(std::string s, std::string front)
+{
+	if (s.size() >= front.size())
 	{
-		BufferedLineReaderFile expected(in);
+		if (s.substr(0, front.size()) == front)
+			return s.substr(front.size());
+	}
+	return s;
+}
+
+static std::string ChopEnd(std::string s, std::string end)
+{
+	if (s.size() >= end.size())
+	{
+		size_t endpos = s.size() - end.size();
+		if (s.substr(endpos) == end)
+			return s.substr(0, endpos);
+	}
+	return s;
+}
+
+std::string GetTestName(const std::string &bootFilename)
+{
+	// Kinda ugly, trying to guesstimate the test name from filename...
+	return ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
+}
+
+bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose)
+{
+	std::string expect_filename = ExpectedFromFilename(bootFilename);
+	std::ifstream expect_f;
+	expect_f.open(expect_filename.c_str(), std::ios::in);
+	if (!expect_f.fail())
+	{
+		BufferedLineReaderFile expected(expect_f);
 		BufferedLineReader actual(output);
 
 		bool failed = false;
@@ -164,10 +214,10 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output)
 			// This is a really dirt simple comparing algorithm.
 
 			// Perhaps it was an extra line?
-			if (expected.Peek(0) == actual.Peek(1))
+			if (expected.Peek(0) == actual.Peek(1) || !expected.HasLines())
 				printf("+ %s\n", actual.Consume().c_str());
 			// A single missing line?
-			else if (expected.Peek(1) == actual.Peek(0))
+			else if (expected.Peek(1) == actual.Peek(0) || !actual.HasLines())
 				printf("- %s\n", expected.Consume().c_str());
 			else
 			{
@@ -184,8 +234,29 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output)
 
 			printf("+ %s\n", actual.Consume().c_str());
 		}
+		expect_f.close();
 
-		return failed;
+		if (verbose)
+		{
+			if (!failed)
+			{
+				printf("++++++++++++++ The Equal Output +++++++++++++\n");
+				printf("%s", output.c_str());
+				printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
+			}
+			else
+			{
+				printf("============== output from failed %s:\n", GetTestName(bootFilename).c_str());
+				printf("%s", output.c_str());
+				printf("============== expected output:\n");
+				std::string fullExpected;
+				if (File::ReadFileToString(true, expect_filename.c_str(), fullExpected))
+					printf("%s", fullExpected.c_str());
+				printf("===============================\n");
+			}
+		}
+
+		return !failed;
 	}
 	else
 	{

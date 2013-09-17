@@ -478,7 +478,9 @@ unsigned int XEmitter::ABI_GetAlignedFrameSize(unsigned int frameSize) {
 #ifdef _WIN32
 
 // The Windows x64 ABI requires XMM6 - XMM15 to be callee saved.  10 regs.
-const int XMM_STACK_SPACE = 10 * 16;
+// But, not saving XMM4 and XMM5 breaks things in VS 2010, even though they are volatile regs.
+// Let's just save all 16.
+const int XMM_STACK_SPACE = 16 * 16;
 
 // Win64 Specific Code
 void XEmitter::ABI_PushAllCalleeSavedRegsAndAdjustStack() {
@@ -495,13 +497,13 @@ void XEmitter::ABI_PushAllCalleeSavedRegsAndAdjustStack() {
 
 	// Do this after aligning, beacuse before it's offset by 8.
 	SUB(64, R(RSP), Imm32(XMM_STACK_SPACE));
-	for (int i = 0; i < 10; ++i)
-		MOVAPS(MDisp(RSP, i * 16), (X64Reg)(XMM6 + i));
+	for (int i = 0; i < 16; ++i)
+		MOVAPS(MDisp(RSP, i * 16), (X64Reg)(XMM0 + i));
 }
 
 void XEmitter::ABI_PopAllCalleeSavedRegsAndAdjustStack() {
-	for (int i = 0; i < 10; ++i)
-		MOVAPS((X64Reg)(XMM6 + i), MDisp(RSP, i * 16));
+	for (int i = 0; i < 16; ++i)
+		MOVAPS((X64Reg)(XMM0 + i), MDisp(RSP, i * 16));
 	ADD(64, R(RSP), Imm32(XMM_STACK_SPACE));
 
 	ABI_RestoreStack(0);
@@ -525,7 +527,7 @@ void XEmitter::ABI_PushAllCallerSavedRegsAndAdjustStack() {
 	PUSH(R9);
 	PUSH(R10);
 	PUSH(R11);
-	// Callers preserve XMM4-5 (XMM0-3 are args.)  But we don't need them usually.
+	// TODO: Callers preserve XMM4-5 (XMM0-3 are args.)
 	ABI_AlignStack(0);
 }
 
