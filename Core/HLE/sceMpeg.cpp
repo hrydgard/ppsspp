@@ -18,6 +18,7 @@
 
 // This code is part shamelessly "inspired" from JPSCP.
 #include <map>
+#include <algorithm>
 
 #include "sceMpeg.h"
 #include "sceKernelThread.h"

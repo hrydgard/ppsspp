@@ -24,6 +24,8 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Colors.h"
 
+#include <algorithm>
+
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
 

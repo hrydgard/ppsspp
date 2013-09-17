@@ -30,6 +30,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 
+#include <algorithm>
+
 namespace DX9 {
 
 // Aggressively delete unused FBO:s to save gpu memory.

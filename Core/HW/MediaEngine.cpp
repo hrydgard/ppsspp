@@ -21,6 +21,8 @@
 #include "GPU/GPUInterface.h"
 #include "Core/HW/atrac3plus.h"
 
+#include <algorithm>
+
 #ifdef USE_FFMPEG
 
 // Urgh! Why is this needed?

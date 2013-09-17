@@ -25,6 +25,8 @@
 #include "ui_atlas.h"
 #include "Core/HLE/sceCtrl.h"
 
+#include <algorithm>
+
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 #define USE_PAUSE_BUTTON 1
 #else
