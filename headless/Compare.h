@@ -25,6 +25,7 @@ void TeamCityPrint(const char *fmt, ...);
 
 std::string ExpectedFromFilename(const std::string &bootFilename);
 std::string ExpectedScreenshotFromFilename(const std::string &bootFilename);
+std::string GetTestName(const std::string &bootFilename);
 
-bool CompareOutput(const std::string &bootFilename, const std::string &output);
+bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose);
 double CompareScreenshot(const u8 *pixels, int w, int h, int stride, const std::string screenshotFilename, std::string &error);

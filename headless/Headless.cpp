@@ -89,6 +89,7 @@ void printUsage(const char *progname, const char *reason)
 	}
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
+	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
 	fprintf(stderr, "  -i                    use the interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
@@ -106,38 +107,11 @@ static HeadlessHost * getHost(GPUCore gpuCore) {
 	}
 }
 
-static std::string ChopFront(std::string s, std::string front)
-{
-	if (s.size() >= front.size())
-	{
-		if (s.substr(0, front.size()) == front)
-			return s.substr(front.size());
-	}
-	return s;
-}
-
-static std::string ChopEnd(std::string s, std::string end)
-{
-	if (s.size() >= end.size())
-	{
-		size_t endpos = s.size() - end.size();
-		if (s.substr(endpos) == end)
-			return s.substr(0, endpos);
-	}
-	return s;
-}
-
-static std::string GetTestName(CoreParameter &coreParameter)
-{
-	// Kinda ugly, trying to guesstimate the test name from filename...
-	return ChopEnd(ChopFront(ChopFront(coreParameter.fileToStart, "tests/"), "pspautotests/tests/"), ".prx");
-}
-
-bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, double timeout)
+bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
 	if (teamCityMode) {
 		// Kinda ugly, trying to guesstimate the test name from filename...
-		teamCityName = GetTestName(coreParameter);
+		teamCityName = GetTestName(coreParameter.fileToStart);
 	}
 
 	std::string output;
@@ -192,7 +166,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	headlessHost->FlushDebugOutput();
 
 	if (autoCompare && passed)
-		passed = CompareOutput(coreParameter.fileToStart, output);
+		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
 
 	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
 
@@ -204,6 +178,7 @@ int main(int argc, const char* argv[])
 	bool fullLog = false;
 	bool useJit = true;
 	bool autoCompare = false;
+	bool verbose = false;
 	GPUCore gpuCore = GPU_NULL;
 	
 	std::vector<std::string> testFilenames;
@@ -230,6 +205,8 @@ int main(int argc, const char* argv[])
 			useJit = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
+		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
+			verbose = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
@@ -354,10 +331,10 @@ int main(int argc, const char* argv[])
 		coreParameter.fileToStart = testFilenames[i];
 		if (autoCompare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
-		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, timeout);
+		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, verbose, timeout);
 		if (autoCompare)
 		{
-			std::string testName = GetTestName(coreParameter);
+			std::string testName = GetTestName(coreParameter.fileToStart);
 			if (passed)
 			{
 				passedTests.push_back(testName);

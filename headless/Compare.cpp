@@ -162,14 +162,41 @@ std::string ExpectedScreenshotFromFilename(const std::string &bootFilename)
 	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected.bmp";
 }
 
-bool CompareOutput(const std::string &bootFilename, const std::string &output)
+static std::string ChopFront(std::string s, std::string front)
+{
+	if (s.size() >= front.size())
+	{
+		if (s.substr(0, front.size()) == front)
+			return s.substr(front.size());
+	}
+	return s;
+}
+
+static std::string ChopEnd(std::string s, std::string end)
+{
+	if (s.size() >= end.size())
+	{
+		size_t endpos = s.size() - end.size();
+		if (s.substr(endpos) == end)
+			return s.substr(0, endpos);
+	}
+	return s;
+}
+
+std::string GetTestName(const std::string &bootFilename)
+{
+	// Kinda ugly, trying to guesstimate the test name from filename...
+	return ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
+}
+
+bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose)
 {
 	std::string expect_filename = ExpectedFromFilename(bootFilename);
-	std::ifstream in;
-	in.open(expect_filename.c_str(), std::ios::in);
-	if (!in.fail())
+	std::ifstream expect_f;
+	expect_f.open(expect_filename.c_str(), std::ios::in);
+	if (!expect_f.fail())
 	{
-		BufferedLineReaderFile expected(in);
+		BufferedLineReaderFile expected(expect_f);
 		BufferedLineReader actual(output);
 
 		bool failed = false;
@@ -206,6 +233,27 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output)
 				continue;
 
 			printf("+ %s\n", actual.Consume().c_str());
+		}
+		expect_f.close();
+
+		if (verbose)
+		{
+			if (!failed)
+			{
+				printf("++++++++++++++ The Equal Output +++++++++++++\n");
+				printf("%s", output.c_str());
+				printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
+			}
+			else
+			{
+				printf("============== output from failed %s:\n", GetTestName(bootFilename).c_str());
+				printf("%s", output.c_str());
+				printf("============== expected output:\n");
+				std::string fullExpected;
+				if (File::ReadFileToString(true, expect_filename.c_str(), fullExpected))
+					printf("%s", fullExpected.c_str());
+				printf("===============================\n");
+			}
 		}
 
 		return !failed;
