@@ -245,7 +245,17 @@ private:
 		void Run() { func(); }
 
 	private:
-// Visual Studio 2012 needs this, or else it complains about losing const-volatile qualifiers.
+// Both Visual Studio 2012 & 2013 need the following ifdef, or else they complain about losing const-volatile qualifiers:
+// Error	23	error C3848: expression having type 'const std::_Bind<true,void,void 
+//(__cdecl *const )(PrioritizedWorkQueue *),PrioritizedWorkQueue *&>' would lose some const-volatile qualifiers in order to call 'void std::_Bind<true,void,void (__cdecl *const )(PrioritizedWorkQueue *),PrioritizedWorkQueue *&>::operator ()<>(void)' (thread\prioritizedworkqueue.cpp)
+
+// Error	24	error C3848: expression having type 'const std::_Bind<true,void,std::_Pmf_wrap<void (__cdecl WorkerThread::* )(void),void,WorkerThread,>,WorkerThread *const >'
+// would lose some const-volatile qualifiers in order to call 
+// 'void std::_Bind<true,void,std::_Pmf_wrap<void (__cdecl WorkerThread::* )(void),void,WorkerThread,>,WorkerThread *const >::operator ()<>(void)' (thread\threadpool.cpp)
+
+// Error	25	error C3848 : expression having type 'const std::_Bind<true,void,std::_Pmf_wrap<void (__cdecl http::Download::* )(std::shared_ptr<http::Download>),void,http::Download,std::shared_ptr<http::Download>>,http::Download *const ,std::shared_ptr<http::Download> &>' 
+// would lose some const - volatile qualifiers in order to call 
+// 'void std::_Bind<true,void,std::_Pmf_wrap<void (__cdecl http::Download::* )(std::shared_ptr<http::Download>),void,http::Download,std::shared_ptr<http::Download>>,http::Download *const ,std::shared_ptr<http::Download> &>::operator ()<>(void)' (net\http_client.cpp)
 #if _MSC_VER >= 1700
 		C func;
 #else
