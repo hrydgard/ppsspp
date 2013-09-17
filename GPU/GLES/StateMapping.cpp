@@ -215,7 +215,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 					}
 				}
 			}
-		}
+		} else
+			WARN_LOG_REPORT_ONCE(blendstate, G3D, "Unsupported Blend State: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
 		if (!gstate.isStencilTestEnabled() && !gstate.isDepthTestEnabled()) {
