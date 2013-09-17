@@ -409,10 +409,9 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
 
-	// On non windows, which is always vsync locked, we need to force frameskip when
-	// unthrottled.
-#ifndef _WIN32
-	if (!throttle) {
+	
+
+	if (!throttle && g_Config.bFrameSkipUnthrottle) {
 		doFrameSkip = true;
 		skipFrame = true;
 		if (numSkippedFrames >= 7) {
@@ -420,7 +419,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		}
 		return;	
 	}
-#endif
+
 
 	if (!throttle && !doFrameSkip)
 		return;
