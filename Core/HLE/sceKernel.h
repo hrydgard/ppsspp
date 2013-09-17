@@ -427,7 +427,7 @@ public:
 	~KernelObjectPool() {}
 
 	// Allocates a UID within the range and inserts the object into the map.
-	SceUID Create(KernelObject *obj, int rangeBottom = 16, int rangeTop = 0x7fffffff);
+	SceUID Create(KernelObject *obj, int rangeBottom = initialNextID, int rangeTop = 0x7fffffff);
 
 	void DoState(PointerWrap &p);
 	static KernelObject *CreateByIDType(int type);
@@ -520,8 +520,9 @@ public:
 
 private:
 	enum {
-		maxCount=4096,
-		handleOffset=0x100
+		maxCount = 4096,
+		handleOffset = 0x100,
+		initialNextID = 0x10
 	};
 	KernelObject *pool[maxCount];
 	bool occupied[maxCount];

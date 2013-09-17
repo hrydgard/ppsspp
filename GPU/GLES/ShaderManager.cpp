@@ -79,7 +79,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	glAttachShader(program, fs->shader);
 	glLinkProgram(program);
 
-	GLint linkStatus;
+	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
 	if (linkStatus != GL_TRUE) {
 		GLint bufLength = 0;
@@ -98,6 +98,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 #endif
 			delete [] buf;	// we're dead!
 		}
+		// Prevent a buffer overflow.
+		numBones = 0;
 		return;
 	}
 
