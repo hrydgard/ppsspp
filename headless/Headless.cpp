@@ -74,7 +74,7 @@ void printUsage(const char *progname, const char *reason)
 		fprintf(stderr, "Error: %s\n\n", reason);
 	fprintf(stderr, "PPSSPP Headless\n");
 	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
-	fprintf(stderr, "Usage: %s file.elf [options]\n\n", progname);
+	fprintf(stderr, "Usage: %s file.elf... [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
@@ -127,11 +127,17 @@ static std::string ChopEnd(std::string s, std::string end)
 	return s;
 }
 
+static std::string GetTestName(CoreParameter &coreParameter)
+{
+	// Kinda ugly, trying to guesstimate the test name from filename...
+	return ChopEnd(ChopFront(ChopFront(coreParameter.fileToStart, "tests/"), "pspautotests/tests/"), ".prx");
+}
+
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, double timeout)
 {
 	if (teamCityMode) {
 		// Kinda ugly, trying to guesstimate the test name from filename...
-		teamCityName = ChopEnd(ChopFront(ChopFront(coreParameter.fileToStart, "tests/"), "pspautotests/tests/"), ".prx");
+		teamCityName = GetTestName(coreParameter);
 	}
 
 	std::string output;
@@ -185,10 +191,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	headlessHost->FlushDebugOutput();
 
-	delete host;
-	host = NULL;
-	headlessHost = NULL;
-
 	if (autoCompare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output);
 
@@ -204,7 +206,7 @@ int main(int argc, const char* argv[])
 	bool autoCompare = false;
 	GPUCore gpuCore = GPU_NULL;
 	
-	const char *bootFilename = 0;
+	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
 	const char *screenshotFilename = 0;
 	bool readMount = false;
@@ -254,19 +256,13 @@ int main(int argc, const char* argv[])
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
-		else if (bootFilename == 0)
-			bootFilename = argv[i];
-		else
+		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
 		{
-			if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-				printUsage(argv[0], NULL);
-			else
-			{
-				std::string reason = "Unexpected argument " + std::string(argv[i]);
-				printUsage(argv[0], reason.c_str());
-			}
+			printUsage(argv[0], NULL);
 			return 1;
 		}
+		else
+			testFilenames.push_back(argv[i]);
 	}
 
 	if (readMount)
@@ -274,9 +270,9 @@ int main(int argc, const char* argv[])
 		printUsage(argv[0], "Missing argument after -m");
 		return 1;
 	}
-	if (!bootFilename)
+	if (testFilenames.empty())
 	{
-		printUsage(argv[0], argc <= 1 ? NULL : "No executable specified");
+		printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 		return 1;
 	}
 
@@ -303,7 +299,6 @@ int main(int argc, const char* argv[])
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
 	coreParameter.enableSound = false;
-	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.enableDebugging = false;
@@ -352,7 +347,19 @@ int main(int argc, const char* argv[])
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
 
-	RunAutoTest(headlessHost, coreParameter, autoCompare, timeout);
+	for (size_t i = 0; i < testFilenames.size(); ++i)
+	{
+		coreParameter.fileToStart = testFilenames[i];
+		if (autoCompare)
+			printf("%s:\n", coreParameter.fileToStart.c_str());
+		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, timeout);
+		if (autoCompare && passed)
+			printf("  %s - passed!\n", GetTestName(coreParameter).c_str());
+	}
+
+	delete host;
+	host = NULL;
+	headlessHost = NULL;
 
 	return 0;
 }
