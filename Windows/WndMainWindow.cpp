@@ -99,7 +99,6 @@ namespace MainWindow
 	HWND hwndDisplay;
 	HWND hwndGameList;
 	static HMENU menu;
-	static HMENU langMenu;
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
@@ -304,11 +303,22 @@ namespace MainWindow
 		UpdateScreenScale();
 	}
 
+	void SetIngameMenuItemStates(const GlobalUIState state) {
+		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
+
+		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, menuEnable);
+		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, menuEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, menuEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, menuEnable);
+		EnableMenuItem(menu, ID_TOGGLE_PAUSE, menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
+	}
 
 	// These are used as an offset
 	// to determine which menu item to change.
 	// Make sure to count(from 0) the separators too, when dealing with submenus!!
-	enum MenuID {
+	enum MenuItemPosition {
 		// Main menus
 		MENU_FILE = 0,
 		MENU_EMULATION = 1,
@@ -356,25 +366,25 @@ namespace MainWindow
 	}
 
 	void CreateHelpMenu() {
-		HMENU helpMenu = CreatePopupMenu();
+		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		I18NCategory *desktopUI = GetI18NCategory("DesktopUI");
-
-		const std::wstring help = ConvertUTF8ToWString(desktopUI->T("Help"));
-		const std::wstring visitMainWebsite = ConvertUTF8ToWString(desktopUI->T("www.ppsspp.org"));
-		const std::wstring visitForum = ConvertUTF8ToWString(desktopUI->T("PPSSPP Forums"));
-		const std::wstring buyGold = ConvertUTF8ToWString(desktopUI->T("Buy Gold"));
-		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(desktopUI->T("About PPSSPP..."));
+		const std::wstring help = ConvertUTF8ToWString(des->T("Help"));
+		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
+		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
+		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy Gold"));
+		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(des->T("About PPSSPP..."));
 
 		// Simply remove the old help menu and create a new one.
 		RemoveMenu(menu, MENU_HELP, MF_BYPOSITION);
+
+		HMENU helpMenu = CreatePopupMenu();
 		InsertMenu(menu, MENU_HELP, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)helpMenu, help.c_str());
 
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
-		if(g_Config.languageIni == "zh_CN" || g_Config.languageIni == "zh_TW") {
-			const std::wstring visitChineseForum = ConvertUTF8ToWString(desktopUI->T("PPSSPP Chinese Forum"));
+		if(g_Config.sLanguageIni == "zh_CN" || g_Config.sLanguageIni == "zh_TW") {
+			const std::wstring visitChineseForum = ConvertUTF8ToWString(des->T("PPSSPP Chinese Forum"));
 			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
 		}
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
@@ -383,41 +393,15 @@ namespace MainWindow
 	}
 
 	void CreateLanguageMenu() {
-		// Please don't remove this boolean. 
-		// We don't want this menu to be created multiple times.
-		// We can change the checkmark when this menu has been created.
-		static bool langMenuCreated = false;
+		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		if(langMenuCreated) {
-			for (u32 index = 0; index < countryCodes.size(); ++index) {
-				if (!strcmp(countryCodes[index].c_str(),g_Config.languageIni.c_str())) {
-					CheckMenuItem(langMenu, index, MF_BYPOSITION | MF_CHECKED);
-					continue;
-				}
-				CheckMenuItem(langMenu, index, MF_BYPOSITION | MF_UNCHECKED);
-		    	} 
-			
-			return;
-		}
+		const std::wstring languageKey = ConvertUTF8ToWString(des->T("Language"));
 
-		langMenu = CreatePopupMenu();
+		// Like in CreateHelpMenu, remove and insert the new menu.
+		RemoveMenu(menu, MENU_LANGUAGE, MF_BYPOSITION);
 
-		I18NCategory *c = GetI18NCategory("DesktopUI");
-		// Don't translate this right here, translate it in TranslateMenus. 
-		// Think of it as a string defined in ppsspp.rc.
-		const std::wstring languageKey = L"Language";
-
-		// Insert the new menu.
+		HMENU langMenu = CreatePopupMenu();
 		InsertMenu(menu, MENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)langMenu, languageKey.c_str());
-
-		// Get the new menu's info and then set its ID so we can have it be translatable.
-		MENUITEMINFO menuItemInfo;
-		memset(&menuItemInfo, 0, sizeof(MENUITEMINFO));
-		menuItemInfo.cbSize = sizeof(MENUITEMINFO);
-		GetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &menuItemInfo);
-		menuItemInfo.fMask = MIIM_ID;
-		menuItemInfo.wID = ID_LANGUAGE_BASE;
-		SetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &menuItemInfo);
 
 		// Create the Language menu items by creating a new menu item for each
 		// language with its full name("English", "Magyar", etc.) as the value.
@@ -428,145 +412,138 @@ namespace MainWindow
 		// Start adding items after ID_LANGUAGE_BASE.
 		int item = ID_LANGUAGE_BASE + 1;
 		std::wstring fullLanguageName;
+		int checkedStatus = -1;
 
 		for(auto i = langValuesMap.begin(); i != langValuesMap.end(); ++i) {
 			fullLanguageName = ConvertUTF8ToWString(i->second.first);
-			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION | (g_Config.languageIni == i->first? MF_CHECKED : MF_UNCHECKED), item++, fullLanguageName.c_str());
+
+			checkedStatus = MF_UNCHECKED;
+
+			if(g_Config.sLanguageIni == i->first) {
+				checkedStatus = MF_CHECKED;
+				// Update iLanguage so games boot with the proper language, if available.
+				g_Config.iLanguage = langValuesMap[g_Config.sLanguageIni].second;
+			}
+
+			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, fullLanguageName.c_str());
 			countryCodes.push_back(i->first);
 		}
-
-		langMenuCreated = true;
 	}
 
-	void _TranslateMenuItem(const int menuID, const char *text, const char *category, const std::wstring& accelerator = L"") {
-		I18NCategory *c = GetI18NCategory(category);
+	void _TranslateMenuItem(const int menuIDOrPosition, const char *key, bool byCommand = false, const std::wstring& accelerator = L"", const HMENU hMenu = menu) {
+		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		std::string key = c->T(text);
-		std::wstring translated = ConvertUTF8ToWString(key);
+		std::wstring translated = ConvertUTF8ToWString(des->T(key));
 		translated.append(accelerator);
 
-		ModifyMenu(menu, menuID, MF_STRING, menuID, translated.c_str());
+		u32 flags = MF_STRING | (byCommand ? MF_BYCOMMAND : MF_BYPOSITION);
+
+		ModifyMenu(hMenu, menuIDOrPosition, flags, menuIDOrPosition, translated.c_str());
 	}
 
-	// Replaces TranslateMenuItemByText. Use this for menu items that change text dynamically
-	// like "Run/Pause".
-	void TranslateMenuItem(const int menuID, const char *category, const char *menuText, const std::wstring& accelerator = L"") {
-		if(menuText == nullptr || !strcmp(menuText, ""))
-			_TranslateMenuItem(menuID, GetMenuItemInitialText(menuID).c_str(), category, accelerator);
+	void TranslateMenuItem(const int menuID, const std::wstring& accelerator = L"", const char *key = "", const HMENU hMenu = menu) {
+		if(key == nullptr || !strcmp(key, ""))
+			_TranslateMenuItem(menuID, GetMenuItemInitialText(menuID).c_str(), true, accelerator, hMenu);
 		else
-			_TranslateMenuItem(menuID, menuText, category, accelerator);
+			_TranslateMenuItem(menuID, key, true, accelerator, hMenu);
 	}
 
-	// Use this one for menu items that don't change.
-	void TranslateMenuItem(const int menuID, const char *category, const std::wstring& accelerator = L"") {
-		_TranslateMenuItem(menuID, GetMenuItemInitialText(menuID).c_str(), category, accelerator);
+	void TranslateMenu(const char *key, const MenuItemPosition mainMenuPosition, const std::wstring& accelerator = L"") {
+		_TranslateMenuItem(mainMenuPosition, key, false, accelerator);
 	}
 
-	void TranslateMenuHeader(HMENU menu, const char *category, const char *key, const MenuID id, const std::wstring& accelerator = L"") {
-		I18NCategory *c = GetI18NCategory(category);
-		std::string s_key = c->T(key);
-		std::wstring translated = ConvertUTF8ToWString(s_key);
-		translated.append(accelerator);
-		ModifyMenu(menu, id, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-	}
-
-	void TranslateSubMenuHeader(HMENU menu, const char *category, const char *key, MenuID mainMenuID, MenuID subMenuID, const std::wstring& accelerator = L"") {
-		HMENU subMenu;
-		subMenu = GetSubMenu(menu, mainMenuID);
-		I18NCategory *c = GetI18NCategory(category);
-		std::string s_key = c->T(key);
-		std::wstring translated = ConvertUTF8ToWString(s_key);
-		translated.append(accelerator);
-		ModifyMenu(subMenu, subMenuID, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	void TranslateSubMenu(const char *key, const MenuItemPosition mainMenuItem, const MenuItemPosition subMenuItem, const std::wstring& accelerator = L"") {
+		_TranslateMenuItem(subMenuItem, key, false, accelerator, GetSubMenu(menu, mainMenuItem));
 	}
 
 	void TranslateMenus() {
-		const char *desktopUI = "DesktopUI";
+		// Menu headers and submenu headers don't have resource IDs,
+		// So we have to hardcode strings here, unfortunately.
+		TranslateMenu("File", MENU_FILE);
+		TranslateMenu("Emulation", MENU_EMULATION);
+		TranslateMenu("Debugging", MENU_DEBUG);
+		TranslateMenu("Game Settings", MENU_OPTIONS);
+		TranslateMenu("Help", MENU_HELP);
 
 		// File menu
-		TranslateMenuItem(ID_FILE_LOAD, desktopUI);
-		TranslateMenuItem(ID_FILE_LOAD_DIR, desktopUI);
-		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK, desktopUI);
-		TranslateMenuItem(ID_FILE_MEMSTICK, desktopUI);
-		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, desktopUI, L"\tF4");
-		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, L"\tF2");
-		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI);
-		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI);
-		TranslateMenuItem(ID_FILE_EXIT, desktopUI, L"\tAlt+F4");
+		TranslateMenuItem(ID_FILE_LOAD);
+		TranslateMenuItem(ID_FILE_LOAD_DIR);
+		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK);
+		TranslateMenuItem(ID_FILE_MEMSTICK);
+		TranslateSubMenu("Savestate Slot", MENU_FILE, SUBMENU_FILE_SAVESTATE_SLOT, L"\tF3");
+		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, L"\tF4");
+		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, L"\tF2");
+		TranslateMenuItem(ID_FILE_LOADSTATEFILE);
+		TranslateMenuItem(ID_FILE_SAVESTATEFILE);
+		TranslateMenuItem(ID_FILE_EXIT, L"\tAlt+F4");
 
 		// Emulation menu
-		bool isPaused = Core_IsStepping() && (globalUIState == UISTATE_INGAME);
-		TranslateMenuItem(ID_TOGGLE_PAUSE, desktopUI, isPaused ? "Run" : "Pause", L"\tF8");
-		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, L"\tCtrl+W");
-		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, L"\tCtrl+B");
-		TranslateMenuItem(ID_DEBUG_RUNONLOAD, desktopUI);
-		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI);
-		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI, L"\tCtrl+T");
+		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", "Pause");
+		TranslateMenuItem(ID_EMULATION_STOP,  L"\tCtrl+W");
+		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");	
 		
 		// Debug menu
-		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
-		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
-		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
-		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, desktopUI);
-		TranslateMenuItem(ID_DEBUG_SHOWDEBUGSTATISTICS, desktopUI);
-		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI,  L"\tF12");
-		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, L"\tCtrl+D");
-		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, L"\tCtrl+L");
-		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
+		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
+		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE);
+		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE);
+		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME);
+		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT,  L"\tF12");
+		TranslateMenuItem(ID_DEBUG_SHOWDEBUGSTATISTICS);
+		TranslateMenuItem(ID_DEBUG_IGNOREILLEGALREADS);
+		TranslateMenuItem(ID_DEBUG_RUNONLOAD);
+		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, L"\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_LOG, L"\tCtrl+L");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, L"\tCtrl+M");
 
 		// Options menu
-		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, L"\tAlt+Return, F11");
-		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SCREENAUTO, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_TOPMOST);
+		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS);
+		TranslateMenuItem(ID_OPTIONS_CONTROLS);
+		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_VSYNC);
+		TranslateSubMenu("Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
+		TranslateMenuItem(ID_OPTIONS_SCREENAUTO);
 		// Skip rendering resolution 2x-5x..
+		TranslateSubMenu("Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
 		// Skip window size 1x-4x..
-		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
+		TranslateSubMenu("Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU);
+		TranslateSubMenu("Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO);
 		// Skip frameskipping 1-8..
-		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_CONTROLS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_OFF, desktopUI);
+		TranslateSubMenu("Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
+		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO);
+		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG);
+		TranslateSubMenu("Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
+		TranslateMenuItem(ID_TEXTURESCALING_OFF);
 		// Skip texture scaling 2x-5x...
-		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, L"\tF6");
-		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
-		TranslateMenuItem(ID_DEBUG_IGNOREILLEGALREADS, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_XBRZ);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID);
+		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC);
+		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE);
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE);	
+		TranslateMenuItem(ID_OPTIONS_SHOWFPS);
+		TranslateMenuItem(ID_EMULATION_SOUND);
+		TranslateMenuItem(ID_EMULATION_CHEATS, L"\tCtrl+T");
 
-		// Language menu
-		TranslateMenuItem(ID_LANGUAGE_BASE, desktopUI);
+		// Language menu: it's translated in CreateLanguageMenu.
+		CreateLanguageMenu();
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu();
 
-		// Now do the menu headers and a few submenus...
-		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
-		TranslateMenuHeader(menu, desktopUI, "Emulation", MENU_EMULATION);
-		TranslateMenuHeader(menu, desktopUI, "Debugging", MENU_DEBUG);
-		TranslateMenuHeader(menu, desktopUI, "Game Settings", MENU_OPTIONS);
-		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
-
-		TranslateSubMenuHeader(menu, desktopUI, "Savestate Slot", MENU_FILE, SUBMENU_FILE_SAVESTATE_SLOT, L"\tF3");
-		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
-		TranslateSubMenuHeader(menu, desktopUI, "Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
-		TranslateSubMenuHeader(menu, desktopUI, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
-		TranslateSubMenuHeader(menu, desktopUI, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateSubMenuHeader(menu, desktopUI, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
-		TranslateSubMenuHeader(menu, desktopUI, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
+		// TODO: Urgh! Why do we need this here?
+		// The menu is supposed to enable/disable this stuff directly afterward.
+		SetIngameMenuItemStates(globalUIState);
 
 		DrawMenuBar(hwndMain);
 		UpdateMenus();
@@ -1369,23 +1346,16 @@ namespace MainWindow
 						// ID_LANGUAGE_BASE and an additional 1 off it.
 						u32 index = (wParam - ID_LANGUAGE_BASE - 1);
 						if(index >= 0 && index < countryCodes.size()) {
-							std::string oldLang = g_Config.languageIni;
-							g_Config.languageIni = countryCodes[index];
+							std::string oldLang = g_Config.sLanguageIni;
+							g_Config.sLanguageIni = countryCodes[index];
 
-							if(i18nrepo.LoadIni(g_Config.languageIni)) {
+							if(i18nrepo.LoadIni(g_Config.sLanguageIni)) {
 								NativeMessageReceived("language", "");
 								PostMessage(hwndMain, WM_USER_UPDATE_UI, 0, 0);
 							}
 							else
-								g_Config.languageIni = oldLang;
+								g_Config.sLanguageIni = oldLang;
 
-							auto  langValuesMapping = GetLangValuesMapping();
-							if (langValuesMapping.find(g_Config.languageIni) == langValuesMapping.end()) {
-								// Fallback to English
-								g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-							} else {
-								g_Config.ilanguage = langValuesMapping[g_Config.languageIni].second;
-							}
 							break;
 						}
 						MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
@@ -1516,7 +1486,6 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_UI:
-			CreateLanguageMenu();
 			TranslateMenus();
 			Update();
 			break;
@@ -1731,18 +1700,9 @@ namespace MainWindow
 		HMENU menu = GetMenu(GetHWND());
 
 		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
-		TranslateMenuItem(ID_TOGGLE_PAUSE, "DesktopUI", isPaused ? "Run" : "Pause", L"\tF8");
+		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", isPaused ? "Run" : "Pause");
 
-		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
-		EnableMenuItem(menu, ID_EMULATION_STOP, ingameEnable);
-		EnableMenuItem(menu, ID_EMULATION_RESET, ingameEnable);
-		
-		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, !menuEnable);
-		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
-		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
-		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
+		SetIngameMenuItemStates(globalUIState);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 

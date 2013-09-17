@@ -304,7 +304,7 @@ int main(int argc, const char* argv[])
 #endif
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;
-	g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
 	g_Config.sNickName = "shadow";

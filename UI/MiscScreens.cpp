@@ -230,7 +230,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 				buttonTitle = langValuesMapping[code].first;
 			}
 		}
-		if (g_Config.languageIni == code)
+		if (g_Config.sLanguageIni == code)
 			selected = counter;
 		listing.push_back(buttonTitle);
 		counter++;
@@ -242,7 +242,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 void NewLanguageScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
-	std::string oldLang = g_Config.languageIni;
+	std::string oldLang = g_Config.sLanguageIni;
 	
 	std::string iniFile = langs_[listView_->GetSelected()].name;
 
@@ -254,19 +254,19 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	if (code.empty())
 		return;
 
-	g_Config.languageIni = code;
+	g_Config.sLanguageIni = code;
 	
-	if (i18nrepo.LoadIni(g_Config.languageIni)) {
+	if (i18nrepo.LoadIni(g_Config.sLanguageIni)) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {
 			// Fallback to English
-			g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		} else {
-			g_Config.ilanguage = langValuesMapping[code].second;
+			g_Config.iLanguage = langValuesMapping[code].second;
 		}
 		RecreateViews();
 	} else {
-		g_Config.languageIni = oldLang;
+		g_Config.sLanguageIni = oldLang;
 	}
 }
 
@@ -346,7 +346,7 @@ void CreditsScreen::CreateViews() {
 #ifndef GOLD
 	root_->Add(new Button(c->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 #endif
-	if(g_Config.languageIni == "zh_CN" ||g_Config.languageIni == "zh_TW") {
+	if(g_Config.sLanguageIni == "zh_CN" ||g_Config.sLanguageIni == "zh_TW") {
 	  root_->Add(new Button(c->T("PPSSPP Chinese Forum"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnChineseForum);
 	  root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	  root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 228, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);

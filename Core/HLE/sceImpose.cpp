@@ -36,7 +36,7 @@ static u32 backlightOffTime;
 
 void __ImposeInit()
 {
-	language = g_Config.ilanguage;
+	language = g_Config.iLanguage;
 	buttonValue = g_Config.iButtonPreference;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
