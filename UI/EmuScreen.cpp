@@ -120,7 +120,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	const char *renderer = (const char*)glGetString(GL_RENDERER);
 	if (strstr(renderer, "Chainfire3D") != 0) {
-		osm.Show("WARNING: Chainfire3D detected, may cause problems", 10.0f, 0xFF30a0FF, -1, true);
+		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
 }
 
