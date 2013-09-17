@@ -347,14 +347,37 @@ int main(int argc, const char* argv[])
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
 
+	std::vector<std::string> failedTests;
+	std::vector<std::string> passedTests;
 	for (size_t i = 0; i < testFilenames.size(); ++i)
 	{
 		coreParameter.fileToStart = testFilenames[i];
 		if (autoCompare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
 		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, timeout);
-		if (autoCompare && passed)
-			printf("  %s - passed!\n", GetTestName(coreParameter).c_str());
+		if (autoCompare)
+		{
+			std::string testName = GetTestName(coreParameter);
+			if (passed)
+			{
+				passedTests.push_back(testName);
+				printf("  %s - passed!\n", testName.c_str());
+			}
+			else
+				failedTests.push_back(testName);
+		}
+	}
+
+	if (autoCompare)
+	{
+		printf("%d tests passed, %d tests failed.\n", (int)passedTests.size(), (int)failedTests.size());
+		if (!failedTests.empty())
+		{
+			printf("Failed tests:\n");
+			for (int i = 0; i < failedTests.size(); ++i) {
+				printf("  %s", failedTests[i].c_str());
+			}
+		}
 	}
 
 	delete host;
