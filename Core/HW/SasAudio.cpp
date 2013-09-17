@@ -22,6 +22,8 @@
 #include "Core/Config.h" 
 #include "SasAudio.h"
 
+#include <algorithm>
+
 // #define AUDIO_TO_FILE
 
 static const s8 f[16][2] = {

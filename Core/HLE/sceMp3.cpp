@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <algorithm>
+
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"

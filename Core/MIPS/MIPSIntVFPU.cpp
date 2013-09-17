@@ -49,6 +49,7 @@
 #include "MIPSVFPUUtils.h"
 
 #include <limits>
+#include <algorithm>
 
 #define R(i)   (currentMIPS->r[i])
 #define V(i)   (currentMIPS->v[i])

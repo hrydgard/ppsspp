@@ -28,6 +28,8 @@
 
 #include "image/png_load.h"
 
+#include <algorithm>
+
 #ifdef BLACKBERRY
 using std::strnlen;
 #endif

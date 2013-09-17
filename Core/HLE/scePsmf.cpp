@@ -26,6 +26,7 @@
 #include "GPU/GPUState.h"
 
 #include <map>
+#include <algorithm>
 
 // "Go Sudoku" is a good way to test this code...
 const int PSMF_VIDEO_STREAM_ID = 0xE0;
