@@ -138,7 +138,7 @@ int main(int argc, const char* argv[])
 	const char *mountIso = 0;
 	const char *screenshotFilename = 0;
 	bool readMount = false;
-	double timeout = -1.0;
+	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -304,7 +304,7 @@ int main(int argc, const char* argv[])
 
 	time_update();
 	bool doCompare = true;
-	double deadline = timeout < 0.0 ? std::numeric_limits<float>::infinity() : time_now() + timeout;
+	double deadline = time_now() + timeout;
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -318,7 +318,7 @@ int main(int argc, const char* argv[])
 			headlessHost->SwapBuffers();
 		}
 		time_update();
-		if (time_now() > deadline) {
+		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
 			printf("%s", output.c_str());
 			doCompare = false;
