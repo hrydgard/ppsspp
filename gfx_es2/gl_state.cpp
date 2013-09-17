@@ -112,7 +112,6 @@ void CheckGLExtensions() {
 	} else {
 		g_all_egl_extensions = "";
 	}
-	gl_extensions.GL_NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 #elif !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
@@ -123,6 +122,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
+	gl_extensions.GL_EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
 #if defined(IOS) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
 	gl_extensions.OES_vertex_array_object = false;
 	gl_extensions.EXT_discard_framebuffer = false;
