@@ -34,6 +34,9 @@
 #include "Core/Reporting.h"
 #include <cstdio>
 
+#include "StateMapping.h"
+#include "native/gfx_es2/gl_state.h"
+
 #define WRITE p+=sprintf
 
 // #define DEBUG_SHADER
@@ -159,6 +162,9 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool computeMin = gstate.getBlendEq() == GE_BLENDMODE_MIN && gl_extensions.GL_EXT_shader_framebuffer_fetch;
+		bool computeMax = gstate.getBlendEq() == GE_BLENDMODE_MAX && gl_extensions.GL_EXT_shader_framebuffer_fetch;
+		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF && gl_extensions.GL_EXT_shader_framebuffer_fetch;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -182,6 +188,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+
+		// Compute MIN/MAX/ABSDIFF blending mode
+		id->d[0] |= (computeMin & 1) << 19;
+		id->d[0] |= (computeMax & 1) << 20;
+		id->d[0] |= (computeAbsdiff & 1) << 21;
 
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
@@ -365,6 +376,20 @@ void GenerateFragmentShader(char *buffer) {
 		} else {
 			WRITE(p, "  gl_FragColor = v;\n");
 		}
+		
+#if defined(USING_GLES2)
+		if (gl_extensions.GL_EXT_shader_framebuffer_fetch) {
+			// GL_MIN blending mode
+			if(gstate.getBlendEq() == GE_BLENDMODE_MIN)
+				WRITE(p, "  gl_FragColor = min(gl_LastFragColor,v);\n");
+			// GL_MAX blending mode
+			if(gstate.getBlendEq() == GE_BLENDMODE_MAX)
+				WRITE(p, "  gl_FragColor = max(gl_LastFragColor,v);\n");
+			// ABDDIFF blending mode
+			if(gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF) 
+				WRITE(p, "  gl_FragColor = abs(gl_LastFragColor - v);\n");
+		}
+#endif
 	}
 
 #ifdef DEBUG_SHADER
