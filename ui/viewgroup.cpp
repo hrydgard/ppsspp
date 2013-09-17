@@ -8,6 +8,8 @@
 #include "ui/viewgroup.h"
 #include "gfx_es2/draw_buffer.h"
 
+#include <algorithm>
+
 namespace UI {
 
 const float ITEM_HEIGHT = 64.f;
