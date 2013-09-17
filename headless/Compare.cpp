@@ -52,7 +52,7 @@ struct BufferedLineReader {
 	}
 
 	void Fill() {
-		while (valid_ < MAX_BUFFER && HasLines()) {
+		while (valid_ < MAX_BUFFER && HasMoreLines()) {
 			buffer_[valid_++] = ReadLine();
 		}
 	}
@@ -84,8 +84,17 @@ struct BufferedLineReader {
 		return result;
 	}
 
-	virtual bool HasLines() {
-		return pos_ != data_.npos;
+	bool HasLines() {
+		if (HasMoreLines()) {
+			return true;
+		}
+		// Don't say yes if it's a blank line.
+		for (int i = 0; i < valid_; ++i) {
+			if (!buffer_[i].empty()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	bool Compare(BufferedLineReader &other) {
@@ -100,6 +109,10 @@ struct BufferedLineReader {
 
 protected:
 	BufferedLineReader() : valid_(0) {
+	}
+
+	virtual bool HasMoreLines() {
+		return pos_ != data_.npos;
 	}
 
 	virtual std::string ReadLine() {
@@ -125,11 +138,11 @@ struct BufferedLineReaderFile : public BufferedLineReader {
 	BufferedLineReaderFile(std::ifstream &in) : BufferedLineReader(), in_(in) {
 	}
 
-	virtual bool HasLines() {
+protected:
+	virtual bool HasMoreLines() {
 		return !in_.eof();
 	}
 
-protected:
 	virtual std::string ReadLine() {
 		char temp[TEMP_BUFFER_SIZE];
 		in_.getline(temp, TEMP_BUFFER_SIZE);
@@ -164,10 +177,10 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output)
 			// This is a really dirt simple comparing algorithm.
 
 			// Perhaps it was an extra line?
-			if (expected.Peek(0) == actual.Peek(1))
+			if (expected.Peek(0) == actual.Peek(1) || !expected.HasLines())
 				printf("+ %s\n", actual.Consume().c_str());
 			// A single missing line?
-			else if (expected.Peek(1) == actual.Peek(0))
+			else if (expected.Peek(1) == actual.Peek(0) || !actual.HasLines())
 				printf("- %s\n", expected.Consume().c_str());
 			else
 			{
@@ -185,7 +198,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output)
 			printf("+ %s\n", actual.Consume().c_str());
 		}
 
-		return failed;
+		return !failed;
 	}
 	else
 	{
