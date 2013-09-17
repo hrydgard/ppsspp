@@ -112,6 +112,7 @@ void CheckGLExtensions() {
 	} else {
 		g_all_egl_extensions = "";
 	}
+	gl_extensions.GL_NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 #elif !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
