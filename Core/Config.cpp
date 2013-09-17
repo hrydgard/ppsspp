@@ -147,6 +147,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
+	graphics->Get("FrameSkipUnthrottle", &bFrameSkipUnthrottle, true);
 	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 60);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
@@ -312,6 +313,7 @@ void Config::Save() {
 		graphics->Set("InternalResolution", iInternalResolution);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
+		graphics->Set("FrameSkipUnthrottle", bFrameSkipUnthrottle);
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
