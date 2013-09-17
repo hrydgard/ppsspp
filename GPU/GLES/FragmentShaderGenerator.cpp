@@ -380,13 +380,21 @@ void GenerateFragmentShader(char *buffer) {
 #if defined(USING_GLES2)
 		if (gl_extensions.GL_EXT_shader_framebuffer_fetch) {
 			// GL_MIN blending mode
-			if(gstate.getBlendEq() == GE_BLENDMODE_MIN)
+			if(gstate.getBlendEq() == GE_BLENDMODE_MIN && gstate_c.gpuVendor == GPU_VENDOR_POWERVR)
+				WRITE(p, "  gl_FragColor = min(gl_LastFragData[0],v);\n");
+			else
 				WRITE(p, "  gl_FragColor = min(gl_LastFragColor,v);\n");
+
 			// GL_MAX blending mode
-			if(gstate.getBlendEq() == GE_BLENDMODE_MAX)
+			if(gstate.getBlendEq() == GE_BLENDMODE_MAX && gstate_c.gpuVendor == GPU_VENDOR_POWERVR)
+				WRITE(p, "  gl_FragColor = max(gl_LastFragData[0],v);\n");
+			else
 				WRITE(p, "  gl_FragColor = max(gl_LastFragColor,v);\n");
-			// ABDDIFF blending mode
-			if(gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF) 
+
+			// ABSDIFF blending mode
+			if(gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF && gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
+				WRITE(p, "  gl_FragColor = abs(gl_LastFragData[0] - v);\n");
+			else
 				WRITE(p, "  gl_FragColor = abs(gl_LastFragColor - v);\n");
 		}
 #endif
