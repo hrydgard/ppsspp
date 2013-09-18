@@ -1354,7 +1354,7 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 }
 
 u32 convertARGBToYCbCr(u32 abgr) {
-	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for mor information.
+	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
 	u8  r = (abgr >> 16) & 0xFF;
 	u8  g = (abgr >>  8) & 0xFF;
 	u8  b = (abgr >>  0) & 0xFF;

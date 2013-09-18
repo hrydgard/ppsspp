@@ -38,7 +38,7 @@ void __JpegDoState(PointerWrap &p) {
 }
 
 u32 convertYCbCrToABGR (int y, int cb, int cr) {
-	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for mor information.
+	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
 	cb = cb - 128;
 	cr = cr - 128;
 	int r = y + cr + (cr >> 2) + (cr >> 3) + (cr >> 5);
