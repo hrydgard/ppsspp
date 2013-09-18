@@ -5,7 +5,7 @@
 #endif
 
 #if defined(USING_GLES2)
-#if defined(ANDROID)
+#if defined(ANDROID) || defined(BLACKBERRY)
 PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
@@ -43,7 +43,7 @@ void OpenGLState::Restore() {
 	blendFuncSeparate.restore(); count++;
 	blendColor.restore(); count++;
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	if (gl_extensions.QCOM_alpha_test) {
 		alphaTestQCOM.restore();
 	}
@@ -122,7 +122,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
-	gl_extensions.GL_EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
+	gl_extensions.EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
 #if defined(IOS) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
 	gl_extensions.OES_vertex_array_object = false;
 	gl_extensions.EXT_discard_framebuffer = false;
@@ -143,7 +143,7 @@ void CheckGLExtensions() {
 #endif
 #endif
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	if (gl_extensions.OES_mapbuffer) {
 		glMapBuffer = (PFNGLMAPBUFFERPROC)eglGetProcAddress( "glMapBufferOES" );
 	}

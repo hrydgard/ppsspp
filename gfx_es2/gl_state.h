@@ -7,7 +7,7 @@
 
 #ifdef USING_GLES2
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
 /* GL_QCOM_alpha_test */
@@ -273,7 +273,7 @@ public:
 	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	// QCOM Alpha Test 
 	BoolState<GL_ALPHA_TEST_QCOM, false> alphaTestQCOM;
 	STATE2(glAlphaFuncQCOM, GLenum, GLclampf, GL_ALWAYS, 0.0f) alphaFuncQCOM;
@@ -302,7 +302,7 @@ struct GLExtensions {
 	bool QCOM_binning_control;
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
-	bool GL_EXT_shader_framebuffer_fetch;
+	bool EXT_shader_framebuffer_fetch;
 	
 	// EGL extensions
 
