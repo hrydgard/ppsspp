@@ -1370,7 +1370,7 @@ u32 convertARGBToYCbCr(u32 abgr) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
-int hleMpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
+int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
@@ -1421,7 +1421,7 @@ int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int 
 	int height = ctx->mediaengine->m_desHeight;
 
 	if (data) {
-		hleMpegAvcConvertToYuv420(data, bufferOutputAddr, width, height);
+		__MpegAvcConvertToYuv420(data, bufferOutputAddr, width, height);
 	}
 	return 0;
 }
