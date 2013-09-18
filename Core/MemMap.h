@@ -103,7 +103,6 @@ void Clear();
 
 struct Opcode {
 	Opcode() {
-		encoding = 0;
 	}
 
 	explicit Opcode(u32 v) : encoding (v) {
