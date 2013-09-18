@@ -30,8 +30,9 @@ teamcity_mode = False
 TIMEOUT = 5
 
 class Command(object):
-  def __init__(self, cmd):
+  def __init__(self, cmd, data = None):
     self.cmd = cmd
+    self.data = data
     self.process = None
     self.output = None
     self.timeout = False
@@ -39,6 +40,8 @@ class Command(object):
   def run(self, timeout):
     def target():
       self.process = subprocess.Popen(self.cmd, bufsize=1, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
+      self.process.stdin.write(self.data)
+      self.process.stdin.close()
       self.process.communicate()
 
     thread = threading.Thread(target=target)
@@ -306,10 +309,10 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--graphics', '--compare', '--timeout=' + str(TIMEOUT)] + test_filenames
+    cmdline = [PPSSPP_EXE, '--graphics', '--compare', '--timeout=' + str(TIMEOUT), '@-']
     cmdline.extend([i for i in args if i not in ['-g']])
 
-    c = Command(cmdline)
+    c = Command(cmdline, '\n'.join(test_filenames))
     c.run(TIMEOUT * len(test_filenames))
 
     print("Ran " + PPSSPP_EXE)
