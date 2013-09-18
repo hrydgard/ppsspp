@@ -37,6 +37,22 @@ void __JpegDoState(PointerWrap &p) {
 	p.Do(mjpegHeight);
 }
 
+u32 convertYCbCrToABGR (int y, int cb, int cr) {
+	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
+	cb = cb - 128;
+	cr = cr - 128;
+	int r = y + cr + (cr >> 2) + (cr >> 3) + (cr >> 5);
+	int g = y - ((cb >> 2) + (cb >> 4) + (cb >> 5)) - ((cr >> 1) + (cr >> 3) + (cr >> 4) + (cr >> 5));
+	int b = y + cb + (cb >> 1) + (cb >> 2) + (cb >> 6);
+
+	// check rgb value.
+	if (r > 0xFF) r = 0xFF; if(r < 0) r = 0;
+	if (g > 0xFF) g = 0xFF; if(g < 0) g = 0;
+	if (b > 0xFF) b = 0xFF; if(b < 0) b = 0;
+
+	return 0xFF000000 | (r << 16) | (g << 8) | (b << 0);
+}
+
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
 //#define JPEG_DEBUG
 
@@ -78,7 +94,43 @@ int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, in
 
 int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
+	int height = widthHeight & 0xFFF;
+	int width = (widthHeight >> 16) & 0xFFF;
+	int lineWidth = std::min(width, bufferWidth);
+	int skipEndOfLine = std::max(0, bufferWidth - lineWidth);
+	u32 *imageBuffer = (u32*)Memory::GetPointer(imageAddr);
+	int sizeY = width * height;
+	int sizeCb = sizeY >> 2;
+	u8 *Y = (u8*)Memory::GetPointer(yCbCrAddr);
+	u8 *Cb = Y + sizeY;
+	u8 *Cr = Cb + sizeCb;
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; x += 4) {
+			u8 y0 =  Y[x + 0];
+			u8 y1 =  Y[x + 1];
+			u8 y2 =  Y[x + 2];
+			u8 y3 =  Y[x + 3];
+			u8 cb = *Cb++;
+			u8 cr = *Cr++;
+
+			// Convert to ABGR
+			u32 abgr0 = convertYCbCrToABGR(y0, cb, cr);
+			u32 abgr1 = convertYCbCrToABGR(y1, cb, cr);
+			u32 abgr2 = convertYCbCrToABGR(y2, cb, cr);
+			u32 abgr3 = convertYCbCrToABGR(y3, cb, cr);
+
+			// Write ABGR
+			imageBuffer[x + 0] = abgr0;
+			imageBuffer[x + 1] = abgr1;
+			imageBuffer[x + 2] = abgr2;
+			imageBuffer[x + 3] = abgr3;
+		}
+		Y += width;
+		imageBuffer += width;
+		imageBuffer += skipEndOfLine;
+	}
+	DEBUG_LOG(ME, "UNIMPL sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
 }
 
