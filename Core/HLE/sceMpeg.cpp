@@ -1380,15 +1380,15 @@ int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, 
 
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; x += 4) {
-			u32 abgr0 = imageBuffer[x + 0];
-			u32 abgr1 = imageBuffer[x + 1];
-			u32 abgr2 = imageBuffer[x + 2];
-			u32 abgr3 = imageBuffer[x + 3];
+			u32 argb0 = imageBuffer[x + 0];
+			u32 argb1 = imageBuffer[x + 1];
+			u32 argb2 = imageBuffer[x + 2];
+			u32 argb3 = imageBuffer[x + 3];
 
-			u32 yCbCr0 = convertARGBToYCbCr(abgr0);
-			u32 yCbCr1 = convertARGBToYCbCr(abgr1);
-			u32 yCbCr2 = convertARGBToYCbCr(abgr2);
-			u32 yCbCr3 = convertARGBToYCbCr(abgr3);
+			u32 yCbCr0 = convertARGBToYCbCr(argb0);
+			u32 yCbCr1 = convertARGBToYCbCr(argb1);
+			u32 yCbCr2 = convertARGBToYCbCr(argb2);
+			u32 yCbCr3 = convertARGBToYCbCr(argb3);
 			
 			Y[x + 0] = (yCbCr0 >> 16) & 0xFF;
 			Y[x + 1] = (yCbCr1 >> 16) & 0xFF;
