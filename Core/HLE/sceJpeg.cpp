@@ -130,6 +130,7 @@ int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, i
 		imageBuffer += width;
 		imageBuffer += skipEndOfLine;
 	}
+	DEBUG_LOG_REPORT(ME, "UNIMPL sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
 }
 
