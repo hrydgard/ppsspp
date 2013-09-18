@@ -326,6 +326,7 @@ def main():
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       teamcity_mode = True
+      args.append(arg)
     elif arg[0] == '-':
       args.append(arg)
     else:
