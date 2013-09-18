@@ -1353,10 +1353,76 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 	return 0;
 }
 
+u32 convertARGBToYCbCr(u32 abgr) {
+	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
+	u8  r = (abgr >> 16) & 0xFF;
+	u8  g = (abgr >>  8) & 0xFF;
+	u8  b = (abgr >>  0) & 0xFF;
+	int  y = 0.299f * r + 0.587f * g + 0.114f * b + 0;
+	int cb = -0.169f * r - 0.331f * g + 0.499f * b + 128.0f;
+	int cr = 0.499f * r - 0.418f * g - 0.0813f * b + 128.0f;
 
-int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutput, u32 unknown1, int unknown2)
+	// check yCbCr value
+	if ( y > 0xFF)  y = 0xFF; if ( y < 0)  y = 0;
+	if (cb > 0xFF) cb = 0xFF; if (cb < 0) cb = 0;
+	if (cr > 0xFF) cr = 0xFF; if (cr < 0) cr = 0;
+
+	return (y << 16) | (cb << 8) | cr;
+}
+
+int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
+	u32 *imageBuffer = (u32*)data;
+	int sizeY = width * height;
+	int sizeCb = sizeY >> 2;
+	u8 *Y = (u8*)Memory::GetPointer(bufferOutputAddr);
+	u8 *Cb = Y + sizeY;
+	u8 *Cr = Cb + sizeCb;
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; x += 4) {
+			u32 argb0 = imageBuffer[x + 0];
+			u32 argb1 = imageBuffer[x + 1];
+			u32 argb2 = imageBuffer[x + 2];
+			u32 argb3 = imageBuffer[x + 3];
+
+			u32 yCbCr0 = convertARGBToYCbCr(argb0);
+			u32 yCbCr1 = convertARGBToYCbCr(argb1);
+			u32 yCbCr2 = convertARGBToYCbCr(argb2);
+			u32 yCbCr3 = convertARGBToYCbCr(argb3);
+			
+			Y[x + 0] = (yCbCr0 >> 16) & 0xFF;
+			Y[x + 1] = (yCbCr1 >> 16) & 0xFF;
+			Y[x + 2] = (yCbCr2 >> 16) & 0xFF;
+			Y[x + 3] = (yCbCr3 >> 16) & 0xFF;
+
+			*Cb++ = (yCbCr0 >> 8) & 0xFF;
+			*Cr++ = yCbCr0 & 0xFF;
+		}
+		imageBuffer += width;
+		Y += width ;
+	}
+	return (width << 16) | height;
+}
+
+int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int unknown2)
 {
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutput, unknown1, unknown2);
+	if (!Memory::IsValidAddress(bufferOutputAddr)) {
+		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutputAddr, unknown1, unknown2);
+		return 0;
+	}
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutputAddr, unknown1, unknown2);
+		return 0;
+	}
+	DEBUG_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutputAddr, unknown1, unknown2);
+	const u8 *data = ctx->mediaengine->getFrameImage();
+	int width = ctx->mediaengine->m_desWidth;
+	int height = ctx->mediaengine->m_desHeight;
+
+	if (data) {
+		__MpegAvcConvertToYuv420(data, bufferOutputAddr, width, height);
+	}
 	return 0;
 }
 

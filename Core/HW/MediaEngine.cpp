@@ -586,6 +586,10 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	return 0;
 }
 
+u8 *MediaEngine::getFrameImage() {
+	return m_pFrameRGB->data[0];
+}
+
 int MediaEngine::getRemainSize() {
 	if (!m_pdata)
 		return 0;
