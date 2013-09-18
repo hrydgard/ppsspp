@@ -736,7 +736,14 @@ static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 }
 
 static inline u32 ABGR2RGBA(u32 src) {
+#ifndef _XBOX
+	return ((src & 0xFF000000)) | 
+        ((src & 0x00FF0000) >>  16) | 
+        ((src & 0x0000FF00)) | 
+        ((src & 0x000000FF) << 16);  
+#else
 	return (src >> 8) | (src << 24); 
+#endif
 }
 
 static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int numPixels) {
@@ -777,7 +784,7 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 		{
 			const u32 *src = (const u32 *)srcBuf;
 			u32 *dst = (u32*)dstBuf;
-			for (int i = 0; i < numPixels; i++) {				
+			for (int i = 0; i < numPixels; i++) {
 				dst[i] = ABGR2RGBA(src[i]);
 			}
 		}
@@ -1592,13 +1599,6 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 			for(int y = 0; y < h; y++) {
 				const u16 *src = (const u16 *)((u8*)pSrc + (w*2) * y);
 				u16 *dst = (u16*)((u8*)pDst + pitch * y);
-				/*
-				// todo use memcpy
-				for(int x = 0; x < w; x++) {
-					unsigned short rgb = src[x];
-					dst[x] = rgb;
-				}
-				*/
 				memcpy(dst, src, w * sizeof(u16));
 			}
 			break;
