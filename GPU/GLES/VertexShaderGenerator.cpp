@@ -66,8 +66,8 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = lmode & 1;
-	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
-	id->d[0] |= ((int)enableFog) << 2;
+	id->d[0] |= (gstate.isModeThrough() & 1) << 1;
+	id->d[0] |= (enableFog & 1) << 2;
 	id->d[0] |= doTexture << 3;
 	id->d[0] |= (hasColor & 1) << 4;
 	if (doTexture) {
@@ -86,7 +86,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		if (doTextureProjection) {
 			id->d[0] |= gstate.getUVProjMode() << 18;
 		} else if (doShadeMapping) {
-			id->d[0] |= gstate.getUVLS0() << 18;
+			id->d[0] |= gstate.getUVLS0() << 19;
 			id->d[0] |= gstate.getUVLS1() << 20;
 		}
 
