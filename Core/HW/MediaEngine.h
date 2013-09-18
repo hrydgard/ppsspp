@@ -59,6 +59,7 @@ public:
 	void setVideoStream(int streamNum) { m_videoStream = streamNum; }
 	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
 
+	u8 *getFrameImage();
 	int getRemainSize();
 
 	bool stepVideo(int videoPixelMode);
