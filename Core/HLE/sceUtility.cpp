@@ -472,6 +472,7 @@ int sceUtilityGamedataInstallShutdownStart() {
 
 int sceUtilityGamedataInstallUpdate(int speed) {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGamedataInstallUpdate(%08x)", speed);
+	currentDialogActive = false;
 	gamedataInstallDialog.Abort();
 	return 0;
 }
