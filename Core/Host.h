@@ -73,6 +73,7 @@ public:
 #endif
 
 	// Used for headless.
+	virtual bool ShouldSkipUI() { return false; }
 	virtual void SendDebugOutput(const std::string &output) {}
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {}
 };

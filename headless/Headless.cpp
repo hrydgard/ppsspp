@@ -123,7 +123,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
 		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
-		return 1;
+		return false;
 	}
 
 	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
@@ -160,7 +160,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		}
 	}
 
-	host->ShutdownGL();
 	PSP_Shutdown();
 
 	headlessHost->FlushDebugOutput();
@@ -240,6 +239,17 @@ int main(int argc, const char* argv[])
 		}
 		else
 			testFilenames.push_back(argv[i]);
+	}
+
+	// TODO: Allow a filename here?
+	if (testFilenames.size() == 1 && testFilenames[0] == "@-")
+	{
+		testFilenames.clear();
+		char temp[2048];
+		temp[2047] = '\0';
+
+		while (scanf("%2047s", temp) == 1)
+			testFilenames.push_back(temp);
 	}
 
 	if (readMount)
@@ -357,10 +367,10 @@ int main(int argc, const char* argv[])
 		}
 	}
 
+	host->ShutdownGL();
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
 
 	return 0;
 }
-

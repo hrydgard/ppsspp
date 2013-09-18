@@ -46,6 +46,8 @@ public:
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
 
+	virtual bool ShouldSkipUI() { return true; }
+
 	virtual void SendDebugOutput(const std::string &output) {
 		if (output.find('\n') != output.npos) {
 			DoFlushDebugOutput();
