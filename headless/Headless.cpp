@@ -160,7 +160,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		}
 	}
 
-	host->ShutdownGL();
 	PSP_Shutdown();
 
 	headlessHost->FlushDebugOutput();
@@ -357,10 +356,10 @@ int main(int argc, const char* argv[])
 		}
 	}
 
+	host->ShutdownGL();
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
 
 	return 0;
 }
-
