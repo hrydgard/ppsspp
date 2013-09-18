@@ -832,9 +832,7 @@ int PSPOskDialog::Update()
 	// TODO: Add your platforms here when you have a NativeKeyboard func.
 
 #ifdef _WIN32
-	// Fall back to the OSK/continue normally if we're in fullscreen. The dialog box
-	// doesn't work right if in fullscreen.
-	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
+	if(g_Config.bBypassOSKWithKeyboard)
 		return NativeKeyboard();
 #endif
 

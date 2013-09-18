@@ -293,7 +293,8 @@ namespace MainWindow
 		const int y = 0;
 		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
 		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
-		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
+		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
 		// Set full screen indicator.
 		g_bFullScreen = TRUE;
