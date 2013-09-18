@@ -37,6 +37,8 @@ public:
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
 	virtual void SetComparisonScreenshot(const std::string &filename);
 
+	virtual bool ShouldSkipUI() { return false; }
+
 private:
 	bool ResizeGL();
 	void LoadNativeAssets();
