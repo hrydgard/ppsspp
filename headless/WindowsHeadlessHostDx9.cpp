@@ -49,8 +49,11 @@ HWND DxCreateWindow()
 	};
 	RegisterClassEx(&wndClass);
 
+	RECT wr = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};    // set the size, but not the position
+	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);    // adjust the size
+
 	DWORD style = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
-	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
+	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, NULL, NULL);
 }
 
 void WindowsHeadlessHostDx9::LoadNativeAssets()
@@ -112,9 +115,12 @@ bool WindowsHeadlessHostDx9::ResizeGL()
 }
 
 void WindowsHeadlessHostDx9::SwapBuffers()
-{
-	ShowWindow(hWnd, TRUE);
-	SetFocus(hWnd);
+{	
+	MSG msg;
+	PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+	TranslateMessage(&msg);
+	DispatchMessage(&msg);
+
 	DX9::pD3Ddevice->EndScene(); 
 	DX9::pD3Ddevice->Present(0, 0, 0, 0);
 	DX9::pD3Ddevice->BeginScene();   
