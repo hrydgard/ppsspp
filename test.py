@@ -309,7 +309,7 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--graphics', '--compare', '--timeout=' + str(TIMEOUT), '@-']
+    cmdline = [PPSSPP_EXE, '--compare', '--timeout=' + str(TIMEOUT), '@-']
     cmdline.extend([i for i in args if i not in ['-g']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
@@ -326,6 +326,7 @@ def main():
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       teamcity_mode = True
+      args.append(arg)
     elif arg[0] == '-':
       args.append(arg)
     else:
