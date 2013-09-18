@@ -38,7 +38,7 @@ class Command(object):
 
   def run(self, timeout):
     def target():
-      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE)
+      self.process = subprocess.Popen(self.cmd, bufsize=1, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
       self.process.communicate()
 
     thread = threading.Thread(target=target)
