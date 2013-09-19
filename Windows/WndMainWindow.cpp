@@ -1141,6 +1141,8 @@ namespace MainWindow
 				case ID_OPTIONS_RESOLUTIONDUMMY:
 					{
 						static int resolutionMultiplier = 0;
+						resolutionMultiplier = g_Config.iInternalResolution;
+						SetInternalResolution(resolutionMultiplier);
 						resolutionMultiplier = g_Config.iInternalResolution <= 10 ? ++resolutionMultiplier : 0;
 						SetInternalResolution(resolutionMultiplier);
 						ResizeDisplay(true);
