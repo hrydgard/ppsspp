@@ -908,6 +908,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
+		if (diff)
+			gstate_c.framebufChanged = true;
 		break;
 
 		///
