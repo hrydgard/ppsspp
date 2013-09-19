@@ -323,6 +323,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
+	g_Config.bFrameSkipUnthrottle = false;
 
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
@@ -361,7 +362,7 @@ int main(int argc, const char* argv[])
 		if (!failedTests.empty())
 		{
 			printf("Failed tests:\n");
-			for (int i = 0; i < failedTests.size(); ++i) {
+			for (size_t i = 0; i < failedTests.size(); ++i) {
 				printf("  %s\n", failedTests[i].c_str());
 			}
 		}
