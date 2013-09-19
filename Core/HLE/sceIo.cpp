@@ -958,19 +958,29 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		FileMove seek = FILEMOVE_BEGIN;
+		FileMove seek;
 
 		s64 newPos = 0;
 		switch (whence) {
 		case 0:
-			newPos = offset;
+			if (offset > 0)
+				newPos = offset;
+			else 
+				ERROR_LOG(HLE,"__IoLseek: invalid BEGIN offset");
+			seek = FILEMOVE_BEGIN;
 			break;
 		case 1:
-			newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
+			if (newPos + offset > 0)
+				newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
+			else 
+				ERROR_LOG(HLE,"__IoLseek: invalid CURRENT offset");
 			seek = FILEMOVE_CURRENT;
 			break;
 		case 2:
-			newPos = f->info.size + offset;
+			if (f->info.size + offset > 0)
+				newPos = f->info.size + offset;
+			else 
+				ERROR_LOG(HLE,"__IoLseek: invalid END offset");
 			seek = FILEMOVE_END;
 			break;
 		}
