@@ -1146,9 +1146,9 @@ namespace MainWindow
 					
 				case ID_OPTIONS_RESOLUTIONDUMMY:
 					{
-                SetInternalResolution();
-                ResizeDisplay(true);
-                break;
+            SetInternalResolution();
+            ResizeDisplay(true);
+            break;
 					}
 
 				case ID_OPTIONS_VSYNC:
