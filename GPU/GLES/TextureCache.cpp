@@ -961,6 +961,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 			glBindTexture(GL_TEXTURE_2D, 0);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		}
+		//OpenGL 2.0 have problem reading with it, let's not do it for now.
+		if (!g_Config.bForceOpenGL20)
 		UpdateSamplingParams(*entry, false);
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
