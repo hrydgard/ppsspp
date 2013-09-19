@@ -736,6 +736,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				break;
+			}
+
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -771,6 +776,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SPLINE:
 		{
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				break;
+			}
+
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -898,6 +908,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
+		if (diff)
+			gstate_c.framebufChanged = true;
 		break;
 
 		///
