@@ -231,9 +231,15 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
-	void SetInternalResolution(int res) {
-		g_Config.iInternalResolution = res;
-	}
+       void SetInternalResolution(int res = -1) {
+               const int MAX_ZOOM = 10;
+               if (res >= 0 && res <= MAX_ZOOM)
+                g_Config.iInternalResolution = res;
+               else {
+            if (++g_Config.iInternalResolution > MAX_ZOOM)
+                g_Config.iInternalResolution = 0;
+                     }
+         }
 
 	void CorrectCursor() {
 		bool autoHide = g_bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
@@ -1140,13 +1146,9 @@ namespace MainWindow
 					
 				case ID_OPTIONS_RESOLUTIONDUMMY:
 					{
-						static int resolutionMultiplier = 0;
-						resolutionMultiplier = g_Config.iInternalResolution;
-						SetInternalResolution(resolutionMultiplier);
-						resolutionMultiplier = g_Config.iInternalResolution <= 10 ? ++resolutionMultiplier : 0;
-						SetInternalResolution(resolutionMultiplier);
-						ResizeDisplay(true);
-						break;
+					  SetInternalResolution();
+                                          ResizeDisplay(true);
+                                          break;
 					}
 
 				case ID_OPTIONS_VSYNC:
