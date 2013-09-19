@@ -136,6 +136,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 #endif
 		); // default is buffered rendering mode
 	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
+#ifdef _WIN32
+	graphics->Get("ForceOpenGL2.0", &bForceOpenGL20, false);
+#endif
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	// Auto on Windows, 1x elsewhere. Maybe change to 2x on large screens?
@@ -308,6 +311,9 @@ void Config::Save() {
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("SoftwareRendering", bSoftwareRendering);
+#ifdef _WIN32
+		graphics->Set("ForceOpenGL2.0", bForceOpenGL20);
+#endif	
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("InternalResolution", iInternalResolution);
