@@ -1015,7 +1015,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		}
 
 		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
-		u32 fb_address = (0x44000000) | vfb->fb_address;
+		u32 fb_address = (0x04000000) | vfb->fb_address;
 
 		if (vfb->fbo) {
 			fbo_bind_for_read(vfb->fbo);
