@@ -178,7 +178,11 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		// Apply to non-buffered and buffered mode only.
-		if (g_Config.iRenderingMode == FB_READFBOMEMORY_CPU || g_Config.iRenderingMode == FB_READFBOMEMORY_GPU )
+#ifndef USING_GLES2
+		if ((g_Config.iRenderingMode == FB_READFBOMEMORY_CPU) || (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU))
+#else
+		if (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU)
+#endif
 			return;
 
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
