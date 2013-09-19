@@ -56,11 +56,11 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		xregs[i].dirty = false;
 		xregs[i].allocLocked = false;
 	}
+	memset(regs, 0, sizeof(regs));
+	OpArg base = GetDefaultLocation(MIPS_REG_ZERO);
 	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
-		const MIPSGPReg r = MIPSGPReg(i);
-		regs[i].location = GetDefaultLocation(r);
-		regs[i].away = false;
-		regs[i].locked = false;
+		regs[i].location = base;
+		base.IncreaseOffset(sizeof(u32));
 	}
 
 	// todo: sort to find the most popular regs
@@ -245,7 +245,7 @@ void GPRRegCache::BindToRegister(MIPSGPReg i, bool doLoad, bool makeDirty) {
 				emit->MOV(32, newloc, regs[i].location);
 		}
 		for (int j = 0; j < 32; j++) {
-			if (i != MIPSGPReg(j) && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr) {
+			if (i != MIPSGPReg(j) && regs[j].location.IsSimpleReg(xr)) {
 				ERROR_LOG(JIT, "BindToRegister: Strange condition");
 				Crash();
 			}
