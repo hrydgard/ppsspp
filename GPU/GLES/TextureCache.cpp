@@ -177,8 +177,12 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
+		// Apply to non-buffered and buffered mode only.
+		if (g_Config.iRenderingMode == FB_READFBOMEMORY_CPU || g_Config.iRenderingMode == FB_READFBOMEMORY_GPU )
+			return;
+
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer && (g_Config.iRenderingMode == FB_BUFFERED_MODE || entry->invalidHint == -1)) {
+		if (!entry->framebuffer || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
@@ -189,7 +193,11 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			}
 			// TODO: Delete the original non-fbo texture too.
 		}
-	} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+	} else {
+		// Apply to buffered mode only while memory mode should be more accurate itself for offset/palette etc.
+		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
+			return;
+
 		// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
 		const bool compatFormat = framebuffer->format == entry->format
 			|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
