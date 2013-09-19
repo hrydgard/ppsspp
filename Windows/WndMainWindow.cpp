@@ -231,14 +231,14 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
-        void SetInternalResolution(int res = -1) {
-	const int MAX_ZOOM = 10;
-	if (res >= 0 && res <= MAX_ZOOM)
-	g_Config.iInternalResolution = res;
-	else {
-	if (++g_Config.iInternalResolution > MAX_ZOOM)
-	g_Config.iInternalResolution = 0;
-	}
+    void SetInternalResolution(int res = -1) {
+		const int MAX_ZOOM = 10;
+		if (res >= 0 && res <= MAX_ZOOM)
+		g_Config.iInternalResolution = res;
+		else {
+		if (++g_Config.iInternalResolution > MAX_ZOOM)
+		g_Config.iInternalResolution = 0;
+		}
 	}
 
 	void CorrectCursor() {
