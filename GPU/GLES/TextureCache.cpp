@@ -179,9 +179,9 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	if (exactMatch) {
 		// Apply to non-buffered and buffered mode only.
 #ifndef USING_GLES2
-		if ((g_Config.iRenderingMode == FB_READFBOMEMORY_CPU) || (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU ))
+		if ((g_Config.iRenderingMode == FB_READFBOMEMORY_CPU) || (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU))
 #else
-		if (g_Config.iRenderingMode == g_Config.iRenderingMode == FB_READFBOMEMORY_GPU)
+		if (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU)
 #endif
 			return;
 
