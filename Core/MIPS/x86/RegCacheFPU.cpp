@@ -35,11 +35,16 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		xregs[i].mipsReg = -1;
 		xregs[i].dirty = false;
 	}
-	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
-		regs[i].location = GetDefaultLocation(i);
-		regs[i].away = false;
-		regs[i].locked = false;
-		regs[i].tempLocked = false;
+	memset(regs, 0, sizeof(regs));
+	OpArg base = GetDefaultLocation(0);
+	for (int i = 0; i < 32; i++) {
+		regs[i].location = base;
+		base.IncreaseOffset(sizeof(float));
+	}
+	base = GetDefaultLocation(32);
+	for (int i = 32; i < NUM_MIPS_FPRS; i++) {
+		regs[i].location = base;
+		base.IncreaseOffset(sizeof(float));
 	}
 }
 

@@ -376,7 +376,7 @@ u32 sceCtrlSetSamplingCycle(u32 cycle)
 
 int sceCtrlGetSamplingCycle(u32 cyclePtr)
 {
-	DEBUG_LOG(SCECTRL, "sceCtrlSetSamplingCycle(%08x)", cyclePtr);
+	DEBUG_LOG(SCECTRL, "sceCtrlGetSamplingCycle(%08x)", cyclePtr);
 	if (Memory::IsValidAddress(cyclePtr))
 		Memory::Write_U32(ctrlCycle, cyclePtr);
 	return 0;

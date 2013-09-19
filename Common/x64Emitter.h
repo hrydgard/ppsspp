@@ -150,8 +150,6 @@ struct OpArg
 	bool IsImm() const {return scale == SCALE_IMM8 || scale == SCALE_IMM16 || scale == SCALE_IMM32 || scale == SCALE_IMM64;}
 	bool IsSimpleReg() const {return scale == SCALE_NONE;}
 	bool IsSimpleReg(X64Reg reg) const {
-		if (!IsSimpleReg())
-			return false;
 		return GetSimpleReg() == reg;
 	}
 
@@ -182,9 +180,14 @@ struct OpArg
 			return INVALID_REG;
 	}
 
-  u32 GetImmValue() const {
-    return (u32)offset;
-  }
+	u32 GetImmValue() const {
+		return (u32)offset;
+	}
+
+	// For loops.
+	void IncreaseOffset(int sz) {
+		offset += sz;
+	}
 private:
 	u8 scale;
 	u16 offsetOrBaseReg;
