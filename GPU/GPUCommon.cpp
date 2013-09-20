@@ -530,17 +530,6 @@ void GPUCommon::ReapplyGfxStateInternal() {
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
-	/*
-	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_ZTEST], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_CULL], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
-	ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
-	*/
 
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++) {
 		if (i != GE_CMD_ORIGIN) {
@@ -550,7 +539,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 
 	// Can't write to bonematrixnumber here
 
-	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++) {
+	for (int i = GE_CMD_MORPHWEIGHT0; i <= GE_CMD_PATCHFACING; i++) {
 		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
@@ -560,7 +549,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
-	// TODO: there's more...
+	// Let's just skip the transfer size stuff, it's just values.
 }
 
 inline void GPUCommon::UpdateState(GPUState state) {
