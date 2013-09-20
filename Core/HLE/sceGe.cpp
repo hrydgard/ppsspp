@@ -476,7 +476,7 @@ u32 sceGeSaveContext(u32 ctxAddr)
 	// Let's just dump gstate.
 	if (Memory::IsValidAddress(ctxAddr))
 	{
-		Memory::WriteStruct(ctxAddr, &gstate);
+		gstate.Save((u32_le *)Memory::GetPointer(ctxAddr));
 	}
 
 	// This action should probably be pushed to the end of the queue of the display thread -
@@ -497,7 +497,7 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 
 	if (Memory::IsValidAddress(ctxAddr))
 	{
-		Memory::ReadStruct(ctxAddr, &gstate);
+		gstate.Restore((u32_le *)Memory::GetPointer(ctxAddr));
 	}
 	ReapplyGfxState();
 
@@ -550,8 +550,16 @@ u32 sceGeGetCmd(int cmd)
 
 u32 sceGeEdramSetAddrTranslation(int new_size)
 {
-	INFO_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i)", new_size);
-	static int EDRamWidth;
+	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
+	bool notPowerOfTwo = (new_size & (new_size - 1)) != 0;
+	if (outsideRange || notPowerOfTwo)
+	{
+		WARN_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i): invalid value", new_size);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+
+	DEBUG_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i)", new_size);
+	static int EDRamWidth = 0x400;
 	int last = EDRamWidth;
 	EDRamWidth = new_size;
 	return last;
