@@ -470,10 +470,11 @@ u32 sceGeSaveContext(u32 ctxAddr)
 	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
-	if (sizeof(gstate) > 512 * 4)
+	if (gpu->DrawSync(1) != PSP_GE_LIST_COMPLETED)
 	{
-		ERROR_LOG(SCEGE, "AARGH! sizeof(gstate) has grown too large!");
-		return 0;
+		WARN_LOG(SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
+		// Real error code.
+		return -1;
 	}
 
 	// Let's just dump gstate.
@@ -492,10 +493,10 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
-	if (sizeof(gstate) > 512 * 4)
+	if (gpu->DrawSync(1) != PSP_GE_LIST_COMPLETED)
 	{
-		ERROR_LOG(SCEGE, "AARGH! sizeof(gstate) has grown too large!");
-		return 0;
+		WARN_LOG(SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);
+		return SCE_KERNEL_ERROR_BUSY;
 	}
 
 	if (Memory::IsValidAddress(ctxAddr))
