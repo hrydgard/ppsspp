@@ -162,9 +162,9 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool computeMin = gstate.getBlendEq() == GE_BLENDMODE_MIN && gl_extensions.GL_EXT_shader_framebuffer_fetch;
-		bool computeMax = gstate.getBlendEq() == GE_BLENDMODE_MAX && gl_extensions.GL_EXT_shader_framebuffer_fetch;
-		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF && gl_extensions.GL_EXT_shader_framebuffer_fetch;
+		bool computeMin = gstate.getBlendEq() == GE_BLENDMODE_MIN && gl_extensions.EXT_shader_framebuffer_fetch;
+		bool computeMax = gstate.getBlendEq() == GE_BLENDMODE_MAX && gl_extensions.EXT_shader_framebuffer_fetch;
+		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF && gl_extensions.EXT_shader_framebuffer_fetch;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -378,7 +378,7 @@ void GenerateFragmentShader(char *buffer) {
 		}
 		
 #if defined(USING_GLES2)
-		if (gl_extensions.GL_EXT_shader_framebuffer_fetch) {
+		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			// GL_MIN blending mode
 			if(gstate.getBlendEq() == GE_BLENDMODE_MIN && gstate_c.gpuVendor == GPU_VENDOR_POWERVR)
 				WRITE(p, "  gl_FragColor = min(gl_LastFragData[0],v);\n");
