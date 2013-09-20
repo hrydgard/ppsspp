@@ -962,7 +962,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		}
 		//OpenGL 2.0 have problem reading with it, let's not do it for now.
-		if (!g_Config.bForceOpenGL20)
+		const char *extString = (const char *)glGetString(GL_EXTENSIONS);
+		if(strstr(extString,("GL_ARB_pixel_buffer_object")) && (g_Config.bForceOpenGL20==false))
 		UpdateSamplingParams(*entry, false);
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
