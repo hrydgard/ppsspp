@@ -139,7 +139,7 @@ void GPUgstate::Save(u32_le *ptr) {
 	ptr[6] = gstate_c.indexAddr;
 	ptr[7] = gstate_c.offsetAddr;
 
-	// Command values start 17 bytes in.
+	// Command values start 17 ints in.
 	u32_le *cmds = ptr + 17;
 	for (size_t i = 0; i < ARRAY_SIZE(contextCmdRanges); ++i) {
 		for (int n = contextCmdRanges[i].start; n <= contextCmdRanges[i].end; ++n) {
@@ -171,7 +171,7 @@ void GPUgstate::Restore(u32_le *ptr) {
 	gstate_c.indexAddr = ptr[6];
 	gstate_c.offsetAddr = ptr[7];
 
-	// Command values start 17 bytes in.
+	// Command values start 17 ints in.
 	u32_le *cmds = ptr + 17;
 	for (size_t i = 0; i < ARRAY_SIZE(contextCmdRanges); ++i) {
 		for (int n = contextCmdRanges[i].start; n <= contextCmdRanges[i].end; ++n) {

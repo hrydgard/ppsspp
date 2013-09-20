@@ -20,6 +20,7 @@
 #include "Globals.h"
 #include "GPU/GPUState.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceGe.h"
 #include <list>
 #include <string>
 
@@ -130,6 +131,8 @@ struct DisplayList
 	u64 waitTicks;
 	bool interruptsEnabled;
 	bool pendingInterrupt;
+	bool started;
+	u32_le *context;
 };
 
 enum GPUInvalidationType {
@@ -186,7 +189,7 @@ public:
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
 	// TODO: Much of this should probably be shared between the different GPU implementations.
-	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) = 0;
 	virtual u32  DequeueList(int listid) = 0;
 	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
 	virtual u32  DrawSync(int mode) = 0;

@@ -30,7 +30,7 @@ public:
 	virtual bool InterpretList(DisplayList &list);
 	virtual bool ProcessDLQueue();
 	virtual u32  UpdateStall(int listid, u32 newstall);
-	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head);
 	virtual u32  DequeueList(int listid);
 	virtual int  ListSync(int listid, int mode);
 	virtual u32  DrawSync(int mode);

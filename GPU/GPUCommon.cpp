@@ -157,7 +157,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 	return PSP_GE_LIST_COMPLETED;
 }
 
-u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) {
+u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
 	easy_guard guard(listLock);
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
@@ -219,6 +219,11 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) {
 	dl.interrupted = false;
 	dl.waitTicks = (u64)-1;
 	dl.interruptsEnabled = interruptsEnabled_;
+	dl.started = false;
+	if (args.IsValid() && args->context.IsValid())
+		dl.context = args->context;
+	else
+		dl.context = NULL;
 
 	if (head) {
 		if (currentList) {
@@ -408,6 +413,11 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	//if (list.state == PSP_GE_DL_STATE_PAUSED)
 	//	return false;
 	currentList = &list;
+
+	if (!list.started && list.context != NULL) {
+		gstate.Save(list.context);
+	}
+	list.started = true;
 
 	// I don't know if this is the correct place to zero this, but something
 	// need to do it. See Sol Trigger title screen.
@@ -884,6 +894,9 @@ void GPUCommon::InterruptEnd(int listid) {
 	dl.pendingInterrupt = false;
 	// TODO: Unless the signal handler could change it?
 	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
+		if (dl.started && dl.context != NULL) {
+			gstate.Restore(dl.context);
+		}
 		dl.waitTicks = 0;
 		__GeTriggerWait(WAITTYPE_GELISTSYNC, listid);
 	}
