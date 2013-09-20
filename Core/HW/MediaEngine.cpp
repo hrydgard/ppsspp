@@ -215,7 +215,7 @@ bool MediaEngine::openContext() {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 
-	if (m_pFormatCtx || !m_pdata)
+	if (!m_pFormatCtx || !m_pdata)
 		return false;
 	m_mpegheaderReadPos = 0;
 	m_decodingsize = 0;
