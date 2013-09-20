@@ -669,18 +669,18 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
-			// Discard AA lines in DOA
-			if ((prim == GE_PRIM_LINE_STRIP) && gstate.isAntiAliasEnabled())
-				break;
-
-			// Discard AA lines in Summon Night 5
-			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && gstate.isSkinningEnabled())
-				break;
+			if (gstate.isAntiAliasEnabled()) {
+				// Discard AA lines in DOA
+				if (prim == GE_PRIM_LINE_STRIP)
+					break;
+				// Discard AA lines in Summon Night 5
+				if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+					break;
+			}
 
 			// This also make skipping drawing very effective.
 			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))
-			{
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 				transformDraw_.SetupVertexDecoder(gstate.vertType);
 				// Rough estimate, not sure what's correct.
 				int vertexCost = transformDraw_.EstimatePerVertexCost();
