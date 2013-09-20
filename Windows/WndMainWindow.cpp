@@ -239,6 +239,7 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
+		ResizeDisplay(true);
 	}
 
 	void CorrectCursor() {
@@ -1137,17 +1138,17 @@ namespace MainWindow
 					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 
-				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(RESOLUTION_AUTO); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN1X:   SetInternalResolution(RESOLUTION_NATIVE); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN2X:   SetInternalResolution(RESOLUTION_2X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN3X:   SetInternalResolution(RESOLUTION_3X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN4X:   SetInternalResolution(RESOLUTION_4X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN5X:   SetInternalResolution(RESOLUTION_5X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN6X:   SetInternalResolution(RESOLUTION_6X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN7X:   SetInternalResolution(RESOLUTION_7X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN8X:   SetInternalResolution(RESOLUTION_8X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN9X:   SetInternalResolution(RESOLUTION_9X); ResizeDisplay(true); break;
-				case ID_OPTIONS_SCREEN10X:   SetInternalResolution(RESOLUTION_MAX); ResizeDisplay(true); break;
+				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(RESOLUTION_AUTO); break;
+				case ID_OPTIONS_SCREEN1X:   SetInternalResolution(RESOLUTION_NATIVE); break;
+				case ID_OPTIONS_SCREEN2X:   SetInternalResolution(RESOLUTION_2X); break;
+				case ID_OPTIONS_SCREEN3X:   SetInternalResolution(RESOLUTION_3X); break;
+				case ID_OPTIONS_SCREEN4X:   SetInternalResolution(RESOLUTION_4X); break;
+				case ID_OPTIONS_SCREEN5X:   SetInternalResolution(RESOLUTION_5X); break;
+				case ID_OPTIONS_SCREEN6X:   SetInternalResolution(RESOLUTION_6X); break;
+				case ID_OPTIONS_SCREEN7X:   SetInternalResolution(RESOLUTION_7X); break;
+				case ID_OPTIONS_SCREEN8X:   SetInternalResolution(RESOLUTION_8X); break;
+				case ID_OPTIONS_SCREEN9X:   SetInternalResolution(RESOLUTION_9X); break;
+				case ID_OPTIONS_SCREEN10X:   SetInternalResolution(RESOLUTION_MAX); break;
 
 				case ID_OPTIONS_WINDOW1X:   SetWindowSize(1); break;
 				case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
@@ -1157,7 +1158,6 @@ namespace MainWindow
 				case ID_OPTIONS_RESOLUTIONDUMMY:
 					{
 						SetInternalResolution();
-						ResizeDisplay(true);
 						break;
 					}
 
