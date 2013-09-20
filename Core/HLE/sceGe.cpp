@@ -550,8 +550,16 @@ u32 sceGeGetCmd(int cmd)
 
 u32 sceGeEdramSetAddrTranslation(int new_size)
 {
-	INFO_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i)", new_size);
-	static int EDRamWidth;
+	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
+	bool notPowerOfTwo = (new_size & (new_size - 1)) != 0;
+	if (outsideRange || notPowerOfTwo)
+	{
+		WARN_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i): invalid value", new_size);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+
+	DEBUG_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i)", new_size);
+	static int EDRamWidth = 0x400;
 	int last = EDRamWidth;
 	EDRamWidth = new_size;
 	return last;
