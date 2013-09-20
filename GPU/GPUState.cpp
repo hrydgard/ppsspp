@@ -67,38 +67,22 @@ void GPU_Shutdown() {
 	gpu = 0;
 }
 
-void InitGfxState()
-{
+void InitGfxState() {
 	memset(&gstate, 0, sizeof(gstate));
 	memset(&gstate_c, 0, sizeof(gstate_c));
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
 	}
 
-	gstate.lightingEnable = 0x17000001;
-
-	static const float identity4x3[12] =
-	{1,0,0,
- 	 0,1,0,
- 	 0,0,1,
-	 0,0,0,};
-	static const float identity4x4[16] =
-	{1,0,0,0,
-	 0,1,0,0,
-	 0,0,1,0,
-	 0,0,0,1};
-
-	memcpy(gstate.worldMatrix, identity4x3, 12 * sizeof(float));
-	memcpy(gstate.viewMatrix, identity4x3, 12 * sizeof(float));
-	memcpy(gstate.projMatrix, identity4x4, 16 * sizeof(float));
-	memcpy(gstate.tgenMatrix, identity4x3, 12 * sizeof(float));
-	for (int i = 0; i < 8; i++) {
-		memcpy(gstate.boneMatrix + i * 12, identity4x3, 12 * sizeof(float));
-	}
+	// Lighting is not enabled by default, matrices are zero initialized.
+	memset(gstate.worldMatrix, 0, sizeof(gstate.worldMatrix));
+	memset(gstate.viewMatrix, 0, sizeof(gstate.viewMatrix));
+	memset(gstate.projMatrix, 0, sizeof(gstate.projMatrix));
+	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
+	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
 }
 
-void ShutdownGfxState()
-{
+void ShutdownGfxState() {
 }
 
 // When you have changed state outside the psp gfx core,
