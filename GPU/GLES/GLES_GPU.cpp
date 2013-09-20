@@ -813,10 +813,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BJUMP:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(bjump, G3D, "Unsupported bjump: %06x", data);
 		// bounding box jump. Let's just not jump, for now.
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(boundingbox, G3D, "Unsupported bounding box: %06x", data);
 		// bounding box test. Let's do nothing.
 		break;
 
