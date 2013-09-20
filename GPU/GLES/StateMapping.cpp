@@ -227,7 +227,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
 		}
 #if defined(USING_GLES2)
-		if ((blendFuncEq == GE_BLENDMODE_MIN || blendFuncEq == GE_BLENDMODE_MAX || blendFuncEq == GE_BLENDMODE_ABSDIFF) && gl_extensions.GL_EXT_shader_framebuffer_fetch) {
+		if ((blendFuncEq == GE_BLENDMODE_MIN || blendFuncEq == GE_BLENDMODE_MAX || blendFuncEq == GE_BLENDMODE_ABSDIFF) && gl_extensions.EXT_shader_framebuffer_fetch) {
 			return;
 #endif
 #if !defined(USING_GLES2)
