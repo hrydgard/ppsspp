@@ -20,6 +20,7 @@
 #include <cmath>
 #include "../Globals.h"
 #include "ge_constants.h"
+#include "Common/Swap.h"
 
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
 // This is used for light positions, transform matrices, you name it.
@@ -389,6 +390,9 @@ struct GPUgstate
 	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
 // Real data in the context ends here
+
+	void Save(u32_le *ptr);
+	void Restore(u32_le *ptr);
 };
 
 enum SkipDrawReasonFlags {

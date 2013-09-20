@@ -476,7 +476,7 @@ u32 sceGeSaveContext(u32 ctxAddr)
 	// Let's just dump gstate.
 	if (Memory::IsValidAddress(ctxAddr))
 	{
-		Memory::WriteStruct(ctxAddr, &gstate);
+		gstate.Save((u32_le *)Memory::GetPointer(ctxAddr));
 	}
 
 	// This action should probably be pushed to the end of the queue of the display thread -
@@ -497,7 +497,7 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 
 	if (Memory::IsValidAddress(ctxAddr))
 	{
-		Memory::ReadStruct(ctxAddr, &gstate);
+		gstate.Restore((u32_le *)Memory::GetPointer(ctxAddr));
 	}
 	ReapplyGfxState();
 
