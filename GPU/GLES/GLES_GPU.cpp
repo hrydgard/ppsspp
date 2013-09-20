@@ -1356,6 +1356,25 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 #endif
 
+	case GE_CMD_UNKNOWN_03: 
+	case GE_CMD_UNKNOWN_0D:
+	case GE_CMD_UNKNOWN_11:
+	case GE_CMD_UNKNOWN_29:
+	case GE_CMD_UNKNOWN_34:
+	case GE_CMD_UNKNOWN_35:
+	case GE_CMD_UNKNOWN_39:
+	case GE_CMD_UNKNOWN_4E:
+	case GE_CMD_UNKNOWN_4F:
+	case GE_CMD_UNKNOWN_52:
+	case GE_CMD_UNKNOWN_59:
+	case GE_CMD_UNKNOWN_5A:
+	case GE_CMD_UNKNOWN_B6:
+	case GE_CMD_UNKNOWN_B7:
+	case GE_CMD_UNKNOWN_D1:
+	case GE_CMD_UNKNOWN_ED:
+		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command: %06x", data);
+		break;
+		
 	default:
 		GPUCommon::ExecuteOp(op, diff);
 		break;
