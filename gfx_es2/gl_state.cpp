@@ -180,9 +180,11 @@ void CheckGLExtensions() {
 #else
 	gl_extensions.FBO_ARB = false;
 	gl_extensions.FBO_EXT = false;
+	gl_extensions.PBO_ARB = true;
 	if (extString) {
 		gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 		gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
+		gl_extensions.PBO_ARB = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
 	}
 #endif
 }
