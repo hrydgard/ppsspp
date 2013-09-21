@@ -333,12 +333,12 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 	DEBUG_LOG(SCEGE,
 			"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
-	//if (!stallAddress)
-	//	stallAddress = listAddress;
-	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), false);
+	PSPPointer<PspGeListArgs> optParam;
+	optParam = optParamAddr;
+
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, false);
 
 	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
-	//return display list ID
 	return listID;
 }
 
@@ -348,7 +348,10 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 	DEBUG_LOG(SCEGE,
 			"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
-	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), true);
+	PSPPointer<PspGeListArgs> optParam;
+	optParam = optParamAddr;
+
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);
 
 	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
 	return listID;
@@ -467,10 +470,11 @@ u32 sceGeSaveContext(u32 ctxAddr)
 	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
-	if (sizeof(gstate) > 512 * 4)
+	if (gpu->DrawSync(1) != PSP_GE_LIST_COMPLETED)
 	{
-		ERROR_LOG(SCEGE, "AARGH! sizeof(gstate) has grown too large!");
-		return 0;
+		WARN_LOG(SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
+		// Real error code.
+		return -1;
 	}
 
 	// Let's just dump gstate.
@@ -489,10 +493,10 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
-	if (sizeof(gstate) > 512 * 4)
+	if (gpu->DrawSync(1) != PSP_GE_LIST_COMPLETED)
 	{
-		ERROR_LOG(SCEGE, "AARGH! sizeof(gstate) has grown too large!");
-		return 0;
+		WARN_LOG(SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);
+		return SCE_KERNEL_ERROR_BUSY;
 	}
 
 	if (Memory::IsValidAddress(ctxAddr))

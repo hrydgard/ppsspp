@@ -38,6 +38,8 @@ struct PPGeVertex {
 	float_le x, y, z;
 };
 
+static PSPPointer<PspGeListArgs> listArgs;
+static u32 listArgsSize = sizeof(PspGeListArgs);
 static u32 savedContextPtr;
 static u32 savedContextSize = 512 * 4;
 
@@ -133,6 +135,20 @@ static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
 	return ptr;
 }
 
+void __PPGeSetupListArgs()
+{
+	if (listArgs.IsValid())
+		return;
+
+	listArgs = __PPGeDoAlloc(listArgsSize, false, "PPGe List Args");
+	if (listArgs.IsValid()) {
+		listArgs->size = 8;
+		if (savedContextPtr == 0)
+			savedContextPtr = __PPGeDoAlloc(savedContextSize, false, "PPGe Saved Context");
+		listArgs->context = savedContextPtr;
+	}
+}
+
 void __PPGeInit()
 {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
@@ -157,7 +173,7 @@ void __PPGeInit()
 	atlasHeight = height;
 	dlPtr = __PPGeDoAlloc(dlSize, false, "PPGe Display List");
 	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
-	savedContextPtr = __PPGeDoAlloc(savedContextSize, false, "PPGe Saved Context");
+	__PPGeSetupListArgs();
 	atlasPtr = __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
 	palette = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
 
@@ -182,13 +198,13 @@ void __PPGeInit()
 	
 	free(imageData);
 
-	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
-		dlPtr, dataPtr, atlasPtr, atlasSize, savedContextPtr);
+	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
+		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
 }
 
 void __PPGeDoState(PointerWrap &p)
 {
-	auto s = p.Section("PPGeDraw", 1);
+	auto s = p.Section("PPGeDraw", 1, 2);
 	if (!s)
 		return;
 
@@ -199,6 +215,12 @@ void __PPGeDoState(PointerWrap &p)
 
 	p.Do(savedContextPtr);
 	p.Do(savedContextSize);
+
+	if (s == 1) {
+		listArgs = 0;
+	} else {
+		p.Do(listArgs);
+	}
 
 	p.Do(dlPtr);
 	p.Do(dlWritePtr);
@@ -223,6 +245,8 @@ void __PPGeShutdown()
 		kernelMemory.Free(dataPtr);
 	if (dlPtr)
 		kernelMemory.Free(dlPtr);
+	if (listArgs.IsValid())
+		kernelMemory.Free(listArgs.ptr);
 	if (savedContextPtr)
 		kernelMemory.Free(savedContextPtr);
 	if (palette)
@@ -232,6 +256,7 @@ void __PPGeShutdown()
 	dataPtr = 0;
 	dlPtr = 0;
 	savedContextPtr = 0;
+	listArgs = 0;
 }
 
 void PPGeBegin()
@@ -277,17 +302,15 @@ void PPGeEnd()
 	WriteCmd(GE_CMD_FINISH, 0);
 	WriteCmd(GE_CMD_END, 0);
 
-	if (dataWritePtr > dataPtr) {
-		sceGeBreak(0);
-		sceGeSaveContext(savedContextPtr);
-		gpu->EnableInterrupts(false);
+	// Might've come from an old savestate.
+	__PPGeSetupListArgs();
 
+	if (dataWritePtr > dataPtr) {
 		// We actually drew something
-		u32 list = sceGeListEnQueueHead(dlPtr, dlWritePtr, -1, 0);
+		gpu->EnableInterrupts(false);
+		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, -1, listArgs.ptr);
 		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
-		sceGeContinue();
-		sceGeRestoreContext(savedContextPtr);
 	}
 }
 
