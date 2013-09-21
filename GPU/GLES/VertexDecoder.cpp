@@ -569,7 +569,11 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	int decOff = 0;
 	memset(&decFmt, 0, sizeof(decFmt));
 
-	DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
+	if (morphcount > 1) {
+		DEBUG_LOG_REPORT_ONCE(m, G3D,"VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
+	} else {
+		DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
+	}
 
 	if (weighttype) { // && nweights?
 		//size = align(size, wtalign[weighttype]);	unnecessary
