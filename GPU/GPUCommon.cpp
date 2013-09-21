@@ -683,6 +683,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				auto &stackEntry = currentList->stack[currentList->stackptr++];
 				stackEntry.pc = retval;
 				stackEntry.offsetAddr = gstate_c.offsetAddr;
+				// The base address is NOT saved/restored for a regular call.
 				UpdatePC(currentList->pc, target - 4);
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
@@ -777,6 +778,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							auto &stackEntry = currentList->stack[currentList->stackptr++];
 							stackEntry.pc = currentList->pc;
 							stackEntry.offsetAddr = gstate_c.offsetAddr;
+							stackEntry.baseAddr = gstate.base;
 							UpdatePC(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
@@ -793,6 +795,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							// TODO: This might save/restore other state...
 							auto &stackEntry = currentList->stack[--currentList->stackptr];
 							gstate_c.offsetAddr = stackEntry.offsetAddr;
+							gstate.base = stackEntry.baseAddr;
 							UpdatePC(currentList->pc, stackEntry.pc);
 							currentList->pc = stackEntry.pc;
 							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);

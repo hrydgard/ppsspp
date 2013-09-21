@@ -113,6 +113,7 @@ struct DisplayListStackEntry
 {
 	u32 pc;
 	u32 offsetAddr;
+	u32 baseAddr;
 };
 
 struct DisplayList
