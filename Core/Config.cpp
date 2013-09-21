@@ -138,6 +138,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
 #ifdef _WIN32
 	graphics->Get("ForceOpenGL20", &bForceOpenGL20, false);
+#else
+	bForceOpenGL20 = false;
 #endif
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
