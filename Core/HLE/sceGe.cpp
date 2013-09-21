@@ -338,10 +338,11 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, false);
 	if ((int)listID >= 0)
-		listID = 0x35000000 | listID;
+		listID = 0x35000000 ^ listID;
 
 	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
-	hleEatCycles(520);
+	hleEatCycles(490);
+	CoreTiming::ForceCheck();
 	return listID;
 }
 
@@ -359,6 +360,8 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 		listID = 0x35000000 ^ listID;
 
 	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
+	hleEatCycles(480);
+	CoreTiming::ForceCheck();
 	return listID;
 }
 
