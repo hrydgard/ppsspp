@@ -30,6 +30,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 #include "Core/Host.h"
+#include "Core/Config.h"
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
@@ -69,6 +70,9 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
 		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
+	}
+	if (isRecentGame(gamePath_)) {
+		rightColumnItems->Add(new Choice(ga->T("Remove From Recent")))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
 
 	UI::SetFocusedView(play);
@@ -193,6 +197,25 @@ UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
 	if (info) {
 		host->CreateDesktopShortcut(gamePath_, info->title);
+	}
+	return UI::EVENT_DONE;
+}
+
+bool GameScreen::isRecentGame(std::string gamePath) {
+	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
+		if (!strcmp((*it).c_str(),gamePath.c_str()))
+			return true;
+	}
+	return false;
+}
+
+UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
+	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
+		if (!strcmp((*it).c_str(),gamePath_.c_str())) {
+			g_Config.recentIsos.erase(it);
+			screenManager()->switchScreen(new MainScreen());
+			return UI::EVENT_DONE;
+		}
 	}
 	return UI::EVENT_DONE;
 }
