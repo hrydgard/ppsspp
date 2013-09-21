@@ -129,6 +129,20 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 	v = (unsigned int)(t * height); // TODO: width-1 instead?
 }
 
+static inline void GetTexelCoordinatesThrough(int level, float s, float t, unsigned int& u, unsigned int& v)
+{
+	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	int width = 1 << (gstate.texsize[level] & 0xf);
+	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+
+	// TODO: These should really be multiplied by 256 to get fixed point coordinates
+	// so we can do texture filtering later.
+
+	// Wrap!
+	u = (unsigned int)(s) & (width - 1);
+	v = (unsigned int)(t) & (height - 1);
+}
+
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
 {
 	switch (gstate.getUVGenMode()) {
@@ -170,6 +184,8 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 
 static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *srcptr, int texbufwidthbits)
 {
+	if (!srcptr)
+		return 0;
 	GETextureFormat texfmt = gstate.getTextureFormat();
 
 	// TODO: Should probably check if textures are aligned properly...
@@ -807,8 +823,9 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					unsigned int u = 0, v = 0;
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
-						u = (int)((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2));
-						v = (int)((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2));
+						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2));
+						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2));
+						GetTexelCoordinatesThrough(0, s, t, u, v);
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
