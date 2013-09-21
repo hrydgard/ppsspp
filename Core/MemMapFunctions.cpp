@@ -145,8 +145,7 @@ inline void WriteToHardware(u32 address, const T data)
 
 // =====================
 
-bool IsValidAddress(const u32 address)
-{
+bool IsValidAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
 	}
@@ -161,6 +160,20 @@ bool IsValidAddress(const u32 address)
 	}
 	else
 		return false;
+}
+
+bool IsRAMAddress(const u32 address) {
+	if ((address & 0x3E000000) == 0x08000000) {
+		return true;
+	}	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return true;
+	}	else {
+		return false;
+	}
+}
+
+bool IsVRAMAddress(const u32 address) {
+	return ((address & 0x3F800000) == 0x04000000);
 }
 
 u8 Read_U8(const u32 _Address)

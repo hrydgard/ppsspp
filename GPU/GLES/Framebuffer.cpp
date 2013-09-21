@@ -165,7 +165,6 @@ void FramebufferManager::CompileDraw2DProgram() {
 }
 
 FramebufferManager::FramebufferManager() :
-	ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
 	displayStride_(0),
 	displayFormat_(GE_FORMAT_565),
@@ -369,11 +368,11 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	glsl_unbind();
 }
 
-VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	VirtualFramebuffer *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
+		if (MaskedEqual(v->fb_address, addr) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
 			if (match == NULL || match->last_frame_render < v->last_frame_render) {
 				match = v;
@@ -384,7 +383,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 		return match;
 	}
 
-	DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", displayFramebufPtr_);
+	DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", addr);
 #if 0  // defined(_DEBUG)
 	std::string debug = "FBOs: ";
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -687,20 +686,29 @@ void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 
-	VirtualFramebuffer *vfb = GetDisplayFBO();
+	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
 	if (!vfb) {
-		if (Memory::IsValidAddress(ramDisplayFramebufPtr_)) {
+		if (Memory::IsValidAddress(displayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
-			DrawPixels(Memory::GetPointer(ramDisplayFramebufPtr_), displayFormat_, displayStride_);
-		} else if (Memory::IsValidAddress(displayFramebufPtr_)) {
-			// The game is displaying something directly from RAM. In GTA, it's decoded video.
-			DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+
+			// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
+			for (auto iter = knownFramebufferCopies_.begin(); iter != knownFramebufferCopies_.end(); ++iter) {
+				if (iter->second == displayFramebufPtr_) {
+					vfb = GetVFBAt(iter->first);
+				}
+			}
+
+			if (!vfb) {
+				// Just a pointer to plain memory to draw. Draw it.
+				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+				return;
+			}
 		} else {
 			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
 			ClearBuffer();
+			return;
 		}
-		return;
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
@@ -1191,18 +1199,9 @@ void FramebufferManager::BeginFrame() {
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-
-	if ((framebuf & 0x04000000) == 0) {
-		DEBUG_LOG(SCEGE, "Non-VRAM display framebuffer address set: %08x", framebuf);
-		ramDisplayFramebufPtr_ = framebuf;
-		displayStride_ = stride;
-		displayFormat_ = format;
-	} else {
-		ramDisplayFramebufPtr_ = 0;
-		displayFramebufPtr_ = framebuf;
-		displayStride_ = stride;
-		displayFormat_ = format;
-	}
+	displayFramebufPtr_ = framebuf;
+	displayStride_ = stride;
+	displayFormat_ = format;
 }
 
 std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
@@ -1224,6 +1223,17 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
+// MotoGP workaround
+void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
+	for (size_t i = 0; i < vfbs_.size(); i++) {
+		// This size fits for MotoGP. Might want to make this more flexible for other games if they do the same.
+		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == 512 * 272 * 2) {
+			// A framebuffer matched!
+			knownFramebufferCopies_.insert(std::pair<u32, u32>(src, dest));
+		}
+	}
+}
+
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
@@ -1237,7 +1247,7 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if(useMem && age == 0 && !vfb->memoryUpdated) {  
-				ReadFramebufferToMemory(vfb);
+			ReadFramebufferToMemory(vfb);
 		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {

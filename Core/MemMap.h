@@ -243,6 +243,8 @@ inline void Write_Float(float f, u32 address)
 void GetString(std::string& _string, const u32 _Address);
 u8* GetPointer(const u32 address);
 bool IsValidAddress(const u32 address);
+bool IsRAMAddress(const u32 address);
+bool IsVRAMAddress(const u32 address);
 
 inline const char* GetCharPointer(const u32 address) {
   return (const char *)GetPointer(address);

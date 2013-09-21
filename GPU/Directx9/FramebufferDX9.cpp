@@ -113,7 +113,6 @@ static void DisableState() {
 
 
 FramebufferManagerDX9::FramebufferManagerDX9() :
-ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
 	displayStride_(0),
 	displayFormat_(GE_FORMAT_565),
