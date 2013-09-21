@@ -1195,6 +1195,7 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBuffe
 	if ((framebuf & 0x04000000) == 0) {
 		DEBUG_LOG(SCEGE, "Non-VRAM display framebuffer address set: %08x", framebuf);
 		ramDisplayFramebufPtr_ = framebuf;
+		displayFramebufPtr_ = framebuf;
 		displayStride_ = stride;
 		displayFormat_ = format;
 	} else {
