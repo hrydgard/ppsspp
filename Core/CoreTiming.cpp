@@ -519,6 +519,14 @@ void MoveEvents()
 	}
 }
 
+void ForceCheck()
+{
+	int cyclesExecuted = slicelength - currentMIPS->downcount;
+	globalTimer += cyclesExecuted;
+	// This will cause us to check for new events immediately.
+	currentMIPS->downcount = 0;
+}
+
 void Advance()
 {
 	int cyclesExecuted = slicelength - currentMIPS->downcount;

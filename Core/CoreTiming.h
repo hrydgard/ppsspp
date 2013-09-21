@@ -101,6 +101,7 @@ namespace CoreTiming
 	void Advance();
 	void MoveEvents();
 	void ProcessFifoWaitEvents();
+	void ForceCheck();
 
 	// Pretend that the main CPU has executed enough cycles to reach the next event.
 	void Idle(int maxIdle = 0);
