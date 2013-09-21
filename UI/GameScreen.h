@@ -37,6 +37,7 @@ protected:
 	virtual void DrawBackground(UIContext &dc);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
+	bool isRecentGame(std::string gamePath);
 
 private:
 	// Event handlers
@@ -46,6 +47,7 @@ private:
 	UI::EventReturn OnDeleteGame(UI::EventParams &e);
 	UI::EventReturn OnSwitchBack(UI::EventParams &e);
 	UI::EventReturn OnCreateShortcut(UI::EventParams &e);
+	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
 
 	std::string gamePath_;
 
