@@ -92,6 +92,7 @@ protected:
 
 	typedef std::list<int> DisplayListQueue;
 
+	int nextListID;
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
