@@ -283,6 +283,16 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 		return;
 	}
 
+	if (ctx->mediaengine && (ctx->mpegStreamSize > 0) && !ctx->isAnalyzed) {
+		// init mediaEngine
+		SceMpegRingBuffer ringbuffer = {0};
+		if(ctx->mpegRingbufferAddr != 0){
+			Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+		};
+		ctx->mediaengine->loadStream(buffer, ctx->mpegOffset, ringbuffer.packets * ringbuffer.packetSize);
+		ctx->mediaengine->setVideoDim();
+	}
+	
 	// When used with scePsmf, some applications attempt to use sceMpegQueryStreamOffset
 	// and sceMpegQueryStreamSize, which forces a packet overwrite in the Media Engine and in
 	// the MPEG ringbuffer.
