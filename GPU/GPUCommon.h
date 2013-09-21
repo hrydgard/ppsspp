@@ -34,6 +34,7 @@ public:
 	virtual u32  DequeueList(int listid);
 	virtual int  ListSync(int listid, int mode);
 	virtual u32  DrawSync(int mode);
+	virtual int  GetStack(int index, u32 stackPtr);
 	virtual void DoState(PointerWrap &p);
 	virtual bool FramebufferDirty() {
 		SyncThread();

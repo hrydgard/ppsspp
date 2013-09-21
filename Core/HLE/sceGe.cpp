@@ -552,6 +552,12 @@ u32 sceGeGetCmd(int cmd)
 	return gstate.cmdmem[cmd];  // Does not mask away the high bits.
 }
 
+int sceGeGetStack(int index, u32 stackPtr)
+{
+	WARN_LOG_REPORT(SCEGE, "sceGeGetStack(%i, %08x)", index, stackPtr);
+	return gpu->GetStack(index, stackPtr);
+}
+
 u32 sceGeEdramSetAddrTranslation(int new_size)
 {
 	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
@@ -588,6 +594,7 @@ const HLEFunction sceGe_user[] =
 	{0x438A385A, WrapU_U<sceGeSaveContext>,             "sceGeSaveContext"},
 	{0x0BF608FB, WrapU_U<sceGeRestoreContext>,          "sceGeRestoreContext"},
 	{0x5FB86AB0, WrapI_U<sceGeListDeQueue>,             "sceGeListDeQueue"},
+	{0xE66CB92E, WrapI_IU<sceGeGetStack>,               "sceGeGetStack"},
 };
 
 void Register_sceGe_user()

@@ -157,6 +157,33 @@ int GPUCommon::ListSync(int listid, int mode) {
 	return PSP_GE_LIST_COMPLETED;
 }
 
+int GPUCommon::GetStack(int index, u32 stackPtr) {
+	easy_guard guard(listLock);
+	if (currentList == NULL) {
+		// Seems like it doesn't return an error code?
+		return 0;
+	}
+
+	if (currentList->stackptr <= index) {
+		return SCE_KERNEL_ERROR_INVALID_INDEX;
+	}
+
+	if (index >= 0) {
+		PSPPointer<u32> stack;
+		stack = stackPtr;
+		if (stack.IsValid()) {
+			auto entry = currentList->stack[index];
+			// Not really sure what most of these values are.
+			stack[0] = 0;
+			stack[1] = entry.pc + 4;
+			stack[2] = entry.offsetAddr;
+			stack[7] = entry.baseAddr;
+		}
+	}
+
+	return currentList->stackptr;
+}
+
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
 	easy_guard guard(listLock);
 	// TODO Check the stack values in missing arg and ajust the stack depth
