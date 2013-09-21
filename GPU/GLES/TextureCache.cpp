@@ -178,11 +178,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		// Apply to non-buffered and buffered mode only.
-#ifndef USING_GLES2
-		if ((g_Config.iRenderingMode == FB_READFBOMEMORY_CPU) || (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU))
-#else
-		if (g_Config.iRenderingMode == FB_READFBOMEMORY_GPU)
-#endif
+		if (!(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE))
 			return;
 
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
@@ -198,7 +194,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			// TODO: Delete the original non-fbo texture too.
 		}
 	} else {
-		// Apply to buffered mode only while memory mode should be more accurate itself for offset/palette etc.
+		// Apply to buffered mode only.
 		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
 			return;
 
