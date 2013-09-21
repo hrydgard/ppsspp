@@ -297,6 +297,7 @@ struct GLExtensions {
 	bool EXT_discard_framebuffer;
 	bool FBO_ARB;
 	bool FBO_EXT;
+	bool PBO_ARB;
 	bool EXT_swap_control_tear;
 	bool QCOM_alpha_test;
 	bool QCOM_binning_control;
