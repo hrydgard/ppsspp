@@ -30,6 +30,7 @@
 #include "ext/xxhash.h"
 #include "math/math_util.h"
 #include "native/ext/cityhash/city.h"
+#include "native/gfx_es2/gl_state.h"
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
@@ -962,9 +963,12 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		}
 		//OpenGL 2.0 have problem reading with it, let's not do it for now.
-		const char *extString = (const char *)glGetString(GL_EXTENSIONS);
-		if(strstr(extString,("GL_ARB_pixel_buffer_object")) && (g_Config.bForceOpenGL20==false))
+#ifndef USING_GLES2
+		if((gl_extensions.PBO_ARB) && (g_Config.bForceOpenGL20==false))
 		UpdateSamplingParams(*entry, false);
+#else
+		UpdateSamplingParams(*entry, false);
+#endif
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
