@@ -72,7 +72,7 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
+LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	program = glCreateProgram();
 	glAttachShader(program, vs->shader);
@@ -118,8 +118,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE)
-		numBones = TranslateNumBones(gstate.getNumBoneWeights());
+	if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE)
+		numBones = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 	else
 		numBones = 0;
 
@@ -499,7 +499,7 @@ void ShaderManager::EndFrame() { // disables vertex arrays
 }
 
 
-LinkedShader *ShaderManager::ApplyShader(int prim) {
+LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -511,7 +511,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 
 	VertexShaderID VSID;
 	FragmentShaderID FSID;
-	ComputeVertexShaderID(&VSID, prim, useHWTransform);
+	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
 	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
@@ -532,7 +532,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	Shader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, codeBuffer_, useHWTransform);
+		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
 
 		if (vs->Failed()) {
@@ -545,7 +545,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShader(prim, codeBuffer_, false);
+			GenerateVertexShader(prim, vertType, codeBuffer_, false);
 			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
 		}
 
@@ -579,7 +579,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
-		ls = new LinkedShader(vs, fs, vs->UseHWTransform());	// This does "use" automatically
+		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform());	// This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {

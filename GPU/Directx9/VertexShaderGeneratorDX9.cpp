@@ -88,7 +88,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransfo
 
 		// Bones
 		if (hasBones)
-			id->d[0] |= (TranslateNumBonesDX9(gstate.getNumBoneWeights()) - 1) << 22;
+			id->d[0] |= (TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
@@ -104,7 +104,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransfo
 			}
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= (gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
@@ -172,7 +172,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "float4x4 u_texmtx;\n");
 		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
-			int numBones = TranslateNumBonesDX9(gstate.getNumBoneWeights());
+			int numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "float4x4 u_bone[%i];\n", numBones);
 #else
@@ -223,7 +223,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "                                             \n");
 		WRITE(p,  " {                                          \n");
 		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
-			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(gstate.getNumBoneWeights())]);
+			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType))]);
 		}
 		if (doTexture) {
 			if (doTextureProjection)
@@ -286,7 +286,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			else
 				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		} else {
-			int numWeights = TranslateNumBonesDX9(gstate.getNumBoneWeights());
+			int numWeights = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 			const char *factor = rescale[gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT];

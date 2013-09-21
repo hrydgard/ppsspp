@@ -118,14 +118,14 @@ static VertexData ReadVertex(VertexReader& vreader)
 			vertex.normal = -vertex.normal;
 	}
 
-	if (gstate.isSkinningEnabled() && !gstate.isModeThrough()) {
+	if (vertTypeIsSkinningEnabled(gstate.vertType) && !gstate.isModeThrough()) {
 		float W[8] = { 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
 		vreader.ReadWeights(W);
 
 		Vec3<float> tmppos(0.f, 0.f, 0.f);
 		Vec3<float> tmpnrm(0.f, 0.f, 0.f);
 
-		for (int i = 0; i < gstate.getNumBoneWeights(); ++i) {
+		for (int i = 0; i < vertTypeGetNumBoneWeights(gstate.vertType); ++i) {
 			Mat3x3<float> bone(&gstate.boneMatrix[12*i]);
 			tmppos += W[i] * (bone * ModelCoords(pos[0], pos[1], pos[2]) + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11]));
 			if (vreader.hasNormal())

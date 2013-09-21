@@ -285,6 +285,30 @@ public:
 		}
 	}
 
+	void ReadColor0_8888(u8 color[4]) const {
+		switch (decFmt_.c0fmt) {
+		case DEC_U8_4:
+			{
+				const u8 *b = (const u8 *)(data_ + decFmt_.c0off);
+				for (int i = 0; i < 4; i++)
+					color[i] = b[i];
+			}
+			break;
+		case DEC_FLOAT_4:
+			{
+				const float *f = (const float *)(data_ + decFmt_.c0off);
+				for (int i = 0; i < 4; i++)
+					color[i] = f[i] * 255.0f;
+			}
+			break;
+		default:
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
+			memset(color, 0, sizeof(float) * 4);
+			break;
+		}
+	}
+
+
 	void ReadColor1(float color[3]) const {
 		switch (decFmt_.c1fmt) {
 		case DEC_U8_4:

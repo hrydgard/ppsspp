@@ -28,7 +28,7 @@ class Shader;
 class LinkedShader
 {
 public:
-	LinkedShader(Shader *vs, Shader *fs, bool useHWTransform);
+	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform);
 	~LinkedShader();
 
 	void use();
@@ -154,7 +154,7 @@ public:
 	~ShaderManager();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	LinkedShader *ApplyShader(int prim);
+	LinkedShader *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;

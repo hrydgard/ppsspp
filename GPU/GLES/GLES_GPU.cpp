@@ -675,7 +675,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 
 			// Discard AA lines in Summon Night 5
-			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && gstate.isSkinningEnabled())
+			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && vertTypeIsSkinningEnabled(gstate.vertType))
 				break;
 
 			// This also make skipping drawing very effective.
@@ -759,8 +759,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
 				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
 			}
-			if (gstate.isSkinningEnabled()) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", gstate.getNumBoneWeights());
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
 			// TODO: Get rid of this old horror...
@@ -799,8 +799,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
 				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
 			}
-			if (gstate.isSkinningEnabled()) {
-				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", gstate.getNumBoneWeights());
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
 			int sp_ucount = data & 0xFF;

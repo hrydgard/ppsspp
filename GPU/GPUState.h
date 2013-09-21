@@ -369,8 +369,6 @@ struct GPUgstate
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
-	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
-	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
 	int getTexCoordMask() const { return vertType & GE_VTYPE_TC_MASK; }
 	bool areNormalsReversed() const { return reversenormals & 1; }
 
@@ -400,6 +398,11 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
 	SKIPDRAW_BAD_FB_TEXTURE = 4,
 };
+
+inline bool vertTypeIsSkinningEnabled(u32 vertType) { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
+inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
+inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
+
 
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.

@@ -42,7 +42,7 @@ protected:
 	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
 	void SetFloat(D3DXHANDLE uniform, float value);
 public:
-	LinkedShaderDX9(VSShader *vs, PSShader *fs, bool useHWTransform);
+	LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform);
 	~LinkedShaderDX9();
 
 	void use();
@@ -189,7 +189,7 @@ public:
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	LinkedShaderDX9 *ApplyShader(int prim);
+	LinkedShaderDX9 *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;

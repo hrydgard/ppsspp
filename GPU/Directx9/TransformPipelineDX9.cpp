@@ -1135,7 +1135,7 @@ void TransformDrawEngineDX9::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShaderDX9 *program = shaderManager_->ApplyShader(prim);
+	LinkedShaderDX9 *program = shaderManager_->ApplyShader(prim, lastVType_);
 
 		if (program->useHWTransform_) {
 			LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;

@@ -50,8 +50,8 @@ struct VertexShaderID
 
 bool CanUseHardwareTransform(int prim);
 
-void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform);
-void GenerateVertexShader(int prim, char *buffer, bool useHWTransform);
+void ComputeVertexShaderID(VertexShaderID *id, u32 vertexType, int prim, bool useHWTransform);
+void GenerateVertexShader(int prim, u32 vertexType, char *buffer, bool useHWTransform);
 
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.
 int TranslateNumBones(int bones);
