@@ -508,8 +508,13 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 	return 0;
 }
 
-int sceGeGetMtx(int type, u32 matrixPtr)
-{
+void __GeCopyMatrix(u32 matrixPtr, float *mtx, u32 size) {
+	for (u32 i = 0; i < size / sizeof(float); ++i) {
+		Memory::Write_U32(toFloat24(mtx[i]), matrixPtr + i * sizeof(float));
+	}
+}
+
+int sceGeGetMtx(int type, u32 matrixPtr) {
 	if (!Memory::IsValidAddress(matrixPtr)) {
 		ERROR_LOG(SCEGE, "sceGeGetMtx(%d, %08x) - bad matrix ptr", type, matrixPtr);
 		return -1;
@@ -527,20 +532,20 @@ int sceGeGetMtx(int type, u32 matrixPtr)
 	case GE_MTX_BONE7:
 		{
 			int n = type - GE_MTX_BONE0;
-			Memory::Memcpy(matrixPtr, gstate.boneMatrix + n * 12, 12 * sizeof(float));
+			__GeCopyMatrix(matrixPtr, gstate.boneMatrix + n * 12, 12 * sizeof(float));
 		}
 		break;
 	case GE_MTX_TEXGEN:
-		Memory::Memcpy(matrixPtr, gstate.tgenMatrix, 12 * sizeof(float));
+		__GeCopyMatrix(matrixPtr, gstate.tgenMatrix, 12 * sizeof(float));
 		break;
 	case GE_MTX_WORLD:
-		Memory::Memcpy(matrixPtr, gstate.worldMatrix, 12 * sizeof(float));
+		__GeCopyMatrix(matrixPtr, gstate.worldMatrix, 12 * sizeof(float));
 		break;
 	case GE_MTX_VIEW:
-		Memory::Memcpy(matrixPtr, gstate.viewMatrix, 12 * sizeof(float));
+		__GeCopyMatrix(matrixPtr, gstate.viewMatrix, 12 * sizeof(float));
 		break;
 	case GE_MTX_PROJECTION:
-		Memory::Memcpy(matrixPtr, gstate.projMatrix, 16 * sizeof(float));
+		__GeCopyMatrix(matrixPtr, gstate.projMatrix, 16 * sizeof(float));
 		break;
 	default:
 		return SCE_KERNEL_ERROR_INVALID_INDEX;
@@ -548,8 +553,7 @@ int sceGeGetMtx(int type, u32 matrixPtr)
 	return 0;
 }
 
-u32 sceGeGetCmd(int cmd)
-{
+u32 sceGeGetCmd(int cmd) {
 	INFO_LOG(SCEGE, "sceGeGetCmd(%i)", cmd);
 	if (cmd >= 0 && cmd < ARRAY_SIZE(gstate.cmdmem)) {
 		return gstate.cmdmem[cmd];  // Does not mask away the high bits.
@@ -558,18 +562,15 @@ u32 sceGeGetCmd(int cmd)
 	}
 }
 
-int sceGeGetStack(int index, u32 stackPtr)
-{
+int sceGeGetStack(int index, u32 stackPtr) {
 	WARN_LOG_REPORT(SCEGE, "sceGeGetStack(%i, %08x)", index, stackPtr);
 	return gpu->GetStack(index, stackPtr);
 }
 
-u32 sceGeEdramSetAddrTranslation(int new_size)
-{
+u32 sceGeEdramSetAddrTranslation(int new_size) {
 	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
 	bool notPowerOfTwo = (new_size & (new_size - 1)) != 0;
-	if (outsideRange || notPowerOfTwo)
-	{
+	if (outsideRange || notPowerOfTwo) {
 		WARN_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i): invalid value", new_size);
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
