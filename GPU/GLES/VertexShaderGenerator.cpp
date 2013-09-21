@@ -107,7 +107,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 			}
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= (gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
@@ -308,7 +308,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			int numWeights = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT];
+			const char *factor = rescale[vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT];
 
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",

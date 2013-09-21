@@ -123,7 +123,7 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 	u_world = 	GetConstantByName("u_world");
 	u_texmtx = 	GetConstantByName("u_texmtx");
 
-	if (gstate.getWeightMask() != 0)
+	if (vertTypeGetWeightMask(vertType) != 0)
 		numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 	else
 		numBones = 0;

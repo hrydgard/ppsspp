@@ -60,7 +60,7 @@ void TransformDrawEngineDX9::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
-	if (!gstate.getTexCoordMask()) {
+	if (!vertTypeGetTexCoordMask(gstate.vertType)) {
 		VertexDecoderDX9 *dec = GetVertexDecoder(gstate.vertType);
 		dec->SetVertexType(gstate.vertType);
 		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);

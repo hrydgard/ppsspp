@@ -174,7 +174,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
-	if (!gstate.getTexCoordMask()) {
+	if (!vertTypeGetTexCoordMask(gstate.vertType)) {
 		VertexDecoder *dec = GetVertexDecoder(gstate.vertType);
 		dec->SetVertexType(gstate.vertType);
 		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);

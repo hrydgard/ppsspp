@@ -368,8 +368,6 @@ struct GPUgstate
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
-	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
-	int getTexCoordMask() const { return vertType & GE_VTYPE_TC_MASK; }
 	bool areNormalsReversed() const { return reversenormals & 1; }
 
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
@@ -402,6 +400,7 @@ enum SkipDrawReasonFlags {
 inline bool vertTypeIsSkinningEnabled(u32 vertType) { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
 inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
+inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }
 
 
 // The rest is cached simplified/converted data for fast access.
