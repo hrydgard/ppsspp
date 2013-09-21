@@ -779,6 +779,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	int w0_base = orient2d(v1.screenpos, v2.screenpos, pprime);
 	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
 	int w2_base = orient2d(v0.screenpos, v1.screenpos, pprime);
+
 	for (pprime.y = minY; pprime.y <= maxY; pprime.y +=16,
 										w0_base += orient2dIncY(d12.x)*16,
 										w1_base += orient2dIncY(-d02.x)*16,
@@ -792,11 +793,12 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 											w2 += orient2dIncX(d01.y)*16) {
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
+			float wsum = 1.0f / (w0 + w1 + w2);
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
 			if (w0 + bias0 >=0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
 				// TODO: Check if this check is still necessary
-				if (w0 == w1 && w1 == w2 && w2 == 0)
+				if (w0 == 0 && w1 == 0 && w2 == 0)
 					continue;
 
 				Vec3<int> prim_color_rgb(0, 0, 0);
@@ -808,11 +810,11 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					// TODO: Is that the correct way to interpolate?
 					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 +
 									v1.color0.rgb().Cast<float>() * w1 +
-									v2.color0.rgb().Cast<float>() * w2) / (w0+w1+w2)).Cast<int>();
-					prim_color_a = (int)(((float)v0.color0.a() * w0 + (float)v1.color0.a() * w1 + (float)v2.color0.a() * w2) / (w0+w1+w2));
+									v2.color0.rgb().Cast<float>() * w2) * wsum).Cast<int>();
+					prim_color_a = (int)(((float)v0.color0.a() * w0 + (float)v1.color0.a() * w1 + (float)v2.color0.a() * w2) * wsum);
 					sec_color = ((v0.color1.Cast<float>() * w0 +
 									v1.color1.Cast<float>() * w1 +
-									v2.color1.Cast<float>() * w2) / (w0+w1+w2)).Cast<int>();
+									v2.color1.Cast<float>() * w2) * wsum).Cast<int>();
 				} else {
 					prim_color_rgb = v2.color0.rgb();
 					prim_color_a = v2.color0.a();
@@ -823,8 +825,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					unsigned int u = 0, v = 0;
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
-						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2));
-						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2));
+						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) * wsum);
+						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) * wsum);
 						GetTexelCoordinatesThrough(0, s, t, u, v);
 					} else {
 						float s = 0, t = 0;
@@ -850,7 +852,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Is that the correct way to interpolate?
 				// Without the (u32), this causes an ICE in some versions of gcc.
-				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
+				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
 				// Depth range test
 				if (!gstate.isModeThrough())
