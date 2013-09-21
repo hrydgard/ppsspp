@@ -793,13 +793,14 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 											w2 += orient2dIncX(d01.y)*16) {
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
-			float wsum = 1.0f / (w0 + w1 + w2);
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
 			if (w0 + bias0 >=0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
 				// TODO: Check if this check is still necessary
 				if (w0 == 0 && w1 == 0 && w2 == 0)
 					continue;
+
+				float wsum = 1.0f / (w0 + w1 + w2);
 
 				Vec3<int> prim_color_rgb(0, 0, 0);
 				int prim_color_a = 0;
