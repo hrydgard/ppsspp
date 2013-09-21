@@ -838,6 +838,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);
 					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);
+					if (currentList->started && currentList->context != NULL) {
+						gstate.Restore(currentList->context);
+					}
 				}
 				break;
 			}
