@@ -542,6 +542,8 @@ int sceGeGetMtx(int type, u32 matrixPtr)
 	case GE_MTX_PROJECTION:
 		Memory::Memcpy(matrixPtr, gstate.projMatrix, 16 * sizeof(float));
 		break;
+	default:
+		return SCE_KERNEL_ERROR_INVALID_INDEX;
 	}
 	return 0;
 }
@@ -549,7 +551,11 @@ int sceGeGetMtx(int type, u32 matrixPtr)
 u32 sceGeGetCmd(int cmd)
 {
 	INFO_LOG(SCEGE, "sceGeGetCmd(%i)", cmd);
-	return gstate.cmdmem[cmd];  // Does not mask away the high bits.
+	if (cmd >= 0 && cmd < ARRAY_SIZE(gstate.cmdmem)) {
+		return gstate.cmdmem[cmd];  // Does not mask away the high bits.
+	} else {
+		return SCE_KERNEL_ERROR_INVALID_INDEX;
+	}
 }
 
 int sceGeGetStack(int index, u32 stackPtr)
