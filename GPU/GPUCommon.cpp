@@ -313,11 +313,14 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
+	auto &dl = dls[listid];
+	if (dl.state == PSP_GE_DL_STATE_COMPLETED)
+		return SCE_KERNEL_ERROR_ALREADY;
 
-	dls[listid].stall = newstall & 0x0FFFFFFF;
+	dl.stall = newstall & 0x0FFFFFFF;
 
-	if (dls[listid].signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-		dls[listid].signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 	
 	guard.unlock();
 	ProcessDLQueue();
