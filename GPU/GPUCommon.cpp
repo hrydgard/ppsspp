@@ -15,6 +15,7 @@
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
+	nextListID(0),
 	currentList(NULL),
 	isbreak(false),
 	drawCompleteTicks(0),
@@ -202,8 +203,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	}
 
 	u64 currentTicks = CoreTiming::GetTicks();
-	for (int i = 0; i < DisplayListMaxCount; ++i)
-	{
+	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
 			if (dls[i].pc == listpc && !oldCompatibility) {
 				ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
@@ -214,26 +214,31 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 			//	return 0x80000021;
 			//}
 		}
-		if (dls[i].state == PSP_GE_DL_STATE_NONE && !dls[i].pendingInterrupt)
-		{
-			// Prefer a list that isn't used
-			id = i;
+	}
+	for (int i = 0; i < DisplayListMaxCount; ++i) {
+		int possibleID = (i + nextListID) % DisplayListMaxCount;
+		auto possibleList = dls[possibleID];
+		if (possibleList.pendingInterrupt) {
+			continue;
+		}
+
+		if (possibleList.state == PSP_GE_DL_STATE_NONE) {
+			id = possibleID;
 			break;
 		}
-		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED && !dls[i].pendingInterrupt && dls[i].waitTicks < currentTicks)
-		{
-			id = i;
+		if (possibleList.state == PSP_GE_DL_STATE_COMPLETED && possibleList.waitTicks < currentTicks) {
+			id = possibleID;
 		}
 	}
-	if (id < 0)
-	{
+	if (id < 0) {
 		ERROR_LOG_REPORT(G3D, "No DL ID available to enqueue");
-		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
+		for (auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
 			DisplayList &dl = dls[*it];
 			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
 		}
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	}
+	nextListID = id + 1;
 
 	DisplayList &dl = dls[id];
 	dl.id = id;
@@ -286,17 +291,18 @@ u32 GPUCommon::DequeueList(int listid) {
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
-	if (dls[listid].state == PSP_GE_DL_STATE_RUNNING || dls[listid].state == PSP_GE_DL_STATE_PAUSED)
-		return 0x80000021;
+	auto &dl = dls[listid];
+	if (dl.started)
+		return SCE_KERNEL_ERROR_BUSY;
 
-	dls[listid].state = PSP_GE_DL_STATE_NONE;
+	dl.state = PSP_GE_DL_STATE_NONE;
 
 	if (listid == dlQueue.front())
 		PopDLQueue();
 	else
 		dlQueue.remove(listid);
 
-	dls[listid].waitTicks = 0;
+	dl.waitTicks = 0;
 	__GeTriggerWait(WAITTYPE_GELISTSYNC, listid);
 
 	CheckDrawSync();
@@ -308,11 +314,14 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
+	auto &dl = dls[listid];
+	if (dl.state == PSP_GE_DL_STATE_COMPLETED)
+		return SCE_KERNEL_ERROR_ALREADY;
 
-	dls[listid].stall = newstall & 0x0FFFFFFF;
+	dl.stall = newstall & 0x0FFFFFFF;
 
-	if (dls[listid].signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-		dls[listid].signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 	
 	guard.unlock();
 	ProcessDLQueue();
@@ -380,6 +389,7 @@ u32 GPUCommon::Break(int mode) {
 			dls[i].signal = PSP_GE_SIGNAL_NONE;
 		}
 
+		nextListID = 0;
 		currentList = NULL;
 		return 0;
 	}

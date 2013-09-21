@@ -337,8 +337,11 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 	optParam = optParamAddr;
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, false);
+	if ((int)listID >= 0)
+		listID = 0x35000000 | listID;
 
 	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
+	hleEatCycles(520);
 	return listID;
 }
 
@@ -352,6 +355,8 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 	optParam = optParamAddr;
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);
+	if ((int)listID >= 0)
+		listID = 0x35000000 ^ listID;
 
 	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
 	return listID;
@@ -360,23 +365,26 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 int sceGeListDeQueue(u32 listID)
 {
 	WARN_LOG(SCEGE, "sceGeListDeQueue(%08x)", listID);
-	int result = gpu->DequeueList(listID);
+	int result = gpu->DequeueList(0x35000000 ^ listID);
 	hleReSchedule("dlist dequeued");
 	return result;
 }
 
 int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
-	DEBUG_LOG(SCEGE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
+	// Advance() might cause an interrupt, so defer the Advance but do it ASAP.
+	// Final Fantasy Type-0 has a graphical artifact without this (timing issue.)
 	hleEatCycles(190);
-	CoreTiming::Advance();
-	return gpu->UpdateStall(displayListID, stallAddress);
+	CoreTiming::ForceCheck();
+
+	DEBUG_LOG(SCEGE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
+	return gpu->UpdateStall(0x35000000 ^ displayListID, stallAddress);
 }
 
 int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
 {
 	DEBUG_LOG(SCEGE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
-	return gpu->ListSync(displayListID, mode);
+	return gpu->ListSync(0x35000000 ^ displayListID, mode);
 }
 
 u32 sceGeDrawSync(u32 mode)
