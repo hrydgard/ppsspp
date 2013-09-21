@@ -60,12 +60,12 @@ public:
 	virtual void Update()
 	{
 		UpdateDialog(true);
-		SetDebugMode(Core_IsStepping());
+		SetDebugMode(Core_IsStepping(), false);
 		breakpointList->update();
 	};
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 
-	void SetDebugMode(bool _bDebug);
+	void SetDebugMode(bool _bDebug, bool switchPC);
 	// show dialog
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
