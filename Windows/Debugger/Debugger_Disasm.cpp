@@ -164,7 +164,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 		SetWindowPos(m_hDlg, 0, x, y, w, h, 0);
 	}
 
-	SetDebugMode(true);
+	SetDebugMode(true, true);
 }
 
 CDisasm::~CDisasm()
@@ -286,7 +286,7 @@ void CDisasm::stepOver()
 		}
 	}
 
-	SetDebugMode(false);
+	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
 	_dbg_update_();
 	Core_EnableStepping(false);
@@ -320,7 +320,7 @@ void CDisasm::stepOut()
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDontRedraw(true);
 
-	SetDebugMode(false);
+	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
 	_dbg_update_();
 	Core_EnableStepping(false);
@@ -336,7 +336,7 @@ void CDisasm::runToLine()
 
 	lastTicks = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
-	SetDebugMode(false);
+	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(pos,true);
 	_dbg_update_();
 	Core_EnableStepping(false);
@@ -432,7 +432,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
-						SetDebugMode(true);
+						SetDebugMode(true, false);
 						Core_EnableStepping(true);
 						Core_WaitInactive(200);
 					}
@@ -442,7 +442,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 					if (isRunning)
 					{
-						SetDebugMode(false);
+						SetDebugMode(false, false);
 						Core_EnableStepping(false);
 					}
 					keepStatusBarText = false;
@@ -510,7 +510,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (!Core_IsStepping())		// stop
 					{
 						ptr->setDontRedraw(false);
-						SetDebugMode(true);
+						SetDebugMode(true, true);
 						Core_EnableStepping(true);
 						_dbg_update_();
 						Sleep(1); //let cpu catch up
@@ -523,7 +523,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-						SetDebugMode(false);
+						SetDebugMode(false, true);
 						Core_EnableStepping(false);
 					}
 				}
@@ -551,7 +551,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					hleDebugBreak();
-					SetDebugMode(false);
+					SetDebugMode(false, true);
 					_dbg_update_();
 					Core_EnableStepping(false);
 				}
@@ -654,7 +654,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_DEB_SETDEBUGLPARAM:
-		SetDebugMode(lParam != 0);
+		SetDebugMode(lParam != 0, true);
 		return TRUE;
 
 	case WM_DEB_UPDATE:
@@ -785,7 +785,7 @@ void CDisasm::SavePosition()
 	}
 }
 
-void CDisasm::SetDebugMode(bool _bDebug)
+void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 {
 	HWND hDlg = m_hDlg;
 
@@ -807,7 +807,8 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
-		ptr->gotoPC();
+		if (switchPC)
+			ptr->gotoPC();
 		
 		CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 		mem->redraw();
