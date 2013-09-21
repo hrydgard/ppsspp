@@ -311,7 +311,7 @@ void CWCheatEngine::Run() {
 			case 0x5: // Memcpy command
 				code = GetNextCode();
 				if (true) {
-					int destAddr = code[0];
+					int destAddr = GetAddress(code[0]);
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
 						Memory::Memcpy(destAddr, Memory::GetPointer(addr), arg);
 					}
