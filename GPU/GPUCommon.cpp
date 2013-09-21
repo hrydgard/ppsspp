@@ -15,6 +15,7 @@
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
+	nextListID(0),
 	currentList(NULL),
 	isbreak(false),
 	drawCompleteTicks(0),
@@ -202,8 +203,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	}
 
 	u64 currentTicks = CoreTiming::GetTicks();
-	for (int i = 0; i < DisplayListMaxCount; ++i)
-	{
+	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
 			if (dls[i].pc == listpc && !oldCompatibility) {
 				ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
@@ -214,26 +214,31 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 			//	return 0x80000021;
 			//}
 		}
-		if (dls[i].state == PSP_GE_DL_STATE_NONE && !dls[i].pendingInterrupt)
-		{
-			// Prefer a list that isn't used
-			id = i;
+	}
+	for (int i = 0; i < DisplayListMaxCount; ++i) {
+		int possibleID = (i + nextListID) % DisplayListMaxCount;
+		auto possibleList = dls[possibleID];
+		if (possibleList.pendingInterrupt) {
+			continue;
+		}
+
+		if (possibleList.state == PSP_GE_DL_STATE_NONE) {
+			id = possibleID;
 			break;
 		}
-		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED && !dls[i].pendingInterrupt && dls[i].waitTicks < currentTicks)
-		{
-			id = i;
+		if (possibleList.state == PSP_GE_DL_STATE_COMPLETED && possibleList.waitTicks < currentTicks) {
+			id = possibleID;
 		}
 	}
-	if (id < 0)
-	{
+	if (id < 0) {
 		ERROR_LOG_REPORT(G3D, "No DL ID available to enqueue");
-		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
+		for (auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
 			DisplayList &dl = dls[*it];
 			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
 		}
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	}
+	nextListID = id + 1;
 
 	DisplayList &dl = dls[id];
 	dl.id = id;
@@ -380,6 +385,7 @@ u32 GPUCommon::Break(int mode) {
 			dls[i].signal = PSP_GE_SIGNAL_NONE;
 		}
 
+		nextListID = 0;
 		currentList = NULL;
 		return 0;
 	}
