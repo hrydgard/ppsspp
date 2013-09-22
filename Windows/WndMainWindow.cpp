@@ -652,23 +652,49 @@ namespace MainWindow
 		windowTitle = title;
 	}
 
-	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
-		hInst = hInstance; // Store instance handle in our global variable.
-
+	RECT DetermineWindowRectangle() {
 		RECT rc;
+
+		if (!g_Config.bFullScreen) {
+			const int screenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+			const int screenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+			const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+			const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+
+			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= screenX) &&
+				((g_Config.iWindowX + g_Config.iWindowWidth) < (screenWidth + g_Config.iWindowWidth));
+
+			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= screenY) &&
+				((g_Config.iWindowY + g_Config.iWindowHeight) < (screenHeight + g_Config.iWindowHeight));
+
+			if (!visibleHorizontally)
+				g_Config.iWindowX = 0;
+
+			if (!visibleVertically)
+				g_Config.iWindowY = 0;
+		}
+
 		rc.left = g_Config.iWindowX;
 		rc.top = g_Config.iWindowY;
-		if (g_Config.iWindowWidth == 0) {
+		if (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0) {
 			RECT rcInner = rc, rcOuter;
 			GetWindowRectAtResolution(2 * 480, 2 * 272, rcInner, rcOuter);
 			rc.right = rc.left + (rcOuter.right - rcOuter.left);
-			rc.bottom = rc.top + (rcOuter.bottom- rcOuter.top);
+			rc.bottom = rc.top + (rcOuter.bottom - rcOuter.top);
 			g_Config.iWindowWidth = rc.right - rc.left;
 			g_Config.iWindowHeight = rc.bottom - rc.top;
 		} else {
 			rc.right = g_Config.iWindowX + g_Config.iWindowWidth;
 			rc.bottom = g_Config.iWindowY + g_Config.iWindowHeight;
 		}
+
+		return rc;
+	}
+
+	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
+		hInst = hInstance; // Store instance handle in our global variable.
+
+		RECT rc = DetermineWindowRectangle();
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
