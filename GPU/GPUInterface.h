@@ -134,6 +134,7 @@ struct DisplayList
 	bool pendingInterrupt;
 	bool started;
 	u32_le *context;
+	u32 offsetAddr;
 };
 
 enum GPUInvalidationType {
@@ -237,6 +238,7 @@ public:
 	virtual void Resized() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
+	virtual bool BusyDrawing() = 0;
 
 	// Debugging
 	virtual void DumpNextFrame() = 0;

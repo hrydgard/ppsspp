@@ -403,11 +403,28 @@ int sceGeContinue()
 	return gpu->Continue();
 }
 
-int sceGeBreak(u32 mode)
+int sceGeBreak(u32 mode, u32 unknownPtr)
 {
+	if (mode > 1)
+	{
+		WARN_LOG(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid mode", mode, unknownPtr);
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+	}
+	// Not sure what this is supposed to be for...
+	if ((int)unknownPtr < 0 || (int)unknownPtr + 16 < 0)
+	{
+		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
+		return 0x80000023;
+	}
+	else if (unknownPtr != 0)
+		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
+
 	//mode => 0 : current dlist 1: all drawing
-	DEBUG_LOG(SCEGE, "sceGeBreak(mode=%d)", mode);
-	return gpu->Break(mode);
+	DEBUG_LOG(SCEGE, "sceGeBreak(mode=%d, unknown=%08x)", mode, unknownPtr);
+	int result = gpu->Break(mode);
+	if (result >= 0 && mode == 0)
+		return 0x35000000 ^ result;
+	return result;
 }
 
 u32 sceGeSetCallback(u32 structAddr)
@@ -481,7 +498,7 @@ u32 sceGeSaveContext(u32 ctxAddr)
 	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
-	if (gpu->DrawSync(1) != PSP_GE_LIST_COMPLETED)
+	if (gpu->BusyDrawing())
 	{
 		WARN_LOG(SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
 		// Real error code.
@@ -504,7 +521,7 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
-	if (gpu->DrawSync(1) != PSP_GE_LIST_COMPLETED)
+	if (gpu->BusyDrawing())
 	{
 		WARN_LOG(SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);
 		return SCE_KERNEL_ERROR_BUSY;
@@ -601,7 +618,7 @@ const HLEFunction sceGe_user[] =
 	{0xE0D68148, WrapI_UU<sceGeListUpdateStallAddr>,    "sceGeListUpdateStallAddr"},
 	{0x03444EB4, WrapI_UU<sceGeListSync>,               "sceGeListSync"},
 	{0xB287BD61, WrapU_U<sceGeDrawSync>,                "sceGeDrawSync"},
-	{0xB448EC0D, WrapI_U<sceGeBreak>,                   "sceGeBreak"},
+	{0xB448EC0D, WrapI_UU<sceGeBreak>,                  "sceGeBreak"},
 	{0x4C06E472, WrapI_V<sceGeContinue>,                "sceGeContinue"},
 	{0xA4FC06A4, WrapU_U<sceGeSetCallback>,             "sceGeSetCallback"},
 	{0x05DB22CE, WrapI_U<sceGeUnsetCallback>,           "sceGeUnsetCallback"},

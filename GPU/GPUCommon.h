@@ -44,6 +44,7 @@ public:
 		SyncThread();
 		return true;
 	}
+	virtual bool BusyDrawing();
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
