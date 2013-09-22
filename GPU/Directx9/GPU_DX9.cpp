@@ -616,7 +616,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 
 			// Discard AA lines in Summon Night 5
-			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && gstate.isSkinningEnabled())
+			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && vertTypeIsSkinningEnabled(gstate.vertType))
 				break;
 
 			// This also make skipping drawing very effective.

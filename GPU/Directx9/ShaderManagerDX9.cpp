@@ -101,7 +101,7 @@ D3DXHANDLE LinkedShaderDX9::GetConstantByName(LPCSTR pName) {
 	return ret;
 }
 
-LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, bool useHWTransform)
+LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform)
 		:dirtyUniforms(0), useHWTransform_(useHWTransform) {
 	
 	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
@@ -123,8 +123,8 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, bool useHWTransform
 	u_world = 	GetConstantByName("u_world");
 	u_texmtx = 	GetConstantByName("u_texmtx");
 
-	if (gstate.getWeightMask() != 0)
-		numBones = TranslateNumBonesDX9(gstate.getNumBoneWeights());
+	if (vertTypeGetWeightMask(vertType) != 0)
+		numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 	else
 		numBones = 0;
 
@@ -560,7 +560,7 @@ void ShaderManagerDX9::EndFrame() { // disables vertex arrays
 }
 
 
-LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim) {
+LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -640,7 +640,7 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim) {
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
-		ls = new LinkedShaderDX9(vs, fs, vs->UseHWTransform());	// This does "use" automatically
+		ls = new LinkedShaderDX9(vs, fs, vertType, vs->UseHWTransform());	// This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {

@@ -28,6 +28,7 @@
 #include "sceKernelInterrupt.h"
 #include "sceKernelMemory.h"
 #include "sceKernelMutex.h"
+#include "GPU/GPUCommon.h"
 
 void __DisableInterrupts();
 void __EnableInterrupts();
@@ -551,6 +552,9 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	// Hm, sceDmacMemcpy seems to be the popular one for this. Ignoring for now.
+	// gpu->UpdateMemory(dst, src, size);
+
 	// Technically should crash if these are invalid and size > 0...
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{

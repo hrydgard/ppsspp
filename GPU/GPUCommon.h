@@ -30,10 +30,11 @@ public:
 	virtual bool InterpretList(DisplayList &list);
 	virtual bool ProcessDLQueue();
 	virtual u32  UpdateStall(int listid, u32 newstall);
-	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head);
 	virtual u32  DequeueList(int listid);
 	virtual int  ListSync(int listid, int mode);
 	virtual u32  DrawSync(int mode);
+	virtual int  GetStack(int index, u32 stackPtr);
 	virtual void DoState(PointerWrap &p);
 	virtual bool FramebufferDirty() {
 		SyncThread();
@@ -43,6 +44,7 @@ public:
 		SyncThread();
 		return true;
 	}
+	virtual bool BusyDrawing();
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
@@ -91,6 +93,7 @@ protected:
 
 	typedef std::list<int> DisplayListQueue;
 
+	int nextListID;
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;

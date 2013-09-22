@@ -490,7 +490,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);
 
-			if (!gstate.isSkinningEnabled()) {
+			if (!vertTypeIsSkinningEnabled(vertType)) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
@@ -502,7 +502,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Skinning
 				Vec3f psum(0,0,0);
 				Vec3f nsum(0,0,0);
-				for (int i = 0; i < gstate.getNumBoneWeights(); i++) {
+				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
 					if (weights[i] != 0.0f) {
 						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
 						Vec3f tpos(out);
@@ -1042,7 +1042,7 @@ void TransformDrawEngine::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShader *program = shaderManager_->ApplyShader(prim);
+	LinkedShader *program = shaderManager_->ApplyShader(prim, lastVType_);
 
 	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;

@@ -53,8 +53,7 @@ int TranslateNumBones(int bones) {
 }
 
 // prim so we can special case for RECTANGLES :(
-void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
-	const u32 vertType = gstate.vertType;
+void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useHWTransform) {
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
@@ -91,8 +90,8 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		}
 
 		// Bones
-		if (gstate.isSkinningEnabled())
-			id->d[0] |= (TranslateNumBones(gstate.getNumBoneWeights()) - 1) << 22;
+		if (vertTypeIsSkinningEnabled(vertType))
+			id->d[0] |= (TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
@@ -108,7 +107,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 			}
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= (gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
@@ -130,7 +129,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
+void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransform) {
 	char *p = buffer;
 
 // #define USE_FOR_LOOP
@@ -149,7 +148,6 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	WRITE(p, "#define lowp\n");
 	WRITE(p, "#define mediump\n");
 #endif
-	const u32 vertType = gstate.vertType;
 
 	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -174,8 +172,8 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		}
 	}
 
-	if (gstate.isSkinningEnabled()) {
-		WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
+	if (vertTypeIsSkinningEnabled(vertType)) {
+		WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(vertTypeGetNumBoneWeights(vertType))]);
 	}
 
 	if (useHWTransform)
@@ -211,8 +209,8 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "uniform mat4 u_view;\n");
 		if (doTextureProjection)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
-		if (gstate.isSkinningEnabled()) {
-			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
+		if (vertTypeIsSkinningEnabled(vertType)) {
+			int numBones = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
 #else
@@ -299,7 +297,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if (!gstate.isSkinningEnabled()) {
+		if (!vertTypeIsSkinningEnabled(vertType)) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
@@ -307,10 +305,10 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			else
 				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
-			int numWeights = TranslateNumBones(gstate.getNumBoneWeights());
+			int numWeights = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT];
+			const char *factor = rescale[vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT];
 
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",

@@ -529,7 +529,7 @@ bool GLES_GPU::FramebufferDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -547,7 +547,7 @@ bool GLES_GPU::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -670,6 +670,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
+
 			if (gstate.isAntiAliasEnabled()) {
 				// Discard AA lines in DOA
 				if (prim == GE_PRIM_LINE_STRIP)
@@ -759,18 +760,18 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
 				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
 			}
-			if (gstate.isSkinningEnabled()) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", gstate.getNumBoneWeights());
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
 			// TODO: Get rid of this old horror...
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			transformDraw_.DrawBezier(bz_ucount, bz_vcount);
+			//transformDraw_.DrawBezier(bz_ucount, bz_vcount);
 
 			// And instead use this.
-			// GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			// transformDraw_.SubmitBezier(control_points, indices, sp_ucount, sp_vcount, patchPrim, gstate.vertType);
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
 		}
 		break;
 
@@ -799,8 +800,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
 				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
 			}
-			if (gstate.isSkinningEnabled()) {
-				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", gstate.getNumBoneWeights());
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
 			int sp_ucount = data & 0xFF;
@@ -1473,6 +1474,11 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 
 void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+
+	// Track stray copies of a framebuffer in RAM. MotoGP does this.
+	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dest)) {
+		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
+	}
 }
 
 void GLES_GPU::ClearCacheNextFrame() {

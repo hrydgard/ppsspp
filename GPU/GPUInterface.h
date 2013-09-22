@@ -20,6 +20,7 @@
 #include "Globals.h"
 #include "GPU/GPUState.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceGe.h"
 #include <list>
 #include <string>
 
@@ -112,6 +113,7 @@ struct DisplayListStackEntry
 {
 	u32 pc;
 	u32 offsetAddr;
+	u32 baseAddr;
 };
 
 struct DisplayList
@@ -130,6 +132,9 @@ struct DisplayList
 	u64 waitTicks;
 	bool interruptsEnabled;
 	bool pendingInterrupt;
+	bool started;
+	u32_le *context;
+	u32 offsetAddr;
 };
 
 enum GPUInvalidationType {
@@ -186,13 +191,14 @@ public:
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
 	// TODO: Much of this should probably be shared between the different GPU implementations.
-	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) = 0;
 	virtual u32  DequeueList(int listid) = 0;
 	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
 	virtual u32  DrawSync(int mode) = 0;
 	virtual int  ListSync(int listid, int mode) = 0;
 	virtual u32  Continue() = 0;
 	virtual u32  Break(int mode) = 0;
+	virtual int  GetStack(int index, u32 stackPtr) = 0;
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;
@@ -232,6 +238,7 @@ public:
 	virtual void Resized() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
+	virtual bool BusyDrawing() = 0;
 
 	// Debugging
 	virtual void DumpNextFrame() = 0;

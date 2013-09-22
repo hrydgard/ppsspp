@@ -519,6 +519,16 @@ void MoveEvents()
 	}
 }
 
+void ForceCheck()
+{
+	int cyclesExecuted = slicelength - currentMIPS->downcount;
+	globalTimer += cyclesExecuted;
+	// This will cause us to check for new events immediately.
+	currentMIPS->downcount = 0;
+	// But let's not eat a bunch more time in Advance() because of this.
+	slicelength = 0;
+}
+
 void Advance()
 {
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
@@ -533,6 +543,7 @@ void Advance()
 	{
 		// WARN_LOG(TIMER, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
 		currentMIPS->downcount += 10000;
+		slicelength = 10000;
 	}
 	else
 	{

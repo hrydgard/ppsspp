@@ -145,7 +145,10 @@ public:
 #endif 
 
 	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetDisplayFBO();
+	VirtualFramebuffer *GetVFBAt(u32 addr);
+	VirtualFramebuffer *GetDisplayVFB() {
+		return GetVFBAt(displayFramebufPtr_);
+	}
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -163,12 +166,13 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
+	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
 private:
 	void CompileDraw2DProgram();
 
-	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
@@ -190,6 +194,8 @@ private:
 	void PackFramebufferSync_(VirtualFramebuffer *vfb);
 	int gpuVendor;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+
+	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large

@@ -138,6 +138,9 @@ private:
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
 
+	// Preprocessing for spline/bezier
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
+
 	// drawcall ID
 	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.

@@ -147,7 +147,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
+#ifdef _WIN32
+	graphics->Get("FrameSkipUnthrottle", &bFrameSkipUnthrottle, false);
+#else
 	graphics->Get("FrameSkipUnthrottle", &bFrameSkipUnthrottle, true);
+#endif
 	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 60);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);

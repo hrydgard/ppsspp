@@ -56,7 +56,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransfo
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool hasBones = gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE;
+	bool hasBones = vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -88,7 +88,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransfo
 
 		// Bones
 		if (hasBones)
-			id->d[0] |= (TranslateNumBonesDX9(gstate.getNumBoneWeights()) - 1) << 22;
+			id->d[0] |= (TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
@@ -104,7 +104,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransfo
 			}
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= (gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
@@ -171,8 +171,8 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "float4x4 u_view;\n");
 		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "float4x4 u_texmtx;\n");
-		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
-			int numBones = TranslateNumBonesDX9(gstate.getNumBoneWeights());
+		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
+			int numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "float4x4 u_bone[%i];\n", numBones);
 #else
@@ -222,8 +222,8 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, " struct VS_IN                                \n");
 		WRITE(p, "                                             \n");
 		WRITE(p,  " {                                          \n");
-		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
-			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(gstate.getNumBoneWeights())]);
+		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
+			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType))]);
 		}
 		if (doTexture) {
 			if (doTextureProjection)
@@ -278,7 +278,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	WRITE(p, "		VS_OUT Out = (VS_OUT)0;							   \n");  
 	if (useHWTransform) {
 		// Step 1: World Transform / Skinning
-		if (gstate.getWeightMask() == GE_VTYPE_WEIGHT_NONE) {
+		if (vertTypeGetWeightMask(vertType) == GE_VTYPE_WEIGHT_NONE) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  float3 worldpos = mul(float4(In.ObjPos.xyz, 1.0), u_world).xyz;\n");
 			if (hasNormal)
@@ -286,10 +286,10 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			else
 				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		} else {
-			int numWeights = TranslateNumBonesDX9(gstate.getNumBoneWeights());
+			int numWeights = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT];
+			const char *factor = rescale[vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT];
 
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
