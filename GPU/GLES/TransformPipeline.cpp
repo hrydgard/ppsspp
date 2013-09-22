@@ -1228,4 +1228,8 @@ rotateVBO:
 	collectedVerts = 0;
 	numDrawCalls = 0;
 	prevPrim_ = GE_PRIM_INVALID;
+
+#ifndef USING_GLES2
+	host->GPUNotifyDraw();
+#endif
 }

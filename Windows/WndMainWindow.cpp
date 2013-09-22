@@ -38,6 +38,7 @@
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
+#include "Windows/Debugger/GEDebugger.h"
 #include "main.h"
 
 #include "Core/Core.h"
@@ -499,6 +500,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_IGNOREILLEGALREADS);
 		TranslateMenuItem(ID_DEBUG_RUNONLOAD);
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, L"\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_GEDEBUGGER);
 		TranslateMenuItem(ID_DEBUG_LOG, L"\tCtrl+L");
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, L"\tCtrl+M");
 
@@ -738,6 +740,9 @@ namespace MainWindow
 		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(disasmWindow[0]);
 		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
+
+		geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
+		DialogManager::AddDlg(geDebuggerWindow);
 
 		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(memoryWindow[0]);
@@ -1266,6 +1271,10 @@ namespace MainWindow
 
 				case ID_DEBUG_DISASSEMBLY:
 					disasmWindow[0]->Show(true);
+					break;
+
+				case ID_DEBUG_GEDEBUGGER:
+					geDebuggerWindow->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:

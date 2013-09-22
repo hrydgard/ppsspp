@@ -58,11 +58,18 @@ public:
 
 	virtual void SendCoreWait(bool) {}
 
+	// While debugging is active, it's perfectly fine for these to block.
+	virtual bool GPUDebuggingActive() { return false; }
+	virtual void GPUNotifyCommand(u32 pc) {}
+	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format) {}
+	virtual void GPUNotifyDraw() {}
+	virtual void GPUNotifyTextureAttachment(u32 addr) {}
+	virtual bool GPUAllowTextureCache(u32 addr) { return true; }
+
 	virtual bool GpuStep() { return false; }
 	virtual void SendGPUStart() {}
 	virtual void SendGPUWait(u32 cmd, u32 addr, void* data) {}
-	virtual void SetGPUStep(bool value, int flag = 0, int data = 0) {}
-	virtual void NextGPUStep() {}
+
 	virtual bool CanCreateShortcut() {return false;}
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 

@@ -110,6 +110,9 @@
     <ClCompile Include="Debugger\Debugger_Lists.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\GEDebugger.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -195,6 +198,9 @@
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\Debugger_Lists.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\GEDebugger.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
   </ItemGroup>

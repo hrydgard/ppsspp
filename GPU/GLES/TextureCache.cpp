@@ -163,6 +163,7 @@ inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
 	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
+		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -171,6 +172,7 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
+		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -224,6 +226,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
 		entry->framebuffer = 0;
+		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -1039,6 +1042,9 @@ void TextureCache::SetTexture() {
 		// Validate the texture still matches the cache entry.
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
+#ifndef USING_GLES2
+		match &= host->GPUAllowTextureCache(texaddr);
+#endif
 
 		// Check for FBO - slow!
 		if (entry->framebuffer && match) {

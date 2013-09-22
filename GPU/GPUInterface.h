@@ -244,7 +244,6 @@ public:
 	virtual void DumpNextFrame() = 0;
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
-	virtual DisplayList* GetCurrentDisplayList() = 0;
 	virtual bool DecodeTexture(u8* dest, GPUgstate state) = 0;
 	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
 };

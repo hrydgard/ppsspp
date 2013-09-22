@@ -37,8 +37,10 @@
 #include "Windows/resource.h"
 
 #include "Windows/WndMainWindow.h"
+#include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
+#include "Windows/Debugger/GEDebugger.h"
 
 #include "Windows/W32Util/DialogManager.h"
 
@@ -50,6 +52,7 @@
 #include "Windows/main.h"
 
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
+CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 static std::string langRegion;
