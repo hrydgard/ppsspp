@@ -223,7 +223,7 @@ Vec3f Bernstein3D(const Vec3f p0, const Vec3f p1, const Vec3f p2, const Vec3f p3
 }
 
 
-void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 vertType) {
+void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 vertType, u32 origVertType) {
 	if (true) {
 		// TODO: Should do actual patch subdivision instead of just drawing the control points!
 		const int tile_min_u = (patch.type & START_OPEN_U) ? 0 : 1;
@@ -246,7 +246,7 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 vertT
 				SimpleVertex v3 = *patch.points[point_index+5];
 
 				// Generate UV. TODO: Do this even if UV specified in control points?
-				if ((vertType & GE_VTYPE_TC_MASK) == 0) {
+				if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
 					float u = u_base + tile_u * third;
 					float v = v_base + tile_v * third;
 					v0.uv[0] = u;
@@ -346,6 +346,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
 	u8 *temp_buffer = decoded + 65536 * 24;
 	
+	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
@@ -387,7 +388,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		HWSplinePatch& patch = patches[patch_idx];
-		TesselatePatch(dest, count, patch, vertType);
+		TesselatePatch(dest, count, patch, vertType, origVertType);
 	}
 	delete[] patches;
 
@@ -417,6 +418,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
 	u8 *temp_buffer = decoded + 65536 * 24;
 
+	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
@@ -454,7 +456,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		HWSplinePatch& patch = patches[patch_idx];
-		TesselatePatch(dest, count, patch, vertType);
+		TesselatePatch(dest, count, patch, vertType, origVertType);
 	}
 	delete[] patches;
 
