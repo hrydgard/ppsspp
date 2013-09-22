@@ -421,7 +421,10 @@ int sceGeBreak(u32 mode, u32 unknownPtr)
 
 	//mode => 0 : current dlist 1: all drawing
 	DEBUG_LOG(SCEGE, "sceGeBreak(mode=%d, unknown=%08x)", mode, unknownPtr);
-	return gpu->Break(mode);
+	int result = gpu->Break(mode);
+	if (result >= 0 && mode == 0)
+		return 0x35000000 ^ result;
+	return result;
 }
 
 u32 sceGeSetCallback(u32 structAddr)
