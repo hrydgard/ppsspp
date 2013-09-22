@@ -2,6 +2,7 @@
 #include "math/math_util.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPS.h"
@@ -174,6 +175,10 @@ namespace MIPSComp
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		int rs = _RS;
 
+		if (!g_Config.bFastMemory) {
+			DISABLE;
+		}
+
 		bool doCheck = false;
 		switch (op >> 26)
 		{
@@ -221,6 +226,10 @@ namespace MIPSComp
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 		int rs = _RS;
+
+		if (!g_Config.bFastMemory) {
+			DISABLE;
+		}
 
 		bool doCheck = false;
 		switch (op >> 26)

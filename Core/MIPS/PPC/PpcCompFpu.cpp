@@ -1,4 +1,5 @@
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPS.h"
@@ -66,6 +67,10 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	// u32 addr = R(rs) + offset;
 	// logBlocks = 1;
 	bool doCheck = false;
+
+	if (!g_Config.bFastMemory) {
+		DISABLE;
+	}
 
 	switch(op >> 26)
 	{
