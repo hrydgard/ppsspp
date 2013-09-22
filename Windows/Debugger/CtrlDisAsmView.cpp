@@ -19,6 +19,7 @@
 
 #include "Common/CommonWindows.h"
 #include "util/text/utf8.h"
+#include "ext/xxhash.h"
 
 #include <CommDlg.h>
 #include <tchar.h>
@@ -52,7 +53,158 @@ void CtrlDisAsmView::deinit()
 	//UnregisterClass(szClassName, hInst)
 }
 
+#define NUM_LANES 16
 
+void CtrlDisAsmView::scanFunctions()
+{
+	struct LaneInfo
+	{
+		bool used;
+		u32 end;
+	};
+
+	u32 pos = windowStart;
+	u32 windowEnd = windowStart+visibleRows*instructionSize;
+
+	visibleFunctionAddresses.clear();
+	strayLines.clear();
+
+	while (pos < windowEnd)
+	{
+		SymbolInfo info;
+		if (symbolMap.GetSymbolInfo(&info,pos))
+		{
+			u32 hash = XXH32(Memory::GetPointer(info.address),info.size,0xBACD7814);
+			u32 funcEnd = info.address+info.size;
+
+			visibleFunctionAddresses.push_back(info.address);
+
+			auto it = functions.find(info.address);
+			if (it != functions.end() && it->second.hash == hash)
+			{
+				// function is unchaged
+				pos = funcEnd;
+				continue;
+			}
+
+			DisassemblyFunction func;
+			func.hash = hash;
+
+			LaneInfo lanes[NUM_LANES];
+			for (int i = 0; i < NUM_LANES; i++)
+				lanes[i].used = false;
+
+
+			for (int funcPos = info.address; funcPos < funcEnd; funcPos += instructionSize)
+			{
+				MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(debugger,funcPos);
+				if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch)
+				{
+					BranchLine line;
+					if (opInfo.branchTarget < funcPos)
+					{
+						line.first = opInfo.branchTarget;
+						line.second = funcPos;
+						line.type = LINE_UP;
+					} else {
+						line.first = funcPos;
+						line.second = opInfo.branchTarget;
+						line.type = LINE_DOWN;
+					}
+
+					func.lines.push_back(line);
+				}
+			}
+			
+			for (int i = 0; i < func.lines.size(); i++)
+			{
+				for (int l = 0; l < NUM_LANES; l++)
+				{
+					if (func.lines[i].first > lanes[l].end)
+						lanes[l].used = false;
+				}
+
+				int lane = -1;
+				for (int i = 0; i < NUM_LANES; i++)
+				{
+					if (lanes[i].used == false)
+					{
+						lane = i;
+						break;
+					}
+				}
+
+				if (lane == -1)
+				{
+					// error
+					continue;
+				}
+
+				lanes[lane].end = func.lines[i].second;
+				lanes[lane].used = true;
+				func.lines[i].laneIndex = lane;
+			}
+
+			functions[info.address] = func;
+			pos = funcEnd;
+		} else {
+			MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(debugger,pos);
+			if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch)
+			{
+				BranchLine line;
+				if (opInfo.branchTarget < pos)
+				{
+					line.first = opInfo.branchTarget;
+					line.second = pos;
+					line.type = LINE_UP;
+				} else {
+					line.first = pos;
+					line.second = opInfo.branchTarget;
+					line.type = LINE_DOWN;
+				}
+
+				strayLines.push_back(line);
+			}
+
+			pos += instructionSize;
+		}
+	}
+
+	// calculate lanes for strayBranches
+	LaneInfo lanes[NUM_LANES];
+	for (int i = 0; i < NUM_LANES; i++)
+		lanes[i].used = false;
+
+	for (int i = 0; i < strayLines.size(); i++)
+	{
+		for (int l = 0; l < NUM_LANES; l++)
+		{
+			if (strayLines[i].first > lanes[l].end)
+				lanes[l].used = false;
+		}
+
+		int lane = -1;
+		for (int i = 0; i < NUM_LANES; i++)
+		{
+			if (lanes[i].used == false)
+			{
+				lane = i;
+				break;
+			}
+		}
+
+		if (lane == -1)
+		{
+			// error
+			continue;
+		}
+
+		lanes[lane].end = strayLines[i].second;
+		lanes[lane].used = true;
+		strayLines[i].laneIndex = lane;
+	}
+
+}
 
 LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -319,16 +471,92 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	}
 }
 
+
+void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
+{
+	u32 windowEnd = windowStart+(visibleRows+2)*instructionSize;
+
+	int topY;
+	int bottomY;
+	if (line.first < windowStart)
+	{
+		topY = -1;
+	} else if (line.first >= windowEnd)
+	{
+		topY = rect.bottom+1;
+	} else {
+		int row = (line.first-windowStart)/instructionSize;
+		topY = row*rowHeight + rowHeight/2;
+	}
+			
+	if (line.second < windowStart)
+	{
+		bottomY = -1;
+	} else if (line.second >= windowEnd)
+	{
+		bottomY = rect.bottom+1;
+	} else {
+		int row = (line.second-windowStart)/instructionSize;
+		bottomY = row*rowHeight + rowHeight/2;
+	}
+
+	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom))
+	{
+		return;
+	}
+			
+	int x = pixelPositions.arrowsStart+line.laneIndex*8;
+	if (topY < 0)	// first is not visible, but second is
+	{
+		MoveToEx(hdc,x-2,bottomY,0);
+		LineTo(hdc,x+2,bottomY);
+		LineTo(hdc,x+2,0);
+
+		if (line.type == LINE_DOWN)
+		{
+			MoveToEx(hdc,x,bottomY-4,0);
+			LineTo(hdc,x-4,bottomY);
+			LineTo(hdc,x+1,bottomY+5);
+		}
+	} else if (bottomY > rect.bottom) // second is not visible, but first is
+	{
+		MoveToEx(hdc,x-2,topY,0);
+		LineTo(hdc,x+2,topY);
+		LineTo(hdc,x+2,rect.bottom);
+				
+		if (line.type == LINE_UP)
+		{
+			MoveToEx(hdc,x,topY-4,0);
+			LineTo(hdc,x-4,topY);
+			LineTo(hdc,x+1,topY+5);
+		}
+	} else { // both are visible
+		if (line.type == LINE_UP)
+		{
+			MoveToEx(hdc,x-2,bottomY,0);
+			LineTo(hdc,x+2,bottomY);
+			LineTo(hdc,x+2,topY);
+			LineTo(hdc,x-4,topY);
+			
+			MoveToEx(hdc,x,topY-4,0);
+			LineTo(hdc,x-4,topY);
+			LineTo(hdc,x+1,topY+5);
+		} else {
+			MoveToEx(hdc,x-2,topY,0);
+			LineTo(hdc,x+2,topY);
+			LineTo(hdc,x+2,bottomY);
+			LineTo(hdc,x-4,bottomY);
+			
+			MoveToEx(hdc,x,bottomY-4,0);
+			LineTo(hdc,x-4,bottomY);
+			LineTo(hdc,x+1,bottomY+5);
+		}
+	}
+}
+
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
 	if (!debugger->isAlive()) return;
-
-	struct branch
-	{
-		int src,dst,srcAddr;
-	};
-	branch branches[256];
-	int numBranches=0;
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -425,39 +653,23 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,boldfont);
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
-
-		if (info.isBranch && info.isConditional)
+	}
+	
+	SelectObject(hdc,condPen);
+	for (int i = 0; i < visibleFunctionAddresses.size(); i++)
+	{
+		auto it = functions.find(visibleFunctionAddresses[i]);
+		DisassemblyFunction& func = it->second;
+		
+		for (int l = 0; l < func.lines.size(); l++)
 		{
-			branches[numBranches].src=rowY1 + rowHeight/2;
-			branches[numBranches].srcAddr=address/instructionSize;
-			branches[numBranches].dst=(int)(rowY1+((__int64)branchTarget-(__int64)address)*rowHeight/instructionSize + rowHeight/2);
-			numBranches++;
+			drawBranchLine(hdc,func.lines[l]);
 		}
 	}
 
-	for (int i=0; i < numBranches; i++)
+	for (int i = 0; i < strayLines.size(); i++)
 	{
-		SelectObject(hdc,condPen);
-		int x=pixelPositions.arrowsStart+i*8;
-		MoveToEx(hdc,x-2,branches[i].src,0);
-
-		if (branches[i].dst < 0)
-		{
-			LineTo(hdc,x+2,branches[i].src);
-			LineTo(hdc,x+2,0);
-		} else if (branches[i].dst > rect.bottom)
-		{
-			LineTo(hdc,x+2,branches[i].src);
-			LineTo(hdc,x+2,rect.bottom);
-		} else {
-			LineTo(hdc,x+2,branches[i].src);
-			LineTo(hdc,x+2,branches[i].dst);
-			LineTo(hdc,x-4,branches[i].dst);
-			
-			MoveToEx(hdc,x,branches[i].dst-4,0);
-			LineTo(hdc,x-4,branches[i].dst);
-			LineTo(hdc,x+1,branches[i].dst+5);
-		}
+		drawBranchLine(hdc,strayLines[i]);
 	}
 
 	SelectObject(hdc,oldFont);
