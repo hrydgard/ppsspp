@@ -103,7 +103,9 @@ void CtrlDisAsmView::scanFunctions()
 			for (int funcPos = info.address; funcPos < funcEnd; funcPos += instructionSize)
 			{
 				MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(debugger,funcPos);
-				if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch)
+
+				bool inFunction = (opInfo.branchTarget >= info.address && opInfo.branchTarget < funcEnd);
+				if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch && inFunction)
 				{
 					BranchLine line;
 					if (opInfo.branchTarget < funcPos)
@@ -666,6 +668,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < visibleFunctionAddresses.size(); i++)
 	{
 		auto it = functions.find(visibleFunctionAddresses[i]);
+		if (it == functions.end()) continue;
 		DisassemblyFunction& func = it->second;
 		
 		for (int l = 0; l < func.lines.size(); l++)
@@ -859,6 +862,8 @@ void CtrlDisAsmView::scrollAddressIntoView()
 		windowStart = curAddress;
 	else if (curAddress >= windowEnd)
 		windowStart = curAddress - visibleRows * instructionSize + instructionSize;
+
+	scanFunctions();
 }
 
 bool CtrlDisAsmView::curAddressIsVisible()

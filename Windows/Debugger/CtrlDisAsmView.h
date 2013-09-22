@@ -119,7 +119,12 @@ public:
 	bool curAddressIsVisible();
 	void redraw();
 	void scanFunctions();
-	void clearFunctions() { functions.clear(); };
+	void clearFunctions()
+	{
+		functions.clear();
+		visibleFunctionAddresses.clear();
+		strayLines.clear();
+	};
 
 	void getOpcodeText(u32 address, char* dest);
 	u32 yToAddress(int y);
@@ -146,6 +151,7 @@ public:
 		}
 
 		setCurAddress(newAddress);
+		scanFunctions();
 		redraw();
 	}
 	void gotoPC()
@@ -178,6 +184,5 @@ public:
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
 		updateStatusBarText();
-		scanFunctions();
 	}
 };
