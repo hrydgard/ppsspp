@@ -1230,13 +1230,12 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if(updateVram && age == 0 && !vfb->memoryUpdated) {  
-			ReadFramebufferToMemory(vfb);
-		}
-
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			continue;
-		}
+        		if(updateVram && age == 0 && !vfb->memoryUpdated) {  
+            			ReadFramebufferToMemory(vfb);
+        		}
+        		continue;
+    		}
 
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
