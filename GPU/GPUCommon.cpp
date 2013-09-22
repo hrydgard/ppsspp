@@ -976,3 +976,101 @@ void GPUCommon::SyncEnd(WaitType waitType, int listid, bool wokeThreads) {
 		}
 	}
 }
+
+bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
+	easy_guard guard(listLock);
+	if (!currentList) {
+		return false;
+	}
+	list = *currentList;
+	return true;
+}
+
+std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
+	std::vector<DisplayList> result;
+
+	easy_guard guard(listLock);
+	for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
+		result.push_back(dls[*it]);
+	}
+
+	return result;
+}
+
+void GPUCommon::ResetListPC(int listID, u32 pc) {
+	if (listID < 0 || listID >= DisplayListMaxCount) {
+		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		return;
+	}
+
+	easy_guard guard(listLock);
+	dls[listID].pc = pc;
+}
+
+void GPUCommon::ResetListStall(int listID, u32 stall) {
+	if (listID < 0 || listID >= DisplayListMaxCount) {
+		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		return;
+	}
+
+	easy_guard guard(listLock);
+	dls[listID].stall = stall;
+}
+
+void GPUCommon::ResetListState(int listID, DisplayListState state) {
+	if (listID < 0 || listID >= DisplayListMaxCount) {
+		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		return;
+	}
+
+	easy_guard guard(listLock);
+	dls[listID].state = state;
+}
+
+GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
+	char buffer[1024];
+	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer);
+
+	GPUDebugOp info;
+	info.pc = pc;
+	info.cmd = op >> 24;
+	info.op = op;
+	info.desc = buffer;
+	return info;
+}
+
+std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
+	char buffer[1024];
+	std::vector<GPUDebugOp> result;
+	GPUDebugOp info;
+
+	u32 prev = Memory::Read_U32(startpc - 4);
+	for (u32 pc = startpc; pc < endpc; pc += 4) {
+		u32 op = Memory::Read_U32(pc);
+		GeDisassembleOp(pc, op, prev, buffer);
+		prev = op;
+
+		info.pc = pc;
+		info.cmd = op >> 24;
+		info.op = op;
+		info.desc = buffer;
+		result.push_back(info);
+	}
+	return result;
+}
+
+u32 GPUCommon::GetRelativeAddress(u32 data) {
+	return gstate_c.getRelativeAddress(data);
+}
+
+u32 GPUCommon::GetVertexAddress() {
+	return gstate_c.vertexAddr;
+}
+
+u32 GPUCommon::GetIndexAddress() {
+	return gstate_c.indexAddr;
+}
+
+GPUgstate GPUCommon::GetGState() {
+	return gstate;
+}

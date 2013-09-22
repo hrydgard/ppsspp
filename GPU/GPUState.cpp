@@ -33,28 +33,33 @@
 GPUgstate gstate;
 GPUStateCache gstate_c;
 GPUInterface *gpu;
+GPUDebugInterface *gpuDebug;
 GPUStatistics gpuStats;
+
+template <typename T>
+static void SetGPU(T *obj) {
+	gpu = obj;
+	gpuDebug = obj;
+}
 
 bool GPU_Init() {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
-		gpu = new NullGPU();
+		SetGPU(new NullGPU());
 		break;
 	case GPU_GLES:
 #ifndef _XBOX
-		gpu = new GLES_GPU();
+		SetGPU(new GLES_GPU());
 #endif
 		break;
 	case GPU_SOFTWARE:
 #if !(defined(__SYMBIAN32__) || defined(_XBOX))
-		gpu = new SoftGPU();
+		SetGPU(new SoftGPU());
 #endif
 		break;
 	case GPU_DIRECTX9:
-#if defined(_XBOX)
-		gpu = new DIRECTX9_GPU();
-#elif defined(_WIN32)
-		gpu = new DIRECTX9_GPU();
+#if defined(_XBOX) || defined(_WIN32)
+		SetGPU(new DIRECTX9_GPU());
 #endif
 		break;
 	}
@@ -65,6 +70,7 @@ bool GPU_Init() {
 void GPU_Shutdown() {
 	delete gpu;
 	gpu = 0;
+	gpuDebug = 0;
 }
 
 void InitGfxState() {

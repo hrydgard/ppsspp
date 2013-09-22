@@ -17,11 +17,39 @@
 
 #pragma once
 
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
+#include "Core/MemMap.h"
+#include <vector>
+#include <string>
+
+struct GPUDebugOp {
+	u32 pc;
+	u8 cmd;
+	u32 op;
+	std::string desc;
+};
+
 class GPUDebugInterface {
 public:
+	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
+	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;
+	virtual void ResetListPC(int listID, u32 pc) = 0;
+	virtual void ResetListStall(int listID, u32 stall) = 0;
+	virtual void ResetListState(int listID, DisplayListState state) = 0;
+
+	GPUDebugOp DissassembleOp(u32 pc) {
+		return DissassembleOp(pc, Memory::Read_U32(pc));
+	}
+	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op) = 0;
+	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc) = 0;
+
+	virtual u32 GetRelativeAddress(u32 data) = 0;
+	virtual u32 GetVertexAddress() = 0;
+	virtual u32 GetIndexAddress() = 0;
+	virtual GPUgstate GetGState() = 0;
+
 	// TODO:
-	// current list / all lists
-	// cmds / matrices / addresses
 	// cached framebuffers / textures / vertices?
 	// get content of framebuffer / texture
 	// vertex / texture decoding?

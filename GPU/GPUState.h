@@ -516,10 +516,12 @@ void ShutdownGfxState();
 void ReapplyGfxState();
 
 class GPUInterface;
+class GPUDebugInterface;
 
 extern GPUgstate gstate;
 extern GPUStateCache gstate_c;
 extern GPUInterface *gpu;
+extern GPUDebugInterface *gpuDebug;
 extern GPUStatistics gpuStats;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
