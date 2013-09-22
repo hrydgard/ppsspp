@@ -246,16 +246,18 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 vertT
 				SimpleVertex v3 = *patch.points[point_index+5];
 
 				// Generate UV. TODO: Do this even if UV specified in control points?
-				float u = u_base + tile_u * third;
-				float v = v_base + tile_v * third;
-				v0.uv[0] = u;
-				v0.uv[1] = v;
-				v1.uv[0] = u + third;
-				v1.uv[1] = v;
-				v2.uv[0] = u;
-				v2.uv[1] = v + third;
-				v3.uv[0] = u + third;
-				v3.uv[1] = v + third;
+				if ((vertType & GE_VTYPE_TC_MASK) == 0) {
+					float u = u_base + tile_u * third;
+					float v = v_base + tile_v * third;
+					v0.uv[0] = u;
+					v0.uv[1] = v;
+					v1.uv[0] = u + third;
+					v1.uv[1] = v;
+					v2.uv[0] = u;
+					v2.uv[1] = v + third;
+					v3.uv[0] = u + third;
+					v3.uv[1] = v + third;
+				}
 
 				// Generate normal if lighting is enabled (otherwise there's no point).
 				// This is a really poor quality algorithm, we get facet normals.
