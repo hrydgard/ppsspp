@@ -25,8 +25,6 @@
 
 // #define DEBUG_SHADER
 
-// GL_NV_shader_framebuffer_fetch looks interesting....
-
 namespace DX9 {
 
 static bool IsAlphaTestTriviallyTrue() {
@@ -253,19 +251,16 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			WRITE(p, "  float4 v = In.v_color0 %s;\n", secondary);
 		}
 
+#if !defined(DX9_USE_HW_ALPHA_TEST)
 		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				// WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
-				//WRITE(p, "clip((roundAndScaleTo255f(v.rgb) %s u_alphacolorref.a)? -1:1);\n", alphaTestFuncs[alphaTestFunc]);
-				
-				//WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+				// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
 				WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
-				//WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) v.r=1;\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
-
+#endif
 		// TODO: Before or after the color test?
 		if (enableColorDoubling && enableAlphaDoubling) {
 			WRITE(p, "  v = v * 2.0;\n");
@@ -280,15 +275,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				//WRITE(p, "clip((roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb)? -1:1);\n", colorTestFuncs[colorTestFunc]);
-				//WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb)  clip(-1);\n", colorTestFuncs[colorTestFunc]);
-
-				// cleanup ?
 				const char * test = colorTestFuncs[colorTestFunc];
-				//WRITE(p, "float3 colortest = roundAndScaleTo255v(v.rgb);\n");
 				WRITE(p, "float3 colortest = roundTo255thv(v.rgb);\n");
 				WRITE(p, "if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b ))  clip(-1);\n", test, test, test);
-
 			}
 		}
 

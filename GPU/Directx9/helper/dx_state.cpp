@@ -41,6 +41,10 @@ void DirectxState::Restore() {
 
 	// viewport.restore(); count++;
 
+	alphaTest.restore(); count++;
+	alphaTestFunc.restore(); count++;
+	alphaTestRef.restore(); count++;
+
 	stencilTest.restore(); count++;
 	stencilOp.restore(); count++;
 	stencilFunc.restore(); count++;

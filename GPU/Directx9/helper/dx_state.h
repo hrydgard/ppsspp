@@ -303,6 +303,10 @@ public:
 
 	BoolState<D3DRS_ZENABLE, false> depthTest;
 
+	DxState1<D3DRS_ALPHAFUNC, D3DCMP_ALWAYS> alphaTestFunc;
+	DxState1<D3DRS_ALPHAREF, 0> alphaTestRef;
+	BoolState<D3DRS_ALPHATESTENABLE, false> alphaTest;
+
 	DxState1<D3DRS_ZFUNC, D3DCMP_LESSEQUAL> depthFunc;
 	DxState1<D3DRS_ZWRITEENABLE, TRUE> depthWrite;
 

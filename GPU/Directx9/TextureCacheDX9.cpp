@@ -1343,13 +1343,11 @@ void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFm
 }
 
 static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch, int srcfmt, int fmt, void * pSrc, void * pDst) {
-	// Swap color
 	int y;
 	switch(fmt) {
 		case D3DFMT_R5G6B5:
 		case D3DFMT_A4R4G4B4:
 		case D3DFMT_A1R5G5B5:
-			// Really needed ?
 			for(y = 0; y < h; y++) {
 				const u16 *src = (const u16 *)((u8*)pSrc + (w*2) * y);
 				u16 *dst = (u16*)((u8*)pDst + pitch * y);
