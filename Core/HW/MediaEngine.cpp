@@ -85,17 +85,35 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-void ffmpeg_logger(void *, int, const char *format, va_list va_args) {
+void ffmpeg_logger(void *, int level, const char *format, va_list va_args) {
+	// We're still called even if the level doesn't match.
+	if (level > av_log_get_level())
+		return;
+
 	char tmp[1024];
-	vsprintf(tmp, format, va_args);
-	INFO_LOG(ME, "%s", tmp);
+	vsnprintf(tmp, sizeof(tmp), format, va_args);
+	tmp[sizeof(tmp) - 1] = '\0';
+
+	// Strip off any trailing newline.
+	size_t len = strlen(tmp);
+	if (tmp[len - 1] == '\n')
+		tmp[len - 1] = '\0';
+
+	// Let's color the log line appropriately.
+	if (level <= AV_LOG_PANIC) {
+		ERROR_LOG(ME, "%s", tmp);
+	} else if (level >= AV_LOG_VERBOSE) {
+		DEBUG_LOG(ME, "%s", tmp);
+	} else {
+		INFO_LOG(ME, "%s", tmp);
+	}
 }
 
 bool InitFFmpeg() {
 #ifdef _DEBUG
 	av_log_set_level(AV_LOG_VERBOSE);
 #else
-	av_log_set_level(AV_LOG_ERROR);
+	av_log_set_level(AV_LOG_WARNING);
 #endif
 	av_log_set_callback(&ffmpeg_logger);
 
