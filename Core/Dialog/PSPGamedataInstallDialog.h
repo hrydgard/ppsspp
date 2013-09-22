@@ -51,4 +51,5 @@ public:
 
 private:
 	SceUtilityGamedataInstallParam request;
+	u32 paramAddr;
 };

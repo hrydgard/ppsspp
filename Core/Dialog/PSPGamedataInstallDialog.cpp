@@ -75,6 +75,7 @@ PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {
 }
 
 int PSPGamedataInstallDialog::Init(u32 paramAddr) {
+	this->paramAddr = paramAddr;
 	// Already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
@@ -114,6 +115,10 @@ int PSPGamedataInstallDialog::Update() {
 	} else if (status == SCE_UTILITY_STATUS_FINISHED) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
+	//What is this?
+	request.unknownResult1 = inFileNames.size();
+	request.unknownResult2 = inFileNames.size();
+	Memory::WriteStruct(paramAddr,&request);
 
 	status = SCE_UTILITY_STATUS_FINISHED;
 	return 0;
