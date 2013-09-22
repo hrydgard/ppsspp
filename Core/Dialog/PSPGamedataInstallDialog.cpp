@@ -19,6 +19,55 @@
 #include "ChunkFile.h"
 #include "../Core/MemMap.h"
 
+std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
+
+namespace
+{
+	bool ReadPSPFile(std::string filename, u8 **data, s64 *readSize, s64 dataSize = -1 ) // we should read whole file here.
+	{
+		u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+		if (handle == 0)
+			return false;
+
+		if(dataSize == -1)
+		{
+			dataSize = pspFileSystem.GetFileInfo(filename).size;
+			*data = new u8[(size_t)dataSize];
+		}
+
+		size_t result = pspFileSystem.ReadFile(handle, *data, dataSize);
+		pspFileSystem.CloseFile(handle);
+		if(readSize)
+			*readSize = result;
+
+		return result != 0;
+	}
+
+	bool WritePSPFile(std::string filename, u8 *data, u32 dataSize)
+	{
+		u32 handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+		if (handle == 0)
+			return false;
+
+		size_t result = pspFileSystem.WriteFile(handle, data, dataSize);
+		pspFileSystem.CloseFile(handle);
+
+		return result != 0;
+	}
+
+	std::vector<std::string> GetPSPFileList (std::string dirpath) {
+		std::vector<std::string> FileList;
+		auto Fileinfos = pspFileSystem.GetDirListing(dirpath);
+		std::string info;
+
+		for (auto it = Fileinfos.begin(); it != Fileinfos.end(); ++it) {
+			std::string info = (*it).name;
+			FileList.push_back(info);
+		}
+		return FileList;
+	}
+}
+
 PSPGamedataInstallDialog::PSPGamedataInstallDialog() {
 }
 
@@ -39,6 +88,37 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	return 0;
 }
 
+int PSPGamedataInstallDialog::Update() {
+	auto inFileNames = GetPSPFileList ("disc0:/PSP_GAME/INSDIR");
+	std::string fullinFileName;
+	std::string desFileName;
+	u8 *temp;
+	s64 readSize;
+
+	if (status == SCE_UTILITY_STATUS_INITIALIZE){
+		status = SCE_UTILITY_STATUS_RUNNING;
+	} else if (status == SCE_UTILITY_STATUS_RUNNING) {
+		for (auto it = inFileNames.begin(); it != inFileNames.end();++it) {
+			fullinFileName = "disc0:/PSP_GAME/INSDIR/" + (*it);
+			desFileName = GetGameDataInstallFileName(&request, *it);
+			if (!ReadPSPFile(fullinFileName, &temp, &readSize)) {
+				delete temp;
+				continue;
+			}
+			if (!WritePSPFile(desFileName,temp, pspFileSystem.GetFileInfo(fullinFileName).size)) {
+				delete temp;
+				continue;
+			}
+			delete temp;
+		}
+	} else if (status == SCE_UTILITY_STATUS_FINISHED) {
+		status = SCE_UTILITY_STATUS_SHUTDOWN;
+	}
+
+	status = SCE_UTILITY_STATUS_FINISHED;
+	return 0;
+}
+
 int PSPGamedataInstallDialog::Abort() {
 	return PSPDialog::Shutdown();
 }
@@ -48,6 +128,16 @@ int PSPGamedataInstallDialog::Shutdown(bool force) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	return PSPDialog::Shutdown();
+}
+
+std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename){
+	if (!param)
+		return "";
+	std::string GameDataInstallPath = saveBasePath + param->gameName + param->dataName + "/";
+	if (!pspFileSystem.GetFileInfo(GameDataInstallPath).exists)
+		pspFileSystem.MkDir(GameDataInstallPath);
+
+	return GameDataInstallPath + filename;
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
