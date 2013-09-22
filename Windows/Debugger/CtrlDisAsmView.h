@@ -28,21 +28,21 @@ using std::min;
 using std::max;
 
 
-typedef enum { LINE_UP, LINE_DOWN, LINE_RIGHT } LineType;
+enum LineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
 
-typedef struct
+struct BranchLine
 {
 	u32 first;
 	u32 second;
 	LineType type;
 	int laneIndex;
-} BranchLine;
+};
 
-typedef struct
+struct DisassemblyFunction
 {
 	u32 hash;
 	std::vector<BranchLine> lines;
-} DisassemblyFunction;
+};
 
 class CtrlDisAsmView
 {
@@ -119,7 +119,8 @@ public:
 	bool curAddressIsVisible();
 	void redraw();
 	void scanFunctions();
-	
+	void clearFunctions() { functions.clear(); };
+
 	void getOpcodeText(u32 address, char* dest);
 	u32 yToAddress(int y);
 

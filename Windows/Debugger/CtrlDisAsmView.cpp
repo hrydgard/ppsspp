@@ -53,16 +53,16 @@ void CtrlDisAsmView::deinit()
 	//UnregisterClass(szClassName, hInst)
 }
 
-
-typedef struct
-{
-	bool used;
-	u32 end;
-} LaneInfo;
 #define NUM_LANES 16
 
 void CtrlDisAsmView::scanFunctions()
 {
+	struct LaneInfo
+	{
+		bool used;
+		u32 end;
+	};
+
 	u32 pos = windowStart;
 	u32 windowEnd = windowStart+visibleRows*instructionSize;
 

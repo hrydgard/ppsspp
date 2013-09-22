@@ -845,6 +845,7 @@ void CDisasm::NotifyMapLoaded()
 {
 	symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	ptr->clearFunctions();
 	ptr->redraw();
 }
 
