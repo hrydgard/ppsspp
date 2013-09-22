@@ -810,6 +810,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		if (switchPC)
 			ptr->gotoPC();
 		
+		ptr->scanFunctions();
 		CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 		mem->redraw();
 
@@ -844,6 +845,7 @@ void CDisasm::NotifyMapLoaded()
 {
 	symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	ptr->clearFunctions();
 	ptr->redraw();
 }
 
