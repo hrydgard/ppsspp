@@ -964,7 +964,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 		}
 		//OpenGL 2.0 have problem reading with it, let's not do it for now.
 #ifndef USING_GLES2
-		if((gl_extensions.PBO_ARB) && (g_Config.bForceOpenGL20==false))
+		if((gl_extensions.PBO_ARB) && !g_Config.bForceOpenGL20)
 		UpdateSamplingParams(*entry, false);
 #else
 		UpdateSamplingParams(*entry, false);
