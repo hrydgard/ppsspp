@@ -34,33 +34,33 @@
 
 #include <algorithm>
 
-#define ATRAC_ERROR_API_FAIL                 0x80630002
-#define ATRAC_ERROR_NO_ATRACID               0x80630003
-#define ATRAC_ERROR_INVALID_CODECTYPE        0x80630004
-#define ATRAC_ERROR_BAD_ATRACID              0x80630005
-#define ATRAC_ERROR_UNKNOWN_FORMAT           0x80630006
-#define ATRAC_ERROR_WRONG_CODECTYPE          0x80630007
-#define ATRAC_ERROR_ALL_DATA_LOADED          0x80630009
-#define ATRAC_ERROR_NO_DATA                  0x80630010
-#define ATRAC_ERROR_SIZE_TOO_SMALL           0x80630011
-#define ATRAC_ERROR_SECOND_BUFFER_NEEDED     0x80630012
-#define ATRAC_ERROR_INCORRECT_READ_SIZE      0x80630013
-#define ATRAC_ERROR_BAD_SAMPLE               0x80630015
-#define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
-#define ATRAC_ERROR_UNSET_PARAM              0x80630021
-#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
-#define ATRAC_ERROR_BUFFER_IS_EMPTY          0x80630023
-#define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
+#define ATRAC_ERROR_API_FAIL					0x80630002
+#define ATRAC_ERROR_NO_ATRACID					0x80630003
+#define ATRAC_ERROR_INVALID_CODECTYPE			0x80630004
+#define ATRAC_ERROR_BAD_ATRACID					0x80630005
+#define ATRAC_ERROR_UNKNOWN_FORMAT				0x80630006
+#define ATRAC_ERROR_WRONG_CODECTYPE				0x80630007
+#define ATRAC_ERROR_ALL_DATA_LOADED				0x80630009
+#define ATRAC_ERROR_NO_DATA						0x80630010
+#define ATRAC_ERROR_SIZE_TOO_SMALL				0x80630011
+#define ATRAC_ERROR_SECOND_BUFFER_NEEDED		0x80630012
+#define ATRAC_ERROR_INCORRECT_READ_SIZE			0x80630013
+#define ATRAC_ERROR_BAD_SAMPLE					0x80630015
+#define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG			0x80630018
+#define ATRAC_ERROR_NO_LOOP_INFORMATION			0x80630021
+#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED	0x80630022
+#define ATRAC_ERROR_BUFFER_IS_EMPTY				0x80630023
+#define ATRAC_ERROR_ALL_DATA_DECODED			0x80630024
 
-#define AT3_MAGIC			0x0270
-#define AT3_PLUS_MAGIC		0xFFFE
-#define PSP_MODE_AT_3_PLUS	0x00001000
-#define PSP_MODE_AT_3		0x00001001
+#define AT3_MAGIC								0x0270
+#define AT3_PLUS_MAGIC							0xFFFE
+#define PSP_MODE_AT_3_PLUS						0x00001000
+#define PSP_MODE_AT_3							0x00001001
 
-const int FMT_CHUNK_MAGIC	= 0x20746D66;
-const int DATA_CHUNK_MAGIC	= 0x61746164;
-const int SMPL_CHUNK_MAGIC	= 0x6C706D73;
-const int FACT_CHUNK_MAGIC	= 0x74636166;
+#define  FMT_CHUNK_MAGIC						0x20746D66
+#define  DATA_CHUNK_MAGIC						0x61746164
+#define  SMPL_CHUNK_MAGIC						0x6C706D73
+#define  FACT_CHUNK_MAGIC						0x74636166
 
 const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;
 const int PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY = -2;
@@ -70,7 +70,6 @@ const u32 ATRAC3_MAX_SAMPLES = 0x400;
 const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
 static const int atracDecodeDelay = 2300;
-
 static const int MAX_CONFIG_VOLUME = 8;
 
 #ifdef USE_FFMPEG
@@ -1277,6 +1276,11 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
+
+	if (readSize < 12) {
+		return ATRAC_ERROR_SIZE_TOO_SMALL;
+	}
+
 	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
@@ -1309,7 +1313,7 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum)
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac) {
 		if (atrac->loopinfoNum == 0)
-			return ATRAC_ERROR_UNSET_PARAM;
+			return ATRAC_ERROR_NO_LOOP_INFORMATION;
 		atrac->loopNum = loopNum;
 		if (loopNum != 0 && atrac->loopinfoNum == 0) {
 			// Just loop the whole audio
