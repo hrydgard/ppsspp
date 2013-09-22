@@ -676,7 +676,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				if (prim == GE_PRIM_LINE_STRIP)
 					break;
 				// Discard AA lines in Summon Night 5
-				if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+				if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
 					break;
 			}
 
