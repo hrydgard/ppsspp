@@ -253,6 +253,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			WRITE(p, "  float4 v = In.v_color0 %s;\n", secondary);
 		}
 
+#if 0	// done in state mapping
 		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
@@ -265,7 +266,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 				//WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) v.r=1;\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
-
+#endif
 		// TODO: Before or after the color test?
 		if (enableColorDoubling && enableAlphaDoubling) {
 			WRITE(p, "  v = v * 2.0;\n");

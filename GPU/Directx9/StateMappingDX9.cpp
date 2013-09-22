@@ -213,7 +213,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.depthTest.enable();
 		dxstate.depthFunc.set(D3DCMP_ALWAYS);
 		dxstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled());
-
+		
 		// Color Test
 		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
@@ -263,6 +263,15 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilTest.disable();
 		}
 	}
+
+#if 1
+	// d3d only
+	if (wantBlend) {
+		GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+		pD3Ddevice->SetRenderState(D3DRS_ALPHAFUNC, ztests[alphaTestFunc]);
+		pD3Ddevice->SetRenderState(D3DRS_ALPHAREF, gstate.getAlphaTestRef());
+	}
+#endif
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;

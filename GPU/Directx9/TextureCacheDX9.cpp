@@ -1518,8 +1518,12 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 			fmt = 0xDEAD;
 			break;
 		}
-		sprintf(fname, "game:\\pic\\pic.%02x.%04x.%08x.%08x.png", ipic++, fmt, entry.format, clutformat);
-		D3DXSaveTextureToFile(fname, D3DXIFF_PNG, entry.texture, NULL);
+		sprintf(fname, "game:\\pic\\pic.%02x.%04x.%08x.%08x.dds", ipic++, fmt, entry.format, clutformat);
+		D3DXSaveTextureToFile(fname, D3DXIFF_DDS, entry.texture, NULL);
+
+		if (ipic == 0x1b) {
+			printf("gg:%08x\n", entry.fullhash);
+		}
 #endif
 	}
 }
