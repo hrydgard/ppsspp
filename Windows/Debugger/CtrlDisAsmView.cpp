@@ -55,6 +55,11 @@ void CtrlDisAsmView::deinit()
 
 #define NUM_LANES 16
 
+bool compareBranchLines(BranchLine& a,BranchLine& b)
+{
+	return a.first < b.first;
+}
+
 void CtrlDisAsmView::scanFunctions()
 {
 	struct LaneInfo
@@ -116,6 +121,7 @@ void CtrlDisAsmView::scanFunctions()
 				}
 			}
 			
+			std::sort(func.lines.begin(),func.lines.end(),compareBranchLines);
 			for (int i = 0; i < func.lines.size(); i++)
 			{
 				for (int l = 0; l < NUM_LANES; l++)
@@ -174,7 +180,8 @@ void CtrlDisAsmView::scanFunctions()
 	LaneInfo lanes[NUM_LANES];
 	for (int i = 0; i < NUM_LANES; i++)
 		lanes[i].used = false;
-
+	
+	std::sort(strayLines.begin(),strayLines.end(),compareBranchLines);
 	for (int i = 0; i < strayLines.size(); i++)
 	{
 		for (int l = 0; l < NUM_LANES; l++)
@@ -654,7 +661,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 	}
-	
+	// 088156C0
 	SelectObject(hdc,condPen);
 	for (int i = 0; i < visibleFunctionAddresses.size(); i++)
 	{
