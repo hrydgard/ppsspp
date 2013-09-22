@@ -263,6 +263,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.waitTicks = (u64)-1;
 	dl.interruptsEnabled = interruptsEnabled_;
 	dl.started = false;
+	dl.offsetAddr = 0;
 	if (args.IsValid() && args->context.IsValid())
 		dl.context = args->context;
 	else
@@ -467,10 +468,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	}
 	list.started = true;
 
-	// I don't know if this is the correct place to zero this, but something
-	// need to do it. See Sol Trigger title screen.
-	// TODO: Maybe this is per list?  Should a stalled list remember the old value?
-	gstate_c.offsetAddr = 0;
+	gstate_c.offsetAddr = list.offsetAddr;
 
 	if (!Memory::IsValidAddress(list.pc)) {
 		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
@@ -524,6 +522,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	if (cycleLastPC != list.pc) {
 		UpdatePC(list.pc - 4, list.pc);
 	}
+
+	list.offsetAddr = gstate_c.offsetAddr;
 
 	if (g_Config.bShowDebugStats) {
 		time_update();
