@@ -654,13 +654,15 @@ namespace MainWindow
 		RECT rc;
 
 		if (!g_Config.bFullScreen) {
-			const int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-			const int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+			const int screenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+			const int screenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+			const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+			const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
 
-			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) > 0) &&
+			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= screenX) &&
 				((g_Config.iWindowX + g_Config.iWindowWidth) < (screenWidth + g_Config.iWindowWidth));
 
-			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) > 0) &&
+			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= screenY) &&
 				((g_Config.iWindowY + g_Config.iWindowHeight) < (screenHeight + g_Config.iWindowHeight));
 
 			if (!visibleHorizontally)
