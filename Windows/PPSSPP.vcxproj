@@ -279,6 +279,7 @@
     <ClCompile Include="Debugger\Debugger_Lists.cpp" />
     <ClCompile Include="Debugger\Debugger_MemoryDlg.cpp" />
     <ClCompile Include="Debugger\Debugger_VFPUDlg.cpp" />
+    <ClCompile Include="Debugger\GEDebugger.cpp" />
     <ClCompile Include="DinputDevice.cpp" />
     <ClCompile Include="EmuThread.cpp" />
     <ClCompile Include="InputDevice.cpp" />
@@ -320,6 +321,7 @@
     <ClInclude Include="Debugger\Debugger_Lists.h" />
     <ClInclude Include="Debugger\Debugger_MemoryDlg.h" />
     <ClInclude Include="Debugger\Debugger_VFPUDlg.h" />
+    <ClInclude Include="Debugger\GEDebugger.h" />
     <ClInclude Include="DinputDevice.h" />
     <ClInclude Include="EmuThread.h" />
     <ClInclude Include="InputDevice.h" />

@@ -517,6 +517,7 @@ void GLES_GPU::BeginFrameInternal() {
 }
 
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	host->GPUNotifyDisplay(framebuf, stride, format);
 	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
 }
 

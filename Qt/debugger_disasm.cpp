@@ -19,6 +19,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/Common/GPUDebugInterface.h"
 #include "EmuThread.h"
 #include "Core/Host.h"
 
@@ -546,8 +547,9 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 	EmuThread_LockDraw(true);
 	const std::list<int>& dlQueue = gpu->GetDisplayLists();
 
-	DisplayList* dl = gpu->GetCurrentDisplayList();
-	if(dl)
+	DisplayList dlist;
+	DisplayList* dl = &dlist;
+	if(gpuDebug->GetCurrentDisplayList(dlist))
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString::number(dl->id));

@@ -470,6 +470,7 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 }
 
 void DIRECTX9_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	host->GPUNotifyDisplay(framebuf, stride, format);
 	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
 }
 

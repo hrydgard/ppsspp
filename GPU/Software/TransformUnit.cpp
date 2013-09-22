@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Host.h"
 #include "../GPUState.h"
 #include "../GLES/VertexDecoder.h"
 
@@ -258,6 +259,7 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 		}
 	}
 	delete[] patches;
+	host->GPUNotifyDraw();
 }
 
 void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type)
@@ -402,4 +404,6 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			}
 		}
 	}
+
+	host->GPUNotifyDraw();
 }
