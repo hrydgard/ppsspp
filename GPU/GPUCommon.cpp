@@ -377,7 +377,7 @@ u32 GPUCommon::Break(int mode) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	if (!currentList)
-		return 0x80000020;
+		return SCE_KERNEL_ERROR_ALREADY;
 
 	if (mode == 1)
 	{
@@ -410,9 +410,9 @@ u32 GPUCommon::Break(int mode) {
 				ERROR_LOG_REPORT(G3D, "sceGeBreak: can't break signal-pausing list");
 			}
 			else
-				return 0x80000020;
+				return SCE_KERNEL_ERROR_ALREADY;
 		}
-		return 0x80000021;
+		return SCE_KERNEL_ERROR_BUSY;
 	}
 
 	if (currentList->state == PSP_GE_DL_STATE_QUEUED)
