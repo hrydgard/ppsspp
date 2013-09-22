@@ -810,6 +810,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		if (switchPC)
 			ptr->gotoPC();
 		
+		ptr->scanFunctions();
 		CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 		mem->redraw();
 
