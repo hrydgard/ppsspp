@@ -48,6 +48,17 @@ void GPUCommon::PopDLQueue() {
 	}
 }
 
+bool GPUCommon::BusyDrawing() {
+	u32 state = DrawSync(1);
+	if (state == PSP_GE_LIST_DRAWING || state == PSP_GE_LIST_STALLING) {
+		lock_guard guard(listLock);
+		if (currentList && currentList->state != PSP_GE_DL_STATE_PAUSED) {
+			return true;
+		}
+	}
+	return false;
+}
+
 u32 GPUCommon::DrawSync(int mode) {
 	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 	if (g_Config.bSeparateCPUThread) {

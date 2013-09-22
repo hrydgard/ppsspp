@@ -237,6 +237,7 @@ public:
 	virtual void Resized() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
+	virtual bool BusyDrawing() = 0;
 
 	// Debugging
 	virtual void DumpNextFrame() = 0;
