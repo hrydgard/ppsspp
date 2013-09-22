@@ -661,7 +661,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 	}
-	// 088156C0
+
 	SelectObject(hdc,condPen);
 	for (int i = 0; i < visibleFunctionAddresses.size(); i++)
 	{
