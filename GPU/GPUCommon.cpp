@@ -475,6 +475,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		return true;
 	}
 
+	// TODO: Use new interface.
 #if defined(USING_QT_UI)
 	if (host->GpuStep()) {
 		host->SendGPUStart();
@@ -489,9 +490,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 	guard.unlock();
 
-	const bool dumpThisFrame = dumpThisFrame_;
-	// TODO: Add check for displaylist debugger.
-	const bool useFastRunLoop = !dumpThisFrame;
+	const bool useDebugger = host->GPUDebuggingActive();
+	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
 			easy_guard innerGuard(listLock);
@@ -537,9 +537,11 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0)
 	{
+		host->GPUNotifyCommand(list.pc);
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
 
+		// TODO: Replace.
 #if defined(USING_QT_UI)
 		if (host->GpuStep())
 			host->SendGPUWait(cmd, list.pc, &gstate);

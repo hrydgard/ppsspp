@@ -3,6 +3,7 @@
 #include "Common/Common.h"
 #include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 #if defined(ANDROID)
 #include <atomic>

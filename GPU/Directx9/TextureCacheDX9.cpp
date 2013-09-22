@@ -165,9 +165,10 @@ inline void AttachFramebufferValid(T &entry, VirtualFramebufferDX9 *framebuffer)
 	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
-	entry->framebuffer = framebuffer;
-	entry->invalidHint = 0;
-}
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = 0;
+		host->GPUNotifyTextureAttachment(entry->addr);
+	}
 }
 
 template <typename T>
@@ -175,6 +176,7 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebufferDX9 *framebuffe
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
+		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -220,6 +222,7 @@ inline void TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address
 inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
 		entry->framebuffer = 0;
+		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -1083,6 +1086,9 @@ void TextureCacheDX9::SetTexture() {
 		// Validate the texture still matches the cache entry.
 		int dim = gstate.texsize[0] & 0xF0F;
 		bool match = entry->Matches(dim, format, maxLevel);
+#ifndef _XBOX
+		match &= host->GPUAllowTextureCache(texaddr);
+#endif
 
 		// Check for FBO - slow!
 		if (entry->framebuffer && match) {

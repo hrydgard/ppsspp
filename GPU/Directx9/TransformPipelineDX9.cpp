@@ -1332,6 +1332,10 @@ rotateVBO:
 		collectedVerts = 0;
 		numDrawCalls = 0;
 		prevPrim_ = GE_PRIM_INVALID;
+
+#ifndef _XBOX
+		host->GPUNotifyDraw();
+#endif
 }
 
 };
