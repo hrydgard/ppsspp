@@ -176,7 +176,24 @@ const HLEFunction sceMp4[] =
 	{0x9CA13D1A, 0, "mp4msv_9CA13D1A"},
 };
 
+// 395
+const HLEFunction sceAac[] = {
+	{0xE0C89ACA, 0, "sceAacInit"},
+	{0x33B8C009, 0, "sceAacExit"},
+	{0x5CFFC57C, 0, "sceAacInitResource"},
+	{0x23D35CAE, 0, "sceAacTermResource"},
+	{0x7E4CFEE4, 0, "sceAacDecode"},
+	{0x523347D9, 0, "sceAacGetLoopNum"},
+	{0xBBDD6403, 0, "sceAacSetLoopNum"},
+	{0xAC6DCBE3, 0, "sceAacNotifyAddStreamData"},
+	{0x02098C69, 0, "sceAacGetInfoToAddStreamData"},
+	{0x6DC7758A, 0, "sceAacGetMaxOutputSample"},
+	{0x506BF66C, 0, "sceAacGetSumDecodedSample"},
+	{0xD2DA2BBA, 0, "sceAacResetPlayPosition"},
+};
+
 void Register_sceMp4()
 {
 	RegisterModule("sceMp4", ARRAY_SIZE(sceMp4), sceMp4);
+	RegisterModule("sceAac", ARRAY_SIZE(sceAac), sceAac);
 }
