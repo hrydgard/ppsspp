@@ -20,7 +20,7 @@
 
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
-#include "Windows/Debugger/GEDebugger.h"
+#include "Windows/GEDebugger/GEDebugger.h"
 
 #include "Common/CommonWindows.h"
 

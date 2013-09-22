@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "native/base/mutex.h"
-#include "Windows/Debugger/GEDebugger.h"
+#include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/WindowsHost.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"

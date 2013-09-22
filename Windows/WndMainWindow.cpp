@@ -38,7 +38,7 @@
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
-#include "Windows/Debugger/GEDebugger.h"
+#include "Windows/GEDebugger/GEDebugger.h"
 #include "main.h"
 
 #include "Core/Core.h"
