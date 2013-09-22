@@ -260,7 +260,14 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 vertT
 				// Generate normal if lighting is enabled (otherwise there's no point).
 				// This is a really poor quality algorithm, we get facet normals.
 				if (gstate.isLightingEnabled()) {
-					Vec3f norm = v1.pos - v0.pos;
+					Vec3f norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
+					norm.Normalize();
+					if (gstate.patchfacing & 1)
+						norm *= -1.0f;
+					v0.nrm = norm;
+					v1.nrm = norm;
+					v2.nrm = norm;
+					v3.nrm = norm;
 				}
 
 				CopyTriangle(dest, &v0, &v2, &v1);
