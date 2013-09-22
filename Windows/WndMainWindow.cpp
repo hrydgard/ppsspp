@@ -672,15 +672,14 @@ namespace MainWindow
 
 		rc.left = g_Config.iWindowX;
 		rc.top = g_Config.iWindowY;
-		if (g_Config.iWindowWidth == 0) {
+		if (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0) {
 			RECT rcInner = rc, rcOuter;
 			GetWindowRectAtResolution(2 * 480, 2 * 272, rcInner, rcOuter);
 			rc.right = rc.left + (rcOuter.right - rcOuter.left);
 			rc.bottom = rc.top + (rcOuter.bottom - rcOuter.top);
 			g_Config.iWindowWidth = rc.right - rc.left;
 			g_Config.iWindowHeight = rc.bottom - rc.top;
-		}
-		else {
+		} else {
 			rc.right = g_Config.iWindowX + g_Config.iWindowWidth;
 			rc.bottom = g_Config.iWindowY + g_Config.iWindowHeight;
 		}
