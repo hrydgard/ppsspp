@@ -144,8 +144,10 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CULL, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
@@ -195,9 +197,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-
-	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -336,22 +335,23 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE},
 
 	// "Missing" commands (gaps in the sequence)
-	{0x03},
-	{0x0d},
-	{0x11},
-	{0x29},
-	{0x34},
-	{0x35},
-	{0x39},
-	{0x4e},
-	{0x4f},
-	{0x52},
-	{0x59},
-	{0x5a},
-	{0xb6},
-	{0xb7},
-	{0xd1},
-	{0xed},
+	// "Missing" commands (gaps in the sequence)
+	{GE_CMD_UNKNOWN_03, 0},
+	{GE_CMD_UNKNOWN_0D, 0},
+	{GE_CMD_UNKNOWN_11, 0},
+	{GE_CMD_UNKNOWN_29, 0},
+	{GE_CMD_UNKNOWN_34, 0},
+	{GE_CMD_UNKNOWN_35, 0},
+	{GE_CMD_UNKNOWN_39, 0},
+	{GE_CMD_UNKNOWN_4E, 0},
+	{GE_CMD_UNKNOWN_4F, 0},
+	{GE_CMD_UNKNOWN_52, 0},
+	{GE_CMD_UNKNOWN_59, 0},
+	{GE_CMD_UNKNOWN_5A, 0},
+	{GE_CMD_UNKNOWN_B6, 0},
+	{GE_CMD_UNKNOWN_B7, 0},
+	{GE_CMD_UNKNOWN_D1, 0},
+	{GE_CMD_UNKNOWN_ED, 0},
 };
 
 
@@ -670,18 +670,19 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
-			// Discard AA lines in DOA
-			if ((prim == GE_PRIM_LINE_STRIP) && gstate.isAntiAliasEnabled())
-				break;
 
-			// Discard AA lines in Summon Night 5
-			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && vertTypeIsSkinningEnabled(gstate.vertType))
-				break;
+			if (gstate.isAntiAliasEnabled()) {
+				// Discard AA lines in DOA
+				if (prim == GE_PRIM_LINE_STRIP)
+					break;
+				// Discard AA lines in Summon Night 5
+				if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+					break;
+			}
 
 			// This also make skipping drawing very effective.
 			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))
-			{
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 				transformDraw_.SetupVertexDecoder(gstate.vertType);
 				// Rough estimate, not sure what's correct.
 				int vertexCost = transformDraw_.EstimatePerVertexCost();
@@ -813,10 +814,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BJUMP:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(bjump, G3D, "Unsupported bjump: %06x", data);
 		// bounding box jump. Let's just not jump, for now.
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(boundingbox, G3D, "Unsupported bounding box: %06x", data);
 		// bounding box test. Let's do nothing.
 		break;
 
@@ -1353,6 +1358,25 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 #endif
 
+	case GE_CMD_UNKNOWN_03: 
+	case GE_CMD_UNKNOWN_0D:
+	case GE_CMD_UNKNOWN_11:
+	case GE_CMD_UNKNOWN_29:
+	case GE_CMD_UNKNOWN_34:
+	case GE_CMD_UNKNOWN_35:
+	case GE_CMD_UNKNOWN_39:
+	case GE_CMD_UNKNOWN_4E:
+	case GE_CMD_UNKNOWN_4F:
+	case GE_CMD_UNKNOWN_52:
+	case GE_CMD_UNKNOWN_59:
+	case GE_CMD_UNKNOWN_5A:
+	case GE_CMD_UNKNOWN_B6:
+	case GE_CMD_UNKNOWN_B7:
+	case GE_CMD_UNKNOWN_D1:
+	case GE_CMD_UNKNOWN_ED:
+		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		break;
+		
 	default:
 		GPUCommon::ExecuteOp(op, diff);
 		break;
