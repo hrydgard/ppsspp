@@ -48,6 +48,17 @@ void GPUCommon::PopDLQueue() {
 	}
 }
 
+bool GPUCommon::BusyDrawing() {
+	u32 state = DrawSync(1);
+	if (state == PSP_GE_LIST_DRAWING || state == PSP_GE_LIST_STALLING) {
+		lock_guard guard(listLock);
+		if (currentList && currentList->state != PSP_GE_DL_STATE_PAUSED) {
+			return true;
+		}
+	}
+	return false;
+}
+
 u32 GPUCommon::DrawSync(int mode) {
 	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 	if (g_Config.bSeparateCPUThread) {
@@ -252,6 +263,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.waitTicks = (u64)-1;
 	dl.interruptsEnabled = interruptsEnabled_;
 	dl.started = false;
+	dl.offsetAddr = 0;
 	if (args.IsValid() && args->context.IsValid())
 		dl.context = args->context;
 	else
@@ -377,7 +389,7 @@ u32 GPUCommon::Break(int mode) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	if (!currentList)
-		return 0x80000020;
+		return SCE_KERNEL_ERROR_ALREADY;
 
 	if (mode == 1)
 	{
@@ -410,9 +422,9 @@ u32 GPUCommon::Break(int mode) {
 				ERROR_LOG_REPORT(G3D, "sceGeBreak: can't break signal-pausing list");
 			}
 			else
-				return 0x80000020;
+				return SCE_KERNEL_ERROR_ALREADY;
 		}
-		return 0x80000021;
+		return SCE_KERNEL_ERROR_BUSY;
 	}
 
 	if (currentList->state == PSP_GE_DL_STATE_QUEUED)
@@ -456,10 +468,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	}
 	list.started = true;
 
-	// I don't know if this is the correct place to zero this, but something
-	// need to do it. See Sol Trigger title screen.
-	// TODO: Maybe this is per list?  Should a stalled list remember the old value?
-	gstate_c.offsetAddr = 0;
+	gstate_c.offsetAddr = list.offsetAddr;
 
 	if (!Memory::IsValidAddress(list.pc)) {
 		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
@@ -513,6 +522,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	if (cycleLastPC != list.pc) {
 		UpdatePC(list.pc - 4, list.pc);
 	}
+
+	list.offsetAddr = gstate_c.offsetAddr;
 
 	if (g_Config.bShowDebugStats) {
 		time_update();
