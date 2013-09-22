@@ -1373,7 +1373,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_UNKNOWN_B7:
 	case GE_CMD_UNKNOWN_D1:
 	case GE_CMD_UNKNOWN_ED:
-		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command: %06x", data);
+		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
 		break;
 		
 	default:
