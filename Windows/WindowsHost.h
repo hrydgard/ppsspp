@@ -56,6 +56,13 @@ public:
 	void SaveSymbolMap();
 	void SetWindowTitle(const char *message);
 
+	virtual bool GPUDebuggingActive();
+	virtual void GPUNotifyCommand(u32 pc);
+	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format);
+	virtual void GPUNotifyDraw();
+	virtual void GPUNotifyTextureAttachment(u32 addr);
+	virtual bool GPUAllowTextureCache(u32 addr);
+
 	virtual bool CanCreateShortcut() {return false;}  // Turn on when fixed
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title);
 

@@ -163,6 +163,17 @@ BEGIN
     CONTROL         "",IDC_STACKFRAMES,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93
 END
 
+IDD_GEDEBUGGER DIALOGEX 0, 0, 500, 400
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_ACCEPTFILES | WS_EX_TOOLWINDOW
+CAPTION "GE"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    PUSHBUTTON      "Break",IDC_GEDBG_BREAK,0,0,48,14
+    PUSHBUTTON      "Resume",IDC_GEDBG_RESUME,52,0,48,14
+    CTEXT           "Not yet implemented",IDC_STATIC,20,100,460,14
+END
+
 #include "aboutbox.rc"
 
 IDD_MEMORY DIALOGEX 0, 0, 566, 287
@@ -341,6 +352,7 @@ BEGIN
         MENUITEM "Run on Load",                             ID_DEBUG_RUNONLOAD
         MENUITEM SEPARATOR
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
+        MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
         MENUITEM "Log Console",	                            ID_DEBUG_LOG
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
