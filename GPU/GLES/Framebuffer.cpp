@@ -575,10 +575,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			}
 		}
 			
-		//#ifdef ANDROID
-		//	vfb->colorDepth = FBO_8888;
-		//#endif
-
 		if (useBufferedRendering_) {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			if (vfb->fbo) {
@@ -605,12 +601,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
-#ifndef USING_GLES2
-		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-#else
-		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
-#endif 
-		if (useMem && !vfb->memoryUpdated) {
+		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
+
+		if (updateVRAM && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
 		} 
 		// Use it as a render target.
@@ -743,11 +736,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
-	// This only works with buffered rendering
-	if (!useBufferedRendering_) {
-		return;
-	}
-
 #ifndef USING_GLES2
 	if(sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
@@ -792,24 +780,21 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->usageFlags = FB_USAGE_RENDERTARGET;
 			nvfb->dirtyAfterDisplay = true;
 
-			if(g_Config.bTrueColor) {
-				nvfb->colorDepth = FBO_8888;
-			} else {
-				switch (vfb->format) {
-					case GE_FORMAT_4444:
-						nvfb->colorDepth = FBO_4444;
-						break;
-					case GE_FORMAT_5551:
-						nvfb->colorDepth = FBO_5551;
-						break;
-					case GE_FORMAT_565: 
-						nvfb->colorDepth = FBO_565;
-						break;
-					case GE_FORMAT_8888:
-					default: 
-						nvfb->colorDepth = FBO_8888;
-						break;
-				}
+			// When updating VRAM, it need to be exact format.
+			switch (vfb->format) {
+				case GE_FORMAT_4444:
+					nvfb->colorDepth = FBO_4444;
+					break;
+				case GE_FORMAT_5551:
+					nvfb->colorDepth = FBO_5551;
+					break;
+				case GE_FORMAT_565: 
+					nvfb->colorDepth = FBO_565;
+					break;
+				case GE_FORMAT_8888:
+				default:
+					nvfb->colorDepth = FBO_8888;
+					break;
 			}
 
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
@@ -860,15 +845,13 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 }
 
 void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
-	// This only works with buffered rendering
-	if (!useBufferedRendering_ || !src->fbo || !dst->fbo) {
-		return;
-	}
 
 	if (dst->fbo) {
 		fbo_bind_as_render_target(dst->fbo);
 	} else {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
+		fbo_unbind();
+		return;
 	}
 	
 	if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -884,6 +867,8 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 		fbo_bind_color_as_texture(src->fbo, 0);
 	} else {
 		ERROR_LOG_REPORT_ONCE(srcfbozero, SCEGE, "BlitFramebuffer_: src->fbo == 0");
+		fbo_unbind();
+		return;
 	}
 
 	float x, y, w, h;
@@ -966,14 +951,15 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
 		if(packed) {
-			DEBUG_LOG(SCEGE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, stride = %u, pbo = %u", 
-				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, pixelBufObj_[nextPBO].stride, nextPBO);
+			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %08x, fb_address = %08x, stride = %u, pbo = %u", 
+			pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, pixelBufObj_[nextPBO].stride, nextPBO);
 
 			if(useCPU) {
 				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
 								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
 								pixelBufObj_[nextPBO].format);
-			} else { // We don't need to convert, GPU already did (or should have)
+			} else { 
+				// We don't need to convert, GPU already did (or should have)
 				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
 			}
 
@@ -1048,7 +1034,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		if(pixelBufObj_[currentPBO_].maxSize < bufSize) {
 			// We reserve a buffer big enough to fit all those pixels
 			if(useCPU && pixelType != GL_UNSIGNED_BYTE) {
-				 // Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
+				// Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
 			} else {
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
@@ -1116,9 +1102,10 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 #endif
 
 void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
-	if (useBufferedRendering_ && vfb->fbo) {
+	if (vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
 	} else {
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		fbo_unbind();
 		return;
 	}
@@ -1237,20 +1224,15 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-#ifndef USING_GLES2
-	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-#else
-	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
-#endif
+	bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if(useMem && age == 0 && !vfb->memoryUpdated) {  
-			ReadFramebufferToMemory(vfb);
-		}
-
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
+			if(updateVram && age == 0 && !vfb->memoryUpdated) 
+				ReadFramebufferToMemory(vfb);
 			continue;
 		}
 
