@@ -224,7 +224,8 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
 	glsl_bind(drawProgram_);
 
 	float fw = (float)w, fh = (float)h;
-	if (resize == RESIZE_SHRINK_FIT) {
+	float x = 0.0f, y = 0.0f;
+	if (resize == RESIZE_SHRINK_FIT || resize == RESIZE_SHRINK_CENTER) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -235,8 +236,13 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
 			fw /= hscale;
 			fh = (float)h_;
 		}
+
+		if (resize == RESIZE_SHRINK_CENTER) {
+			x = ((float)w_ - fw) / 2;
+			y = ((float)h_ - fh) / 2;
+		}
 	}
-	const float pos[12] = {0,0,0, fw,0,0, fw,fh,0, 0,fh,0};
+	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
 	const float texCoords[8] = {0,1, 1,1, 1,0, 0,0};
 	const GLubyte indices[4] = {0,1,3,2};
 

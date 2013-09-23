@@ -27,6 +27,7 @@ struct SimpleGLWindow {
 	enum ResizeType {
 		RESIZE_NONE,
 		RESIZE_SHRINK_FIT,
+		RESIZE_SHRINK_CENTER,
 	};
 
 	SimpleGLWindow(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h);
