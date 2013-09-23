@@ -111,7 +111,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
@@ -275,7 +275,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
-	{GE_CMD_TEXLEVEL, 0},  // we don't support this anyway, no need to flush.
+	{GE_CMD_TEXLEVEL, FLAG_EXECUTE},  // we don't support this anyway, no need to flush.
 	{GE_CMD_TEXSYNC, 0},
 
 	// These are just nop or part of other later commands.
@@ -842,7 +842,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
-		gstate_c.textureChanged = true;
+		if (diff)
+			gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -988,7 +989,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// Can we skip this on SkipDraw?
 			DoBlockTransfer();
 
-			// Fixes Gran Turismo's funky text issue.
+			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
 			gstate_c.textureChanged = true;
 			break;
 		}
@@ -1202,14 +1203,15 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXFUNC:
-	case GE_CMD_TEXMODE:
-	case GE_CMD_TEXFORMAT:
 	case GE_CMD_TEXFLUSH:
 		break;
 
+	case GE_CMD_TEXMODE:
+	case GE_CMD_TEXFORMAT:
 	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
-		gstate_c.textureChanged = true;
+		if (diff)
+			gstate_c.textureChanged = true;
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1354,6 +1356,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
 		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
+		if (diff)
+			gstate_c.textureChanged = true;
 		break;
 #endif
 
