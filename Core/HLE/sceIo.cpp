@@ -973,6 +973,8 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 			newPos = f->info.size + offset;
 			seek = FILEMOVE_END;
 			break;
+		default:
+			return (s32)SCE_KERNEL_ERROR_INVAL;
 		}
 
 		if(f->npdrm)
@@ -989,7 +991,7 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 
 s64 sceIoLseek(int id, s64 offset, int whence) {
 	s64 result = __IoLseek(id, offset, whence);
-	if (result >= 0) {
+	if (result >= 0 || result == -1) {
 		DEBUG_LOG(SCEIO, "%lli = sceIoLseek(%d, %llx, %i)", result, id, offset, whence);
 		// Educated guess at timing.
 		return hleDelayResult(result, "io seek", 100);
@@ -1001,12 +1003,12 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 
 u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
-	if (result >= 0) {
-		DEBUG_LOG(SCEIO, "%i = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
+	if (result >= 0 || result == -1) {
+		DEBUG_LOG(SCEIO, "%i = sceIoLseek32(%d, %x, %i)", result, id, offset, whence);
 		// Educated guess at timing.
 		return hleDelayResult(result, "io seek", 100);
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
+		ERROR_LOG(SCEIO, "sceIoLseek32(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
 		return result;
 	}
 }
@@ -1015,6 +1017,10 @@ u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (whence < 0 || whence > 2) {
+			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): invalid whence", id, offset, whence);
+			return SCE_KERNEL_ERROR_INVAL;
+		}
 		f->asyncResult = __IoLseek(id, offset, whence);
 		// Educated guess at timing.
 		__IoSchedAsync(f, id, 100);
@@ -1031,6 +1037,10 @@ u32 sceIoLseek32Async(int id, int offset, int whence) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (whence < 0 || whence > 2) {
+			WARN_LOG(SCEIO, "sceIoLseek32Async(%d, %x, %i): invalid whence", id, offset, whence);
+			return SCE_KERNEL_ERROR_INVAL;
+		}
 		f->asyncResult = __IoLseek(id, offset, whence);
 		// Educated guess at timing.
 		__IoSchedAsync(f, id, 100);
