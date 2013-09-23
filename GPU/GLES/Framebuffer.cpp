@@ -1327,11 +1327,11 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
 		return true;
 	}
 
-	buffer.Allocate(vfb->fb_stride, vfb->height, GE_FORMAT_8888);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888);
 
 	fbo_bind_for_read(vfb->fbo);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
 	return true;
 }
