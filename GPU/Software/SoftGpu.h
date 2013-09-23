@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "../GPUCommon.h"
+#include "GPU/GPUCommon.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 typedef struct {
 	union {
@@ -71,6 +72,8 @@ public:
 		primaryInfo = "Software";
 		fullInfo = "Software";
 	}
+
+	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);

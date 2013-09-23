@@ -1504,3 +1504,8 @@ void GLES_GPU::DoState(PointerWrap &p) {
 	gstate_c.textureChanged = true;
 	framebufferManager_.DestroyAllFBOs();
 }
+
+bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
+{
+	return framebufferManager_.GetCurrentFramebuffer(buffer);
+}

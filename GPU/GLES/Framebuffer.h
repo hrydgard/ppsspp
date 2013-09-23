@@ -170,6 +170,8 @@ public:
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+
 private:
 	void CompileDraw2DProgram();
 

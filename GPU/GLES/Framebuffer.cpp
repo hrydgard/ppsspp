@@ -1310,3 +1310,28 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 void FramebufferManager::Resized() {
 	resized_ = true;
 }
+
+bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
+{
+	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
+	int fb_stride = gstate.fbwidth & 0x3C0;
+
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, gstate.FrameBufFormat());
+		return true;
+	}
+
+	buffer.Allocate(vfb->fb_stride, vfb->height, GE_FORMAT_8888);
+
+	fbo_bind_for_read(vfb->fbo);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+
+	return true;
+}
