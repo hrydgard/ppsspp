@@ -147,7 +147,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 			if (bufferResult) {
 				auto fmt = SimpleGLWindow::Format(buffer.GetFormat());
-				frameWindow->Draw(buffer.GetData(), buffer.GetStride(), buffer.GetHeight(), fmt, SimpleGLWindow::RESIZE_SHRINK_CENTER);
+				frameWindow->Draw(buffer.GetData(), buffer.GetStride(), buffer.GetHeight(), buffer.GetFlipped(), fmt, SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			} else {
 				ERROR_LOG(COMMON, "Unable to get buffer.");
 			}

@@ -205,7 +205,7 @@ void SimpleGLWindow::DrawChecker() {
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 }
 
-void SimpleGLWindow::Draw(u8 *data, int w, int h, Format fmt, ResizeType resize) {
+void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt, ResizeType resize) {
 	DrawChecker();
 
 	glDisable(GL_BLEND);
@@ -258,14 +258,15 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, Format fmt, ResizeType resize)
 		}
 	}
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
-	const float texCoords[8] = {0,1, 1,1, 1,0, 0,0};
-	const GLubyte indices[4] = {0,1,3,2};
+	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
+	static const float texCoordsFlipped[8] = {0,1, 1,1, 1,0, 0,0};
+	static const GLubyte indices[4] = {0,1,3,2};
 
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, flipped ? texCoordsFlipped : texCoords);
 	glActiveTexture(GL_TEXTURE0);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 

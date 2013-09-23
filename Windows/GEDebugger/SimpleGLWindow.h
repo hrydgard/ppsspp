@@ -41,7 +41,7 @@ struct SimpleGLWindow {
 	~SimpleGLWindow();
 
 	void Clear();
-	void Draw(u8 *data, int w, int h, Format = FORMAT_8888, ResizeType resize = RESIZE_NONE);
+	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888, ResizeType resize = RESIZE_NONE);
 
 	void Swap() {
 		SwapBuffers(hDC_);

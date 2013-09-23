@@ -35,7 +35,7 @@ struct GPUDebugBuffer {
 	}
 
 	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt)
-		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(fmt) {
+		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(fmt), flipped_(false) {
 	}
 
 	GPUDebugBuffer(GPUDebugBuffer &&other) {
@@ -43,6 +43,7 @@ struct GPUDebugBuffer {
 		data_ = other.data_;
 		height_ = other.height_;
 		stride_ = other.stride_;
+		flipped_ = other.flipped_;
 		fmt_ = other.fmt_;
 		other.alloc_ = false;
 		other.data_ = NULL;
@@ -59,6 +60,7 @@ struct GPUDebugBuffer {
 			data_ = other.data_;
 			height_ = other.height_;
 			stride_ = other.stride_;
+			flipped_ = other.flipped_;
 			fmt_ = other.fmt_;
 			other.alloc_ = false;
 			other.data_ = NULL;
@@ -67,9 +69,10 @@ struct GPUDebugBuffer {
 		return *this;
 	}
 
-	void Allocate(u32 stride, u32 height, GEBufferFormat fmt) {
+	void Allocate(u32 stride, u32 height, GEBufferFormat fmt, bool flipped = false) {
 		if (alloc_ && stride_ == stride && height_ == height && fmt_ == fmt) {
 			// Already allocated the right size.
+			flipped_ = flipped;
 			return;
 		}
 
@@ -78,6 +81,7 @@ struct GPUDebugBuffer {
 		height_ = height;
 		stride_ = stride;
 		fmt_ = fmt;
+		flipped_ = flipped;
 
 		u32 pixelSize = 2;
 		if (fmt == GE_FORMAT_8888) {
@@ -106,14 +110,20 @@ struct GPUDebugBuffer {
 		return stride_;
 	}
 
+	bool GetFlipped() const {
+		return flipped_;
+	}
+
 	GEBufferFormat GetFormat() const {
 		return fmt_;
 	}
 
+private:
 	bool alloc_;
 	u8 *data_;
 	u32 height_;
 	u32 stride_;
+	bool flipped_;
 	GEBufferFormat fmt_;
 };
 

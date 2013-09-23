@@ -1340,7 +1340,7 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true);
 
 	fbo_bind_for_read(vfb->fbo);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
