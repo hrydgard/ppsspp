@@ -424,7 +424,8 @@ struct GPUStateCache
 	bool textureChanged;
 	bool textureFullAlpha;
 	bool framebufChanged;
-
+	bool scissorChanged;
+	
 	int skipDrawReason;
 
 	UVScale uv;
