@@ -19,6 +19,10 @@
 #include "Core/MemMap.h"
 #include "GPU/Math3D.h"
 
+// Splines are too slow, need optimization.
+const bool realTesselationBezier = true;
+const bool realTesselationSpline = false;
+
 // PSP compatible format so we can use the end of the pipeline
 struct SimpleVertex {
 	float uv[2];
@@ -44,7 +48,7 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 
 	SimpleVertex *sverts = (SimpleVertex *)outPtr;	
 
-	const u8 defaultColor[4] = {
+	u8 defaultColor[4] = {
 		gstate.getMaterialAmbientR(),
 		gstate.getMaterialAmbientG(),
 		gstate.getMaterialAmbientB(),
@@ -131,10 +135,8 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & GE_VTYPE_IDX_MASK);
 }
 
-#define START_OPEN_U 1
-#define END_OPEN_U 2
-#define START_OPEN_V 4
-#define END_OPEN_V 8
+#define START_OPEN 1
+#define END_OPEN 2
 
 static float lerp(float a, float b, float x) {
 	return a + x * (b - a);
@@ -148,9 +150,8 @@ static void lerpColor(u8 a[4], u8 b[4], float x, u8 out[4]) {
 
 // We decode all vertices into a common format for easy interpolation and stuff.
 // Not fast but can be optimized later.
-struct HWSplinePatch {
+struct BezierPatch {
 	SimpleVertex *points[16];
-	int type;
 
 	// These are used to generate UVs.
 	int u_index, v_index;
@@ -205,6 +206,65 @@ struct HWSplinePatch {
 	}
 };
 
+struct SplinePatch {
+	SimpleVertex **points;
+	int count_u;
+	int count_v;
+	int type_u;
+	int type_v;
+
+	/*
+	// Interpolate colors between control points (bilinear, should be good enough).
+	void sampleColor(float u, float v, u8 color[4]) const {
+		u *= 3.0f;
+		v *= 3.0f;
+		int iu = (int)floorf(u);
+		int iv = (int)floorf(v);
+		int iu2 = iu + 1;
+		int iv2 = iv + 1;
+		float fracU = u - iu;
+		float fracV = v - iv;
+		if (iu2 >= count_u) iu2 = count_u - 1;
+		if (iv2 >= count_v) iv2 = count_v - 1;
+
+		int tl = iu + count_u * iv;
+		int tr = iu2 + count_u * iv;
+		int bl = iu + count_u * iv2;
+		int br = iu2 + count_u * iv2;
+
+		u8 upperColor[4], lowerColor[4];
+		lerpColor(points[tl]->color, points[tr]->color, fracU, upperColor);
+		lerpColor(points[bl]->color, points[br]->color, fracU, lowerColor);
+		lerpColor(upperColor, lowerColor, fracV, color);
+	}
+
+	void sampleTexUV(float u, float v, float &tu, float &tv) const {
+		u *= 3.0f;
+		v *= 3.0f;
+		int iu = (int)floorf(u);
+		int iv = (int)floorf(v);
+		int iu2 = iu + 1;
+		int iv2 = iv + 1;
+		float fracU = u - iu;
+		float fracV = v - iv;
+		if (iu2 >= count_u) iu2 = count_u - 1;
+		if (iv2 >= count_v) iv2 = count_v - 1;
+
+		int tl = iu + count_u * iv;
+		int tr = iu2 + count_u * iv;
+		int bl = iu + count_u * iv2;
+		int br = iu2 + count_u * iv2;
+
+		float upperTU = lerp(points[tl]->uv[0], points[tr]->uv[0], fracU);
+		float upperTV = lerp(points[tl]->uv[1], points[tr]->uv[1], fracU);
+		float lowerTU = lerp(points[bl]->uv[0], points[br]->uv[0], fracU);
+		float lowerTV = lerp(points[bl]->uv[1], points[br]->uv[1], fracU);
+		tu = lerp(upperTU, lowerTU, fracV);
+		tv = lerp(upperTV, lowerTV, fracV);
+	}*/
+};
+
+
 static void CopyTriangle(u8 *&dest, SimpleVertex *v1, SimpleVertex *v2, SimpleVertex* v3) {
 	int vertexSize = sizeof(SimpleVertex);
 	memcpy(dest, v1, vertexSize);
@@ -229,7 +289,6 @@ inline float bern1deriv(float x) { return 9 * x * x - 12 * x + 3; }
 inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
-
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
 Vec3f Bernstein3D(const Vec3f p0, const Vec3f p1, const Vec3f p2, const Vec3f p3, float x) {
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
@@ -239,25 +298,226 @@ Vec3f Bernstein3DDerivative(const Vec3f p0, const Vec3f p1, const Vec3f p2, cons
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 
-void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 origVertType) {
-	const float third = 1.0f / 3.0f;
-	
-	bool realTesselation = false;
+// TODO: Unroll this to a closed form instead of a recursive function.
+// All those integer divisions should not be necessary either.
+float spline_n(int i, int j, float u, int *knot) {
+	if (j == 0) {
+		if (knot[i] <= u && u < knot[i + 1])
+			return 1;
+		return 0;
+	}
+	float res = 0;
+	if (knot[i + j] - knot[i] != 0)
+		res += (u - knot[i]) / (knot[i + j] - knot[i]) * spline_n(i, j - 1, u, knot);
+	if (knot[i + j + 1] - knot[i + 1] != 0)
+		res += (knot[i + j + 1] - u) / (knot[i + j + 1] - knot[i + 1]) * spline_n(i + 1, j - 1, u, knot);
+	return res;
+}
 
-	if (!realTesselation) {
+// knot should be an array of int, sized n + 5
+void spline_knot(int n, int type, int *knot) {
+	memset(knot, 0, sizeof(int) * (n + 5));
+	for(int i = 0; i < n - 1; ++i)
+		knot[i + 3] = i;
+
+	if ((type & 1) == 0) {
+		knot[0] = -3;
+		knot[1] = -2;
+		knot[2] = -1; 
+	}
+	if ((type & 2) == 0) {
+		knot[n + 2] = n - 1;
+		knot[n + 3] = n;
+		knot[n + 4] = n + 1;
+	} else {
+		knot[n + 2] = n - 2;
+		knot[n + 3] = n - 2;
+		knot[n + 4] = n - 2;
+	}
+}
+
+void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 origVertType) {
+	const float third = 1.0f / 3.0f;
+
+	if (!realTesselationSpline) {
+		// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
+		// Very inaccurate but okay for Loco Roco. Maybe should keep it as an option because it's fast.
+
+		const int tile_min_u = (spatch.type_u & START_OPEN) ? 0 : 1;
+		const int tile_min_v = (spatch.type_v & START_OPEN) ? 0 : 1;
+		const int tile_max_u = (spatch.type_u & END_OPEN) ? spatch.count_u - 1 : spatch.count_u - 2;
+		const int tile_max_v = (spatch.type_v & END_OPEN) ? spatch.count_v - 1 : spatch.count_v - 2;
+
+		for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
+			for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
+				int point_index = tile_u + tile_v * spatch.count_u;
+
+				SimpleVertex v0 = *spatch.points[point_index];
+				SimpleVertex v1 = *spatch.points[point_index+1];
+				SimpleVertex v2 = *spatch.points[point_index+spatch.count_u];
+				SimpleVertex v3 = *spatch.points[point_index+spatch.count_u+1];
+
+				// Generate UV. TODO: Do this even if UV specified in control points?
+				if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
+					float u = tile_u * third;
+					float v = tile_v * third;
+					v0.uv[0] = u;
+					v0.uv[1] = v;
+					v1.uv[0] = u + third;
+					v1.uv[1] = v;
+					v2.uv[0] = u;
+					v2.uv[1] = v + third;
+					v3.uv[0] = u + third;
+					v3.uv[1] = v + third;
+				}
+
+				// Generate normal if lighting is enabled (otherwise there's no point).
+				// This is a really poor quality algorithm, we get facet normals.
+				if (gstate.isLightingEnabled()) {
+					Vec3f norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
+					norm.Normalize();
+					if (gstate.patchfacing & 1)
+						norm *= -1.0f;
+					v0.nrm = norm;
+					v1.nrm = norm;
+					v2.nrm = norm;
+					v3.nrm = norm;
+				}
+
+				CopyTriangle(dest, &v0, &v2, &v1);
+				CopyTriangle(dest, &v1, &v2, &v3);
+				count += 6;
+			}
+		}
+	} else {
+		// Full correct tessellation of spline patches.
+		// Does not yet generate normals and is atrociously slow (see spline_s...)
+
+		// First, generate knot vectors.
+		int n = spatch.count_u - 1;
+		int m = spatch.count_v - 1;
+
+		int *knot_u = new int[n + 5];
+		int *knot_v = new int[m + 5];
+		spline_knot(n, spatch.type_u, knot_u);
+		spline_knot(m, spatch.type_v, knot_v);
+
+		int patch_div_s = gstate.getPatchDivisionU();
+		int patch_div_t = gstate.getPatchDivisionV();
+
+		// Increase tesselation based on the size. Should be approximately right?
+		// JPCSP is wrong at least because their method results in square loco roco.
+		patch_div_s = (spatch.count_u - 3) * patch_div_s / 3;
+		patch_div_t = (spatch.count_v - 3) * patch_div_t / 3;
+		if (patch_div_s == 0) patch_div_s = 1;
+		if (patch_div_t == 0) patch_div_t = 1;
+
+		// TODO: Remove this cap when spline_s has been optimized. 
+		if (patch_div_s > 20) patch_div_s = 20;
+		if (patch_div_t > 20) patch_div_t = 20;
+
+		// First compute all the vertices and put them in an array
+		SimpleVertex *vertices = new SimpleVertex[(patch_div_s + 1) * (patch_div_t + 1)];
+
+		bool computeNormals = gstate.isLightingEnabled();
+		for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
+			float v = ((float)tile_v * (float)(m - 2) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
+			for (int tile_u = 0; tile_u < patch_div_s + 1; tile_u++) {
+				float u = ((float)tile_u * (float)(n - 2) / (float)(patch_div_s + 0.00001f));
+
+				SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
+				vert->pos.SetZero();
+				if (origVertType & GE_VTYPE_NRM_MASK) {
+					vert->nrm.SetZero();
+				} else {
+					vert->nrm.SetZero();
+					vert->nrm.z = 1.0f;
+				}
+				if (origVertType & GE_VTYPE_COL_MASK) {
+					memset(vert->color, 0, 4);
+				} else {
+					memcpy(vert->color, spatch.points[0]->color, 4);
+				}
+				if (origVertType & GE_VTYPE_TC_MASK) {
+					vert->uv[0] = 0.0f;
+					vert->uv[1] = 0.0f;
+				} else {
+					vert->uv[0] = ((float)tile_u / (float)patch_div_s);
+					vert->uv[1] = ((float)tile_v / (float)patch_div_t);
+				}
+
+				// Collect influences from surrounding control points.
+				// Should be possible to limit to a smaller range than looping through the entire patch...
+				// Also, it should be possible to do something similar to what we do in bezier where we only
+				// evaluate the spline 5 times instead of n * m, taking advantage of the fundamentally linear
+				// nature of this stuff to separate into horizontal and vertical passes.
+				for (int ii = 0; ii < spatch.count_u; ++ii) {
+					for (int jj = 0; jj < spatch.count_v; ++jj) {
+						float u_spline = spline_n(ii, 3, u, knot_u);
+						float v_spline = spline_n(jj, 3, v, knot_v);
+						float f = u_spline * v_spline;
+						
+						if (f > 0.0f) {
+							SimpleVertex *a = spatch.points[spatch.count_u * jj + ii];
+							vert->pos += a->pos * f;
+							if (origVertType & GE_VTYPE_TC_MASK) {
+								vert->uv[0] += a->uv[0] * f;
+								vert->uv[1] += a->uv[1] * f;
+							}
+							if (origVertType & GE_VTYPE_COL_MASK) {
+								vert->color[0] += a->color[0] * f;
+								vert->color[1] += a->color[1] * f;
+								vert->color[2] += a->color[2] * f;
+								vert->color[3] += a->color[3] * f;
+							}
+							if (origVertType & GE_VTYPE_NRM_MASK) {
+								vert->nrm += a->nrm * f;
+							}
+						}
+					}
+				}
+				if (origVertType & GE_VTYPE_NRM_MASK) {
+					vert->nrm.Normalize();
+				}
+			}
+		}
+
+		delete [] knot_u;
+		delete [] knot_v;
+
+		// Tesselate. TODO: Use indices so we only need to emit 4 vertices per pair of triangles instead of six.
+		for (int tile_v = 0; tile_v < patch_div_t; ++tile_v) {
+			for (int tile_u = 0; tile_u < patch_div_s; ++tile_u) {
+				float u = ((float)tile_u / (float)patch_div_s);
+				float v = ((float)tile_v / (float)patch_div_t);
+
+				SimpleVertex *v0 = &vertices[tile_v * (patch_div_s + 1) + tile_u];
+				SimpleVertex *v1 = &vertices[tile_v * (patch_div_s + 1) + tile_u + 1];
+				SimpleVertex *v2 = &vertices[(tile_v + 1) * (patch_div_s + 1) + tile_u];
+				SimpleVertex *v3 = &vertices[(tile_v + 1) * (patch_div_s + 1) + tile_u + 1];
+
+				CopyTriangle(dest, v0, v2, v1);
+				CopyTriangle(dest, v1, v2, v3);
+				count += 6;
+			}
+		}
+
+		delete [] vertices;
+	}
+}
+
+void TesselateBezierPatch(u8 *&dest, int &count, const BezierPatch &patch, u32 origVertType) {
+	const float third = 1.0f / 3.0f;
+
+	if (!realTesselationBezier) {
 		// Fast and easy way - just draw the control points, generate some very basic normal vector subsitutes.
 		// Very inaccurate though but okay for Loco Roco. Maybe should keep it as an option.
-
-		const int tile_min_u = (patch.type & START_OPEN_U) ? 0 : 1;
-		const int tile_min_v = (patch.type & START_OPEN_V) ? 0 : 1;
-		const int tile_max_u = (patch.type & END_OPEN_U) ? 3 : 2;
-		const int tile_max_v = (patch.type & END_OPEN_V) ? 3 : 2;
 
 		float u_base = patch.u_index / 3.0f;
 		float v_base = patch.v_index / 3.0f;
 
-		for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
-			for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
+		for (int tile_v = 0; tile_v < 3; tile_v++) {
+			for (int tile_u = 0; tile_u < 3; tile_u++) {
 				int point_index = tile_u + tile_v * 4;
 
 				SimpleVertex v0 = *patch.points[point_index];
@@ -298,16 +558,11 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 origV
 			}
 		}
 	} else {
-		// Full tesselation of spline patches.
-		// TODO: This still has serious bugs, for example in Loco Roco, and there are gaps between patches for unknown reasons.
+		// Full correct tesselation of bezier patches.
+		// Note: Does not handle splines correctly.
 
 		int tess_u = gstate.getPatchDivisionU();
 		int tess_v = gstate.getPatchDivisionV();
-		
-		const int tile_min_u = (patch.type & START_OPEN_U) ? 0 : tess_u / 3;
-		const int tile_min_v = (patch.type & START_OPEN_V) ? 0 : tess_v / 3;
-		const int tile_max_u = (patch.type & END_OPEN_U) ? tess_u : (tess_u + 0) * 2 / 3;
-		const int tile_max_v = (patch.type & END_OPEN_V) ? tess_v : (tess_v + 0) * 2 / 3;
 
 		// First compute all the vertices and put them in an array
 		SimpleVertex *vertices = new SimpleVertex[(tess_u + 1) * (tess_v + 1)];
@@ -319,7 +574,7 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 origV
 				float v = ((float)tile_v / (float)tess_v);
 				float bu = u;
 				float bv = v;
-				
+
 				// TODO: Should be able to precompute the four curves per U, then just Bernstein per V. Will benefit large tesselation factors.
 				Vec3f pos1 = Bernstein3D(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, bu);
 				Vec3f pos2 = Bernstein3D(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, bu);
@@ -337,15 +592,15 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 origV
 					Vec3f derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
 					// TODO: Interpolate normals instead of generating them, if available?
-					vert.nrm = Cross(derivU, derivV).Normalized(); //.SetZero();
+					vert.nrm = Cross(derivU, derivV).Normalized();
 					if (gstate.patchfacing & 1)
 						vert.nrm *= -1.0f;
 				} else {
 					vert.nrm.SetZero();
 				}
-				
+
 				vert.pos = Bernstein3D(pos1, pos2, pos3, pos4, bv);
-				
+
 				if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
 					// Generate texcoord
 					vert.uv[0] = u + patch.u_index * third;
@@ -364,8 +619,8 @@ void TesselatePatch(u8 *&dest, int &count, const HWSplinePatch &patch, u32 origV
 		}
 
 		// Tesselate. TODO: Use indices so we only need to emit 4 vertices per pair of triangles instead of six.
-		for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
-			for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
+		for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
+			for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
 				float u = ((float)tile_u / (float)tess_u);
 				float v = ((float)tile_v / (float)tess_v);
 
@@ -414,30 +669,16 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, sizeof(SimpleVertex));
 	}
 	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
-	
-	int num_patches_u = count_u - 3;
-	int num_patches_v = count_v - 3;
 
 	// TODO: Do something less idiotic to manage this buffer
-	HWSplinePatch* patches = new HWSplinePatch[num_patches_u * num_patches_v];
-	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
-		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
-			HWSplinePatch& patch = patches[patch_u + patch_v * num_patches_u];
-			for (int point = 0; point < 16; ++point) {
-				int idx = (patch_u + point%4) + (patch_v + point/4) * count_u;
-				if (indices)
-					patch.points[point] = simplified_control_points + (indices_16bit ? indices16[idx] : indices8[idx]);
-				else
-					patch.points[point] = simplified_control_points + idx;
-			}
-			patch.type = (type_u | (type_v << 2));
-			if (patch_u != 0) patch.type &= ~START_OPEN_U;
-			if (patch_v != 0) patch.type &= ~START_OPEN_V;
-			if (patch_u != num_patches_u-1) patch.type &= ~END_OPEN_U;
-			if (patch_v != num_patches_v-1) patch.type &= ~END_OPEN_V;
-			patch.u_index = patch_u;
-			patch.v_index = patch_v;
-		}
+	SimpleVertex **points = new SimpleVertex *[count_u * count_v];
+
+	// Make an array of pointers to the control points, to get rid of indices.
+	for (int idx = 0; idx < count_u * count_v; idx++) {
+		if (indices)
+			points[idx] = simplified_control_points + (indices_16bit ? indices16[idx] : indices8[idx]);
+		else
+			points[idx] = simplified_control_points + idx;
 	}
 
 	u8 *decoded2 = decoded + 65536 * 36;
@@ -445,11 +686,16 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	int count = 0;
 	u8 *dest = decoded2;
 
-	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
-		HWSplinePatch& patch = patches[patch_idx];
-		TesselatePatch(dest, count, patch, origVertType);
-	}
-	delete[] patches;
+	SplinePatch patch;
+	patch.type_u = type_u;
+	patch.type_v = type_v;
+	patch.count_u = count_u;
+	patch.count_v = count_v;
+	patch.points = points;
+
+	TesselateSplinePatch(dest, count, patch, origVertType);
+
+	delete[] points;
 
 	u32 vertTypeWithoutIndex = vertType & ~GE_VTYPE_IDX_MASK;
 
@@ -491,10 +737,10 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
-	HWSplinePatch* patches = new HWSplinePatch[num_patches_u * num_patches_v];
+	BezierPatch* patches = new BezierPatch[num_patches_u * num_patches_v];
 	for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
 		for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
-			HWSplinePatch& patch = patches[patch_u + patch_v * num_patches_u];
+			BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
 			for (int point = 0; point < 16; ++point) {
 				int idx = (patch_u * 3 + point%4) + (patch_v * 3 + point/4) * count_u;
 				if (indices)
@@ -504,7 +750,6 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 			}
 			patch.u_index = patch_u * 3;
 			patch.v_index = patch_v * 3;
-			patch.type = START_OPEN_U | START_OPEN_V | END_OPEN_U | END_OPEN_V;
 		}
 	}
 
@@ -514,8 +759,8 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	u8 *dest = decoded2;
 
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
-		HWSplinePatch& patch = patches[patch_idx];
-		TesselatePatch(dest, count, patch, origVertType);
+		BezierPatch& patch = patches[patch_idx];
+		TesselateBezierPatch(dest, count, patch, origVertType);
 	}
 	delete[] patches;
 
