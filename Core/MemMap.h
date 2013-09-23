@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _MEMMAP_H
-#define _MEMMAP_H
+#pragma once
 
 // Includes
 #include <string>
@@ -89,7 +88,7 @@ enum
 	SCRATCHPAD_SIZE = 0x4000,
 	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
 
-#if defined(_M_IX86) || defined(_M_ARM32)
+#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
   // This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
@@ -308,17 +307,29 @@ struct PSPPointer
 
 	inline T &operator*() const
 	{
-		return *(T *)(Memory::base + ptr);
+#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+		return *(T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return *(T *)(Memory::base + ptr;
+#endif
 	}
 
 	inline T &operator[](int i) const
 	{
+#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
+#else
 		return *((T *)(Memory::base + ptr) + i);
+#endif
 	}
 
 	inline T *operator->() const
 	{
+#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
 		return (T *)(Memory::base + ptr);
+#endif
 	}
 
 	inline PSPPointer<T> operator+(int i) const
@@ -444,5 +455,3 @@ inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
 {
 	return lhs.ptr >= rhs.ptr;
 }
-
-#endif
