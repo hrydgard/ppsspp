@@ -599,6 +599,19 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
+		// Let's check for depth buffer overlap.  Might be interesting.
+		bool sharingReported = false;
+		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
+			if (MaskedEqual(fb_address, vfbs_[i]->z_address)) {
+				WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+			} else if (MaskedEqual(z_address, vfbs_[i]->fb_address)) {
+				WARN_LOG_REPORT(SCEGE, "FBO using other buffer as depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+			} else if (MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
+				WARN_LOG_REPORT(SCEGE, "FBO sharing existing depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				sharingReported = true;
+			}
+		}
+
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
