@@ -205,17 +205,32 @@ void SimpleGLWindow::DrawChecker() {
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 }
 
-void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
+void SimpleGLWindow::Draw(u8 *data, int w, int h, Format fmt, ResizeType resize) {
 	DrawChecker();
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
 	glDisable(GL_BLEND);
 	glViewport(0, 0, w_, h_);
 	glScissor(0, 0, w_, h_);
 
+	GLint components = GL_RGBA;
+	GLenum glfmt;
+	if (fmt == FORMAT_8888) {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		glfmt = GL_UNSIGNED_BYTE;
+	} else {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
+		if (fmt == FORMAT_4444) {
+			glfmt = GL_UNSIGNED_SHORT_4_4_4_4;
+		} else if (fmt == FORMAT_5551) {
+			glfmt = GL_UNSIGNED_SHORT_5_5_5_1;
+		} else if (fmt == FORMAT_565) {
+			glfmt = GL_UNSIGNED_SHORT_5_6_5;
+			components = GL_RGB;
+		}
+	}
+
 	glBindTexture(GL_TEXTURE_2D, tex_);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, glfmt, data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

@@ -146,12 +146,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetPauseAction(PAUSE_GETFRAMEBUF);
 
 			if (bufferResult) {
-				if (buffer.GetFormat() == GE_FORMAT_8888) {
-					frameWindow->Draw(buffer.GetData(), buffer.GetStride(), buffer.GetHeight(), SimpleGLWindow::RESIZE_SHRINK_CENTER);
-				} else {
-					ERROR_LOG(COMMON, "Non-8888 buffers not yet supported.");
-					frameWindow->Clear();
-				}
+				auto fmt = SimpleGLWindow::Format(buffer.GetFormat());
+				frameWindow->Draw(buffer.GetData(), buffer.GetStride(), buffer.GetHeight(), fmt, SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			} else {
 				ERROR_LOG(COMMON, "Unable to get buffer.");
 			}

@@ -24,6 +24,13 @@
 struct SimpleGLWindow {
 	static const PTCHAR windowClass;
 
+	enum Format {
+		FORMAT_565 = 0,
+		FORMAT_5551 = 1,
+		FORMAT_4444 = 2,
+		FORMAT_8888 = 3,
+	};
+
 	enum ResizeType {
 		RESIZE_NONE,
 		RESIZE_SHRINK_FIT,
@@ -34,7 +41,7 @@ struct SimpleGLWindow {
 	~SimpleGLWindow();
 
 	void Clear();
-	void Draw(u8 *data, int w, int h, ResizeType resize = RESIZE_NONE);
+	void Draw(u8 *data, int w, int h, Format = FORMAT_8888, ResizeType resize = RESIZE_NONE);
 
 	void Swap() {
 		SwapBuffers(hDC_);
