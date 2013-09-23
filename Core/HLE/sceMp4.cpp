@@ -185,6 +185,7 @@ const HLEFunction sceAac[] = {
 	{0x7E4CFEE4, 0, "sceAacDecode"},
 	{0x523347D9, 0, "sceAacGetLoopNum"},
 	{0xBBDD6403, 0, "sceAacSetLoopNum"},
+	{0xD7C51541, 0, "sceAacCheckStreamDataNeeded"},
 	{0xAC6DCBE3, 0, "sceAacNotifyAddStreamData"},
 	{0x02098C69, 0, "sceAacGetInfoToAddStreamData"},
 	{0x6DC7758A, 0, "sceAacGetMaxOutputSample"},
