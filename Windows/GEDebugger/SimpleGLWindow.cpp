@@ -53,7 +53,18 @@ SimpleGLWindow::SimpleGLWindow(HINSTANCE hInstance, HWND hParent, int x, int y, 
 	SetupGL();
 	ResizeGL(w, h);
 	CreateProgram();
+	GenerateChecker();
 }
+
+SimpleGLWindow::~SimpleGLWindow() {
+	if (drawProgram_ != NULL) {
+		glsl_destroy(drawProgram_);
+	}
+	if (tex_) {
+		glDeleteTextures(1, &tex_);
+		glDeleteTextures(1, &checker_);
+	}
+};
 
 void SimpleGLWindow::RegisterWindowClass() {
 	if (windowClassExists_) {
@@ -115,6 +126,7 @@ void SimpleGLWindow::ResizeGL(int w, int h) {
 	wglMakeCurrent(hDC_, hGLRC_);
 
 	glViewport(0, 0, w, h);
+	glScissor(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0f, w, h, 0.0f, -1.0f, 1.0f);
@@ -134,17 +146,67 @@ void SimpleGLWindow::CreateProgram() {
 
 	drawProgram_ = glsl_create_source(basic_vs, tex_fs);
 	glGenTextures(1, &tex_);
+	glGenTextures(1, &checker_);
 
 	glsl_bind(drawProgram_);
 	glUniform1i(drawProgram_->sampler0, 0);
 	glsl_unbind();
+
+	glEnableVertexAttribArray(drawProgram_->a_position);
+	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
 }
 
-void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
+void SimpleGLWindow::GenerateChecker() {
+	if (!valid_) {
+		return;
+	}
+
+	const static u8 checkerboard[] = {
+		255,255,255,255, 195,195,195,255,
+		195,195,195,255, 255,255,255,255,
+	};
+
+	wglMakeCurrent(hDC_, hGLRC_);
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glBindTexture(GL_TEXTURE_2D, checker_);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, checkerboard);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+}
+
+void SimpleGLWindow::DrawChecker() {
 	wglMakeCurrent(hDC_, hGLRC_);
 
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+
+	glBindTexture(GL_TEXTURE_2D, checker_);
+
+	glDisable(GL_BLEND);
+	glViewport(0, 0, w_, h_);
+	glScissor(0, 0, w_, h_);
+
+	glsl_bind(drawProgram_);
+
+	float fw = (float)w_, fh = (float)h_;
+	const float pos[12] = {0,0,0, fw,0,0, fw,fh,0, 0,fh,0};
+	const float texCoords[8] = {0,fh/22, fw/22,fh/22, fw/22,0, 0,0};
+	const GLubyte indices[4] = {0,1,3,2};
+
+	Matrix4x4 ortho;
+	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
+	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	glActiveTexture(GL_TEXTURE0);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+}
+
+void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
+	DrawChecker();
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
@@ -156,6 +218,8 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glsl_bind(drawProgram_);
 
@@ -181,22 +245,13 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, ResizeType resize) {
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-	glEnableVertexAttribArray(drawProgram_->a_position);
-	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
-	glUniform1i(drawProgram_->sampler0, 0);
 	glActiveTexture(GL_TEXTURE0);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-	glDisableVertexAttribArray(drawProgram_->a_position);
-	glDisableVertexAttribArray(drawProgram_->a_texcoord0);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
 
 	Swap();
 }
 
 void SimpleGLWindow::Clear() {
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
+	DrawChecker();
 	Swap();
 }

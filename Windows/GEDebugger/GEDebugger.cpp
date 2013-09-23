@@ -89,6 +89,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	breakCmds.resize(256, false);
 	// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
 	frameWindow = new SimpleGLWindow(m_hInstance, m_hDlg, (750 - 512) / 2, 40, 512, 272);
+	// TODO: Why doesn't this work?
+	frameWindow->Clear();
 }
 
 CGEDebugger::~CGEDebugger() {

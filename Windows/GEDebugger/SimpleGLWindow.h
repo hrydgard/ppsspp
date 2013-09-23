@@ -30,20 +30,7 @@ struct SimpleGLWindow {
 	};
 
 	SimpleGLWindow(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h);
-	~SimpleGLWindow() {
-		if (drawProgram_ != NULL) {
-			glsl_destroy(drawProgram_);
-		}
-		if (tex_) {
-			glDeleteTextures(1, &tex_);
-		}
-	}
-
-	void RegisterWindowClass();
-	void Create(int x, int y, int w, int h);
-	void SetupGL();
-	void ResizeGL(int w, int h);
-	void CreateProgram();
+	~SimpleGLWindow();
 
 	void Clear();
 	void Draw(u8 *data, int w, int h, ResizeType resize = RESIZE_NONE);
@@ -51,6 +38,15 @@ struct SimpleGLWindow {
 	void Swap() {
 		SwapBuffers(hDC_);
 	}
+
+protected:
+	void RegisterWindowClass();
+	void Create(int x, int y, int w, int h);
+	void SetupGL();
+	void ResizeGL(int w, int h);
+	void CreateProgram();
+	void GenerateChecker();
+	void DrawChecker();
 
 	static bool windowClassExists_;
 
@@ -64,5 +60,6 @@ struct SimpleGLWindow {
 	int h_;
 
 	GLSLProgram *drawProgram_;
+	GLuint checker_;
 	GLuint tex_;
 };
