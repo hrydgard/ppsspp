@@ -45,10 +45,7 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 	SimpleVertex *sverts = (SimpleVertex *)outPtr;	
 
 	const u8 defaultColor[4] = {
-		gstate.getMaterialAmbientR(),
-		gstate.getMaterialAmbientG(),
-		gstate.getMaterialAmbientB(),
-		gstate.getMaterialAmbientA(),
+		
 	};
 
 	// Let's have two separate loops, one for non skinning and one for skinning.
