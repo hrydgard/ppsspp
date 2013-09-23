@@ -23,6 +23,9 @@
 const bool realTesselationBezier = true;
 const bool realTesselationSpline = false;
 
+// Here's how to evaluate them fast:
+// http://and-what-happened.blogspot.se/2012/07/evaluating-b-splines-aka-basis-splines.html
+
 // PSP compatible format so we can use the end of the pipeline
 struct SimpleVertex {
 	float uv[2];
@@ -298,20 +301,28 @@ Vec3f Bernstein3DDerivative(const Vec3f p0, const Vec3f p1, const Vec3f p2, cons
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 
-// TODO: Unroll this to a closed form instead of a recursive function.
-// All those integer divisions should not be necessary either.
-float spline_n(int i, int j, float u, int *knot) {
-	if (j == 0) {
-		if (knot[i] <= u && u < knot[i + 1])
-			return 1;
-		return 0;
-	}
-	float res = 0;
-	if (knot[i + j] - knot[i] != 0)
-		res += (u - knot[i]) / (knot[i + j] - knot[i]) * spline_n(i, j - 1, u, knot);
-	if (knot[i + j + 1] - knot[i + 1] != 0)
-		res += (knot[i + j + 1] - u) / (knot[i + j + 1] - knot[i + 1]) * spline_n(i + 1, j - 1, u, knot);
-	return res;
+// A little faster, but not optimal
+void spline_n_4(int i, float t, int *knot, float *splineVal) {
+	knot += i + 1;
+
+	float t0 = (t - knot[0]);
+	float t1 = (t - knot[1]);
+	float t2 = (t - knot[2]);
+	float f30 = t0/(knot[3]-knot[0]);
+	float f41 = t1/(knot[4]-knot[1]);
+	float f52 = t2/(knot[5]-knot[2]);
+	float f31 = t1/(knot[3]-knot[1]);
+	float f42 = t2/(knot[4]-knot[2]);
+	float f32 = t2/(knot[3]-knot[2]);
+	float a = (1-f30)*(1-f31);
+	float b = (f31*f41);
+	float c = (1-f41)*(1-f42);
+	float d = (f42*f52);
+
+	splineVal[0] = a-(a*f32);
+	splineVal[1] = 1-a-b+((a+b+c-1)*f32);
+	splineVal[2] = b+((1-b-c-d)*f32);
+	splineVal[3] = d*f32;
 }
 
 // knot should be an array of int, sized n + 5
@@ -451,14 +462,22 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 				// Also, it should be possible to do something similar to what we do in bezier where we only
 				// evaluate the spline 5 times instead of n * m, taking advantage of the fundamentally linear
 				// nature of this stuff to separate into horizontal and vertical passes.
-				for (int ii = 0; ii < spatch.count_u; ++ii) {
-					for (int jj = 0; jj < spatch.count_v; ++jj) {
-						float u_spline = spline_n(ii, 3, u, knot_u);
-						float v_spline = spline_n(jj, 3, v, knot_v);
+				float u_weights[4];
+				float v_weights[4];
+				
+				int iu = (int)u;
+				int iv = (int)v;
+				spline_n_4(iu, u, knot_u, u_weights);
+				spline_n_4(iv, v, knot_v, v_weights);
+
+				for (int ii = 0; ii < 4; ++ii) {
+					for (int jj = 0; jj < 4; ++jj) {
+						float u_spline = u_weights[ii];
+						float v_spline = v_weights[jj];
 						float f = u_spline * v_spline;
 						
 						if (f > 0.0f) {
-							SimpleVertex *a = spatch.points[spatch.count_u * jj + ii];
+							SimpleVertex *a = spatch.points[spatch.count_u * (iv + jj) + (iu + ii)];
 							vert->pos += a->pos * f;
 							if (origVertType & GE_VTYPE_TC_MASK) {
 								vert->uv[0] += a->uv[0] * f;
