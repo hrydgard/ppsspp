@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/System.h"
 
 struct SceUtilityGamedataInstallParam {
 	pspUtilityDialogCommon common;
@@ -32,7 +33,7 @@ struct SceUtilityGamedataInstallParam {
 	char ignore2[7];
 	u32 unknownResult1;
 	u32 unknownResult2;
-	char ignore[48];
+	char ignore3[48];
 };
 
 class PSPGamedataInstallDialog: public PSPDialog {
@@ -41,12 +42,14 @@ public:
 	virtual ~PSPGamedataInstallDialog();
 
 	virtual int Init(u32 paramAddr);
-	//virtual int Update();
+	virtual int Update();
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 
 	int Abort();
+	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);
 
 private:
 	SceUtilityGamedataInstallParam request;
+	u32 paramAddr;
 };
