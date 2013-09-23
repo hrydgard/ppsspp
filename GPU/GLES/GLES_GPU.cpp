@@ -765,13 +765,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
-			// TODO: Get rid of this old horror...
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			//transformDraw_.DrawBezier(bz_ucount, bz_vcount);
-
-			// And instead use this.
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 			transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
 		}
 		break;
