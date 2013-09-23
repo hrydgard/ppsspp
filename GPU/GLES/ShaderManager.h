@@ -31,9 +31,9 @@ public:
 	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform);
 	~LinkedShader();
 
-	void use();
+	void use(u32 vertType);
 	void stop();
-	void updateUniforms();
+	void updateUniforms(u32 vertType);
 
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;

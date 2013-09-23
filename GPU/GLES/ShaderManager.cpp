@@ -175,7 +175,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
-	use();
+	use(vertType);
 }
 
 LinkedShader::~LinkedShader() {
@@ -258,9 +258,9 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
-void LinkedShader::use() {
+void LinkedShader::use(u32 vertType) {
 	glUseProgram(program);
-	updateUniforms();
+	updateUniforms(vertType);
 	glEnableVertexAttribArray(a_position);
 	if (a_texcoord != -1) glEnableVertexAttribArray(a_texcoord);
 	if (a_color0 != -1) glEnableVertexAttribArray(a_color0);
@@ -280,7 +280,7 @@ void LinkedShader::stop() {
 	if (a_weight4567 != -1) glDisableVertexAttribArray(a_weight4567);
 }
 
-void LinkedShader::updateUniforms() {
+void LinkedShader::updateUniforms(u32 vertType) {
 	if (!dirtyUniforms)
 		return;
 
@@ -343,7 +343,7 @@ void LinkedShader::updateUniforms() {
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
 				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-				float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+				float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
 				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
 				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
 				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
@@ -516,7 +516,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
-		lastShader_->updateUniforms();
+		lastShader_->updateUniforms(vertType);
 		return lastShader_;	// Already all set.
 	}
 
@@ -583,7 +583,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
-		ls->use();
+		ls->use(vertType);
 	}
 
 	lastShader_ = ls;
