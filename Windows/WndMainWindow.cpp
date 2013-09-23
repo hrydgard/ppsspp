@@ -74,7 +74,6 @@
 #define ENABLE_TOUCH 0
 
 extern std::map<int, int> windowsTransTable;
-BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
@@ -244,7 +243,7 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
 		if (autoHide && hideCursor) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -276,7 +275,7 @@ namespace MainWindow
 		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
 		// Reset full screen indicator.
-		g_bFullScreen = FALSE;
+		g_Config.bFullScreen = false;
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, TRUE);
@@ -304,7 +303,7 @@ namespace MainWindow
 		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
 		// Set full screen indicator.
-		g_bFullScreen = TRUE;
+		g_Config.bFullScreen = true;
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, FALSE);
@@ -1316,12 +1315,13 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_FULLSCREEN:
-					g_Config.bFullScreen = !g_Config.bFullScreen ;
-					if(g_bFullScreen) {
-						_ViewNormal(hWnd); 
-					} else {
+					g_Config.bFullScreen = !g_Config.bFullScreen;
+
+					if (g_Config.bFullScreen)
 						_ViewFullScreen(hWnd);
-					}
+					else
+						_ViewNormal(hWnd);
+
 					break;
 
 				case ID_OPTIONS_VERTEXCACHE:
