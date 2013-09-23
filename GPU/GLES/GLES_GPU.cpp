@@ -830,6 +830,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
 		if (diff)
+			gstate_c.scissorChanged = true;
+		if (diff)
 			gstate_c.framebufChanged = true;
 		break;
 
@@ -910,6 +912,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
+		gstate_c.scissorChanged = true;
 		if (diff)
 			gstate_c.framebufChanged = true;
 		break;

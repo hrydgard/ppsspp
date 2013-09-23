@@ -346,19 +346,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int scissorX2 = gstate.getScissorX2() + 1;
 	int scissorY2 = gstate.getScissorY2() + 1;
 
-	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0 
-		&& scissorX2 >= (int) gstate_c.curRTWidth
-		&& scissorY2 >= (int) gstate_c.curRTHeight) {
-		glstate.scissorTest.disable();
-	} else {
+	if (gstate_c.scissorChanged) {
 		glstate.scissorTest.enable();
 		glstate.scissorRect.set(
 			renderX + scissorX1 * renderWidthFactor,
 			renderY + renderHeight - (scissorY2 * renderHeightFactor),
 			(scissorX2 - scissorX1) * renderWidthFactor,
 			(scissorY2 - scissorY1) * renderHeightFactor);
-	}
+		gstate_c.scissorChanged = false;
+	} else
+		glstate.scissorTest.disable();
 
 	/*
 	int regionX1 = gstate.region1 & 0x3FF;
