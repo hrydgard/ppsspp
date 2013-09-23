@@ -17,19 +17,47 @@
 
 #pragma once
 
+#include "gfx_es2/glsl_program.h"
 #include "Common/CommonWindows.h"
 #include "Globals.h"
-#include "Windows/resource.h"
-#include "Windows/W32Util/DialogManager.h"
-#include "Windows/GEDebugger/SimpleGLWindow.h"
 
-class CGEDebugger : public Dialog {
-public:
-	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
-	~CGEDebugger();
+struct SimpleGLWindow {
+	static const PTCHAR windowClass;
 
-protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	SimpleGLWindow(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h);
+	~SimpleGLWindow() {
+		if (drawProgram_ != NULL) {
+			glsl_destroy(drawProgram_);
+		}
+		if (tex_) {
+			glDeleteTextures(1, &tex_);
+		}
+	}
 
-	SimpleGLWindow *frameWindow;
+	void RegisterWindowClass();
+	void Create(int x, int y, int w, int h);
+	void SetupGL();
+	void ResizeGL(int w, int h);
+	void CreateProgram();
+
+	void Clear();
+	void Draw(u8 *data, int w, int h);
+
+	void Swap() {
+		SwapBuffers(hDC_);
+	}
+
+	static bool windowClassExists_;
+
+	HINSTANCE hInstance_;
+	HWND hParent_;
+	HWND hWnd_;
+	HDC hDC_;
+	HGLRC hGLRC_;
+	bool valid_;
+	int w_;
+	int h_;
+
+	GLSLProgram *drawProgram_;
+	GLuint tex_;
 };

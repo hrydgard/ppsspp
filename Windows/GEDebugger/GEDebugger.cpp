@@ -15,23 +15,84 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <vector>
+#include <string>
+#include <set>
+
 #include "native/base/mutex.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/WindowsHost.h"
+#include "Windows/main.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+
+const UINT WM_GEDBG_BREAK_CMD = WM_USER + 200;
+const UINT WM_GEDBG_BREAK_DRAW = WM_USER + 201;
+
+enum PauseAction {
+	PAUSE_CONTINUE,
+	PAUSE_GETFRAMEBUF,
+	// textures, etc.
+};
 
 static bool attached = false;
 // TODO
 static bool textureCaching = true;
 static recursive_mutex pauseLock;
 static condition_variable pauseWait;
+static PauseAction pauseAction = PAUSE_CONTINUE;
+static recursive_mutex actionLock;
+static condition_variable actionWait;
 
-static bool breakNext = false;
+static std::vector<bool> breakCmds;
+static std::set<u32> breakPCs;
+static bool breakNextOp = false;
+static bool breakNextDraw = false;
+
+static bool bufferResult;
+static GPUDebugBuffer buffer;
+
+// TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
+
+static void SetPauseAction(PauseAction act) {
+	{
+		lock_guard guard(pauseLock);
+		actionLock.lock();
+		pauseAction = act;
+	}
+
+	pauseWait.notify_one();
+	actionWait.wait(actionLock);
+	actionLock.unlock();
+}
+
+static void RunPauseAction() {
+	lock_guard guard(actionLock);
+
+	switch (pauseAction) {
+	case PAUSE_CONTINUE:
+		break;
+
+	case PAUSE_GETFRAMEBUF:
+		bufferResult = gpuDebug->GetCurrentFramebuffer(buffer);
+		break;
+	}
+
+	actionWait.notify_one();
+	pauseAction = PAUSE_CONTINUE;
+}
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
+	breakCmds.resize(256, false);
+	// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
+	frameWindow = new SimpleGLWindow(m_hInstance, m_hDlg, (750 - 512) / 2, 40, 512, 272);
+}
+
+CGEDebugger::~CGEDebugger() {
+	delete frameWindow;
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -51,15 +112,49 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_BREAK:
 			attached = true;
-			breakNext = true;
+			//breakNextOp = true;
+			pauseWait.notify_one();
+			breakNextDraw = true;
+			// TODO
 			break;
 
 		case IDC_GEDBG_RESUME:
+			frameWindow->Clear();
 			// TODO: detach?  Should probably have separate UI, or just on activate?
-			breakNext = false;
+			//breakNextOp = false;
+			breakNextDraw = false;
 			pauseWait.notify_one();
 			break;
 		}
+		break;
+
+	case WM_GEDBG_BREAK_CMD:
+		{
+			u32 pc = (u32)wParam;
+			auto info = gpuDebug->DissassembleOp(pc);
+			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
+		}
+		break;
+
+	case WM_GEDBG_BREAK_DRAW:
+		{
+			NOTICE_LOG(COMMON, "Waiting at a draw");
+
+			bufferResult = false;
+			SetPauseAction(PAUSE_GETFRAMEBUF);
+
+			if (bufferResult) {
+				if (buffer.GetFormat() == GE_FORMAT_8888) {
+					frameWindow->Draw(buffer.GetData(), buffer.GetStride(), buffer.GetHeight());
+				} else {
+					ERROR_LOG(COMMON, "Non-8888 buffers not yet supported.");
+					frameWindow->Clear();
+				}
+			} else {
+				ERROR_LOG(COMMON, "Unable to get buffer.");
+			}
+		}
+		break;
 	}
 
 	return FALSE;
@@ -71,12 +166,23 @@ bool WindowsHost::GPUDebuggingActive() {
 	return attached;
 }
 
-void WindowsHost::GPUNotifyCommand(u32 pc) {
-	if (breakNext) {
-		auto info = gpuDebug->DissassembleOp(pc);
-		NOTICE_LOG(HLE, "waiting at %08x, %s", pc, info.desc.c_str());
-		lock_guard guard(pauseLock);
+static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
+	lock_guard guard(pauseLock);
+	PostMessage(geDebuggerWindow->GetDlgHandle(), msg, wParam, lParam);
+
+	do {
+		RunPauseAction();
 		pauseWait.wait(pauseLock);
+	} while (pauseAction != PAUSE_CONTINUE);
+}
+
+void WindowsHost::GPUNotifyCommand(u32 pc) {
+	u32 op = Memory::ReadUnchecked_U32(pc);
+	u8 cmd = op >> 24;
+
+	const bool breakPC = breakPCs.find(pc) != breakPCs.end();
+	if (breakNextOp || breakCmds[cmd] || breakPC) {
+		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }
 
@@ -84,6 +190,9 @@ void WindowsHost::GPUNotifyDisplay(u32 framebuf, u32 stride, int format) {
 }
 
 void WindowsHost::GPUNotifyDraw() {
+	if (breakNextDraw) {
+		PauseWithMessage(WM_GEDBG_BREAK_DRAW);
+	}
 }
 
 void WindowsHost::GPUNotifyTextureAttachment(u32 addr) {
