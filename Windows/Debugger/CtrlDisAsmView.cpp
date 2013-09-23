@@ -100,7 +100,7 @@ void CtrlDisAsmView::scanFunctions()
 				lanes[i].used = false;
 
 
-			for (int funcPos = info.address; funcPos < funcEnd; funcPos += instructionSize)
+			for (u32 funcPos = info.address; funcPos < funcEnd; funcPos += instructionSize)
 			{
 				MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(debugger,funcPos);
 
@@ -133,11 +133,11 @@ void CtrlDisAsmView::scanFunctions()
 				}
 
 				int lane = -1;
-				for (int i = 0; i < NUM_LANES; i++)
+				for (int l = 0; l < NUM_LANES; l++)
 				{
-					if (lanes[i].used == false)
+					if (lanes[l].used == false)
 					{
-						lane = i;
+						lane = l;
 						break;
 					}
 				}
@@ -193,11 +193,11 @@ void CtrlDisAsmView::scanFunctions()
 		}
 
 		int lane = -1;
-		for (int i = 0; i < NUM_LANES; i++)
+		for (int l = 0; l < NUM_LANES; l++)
 		{
-			if (lanes[i].used == false)
+			if (lanes[l].used == false)
 			{
-				lane = i;
+				lane = l;
 				break;
 			}
 		}

@@ -54,8 +54,8 @@ int psmfPlayerVersion = PSMF_PLAYER_VERSION_FULL;
 int psmfMaxAheadTimestamp = 40000;
 int audioSamples = 2048;  
 int audioSamplesBytes = audioSamples * 4;
-int videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;  
-int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;  
+int videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;
+int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
 enum PsmfPlayerStatus {
 	PSMF_PLAYER_STATUS_NONE = 0x0,
@@ -417,6 +417,8 @@ PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
 
 void __PsmfInit()
 {
+	videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;
+	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 }
 
 void __PsmfDoState(PointerWrap &p)
