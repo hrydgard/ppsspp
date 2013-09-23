@@ -66,6 +66,8 @@ public:
 	}
 	std::vector<FramebufferInfo> GetFramebufferList();
 
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);

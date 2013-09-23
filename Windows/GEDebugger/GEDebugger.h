@@ -21,11 +21,15 @@
 #include "Globals.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
+#include "Windows/GEDebugger/SimpleGLWindow.h"
 
 class CGEDebugger : public Dialog {
 public:
 	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
+	~CGEDebugger();
 
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+
+	SimpleGLWindow *frameWindow;
 };

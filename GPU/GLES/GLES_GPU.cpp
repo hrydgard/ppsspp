@@ -336,22 +336,22 @@ static const CommandTableEntry commandTable[] = {
 
 	// "Missing" commands (gaps in the sequence)
 	// "Missing" commands (gaps in the sequence)
-	{GE_CMD_UNKNOWN_03, 0},
-	{GE_CMD_UNKNOWN_0D, 0},
-	{GE_CMD_UNKNOWN_11, 0},
-	{GE_CMD_UNKNOWN_29, 0},
-	{GE_CMD_UNKNOWN_34, 0},
-	{GE_CMD_UNKNOWN_35, 0},
-	{GE_CMD_UNKNOWN_39, 0},
-	{GE_CMD_UNKNOWN_4E, 0},
-	{GE_CMD_UNKNOWN_4F, 0},
-	{GE_CMD_UNKNOWN_52, 0},
-	{GE_CMD_UNKNOWN_59, 0},
-	{GE_CMD_UNKNOWN_5A, 0},
-	{GE_CMD_UNKNOWN_B6, 0},
-	{GE_CMD_UNKNOWN_B7, 0},
-	{GE_CMD_UNKNOWN_D1, 0},
-	{GE_CMD_UNKNOWN_ED, 0},
+	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_0D, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_11, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_29, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_34, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_35, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_39, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_4E, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_4F, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_52, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_59, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_5A, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_B6, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_B7, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_D1, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_ED, FLAG_EXECUTE},
 };
 
 
@@ -1375,7 +1375,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_UNKNOWN_B7:
 	case GE_CMD_UNKNOWN_D1:
 	case GE_CMD_UNKNOWN_ED:
-		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
 		break;
 		
 	default:
@@ -1503,4 +1504,9 @@ void GLES_GPU::DoState(PointerWrap &p) {
 
 	gstate_c.textureChanged = true;
 	framebufferManager_.DestroyAllFBOs();
+}
+
+bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
+{
+	return framebufferManager_.GetCurrentFramebuffer(buffer);
 }

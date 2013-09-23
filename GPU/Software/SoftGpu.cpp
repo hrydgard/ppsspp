@@ -743,3 +743,11 @@ void SoftGPU::UpdateMemory(u32 dest, u32 src, int size)
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 }
+
+bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
+{
+	// We don't know the height, so just use 512, which should be the max (hopefully?)
+	// TODO: Could check clipping and such, though...?
+	buffer = GPUDebugBuffer(fb.data, gstate.FrameBufStride(), 512, gstate.FrameBufFormat());
+	return true;
+}

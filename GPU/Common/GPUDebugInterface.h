@@ -30,6 +30,103 @@ struct GPUDebugOp {
 	std::string desc;
 };
 
+struct GPUDebugBuffer {
+	GPUDebugBuffer() : alloc_(false), data_(NULL) {
+	}
+
+	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt)
+		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(fmt), flipped_(false) {
+	}
+
+	GPUDebugBuffer(GPUDebugBuffer &&other) {
+		alloc_ = other.alloc_;
+		data_ = other.data_;
+		height_ = other.height_;
+		stride_ = other.stride_;
+		flipped_ = other.flipped_;
+		fmt_ = other.fmt_;
+		other.alloc_ = false;
+		other.data_ = NULL;
+	}
+
+	~GPUDebugBuffer() {
+		Free();
+	}
+
+	GPUDebugBuffer &operator = (GPUDebugBuffer &&other) {
+		if (this != &other) {
+			Free();
+			alloc_ = other.alloc_;
+			data_ = other.data_;
+			height_ = other.height_;
+			stride_ = other.stride_;
+			flipped_ = other.flipped_;
+			fmt_ = other.fmt_;
+			other.alloc_ = false;
+			other.data_ = NULL;
+		}
+
+		return *this;
+	}
+
+	void Allocate(u32 stride, u32 height, GEBufferFormat fmt, bool flipped = false) {
+		if (alloc_ && stride_ == stride && height_ == height && fmt_ == fmt) {
+			// Already allocated the right size.
+			flipped_ = flipped;
+			return;
+		}
+
+		Free();
+		alloc_ = true;
+		height_ = height;
+		stride_ = stride;
+		fmt_ = fmt;
+		flipped_ = flipped;
+
+		u32 pixelSize = 2;
+		if (fmt == GE_FORMAT_8888) {
+			pixelSize = 4;
+		};
+
+		data_ = new u8[pixelSize * stride * height];
+	}
+
+	void Free() {
+		if (alloc_ && data_ != NULL) {
+			delete [] data_;
+		}
+		data_ = NULL;
+	}
+
+	u8 *GetData() const {
+		return data_;
+	}
+
+	u32 GetHeight() const {
+		return height_;
+	}
+
+	u32 GetStride() const {
+		return stride_;
+	}
+
+	bool GetFlipped() const {
+		return flipped_;
+	}
+
+	GEBufferFormat GetFormat() const {
+		return fmt_;
+	}
+
+private:
+	bool alloc_;
+	u8 *data_;
+	u32 height_;
+	u32 stride_;
+	bool flipped_;
+	GEBufferFormat fmt_;
+};
+
 class GPUDebugInterface {
 public:
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
@@ -48,6 +145,13 @@ public:
 	virtual u32 GetVertexAddress() = 0;
 	virtual u32 GetIndexAddress() = 0;
 	virtual GPUgstate GetGState() = 0;
+
+	// Needs to be called from the GPU thread, so on the same thread as a notification is fine.
+	// Calling from a separate thread (e.g. UI) may fail.
+	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
+		// False means unsupported.
+		return false;
+	}
 
 	// TODO:
 	// cached framebuffers / textures / vertices?

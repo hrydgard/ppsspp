@@ -171,7 +171,6 @@ FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     PUSHBUTTON      "Break",IDC_GEDBG_BREAK,0,0,48,14
     PUSHBUTTON      "Resume",IDC_GEDBG_RESUME,52,0,48,14
-    CTEXT           "Not yet implemented",IDC_STATIC,20,100,460,14
 END
 
 #include "aboutbox.rc"
