@@ -135,8 +135,8 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// Uniform changes
 	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -846,8 +846,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
-		if (diff)
-			gstate_c.textureChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -1207,11 +1206,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXFUNC:
-	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFORMAT:
 	case GE_CMD_TEXFLUSH:
+		break;
+
+	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
+		gstate_c.textureChanged = true;
 		break;
 
 	//////////////////////////////////////////////////////////////////
