@@ -73,7 +73,8 @@ static void RunPauseAction() {
 
 	switch (pauseAction) {
 	case PAUSE_CONTINUE:
-		break;
+		// Don't notify, just go back, woke up by accident.
+		return;
 
 	case PAUSE_GETFRAMEBUF:
 		bufferResult = gpuDebug->GetCurrentFramebuffer(buffer);
