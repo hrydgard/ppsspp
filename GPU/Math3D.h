@@ -584,6 +584,14 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11];
 }
 
+inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
+{
+	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[9];
+	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[10];
+	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[11];
+	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+}
+
 inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6];

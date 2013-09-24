@@ -23,14 +23,6 @@
 // Here's how to evaluate them fast:
 // http://and-what-happened.blogspot.se/2012/07/evaluating-b-splines-aka-basis-splines.html
 
-// PSP compatible format so we can use the end of the pipeline
-struct SimpleVertex {
-	float uv[2];
-	u8 color[4];
-	Vec3f nrm;
-	Vec3f pos;
-};
-
 // This normalizes a set of vertices in any format to SimpleVertex format, by processing away morphing AND skinning.
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
