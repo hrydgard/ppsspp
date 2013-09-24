@@ -24,18 +24,18 @@ const PTCHAR SimpleGLWindow::windowClass = _T("SimpleGLWindow");
 void SimpleGLWindow::registerClass() {
 	WNDCLASSEX wndClass;
 
-    wndClass.cbSize         = sizeof(wndClass);
-    wndClass.lpszClassName  = windowClass;
-    wndClass.hInstance      = GetModuleHandle(0);
-    wndClass.lpfnWndProc    = wndProc;
-    wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);
-    wndClass.hIcon          = 0;
-    wndClass.lpszMenuName   = 0;
-    wndClass.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-    wndClass.style          = 0;
-    wndClass.cbClsExtra     = 0;
-    wndClass.cbWndExtra     = sizeof(SimpleGLWindow*);
-    wndClass.hIconSm        = 0;
+	wndClass.cbSize         = sizeof(wndClass);
+	wndClass.lpszClassName  = windowClass;
+	wndClass.hInstance      = GetModuleHandle(0);
+	wndClass.lpfnWndProc    = wndProc;
+	wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);
+	wndClass.hIcon          = 0;
+	wndClass.lpszMenuName   = 0;
+	wndClass.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+	wndClass.style          = 0;
+	wndClass.cbClsExtra     = 0;
+	wndClass.cbWndExtra     = sizeof(SimpleGLWindow*);
+	wndClass.hIconSm        = 0;
 
 	RegisterClassEx(&wndClass);
 }
@@ -79,8 +79,7 @@ SimpleGLWindow::~SimpleGLWindow() {
 	}
 };
 
-void SimpleGLWindow::Initialize()
-{
+void SimpleGLWindow::Initialize() {
 	RECT rect;
 	GetWindowRect(hWnd_, &rect);
 
@@ -274,24 +273,22 @@ void SimpleGLWindow::Clear() {
 	Swap();
 }
 
-SimpleGLWindow *SimpleGLWindow::getFrom(HWND hwnd)
-{
-    return (SimpleGLWindow*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+SimpleGLWindow *SimpleGLWindow::getFrom(HWND hwnd) {
+	return (SimpleGLWindow*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-LRESULT CALLBACK SimpleGLWindow::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK SimpleGLWindow::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	SimpleGLWindow *win = SimpleGLWindow::getFrom(hwnd);
 
-    switch(msg)
-    {
-    case WM_NCCREATE:
-        // Allocate a new CustCtrl structure for this window.
-        win = new SimpleGLWindow(hwnd);
+	switch(msg)
+	{
+	case WM_NCCREATE:
+		// Allocate a new CustCtrl structure for this window.
+		win = new SimpleGLWindow(hwnd);
 		
-        // Continue with window creation.
-        return win != NULL;
+		// Continue with window creation.
+		return win != NULL;
 	}
 	
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }

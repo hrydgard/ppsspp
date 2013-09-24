@@ -56,8 +56,7 @@ static GPUDebugBuffer buffer;
 
 // TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
 
-void CGEDebugger::init()
-{
+void CGEDebugger::init() {
 	SimpleGLWindow::registerClass();
 }
 
