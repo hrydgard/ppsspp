@@ -135,6 +135,7 @@ struct DisplayList
 	bool started;
 	u32_le *context;
 	u32 offsetAddr;
+	bool bboxResult;
 };
 
 enum GPUInvalidationType {

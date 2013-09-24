@@ -264,6 +264,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.interruptsEnabled = interruptsEnabled_;
 	dl.started = false;
 	dl.offsetAddr = 0;
+	dl.bboxResult = false;
+
 	if (args.IsValid() && args->context.IsValid())
 		dl.context = args->context;
 	else
@@ -718,6 +720,20 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
 				ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
+			}
+		}
+		break;
+
+	case GE_CMD_BJUMP:
+		if (!currentList->bboxResult) {
+			// bounding box jump.
+			easy_guard guard(listLock);
+			u32 target = gstate_c.getRelativeAddress(data);
+			if (Memory::IsValidAddress(target)) {
+				UpdatePC(currentList->pc, target - 4);
+				currentList->pc = target - 4; // pc will be increased after we return, counteract that
+			} else {
+				ERROR_LOG_REPORT(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, data);
 			}
 		}
 		break;

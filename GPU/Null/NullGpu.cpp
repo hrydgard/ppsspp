@@ -23,13 +23,8 @@
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
 
-NullGPU::NullGPU()
-{
-}
-
-NullGPU::~NullGPU()
-{
-}
+NullGPU::NullGPU() { }
+NullGPU::~NullGPU() { }
 
 void NullGPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
@@ -44,8 +39,7 @@ void NullGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-void NullGPU::ExecuteOp(u32 op, u32 diff)
-{
+void NullGPU::ExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
@@ -101,14 +95,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-	case GE_CMD_BJUMP:
-		// bounding box jump. Let's just not jump, for now.
-		DEBUG_LOG(G3D,"DL BBOX JUMP - unimplemented");
-		break;
-
 	case GE_CMD_BOUNDINGBOX:
-		// bounding box test. Let's do nothing.
-		DEBUG_LOG(G3D,"DL BBOX TEST - unimplemented");
+		if (data != 0)
+			DEBUG_LOG(G3D, "Unsupported bounding box: %06x", data);
+		// bounding box test. Let's assume the box was within the drawing region.
+		currentList->bboxResult = true;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -660,21 +651,18 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 	}
 }
 
-void NullGPU::UpdateStats()
-{
+void NullGPU::UpdateStats() {
 	gpuStats.numVertexShaders = 0;
 	gpuStats.numFragmentShaders = 0;
 	gpuStats.numShaders = 0;
 	gpuStats.numTextures = 0;
 }
 
-void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
-{
+void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
 }
 
-void NullGPU::UpdateMemory(u32 dest, u32 src, int size)
-{
+void NullGPU::UpdateMemory(u32 dest, u32 src, int size) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 }

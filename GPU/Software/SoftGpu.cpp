@@ -364,10 +364,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-	case GE_CMD_BJUMP:
-		break;
-
 	case GE_CMD_BOUNDINGBOX:
+		if (data != 0)
+			DEBUG_LOG(G3D, "Unsupported bounding box: %06x", data);
+		// bounding box test. Let's assume the box was within the drawing region.
+		currentList->bboxResult = true;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
