@@ -829,7 +829,8 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-		int factor = g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
+		// Only apply a factor > 1 in windowed mode.
+		int factor = !g_Config.bFullScreen && g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
 
 		switch (message) {
 		case WM_ACTIVATE:
@@ -1504,10 +1505,7 @@ namespace MainWindow
 			PostQuitMessage(0);
 			break;
 
-		case WM_USER+1:
-			if (g_Config.bFullScreen)
-				_ViewFullScreen(hWnd);
-
+		case WM_USER + 1:
 			disasmWindow[0]->NotifyMapLoaded();
 			memoryWindow[0]->NotifyMapLoaded();
 
