@@ -37,29 +37,27 @@ struct SimpleGLWindow {
 		RESIZE_SHRINK_CENTER,
 	};
 
-	SimpleGLWindow(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h);
+	SimpleGLWindow(HWND wnd);
 	~SimpleGLWindow();
 
 	void Clear();
 	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888, ResizeType resize = RESIZE_NONE);
+	void Initialize();
+	static SimpleGLWindow* getFrom(HWND hwnd);
+	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 	void Swap() {
 		SwapBuffers(hDC_);
 	}
 
+	static void registerClass();
 protected:
-	void RegisterWindowClass();
-	void Create(int x, int y, int w, int h);
 	void SetupGL();
 	void ResizeGL(int w, int h);
 	void CreateProgram();
 	void GenerateChecker();
 	void DrawChecker();
 
-	static bool windowClassExists_;
-
-	HINSTANCE hInstance_;
-	HWND hParent_;
 	HWND hWnd_;
 	HDC hDC_;
 	HGLRC hGLRC_;

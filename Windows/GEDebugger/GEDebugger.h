@@ -28,6 +28,7 @@ public:
 	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
 	~CGEDebugger();
 
+	static void init();
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
