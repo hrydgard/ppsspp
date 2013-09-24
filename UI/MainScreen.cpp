@@ -560,7 +560,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new GameSettingsScreen(""));
 		screenManager()->push(new ControlMappingScreen());
 	}
 	if (!strcmp(message, "settings")) {

@@ -31,6 +31,7 @@
 #include "UI/ui_atlas.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/UIShader.h"
+#include "UI/GameSettingsScreen.h"
 
 extern void DrawBackground(float alpha);
 
@@ -218,7 +219,7 @@ void ControlMappingScreen::sendMessage(const char *message, const char *value) {
 	}
 	if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
-		screenManager()->finishDialog(this, DR_OK);
+		screenManager()->push(new GameSettingsScreen(""));
 	}
 }
 
