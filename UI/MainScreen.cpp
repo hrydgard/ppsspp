@@ -684,7 +684,7 @@ void GamePauseScreen::DrawBackground(UIContext &dc) {
 	if (ginfo) {
 		if (ginfo->pic1Texture) {
 			ginfo->pic1Texture->Bind(0);
-		} else {
+		} else if (ginfo->pic0Texture) {
 			// Draw pic0 if pic1 is not available
 			ginfo->pic0Texture->Bind(0);
 		}
