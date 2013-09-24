@@ -681,8 +681,13 @@ void GamePauseScreen::DrawBackground(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
 	dc.Flush();
 
-	if (ginfo && ginfo->pic1Texture) {
-		ginfo->pic1Texture->Bind(0);
+	if (ginfo) {
+		if (ginfo->pic1Texture) {
+			ginfo->pic1Texture->Bind(0);
+		} else {
+			// Draw pic0 if pic1 is not available
+			ginfo->pic0Texture->Bind(0);
+		}
 		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
 		dc.Flush();
