@@ -653,6 +653,9 @@ void GPUCommon::ProcessDLQueueInternal() {
 	cyclesExecuted = 0;
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
+	// Game might've written new texture data.
+	gstate_c.textureChanged = true;
+
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
 		DEBUG_LOG(G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
