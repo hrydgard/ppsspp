@@ -94,6 +94,7 @@ public:
 	bool bReloadCheats;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
+	bool bLowQualitySplineBezier;
 
 	// Sound
 	bool bEnableSound;

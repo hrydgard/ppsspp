@@ -179,6 +179,9 @@ private:
 
 	std::map<u32, VertexArrayInfo *> vai_;
 
+	// Fixed index buffer for easy quad generation from spline/bezier
+	u16 *quadIndices_;
+
 	// Vertex buffer objects
 	// Element buffer objects
 	enum { NUM_VBOS = 128 };

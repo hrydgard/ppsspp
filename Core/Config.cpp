@@ -177,6 +177,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("VSyncInterval", &bVSync, false);
 	graphics->Get("DisableStencilTest", &bDisableStencilTest, false);
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
+	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -336,6 +337,7 @@ void Config::Save() {
 		graphics->Set("VSyncInterval", bVSync);
 		graphics->Set("DisableStencilTest", bDisableStencilTest);
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
+		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

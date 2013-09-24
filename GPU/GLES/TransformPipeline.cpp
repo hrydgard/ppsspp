@@ -56,6 +56,7 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
 };
 
+#define QUAD_INDICES_MAX 32768
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
@@ -82,6 +83,17 @@ TransformDrawEngine::TransformDrawEngine()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
+
+	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
+		quadIndices_[i * 6 + 0] = i * 4;
+		quadIndices_[i * 6 + 1] = i * 4 + 2;
+		quadIndices_[i * 6 + 2] = i * 4 + 1;
+		quadIndices_[i * 6 + 3] = i * 4 + 1;
+		quadIndices_[i * 6 + 4] = i * 4 + 2;
+		quadIndices_[i * 6 + 5] = i * 4 + 3;
+	}
+
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
@@ -98,6 +110,8 @@ TransformDrawEngine::~TransformDrawEngine() {
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	delete [] quadIndices_;
+
 	unregister_gl_resource_holder(this);
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
