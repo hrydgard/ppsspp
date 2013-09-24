@@ -20,7 +20,25 @@
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
 const PTCHAR SimpleGLWindow::windowClass = _T("SimpleGLWindow");
-bool SimpleGLWindow::windowClassExists_;
+
+void SimpleGLWindow::registerClass() {
+	WNDCLASSEX wndClass;
+
+	wndClass.cbSize         = sizeof(wndClass);
+	wndClass.lpszClassName  = windowClass;
+	wndClass.hInstance      = GetModuleHandle(0);
+	wndClass.lpfnWndProc    = wndProc;
+	wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);
+	wndClass.hIcon          = 0;
+	wndClass.lpszMenuName   = 0;
+	wndClass.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+	wndClass.style          = 0;
+	wndClass.cbClsExtra     = 0;
+	wndClass.cbWndExtra     = sizeof(SimpleGLWindow*);
+	wndClass.hIconSm        = 0;
+
+	RegisterClassEx(&wndClass);
+}
 
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
@@ -46,14 +64,9 @@ static const char basic_vs[] =
 	"  gl_Position = u_viewproj * a_position;\n"
 	"}\n";
 
-SimpleGLWindow::SimpleGLWindow(HINSTANCE hInstance, HWND hParent, int x, int y, int w, int h)
-	: hInstance_(hInstance), hParent_(hParent), valid_(false), drawProgram_(NULL), tex_(0) {
-	RegisterWindowClass();
-	Create(x, y, w, h);
-	SetupGL();
-	ResizeGL(w, h);
-	CreateProgram();
-	GenerateChecker();
+SimpleGLWindow::SimpleGLWindow(HWND wnd)
+	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0) {
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
 }
 
 SimpleGLWindow::~SimpleGLWindow() {
@@ -66,32 +79,14 @@ SimpleGLWindow::~SimpleGLWindow() {
 	}
 };
 
-void SimpleGLWindow::RegisterWindowClass() {
-	if (windowClassExists_) {
-		return;
-	}
+void SimpleGLWindow::Initialize() {
+	RECT rect;
+	GetWindowRect(hWnd_, &rect);
 
-	static WNDCLASSEX wndClass = {
-		sizeof(WNDCLASSEX),
-		CS_HREDRAW | CS_VREDRAW,
-		DefWindowProc,
-		0,
-		0,
-		hInstance_,
-		NULL,
-		LoadCursor(NULL, IDC_ARROW),
-		(HBRUSH)GetStockObject(BLACK_BRUSH),
-		NULL,
-		windowClass,
-		NULL,
-	};
-	RegisterClassEx(&wndClass);
-	windowClassExists_ = true;
-}
-
-void SimpleGLWindow::Create(int x, int y, int w, int h) {
-	DWORD style = WS_CHILD | WS_VISIBLE;
-	hWnd_ = CreateWindowEx(0, windowClass, _T(""), style, x, y, w, h, hParent_, NULL, hInstance_, NULL);
+	SetupGL();
+	ResizeGL(rect.right-rect.left,rect.bottom-rect.top);
+	CreateProgram();
+	GenerateChecker();
 }
 
 void SimpleGLWindow::SetupGL() {
@@ -276,4 +271,24 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt, Resi
 void SimpleGLWindow::Clear() {
 	DrawChecker();
 	Swap();
+}
+
+SimpleGLWindow *SimpleGLWindow::getFrom(HWND hwnd) {
+	return (SimpleGLWindow*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+}
+
+LRESULT CALLBACK SimpleGLWindow::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	SimpleGLWindow *win = SimpleGLWindow::getFrom(hwnd);
+
+	switch(msg)
+	{
+	case WM_NCCREATE:
+		// Allocate a new CustCtrl structure for this window.
+		win = new SimpleGLWindow(hwnd);
+		
+		// Continue with window creation.
+		return win != NULL;
+	}
+	
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }

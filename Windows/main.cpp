@@ -190,6 +190,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CtrlDisAsmView::init();
 	CtrlMemView::init();
 	CtrlRegisterList::init();
+	CGEDebugger::init();
 
 	DialogManager::AddDlg(memoryWindow[0] = new CMemoryDlg(_hInstance, hwndMain, currentDebugMIPS));
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
