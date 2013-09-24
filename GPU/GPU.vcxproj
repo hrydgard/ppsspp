@@ -157,6 +157,7 @@
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\GPUDebugInterface.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
+    <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
     <ClInclude Include="Directx9\helper\dx_state.h" />

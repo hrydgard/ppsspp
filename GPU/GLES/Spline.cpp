@@ -19,6 +19,7 @@
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/Math3D.h"
+#include "GPU/Common/SplineCommon.h"
 
 // Here's how to evaluate them fast:
 // http://and-what-happened.blogspot.se/2012/07/evaluating-b-splines-aka-basis-splines.html
@@ -418,6 +419,9 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 		// First compute all the vertices and put them in an array
 		SimpleVertex *vertices = new SimpleVertex[(patch_div_s + 1) * (patch_div_t + 1)];
 
+		float tu_width = 1.0f + (spatch.count_u - 4) * 1.0f/3.0f;
+		float tv_height = 1.0f + (spatch.count_v - 4) * 1.0f/3.0f;
+
 		bool computeNormals = gstate.isLightingEnabled();
 		for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
 			float v = ((float)tile_v * (float)(m - 2) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
@@ -441,8 +445,8 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 					vert->uv[0] = 0.0f;
 					vert->uv[1] = 0.0f;
 				} else {
-					vert->uv[0] = ((float)tile_u / (float)patch_div_s);
-					vert->uv[1] = ((float)tile_v / (float)patch_div_t);
+					vert->uv[0] = tu_width * ((float)tile_u / (float)patch_div_s);
+					vert->uv[1] = tv_height * ((float)tile_v / (float)patch_div_t);
 				}
 
 				// Collect influences from surrounding control points.

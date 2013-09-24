@@ -144,6 +144,9 @@
     <ClInclude Include="Common\GPUDebugInterface.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\SplineCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">

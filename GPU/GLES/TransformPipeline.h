@@ -90,14 +90,6 @@ public:
 	u16 drawsUntilNextFullHash;
 };
 
-// PSP compatible format so we can use the end of the pipeline in beziers etc
-struct SimpleVertex {
-	float uv[2];
-	u8 color[4];
-	Vec3f nrm;
-	Vec3f pos;
-};
-
 // Handles transform, lighting and drawing.
 class TransformDrawEngine : public GfxResourceHolder {
 public:
