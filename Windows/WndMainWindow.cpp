@@ -1504,10 +1504,7 @@ namespace MainWindow
 			PostQuitMessage(0);
 			break;
 
-		case WM_USER+1:
-			if (g_Config.bFullScreen)
-				_ViewFullScreen(hWnd);
-
+		case WM_USER + 1:
 			disasmWindow[0]->NotifyMapLoaded();
 			memoryWindow[0]->NotifyMapLoaded();
 
