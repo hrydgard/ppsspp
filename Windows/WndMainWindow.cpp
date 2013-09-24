@@ -829,6 +829,9 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+		// Only apply a factor > 1 in windowed mode.
+		int factor = !g_Config.bFullScreen && g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
+
 		switch (message) {
 		case WM_ACTIVATE:
 			break;
@@ -854,8 +857,8 @@ namespace MainWindow
 					input_state.mouse_valid = true;
 					input_state.pointer_down[0] = true;
 
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam);
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 				}
 
 				TouchInput touch;
@@ -884,8 +887,8 @@ namespace MainWindow
 
 				{
 					lock_guard guard(input_state.lock);
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam);
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 				}
 
 				if (wParam & MK_LBUTTON) {
@@ -906,8 +909,8 @@ namespace MainWindow
 				{
 					lock_guard guard(input_state.lock);
 					input_state.pointer_down[0] = false;
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam);
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 				}
 				TouchInput touch;
 				touch.id = 0;
