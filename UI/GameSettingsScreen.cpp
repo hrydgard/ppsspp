@@ -336,6 +336,10 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "language")) {
 		screenManager()->RecreateAllViews();
 	}
+	if (!strcmp(message, "control mapping")) {
+		UpdateUIState(UISTATE_MENU);
+		screenManager()->push(new ControlMappingScreen());
+	}
 }
 
 UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {

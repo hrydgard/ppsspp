@@ -216,6 +216,10 @@ void ControlMappingScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "language")) {
 		screenManager()->RecreateAllViews();
 	}
+	if (!strcmp(message, "settings")) {
+		UpdateUIState(UISTATE_MENU);
+		screenManager()->finishDialog(this, DR_OK);
+	}
 }
 
 UI::EventReturn ControlMappingScreen::OnBack(UI::EventParams &e) {
