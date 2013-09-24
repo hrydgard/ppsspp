@@ -31,5 +31,8 @@ public:
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
+private:
+	void SetupFrameWindow();
+
 	SimpleGLWindow *frameWindow;
 };

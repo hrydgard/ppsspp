@@ -124,7 +124,7 @@ void CtrlDisAsmView::scanFunctions()
 			}
 			
 			std::sort(func.lines.begin(),func.lines.end(),compareBranchLines);
-			for (int i = 0; i < func.lines.size(); i++)
+			for (size_t i = 0; i < func.lines.size(); i++)
 			{
 				for (int l = 0; l < NUM_LANES; l++)
 				{
@@ -184,7 +184,7 @@ void CtrlDisAsmView::scanFunctions()
 		lanes[i].used = false;
 	
 	std::sort(strayLines.begin(),strayLines.end(),compareBranchLines);
-	for (int i = 0; i < strayLines.size(); i++)
+	for (size_t i = 0; i < strayLines.size(); i++)
 	{
 		for (int l = 0; l < NUM_LANES; l++)
 		{
@@ -666,19 +666,19 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	}
 
 	SelectObject(hdc,condPen);
-	for (int i = 0; i < visibleFunctionAddresses.size(); i++)
+	for (size_t i = 0; i < visibleFunctionAddresses.size(); i++)
 	{
 		auto it = functions.find(visibleFunctionAddresses[i]);
 		if (it == functions.end()) continue;
 		DisassemblyFunction& func = it->second;
 		
-		for (int l = 0; l < func.lines.size(); l++)
+		for (size_t l = 0; l < func.lines.size(); l++)
 		{
 			drawBranchLine(hdc,func.lines[l]);
 		}
 	}
 
-	for (int i = 0; i < strayLines.size(); i++)
+	for (size_t i = 0; i < strayLines.size(); i++)
 	{
 		drawBranchLine(hdc,strayLines[i]);
 	}

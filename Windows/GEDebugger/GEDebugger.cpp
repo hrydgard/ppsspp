@@ -86,16 +86,21 @@ static void RunPauseAction() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL) {
 	breakCmds.resize(256, false);
-	// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
-	frameWindow = new SimpleGLWindow(m_hInstance, m_hDlg, (750 - 512) / 2, 40, 512, 272);
-	// TODO: Why doesn't this work?
-	frameWindow->Clear();
 }
 
 CGEDebugger::~CGEDebugger() {
 	delete frameWindow;
+}
+
+void CGEDebugger::SetupFrameWindow() {
+	if (frameWindow == NULL) {
+		// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
+		frameWindow = new SimpleGLWindow(m_hInstance, m_hDlg, (750 - 512) / 2, 40, 512, 272);
+		// TODO: Why doesn't this work?
+		frameWindow->Clear();
+	}
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -111,10 +116,15 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		Show(false);
 		return TRUE;
 
+	case WM_SHOWWINDOW:
+		SetupFrameWindow();
+		break;
+
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_BREAK:
 			attached = true;
+			SetupFrameWindow();
 			//breakNextOp = true;
 			pauseWait.notify_one();
 			breakNextDraw = true;
