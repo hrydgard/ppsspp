@@ -256,6 +256,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 	selectedChar = 0;
 	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+	currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 
 	ConvertUCS2ToUTF8(oskDesc, oskParams->fields[0].desc);
 	ConvertUCS2ToUTF8(oskIntext, oskParams->fields[0].intext);
@@ -866,22 +867,27 @@ int PSPOskDialog::Update()
 		if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE)
 		{
 			PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 30, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
 		else
 		{
 			PPGeDrawImage(I_CIRCLE, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CROSS, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 30, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
 
 		I18NCategory *d = GetI18NCategory("Dialog");
 		PPGeDrawText(d->T("Select"), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Delete"), 180, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Finish"), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		// TODO: Show title of next keyboard?
-		PPGeDrawText(d->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Delete"), 60, 245, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Shift"), 240, 250, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		PPGeDrawText(d->T("R"), 300, 245, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str()), 325, 245, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -912,8 +918,12 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
-			// TODO: Limit by allowed keyboards...
-			currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
+			// Select now swaps case.
+			
+			if (currentKeyboard == OskKeyboardCases[currentKeyboardLanguage][UPPERCASE])
+				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+			else
+				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][UPPERCASE];
 
 			if(selectedRow >= numKeyRows[currentKeyboard])
 			{
@@ -921,6 +931,24 @@ int PSPOskDialog::Update()
 			}
 
 			if(selectedExtra >= numKeyCols[currentKeyboard])
+			{
+				selectedExtra = numKeyCols[currentKeyboard] - 1;
+			}
+
+			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+		}
+		else if (IsButtonPressed(CTRL_RTRIGGER))
+		{
+			// RTRIGGER now swaps languages.
+			currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT);
+			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+
+			if (selectedRow >= numKeyRows[currentKeyboard])
+			{
+				selectedRow = numKeyRows[currentKeyboard] - 1;
+			}
+
+			if (selectedExtra >= numKeyCols[currentKeyboard])
 			{
 				selectedExtra = numKeyCols[currentKeyboard] - 1;
 			}
