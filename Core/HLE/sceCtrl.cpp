@@ -74,6 +74,7 @@ static _ctrl_data ctrlCurrent;
 static u32 ctrlBuf = 0;
 static u32 ctrlBufRead = 0;
 static CtrlLatch latch;
+static CtrlLatch sepLatch; // a separate latch for osk dialog
 
 static int ctrlIdleReset = -1;
 static int ctrlIdleBack = -1;
@@ -114,6 +115,7 @@ void __CtrlUpdateLatch()
 	latch.btnBreak |= ctrlOldButtons & changed;
 	latch.btnPress |= buttons;
 	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
+	sepLatch = latch;
 	ctrlLatchBufs++;
 		
 	ctrlOldButtons = buttons;
@@ -156,7 +158,8 @@ void __CtrlPeekAnalog(int stick, float *x, float *y)
 
 u32 __CtrlReadLatch()
 {
-	u32 ret = latch.btnMake;
+	u32 ret = sepLatch.btnMake;
+	memset(&sepLatch, 0, sizeof(CtrlLatch));
 	__CtrlResetLatch();
 	return ret;
 }
