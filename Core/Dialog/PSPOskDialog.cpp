@@ -36,8 +36,8 @@
 #include <math.h>
 #endif
 
-const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4};
+const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
+const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4, 4, 4};
 
 // Japanese(Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -117,6 +117,20 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{L"ЙЦУКЕНГШЩЗХЪ"},
 		{L"ФЫВАПРОЛДЖЭЁ"},
 		{L"ЯЧСМИТЬБЮ/?|"},
+	},
+	{
+		// Latin Full-width Lowercase
+		{ L"１２３４５６７８９０－＋" },
+		{ L"ｑｗｅｒｔｙｕｉｏｐ［］" },
+		{ L"ａｓｄｆｇｈｊｋｌ；＠～" },
+		{ L"ｚｘｃｖｂｎｍ，．／？￥￥" },
+	},
+	{
+		// Latin Full-width Uppercase
+		{ L"！＠＃＄％＾＆＊（）＿＋" },
+		{ L"ＱＷＥＲＴＹＵＩＯＰ｛｝" },
+		{ L"ＡＳＤＦＧＨＪＫＬ：￥”‘" },
+		{ L"ＺＸＣＶＢＮＭ＜＞／？｜" },
 	},
 };
 
@@ -588,7 +602,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 				string += inputChars[i];
 			}
 
-			if (string.size() < FieldMaxLength())
+			if (string.size() <= FieldMaxLength())
 			{
 				string += oskKeys[currentKeyboard][selectedRow][selectedCol];
 			}
@@ -671,7 +685,7 @@ int PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 
 u32 PSPOskDialog::FieldMaxLength()
 {
-	if (oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1 || oskParams->fields[0].outtextlimit == 0)
+	if ((oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1) || oskParams->fields[0].outtextlimit == 0)
 		return oskParams->fields[0].outtextlength - 1;
 	return oskParams->fields[0].outtextlimit;
 }
