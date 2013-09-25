@@ -48,7 +48,7 @@ static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160,
 
 struct Mp3Context {
 	void DoState(PointerWrap &p) {
-	auto s = p.Section("Mp3Context", 1);
+	auto s = p.Section("Mp3Context", 1, 2);
 	if (!s)
 		return;
 
@@ -59,6 +59,10 @@ struct Mp3Context {
 		p.Do(mp3PcmBuf);
 		p.Do(mp3PcmBufSize);
 		p.Do(mp3DecodedBytes);
+		if (s >= 2)
+			p.Do(mp3SumDecodedSamples);
+		else
+			mp3SumDecodedSamples = 0;
 		p.Do(mp3LoopNum);
 		p.Do(mp3MaxSamples);
 		p.Do(mp3Bitrate);
@@ -84,6 +88,7 @@ struct Mp3Context {
 	int mp3DecodedBytes;
 	int mp3LoopNum;
 	int mp3MaxSamples;
+	int mp3SumDecodedSamples;
 	MediaEngine *mediaengine;
 
 	int mp3Channels;
@@ -206,6 +211,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		fclose(file);
 	}
 	#endif
+	// 2 bytes per channel and we always two channels per mp3 so it is 2 * 2
+	ctx->mp3SumDecodedSamples += bytesdecoded / 2 * 2;
 
 	return bytesdecoded;
 }
@@ -430,7 +437,14 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
-	return 0;
+
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	return ctx->mp3SumDecodedSamples;
 }
 
 int sceMp3SetLoopNum(u32 mp3, int loop) {
