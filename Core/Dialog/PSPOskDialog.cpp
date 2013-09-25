@@ -852,8 +852,6 @@ int PSPOskDialog::Update()
 		return NativeKeyboard();
 #endif
 
-	u32 limit = FieldMaxLength();
-
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
 		status = SCE_UTILITY_STATUS_RUNNING;
@@ -875,8 +873,6 @@ int PSPOskDialog::Update()
 			PPGeDrawImage(I_CIRCLE, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 			PPGeDrawImage(I_CROSS, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
-		//PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
 
 		I18NCategory *d = GetI18NCategory("Dialog");
 		PPGeDrawText(d->T("Select"), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
