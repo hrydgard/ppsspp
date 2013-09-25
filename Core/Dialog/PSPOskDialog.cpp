@@ -883,11 +883,10 @@ int PSPOskDialog::Update()
 		PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Shift"), 240, 250, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawText(d->T("R"), 300, 245, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T(OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str()), 325, 245, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-
+		PPGeDrawText(d->T("R"), 300, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str()), 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -919,7 +918,6 @@ int PSPOskDialog::Update()
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
 			// Select now swaps case.
-			
 			if (currentKeyboard == OskKeyboardCases[currentKeyboardLanguage][UPPERCASE])
 				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
 			else
