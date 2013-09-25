@@ -36,6 +36,10 @@
 #include <math.h>
 #endif
 
+extern std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
+
+static std::map<std::string, std::pair<std::string, int>> languageMapping;
+
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
 const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4, 4, 4};
 
@@ -272,6 +276,8 @@ int PSPOskDialog::Init(u32 oskPtr)
 		while ((c = *src++) != 0)
 			inputChars += c;
 	}
+
+	languageMapping = GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
@@ -886,7 +892,14 @@ int PSPOskDialog::Update()
 		PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		PPGeDrawText(d->T("R"), 300, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T(OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str()), 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		const char *countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
+		const char *language = languageMapping[countryCode].first.c_str();
+
+		if (!strcmp(countryCode, "English Full-width"))
+			language = "English Full-width";
+
+		PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{

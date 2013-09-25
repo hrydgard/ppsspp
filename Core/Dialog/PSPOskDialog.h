@@ -193,10 +193,10 @@ const OskKeyboardDisplay OskKeyboardCases[OSK_LANGUAGE_COUNT][2] =
 
 static const std::string OskKeyboardNames[] =
 {
-	"English",
-	"Japanese",
-	"Korean",
-	"Russian",
+	"en_US",
+	"ja_JP",
+	"ko_KR",
+	"ru_RU",
 	"English Full-width",
 };
 
