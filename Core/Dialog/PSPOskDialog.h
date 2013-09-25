@@ -176,7 +176,8 @@ enum OskKeyboardLanguage
 };
 
 // Internal enum, not from PSP.
-enum { 
+enum
+{ 
 	LOWERCASE, 
 	UPPERCASE 
 };
@@ -190,14 +191,14 @@ const OskKeyboardDisplay OskKeyboardCases[OSK_LANGUAGE_COUNT][2] =
 	{ OSK_KEYBOARD_LATIN_FW_LOWERCASE, OSK_KEYBOARD_LATIN_FW_UPPERCASE }
 };
 
-static const std::string OskKeyboardNames[] = {
+static const std::string OskKeyboardNames[] =
+{
 	"English",
 	"Japanese",
 	"Korean",
 	"Russian",
 	"English Full-width",
 };
-
 
 class PSPOskDialog: public PSPDialog {
 public:
