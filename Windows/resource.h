@@ -262,6 +262,7 @@
 #define IDC_GEDBG_BREAK                  40117
 #define IDC_GEDBG_RESUME                 40118
 #define IDC_GEDBG_FRAME                  40119
+#define IDC_GEDBG_CURRENTDISPLAYLIST     40120
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -274,7 +275,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        251
-#define _APS_NEXT_COMMAND_VALUE         40120
+#define _APS_NEXT_COMMAND_VALUE         40121
 #define _APS_NEXT_CONTROL_VALUE         1181
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

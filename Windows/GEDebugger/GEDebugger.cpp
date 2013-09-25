@@ -22,6 +22,7 @@
 #include "native/base/mutex.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
+#include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/main.h"
 #include "GPU/GPUInterface.h"
@@ -58,6 +59,7 @@ static GPUDebugBuffer buffer;
 
 void CGEDebugger::init() {
 	SimpleGLWindow::registerClass();
+	CtrlDisplayListView::registerClass();
 }
 
 static void SetPauseAction(PauseAction act) {
@@ -118,6 +120,8 @@ void CGEDebugger::SetupFrameWindow() {
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
+	CtrlDisplayListView* displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg,IDC_GEDBG_CURRENTDISPLAYLIST));
+
 	switch (message) {
 	case WM_INITDIALOG:
 		return TRUE;
@@ -139,6 +143,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_BREAK:
 			attached = true;
 			SetupFrameWindow();
+
+			DisplayList list;
+			// todo: for some reason this sometimes fails when hitting break
+			// when the core is running. then only works when stepping through
+			// in the debugger or when the core is already paused
+			if (gpuDebug->GetCurrentDisplayList(list)) {
+				displayList->setDisplayList(list);
+			}
 			//breakNextOp = true;
 			pauseWait.notify_one();
 			breakNextDraw = true;
