@@ -48,7 +48,7 @@ static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160,
 
 struct Mp3Context {
 	void DoState(PointerWrap &p) {
-	auto s = p.Section("Mp3Context", 1);
+	auto s = p.Section("Mp3Context", 1, 2);
 	if (!s)
 		return;
 
@@ -59,7 +59,10 @@ struct Mp3Context {
 		p.Do(mp3PcmBuf);
 		p.Do(mp3PcmBufSize);
 		p.Do(mp3DecodedBytes);
-		p.Do(mp3SumDecodedSamples);
+		if (s >= 2)
+			p.Do(mp3SumDecodedSamples);
+		else
+			mp3SumDecodedSamples = 0;
 		p.Do(mp3LoopNum);
 		p.Do(mp3MaxSamples);
 		p.Do(mp3Bitrate);
