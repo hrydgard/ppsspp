@@ -891,15 +891,30 @@ int PSPOskDialog::Update()
 		PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawText(d->T("R"), 300, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
+		const char *countryCode;
 
-		const char *countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
+		if (index >= 0)
+			countryCode = OskKeyboardNames[(currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT].c_str();
+		else
+			countryCode = OskKeyboardNames[OSK_LANGUAGE_COUNT - 1].c_str();
+
 		const char *language = languageMapping[countryCode].first.c_str();
 
 		if (!strcmp(countryCode, "English Full-width"))
 			language = "English Full-width";
 
-		PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("L", 300, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(language, 315, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
+		language = languageMapping[countryCode].first.c_str();
+
+		if (!strcmp(countryCode, "English Full-width"))
+			language = "English Full-width";
+
+		PPGeDrawText("R", 300, 244, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(language, 315, 244, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -950,8 +965,30 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_RTRIGGER))
 		{
-			// RTRIGGER now swaps languages.
+			// RTRIGGER now cycles languages forward.
 			currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT);
+			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+
+			if (selectedRow >= numKeyRows[currentKeyboard])
+			{
+				selectedRow = numKeyRows[currentKeyboard] - 1;
+			}
+
+			if (selectedExtra >= numKeyCols[currentKeyboard])
+			{
+				selectedExtra = numKeyCols[currentKeyboard] - 1;
+			}
+
+			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+		}
+		else if (IsButtonPressed(CTRL_LTRIGGER))
+		{
+			// LTRIGGER now cycles languages backward.
+			if (currentKeyboardLanguage - 1 >= 0)
+				currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT);
+			else
+				currentKeyboardLanguage = (OskKeyboardLanguage)(OSK_LANGUAGE_COUNT - 1);
+
 			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
 
 			if (selectedRow >= numKeyRows[currentKeyboard])
