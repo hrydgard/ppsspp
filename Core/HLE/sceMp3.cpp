@@ -604,6 +604,16 @@ u32 sceMp3ResetPlayPosition2(u32 mp3, int position) {
 	return 0;
 }
 
+u32 sceMp3_1B839B83() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3_1B839B83(...)");
+	return 0;
+}
+
+u32 sceMp3_E3EE2C81() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3_E3EE2C81(...)");
+	return 0;
+}
+
 const HLEFunction sceMp3[] = {
 	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
 	{0x0DB149F4,WrapI_UI<sceMp3NotifyAddStreamData>,"sceMp3NotifyAddStreamData"},
@@ -627,8 +637,8 @@ const HLEFunction sceMp3[] = {
 	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
 	{0x0840e808,WrapU_UI<sceMp3ResetPlayPosition2>,"sceMp3ResetPlayPosition2"},
-	{0x1b839b83,0,"sceMp3_1B839B83"},
-	{0xe3ee2c81,0,"sceMp3_E3EE2C81"},
+	{0x1b839b83,WrapU_V<sceMp3_1B839B83>,"sceMp3_1B839B83"},
+	{0xe3ee2c81,WrapU_V<sceMp3_E3EE2C81>,"sceMp3_E3EE2C81"}
 };
 
 void Register_sceMp3() {
