@@ -53,7 +53,7 @@ static const wchar_t diacritics[2][103] =
 // Korean(Hangul) consonant
 static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 
-// Korean(Hangul) vowels, Some bowels are not used, them will be spacing
+// Korean(Hangul) vowels, Some vowels are not used, them will be spacing
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
 // Korean(Hangul) vowel Combination key
@@ -888,8 +888,6 @@ int PSPOskDialog::Update()
 		PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
 		const char *countryCode;
@@ -903,7 +901,13 @@ int PSPOskDialog::Update()
 
 		if (!strcmp(countryCode, "English Full-width"))
 			language = "English Full-width";
-
+		
+		if (strcmp(countryCode, "ko_KR"))
+		{
+			PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		}
+		
 		PPGeDrawText("L", 300, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(language, 315, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
