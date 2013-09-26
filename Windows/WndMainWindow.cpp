@@ -1141,12 +1141,12 @@ namespace MainWindow
 					}
 					break;
 
-				// TODO: Improve UI for multiple slots
 				case ID_FILE_SAVESTATE_NEXT_SLOT:
 				{
+					I18NCategory *sy = GetI18NCategory("System");
 					g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
 					char msg[30];
-					sprintf(msg, "Using save state slot %d.", g_Config.iCurrentStateSlot + 1);
+					sprintf(msg, "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 					osm.Show(msg);
 					break;
 				}
