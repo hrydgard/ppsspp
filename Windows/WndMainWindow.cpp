@@ -276,7 +276,7 @@ namespace MainWindow
 		// Reset full screen indicator.
 		g_Config.bFullScreen = false;
 		CorrectCursor();
-		ResizeDisplay(true, true);
+		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 	}
@@ -304,7 +304,7 @@ namespace MainWindow
 		// Set full screen indicator.
 		g_Config.bFullScreen = true;
 		CorrectCursor();
-		ResizeDisplay(true, true);
+		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, FALSE);
 		UpdateScreenScale();
 	}
