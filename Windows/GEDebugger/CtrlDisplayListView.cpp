@@ -36,6 +36,8 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 
 	font = CreateFont(rowHeight-2,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");
+	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+		L"Lucida Console");
 
 	pixelPositions.addressStart = 16;
 	pixelPositions.opcodeStart = pixelPositions.addressStart + 19*charWidth;
@@ -149,15 +151,15 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < visibleRows+2; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
+		bool stall = address == list.stall;
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
 
 		// draw background
-		COLORREF backgroundColor = 0xFFFFFF;
+		COLORREF backgroundColor = stall ? 0xCCCCFF : 0xFFFFFF;
 		COLORREF textColor = 0x000000;
 
-		
 		if (address == curAddress)
 		{
 			if (hasFocus)
@@ -195,6 +197,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		}
 
 		const char* opcode = op.desc.c_str();
+		SelectObject(hdc,stall ? boldfont : font);
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 	}

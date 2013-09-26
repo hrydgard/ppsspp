@@ -12,6 +12,7 @@ class CtrlDisplayListView
 	DisplayList list;
 	
 	HFONT font;
+	HFONT boldfont;
 	u32 windowStart;
 	u32 curAddress;
 	int visibleRows;
