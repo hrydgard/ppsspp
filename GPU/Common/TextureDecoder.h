@@ -17,9 +17,35 @@
 
 #pragma once
 
+#include "Common/Common.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+
+// All these DXT structs are in the reverse order, as compared to PC.
+// On PC, alpha comes before color, and interpolants are before the tile data.
+
+struct DXT1Block {
+	u8 lines[4];
+	u16_le color1;
+	u16_le color2;
+};
+
+struct DXT3Block {
+	DXT1Block color;
+	u16_le alphaLines[4];
+};
+
+struct DXT5Block {
+	DXT1Block color;
+	u32_le alphadata2;
+	u16_le alphadata1;
+	u8 alpha1; u8 alpha2;
+};
+
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false);
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch);
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch);
 
 static const u8 textureBitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,
