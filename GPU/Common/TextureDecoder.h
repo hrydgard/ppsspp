@@ -98,3 +98,84 @@ static inline u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format)
 	}
 	return bufw;
 }
+
+template <typename IndexT, typename ClutT>
+inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {
+	// Usually, there is no special offset, mask, or shift.
+	const bool nakedIndex = gstate.isClutIndexSimple();
+
+	if (nakedIndex) {
+		if (sizeof(IndexT) == 1) {
+			for (int i = 0; i < length; ++i) {
+				*dest++ = clut[*indexed++];
+			}
+		} else {
+			for (int i = 0; i < length; ++i) {
+				*dest++ = clut[(*indexed++) & 0xFF];
+			}
+		}
+	} else {
+		for (int i = 0; i < length; ++i) {
+			*dest++ = clut[gstate.transformClutIndex(*indexed++)];
+		}
+	}
+}
+
+template <typename IndexT, typename ClutT>
+inline void DeIndexTexture(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
+	DeIndexTexture(dest, indexed, length, clut);
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const ClutT *clut) {
+	// Usually, there is no special offset, mask, or shift.
+	const bool nakedIndex = gstate.isClutIndexSimple();
+
+	if (nakedIndex) {
+		for (int i = 0; i < length; i += 2) {
+			u8 index = *indexed++;
+			dest[i + 0] = clut[(index >> 0) & 0xf];
+			dest[i + 1] = clut[(index >> 4) & 0xf];
+		}
+	} else {
+		for (int i = 0; i < length; i += 2) {
+			u8 index = *indexed++;
+			dest[i + 0] = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
+			dest[i + 1] = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
+		}
+	}
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
+	for (int i = 0; i < length; i += 2) {
+		u8 index = *indexed++;
+		dest[i + 0] = color | ((index >> 0) & 0xf);
+		dest[i + 1] = color | ((index >> 4) & 0xf);
+	}
+}
+
+template <>
+inline void DeIndexTexture4Optimal<u16>(u16 *dest, const u8 *indexed, int length, u16 color) {
+	const u16_le *indexed16 = (const u16_le *)indexed;
+	const u32 color32 = (color << 16) | color;
+	u32 *dest32 = (u32 *)dest;
+	for (int i = 0; i < length / 2; i += 2) {
+		u16 index = *indexed16++;
+		dest32[i + 0] = color32 | ((index & 0x00f0) << 12) | ((index & 0x000f) >> 0);
+		dest32[i + 1] = color32 | ((index & 0xf000) <<  4) | ((index & 0x0f00) >> 8);
+	}
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
+	DeIndexTexture4(dest, indexed, length, clut);
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, ClutT color) {
+	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
+	DeIndexTexture4Optimal(dest, indexed, length, color);
+}
