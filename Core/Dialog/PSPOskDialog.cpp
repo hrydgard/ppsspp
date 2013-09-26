@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -872,18 +872,18 @@ int PSPOskDialog::Update()
 		RenderKeyboard();
 		if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE)
 		{
-			PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CIRCLE, 30, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
 		else
 		{
-			PPGeDrawImage(I_CIRCLE, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CROSS, 30, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
 
 		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("Select"), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Delete"), 60, 245, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Select"), 115, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Delete"), 115, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
@@ -905,7 +905,7 @@ int PSPOskDialog::Update()
 			language = "English Full-width";
 
 		PPGeDrawText("L", 300, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(language, 315, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(language, 315, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
 		language = languageMapping[countryCode].first.c_str();
@@ -913,8 +913,8 @@ int PSPOskDialog::Update()
 		if (!strcmp(countryCode, "English Full-width"))
 			language = "English Full-width";
 
-		PPGeDrawText("R", 300, 244, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(language, 315, 244, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
+		PPGeDrawText("R", 300, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
 
 		if (IsButtonPressed(CTRL_UP))
 		{
