@@ -159,7 +159,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				break;
 			}
 		}
-		Log.i(TAG, "Moga KeyEvent " + event.getKeyCode());
+		//Log.i(TAG, "Moga KeyEvent " + event.getKeyCode());
 		
 		// TODO Auto-generated method stub
 		switch (event.getAction()) {
@@ -175,7 +175,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	// MOGA Controller - from ControllerListener
 	@Override
 	public void onMotionEvent(com.bda.controller.MotionEvent event) {
-		Log.i(TAG, "Moga MotionEvent");
+		//Log.i(TAG, "Moga MotionEvent");
 		// TODO Auto-generated method stub
 		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_X, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X));
 		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Y, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y));
