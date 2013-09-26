@@ -14,7 +14,7 @@ uniform sampler2D sampler0;
 
 // The inverse of the texture dimensions along X and Y
 uniform vec2 u_texcoordDelta;
-varying vec4 v_texcoord0;
+varying vec2 v_texcoord0;
 
 void main() {
   // The parameters are hardcoded for now, but could be
