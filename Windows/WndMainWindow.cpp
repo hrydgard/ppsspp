@@ -91,8 +91,6 @@ extern InputState input_state;
 #define HID_USAGE_GENERIC_MOUSE        ((USHORT) 0x02)
 #endif
 
-extern std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
-
 namespace MainWindow
 {
 	HWND hwndMain;
