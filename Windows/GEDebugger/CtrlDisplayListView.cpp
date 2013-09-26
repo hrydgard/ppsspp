@@ -151,12 +151,13 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < visibleRows+2; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
+		bool stall = address == list.stall;
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
 
 		// draw background
-		COLORREF backgroundColor = 0xFFFFFF;
+		COLORREF backgroundColor = stall ? 0xCCCCFF : 0xFFFFFF;
 		COLORREF textColor = 0x000000;
 
 		if (address == curAddress)
@@ -196,7 +197,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		}
 
 		const char* opcode = op.desc.c_str();
-		SelectObject(hdc,address == list.stall ? boldfont : font);
+		SelectObject(hdc,stall ? boldfont : font);
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 	}
