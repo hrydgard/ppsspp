@@ -634,9 +634,9 @@ const HLEFunction sceMp3[] = {
 	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
 	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
 	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},
+	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},  // Incorrect function name
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
-	{0x0840e808,WrapU_UI<sceMp3ResetPlayPosition2>,"sceMp3ResetPlayPosition2"},
+	{0x0840e808,WrapU_UI<sceMp3ResetPlayPosition2>,"sceMp3ResetPlayPosition2"},  // Incorrect function name
 	{0x1b839b83,WrapU_V<sceMp3_1B839B83>,"sceMp3_1B839B83"},
 	{0xe3ee2c81,WrapU_V<sceMp3_E3EE2C81>,"sceMp3_E3EE2C81"}
 };
