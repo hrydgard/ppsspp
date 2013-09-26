@@ -92,7 +92,7 @@ public class NativeActivity extends Activity {
 	private static boolean initialized = false;
 	
 	// Graphics and audio interfaces
-	private GLSurfaceView mGLSurfaceView;
+	private NativeGLView mGLSurfaceView;
 	private NativeAudioPlayer audioPlayer;
 	private NativeRenderer nativeRenderer;
 	
@@ -267,6 +267,7 @@ public class NativeActivity extends Activity {
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
+		mGLSurfaceView.onDestroy();
 		nativeRenderer.onDestroyed();
       	Log.e(TAG, "onDestroy");
 		NativeApp.audioShutdown();

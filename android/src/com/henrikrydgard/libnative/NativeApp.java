@@ -1,6 +1,11 @@
 package com.henrikrydgard.libnative;
 
 public class NativeApp {
+	public final static int DEVICE_ID_DEFAULT = 0; 
+	public final static int DEVICE_ID_KEYBOARD = 1; 
+	public final static int DEVICE_ID_MOUSE = 2; 
+	public final static int DEVICE_ID_PAD_0 = 10; 
+	
 	public static native void init(int xxres, int yyres, int dpi, String deviceType, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
 	public static native void resized(int xxres, int yyres);
 	

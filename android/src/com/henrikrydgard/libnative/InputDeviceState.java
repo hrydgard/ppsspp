@@ -53,36 +53,19 @@ public class InputDeviceState {
 		return normalizedvalue;
 	}
 	
-	private static boolean isGameKey(int keyCode) {
-		switch (keyCode) {
-		case KeyEvent.KEYCODE_DPAD_UP:
-		case KeyEvent.KEYCODE_DPAD_DOWN:
-		case KeyEvent.KEYCODE_DPAD_LEFT:
-		case KeyEvent.KEYCODE_DPAD_RIGHT:
-			return true;
-		default:
-			return KeyEvent.isGamepadButton(keyCode);
-		}
-	}
-	
 	public boolean onKeyDown(KeyEvent event) {
 		int keyCode = event.getKeyCode();
 		if (event.getRepeatCount() == 0) {
-			// if (isGameKey(keyCode)) {
-				NativeApp.keyDown(deviceId, keyCode);
-				return true;
-			// }
+			NativeApp.keyDown(deviceId, keyCode);
+			return true;
 		}
 		return false;
 	}
 	
 	public boolean onKeyUp(KeyEvent event) {
 	     int keyCode = event.getKeyCode();
-	     // if (isGameKey(keyCode)) {
-	    	 NativeApp.keyUp(deviceId, keyCode);
-	         return true;
-	     // }
-	     //return false;
+    	 NativeApp.keyUp(deviceId, keyCode);
+         return true;
 	}
 	
 	public boolean onJoystickMotion(MotionEvent event) {
