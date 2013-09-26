@@ -174,6 +174,7 @@ public:
 
 private:
 	void CompileDraw2DProgram();
+	void DestroyDraw2DProgram();
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
@@ -209,8 +210,7 @@ private:
 	GEBufferFormat drawPixelsTexFormat_;
 
 	u8 *convBuf;
-	GLSLProgram *draw2dprogram;
-
+	GLSLProgram *draw2dprogram_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;

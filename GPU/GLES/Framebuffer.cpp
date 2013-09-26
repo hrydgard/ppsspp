@@ -155,12 +155,30 @@ void DisableState() {
 }
 
 void FramebufferManager::CompileDraw2DProgram() {
-	if (!draw2dprogram) {
-		draw2dprogram = glsl_create_source(basic_vs, tex_fs);
+	if (!draw2dprogram_) {
+		if (g_Config.bFXAA) {
+			draw2dprogram_ = glsl_create("assets/shaders/fxaa.vsh", "assets/shaders/fxaa.fsh");
+		} else {
+			draw2dprogram_ = glsl_create_source(basic_vs, tex_fs);
+		}
+		glsl_bind(draw2dprogram_);
+		glUniform1i(draw2dprogram_->sampler0, 0);
 
-		glsl_bind(draw2dprogram);
-		glUniform1i(draw2dprogram->sampler0, 0);
+		float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
+		float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+
+		if (g_Config.bFXAA) {
+			glUniform2f(glsl_uniform_loc(draw2dprogram_, "u_texcoordDelta"), u_delta, v_delta);
+		}
+
 		glsl_unbind();
+	}
+}
+
+void FramebufferManager::DestroyDraw2DProgram() {
+	if (draw2dprogram_) {
+		glsl_destroy(draw2dprogram_);
+		draw2dprogram_ = 0;
 	}
 }
 
@@ -176,7 +194,7 @@ FramebufferManager::FramebufferManager() :
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf(0),
-	draw2dprogram(0)
+	draw2dprogram_(0)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -225,8 +243,8 @@ FramebufferManager::FramebufferManager() :
 FramebufferManager::~FramebufferManager() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
-	if (draw2dprogram) {
-		glsl_destroy(draw2dprogram);
+	if (draw2dprogram_) {
+		glsl_destroy(draw2dprogram_);
 	}
 
 #ifndef USING_GLES2
@@ -348,7 +366,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	
 	if(!program) {
 		CompileDraw2DProgram();
-		program = draw2dprogram;
+		program = draw2dprogram_;
 	}
 
 	glsl_bind(program);
@@ -731,6 +749,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	if (resized_) {
 		ClearBuffer();
+		DestroyDraw2DProgram();
 	}
 
 	if (vfb->fbo) {
@@ -889,7 +908,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 
 	CompileDraw2DProgram();
 
-	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram);
+	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram_);
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
@@ -1187,8 +1206,7 @@ void FramebufferManager::EndFrame() {
 
 void FramebufferManager::DeviceLost() {
 	DestroyAllFBOs();
-	glsl_destroy(draw2dprogram);
-	draw2dprogram = 0;
+	DestroyDraw2DProgram();
 	resized_ = false;
 }
 
