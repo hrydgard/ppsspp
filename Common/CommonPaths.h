@@ -72,8 +72,6 @@
 #define JAP_DIR "JAP"
 
 // Subdirs in the User dir returned by GetUserPath(D_USER_IDX)
-#define GC_USER_DIR		"GC"
-#define WII_USER_DIR		"Wii"
 #define CONFIG_DIR		"Config"
 #define GAMECONFIG_DIR		"GameConfig"
 #define MAPS_DIR		"Maps"
@@ -110,9 +108,5 @@
 
 #define DSP_IROM	"dsp_rom.bin"
 #define DSP_COEF	"dsp_coef.bin"
-
-// Subdirs in Sys
-#define GC_SYS_DIR "GC"
-#define WII_SYS_DIR "Wii"
 
 #endif // _COMMON_PATHS_H_
