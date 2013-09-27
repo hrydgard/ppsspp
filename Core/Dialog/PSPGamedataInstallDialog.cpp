@@ -160,4 +160,11 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 
 	PSPDialog::DoState(p);
 	p.Do(request);
+	p.Do(paramAddr);
+	p.Do(inFileNames);
+	p.Do(numFiles);
+	p.Do(readFiles);
+	p.Do(allFilesSize);
+	p.Do(allReadSize);
+	p.Do(progressValue);
 }
