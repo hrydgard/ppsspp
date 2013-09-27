@@ -187,7 +187,7 @@ namespace MainWindow
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-	void ResizeDisplay(bool noWindowMovement = false) {
+	void ResizeDisplay(bool displayOSM = true, bool noWindowMovement = false) {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
 		if (!noWindowMovement) {
@@ -209,14 +209,15 @@ namespace MainWindow
 		PSP_CoreParameter().renderHeight = 272 * zoom;
 		PSP_CoreParameter().outputWidth = 480 * zoom;
 		PSP_CoreParameter().outputHeight = 272 * zoom;
-
-		I18NCategory *g = GetI18NCategory("Graphics");
-
-		char message[256];
-		sprintf(message, "%s: %ix%i  %s: %ix%i",
-			g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
-			g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-		osm.Show(g->T(message), 2.0f);
+		
+		if (displayOSM) {
+			I18NCategory *g = GetI18NCategory("Graphics");
+			char message[256];
+			sprintf(message, "%s: %ix%i  %s: %ix%i",
+				g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
+				g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			osm.Show(g->T(message), 2.0f);
+		}
 
 		if (gpu)
 			gpu->Resized();
@@ -226,7 +227,7 @@ namespace MainWindow
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		ResizeDisplay();
+		ResizeDisplay(true, true);
 	}
 
 	void SetInternalResolution(int res = -1) {
@@ -237,7 +238,7 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
-		ResizeDisplay(true);
+		ResizeDisplay(true, true);
 	}
 
 	void CorrectCursor() {
@@ -275,7 +276,9 @@ namespace MainWindow
 		// Reset full screen indicator.
 		g_Config.bFullScreen = false;
 		CorrectCursor();
-		ResizeDisplay();
+
+		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
+		ResizeDisplay(showOSM, true);
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 	}
@@ -303,7 +306,10 @@ namespace MainWindow
 		// Set full screen indicator.
 		g_Config.bFullScreen = true;
 		CorrectCursor();
-		ResizeDisplay();
+
+		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
+		ResizeDisplay(showOSM, true);
+
 		ShowOwnedPopups(hwndMain, FALSE);
 		UpdateScreenScale();
 	}
@@ -994,12 +1000,12 @@ namespace MainWindow
 
 		case WM_MOVE:
 			SavePosition();
-			ResizeDisplay();
+			ResizeDisplay(false);
 			break;
 
 		case WM_SIZE:
 			SavePosition();
-			ResizeDisplay();
+			ResizeDisplay(false);
 			break;
 
 		case WM_TIMER:
@@ -1537,7 +1543,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_SCREEN:
-			ResizeDisplay(true);
+			ResizeDisplay(true, true);
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
