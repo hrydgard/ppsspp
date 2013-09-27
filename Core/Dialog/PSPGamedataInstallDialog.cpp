@@ -154,17 +154,20 @@ void PSPGamedataInstallDialog::updateProgress() {
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
-	auto s = p.Section("PSPGamedataInstallDialog", 0, 1);
+	auto s = p.Section("PSPGamedataInstallDialog", 0, 2);
 	if (!s)
 		return;
-
-	PSPDialog::DoState(p);
-	p.Do(request);
-	p.Do(paramAddr);
-	p.Do(inFileNames);
-	p.Do(numFiles);
-	p.Do(readFiles);
-	p.Do(allFilesSize);
-	p.Do(allReadSize);
-	p.Do(progressValue);
+	if (s > 2) {
+		PSPDialog::DoState(p);
+		p.Do(request);
+		p.Do(paramAddr);
+		p.Do(inFileNames);
+		p.Do(numFiles);
+		p.Do(readFiles);
+		p.Do(allFilesSize);
+		p.Do(allReadSize);
+		p.Do(progressValue);
+	} else {
+		paramAddr = 0;
+	}
 }
