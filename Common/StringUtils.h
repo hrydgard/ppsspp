@@ -57,6 +57,4 @@ std::string TabsToSpaces(int tab_size, const std::string &in);
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
 
-void BuildCompleteFilename(std::string& _CompleteFilename, const std::string& _Path, const std::string& _Filename);
-
 #endif // _STRINGUTIL_H_

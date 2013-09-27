@@ -708,7 +708,7 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 		paths[D_CONFIG_IDX]			= paths[D_USER_IDX] + CONFIG_DIR DIR_SEP;
 		paths[D_SCREENSHOTS_IDX]	= paths[D_USER_IDX] + SCREENSHOTS_DIR DIR_SEP;
 		paths[D_LOGS_IDX]			= paths[D_USER_IDX] + LOGS_DIR DIR_SEP;
-    paths[F_CONFIG_IDX]		= paths[D_CONFIG_IDX] + CONFIG_FILE;
+		paths[F_CONFIG_IDX]			= paths[D_CONFIG_IDX] + CONFIG_FILE;
 		paths[F_MAINLOG_IDX]		= paths[D_LOGS_IDX] + MAIN_LOG;
 	}
 
