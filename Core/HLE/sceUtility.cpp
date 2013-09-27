@@ -454,9 +454,10 @@ int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x): wrong dialog type", paramsAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
 	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
-	currentDialogActive = true;
+	currentDialogActive = true;	
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
 	return gamedataInstallDialog.Init(paramsAddr);
 }
 
@@ -472,11 +473,15 @@ int sceUtilityGamedataInstallShutdownStart() {
 	return gamedataInstallDialog.Shutdown();
 }
 
-int sceUtilityGamedataInstallUpdate(int speed) {
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGamedataInstallUpdate(%08x)", speed);
-	currentDialogActive = false;
-	gamedataInstallDialog.Abort();
-	return 0;
+int sceUtilityGamedataInstallUpdate(int Speed) {
+	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(%i)", Speed);
+	return gamedataInstallDialog.Update();
 }
 
 int sceUtilityGamedataInstallGetStatus()
