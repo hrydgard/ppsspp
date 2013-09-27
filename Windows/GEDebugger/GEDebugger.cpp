@@ -24,10 +24,13 @@
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/WindowsHost.h"
+#include "Windows/WndMainWindow.h"
 #include "Windows/main.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#include <windowsx.h>
+#include <commctrl.h>
 
 const UINT WM_GEDBG_BREAK_CMD = WM_USER + 200;
 const UINT WM_GEDBG_BREAK_DRAW = WM_USER + 201;
@@ -90,7 +93,6 @@ static void RunPauseAction() {
 	actionWait.notify_one();
 	pauseAction = PAUSE_CONTINUE;
 }
-
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL) {
 	breakCmds.resize(256, false);
@@ -104,6 +106,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	GetWindowRect(frameWnd,&frameRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
+
+	dispListTab = addTabWindow(L"CtrlDisplayListView",L"Display List");
 }
 
 CGEDebugger::~CGEDebugger() {
@@ -119,8 +123,48 @@ void CGEDebugger::SetupFrameWindow() {
 	}
 }
 
+int CGEDebugger::addTabWindow(wchar_t* className, wchar_t* title, DWORD style)
+{
+	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
+	style |= WS_CHILD | WS_VISIBLE;
+
+	TCITEM tcItem;
+	ZeroMemory (&tcItem,sizeof (tcItem));
+	tcItem.mask			= TCIF_TEXT;
+	tcItem.dwState		= 0;
+	tcItem.pszText		= title;
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
+	tcItem.iImage		= 0;
+
+	int index = TabCtrl_GetItemCount(tabControl);
+	int result = TabCtrl_InsertItem(tabControl,index,&tcItem);
+
+	RECT tabRect;
+	GetWindowRect(tabControl,&tabRect);
+	MapWindowPoints(HWND_DESKTOP,tabControl,(LPPOINT)&tabRect,2);
+	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
+
+	HWND hwnd = CreateWindowEx(0,className,title,style,
+		tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,
+		tabControl,0,MainWindow::GetHInstance(),0);
+	tabs.push_back(hwnd);
+
+	showTab(index);
+	return index;
+}
+
+void CGEDebugger::showTab(int index)
+{
+	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
+
+	for (auto i = 0; i < tabs.size(); i++)
+	{
+		ShowWindow(tabs[i],i == index ? SW_NORMAL : SW_HIDE);
+	}
+}
+
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
-	CtrlDisplayListView* displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg,IDC_GEDBG_CURRENTDISPLAYLIST));
+	CtrlDisplayListView* displayList = CtrlDisplayListView::getFrom(getTab(dispListTab));
 
 	switch (message) {
 	case WM_INITDIALOG:
@@ -136,6 +180,24 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_SHOWWINDOW:
 		SetupFrameWindow();
+		break;
+
+	case WM_NOTIFY:
+		switch (wParam)
+		{
+		case IDC_GEDBG_MAINTAB:
+			{
+				HWND tabs = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
+				NMHDR* pNotifyMessage = NULL;
+				pNotifyMessage = (LPNMHDR)lParam; 
+				if (pNotifyMessage->hwndFrom == tabs)
+				{
+					int iPage = TabCtrl_GetCurSel (tabs);
+					showTab(iPage);
+				}
+			}
+			break;
+		}
 		break;
 
 	case WM_COMMAND:

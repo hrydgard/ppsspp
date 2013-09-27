@@ -34,6 +34,11 @@ protected:
 
 private:
 	void SetupFrameWindow();
-
+	int addTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
+	void showTab(int index);
+	HWND getTab(int index) { return tabs[index]; };
+	
+	int dispListTab;
 	SimpleGLWindow *frameWindow;
+	std::vector<HWND> tabs;
 };
