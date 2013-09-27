@@ -1093,12 +1093,8 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
-					if (Core_IsStepping()) {
-						// If the current PC is on a breakpoint, disabling stepping doesn't work without
-						// explicitly skipping it
-						CBreakPoints::SetSkipFirst(currentMIPS->pc);
-						Core_EnableStepping(false);
-					}
+					Core_Stop();
+
 					NativeMessageReceived("stop", "");
 					Update();
 					break;
@@ -1111,8 +1107,13 @@ namespace MainWindow
 						Core_EnableStepping(false);
 					}
 
+					Core_EnableStepping(true);
+					Core_WaitInactive();
+					Core_EnableStepping(false);
+
 					NativeMessageReceived("reset", "");
 					break;
+
 				case ID_EMULATION_CHEATS:
 					g_Config.bEnableCheats = !g_Config.bEnableCheats;
 					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
@@ -1123,6 +1124,10 @@ namespace MainWindow
 						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 						Core_EnableStepping(false);
 					}
+
+					Core_EnableStepping(true);
+					Core_WaitInactive();
+					Core_EnableStepping(false);
 
 					NativeMessageReceived("reset", "");
 					break;
