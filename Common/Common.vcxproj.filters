@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="targetver.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="ABI.h" />
     <ClInclude Include="Atomics.h" />
@@ -14,22 +13,14 @@
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
-    <ClInclude Include="DebugInterface.h" />
-    <ClInclude Include="ExtendedTrace.h" />
-    <ClInclude Include="FifoQueue.h" />
-    <ClInclude Include="FileSearch.h" />
     <ClInclude Include="FileUtil.h" />
     <ClInclude Include="FixedSizeQueue.h" />
-    <ClInclude Include="Hash.h" />
-    <ClInclude Include="LinearDiskCache.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MathUtil.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MsgHandler.h" />
-    <ClInclude Include="scmrev.h" />
-    <ClInclude Include="Setup.h" />
     <ClInclude Include="StdConditionVariable.h" />
     <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StdThread.h" />
@@ -40,7 +31,6 @@
     <ClInclude Include="x64Analyzer.h" />
     <ClInclude Include="x64Emitter.h" />
     <ClInclude Include="ArmEmitter.h" />
-    <ClInclude Include="FixedSizeUnorderedSet.h" />
     <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="Crypto\md5.h">
       <Filter>Crypto</Filter>
@@ -57,10 +47,7 @@
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
-    <ClCompile Include="ExtendedTrace.cpp" />
-    <ClCompile Include="FileSearch.cpp" />
     <ClCompile Include="FileUtil.cpp" />
-    <ClCompile Include="Hash.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="MemArena.cpp" />
@@ -71,7 +58,6 @@
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="Version.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
     <ClCompile Include="ArmEmitter.cpp" />
