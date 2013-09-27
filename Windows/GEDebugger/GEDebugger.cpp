@@ -108,7 +108,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
 
-	dispListTab = addTabWindow(L"CtrlDisplayListView",L"Display List");
+	HWND wnd = addTabWindow(L"CtrlDisplayListView",L"Display List");
+	displayList = CtrlDisplayListView::getFrom(wnd);
 }
 
 CGEDebugger::~CGEDebugger() {
@@ -124,7 +125,7 @@ void CGEDebugger::SetupFrameWindow() {
 	}
 }
 
-int CGEDebugger::addTabWindow(wchar_t* className, wchar_t* title, DWORD style)
+HWND CGEDebugger::addTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 {
 	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
 	style |= WS_CHILD;
@@ -151,10 +152,10 @@ int CGEDebugger::addTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	tabs.push_back(hwnd);
 
 	showTab(index);
-	return index;
+	return hwnd;
 }
 
-void CGEDebugger::showTab(int index)
+void CGEDebugger::showTab(int index, bool setControlIndex)
 {
 	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
 
@@ -162,11 +163,28 @@ void CGEDebugger::showTab(int index)
 	{
 		ShowWindow(tabs[i],i == index ? SW_NORMAL : SW_HIDE);
 	}
+
+	if (setControlIndex)
+	{
+		TabCtrl_SetCurSel(tabControl,index);
+	}
+}
+
+void CGEDebugger::showTab(HWND pageHandle)
+{
+	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
+
+	for (size_t i = 0; i < tabs.size(); i++)
+	{
+		if (tabs[i] == pageHandle)
+		{
+			TabCtrl_SetCurSel(tabControl,i);
+		}
+		ShowWindow(tabs[i],tabs[i] == pageHandle ? SW_NORMAL : SW_HIDE);
+	}
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
-	CtrlDisplayListView* displayList = CtrlDisplayListView::getFrom(getTab(dispListTab));
-
 	switch (message) {
 	case WM_INITDIALOG:
 		return TRUE;
@@ -188,13 +206,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		{
 		case IDC_GEDBG_MAINTAB:
 			{
-				HWND tabs = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
+				HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
 				NMHDR* pNotifyMessage = NULL;
 				pNotifyMessage = (LPNMHDR)lParam; 
-				if (pNotifyMessage->hwndFrom == tabs)
+				if (pNotifyMessage->hwndFrom == tabControl)
 				{
-					int iPage = TabCtrl_GetCurSel (tabs);
-					showTab(iPage);
+					int iPage = TabCtrl_GetCurSel(tabControl);
+					showTab(iPage,false);
 				}
 			}
 			break;

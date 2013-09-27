@@ -23,6 +23,8 @@
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
+class CtrlDisplayListView;
+
 class CGEDebugger : public Dialog {
 public:
 	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
@@ -34,11 +36,11 @@ protected:
 
 private:
 	void SetupFrameWindow();
-	int addTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
-	void showTab(int index);
-	HWND getTab(unsigned int index) { return index >= tabs.size() ? 0 : tabs[index]; };
+	HWND addTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
+	void showTab(int index, bool setControlIndex = true);
+	void showTab(HWND pageHandle);
 	
-	int dispListTab;
+	CtrlDisplayListView* displayList;
 	SimpleGLWindow *frameWindow;
 	std::vector<HWND> tabs;
 };
