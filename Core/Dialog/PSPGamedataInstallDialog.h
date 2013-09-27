@@ -56,8 +56,8 @@ private:
 	std::vector<std::string> inFileNames;
 	int numFiles;
 	int readFiles;
-	u64 allFilesSize;
-	u64 allReadSize;
+	u64 allFilesSize;  // use this tp calculate progress value.
+	u64 allReadSize;   // use this tp calculate progress value.
 	int progressValue;
 
 	void updateProgress();
