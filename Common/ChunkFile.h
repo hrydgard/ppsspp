@@ -28,9 +28,7 @@
 // - Serialization code for anything complex has to be manually written.
 
 #include <map>
-#include <vector>
 #include <deque>
-#include <string>
 #include <list>
 #include <set>
 #ifndef __SYMBIAN32__
