@@ -36,7 +36,7 @@ private:
 	void SetupFrameWindow();
 	int addTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
 	void showTab(int index);
-	HWND getTab(int index) { return tabs[index]; };
+	HWND getTab(unsigned int index) { return index >= tabs.size() ? 0 : tabs[index]; };
 	
 	int dispListTab;
 	SimpleGLWindow *frameWindow;

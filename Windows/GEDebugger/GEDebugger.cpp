@@ -93,6 +93,7 @@ static void RunPauseAction() {
 	actionWait.notify_one();
 	pauseAction = PAUSE_CONTINUE;
 }
+
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL) {
 	breakCmds.resize(256, false);
@@ -126,7 +127,7 @@ void CGEDebugger::SetupFrameWindow() {
 int CGEDebugger::addTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 {
 	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
-	style |= WS_CHILD | WS_VISIBLE;
+	style |= WS_CHILD;
 
 	TCITEM tcItem;
 	ZeroMemory (&tcItem,sizeof (tcItem));
@@ -141,12 +142,12 @@ int CGEDebugger::addTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 
 	RECT tabRect;
 	GetWindowRect(tabControl,&tabRect);
-	MapWindowPoints(HWND_DESKTOP,tabControl,(LPPOINT)&tabRect,2);
+	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
 	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
 
 	HWND hwnd = CreateWindowEx(0,className,title,style,
 		tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,
-		tabControl,0,MainWindow::GetHInstance(),0);
+		m_hDlg,0,MainWindow::GetHInstance(),0);
 	tabs.push_back(hwnd);
 
 	showTab(index);
@@ -157,7 +158,7 @@ void CGEDebugger::showTab(int index)
 {
 	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
 
-	for (auto i = 0; i < tabs.size(); i++)
+	for (size_t i = 0; i < tabs.size(); i++)
 	{
 		ShowWindow(tabs[i],i == index ? SW_NORMAL : SW_HIDE);
 	}
