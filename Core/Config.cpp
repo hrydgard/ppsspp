@@ -308,7 +308,6 @@ void Config::Save() {
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("SoftwareRendering", bSoftwareRendering);
-		graphics->Set("ForceOpenGL20", bForceOpenGL20);
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("InternalResolution", iInternalResolution);
