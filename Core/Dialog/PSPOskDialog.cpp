@@ -1050,12 +1050,12 @@ int PSPOskDialog::Update()
 
 int PSPOskDialog::Shutdown(bool force)
 {
-    if (status != SCE_UTILITY_STATUS_FINISHED && !force)
-        return SCE_ERROR_UTILITY_INVALID_STATUS;
+	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-    PSPDialog::Shutdown();
+	PSPDialog::Shutdown();
 
-    return 0;
+	return 0;
 }
 
 void PSPOskDialog::DoState(PointerWrap &p)
