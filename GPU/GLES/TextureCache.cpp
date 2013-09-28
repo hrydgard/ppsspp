@@ -581,6 +581,15 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
 		entry.magFilt = magFilt;
 	}
+	
+	//Workaround to fix a clamping bug in pre-HD ATI/AMD drivers
+	if (gl_extensions.ATIClampBug && entry.framebuffer)
+	{
+		return;
+	}
+	
+	else
+	{
 	if (force || entry.sClamp != sClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.sClamp = sClamp;
@@ -588,6 +597,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	if (force || entry.tClamp != tClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.tClamp = tClamp;
+	}
 	}
 }
 
@@ -962,13 +972,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 			glBindTexture(GL_TEXTURE_2D, 0);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		}
-		//OpenGL 2.0 have problem reading with it, let's not do it for now.
-#ifndef USING_GLES2
-		if((gl_extensions.PBO_ARB) && !g_Config.bForceOpenGL20)
+		
 		UpdateSamplingParams(*entry, false);
-#else
-		UpdateSamplingParams(*entry, false);
-#endif
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
