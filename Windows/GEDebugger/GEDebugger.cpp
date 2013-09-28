@@ -155,11 +155,15 @@ void CGEDebugger::UpdatePreviews() {
 		ERROR_LOG(COMMON, "Unable to get texture.");
 		texWindow->Clear();
 	}
+
+	DisplayList list;
+	if (gpuDebug->GetCurrentDisplayList(list)) {
+		CtrlDisplayListView *displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg, IDC_GEDBG_CURRENTDISPLAYLIST));
+		displayList->setDisplayList(list);
+	}
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
-	CtrlDisplayListView* displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg,IDC_GEDBG_CURRENTDISPLAYLIST));
-
 	switch (message) {
 	case WM_INITDIALOG:
 		return TRUE;
@@ -178,28 +182,29 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
-		case IDC_GEDBG_BREAK:
+		case IDC_GEDBG_STEPDRAW:
 			attached = true;
 			SetupPreviews();
 
-			DisplayList list;
-			// todo: for some reason this sometimes fails when hitting break
-			// when the core is running. then only works when stepping through
-			// in the debugger or when the core is already paused
-			if (gpuDebug->GetCurrentDisplayList(list)) {
-				displayList->setDisplayList(list);
-			}
-			//breakNextOp = true;
 			pauseWait.notify_one();
+			breakNextOp = false;
 			breakNextDraw = true;
-			// TODO
+			break;
+
+		case IDC_GEDBG_STEP:
+			attached = true;
+			SetupPreviews();
+
+			pauseWait.notify_one();
+			breakNextOp = true;
+			breakNextDraw = false;
 			break;
 
 		case IDC_GEDBG_RESUME:
 			frameWindow->Clear();
 			texWindow->Clear();
 			// TODO: detach?  Should probably have separate UI, or just on activate?
-			//breakNextOp = false;
+			breakNextOp = false;
 			breakNextDraw = false;
 			pauseWait.notify_one();
 			break;
