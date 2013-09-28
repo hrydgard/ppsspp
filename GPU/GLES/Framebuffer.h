@@ -171,6 +171,8 @@ public:
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
 private:
 	void CompileDraw2DProgram();

@@ -74,7 +74,9 @@ public:
 	}
 
 	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentTexture(GPUDebugBuffer &buffer) {
+	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
+	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer) {
 		// TODO
 		return false;
 	}

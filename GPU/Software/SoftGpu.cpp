@@ -752,3 +752,18 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
 	buffer = GPUDebugBuffer(fb.data, gstate.FrameBufStride(), 512, gstate.FrameBufFormat());
 	return true;
 }
+
+bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
+{
+	// We don't know the height, so just use 512, which should be the max (hopefully?)
+	// TODO: Could check clipping and such, though...?
+	// TODO: Is the value 16-bit?  It seems to be.
+	buffer = GPUDebugBuffer(depthbuf.data, gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_16BIT);
+	return true;
+}
+
+bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
+{
+	// TODO: Just need the alpha value from the framebuffer...
+	return false;
+}

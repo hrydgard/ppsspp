@@ -67,6 +67,8 @@ public:
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentTexture(GPUDebugBuffer &buffer);
 
 protected:
