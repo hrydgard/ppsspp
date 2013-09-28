@@ -1152,7 +1152,6 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	// OK, 16 bits in each word.
 	// Let's go. Deep magic here.
 	MOVAPS(XMM1, R(XMM0));
-	// MOVAPS(XMM2, R(XMM0));  // xmm2 = h
 	ANDPS(XMM0, M((void *)mask_nosign)); // xmm0 = expmant
 	XORPS(XMM1, R(XMM0));  // xmm1 = justsign = expmant ^ xmm0
 	MOVAPS(tempR, R(XMM0));
