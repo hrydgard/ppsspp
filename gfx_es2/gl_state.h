@@ -304,6 +304,7 @@ struct GLExtensions {
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	bool EXT_shader_framebuffer_fetch;
+	bool ATIClampBug;
 	
 	// EGL extensions
 
