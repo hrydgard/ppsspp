@@ -44,7 +44,7 @@ public:
 	TextureCache();
 	~TextureCache();
 
-	void SetTexture();
+	void SetTexture(bool force = false);
 
 	void Clear(bool delete_them);
 	void StartFrame();

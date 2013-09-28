@@ -780,7 +780,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 	}
 }
 
-void TextureCache::SetTexture() {
+void TextureCache::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -788,6 +788,10 @@ void TextureCache::SetTexture() {
 		return;
 	}
 #endif
+
+	if (force) {
+		lastBoundTexture = -1;
+	}
 
 	u32 texaddr = gstate.getTextureAddress(0);
 	if (!Memory::IsValidAddress(texaddr)) {
