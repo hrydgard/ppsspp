@@ -10,3 +10,35 @@ namespace W32Util
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text);
 	void MakeTopMost(HWND hwnd, bool topMost);
 }
+
+struct GenericListViewColumn
+{
+	wchar_t *name;
+	float size;
+};
+
+class GenericListControl
+{
+public:
+	GenericListControl(HWND hwnd, const GenericListViewColumn* _columns, int _columnCount);
+	void HandleNotify(LPARAM lParam);
+	void Update();
+	int GetSelectedIndex();
+	HWND GetHandle() { return handle; };
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
+	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
+	virtual int GetRowCount() = 0;
+	virtual void OnDoubleClick(int itemIndex, int column) { };
+	virtual void OnRightClick(int itemIndex, int column) { };
+private:
+	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	void ResizeColumns();
+
+	HWND handle;
+	WNDPROC oldProc;
+	const GenericListViewColumn* columns;
+	int columnCount;
+	wchar_t stringBuffer[256];
+	bool valid;
+};
