@@ -165,6 +165,10 @@ void GameSettingsScreen::CreateViews() {
 	// Developer tools are not accessible ingame, so it goes here
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
 	Choice *dump = graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")));
+#ifndef __SYMBIAN32__
+	// We're normally use software rendering to debug so put it in debugging
+	graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)"))); 
+#endif
 	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
 	if (!PSP_IsInited())
 		dump->SetEnabled(false);
