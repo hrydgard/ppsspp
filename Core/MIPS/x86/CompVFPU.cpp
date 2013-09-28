@@ -1127,11 +1127,12 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	switch (sz) {
 	case V_Single:
 		outsize = V_Pair;
-		DISABLE;
 		break;
 	case V_Pair:
 		outsize = V_Quad;
 		break;
+	default:
+		DISABLE;
 	}
 
 	u8 sregs[4], dregs[4];
