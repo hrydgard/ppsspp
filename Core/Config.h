@@ -157,6 +157,10 @@ public:
 	int iDisasmWindowY;
 	int iDisasmWindowW;
 	int iDisasmWindowH;
+	int iGEWindowX;
+	int iGEWindowY;
+	int iGEWindowW;
+	int iGEWindowH;
 	int iConsoleWindowX;
 	int iConsoleWindowY;
 	int iFontWidth;

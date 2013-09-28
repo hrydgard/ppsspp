@@ -24,13 +24,14 @@
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/WindowsHost.h"
+#include "Windows/WndMainWindow.h"
 #include "Windows/main.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
-
-const UINT WM_GEDBG_BREAK_CMD = WM_USER + 200;
-const UINT WM_GEDBG_BREAK_DRAW = WM_USER + 201;
+#include "Core/Config.h"
+#include <windowsx.h>
+#include <commctrl.h>
 
 enum PauseAction {
 	PAUSE_CONTINUE,
@@ -108,6 +109,12 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	breakCmds.resize(256, false);
 	Core_ListenShutdown(ForceUnpause);
 
+	// minimum size = a little more than the default
+	RECT windowRect;
+	GetWindowRect(m_hDlg,&windowRect);
+	minWidth = windowRect.right-windowRect.left+10;
+	minHeight = windowRect.bottom-windowRect.top+10;
+
 	// it's ugly, but .rc coordinates don't match actual pixels and it screws
 	// up both the size and the aspect ratio
 	// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
@@ -117,6 +124,17 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	GetWindowRect(frameWnd,&frameRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
+
+	tabs = new TabControl(GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB));
+	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
+	displayList = CtrlDisplayListView::getFrom(wnd);
+
+	// set window position
+	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
+	int y = g_Config.iGEWindowY == -1 ? windowRect.top : g_Config.iGEWindowY;
+	int w = g_Config.iGEWindowW == -1 ? minWidth : g_Config.iGEWindowW;
+	int h = g_Config.iGEWindowH == -1 ? minHeight : g_Config.iGEWindowH;
+	MoveWindow(m_hDlg,x,y,w,h,FALSE);
 }
 
 CGEDebugger::~CGEDebugger() {
@@ -166,8 +184,33 @@ void CGEDebugger::UpdatePreviews() {
 
 	DisplayList list;
 	if (gpuDebug->GetCurrentDisplayList(list)) {
-		CtrlDisplayListView *displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg, IDC_GEDBG_CURRENTDISPLAYLIST));
 		displayList->setDisplayList(list);
+	}
+}
+
+void CGEDebugger::UpdateSize(WORD width, WORD height)
+{
+	// only resize the tab for now
+	HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
+
+	RECT tabRect;
+	GetWindowRect(tabControl,&tabRect);
+	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
+
+	tabRect.right = tabRect.left + (width-tabRect.left*2);				// assume same gap on both sides
+	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
+	MoveWindow(tabControl,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+}
+
+void CGEDebugger::SavePosition()
+{
+	RECT rc;
+	if (GetWindowRect(m_hDlg, &rc))
+	{
+		g_Config.iGEWindowX = rc.left;
+		g_Config.iGEWindowY = rc.top;
+		g_Config.iGEWindowW = rc.right - rc.left;
+		g_Config.iGEWindowH = rc.bottom - rc.top;
 	}
 }
 
@@ -176,8 +219,21 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_INITDIALOG:
 		return TRUE;
 
+	case WM_GETMINMAXINFO:
+		{
+			MINMAXINFO* minmax = (MINMAXINFO*) lParam;
+			minmax->ptMinTrackSize.x = minWidth;
+			minmax->ptMinTrackSize.y = minHeight;
+		}
+		return TRUE;
+
 	case WM_SIZE:
-		// TODO
+		UpdateSize(LOWORD(lParam), HIWORD(lParam));
+		SavePosition();
+		return TRUE;
+		
+	case WM_MOVE:
+		SavePosition();
 		return TRUE;
 
 	case WM_CLOSE:
@@ -186,6 +242,21 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_SHOWWINDOW:
 		SetupPreviews();
+		break;
+
+	case WM_ACTIVATE:
+		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+			g_activeWindow = WINDOW_GEDEBUGGER;
+		}
+		break;
+
+	case WM_NOTIFY:
+		switch (wParam)
+		{
+		case IDC_GEDBG_MAINTAB:
+			tabs->HandleNotify(lParam);
+			break;
+		}
 		break;
 
 	case WM_COMMAND:
@@ -200,12 +271,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEP:
-			attached = true;
-			SetupPreviews();
-
-			pauseWait.notify_one();
-			breakNextOp = true;
-			breakNextDraw = false;
+			SendMessage(m_hDlg,WM_GEDBG_STEPDISPLAYLIST,0,0);
 			break;
 
 		case IDC_GEDBG_RESUME:
@@ -233,6 +299,15 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			NOTICE_LOG(COMMON, "Waiting at a draw");
 			UpdatePreviews();
 		}
+		break;
+
+	case WM_GEDBG_STEPDISPLAYLIST:
+		attached = true;
+		SetupPreviews();
+
+		pauseWait.notify_one();
+		breakNextOp = true;
+		breakNextDraw = false;
 		break;
 	}
 

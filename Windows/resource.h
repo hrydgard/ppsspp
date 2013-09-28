@@ -262,7 +262,7 @@
 #define IDC_GEDBG_STEPDRAW               40117
 #define IDC_GEDBG_RESUME                 40118
 #define IDC_GEDBG_FRAME                  40119
-#define IDC_GEDBG_CURRENTDISPLAYLIST     40120
+#define IDC_GEDBG_MAINTAB                40120
 #define IDC_GEDBG_TEX                    40121
 #define IDC_GEDBG_STEP                   40122
 
