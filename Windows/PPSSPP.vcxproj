@@ -296,6 +296,7 @@
     <ClCompile Include="W32Util\PropertySheet.cpp" />
     <ClCompile Include="W32Util\ShellUtil.cpp" />
     <ClCompile Include="InputBox.cpp" />
+    <ClCompile Include="W32Util\TabControl.cpp" />
     <ClCompile Include="WndMainWindow.cpp" />
     <ClCompile Include="DSoundStream.cpp" />
     <ClCompile Include="OpenGLBase.cpp" />
@@ -334,6 +335,7 @@
     <ClInclude Include="W32Util\Misc.h" />
     <ClInclude Include="W32Util\PropertySheet.h" />
     <ClInclude Include="W32Util\ShellUtil.h" />
+    <ClInclude Include="W32Util\TabControl.h" />
     <ClInclude Include="W32Util\XPTheme.h" />
     <ClInclude Include="InputBox.h" />
     <ClInclude Include="WndMainWindow.h" />
