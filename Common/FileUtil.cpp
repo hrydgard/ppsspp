@@ -15,7 +15,6 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include "Common.h"
 #include "CommonPaths.h"
 #include "FileUtil.h"
 #include "StringUtils.h"
@@ -43,7 +42,6 @@
 
 #include "util/text/utf8.h"
 
-#include <fstream>
 #include <sys/stat.h>
 
 #ifndef S_ISDIR
@@ -710,40 +708,11 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 		paths[D_CONFIG_IDX]			= paths[D_USER_IDX] + CONFIG_DIR DIR_SEP;
 		paths[D_SCREENSHOTS_IDX]	= paths[D_USER_IDX] + SCREENSHOTS_DIR DIR_SEP;
 		paths[D_LOGS_IDX]			= paths[D_USER_IDX] + LOGS_DIR DIR_SEP;
-    paths[F_CONFIG_IDX]		= paths[D_CONFIG_IDX] + CONFIG_FILE;
+		paths[F_CONFIG_IDX]			= paths[D_CONFIG_IDX] + CONFIG_FILE;
 		paths[F_MAINLOG_IDX]		= paths[D_LOGS_IDX] + MAIN_LOG;
 	}
 
 	return paths[DirIDX];
-}
-
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
-{
-	FILE *f = OpenCFile(filename, text_file ? "w" : "wb");
-	if (!f)
-		return false;
-	size_t len = str.size();
-	if (len != fwrite(str.data(), 1, str.size(), f))	// TODO: string::data() may not be contiguous
-	{
-		fclose(f);
-		return false;
-	}
-	fclose(f);
-	return true;
-}
-
-bool ReadFileToString(bool text_file, const char *filename, std::string &str)
-{
-	FILE *f = OpenCFile(filename, text_file ? "r" : "rb");
-	if (!f)
-		return false;
-	size_t len = (size_t)GetSize(f);
-	char *buf = new char[len + 1];
-	buf[fread(buf, 1, len, f)] = 0;
-	str = std::string(buf, len);
-	fclose(f);
-	delete [] buf;
-	return true;
 }
 
 IOFile::IOFile()

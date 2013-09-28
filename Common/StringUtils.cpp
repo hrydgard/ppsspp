@@ -15,11 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include <stdlib.h>
-#include <stdio.h>
-
 #include "Common.h"
-#include "CommonPaths.h"
 #include "StringUtils.h"
 
 long parseHexLong(std::string s) {
@@ -88,16 +84,4 @@ bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _
 		*_pExtension = full_path.substr(fname_end);
 
 	return true;
-}
-
-void BuildCompleteFilename(std::string& _CompleteFilename, const std::string& _Path, const std::string& _Filename)
-{
-	_CompleteFilename = _Path;
-
-	// check for seperator
-	if (!strchr(DIR_SEP_CHRS, *_CompleteFilename.rbegin()))
-		_CompleteFilename += DIR_SEP;
-
-	// add the filename
-	_CompleteFilename += _Filename;
 }

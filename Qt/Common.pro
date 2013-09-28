@@ -30,11 +30,7 @@ win32 {
 }
 
 SOURCES += ../Common/ConsoleListener.cpp \
-	../Common/ExtendedTrace.cpp \
-	../Common/FPURoundModeGeneric.cpp \
-	../Common/FileSearch.cpp \
 	../Common/FileUtil.cpp \
-	../Common/Hash.cpp \
 	../Common/LogManager.cpp \
 	../Common/KeyMap.cpp \
 	../Common/MathUtil.cpp \
@@ -46,14 +42,10 @@ SOURCES += ../Common/ConsoleListener.cpp \
 	../Common/Thread.cpp \
 	../Common/ThreadPools.cpp \
 	../Common/Timer.cpp \
-	../Common/Version.cpp \
 	../Common/Crypto/*.cpp
 HEADERS += ../Common/ChunkFile.h \
 	../Common/ConsoleListener.h \
-	../Common/ExtendedTrace.h \
-	../Common/FileSearch.h \
 	../Common/FileUtil.h \
-	../Common/Hash.h \
 	../Common/LogManager.h \
 	../Common/KeyMap.h \
 	../Common/MathUtil.h \

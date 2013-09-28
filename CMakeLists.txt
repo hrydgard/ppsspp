@@ -247,22 +247,12 @@ add_library(Common STATIC
 	Common/ConsoleListener.h
 	Common/Crypto/aes_cbc.cpp
 	Common/Crypto/aes_core.cpp
-	Common/Crypto/bn.cpp
-	Common/Crypto/ec.cpp
 	Common/Crypto/md5.cpp
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
 	Common/Crypto/sha1.h
-	Common/ExtendedTrace.cpp
-	Common/ExtendedTrace.h
-	Common/FPURoundModeGeneric.cpp
-#	Common/FPURoundModeX86.cpp
-	Common/FileSearch.cpp
-	Common/FileSearch.h
 	Common/FileUtil.cpp
 	Common/FileUtil.h
-	Common/Hash.cpp
-	Common/Hash.h
 	Common/KeyMap.cpp
 	Common/KeyMap.h
 	Common/LogManager.cpp
@@ -283,8 +273,7 @@ add_library(Common STATIC
 	Common/ThreadPools.cpp
 	Common/ThreadPools.h
 	Common/Timer.cpp
-	Common/Timer.h
-	Common/Version.cpp)
+	Common/Timer.h)
 include_directories(Common)
 setup_target_project(Common Common)
 

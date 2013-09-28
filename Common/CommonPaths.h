@@ -66,53 +66,16 @@
 	#endif
 #endif
 
-// Dirs in both User and Sys
-#define EUR_DIR "EUR"
-#define USA_DIR "USA"
-#define JAP_DIR "JAP"
-
 // Subdirs in the User dir returned by GetUserPath(D_USER_IDX)
-#define GC_USER_DIR		"GC"
-#define WII_USER_DIR		"Wii"
 #define CONFIG_DIR		"Config"
-#define GAMECONFIG_DIR		"GameConfig"
-#define MAPS_DIR		"Maps"
-#define CACHE_DIR		"Cache"
-#define SHADERCACHE_DIR		"ShaderCache"
-#define STATESAVES_DIR		"StateSaves"
-#define SCREENSHOTS_DIR		"ScreenShots"
-#define OPENCL_DIR		"OpenCL"
-#define LOAD_DIR 		"Load"
-#define HIRES_TEXTURES_DIR	LOAD_DIR DIR_SEP "Textures"
-#define DUMP_DIR		"Dump"
-#define DUMP_TEXTURES_DIR	DUMP_DIR DIR_SEP "Textures"
-#define DUMP_FRAMES_DIR		DUMP_DIR DIR_SEP "Frames"
-#define DUMP_AUDIO_DIR		DUMP_DIR DIR_SEP "Audio"
-#define DUMP_DSP_DIR		DUMP_DIR DIR_SEP "DSP"
+#define SCREENSHOTS_DIR	"ScreenShots"
 #define LOGS_DIR		"Logs"
-#define MAIL_LOGS_DIR		LOGS_DIR DIR_SEP "Mail"
-#define SHADERS_DIR 		"Shaders"
-#define WII_SYSCONF_DIR		"shared2" DIR_SEP "sys"
 
 // Filenames
 // Files in the directory returned by GetUserPath(D_CONFIG_IDX)
 #define CONFIG_FILE "ppsspp.ini"
-#define LOGGER_CONFIG	"Logger.ini"
 
 // Files in the directory returned by GetUserPath(D_LOGS_IDX)
 #define MAIN_LOG	"ppsspp.log"
-
-// Sys files
-#define TOTALDB		"totaldb.dsy"
-
-#define FONT_ANSI	"font_ansi.bin"
-#define FONT_SJIS	"font_sjis.bin"
-
-#define DSP_IROM	"dsp_rom.bin"
-#define DSP_COEF	"dsp_coef.bin"
-
-// Subdirs in Sys
-#define GC_SYS_DIR "GC"
-#define WII_SYS_DIR "Wii"
 
 #endif // _COMMON_PATHS_H_
