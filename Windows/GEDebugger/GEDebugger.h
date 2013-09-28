@@ -28,12 +28,14 @@ public:
 	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
 	~CGEDebugger();
 
-	static void init();
+	static void Init();
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
 private:
-	void SetupFrameWindow();
+	void SetupPreviews();
+	void UpdatePreviews();
 
 	SimpleGLWindow *frameWindow;
+	SimpleGLWindow *texWindow;
 };

@@ -43,14 +43,14 @@ struct SimpleGLWindow {
 	void Clear();
 	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888, ResizeType resize = RESIZE_NONE);
 	void Initialize();
-	static SimpleGLWindow* getFrom(HWND hwnd);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	static SimpleGLWindow *GetFrom(HWND hwnd);
+	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 	void Swap() {
 		SwapBuffers(hDC_);
 	}
 
-	static void registerClass();
+	static void RegisterClass();
 protected:
 	void SetupGL();
 	void ResizeGL(int w, int h);

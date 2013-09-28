@@ -21,13 +21,13 @@
 
 const PTCHAR SimpleGLWindow::windowClass = _T("SimpleGLWindow");
 
-void SimpleGLWindow::registerClass() {
+void SimpleGLWindow::RegisterClass() {
 	WNDCLASSEX wndClass;
 
 	wndClass.cbSize         = sizeof(wndClass);
 	wndClass.lpszClassName  = windowClass;
 	wndClass.hInstance      = GetModuleHandle(0);
-	wndClass.lpfnWndProc    = wndProc;
+	wndClass.lpfnWndProc    = WndProc;
 	wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);
 	wndClass.hIcon          = 0;
 	wndClass.lpszMenuName   = 0;
@@ -273,12 +273,12 @@ void SimpleGLWindow::Clear() {
 	Swap();
 }
 
-SimpleGLWindow *SimpleGLWindow::getFrom(HWND hwnd) {
+SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {
 	return (SimpleGLWindow*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-LRESULT CALLBACK SimpleGLWindow::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	SimpleGLWindow *win = SimpleGLWindow::getFrom(hwnd);
+LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	SimpleGLWindow *win = SimpleGLWindow::GetFrom(hwnd);
 
 	switch(msg)
 	{
