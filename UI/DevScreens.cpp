@@ -128,6 +128,7 @@ void SystemInfoScreen::CreateViews() {
 	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
 	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
 	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));
+	scroll->Add(new InfoItem("GL Shading Language Version", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
 	scroll->Add(new Button(d->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 #ifdef _WIN32
