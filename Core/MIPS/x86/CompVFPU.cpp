@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <limits>
+#include <xmmintrin.h>
 #include "base/logging.h"
 #include "math/math_util.h"
 
@@ -1083,90 +1084,6 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-
-
-#if 0
-
-// One possible approach
-
-// Uses lookup tables to decode half floats. Not really sure how bad the CPU cache impact will be...
-void Jit::Comp_Vh2f(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
-	if (js.HasUnknownPrefix())
-		DISABLE;
-
-	VectorSize sz = GetVecSize(op);
-	VectorSize outsize;
-	switch (sz) {
-	case V_Single:
-		outsize = V_Pair;
-		break;
-	case V_Pair:
-		outsize = V_Quad;
-		break;
-	}
-
-	u8 sregs[4], dregs[4];
-	GetVectorRegsPrefixS(sregs, sz, _VS);
-	GetVectorRegsPrefixD(dregs, outsize, _VD);
-
-	switch (sz) {
-	case V_Single:
-		// Flush so we can access it with integer instructions
-		// Grab ECX as a secondary working register
-		gpr.FlushLockX(ECX);
-		fpr.StoreFromRegisterV(sregs[0]);
-		MOV(32, R(EAX), fpr.V(sregs[0]));
-		fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);
-		//XOR(32, R(EAX), R(EAX));
-		MOV(32, R(ECX), R(EAX));
-		AND(32, R(EAX), Imm32(0xFFFF));
-		SHR(32, R(ECX), Imm8(16));
-#ifdef _M_IX86
-		MOVSS(fpr.VX(dregs[0]), MScaled(EAX, 4, (u32)halfToFloat_));
-		MOVSS(fpr.VX(dregs[1]), MScaled(ECX, 4, (u32)halfToFloat_));
-#endif
-		break;
-	case V_Pair:
-		// Flush so we can access it with integer instructions
-		// Grab ECX and EDX as a secondary/third working register
-		gpr.FlushLockX(ECX, EDX);
-		fpr.StoreFromRegisterV(sregs[0]);
-		fpr.StoreFromRegisterV(sregs[1]);
-		MOV(32, R(EAX), fpr.V(sregs[0]));
-		MOV(32, R(EDX), fpr.V(sregs[1]));
-		fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
-		//XOR(32, R(EAX), R(EAX));
-		MOV(32, R(ECX), R(EAX));
-		AND(32, R(EAX), Imm32(0xFFFF));
-		SHR(32, R(ECX), Imm8(16));
-#ifdef _M_IX86
-		MOVSS(fpr.VX(dregs[0]), MScaled(EAX, 4, (u32)halfToFloat_));
-		MOVSS(fpr.VX(dregs[1]), MScaled(ECX, 4, (u32)halfToFloat_));
-#endif
-		//XOR(32, R(EAX), R(EAX));
-		MOV(32, R(ECX), R(EDX));
-		AND(32, R(EDX), Imm32(0xFFFF));
-		SHR(32, R(ECX), Imm8(16));
-#ifdef _M_IX86
-		MOVSS(fpr.VX(dregs[2]), MScaled(EDX, 4, (u32)halfToFloat_));
-		MOVSS(fpr.VX(dregs[3]), MScaled(ECX, 4, (u32)halfToFloat_));
-#endif
-		break;
-	case V_Triple:
-	case V_Quad:
-		_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
-		break;
-	}
-	ApplyPrefixD(dregs, outsize);
-	gpr.UnlockAllX();
-	fpr.ReleaseSpillLocks();
-}
-
-#else
-
-#undef CONST
-
 // Planning for true SIMD
 
 // Sequence for gathering sparse registers into one SIMD:
@@ -1192,7 +1109,7 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
-#define SSE_CONST4(name, val) static const __declspec(align(16)) u32 name[4] = { (val), (val), (val), (val) }
+#define SSE_CONST4(name, val) static const u32 MEMORY_ALIGNED16(name[4]) = { (val), (val), (val), (val) }
 
 	SSE_CONST4(mask_nosign,         0x7fff);
 	SSE_CONST4(magic,               (254 - 15) << 23);
@@ -1266,9 +1183,6 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	gpr.UnlockAllX();
 	fpr.ReleaseSpillLocks();
 }
-
-#endif
-
 
 extern const double mulTableVf2i[32] = {
 	(1ULL<<0),(1ULL<<1),(1ULL<<2),(1ULL<<3),
