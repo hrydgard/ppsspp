@@ -31,6 +31,7 @@ enum {
 };
 
 class CtrlDisplayListView;
+class TabDisplayLists;
 
 class CGEDebugger : public Dialog {
 public:
@@ -48,6 +49,7 @@ private:
 	void SavePosition();
 
 	CtrlDisplayListView* displayList;
+	TabDisplayLists* lists;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
 	TabControl* tabs;

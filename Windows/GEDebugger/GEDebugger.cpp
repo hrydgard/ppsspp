@@ -32,6 +32,7 @@
 #include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
+#include "TabDisplayLists.h"
 
 enum PauseAction {
 	PAUSE_CONTINUE,
@@ -129,6 +130,9 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
 
+	lists = new TabDisplayLists(_hInstance,m_hDlg);
+	tabs->AddTabDialog(lists,L"Lists");
+
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
 	int y = g_Config.iGEWindowY == -1 ? windowRect.top : g_Config.iGEWindowY;
@@ -186,6 +190,8 @@ void CGEDebugger::UpdatePreviews() {
 	if (gpuDebug->GetCurrentDisplayList(list)) {
 		displayList->setDisplayList(list);
 	}
+
+	lists->Update();
 }
 
 void CGEDebugger::UpdateSize(WORD width, WORD height)
