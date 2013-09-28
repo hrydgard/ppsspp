@@ -67,6 +67,7 @@ public:
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentTexture(GPUDebugBuffer &buffer);
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);

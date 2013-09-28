@@ -74,6 +74,10 @@ public:
 	}
 
 	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentTexture(GPUDebugBuffer &buffer) {
+		// TODO
+		return false;
+	}
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);

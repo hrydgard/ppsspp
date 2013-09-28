@@ -124,7 +124,7 @@ bool CPU_HasPendingAction() {
 void CPU_WaitStatus(bool (*pred)()) {
 	cpuThreadLock.lock();
 	while (!pred())
-		cpuThreadCond.wait_for(cpuThreadLock, 16);
+		cpuThreadCond.wait(cpuThreadLock);
 	cpuThreadLock.unlock();
 }
 
@@ -255,6 +255,12 @@ void Core_UpdateState(CoreState newState) {
 	Core_UpdateSingleStep();
 }
 
+void System_Wake() {
+	if (gpu) {
+		gpu->FinishEventLoop();
+	}
+}
+
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 
@@ -262,6 +268,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	coreParameter.errorString = "";
 
 	if (g_Config.bSeparateCPUThread) {
+		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
 		CPU_WaitStatus(&CPU_IsReady);
@@ -288,6 +295,7 @@ bool PSP_IsInited() {
 void PSP_Shutdown() {
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
+	Core_NotifyShutdown();
 	if (cpuThread != NULL) {
 		CPU_SetState(CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(&CPU_IsShutdown);

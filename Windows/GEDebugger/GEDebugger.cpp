@@ -35,7 +35,7 @@ const UINT WM_GEDBG_BREAK_DRAW = WM_USER + 201;
 enum PauseAction {
 	PAUSE_CONTINUE,
 	PAUSE_GETFRAMEBUF,
-	// textures, etc.
+	PAUSE_GETTEX,
 };
 
 static bool attached = false;
@@ -53,12 +53,13 @@ static bool breakNextOp = false;
 static bool breakNextDraw = false;
 
 static bool bufferResult;
-static GPUDebugBuffer buffer;
+static GPUDebugBuffer bufferFrame;
+static GPUDebugBuffer bufferTex;
 
 // TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
 
-void CGEDebugger::init() {
-	SimpleGLWindow::registerClass();
+void CGEDebugger::Init() {
+	SimpleGLWindow::RegisterClass();
 	CtrlDisplayListView::registerClass();
 }
 
@@ -83,7 +84,11 @@ static void RunPauseAction() {
 		return;
 
 	case PAUSE_GETFRAMEBUF:
-		bufferResult = gpuDebug->GetCurrentFramebuffer(buffer);
+		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame);
+		break;
+
+	case PAUSE_GETTEX:
+		bufferResult = gpuDebug->GetCurrentTexture(bufferTex);
 		break;
 	}
 
@@ -91,9 +96,17 @@ static void RunPauseAction() {
 	pauseAction = PAUSE_CONTINUE;
 }
 
+static void ForceUnpause() {
+	lock_guard guard(pauseLock);
+	lock_guard actionGuard(actionLock);
+	pauseAction = PAUSE_CONTINUE;
+	pauseWait.notify_one();
+}
+
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
 	breakCmds.resize(256, false);
+	Core_ListenShutdown(ForceUnpause);
 
 	// it's ugly, but .rc coordinates don't match actual pixels and it screws
 	// up both the size and the aspect ratio
@@ -108,20 +121,57 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 
 CGEDebugger::~CGEDebugger() {
 	delete frameWindow;
+	delete texWindow;
 }
 
-void CGEDebugger::SetupFrameWindow() {
+void CGEDebugger::SetupPreviews() {
 	if (frameWindow == NULL) {
-		frameWindow = SimpleGLWindow::getFrom(GetDlgItem(m_hDlg,IDC_GEDBG_FRAME));
-		frameWindow->Initialize();
+		frameWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
+		frameWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		// TODO: Why doesn't this work?
 		frameWindow->Clear();
+	}
+	if (texWindow == NULL) {
+		texWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
+		texWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		// TODO: Why doesn't this work?
+		texWindow->Clear();
+	}
+}
+
+void CGEDebugger::UpdatePreviews() {
+	// TODO: Do something different if not paused?
+
+	bufferResult = false;
+	SetPauseAction(PAUSE_GETFRAMEBUF);
+
+	if (bufferResult) {
+		auto fmt = SimpleGLWindow::Format(bufferFrame.GetFormat());
+		frameWindow->Draw(bufferFrame.GetData(), bufferFrame.GetStride(), bufferFrame.GetHeight(), bufferFrame.GetFlipped(), fmt);
+	} else {
+		ERROR_LOG(COMMON, "Unable to get framebuffer.");
+		frameWindow->Clear();
+	}
+
+	bufferResult = false;
+	SetPauseAction(PAUSE_GETTEX);
+
+	if (bufferResult) {
+		auto fmt = SimpleGLWindow::Format(bufferTex.GetFormat());
+		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
+	} else {
+		ERROR_LOG(COMMON, "Unable to get texture.");
+		texWindow->Clear();
+	}
+
+	DisplayList list;
+	if (gpuDebug->GetCurrentDisplayList(list)) {
+		CtrlDisplayListView *displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg, IDC_GEDBG_CURRENTDISPLAYLIST));
+		displayList->setDisplayList(list);
 	}
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
-	CtrlDisplayListView* displayList = CtrlDisplayListView::getFrom(GetDlgItem(m_hDlg,IDC_GEDBG_CURRENTDISPLAYLIST));
-
 	switch (message) {
 	case WM_INITDIALOG:
 		return TRUE;
@@ -135,32 +185,34 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		return TRUE;
 
 	case WM_SHOWWINDOW:
-		SetupFrameWindow();
+		SetupPreviews();
 		break;
 
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
-		case IDC_GEDBG_BREAK:
+		case IDC_GEDBG_STEPDRAW:
 			attached = true;
-			SetupFrameWindow();
+			SetupPreviews();
 
-			DisplayList list;
-			// todo: for some reason this sometimes fails when hitting break
-			// when the core is running. then only works when stepping through
-			// in the debugger or when the core is already paused
-			if (gpuDebug->GetCurrentDisplayList(list)) {
-				displayList->setDisplayList(list);
-			}
-			//breakNextOp = true;
 			pauseWait.notify_one();
+			breakNextOp = false;
 			breakNextDraw = true;
-			// TODO
+			break;
+
+		case IDC_GEDBG_STEP:
+			attached = true;
+			SetupPreviews();
+
+			pauseWait.notify_one();
+			breakNextOp = true;
+			breakNextDraw = false;
 			break;
 
 		case IDC_GEDBG_RESUME:
 			frameWindow->Clear();
+			texWindow->Clear();
 			// TODO: detach?  Should probably have separate UI, or just on activate?
-			//breakNextOp = false;
+			breakNextOp = false;
 			breakNextDraw = false;
 			pauseWait.notify_one();
 			break;
@@ -172,22 +224,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			u32 pc = (u32)wParam;
 			auto info = gpuDebug->DissassembleOp(pc);
 			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
+			UpdatePreviews();
 		}
 		break;
 
 	case WM_GEDBG_BREAK_DRAW:
 		{
 			NOTICE_LOG(COMMON, "Waiting at a draw");
-
-			bufferResult = false;
-			SetPauseAction(PAUSE_GETFRAMEBUF);
-
-			if (bufferResult) {
-				auto fmt = SimpleGLWindow::Format(buffer.GetFormat());
-				frameWindow->Draw(buffer.GetData(), buffer.GetStride(), buffer.GetHeight(), buffer.GetFlipped(), fmt, SimpleGLWindow::RESIZE_SHRINK_CENTER);
-			} else {
-				ERROR_LOG(COMMON, "Unable to get buffer.");
-			}
+			UpdatePreviews();
 		}
 		break;
 	}
@@ -203,6 +247,10 @@ bool WindowsHost::GPUDebuggingActive() {
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
 	lock_guard guard(pauseLock);
+	if (Core_IsInactive()) {
+		return;
+	}
+
 	PostMessage(geDebuggerWindow->GetDlgHandle(), msg, wParam, lParam);
 
 	do {

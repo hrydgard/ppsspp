@@ -153,8 +153,13 @@ public:
 		return false;
 	}
 
+	// Similar to GetCurrentFramebuffer().
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer) {
+		return false;
+	}
+
 	// TODO:
 	// cached framebuffers / textures / vertices?
-	// get content of framebuffer / texture
+	// get content of specific framebuffer / texture?
 	// vertex / texture decoding?
 };

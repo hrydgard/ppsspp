@@ -428,6 +428,10 @@ void __IoManagerThread() {
 	}
 }
 
+void __IoWakeManager() {
+	ioManager.FinishEventLoop();
+}
+
 void __IoInit() {
 	INFO_LOG(SCEIO, "Starting up I/O...");
 
@@ -458,6 +462,7 @@ void __IoInit() {
 	ioManagerThreadEnabled = g_Config.bSeparateIOThread;
 	ioManager.SetThreadEnabled(ioManagerThreadEnabled);
 	if (ioManagerThreadEnabled) {
+		Core_ListenShutdown(&__IoWakeManager);
 		ioManagerThread = new std::thread(&__IoManagerThread);
 	}
 
