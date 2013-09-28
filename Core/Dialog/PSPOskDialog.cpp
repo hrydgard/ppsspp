@@ -36,8 +36,6 @@
 #include <math.h>
 #endif
 
-extern std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
-
 static std::map<std::string, std::pair<std::string, int>> languageMapping;
 
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
