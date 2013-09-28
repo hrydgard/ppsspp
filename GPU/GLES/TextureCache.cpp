@@ -590,14 +590,14 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	
 	else
 	{
-	if (force || entry.sClamp != sClamp) {
+		if (force || entry.sClamp != sClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.sClamp = sClamp;
-	}
-	if (force || entry.tClamp != tClamp) {
+		}
+		if (force || entry.tClamp != tClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.tClamp = tClamp;
-	}
+		}
 	}
 }
 
