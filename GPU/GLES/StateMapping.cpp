@@ -218,7 +218,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		if (!gstate.isStencilTestEnabled() && !gstate.isDepthTestEnabled()) {
+		if (!gstate.isStencilTestEnabled() && gstate.isDepthWriteEnabled()) {
 			// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
 			// If this doesn't break anything else, it's likely to be right.
 			// I guess an alternative solution would be to simply disable alpha writes if alpha blending is enabled.
