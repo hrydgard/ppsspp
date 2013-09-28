@@ -456,8 +456,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
 	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
-	// It is currently broken
-	//list->Add(new Choice(de->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	list->Add(new Choice(de->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load Language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save Language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
