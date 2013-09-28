@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "headless/Compare.h"
-#include "Common/FileUtil.h"
+#include "file/file_util.h"
 #include "Core/Host.h"
 
 #include <cmath>
@@ -250,7 +250,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 				printf("%s", output.c_str());
 				printf("============== expected output:\n");
 				std::string fullExpected;
-				if (File::ReadFileToString(true, expect_filename.c_str(), fullExpected))
+				if (readFileToString(true, expect_filename.c_str(), fullExpected))
 					printf("%s", fullExpected.c_str());
 				printf("===============================\n");
 			}

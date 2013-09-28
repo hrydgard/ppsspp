@@ -52,8 +52,6 @@ std::string ThousandSeparate(I value, int spaces = 0)
 	return oss.str();
 }
 
-std::string TabsToSpaces(int tab_size, const std::string &in);
-
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
 

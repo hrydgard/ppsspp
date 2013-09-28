@@ -128,9 +128,6 @@ std::string GetBundleDirectory();
 std::string &GetExeDirectory();
 #endif
 
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename);
-bool ReadFileToString(bool text_file, const char *filename, std::string &str);
-
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder

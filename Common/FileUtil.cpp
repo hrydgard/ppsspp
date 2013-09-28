@@ -715,35 +715,6 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 	return paths[DirIDX];
 }
 
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
-{
-	FILE *f = OpenCFile(filename, text_file ? "w" : "wb");
-	if (!f)
-		return false;
-	size_t len = str.size();
-	if (len != fwrite(str.data(), 1, str.size(), f))	// TODO: string::data() may not be contiguous
-	{
-		fclose(f);
-		return false;
-	}
-	fclose(f);
-	return true;
-}
-
-bool ReadFileToString(bool text_file, const char *filename, std::string &str)
-{
-	FILE *f = OpenCFile(filename, text_file ? "r" : "rb");
-	if (!f)
-		return false;
-	size_t len = (size_t)GetSize(f);
-	char *buf = new char[len + 1];
-	buf[fread(buf, 1, len, f)] = 0;
-	str = std::string(buf, len);
-	fclose(f);
-	delete [] buf;
-	return true;
-}
-
 IOFile::IOFile()
 	: m_file(NULL), m_good(true)
 {}
