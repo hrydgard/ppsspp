@@ -777,6 +777,19 @@ namespace MainWindow
 		DialogManager::AddDlg(memoryWindow[0]);
 	}
 
+	void WaitForCore() {
+		if (Core_IsStepping()) {
+			// If the current PC is on a breakpoint, disabling stepping doesn't work without
+			// explicitly skipping it
+			CBreakPoints::SetSkipFirst(currentMIPS->pc);
+			Core_EnableStepping(false);
+		}
+
+		Core_EnableStepping(true);
+		Core_WaitInactive();
+		Core_EnableStepping(false);
+	}
+
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
@@ -1108,42 +1121,20 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
-					Core_Stop();
-
+					WaitForCore();
 					NativeMessageReceived("stop", "");
 					Update();
 					break;
 
 				case ID_EMULATION_RESET:
-					if (Core_IsStepping()) {
-						// If the current PC is on a breakpoint, disabling stepping doesn't work without
-						// explicitly skipping it
-						CBreakPoints::SetSkipFirst(currentMIPS->pc);
-						Core_EnableStepping(false);
-					}
-
-					Core_EnableStepping(true);
-					Core_WaitInactive();
-					Core_EnableStepping(false);
-
+					WaitForCore();
 					NativeMessageReceived("reset", "");
 					break;
 
 				case ID_EMULATION_CHEATS:
 					g_Config.bEnableCheats = !g_Config.bEnableCheats;
 					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
-
-					if (Core_IsStepping()) {
-						// If the current PC is on a breakpoint, disabling stepping doesn't work without
-						// explicitly skipping it
-						CBreakPoints::SetSkipFirst(currentMIPS->pc);
-						Core_EnableStepping(false);
-					}
-
-					Core_EnableStepping(true);
-					Core_WaitInactive();
-					Core_EnableStepping(false);
-
+					WaitForCore();
 					NativeMessageReceived("reset", "");
 					break;
 
