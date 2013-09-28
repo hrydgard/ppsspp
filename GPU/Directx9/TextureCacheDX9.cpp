@@ -324,87 +324,6 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 	return tmpTexBuf32.data();
 }
 
-template <typename IndexT, typename ClutT>
-inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {
-	// Usually, there is no special offset, mask, or shift.
-	const bool nakedIndex = gstate.isClutIndexSimple();
-
-	if (nakedIndex) {
-		if (sizeof(IndexT) == 1) {
-			for (int i = 0; i < length; ++i) {
-				*dest++ = clut[*indexed++];
-			}
-		} else {
-			for (int i = 0; i < length; ++i) {
-				*dest++ = clut[(*indexed++) & 0xFF];
-			}
-		}
-	} else {
-		for (int i = 0; i < length; ++i) {
-			*dest++ = clut[gstate.transformClutIndex(*indexed++)];
-		}
-	}
-}
-
-template <typename IndexT, typename ClutT>
-inline void DeIndexTexture(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
-	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
-	DeIndexTexture(dest, indexed, length, clut);
-}
-
-template <typename ClutT>
-inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const ClutT *clut) {
-	// Usually, there is no special offset, mask, or shift.
-	const bool nakedIndex = gstate.isClutIndexSimple();
-
-	if (nakedIndex) {
-		for (int i = 0; i < length; i += 2) {
-			u8 index = *indexed++;
-			dest[i + 0] = clut[(index >> 0) & 0xf];
-			dest[i + 1] = clut[(index >> 4) & 0xf];
-		}
-	} else {
-		for (int i = 0; i < length; i += 2) {
-			u8 index = *indexed++;
-			dest[i + 0] = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
-			dest[i + 1] = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
-		}
-	}
-}
-
-template <typename ClutT>
-inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
-	for (int i = 0; i < length; i += 2) {
-		u8 index = *indexed++;
-		dest[i + 0] = color | ((index >> 0) & 0xf);
-		dest[i + 1] = color | ((index >> 4) & 0xf);
-	}
-}
-
-template <>
-inline void DeIndexTexture4Optimal<u16>(u16 *dest, const u8 *indexed, int length, u16 color) {
-	const u16_le *indexed16 = (const u16_le *)indexed;
-	const u32 color32 = (color << 16) | color;
-	u32 *dest32 = (u32 *)dest;
-	for (int i = 0; i < length / 2; i += 2) {
-		u16 index = *indexed16++;
-		dest32[i + 0] = color32 | ((index & 0x00f0) << 12) | ((index & 0x000f) >> 0);
-		dest32[i + 1] = color32 | ((index & 0xf000) <<  4) | ((index & 0x0f00) >> 8);
-	}
-}
-
-template <typename ClutT>
-inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
-	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
-	DeIndexTexture4(dest, indexed, length, clut);
-}
-
-template <typename ClutT>
-inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, ClutT color) {
-	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
-	DeIndexTexture4Optimal(dest, indexed, length, color);
-}
-
 void *TextureCacheDX9::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt, int bufw) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
@@ -611,131 +530,6 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 #ifdef _XBOX
 	pD3Ddevice->SetRenderState(D3DRS_HALFPIXELOFFSET, TRUE );
 #endif
-}
-
-// All these DXT structs are in the reverse order, as compared to PC.
-// On PC, alpha comes before color, and interpolants are before the tile data.
-
-struct DXT1Block {
-	u8 lines[4];
-	u16_le color1;
-	u16_le color2;
-};
-
-struct DXT3Block {
-	DXT1Block color;
-	u16_le alphaLines[4];
-};
-
-struct DXT5Block {
-	DXT1Block color;
-	u32_le alphadata2;
-	u16_le alphadata1;
-	u8 alpha1; u8 alpha2;
-};
-
-static inline u32 makecol(int r, int g, int b, int a) {
-	return (a << 24) | (b << 16) | (g << 8) | r;
-}
-
-// This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-static void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false) {
-	// S3TC Decoder
-	// Needs more speed and debugging.
-	u16 c1 = (src->color1);
-	u16 c2 = (src->color2);
-	int red1 = Convert5To8(c1 & 0x1F);
-	int red2 = Convert5To8(c2 & 0x1F);
-	int green1 = Convert6To8((c1 >> 5) & 0x3F);
-	int green2 = Convert6To8((c2 >> 5) & 0x3F);
-	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
-	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
-
-	u32 colors[4];
-	colors[0] = makecol(red1, green1, blue1, 255);
-	colors[1] = makecol(red2, green2, blue2, 255);
-	if (c1 > c2 || ignore1bitAlpha) {
-		int blue3 = ((blue2 - blue1) >> 1) - ((blue2 - blue1) >> 3);
-		int green3 = ((green2 - green1) >> 1) - ((green2 - green1) >> 3);
-		int red3 = ((red2 - red1) >> 1) - ((red2 - red1) >> 3);				
-		colors[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, 255);
-		colors[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, 255);
-	} else {
-		colors[2] = makecol((red1 + red2 + 1) / 2, // Average
-			(green1 + green2 + 1) / 2,
-			(blue1 + blue2 + 1) / 2, 255);
-		colors[3] = makecol(red2, green2, blue2, 0);	// Color2 but transparent
-	}
-
-	for (int y = 0; y < 4; y++) {
-		int val = src->lines[y];
-		for (int x = 0; x < 4; x++) {
-			dst[x] = colors[val & 3];
-			val >>= 2;
-		}
-		dst += pitch;
-	}
-}
-
-static void decodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch)
-{
-	decodeDXT1Block(dst, &src->color, pitch, true);
-
-	for (int y = 0; y < 4; y++) {
-		u32 line = src->alphaLines[y];
-		for (int x = 0; x < 4; x++) {
-			const u8 a4 = line & 0xF;
-			dst[x] = (dst[x] & 0xFFFFFF) | (a4 << 24) | (a4 << 28);
-			line >>= 4;
-		}
-		dst += pitch;
-	}
-}
-
-static inline u8 lerp8(const DXT5Block *src, int n) {
-	float d = n / 7.0f;
-	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
-}
-
-static inline u8 lerp6(const DXT5Block *src, int n) {
-	float d = n / 5.0f;
-	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
-}
-
-// The alpha channel is not 100% correct 
-static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
-	decodeDXT1Block(dst, &src->color, pitch, true);
-	u8 alpha[8];
-
-	alpha[0] = src->alpha1;
-	alpha[1] = src->alpha2;
-	if (alpha[0] > alpha[1]) {
-		alpha[2] = lerp8(src, 1);
-		alpha[3] = lerp8(src, 2);
-		alpha[4] = lerp8(src, 3);
-		alpha[5] = lerp8(src, 4);
-		alpha[6] = lerp8(src, 5);
-		alpha[7] = lerp8(src, 6);
-	} else {
-		alpha[2] = lerp6(src, 1);
-		alpha[3] = lerp6(src, 2);
-		alpha[4] = lerp6(src, 3);
-		alpha[5] = lerp6(src, 4);
-		alpha[6] = 0;
-		alpha[7] = 255;
-	}
-
-	u32 a1 = src->alphadata1;
-	u32 a2 = src->alphadata2;
-	u64 data = ((u64)a1 << 32) | a2;
-
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			dst[x] = (dst[x] & 0xFFFFFF) | (alpha[data & 7] << 24);
-			data >>= 3;
-		}
-		dst += pitch;
-	}
 }
 
 static inline u32 ABGR2RGBA(u32 src) {
@@ -1432,7 +1226,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
 				for (int x = 0; x < minw; x += 4) {
-					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
+					DecodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
 			}
@@ -1453,7 +1247,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
 				for (int x = 0; x < minw; x += 4) {
-					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
+					DecodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
 			}
@@ -1474,7 +1268,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
 				for (int x = 0; x < minw; x += 4) {
-					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
+					DecodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
 			}

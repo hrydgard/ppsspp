@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #pragma once
 
 #include <string>
@@ -32,8 +31,8 @@ enum GPUCore {
 	GPU_DIRECTX9,
 };
 
-struct CoreParameter
-{
+// PSP_CoreParameter()
+struct CoreParameter {
 	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true) {}
 	CPUCore cpuCore;
 	GPUCore gpuCore;

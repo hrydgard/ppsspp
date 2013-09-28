@@ -40,9 +40,15 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	return 0;
 }
 
+u32 sceDmacTryMemcpy(u32 x, u32 y , u32 z)
+{
+	ERROR_LOG_REPORT(HLE,"UNIMPL sceDmacTryMemcpy(%08x, %08x, %i)", x ,y ,z);
+	return 0;
+}
+
 const HLEFunction sceDmac[] = {
 	{0x617f3fe6, &WrapU_UUU<sceDmacMemcpy>, "sceDmacMemcpy"},
-	{0xd97f94d8, 0, "sceDmacTryMemcpy"},
+	{0xd97f94d8, &WrapU_UUU<sceDmacTryMemcpy>, "sceDmacTryMemcpy"},
 };
 
 void Register_sceDmac() {

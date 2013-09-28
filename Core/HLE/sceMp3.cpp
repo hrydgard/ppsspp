@@ -48,7 +48,7 @@ static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160,
 
 struct Mp3Context {
 	void DoState(PointerWrap &p) {
-	auto s = p.Section("Mp3Context", 1);
+	auto s = p.Section("Mp3Context", 1, 2);
 	if (!s)
 		return;
 
@@ -59,6 +59,10 @@ struct Mp3Context {
 		p.Do(mp3PcmBuf);
 		p.Do(mp3PcmBufSize);
 		p.Do(mp3DecodedBytes);
+		if (s >= 2)
+			p.Do(mp3SumDecodedSamples);
+		else
+			mp3SumDecodedSamples = 0;
 		p.Do(mp3LoopNum);
 		p.Do(mp3MaxSamples);
 		p.Do(mp3Bitrate);
@@ -84,6 +88,7 @@ struct Mp3Context {
 	int mp3DecodedBytes;
 	int mp3LoopNum;
 	int mp3MaxSamples;
+	int mp3SumDecodedSamples;
 	MediaEngine *mediaengine;
 
 	int mp3Channels;
@@ -206,6 +211,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		fclose(file);
 	}
 	#endif
+	// 2 bytes per channel and we always two channels per mp3 so it is 2 * 2
+	ctx->mp3SumDecodedSamples += bytesdecoded / 2 * 2;
 
 	return bytesdecoded;
 }
@@ -430,7 +437,14 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
-	return 0;
+
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	return ctx->mp3SumDecodedSamples;
 }
 
 int sceMp3SetLoopNum(u32 mp3, int loop) {
@@ -578,6 +592,28 @@ u32 sceMp3GetVersion(u32 mp3) {
 	return ctx->mp3Version;
 }
 
+u32 sceMp3ResetPlayPosition2(u32 mp3, int position) {
+	DEBUG_LOG(ME, "sceMp3ResetPlayPosition2(%08x, %i)", mp3, position);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	ctx->readPosition = position;
+	return 0;
+}
+
+u32 sceMp3_1B839B83() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3_1B839B83(...)");
+	return 0;
+}
+
+u32 sceMp3_E3EE2C81() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3_E3EE2C81(...)");
+	return 0;
+}
+
 const HLEFunction sceMp3[] = {
 	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
 	{0x0DB149F4,WrapI_UI<sceMp3NotifyAddStreamData>,"sceMp3NotifyAddStreamData"},
@@ -598,11 +634,11 @@ const HLEFunction sceMp3[] = {
 	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
 	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
 	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"}, // Name is wrong.
+	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},  // Incorrect function name
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
-	{0x0840e808,0,"sceMp3_0840E808"},
-	{0x1b839b83,0,"sceMp3_1B839B83"},
-	{0xe3ee2c81,0,"sceMp3_E3EE2C81"},
+	{0x0840e808,WrapU_UI<sceMp3ResetPlayPosition2>,"sceMp3ResetPlayPosition2"},  // Incorrect function name
+	{0x1b839b83,WrapU_V<sceMp3_1B839B83>,"sceMp3_1B839B83"},
+	{0xe3ee2c81,WrapU_V<sceMp3_E3EE2C81>,"sceMp3_E3EE2C81"}
 };
 
 void Register_sceMp3() {

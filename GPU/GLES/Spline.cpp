@@ -41,11 +41,11 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 
 	SimpleVertex *sverts = (SimpleVertex *)outPtr;	
 
-	u8 defaultColor[4] = {
-		gstate.getMaterialAmbientR(),
-		gstate.getMaterialAmbientG(),
-		gstate.getMaterialAmbientB(),
-		gstate.getMaterialAmbientA(),
+	const u8 defaultColor[4] = {
+		(u8)gstate.getMaterialAmbientR(),
+		(u8)gstate.getMaterialAmbientG(),
+		(u8)gstate.getMaterialAmbientB(),
+		(u8)gstate.getMaterialAmbientA(),
 	};
 
 	// Let's have two separate loops, one for non skinning and one for skinning.
@@ -706,7 +706,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 	int vertexSize = vdecoder->VertexSize();
 	if (vertexSize != sizeof(SimpleVertex)) {
-		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, sizeof(SimpleVertex));
+		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 
@@ -770,7 +770,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 
 	int vertexSize = vdecoder->VertexSize();
 	if (vertexSize != sizeof(SimpleVertex)) {
-		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, sizeof(SimpleVertex));
+		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 

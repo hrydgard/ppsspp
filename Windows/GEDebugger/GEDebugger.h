@@ -30,17 +30,19 @@ public:
 	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
 	~CGEDebugger();
 
-	static void init();
+	static void Init();
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
 private:
-	void SetupFrameWindow();
-	HWND addTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
-	void showTab(int index, bool setControlIndex = true);
-	void showTab(HWND pageHandle);
+	void SetupPreviews();
+	void UpdatePreviews();
+	HWND AddTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
+	void ShowTab(int index, bool setControlIndex = true);
+	void ShowTab(HWND pageHandle);
 	
 	CtrlDisplayListView* displayList;
 	SimpleGLWindow *frameWindow;
+	SimpleGLWindow *texWindow;
 	std::vector<HWND> tabs;
 };

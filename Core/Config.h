@@ -95,6 +95,7 @@ public:
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bLowQualitySplineBezier;
+	bool bFXAA;
 
 	// Sound
 	bool bEnableSound;

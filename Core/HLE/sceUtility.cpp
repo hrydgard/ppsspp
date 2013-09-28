@@ -33,6 +33,8 @@
 #include "../Dialog/PSPOskDialog.h"
 #include "../Dialog/PSPGamedataInstallDialog.h"
 
+#include "../native/file/ini_file.h"
+
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
 const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
@@ -452,9 +454,10 @@ int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x): wrong dialog type", paramsAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
 	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
-	currentDialogActive = true;
+	currentDialogActive = true;	
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
 	return gamedataInstallDialog.Init(paramsAddr);
 }
 
@@ -470,11 +473,15 @@ int sceUtilityGamedataInstallShutdownStart() {
 	return gamedataInstallDialog.Shutdown();
 }
 
-int sceUtilityGamedataInstallUpdate(int speed) {
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGamedataInstallUpdate(%08x)", speed);
-	currentDialogActive = false;
-	gamedataInstallDialog.Abort();
-	return 0;
+int sceUtilityGamedataInstallUpdate(int Speed) {
+	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(%i)", Speed);
+	return gamedataInstallDialog.Update();
 }
 
 int sceUtilityGamedataInstallGetStatus()
@@ -812,3 +819,42 @@ void Register_sceUtility()
 {
 	RegisterModule("sceUtility", ARRAY_SIZE(sceUtility), sceUtility);
 }
+
+std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
+	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
+	IniFile mapping;
+	mapping.LoadFromVFS("langregion.ini");
+	std::vector<std::string> keys;
+	mapping.GetKeys("LangRegionNames", keys);
+
+
+	std::map<std::string, int> langCodeMapping;
+	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
+	langCodeMapping["ENGLISH"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	langCodeMapping["FRENCH"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
+	langCodeMapping["SPANISH"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
+	langCodeMapping["GERMAN"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
+	langCodeMapping["ITALIAN"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
+	langCodeMapping["DUTCH"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
+	langCodeMapping["PORTUGUESE"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
+	langCodeMapping["RUSSIAN"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
+	langCodeMapping["KOREAN"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
+	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
+	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
+
+	IniFile::Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
+	IniFile::Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
+
+	for (size_t i = 0; i < keys.size(); i++) {
+		std::string langName;
+		langRegionNames->Get(keys[i].c_str(), &langName, "ERROR");
+		std::string langCode;
+		systemLanguage->Get(keys[i].c_str(), &langCode, "ENGLISH");
+		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		if (langCodeMapping.find(langCode) != langCodeMapping.end())
+			iLangCode = langCodeMapping[langCode];
+		langValuesMapping[keys[i]] = std::make_pair(langName, iLangCode);
+	}
+	return langValuesMapping;
+}
+

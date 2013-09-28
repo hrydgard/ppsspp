@@ -36,8 +36,12 @@
 #include <math.h>
 #endif
 
-const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4};
+extern std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
+
+static std::map<std::string, std::pair<std::string, int>> languageMapping;
+
+const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
+const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4, 4, 4};
 
 // Japanese(Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -49,7 +53,7 @@ static const wchar_t diacritics[2][103] =
 // Korean(Hangul) consonant
 static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 
-// Korean(Hangul) vowels, Some bowels are not used, them will be spacing
+// Korean(Hangul) vowels, Some vowels are not used, them will be spacing
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
 // Korean(Hangul) vowel Combination key
@@ -117,6 +121,20 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{L"ЙЦУКЕНГШЩЗХЪ"},
 		{L"ФЫВАПРОЛДЖЭЁ"},
 		{L"ЯЧСМИТЬБЮ/?|"},
+	},
+	{
+		// Latin Full-width Lowercase
+		{ L"１２３４５６７８９０－＋" },
+		{ L"ｑｗｅｒｔｙｕｉｏｐ［］" },
+		{ L"ａｓｄｆｇｈｊｋｌ；＠～" },
+		{ L"ｚｘｃｖｂｎｍ，．／？￥￥" },
+	},
+	{
+		// Latin Full-width Uppercase
+		{ L"！＠＃＄％＾＆＊（）＿＋" },
+		{ L"ＱＷＥＲＴＹＵＩＯＰ｛｝" },
+		{ L"ＡＳＤＦＧＨＪＫＬ：￥”‘" },
+		{ L"ＺＸＣＶＢＮＭ＜＞／？｜" },
 	},
 };
 
@@ -242,6 +260,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 	selectedChar = 0;
 	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+	currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 
 	ConvertUCS2ToUTF8(oskDesc, oskParams->fields[0].desc);
 	ConvertUCS2ToUTF8(oskIntext, oskParams->fields[0].intext);
@@ -257,6 +276,8 @@ int PSPOskDialog::Init(u32 oskPtr)
 		while ((c = *src++) != 0)
 			inputChars += c;
 	}
+
+	languageMapping = GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
@@ -588,7 +609,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 				string += inputChars[i];
 			}
 
-			if (string.size() < FieldMaxLength())
+			if (string.size() <= FieldMaxLength())
 			{
 				string += oskKeys[currentKeyboard][selectedRow][selectedCol];
 			}
@@ -671,7 +692,7 @@ int PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 
 u32 PSPOskDialog::FieldMaxLength()
 {
-	if (oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1 || oskParams->fields[0].outtextlimit == 0)
+	if ((oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1) || oskParams->fields[0].outtextlimit == 0)
 		return oskParams->fields[0].outtextlength - 1;
 	return oskParams->fields[0].outtextlimit;
 }
@@ -838,8 +859,6 @@ int PSPOskDialog::Update()
 		return NativeKeyboard();
 #endif
 
-	u32 limit = FieldMaxLength();
-
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
 		status = SCE_UTILITY_STATUS_RUNNING;
@@ -853,25 +872,53 @@ int PSPOskDialog::Update()
 		RenderKeyboard();
 		if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE)
 		{
-			PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
 		else
 		{
-			PPGeDrawImage(I_CIRCLE, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CROSS, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		}
-		//PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
 
 		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("Select"), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Delete"), 180, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Finish"), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		// TODO: Show title of next keyboard?
-		PPGeDrawText(d->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Select"), 115, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Delete"), 115, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+
+		int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
+		const char *countryCode;
+
+		if (index >= 0)
+			countryCode = OskKeyboardNames[(currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT].c_str();
+		else
+			countryCode = OskKeyboardNames[OSK_LANGUAGE_COUNT - 1].c_str();
+
+		const char *language = languageMapping[countryCode].first.c_str();
+
+		if (!strcmp(countryCode, "English Full-width"))
+			language = "English Full-width";
+		
+		if (strcmp(countryCode, "ko_KR"))
+		{
+			PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		}
+		
+		PPGeDrawText("L", 300, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(language, 315, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
+		language = languageMapping[countryCode].first.c_str();
+
+		if (!strcmp(countryCode, "English Full-width"))
+			language = "English Full-width";
+
+		PPGeDrawText("R", 300, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -902,8 +949,11 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
-			// TODO: Limit by allowed keyboards...
-			currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
+			// Select now swaps case.
+			if (currentKeyboard == OskKeyboardCases[currentKeyboardLanguage][UPPERCASE])
+				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+			else
+				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][UPPERCASE];
 
 			if(selectedRow >= numKeyRows[currentKeyboard])
 			{
@@ -911,6 +961,46 @@ int PSPOskDialog::Update()
 			}
 
 			if(selectedExtra >= numKeyCols[currentKeyboard])
+			{
+				selectedExtra = numKeyCols[currentKeyboard] - 1;
+			}
+
+			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+		}
+		else if (IsButtonPressed(CTRL_RTRIGGER))
+		{
+			// RTRIGGER now cycles languages forward.
+			currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT);
+			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+
+			if (selectedRow >= numKeyRows[currentKeyboard])
+			{
+				selectedRow = numKeyRows[currentKeyboard] - 1;
+			}
+
+			if (selectedExtra >= numKeyCols[currentKeyboard])
+			{
+				selectedExtra = numKeyCols[currentKeyboard] - 1;
+			}
+
+			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+		}
+		else if (IsButtonPressed(CTRL_LTRIGGER))
+		{
+			// LTRIGGER now cycles languages backward.
+			if (currentKeyboardLanguage - 1 >= 0)
+				currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT);
+			else
+				currentKeyboardLanguage = (OskKeyboardLanguage)(OSK_LANGUAGE_COUNT - 1);
+
+			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+
+			if (selectedRow >= numKeyRows[currentKeyboard])
+			{
+				selectedRow = numKeyRows[currentKeyboard] - 1;
+			}
+
+			if (selectedExtra >= numKeyCols[currentKeyboard])
 			{
 				selectedExtra = numKeyCols[currentKeyboard] - 1;
 			}

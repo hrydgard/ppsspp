@@ -251,7 +251,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest) {
 		if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
-			WRITE(p, "float roundTo255th(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
 			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n"); 
 	}
@@ -329,7 +329,7 @@ void GenerateFragmentShader(char *buffer) {
 				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) {
 					// Work around bad PVR driver problem where equality check + discard just doesn't work.
 					if (alphaTestFunc != 3)
-						WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else {
 					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				}
