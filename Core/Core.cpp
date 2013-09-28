@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
 #include "base/NativeApp.h"
 #include "base/display.h"
 #include "base/mutex.h"
@@ -42,12 +43,24 @@ static recursive_mutex m_hStepMutex;
 static event m_hInactiveEvent;
 static recursive_mutex m_hInactiveMutex;
 static bool singleStepPending = false;
+static std::set<Core_ShutdownFunc> shutdownFuncs;
 
 #ifdef _WIN32
 InputState input_state;
 #else
 extern InputState input_state;
 #endif
+
+void Core_ListenShutdown(Core_ShutdownFunc func)
+{
+	shutdownFuncs.insert(func);
+}
+
+void Core_NotifyShutdown()
+{
+	for (auto it = shutdownFuncs.begin(); it != shutdownFuncs.end(); ++it)
+		(*it)();
+}
 
 void Core_ErrorPause()
 {
@@ -63,6 +76,7 @@ void Core_Halt(const char *msg)
 
 void Core_Stop()
 {
+	Core_NotifyShutdown();
 	Core_UpdateState(CORE_POWERDOWN);
 	m_hStepEvent.notify_one();
 }

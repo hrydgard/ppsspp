@@ -157,9 +157,13 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 	auto s = p.Section("PSPGamedataInstallDialog", 0, 2);
 	if (!s)
 		return;
+
+	// This was included in version 1 and higher.
+	PSPDialog::DoState(p);
+	p.Do(request);
+
+	// This was included in version 2 and higher.
 	if (s > 2) {
-		PSPDialog::DoState(p);
-		p.Do(request);
 		p.Do(paramAddr);
 		p.Do(inFileNames);
 		p.Do(numFiles);

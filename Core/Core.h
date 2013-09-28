@@ -30,6 +30,9 @@ void Core_EnableStepping(bool step);
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
 
+typedef void (* Core_ShutdownFunc)();
+void Core_ListenShutdown(Core_ShutdownFunc func);
+void Core_NotifyShutdown();
 void Core_Halt(const char *msg);
 
 bool Core_IsStepping();

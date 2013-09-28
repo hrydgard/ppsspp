@@ -31,26 +31,32 @@ struct SimpleGLWindow {
 		FORMAT_8888 = 3,
 	};
 
-	enum ResizeType {
-		RESIZE_NONE,
-		RESIZE_SHRINK_FIT,
-		RESIZE_SHRINK_CENTER,
+	enum Flags {
+		RESIZE_NONE = 0x00,
+		RESIZE_SHRINK_FIT = 0x01,
+		RESIZE_SHRINK_CENTER = 0x02,
+		ALPHA_IGNORE = 0x00,
+		ALPHA_BLEND = 0x04,
 	};
 
 	SimpleGLWindow(HWND wnd);
 	~SimpleGLWindow();
 
 	void Clear();
-	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888, ResizeType resize = RESIZE_NONE);
-	void Initialize();
-	static SimpleGLWindow* getFrom(HWND hwnd);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
+	void Initialize(u32 flags);
+	static SimpleGLWindow *GetFrom(HWND hwnd);
+	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+	void SetFlags(u32 flags) {
+		flags_ = flags;
+	}
 
 	void Swap() {
 		SwapBuffers(hDC_);
 	}
 
-	static void registerClass();
+	static void RegisterClass();
 protected:
 	void SetupGL();
 	void ResizeGL(int w, int h);
@@ -68,4 +74,5 @@ protected:
 	GLSLProgram *drawProgram_;
 	GLuint checker_;
 	GLuint tex_;
+	u32 flags_;
 };

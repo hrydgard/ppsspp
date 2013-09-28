@@ -365,7 +365,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_FRAMEBUFWIDTH:
 		{
-			sprintf(buffer, "FramebufWidth: %i", data);
+			sprintf(buffer, "FramebufWidth: %x, address high %02x", data & 0xFFFF, data >> 16);
 		}
 		break;
 

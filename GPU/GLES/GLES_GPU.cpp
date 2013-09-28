@@ -1515,7 +1515,28 @@ void GLES_GPU::DoState(PointerWrap &p) {
 	framebufferManager_.DestroyAllFBOs();
 }
 
-bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
-{
+bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_.GetCurrentFramebuffer(buffer);
+}
+
+bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
+	if (!gstate.isTextureMapEnabled()) {
+		return false;
+	}
+
+#ifndef USING_GLES2
+	textureCache_.SetTexture(true);
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
+
+	buffer.Allocate(w, h, GE_FORMAT_8888, false);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+
+	return true;
+#else
+	return false;
+#endif
 }

@@ -81,7 +81,7 @@ struct ThreadEventQueue : public B {
 			}
 
 			// coreState changes won't wake us, so recheck periodically.
-			eventsWait_.wait_for(eventsWaitLock_, 1);
+			eventsWait_.wait(eventsWaitLock_);
 		} while (CoreTiming::GetTicks() < globalticks);
 	}
 
