@@ -21,6 +21,7 @@
 #include "Globals.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/TabControl.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
 enum {
@@ -43,17 +44,13 @@ protected:
 private:
 	void SetupPreviews();
 	void UpdatePreviews();
-	HWND AddTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
-	void AddTabDialog(Dialog* dialog, wchar_t* title);
-	void ShowTab(int index, bool setControlIndex = true);
-	void ShowTab(HWND pageHandle);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 
 	CtrlDisplayListView* displayList;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
-	std::vector<HWND> tabs;
+	TabControl* tabs;
 
 	int minWidth,minHeight;
 };

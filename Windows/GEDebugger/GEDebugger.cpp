@@ -125,7 +125,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&frameRect,2);
 	MoveWindow(frameWnd,frameRect.left,frameRect.top,512,272,TRUE);
 
-	HWND wnd = AddTabWindow(L"CtrlDisplayListView",L"Display List");
+	tabs = new TabControl(GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB));
+	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
 
 	// set window position
@@ -187,95 +188,6 @@ void CGEDebugger::UpdatePreviews() {
 	}
 }
 
-HWND CGEDebugger::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
-{
-	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
-	style |= WS_CHILD;
-
-	TCITEM tcItem;
-	ZeroMemory (&tcItem,sizeof (tcItem));
-	tcItem.mask			= TCIF_TEXT;
-	tcItem.dwState		= 0;
-	tcItem.pszText		= title;
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	tcItem.iImage		= 0;
-
-	int index = TabCtrl_GetItemCount(tabControl);
-	int result = TabCtrl_InsertItem(tabControl,index,&tcItem);
-
-	RECT tabRect;
-	GetWindowRect(tabControl,&tabRect);
-	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
-	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
-
-	HWND hwnd = CreateWindowEx(0,className,title,style,
-		tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,
-		m_hDlg,0,MainWindow::GetHInstance(),0);
-	tabs.push_back(hwnd);
-
-	ShowTab(index);
-	return hwnd;
-}
-
-void CGEDebugger::AddTabDialog(Dialog* dialog, wchar_t* title)
-{
-	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
-	HWND handle = dialog->GetDlgHandle();
-
-	TCITEM tcItem;
-	ZeroMemory (&tcItem,sizeof (tcItem));
-	tcItem.mask			= TCIF_TEXT;
-	tcItem.dwState		= 0;
-	tcItem.pszText		= title;
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	tcItem.iImage		= 0;
-
-	int index = TabCtrl_GetItemCount(tabControl);
-	int result = TabCtrl_InsertItem(tabControl,index,&tcItem);
-
-	RECT tabRect;
-	GetWindowRect(tabControl,&tabRect);
-	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
-	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
-	
-	SetParent(handle,m_hDlg);
-	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD) & ~(WS_POPUP | WS_TILEDWINDOW);
-	SetWindowLong(handle, GWL_STYLE, style);
-	MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
-	tabs.push_back(handle);
-
-	ShowTab(index);
-}
-
-void CGEDebugger::ShowTab(int index, bool setControlIndex)
-{
-	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
-
-	for (size_t i = 0; i < tabs.size(); i++)
-	{
-		ShowWindow(tabs[i],i == index ? SW_NORMAL : SW_HIDE);
-	}
-
-	if (setControlIndex)
-	{
-		TabCtrl_SetCurSel(tabControl,index);
-	}
-}
-
-void CGEDebugger::ShowTab(HWND pageHandle)
-{
-	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
-
-	for (size_t i = 0; i < tabs.size(); i++)
-	{
-		if (tabs[i] == pageHandle)
-		{
-			TabCtrl_SetCurSel(tabControl,i);
-		}
-		ShowWindow(tabs[i],tabs[i] == pageHandle ? SW_NORMAL : SW_HIDE);
-	}
-}
-
 void CGEDebugger::UpdateSize(WORD width, WORD height)
 {
 	// only resize the tab for now
@@ -288,24 +200,6 @@ void CGEDebugger::UpdateSize(WORD width, WORD height)
 	tabRect.right = tabRect.left + (width-tabRect.left*2);				// assume same gap on both sides
 	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
 	MoveWindow(tabControl,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
-	InvalidateRect(tabControl,NULL,FALSE);
-	UpdateWindow(tabControl);
-	
-	// now resize tab children
-	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
-	int current = TabCtrl_GetCurSel(tabControl);
-	
-	for (int i = 0; i < tabs.size(); i++)
-	{
-		InvalidateRect(tabs[i],NULL,FALSE);
-		MoveWindow(tabs[i],tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,FALSE);
-
-		if (i == current)
-		{
-			InvalidateRect(tabs[i],NULL,FALSE);
-			UpdateWindow(tabs[i]);
-		}
-	}
 }
 
 void CGEDebugger::SavePosition()
@@ -360,16 +254,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_MAINTAB:
-			{
-				HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
-				NMHDR* pNotifyMessage = NULL;
-				pNotifyMessage = (LPNMHDR)lParam; 
-				if (pNotifyMessage->hwndFrom == tabControl)
-				{
-					int iPage = TabCtrl_GetCurSel(tabControl);
-					ShowTab(iPage,false);
-				}
-			}
+			tabs->HandleNotify(lParam);
 			break;
 		}
 		break;
