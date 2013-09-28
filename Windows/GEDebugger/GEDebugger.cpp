@@ -96,9 +96,17 @@ static void RunPauseAction() {
 	pauseAction = PAUSE_CONTINUE;
 }
 
+static void ForceUnpause() {
+	lock_guard guard(pauseLock);
+	lock_guard actionGuard(actionLock);
+	pauseAction = PAUSE_CONTINUE;
+	pauseWait.notify_one();
+}
+
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
 	breakCmds.resize(256, false);
+	Core_ListenShutdown(ForceUnpause);
 
 	// it's ugly, but .rc coordinates don't match actual pixels and it screws
 	// up both the size and the aspect ratio
@@ -239,6 +247,10 @@ bool WindowsHost::GPUDebuggingActive() {
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
 	lock_guard guard(pauseLock);
+	if (Core_IsInactive()) {
+		return;
+	}
+
 	PostMessage(geDebuggerWindow->GetDlgHandle(), msg, wParam, lParam);
 
 	do {

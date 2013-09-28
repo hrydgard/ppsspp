@@ -286,6 +286,7 @@ bool PSP_IsInited() {
 }
 
 void PSP_Shutdown() {
+	Core_NotifyShutdown();
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
 	if (cpuThread != NULL) {
