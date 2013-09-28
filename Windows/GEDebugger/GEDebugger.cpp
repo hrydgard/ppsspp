@@ -217,6 +217,36 @@ HWND CGEDebugger::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	return hwnd;
 }
 
+void CGEDebugger::AddTabDialog(Dialog* dialog, wchar_t* title)
+{
+	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
+	HWND handle = dialog->GetDlgHandle();
+
+	TCITEM tcItem;
+	ZeroMemory (&tcItem,sizeof (tcItem));
+	tcItem.mask			= TCIF_TEXT;
+	tcItem.dwState		= 0;
+	tcItem.pszText		= title;
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
+	tcItem.iImage		= 0;
+
+	int index = TabCtrl_GetItemCount(tabControl);
+	int result = TabCtrl_InsertItem(tabControl,index,&tcItem);
+
+	RECT tabRect;
+	GetWindowRect(tabControl,&tabRect);
+	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
+	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
+	
+	SetParent(handle,m_hDlg);
+	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD) & ~(WS_POPUP | WS_TILEDWINDOW);
+	SetWindowLong(handle, GWL_STYLE, style);
+	MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+	tabs.push_back(handle);
+
+	ShowTab(index);
+}
+
 void CGEDebugger::ShowTab(int index, bool setControlIndex)
 {
 	HWND tabControl = GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB);
