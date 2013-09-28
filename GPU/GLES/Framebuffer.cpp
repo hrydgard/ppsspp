@@ -154,21 +154,37 @@ void DisableState() {
 #endif
 }
 
+void FramebufferManager::SetNumExtraFBOs(int num) {
+	for (int i = 0; i < extraFBOs_.size(); i++) {
+		fbo_destroy(extraFBOs_[i]);
+	}
+	extraFBOs_.clear();
+	for (int i = 0; i < num; i++) {
+		// No depth/stencil for post processing
+		FBO *fbo = fbo_create(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight, 1, false, FBO_8888);
+		extraFBOs_.push_back(fbo);
+	}
+}
+
 void FramebufferManager::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
-		if (g_Config.bFXAA) {
-			draw2dprogram_ = glsl_create("assets/shaders/fxaa.vsh", "assets/shaders/fxaa.fsh");
-		} else {
-			draw2dprogram_ = glsl_create_source(basic_vs, tex_fs);
-		}
+		SetNumExtraFBOs(0);
+		draw2dprogram_ = glsl_create_source(basic_vs, tex_fs);
 		glsl_bind(draw2dprogram_);
 		glUniform1i(draw2dprogram_->sampler0, 0);
 
-		float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
-		float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-
 		if (g_Config.bFXAA) {
-			glUniform2f(glsl_uniform_loc(draw2dprogram_, "u_texcoordDelta"), u_delta, v_delta);
+			useFXAA_ = true;
+			fxaaProgram_ = glsl_create("shaders/fxaa.vsh", "shaders/fxaa.fsh");
+			glsl_bind(fxaaProgram_);
+			glUniform1i(fxaaProgram_->sampler0, 0);
+			SetNumExtraFBOs(1);
+			float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
+			float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+			glUniform2f(glsl_uniform_loc(fxaaProgram_, "u_texcoordDelta"), u_delta, v_delta);
+		} else {
+			fxaaProgram_ = 0;
+			useFXAA_ = false;
 		}
 
 		glsl_unbind();
@@ -179,6 +195,8 @@ void FramebufferManager::DestroyDraw2DProgram() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
+		glsl_destroy(fxaaProgram_);
+		fxaaProgram_ = 0;
 	}
 }
 
@@ -194,7 +212,11 @@ FramebufferManager::FramebufferManager() :
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf(0),
-	draw2dprogram_(0)
+	draw2dprogram_(0),
+	fxaaProgram_(0),
+	textureCache_(0),
+	shaderManager_(0),
+	useFXAA_(false)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -246,6 +268,7 @@ FramebufferManager::~FramebufferManager() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
 	}
+	SetNumExtraFBOs(0);
 
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
@@ -351,10 +374,10 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
+	DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale, GLSLProgram *program) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
 	float v1 = flip ? 1.0f : 1.0f - vscale;
@@ -364,14 +387,17 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
 	const GLubyte indices[4] = {0,1,3,2};
 	
-	if(!program) {
+	if (!draw2dprogram_) {
 		CompileDraw2DProgram();
+	}
+
+	if (!program) {
 		program = draw2dprogram_;
 	}
 
 	glsl_bind(program);
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0, -1, 1);
+	ortho.setOrtho(0, destW, destH, 0, -1, 1);
 	glUniformMatrix4fv(program->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -753,16 +779,30 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 
 	if (vfb->fbo) {
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 	
+		if (useFXAA_ && extraFBOs_.size() == 1) {
+			// An additional pass, FXAA to the extra FBO.
+			fbo_bind_as_render_target(extraFBOs_[0]);
+			int fbo_w, fbo_h;
+			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
+			glstate.viewport.set(0, 0, fbo_w, fbo_h);
+			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, fxaaProgram_);
+
+			fbo_unbind();
+
+			// Use the extra FBO, with applied FXAA, as a texture.
+			fbo_bind_color_as_texture(extraFBOs_[0], 0);
+		}
+
+		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+		DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 }
@@ -911,7 +951,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 
 	CompileDraw2DProgram();
 
-	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram_);
+	DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, upscale, vscale, draw2dprogram_);
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();

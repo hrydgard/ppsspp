@@ -125,7 +125,7 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -178,6 +178,8 @@ private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 
+	void SetNumExtraFBOs(int num);
+
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
@@ -213,9 +215,14 @@ private:
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
+	GLSLProgram *fxaaProgram_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
+	bool useFXAA_;
+
+	// Used by antialiasing
+	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
 	bool useBufferedRendering_;

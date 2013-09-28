@@ -1,4 +1,3 @@
-#version 120
 attribute vec4 a_position;
 attribute vec2 a_texcoord0;
 uniform mat4 u_viewproj;
