@@ -126,14 +126,16 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 	if (mhdr->code == NM_DBLCLK)
 	{
 		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-		OnDoubleClick(item->iItem,item->iSubItem);
+		if (item->iItem != -1 && item->iItem < GetRowCount())
+			OnDoubleClick(item->iItem,item->iSubItem);
 		return;
 	}
 
 	if (mhdr->code == NM_RCLICK)
 	{
 		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
-		OnRightClick(item->iItem,item->iSubItem);
+		if (item->iItem != -1 && item->iItem < GetRowCount())
+			OnRightClick(item->iItem,item->iSubItem);
 		return;
 	}
 
