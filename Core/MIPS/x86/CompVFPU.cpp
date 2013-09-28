@@ -1441,7 +1441,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
-	if (js.MayHavePrefix())
+	if (js.HasUnknownPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -1534,7 +1534,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
-	if (js.MayHavePrefix())
+	if (js.HasUnknownPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -1598,7 +1598,7 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
-	if (js.MayHavePrefix())
+	if (js.HasUnknownPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -1643,7 +1643,7 @@ void Jit::Comp_Vtfm(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?  Or maybe uses D?
-	if (js.MayHavePrefix())
+	if (js.HasUnknownPrefix())
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);

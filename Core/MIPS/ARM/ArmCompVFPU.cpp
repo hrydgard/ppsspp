@@ -1183,7 +1183,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
-		if (js.MayHavePrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1229,7 +1229,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?  Or maybe uses D?
-		if (js.MayHavePrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
