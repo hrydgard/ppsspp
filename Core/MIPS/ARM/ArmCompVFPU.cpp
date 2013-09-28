@@ -559,6 +559,48 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_VHdp(MIPSOpcode op) {
+		// DISABLE;
+
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix() || disablePrefixes) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixT(tregs, sz, vt);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		// TODO: applyprefixST here somehow (shuffle, etc...)
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
+		VMUL(S0, fpr.V(sregs[0]), fpr.V(tregs[0]));
+
+		int n = GetNumVectorElements(sz);
+		for (int i = 1; i < n; i++) {
+			// sum += s[i]*t[i];
+			if (i == n - 1) {
+				VADD(S0, S0, fpr.V(tregs[i]));
+			} else {
+				VMLA(S0, fpr.V(sregs[i]), fpr.V(tregs[i]));
+			}
+		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
+
+		VMOV(fpr.V(dregs[0]), S0);
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
 	void Jit::Comp_VDot(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -590,7 +632,6 @@ namespace MIPSComp
 
 		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
 
-		// TODO: applyprefixD here somehow (write mask etc..)
 		VMOV(fpr.V(dregs[0]), S0);
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -605,11 +646,6 @@ namespace MIPSComp
 		case 7:  // vavg
 			break;
 		}
-	}
-
-	void Jit::Comp_VHdp(MIPSOpcode op) {
-		// Similar to vdot
-		DISABLE;
 	}
 
 	void Jit::Comp_VecDo3(MIPSOpcode op) {
@@ -897,6 +933,10 @@ namespace MIPSComp
 
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
+	void Jit::Comp_Vh2f(MIPSOpcode op) {
+		DISABLE;
 	}
 
 	void Jit::Comp_Vf2i(MIPSOpcode op) {

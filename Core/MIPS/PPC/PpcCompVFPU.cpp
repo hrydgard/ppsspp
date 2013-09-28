@@ -949,6 +949,10 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_Vh2f(MIPSOpcode op) {
+		DISABLE;
+	}
+
 	void Jit::Comp_Vcst(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 

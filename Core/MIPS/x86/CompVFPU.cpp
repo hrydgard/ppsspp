@@ -1083,6 +1083,10 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_Vh2f(MIPSOpcode op) {
+	DISABLE;
+}
+
 extern const double mulTableVf2i[32] = {
 	(1ULL<<0),(1ULL<<1),(1ULL<<2),(1ULL<<3),
 	(1ULL<<4),(1ULL<<5),(1ULL<<6),(1ULL<<7),

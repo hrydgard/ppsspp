@@ -605,7 +605,7 @@ const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . .......
 	INVALID,
 	INVALID,
 	INSTR("vf2h", &Jit::Comp_Generic, Dis_Generic, Int_Vf2h, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vh2f", &Jit::Comp_Generic, Dis_Generic, Int_Vh2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vh2f", &Jit::Comp_Vh2f, Dis_Generic, Int_Vh2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	INVALID,
 	INVALID,

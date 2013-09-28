@@ -220,6 +220,7 @@ namespace MIPSComp
 		void Comp_Vx2i(MIPSOpcode op);
 		void Comp_Vf2i(MIPSOpcode op);
 		void Comp_Vi2f(MIPSOpcode op);
+		void Comp_Vh2f(MIPSOpcode op);
 		void Comp_Vcst(MIPSOpcode op);
 		void Comp_Vhoriz(MIPSOpcode op);	
 		void Comp_VRot(MIPSOpcode op);
