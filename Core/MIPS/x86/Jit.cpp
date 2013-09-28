@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <iterator>
 
+#include "math/math_util.h"
+
 #include "Common/ChunkFile.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -116,9 +118,11 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
 	asm_.Init(mips, this);
-
 	// TODO: If it becomes possible to switch from the interpreter, this should be set right.
 	js.startDefaultPrefix = true;
+}
+
+Jit::~Jit() {
 }
 
 void Jit::DoState(PointerWrap &p)
