@@ -453,9 +453,7 @@ void DeveloperToolsScreen::CreateViews() {
 #ifndef __SYMBIAN32__
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 #endif
-#ifdef _WIN32
-	list->Add(new CheckBox(&g_Config.bForceOpenGL20, gs->T("Force OpenGL 2.0", "Force OpenGL 2.0")));
-#endif
+
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
