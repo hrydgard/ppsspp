@@ -135,7 +135,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 #ifndef USING_GLES
 	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing"))); 
-	// In case we're going to add few other antianaliasing option like MSAA in the future.
+	// In case we're going to add few other antialiasing option like MSAA in the future.
 	graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 #endif
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
