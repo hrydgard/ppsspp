@@ -843,7 +843,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb); // synchronous glReadPixels
 #else
-	if((gl_extensions.PBO_ARB) && !g_Config.bForceOpenGL20)
+	if(gl_extensions.PBO_ARB || !gl_extensions.ATIClampBug)
 	{
 		if(!sync) {
 			PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
