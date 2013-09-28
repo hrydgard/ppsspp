@@ -99,7 +99,7 @@ uint64_t GetSize(FILE *f)
 	return size;
 }
 
-bool ReadFileToString(bool text_file, const char *filename, std::string &str)
+bool readFileToString(bool text_file, const char *filename, std::string &str)
 {
 	FILE *f = openCFile(filename, text_file ? "r" : "rb");
 	if (!f)
