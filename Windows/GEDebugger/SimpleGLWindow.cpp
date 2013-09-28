@@ -65,7 +65,7 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0) {
+	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
 }
 
@@ -79,10 +79,11 @@ SimpleGLWindow::~SimpleGLWindow() {
 	}
 };
 
-void SimpleGLWindow::Initialize() {
+void SimpleGLWindow::Initialize(u32 flags) {
 	RECT rect;
 	GetWindowRect(hWnd_, &rect);
 
+	SetFlags(flags);
 	SetupGL();
 	ResizeGL(rect.right-rect.left,rect.bottom-rect.top);
 	CreateProgram();
@@ -200,12 +201,16 @@ void SimpleGLWindow::DrawChecker() {
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 }
 
-void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt, ResizeType resize) {
+void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	DrawChecker();
 
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquation(GL_FUNC_ADD);
+	if (flags_ & ALPHA_BLEND) {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquation(GL_FUNC_ADD);
+	} else {
+		glDisable(GL_BLEND);
+	}
 	glViewport(0, 0, w_, h_);
 	glScissor(0, 0, w_, h_);
 
@@ -237,7 +242,7 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt, Resi
 
 	float fw = (float)w, fh = (float)h;
 	float x = 0.0f, y = 0.0f;
-	if (resize == RESIZE_SHRINK_FIT || resize == RESIZE_SHRINK_CENTER) {
+	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_SHRINK_CENTER)) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -249,7 +254,7 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt, Resi
 			fh = (float)h_;
 		}
 
-		if (resize == RESIZE_SHRINK_CENTER) {
+		if (flags_ & RESIZE_SHRINK_CENTER) {
 			x = ((float)w_ - fw) / 2;
 			y = ((float)h_ - fh) / 2;
 		}

@@ -119,13 +119,13 @@ CGEDebugger::~CGEDebugger() {
 void CGEDebugger::SetupPreviews() {
 	if (frameWindow == NULL) {
 		frameWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
-		frameWindow->Initialize();
+		frameWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		// TODO: Why doesn't this work?
 		frameWindow->Clear();
 	}
 	if (texWindow == NULL) {
 		texWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
-		texWindow->Initialize();
+		texWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		// TODO: Why doesn't this work?
 		texWindow->Clear();
 	}
@@ -139,7 +139,7 @@ void CGEDebugger::UpdatePreviews() {
 
 	if (bufferResult) {
 		auto fmt = SimpleGLWindow::Format(bufferFrame.GetFormat());
-		frameWindow->Draw(bufferFrame.GetData(), bufferFrame.GetStride(), bufferFrame.GetHeight(), bufferFrame.GetFlipped(), fmt, SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		frameWindow->Draw(bufferFrame.GetData(), bufferFrame.GetStride(), bufferFrame.GetHeight(), bufferFrame.GetFlipped(), fmt);
 	} else {
 		ERROR_LOG(COMMON, "Unable to get framebuffer.");
 		frameWindow->Clear();
@@ -150,7 +150,7 @@ void CGEDebugger::UpdatePreviews() {
 
 	if (bufferResult) {
 		auto fmt = SimpleGLWindow::Format(bufferTex.GetFormat());
-		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt, SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
 	} else {
 		ERROR_LOG(COMMON, "Unable to get texture.");
 		texWindow->Clear();
