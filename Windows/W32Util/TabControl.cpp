@@ -106,7 +106,7 @@ void TabControl::PreviousTab(bool cycle)
 {
 	int index = TabCtrl_GetCurSel(hwnd);
 	if (index == 0 && cycle)
-		index = tabs.size()-1;
+		index = (int) tabs.size()-1;
 	ShowTab(index);
 }
 
@@ -127,7 +127,7 @@ void TabControl::OnResize()
 	GetWindowRect(hwnd,&tabRect);
 	MapWindowPoints(HWND_DESKTOP,GetParent(hwnd),(LPPOINT)&tabRect,2);
 
-	InvalidateRect(hwnd,NULL,FALSE);
+	InvalidateRect(hwnd,NULL,TRUE);
 	UpdateWindow(hwnd);
 	
 	// now resize tab children
@@ -137,11 +137,11 @@ void TabControl::OnResize()
 	for (size_t i = 0; i < tabs.size(); i++)
 	{
 		InvalidateRect(tabs[i],NULL,FALSE);
-		MoveWindow(tabs[i],tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,FALSE);
+		MoveWindow(tabs[i],tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
 
 		if (i == current)
 		{
-			InvalidateRect(tabs[i],NULL,FALSE);
+			InvalidateRect(tabs[i],NULL,TRUE);
 			UpdateWindow(tabs[i]);
 		}
 	}

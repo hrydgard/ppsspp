@@ -77,6 +77,7 @@
 #define ID_DEBUG_DSIPLAYFUNCTIONLIST    248
 #define ID_MEMVIEW_COPYADDRESS          249
 #define IDD_GEDEBUGGER                  250
+#define IDD_TABDISPLAYLISTS             251
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -265,6 +266,9 @@
 #define IDC_GEDBG_MAINTAB                40120
 #define IDC_GEDBG_TEX                    40121
 #define IDC_GEDBG_STEP                   40122
+#define IDC_GEDBG_LISTS_ALLLISTS         40123
+#define IDC_GEDBG_LISTS_STACK            40124
+#define IDC_GEDBG_LISTS_SELECTEDLIST     40125
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -276,8 +280,8 @@
 // Next default values for new objects
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        251
-#define _APS_NEXT_COMMAND_VALUE         40123
+#define _APS_NEXT_RESOURCE_VALUE        252
+#define _APS_NEXT_COMMAND_VALUE         40126
 #define _APS_NEXT_CONTROL_VALUE         1181
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
