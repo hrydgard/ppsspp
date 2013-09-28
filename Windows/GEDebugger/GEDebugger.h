@@ -46,9 +46,13 @@ private:
 	HWND AddTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
 	void ShowTab(int index, bool setControlIndex = true);
 	void ShowTab(HWND pageHandle);
-	
+	void UpdateSize(WORD width, WORD height);
+	void SavePosition();
+
 	CtrlDisplayListView* displayList;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
 	std::vector<HWND> tabs;
+
+	int minWidth,minHeight;
 };

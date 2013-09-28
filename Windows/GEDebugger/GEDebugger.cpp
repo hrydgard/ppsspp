@@ -29,6 +29,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
 
@@ -108,6 +109,12 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	breakCmds.resize(256, false);
 	Core_ListenShutdown(ForceUnpause);
 
+	// minimum size = a little more than the default
+	RECT windowRect;
+	GetWindowRect(m_hDlg,&windowRect);
+	minWidth = windowRect.right-windowRect.left+10;
+	minHeight = windowRect.bottom-windowRect.top+10;
+
 	// it's ugly, but .rc coordinates don't match actual pixels and it screws
 	// up both the size and the aspect ratio
 	// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
@@ -120,6 +127,13 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 
 	HWND wnd = AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
+
+	// set window position
+	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
+	int y = g_Config.iGEWindowY == -1 ? windowRect.top : g_Config.iGEWindowY;
+	int w = g_Config.iGEWindowW == -1 ? minWidth : g_Config.iGEWindowW;
+	int h = g_Config.iGEWindowH == -1 ? minHeight : g_Config.iGEWindowH;
+	MoveWindow(m_hDlg,x,y,w,h,FALSE);
 }
 
 CGEDebugger::~CGEDebugger() {
@@ -232,13 +246,70 @@ void CGEDebugger::ShowTab(HWND pageHandle)
 	}
 }
 
+void CGEDebugger::UpdateSize(WORD width, WORD height)
+{
+	// only resize the tab for now
+	HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
+
+	RECT tabRect;
+	GetWindowRect(tabControl,&tabRect);
+	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&tabRect,2);
+
+	tabRect.right = tabRect.left + (width-tabRect.left*2);				// assume same gap on both sides
+	tabRect.bottom = tabRect.top + (height-tabRect.top-tabRect.left);	// assume same gap on bottom too
+	MoveWindow(tabControl,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+	InvalidateRect(tabControl,NULL,FALSE);
+	UpdateWindow(tabControl);
+	
+	// now resize tab children
+	TabCtrl_AdjustRect(tabControl, FALSE, &tabRect);
+	int current = TabCtrl_GetCurSel(tabControl);
+	
+	for (int i = 0; i < tabs.size(); i++)
+	{
+		InvalidateRect(tabs[i],NULL,FALSE);
+		MoveWindow(tabs[i],tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,FALSE);
+
+		if (i == current)
+		{
+			InvalidateRect(tabs[i],NULL,FALSE);
+			UpdateWindow(tabs[i]);
+		}
+	}
+}
+
+void CGEDebugger::SavePosition()
+{
+	RECT rc;
+	if (GetWindowRect(m_hDlg, &rc))
+	{
+		g_Config.iGEWindowX = rc.left;
+		g_Config.iGEWindowY = rc.top;
+		g_Config.iGEWindowW = rc.right - rc.left;
+		g_Config.iGEWindowH = rc.bottom - rc.top;
+	}
+}
+
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	switch (message) {
 	case WM_INITDIALOG:
 		return TRUE;
 
+	case WM_GETMINMAXINFO:
+		{
+			MINMAXINFO* minmax = (MINMAXINFO*) lParam;
+			minmax->ptMinTrackSize.x = minWidth;
+			minmax->ptMinTrackSize.y = minHeight;
+		}
+		return TRUE;
+
 	case WM_SIZE:
-		// TODO
+		UpdateSize(LOWORD(lParam), HIWORD(lParam));
+		SavePosition();
+		return TRUE;
+		
+	case WM_MOVE:
+		SavePosition();
 		return TRUE;
 
 	case WM_CLOSE:
