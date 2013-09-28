@@ -30,6 +30,7 @@
 #include "ext/xxhash.h"
 #include "math/math_util.h"
 #include "native/ext/cityhash/city.h"
+#include "native/gfx_es2/gl_state.h"
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
@@ -510,13 +511,22 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
 		entry.magFilt = magFilt;
 	}
-	if (force || entry.sClamp != sClamp) {
+	
+	//Workaround to fix a clamping bug in pre-HD ATI/AMD drivers
+	if (gl_extensions.ATIClampBug && entry.framebuffer)
+	{
+		return;
+	}
+	else
+	{
+		if (force || entry.sClamp != sClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.sClamp = sClamp;
-	}
-	if (force || entry.tClamp != tClamp) {
+		}
+		if (force || entry.tClamp != tClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.tClamp = tClamp;
+		}
 	}
 }
 
