@@ -36,8 +36,6 @@
 #include <math.h>
 #endif
 
-extern std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
-
 static std::map<std::string, std::pair<std::string, int>> languageMapping;
 
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
@@ -969,6 +967,7 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_RTRIGGER))
 		{
+			// TODO: Limit by allowed keyboards...
 			// RTRIGGER now cycles languages forward.
 			currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT);
 			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
@@ -987,6 +986,7 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_LTRIGGER))
 		{
+			// TODO: Limit by allowed keyboards...
 			// LTRIGGER now cycles languages backward.
 			if (currentKeyboardLanguage - 1 >= 0)
 				currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT);
