@@ -838,6 +838,9 @@ namespace MainWindow
 
 		switch (message) {
 		case WM_ACTIVATE:
+			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+				g_activeWindow = WINDOW_MAINWINDOW;
+			}
 			break;
 
 		case WM_SETFOCUS:
@@ -996,6 +999,12 @@ namespace MainWindow
 
 		switch (message) {
 		case WM_CREATE:
+			break;
+			
+		case WM_ACTIVATE:
+			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+				g_activeWindow = WINDOW_MAINWINDOW;
+			}
 			break;
 
 		case WM_MOVE:

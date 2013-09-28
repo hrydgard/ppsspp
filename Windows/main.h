@@ -31,4 +31,6 @@ extern CGEDebugger *geDebuggerWindow ;
 extern CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
 
 extern HMENU g_hPopupMenus;
-extern bool g_debuggerActive;
+extern int g_activeWindow;
+
+enum { WINDOW_MAINWINDOW, WINDOW_CPUDEBUGGER, WINDOW_GEDEBUGGER };

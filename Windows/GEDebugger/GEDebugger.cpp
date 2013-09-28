@@ -32,9 +32,6 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
-const UINT WM_GEDBG_BREAK_CMD = WM_USER + 200;
-const UINT WM_GEDBG_BREAK_DRAW = WM_USER + 201;
-
 enum PauseAction {
 	PAUSE_CONTINUE,
 	PAUSE_GETFRAMEBUF,
@@ -252,6 +249,12 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		SetupPreviews();
 		break;
 
+	case WM_ACTIVATE:
+		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+			g_activeWindow = WINDOW_GEDEBUGGER;
+		}
+		break;
+
 	case WM_NOTIFY:
 		switch (wParam)
 		{
@@ -282,12 +285,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEP:
-			attached = true;
-			SetupPreviews();
-
-			pauseWait.notify_one();
-			breakNextOp = true;
-			breakNextDraw = false;
+			SendMessage(m_hDlg,WM_GEDBG_STEPDISPLAYLIST,0,0);
 			break;
 
 		case IDC_GEDBG_RESUME:
@@ -315,6 +313,15 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			NOTICE_LOG(COMMON, "Waiting at a draw");
 			UpdatePreviews();
 		}
+		break;
+
+	case WM_GEDBG_STEPDISPLAYLIST:
+		attached = true;
+		SetupPreviews();
+
+		pauseWait.notify_one();
+		breakNextOp = true;
+		breakNextDraw = false;
 		break;
 	}
 
