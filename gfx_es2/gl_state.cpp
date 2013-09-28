@@ -185,6 +185,7 @@ void CheckGLExtensions() {
 		gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 		gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
 		gl_extensions.PBO_ARB = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
+		gl_extensions.ATIClampBug = ((strncmp ((char *)glGetString(GL_RENDERER), "ATI RADEON X", 12) != 0) || (strncmp ((char *)glGetString(GL_RENDERER), "ATI MOBILITY RADEON X",21) != 0));
 	}
 #endif
 }
