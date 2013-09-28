@@ -219,6 +219,9 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	if (fmt == FORMAT_8888) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 		glfmt = GL_UNSIGNED_BYTE;
+	} else if (fmt == FORMAT_FLOAT) {
+		glfmt = GL_FLOAT;
+		components = GL_RED;
 	} else {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
 		if (fmt == FORMAT_4444) {
@@ -228,6 +231,11 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_565) {
 			glfmt = GL_UNSIGNED_SHORT_5_6_5;
 			components = GL_RGB;
+		} else if (fmt == FORMAT_16BIT) {
+			glfmt = GL_UNSIGNED_SHORT;
+			components = GL_RED;
+		} else {
+			_dbg_assert_msg_(COMMON, false, "Invalid SimpleGLWindow format.");
 		}
 	}
 
