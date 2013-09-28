@@ -1342,8 +1342,7 @@ void FramebufferManager::Resized() {
 	resized_ = true;
 }
 
-bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
-{
+bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
 	int fb_stride = gstate.fbwidth & 0x3C0;
 
@@ -1365,4 +1364,64 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
 	return true;
+}
+
+bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
+	int fb_stride = gstate.fbwidth & 0x3C0;
+
+	u32 z_address = (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8);
+	int z_stride = gstate.zbwidth & 0x3C0;
+
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		// TODO: Is the value 16-bit?  It seems to be.
+		buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+		return true;
+	}
+
+#ifndef USING_GLES2
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, true);
+
+	fbo_bind_for_read(vfb->fbo);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
+
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool FramebufferManager::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
+	int fb_stride = gstate.fbwidth & 0x3C0;
+
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);
+		return true;
+	}
+
+#ifndef USING_GLES2
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_16BIT, true);
+
+	fbo_bind_for_read(vfb->fbo);
+	glPixelStorei(GL_PACK_ALIGNMENT, 2);
+	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_SHORT, buffer.GetData());
+
+	return true;
+#else
+	return false;
+#endif
 }
