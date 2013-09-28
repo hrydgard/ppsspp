@@ -21,7 +21,16 @@
 #include "Globals.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/TabControl.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
+
+enum {
+	WM_GEDBG_BREAK_CMD = WM_USER + 200,
+	WM_GEDBG_BREAK_DRAW,
+	WM_GEDBG_STEPDISPLAYLIST,
+};
+
+class CtrlDisplayListView;
 
 class CGEDebugger : public Dialog {
 public:
@@ -35,7 +44,13 @@ protected:
 private:
 	void SetupPreviews();
 	void UpdatePreviews();
+	void UpdateSize(WORD width, WORD height);
+	void SavePosition();
 
+	CtrlDisplayListView* displayList;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
+	TabControl* tabs;
+
+	int minWidth,minHeight;
 };

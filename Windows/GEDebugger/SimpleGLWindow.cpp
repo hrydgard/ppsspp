@@ -17,6 +17,7 @@
 
 #include "math/lin/matrix4x4.h"
 #include "gfx_es2/glsl_program.h"
+#include "Common/Common.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
 const PTCHAR SimpleGLWindow::windowClass = _T("SimpleGLWindow");

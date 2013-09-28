@@ -1,5 +1,6 @@
 ﻿#include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Core/Config.h"
+#include "Windows/GEDebugger/GEDebugger.h"
 
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
@@ -98,8 +99,9 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 		win->onMouseDown(wParam,lParam,1);
 		break;
 	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
 		win->onKeyDown(wParam,lParam);
-		break;
+		return 0;
 	case WM_GETDLGCODE:
 		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
 		{
@@ -290,6 +292,10 @@ void CtrlDisplayListView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_LEFT:
 		gotoAddr(list.pc);
 		return;
+	case VK_F10:
+	case VK_F11:
+		SendMessage(GetParent(wnd),WM_GEDBG_STEPDISPLAYLIST,0,0);
+		break;
 	}
 	redraw();
 }
