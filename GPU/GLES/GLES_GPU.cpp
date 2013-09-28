@@ -1519,6 +1519,14 @@ bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_.GetCurrentFramebuffer(buffer);
 }
 
+bool GLES_GPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_.GetCurrentDepthbuffer(buffer);
+}
+
+bool GLES_GPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_.GetCurrentStencilbuffer(buffer);
+}
+
 bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;

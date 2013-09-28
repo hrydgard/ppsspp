@@ -78,6 +78,14 @@ public:
 		// TODO
 		return false;
 	}
+	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+		// TODO
+		return false;
+	}
+	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+		// TODO
+		return false;
+	}
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);

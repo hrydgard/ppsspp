@@ -30,11 +30,28 @@ struct GPUDebugOp {
 	std::string desc;
 };
 
+enum GPUDebugBufferFormat {
+	// These match GEBufferFormat.
+	GPU_DBG_FORMAT_565 = 0,
+	GPU_DBG_FORMAT_5551 = 1,
+	GPU_DBG_FORMAT_4444 = 2,
+	GPU_DBG_FORMAT_8888 = 3,
+	GPU_DBG_FORMAT_INVALID = 0xFF,
+
+	// These don't, they're for depth buffers.
+	GPU_DBG_FORMAT_FLOAT = 0x10,
+	GPU_DBG_FORMAT_16BIT = 0x11,
+};
+
 struct GPUDebugBuffer {
 	GPUDebugBuffer() : alloc_(false), data_(NULL) {
 	}
 
 	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt)
+		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(GPUDebugBufferFormat(fmt)), flipped_(false) {
+	}
+
+	GPUDebugBuffer(void *data, u32 stride, u32 height, GPUDebugBufferFormat fmt)
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(fmt), flipped_(false) {
 	}
 
@@ -70,6 +87,10 @@ struct GPUDebugBuffer {
 	}
 
 	void Allocate(u32 stride, u32 height, GEBufferFormat fmt, bool flipped = false) {
+		Allocate(stride, height, GPUDebugBufferFormat(fmt), flipped);
+	}
+
+	void Allocate(u32 stride, u32 height, GPUDebugBufferFormat fmt, bool flipped = false) {
 		if (alloc_ && stride_ == stride && height_ == height && fmt_ == fmt) {
 			// Already allocated the right size.
 			flipped_ = flipped;
@@ -84,7 +105,7 @@ struct GPUDebugBuffer {
 		flipped_ = flipped;
 
 		u32 pixelSize = 2;
-		if (fmt == GE_FORMAT_8888) {
+		if (fmt == GPU_DBG_FORMAT_8888 || fmt == GPU_DBG_FORMAT_FLOAT) {
 			pixelSize = 4;
 		};
 
@@ -114,7 +135,7 @@ struct GPUDebugBuffer {
 		return flipped_;
 	}
 
-	GEBufferFormat GetFormat() const {
+	GPUDebugBufferFormat GetFormat() const {
 		return fmt_;
 	}
 
@@ -124,7 +145,7 @@ private:
 	u32 height_;
 	u32 stride_;
 	bool flipped_;
-	GEBufferFormat fmt_;
+	GPUDebugBufferFormat fmt_;
 };
 
 class GPUDebugInterface {
@@ -150,6 +171,16 @@ public:
 	// Calling from a separate thread (e.g. UI) may fail.
 	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 		// False means unsupported.
+		return false;
+	}
+
+	// Similar to GetCurrentFramebuffer().
+	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+		return false;
+	}
+
+	// Similar to GetCurrentFramebuffer().
+	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 		return false;
 	}
 
