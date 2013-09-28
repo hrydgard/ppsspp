@@ -94,7 +94,6 @@ public:
 	bool bReloadCheats;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
-	bool bForceOpenGL20;
 
 	// Sound
 	bool bEnableSound;
