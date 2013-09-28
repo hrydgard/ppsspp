@@ -192,7 +192,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	std::ifstream list(activeCheatFile.c_str());
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
-		if (line.length() > 8){
+		if (line.length() > 3 && line.substr(0,1) == "_"){
 			codesList.push_back(line);
 		}
 	}
