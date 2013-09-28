@@ -36,6 +36,7 @@ protected:
 	virtual void CreateViews();
 	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value);
+	void CallbackRestoreDefaults(bool yes);
 
 private:
 	std::string gamePath_, gameID_;
@@ -61,6 +62,7 @@ private:
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
+	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
@@ -88,7 +90,6 @@ public:
 protected:
 	virtual void CreateViews();
 	virtual void sendMessage(const char *message, const char *value);
-	void CallbackRestoreDefaults(bool yes);
 
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
@@ -97,7 +98,6 @@ private:
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
-	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 
 	// Temporary variable.
