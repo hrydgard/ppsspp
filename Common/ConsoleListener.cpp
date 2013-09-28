@@ -18,7 +18,6 @@
 
 #include <algorithm>  // min
 #include <string> // System: To be able to add strings with "+"
-#include <stdio.h>
 #include <math.h>
 #ifdef _WIN32
 #include "CommonWindows.h"
@@ -30,7 +29,6 @@
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 #include "Common.h"
-#include "LogManager.h" // Common
 #include "ConsoleListener.h" // Common
 #include "Atomics.h"
 

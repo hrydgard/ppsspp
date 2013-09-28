@@ -16,7 +16,6 @@
 // http://code.google.com/p/dolphin-emu/
 
 
-#include <stdio.h> // System
 
 #include "Common.h" // Local
 #include "StringUtils.h"

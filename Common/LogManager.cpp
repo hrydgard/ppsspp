@@ -21,7 +21,6 @@
 #include "LogManager.h"
 #include "ConsoleListener.h"
 #include "Timer.h"
-#include "Thread.h"
 #include "FileUtil.h"
 #include "../Core/Config.h"
 #ifdef __SYMBIAN32__

@@ -32,7 +32,6 @@
 #include <sys/mman.h>
 #endif
 
-#include <stdlib.h>
 
 
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)
