@@ -237,7 +237,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x3: // Increment/Decrement
 				{
-					addr = GetAddress(arg);
+					addr = GetAddress(arg & 0x0FFFFFFF);
 					value = 0;
 					int increment = 0;
 					// Read value from memory
