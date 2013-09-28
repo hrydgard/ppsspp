@@ -47,8 +47,8 @@ static const char tex_fs[] =
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
-	"	gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).rgb;\n"
-	"	gl_FragColor.a = 1.0;\n"
+	"	gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
+	"	gl_FragColor.a = clamp(gl_FragColor.a, 0.2, 1.0);\n"
 	"}\n";
 
 static const char basic_vs[] =
@@ -203,7 +203,9 @@ void SimpleGLWindow::DrawChecker() {
 void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt, ResizeType resize) {
 	DrawChecker();
 
-	glDisable(GL_BLEND);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquation(GL_FUNC_ADD);
 	glViewport(0, 0, w_, h_);
 	glScissor(0, 0, w_, h_);
 
