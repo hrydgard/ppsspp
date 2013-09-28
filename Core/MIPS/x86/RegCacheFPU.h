@@ -139,9 +139,9 @@ public:
 
 	MIPSState *mips;
 
-private:
-	X64Reg GetFreeXReg();
 	void FlushX(X64Reg reg);
+	X64Reg GetFreeXReg();
+private:
 	const int *GetAllocationOrder(int &count);
 
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];

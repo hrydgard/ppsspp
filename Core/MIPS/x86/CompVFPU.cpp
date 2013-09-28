@@ -1083,9 +1083,192 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+
+
+#if 0
+
+// One possible approach
+
+// Uses lookup tables to decode half floats. Not really sure how bad the CPU cache impact will be...
 void Jit::Comp_Vh2f(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	VectorSize outsize;
+	switch (sz) {
+	case V_Single:
+		outsize = V_Pair;
+		break;
+	case V_Pair:
+		outsize = V_Quad;
+		break;
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	switch (sz) {
+	case V_Single:
+		// Flush so we can access it with integer instructions
+		// Grab ECX as a secondary working register
+		gpr.FlushLockX(ECX);
+		fpr.StoreFromRegisterV(sregs[0]);
+		MOV(32, R(EAX), fpr.V(sregs[0]));
+		fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);
+		//XOR(32, R(EAX), R(EAX));
+		MOV(32, R(ECX), R(EAX));
+		AND(32, R(EAX), Imm32(0xFFFF));
+		SHR(32, R(ECX), Imm8(16));
+#ifdef _M_IX86
+		MOVSS(fpr.VX(dregs[0]), MScaled(EAX, 4, (u32)halfToFloat_));
+		MOVSS(fpr.VX(dregs[1]), MScaled(ECX, 4, (u32)halfToFloat_));
+#endif
+		break;
+	case V_Pair:
+		// Flush so we can access it with integer instructions
+		// Grab ECX and EDX as a secondary/third working register
+		gpr.FlushLockX(ECX, EDX);
+		fpr.StoreFromRegisterV(sregs[0]);
+		fpr.StoreFromRegisterV(sregs[1]);
+		MOV(32, R(EAX), fpr.V(sregs[0]));
+		MOV(32, R(EDX), fpr.V(sregs[1]));
+		fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
+		//XOR(32, R(EAX), R(EAX));
+		MOV(32, R(ECX), R(EAX));
+		AND(32, R(EAX), Imm32(0xFFFF));
+		SHR(32, R(ECX), Imm8(16));
+#ifdef _M_IX86
+		MOVSS(fpr.VX(dregs[0]), MScaled(EAX, 4, (u32)halfToFloat_));
+		MOVSS(fpr.VX(dregs[1]), MScaled(ECX, 4, (u32)halfToFloat_));
+#endif
+		//XOR(32, R(EAX), R(EAX));
+		MOV(32, R(ECX), R(EDX));
+		AND(32, R(EDX), Imm32(0xFFFF));
+		SHR(32, R(ECX), Imm8(16));
+#ifdef _M_IX86
+		MOVSS(fpr.VX(dregs[2]), MScaled(EDX, 4, (u32)halfToFloat_));
+		MOVSS(fpr.VX(dregs[3]), MScaled(ECX, 4, (u32)halfToFloat_));
+#endif
+		break;
+	case V_Triple:
+	case V_Quad:
+		_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
+		break;
+	}
+	ApplyPrefixD(dregs, outsize);
+	gpr.UnlockAllX();
+	fpr.ReleaseSpillLocks();
 }
+
+#else
+
+#undef CONST
+
+// Planning for true SIMD
+
+// Sequence for gathering sparse registers into one SIMD:
+// MOVSS(XMM0, fpr.R(sregs[0]));
+// MOVSS(XMM1, fpr.R(sregs[1]));
+// MOVSS(XMM2, fpr.R(sregs[2]));
+// MOVSS(XMM3, fpr.R(sregs[3]));
+// SHUFPS(XMM0, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));   // XMM0 = S1 S1 S0 S0
+// SHUFPS(XMM2, R(XMM3), _MM_SHUFFLE(0, 0, 0, 0));   // XMM2 = S3 S3 S2 S2
+// SHUFPS(XMM0, R(XMM2), _MM_SHUFFLE(2, 0, 2, 0));   // XMM0 = S3 S2 S1 S0
+// Some punpckwd etc would also work.
+
+// Sequence for scattering a SIMD register to sparse registers:
+// (Very serial though, better methods may be possible)
+// MOVSS(fpr.R(sregs[0]), XMM0);
+// SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+// MOVSS(fpr.R(sregs[1]), XMM0);
+// SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+// MOVSS(fpr.R(sregs[2]), XMM0);
+// SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+// MOVSS(fpr.R(sregs[3]), XMM0);
+
+
+// Translation of ryg's half_to_float5_SSE2
+void Jit::Comp_Vh2f(MIPSOpcode op) {
+#define SSE_CONST4(name, val) static const __declspec(align(16)) u32 name[4] = { (val), (val), (val), (val) }
+
+	SSE_CONST4(mask_nosign,         0x7fff);
+	SSE_CONST4(magic,               (254 - 15) << 23);
+	SSE_CONST4(was_infnan,          0x7bff);
+	SSE_CONST4(exp_infnan,          255 << 23);
+	
+#undef SSE_CONST4
+
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	VectorSize outsize;
+	switch (sz) {
+	case V_Single:
+		outsize = V_Pair;
+		DISABLE;
+		break;
+	case V_Pair:
+		outsize = V_Quad;
+		break;
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	// Force ourselves an extra xreg as temp space.
+	X64Reg tempR = fpr.GetFreeXReg();
+	
+	MOVSS(XMM0, fpr.V(sregs[0]));
+	if (sz != V_Single) {
+		MOVSS(XMM1, fpr.V(sregs[1]));
+		PUNPCKLDQ(XMM0, R(XMM1));
+	}
+	XORPS(XMM1, R(XMM1));
+	PUNPCKLWD(XMM0, R(XMM1));
+
+	// OK, 16 bits in each word.
+	// Let's go. Deep magic here.
+	MOVAPS(XMM1, R(XMM0));
+	// MOVAPS(XMM2, R(XMM0));  // xmm2 = h
+	ANDPS(XMM0, M((void *)mask_nosign)); // xmm0 = expmant
+	XORPS(XMM1, R(XMM0));  // xmm1 = justsign = expmant ^ xmm0
+	MOVAPS(tempR, R(XMM0));
+	PCMPGTD(tempR, M((void *)was_infnan));  // xmm2 = b_wasinfnan
+	PSLLD(XMM0, 13);
+	MULPS(XMM0, M((void *)magic));  /// xmm0 = scaled
+	PSLLD(XMM1, 16);  // xmm1 = sign
+	ANDPS(tempR, M((void *)exp_infnan));
+	ORPS(XMM1, R(tempR));
+	ORPS(XMM0, R(XMM1));
+
+	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
+
+	// TODO: Could apply D-prefix in parallel here...
+
+	MOVSS(fpr.V(dregs[0]), XMM0);
+	SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+	MOVSS(fpr.V(dregs[1]), XMM0);
+
+	if (sz != V_Single) {
+		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		MOVSS(fpr.V(dregs[2]), XMM0);
+		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		MOVSS(fpr.V(dregs[3]), XMM0);
+	}
+
+	ApplyPrefixD(dregs, outsize);
+	gpr.UnlockAllX();
+	fpr.ReleaseSpillLocks();
+}
+
+#endif
+
 
 extern const double mulTableVf2i[32] = {
 	(1ULL<<0),(1ULL<<1),(1ULL<<2),(1ULL<<3),
@@ -1759,22 +1942,17 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 static float sincostemp[2];
 
 void SinCos(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
-	angle *= (float)M_PI_2;
+	angle *= (float)1.57079632679489661923;  // pi / 2
 	sincostemp[0] = sinf(angle);
 	sincostemp[1] = cosf(angle);
 }
 
 void SinCosNegSin(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
-	angle *= (float)M_PI_2;
+	angle *= (float)1.57079632679489661923;  // pi / 2
 	sincostemp[0] = -sinf(angle);
 	sincostemp[1] = cosf(angle);
 }
+
 // Very heavily used by FF:CC
 void Jit::Comp_VRot(MIPSOpcode op) {
 	// DISABLE;

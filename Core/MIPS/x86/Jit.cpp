@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <iterator>
 
+#include "math/math_util.h"
+
 #include "Common/ChunkFile.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -116,9 +118,16 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
 	asm_.Init(mips, this);
-
+	halfToFloat_ = new float[65536];
+	for (int i = 0; i < 65536; i++) {
+		halfToFloat_[i] = ExpandHalf((u16)i);
+	}
 	// TODO: If it becomes possible to switch from the interpreter, this should be set right.
 	js.startDefaultPrefix = true;
+}
+
+Jit::~Jit() {
+	delete [] halfToFloat_;
 }
 
 void Jit::DoState(PointerWrap &p)
