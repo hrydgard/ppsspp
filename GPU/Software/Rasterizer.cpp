@@ -878,7 +878,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 				// TODO: Verify that through mode does not disable depth testing
-				if (gstate.isDepthTestEnabled() || gstate.isModeClear()) {
+				if (gstate.isDepthTestEnabled() && !gstate.isModeClear()) {
 					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
 					if (!DepthTestPassed(p.x, p.y, z)) {
 						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
@@ -887,10 +887,11 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
 					}
 
-					if (gstate.isModeClear() && gstate.isClearModeDepthWriteEnabled())
+					if (gstate.isDepthWriteEnabled()) {
 						SetPixelDepth(p.x, p.y, z);
-					else if (!gstate.isModeClear() && gstate.isDepthWriteEnabled())
-						SetPixelDepth(p.x, p.y, z);
+					}
+				} else if (gstate.isModeClear() && gstate.isClearModeDepthWriteEnabled()) {
+					SetPixelDepth(p.x, p.y, z);
 				}
 
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
