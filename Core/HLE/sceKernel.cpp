@@ -280,13 +280,6 @@ void sceKernelExitGameWithStatus()
 	Core_Stop();
 }
 
-u32 sceKernelRegisterExitCallback(u32 cbId)
-{
-	DEBUG_LOG(SCEKERNEL,"sceKernelRegisterExitCallback(%i)", cbId);
-	registeredExitCbId = cbId;
-	return 0;
-}
-
 u32 sceKernelDevkitVersion()
 {
 	int firmwareVersion = 150;
@@ -886,7 +879,7 @@ void Register_ThreadManForUser()
 const HLEFunction LoadExecForUser[] =
 {
 	{0x05572A5F,&WrapV_V<sceKernelExitGame>, "sceKernelExitGame"}, //()
-	{0x4AC57943,&WrapU_U<sceKernelRegisterExitCallback>,"sceKernelRegisterExitCallback"},
+	{0x4AC57943,&WrapI_I<sceKernelRegisterExitCallback>,"sceKernelRegisterExitCallback"},
 	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
 	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
 	{0x362A956B,&WrapI_V<LoadExecForUser_362A956B>, "LoadExecForUser_362A956B"},
