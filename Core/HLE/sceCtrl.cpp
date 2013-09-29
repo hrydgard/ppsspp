@@ -74,7 +74,7 @@ static _ctrl_data ctrlCurrent;
 static u32 ctrlBuf = 0;
 static u32 ctrlBufRead = 0;
 static CtrlLatch latch;
-static CtrlLatch sepLatch; // a separate latch for osk dialog
+static u32 dialogBtnMake = 0;
 
 static int ctrlIdleReset = -1;
 static int ctrlIdleBack = -1;
@@ -115,7 +115,7 @@ void __CtrlUpdateLatch()
 	latch.btnBreak |= ctrlOldButtons & changed;
 	latch.btnPress |= buttons;
 	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
-	sepLatch = latch;
+	dialogBtnMake |= buttons & changed;
 	ctrlLatchBufs++;
 		
 	ctrlOldButtons = buttons;
@@ -158,9 +158,8 @@ void __CtrlPeekAnalog(int stick, float *x, float *y)
 
 u32 __CtrlReadLatch()
 {
-	u32 ret = sepLatch.btnMake;
-	memset(&sepLatch, 0, sizeof(CtrlLatch));
-	__CtrlResetLatch();
+	u32 ret = dialogBtnMake;
+	dialogBtnMake = 0;
 	return ret;
 }
 
@@ -308,6 +307,7 @@ void __CtrlInit()
 	ctrlBufRead = 0;
 	ctrlOldButtons = 0;
 	ctrlLatchBufs = 0;
+	dialogBtnMake = 0;
 
 	memset(&latch, 0, sizeof(latch));
 	// Start with everything released.
@@ -338,6 +338,7 @@ void __CtrlDoState(PointerWrap &p)
 	p.Do(ctrlBuf);
 	p.Do(ctrlBufRead);
 	p.Do(latch);
+	p.Do(dialogBtnMake);
 
 	p.Do(ctrlIdleReset);
 	p.Do(ctrlIdleBack);
