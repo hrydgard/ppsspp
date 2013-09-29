@@ -3662,8 +3662,26 @@ void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus)
 	__KernelChangeThreadState(t, newStatus);
 }
 
-int hleLoadExecForUser_362A956B()
+int sceKernelRegisterExitCallback(SceUID cbId)
 {
+	u32 error;
+	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
+	if (!cb)
+	{
+		WARN_LOG(SCEKERNEL, "sceKernelRegisterExitCallback(%i): invalid callback id", cbId);
+		if (sceKernelGetCompiledSdkVersion() >= 0x3090500)
+			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return 0;
+	}
+
+	DEBUG_LOG(SCEKERNEL, "sceKernelRegisterExitCallback(%i)", cbId);
+	registeredExitCbId = cbId;
+	return 0;
+}
+
+int LoadExecForUser_362A956B()
+{
+	WARN_LOG_REPORT(SCEKERNEL, "LoadExecForUser_362A956B()");
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(registeredExitCbId, error);
 	if (!cb) {
@@ -3675,18 +3693,18 @@ int hleLoadExecForUser_362A956B()
 		WARN_LOG(SCEKERNEL, "LoadExecForUser_362A956B() : invalid address for cbArg (0x%08X)", cbArg);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
-	int unknown1 = Memory::Read_U32(cbArg - 8);
-	if (unknown1 < 0 || unknown1 >= 4) {
+	u32 unknown1 = Memory::Read_U32(cbArg - 8);
+	if (unknown1 >= 4) {
 		WARN_LOG(SCEKERNEL, "LoadExecForUser_362A956B() : invalid value unknown1 (0x%08X)", unknown1);
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
-	int parameterArea = Memory::Read_U32(cbArg - 4);
+	u32 parameterArea = Memory::Read_U32(cbArg - 4);
 	if (!Memory::IsValidAddress(parameterArea)) {
 		WARN_LOG(SCEKERNEL, "LoadExecForUser_362A956B() : invalid address for parameterArea on userMemory  (0x%08X)", parameterArea);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 	
-	int size = Memory::Read_U32(parameterArea);
+	u32 size = Memory::Read_U32(parameterArea);
 	if (size < 12) {
 		WARN_LOG(SCEKERNEL, "LoadExecForUser_362A956B() : invalid parameterArea size %d", size);
 		return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
