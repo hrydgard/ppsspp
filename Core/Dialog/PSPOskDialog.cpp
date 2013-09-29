@@ -899,6 +899,8 @@ int PSPOskDialog::Update()
 
 		if (!strcmp(countryCode, "English Full-width"))
 			language = "English Full-width";
+			
+		countryCode = OskKeyboardNames[currentKeyboardLanguage].c_str();
 		
 		if (strcmp(countryCode, "ko_KR"))
 		{
