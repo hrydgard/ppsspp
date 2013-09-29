@@ -455,11 +455,13 @@ void EmuScreen::update(InputState &input) {
 
 	// Apply tilt to left stick
 	// TODO: Make into an axis
+#ifdef USING_GLES2
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
 		leftstick_x += clamp1(curve1(input.acc.y) * 2.0f) * g_Config.iTiltSensitivity / 100;
 		__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
 	}
+#endif
 
 	// Make sure fpsLimit starts at 0
 	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1) {
