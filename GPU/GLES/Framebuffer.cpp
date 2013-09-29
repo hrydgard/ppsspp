@@ -907,14 +907,13 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb); // synchronous glReadPixels
 #else
-	if(gl_extensions.PBO_ARB || !gl_extensions.ATIClampBug)
-	{
-		if(!sync) {
-			PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
-		} else {
-			PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		if(gl_extensions.PBO_ARB || !gl_extensions.ATIClampBug) {
+			if(!sync) {
+				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+			} else {
+				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+			}
 		}
-	}
 #endif
 	}
 }
@@ -1304,9 +1303,10 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			if(updateVram && age == 0 && !vfb->memoryUpdated) 
+		if(updateVram && age == 0 && !vfb->memoryUpdated && vfb == displayFramebuf_) 
 				ReadFramebufferToMemory(vfb);
+
+		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
 		}
 
