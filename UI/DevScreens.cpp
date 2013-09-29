@@ -186,6 +186,7 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
+#ifdef ARM
 std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 	std::vector<std::string> lines;
 
@@ -208,12 +209,13 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 				continue;
 			}
 		}
-		ArmDis((u32)codePtr, inst, temp, false);
+		ArmDis((u32)(intptr_t)codePtr, inst, temp, false);
 		std::string buf = temp;
 		lines.push_back(buf);
 	}
 	return lines;
 }
+#endif
 
 void JitCompareScreen::UpdateDisasm() {
 	leftDisasm_->Clear();

@@ -1458,21 +1458,24 @@ void Debugger_DisplayList::on_displayList_itemClicked(QTreeWidgetItem *item, int
 
 void Debugger_DisplayList::on_stepBtn_clicked()
 {
-	host->SetGPUStep(true);
-	host->NextGPUStep();
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(true);
+	qthost->NextGPUStep();
 }
 
 void Debugger_DisplayList::on_runBtn_clicked()
 {
 	ui->displayList->clear();
 	ui->displayListData->clear();
-	host->SetGPUStep(false);
-	host->NextGPUStep();
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(false);
+	qthost->NextGPUStep();
 }
 
 void Debugger_DisplayList::on_stopBtn_clicked()
 {
-	host->SetGPUStep(true);
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(true);
 }
 
 void Debugger_DisplayList::UpdateRenderBuffer()
@@ -1536,8 +1539,9 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 
 void Debugger_DisplayList::on_nextDrawBtn_clicked()
 {
-	host->SetGPUStep(true, 1);
-	host->NextGPUStep();
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(true, 1);
+	qthost->NextGPUStep();
 }
 
 void Debugger_DisplayList::on_gotoPCBtn_clicked()
@@ -1610,8 +1614,9 @@ void Debugger_DisplayList::on_fboList_itemClicked(QTreeWidgetItem *item, int col
 
 void Debugger_DisplayList::on_nextDLBtn_clicked()
 {
-	host->SetGPUStep(true,-1);
-	host->NextGPUStep();
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(true,-1);
+	qthost->NextGPUStep();
 }
 
 void Debugger_DisplayList::setCurrentFBO(u32 addr)
@@ -1800,8 +1805,9 @@ void Debugger_DisplayList::on_displayListData_customContextMenuRequested(const Q
 void Debugger_DisplayList::RunToDLPC()
 {
 	u32 addr = displayListDataSelected->text(0).toUInt(0,16);
-	host->SetGPUStep(true, 2, addr);
-	host->NextGPUStep();
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(true, 2, addr);
+	qthost->NextGPUStep();
 }
 
 void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoint &pos)
@@ -1823,6 +1829,7 @@ void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoi
 void Debugger_DisplayList::RunToDrawTex()
 {
 	u32 addr = textureDataSelected->text(0).toUInt(0,16);
-	host->SetGPUStep(true, 3, addr);
-	host->NextGPUStep();
+	QtHost *qthost = (QtHost *)host;
+	qthost->SetGPUStep(true, 3, addr);
+	qthost->NextGPUStep();
 }
