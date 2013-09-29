@@ -71,7 +71,8 @@ op_agent_t agent;
 #endif
 
 
-#define INVALID_EXIT 0xFFFFFFFF
+const u32 INVALID_EXIT = 0xFFFFFFFF;
+const MIPSOpcode INVALID_ORIGINAL_OP = MIPSOpcode(0x00000001);
 
 JitBlockCache::JitBlockCache(MIPSState *mips_, CodeBlock *codeBlock) :
 	mips(mips_), codeBlock_(codeBlock), blocks(0), num_blocks(0) {
@@ -325,6 +326,49 @@ void JitBlockCache::UnlinkBlock(int i)
 			if (sourceBlock.exitAddress[e] == b.originalAddress)
 				sourceBlock.linkStatus[e] = false;
 		}
+	}
+}
+
+std::vector<u32> JitBlockCache::SaveAndClearEmuHackOps()
+{
+	std::vector<u32> result;
+	result.resize(num_blocks);
+
+	for (int block_num = 0; block_num < num_blocks; ++block_num)
+	{
+		JitBlock &b = blocks[block_num];
+		if (b.invalid)
+			continue;
+
+		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
+		result[block_num] = emuhack;
+		// The goal here is to prevent restoring it if it did not match (in case originalFirstOpcode does match.)
+		if (Memory::ReadUnchecked_U32(b.originalAddress) != emuhack)
+			b.originalFirstOpcode = INVALID_ORIGINAL_OP;
+		else
+			Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode);
+	}
+
+	return result;
+}
+
+void JitBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved)
+{
+	if (num_blocks != (int)saved.size())
+	{
+		ERROR_LOG(JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
+		return;
+	}
+
+	for (int block_num = 0; block_num < num_blocks; ++block_num)
+	{
+		const JitBlock &b = blocks[block_num];
+		if (b.invalid)
+			continue;
+
+		// Only if we restored it, write it back.
+		if (Memory::ReadUnchecked_U32(b.originalAddress) == b.originalFirstOpcode.encoding)
+			Memory::Write_Opcode_JIT(b.originalAddress, MIPSOpcode(saved[block_num]));
 	}
 }
 

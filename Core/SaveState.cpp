@@ -75,7 +75,17 @@ namespace SaveState
 		// Gotta do CoreTiming first since we'll restore into it.
 		CoreTiming::DoState(p);
 
-		Memory::DoState(p);
+		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
+		if (MIPSComp::jit && p.mode == p.MODE_WRITE)
+		{
+			auto blocks = MIPSComp::jit->GetBlockCache();
+			auto saved = blocks->SaveAndClearEmuHackOps();
+			Memory::DoState(p);
+			blocks->RestoreSavedEmuHackOps(saved);
+		}
+		else
+			Memory::DoState(p);
+
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);
 		HLEDoState(p);
@@ -245,8 +255,6 @@ namespace SaveState
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				if (MIPSComp::jit)
-					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
@@ -262,8 +270,6 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE:
-				if (MIPSComp::jit)
-					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
