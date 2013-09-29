@@ -4,29 +4,48 @@
 #include "../../Core/HLE/sceKernelThread.h"
 #include "../../Core/Debugger/Breakpoints.h"
 #include "../../Core/MIPS/MIPSStackWalk.h"
+#include "Windows/W32Util/Misc.h"
 
-class CtrlThreadList
+class CtrlThreadList: public GenericListControl
 {
-	HWND wnd;
-	WNDPROC oldProc;
-	std::vector<DebugThreadInfo> threads;
-	wchar_t stringBuffer[256];
-
 public:
-	void setDialogItem(HWND hwnd);
+	CtrlThreadList(HWND hwnd);
 	void reloadThreads();
-	void handleNotify(LPARAM lParam);
 	void showMenu(int itemIndex, const POINT &pt);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	const char* getCurrentThreadName();
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
+	virtual void GetColumnText(wchar_t* dest, int row, int col);
+	virtual int GetRowCount() { return (int) threads.size(); };
+	virtual void OnDoubleClick(int itemIndex, int column);
+	virtual void OnRightClick(int itemIndex, int column, const POINT& point);
+private:
+	std::vector<DebugThreadInfo> threads;
 };
 
 class CtrlDisAsmView;
 
-class CtrlBreakpointList
+class CtrlBreakpointList: public GenericListControl
 {
-	HWND wnd;
-	WNDPROC oldProc;
+public:
+	CtrlBreakpointList(HWND hwnd);
+	void reloadBreakpoints();
+	void setCpu(DebugInterface* cpu)
+	{
+		this->cpu = cpu;
+	};
+	void setDisasm(CtrlDisAsmView* disasm)
+	{
+		this->disasm = disasm;
+	};
+	void showMenu(int itemIndex, const POINT &pt);
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
+	virtual void GetColumnText(wchar_t* dest, int row, int col);
+	virtual int GetRowCount() { return getTotalBreakpointCount(); };
+	virtual void OnDoubleClick(int itemIndex, int column);
+	virtual void OnRightClick(int itemIndex, int column, const POINT& point);
+private:
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 	std::wstring breakpointText;
@@ -40,7 +59,12 @@ class CtrlBreakpointList
 	int getBreakpointIndex(int itemIndex, bool& isMemory);
 	void showBreakpointMenu(int itemIndex, const POINT &pt);
 	void toggleEnabled(int itemIndex);
+};
+
+class CtrlStackTraceView: public GenericListControl
+{
 public:
+	CtrlStackTraceView(HWND hwnd);
 	void setCpu(DebugInterface* cpu)
 	{
 		this->cpu = cpu;
@@ -49,33 +73,14 @@ public:
 	{
 		this->disasm = disasm;
 	};
-	void update();
-	void setDialogItem(HWND hwnd);
-	void handleNotify(LPARAM lParam);
-	void showMenu(int itemIndex, const POINT &pt);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-};
-
-class CtrlStackTraceView
-{
-	HWND wnd;
-	WNDPROC oldProc;
+	void loadStackTrace();
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
+	virtual void GetColumnText(wchar_t* dest, int row, int col);
+	virtual int GetRowCount() { return (int)frames.size(); };
+	virtual void OnDoubleClick(int itemIndex, int column);
+private:
 	std::vector<MIPSStackWalk::StackFrame> frames;
 	DebugInterface* cpu;
 	CtrlDisAsmView* disasm;
-	wchar_t stringBuffer[256];
-
-public:
-	void setCpu(DebugInterface* cpu)
-	{
-		this->cpu = cpu;
-	};
-	void setDisasm(CtrlDisAsmView* disasm)
-	{
-		this->disasm = disasm;
-	};
-	void setDialogItem(HWND hwnd);
-	void loadStackTrace();
-	void handleNotify(LPARAM lParam);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

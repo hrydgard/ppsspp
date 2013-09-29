@@ -21,16 +21,18 @@ class GenericListControl
 {
 public:
 	GenericListControl(HWND hwnd, const GenericListViewColumn* _columns, int _columnCount);
+	virtual ~GenericListControl() { };
 	void HandleNotify(LPARAM lParam);
 	void Update();
 	int GetSelectedIndex();
 	HWND GetHandle() { return handle; };
+	void SetSendInvalidRows(bool enabled) { sendInvalidRows = enabled; };
 protected:
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
 	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
-	virtual void OnRightClick(int itemIndex, int column) { };
+	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void ResizeColumns();
@@ -41,4 +43,5 @@ private:
 	int columnCount;
 	wchar_t stringBuffer[256];
 	bool valid;
+	bool sendInvalidRows;
 };

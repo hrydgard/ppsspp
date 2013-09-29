@@ -131,20 +131,17 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 	mem->setDebugger(_cpu);
 	
-	breakpointList = new CtrlBreakpointList();
+	breakpointList = new CtrlBreakpointList(GetDlgItem(m_hDlg,IDC_BREAKPOINTLIST));
 	breakpointList->setCpu(cpu);
 	breakpointList->setDisasm(ptr);
-	breakpointList->setDialogItem(GetDlgItem(m_hDlg,IDC_BREAKPOINTLIST));
-	breakpointList->update();
+	breakpointList->reloadBreakpoints();
 
-	threadList = new CtrlThreadList();
-	threadList->setDialogItem(GetDlgItem(m_hDlg,IDC_THREADLIST));
+	threadList = new CtrlThreadList(GetDlgItem(m_hDlg,IDC_THREADLIST));
 	threadList->reloadThreads();
 
-	stackTraceView = new CtrlStackTraceView();
+	stackTraceView = new CtrlStackTraceView(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
 	stackTraceView->setCpu(cpu);
 	stackTraceView->setDisasm(ptr);
-	stackTraceView->setDialogItem(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
 	stackTraceView->loadStackTrace();
 	
 	// init bottom "tab"
@@ -378,13 +375,13 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		case IDC_BREAKPOINTLIST:
-			breakpointList->handleNotify(lParam);
+			breakpointList->HandleNotify(lParam);
 			break;
 		case IDC_THREADLIST:
-			threadList->handleNotify(lParam);
+			threadList->HandleNotify(lParam);
 			break;
 		case IDC_STACKFRAMES:
-			stackTraceView->handleNotify(lParam);
+			stackTraceView->HandleNotify(lParam);
 			break;
 		}
 		break;
@@ -792,7 +789,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
-		breakpointList->update();
+		breakpointList->reloadBreakpoints();
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();
 		updateThreadLabel(false);
