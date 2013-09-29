@@ -86,7 +86,6 @@
 static bool kernelRunning = false;
 KernelObjectPool kernelObjects;
 KernelStats kernelStats;
-// TODO: Savestate this?
 u32 registeredExitCbId;
 
 void __KernelInit()
@@ -185,12 +184,15 @@ void __KernelShutdown()
 void __KernelDoState(PointerWrap &p)
 {
 	{
-		auto s = p.Section("Kernel", 1);
+		auto s = p.Section("Kernel", 1, 2);
 		if (!s)
 			return;
 
 		p.Do(kernelRunning);
 		kernelObjects.DoState(p);
+
+		if (s >= 2)
+			p.Do(registeredExitCbId);
 	}
 
 	{
@@ -276,11 +278,6 @@ void sceKernelExitGameWithStatus()
 		PanicAlert("Game exited (with status)");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
-}
-
-int LoadExecForUser_362A956B()
-{
-	return hleLoadExecForUser_362A956B();
 }
 
 u32 sceKernelRegisterExitCallback(u32 cbId)

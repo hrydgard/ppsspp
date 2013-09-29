@@ -3662,8 +3662,9 @@ void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus)
 	__KernelChangeThreadState(t, newStatus);
 }
 
-int hleLoadExecForUser_362A956B()
+int LoadExecForUser_362A956B()
 {
+	WARN_LOG_REPORT(SCEKERNEL, "LoadExecForUser_362A956B()");
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(registeredExitCbId, error);
 	if (!cb) {
