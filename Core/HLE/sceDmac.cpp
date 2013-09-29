@@ -23,9 +23,13 @@
 #include "GPU/GPUState.h"
 
 u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
+	if (size == 0) {
+		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
-		return 0;
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
 	DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
@@ -37,12 +41,40 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		gpu->UpdateMemory(dst, src, size);
 	}
+
+	// This number seems strangely reproducible.
+	if (size >= 272) {
+		// Approx. 225 MiB/s or 235929600 B/s, so let's go with 236 B/us.
+		return hleDelayResult(0, "dmac copy", size / 236);
+	}
 	return 0;
 }
 
-u32 sceDmacTryMemcpy(u32 x, u32 y , u32 z)
-{
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceDmacTryMemcpy(%08x, %08x, %i)", x ,y ,z);
+u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
+	if (size == 0) {
+		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
+		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+
+	DEBUG_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+
+	Memory::Memcpy(dst, Memory::GetPointer(src), size);
+
+	src &= ~0x40000000;
+	dst &= ~0x40000000;
+	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
+		gpu->UpdateMemory(dst, src, size);
+	}
+
+	// This number seems strangely reproducible.
+	if (size >= 272) {
+		// Approx. 225 MiB/s or 235929600 B/s, so let's go with 236 B/us.
+		return hleDelayResult(0, "dmac copy", size / 236);
+	}
 	return 0;
 }
 
