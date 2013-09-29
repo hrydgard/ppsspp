@@ -251,7 +251,11 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest) {
 		if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
+#if defined(GLSL_ES_1_0)
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+#else
+			WRITE(p, "float roundTo255thf(in float x) { float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+#endif
 		else
 			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n"); 
 	}
