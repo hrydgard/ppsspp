@@ -115,6 +115,11 @@ public:
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 
+	// No jit operations may be run between these calls.
+	// Meant to be used to make memory safe for savestates, memcpy, etc.
+	std::vector<u32> SaveAndClearEmuHackOps();
+	void RestoreSavedEmuHackOps(std::vector<u32> saved);
+
 	int GetNumBlocks() const { return num_blocks; }
 
 private:

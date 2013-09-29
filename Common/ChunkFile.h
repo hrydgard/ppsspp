@@ -661,6 +661,43 @@ public:
 		ERROR_BROKEN_STATE,
 	};
 
+	// May fail badly if ptr doesn't point to valid data.
+	template<class T>
+	static Error LoadPtr(u8 *ptr, T &_class)
+	{
+		PointerWrap p(&ptr, PointerWrap::MODE_READ);
+		_class.DoState(p);
+
+		if (p.error != p.ERROR_FAILURE) {
+			return ERROR_NONE;
+		} else {
+			return ERROR_BROKEN_STATE;
+		}
+	}
+
+	template<class T>
+	static size_t MeasurePtr(T &_class)
+	{
+		u8 *ptr = 0;
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		return (size_t)ptr;
+	}
+
+	// Expects ptr to have at least MeasurePtr bytes at ptr.
+	template<class T>
+	static Error SavePtr(u8 *ptr, T &_class)
+	{
+		PointerWrap p(&ptr, PointerWrap::MODE_WRITE);
+		_class.DoState(p);
+
+		if (p.error != p.ERROR_FAILURE) {
+			return ERROR_NONE;
+		} else {
+			return ERROR_BROKEN_STATE;
+		}
+	}
+
 	// Load file template
 	template<class T>
 	static Error Load(const std::string& _rFilename, int _Revision, const char *_VersionString, T& _class, std::string* _failureReason) 
@@ -745,18 +782,13 @@ public:
 			delete [] buffer;
 		}
 
-		PointerWrap p(&ptr, PointerWrap::MODE_READ);
-		_class.DoState(p);
+		Error error = LoadPtr(ptr, _class);
 		delete[] buf;
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
-		if (p.error != p.ERROR_FAILURE) {
-			return ERROR_NONE;
-		} else {
-			return ERROR_BROKEN_STATE;
-		}
+		return error;
 	}
-	
+
 	// Save file template
 	template<class T>
 	static Error Save(const std::string& _rFilename, int _Revision, const char *_VersionString, T& _class)
@@ -773,15 +805,9 @@ public:
 		bool compress = true;
 
 		// Get data
-		u8 *ptr = 0;
-		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
-		_class.DoState(p);
-		size_t const sz = (size_t)ptr;
-		
-		u8 * buffer = new u8[sz];
-		ptr = &buffer[0];
-		p.SetMode(PointerWrap::MODE_WRITE);
-		_class.DoState(p);
+		size_t const sz = MeasurePtr(_class);
+		u8 *buffer = new u8[sz];
+		Error error = SavePtr(buffer, _class);
 
 		// Create header
 		SChunkHeader header;
@@ -825,13 +851,8 @@ public:
 			delete [] buffer;
 		}
 		
-		INFO_LOG(COMMON,"ChunkReader: Done writing %s", 
-				 _rFilename.c_str());
-		if (p.error != p.ERROR_FAILURE) {
-			return ERROR_NONE;
-		} else {
-			return ERROR_BROKEN_STATE;
-		}
+		INFO_LOG(COMMON, "ChunkReader: Done writing %s",  _rFilename.c_str());
+		return error;
 	}
 	
 	template <class T>
