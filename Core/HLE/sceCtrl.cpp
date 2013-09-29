@@ -325,7 +325,7 @@ void __CtrlDoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	
-	auto s = p.Section("sceCtrl", 1);
+	auto s = p.Section("sceCtrl", 1, 2);
 	if (!s)
 		return;
 
@@ -338,7 +338,11 @@ void __CtrlDoState(PointerWrap &p)
 	p.Do(ctrlBuf);
 	p.Do(ctrlBufRead);
 	p.Do(latch);
-	p.Do(dialogBtnMake);
+	if (s == 1) {
+		dialogBtnMake = 0;
+	} else {
+		p.Do(dialogBtnMake);
+	}
 
 	p.Do(ctrlIdleReset);
 	p.Do(ctrlIdleBack);
