@@ -139,10 +139,9 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	threadList = new CtrlThreadList(GetDlgItem(m_hDlg,IDC_THREADLIST));
 	threadList->reloadThreads();
 
-	stackTraceView = new CtrlStackTraceView();
+	stackTraceView = new CtrlStackTraceView(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
 	stackTraceView->setCpu(cpu);
 	stackTraceView->setDisasm(ptr);
-	stackTraceView->setDialogItem(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
 	stackTraceView->loadStackTrace();
 	
 	// init bottom "tab"
@@ -382,7 +381,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			threadList->HandleNotify(lParam);
 			break;
 		case IDC_STACKFRAMES:
-			stackTraceView->handleNotify(lParam);
+			stackTraceView->HandleNotify(lParam);
 			break;
 		}
 		break;

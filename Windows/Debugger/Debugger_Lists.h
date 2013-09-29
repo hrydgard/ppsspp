@@ -61,16 +61,10 @@ private:
 	void toggleEnabled(int itemIndex);
 };
 
-class CtrlStackTraceView
+class CtrlStackTraceView: public GenericListControl
 {
-	HWND wnd;
-	WNDPROC oldProc;
-	std::vector<MIPSStackWalk::StackFrame> frames;
-	DebugInterface* cpu;
-	CtrlDisAsmView* disasm;
-	wchar_t stringBuffer[256];
-
 public:
+	CtrlStackTraceView(HWND hwnd);
 	void setCpu(DebugInterface* cpu)
 	{
 		this->cpu = cpu;
@@ -79,8 +73,14 @@ public:
 	{
 		this->disasm = disasm;
 	};
-	void setDialogItem(HWND hwnd);
 	void loadStackTrace();
-	void handleNotify(LPARAM lParam);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
+	virtual void GetColumnText(wchar_t* dest, int row, int col);
+	virtual int GetRowCount() { return (int)frames.size(); };
+	virtual void OnDoubleClick(int itemIndex, int column);
+private:
+	std::vector<MIPSStackWalk::StackFrame> frames;
+	DebugInterface* cpu;
+	CtrlDisAsmView* disasm;
 };

@@ -582,121 +582,77 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 // CtrlStackTraceView
 //
 
-void CtrlStackTraceView::setDialogItem(HWND hwnd)
+CtrlStackTraceView::CtrlStackTraceView(HWND hwnd): GenericListControl(hwnd,stackTraceColumns,SF_COLUMNCOUNT)
 {
-	wnd = hwnd;
-
-	SetWindowLongPtr(wnd,GWLP_USERDATA,(LONG_PTR)this);
-	oldProc = (WNDPROC) SetWindowLongPtr(wnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
-
-	SendMessage(wnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
-
-	LVCOLUMN lvc; 
-	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-	lvc.iSubItem = 0;
-	lvc.fmt = LVCFMT_LEFT;
-	
-	RECT rect;
-	GetWindowRect(wnd,&rect);
-
-	int totalListSize = (rect.right-rect.left-20);
-	for (int i = 0; i < SF_COLUMNCOUNT; i++)
-	{
-		lvc.cx = stackTraceColumns[i].size * totalListSize;
-		lvc.pszText = stackTraceColumns[i].name;
-		ListView_InsertColumn(wnd, i, &lvc);
-	}
+	Update();
 }
 
-LRESULT CALLBACK CtrlStackTraceView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool CtrlStackTraceView::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue)
 {
-	CtrlStackTraceView* sv = (CtrlStackTraceView*) GetWindowLongPtr(hwnd,GWLP_USERDATA);
-
-	switch (msg)
+	switch(msg)
 	{
-	case WM_SIZE:
-		{
-			int width = LOWORD(lParam);
-			RECT rect;
-			GetWindowRect(hwnd,&rect);
-
-			int totalListSize = (rect.right-rect.left-20);
-			for (int i = 0; i < SF_COLUMNCOUNT; i++)
-			{
-				ListView_SetColumnWidth(hwnd,i,stackTraceColumns[i].size * totalListSize);
-			}
-		}
-		break;
 	case WM_KEYDOWN:
 		if (wParam == VK_TAB)
 		{
-			SendMessage(GetParent(hwnd),WM_DEB_TABPRESSED,0,0);
-			return 0;
+			returnValue = 0;
+			SendMessage(GetParent(GetHandle()),WM_DEB_TABPRESSED,0,0);
+			return true;
 		}
 		break;
 	case WM_GETDLGCODE:
 		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
 		{
-			if (wParam == VK_TAB) return DLGC_WANTMESSAGE;
+			if (wParam == VK_TAB || wParam == VK_RETURN)
+			{
+				returnValue = DLGC_WANTMESSAGE;
+				return true;
+			}
 		}
 		break;
 	}
-	return (LRESULT)CallWindowProc((WNDPROC)sv->oldProc,hwnd,msg,wParam,lParam);
+
+	return false;
 }
 
-void CtrlStackTraceView::handleNotify(LPARAM lParam)
+void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 {
-	LPNMHDR mhdr = (LPNMHDR) lParam;
-
-	if (mhdr->code == NM_DBLCLK)
+	switch (col)
 	{
-		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-		SendMessage(GetParent(wnd),WM_DEB_GOTOWPARAM,frames[item->iItem].pc,0);
-		return;
-	}
-
-	if (mhdr->code == LVN_GETDISPINFO)
-	{
-		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
-		int index = dispInfo->item.iItem;
-		
-		stringBuffer[0] = 0;
-		switch (dispInfo->item.iSubItem)
+	case SF_ENTRY:
+		wsprintf(dest,L"%08X",frames[row].entry);
+		break;
+	case SF_ENTRYNAME:
 		{
-		case SF_ENTRY:
-			wsprintf(stringBuffer,L"%08X",frames[index].entry);
-			break;
-		case SF_ENTRYNAME:
-			{
-				const char* sym = cpu->findSymbolForAddress(frames[index].entry);
-				if (sym != NULL) {
-					wcscpy(stringBuffer, ConvertUTF8ToWString(sym).c_str());
-				} else {
-					wcscpy(stringBuffer,L"-");
-				}
+			const char* sym = cpu->findSymbolForAddress(frames[row].entry);
+			if (sym != NULL) {
+				wcscpy(dest, ConvertUTF8ToWString(sym).c_str());
+			} else {
+				wcscpy(dest,L"-");
 			}
-			break;
-		case SF_CURPC:
-			wsprintf(stringBuffer,L"%08X",frames[index].pc);
-			break;
-		case SF_CUROPCODE:
-			{
-				char temp[512];
-				disasm->getOpcodeText(frames[index].pc,temp);
-				wcscpy(stringBuffer, ConvertUTF8ToWString(temp).c_str());
-			}
-			break;
-		case SF_CURSP:
-			wsprintf(stringBuffer,L"%08X",frames[index].sp);
-			break;
-		case SF_FRAMESIZE:
-			wsprintf(stringBuffer,L"%08X",frames[index].stackSize);
-			break;
 		}
-
-		if (stringBuffer[0] == 0) wcscat(stringBuffer, L"Invalid");
-		dispInfo->item.pszText = stringBuffer;
+		break;
+	case SF_CURPC:
+		wsprintf(dest,L"%08X",frames[row].pc);
+		break;
+	case SF_CUROPCODE:
+		{
+			char temp[512];
+			disasm->getOpcodeText(frames[row].pc,temp);
+			wcscpy(dest, ConvertUTF8ToWString(temp).c_str());
+		}
+		break;
+	case SF_CURSP:
+		wsprintf(dest,L"%08X",frames[row].sp);
+		break;
+	case SF_FRAMESIZE:
+		wsprintf(dest,L"%08X",frames[row].stackSize);
+		break;
 	}
+}
+
+void CtrlStackTraceView::OnDoubleClick(int itemIndex, int column)
+{
+	SendMessage(GetParent(GetHandle()),WM_DEB_GOTOWPARAM,frames[itemIndex].pc,0);
 }
 
 void CtrlStackTraceView::loadStackTrace()
@@ -715,28 +671,5 @@ void CtrlStackTraceView::loadStackTrace()
 	}
 
 	frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
-
-	int items = ListView_GetItemCount(wnd);
-	while (items < (int)frames.size())
-	{
-		LVITEM lvI;
-		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
-		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
-		lvI.stateMask = 0;
-		lvI.iSubItem  = 0;
-		lvI.state     = 0;
-		lvI.iItem  = items;
-		lvI.iImage = items;
-
-		ListView_InsertItem(wnd, &lvI);
-		items++;
-	}
-
-	while (items > (int)frames.size())
-	{
-		ListView_DeleteItem(wnd,--items);
-	}
-
-	InvalidateRect(wnd,NULL,true);
-	UpdateWindow(wnd);
+	Update();
 }
