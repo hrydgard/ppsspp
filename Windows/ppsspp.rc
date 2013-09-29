@@ -380,9 +380,10 @@ BEGIN
         MENUITEM "Stretch to Display",                      ID_OPTIONS_STRETCHDISPLAY
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
+        MENUITEM "FXAA antialiasing",                       ID_OPTIONS_FXAA
         POPUP "Rendering Resolution"
         BEGIN
-            MENUITEM "Auto",                               ID_OPTIONS_SCREENAUTO
+            MENUITEM "Auto",                                ID_OPTIONS_SCREENAUTO
             MENUITEM "&1x",                                 ID_OPTIONS_SCREEN1X
             MENUITEM "&2x",                                 ID_OPTIONS_SCREEN2X
             MENUITEM "&3x",                                 ID_OPTIONS_SCREEN3X
