@@ -135,7 +135,7 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 	{
 		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
 		if (item->iItem != -1 && item->iItem < GetRowCount())
-			OnRightClick(item->iItem,item->iSubItem);
+			OnRightClick(item->iItem,item->iSubItem,item->ptAction);
 		return;
 	}
 

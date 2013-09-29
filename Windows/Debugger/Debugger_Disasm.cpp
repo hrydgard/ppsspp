@@ -137,8 +137,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	breakpointList->setDialogItem(GetDlgItem(m_hDlg,IDC_BREAKPOINTLIST));
 	breakpointList->update();
 
-	threadList = new CtrlThreadList();
-	threadList->setDialogItem(GetDlgItem(m_hDlg,IDC_THREADLIST));
+	threadList = new CtrlThreadList(GetDlgItem(m_hDlg,IDC_THREADLIST));
 	threadList->reloadThreads();
 
 	stackTraceView = new CtrlStackTraceView();
@@ -381,7 +380,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			breakpointList->handleNotify(lParam);
 			break;
 		case IDC_THREADLIST:
-			threadList->handleNotify(lParam);
+			threadList->HandleNotify(lParam);
 			break;
 		case IDC_STACKFRAMES:
 			stackTraceView->handleNotify(lParam);

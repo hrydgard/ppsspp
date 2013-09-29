@@ -10,42 +10,36 @@
 #include "../../Core/HLE/sceKernelThread.h"
 #include "util/text/utf8.h"
 
-typedef struct
-{
-	wchar_t *name;
-	float size;
-} ListViewColumn;
-
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
 enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
 
-ListViewColumn threadColumns[TL_COLUMNCOUNT] = {
+GenericListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ L"Name",			0.20f },
-	{ L"PC",				0.15f },
+	{ L"PC",			0.15f },
 	{ L"Entry Point",	0.15f },
 	{ L"Priority",		0.15f },
 	{ L"State",			0.15f },
 	{ L"Wait type",		0.20f }
 };
 
-ListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
+GenericListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
 	{ L"Type",			0.12f },
-	{ L"Offset",			0.12f },
-	{ L"Size/Label",		0.18f },
-	{ L"Opcode",			0.28f },
+	{ L"Offset",		0.12f },
+	{ L"Size/Label",	0.18f },
+	{ L"Opcode",		0.28f },
 	{ L"Condition",		0.17f },
 	{ L"Hits",			0.05f },
 	{ L"Enabled",		0.08f }
 };
 
-ListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
+GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 	{ L"Entry",			0.12f },
 	{ L"Name",			0.24f },
-	{ L"PC",				0.12f },
-	{ L"Opcode",			0.28f },
-	{ L"SP",				0.12f },
-	{ L"Frame Size",		0.12f }
+	{ L"PC",			0.12f },
+	{ L"Opcode",		0.28f },
+	{ L"SP",			0.12f },
+	{ L"Frame Size",	0.12f }
 };
 
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
@@ -56,65 +50,36 @@ const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
 // CtrlThreadList
 //
 
-void CtrlThreadList::setDialogItem(HWND hwnd)
+CtrlThreadList::CtrlThreadList(HWND hwnd): GenericListControl(hwnd,threadColumns,TL_COLUMNCOUNT)
 {
-	wnd = hwnd;
-
-	SetWindowLongPtr(wnd,GWLP_USERDATA,(LONG_PTR)this);
-	oldProc = (WNDPROC) SetWindowLongPtr(wnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
-
-	SendMessage(wnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
-
-	LVCOLUMN lvc; 
-	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-	lvc.iSubItem = 0;
-	lvc.fmt = LVCFMT_LEFT;
-	
-	RECT rect;
-	GetWindowRect(wnd,&rect);
-
-	int totalListSize = (rect.right-rect.left-20);
-	for (int i = 0; i < TL_COLUMNCOUNT; i++) {
-		lvc.cx = threadColumns[i].size * totalListSize;
-		lvc.pszText = threadColumns[i].name;
-		ListView_InsertColumn(wnd, i, &lvc);
-	}
+	Update();
 }
 
-LRESULT CALLBACK CtrlThreadList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool CtrlThreadList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue)
 {
-	CtrlThreadList* tl = (CtrlThreadList*) GetWindowLongPtr(hwnd,GWLP_USERDATA);
-
 	switch (msg)
 	{
-	case WM_SIZE:
-		{
-			int width = LOWORD(lParam);
-			RECT rect;
-			GetWindowRect(hwnd,&rect);
-
-			int totalListSize = (rect.right-rect.left-20);
-			for (int i = 0; i < TL_COLUMNCOUNT; i++)
-			{
-				ListView_SetColumnWidth(hwnd,i,threadColumns[i].size * totalListSize);
-			}
-		}
-		break;
 	case WM_KEYDOWN:
 		if (wParam == VK_TAB)
 		{
-			SendMessage(GetParent(hwnd),WM_DEB_TABPRESSED,0,0);
-			return 0;
+			SendMessage(GetParent(GetHandle()),WM_DEB_TABPRESSED,0,0);
+			returnValue = 0;
+			return true;
 		}
 		break;
 	case WM_GETDLGCODE:
 		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
 		{
-			if (wParam == VK_TAB) return DLGC_WANTMESSAGE;
+			if (wParam == VK_TAB)
+			{
+				returnValue = DLGC_WANTMESSAGE;
+				return true;
+			}
 		}
 		break;
 	}
-	return (LRESULT)CallWindowProc((WNDPROC)tl->oldProc,hwnd,msg,wParam,lParam);
+
+	return false;
 }
 
 void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
@@ -126,7 +91,7 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 		return;
 
 	POINT screenPt(pt);
-	ClientToScreen(wnd, &screenPt);
+	ClientToScreen(GetHandle(), &screenPt);
 
 	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_THREADLIST);
 	switch (threadInfo.status) {
@@ -149,7 +114,7 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 		break;
 	}
 
-	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 	{
 	case ID_DISASM_THREAD_FORCERUN:
 		__KernelResumeThreadFromWait(threadInfo.id, 0);
@@ -162,132 +127,92 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 	}
 }
 
-void CtrlThreadList::handleNotify(LPARAM lParam)
+void CtrlThreadList::GetColumnText(wchar_t* dest, int row, int col)
 {
-	LPNMHDR mhdr = (LPNMHDR) lParam;
-
-	if (mhdr->code == NM_DBLCLK)
+	switch (col)
 	{
-		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-
-		u32 address;
-		switch (threads[item->iItem].status)
+	case TL_NAME:
+		wcscpy(dest, ConvertUTF8ToWString(threads[row].name).c_str());
+		break;
+	case TL_PROGRAMCOUNTER:
+		switch (threads[row].status)
 		{
 		case THREADSTATUS_DORMANT:
 		case THREADSTATUS_DEAD:
-			address = threads[item->iItem].entrypoint;
+			wcscpy(dest, L"N/A");
 			break;
 		default:
-			address = threads[item->iItem].curPC;
+			wsprintf(dest, L"0x%08X",threads[row].curPC);
 			break;
-		}
-
-		SendMessage(GetParent(wnd),WM_DEB_GOTOWPARAM,address,0);
-		return;
-	}
-	if (mhdr->code == NM_RCLICK)
-	{
-		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
-		showMenu(item->iItem, item->ptAction);
-		return;
-	}
-
-	if (mhdr->code == LVN_GETDISPINFO)
-	{
-		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
-		int index = dispInfo->item.iItem;
-		
-		stringBuffer[0] = 0;
-		switch (dispInfo->item.iSubItem)
+		};
+		break;
+	case TL_ENTRYPOINT:
+		wsprintf(dest,L"0x%08X",threads[row].entrypoint);
+		break;
+	case TL_PRIORITY:
+		wsprintf(dest,L"%d",threads[row].priority);
+		break;
+	case TL_STATE:
+		switch (threads[row].status)
 		{
-		case TL_NAME:
-			wcscpy(stringBuffer, ConvertUTF8ToWString(threads[index].name).c_str());
+		case THREADSTATUS_RUNNING:
+			wcscpy(dest,L"Running");
 			break;
-		case TL_PROGRAMCOUNTER:
-			switch (threads[index].status)
-			{
-			case THREADSTATUS_DORMANT:
-			case THREADSTATUS_DEAD:
-				wcscpy(stringBuffer, L"N/A");
-				break;
-			default:
-				wsprintf(stringBuffer, L"0x%08X",threads[index].curPC);
-				break;
-			};
+		case THREADSTATUS_READY:
+			wcscpy(dest,L"Ready");
 			break;
-		case TL_ENTRYPOINT:
-			wsprintf(stringBuffer,L"0x%08X",threads[index].entrypoint);
+		case THREADSTATUS_WAIT:
+			wcscpy(dest,L"Waiting");
 			break;
-		case TL_PRIORITY:
-			wsprintf(stringBuffer,L"%d",threads[index].priority);
+		case THREADSTATUS_SUSPEND:
+			wcscpy(dest,L"Suspended");
 			break;
-		case TL_STATE:
-			switch (threads[index].status)
-			{
-			case THREADSTATUS_RUNNING:
-				wcscpy(stringBuffer,L"Running");
-				break;
-			case THREADSTATUS_READY:
-				wcscpy(stringBuffer,L"Ready");
-				break;
-			case THREADSTATUS_WAIT:
-				wcscpy(stringBuffer,L"Waiting");
-				break;
-			case THREADSTATUS_SUSPEND:
-				wcscpy(stringBuffer,L"Suspended");
-				break;
-			case THREADSTATUS_DORMANT:
-				wcscpy(stringBuffer,L"Dormant");
-				break;
-			case THREADSTATUS_DEAD:
-				wcscpy(stringBuffer,L"Dead");
-				break;
-			case THREADSTATUS_WAITSUSPEND:
-				wcscpy(stringBuffer,L"Waiting/Suspended");
-				break;
-			default:
-				wcscpy(stringBuffer,L"Invalid");
-				break;
-			}
+		case THREADSTATUS_DORMANT:
+			wcscpy(dest,L"Dormant");
 			break;
-		case TL_WAITTYPE:
-			wcscpy(stringBuffer, ConvertUTF8ToWString(getWaitTypeName(threads[index].waitType)).c_str());
+		case THREADSTATUS_DEAD:
+			wcscpy(dest,L"Dead");
+			break;
+		case THREADSTATUS_WAITSUSPEND:
+			wcscpy(dest,L"Waiting/Suspended");
+			break;
+		default:
+			wcscpy(dest,L"Invalid");
 			break;
 		}
-
-		if (stringBuffer[0] == 0)
-			wcscat(stringBuffer,L"Invalid");
-		dispInfo->item.pszText = stringBuffer;
+		break;
+	case TL_WAITTYPE:
+		wcscpy(dest, ConvertUTF8ToWString(getWaitTypeName(threads[row].waitType)).c_str());
+		break;
 	}
+}
+
+void CtrlThreadList::OnDoubleClick(int itemIndex, int column)
+{
+	u32 address;
+	switch (threads[itemIndex].status)
+	{
+	case THREADSTATUS_DORMANT:
+	case THREADSTATUS_DEAD:
+		address = threads[itemIndex].entrypoint;
+		break;
+	default:
+		address = threads[itemIndex].curPC;
+		break;
+	}
+
+	SendMessage(GetParent(GetHandle()),WM_DEB_GOTOWPARAM,address,0);
+}
+
+void CtrlThreadList::OnRightClick(int itemIndex, int column, const POINT& point)
+{
+	showMenu(itemIndex,point);
 }
 
 void CtrlThreadList::reloadThreads()
 {
 	threads = GetThreadsInfo();
-
-	int items = ListView_GetItemCount(wnd);
-	while (items < (int)threads.size())
-	{
-		LVITEM lvI;
-		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
-		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
-		lvI.stateMask = 0;
-		lvI.iSubItem  = 0;
-		lvI.state     = 0;
-		lvI.iItem  = items;
-		lvI.iImage = items;
-
-		ListView_InsertItem(wnd, &lvI);
-		items++;
-	}
-
-	while (items > (int)threads.size())
-	{
-		ListView_DeleteItem(wnd,--items);
-	}
-
-	InvalidateRect(wnd,NULL,true);
-	UpdateWindow(wnd);
+	Update();
 }
 
 const char* CtrlThreadList::getCurrentThreadName()

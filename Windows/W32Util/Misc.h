@@ -21,6 +21,7 @@ class GenericListControl
 {
 public:
 	GenericListControl(HWND hwnd, const GenericListViewColumn* _columns, int _columnCount);
+	virtual ~GenericListControl() { };
 	void HandleNotify(LPARAM lParam);
 	void Update();
 	int GetSelectedIndex();
@@ -30,7 +31,7 @@ protected:
 	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
-	virtual void OnRightClick(int itemIndex, int column) { };
+	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void ResizeColumns();
