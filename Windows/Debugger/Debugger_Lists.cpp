@@ -230,114 +230,60 @@ const char* CtrlThreadList::getCurrentThreadName()
 // CtrlBreakpointList
 //
 
-void CtrlBreakpointList::setDialogItem(HWND hwnd)
+CtrlBreakpointList::CtrlBreakpointList(HWND hwnd): GenericListControl(hwnd,breakpointColumns,BPL_COLUMNCOUNT)
 {
-	wnd = hwnd;
-
-	SetWindowLongPtr(wnd,GWLP_USERDATA,(LONG_PTR)this);
-	oldProc = (WNDPROC) SetWindowLongPtr(wnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
-
-	SendMessage(wnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
-
-	LVCOLUMN lvc; 
-	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-	lvc.iSubItem = 0;
-	lvc.fmt = LVCFMT_LEFT;
-	
-	RECT rect;
-	GetWindowRect(wnd,&rect);
-
-	int totalListSize = (rect.right-rect.left-20);
-	for (int i = 0; i < BPL_COLUMNCOUNT; i++)
-	{
-		lvc.cx = breakpointColumns[i].size * totalListSize;
-		lvc.pszText = breakpointColumns[i].name;
-		ListView_InsertColumn(wnd, i, &lvc);
-	}
+	SetSendInvalidRows(true);
+	Update();
 }
 
-LRESULT CALLBACK CtrlBreakpointList::wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+bool CtrlBreakpointList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue)
 {
-	CtrlBreakpointList* bp = (CtrlBreakpointList*) GetWindowLongPtr(hwnd,GWLP_USERDATA);
-
-	switch(message)
+	switch(msg)
 	{
-	case WM_SIZE:
-		{
-			int width = LOWORD(lParam);
-			RECT rect;
-			GetWindowRect(hwnd,&rect);
-
-			int totalListSize = (rect.right-rect.left-20);
-			for (int i = 0; i < BPL_COLUMNCOUNT; i++)
-			{
-				ListView_SetColumnWidth(hwnd,i,breakpointColumns[i].size * totalListSize);
-			}
-		}
-		break;
 	case WM_KEYDOWN:
+		returnValue = 0;
 		if(wParam == VK_RETURN)
 		{
-			int index = ListView_GetSelectionMark(hwnd);
-			bp->editBreakpoint(index);
-			return 0;
+			int index = GetSelectedIndex();
+			editBreakpoint(index);
+			return true;
 		} else if (wParam == VK_DELETE)
 		{
-			int index = ListView_GetSelectionMark(hwnd);
-			bp->removeBreakpoint(index);
-			return 0;
+			int index = GetSelectedIndex();
+			removeBreakpoint(index);
+			return true;
 		} else if (wParam == VK_TAB)
 		{
-			SendMessage(GetParent(hwnd),WM_DEB_TABPRESSED,0,0);
-			return 0;
+			SendMessage(GetParent(GetHandle()),WM_DEB_TABPRESSED,0,0);
+			return true;
 		} else if (wParam == VK_SPACE)
 		{
-			int index = ListView_GetSelectionMark(hwnd);
-			bp->toggleEnabled(index);
+			int index = GetSelectedIndex();
+			toggleEnabled(index);
+			return true;
 		}
 		break;
 	case WM_GETDLGCODE:
 		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
 		{
-			if (wParam == VK_TAB || wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+			if (wParam == VK_TAB || wParam == VK_RETURN)
+			{
+				returnValue = DLGC_WANTMESSAGE;
+				return true;
+			}
 		}
 		break;
-	};
-	
-	return (LRESULT)CallWindowProc((WNDPROC)bp->oldProc,hwnd,message,wParam,lParam);
+	}
+
+	return false;
 }
 
-void CtrlBreakpointList::update()
+void CtrlBreakpointList::reloadBreakpoints()
 {
 	// Update the items we're displaying from the debugger.
 	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
 	displayedMemChecks_= CBreakPoints::GetMemChecks();
-
-	int breakpointCount = getTotalBreakpointCount();
-	int items = ListView_GetItemCount(wnd);
-
-	while (items < breakpointCount)
-	{
-	    LVITEM lvI;
-		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
-		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
-		lvI.stateMask = 0;
-		lvI.iSubItem  = 0;
-		lvI.state     = 0;
-		lvI.iItem  = items;
-		lvI.iImage = items;
-
-		ListView_InsertItem(wnd, &lvI);
-		items++;
-	}
-
-	while (items > breakpointCount)
-	{
-		ListView_DeleteItem(wnd,--items);
-	}
-
-	InvalidateRect(wnd,NULL,true);
-	UpdateWindow(wnd);
+	Update();
 }
 
 void CtrlBreakpointList::editBreakpoint(int itemIndex)
@@ -346,7 +292,7 @@ void CtrlBreakpointList::editBreakpoint(int itemIndex)
 	int index = getBreakpointIndex(itemIndex, isMemory);
 	if (index == -1) return;
 
-	BreakpointWindow win(wnd,cpu);
+	BreakpointWindow win(GetHandle(),cpu);
 	if (isMemory)
 	{
 		auto mem = displayedMemChecks_[index];
@@ -465,138 +411,119 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 	return -1;
 }
 
-void CtrlBreakpointList::handleNotify(LPARAM lParam)
+void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 {
-	const LPNMHDR header = (LPNMHDR)lParam;
-	if (header->code == NM_DBLCLK)
-	{
-		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-		gotoBreakpointAddress(item->iItem);
-		return;
-	}
-	if (header->code == NM_RCLICK)
-	{
-		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
-		showBreakpointMenu(item->iItem, item->ptAction);
-		return;
-	}
-
-	if (header->code == LVN_GETDISPINFO)
-	{
-		NMLVDISPINFO *dispInfo = (NMLVDISPINFO *)lParam;
+	bool isMemory;
+	int index = getBreakpointIndex(row,isMemory);
+	if (index == -1) return;
 		
-		bool isMemory;
-		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
-		if (index == -1) return;
-		
-		breakpointText = L"";
-		switch (dispInfo->item.iSubItem)
+	switch (col)
+	{
+	case BPL_TYPE:
 		{
-		case BPL_TYPE:
-			{
-				if (isMemory) {
-					switch (displayedMemChecks_[index].cond) {
-					case MEMCHECK_READ:
-						breakpointText = L"Read";
-						break;
-					case MEMCHECK_WRITE:
-						breakpointText = L"Write";
-						break;
-					case MEMCHECK_READWRITE:
-						breakpointText = L"Read/Write";
-						break;
-					}
-				} else {
-					breakpointText = L"Execute";
+			if (isMemory) {
+				switch (displayedMemChecks_[index].cond) {
+				case MEMCHECK_READ:
+					wcscpy(dest,L"Read");
+					break;
+				case MEMCHECK_WRITE:
+					wcscpy(dest,L"Write");
+					break;
+				case MEMCHECK_READWRITE:
+					wcscpy(dest,L"Read/Write");
+					break;
 				}
+			} else {
+				wcscpy(dest,L"Execute");
 			}
-			break;
-		case BPL_OFFSET:
-			{
-				wchar_t temp[256];
-				if (isMemory) {
-					wsprintf(temp,L"0x%08X",displayedMemChecks_[index].start);
-				} else {
-					wsprintf(temp,L"0x%08X",displayedBreakPoints_[index].addr);
-				}
-				breakpointText = temp;
-			}
-			break;
-		case BPL_SIZELABEL:
-			{
-				if (isMemory) {
-					auto mc = displayedMemChecks_[index];
-					wchar_t temp[256];
-					if (mc.end == 0)
-						wsprintf(temp,L"0x%08X",1);
-					else
-						wsprintf(temp,L"0x%08X",mc.end-mc.start);
-					breakpointText = temp;
-				} else {
-					const char* sym = cpu->findSymbolForAddress(displayedBreakPoints_[index].addr);
-					if (sym != NULL)
-					{
-						breakpointText = ConvertUTF8ToWString(sym);
-					} else {
-						breakpointText = L"-";
-					}
-				}
-			}
-			break;
-		case BPL_OPCODE:
-			{
-				if (isMemory) {
-					breakpointText = L"-";
-				} else {
-					char temp[256];
-					disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp);
-					breakpointText = ConvertUTF8ToWString(temp);
-				}
-			}
-			break;
-		case BPL_CONDITION:
-			{
-				if (isMemory || displayedBreakPoints_[index].hasCond == false) {
-					breakpointText = L"-";
-				} else {
-					breakpointText = ConvertUTF8ToWString(displayedBreakPoints_[index].cond.expressionString);
-				}
-			}
-			break;
-		case BPL_HITS:
-			{
-				if (isMemory) {
-					wchar_t temp[256];
-					wsprintf(temp,L"%d",displayedMemChecks_[index].numHits);
-					breakpointText = temp;
-				} else {
-					breakpointText = L"-";
-				}
-			}
-			break;
-		case BPL_ENABLED:
-			{
-				if (isMemory) {
-					breakpointText = displayedMemChecks_[index].result & MEMCHECK_BREAK ? L"True" : L"False";
-				} else {
-					breakpointText = displayedBreakPoints_[index].enabled ? L"True" : L"False";
-				}
-			}
-			break;
-		default:
-			return;
 		}
-				
-		if (breakpointText.empty())
-			breakpointText = L"Invalid";
-		dispInfo->item.pszText = &breakpointText[0];
+		break;
+	case BPL_OFFSET:
+		{
+			if (isMemory) {
+				wsprintf(dest,L"0x%08X",displayedMemChecks_[index].start);
+			} else {
+				wsprintf(dest,L"0x%08X",displayedBreakPoints_[index].addr);
+			}
+		}
+		break;
+	case BPL_SIZELABEL:
+		{
+			if (isMemory) {
+				auto mc = displayedMemChecks_[index];
+				if (mc.end == 0)
+					wsprintf(dest,L"0x%08X",1);
+				else
+					wsprintf(dest,L"0x%08X",mc.end-mc.start);
+			} else {
+				const char* sym = cpu->findSymbolForAddress(displayedBreakPoints_[index].addr);
+				if (sym != NULL)
+				{
+					std::wstring s = ConvertUTF8ToWString(sym);
+					wcscpy(dest,s.c_str());
+				} else {
+					wcscpy(dest,L"-");
+				}
+			}
+		}
+		break;
+	case BPL_OPCODE:
+		{
+			if (isMemory) {
+				wcscpy(dest,L"-");
+			} else {
+				char temp[256];
+				disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp);
+				std::wstring s = ConvertUTF8ToWString(temp);
+				wcscpy(dest,s.c_str());
+			}
+		}
+		break;
+	case BPL_CONDITION:
+		{
+			if (isMemory || displayedBreakPoints_[index].hasCond == false) {
+				wcscpy(dest,L"-");
+			} else {
+				std::wstring s = ConvertUTF8ToWString(displayedBreakPoints_[index].cond.expressionString);
+				wcscpy(dest,s.c_str());
+			}
+		}
+		break;
+	case BPL_HITS:
+		{
+			if (isMemory) {
+				wsprintf(dest,L"%d",displayedMemChecks_[index].numHits);
+			} else {
+				wsprintf(dest,L"-");
+			}
+		}
+		break;
+	case BPL_ENABLED:
+		{
+			if (isMemory) {
+				wsprintf(dest,displayedMemChecks_[index].result & MEMCHECK_BREAK ? L"True" : L"False");
+			} else {
+				wsprintf(dest,displayedBreakPoints_[index].enabled ? L"True" : L"False");
+			}
+		}
+		break;
 	}
+}
+
+void CtrlBreakpointList::OnDoubleClick(int itemIndex, int column)
+{
+	gotoBreakpointAddress(itemIndex);
+}
+
+void CtrlBreakpointList::OnRightClick(int itemIndex, int column, const POINT& point)
+{
+	showBreakpointMenu(itemIndex,point);
 }
 
 void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 {
 	POINT screenPt(pt);
-	ClientToScreen(wnd, &screenPt);
+	ClientToScreen(GetHandle(), &screenPt);
 
 	bool isMemory;
 	int index = getBreakpointIndex(itemIndex, isMemory);
@@ -604,11 +531,11 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 	{
 		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_NEWBREAKPOINT);
 		
-		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 		{
 		case ID_DISASM_ADDNEWBREAKPOINT:
 			{		
-				BreakpointWindow bpw(wnd,cpu);
+				BreakpointWindow bpw(GetHandle(),cpu);
 				if (bpw.exec()) bpw.addBreakpoint();
 			}
 			break;
@@ -629,7 +556,7 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 		{
 		case ID_DISASM_DISABLEBREAKPOINT:
 			if (isMemory) {
@@ -643,7 +570,7 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			break;
 		case ID_DISASM_ADDNEWBREAKPOINT:
 			{		
-				BreakpointWindow bpw(wnd,cpu);
+				BreakpointWindow bpw(GetHandle(),cpu);
 				if (bpw.exec()) bpw.addBreakpoint();
 			}
 			break;

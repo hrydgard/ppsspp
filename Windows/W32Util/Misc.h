@@ -26,6 +26,7 @@ public:
 	void Update();
 	int GetSelectedIndex();
 	HWND GetHandle() { return handle; };
+	void SetSendInvalidRows(bool enabled) { sendInvalidRows = enabled; };
 protected:
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
 	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
@@ -42,4 +43,5 @@ private:
 	int columnCount;
 	wchar_t stringBuffer[256];
 	bool valid;
+	bool sendInvalidRows;
 };

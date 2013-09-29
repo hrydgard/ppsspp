@@ -61,7 +61,7 @@ public:
 	{
 		UpdateDialog(true);
 		SetDebugMode(Core_IsStepping(), false);
-		breakpointList->update();
+		breakpointList->reloadBreakpoints();
 	};
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 

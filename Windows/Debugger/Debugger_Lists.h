@@ -25,10 +25,27 @@ private:
 
 class CtrlDisAsmView;
 
-class CtrlBreakpointList
+class CtrlBreakpointList: public GenericListControl
 {
-	HWND wnd;
-	WNDPROC oldProc;
+public:
+	CtrlBreakpointList(HWND hwnd);
+	void reloadBreakpoints();
+	void setCpu(DebugInterface* cpu)
+	{
+		this->cpu = cpu;
+	};
+	void setDisasm(CtrlDisAsmView* disasm)
+	{
+		this->disasm = disasm;
+	};
+	void showMenu(int itemIndex, const POINT &pt);
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
+	virtual void GetColumnText(wchar_t* dest, int row, int col);
+	virtual int GetRowCount() { return getTotalBreakpointCount(); };
+	virtual void OnDoubleClick(int itemIndex, int column);
+	virtual void OnRightClick(int itemIndex, int column, const POINT& point);
+private:
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 	std::wstring breakpointText;
@@ -42,20 +59,6 @@ class CtrlBreakpointList
 	int getBreakpointIndex(int itemIndex, bool& isMemory);
 	void showBreakpointMenu(int itemIndex, const POINT &pt);
 	void toggleEnabled(int itemIndex);
-public:
-	void setCpu(DebugInterface* cpu)
-	{
-		this->cpu = cpu;
-	};
-	void setDisasm(CtrlDisAsmView* disasm)
-	{
-		this->disasm = disasm;
-	};
-	void update();
-	void setDialogItem(HWND hwnd);
-	void handleNotify(LPARAM lParam);
-	void showMenu(int itemIndex, const POINT &pt);
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };
 
 class CtrlStackTraceView
