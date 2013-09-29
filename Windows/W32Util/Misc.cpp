@@ -116,6 +116,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _
 		ListView_InsertColumn(handle, i, &lvc);
 	}
 
+	SetSendInvalidRows(false);
 	valid = true;
 }
 
@@ -126,7 +127,7 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 	if (mhdr->code == NM_DBLCLK)
 	{
 		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-		if (item->iItem != -1 && item->iItem < GetRowCount())
+		if ((item->iItem != -1 && item->iItem < GetRowCount()) || sendInvalidRows)
 			OnDoubleClick(item->iItem,item->iSubItem);
 		return;
 	}
@@ -134,8 +135,8 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 	if (mhdr->code == NM_RCLICK)
 	{
 		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
-		if (item->iItem != -1 && item->iItem < GetRowCount())
-			OnRightClick(item->iItem,item->iSubItem);
+		if ((item->iItem != -1 && item->iItem < GetRowCount()) || sendInvalidRows)
+			OnRightClick(item->iItem,item->iSubItem,item->ptAction);
 		return;
 	}
 
