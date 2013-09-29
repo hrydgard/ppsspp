@@ -900,6 +900,8 @@ int PSPOskDialog::Update()
 		if (!strcmp(countryCode, "English Full-width"))
 			language = "English Full-width";
 		
+		countryCode = OskKeyboardNames[OSK_LANGUAGE_COUNT].c_str();
+		
 		if (strcmp(countryCode, "ko_KR"))
 		{
 			PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
