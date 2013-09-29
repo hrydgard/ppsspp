@@ -22,12 +22,7 @@ private:
 		// pseudo controls
 		SUBWIN_NEXT, SUBWIN_FIRST } SubWindowType;
 
-	RECT defaultRect;
-	RECT defaultBreakpointRect;
-	RECT regRect;
-	RECT disRect;
-	RECT breakpointRect;
-
+	int minWidth,minHeight;
 	DebugInterface *cpu;
 	u64 lastTicks;
 

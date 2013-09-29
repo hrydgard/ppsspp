@@ -81,12 +81,18 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	//if (WTL::CTheme::IsThemingSupported())
 		//EnableThemeDialogTexture(m_hDlg ,ETDT_ENABLETAB);
 #endif
-	int x = g_Config.iDisasmWindowX == -1 ? 500 : g_Config.iDisasmWindowX;
-	int y = g_Config.iDisasmWindowY == -1 ? 200 : g_Config.iDisasmWindowY;
-	int w = g_Config.iDisasmWindowW;
-	int h = g_Config.iDisasmWindowH;
-	// Start with the initial size so we have the right minimum size from the rc.
-	SetWindowPos(m_hDlg, 0, x, y, 0, 0, SWP_NOSIZE);
+
+	RECT windowRect;
+	GetWindowRect(m_hDlg,&windowRect);
+	int defaultWidth = windowRect.right-windowRect.left;
+	int defaultHeight = windowRect.bottom-windowRect.top;
+	minWidth = defaultWidth - 100;
+	minHeight = defaultHeight - 200;
+
+	int x = g_Config.iDisasmWindowX == -1 ? windowRect.left : g_Config.iDisasmWindowX;
+	int y = g_Config.iDisasmWindowY == -1 ? windowRect.top : g_Config.iDisasmWindowY;
+	int w = g_Config.iDisasmWindowW == -1 ? defaultWidth : g_Config.iDisasmWindowW;
+	int h = g_Config.iDisasmWindowH == -1 ? defaultHeight : g_Config.iDisasmWindowH;
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
@@ -95,15 +101,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->setCPU(cpu);
 
-	GetWindowRect(m_hDlg, &defaultRect);
-
-	//symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST), &regRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW), &disRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), &breakpointRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), &defaultBreakpointRect);
 
 	HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
 
@@ -153,14 +151,12 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	{
 		ShowWindow(statusBarWnd,SW_HIDE);
 	}
-
+	
 	// Actually resize the window to the proper size (after the above setup.)
-	if (w != -1 && h != -1)
-	{
-		// this will also call UpdateSize
-		SetWindowPos(m_hDlg, 0, x, y, w, h, 0);
-	}
-
+	// do it twice so that the window definitely receives a WM_SIZE message with
+	// the correct size (the default from the .rc tends to be off)
+	MoveWindow(m_hDlg,x,y,1,1,FALSE);
+	MoveWindow(m_hDlg,x,y,w,h,TRUE);
 	SetDebugMode(true, true);
 }
 
@@ -694,9 +690,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			MINMAXINFO *m = (MINMAXINFO *)lParam;
 			// Reduce the minimum size slightly, so they can size it however they like.
-			m->ptMinTrackSize.x = defaultRect.right - defaultRect.left - 100;
+			m->ptMinTrackSize.x = minWidth;
 			//m->ptMaxTrackSize.x = m->ptMinTrackSize.x;
-			m->ptMinTrackSize.y = defaultRect.bottom - defaultRect.top - 200;
+			m->ptMinTrackSize.y = minHeight;
 		}
 		return TRUE;
 	case WM_CLOSE:
@@ -727,45 +723,75 @@ void CDisasm::updateThreadLabel(bool clear)
 
 void CDisasm::UpdateSize(WORD width, WORD height)
 {
+	struct Position
+	{
+		int x,y;
+		int w,h;
+	};
+	
+	RECT windowRect;
+	Position positions[3];
+	
 	HWND disasm = GetDlgItem(m_hDlg, IDC_DISASMVIEW);
-	HWND funclist = GetDlgItem(m_hDlg, IDC_FUNCTIONLIST);
-	HWND regList = GetDlgItem(m_hDlg, IDC_REGLIST);
-	HWND breakpointList = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-	HWND memView = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
-	HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
-	HWND stackFrame = GetDlgItem(m_hDlg,IDC_STACKFRAMES);
 
+	HWND leftTabs[2] = {
+		GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),
+		GetDlgItem(m_hDlg, IDC_REGLIST)
+	};
+
+	HWND bottomTabs[4] = {
+		GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW),
+		GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),
+		GetDlgItem(m_hDlg, IDC_THREADLIST),
+		GetDlgItem(m_hDlg,IDC_STACKFRAMES)
+	};
+
+	// ignore the status bar
+	int topHeightOffset = 0;
 	if (g_Config.bDisplayStatusBar)
 	{
-		RECT statusRect;
-		GetWindowRect(statusBarWnd,&statusRect);
-		height -= (statusRect.bottom-statusRect.top);
-	} else {
-		height -= 2;
+		GetWindowRect(statusBarWnd,&windowRect);
+		topHeightOffset = (windowRect.bottom-windowRect.top);
 	}
 
-	int defaultHeight = defaultRect.bottom - defaultRect.top;
-	int breakpointHeight = defaultBreakpointRect.bottom - defaultBreakpointRect.top;
-	if (height < defaultHeight)
-		breakpointHeight -= defaultHeight - height;
+	// disassembly
+	GetWindowRect(disasm,&windowRect);
+	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&windowRect,2);
+	positions[0].x = windowRect.left;
+	positions[0].y = windowRect.top;
+	
+	// left tabs
+	GetWindowRect(leftTabs[0],&windowRect);
+	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&windowRect,2);
+	positions[1].x = windowRect.left;
+	positions[1].y = windowRect.top;
+	positions[1].w = windowRect.right-windowRect.left;
+	int borderMargin = positions[1].x;
 
-	int breakpointTop = height-breakpointHeight-4;
-	int regWidth = regRect.right - regRect.left;
-	int regTop = 138;
-	int disasmWidth = width-regWidth;
-	int disasmTop = 25;
+	// don't use the part above the disassembly for the computations
+	int bottomHeightOffset = positions[0].y;
+	positions[0].w = width-borderMargin-positions[0].x;
+	positions[0].h = (height-bottomHeightOffset-topHeightOffset) * 390./500.;
+	positions[1].h = positions[0].h-(positions[1].y-positions[0].y);
 
-	MoveWindow(regList, 8, regTop, regWidth, height-regTop-breakpointHeight-8, TRUE);
-	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-8, TRUE);
-	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-8,TRUE);
-	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
-	MoveWindow(memView,8,breakpointTop,width-16,breakpointHeight,TRUE);
-	MoveWindow(threads,8,breakpointTop,width-16,breakpointHeight,TRUE);
-	MoveWindow(stackFrame,8,breakpointTop,width-16,breakpointHeight,TRUE);
+	// bottom tabs
+	positions[2].x = borderMargin;
+	positions[2].y = positions[0].y+positions[0].h+borderMargin;
+	positions[2].w = width-2*borderMargin;
+	positions[2].h = height-bottomHeightOffset-positions[2].y;
 
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
+	// now actually move all the windows
+	MoveWindow(disasm,positions[0].x,positions[0].y,positions[0].w,positions[0].h,TRUE);
+
+	for (int i = 0; i < 2; i++)
+	{
+		MoveWindow(leftTabs[i],positions[1].x,positions[1].y,positions[1].w,positions[1].h,TRUE);
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		MoveWindow(bottomTabs[i],positions[2].x,positions[2].y,positions[2].w,positions[2].h,TRUE);
+	}
 }
 
 void CDisasm::SavePosition()
