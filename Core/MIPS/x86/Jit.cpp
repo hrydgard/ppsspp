@@ -266,8 +266,8 @@ void Jit::Compile(u32 em_address)
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
-	if (js.startDefaultPrefix && js.MayHavePrefix())
-	{
+	if (js.startDefaultPrefix && js.MayHavePrefix()) {
+		WARN_LOG(JIT, "Uneaten prefix at end of block: %08x", js.compilerPC - 4);
 		js.startDefaultPrefix = false;
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();

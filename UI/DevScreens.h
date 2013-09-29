@@ -37,6 +37,7 @@ public:
 
 protected:
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
+	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 };
 
@@ -53,4 +54,20 @@ class SystemInfoScreen : public UIDialogScreenWithBackground {
 public:
 	SystemInfoScreen() {}
 	virtual void CreateViews();
+};
+
+class JitCompareScreen : public UIDialogScreenWithBackground {
+public:
+	JitCompareScreen() : currentBlock_(-1) {}
+	virtual void CreateViews();
+
+private:
+	void UpdateDisasm();
+	UI::EventReturn OnRandomBlock(UI::EventParams &e);
+	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
+
+	int currentBlock_;
+
+	UI::LinearLayout *leftDisasm_;	
+	UI::LinearLayout *rightDisasm_;	
 };

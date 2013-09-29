@@ -31,4 +31,4 @@
 // program with this function.
 
 const char *ArmRegName(int r);
-void ArmDis(unsigned int addr, unsigned int w, char *output);
+void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord = true);

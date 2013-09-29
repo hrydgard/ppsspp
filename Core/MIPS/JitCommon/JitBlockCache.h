@@ -115,6 +115,8 @@ public:
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 
+	int GetNumBlocks() const { return num_blocks; }
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);

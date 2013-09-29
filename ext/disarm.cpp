@@ -1023,10 +1023,15 @@ static sDisOptions options = {
 const char *ArmRegName(int r) {
 	return reg_names[r];
 }
-void ArmDis(unsigned int addr, unsigned int w, char *output) {
+
+void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord) {
 	pInstruction instr = instr_disassemble(w, addr, &options);
 	char temp[256];
-	sprintf(output, "%08x\t%s", w, instr->text);
+	if (includeWord) {
+		sprintf(output, "%08x\t%s", w, instr->text);
+	} else {
+		sprintf(output, "%s", instr->text);
+	}
 	if (instr->undefined || instr->badbits || instr->oddbits) {
 		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
 		if (instr->badbits) sprintf(output, " [illegal bits %08x]", w);

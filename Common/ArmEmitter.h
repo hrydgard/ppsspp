@@ -572,6 +572,10 @@ public:
 	void VMOV(ARMReg Dest, ARMReg Src);
 	void VCVT(ARMReg Dest, ARMReg Src, int flags);
 
+	// NEON, need to check for this (supported if VFP4 is supported)
+	void VCVTF32F16(ARMReg Dest, ARMReg Src);
+	void VCVTF16F32(ARMReg Dest, ARMReg Src);
+
 	void VMRS_APSR();
 	void VMRS(ARMReg Rt);
 	void VMSR(ARMReg Rt);

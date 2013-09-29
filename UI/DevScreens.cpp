@@ -26,13 +26,16 @@
 #include "UI/GameSettingsScreen.h"
 #include "Common/LogManager.h"
 #include "Core/Config.h"
-
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "ext/disarm.h"
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
 	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
+	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -42,6 +45,11 @@ UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
 
 UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
 	screenManager()->push(new DeveloperToolsScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
+	screenManager()->push(new JitCompareScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -148,4 +156,118 @@ void SystemInfoScreen::CreateViews() {
 	for (size_t i = 0; i < exts.size(); i++) {
 		scroll->Add(new TextView(exts[i]));
 	}
+}
+
+
+
+// Three panes: Block chooser, MIPS view, ARM/x86 view
+void JitCompareScreen::CreateViews() {
+	I18NCategory *d = GetI18NCategory("Dialog");
+
+	using namespace UI;
+	
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+
+	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
+	leftDisasm_->SetSpacing(0.0f);
+
+	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
+	rightDisasm_->SetSpacing(0.0f);
+
+	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
+	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
+	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
+	std::vector<std::string> lines;
+
+	char temp[256];
+	for (int i = 0; i < size; i += 4) {
+		const u32 *codePtr = (const u32 *)(data + i);
+		u32 inst = codePtr[0];
+		u32 next = (i < size - 4) ? codePtr[1] : 0;
+		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
+		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
+			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
+			u32 hi = ((next & 0x000F0000) >> 4) | (next	 & 0x0FFF);
+			int reg0 = (inst & 0x0000F000) >> 12;
+			int reg1 = (next & 0x0000F000) >> 12;
+			if (reg0 == reg1) {
+				sprintf(temp, "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
+				// sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				lines.push_back(temp);
+				i += 4;
+				continue;
+			}
+		}
+		ArmDis((u32)codePtr, inst, temp, false);
+		std::string buf = temp;
+		lines.push_back(buf);
+	}
+	return lines;
+}
+
+void JitCompareScreen::UpdateDisasm() {
+	leftDisasm_->Clear();
+	rightDisasm_->Clear();
+
+	using namespace UI;
+
+	if (currentBlock_ == -1) {
+		leftDisasm_->Add(new TextView("No block"));
+		rightDisasm_->Add(new TextView("No block"));
+		return;
+	}
+
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlock *block = blockCache->GetBlock(currentBlock_);
+
+	// Alright. First generate the MIPS disassembly.
+	
+	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
+		char temp[256];
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
+		std::string mipsDis = temp;
+		leftDisasm_->Add(new TextView(mipsDis));
+	}
+
+#if defined(ARM)
+	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
+	for (size_t i = 0; i < targetDis.size(); i++) {
+		rightDisasm_->Add(new TextView(targetDis[i]));
+	}
+#else
+	rightDisasm_->Add(new TextView("No x86 disassembler available"));
+#endif
+}
+
+UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	int numBlocks = blockCache->GetNumBlocks();
+	if (numBlocks > 0) {
+		currentBlock_ = rand() % numBlocks;
+	}
+	UpdateDisasm();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	std::vector<int> blockNum;
+	blockCache->GetBlockNumbersFromAddress(currentMIPS->pc, &blockNum);
+	if (blockNum.size() > 0) {
+		currentBlock_ = blockNum[0];
+	} else {
+		currentBlock_ = -1;
+	}
+	UpdateDisasm();
+	return UI::EVENT_DONE;
 }

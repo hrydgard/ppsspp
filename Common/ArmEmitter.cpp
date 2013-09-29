@@ -1265,4 +1265,37 @@ void ARMXEmitter::VCVT(ARMReg Dest, ARMReg Source, int flags)
 	}
 }
 
+// UNTESTED
+
+// See page A8-878 in ARMv7-A Architecture Reference Manual
+
+// Dest is a Q register, Src is a D register.
+void ARMXEmitter::VCVTF32F16(ARMReg Dest, ARMReg Src) {
+	_assert_msg_(JIT, cpu_info.bVFPv4, "Can't use half-float conversions when you don't support VFPv4");
+	if (Dest < Q0 || Dest > Q15 || Src < D0 || Src > D15) {
+		_assert_msg_(JIT, cpu_info.bNEON, "Bad inputs to VCVTF32F16"); 
+		// Invalid!
+	}
+
+	Dest = SubBase(Dest);
+	Src = SubBase(Src);
+	
+	int op = 1;
+	Write32((0xF3B6 << 16) | ((Dest & 0x10) << 18) | ((Dest & 0xF) << 12) | 0x600 | (op << 8) | ((Src & 0x10) << 1) | (Src & 0xF));
+}
+
+// UNTESTED
+// Dest is a D register, Src is a Q register.
+void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
+	_assert_msg_(JIT, cpu_info.bVFPv4, "Can't use half-float conversions when you don't support VFPv4");
+	if (Dest < D0 || Dest > D15 || Src < Q0 || Src > Q15) {
+		_assert_msg_(JIT, cpu_info.bNEON, "Bad inputs to VCVTF32F16"); 
+		// Invalid!
+	}
+	Dest = SubBase(Dest);
+	Src = SubBase(Src);
+	int op = 0;
+	Write32((0xF3B6 << 16) | ((Dest & 0x10) << 18) | ((Dest & 0xF) << 12) | 0x600 | (op << 8) | ((Src & 0x10) << 1) | (Src & 0xF));
+}
+
 }
