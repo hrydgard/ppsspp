@@ -367,7 +367,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 
 bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs, uint32& dest)
 {
-	int num = 0;
+	size_t num = 0;
 	uint32 opcode;
 	std::vector<uint32> valueStack;
 	unsigned int arg[5];
