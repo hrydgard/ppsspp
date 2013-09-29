@@ -362,7 +362,7 @@ const char *u8_strchr(const char *s, uint32_t ch, int *charn)
 
 const char *u8_memchr(const char *s, uint32_t ch, size_t sz, int *charn)
 {
-  int i = 0, lasti=0;
+  size_t i = 0, lasti=0;
   uint32_t c;
   int csz;
 
