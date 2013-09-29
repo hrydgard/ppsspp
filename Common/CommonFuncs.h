@@ -27,6 +27,7 @@ template<> struct CompileTimeAssert<true> {};
 
 #ifndef _WIN32
 
+#include <unistd.h>
 #include <errno.h>
 #ifdef __linux__
 #include <byteswap.h>
