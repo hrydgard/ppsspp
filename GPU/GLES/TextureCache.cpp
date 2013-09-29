@@ -869,14 +869,21 @@ void TextureCache::SetTexture(bool force) {
 
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFlips) {
+				u32 diff = gpuStats.numFlips - entry->lastFrame;
 				entry->numFrames++;
-			}
-			if (entry->framesUntilNextFullHash == 0) {
-				// Exponential backoff up to 2048 frames.  Textures are often reused.
-				entry->framesUntilNextFullHash = std::min(2048, entry->numFrames);
-				rehash = true;
-			} else {
-				--entry->framesUntilNextFullHash;
+
+				if (entry->framesUntilNextFullHash < diff) {
+					// Exponential backoff up to 512 frames.  Textures are often reused.
+					if (entry->numFrames > 32) {
+						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
+						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (entry->texture & 15);
+					} else {
+						entry->framesUntilNextFullHash = entry->numFrames;
+					}
+					rehash = true;
+				} else {
+					entry->framesUntilNextFullHash -= diff;
+				}
 			}
 
 			// If it's not huge or has been invalidated many times, recheck the whole texture.
