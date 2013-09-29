@@ -1508,11 +1508,15 @@ std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList()
 void GLES_GPU::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
-	textureCache_.Clear(true);
-	transformDraw_.ClearTrackedVertexArrays();
+	// TODO: Some of these things may not be necessary.
+	// None of these are necessary when saving.
+	if (p.mode == p.MODE_READ) {
+		textureCache_.Clear(true);
+		transformDraw_.ClearTrackedVertexArrays();
 
-	gstate_c.textureChanged = true;
-	framebufferManager_.DestroyAllFBOs();
+		gstate_c.textureChanged = true;
+		framebufferManager_.DestroyAllFBOs();
+	}
 }
 
 bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
