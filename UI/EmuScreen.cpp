@@ -455,7 +455,7 @@ void EmuScreen::update(InputState &input) {
 
 	// Apply tilt to left stick
 	// TODO: Make into an axis
-#ifndef _WIN32
+#ifdef USING_GLES2
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
 		leftstick_x += clamp1(curve1(input.acc.y) * 2.0f) * g_Config.iTiltSensitivity / 100;
