@@ -485,6 +485,8 @@ UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 void DeveloperToolsScreen::CallbackRestoreDefaults(bool yes) {
 	if(yes)
 		g_Config.RestoreDefaults();
+
+	host->UpdateUI();
 }
 
 UI::EventReturn DeveloperToolsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
