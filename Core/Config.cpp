@@ -202,9 +202,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	control->Get("ShowTouchControls", &bShowTouchControls, false);
 #endif
 	// control->Get("KeyMapping",iMappingMap);
+#ifdef USING_GLES2
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
-	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	control->Get("TiltSensitivity", &iTiltSensitivity, 100);
+#endif
+	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	control->Get("ButtonScale", &fButtonScale, 1.15);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
@@ -356,8 +358,10 @@ void Config::Save() {
 		control->Set("ShowAnalogStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		// control->Set("KeyMapping",iMappingMap);
+#ifdef USING_GLES2
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("TiltSensitivity", iTiltSensitivity);
+#endif
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
 
