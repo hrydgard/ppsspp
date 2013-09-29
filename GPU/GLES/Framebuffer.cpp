@@ -1401,8 +1401,8 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	}
 
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true);
-
-	fbo_bind_for_read(vfb->fbo);
+	if (vfb->fbo)
+		fbo_bind_for_read(vfb->fbo);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
@@ -1430,8 +1430,8 @@ bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 
 #ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, true);
-
-	fbo_bind_for_read(vfb->fbo);
+	if (vfb->fbo)
+		fbo_bind_for_read(vfb->fbo);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 
@@ -1458,8 +1458,8 @@ bool FramebufferManager::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 
 #ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_16BIT, true);
-
-	fbo_bind_for_read(vfb->fbo);
+	if (vfb->fbo)
+		fbo_bind_for_read(vfb->fbo);
 	glPixelStorei(GL_PACK_ALIGNMENT, 2);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_SHORT, buffer.GetData());
 
