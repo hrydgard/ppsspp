@@ -873,10 +873,10 @@ void TextureCache::SetTexture(bool force) {
 				entry->numFrames++;
 
 				if (entry->framesUntilNextFullHash < diff) {
-					// Exponential backoff up to 2048 frames.  Textures are often reused.
+					// Exponential backoff up to 512 frames.  Textures are often reused.
 					if (entry->numFrames > 32) {
 						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						entry->framesUntilNextFullHash = std::min(2048, entry->numFrames) + (entry->texture & 15);
+						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (entry->texture & 15);
 					} else {
 						entry->framesUntilNextFullHash = entry->numFrames;
 					}
