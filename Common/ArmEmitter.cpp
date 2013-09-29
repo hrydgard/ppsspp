@@ -214,10 +214,10 @@ void ARMXEmitter::FlushLitPool()
 		// Write the constant to Literal Pool
 		if (!(*it).loc)
 		{
-			(*it).loc = (s32)code;
+			(*it).loc = (intptr_t)code;
 			Write32((*it).val);
 		}
-		s32 offset = (*it).loc - (s32)(*it).ldr_address - 8;
+		intptr_t offset = (*it).loc - (intptr_t)(*it).ldr_address - 8;
 
 		// Backpatch the LDR
 		*(u32*)(*it).ldr_address |= (offset >= 0) << 23 | abs(offset);
@@ -267,7 +267,7 @@ void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
 	if (BLInRange(func)) {
 		BL(func);
 	} else {
-		MOVI2R(reg, (u32)(func));
+		MOVI2R(reg, (uintptr_t)(func));
 		BL(reg);
 	}
 }
@@ -297,13 +297,13 @@ void ARMXEmitter::ReserveCodeSpace(u32 bytes)
 
 const u8 *ARMXEmitter::AlignCode16()
 {
-	ReserveCodeSpace((-(s32)code) & 15);
+	ReserveCodeSpace((-(intptr_t)code) & 15);
 	return code;
 }
 
 const u8 *ARMXEmitter::AlignCodePage()
 {
-	ReserveCodeSpace((-(s32)code) & 4095);
+	ReserveCodeSpace((-(intptr_t)code) & 4095);
 	return code;
 }
 
@@ -323,10 +323,12 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif !defined(_WIN32)
+#if defined(ARM)
 #ifdef __clang__
 	__clear_cache(start, end);
 #else
 	__builtin___clear_cache(start, end);
+#endif
 #endif
 #endif
 }
@@ -390,8 +392,8 @@ FixupBranch ARMXEmitter::B_CC(CCFlags Cond)
 }
 void ARMXEmitter::B_CC(CCFlags Cond, const void *fnptr)
 {
-	s32 distance = (s32)fnptr - (s32(code) + 8);
-        _assert_msg_(JIT, distance > -33554432
+	s32 distance = (intptr_t)fnptr - ((intptr_t)(code) + 8);
+	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "B_CC out of range (%p calls %p)", code, fnptr);
 
@@ -409,8 +411,8 @@ FixupBranch ARMXEmitter::BL_CC(CCFlags Cond)
 }
 void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 {
-	s32 distance =  (s32(code) - 8)  - (s32)branch.ptr;
-     _assert_msg_(JIT, distance > -33554432
+	s32 distance =  ((intptr_t)(code) - 8)  - (intptr_t)branch.ptr;
+	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "SetJumpTarget out of range (%p calls %p)", code,
 					 branch.ptr);
@@ -423,8 +425,8 @@ void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 }
 void ARMXEmitter::B (const void *fnptr)
 {
-	s32 distance = (s32)fnptr - (s32(code) + 8);
-        _assert_msg_(JIT, distance > -33554432
+	s32 distance = (intptr_t)fnptr - (intptr_t(code) + 8);
+	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "B out of range (%p calls %p)", code, fnptr);
 
@@ -437,7 +439,7 @@ void ARMXEmitter::B(ARMReg src)
 }
 
 bool ARMXEmitter::BLInRange(const void *fnptr) {
-	s32 distance = (s32)fnptr - (s32(code) + 8);
+	s32 distance = (intptr_t)fnptr - (intptr_t(code) + 8);
 	if (distance <= -33554432 || distance > 33554432)
 		return false;
 	else
@@ -446,8 +448,8 @@ bool ARMXEmitter::BLInRange(const void *fnptr) {
 
 void ARMXEmitter::BL(const void *fnptr)
 {
-	s32 distance = (s32)fnptr - (s32(code) + 8);
-        _assert_msg_(JIT, distance > -33554432
+	s32 distance = (intptr_t)fnptr - (intptr_t(code) + 8);
+	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "BL out of range (%p calls %p)", code, fnptr);
 	Write32(condition | 0x0B000000 | ((distance >> 2) & 0x00FFFFFF));

@@ -325,7 +325,7 @@ Operand2 AssumeMakeOperand2(u32 imm);
 
 inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }
 inline Operand2 IMM(u32 Imm)	{ return Operand2(Imm, TYPE_IMM); }
-inline Operand2 Mem(void *ptr)	{ return Operand2((u32)ptr, TYPE_IMM); }
+inline Operand2 Mem(void *ptr)	{ return Operand2((uintptr_t)ptr, TYPE_IMM); }
 //usage: struct {int e;} s; STRUCT_OFFSET(s,e)
 #define STRUCT_OFF(str,elem) ((u32)((u32)&(str).elem-(u32)&(str)))
 

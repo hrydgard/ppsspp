@@ -226,6 +226,8 @@ elseif(X86)
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
 		Common/ABI.h
+		Common/ArmEmitter.h
+		Common/ArmEmitter.cpp
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
 		Common/Thunk.cpp
@@ -718,7 +720,8 @@ elseif(X86)
 		Core/MIPS/x86/RegCache.cpp
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
-		Core/MIPS/x86/RegCacheFPU.h)
+		Core/MIPS/x86/RegCacheFPU.h
+		ext/disarm.cpp)
 endif()
 
 # atrac3plus.cpp used dl* functions on non-win32 platforms
