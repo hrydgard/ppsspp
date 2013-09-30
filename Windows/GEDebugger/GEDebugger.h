@@ -34,6 +34,7 @@ class CtrlDisplayListView;
 class TabDisplayLists;
 class TabStateFlags;
 class TabStateLighting;
+class TabStateTexture;
 class TabStateSettings;
 
 class CGEDebugger : public Dialog {
@@ -55,6 +56,7 @@ private:
 	TabDisplayLists *lists;
 	TabStateFlags *flags;
 	TabStateLighting *lighting;
+	TabStateTexture *textureState;
 	TabStateSettings *settings;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;

@@ -137,6 +137,9 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	lighting = new TabStateLighting(_hInstance, m_hDlg);
 	tabs->AddTabDialog(lighting, L"Lighting");
 
+	textureState = new TabStateTexture(_hInstance, m_hDlg);
+	tabs->AddTabDialog(textureState, L"Texture");
+
 	settings = new TabStateSettings(_hInstance, m_hDlg);
 	tabs->AddTabDialog(settings, L"Settings");
 
@@ -159,6 +162,7 @@ CGEDebugger::~CGEDebugger() {
 
 	delete flags;
 	delete lighting;
+	delete textureState;
 	delete settings;
 	delete lists;
 	delete tabs;
@@ -211,6 +215,7 @@ void CGEDebugger::UpdatePreviews() {
 
 	flags->Update();
 	lighting->Update();
+	textureState->Update();
 	settings->Update();
 	lists->Update();
 }

@@ -68,3 +68,8 @@ class TabStateSettings : public TabStateValues {
 public:
 	TabStateSettings(HINSTANCE _hInstance, HWND _hParent);
 };
+
+class TabStateTexture : public TabStateValues {
+public:
+	TabStateTexture(HINSTANCE _hInstance, HWND _hParent);
+};
