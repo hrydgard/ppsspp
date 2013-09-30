@@ -75,6 +75,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	cpu = _cpu;
 	lastTicks = CoreTiming::GetTicks();
 	keepStatusBarText = false;
+	hideBottomTabs = false;
 
 	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 #ifdef THEMES
@@ -125,25 +126,28 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
 	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)GotoEditProc); 
 	
+	// init bottom tabs
+	bottomTabs = new TabControl(GetDlgItem(m_hDlg,IDC_DEBUG_BOTTOMTABS));
+
 	// init memory viewer
-	CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
+	HWND memHandle = GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW);
+	CtrlMemView *mem = CtrlMemView::getFrom(memHandle);
 	mem->setDebugger(_cpu);
+	bottomTabs->AddTab(memHandle,L"Memory");
 	
-	breakpointList = new CtrlBreakpointList(GetDlgItem(m_hDlg,IDC_BREAKPOINTLIST));
-	breakpointList->setCpu(cpu);
-	breakpointList->setDisasm(ptr);
+	breakpointList = new CtrlBreakpointList(GetDlgItem(m_hDlg,IDC_BREAKPOINTLIST),cpu,ptr);
 	breakpointList->reloadBreakpoints();
+	bottomTabs->AddTab(breakpointList->GetHandle(),L"Breakpoints");
 
 	threadList = new CtrlThreadList(GetDlgItem(m_hDlg,IDC_THREADLIST));
 	threadList->reloadThreads();
+	bottomTabs->AddTab(threadList->GetHandle(),L"Threads");
 
-	stackTraceView = new CtrlStackTraceView(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
-	stackTraceView->setCpu(cpu);
-	stackTraceView->setDisasm(ptr);
+	stackTraceView = new CtrlStackTraceView(GetDlgItem(m_hDlg,IDC_STACKFRAMES),cpu,ptr);
 	stackTraceView->loadStackTrace();
+	bottomTabs->AddTab(stackTraceView->GetHandle(),L"Stack frames");
 	
-	// init bottom "tab"
-	changeSubWindow(SUBWIN_FIRST);
+	bottomTabs->ShowTab(memHandle);
 
 	// init status bar
 	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, L"", m_hDlg, IDC_DISASMSTATUSBAR);
@@ -162,63 +166,6 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 CDisasm::~CDisasm()
 {
-}
-
-
-void CDisasm::changeSubWindow(SubWindowType type)
-{
-	HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-	HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
-	HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
-	HWND stackFrames = GetDlgItem(m_hDlg, IDC_STACKFRAMES);
-
-	// determine if any of the windows are focused, if not
-	// then leave the focus unchanged
-	HWND focus = GetFocus();
-	bool changeFocus = (focus == bp || focus == mem || focus == threads || focus == stackFrames);
-
-	if (type == SUBWIN_FIRST)
-	{
-		type = SUBWIN_MEM;
-	} else if (type == SUBWIN_NEXT)
-	{
-		if (IsWindowVisible(mem))
-		{
-			type = SUBWIN_BREAKPOINT;
-		} else if (IsWindowVisible(bp))
-		{
-			type = SUBWIN_THREADS;
-		} else if (IsWindowVisible(threads))
-		{
-			type = SUBWIN_STACKFRAMES;
-		} else {
-			type = SUBWIN_MEM;
-		}
-	}
-
-	ShowWindow(mem,type == SUBWIN_MEM ? SW_NORMAL : SW_HIDE);
-	ShowWindow(bp,type == SUBWIN_BREAKPOINT ? SW_NORMAL : SW_HIDE);
-	ShowWindow(threads,type == SUBWIN_THREADS ? SW_NORMAL : SW_HIDE);
-	ShowWindow(stackFrames,type == SUBWIN_STACKFRAMES ? SW_NORMAL : SW_HIDE);
-
-	if (changeFocus)
-	{
-		switch (type)
-		{
-		case SUBWIN_MEM:
-			SetFocus(mem);
-			break;
-		case SUBWIN_BREAKPOINT:
-			SetFocus(bp);
-			break;
-		case SUBWIN_THREADS:
-			SetFocus(threads);
-			break;
-		case SUBWIN_STACKFRAMES:
-			SetFocus(stackFrames);
-			break;
-		}
-	}
 }
 
 void CDisasm::stepInto()
@@ -379,6 +326,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		case IDC_STACKFRAMES:
 			stackTraceView->HandleNotify(lParam);
 			break;
+		case IDC_DEBUG_BOTTOMTABS:
+			bottomTabs->HandleNotify(lParam);
+			break;
 		}
 		break;
 	case WM_COMMAND:
@@ -392,19 +342,19 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 				
 			case ID_DEBUG_DISPLAYMEMVIEW:
-				changeSubWindow(SUBWIN_MEM);
+				bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 				break;
 
 			case ID_DEBUG_DISPLAYBREAKPOINTLIST:
-				changeSubWindow(SUBWIN_BREAKPOINT);
+				bottomTabs->ShowTab(breakpointList->GetHandle());
 				break;
 
 			case ID_DEBUG_DISPLAYTHREADLIST:
-				changeSubWindow(SUBWIN_THREADS);
+				bottomTabs->ShowTab(threadList->GetHandle());
 				break;
 
 			case ID_DEBUG_DISPLAYSTACKFRAMELIST:
-				changeSubWindow(SUBWIN_STACKFRAMES);
+				bottomTabs->ShowTab(stackTraceView->GetHandle());
 				break;
 
 			case ID_DEBUG_DSIPLAYREGISTERLIST:
@@ -456,6 +406,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case ID_DEBUG_STEPOUT:
 				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOut();
+				break;
+
+			case ID_DEBUG_HIDEBOTTOMTABS:
+				{
+					RECT rect;
+					hideBottomTabs = !hideBottomTabs;
+					GetClientRect(m_hDlg,&rect);
+					UpdateSize(rect.right-rect.left,rect.bottom-rect.top);
+				}
 				break;
 
 			case IDC_SHOWVFPU:
@@ -655,8 +614,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		return TRUE;
 
 	case WM_DEB_TABPRESSED:
-		changeSubWindow(SUBWIN_NEXT);
+		bottomTabs->NextTab(true);
+		SetFocus(bottomTabs->CurrentTabHandle());
 		break;
+
 	case WM_DEB_SETSTATUSBARTEXT:
 		if (!keepStatusBarText)
 			SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
@@ -739,12 +700,7 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 		GetDlgItem(m_hDlg, IDC_REGLIST)
 	};
 
-	HWND bottomTabs[4] = {
-		GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW),
-		GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),
-		GetDlgItem(m_hDlg, IDC_THREADLIST),
-		GetDlgItem(m_hDlg,IDC_STACKFRAMES)
-	};
+	HWND bottomTabs = GetDlgItem(m_hDlg, IDC_DEBUG_BOTTOMTABS);
 
 	// ignore the status bar
 	int topHeightOffset = 0;
@@ -768,10 +724,12 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	positions[1].w = windowRect.right-windowRect.left;
 	int borderMargin = positions[1].x;
 
+	float weight = hideBottomTabs ? 1.f : 390.f/500.f;
+
 	// don't use the part above the disassembly for the computations
 	int bottomHeightOffset = positions[0].y;
 	positions[0].w = width-borderMargin-positions[0].x;
-	positions[0].h = (height-bottomHeightOffset-topHeightOffset) * 390./500.;
+	positions[0].h = (height-bottomHeightOffset-topHeightOffset) * weight;
 	positions[1].h = positions[0].h-(positions[1].y-positions[0].y);
 
 	// bottom tabs
@@ -788,10 +746,16 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 		MoveWindow(leftTabs[i],positions[1].x,positions[1].y,positions[1].w,positions[1].h,TRUE);
 	}
 
-	for (int i = 0; i < 4; i++)
-	{
-		MoveWindow(bottomTabs[i],positions[2].x,positions[2].y,positions[2].w,positions[2].h,TRUE);
-	}
+	MoveWindow(bottomTabs,positions[2].x,positions[2].y,positions[2].w,positions[2].h,TRUE);
+	ShowWindow(bottomTabs,hideBottomTabs ? SW_HIDE : SW_NORMAL);
+
+	RECT tabRect;
+	HWND hwnd = GetDlgItem(m_hDlg,IDC_LEFTTABS);
+	GetWindowRect(hwnd,&tabRect);
+	MapWindowPoints(HWND_DESKTOP,hwnd,(LPPOINT)&tabRect,2);
+	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
+
+	printf("");
 }
 
 void CDisasm::SavePosition()
