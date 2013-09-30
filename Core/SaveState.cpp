@@ -272,8 +272,20 @@ namespace SaveState
 		return copy;
 	}
 
-	void HandleFailure()
+	bool HandleFailure()
 	{
+		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
+		// Even if this was a rewind, maybe we can still load a previous one.
+		CChunkFileReader::Error result;
+		do
+			result = rewindStates.Restore();
+		while (result == CChunkFileReader::ERROR_BROKEN_STATE);
+
+		if (result == CChunkFileReader::ERROR_NONE) {
+			return true;
+		}
+
+		// We tried, our only remaining option is to reset the game.
 		PSP_Shutdown();
 		std::string resetError;
 		if (!PSP_Init(PSP_CoreParameter(), &resetError))
@@ -281,10 +293,11 @@ namespace SaveState
 			ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
 			// TODO: This probably doesn't clean up well enough.
 			Core_Stop();
-			return;
+			return false;
 		}
 		host->BootDone();
 		host->UpdateDisassembly();
+		return false;
 	}
 
 	static inline void CheckRewindState()
@@ -339,6 +352,7 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
+					osm.Show(s->T("Load savestate failed"), 2.0);
 					callbackResult = false;
 				} else {
 					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
@@ -354,6 +368,7 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
+					osm.Show(s->T("Save State Failed"), 2.0);
 					callbackResult = false;
 				} else {
 					osm.Show(s->T("Save State Failed"), 2.0);
@@ -374,16 +389,12 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
-					do
-						result = rewindStates.Restore();
-					while (result == CChunkFileReader::ERROR_BROKEN_STATE);
-
-					if (result == CChunkFileReader::ERROR_NONE) {
+					if (HandleFailure()) {
+						// Well, we did rewind, even if too much...
 						osm.Show(s->T("Loaded State"), 2.0);
 						callbackResult = true;
 					} else {
-						// We tried our best.
-						HandleFailure();
+						osm.Show(s->T("Load savestate failed"), 2.0);
 						callbackResult = false;
 					}
 				} else {
