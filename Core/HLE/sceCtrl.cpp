@@ -74,6 +74,7 @@ static _ctrl_data ctrlCurrent;
 static u32 ctrlBuf = 0;
 static u32 ctrlBufRead = 0;
 static CtrlLatch latch;
+static u32 dialogBtnMake = 0;
 
 static int ctrlIdleReset = -1;
 static int ctrlIdleBack = -1;
@@ -114,6 +115,7 @@ void __CtrlUpdateLatch()
 	latch.btnBreak |= ctrlOldButtons & changed;
 	latch.btnPress |= buttons;
 	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
+	dialogBtnMake |= buttons & changed;
 	ctrlLatchBufs++;
 		
 	ctrlOldButtons = buttons;
@@ -156,8 +158,8 @@ void __CtrlPeekAnalog(int stick, float *x, float *y)
 
 u32 __CtrlReadLatch()
 {
-	u32 ret = latch.btnMake;
-	__CtrlResetLatch();
+	u32 ret = dialogBtnMake;
+	dialogBtnMake = 0;
 	return ret;
 }
 
@@ -305,6 +307,7 @@ void __CtrlInit()
 	ctrlBufRead = 0;
 	ctrlOldButtons = 0;
 	ctrlLatchBufs = 0;
+	dialogBtnMake = 0;
 
 	memset(&latch, 0, sizeof(latch));
 	// Start with everything released.
@@ -322,7 +325,7 @@ void __CtrlDoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	
-	auto s = p.Section("sceCtrl", 1);
+	auto s = p.Section("sceCtrl", 1, 2);
 	if (!s)
 		return;
 
@@ -335,6 +338,11 @@ void __CtrlDoState(PointerWrap &p)
 	p.Do(ctrlBuf);
 	p.Do(ctrlBufRead);
 	p.Do(latch);
+	if (s == 1) {
+		dialogBtnMake = 0;
+	} else {
+		p.Do(dialogBtnMake);
+	}
 
 	p.Do(ctrlIdleReset);
 	p.Do(ctrlIdleBack);
