@@ -31,48 +31,60 @@ enum StateValuesCols {
 	STATEVALUES_COL_VALUE,
 };
 
+enum CmdFormatType {
+	CMD_FMT_HEX = 0,
+	CMD_FMT_NUM,
+	CMD_FMT_FLOAT24,
+	CMD_FMT_PTRWIDTH,
+	CMD_FMT_XY,
+	CMD_FMT_XYXY,
+};
+
 struct TabStateRow {
 	const TCHAR *title;
 	u8 cmd;
+	CmdFormatType fmt;
 	u8 enableCmd;
-	// TODO: Format type?
+	u8 otherCmd;
 };
 
 static const TabStateRow stateFlagsRows[] = {
-	{ L"Lighting enable",      GE_CMD_LIGHTINGENABLE },
-	{ L"Light 0 enable",       GE_CMD_LIGHTENABLE0 },
-	{ L"Light 1 enable",       GE_CMD_LIGHTENABLE1 },
-	{ L"Light 2 enable",       GE_CMD_LIGHTENABLE2 },
-	{ L"Light 3 enable",       GE_CMD_LIGHTENABLE3 },
-	{ L"Clip enable",          GE_CMD_CLIPENABLE },
-	{ L"Cullface enable",      GE_CMD_CULLFACEENABLE },
-	{ L"Texture map enable",   GE_CMD_TEXTUREMAPENABLE },
-	{ L"Fog enable",           GE_CMD_FOGENABLE },
-	{ L"Dither enable",        GE_CMD_DITHERENABLE },
-	{ L"Alpha blend enable",   GE_CMD_ALPHABLENDENABLE },
-	{ L"Alpha test enable",    GE_CMD_ALPHATESTENABLE },
-	{ L"Depth test enable",    GE_CMD_ZTESTENABLE },
-	{ L"Stencil test enable",  GE_CMD_STENCILTESTENABLE },
-	{ L"Antialias enable",     GE_CMD_ANTIALIASENABLE },
-	{ L"Patch cull enable",    GE_CMD_PATCHCULLENABLE },
-	{ L"Color test enable",    GE_CMD_COLORTESTENABLE },
-	{ L"Logic Op Enable",      GE_CMD_LOGICOPENABLE },
+	{ L"Lighting enable",      GE_CMD_LIGHTINGENABLE,          CMD_FMT_NUM },
+	{ L"Light 0 enable",       GE_CMD_LIGHTENABLE0,            CMD_FMT_NUM },
+	{ L"Light 1 enable",       GE_CMD_LIGHTENABLE1,            CMD_FMT_NUM },
+	{ L"Light 2 enable",       GE_CMD_LIGHTENABLE2,            CMD_FMT_NUM },
+	{ L"Light 3 enable",       GE_CMD_LIGHTENABLE3,            CMD_FMT_NUM },
+	{ L"Clip enable",          GE_CMD_CLIPENABLE,              CMD_FMT_NUM },
+	{ L"Cullface enable",      GE_CMD_CULLFACEENABLE,          CMD_FMT_NUM },
+	{ L"Texture map enable",   GE_CMD_TEXTUREMAPENABLE,        CMD_FMT_NUM },
+	{ L"Fog enable",           GE_CMD_FOGENABLE,               CMD_FMT_NUM },
+	{ L"Dither enable",        GE_CMD_DITHERENABLE,            CMD_FMT_NUM },
+	{ L"Alpha blend enable",   GE_CMD_ALPHABLENDENABLE,        CMD_FMT_NUM },
+	{ L"Alpha test enable",    GE_CMD_ALPHATESTENABLE,         CMD_FMT_NUM },
+	{ L"Depth test enable",    GE_CMD_ZTESTENABLE,             CMD_FMT_NUM },
+	{ L"Stencil test enable",  GE_CMD_STENCILTESTENABLE,       CMD_FMT_NUM },
+	{ L"Antialias enable",     GE_CMD_ANTIALIASENABLE,         CMD_FMT_NUM },
+	{ L"Patch cull enable",    GE_CMD_PATCHCULLENABLE,         CMD_FMT_NUM },
+	{ L"Color test enable",    GE_CMD_COLORTESTENABLE,         CMD_FMT_NUM },
+	{ L"Logic Op Enable",      GE_CMD_LOGICOPENABLE,           CMD_FMT_NUM },
 };
 
 static const TabStateRow stateLightingRows[] = {
-	{ L"Light mode",           GE_CMD_LIGHTMODE,               GE_CMD_LIGHTINGENABLE },
-	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              GE_CMD_LIGHTENABLE0 },
-	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              GE_CMD_LIGHTENABLE1 },
-	{ L"Light type 2",         GE_CMD_LIGHTTYPE2,              GE_CMD_LIGHTENABLE2 },
-	{ L"Light type 3",         GE_CMD_LIGHTTYPE3,              GE_CMD_LIGHTENABLE3 },
+	{ L"Light mode",           GE_CMD_LIGHTMODE,               CMD_FMT_NUM, GE_CMD_LIGHTINGENABLE },
+	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE0 },
+	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE1 },
+	{ L"Light type 2",         GE_CMD_LIGHTTYPE2,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE2 },
+	{ L"Light type 3",         GE_CMD_LIGHTTYPE3,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE3 },
 	// TODO: Others...
 };
 
 static const TabStateRow stateSettingsRows[] = {
-	{ L"Region TL",            GE_CMD_REGION1 },
-	{ L"Region BR",            GE_CMD_REGION2 },
+	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
+	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_NUM },
+	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
+	{ L"Region",               GE_CMD_REGION1,                 CMD_FMT_XYXY, 0, GE_CMD_REGION2 },
 	// TODO: Right place?
-	{ L"Morph Weight 0",       GE_CMD_MORPHWEIGHT0 },
+	{ L"Morph Weight 0",       GE_CMD_MORPHWEIGHT0,            CMD_FMT_FLOAT24 },
 	// TODO: Others...
 };
 
@@ -80,6 +92,56 @@ CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwn
 	: GenericListControl(hwnd, stateValuesCols, ARRAY_SIZE(stateValuesCols)),
 	  rows_(rows), rowCount_(rowCount) {
 	Update();
+}
+
+void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enabled, u32 otherValue) {
+	const wchar_t *fmtString;
+	switch (info.fmt) {
+	case CMD_FMT_HEX:
+		fmtString = enabled ? L"%06x" : L"(%06x)";
+		wsprintf(dest, fmtString, value);
+		break;
+
+	case CMD_FMT_NUM:
+		fmtString = enabled ? L"%d" : L"(%d)";
+		wsprintf(dest, fmtString, value);
+		break;
+
+	case CMD_FMT_FLOAT24:
+		fmtString = enabled ? L"%g" : L"(%g)";
+		wsprintf(dest, fmtString, getFloat24(value));
+		break;
+
+	case CMD_FMT_PTRWIDTH:
+		value |= (otherValue & 0x00FF0000) << 8;
+		otherValue &= 0xFFFF;
+		fmtString = enabled ? L"%08x, w=%d" : L"(%08x, w=%d)";
+		wsprintf(dest, fmtString, value, otherValue);
+		break;
+
+	case CMD_FMT_XY:
+		{
+			int x = value & 0x3FF;
+			int y = value >> 10;
+			fmtString = enabled ? L"%d,%d" : L"(%d,%d)";
+			wsprintf(dest, fmtString, x, y);
+		}
+		break;
+
+	case CMD_FMT_XYXY:
+		{
+			int x1 = value & 0x3FF;
+			int y1 = value >> 10;
+			int x2 = otherValue & 0x3FF;
+			int y2 = otherValue >> 10;
+			fmtString = enabled ? L"%d,%d - %d,%d" : L"(%d,%d - %d,%d)";
+			wsprintf(dest, fmtString, x1, y1, x2, y2);
+		}
+		break;
+
+	default:
+		wsprintf(dest, L"BAD FORMAT %08x (%d)", value, enabled);
+	}
 }
 
 void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
@@ -99,12 +161,7 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 			const auto state = gpuDebug->GetGState();
 			const bool enabled = info.enableCmd == 0 || (state.cmdmem[info.enableCmd] & 1) == 1;
 
-			// TODO: Format better.
-			if (enabled) {
-				wsprintf(dest, L"%06x", state.cmdmem[info.cmd] & 0xFFFFFF);
-			} else {
-				wsprintf(dest, L"(%06x)", state.cmdmem[info.cmd] & 0xFFFFFF);
-			}
+			FormatStateRow(dest, info, state.cmdmem[info.cmd] & 0xFFFFFF, enabled, state.cmdmem[info.otherCmd] & 0xFFFFFF);
 			break;
 		}
 	}
