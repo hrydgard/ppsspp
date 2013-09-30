@@ -34,6 +34,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
+#include "base/timeutil.h"
 #include "i18n/i18n.h"
 
 namespace SaveState
@@ -115,6 +116,9 @@ namespace SaveState
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
 	// TODO: g_Config setting or something instead.
 	static int rewindStateFreq = 0;
+	// TODO: Any reason for this to be configurable?
+	const static float rewindMaxWallFrequency = 1.0f;
+	static float rewindLastTime = 0.0f;
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
@@ -283,13 +287,25 @@ namespace SaveState
 		host->UpdateDisassembly();
 	}
 
+	static inline void CheckRewindState()
+	{
+		if (gpuStats.numFlips % rewindStateFreq != 0)
+			return;
+
+		// For fast-forwarding, otherwise they may be useless and too close.
+		time_update();
+		float diff = time_now() - rewindLastTime;
+		if (diff < rewindMaxWallFrequency)
+			return;
+
+		rewindLastTime = time_now();
+		rewindStates.Save();
+	}
+
 	void Process()
 	{
 		if (rewindStateFreq != 0)
-		{
-			if (gpuStats.numFlips % rewindStateFreq == 0)
-				rewindStates.Save();
-		}
+			CheckRewindState();
 
 		if (!needsProcess)
 			return;
