@@ -793,11 +793,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
-#ifdef USING_GLES2
+//#ifdef USING_GLES2
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-#else
-		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
-#endif
+//#else
+//		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
+//#endif
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
@@ -1219,11 +1219,11 @@ rotateVBO:
 
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 		if (useElements) {
-#ifdef USING_GLES2
+//#ifdef USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-#else
-			glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-#endif
+//#else
+//			glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
+//#endif
 			if (ebo)
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		} else {
