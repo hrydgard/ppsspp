@@ -32,6 +32,10 @@ enum {
 
 class CtrlDisplayListView;
 class TabDisplayLists;
+class TabStateFlags;
+class TabStateLighting;
+class TabStateTexture;
+class TabStateSettings;
 
 class CGEDebugger : public Dialog {
 public:
@@ -48,11 +52,15 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 
-	CtrlDisplayListView* displayList;
-	TabDisplayLists* lists;
+	CtrlDisplayListView *displayList;
+	TabDisplayLists *lists;
+	TabStateFlags *flags;
+	TabStateLighting *lighting;
+	TabStateTexture *textureState;
+	TabStateSettings *settings;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
-	TabControl* tabs;
+	TabControl *tabs;
 
 	int minWidth,minHeight;
 };

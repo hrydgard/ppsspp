@@ -128,6 +128,9 @@
     <ClCompile Include="GEDebugger\TabDisplayLists.cpp">
       <Filter>Windows\GE Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="GEDebugger\TabState.cpp">
+      <Filter>Windows\GE Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -228,6 +231,9 @@
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="GEDebugger\TabDisplayLists.h">
+      <Filter>Windows\GE Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="GEDebugger\TabState.h">
       <Filter>Windows\GE Debugger</Filter>
     </ClInclude>
   </ItemGroup>
