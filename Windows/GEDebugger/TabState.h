@@ -17,44 +17,44 @@
 
 #pragma once
 
-#include "Common/CommonWindows.h"
-#include "Globals.h"
-#include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
-#include "Windows/W32Util/TabControl.h"
-#include "Windows/GEDebugger/SimpleGLWindow.h"
+#include "Windows/W32Util/Misc.h"
 
-enum {
-	WM_GEDBG_BREAK_CMD = WM_USER + 200,
-	WM_GEDBG_BREAK_DRAW,
-	WM_GEDBG_STEPDISPLAYLIST,
+struct TabStateRow;
+
+class CtrlStateValues: public GenericListControl {
+public:
+	CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd);
+
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
+	virtual void GetColumnText(wchar_t* dest, int row, int col);
+	virtual int GetRowCount() { return rowCount_; }
+
+private:
+	const TabStateRow *rows_;
+	int rowCount_;
 };
 
-class CtrlDisplayListView;
-class TabDisplayLists;
-class TabStateFlags;
-
-class CGEDebugger : public Dialog {
+class TabStateValues : public Dialog {
 public:
-	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
-	~CGEDebugger();
+	TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent);
+	~TabStateValues();
 
-	static void Init();
+	virtual void Update() {
+		values->Update();
+	}
+
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
 private:
-	void SetupPreviews();
-	void UpdatePreviews();
 	void UpdateSize(WORD width, WORD height);
-	void SavePosition();
 
-	CtrlDisplayListView *displayList;
-	TabDisplayLists *lists;
-	TabStateFlags *flags;
-	SimpleGLWindow *frameWindow;
-	SimpleGLWindow *texWindow;
-	TabControl *tabs;
+	CtrlStateValues *values;
+};
 
-	int minWidth,minHeight;
+class TabStateFlags : public TabStateValues {
+public:
+	TabStateFlags(HINSTANCE _hInstance, HWND _hParent);
 };

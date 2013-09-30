@@ -23,6 +23,8 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
+#include "Windows/GEDebugger/TabDisplayLists.h"
+#include "Windows/GEDebugger/TabState.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/main.h"
@@ -32,7 +34,6 @@
 #include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
-#include "TabDisplayLists.h"
 
 enum PauseAction {
 	PAUSE_CONTINUE,
@@ -130,6 +131,9 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
 
+	flags = new TabStateFlags(_hInstance, m_hDlg);
+	tabs->AddTabDialog(flags, L"Flags");
+
 	lists = new TabDisplayLists(_hInstance,m_hDlg);
 	tabs->AddTabDialog(lists,L"Lists");
 
@@ -144,6 +148,10 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 CGEDebugger::~CGEDebugger() {
 	delete frameWindow;
 	delete texWindow;
+
+	delete flags;
+	delete lists;
+	delete tabs;
 }
 
 void CGEDebugger::SetupPreviews() {
@@ -191,6 +199,7 @@ void CGEDebugger::UpdatePreviews() {
 		displayList->setDisplayList(list);
 	}
 
+	flags->Update();
 	lists->Update();
 }
 
