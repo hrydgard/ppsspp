@@ -59,7 +59,8 @@ u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inp
 			}
 		}
 	}
-	return 0;
+	// same as sas core
+	return hleDelayResult(0, "p3da core", 240);
 }
 
 const HLEFunction sceP3da[] =
