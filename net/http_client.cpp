@@ -316,34 +316,30 @@ void Download::Do(std::shared_ptr<Download> self) {
 		progress_ = 1.0f;
 		return;
 	}
-	net::Init();
+	net::AutoInit netInit;
 
 	http::Client client;
 	if (!client.Resolve(fileUrl.Host().c_str(), 80)) {
 		ELOG("Failed resolving %s", url_.c_str());
 		failed_ = true;
 		progress_ = 1.0f;
-		net::Shutdown();
 		return;
 	}
 
 	if (cancelled_) {
 		SetFailed(-1);
-		net::Shutdown();
 		return;
 	}
 
 	if (!client.Connect()) {
 		ELOG("Failed connecting to server.");
 		resultCode_ = -1;
-		net::Shutdown();
 		progress_ = 1.0f;
 		return;
 	}
 
 	if (cancelled_) {
 		SetFailed(-1);
-		net::Shutdown();
 		return;
 	}
 
@@ -359,7 +355,6 @@ void Download::Do(std::shared_ptr<Download> self) {
 	}
 
 	resultCode_ = resultCode;
-	net::Shutdown();
 	progress_ = 1.0f;
 }
 

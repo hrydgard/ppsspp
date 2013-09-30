@@ -10,6 +10,15 @@ namespace net {
 void Init();
 void Shutdown();
 
+struct AutoInit {
+	AutoInit() {
+		Init();
+	}
+	~AutoInit() {
+		Shutdown();
+	}
+};
+
 // use free() to free the returned string.
 char *DNSResolveTry(const char *host, const char **err);
 char *DNSResolve(const char *host);
