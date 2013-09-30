@@ -28,6 +28,9 @@ private:
 
 	struct TabInfo
 	{
+		bool hasBorder;
+		bool hasClientEdge;
+		HWND lastFocus;
 		HWND pageHandle;
 		wchar_t title[128];
 	};
