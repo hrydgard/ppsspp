@@ -38,6 +38,7 @@ enum CmdFormatType {
 	CMD_FMT_PTRWIDTH,
 	CMD_FMT_XY,
 	CMD_FMT_XYXY,
+	CMD_FMT_XYZ,
 };
 
 struct TabStateRow {
@@ -46,6 +47,7 @@ struct TabStateRow {
 	CmdFormatType fmt;
 	u8 enableCmd;
 	u8 otherCmd;
+	u8 otherCmd2;
 };
 
 static const TabStateRow stateFlagsRows[] = {
@@ -75,6 +77,10 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE1 },
 	{ L"Light type 2",         GE_CMD_LIGHTTYPE2,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE2 },
 	{ L"Light type 3",         GE_CMD_LIGHTTYPE3,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE3 },
+	{ L"Light pos 0",          GE_CMD_LX0,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE0, GE_CMD_LY0, GE_CMD_LZ0 },
+	{ L"Light pos 1",          GE_CMD_LX1,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LY1, GE_CMD_LZ1 },
+	{ L"Light pos 2",          GE_CMD_LX2,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LY2, GE_CMD_LZ2 },
+	{ L"Light pos 3",          GE_CMD_LX3,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE3, GE_CMD_LY3, GE_CMD_LZ3 },
 	// TODO: Others...
 };
 
@@ -107,29 +113,29 @@ CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwn
 	Update();
 }
 
-void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enabled, u32 otherValue) {
+void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
 	const wchar_t *fmtString;
 	switch (info.fmt) {
 	case CMD_FMT_HEX:
 		fmtString = enabled ? L"%06x" : L"(%06x)";
-		wsprintf(dest, fmtString, value);
+		swprintf(dest, fmtString, value);
 		break;
 
 	case CMD_FMT_NUM:
 		fmtString = enabled ? L"%d" : L"(%d)";
-		wsprintf(dest, fmtString, value);
+		swprintf(dest, fmtString, value);
 		break;
 
 	case CMD_FMT_FLOAT24:
-		fmtString = enabled ? L"%g" : L"(%g)";
-		wsprintf(dest, fmtString, getFloat24(value));
+		fmtString = enabled ? L"%f" : L"(%f)";
+		swprintf(dest, fmtString, getFloat24(value));
 		break;
 
 	case CMD_FMT_PTRWIDTH:
 		value |= (otherValue & 0x00FF0000) << 8;
 		otherValue &= 0xFFFF;
 		fmtString = enabled ? L"%08x, w=%d" : L"(%08x, w=%d)";
-		wsprintf(dest, fmtString, value, otherValue);
+		swprintf(dest, fmtString, value, otherValue);
 		break;
 
 	case CMD_FMT_XY:
@@ -137,7 +143,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			int x = value & 0x3FF;
 			int y = value >> 10;
 			fmtString = enabled ? L"%d,%d" : L"(%d,%d)";
-			wsprintf(dest, fmtString, x, y);
+			swprintf(dest, fmtString, x, y);
 		}
 		break;
 
@@ -148,12 +154,22 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			int x2 = otherValue & 0x3FF;
 			int y2 = otherValue >> 10;
 			fmtString = enabled ? L"%d,%d - %d,%d" : L"(%d,%d - %d,%d)";
-			wsprintf(dest, fmtString, x1, y1, x2, y2);
+			swprintf(dest, fmtString, x1, y1, x2, y2);
+		}
+		break;
+
+	case CMD_FMT_XYZ:
+		{
+			float x = getFloat24(value);
+			float y = getFloat24(otherValue);
+			float z = getFloat24(otherValue2);
+			fmtString = enabled ? L"%f, %f, %f" : L"(%f, %f, %f)";
+			swprintf(dest, fmtString, x, y, z);
 		}
 		break;
 
 	default:
-		wsprintf(dest, L"BAD FORMAT %08x (%d)", value, enabled);
+		swprintf(dest, L"BAD FORMAT %08x (%d)", value, enabled);
 	}
 }
 
@@ -173,8 +189,11 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 			const auto info = rows_[row];
 			const auto state = gpuDebug->GetGState();
 			const bool enabled = info.enableCmd == 0 || (state.cmdmem[info.enableCmd] & 1) == 1;
+			const u32 value = state.cmdmem[info.cmd] & 0xFFFFFF;
+			const u32 otherValue = state.cmdmem[info.otherCmd] & 0xFFFFFF;
+			const u32 otherValue2 = state.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
-			FormatStateRow(dest, info, state.cmdmem[info.cmd] & 0xFFFFFF, enabled, state.cmdmem[info.otherCmd] & 0xFFFFFF);
+			FormatStateRow(dest, info, value, enabled, otherValue, otherValue2);
 			break;
 		}
 	}
