@@ -23,6 +23,8 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
+#include "Windows/GEDebugger/TabDisplayLists.h"
+#include "Windows/GEDebugger/TabState.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/main.h"
@@ -32,7 +34,6 @@
 #include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
-#include "TabDisplayLists.h"
 
 enum PauseAction {
 	PAUSE_CONTINUE,
@@ -130,8 +131,22 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
 
-	lists = new TabDisplayLists(_hInstance,m_hDlg);
-	tabs->AddTabDialog(lists,L"Lists");
+	flags = new TabStateFlags(_hInstance, m_hDlg);
+	tabs->AddTabDialog(flags, L"Flags");
+
+	lighting = new TabStateLighting(_hInstance, m_hDlg);
+	tabs->AddTabDialog(lighting, L"Lighting");
+
+	textureState = new TabStateTexture(_hInstance, m_hDlg);
+	tabs->AddTabDialog(textureState, L"Texture");
+
+	settings = new TabStateSettings(_hInstance, m_hDlg);
+	tabs->AddTabDialog(settings, L"Settings");
+
+	lists = new TabDisplayLists(_hInstance, m_hDlg);
+	tabs->AddTabDialog(lists, L"Lists");
+
+	tabs->ShowTab(0, true);
 
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
@@ -144,6 +159,13 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 CGEDebugger::~CGEDebugger() {
 	delete frameWindow;
 	delete texWindow;
+
+	delete flags;
+	delete lighting;
+	delete textureState;
+	delete settings;
+	delete lists;
+	delete tabs;
 }
 
 void CGEDebugger::SetupPreviews() {
@@ -191,6 +213,10 @@ void CGEDebugger::UpdatePreviews() {
 		displayList->setDisplayList(list);
 	}
 
+	flags->Update();
+	lighting->Update();
+	textureState->Update();
+	settings->Update();
 	lists->Update();
 }
 
