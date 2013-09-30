@@ -455,7 +455,7 @@ void CreditsScreen::render() {
 		"http://www.dolphin-emu.org",
 		"",
 		"",
-		c->T("info1", "PPSSPP is intended for educational purposes only."),
+		c->T("info1", "PPSSPP is only intended to play games you own."),
 		"",
 		c->T("info2", "Please make sure that you own the rights to any games"),
 		c->T("info3", "you play by owning the UMD or by buying the digital"),

@@ -68,6 +68,8 @@ private:
 
 	int currentBlock_;
 
+	UI::TextView *blockName_;	
+
 	UI::LinearLayout *leftDisasm_;	
 	UI::LinearLayout *rightDisasm_;	
 };

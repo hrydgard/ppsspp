@@ -146,6 +146,7 @@ void SystemInfoScreen::CreateViews() {
 #endif
 	std::vector<std::string> exts;
 	SplitString(g_all_gl_extensions, ' ', exts);
+	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {
 		scroll->Add(new TextView(exts[i]));
 	}
@@ -153,6 +154,7 @@ void SystemInfoScreen::CreateViews() {
 	scroll->Add(new ItemHeader("EGL Extensions"));
 	exts.clear();
 	SplitString(g_all_egl_extensions, ' ', exts);
+	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {
 		scroll->Add(new TextView(exts[i]));
 	}
@@ -184,6 +186,7 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
 	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	blockName_ = leftColumn->Add(new TextView("no block"));
 }
 
 #ifdef ARM
@@ -231,6 +234,10 @@ void JitCompareScreen::UpdateDisasm() {
 
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	JitBlock *block = blockCache->GetBlock(currentBlock_);
+
+	char temp[256];
+	sprintf(temp, "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
+	blockName_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.
 	

@@ -57,18 +57,27 @@ static const GLushort bLookup[11] = {
 	GL_CONSTANT_COLOR,	// FIXB
 };
 
+static const GLushort eqLookupNoMinMax[] = {
+	GL_FUNC_ADD,
+	GL_FUNC_SUBTRACT,
+	GL_FUNC_REVERSE_SUBTRACT,
+	GL_FUNC_ADD,  // GL_MIN
+	GL_FUNC_ADD,  // GL_MAX
+	GL_FUNC_ADD,  // GE_BLENDMODE_ABSDIFF
+};
+
 static const GLushort eqLookup[] = {
 	GL_FUNC_ADD,
 	GL_FUNC_SUBTRACT,
 	GL_FUNC_REVERSE_SUBTRACT,
-#if defined(USING_GLES2)
-	GL_FUNC_ADD,
-	GL_FUNC_ADD,
-	GL_FUNC_ADD, // this is GE_BLENDMODE_ABSDIFF
+#ifdef USING_GLES2
+	GL_MIN_EXT,
+	GL_MAX_EXT,
+	GL_MAX_EXT,  // this is GE_BLENDMODE_ABSDIFF
 #else
 	GL_MIN,
 	GL_MAX,
-	GL_MAX, // this is GE_BLENDMODE_ABSDIFF
+	GL_MAX,  // this is GE_BLENDMODE_ABSDIFF
 #endif
 };
 
@@ -226,12 +235,19 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		} else {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
 		}
+
+		// Don't report on Android device (why?)
 #if !defined(USING_GLES2)
 		if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
 			WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
 		}
 #endif
-		glstate.blendEquation.set(eqLookup[blendFuncEq]);
+
+		if ((blendFuncEq == GE_BLENDMODE_MIN || blendFuncEq == GE_BLENDMODE_MAX) && gl_extensions.EXT_blend_minmax) {
+			glstate.blendEquation.set(eqLookup[blendFuncEq]);
+		} else {
+			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
+		}
 	}
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
