@@ -738,6 +738,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
+			// This also make skipping drawing very effective.
+			framebufferManager_.SetRenderFrameBuffer();
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
+
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
@@ -774,6 +781,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SPLINE:
 		{
+			// This also make skipping drawing very effective.
+			framebufferManager_.SetRenderFrameBuffer();
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
+
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
