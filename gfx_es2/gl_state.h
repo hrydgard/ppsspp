@@ -231,6 +231,7 @@ public:
 	BoolState<GL_BLEND, false> blend;
 	STATE4(glBlendFuncSeparate, GLenum, GLenum, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFuncSeparate;
 
+	// On OpenGL ES, using minmax blend requires glBlendEquationEXT (in theory at least).
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 
@@ -304,6 +305,7 @@ struct GLExtensions {
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	bool EXT_shader_framebuffer_fetch;
+	bool EXT_blend_minmax;
 	bool ATIClampBug;
 	
 	// EGL extensions
