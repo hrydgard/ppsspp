@@ -16,13 +16,26 @@ public:
 	void ShowTab(HWND pageHandle);
 	void NextTab(bool cycle);
 	void PreviousTab(bool cycle);
-	int CurrentTabIndex();
-	HWND CurrentTabHandle() { return tabs[CurrentTabIndex()]; };
+	int CurrentTabIndex() { return currentTab; };
+	HWND CurrentTabHandle() { return tabs[currentTab].pageHandle; };
+	void SetShowTabTitles(bool enabled);
+	void SetIgnoreBottomMargin(bool enabled) { ignoreBottomMargin = enabled; };
+	bool GetShowTabTitles() { return showTabTitles; };
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void OnResize();
+	int AppendPageToControl(wchar_t* title);
+
+	struct TabInfo
+	{
+		HWND pageHandle;
+		wchar_t title[128];
+	};
 
 	HWND hwnd;
 	WNDPROC oldProc;
-	std::vector<HWND> tabs;
+	std::vector<TabInfo> tabs;
+	bool showTabTitles;
+	bool ignoreBottomMargin;
+	int currentTab;
 };
