@@ -161,16 +161,19 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 
-	// Developer tools are not accessible ingame, so it goes here
+	// Developer tools are not accessible ingame, so it goes here.
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
 	Choice *dump = graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")));
-#ifndef __SYMBIAN32__
-	// We're normally use software rendering to debug so put it in debugging
-	graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)"))); 
-#endif
 	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
 	if (!PSP_IsInited())
 		dump->SetEnabled(false);
+
+#ifndef __SYMBIAN32__
+	// We normally use software rendering to debug so put it in debugging.
+	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)"))); 
+	if (PSP_IsInited())
+		softwareGPU->SetEnabled(false);
+#endif
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
