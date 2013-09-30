@@ -6,27 +6,18 @@
 
 const DWORD tabControlStyleMask = ~(WS_POPUP | WS_TILEDWINDOW);
 
-TabControl::TabControl(HWND handle): hwnd(handle)
+TabControl::TabControl(HWND handle): hwnd(handle), showTabTitles(true),currentTab(0),ignoreBottomMargin(false)
 {
 	SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)this);
 	oldProc = (WNDPROC) SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
-
 }
 
 HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 {
 	style = (style |WS_CHILD) & tabControlStyleMask;
-
-	TCITEM tcItem;
-	ZeroMemory (&tcItem,sizeof (tcItem));
-	tcItem.mask			= TCIF_TEXT;
-	tcItem.dwState		= 0;
-	tcItem.pszText		= title;
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	tcItem.iImage		= 0;
-
-	int index = TabCtrl_GetItemCount(hwnd);
-	int result = TabCtrl_InsertItem(hwnd,index,&tcItem);
+	if (showTabTitles)
+		AppendPageToControl(title);
+	int index = tabs.size();
 
 	RECT tabRect;
 	GetWindowRect(hwnd,&tabRect);
@@ -36,7 +27,11 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	HWND tabHandle = CreateWindowEx(0,className,title,style,
 		tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,
 		GetParent(hwnd),0,MainWindow::GetHInstance(),0);
-	tabs.push_back(tabHandle);
+
+	TabInfo info;
+	info.pageHandle = tabHandle;
+	wcscpy(info.title,title);
+	tabs.push_back(info);
 
 	ShowTab(index);
 	return tabHandle;
@@ -50,16 +45,9 @@ void TabControl::AddTabDialog(Dialog* dialog, wchar_t* title)
 
 void TabControl::AddTab(HWND handle, wchar_t* title)
 {
-	TCITEM tcItem;
-	ZeroMemory (&tcItem,sizeof (tcItem));
-	tcItem.mask			= TCIF_TEXT;
-	tcItem.dwState		= 0;
-	tcItem.pszText		= title;
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	tcItem.iImage		= 0;
-
-	int index = TabCtrl_GetItemCount(hwnd);
-	int result = TabCtrl_InsertItem(hwnd,index,&tcItem);
+	if (showTabTitles)
+		AppendPageToControl(title);
+	int index = tabs.size();
 
 	RECT tabRect;
 	GetWindowRect(hwnd,&tabRect);
@@ -70,19 +58,40 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD) & tabControlStyleMask;
 	SetWindowLong(handle, GWL_STYLE, style);
 	MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
-	tabs.push_back(handle);
+
+	TabInfo info;
+	info.pageHandle = handle;
+	wcscpy(info.title,title);
+	tabs.push_back(info);
 
 	ShowTab(index);
 }
 
+int TabControl::AppendPageToControl(wchar_t* title)
+{
+	TCITEM tcItem;
+	ZeroMemory (&tcItem,sizeof (tcItem));
+	tcItem.mask			= TCIF_TEXT;
+	tcItem.dwState		= 0;
+	tcItem.pszText		= title;
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
+	tcItem.iImage		= 0;
+
+	int index = TabCtrl_GetItemCount(hwnd);
+	int result = TabCtrl_InsertItem(hwnd,index,&tcItem);
+	return index;
+}
+
 void TabControl::ShowTab(int index, bool setControlIndex)
 {
+	currentTab = index;
+
 	for (size_t i = 0; i < tabs.size(); i++)
 	{
-		ShowWindow(tabs[i],i == index ? SW_NORMAL : SW_HIDE);
+		ShowWindow(tabs[i].pageHandle,i == index ? SW_NORMAL : SW_HIDE);
 	}
 
-	if (setControlIndex)
+	if (setControlIndex && showTabTitles)
 	{
 		TabCtrl_SetCurSel(hwnd,index);
 	}
@@ -92,17 +101,36 @@ void TabControl::ShowTab(HWND pageHandle)
 {
 	for (size_t i = 0; i < tabs.size(); i++)
 	{
-		if (tabs[i] == pageHandle)
+		if (tabs[i].pageHandle == pageHandle)
 		{
-			TabCtrl_SetCurSel(hwnd,i);
+			currentTab = i;
+			if (showTabTitles)
+				TabCtrl_SetCurSel(hwnd,i);
 		}
-		ShowWindow(tabs[i],tabs[i] == pageHandle ? SW_NORMAL : SW_HIDE);
+		ShowWindow(tabs[i].pageHandle,tabs[i].pageHandle == pageHandle ? SW_NORMAL : SW_HIDE);
 	}
 }
 
-int TabControl::CurrentTabIndex()
+void TabControl::SetShowTabTitles(bool enabled)
 {
-	return TabCtrl_GetCurSel(hwnd);
+	showTabTitles = enabled;
+	int itemCount = TabCtrl_GetItemCount(hwnd);
+
+	for (int i = 0; i < itemCount; i++)
+	{
+		TabCtrl_DeleteItem(hwnd,0);
+	}
+
+	if (showTabTitles)
+	{
+		for (int i = 0; i < (int) tabs.size(); i++)
+		{
+			AppendPageToControl(tabs[i].title);
+		}
+		TabCtrl_SetCurSel(hwnd,CurrentTabIndex());
+	}
+	
+	OnResize();
 }
 
 void TabControl::NextTab(bool cycle)
@@ -154,18 +182,20 @@ void TabControl::OnResize()
 	UpdateWindow(hwnd);
 	
 	// now resize tab children
+	int bottom = tabRect.bottom;
 	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
-	int current = TabCtrl_GetCurSel(hwnd);
-	
+	if (ignoreBottomMargin) tabRect.bottom = bottom;
+	int current = CurrentTabIndex();
+
 	for (size_t i = 0; i < tabs.size(); i++)
 	{
-		InvalidateRect(tabs[i],NULL,FALSE);
-		MoveWindow(tabs[i],tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+		InvalidateRect(tabs[i].pageHandle,NULL,FALSE);
+		MoveWindow(tabs[i].pageHandle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
 
 		if (i == current)
 		{
-			InvalidateRect(tabs[i],NULL,TRUE);
-			UpdateWindow(tabs[i]);
+			InvalidateRect(tabs[i].pageHandle,NULL,TRUE);
+			UpdateWindow(tabs[i].pageHandle);
 		}
 	}
 }
