@@ -48,6 +48,10 @@ namespace SaveState
 	// Warning: callback will be called on a different thread.
 	void Verify(Callback callback = 0, void *cbUserData = 0);
 
+	// To go back to a previous snapshot (only if enabled.)
+	// Warning: callback will be called on a different thread.
+	void Rewind(Callback callback = 0, void *cbUserData = 0);
+
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();
 };

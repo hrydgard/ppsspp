@@ -155,7 +155,7 @@ void DisableState() {
 }
 
 void FramebufferManager::SetNumExtraFBOs(int num) {
-	for (int i = 0; i < extraFBOs_.size(); i++) {
+	for (size_t i = 0; i < extraFBOs_.size(); i++) {
 		fbo_destroy(extraFBOs_[i]);
 	}
 	extraFBOs_.clear();

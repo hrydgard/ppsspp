@@ -32,7 +32,9 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
+#include "base/timeutil.h"
 #include "i18n/i18n.h"
 
 namespace SaveState
@@ -47,6 +49,7 @@ namespace SaveState
 		SAVESTATE_SAVE,
 		SAVESTATE_LOAD,
 		SAVESTATE_VERIFY,
+		SAVESTATE_REWIND,
 	};
 
 	struct Operation
@@ -62,9 +65,60 @@ namespace SaveState
 		void *cbUserData;
 	};
 
+	struct StateRingbuffer
+	{
+		StateRingbuffer(int size) : first_(0), next_(0), size_(size)
+		{
+			states_.resize(size);
+		}
+
+		CChunkFileReader::Error Save()
+		{
+			int n = next_++ % size_;
+			if (n == first_)
+				++first_;
+
+			SaveStart state;
+			size_t sz = CChunkFileReader::MeasurePtr(state);
+			if (states_[n].size() < sz)
+				states_[n].resize(sz);
+
+			return CChunkFileReader::SavePtr(states_[n].data(), state);
+		}
+
+		CChunkFileReader::Error Restore()
+		{
+			// No valid states left.
+			if (next_ == first_)
+				return CChunkFileReader::ERROR_BAD_FILE;
+
+			int n = (next_-- + size_) % size_;
+			if (states_[n].empty())
+				return CChunkFileReader::ERROR_BAD_FILE;
+			
+			SaveStart state;
+			return CChunkFileReader::LoadPtr(states_[n].data(), state);
+		}
+
+		typedef std::vector<u8> StateBuffer;
+		int first_;
+		int next_;
+		int size_;
+		std::vector<StateBuffer> states_;
+	};
+
 	static bool needsProcess = false;
 	static std::vector<Operation> pending;
 	static std::recursive_mutex mutex;
+
+	// TODO: Should this be configurable?
+	static const int REWIND_NUM_STATES = 5;
+	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
+	// TODO: g_Config setting or something instead.
+	static int rewindStateFreq = 0;
+	// TODO: Any reason for this to be configurable?
+	const static float rewindMaxWallFrequency = 1.0f;
+	static float rewindLastTime = 0.0f;
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
@@ -118,6 +172,11 @@ namespace SaveState
 	void Verify(Callback callback, void *cbUserData)
 	{
 		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback, cbUserData));
+	}
+
+	void Rewind(Callback callback, void *cbUserData)
+	{
+		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), callback, cbUserData));
 	}
 
 
@@ -213,8 +272,20 @@ namespace SaveState
 		return copy;
 	}
 
-	void HandleFailure()
+	bool HandleFailure()
 	{
+		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
+		// Even if this was a rewind, maybe we can still load a previous one.
+		CChunkFileReader::Error result;
+		do
+			result = rewindStates.Restore();
+		while (result == CChunkFileReader::ERROR_BROKEN_STATE);
+
+		if (result == CChunkFileReader::ERROR_NONE) {
+			return true;
+		}
+
+		// We tried, our only remaining option is to reset the game.
 		PSP_Shutdown();
 		std::string resetError;
 		if (!PSP_Init(PSP_CoreParameter(), &resetError))
@@ -222,14 +293,33 @@ namespace SaveState
 			ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
 			// TODO: This probably doesn't clean up well enough.
 			Core_Stop();
-			return;
+			return false;
 		}
 		host->BootDone();
 		host->UpdateDisassembly();
+		return false;
+	}
+
+	static inline void CheckRewindState()
+	{
+		if (gpuStats.numFlips % rewindStateFreq != 0)
+			return;
+
+		// For fast-forwarding, otherwise they may be useless and too close.
+		time_update();
+		float diff = time_now() - rewindLastTime;
+		if (diff < rewindMaxWallFrequency)
+			return;
+
+		rewindLastTime = time_now();
+		rewindStates.Save();
 	}
 
 	void Process()
 	{
+		if (rewindStateFreq != 0)
+			CheckRewindState();
+
 		if (!needsProcess)
 			return;
 		needsProcess = false;
@@ -250,7 +340,14 @@ namespace SaveState
 			bool callbackResult;
 			std::string reason;
 
-			I18NCategory *s = GetI18NCategory("Screen"); 
+			I18NCategory *s = GetI18NCategory("Screen");
+			// I couldn't stand the inconsistency.  But trying not to break old lang files.
+			const char *i18nLoadFailure = s->T("Load savestate failed", "");
+			const char *i18nSaveFailure = s->T("Save State Failed", "");
+			if (strlen(i18nLoadFailure) == 0)
+				i18nLoadFailure = s->T("Failed to load state");
+			if (strlen(i18nSaveFailure) == 0)
+				i18nSaveFailure = s->T("Failed to save state");
 
 			switch (op.type)
 			{
@@ -262,9 +359,10 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
+					osm.Show(i18nLoadFailure, 2.0);
 					callbackResult = false;
 				} else {
-					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
+					osm.Show(s->T(reason.c_str(), i18nLoadFailure), 2.0);
 					callbackResult = false;
 				}
 				break;
@@ -277,9 +375,10 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
+					osm.Show(i18nSaveFailure, 2.0);
 					callbackResult = false;
 				} else {
-					osm.Show(s->T("Save State Failed"), 2.0);
+					osm.Show(i18nSaveFailure, 2.0);
 					callbackResult = false;
 				}
 				break;
@@ -287,6 +386,28 @@ namespace SaveState
 			case SAVESTATE_VERIFY:
 				INFO_LOG(COMMON, "Verifying save state system");
 				callbackResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
+				break;
+
+			case SAVESTATE_REWIND:
+				INFO_LOG(COMMON, "Rewinding to recent savestate snapshot");
+				result = rewindStates.Restore();
+				if (result == CChunkFileReader::ERROR_NONE) {
+					osm.Show(s->T("Loaded State"), 2.0);
+					callbackResult = true;
+				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
+					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
+					if (HandleFailure()) {
+						// Well, we did rewind, even if too much...
+						osm.Show(s->T("Loaded State"), 2.0);
+						callbackResult = true;
+					} else {
+						osm.Show(i18nLoadFailure, 2.0);
+						callbackResult = false;
+					}
+				} else {
+					osm.Show(i18nLoadFailure, 2.0);
+					callbackResult = false;
+				}
 				break;
 
 			default:
