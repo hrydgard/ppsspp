@@ -132,13 +132,13 @@ namespace Reporting
 	bool SendReportRequest(const char *uri, const std::string &data, Buffer *output = NULL)
 	{
 		bool result = false;
+		net::AutoInit netInit;
 		http::Client http;
 		Buffer theVoid;
 
 		if (output == NULL)
 			output = &theVoid;
 
-		net::Init();
 		if (http.Resolve(ServerHostname(), ServerPort()))
 		{
 			http.Connect();
@@ -146,7 +146,6 @@ namespace Reporting
 			http.Disconnect();
 			result = true;
 		}
-		net::Shutdown();
 
 		return result;
 	}
