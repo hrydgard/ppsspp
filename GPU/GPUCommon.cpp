@@ -203,7 +203,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	// Check alignment
 	// TODO Check the context and stack alignement too
 	if (((listpc | stall) & 3) != 0)
-		return 0x80000103;
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
 
 	int id = -1;
 	bool oldCompatibility = true;
