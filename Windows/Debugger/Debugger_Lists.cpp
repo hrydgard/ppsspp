@@ -230,7 +230,8 @@ const char* CtrlThreadList::getCurrentThreadName()
 // CtrlBreakpointList
 //
 
-CtrlBreakpointList::CtrlBreakpointList(HWND hwnd): GenericListControl(hwnd,breakpointColumns,BPL_COLUMNCOUNT)
+CtrlBreakpointList::CtrlBreakpointList(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
+	: GenericListControl(hwnd,breakpointColumns,BPL_COLUMNCOUNT),cpu(cpu),disasm(disasm)
 {
 	SetSendInvalidRows(true);
 	Update();
@@ -582,7 +583,8 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 // CtrlStackTraceView
 //
 
-CtrlStackTraceView::CtrlStackTraceView(HWND hwnd): GenericListControl(hwnd,stackTraceColumns,SF_COLUMNCOUNT)
+CtrlStackTraceView::CtrlStackTraceView(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
+	: GenericListControl(hwnd,stackTraceColumns,SF_COLUMNCOUNT),cpu(cpu),disasm(disasm)
 {
 	Update();
 }
