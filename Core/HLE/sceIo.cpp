@@ -1530,7 +1530,12 @@ u32 sceIoChdir(const char *dirname) {
 }
 
 int sceIoChangeAsyncPriority(int id, int priority)
-{
+{	
+	// priority = -1 is valid
+	if (priority < 0 && priority != -1) {
+		ERROR_LOG(SCEIO, "sceIoChangeAsyncPriority : Illegal Priority %i", priority);
+		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+	}
 	ERROR_LOG(SCEIO, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
 	return 0;
 }
