@@ -103,24 +103,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	rl->setCPU(cpu);
 
 	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-
-	HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
-
-	TCITEM tcItem;
-	ZeroMemory (&tcItem,sizeof (tcItem));
-	tcItem.mask			= TCIF_TEXT;
-	tcItem.dwState		= 0;
-	tcItem.pszText		= L"Regs";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	tcItem.iImage		= 0;
-	int result1 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= L"Funcs";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	int result2 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
-	ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
-	SetTimer(m_hDlg,1,1000,0);
 	
+	leftTabs = new TabControl(GetDlgItem(m_hDlg,IDC_LEFTTABS));
+	leftTabs->SetIgnoreBottomMargin(true);
+	leftTabs->AddTab(GetDlgItem(m_hDlg,IDC_REGLIST),L"Regs");
+	leftTabs->AddTab(GetDlgItem(m_hDlg,IDC_FUNCTIONLIST),L"Funcs");
+	leftTabs->ShowTab(0);
+
 	// subclass the goto edit box
 	HWND editWnd = GetDlgItem(m_hDlg,IDC_ADDRESS);
 	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
@@ -129,7 +118,6 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	// init bottom tabs
 	bottomTabs = new TabControl(GetDlgItem(m_hDlg,IDC_DEBUG_BOTTOMTABS));
 
-	// init memory viewer
 	HWND memHandle = GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW);
 	CtrlMemView *mem = CtrlMemView::getFrom(memHandle);
 	mem->setDebugger(_cpu);
@@ -293,29 +281,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	case WM_TIMER:
-		{
-			int iPage = TabCtrl_GetCurSel (GetDlgItem(m_hDlg, IDC_LEFTTABS));
-			ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), iPage?SW_NORMAL:SW_HIDE);
-			ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST),      iPage?SW_HIDE:SW_NORMAL);
-		}
-		break;
-
 	case WM_NOTIFY:
 		switch (wParam)
 		{
 		case IDC_LEFTTABS:
-			{
-				HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
-				NMHDR* pNotifyMessage = NULL;
-				pNotifyMessage = (LPNMHDR)lParam; 		
-				if (pNotifyMessage->hwndFrom == tabs)
-				{
-					int iPage = TabCtrl_GetCurSel (tabs);
-					ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), iPage?SW_NORMAL:SW_HIDE);
-					ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST),      iPage?SW_HIDE:SW_NORMAL);
-				}
-			}
+			leftTabs->HandleNotify(lParam);
 			break;
 		case IDC_BREAKPOINTLIST:
 			breakpointList->HandleNotify(lParam);
@@ -415,6 +385,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					GetClientRect(m_hDlg,&rect);
 					UpdateSize(rect.right-rect.left,rect.bottom-rect.top);
 				}
+				break;
+
+			case ID_DEBUG_TOGGLEBOTTOMTABTITLES:
+				bottomTabs->SetShowTabTitles(!bottomTabs->GetShowTabTitles());
 				break;
 
 			case IDC_SHOWVFPU:
@@ -694,12 +668,7 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	Position positions[3];
 	
 	HWND disasm = GetDlgItem(m_hDlg, IDC_DISASMVIEW);
-
-	HWND leftTabs[2] = {
-		GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),
-		GetDlgItem(m_hDlg, IDC_REGLIST)
-	};
-
+	HWND leftTabs = GetDlgItem(m_hDlg,IDC_LEFTTABS);
 	HWND bottomTabs = GetDlgItem(m_hDlg, IDC_DEBUG_BOTTOMTABS);
 
 	// ignore the status bar
@@ -717,11 +686,11 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	positions[0].y = windowRect.top;
 	
 	// left tabs
-	GetWindowRect(leftTabs[0],&windowRect);
+	GetWindowRect(leftTabs,&windowRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&windowRect,2);
 	positions[1].x = windowRect.left;
 	positions[1].y = windowRect.top;
-	positions[1].w = windowRect.right-windowRect.left;
+	positions[1].w = positions[0].x-2*windowRect.left;
 	int borderMargin = positions[1].x;
 
 	float weight = hideBottomTabs ? 1.f : 390.f/500.f;
@@ -740,22 +709,9 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 
 	// now actually move all the windows
 	MoveWindow(disasm,positions[0].x,positions[0].y,positions[0].w,positions[0].h,TRUE);
-
-	for (int i = 0; i < 2; i++)
-	{
-		MoveWindow(leftTabs[i],positions[1].x,positions[1].y,positions[1].w,positions[1].h,TRUE);
-	}
-
+	MoveWindow(leftTabs,positions[1].x,positions[1].y,positions[1].w,positions[1].h,TRUE);
 	MoveWindow(bottomTabs,positions[2].x,positions[2].y,positions[2].w,positions[2].h,TRUE);
 	ShowWindow(bottomTabs,hideBottomTabs ? SW_HIDE : SW_NORMAL);
-
-	RECT tabRect;
-	HWND hwnd = GetDlgItem(m_hDlg,IDC_LEFTTABS);
-	GetWindowRect(hwnd,&tabRect);
-	MapWindowPoints(HWND_DESKTOP,hwnd,(LPPOINT)&tabRect,2);
-	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
-
-	printf("");
 }
 
 void CDisasm::SavePosition()
