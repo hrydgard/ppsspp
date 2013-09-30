@@ -16,20 +16,30 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Globals.h"
+#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
-	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
-		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
-		return 0;
+u64 dmacMemcpyDeadline;
+
+void __DmacInit() {
+	dmacMemcpyDeadline = 0;
+}
+
+void __DmacDoState(PointerWrap &p) {
+	auto s = p.Section("sceDmac", 0, 1);
+	if (s == 0) {
+		dmacMemcpyDeadline = 0;
+		return;
 	}
 
-	DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	p.Do(dmacMemcpyDeadline);
+}
 
+int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
 
 	src &= ~0x40000000;
@@ -37,13 +47,56 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		gpu->UpdateMemory(dst, src, size);
 	}
+
+	// This number seems strangely reproducible.
+	if (size >= 272) {
+		// Approx. 225 MiB/s or 235929600 B/s, so let's go with 236 B/us.
+		int delayUs = size / 236;
+		dmacMemcpyDeadline = CoreTiming::GetTicks() + usToCycles(delayUs);
+		return hleDelayResult(0, "dmac copy", delayUs);
+	}
 	return 0;
 }
 
-u32 sceDmacTryMemcpy(u32 x, u32 y , u32 z)
-{
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceDmacTryMemcpy(%08x, %08x, %i)", x ,y ,z);
-	return 0;
+u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
+	if (size == 0) {
+		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
+		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+
+	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
+		WARN_LOG_REPORT(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): overlapping read", dst, src, size);
+		// TODO: Should block, seems like copy doesn't start until previous finishes.
+		// Might matter for overlapping copies.
+	} else {
+		DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	}
+
+	return __DmacMemcpy(dst, src, size);
+}
+
+u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
+	if (size == 0) {
+		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
+		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+
+	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
+		DEBUG_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): busy", dst, src, size);
+		return SCE_KERNEL_ERROR_BUSY;
+	} else {
+		DEBUG_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	}
+
+	return __DmacMemcpy(dst, src, size);
 }
 
 const HLEFunction sceDmac[] = {

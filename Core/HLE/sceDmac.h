@@ -17,4 +17,9 @@
 
 #pragma once
 
+class PointerWrap;
+
+void __DmacInit();
+void __DmacDoState(PointerWrap &p);
+
 void Register_sceDmac();
