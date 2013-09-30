@@ -114,13 +114,12 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
 	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
-	
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("Low quality spline/bezier curves (speed)")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA antialiasing")))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	
+
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
@@ -135,11 +134,13 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
 #endif
-
+	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing"))); 
+	// In case we're going to add few other antialiasing option like MSAA in the future.
+	graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
-	
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
 	static const char *texScaleLevels[] = {"Off", "2x", "3x","4x", "5x"};
@@ -163,6 +164,10 @@ void GameSettingsScreen::CreateViews() {
 	// Developer tools are not accessible ingame, so it goes here
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
 	Choice *dump = graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")));
+#ifndef __SYMBIAN32__
+	// We're normally use software rendering to debug so put it in debugging
+	graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)"))); 
+#endif
 	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
 	if (!PSP_IsInited())
 		dump->SetEnabled(false);
@@ -237,26 +242,27 @@ void GameSettingsScreen::CreateViews() {
 //#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
-	systemSettings->Add(new ItemHeader(s->T("General")));
+	
+	systemSettings->Add(new ItemHeader(s->T("UI Language"))); 
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	
+	systemSettings->Add(new ItemHeader(s->T("General")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
-#ifdef _WIN32
-	// Screenshot functionality is not yet available on non-Windows
-	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, s->T("Screenshots as PNG")));
-#endif
-
-	// TODO: Come up with a way to display a keyboard for mobile users,
-	// so until then, this is Windows/Desktop only.
-#ifdef _WIN32
-	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
-#endif
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
+	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	systemSettings->Add(enableReportsCheckbox_);
 
 
 	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+#ifdef _WIN32
+	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
+	// Screenshot functionality is not yet available on non-Windows
+	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, s->T("Screenshots as PNG")));
+#endif	
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, s->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
@@ -452,14 +458,10 @@ void DeveloperToolsScreen::CreateViews() {
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(s->T("General")));
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
-	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
-	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
 	list->Add(new Choice(de->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-	list->Add(new Choice(de->T("Restore Default Settings")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRestoreDefaultSettings);
-#ifndef __SYMBIAN32__
-	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
-#endif
+	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
@@ -484,19 +486,19 @@ UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void DeveloperToolsScreen::CallbackRestoreDefaults(bool yes) {
+void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 	if(yes)
 		g_Config.RestoreDefaults();
 
 	host->UpdateUI();
 }
 
-UI::EventReturn DeveloperToolsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	I18NCategory *de = GetI18NCategory("Developer");
 	I18NCategory *d = GetI18NCategory("Dialog");
 	screenManager()->push(
 		new PromptScreen(de->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
-	std::bind(&DeveloperToolsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;
 }
