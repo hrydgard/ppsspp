@@ -17,6 +17,7 @@
 
 #include <string>
 #include <map>
+#include <algorithm>
 
 #include "base/timeutil.h"
 #include "base/stringutil.h"
