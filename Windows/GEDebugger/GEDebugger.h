@@ -33,6 +33,8 @@ enum {
 class CtrlDisplayListView;
 class TabDisplayLists;
 class TabStateFlags;
+class TabStateLighting;
+class TabStateSettings;
 
 class CGEDebugger : public Dialog {
 public:
@@ -52,6 +54,8 @@ private:
 	CtrlDisplayListView *displayList;
 	TabDisplayLists *lists;
 	TabStateFlags *flags;
+	TabStateLighting *lighting;
+	TabStateSettings *settings;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
 	TabControl *tabs;

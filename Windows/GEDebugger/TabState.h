@@ -58,3 +58,13 @@ class TabStateFlags : public TabStateValues {
 public:
 	TabStateFlags(HINSTANCE _hInstance, HWND _hParent);
 };
+
+class TabStateLighting : public TabStateValues {
+public:
+	TabStateLighting(HINSTANCE _hInstance, HWND _hParent);
+};
+
+class TabStateSettings : public TabStateValues {
+public:
+	TabStateSettings(HINSTANCE _hInstance, HWND _hParent);
+};

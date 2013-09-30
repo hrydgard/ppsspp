@@ -35,6 +35,7 @@ struct TabStateRow {
 	const TCHAR *title;
 	u8 cmd;
 	u8 enableCmd;
+	// TODO: Format type?
 };
 
 static const TabStateRow stateFlagsRows[] = {
@@ -56,6 +57,23 @@ static const TabStateRow stateFlagsRows[] = {
 	{ L"Patch cull enable",    GE_CMD_PATCHCULLENABLE },
 	{ L"Color test enable",    GE_CMD_COLORTESTENABLE },
 	{ L"Logic Op Enable",      GE_CMD_LOGICOPENABLE },
+};
+
+static const TabStateRow stateLightingRows[] = {
+	{ L"Light mode",           GE_CMD_LIGHTMODE,               GE_CMD_LIGHTINGENABLE },
+	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              GE_CMD_LIGHTENABLE0 },
+	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              GE_CMD_LIGHTENABLE1 },
+	{ L"Light type 2",         GE_CMD_LIGHTTYPE2,              GE_CMD_LIGHTENABLE2 },
+	{ L"Light type 3",         GE_CMD_LIGHTTYPE3,              GE_CMD_LIGHTENABLE3 },
+	// TODO: Others...
+};
+
+static const TabStateRow stateSettingsRows[] = {
+	{ L"Region TL",            GE_CMD_REGION1 },
+	{ L"Region BR",            GE_CMD_REGION2 },
+	// TODO: Right place?
+	{ L"Morph Weight 0",       GE_CMD_MORPHWEIGHT0 },
+	// TODO: Others...
 };
 
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
@@ -144,4 +162,12 @@ BOOL TabStateValues::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 TabStateFlags::TabStateFlags(HINSTANCE _hInstance, HWND _hParent)
 	: TabStateValues(stateFlagsRows, ARRAY_SIZE(stateFlagsRows), (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
+}
+
+TabStateLighting::TabStateLighting(HINSTANCE _hInstance, HWND _hParent)
+	: TabStateValues(stateLightingRows, ARRAY_SIZE(stateLightingRows), (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
+}
+
+TabStateSettings::TabStateSettings(HINSTANCE _hInstance, HWND _hParent)
+	: TabStateValues(stateSettingsRows, ARRAY_SIZE(stateSettingsRows), (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
 }

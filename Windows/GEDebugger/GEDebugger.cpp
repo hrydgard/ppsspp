@@ -134,8 +134,16 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	flags = new TabStateFlags(_hInstance, m_hDlg);
 	tabs->AddTabDialog(flags, L"Flags");
 
-	lists = new TabDisplayLists(_hInstance,m_hDlg);
-	tabs->AddTabDialog(lists,L"Lists");
+	lighting = new TabStateLighting(_hInstance, m_hDlg);
+	tabs->AddTabDialog(lighting, L"Lighting");
+
+	settings = new TabStateSettings(_hInstance, m_hDlg);
+	tabs->AddTabDialog(settings, L"Settings");
+
+	lists = new TabDisplayLists(_hInstance, m_hDlg);
+	tabs->AddTabDialog(lists, L"Lists");
+
+	tabs->ShowTab(0, true);
 
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
@@ -150,6 +158,8 @@ CGEDebugger::~CGEDebugger() {
 	delete texWindow;
 
 	delete flags;
+	delete lighting;
+	delete settings;
 	delete lists;
 	delete tabs;
 }
@@ -200,6 +210,8 @@ void CGEDebugger::UpdatePreviews() {
 	}
 
 	flags->Update();
+	lighting->Update();
+	settings->Update();
 	lists->Update();
 }
 
