@@ -41,4 +41,5 @@ private:
 	bool showTabTitles;
 	bool ignoreBottomMargin;
 	int currentTab;
+	bool hasButtons;
 };
