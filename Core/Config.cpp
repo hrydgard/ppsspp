@@ -239,6 +239,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	debugConfig->Get("FontWidth", &iFontWidth, 8);
 	debugConfig->Get("FontHeight", &iFontHeight, 12);
 	debugConfig->Get("DisplayStatusBar", &bDisplayStatusBar, true);
+	debugConfig->Get("ShowBottomTabTitles",&bShowBottomTabTitles,true);
 	debugConfig->Get("ShowDeveloperMenu", &bShowDeveloperMenu, false);
 
 	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
@@ -395,6 +396,7 @@ void Config::Save() {
 		debugConfig->Set("FontWidth", iFontWidth);
 		debugConfig->Set("FontHeight", iFontHeight);
 		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
+		debugConfig->Set("ShowBottomTabTitles",bShowBottomTabTitles);
 		debugConfig->Set("ShowDeveloperMenu", bShowDeveloperMenu);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {

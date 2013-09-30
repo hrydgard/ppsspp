@@ -166,6 +166,7 @@ public:
 	int iFontWidth;
 	int iFontHeight;
 	bool bDisplayStatusBar;
+	bool bShowBottomTabTitles;
 	bool bShowDeveloperMenu;
 
 	std::string currentDirectory;
