@@ -340,7 +340,14 @@ namespace SaveState
 			bool callbackResult;
 			std::string reason;
 
-			I18NCategory *s = GetI18NCategory("Screen"); 
+			I18NCategory *s = GetI18NCategory("Screen");
+			// I couldn't stand the inconsistency.  But trying not to break old lang files.
+			const char *i18nLoadFailure = s->T("Load savestate failed", "");
+			const char *i18nSaveFailure = s->T("Save State Failed", "");
+			if (strlen(i18nLoadFailure) == 0)
+				i18nLoadFailure = s->T("Failed to load state");
+			if (strlen(i18nSaveFailure) == 0)
+				i18nSaveFailure = s->T("Failed to save state");
 
 			switch (op.type)
 			{
@@ -352,10 +359,10 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
-					osm.Show(s->T("Load savestate failed"), 2.0);
+					osm.Show(i18nLoadFailure, 2.0);
 					callbackResult = false;
 				} else {
-					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
+					osm.Show(s->T(reason.c_str(), i18nLoadFailure), 2.0);
 					callbackResult = false;
 				}
 				break;
@@ -368,10 +375,10 @@ namespace SaveState
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
-					osm.Show(s->T("Save State Failed"), 2.0);
+					osm.Show(i18nSaveFailure, 2.0);
 					callbackResult = false;
 				} else {
-					osm.Show(s->T("Save State Failed"), 2.0);
+					osm.Show(i18nSaveFailure, 2.0);
 					callbackResult = false;
 				}
 				break;
@@ -394,11 +401,11 @@ namespace SaveState
 						osm.Show(s->T("Loaded State"), 2.0);
 						callbackResult = true;
 					} else {
-						osm.Show(s->T("Load savestate failed"), 2.0);
+						osm.Show(i18nLoadFailure, 2.0);
 						callbackResult = false;
 					}
 				} else {
-					osm.Show(s->T("Load savestate failed"), 2.0);
+					osm.Show(i18nLoadFailure, 2.0);
 					callbackResult = false;
 				}
 				break;
