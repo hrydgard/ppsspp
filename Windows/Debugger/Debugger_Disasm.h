@@ -4,6 +4,7 @@
 #define _DISASM_H
 
 #include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/TabControl.h"
 #include "Windows/Debugger/CtrlDisasmView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
 #include "Windows/Debugger/CPURegsInterface.h"
@@ -18,16 +19,7 @@
 class CDisasm : public Dialog
 {
 private:
-	typedef enum { SUBWIN_MEM, SUBWIN_BREAKPOINT, SUBWIN_THREADS, SUBWIN_STACKFRAMES,
-		// pseudo controls
-		SUBWIN_NEXT, SUBWIN_FIRST } SubWindowType;
-
-	RECT defaultRect;
-	RECT defaultBreakpointRect;
-	RECT regRect;
-	RECT disRect;
-	RECT breakpointRect;
-
+	int minWidth,minHeight;
 	DebugInterface *cpu;
 	u64 lastTicks;
 
@@ -35,15 +27,16 @@ private:
 	CtrlBreakpointList* breakpointList;
 	CtrlThreadList* threadList;
 	CtrlStackTraceView* stackTraceView;
+	TabControl* bottomTabs;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 	bool keepStatusBarText;
+	bool hideBottomTabs;
 
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void updateThreadLabel(bool clear);
-	void changeSubWindow(SubWindowType type);
 	void stepInto();
 	void stepOver();
 	void stepOut();

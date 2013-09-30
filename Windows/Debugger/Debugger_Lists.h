@@ -28,16 +28,8 @@ class CtrlDisAsmView;
 class CtrlBreakpointList: public GenericListControl
 {
 public:
-	CtrlBreakpointList(HWND hwnd);
+	CtrlBreakpointList(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm);
 	void reloadBreakpoints();
-	void setCpu(DebugInterface* cpu)
-	{
-		this->cpu = cpu;
-	};
-	void setDisasm(CtrlDisAsmView* disasm)
-	{
-		this->disasm = disasm;
-	};
 	void showMenu(int itemIndex, const POINT &pt);
 protected:
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);
@@ -64,15 +56,7 @@ private:
 class CtrlStackTraceView: public GenericListControl
 {
 public:
-	CtrlStackTraceView(HWND hwnd);
-	void setCpu(DebugInterface* cpu)
-	{
-		this->cpu = cpu;
-	};
-	void setDisasm(CtrlDisAsmView* disasm)
-	{
-		this->disasm = disasm;
-	};
+	CtrlStackTraceView(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm);
 	void loadStackTrace();
 protected:
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue);

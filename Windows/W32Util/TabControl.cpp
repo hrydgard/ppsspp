@@ -4,6 +4,8 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
+const DWORD tabControlStyleMask = ~(WS_POPUP | WS_TILEDWINDOW);
+
 TabControl::TabControl(HWND handle): hwnd(handle)
 {
 	SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)this);
@@ -13,7 +15,7 @@ TabControl::TabControl(HWND handle): hwnd(handle)
 
 HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 {
-	style |= WS_CHILD;
+	style = (style |WS_CHILD) & tabControlStyleMask;
 
 	TCITEM tcItem;
 	ZeroMemory (&tcItem,sizeof (tcItem));
@@ -43,7 +45,11 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 void TabControl::AddTabDialog(Dialog* dialog, wchar_t* title)
 {
 	HWND handle = dialog->GetDlgHandle();
+	AddTab(handle,title);
+}
 
+void TabControl::AddTab(HWND handle, wchar_t* title)
+{
 	TCITEM tcItem;
 	ZeroMemory (&tcItem,sizeof (tcItem));
 	tcItem.mask			= TCIF_TEXT;
@@ -61,7 +67,7 @@ void TabControl::AddTabDialog(Dialog* dialog, wchar_t* title)
 	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
 	
 	SetParent(handle,GetParent(hwnd));
-	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD) & ~(WS_POPUP | WS_TILEDWINDOW);
+	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD) & tabControlStyleMask;
 	SetWindowLong(handle, GWL_STYLE, style);
 	MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
 	tabs.push_back(handle);
@@ -94,19 +100,36 @@ void TabControl::ShowTab(HWND pageHandle)
 	}
 }
 
+int TabControl::CurrentTabIndex()
+{
+	return TabCtrl_GetCurSel(hwnd);
+}
+
 void TabControl::NextTab(bool cycle)
 {
-	int index = TabCtrl_GetCurSel(hwnd);
-	if (index == tabs.size()-1 && cycle)
-		index = 0;
+	int index = CurrentTabIndex()+1;
+	if (index == tabs.size())
+	{
+		if (cycle == false)
+			index--;
+		else
+			index = 0;
+	}
+
 	ShowTab(index);
 }
 
 void TabControl::PreviousTab(bool cycle)
 {
-	int index = TabCtrl_GetCurSel(hwnd);
-	if (index == 0 && cycle)
-		index = (int) tabs.size()-1;
+	int index = CurrentTabIndex()-1;
+	if (index < 0)
+	{
+		if (cycle == false)
+			index = 0;
+		else
+			index = (int) tabs.size()-1;
+	}
+
 	ShowTab(index);
 }
 
