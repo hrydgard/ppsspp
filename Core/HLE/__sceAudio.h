@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-
 #include "sceAudio.h"
+#include <atomic>
+
+
 
 // Easy interface for sceAudio to write to, to keep the complexity in check.
 
