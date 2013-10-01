@@ -223,7 +223,7 @@ private:
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
-	bool useFXAA_;
+	bool useGLSL_;
 
 	// Used by antialiasing
 	std::vector<FBO *> extraFBOs_;
