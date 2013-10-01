@@ -335,7 +335,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE},
 
 	// "Missing" commands (gaps in the sequence)
-	// "Missing" commands (gaps in the sequence)
 	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_0D, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_11, FLAG_EXECUTE},
