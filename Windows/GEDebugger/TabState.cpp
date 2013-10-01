@@ -223,36 +223,30 @@ CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwn
 }
 
 void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
-	const wchar_t *fmtString;
 	switch (info.fmt) {
 	case CMD_FMT_HEX:
-		fmtString = enabled ? L"%06x" : L"(%06x)";
-		swprintf(dest, fmtString, value);
+		swprintf(dest, L"%06x", value);
 		break;
 
 	case CMD_FMT_NUM:
-		fmtString = enabled ? L"%d" : L"(%d)";
-		swprintf(dest, fmtString, value);
+		swprintf(dest, L"%d", value);
 		break;
 
 	case CMD_FMT_FLOAT24:
-		fmtString = enabled ? L"%f" : L"(%f)";
-		swprintf(dest, fmtString, getFloat24(value));
+		swprintf(dest, L"%f", getFloat24(value));
 		break;
 
 	case CMD_FMT_PTRWIDTH:
 		value |= (otherValue & 0x00FF0000) << 8;
 		otherValue &= 0xFFFF;
-		fmtString = enabled ? L"%08x, w=%d" : L"(%08x, w=%d)";
-		swprintf(dest, fmtString, value, otherValue);
+		swprintf(dest, L"%08x, w=%d", value, otherValue);
 		break;
 
 	case CMD_FMT_XY:
 		{
 			int x = value & 0x3FF;
 			int y = value >> 10;
-			fmtString = enabled ? L"%d,%d" : L"(%d,%d)";
-			swprintf(dest, fmtString, x, y);
+			swprintf(dest, L"%d,%d", x, y);
 		}
 		break;
 
@@ -262,8 +256,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			int y1 = value >> 10;
 			int x2 = otherValue & 0x3FF;
 			int y2 = otherValue >> 10;
-			fmtString = enabled ? L"%d,%d - %d,%d" : L"(%d,%d - %d,%d)";
-			swprintf(dest, fmtString, x1, y1, x2, y2);
+			swprintf(dest, L"%d,%d - %d,%d", x1, y1, x2, y2);
 		}
 		break;
 
@@ -272,8 +265,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			float x = getFloat24(value);
 			float y = getFloat24(otherValue);
 			float z = getFloat24(otherValue2);
-			fmtString = enabled ? L"%f, %f, %f" : L"(%f, %f, %f)";
-			swprintf(dest, fmtString, x, y, z);
+			swprintf(dest, L"%f, %f, %f", x, y, z);
 		}
 		break;
 
@@ -281,8 +273,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		{
 			int w = 1 << (value & 0x1f);
 			int h = 1 << ((value >> 8) & 0x1f);
-			fmtString = enabled ? L"%dx%d" : L"(%dx%d)";
-			swprintf(dest, fmtString, w, h);
+			swprintf(dest, L"%dx%d", w, h);
 		}
 		break;
 
@@ -290,8 +281,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		{
 			float x = (float)value / 16.0f;
 			float y = (float)otherValue / 16.0f;
-			fmtString = enabled ? L"%fx%f" : L"(%fx%f)";
-			swprintf(dest, fmtString, x, y);
+			swprintf(dest, L"%fx%f", x, y);
 		}
 		break;
 
@@ -305,6 +295,11 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	default:
 		swprintf(dest, L"BAD FORMAT %08x (%d)", value, enabled);
+	}
+
+	// TODO: Turn row grey or some such?
+	if (!enabled) {
+		wcscat(dest, L" (disabled)");
 	}
 }
 
