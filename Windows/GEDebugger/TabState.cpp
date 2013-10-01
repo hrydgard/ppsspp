@@ -43,6 +43,7 @@ enum CmdFormatType {
 	CMD_FMT_TEXSIZE,
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
+	CMD_FMT_TEXFMT,
 };
 
 struct TabStateRow {
@@ -137,7 +138,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
@@ -166,7 +167,7 @@ static const TabStateRow stateTextureRows[] = {
 // TODO: Many of these could use better display formats.
 static const TabStateRow stateSettingsRows[] = {
 	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
-	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_NUM },
+	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_TEXFMT },
 	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
 	{ L"Vertex type",          GE_CMD_VERTEXTYPE,              CMD_FMT_VERTEXTYPE },
 	{ L"Region",               GE_CMD_REGION1,                 CMD_FMT_XYXY, 0, GE_CMD_REGION2 },
@@ -293,8 +294,31 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		}
 		break;
 
+	case CMD_FMT_TEXFMT:
+		{
+			const char *texformats[] = {
+				"5650",
+				"5551",
+				"4444",
+				"8888",
+				"CLUT4",
+				"CLUT8",
+				"CLUT16",
+				"CLUT32",
+				"DXT1",
+				"DXT3",
+				"DXT5",
+			};
+			if (value < (u32)ARRAY_SIZE(texformats)) {
+				swprintf(dest, L"%S", texformats[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
 	default:
-		swprintf(dest, L"BAD FORMAT %08x (%d)", value, enabled);
+		swprintf(dest, L"BAD FORMAT %06x", value);
 	}
 
 	// TODO: Turn row grey or some such?
