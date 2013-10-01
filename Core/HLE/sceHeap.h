@@ -16,6 +16,18 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include "../Util/BlockAllocator.h"
+#include <map>
+
+struct Heap
+{
+	Heap():alloc(4) {}
+
+	u32 size;
+	u32 address;
+	bool fromtop;
+	BlockAllocator alloc;
+};
 
 void Register_sceHeap();
 void __HeapDoState(PointerWrap &p);

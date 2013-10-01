@@ -54,6 +54,8 @@ public:
 	u32 GetLargestFreeBlockSize() const;
 	u32 GetTotalFreeBytes() const;
 
+	void Setgrain_(u32 value) {grain_ = value;}
+
 	void DoState(PointerWrap &p);
 
 private:
