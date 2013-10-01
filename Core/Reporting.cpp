@@ -34,7 +34,6 @@
 #include "base/buffer.h"
 
 #include <stdlib.h>
-#include <string>
 #include <cstdarg>
 
 namespace Reporting
