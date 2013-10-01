@@ -433,9 +433,16 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			}
 			else
 			{
-				outputfile = fopen("Ram.dump","wb");		// Could also dump Vram, but not useful for now.
-				fwrite(Memory::GetPointer(0x08800000), 1, 0x01800000, outputfile);
-				fclose(outputfile);
+				outputfile = fopen("Ram.dump", "wb");		// Could also dump Vram, but not useful for now.
+				if (outputfile != NULL)
+				{
+					fwrite(Memory::GetPointer(0x08800000), 1, 0x01800000, outputfile);
+					fclose(outputfile);
+				}
+				else //file could not be opened as "wb"
+				{ 
+					MessageBox(wnd, L"Ram.dump could not be opened with write privilidges", 0, 0);
+				}
 				break;
 			}
 
