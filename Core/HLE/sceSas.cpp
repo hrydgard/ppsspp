@@ -129,7 +129,9 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 	sas->Mix(outAddr);
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
 	// Let's aim low for now.
-	return hleDelayResult(0, "sas core", 240);
+	// It broken in Naruto Ultimate Ninja Impact when Naruto running out of Chakra with 'Need Chakra'
+	// return hleDelayResult(0, "sas core", 240);
+	return 0;
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
@@ -143,7 +145,9 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 	sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
 	// Let's aim low for now.
-	return hleDelayResult(0, "sas core", 240);
+	// It broken in Naruto Ultimate Ninja Impact when Naruto running out of Chakra with 'Need Chakra'
+	// return hleDelayResult(0, "sas core", 240);
+	return 0;
 }
 
 u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
