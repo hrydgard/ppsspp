@@ -19,7 +19,6 @@
 
 #include <string>
 #include <vector>
-#include <map>
 
 #include "CommonTypes.h"
 
@@ -166,6 +165,7 @@ public:
 	int iFontWidth;
 	int iFontHeight;
 	bool bDisplayStatusBar;
+	bool bShowBottomTabTitles;
 	bool bShowDeveloperMenu;
 
 	std::string currentDirectory;

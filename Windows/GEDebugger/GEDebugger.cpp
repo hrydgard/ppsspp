@@ -66,6 +66,10 @@ void CGEDebugger::Init() {
 	CtrlDisplayListView::registerClass();
 }
 
+bool CGEDebugger::IsAddressBreakPoint(u32 pc) {
+	return breakPCs.find(pc) != breakPCs.end();
+}
+
 static void SetPauseAction(PauseAction act) {
 	{
 		lock_guard guard(pauseLock);
@@ -341,6 +345,19 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		breakNextOp = true;
 		breakNextDraw = false;
 		break;
+
+	case WM_GEDBG_TOGGLEPCBREAKPOINT:
+		{
+			// TODO: does this need mutexes?
+			u32 pc = wParam;
+			auto iter = breakPCs.find(pc);
+			if (iter != breakPCs.end())
+				breakPCs.erase(iter);
+			else
+				breakPCs.insert(pc);
+		}
+		break;
+
 	}
 
 	return FALSE;
@@ -354,7 +371,7 @@ bool WindowsHost::GPUDebuggingActive() {
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
 	lock_guard guard(pauseLock);
-	if (Core_IsInactive()) {
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME) {
 		return;
 	}
 

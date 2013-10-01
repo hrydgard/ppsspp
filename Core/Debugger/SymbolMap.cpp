@@ -23,7 +23,6 @@
 #endif
 
 #include <algorithm>
-#include <map>
 
 #include "Common/FileUtil.h"
 #include "Globals.h"

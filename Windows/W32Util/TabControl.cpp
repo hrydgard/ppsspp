@@ -10,10 +10,15 @@ TabControl::TabControl(HWND handle): hwnd(handle), showTabTitles(true),currentTa
 {
 	SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)this);
 	oldProc = (WNDPROC) SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
+
+	hasButtons = (GetWindowLong(handle,GWL_STYLE) & TCS_BUTTONS) != 0;
 }
 
 HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 {
+	TabInfo info;
+	info.hasBorder = (style & WS_BORDER) != 0;
+
 	style = (style |WS_CHILD) & tabControlStyleMask;
 	if (showTabTitles)
 		AppendPageToControl(title);
@@ -27,8 +32,15 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	HWND tabHandle = CreateWindowEx(0,className,title,style,
 		tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,
 		GetParent(hwnd),0,MainWindow::GetHInstance(),0);
+	
+	info.hasClientEdge = (GetWindowLong(tabHandle,GWL_EXSTYLE) & WS_EX_CLIENTEDGE) != 0;
+	if (hasButtons == false)
+	{
+		SetWindowLong(tabHandle, GWL_STYLE, GetWindowLong(tabHandle,GWL_STYLE) & (~WS_BORDER));
+		SetWindowLong(tabHandle, GWL_EXSTYLE, GetWindowLong(tabHandle,GWL_EXSTYLE) & (~WS_EX_CLIENTEDGE));
+	}
 
-	TabInfo info;
+	info.lastFocus = tabHandle;
 	info.pageHandle = tabHandle;
 	wcscpy(info.title,title);
 	tabs.push_back(info);
@@ -55,11 +67,21 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
 	
 	SetParent(handle,GetParent(hwnd));
-	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD) & tabControlStyleMask;
-	SetWindowLong(handle, GWL_STYLE, style);
+	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD);
+	
+	TabInfo info;
+	info.hasBorder = (style & WS_BORDER) != 0;
+	info.hasClientEdge = (GetWindowLong(handle,GWL_EXSTYLE) & WS_EX_CLIENTEDGE) != 0;
+	if (hasButtons == false)
+	{
+		style &= (~WS_BORDER);
+		SetWindowLong(handle, GWL_EXSTYLE, GetWindowLong(handle,GWL_EXSTYLE) & (~WS_EX_CLIENTEDGE));
+	}
+
+	SetWindowLong(handle, GWL_STYLE, style & tabControlStyleMask);
 	MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
 
-	TabInfo info;
+	info.lastFocus = handle;
 	info.pageHandle = handle;
 	wcscpy(info.title,title);
 	tabs.push_back(info);
@@ -82,23 +104,48 @@ int TabControl::AppendPageToControl(wchar_t* title)
 	return index;
 }
 
+bool OffspringHasFocus(HWND handle)
+{
+	HWND offspring = GetFocus();
+	HWND start = offspring;
+
+	while (offspring != NULL)
+	{
+		if (offspring == handle) return true;
+		offspring = GetParent(offspring);
+
+		// no idea if this can potentially go in circles, make sure to stop just in case
+		if (offspring == start) break;
+	}
+
+	return false;
+}
+
 void TabControl::ShowTab(int index, bool setControlIndex)
 {
+	bool oldFocus = OffspringHasFocus(CurrentTabHandle());
+	if (oldFocus)
+		tabs[CurrentTabIndex()].lastFocus = GetFocus();
+
 	currentTab = index;
 
 	for (size_t i = 0; i < tabs.size(); i++)
 	{
+		if (oldFocus && i == index)
+			SetFocus(tabs[i].lastFocus);
 		ShowWindow(tabs[i].pageHandle,i == index ? SW_NORMAL : SW_HIDE);
 	}
 
 	if (setControlIndex && showTabTitles)
-	{
 		TabCtrl_SetCurSel(hwnd,index);
-	}
 }
 
 void TabControl::ShowTab(HWND pageHandle)
 {
+	bool oldFocus = OffspringHasFocus(CurrentTabHandle());
+	if (oldFocus)
+		tabs[CurrentTabIndex()].lastFocus = GetFocus();
+
 	for (size_t i = 0; i < tabs.size(); i++)
 	{
 		if (tabs[i].pageHandle == pageHandle)
@@ -106,6 +153,8 @@ void TabControl::ShowTab(HWND pageHandle)
 			currentTab = i;
 			if (showTabTitles)
 				TabCtrl_SetCurSel(hwnd,i);
+			if (oldFocus)
+				SetFocus(tabs[i].lastFocus);
 		}
 		ShowWindow(tabs[i].pageHandle,tabs[i].pageHandle == pageHandle ? SW_NORMAL : SW_HIDE);
 	}
@@ -126,8 +175,33 @@ void TabControl::SetShowTabTitles(bool enabled)
 		for (int i = 0; i < (int) tabs.size(); i++)
 		{
 			AppendPageToControl(tabs[i].title);
+			
+			if (hasButtons == false)
+			{
+				DWORD style = GetWindowLong(tabs[i].pageHandle,GWL_STYLE) & (~WS_BORDER);
+				SetWindowLong(tabs[i].pageHandle,GWL_STYLE,style);
+
+				DWORD exStyle = GetWindowLong(tabs[i].pageHandle,GWL_EXSTYLE) & (~WS_EX_CLIENTEDGE);
+				SetWindowLong(tabs[i].pageHandle,GWL_EXSTYLE,exStyle);
+			}
 		}
 		TabCtrl_SetCurSel(hwnd,CurrentTabIndex());
+	} else if (hasButtons == false)
+	{
+		for (int i = 0; i < (int) tabs.size(); i++)
+		{
+			if (tabs[i].hasBorder)
+			{
+				DWORD style = GetWindowLong(tabs[i].pageHandle,GWL_STYLE) | WS_BORDER;
+				SetWindowLong(tabs[i].pageHandle,GWL_STYLE,style);
+			}
+
+			if (tabs[i].hasClientEdge)
+			{
+				DWORD exStyle = GetWindowLong(tabs[i].pageHandle,GWL_EXSTYLE) | WS_EX_CLIENTEDGE;
+				SetWindowLong(tabs[i].pageHandle,GWL_EXSTYLE,exStyle);
+			}
+		}
 	}
 	
 	OnResize();
@@ -182,9 +256,13 @@ void TabControl::OnResize()
 	UpdateWindow(hwnd);
 	
 	// now resize tab children
-	int bottom = tabRect.bottom;
-	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
-	if (ignoreBottomMargin) tabRect.bottom = bottom;
+	if (showTabTitles)
+	{
+		int bottom = tabRect.bottom;
+		TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
+		if (ignoreBottomMargin) tabRect.bottom = bottom;
+	}
+
 	int current = CurrentTabIndex();
 
 	for (size_t i = 0; i < tabs.size(); i++)
