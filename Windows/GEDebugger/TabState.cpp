@@ -22,6 +22,7 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
 
+// TODO: Show an icon or something for breakpoints, toggle.
 static const GenericListViewColumn stateValuesCols[] = {
 	{ L"Name", 0.50f },
 	{ L"Value", 0.50f },
