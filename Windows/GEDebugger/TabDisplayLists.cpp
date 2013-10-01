@@ -263,6 +263,11 @@ BOOL TabDisplayLists::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			displayList->gotoAddr(pc);
 		}
 		break;
+
+	case WM_GEDBG_TOGGLEPCBREAKPOINT:
+		SendMessage(GetParent(m_hDlg),message,wParam,lParam);
+		break;
+
 	}
 
 	return FALSE;
