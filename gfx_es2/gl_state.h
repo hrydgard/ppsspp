@@ -32,7 +32,17 @@ extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 
 typedef GLvoid* (GL_APIENTRYP PFNGLMAPBUFFERPROC) (GLenum target, GLenum access);
 extern PFNGLMAPBUFFERPROC glMapBuffer;
+
 #endif
+
+
+typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
+extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
+typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
+																											srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName,
+																											GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei
+																											width, GLsizei height, GLsizei depth);
+extern PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
 
 #if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
@@ -289,6 +299,10 @@ public:
 
 extern OpenGLState glstate;
 
+// Extensions to look at using: 
+// GL_NV_draw_texture
+// GL_NV_copy_image
+// GL_NV_map_buffer_range (same as GL_ARB_map_buffer_range ?)
 
 // WARNING: This gets memset-d - so no strings please
 struct GLExtensions {
@@ -307,6 +321,8 @@ struct GLExtensions {
 	bool EXT_shader_framebuffer_fetch;
 	bool EXT_blend_minmax;
 	bool ATIClampBug;
+	bool NV_draw_texture;
+	bool NV_copy_image;
 	
 	// EGL extensions
 

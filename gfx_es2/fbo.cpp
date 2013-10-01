@@ -298,3 +298,7 @@ void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
 	*w = fbo->width;
 	*h = fbo->height;
 }
+
+int fbo_get_color_texture(FBO *fbo) {
+	return fbo->color_texture;
+}

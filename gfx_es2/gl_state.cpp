@@ -9,6 +9,8 @@
 PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
+PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
+PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV ;
 PFNGLMAPBUFFERPROC glMapBuffer;
 #endif
 #if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
@@ -124,6 +126,14 @@ void CheckGLExtensions() {
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 	gl_extensions.EXT_blend_minmax = strstr(extString, "GL_EXT_blend_minmax") != 0;
 	gl_extensions.EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
+	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
+	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
+	if (gl_extensions.NV_draw_texture) {
+		glDrawTextureNV = (PFNGLDRAWTEXTURENVPROC)eglGetProcAddress("glDrawTextureNV");
+	}
+	if (gl_extensions.NV_copy_image) {
+		glCopyImageSubDataNV = (PFNGLCOPYIMAGESUBDATANVPROC)eglGetProcAddress("glCopyImageSubDataNV");
+	}
 #if defined(IOS) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
 	gl_extensions.OES_vertex_array_object = false;
 	gl_extensions.EXT_discard_framebuffer = false;

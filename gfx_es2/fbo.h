@@ -32,3 +32,5 @@ void fbo_bind_for_read(FBO *fbo);
 void fbo_unbind();
 void fbo_destroy(FBO *fbo);
 void fbo_get_dimensions(FBO *fbo, int *w, int *h);
+
+int fbo_get_color_texture(FBO *fbo);
