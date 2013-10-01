@@ -1,9 +1,13 @@
 ﻿#include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Core/Config.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/Main.h"
 #include <algorithm>
 
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
+
+const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 8;
+extern HMENU g_hPopupMenus;
 
 void CtrlDisplayListView::registerClass()
 {
@@ -98,6 +102,15 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 		break;
 	case WM_LBUTTONDOWN:
 		win->onMouseDown(wParam,lParam,1);
+		break;
+	case WM_RBUTTONDOWN:
+		win->onMouseDown(wParam,lParam,2);
+		break;
+	case WM_LBUTTONUP:
+		win->onMouseUp(wParam,lParam,1);
+		break;
+	case WM_RBUTTONUP:
+		win->onMouseUp(wParam,lParam,2);
 		break;
 	case WM_KEYDOWN:
 	case WM_SYSKEYDOWN:
@@ -261,6 +274,71 @@ void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	redraw();
 }
 
+void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
+{
+	if (button == 2)
+	{
+		//popup menu?
+		POINT pt;
+		GetCursorPos(&pt);
+		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,POPUP_SUBMENU_ID_DISPLAYLISTVIEW),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+		{
+		case ID_DISASM_GOTOINMEMORYVIEW:
+			for (int i=0; i<numCPUs; i++)
+				if (memoryWindow[i])
+					memoryWindow[i]->Goto(curAddress);
+			break;
+		case ID_DISASM_TOGGLEBREAKPOINT:
+			toggleBreakpoint();
+			redraw();
+			break;
+		case ID_DISASM_COPYINSTRUCTIONDISASM:
+			{		
+				GPUDebugOp op = gpuDebug->DissassembleOp(curAddress);
+				W32Util::CopyTextToClipboard(wnd, op.desc.c_str());
+			}
+			break;
+		case ID_DISASM_COPYADDRESS:
+			{
+				char temp[16];
+				sprintf(temp,"%08X",curAddress);
+				W32Util::CopyTextToClipboard(wnd, temp);
+			}
+			break;
+		case ID_DISASM_SETPCTOHERE:
+			{
+				gpuDebug->ResetListPC(list.id,curAddress);
+				list.pc = curAddress;
+				redraw();
+			}
+			break;
+		case IDC_DEBUG_LIST_SETSTALL:
+			{
+				gpuDebug->ResetListStall(list.id,curAddress);
+				list.stall = curAddress;
+				redraw();
+			}
+			break;
+		case ID_DISASM_COPYINSTRUCTIONHEX:
+			{
+				char temp[16];
+				sprintf(temp,"%08X",Memory::ReadUnchecked_U32(curAddress));
+				W32Util::CopyTextToClipboard(wnd, temp);
+			}
+			break;
+		case ID_DISASM_RUNTOHERE:
+			{
+				SendMessage(GetParent(wnd),WM_GEDBG_RUNTOWPARAM,curAddress,0);
+				redraw();
+			}
+			break;
+		}
+		return;
+	}
+
+	redraw();
+}
+
 void CtrlDisplayListView::onVScroll(WPARAM wParam, LPARAM lParam)
 {
 	switch (wParam & 0xFFFF)
@@ -328,7 +406,6 @@ void CtrlDisplayListView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	}
 	redraw();
 }
-
 
 void CtrlDisplayListView::scrollAddressIntoView()
 {

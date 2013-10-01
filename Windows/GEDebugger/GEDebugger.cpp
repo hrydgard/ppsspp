@@ -53,6 +53,7 @@ static condition_variable actionWait;
 static recursive_mutex breaksLock;
 static std::vector<bool> breakCmds;
 static std::set<u32> breakPCs;
+static u32 tempBreakpoint = -1;
 static std::set<u32> breakTextures;
 static bool breakNextOp = false;
 static bool breakNextDraw = false;
@@ -355,6 +356,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_GEDBG_BREAK_CMD:
 		{
 			u32 pc = (u32)wParam;
+			tempBreakpoint = -1;
 			auto info = gpuDebug->DissassembleOp(pc);
 			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
 			UpdatePreviews();
@@ -389,6 +391,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		}
 		break;
 
+	case WM_GEDBG_RUNTOWPARAM:
+		{
+			lock_guard guard(breaksLock);
+			u32 pc = (u32)wParam;
+			tempBreakpoint = pc;
+			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
+		}
+		break;
 	}
 
 	return FALSE;
@@ -418,7 +428,7 @@ void WindowsHost::GPUNotifyCommand(u32 pc) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u8 cmd = op >> 24;
 
-	if (breakNextOp || CGEDebugger::IsOpOrTextureBreakPoint(op) || CGEDebugger::IsAddressBreakPoint(pc)) {
+	if (breakNextOp || CGEDebugger::IsOpOrTextureBreakPoint(op) || CGEDebugger::IsAddressBreakPoint(pc) || pc == tempBreakpoint) {
 		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }

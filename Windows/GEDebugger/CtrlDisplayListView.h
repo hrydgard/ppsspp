@@ -38,6 +38,7 @@ public:
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
 	void onMouseDown(WPARAM wParam, LPARAM lParam, int button);
+	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 
 	void redraw();
