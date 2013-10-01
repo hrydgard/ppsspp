@@ -317,6 +317,9 @@ void CtrlDisplayListView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_LEFT:
 		gotoAddr(list.pc);
 		return;
+	case VK_SPACE:
+		toggleBreakpoint();
+		break;
 	case VK_F10:
 	case VK_F11:
 		SendMessage(GetParent(wnd),WM_GEDBG_STEPDISPLAYLIST,0,0);
