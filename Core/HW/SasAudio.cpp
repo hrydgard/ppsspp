@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
-#include "../Globals.h"
 #include "../MemMap.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h" 
