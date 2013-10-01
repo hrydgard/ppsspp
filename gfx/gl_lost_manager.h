@@ -4,9 +4,9 @@
 // track of them.
 
 class GfxResourceHolder {
- public:
-  virtual ~GfxResourceHolder() {}
-  virtual void GLLost() = 0;
+public:
+	virtual ~GfxResourceHolder() {}
+	virtual void GLLost() = 0;
 };
 
 void gl_lost_manager_init();

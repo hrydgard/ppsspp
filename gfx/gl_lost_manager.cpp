@@ -41,6 +41,7 @@ void gl_lost() {
 	inLost = true;
 	if (!holders) {
 		WLOG("GL resource holder not initialized, cannot process lost request");
+		inLost = false;
 		return;
 	}
 	ILOG("gl_lost() restoring %i items:", (int)holders->size());
@@ -55,6 +56,7 @@ void gl_lost() {
 void gl_lost_manager_init() {
 	if (holders) {
 		FLOG("Double GL lost manager init");
+		// Dead here (FLOG), no need to delete holders
 	}
 	holders = new std::vector<GfxResourceHolder *>();
 }
