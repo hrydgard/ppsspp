@@ -441,7 +441,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				}
 				else //file could not be opened as "wb"
 				{ 
-					MessageBox(wnd, L"Ram.dump could not be opened with write privilidges", 0, 0);
+					MessageBox(wnd, L"Ram.dump could not be opened with write privileges", 0, 0);
 				}
 				break;
 			}
