@@ -19,8 +19,6 @@
 
 #include "../../Globals.h"
 
-#include <list>
-
 class PointerWrap;
 
 // Generic allocator thingy. Allocates blocks from a range.

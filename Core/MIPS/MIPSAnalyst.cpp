@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#include "Globals.h"
 
 #include "Common/FileUtil.h"
 #include "Core/MIPS/MIPS.h"
