@@ -79,6 +79,7 @@
 #define IDD_GEDEBUGGER                  250
 #define IDD_TABDISPLAYLISTS             251
 #define IDD_GEDBG_TAB_VALUES            252
+#define IDD_DUMPMEMORY                  253
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -146,6 +147,14 @@
 #define IDC_DISASMSTATUSBAR             1180
 #define IDC_STACKFRAMES                 1181
 #define IDC_GEDBG_VALUES                1182
+#define IDC_DUMP_USERMEMORY             1183
+#define IDC_DUMP_VRAM                   1184
+#define IDC_DUMP_SCRATCHPAD             1185
+#define IDC_DUMP_CUSTOMRANGE            1186
+#define IDC_DUMP_STARTADDRESS           1187
+#define IDC_DUMP_SIZE                   1188
+#define IDC_DUMP_FILENAME               1189
+#define IDC_DUMP_BROWSEFILENAME         1190
 
 // Don't define anything else in the 3000 range.
 // It's reserved for languages.
@@ -286,9 +295,9 @@
 // Next default values for new objects
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        253
+#define _APS_NEXT_RESOURCE_VALUE        254
 #define _APS_NEXT_COMMAND_VALUE         40130
-#define _APS_NEXT_CONTROL_VALUE         1183
+#define _APS_NEXT_CONTROL_VALUE         1191
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
