@@ -211,9 +211,9 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Dither 1",             GE_CMD_DITH1,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 2",             GE_CMD_DITH2,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 3",             GE_CMD_DITH3,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
-	{ L"Transfer src",         GE_CMD_TRANSFERSRC,             CMD_FMT_PTRWIDTH, GE_CMD_TRANSFERSRCW },
+	{ L"Transfer src",         GE_CMD_TRANSFERSRC,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERSRCW },
 	{ L"Transfer src pos",     GE_CMD_TRANSFERSRCPOS,          CMD_FMT_XY },
-	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, GE_CMD_TRANSFERDSTW },
+	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, 0, GE_CMD_TRANSFERDSTW },
 	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
 	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XY },
 };
@@ -324,7 +324,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u32 mask = otherValue2;
 			const u32 ref = otherValue;
 			if (value < (u32)ARRAY_SIZE(colorTests)) {
-				swprintf(dest, L"pass if (c & %06x) %S (06x & %06x)", mask, colorTests[value], ref, mask);
+				swprintf(dest, L"pass if (c & %06x) %S (%06x & %06x)", mask, colorTests[value], ref, mask);
 			} else {
 				swprintf(dest, L"%06x, ref=%06x, maks=%06x", value, ref, mask);
 			}
