@@ -174,17 +174,28 @@ void FramebufferManager::CompileDraw2DProgram() {
 		glUniform1i(draw2dprogram_->sampler0, 0);
 
 		if (g_Config.bFXAA) {
-			useFXAA_ = true;
-			fxaaProgram_ = glsl_create("shaders/fxaa.vsh", "shaders/fxaa.fsh");
-			glsl_bind(fxaaProgram_);
-			glUniform1i(fxaaProgram_->sampler0, 0);
+			useGLSL_ = true;
+			glslProgram_ = glsl_create("shaders/fxaa.vsh", "shaders/fxaa.fsh");
+			glsl_bind(glslProgram_);
+			glUniform1i(glslProgram_->sampler0, 0);
 			SetNumExtraFBOs(1);
 			float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
 			float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-			glUniform2f(glsl_uniform_loc(fxaaProgram_, "u_texcoordDelta"), u_delta, v_delta);
-		} else {
-			fxaaProgram_ = 0;
-			useFXAA_ = false;
+			glUniform2f(glsl_uniform_loc(glslProgram_, "u_texcoordDelta"), u_delta, v_delta);
+		} else if (g_Config.iGlslShader == SHADER_NATURAL) {
+			useGLSL_ = true;
+			glslProgram_ = glsl_create("shaders/Natural.vsh", "shaders/Natural.fsh");
+			glsl_bind(glslProgram_);
+			glUniform1i(glslProgram_->sampler0, 0);
+			SetNumExtraFBOs(1);
+			float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
+			float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+			glUniform2f(glsl_uniform_loc(glslProgram_, "u_texcoordDelta"), u_delta, v_delta);
+		}
+		else
+		{
+			glslProgram_ = 0;
+			useGLSL_ = false;
 		}
 
 		glsl_unbind();
@@ -195,8 +206,8 @@ void FramebufferManager::DestroyDraw2DProgram() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
-		glsl_destroy(fxaaProgram_);
-		fxaaProgram_ = 0;
+		glsl_destroy(glslProgram_);
+		glslProgram_ = 0;
 	}
 }
 
@@ -213,10 +224,10 @@ FramebufferManager::FramebufferManager() :
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf(0),
 	draw2dprogram_(0),
-	fxaaProgram_(0),
+	glslProgram_(0),
 	textureCache_(0),
 	shaderManager_(0),
-	useFXAA_(false)
+	useGLSL_(false)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -785,7 +796,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		GLuint colorTexture = fbo_get_color_texture(vfb->fbo);
 
-		if (useFXAA_ && extraFBOs_.size() == 1) {
+		if (useGLSL_ && extraFBOs_.size() == 1) {
 			glBindTexture(GL_TEXTURE_2D, colorTexture);
 
 			// An additional pass, FXAA to the extra FBO.
@@ -793,7 +804,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
-			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, fxaaProgram_);
+			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, glslProgram_);
 
 			fbo_unbind();
 
