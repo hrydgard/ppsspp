@@ -133,6 +133,8 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
+	static const char *shaders[] = {"Off", "Natural"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGlslShader, gs->T("Post-Processing Shaders"), shaders, 0, ARRAY_SIZE(shaders), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 #endif
 	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing"))); 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
