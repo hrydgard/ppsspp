@@ -44,6 +44,9 @@ enum CmdFormatType {
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
 	CMD_FMT_TEXFMT,
+	CMD_FMT_COLORTEST,
+	CMD_FMT_ALPHATEST,
+	CMD_FMT_ZTEST,
 };
 
 struct TabStateRow {
@@ -129,7 +132,7 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Light specular 3",     GE_CMD_LSC3,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE3 },
 };
 
-// TODO: Most of these could use better display formats.
+// TODO: Many of these could use better display formats.
 static const TabStateRow stateTextureRows[] = {
 	{ L"Tex U scale",          GE_CMD_TEXSCALEU,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V scale",          GE_CMD_TEXSCALEV,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
@@ -178,13 +181,11 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Viewport 2",           GE_CMD_VIEWPORTX2,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY2, GE_CMD_VIEWPORTZ2 },
 	{ L"Offset",               GE_CMD_OFFSETX,                 CMD_FMT_F16_XY, 0, GE_CMD_OFFSETY },
 	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_NUM, GE_CMD_CULLFACEENABLE },
-	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_HEX, GE_CMD_COLORTESTENABLE },
-	{ L"Color test ref",       GE_CMD_COLORREF,                CMD_FMT_HEX, GE_CMD_COLORTESTENABLE },
-	{ L"Color test mask",      GE_CMD_COLORTESTMASK,           CMD_FMT_HEX, GE_CMD_COLORTESTENABLE },
-	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_HEX, GE_CMD_ALPHATESTENABLE },
-	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_HEX, GE_CMD_STENCILTESTENABLE },
+	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
+	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
+	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_ALPHATEST, GE_CMD_STENCILTESTENABLE },
 	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_HEX, GE_CMD_STENCILTESTENABLE },
-	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_HEX, GE_CMD_ZTESTENABLE },
+	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
 	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
@@ -296,7 +297,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_TEXFMT:
 		{
-			const char *texformats[] = {
+			static const char *texformats[] = {
 				"5650",
 				"5551",
 				"4444",
@@ -311,6 +312,44 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			};
 			if (value < (u32)ARRAY_SIZE(texformats)) {
 				swprintf(dest, L"%S", texformats[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_COLORTEST:
+		{
+			static const char *colorTests[] = {"NEVER", "ALWAYS", " == ", " != "};
+			const u32 mask = otherValue2;
+			const u32 ref = otherValue;
+			if (value < (u32)ARRAY_SIZE(colorTests)) {
+				swprintf(dest, L"pass if (c & %06x) %S (06x & %06x)", mask, colorTests[value], ref, mask);
+			} else {
+				swprintf(dest, L"%06x, ref=%06x, maks=%06x", value, ref, mask);
+			}
+		}
+		break;
+
+	case CMD_FMT_ALPHATEST:
+		{
+			static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			const u8 mask = (value >> 16) & 0xff;
+			const u8 ref = (value >> 8) & 0xff;
+			const u8 func = (value >> 0) & 0xff;
+			if (func < (u8)ARRAY_SIZE(alphaTestFuncs)) {
+				swprintf(dest, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_ZTEST:
+		{
+			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			if (value < (u32)ARRAY_SIZE(zTestFuncs)) {
+				swprintf(dest, L"pass if src %S dst", zTestFuncs[value]);
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
