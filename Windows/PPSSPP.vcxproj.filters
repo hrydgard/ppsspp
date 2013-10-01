@@ -131,6 +131,9 @@
     <ClCompile Include="GEDebugger\TabState.cpp">
       <Filter>Windows\GE Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\DumpMemoryWindow.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -235,6 +238,9 @@
     </ClInclude>
     <ClInclude Include="GEDebugger\TabState.h">
       <Filter>Windows\GE Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\DumpMemoryWindow.h">
+      <Filter>Windows\Debugger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
