@@ -179,6 +179,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("FXAA", &bFXAA, false);
+#ifndef USING_GLES2
+	graphics->Get("GlslShader", &iGlslShader, 0);
+#endif
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -347,6 +350,9 @@ void Config::Save() {
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("FXAA", bFXAA);
+#ifndef USING_GLES2
+		graphics->Set("GlslShader", iGlslShader);
+#endif
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
