@@ -95,6 +95,9 @@ public:
 	bool bAlwaysDepthWrite;
 	bool bLowQualitySplineBezier;
 	bool bFXAA;
+	
+	// Post-processing shaders
+	int iGlslShader;
 
 	// Sound
 	bool bEnableSound;
