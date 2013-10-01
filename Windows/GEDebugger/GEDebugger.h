@@ -28,6 +28,7 @@ enum {
 	WM_GEDBG_BREAK_CMD = WM_USER + 200,
 	WM_GEDBG_BREAK_DRAW,
 	WM_GEDBG_STEPDISPLAYLIST,
+	WM_GEDBG_TOGGLEPCBREAKPOINT
 };
 
 class CtrlDisplayListView;
@@ -43,6 +44,8 @@ public:
 	~CGEDebugger();
 
 	static void Init();
+
+	static bool IsAddressBreakPoint(u32 pc);
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 

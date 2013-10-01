@@ -26,6 +26,8 @@ class CtrlDisplayListView
 		int addressStart;
 		int opcodeStart;
 	} pixelPositions;
+
+	void toggleBreakpoint();
 public:
 	CtrlDisplayListView(HWND _wnd);
 	~CtrlDisplayListView();
