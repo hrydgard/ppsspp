@@ -1,6 +1,7 @@
 ﻿#include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Core/Config.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include <algorithm>
 
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
