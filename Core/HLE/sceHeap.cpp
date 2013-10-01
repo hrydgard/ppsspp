@@ -20,6 +20,8 @@
 #include "Core/HLE/HLE.h"
 #include "sceKernelMemory.h"
 #include "Core/HLE/sceHeap.h"
+#include "../Util/BlockAllocator.h"
+#include <map>
 
 std::map<u32,Heap*> heapList;
 
@@ -33,6 +35,15 @@ void __HeapDoState(PointerWrap &p) {
 		p.Do(heapList);
 	}
 }
+
+struct Heap {
+	Heap():alloc(4) {}
+
+	u32 size;
+	u32 address;
+	bool fromtop;
+	BlockAllocator alloc;
+};
 
 enum SceHeapAttr
 {
