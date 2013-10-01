@@ -469,7 +469,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		float v[3] = {0, 0, 0};
 		float c0[4] = {1, 1, 1, 1};
 		float c1[4] = {0, 0, 0, 0};
-		float uv[3] = {0, 0, 0};
+		float uv[3] = {0, 0, 1};
 		float fogCoef = 1.0f;
 
 		if (throughmode) {
@@ -658,7 +658,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			}
 			uv[0] = uv[0] * widthFactor;
 			uv[1] = uv[1] * heightFactor;
-
+			
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 			fogCoef = (v[2] + fog_end) * fog_slope;
