@@ -19,6 +19,7 @@
 #include "Windows/resource.h"
 #include "Windows/GEDebugger/TabState.h"
 #include "GPU/GPUState.h"
+#include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
 
 static const GenericListViewColumn stateValuesCols[] = {
@@ -39,6 +40,9 @@ enum CmdFormatType {
 	CMD_FMT_XY,
 	CMD_FMT_XYXY,
 	CMD_FMT_XYZ,
+	CMD_FMT_TEXSIZE,
+	CMD_FMT_F16_XY,
+	CMD_FMT_VERTEXTYPE,
 };
 
 struct TabStateRow {
@@ -68,10 +72,22 @@ static const TabStateRow stateFlagsRows[] = {
 	{ L"Antialias enable",     GE_CMD_ANTIALIASENABLE,         CMD_FMT_NUM },
 	{ L"Patch cull enable",    GE_CMD_PATCHCULLENABLE,         CMD_FMT_NUM },
 	{ L"Color test enable",    GE_CMD_COLORTESTENABLE,         CMD_FMT_NUM },
-	{ L"Logic Op Enable",      GE_CMD_LOGICOPENABLE,           CMD_FMT_NUM },
+	{ L"Logic op enable",      GE_CMD_LOGICOPENABLE,           CMD_FMT_NUM },
+	{ L"Depth write disable",  GE_CMD_ZWRITEDISABLE,           CMD_FMT_NUM },
 };
 
 static const TabStateRow stateLightingRows[] = {
+	{ L"Ambient color",        GE_CMD_AMBIENTCOLOR,            CMD_FMT_HEX },
+	{ L"Ambient alpha",        GE_CMD_AMBIENTALPHA,            CMD_FMT_HEX },
+	{ L"Material update",      GE_CMD_MATERIALUPDATE,          CMD_FMT_NUM },
+	{ L"Material emissive",    GE_CMD_MATERIALEMISSIVE,        CMD_FMT_HEX },
+	{ L"Material ambient",     GE_CMD_MATERIALAMBIENT,         CMD_FMT_HEX },
+	{ L"Material diffuse",     GE_CMD_MATERIALDIFFUSE,         CMD_FMT_HEX },
+	{ L"Material alpha",       GE_CMD_MATERIALALPHA,           CMD_FMT_HEX },
+	{ L"Material specular",    GE_CMD_MATERIALSPECULAR,        CMD_FMT_HEX },
+	{ L"Mat. specular coef",   GE_CMD_MATERIALSPECULARCOEF,    CMD_FMT_FLOAT24 },
+	{ L"Reverse normals",      GE_CMD_REVERSENORMAL,           CMD_FMT_NUM },
+	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_NUM },
 	{ L"Light mode",           GE_CMD_LIGHTMODE,               CMD_FMT_NUM, GE_CMD_LIGHTINGENABLE },
 	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE0 },
 	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE1 },
@@ -81,10 +97,53 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Light pos 1",          GE_CMD_LX1,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LY1, GE_CMD_LZ1 },
 	{ L"Light pos 2",          GE_CMD_LX2,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LY2, GE_CMD_LZ2 },
 	{ L"Light pos 3",          GE_CMD_LX3,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE3, GE_CMD_LY3, GE_CMD_LZ3 },
-	// TODO: Others...
+	{ L"Light dir 0",          GE_CMD_LDX0,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE0, GE_CMD_LDY0, GE_CMD_LDZ0 },
+	{ L"Light dir 1",          GE_CMD_LDX1,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LDY1, GE_CMD_LDZ1 },
+	{ L"Light dir 2",          GE_CMD_LDX2,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LDY2, GE_CMD_LDZ2 },
+	{ L"Light dir 3",          GE_CMD_LDX3,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE3, GE_CMD_LDY3, GE_CMD_LDZ3 },
+	// TODO: Is this a reasonable display format?
+	{ L"Light att 0",          GE_CMD_LKA0,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE0, GE_CMD_LKB0, GE_CMD_LKC0 },
+	{ L"Light att 1",          GE_CMD_LKA1,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LKB1, GE_CMD_LKC1 },
+	{ L"Light att 2",          GE_CMD_LKA2,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LKB2, GE_CMD_LKC2 },
+	{ L"Light att 3",          GE_CMD_LKA3,                    CMD_FMT_XYZ, GE_CMD_LIGHTENABLE3, GE_CMD_LKB3, GE_CMD_LKC3 },
+	{ L"Lightspot coef 0",     GE_CMD_LKS0,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE0 },
+	{ L"Lightspot coef 1",     GE_CMD_LKS1,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE1 },
+	{ L"Lightspot coef 2",     GE_CMD_LKS2,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE2 },
+	{ L"Lightspot coef 3",     GE_CMD_LKS3,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE3 },
+	{ L"Light angle 0",        GE_CMD_LKO0,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE0 },
+	{ L"Light angle 1",        GE_CMD_LKO1,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE1 },
+	{ L"Light angle 2",        GE_CMD_LKO2,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE2 },
+	{ L"Light angle 3",        GE_CMD_LKO3,                    CMD_FMT_FLOAT24, GE_CMD_LIGHTENABLE3 },
+	{ L"Light ambient 0",      GE_CMD_LAC0,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE0 },
+	{ L"Light diffuse 0",      GE_CMD_LDC0,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE0 },
+	{ L"Light specular 0",     GE_CMD_LSC0,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE0 },
+	{ L"Light ambient 1",      GE_CMD_LAC1,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE1 },
+	{ L"Light diffuse 1",      GE_CMD_LDC1,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE1 },
+	{ L"Light specular 1",     GE_CMD_LSC1,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE1 },
+	{ L"Light ambient 2",      GE_CMD_LAC2,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE2 },
+	{ L"Light diffuse 2",      GE_CMD_LDC2,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE2 },
+	{ L"Light specular 2",     GE_CMD_LSC2,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE2 },
+	{ L"Light ambient 3",      GE_CMD_LAC3,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE3 },
+	{ L"Light diffuse 3",      GE_CMD_LDC3,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE3 },
+	{ L"Light specular 3",     GE_CMD_LSC3,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE3 },
 };
 
+// TODO: Most of these could use better display formats.
 static const TabStateRow stateTextureRows[] = {
+	{ L"Tex U scale",          GE_CMD_TEXSCALEU,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex V scale",          GE_CMD_TEXSCALEV,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex U offset",         GE_CMD_TEXOFFSETU,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex V offset",         GE_CMD_TEXOFFSETV,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
 	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
 	{ L"Texture L1 addr",      GE_CMD_TEXADDR1,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH1 },
@@ -94,17 +153,67 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Texture L5 addr",      GE_CMD_TEXADDR5,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH5 },
 	{ L"Texture L6 addr",      GE_CMD_TEXADDR6,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH6 },
 	{ L"Texture L7 addr",      GE_CMD_TEXADDR7,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH7 },
-	// TODO: Others...
+	{ L"Texture L0 size",      GE_CMD_TEXSIZE0,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L1 size",      GE_CMD_TEXSIZE1,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L2 size",      GE_CMD_TEXSIZE2,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L3 size",      GE_CMD_TEXSIZE3,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L4 size",      GE_CMD_TEXSIZE4,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L5 size",      GE_CMD_TEXSIZE5,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L6 size",      GE_CMD_TEXSIZE6,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Texture L7 size",      GE_CMD_TEXSIZE7,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
 };
 
+// TODO: Many of these could use better display formats.
 static const TabStateRow stateSettingsRows[] = {
 	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
 	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_NUM },
 	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
+	{ L"Vertex type",          GE_CMD_VERTEXTYPE,              CMD_FMT_VERTEXTYPE },
 	{ L"Region",               GE_CMD_REGION1,                 CMD_FMT_XYXY, 0, GE_CMD_REGION2 },
-	// TODO: Right place?
+	{ L"Scissor",              GE_CMD_SCISSOR1,                CMD_FMT_XYXY, 0, GE_CMD_SCISSOR2 },
+	{ L"Min Z",                GE_CMD_MINZ,                    CMD_FMT_HEX },
+	{ L"Max Z",                GE_CMD_MAXZ,                    CMD_FMT_HEX },
+	{ L"Viewport 1",           GE_CMD_VIEWPORTX1,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY1, GE_CMD_VIEWPORTZ1 },
+	{ L"Viewport 2",           GE_CMD_VIEWPORTX2,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY2, GE_CMD_VIEWPORTZ2 },
+	{ L"Offset",               GE_CMD_OFFSETX,                 CMD_FMT_F16_XY, 0, GE_CMD_OFFSETY },
+	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_NUM, GE_CMD_CULLFACEENABLE },
+	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_HEX, GE_CMD_COLORTESTENABLE },
+	{ L"Color test ref",       GE_CMD_COLORREF,                CMD_FMT_HEX, GE_CMD_COLORTESTENABLE },
+	{ L"Color test mask",      GE_CMD_COLORTESTMASK,           CMD_FMT_HEX, GE_CMD_COLORTESTENABLE },
+	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_HEX, GE_CMD_ALPHATESTENABLE },
+	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_HEX, GE_CMD_STENCILTESTENABLE },
+	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_HEX, GE_CMD_STENCILTESTENABLE },
+	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_HEX, GE_CMD_ZTESTENABLE },
+	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
+	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
+	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
+	{ L"Logic Op",             GE_CMD_LOGICOP,                 CMD_FMT_HEX, GE_CMD_LOGICOPENABLE },
+	{ L"Fog 1",                GE_CMD_FOG1,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
+	{ L"Fog 2",                GE_CMD_FOG2,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
+	{ L"Fog color",            GE_CMD_FOGCOLOR,                CMD_FMT_HEX, GE_CMD_FOGENABLE },
+	{ L"RGB mask",             GE_CMD_MASKRGB,                 CMD_FMT_HEX },
+	{ L"Stencil/alpha mask",   GE_CMD_MASKALPHA,               CMD_FMT_HEX },
 	{ L"Morph Weight 0",       GE_CMD_MORPHWEIGHT0,            CMD_FMT_FLOAT24 },
-	// TODO: Others...
+	{ L"Morph Weight 1",       GE_CMD_MORPHWEIGHT1,            CMD_FMT_FLOAT24 },
+	{ L"Morph Weight 2",       GE_CMD_MORPHWEIGHT2,            CMD_FMT_FLOAT24 },
+	{ L"Morph Weight 3",       GE_CMD_MORPHWEIGHT3,            CMD_FMT_FLOAT24 },
+	{ L"Morph Weight 4",       GE_CMD_MORPHWEIGHT4,            CMD_FMT_FLOAT24 },
+	{ L"Morph Weight 5",       GE_CMD_MORPHWEIGHT5,            CMD_FMT_FLOAT24 },
+	{ L"Morph Weight 6",       GE_CMD_MORPHWEIGHT6,            CMD_FMT_FLOAT24 },
+	{ L"Morph Weight 7",       GE_CMD_MORPHWEIGHT7,            CMD_FMT_FLOAT24 },
+	// TODO: Enabled?
+	{ L"Patch division",       GE_CMD_PATCHDIVISION,           CMD_FMT_HEX },
+	{ L"Patch primitive",      GE_CMD_PATCHPRIMITIVE,          CMD_FMT_HEX },
+	{ L"Patch facing",         GE_CMD_PATCHFACING,             CMD_FMT_HEX },
+	{ L"Dither 0",             GE_CMD_DITH0,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
+	{ L"Dither 1",             GE_CMD_DITH1,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
+	{ L"Dither 2",             GE_CMD_DITH2,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
+	{ L"Dither 3",             GE_CMD_DITH3,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
+	{ L"Transfer src",         GE_CMD_TRANSFERSRC,             CMD_FMT_PTRWIDTH, GE_CMD_TRANSFERSRCW },
+	{ L"Transfer src pos",     GE_CMD_TRANSFERSRCPOS,          CMD_FMT_XY },
+	{ L"Transfer dst",         GE_CMD_TRANSFERDST,             CMD_FMT_PTRWIDTH, GE_CMD_TRANSFERDSTW },
+	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
+	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XY },
 };
 
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
@@ -165,6 +274,32 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			float z = getFloat24(otherValue2);
 			fmtString = enabled ? L"%f, %f, %f" : L"(%f, %f, %f)";
 			swprintf(dest, fmtString, x, y, z);
+		}
+		break;
+
+	case CMD_FMT_TEXSIZE:
+		{
+			int w = 1 << (value & 0x1f);
+			int h = 1 << ((value >> 8) & 0x1f);
+			fmtString = enabled ? L"%dx%d" : L"(%dx%d)";
+			swprintf(dest, fmtString, w, h);
+		}
+		break;
+
+	case CMD_FMT_F16_XY:
+		{
+			float x = (float)value / 16.0f;
+			float y = (float)otherValue / 16.0f;
+			fmtString = enabled ? L"%fx%f" : L"(%fx%f)";
+			swprintf(dest, fmtString, x, y);
+		}
+		break;
+
+	case CMD_FMT_VERTEXTYPE:
+		{
+			char buffer[256];
+			GeDescribeVertexType(value, buffer);
+			swprintf(dest, L"%S", buffer);
 		}
 		break;
 
