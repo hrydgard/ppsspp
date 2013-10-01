@@ -430,6 +430,7 @@ void __IoManagerThread() {
 
 void __IoWakeManager() {
 	ioManager.FinishEventLoop();
+	ioManager.SyncThread();
 }
 
 void __IoInit() {
