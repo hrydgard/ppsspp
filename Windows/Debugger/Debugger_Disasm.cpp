@@ -135,6 +135,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	stackTraceView->loadStackTrace();
 	bottomTabs->AddTab(stackTraceView->GetHandle(),L"Stack frames");
 	
+	bottomTabs->SetShowTabTitles(g_Config.bShowBottomTabTitles);
 	bottomTabs->ShowTab(memHandle);
 
 	// init status bar
