@@ -76,8 +76,8 @@ void Core_Halt(const char *msg)
 
 void Core_Stop()
 {
-	Core_NotifyShutdown();
 	Core_UpdateState(CORE_POWERDOWN);
+	Core_NotifyShutdown();
 	m_hStepEvent.notify_one();
 }
 

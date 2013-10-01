@@ -17,6 +17,7 @@
 
 #include <string>
 #include <map>
+#include <algorithm>
 
 #include "base/timeutil.h"
 #include "base/stringutil.h"
@@ -40,10 +41,16 @@ bool GameInfo::DeleteGame() {
 	switch (fileType) {
 	case FILETYPE_PSP_ISO:
 	case FILETYPE_PSP_ISO_NP:
-		// Just delete the one file (TODO: handle two-disk games as well somehow).
-		deleteFile(fileInfo.fullName.c_str());
-		return true;
-
+		{
+			// Just delete the one file (TODO: handle two-disk games as well somehow).
+			const char *fileToRemove = fileInfo.fullName.c_str();
+			deleteFile(fileToRemove);
+			auto i = std::find(g_Config.recentIsos.begin(), g_Config.recentIsos.end(), fileToRemove);
+			if (i != g_Config.recentIsos.end()) {
+				g_Config.recentIsos.erase(i);
+			}
+			return true;
+		}
 	case FILETYPE_PSP_PBP_DIRECTORY:
 		// Recursively deleting directories not yet supported
 		return false;

@@ -557,9 +557,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					}
+					// Transform by texture matrix. XYZ as we are doing projection mapping.
 					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
-				// Transform by texture matrix. XYZ as we are doing projection mapping.
 				break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
