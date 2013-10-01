@@ -354,7 +354,7 @@ bool WindowsHost::GPUDebuggingActive() {
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
 	lock_guard guard(pauseLock);
-	if (Core_IsInactive()) {
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME) {
 		return;
 	}
 
