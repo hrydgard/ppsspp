@@ -259,18 +259,18 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 
 	if (enableFog) {
-		WRITE(p, "uniform vec2 u_fogcoef;\n");
+		WRITE(p, "uniform mediump vec2 u_fogcoef;\n");
 	}
 
 	WRITE(p, "varying lowp vec4 v_color0;\n");
 	if (lmode) WRITE(p, "varying lowp vec3 v_color1;\n");
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "varying vec3 v_texcoord;\n");
+			WRITE(p, "varying mediump vec3 v_texcoord;\n");
 		else
-			WRITE(p, "varying vec2 v_texcoord;\n");
+			WRITE(p, "varying mediump vec2 v_texcoord;\n");
 	}
-	if (enableFog) WRITE(p, "varying float v_fogdepth;\n");
+	if (enableFog) WRITE(p, "varying mediump float v_fogdepth;\n");
 
 	WRITE(p, "void main() {\n");
 
@@ -301,9 +301,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = normalize((u_world * vec4(a_normal, 0.0)).xyz);\n");
+				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(a_normal, 0.0)).xyz);\n");
 			else
-				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
 			int numWeights = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 
@@ -376,10 +376,10 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  vec3 skinnednormal = (skinMatrix * vec4(a_normal, 0.0)).xyz %s;\n", factor);
-				WRITE(p, "  vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(a_normal, 0.0)).xyz %s;\n", factor);
+				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
 			} else {
-				WRITE(p, "  vec3 worldnormal = (u_world * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
+				WRITE(p, "  mediump vec3 worldnormal = (u_world * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
 			}
 		}
 

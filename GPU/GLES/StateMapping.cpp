@@ -243,7 +243,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 #endif
 
-		if (blendFuncEq >= GE_BLENDMODE_MIN && gl_extensions.EXT_blend_minmax) {
+		if ((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) {
 			glstate.blendEquation.set(eqLookup[blendFuncEq]);
 		} else {
 			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);

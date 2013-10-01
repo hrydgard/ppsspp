@@ -29,6 +29,7 @@
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -500,6 +501,9 @@ void ShaderManager::EndFrame() { // disables vertex arrays
 
 
 LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
+	if (g_Config.bPrescaleUV)
+		globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
+
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;

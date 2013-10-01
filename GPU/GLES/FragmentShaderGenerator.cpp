@@ -200,6 +200,15 @@ void GenerateFragmentShader(char *buffer) {
 	WRITE(p, "precision lowp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE(p, "#version 110\n");
+	// Remove lowp/mediump in non-mobile implementations
+	WRITE(p, "#define lowp\n");
+	WRITE(p, "#define mediump\n");
+	WRITE(p, "#define highp\n");
+#else
+	// Remove lowp/mediump in non-mobile implementations
+	WRITE(p, "#define lowp\n");
+	WRITE(p, "#define mediump\n");
+	WRITE(p, "#define highp\n");
 #endif
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
@@ -220,42 +229,29 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "uniform sampler2D tex;\n");
 
 	if (enableAlphaTest || enableColorTest) {
-#if defined(GLSL_ES_1_0)
-		WRITE(p, "uniform mediump vec4 u_alphacolorref;\n");
-#else
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
-#endif
-		WRITE(p, "uniform vec4 u_colormask;\n");
 	}
 	if (gstate.isTextureMapEnabled()) 
-		WRITE(p, "uniform vec3 u_texenv;\n");
+		WRITE(p, "uniform lowp vec3 u_texenv;\n");
 	
-	WRITE(p, "varying vec4 v_color0;\n");
+	WRITE(p, "varying lowp vec4 v_color0;\n");
 	if (lmode)
-		WRITE(p, "varying vec3 v_color1;\n");
+		WRITE(p, "varying lowp vec3 v_color1;\n");
 	if (enableFog) {
-		WRITE(p, "uniform vec3 u_fogcolor;\n");
-#if defined(GLSL_ES_1_0)
+		WRITE(p, "uniform lowp vec3 u_fogcolor;\n");
 		WRITE(p, "varying mediump float v_fogdepth;\n");
-#else
-		WRITE(p, "varying float v_fogdepth;\n");
-#endif
 	}
 	if (doTexture)
 	{
 		if (doTextureProjection)
-			WRITE(p, "varying vec3 v_texcoord;\n");
+			WRITE(p, "varying mediump vec3 v_texcoord;\n");
 		else
-			WRITE(p, "varying vec2 v_texcoord;\n");
+			WRITE(p, "varying mediump vec2 v_texcoord;\n");
 	}
 
 	if (enableAlphaTest) {
 		if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
-#if defined(GLSL_ES_1_0)
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
-#else
-			WRITE(p, "float roundTo255thf(in float x) { float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
-#endif
 		else
 			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n"); 
 	}
