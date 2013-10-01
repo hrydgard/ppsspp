@@ -23,19 +23,6 @@
 #include "../Util/BlockAllocator.h"
 #include <map>
 
-std::map<u32,Heap*> heapList;
-
-void __HeapDoState(PointerWrap &p) {
-	auto s = p.Section("sceHeap", 1, 2);
-	if (!s)
-		return;
-
-	if (s == 1) {
-	} else {
-		p.Do(heapList);
-	}
-}
-
 struct Heap {
 	Heap():alloc(4) {}
 
@@ -43,13 +30,36 @@ struct Heap {
 	u32 address;
 	bool fromtop;
 	BlockAllocator alloc;
+
+	void DoState (PointerWrap &p) {
+		p.Do(size);
+		p.Do(address);
+		p.Do(fromtop);
+		p.Do(alloc);
+	}
 };
+
+std::map<u32,Heap*> heapList;
+
+void __HeapDoState(PointerWrap &p) {
+	auto s = p.Section("sceHeap", 1, 2);
+	if (!s)
+		return;
+
+	if (s >= 2) {
+		p.Do(heapList);
+	}
+}
 
 enum SceHeapAttr
 {
 	PSP_HEAP_ATTR_HIGHMEM = 0x4000,
 	PSP_HEAP_ATTR_EXT     = 0x8000,
 };
+
+void __HeapInit() {
+	heapList.clear();
+}
 
 int sceHeapReallocHeapMemory(u32 heapAddr, u32 memPtr, int memSize) {
 	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapReallocHeapMemory(%08x, %08x, %08x)", heapAddr, memPtr, memSize);
@@ -70,7 +80,7 @@ int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
 	if(!heap->alloc.FreeExact(memAddr))
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 
-	DEBUG_LOG_REPORT(HLE,"sceHeapFreeHeapMemory(%08x, %08x)", heapAddr, memAddr);
+	DEBUG_LOG(HLE,"sceHeapFreeHeapMemory(%08x, %08x)", heapAddr, memAddr);
 	return 0;
 }
 
@@ -81,18 +91,21 @@ int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
 
 int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 	Heap *heap = heapList[heapAddr];
+	u32 grain = 4;
 	if (!heap)
-		return 0;
+		return SCE_KERNEL_ERROR_INVALID_ID;
 	if (Memory::Read_U32(paramsPtr) == 8)
-		heap->alloc.Setgrain_(Memory::Read_U32(paramsPtr + 4));
-	u32 addr = heap->alloc.Alloc(memSize, heap->fromtop);
-	DEBUG_LOG_REPORT(HLE,"sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapAddr, memSize, paramsPtr);
+		grain = Memory::Read_U32(paramsPtr + 4);
+	u32 addr = heap->alloc.AllocAligned(memSize,grain,grain,heap->fromtop);
+	DEBUG_LOG(HLE,"sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapAddr, memSize, paramsPtr);
 	return addr;
 }
 
 int sceHeapGetTotalFreeSize(u32 heapAddr) {
 	Heap *heap = heapList[heapAddr];
-	DEBUG_LOG_REPORT(HLE,"UNIMPL sceHeapGetTotalFreeSize(%08x)", heapAddr);
+	if (!heap)
+		return SCE_KERNEL_ERROR_INVALID_ID;
+	DEBUG_LOG(HLE,"UNIMPL sceHeapGetTotalFreeSize(%08x)", heapAddr);
 	return heap->alloc.GetTotalFreeBytes();
 }
 
@@ -129,16 +142,16 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	heap->address = addr;
 	heap->alloc.Init(heap->address,heap->size);
 	heapList[heap->address] = heap;
-	DEBUG_LOG_REPORT(HLE,"sceHeapCreateHeap(%s, %08x, %08x, %08x)", name, heapSize, attr, paramsPtr);
+	DEBUG_LOG(HLE,"sceHeapCreateHeap(%s, %08x, %08x, %08x)", name, heapSize, attr, paramsPtr);
 	return heap->address;
 }
 
 int sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = heapList[heapAddr];
 	if (!heap)
-		return 0;
+		return SCE_KERNEL_ERROR_INVALID_ID;
 	u32 addr = heap->alloc.Alloc(memSize, heap->fromtop);
-	DEBUG_LOG_REPORT(HLE,"sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
+	DEBUG_LOG(HLE,"sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
 	return addr;
 }
 
