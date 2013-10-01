@@ -249,6 +249,10 @@ public class NativeActivity extends Activity {
         NativeApp.resized(size.x, size.y);
         
         mGLSurfaceView = new NativeGLView(this);
+        //setup the GLSurface and ask android for the correct 
+        //number of bits for r, g, b, a, depth and stencil components
+        mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
+        
 		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
         setContentView(mGLSurfaceView);
