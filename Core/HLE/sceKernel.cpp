@@ -130,7 +130,7 @@ void __KernelInit()
 	__NetAdhocInit();
 	__VaudioInit();
 	__CheatInit();
-	__HeapInit;
+	__HeapInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 
