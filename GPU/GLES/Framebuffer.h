@@ -219,7 +219,7 @@ private:
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
-	GLSLProgram *fxaaProgram_;
+	GLSLProgram *glslProgram_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
