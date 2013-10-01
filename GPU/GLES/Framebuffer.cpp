@@ -365,6 +365,9 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 		}
 	}
 
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
 	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos))
 	{
@@ -372,8 +375,6 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	}
 	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,512,272, GL_RGBA, GL_UNSIGNED_BYTE, pixelFormat == GE_FORMAT_8888 ? framebuf : convBuf);
 
-	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 	DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
 }
 
@@ -782,9 +783,11 @@ void FramebufferManager::CopyDisplayToOutput() {
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
-		fbo_bind_color_as_texture(vfb->fbo, 0);
-	
+		GLuint colorTexture = fbo_get_color_texture(vfb->fbo);
+
 		if (useFXAA_ && extraFBOs_.size() == 1) {
+			glBindTexture(GL_TEXTURE_2D, colorTexture);
+
 			// An additional pass, FXAA to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
@@ -795,13 +798,26 @@ void FramebufferManager::CopyDisplayToOutput() {
 			fbo_unbind();
 
 			// Use the extra FBO, with applied FXAA, as a texture.
-			fbo_bind_color_as_texture(extraFBOs_[0], 0);
+			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
+			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 		}
 
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+		
+#ifdef USING_GLES2
+		if (gl_extensions.NV_draw_texture) {
+			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
+			glDrawTextureNV(colorTexture, 0, 
+				x, y, w, h, 0.0f, 
+				0, 0, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+			return;
+		}
+#endif
+
+		glBindTexture(GL_TEXTURE_2D, colorTexture);
 		DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
