@@ -81,7 +81,7 @@ int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 
 int sceHeapGetTotalFreeSize(u32 heapAddr) {
 	Heap *heap = heapList[heapAddr];
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapGetTotalFreeSize(%08x)", heapAddr);
+	DEBUG_LOG_REPORT(HLE,"UNIMPL sceHeapGetTotalFreeSize(%08x)", heapAddr);
 	return heap->alloc.GetTotalFreeBytes();
 }
 
