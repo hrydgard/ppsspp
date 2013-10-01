@@ -59,6 +59,10 @@ enum {
 #endif
 };
 
+enum {	
+	SHADER_NATURAL = 1
+};
+
 struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_render;
