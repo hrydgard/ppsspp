@@ -96,9 +96,6 @@ public:
 	bool bLowQualitySplineBezier;
 	bool bFXAA;
 	
-	// Post-processing shaders
-	int iGlslShader;
-
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
@@ -177,7 +174,7 @@ public:
 	std::string flashDirectory;
 	std::string internalDataDirectory;
 
-	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
+	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini", const char *shaderIniFilename = "shaders.ini");
 	void Save();
 	void RestoreDefaults();
 
@@ -188,6 +185,7 @@ public:
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
+	std::string shaderIniFilename_;
 };
 
 extern Config g_Config;
