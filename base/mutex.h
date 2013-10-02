@@ -43,10 +43,11 @@ struct atomic_flag_init {
 static const atomic_flag_init NATIVE_ATOMIC_FLAG_INIT;
 
 class atomic_flag {
+public:
 	atomic_flag() {
 	}
 
-	atomic_flag(atomic_flag_init &v) : value(0) {
+	atomic_flag(const atomic_flag_init &v) : value(0) {
 	}
 
 	void clear() {
