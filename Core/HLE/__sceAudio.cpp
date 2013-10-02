@@ -29,10 +29,11 @@
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
 #include "Common/Atomics.h"
+#include "../../native/base/mutex.h"
 
 // Should be used to lock anything related to the outAudioQueue.
 //atomic locks are used on the lock. TODO: make this lock-free
-volatile u32 audioQueueLocked;
+atomic_flag audioQueueLock(NATIVE_ATOMIC_FLAG_INIT);
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
@@ -115,8 +116,7 @@ void __AudioInit() {
 	mixBuffer = new s32[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	//set the lock to false initially
-	Common::AtomicStore(audioQueueLocked, 0);
+	
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -408,14 +408,11 @@ int __AudioMix(short *outstereo, int numFrames)
 
 
 inline bool __gainAudioQueueLock(){
-	if(Common::AtomicLoad(audioQueueLocked) == 1){
-		return false;
-	}
+	//if it becomes true, it returns true
 
-	Common::AtomicStore(audioQueueLocked, 1);
-	return true;
+	return !audioQueueLock.test_and_set();
 };
 
 inline void __releaseAcquiredLock(){
-	Common::AtomicStore(audioQueueLocked, 0);
+	audioQueueLock.clear();
 }
