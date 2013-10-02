@@ -40,7 +40,7 @@ static bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
-static std::vector<int> iEnableCheat;
+static std::vector<bool> iEnableCheat;
 static bool * enableCheat;
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
@@ -49,11 +49,11 @@ std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList.push_back(cheatList[i].substr(4));
-			iEnableCheat.push_back(1);
+			iEnableCheat.push_back(true);
 		}
 		if (cheatList[i].substr(0, 3) == "_C0") {
 			formattedList.push_back(cheatList[i].substr(4));
-			iEnableCheat.push_back(0);
+			iEnableCheat.push_back(false);
 		}
 	}
 	
@@ -116,6 +116,7 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 			os << "\n";
 		}
 	}
+	delete [] enableCheat;
 	os.close();
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
