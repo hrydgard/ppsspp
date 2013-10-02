@@ -17,8 +17,6 @@
 
 #pragma once
 #include "sceAudio.h"
-#include <atomic>
-
 
 
 // Easy interface for sceAudio to write to, to keep the complexity in check.

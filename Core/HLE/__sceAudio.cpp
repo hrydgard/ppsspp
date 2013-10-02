@@ -28,10 +28,11 @@
 #include "ChunkFile.h"
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
-
+#include "Common/Atomics.h"
 
 // Should be used to lock anything related to the outAudioQueue.
-std::atomic<bool> audioQueueLock;
+//atomic locks are used on the lock. TODO: make this lock-free
+volatile u32 audioQueueLocked;
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
@@ -58,7 +59,7 @@ FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 
 
 bool __gainAudioQueueLock();
-
+void __releaseAcquiredLock();
 
 static inline s16 clamp_s16(int i) {
 	if (i > 32767)
@@ -114,7 +115,8 @@ void __AudioInit() {
 	mixBuffer = new s32[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	audioQueueLock.store(false);
+	//set the lock to false initially
+	Common::AtomicStore(audioQueueLocked, 0);
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -137,7 +139,7 @@ void __AudioDoState(PointerWrap &p) {
 		outAudioQueue.DoState(p);
 
 		//release the atomic lock
-		audioQueueLock.store(false);
+		__releaseAcquiredLock();
 		
 	}
 
@@ -360,7 +362,7 @@ void __AudioUpdate() {
 		}
 	
 		//release the atomic lock
-		audioQueueLock.store(false);
+		__releaseAcquiredLock();
 	}
 }
 
@@ -390,7 +392,7 @@ int __AudioMix(short *outstereo, int numFrames)
 		}
 
 		//release the atomic lock
-		audioQueueLock.store(false);
+		__releaseAcquiredLock();
 	}
 
 	int remains = (int)(numFrames * 2 - sz1 - sz2);
@@ -405,11 +407,15 @@ int __AudioMix(short *outstereo, int numFrames)
 }
 
 
-bool __gainAudioQueueLock(){
-	if(audioQueueLock.load(std::memory_order::memory_order_relaxed) == true){
+inline bool __gainAudioQueueLock(){
+	if(Common::AtomicLoad(audioQueueLocked) == 1){
 		return false;
 	}
 
-	audioQueueLock.store(true, std::memory_order::memory_order_relaxed );
+	Common::AtomicStore(audioQueueLocked, 1);
 	return true;
 };
+
+inline void __releaseAcquiredLock(){
+	Common::AtomicStore(audioQueueLocked, 0);
+}
