@@ -68,3 +68,6 @@ libat3plusdecoder.dylib
 libat3plusdecoder.so
 at3plusdecoder.dll
 at3plusdecoder64.dll
+
+
+android/lint.xml
