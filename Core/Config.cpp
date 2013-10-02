@@ -18,6 +18,7 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "Common/KeyMap.h"
+#include "GPU/Common/Shaders.h"
 #include "Common/FileUtil.h"
 #include "Config.h"
 #include "file/ini_file.h"
@@ -34,11 +35,13 @@ extern bool isJailed;
 Config::Config() { }
 Config::~Config() { }
 
-void Config::Load(const char *iniFileName, const char *controllerIniFilename)
+void Config::Load(const char *iniFileName, const char *controllerIniFilename, const char *shaderIniFilename)
 {
 	iniFilename_ = iniFileName != NULL ? iniFileName : "ppsspp.ini";
 
 	controllerIniFilename_ = controllerIniFilename != NULL ? controllerIniFilename : "controls.ini";
+
+	shaderIniFilename_ = shaderIniFilename != NULL ? shaderIniFilename : "shaders.ini";
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -179,9 +182,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("FXAA", &bFXAA, false);
-#ifndef USING_GLES2
-	graphics->Get("GlslShader", &iGlslShader, 0);
-#endif
+
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -258,6 +259,18 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
 		KeyMap::LoadFromIni(controllerIniFile);
+	}
+
+	INFO_LOG(LOADER, "Loading shader config: %s", shaderIniFilename_.c_str());
+	bSaveSettings = true;
+
+	IniFile shaderIniFile;
+	if (!shaderIniFile.Load(shaderIniFilename_)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting shader config to default.", shaderIniFilename_.c_str());
+		Shader::RestoretoDefault();
+	} else {
+		// Continue anyway to initialize the config. It will just restore the defaults.
+		Shader::LoadfromIni(shaderIniFile);
 	}
 
 	CleanRecent();
@@ -350,9 +363,6 @@ void Config::Save() {
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("FXAA", bFXAA);
-#ifndef USING_GLES2
-		graphics->Set("GlslShader", iGlslShader);
-#endif
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
@@ -422,6 +432,17 @@ void Config::Save() {
 			return;
 		}
 		INFO_LOG(LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());
+
+		IniFile shaderIniFile;
+		if (!shaderIniFile.Load(shaderIniFilename_.c_str())) {
+			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", shaderIniFilename_.c_str());
+		}
+		Shader::SavetoIni(shaderIniFile);
+		if (!shaderIniFile.Save(shaderIniFilename_.c_str())) {
+			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", shaderIniFilename_.c_str());
+			return;
+		}
+		INFO_LOG(LOADER, "Shader config saved: %s", shaderIniFilename_.c_str());
 
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
