@@ -45,7 +45,7 @@ static bool * enableCheat;
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
 	cheatList = cheatEngine2->GetCodesList();
-	iEnableCheat.erase(iEnableCheat.begin(), iEnableCheat.end());
+	iEnableCheat.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList.push_back(cheatList[i].substr(4));
