@@ -30,6 +30,8 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/disarm.h"
 
+#include <algorithm>
+
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
