@@ -36,7 +36,7 @@
 atomic_flag audioQueueLock(NATIVE_ATOMIC_FLAG_INIT);
 
 int eventAudioUpdate = -1;
-int eventHostAudioUpdate = -1;
+int eventHostAudioUpdate = -1; 
 int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
