@@ -45,13 +45,11 @@ static bool * enableCheat;
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
 	cheatList = cheatEngine2->GetCodesList();
-	int j = 0;
 	iEnableCheat.erase(iEnableCheat.begin(), iEnableCheat.end());
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList.push_back(cheatList[i].substr(4));
 			iEnableCheat.push_back(1);
-			locations.push_back((int)i);
 		}
 		if (cheatList[i].substr(0, 3) == "_C0") {
 			formattedList.push_back(cheatList[i].substr(4));
@@ -119,7 +117,6 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 		}
 	}
 	os.close();
-	formattedList = CreateCodeList();
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
