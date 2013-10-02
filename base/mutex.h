@@ -43,20 +43,11 @@ struct atomic_flag_init {
 static const atomic_flag_init NATIVE_ATOMIC_FLAG_INIT;
 
 class atomic_flag {
-<<<<<<< HEAD
 public:
-	atomic_flag() {
-	}
 	
-	atomic_flag(const atomic_flag_init &v) : value(0) {
-=======
-	atomic_flag() {
-	}
+	atomic_flag(const atomic_flag_init &v) : value(0) {}
 
-	atomic_flag(atomic_flag_init &v) : value(0) {
->>>>>>> upstream/master
-	}
-
+	
 	void clear() {
 #if defined(_WIN32)
 		_WriteBarrier();
