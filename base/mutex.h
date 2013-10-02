@@ -12,6 +12,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <limits.h>
+#include <intrin.h>
 
 // Zap stupid windows defines
 // Should move these somewhere clever.
@@ -23,7 +24,62 @@
 #include <pthread.h>
 #include <errno.h>
 #include <sys/time.h>
+
+#ifdef BLACKBERRY
+#include <atomic.h>
+#elif defined(__SYMBIAN32__)
+#include <glib/gatomic.h>
 #endif
+#endif
+
+#include "base/basictypes.h"
+
+struct atomic_flag_init {
+	atomic_flag_init() : v(false) {
+	}
+
+	bool v;
+};
+static const atomic_flag_init NATIVE_ATOMIC_FLAG_INIT;
+
+class atomic_flag {
+	atomic_flag() {
+	}
+
+	atomic_flag(atomic_flag_init &v) : value(0) {
+	}
+
+	void clear() {
+#if defined(_WIN32)
+		_WriteBarrier();
+		value = 0;
+#elif defined(BLACKBERRY)
+		atomic_set(&value, 0);
+#elif defined(__SYMBIAN32__)
+		g_atomic_int_set(&value, 0);
+#else
+		__sync_lock_release(&value);
+#endif
+	}
+
+	// Returns the previous value.
+	bool test_and_set() {
+#if defined(_WIN32)
+		return InterlockedExchange(&value, 1) != 0;
+#elif defined(BLACKBERRY)
+		return atomic_set_value(&value, 1) != 0;
+#elif defined(__SYMBIAN32__)
+		return !g_atomic_int_compare_and_exchange(&value, 0, 1);
+#else
+		return __sync_lock_test_and_set(&value, 1) != 0;
+#endif
+	}
+
+private:
+	volatile unsigned int value;
+
+	DISALLOW_COPY_AND_ASSIGN(atomic_flag);
+};
 
 class recursive_mutex {
 #ifdef _WIN32
