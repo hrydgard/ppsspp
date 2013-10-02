@@ -558,7 +558,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Run to Cursor",              ID_DISASM_RUNTOHERE
         MENUITEM "Jump to Cursor",             ID_DISASM_SETPCTOHERE
-		MENUITEM "Set Stall"                   IDC_DEBUG_LIST_SETSTALL
+        MENUITEM "Set Stall"                   IDC_DEBUG_LIST_SETSTALL
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
         MENUITEM SEPARATOR
         MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW

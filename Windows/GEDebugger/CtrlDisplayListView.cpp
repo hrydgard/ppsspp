@@ -177,8 +177,8 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		// draw background
 		COLORREF backgroundColor = stall ? 0xCCCCFF : 0xFFFFFF;
 		COLORREF textColor = 0x000000;
-
-		if (address == curAddress)
+		
+		if (address >= selectRangeStart && address < selectRangeEnd)
 		{
 			if (hasFocus)
 			{
@@ -259,16 +259,22 @@ void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 	int line = y/rowHeight;
 	u32 newAddress = windowStart + line*instructionSize;
-
+	
+	bool extend = GetAsyncKeyState(VK_SHIFT) != 0;
 	if (button == 1)
 	{
 		if (newAddress == curAddress && hasFocus)
 		{
 			toggleBreakpoint();
 		}
+	} else if (button == 2)
+	{
+		// Maintain the current selection if right clicking into it.
+		if (newAddress >= selectRangeStart && newAddress < selectRangeEnd)
+			extend = true;
 	}
 
-	setCurAddress(newAddress);
+	setCurAddress(newAddress,extend);
 
 	SetFocus(wnd);
 	redraw();
@@ -293,9 +299,19 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			redraw();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
-			{		
-				GPUDebugOp op = gpuDebug->DissassembleOp(curAddress);
-				W32Util::CopyTextToClipboard(wnd, op.desc.c_str());
+			{
+				int space = 256 * (selectRangeEnd - selectRangeStart) / instructionSize;
+				char *temp = new char[space];
+
+				char *p = temp, *end = temp + space;
+				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
+				{
+					GPUDebugOp op = gpuDebug->DissassembleOp(pos);
+					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
+				}
+
+				W32Util::CopyTextToClipboard(wnd, temp);
+				delete [] temp;
 			}
 			break;
 		case ID_DISASM_COPYADDRESS:
@@ -321,9 +337,15 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
 			{
-				char temp[16];
-				sprintf(temp,"%08X",Memory::ReadUnchecked_U32(curAddress));
+				int space = 24 * (selectRangeEnd - selectRangeStart) / instructionSize;
+				char *temp = new char[space];
+
+				char *p = temp, *end = temp + space;
+				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
+					p += snprintf(p, end - p, "%08X\r\n", Memory::ReadUnchecked_U32(pos));
+
 				W32Util::CopyTextToClipboard(wnd, temp);
+				delete [] temp;
 			}
 			break;
 		case ID_DISASM_RUNTOHERE:

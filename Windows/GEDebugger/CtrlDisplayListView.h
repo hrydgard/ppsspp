@@ -3,6 +3,7 @@
 #include "Common/CommonWindows.h"
 #include "Globals.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include <algorithm>
 
 class CtrlDisplayListView
 {
@@ -15,6 +16,9 @@ class CtrlDisplayListView
 	HFONT boldfont;
 	u32 windowStart;
 	u32 curAddress;
+	u32 selectRangeStart;
+	u32 selectRangeEnd;
+
 	int visibleRows;
 	int charWidth;
 	int rowHeight;
@@ -71,7 +75,10 @@ public:
 
 	void setCurAddress(u32 newAddress, bool extend = false)
 	{
+		u32 after = newAddress + instructionSize;
 		curAddress = newAddress;
+		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
+		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
 	}
 
 	void scrollAddressIntoView();
