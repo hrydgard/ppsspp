@@ -108,7 +108,7 @@ int PSPGamedataInstallDialog::Update() {
 				pspFileSystem.CloseFile(inhandle);
 			}
 			updateProgress();
-			delete temp;
+			delete[] temp;
 		} else {
 			//What is this?
 			request.unknownResult1 = readFiles;
