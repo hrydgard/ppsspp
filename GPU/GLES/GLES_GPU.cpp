@@ -1449,7 +1449,7 @@ void GLES_GPU::DoBlockTransfer() {
 		return;
 	}
 
-	if (!Memory::IsValidAddress(dstBasePtr) || Memory::IsVRAMAddress(dstBasePtr)) {
+	if (!Memory::IsValidAddress(dstBasePtr)) {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
 		return;
 	}
