@@ -550,6 +550,19 @@ BEGIN
 	BEGIN
 		MENUITEM "Add New",                    ID_DISASM_ADDNEWBREAKPOINT
 	END
+	POPUP "displaylistview"
+	BEGIN
+        MENUITEM "Copy Address",               ID_DISASM_COPYADDRESS
+        MENUITEM "Copy Instruction (Hex)",     ID_DISASM_COPYINSTRUCTIONHEX
+        MENUITEM "Copy Instruction (Disasm)",  ID_DISASM_COPYINSTRUCTIONDISASM
+        MENUITEM SEPARATOR
+        MENUITEM "Run to Cursor",              ID_DISASM_RUNTOHERE
+        MENUITEM "Jump to Cursor",             ID_DISASM_SETPCTOHERE
+        MENUITEM "Set Stall"                   IDC_DEBUG_LIST_SETSTALL
+        MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM SEPARATOR
+        MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW
+	END
 END
 
 #endif    // English (United States) resources
