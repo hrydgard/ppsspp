@@ -271,10 +271,9 @@
 #define IDC_GEDBG_LISTS_ALLLISTS         40123
 #define IDC_GEDBG_LISTS_STACK            40124
 #define IDC_GEDBG_LISTS_SELECTEDLIST     40125
-#define ID_OPTIONS_FXAA                  40126
-#define IDC_DEBUG_BOTTOMTABS             40127
-#define ID_DEBUG_HIDEBOTTOMTABS          40128
-#define ID_DEBUG_TOGGLEBOTTOMTABTITLES   40129
+#define IDC_DEBUG_BOTTOMTABS             40126
+#define ID_DEBUG_HIDEBOTTOMTABS          40127
+#define ID_DEBUG_TOGGLEBOTTOMTABTITLES   40128
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
