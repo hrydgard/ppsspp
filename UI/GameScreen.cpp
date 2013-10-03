@@ -56,6 +56,7 @@ void GameScreen::CreateViews() {
 		tvTitle_ = leftColumn->Add(new TextView(info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
 		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 250, NONE, NONE)));
 		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 290, NONE, NONE)));
+		tvInstallDataSize_ = leftColumn->Add(new TextView("", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 330, NONE, NONE)));
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -128,6 +129,10 @@ void GameScreen::update(InputState &input) {
 		tvGameSize_->SetText(temp);
 		sprintf(temp, "%s: %1.2f %s", ga->T("SaveData"), (float) (info->saveDataSize) / 1024.f / 1024.f, ga->T("MB"));
 		tvSaveDataSize_->SetText(temp);
+		if (info->installDataSize > 0) {
+			sprintf(temp, "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
+			tvInstallDataSize_->SetText(temp);
+		}
 	}
 }
 

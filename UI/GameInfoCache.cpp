@@ -91,6 +91,7 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
 
 	u64 totalSize = 0;
+	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<FileInfo> fileInfo;
 		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
@@ -99,8 +100,38 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 			FileInfo finfo;
 			getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
 			if (!finfo.isDirectory)
-				totalSize += finfo.size;
+				filesSizeInDir += finfo.size;
 		}
+		if (filesSizeInDir < 0xA00000) {
+			//Generally the savedata size in a dir shouldn't be more than 10MB.
+			totalSize += filesSizeInDir;
+		}
+		filesSizeInDir = 0;
+	}
+	return totalSize;
+}
+
+u64 GameInfo::GetInstallDataSizeInBytes() {
+	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
+
+	u64 totalSize = 0;
+	u64 filesSizeInDir = 0;
+	for (size_t j = 0; j < saveDataDir.size(); j++) {
+		std::vector<FileInfo> fileInfo;
+		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		// Note: getFileInDir does not fill in fileSize properly.
+		for (size_t i = 0; i < fileInfo.size(); i++) {
+			FileInfo finfo;
+			getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			if (!finfo.isDirectory)
+				filesSizeInDir += finfo.size;
+		}
+		if (filesSizeInDir >= 0xA00000) { 
+			// Generally the savedata size in a dir shouldn't be more than 10MB.
+			// This is probably GameInstall data.
+			totalSize += filesSizeInDir;
+		}
+		filesSizeInDir = 0;
 	}
 	return totalSize;
 }
@@ -311,6 +342,7 @@ public:
 		if (info_->wantBG) {
 			info_->gameSize = info_->GetGameSizeInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
+			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
 	}
 
