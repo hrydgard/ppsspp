@@ -51,6 +51,9 @@ enum CmdFormatType {
 	CMD_FMT_OFFSETADDR,
 	CMD_FMT_VADDR,
 	CMD_FMT_IADDR,
+	CMD_FMT_MATERIALUPDATE,
+	CMD_FMT_STENCILOP,
+	CMD_FMT_BLENDMODE,
 };
 
 struct TabStateRow {
@@ -87,8 +90,7 @@ static const TabStateRow stateFlagsRows[] = {
 static const TabStateRow stateLightingRows[] = {
 	{ L"Ambient color",        GE_CMD_AMBIENTCOLOR,            CMD_FMT_HEX },
 	{ L"Ambient alpha",        GE_CMD_AMBIENTALPHA,            CMD_FMT_HEX },
-	// TODO: Format.
-	{ L"Material update",      GE_CMD_MATERIALUPDATE,          CMD_FMT_NUM },
+	{ L"Material update",      GE_CMD_MATERIALUPDATE,          CMD_FMT_MATERIALUPDATE },
 	{ L"Material emissive",    GE_CMD_MATERIALEMISSIVE,        CMD_FMT_HEX },
 	{ L"Material ambient",     GE_CMD_MATERIALAMBIENT,         CMD_FMT_HEX },
 	{ L"Material diffuse",     GE_CMD_MATERIALDIFFUSE,         CMD_FMT_HEX },
@@ -163,8 +165,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
-	// TODO: Format.
-	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
 	{ L"Texture L1 addr",      GE_CMD_TEXADDR1,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH1 },
 	{ L"Texture L2 addr",      GE_CMD_TEXADDR2,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH2 },
@@ -205,11 +206,9 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
 	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
 	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_ALPHATEST, GE_CMD_STENCILTESTENABLE },
-	// TODO: Format.
-	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_HEX, GE_CMD_STENCILTESTENABLE },
+	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_STENCILOP, GE_CMD_STENCILTESTENABLE },
 	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
-	// TODO: Format.
-	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
+	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_BLENDMODE, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	// TODO: Format.
@@ -400,6 +399,89 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_IADDR:
 		swprintf(dest, L"%08x", gpuDebug->GetIndexAddress());
+		break;
+
+	case CMD_FMT_MATERIALUPDATE:
+		{
+			static const char *materialTypes[] = {
+				"none",
+				"ambient",
+				"diffuse",
+				"ambient, diffuse",
+				"specular",
+				"ambient, specular",
+				"diffuse, specular",
+				"ambient, diffuse, specular",
+			};
+			if (value < (u32)ARRAY_SIZE(materialTypes)) {
+				swprintf(dest, L"%S", materialTypes[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_STENCILOP:
+		{
+			static const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT" };
+			const u8 sfail = (value >> 0) & 0xFF;
+			const u8 zfail = (value >> 8) & 0xFF;
+			const u8 pass = (value >> 16) & 0xFF;
+			const u8 totalValid = (u8)ARRAY_SIZE(stencilOps);
+			if (sfail < totalValid && zfail < totalValid && pass < totalValid) {
+				swprintf(dest, L"fail=%S, pass/depthfail=%S, pass=%S", stencilOps[sfail], stencilOps[zfail], stencilOps[pass]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_BLENDMODE:
+		{
+			const char *blendModes[] = {
+				"add",
+				"subtract",
+				"reverse subtract",
+				"min",
+				"max",
+				"abs subtract",
+			};
+			const char *blendFactorsA[] = {
+				"dst",
+				"1.0 - dst",
+				"src.a",
+				"1.0 - src.a",
+				"dst.a",
+				"1.0 - dst.a",
+				"2.0 * src.a",
+				"1.0 - 2.0 * src.a",
+				"2.0 * dst.a",
+				"1.0 - 2.0 * dst.a",
+				"fixed",
+			};
+			const char *blendFactorsB[] = {
+				"src",
+				"1.0 - src",
+				"src.a",
+				"1.0 - src.a",
+				"dst.a",
+				"1.0 - dst.a",
+				"2.0 * src.a",
+				"1.0 - 2.0 * src.a",
+				"2.0 * dst.a",
+				"1.0 - 2.0 * dst.a",
+				"fixed",
+			};
+			const u8 blendFactorA = (value >> 0) & 0xF;
+			const u8 blendFactorB = (value >> 4) & 0xF;
+			const u32 blendMode = (value >> 8);
+
+			if (blendFactorA < (u8)ARRAY_SIZE(blendFactorsA) && blendFactorB < (u8)ARRAY_SIZE(blendFactorsB) && blendMode < (u32)ARRAY_SIZE(blendModes)) {
+				swprintf(dest, L"%S: %S, %S", blendModes[blendMode], blendFactorsA[blendFactorA], blendFactorsB[blendFactorB]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
 		break;
 
 	default:
