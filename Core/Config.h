@@ -94,7 +94,7 @@ public:
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bLowQualitySplineBezier;
-	bool bFXAA;
+	int iPostProcessingShaders;
 	
 	// Sound
 	bool bEnableSound;
