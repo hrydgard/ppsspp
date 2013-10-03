@@ -18,13 +18,14 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "Common/KeyMap.h"
-#include "GPU/Common/Shaders.h"
 #include "Common/FileUtil.h"
 #include "Config.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
 #include "HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
+#include "GPU/Common/Shaders.h"
+
 
 Config g_Config;
 
@@ -34,6 +35,7 @@ extern bool isJailed;
 
 Config::Config() { }
 Config::~Config() { }
+
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename, const char *shaderIniFilename)
 {
@@ -182,6 +184,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename, co
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("FXAA", &bFXAA, false);
+	graphics->Get("PostProcessingShaders", &iPostProcessingShaders, 0);
 
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
@@ -267,10 +270,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename, co
 	IniFile shaderIniFile;
 	if (!shaderIniFile.Load(shaderIniFilename_)) {
 		ERROR_LOG(LOADER, "Failed to read %s. Setting shader config to default.", shaderIniFilename_.c_str());
-		Shader::RestoretoDefault();
+		g_configshader.RestoretoDefault();
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
-		Shader::LoadfromIni(shaderIniFile);
+		g_configshader.LoadfromIni(shaderIniFile);
 	}
 
 	CleanRecent();
@@ -363,6 +366,7 @@ void Config::Save() {
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("FXAA", bFXAA);
+		graphics->Set("PostProcessingShaders", iPostProcessingShaders);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
@@ -437,7 +441,8 @@ void Config::Save() {
 		if (!shaderIniFile.Load(shaderIniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", shaderIniFilename_.c_str());
 		}
-		Shader::SavetoIni(shaderIniFile);
+		
+		g_configshader.SavetoIni(shaderIniFile);
 		if (!shaderIniFile.Save(shaderIniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", shaderIniFilename_.c_str());
 			return;
