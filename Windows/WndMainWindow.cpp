@@ -514,7 +514,6 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_VSYNC);
-		TranslateMenuItem(ID_OPTIONS_FXAA);
 		TranslateSubMenu("Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
 		TranslateMenuItem(ID_OPTIONS_SCREENAUTO);
 		// Skip rendering resolution 2x-5x..
@@ -1206,12 +1205,6 @@ namespace MainWindow
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
 
-				case ID_OPTIONS_FXAA:
-					g_Config.bFXAA = !g_Config.bFXAA;
-					if (gpu)
-						gpu->Resized();
-					break;
-
 				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
 				case ID_TEXTURESCALING_2X:  setTexScalingMultiplier(TEXSCALING_2X); break;
 				case ID_TEXTURESCALING_3X:  setTexScalingMultiplier(TEXSCALING_3X); break;
@@ -1595,7 +1588,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
-		CHECKITEM(ID_OPTIONS_FXAA, g_Config.bFXAA);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
