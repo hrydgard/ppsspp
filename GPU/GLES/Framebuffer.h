@@ -59,6 +59,10 @@ enum {
 #endif
 };
 
+enum {	
+	SHADER_NATURAL = 1
+};
+
 struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_render;
@@ -215,11 +219,11 @@ private:
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
-	GLSLProgram *fxaaProgram_;
+	GLSLProgram *glslProgram_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
-	bool useFXAA_;
+	bool useGLSL_;
 
 	// Used by antialiasing
 	std::vector<FBO *> extraFBOs_;

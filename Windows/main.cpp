@@ -115,6 +115,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	std::string controlsConfigFilename;
 	const char *controlsOption = "--controlconfig=";
 
+	std::string shaderConfigFilename;
+	const char *shaderOption = "--shaderconfig=";
+
 	for (int i = 1; i < __argc; ++i)
 	{
 		if (__argv[i][0] == '\0')
@@ -127,6 +130,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			if (!strncmp(__argv[i], controlsOption, strlen(controlsOption)) && strlen(__argv[i]) > strlen(controlsOption)) {
 				controlsConfigFilename = __argv[i] + strlen(controlsOption);
 			}
+			if (!strncmp(__argv[i], shaderOption, strlen(shaderOption)) && strlen(__argv[i]) > strlen(shaderOption)) {
+				shaderConfigFilename = __argv[i] + strlen(shaderOption);
+			}
 		}
 	}
 
@@ -136,9 +142,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if(controlsConfigFilename.empty())
 		controlsConfigFilename = "controls.ini";
 
+	if(shaderConfigFilename.empty())
+		shaderConfigFilename = "shaders.ini";
+
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.Load(configFilename.c_str(), controlsConfigFilename.c_str());
+	g_Config.Load(configFilename.c_str(), controlsConfigFilename.c_str(), shaderConfigFilename.c_str());
 
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
