@@ -173,18 +173,25 @@ void FramebufferManager::CompileDraw2DProgram() {
 		glsl_bind(draw2dprogram_);
 		glUniform1i(draw2dprogram_->sampler0, 0);
 
-		if (g_Config.bFXAA) {
+		//TODO: Make this code more efficient and use switch cases instead
+		if (g_Config.iPostProcessingShaders != SHADER_OFF)
+		{
+
+		if (g_Config.iPostProcessingShaders == SHADER_FXAA) {
 			useGLSL_ = true;
-			glslProgram_ = glsl_create("shaders/fxaa.vsh", "shaders/fxaa.fsh");
-			glsl_bind(glslProgram_);
-			glUniform1i(glslProgram_->sampler0, 0);
-			SetNumExtraFBOs(1);
-			float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
-			float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-			glUniform2f(glsl_uniform_loc(glslProgram_, "u_texcoordDelta"), u_delta, v_delta);
-		} else if (g_Config.iGlslShader == SHADER_NATURAL) {
+			glslProgram_ = glsl_create(("shaders/"+g_configshader.vertex1).c_str(), ("shaders/"+g_configshader.fragment1).c_str());
+			
+		} 
+		else if (g_Config.iPostProcessingShaders == SHADER_NATURAL) {
 			useGLSL_ = true;
-			glslProgram_ = glsl_create("shaders/Natural.vsh", "shaders/Natural.fsh");
+			glslProgram_ = glsl_create(("shaders/"+g_configshader.vertex2).c_str(), ("shaders/"+g_configshader.fragment2).c_str());
+			
+		}
+		else //Custom
+		{
+			useGLSL_ = true;
+			glslProgram_ = glsl_create(("shaders/"+g_configshader.vertex3).c_str(), ("shaders/"+g_configshader.fragment3).c_str());
+		}
 			glsl_bind(glslProgram_);
 			glUniform1i(glslProgram_->sampler0, 0);
 			SetNumExtraFBOs(1);
