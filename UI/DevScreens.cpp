@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "gfx_es2/gl_state.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"

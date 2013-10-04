@@ -89,13 +89,9 @@ bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 
 	// Okay, so we just set a texture of some sort, check if it was one we were waiting for.
 	auto state = gpuDebug->GetGState();
+	int level = cmd <= GE_CMD_TEXADDR7 ? cmd - GE_CMD_TEXADDR0 : cmd - GE_CMD_TEXBUFWIDTH0;
 	lock_guard guard(breaksLock);
-	for (int level = 0; level <= 7; ++level) {
-		if (breakTextures.find(state.getTextureAddress(level)) != breakTextures.end()) {
-			return true;
-		}
-	}
-	return false;
+	return breakTextures.find(state.getTextureAddress(level)) != breakTextures.end();
 }
 
 bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {

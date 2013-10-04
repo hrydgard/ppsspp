@@ -48,6 +48,12 @@ enum CmdFormatType {
 	CMD_FMT_COLORTEST,
 	CMD_FMT_ALPHATEST,
 	CMD_FMT_ZTEST,
+	CMD_FMT_OFFSETADDR,
+	CMD_FMT_VADDR,
+	CMD_FMT_IADDR,
+	CMD_FMT_MATERIALUPDATE,
+	CMD_FMT_STENCILOP,
+	CMD_FMT_BLENDMODE,
 };
 
 struct TabStateRow {
@@ -84,7 +90,7 @@ static const TabStateRow stateFlagsRows[] = {
 static const TabStateRow stateLightingRows[] = {
 	{ L"Ambient color",        GE_CMD_AMBIENTCOLOR,            CMD_FMT_HEX },
 	{ L"Ambient alpha",        GE_CMD_AMBIENTALPHA,            CMD_FMT_HEX },
-	{ L"Material update",      GE_CMD_MATERIALUPDATE,          CMD_FMT_NUM },
+	{ L"Material update",      GE_CMD_MATERIALUPDATE,          CMD_FMT_MATERIALUPDATE },
 	{ L"Material emissive",    GE_CMD_MATERIALEMISSIVE,        CMD_FMT_HEX },
 	{ L"Material ambient",     GE_CMD_MATERIALAMBIENT,         CMD_FMT_HEX },
 	{ L"Material diffuse",     GE_CMD_MATERIALDIFFUSE,         CMD_FMT_HEX },
@@ -92,7 +98,9 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Material specular",    GE_CMD_MATERIALSPECULAR,        CMD_FMT_HEX },
 	{ L"Mat. specular coef",   GE_CMD_MATERIALSPECULARCOEF,    CMD_FMT_FLOAT24 },
 	{ L"Reverse normals",      GE_CMD_REVERSENORMAL,           CMD_FMT_NUM },
+	// TODO: Format?
 	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_NUM },
+	// TODO: Format?
 	{ L"Light mode",           GE_CMD_LIGHTMODE,               CMD_FMT_NUM, GE_CMD_LIGHTINGENABLE },
 	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE0 },
 	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE1 },
@@ -133,23 +141,31 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Light specular 3",     GE_CMD_LSC3,                    CMD_FMT_HEX, GE_CMD_LIGHTENABLE3 },
 };
 
-// TODO: Many of these could use better display formats.
 static const TabStateRow stateTextureRows[] = {
 	{ L"Tex U scale",          GE_CMD_TEXSCALEU,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V scale",          GE_CMD_TEXSCALEV,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex U offset",         GE_CMD_TEXOFFSETU,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V offset",         GE_CMD_TEXOFFSETV,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	// TODO: Format.
 	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
+	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
 	{ L"Texture L1 addr",      GE_CMD_TEXADDR1,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH1 },
 	{ L"Texture L2 addr",      GE_CMD_TEXADDR2,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH2 },
@@ -168,12 +184,16 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Texture L7 size",      GE_CMD_TEXSIZE7,                CMD_FMT_TEXSIZE, GE_CMD_TEXTUREMAPENABLE },
 };
 
-// TODO: Many of these could use better display formats.
 static const TabStateRow stateSettingsRows[] = {
+	// TODO: Format.  This is almost a flag...
+	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_HEX },
 	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
 	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_TEXFMT },
 	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
 	{ L"Vertex type",          GE_CMD_VERTEXTYPE,              CMD_FMT_VERTEXTYPE },
+	{ L"Offset addr",          GE_CMD_OFFSETADDR,              CMD_FMT_OFFSETADDR },
+	{ L"Vertex addr",          GE_CMD_VADDR,                   CMD_FMT_VADDR },
+	{ L"Index addr",           GE_CMD_IADDR,                   CMD_FMT_IADDR },
 	{ L"Region",               GE_CMD_REGION1,                 CMD_FMT_XYXY, 0, GE_CMD_REGION2 },
 	{ L"Scissor",              GE_CMD_SCISSOR1,                CMD_FMT_XYXY, 0, GE_CMD_SCISSOR2 },
 	{ L"Min Z",                GE_CMD_MINZ,                    CMD_FMT_HEX },
@@ -181,15 +201,17 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Viewport 1",           GE_CMD_VIEWPORTX1,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY1, GE_CMD_VIEWPORTZ1 },
 	{ L"Viewport 2",           GE_CMD_VIEWPORTX2,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY2, GE_CMD_VIEWPORTZ2 },
 	{ L"Offset",               GE_CMD_OFFSETX,                 CMD_FMT_F16_XY, 0, GE_CMD_OFFSETY },
+	// TODO: Format.
 	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_NUM, GE_CMD_CULLFACEENABLE },
 	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
 	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
 	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_ALPHATEST, GE_CMD_STENCILTESTENABLE },
-	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_HEX, GE_CMD_STENCILTESTENABLE },
+	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_STENCILOP, GE_CMD_STENCILTESTENABLE },
 	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
-	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
+	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_BLENDMODE, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
+	// TODO: Format.
 	{ L"Logic Op",             GE_CMD_LOGICOP,                 CMD_FMT_HEX, GE_CMD_LOGICOPENABLE },
 	{ L"Fog 1",                GE_CMD_FOG1,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog 2",                GE_CMD_FOG2,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
@@ -204,7 +226,7 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Morph Weight 5",       GE_CMD_MORPHWEIGHT5,            CMD_FMT_FLOAT24 },
 	{ L"Morph Weight 6",       GE_CMD_MORPHWEIGHT6,            CMD_FMT_FLOAT24 },
 	{ L"Morph Weight 7",       GE_CMD_MORPHWEIGHT7,            CMD_FMT_FLOAT24 },
-	// TODO: Enabled?
+	// TODO: Enabled?  Formats?
 	{ L"Patch division",       GE_CMD_PATCHDIVISION,           CMD_FMT_HEX },
 	{ L"Patch primitive",      GE_CMD_PATCHPRIMITIVE,          CMD_FMT_HEX },
 	{ L"Patch facing",         GE_CMD_PATCHFACING,             CMD_FMT_HEX },
@@ -218,6 +240,16 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Transfer dst pos",     GE_CMD_TRANSFERDSTPOS,          CMD_FMT_XY },
 	{ L"Transfer size",        GE_CMD_TRANSFERSIZE,            CMD_FMT_XY },
 };
+
+// TODO: Commands not present in the above lists (some because they don't have meaningful values...):
+//   GE_CMD_PRIM, GE_CMD_BEZIER, GE_CMD_SPLINE, GE_CMD_BOUNDINGBOX,
+//   GE_CMD_JUMP, GE_CMD_BJUMP, GE_CMD_CALL, GE_CMD_RET, GE_CMD_END, GE_CMD_SIGNAL, GE_CMD_FINISH,
+//   GE_CMD_BONEMATRIXNUMBER, GE_CMD_BONEMATRIXDATA, GE_CMD_WORLDMATRIXNUMBER, GE_CMD_WORLDMATRIXDATA,
+//   GE_CMD_VIEWMATRIXNUMBER, GE_CMD_VIEWMATRIXDATA, GE_CMD_PROJMATRIXNUMBER, GE_CMD_PROJMATRIXDATA,
+//   GE_CMD_TGENMATRIXNUMBER, GE_CMD_TGENMATRIXDATA,
+//   GE_CMD_LOADCLUT, GE_CMD_TEXFLUSH, GE_CMD_TEXSYNC,
+//   GE_CMD_TRANSFERSTART,
+//   GE_CMD_UNKNOWN_*
 
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
 	: GenericListControl(hwnd, stateValuesCols, ARRAY_SIZE(stateValuesCols)),
@@ -351,6 +383,101 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
 			if (value < (u32)ARRAY_SIZE(zTestFuncs)) {
 				swprintf(dest, L"pass if src %S dst", zTestFuncs[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_OFFSETADDR:
+		swprintf(dest, L"%08x", gpuDebug->GetRelativeAddress(0));
+		break;
+
+	case CMD_FMT_VADDR:
+		swprintf(dest, L"%08x", gpuDebug->GetVertexAddress());
+		break;
+
+	case CMD_FMT_IADDR:
+		swprintf(dest, L"%08x", gpuDebug->GetIndexAddress());
+		break;
+
+	case CMD_FMT_MATERIALUPDATE:
+		{
+			static const char *materialTypes[] = {
+				"none",
+				"ambient",
+				"diffuse",
+				"ambient, diffuse",
+				"specular",
+				"ambient, specular",
+				"diffuse, specular",
+				"ambient, diffuse, specular",
+			};
+			if (value < (u32)ARRAY_SIZE(materialTypes)) {
+				swprintf(dest, L"%S", materialTypes[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_STENCILOP:
+		{
+			static const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT" };
+			const u8 sfail = (value >> 0) & 0xFF;
+			const u8 zfail = (value >> 8) & 0xFF;
+			const u8 pass = (value >> 16) & 0xFF;
+			const u8 totalValid = (u8)ARRAY_SIZE(stencilOps);
+			if (sfail < totalValid && zfail < totalValid && pass < totalValid) {
+				swprintf(dest, L"fail=%S, pass/depthfail=%S, pass=%S", stencilOps[sfail], stencilOps[zfail], stencilOps[pass]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_BLENDMODE:
+		{
+			const char *blendModes[] = {
+				"add",
+				"subtract",
+				"reverse subtract",
+				"min",
+				"max",
+				"abs subtract",
+			};
+			const char *blendFactorsA[] = {
+				"dst",
+				"1.0 - dst",
+				"src.a",
+				"1.0 - src.a",
+				"dst.a",
+				"1.0 - dst.a",
+				"2.0 * src.a",
+				"1.0 - 2.0 * src.a",
+				"2.0 * dst.a",
+				"1.0 - 2.0 * dst.a",
+				"fixed",
+			};
+			const char *blendFactorsB[] = {
+				"src",
+				"1.0 - src",
+				"src.a",
+				"1.0 - src.a",
+				"dst.a",
+				"1.0 - dst.a",
+				"2.0 * src.a",
+				"1.0 - 2.0 * src.a",
+				"2.0 * dst.a",
+				"1.0 - 2.0 * dst.a",
+				"fixed",
+			};
+			const u8 blendFactorA = (value >> 0) & 0xF;
+			const u8 blendFactorB = (value >> 4) & 0xF;
+			const u32 blendMode = (value >> 8);
+
+			if (blendFactorA < (u8)ARRAY_SIZE(blendFactorsA) && blendFactorB < (u8)ARRAY_SIZE(blendFactorsB) && blendMode < (u32)ARRAY_SIZE(blendModes)) {
+				swprintf(dest, L"%S: %S, %S", blendModes[blendMode], blendFactorsA[blendFactorA], blendFactorsB[blendFactorB]);
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
