@@ -52,7 +52,7 @@ u32 convertYCbCrToABGR (int y, int cb, int cr) {
 	if (g > 0xFF) g = 0xFF; if(g < 0) g = 0;
 	if (b > 0xFF) b = 0xFF; if(b < 0) b = 0;
 
-	return 0xFF000000 | (r << 16) | (g << 8) | (b << 0);
+	return 0xFF000000 | (b << 16) | (g << 8) | (r << 0);
 }
 
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
@@ -192,6 +192,10 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		uint32 jpeg_cityhash = CityHash32((const char *)jpegBuf, jpegSize);
 		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_cityhash);
 		FILE *wfp = fopen(jpeg_fname, "wb");
+		if (!wfp) {
+			_wmkdir(L"Jpeg\\");
+			wfp = fopen(jpeg_fname, "wb");
+		}
 		fwrite(jpegBuf, 1, jpegSize, wfp);
 		fclose(wfp);
 #endif //JPEG_DEBUG
