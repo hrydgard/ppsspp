@@ -60,7 +60,10 @@ enum {
 };
 
 enum {	
-	SHADER_NATURAL = 1
+	SHADER_OFF = 0,
+	SHADER_FXAA = 1,
+	SHADER_NATURAL = 2,
+	SHADER_CUSTOM = 3,
 };
 
 struct VirtualFramebuffer {
