@@ -58,7 +58,6 @@ static int chanQueueMinSizeFactor;
 // is bad mojo.
 FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 
-
 bool __gainAudioQueueLock();
 void __releaseAcquiredLock();
 
@@ -131,9 +130,11 @@ void __AudioDoState(PointerWrap &p) {
 
 	p.Do(mixFrequency);
 
-	{
-		if(!__gainAudioQueueLock()){
-			return;
+	{	
+		//block until a lock is achieved. Not a good idea at all, but
+		//can't think of a better one...
+		while(!__gainAudioQueueLock()){
+			continue;
 		}
 
 		outAudioQueue.DoState(p);
@@ -407,9 +408,16 @@ int __AudioMix(short *outstereo, int numFrames)
 }
 
 
+/*returns whether the lock was successfully gained or not.
+i.e - whether the lock belongs to you 
+*/
 inline bool __gainAudioQueueLock(){
-	//if it becomes true, it returns true
+	/*if the previous state was 0, that means the lock was "unlocked". So,
+	we return !0, which is true thanks to C's int to bool conversion
 
+	One the other hand, if it was locked, then the lock would return 1.
+	so, !1 = 0 = false.
+	*/
 	return !audioQueueLock.test_and_set();
 };
 
