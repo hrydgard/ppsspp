@@ -807,7 +807,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 		
-#ifdef USING_GLES2
+#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS)
 		if (gl_extensions.NV_draw_texture) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
 			glDrawTextureNV(colorTexture, 0, 
