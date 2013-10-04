@@ -169,6 +169,9 @@
     </ProjectReference>
     <ProjectReference Include="..\Core\Core.vcxproj">
       <Project>{533f1d30-d04d-47cc-ad71-20f658907e36}</Project>
+      </ProjectReference>
+    <ProjectReference Include="..\GPU\GPU.vcxproj">
+      <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
     </ProjectReference>
     <ProjectReference Include="..\native\native.vcxproj">
       <Project>{c4df647e-80ea-4111-a0a8-218b1b711e18}</Project>
