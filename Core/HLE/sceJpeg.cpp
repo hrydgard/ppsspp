@@ -208,6 +208,57 @@ int getWidthHeight(int width, int height)
 	return (width << 16) | height;
 }
 
+u32 convertRGBToYCbCr(u32 rgb) {
+	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
+	u8  r = (rgb >> 16) & 0xFF;
+	u8  g = (rgb >>  8) & 0xFF;
+	u8  b = (rgb >>  0) & 0xFF;
+	int  y = 0.299f * r + 0.587f * g + 0.114f * b + 0;
+	int cb = -0.169f * r - 0.331f * g + 0.499f * b + 128.0f;
+	int cr = 0.499f * r - 0.418f * g - 0.0813f * b + 128.0f;
+
+	// check yCbCr value
+	if ( y > 0xFF)  y = 0xFF; if ( y < 0)  y = 0;
+	if (cb > 0xFF) cb = 0xFF; if (cb < 0) cb = 0;
+	if (cr > 0xFF) cr = 0xFF; if (cr < 0) cr = 0;
+
+	return (y << 16) | (cb << 8) | cr;
+}
+
+int __JpegDecodeMJpegYCbCr(const void *data, u32 bufferOutputAddr, int width, int height) {
+	u24 *imageBuffer = (u24*)data;
+	int sizeY = width * height;
+	int sizeCb = sizeY >> 2;
+	u8 *Y = (u8*)Memory::GetPointer(bufferOutputAddr);
+	u8 *Cb = Y + sizeY;
+	u8 *Cr = Cb + sizeCb;
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; x += 4) {
+			u32 abgr0 = imageBuffer[x + 0];
+			u32 abgr1 = imageBuffer[x + 1];
+			u32 abgr2 = imageBuffer[x + 2];
+			u32 abgr3 = imageBuffer[x + 3];
+
+			u32 yCbCr0 = convertRGBToYCbCr(abgr0);
+			u32 yCbCr1 = convertRGBToYCbCr(abgr1);
+			u32 yCbCr2 = convertRGBToYCbCr(abgr2);
+			u32 yCbCr3 = convertRGBToYCbCr(abgr3);
+			
+			Y[x + 0] = (yCbCr0 >> 16) & 0xFF;
+			Y[x + 1] = (yCbCr1 >> 16) & 0xFF;
+			Y[x + 2] = (yCbCr2 >> 16) & 0xFF;
+			Y[x + 3] = (yCbCr3 >> 16) & 0xFF;
+
+			*Cb++ = (yCbCr0 >> 8) & 0xFF;
+			*Cr++ = yCbCr0 & 0xFF;
+		}
+		imageBuffer += width;
+		Y += width ;
+	}
+	return (width << 16) | height;
+}
+
 int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
 {
 	ERROR_LOG_REPORT(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
@@ -229,7 +280,8 @@ int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCr
 	}
 	if (jpegBuf == NULL)
 		return getWidthHeight(0, 0);
-	
+	if (actual_components == 3)
+		__JpegDecodeMJpegYCbCr(jpegBuf, yCbCrAddr, width, height);
 	// TODO: There's more...
 
 	return getWidthHeight(width, height);
