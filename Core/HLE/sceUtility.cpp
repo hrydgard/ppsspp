@@ -206,7 +206,7 @@ u32 sceUtilityLoadModule(u32 module)
 	}
 	currentlyLoadedModules.insert(module);
 
-	DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
+	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: Some modules have dependencies, but they still resched.
 	if (module == 0x3FF)
