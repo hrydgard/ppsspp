@@ -7,6 +7,14 @@
 
 #ifdef USING_GLES2
 
+#ifndef GL_MIN_EXT
+#define GL_MIN_EXT 0x8007
+#endif
+
+#ifndef GL_MAX_EXT
+#define GL_MAX_EXT 0x8008
+#endif
+
 #if defined(ANDROID) || defined(BLACKBERRY)
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
