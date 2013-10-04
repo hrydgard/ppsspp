@@ -133,12 +133,9 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
-	static const char *shaders[] = {"Off", "Natural"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGlslShader, gs->T("Post-Processing Shaders"), shaders, 0, ARRAY_SIZE(shaders), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 #endif
-	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing"))); 
-	// In case we're going to add few other antialiasing option like MSAA in the future.
-	graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
+	static const char *shaders[] = {"Off", "FXAA", "Natural", "Custom"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iPostProcessingShaders, gs->T("Post-Processing Shaders"), shaders, 0, ARRAY_SIZE(shaders), gs, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
