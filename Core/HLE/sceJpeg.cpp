@@ -230,7 +230,7 @@ u32 convertRGBToYCbCr(u32 rgb) {
 }
 
 int __JpegDecodeMJpegYCbCr(const void *data, u32 bufferOutputAddr, int width, int height) {
-	u24 *imageBuffer = (u24*)data;
+	u24_be *imageBuffer = (u24_be*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
 	u8 *Y = (u8*)Memory::GetPointer(bufferOutputAddr);

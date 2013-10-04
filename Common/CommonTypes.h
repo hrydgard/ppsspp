@@ -28,13 +28,13 @@
 #endif
 #endif
 
-typedef struct u24 {
+struct u24_be {
 	unsigned char value[3]; 
 
 	operator unsigned int(){
 		return 0x00000000 | (value[0] << 16) | (value[1] << 8) | (value[2] << 0);
 	}
-} u24;
+};
 
 #ifdef _WIN32
 
