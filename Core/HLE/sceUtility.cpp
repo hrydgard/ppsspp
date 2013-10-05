@@ -39,6 +39,8 @@ const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
 const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
+const int PSP_MODULE_NET_HTTP = 261;
+const int PSP_MODULE_NET_HTTPSTORAGE = 264;
 
 enum UtilityDialogType {
 	UTILITY_DIALOG_NONE,
@@ -206,7 +208,9 @@ u32 sceUtilityLoadModule(u32 module)
 	}
 	currentlyLoadedModules.insert(module);
 
-	DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
+	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
+	if (module == PSP_MODULE_NET_HTTPSTORAGE && !(currentlyLoadedModules.find(PSP_MODULE_NET_HTTP) != currentlyLoadedModules.end())) //Fix Kamen Rider Climax Heroes OOO - ULJS00331
+		return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND;
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: Some modules have dependencies, but they still resched.
 	if (module == 0x3FF)
