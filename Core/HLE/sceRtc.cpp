@@ -476,15 +476,15 @@ int sceRtcCheckValid(u32 datePtr)
 		{
 			return PSP_TIME_INVALID_DAY;
 		}
-		else if (pt.hour > 23)
+		else if (pt.hour < 0 || pt.hour > 23)
 		{
 			return PSP_TIME_INVALID_HOUR;
 		}
-		else if (pt.minute > 59)
+		else if (pt.minute < 0 || pt.minute > 59)
 		{
 			return PSP_TIME_INVALID_MINUTES;
 		}
-		else if (pt.second > 59)
+		else if (pt.second < 0 || pt.second > 59)
 		{
 			return PSP_TIME_INVALID_SECONDS;
 		}
