@@ -127,7 +127,10 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 		u32 size = Memory::Read_U32(paramsPtr);
 		WARN_LOG_REPORT(SCEKERNEL, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
 	}	
-	
+	if (name = NULL) {
+		WARN_LOG(SCEKERNEL,"sceHeapCreateHeap(): name is NULL");
+		return 0;
+	}
 	int allocSize = (heapSize + 3) & ~3;
 
 	Heap *heap = new Heap;
