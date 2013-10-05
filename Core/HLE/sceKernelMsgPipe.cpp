@@ -610,6 +610,12 @@ void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId)
 	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
 	MsgPipe *ko = uid == 0 ? NULL : kernelObjects.Get<MsgPipe>(uid, error);
 
+	if (ko == NULL)
+	{
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelMsgPipeEndCallback: Invalid object");
+		return;
+	}
+
 	switch (waitValue)
 	{
 	case MSGPIPE_WAIT_VALUE_SEND:
