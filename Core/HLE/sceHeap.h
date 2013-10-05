@@ -18,4 +18,5 @@
 #pragma once
 
 void Register_sceHeap();
+void __HeapInit();
 void __HeapDoState(PointerWrap &p);
