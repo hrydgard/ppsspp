@@ -583,7 +583,7 @@ int sceGeGetMtx(int type, u32 matrixPtr) {
 
 u32 sceGeGetCmd(int cmd) {
 	INFO_LOG(SCEGE, "sceGeGetCmd(%i)", cmd);
-	if (cmd >= 0 && cmd < ARRAY_SIZE(gstate.cmdmem)) {
+	if (cmd >= 0 && cmd < (int)ARRAY_SIZE(gstate.cmdmem)) {
 		return gstate.cmdmem[cmd];  // Does not mask away the high bits.
 	} else {
 		return SCE_KERNEL_ERROR_INVALID_INDEX;

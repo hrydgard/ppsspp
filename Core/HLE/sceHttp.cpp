@@ -165,8 +165,8 @@ int sceHttpCreateRequest(int connectionID, int method, const char *path, u64 con
 	return 0;
 }
 
-int sceHttpCreateConnection(int templateID, const char *host, const char *unknown1, u32 port, int unknown2) {
-	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateConnection(%d, %s, %s, %d, %d)", templateID, host, unknown1, port, unknown2);
+int sceHttpCreateConnection(int templateID, const char *hostString, const char *unknown1, u32 port, int unknown2) {
+	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateConnection(%d, %s, %s, %d, %d)", templateID, hostString, unknown1, port, unknown2);
 	return 0;
 }
 

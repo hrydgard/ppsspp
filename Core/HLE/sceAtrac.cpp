@@ -728,7 +728,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 finish = 0;
 	int remains = 0;
 	int ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
-	if (ret != ATRAC_ERROR_BAD_ATRACID) {
+	if (ret != (int)ATRAC_ERROR_BAD_ATRACID) {
 		Memory::Write_U32(numSamples, numSamplesAddr);
 		Memory::Write_U32(finish, finishFlagAddr);
 		Memory::Write_U32(remains, remainAddr);
@@ -1230,7 +1230,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
 		int ret = atrac->Analyze();
-		if (ret == 0 && atrac->codecType != atracIDTypes[atracID]) {
+		if (ret == 0 && (int)atrac->codecType != atracIDTypes[atracID]) {
 			ERROR_LOG(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
 			ret = ATRAC_ERROR_WRONG_CODECTYPE;
 		}
