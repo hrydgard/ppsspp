@@ -18,6 +18,7 @@
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -766,4 +767,23 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
 	// TODO: Just need the alpha value from the framebuffer...
 	return false;
+}
+
+bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
+{
+	static const int level = 0;
+	u32 bufw = GetTextureBufw(level, gstate.getTextureAddress(level), gstate.getTextureFormat());
+	switch (gstate.getTextureFormat())
+	{
+	case GE_TFMT_5650:
+	case GE_TFMT_5551:
+	case GE_TFMT_4444:
+	case GE_TFMT_8888:
+		buffer = GPUDebugBuffer(Memory::GetPointer(gstate.getTextureAddress(level)), bufw, gstate.getTextureHeight(level), gstate.getTextureFormat());
+		return true;
+
+	default:
+		// TODO: Support these...
+		return false;
+	}
 }

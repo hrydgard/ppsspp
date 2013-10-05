@@ -51,6 +51,10 @@ struct GPUDebugBuffer {
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(GPUDebugBufferFormat(fmt)), flipped_(false) {
 	}
 
+	GPUDebugBuffer(void *data, u32 stride, u32 height, GETextureFormat fmt)
+		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(GPUDebugBufferFormat(fmt)), flipped_(false) {
+	}
+
 	GPUDebugBuffer(void *data, u32 stride, u32 height, GPUDebugBufferFormat fmt)
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(fmt), flipped_(false) {
 	}
