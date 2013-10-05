@@ -35,13 +35,14 @@ class GameInfo {
 public:
 	GameInfo() 
 		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
-		  wantBG(false), gameSize(0), saveDataSize(0) {}
+		  wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
 
 	u64 GetGameSizeInBytes();
 	u64 GetSaveDataSizeInBytes();
+	u64 GetInstallDataSizeInBytes();
 
 	void LoadParamSFO();
 
@@ -82,6 +83,7 @@ public:
 
 	u64 gameSize;
 	u64 saveDataSize;
+	u64 installDataSize;
 };
 
 class GameInfoCache {
