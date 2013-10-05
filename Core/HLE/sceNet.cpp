@@ -112,14 +112,14 @@ void __NetDoState(PointerWrap &p) {
 }
 
 // TODO: should that struct actually be initialized here?
-void sceNetInit() {
-	ERROR_LOG(SCENET,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
+	ERROR_LOG(SCENET,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", poolSize, calloutPri, calloutStack, netinitPri, netinitStack);
 	netInited = true;
-	netMallocStat.maximum = PARAM(0);
-	netMallocStat.free = PARAM(0);
+	netMallocStat.maximum = poolSize;
+	netMallocStat.free = poolSize;
 	netMallocStat.pool = 0;
 
-	RETURN(0);
+	return 0;
 }
 
 u32 sceNetTerm() {
@@ -344,7 +344,7 @@ int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
 }
 
 const HLEFunction sceNet[] = {
-	{0x39AF39A6, sceNetInit, "sceNetInit"},
+	{0x39AF39A6, WrapU_UUUUU<sceNetInit>, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
 	{0x89360950, WrapI_UU<sceNetEtherNtostr>, "sceNetEtherNtostr"},
 	{0xd27961c9, WrapI_UU<sceNetEtherStrton>, "sceNetEtherStrton"},
