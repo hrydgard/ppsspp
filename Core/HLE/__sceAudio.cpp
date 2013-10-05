@@ -28,12 +28,15 @@
 #include "ChunkFile.h"
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
+#include "Common/Atomics.h"
+#include "../../native/base/mutex.h"
 
 // Should be used to lock anything related to the outAudioQueue.
-recursive_mutex section;
+//atomic locks are used on the lock. TODO: make this lock-free
+atomic_flag audioQueueLock(NATIVE_ATOMIC_FLAG_INIT);
 
 int eventAudioUpdate = -1;
-int eventHostAudioUpdate = -1;
+int eventHostAudioUpdate = -1; 
 int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
@@ -54,6 +57,9 @@ static int chanQueueMinSizeFactor;
 // TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
 // is bad mojo.
 FixedSizeQueue<s16, 512 * 16> outAudioQueue;
+
+bool __gainAudioQueueLock();
+void __releaseAcquiredLock();
 
 static inline s16 clamp_s16(int i) {
 	if (i > 32767)
@@ -108,6 +114,8 @@ void __AudioInit() {
 
 	mixBuffer = new s32[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
+
+	
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -122,9 +130,18 @@ void __AudioDoState(PointerWrap &p) {
 
 	p.Do(mixFrequency);
 
-	{
-		lock_guard guard(section);
+	{	
+		//block until a lock is achieved. Not a good idea at all, but
+		//can't think of a better one...
+		while(!__gainAudioQueueLock()){
+			continue;
+		}
+
 		outAudioQueue.DoState(p);
+
+		//release the atomic lock
+		__releaseAcquiredLock();
+		
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
@@ -290,7 +307,7 @@ void __AudioUpdate() {
 			continue;
 		}
 
-		if (hwBlockSize * 2 > chans[i].sampleQueue.size()) {
+		if (hwBlockSize * 2 > (int)chans[i].sampleQueue.size()) {
 			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, hwBlockSize);
 		}
 
@@ -322,11 +339,18 @@ void __AudioUpdate() {
 	}
 
 	if (g_Config.bEnableSound) {
-		lock_guard guard(section);
+
+		//looks like the heavy lifting is done here.
+		//we have to optimize this some more.
+		if(!__gainAudioQueueLock()){
+			return;
+		}
+
 		if (outAudioQueue.room() >= hwBlockSize * 2) {
 			s16 *buf1 = 0, *buf2 = 0;
 			size_t sz1, sz2;
 			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
+			
 			for (size_t s = 0; s < sz1; s++)
 				buf1[s] = clamp_s16(mixBuffer[s]);
 			if (buf2) {
@@ -337,6 +361,9 @@ void __AudioUpdate() {
 			// This happens quite a lot. There's still something slightly off
 			// about the amount of audio we produce.
 		}
+	
+		//release the atomic lock
+		__releaseAcquiredLock();
 	}
 }
 
@@ -352,12 +379,21 @@ int __AudioMix(short *outstereo, int numFrames)
 	const s16 *buf1 = 0, *buf2 = 0;
 	size_t sz1, sz2;
 	{
-		lock_guard guard(section);
+
+		if(!__gainAudioQueueLock()){
+			return numFrames;
+		}
+			
+		
 		outAudioQueue.popPointers(numFrames * 2, &buf1, &sz1, &buf2, &sz2);
+
 		memcpy(outstereo, buf1, sz1 * sizeof(s16));
 		if (buf2) {
 			memcpy(outstereo + sz1, buf2, sz2 * sizeof(s16));
 		}
+
+		//release the atomic lock
+		__releaseAcquiredLock();
 	}
 
 	int remains = (int)(numFrames * 2 - sz1 - sz2);
@@ -369,4 +405,22 @@ int __AudioMix(short *outstereo, int numFrames)
 		VERBOSE_LOG(SCEAUDIO, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	}
 	return underrun >= 0 ? underrun : numFrames;
+}
+
+
+/*returns whether the lock was successfully gained or not.
+i.e - whether the lock belongs to you 
+*/
+inline bool __gainAudioQueueLock(){
+	/*if the previous state was 0, that means the lock was "unlocked". So,
+	we return !0, which is true thanks to C's int to bool conversion
+
+	One the other hand, if it was locked, then the lock would return 1.
+	so, !1 = 0 = false.
+	*/
+	return !audioQueueLock.test_and_set();
+};
+
+inline void __releaseAcquiredLock(){
+	audioQueueLock.clear();
 }

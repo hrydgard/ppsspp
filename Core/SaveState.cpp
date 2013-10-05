@@ -83,7 +83,7 @@ namespace SaveState
 			if (states_[n].size() < sz)
 				states_[n].resize(sz);
 
-			return CChunkFileReader::SavePtr(states_[n].data(), state);
+			return CChunkFileReader::SavePtr(&states_[n][0], state);
 		}
 
 		CChunkFileReader::Error Restore()
@@ -97,7 +97,7 @@ namespace SaveState
 				return CChunkFileReader::ERROR_BAD_FILE;
 			
 			SaveStart state;
-			return CChunkFileReader::LoadPtr(states_[n].data(), state);
+			return CChunkFileReader::LoadPtr(&states_[n][0], state);
 		}
 
 		typedef std::vector<u8> StateBuffer;

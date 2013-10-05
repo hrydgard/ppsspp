@@ -135,9 +135,8 @@ void Process(VertexData& vertex)
 	vertex.color0.g() = final_color.g();
 	vertex.color0.b() = final_color.b();
 
-	if (gstate.isUsingSecondaryColor())
-	{
-		vertex.color1 = specular_color;
+	if (gstate.isUsingSecondaryColor()) {
+		vertex.color1 = specular_color.Clamp(0, 255);
 	} else {
 		vertex.color0.r() += specular_color.r();
 		vertex.color0.g() += specular_color.g();
@@ -148,20 +147,7 @@ void Process(VertexData& vertex)
 	int maa = (gstate.materialupdate&1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
 	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
 
-	if (vertex.color0.r() > 255) vertex.color0.r() = 255;
-	if (vertex.color0.g() > 255) vertex.color0.g() = 255;
-	if (vertex.color0.b() > 255) vertex.color0.b() = 255;
-	if (vertex.color0.a() > 255) vertex.color0.a() = 255;
-	if (vertex.color1.r() > 255) vertex.color1.r() = 255;
-	if (vertex.color1.g() > 255) vertex.color1.g() = 255;
-	if (vertex.color1.b() > 255) vertex.color1.b() = 255;
-	if (vertex.color0.r() < 0) vertex.color0.r() = 0;
-	if (vertex.color0.g() < 0) vertex.color0.g() = 0;
-	if (vertex.color0.b() < 0) vertex.color0.b() = 0;
-	if (vertex.color0.a() < 0) vertex.color0.a() = 0;
-	if (vertex.color1.r() < 0) vertex.color1.r() = 0;
-	if (vertex.color1.g() < 0) vertex.color1.g() = 0;
-	if (vertex.color1.b() < 0) vertex.color1.b() = 0;
+	vertex.color0 = vertex.color0.Clamp(0, 255);
 }
 
 } // namespace

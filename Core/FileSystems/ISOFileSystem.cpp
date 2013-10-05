@@ -192,16 +192,17 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	entireISO.flags = 0;
 	entireISO.parent = NULL;
 
-	if (memcmp(desc.cd001, "CD001", 5)) {
-		ERROR_LOG(FILESYS, "ISO looks bogus? trying anyway...");
-	}
-
 	treeroot = new TreeEntry();
 	treeroot->isDirectory = true;
 	treeroot->startingPosition = 0;
 	treeroot->size = 0;
 	treeroot->flags = 0;
 	treeroot->parent = NULL;
+
+	if (memcmp(desc.cd001, "CD001", 5)) {
+		ERROR_LOG(FILESYS, "ISO looks bogus? Giving up...");
+		return;
+	}
 
 	u32 rootSector = desc.root.firstDataSector();
 	u32 rootSize = desc.root.dataLength();

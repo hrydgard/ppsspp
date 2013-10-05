@@ -17,7 +17,7 @@ void trim2(std::string& str);
 
 void __CheatInit() {
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
-#if defined(ANDROID) || defined(__SYMBIAN32__) //tried to correcrt cwcheat for symbian correct if wrong
+#if defined(ANDROID) || defined(__SYMBIAN32__)
 	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
 #else
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
