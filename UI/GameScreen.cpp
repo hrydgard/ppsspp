@@ -67,8 +67,8 @@ void GameScreen::CreateViews() {
 	Choice *play = new Choice(ga->T("Play"));
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
 	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(ga->T("DeleteSaveData")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-	rightColumnItems->Add(new Choice(ga->T("DeleteGame")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData); 
+	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
 		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
 	}
@@ -161,7 +161,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("DeleteSaveData"), d->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 	}
 
@@ -182,7 +182,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("DeleteGame"), d->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), d->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 
