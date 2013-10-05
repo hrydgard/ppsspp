@@ -346,7 +346,7 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 	char memstickpath_buf[_MAX_PATH];
 	char flash0path_buf[_MAX_PATH];
 
-	GetModuleFileName(NULL, path_buffer, sizeof(path_buffer));
+	GetModuleFileName(NULL, path_buffer, ARRAY_SIZE(path_buffer));
 
 	std::string path = ConvertWStringToUTF8(path_buffer);
 

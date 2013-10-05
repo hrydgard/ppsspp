@@ -290,7 +290,7 @@ void __AudioUpdate() {
 			continue;
 		}
 
-		if (hwBlockSize * 2 > chans[i].sampleQueue.size()) {
+		if (hwBlockSize * 2 > (int)chans[i].sampleQueue.size()) {
 			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, hwBlockSize);
 		}
 

@@ -83,15 +83,15 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 			// Skinning
 			Vec3f psum(0,0,0);
 			Vec3f nsum(0,0,0);
-			for (int i = 0; i < numBoneWeights; i++) {
-				if (weights[i] != 0.0f) {
-					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix+i*12);
+			for (int w = 0; w < numBoneWeights; w++) {
+				if (weights[w] != 0.0f) {
+					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix+w*12);
 					Vec3f tpos(bpos);
-					psum += tpos * weights[i];
+					psum += tpos * weights[w];
 
-					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix+i*12);
+					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix+w*12);
 					Vec3f tnorm(bnrm);
-					nsum += tnorm * weights[i];
+					nsum += tnorm * weights[w];
 				}
 			}
 			sv.pos = psum;
