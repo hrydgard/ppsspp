@@ -312,24 +312,22 @@ void ElfReader::LoadRelocations2(int rel_seg)
 }
 
 
-bool ElfReader::LoadInto(u32 loadAddress)
+int ElfReader::LoadInto(u32 loadAddress)
 {
 	DEBUG_LOG(LOADER,"String section: %i", header->e_shstrndx);
 
-	//TODO - Check header->e_ident here
-	//let's dump string section
-	/*
-	char *ptr = (char*)GetSectionDataPtr(header->e_shstrndx);
-	if (*ptr == 0)
-		ptr++;
-	ptr+=513;
-	while (*ptr != 0)
-	{
-		int len = strlen(ptr);
-		LOG(LOADER,"XX %s",ptr);
-		ptr+=len;
-		ptr++;
-	}*/
+	if (header->e_ident[0] != ELFMAG0 || header->e_ident[1] != ELFMAG1
+		|| header->e_ident[2] != ELFMAG2 || header->e_ident[3] != ELFMAG3)
+		return SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
+
+	// technically ELFCLASSNONE would freeze the system, but that's not really desireable
+	if (header->e_ident[EI_CLASS] != ELFCLASS32)
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+
+	if (header->e_ident[EI_DATA] != ELFDATA2LSB)
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+
+	// e_ident[EI_VERSION] is ignored
 
 	sectionOffsets = new u32[GetNumSections()];
 	sectionAddrs = new u32[GetNumSections()];
@@ -368,7 +366,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 
 	if (vaddr == (u32)-1) {
 		ERROR_LOG_REPORT(LOADER, "Failed to allocate memory for ELF!");
-		return false;
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	
 	if (bRelocate) {
@@ -514,7 +512,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	}
 
 	NOTICE_LOG(LOADER,"ELF loading completed successfully.");
-	return true;
+	return SCE_KERNEL_ERROR_OK;
 }
 
 
