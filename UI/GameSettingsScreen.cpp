@@ -120,7 +120,11 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("Low quality spline/bezier curves (speed)")));
 
+#ifndef USING_GLES2
+	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
+#else
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+#endif
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
 #ifdef BLACKBERRY
