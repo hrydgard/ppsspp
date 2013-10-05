@@ -229,7 +229,7 @@ u32 convertRGBToYCbCr(u32 rgb) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
-int __JpegDecodeMJpegYCbCr(const void *data, u32 bufferOutputAddr, int width, int height) {
+int __JpegConvertRGBToYCbCr (const void *data, u32 bufferOutputAddr, int width, int height) {
 	u24_be *imageBuffer = (u24_be*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
@@ -285,7 +285,7 @@ int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCr
 	if (jpegBuf == NULL)
 		return getWidthHeight(0, 0);
 	if (actual_components == 3)
-		__JpegDecodeMJpegYCbCr(jpegBuf, yCbCrAddr, width, height);
+		__JpegConvertRGBToYCbCr(jpegBuf, yCbCrAddr, width, height);
 	// TODO: There's more...
 
 	return getWidthHeight(width, height);
