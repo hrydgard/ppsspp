@@ -381,14 +381,14 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						int tmp = GetIndex(kor_lcons, sw);
+						int tmp2 = GetIndex(kor_lcons, sw);
 
-						if(tmp == -1) {
+						if (tmp2 == -1) {
 							string += inputChars[i];
 							if (inputChars.size() < FieldMaxLength()) {
 								string += sw;
 
-								if(isInput == true) {
+								if (isInput == true) {
 									i_value[0] = GetIndex(kor_cons, sw);
 
 									if(i_value[0] != -1)
@@ -400,13 +400,13 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 								isCombinated = false;
 							}
 						} else {
-							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + tmp + 1;
+							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + tmp2 + 1;
 
 							string += code;
 
-							if(isInput == true) {
+							if (isInput == true) {
 								i_level = 3;
-								i_value[2] = tmp;
+								i_value[2] = tmp2;
 							}
 						}
 					}

@@ -717,9 +717,9 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 
 	if (optionsPtr != 0)
 	{
-		u32 size = Memory::Read_U32(optionsPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, size);
+		u32 optionsSize = Memory::Read_U32(optionsPtr);
+		if (optionsSize > 4)
+			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
 	}
 
 	return id;
