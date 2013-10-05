@@ -231,6 +231,27 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *s
 			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
+	case GE_TFMT_DXT1:
+		{
+			DXT1Block *block = (DXT1Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+			u32 data[4 * 4];
+			DecodeDXT1Block(data, block, 4);
+			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+		}
+	case GE_TFMT_DXT3:
+		{
+			DXT3Block *block = (DXT3Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+			u32 data[4 * 4];
+			DecodeDXT3Block(data, block, 4);
+			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+		}
+	case GE_TFMT_DXT5:
+		{
+			DXT5Block *block = (DXT5Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+			u32 data[4 * 4];
+			DecodeDXT5Block(data, block, 4);
+			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+		}
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
 		return 0;
