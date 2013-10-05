@@ -824,6 +824,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
+		// Just resetting, nothing to bound.
+		if (data == 0) {
+			// TODO: Should this set the bboxResult?  Let's set it true for now.
+			currentList->bboxResult = true;
+			break;
+		}
 		if ((data % 8 == 0) && data < 64) {  // Sanity check
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
