@@ -3336,8 +3336,12 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, co
 
 		if (thread->nt.waitType != WAITTYPE_NONE) {
 			// If it's a callback, tell the wait to stop.
-			if (waitTypeFuncs[thread->nt.waitType].beginFunc != NULL && cbId > 0) {
-				waitTypeFuncs[thread->nt.waitType].beginFunc(after->threadID, thread->currentCallbackId);
+			if (cbId > 0) {
+				if (waitTypeFuncs[thread->nt.waitType].beginFunc != NULL) {
+					waitTypeFuncs[thread->nt.waitType].beginFunc(after->threadID, thread->currentCallbackId);
+				} else {
+					ERROR_LOG_REPORT(HLE, "Missing begin/restore funcs for wait type %d", thread->nt.waitType);
+				}
 			}
 
 			// Release thread from waiting
@@ -3465,8 +3469,13 @@ void __KernelReturnFromMipsCall()
 
 	if (cur->nt.waitType != WAITTYPE_NONE)
 	{
-		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL && call->cbId > 0)
-			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
+		if (call->cbId > 0)
+		{
+			if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL && call->cbId > 0)
+				waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
+			else
+				ERROR_LOG_REPORT(HLE, "Missing begin/restore funcs for wait type %d", cur->nt.waitType);
+		}
 	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
