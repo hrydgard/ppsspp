@@ -155,6 +155,8 @@
 #define IDC_DUMP_SIZE                   1188
 #define IDC_DUMP_FILENAME               1189
 #define IDC_DUMP_BROWSEFILENAME         1190
+#define IDC_GEDBG_FRAMEBUFADDR          1191
+#define IDC_GEDBG_TEXADDR               1192
 
 // Don't define anything else in the 3000 range.
 // It's reserved for languages.
@@ -300,7 +302,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        254
 #define _APS_NEXT_COMMAND_VALUE         40133
-#define _APS_NEXT_CONTROL_VALUE         1191
+#define _APS_NEXT_CONTROL_VALUE         1193
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

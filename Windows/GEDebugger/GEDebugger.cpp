@@ -213,13 +213,11 @@ void CGEDebugger::SetupPreviews() {
 	if (frameWindow == NULL) {
 		frameWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
 		frameWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-		// TODO: Why doesn't this work?
 		frameWindow->Clear();
 	}
 	if (texWindow == NULL) {
 		texWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
 		texWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-		// TODO: Why doesn't this work?
 		texWindow->Clear();
 	}
 }
@@ -227,31 +225,42 @@ void CGEDebugger::SetupPreviews() {
 void CGEDebugger::UpdatePreviews() {
 	// TODO: Do something different if not paused?
 
+	wchar_t desc[256];
 	GPUDebugBuffer *primaryBuffer = NULL;
+	GPUgstate state;
 	bufferResult = false;
+
+	if (gpuDebug != NULL) {
+		state = gpuDebug->GetGState();
+	}
+
 	switch (primaryDisplay) {
 	case PRIMARY_FRAMEBUF:
 		SetPauseAction(PAUSE_GETFRAMEBUF);
 		primaryBuffer = &bufferFrame;
+		_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
 		break;
 
 	case PRIMARY_DEPTHBUF:
 		SetPauseAction(PAUSE_GETDEPTHBUF);
 		primaryBuffer = &bufferDepth;
+		_snwprintf(desc, ARRAY_SIZE(desc), L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
 		break;
 
 	case PRIMARY_STENCILBUF:
 		SetPauseAction(PAUSE_GETSTENCILBUF);
 		primaryBuffer = &bufferStencil;
+		_snwprintf(desc, ARRAY_SIZE(desc), L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
 		break;
 	}
 
 	if (bufferResult && primaryBuffer != NULL) {
 		auto fmt = SimpleGLWindow::Format(primaryBuffer->GetFormat());
 		frameWindow->Draw(primaryBuffer->GetData(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), primaryBuffer->GetFlipped(), fmt);
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
 	} else {
-		ERROR_LOG(COMMON, "Unable to get buffer for main display.");
 		frameWindow->Clear();
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
 	}
 
 	bufferResult = false;
@@ -262,20 +271,25 @@ void CGEDebugger::UpdatePreviews() {
 		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
 
 		if (gpuDebug != NULL) {
-			auto state = gpuDebug->GetGState();
 			if (state.isTextureAlphaUsed()) {
 				texWindow->SetFlags(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			} else {
 				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			}
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 		}
 	} else {
-		ERROR_LOG(COMMON, "Unable to get texture (may be no texture set.)");
 		texWindow->Clear();
+		if (gpuDebug == NULL || state.isTextureMapEnabled()) {
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
+		} else {
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
+		}
 	}
 
 	DisplayList list;
-	if (gpuDebug->GetCurrentDisplayList(list)) {
+	if (gpuDebug != NULL && gpuDebug->GetCurrentDisplayList(list)) {
 		displayList->setDisplayList(list);
 	}
 
@@ -375,6 +389,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_RESUME:
 			frameWindow->Clear();
 			texWindow->Clear();
+			SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"");
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
+
 			// TODO: detach?  Should probably have separate UI, or just on activate?
 			breakNextOp = false;
 			breakNextDraw = false;
