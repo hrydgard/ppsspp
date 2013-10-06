@@ -323,6 +323,7 @@ bool SimpleGLWindow::DragStart(int mouseX, int mouseY) {
 	}
 
 	dragging_ = true;
+	SetCapture(hWnd_);
 	dragStartX_ = mouseX - offsetX_;
 	dragStartY_ = mouseY - offsetY_;
 	dragLastUpdate_ = GetTickCount();
@@ -352,6 +353,7 @@ bool SimpleGLWindow::DragEnd(int mouseX, int mouseY) {
 	}
 
 	dragging_ = false;
+	ReleaseCapture();
 	Redraw();
 
 	return true;
