@@ -230,7 +230,7 @@ u32 sceUtilityUnloadModule(u32 module)
 
 	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end())
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): not yet loaded", module);
+		WARN_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i): not yet loaded", module);
 		return SCE_ERROR_MODULE_NOT_LOADED;
 	}
 	currentlyLoadedModules.erase(module);
