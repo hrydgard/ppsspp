@@ -61,6 +61,13 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 
+	enum PrimaryDisplayType {
+		PRIMARY_FRAMEBUF,
+		PRIMARY_DEPTHBUF,
+		PRIMARY_STENCILBUF,
+	};
+
+	PrimaryDisplayType primaryDisplay;
 	CtrlDisplayListView *displayList;
 	TabDisplayLists *lists;
 	TabStateFlags *flags;

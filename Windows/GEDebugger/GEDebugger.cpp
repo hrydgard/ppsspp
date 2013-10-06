@@ -38,6 +38,8 @@
 enum PauseAction {
 	PAUSE_CONTINUE,
 	PAUSE_GETFRAMEBUF,
+	PAUSE_GETDEPTHBUF,
+	PAUSE_GETSTENCILBUF,
 	PAUSE_GETTEX,
 };
 
@@ -60,6 +62,8 @@ static bool breakNextDraw = false;
 
 static bool bufferResult;
 static GPUDebugBuffer bufferFrame;
+static GPUDebugBuffer bufferDepth;
+static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
 
 // TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
@@ -122,6 +126,14 @@ static void RunPauseAction() {
 		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame);
 		break;
 
+	case PAUSE_GETDEPTHBUF:
+		bufferResult = gpuDebug->GetCurrentDepthbuffer(bufferDepth);
+		break;
+
+	case PAUSE_GETSTENCILBUF:
+		bufferResult = gpuDebug->GetCurrentStencilbuffer(bufferStencil);
+		break;
+
 	case PAUSE_GETTEX:
 		bufferResult = gpuDebug->GetCurrentTexture(bufferTex);
 		break;
@@ -139,7 +151,7 @@ static void ForceUnpause() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), primaryDisplay(PRIMARY_FRAMEBUF), frameWindow(NULL), texWindow(NULL) {
 	breakCmds.resize(256, false);
 	Core_ListenShutdown(ForceUnpause);
 
@@ -218,14 +230,30 @@ void CGEDebugger::SetupPreviews() {
 void CGEDebugger::UpdatePreviews() {
 	// TODO: Do something different if not paused?
 
+	GPUDebugBuffer *primaryBuffer = NULL;
 	bufferResult = false;
-	SetPauseAction(PAUSE_GETFRAMEBUF);
+	switch (primaryDisplay) {
+	case PRIMARY_FRAMEBUF:
+		SetPauseAction(PAUSE_GETFRAMEBUF);
+		primaryBuffer = &bufferFrame;
+		break;
 
-	if (bufferResult) {
-		auto fmt = SimpleGLWindow::Format(bufferFrame.GetFormat());
-		frameWindow->Draw(bufferFrame.GetData(), bufferFrame.GetStride(), bufferFrame.GetHeight(), bufferFrame.GetFlipped(), fmt);
+	case PRIMARY_DEPTHBUF:
+		SetPauseAction(PAUSE_GETDEPTHBUF);
+		primaryBuffer = &bufferDepth;
+		break;
+
+	case PRIMARY_STENCILBUF:
+		SetPauseAction(PAUSE_GETSTENCILBUF);
+		primaryBuffer = &bufferStencil;
+		break;
+	}
+
+	if (bufferResult && primaryBuffer != NULL) {
+		auto fmt = SimpleGLWindow::Format(primaryBuffer->GetFormat());
+		frameWindow->Draw(primaryBuffer->GetData(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), primaryBuffer->GetFlipped(), fmt);
 	} else {
-		ERROR_LOG(COMMON, "Unable to get framebuffer.");
+		ERROR_LOG(COMMON, "Unable to get buffer for main display.");
 		frameWindow->Clear();
 	}
 
@@ -235,8 +263,17 @@ void CGEDebugger::UpdatePreviews() {
 	if (bufferResult) {
 		auto fmt = SimpleGLWindow::Format(bufferTex.GetFormat());
 		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
+
+		if (gpuDebug != NULL) {
+			auto state = gpuDebug->GetGState();
+			if (state.isTextureAlphaUsed()) {
+				texWindow->SetFlags(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+			} else {
+				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
+			}
+		}
 	} else {
-		ERROR_LOG(COMMON, "Unable to get texture.");
+		ERROR_LOG(COMMON, "Unable to get texture (may be no texture set.)");
 		texWindow->Clear();
 	}
 
