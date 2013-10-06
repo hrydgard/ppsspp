@@ -212,8 +212,13 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
+	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF) | ((fbwidth & 0xFF0000) << 8); }
+	// 0x44000000 is uncached VRAM.
+	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7C0; }
+	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF) | ((zbwidth & 0xFF0000) << 8); }
+	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
 	int DepthBufStride() const { return zbwidth&0x7C0; }
 
 	// Pixel Pipeline

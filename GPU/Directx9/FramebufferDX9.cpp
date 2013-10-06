@@ -386,10 +386,10 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 	gstate_c.framebufChanged = false;
 
 	// Get parameters
-	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
+	u32 fb_address = gstate.getFrameBufRawAddress();
 	int fb_stride = gstate.fbwidth & 0x3C0;
 
-	u32 z_address = (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8);
+	u32 z_address = gstate.getDepthBufRawAddress();
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.
