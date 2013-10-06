@@ -1685,7 +1685,7 @@ namespace MainWindow
 			g_Config.iTexFiltering = LINEARFMV;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
-			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | (( (i + 1) == g_Config.iTexFiltering )? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int renderingmode[] = {
