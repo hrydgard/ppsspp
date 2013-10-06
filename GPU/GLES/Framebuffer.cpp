@@ -1383,7 +1383,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 				if (useBufferedRendering_ && vfb->fbo) {
 					fbo_bind_as_render_target(vfb->fbo);
 					needUnbind = true;
-					DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
+					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);
