@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <WindowsX.h>
 #include "math/lin/matrix4x4.h"
 #include "gfx_es2/glsl_program.h"
 #include "Common/Common.h"
@@ -66,7 +67,8 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0), zoom_(false) {
+	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0), zoom_(false),
+	  dragging_(false), offsetX_(0), offsetY_(0) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
 }
 
@@ -237,9 +239,15 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	tw_ = w;
-	th_ = h;
+	// Reset offset when the texture size changes.
+	if (tw_ != w || th_ != h) {
+		tw_ = w;
+		th_ = h;
+		offsetX_ = 0;
+		offsetY_ = 0;
+	}
 	tflipped_ = flipped;
+
 	Redraw();
 }
 
@@ -277,6 +285,9 @@ void SimpleGLWindow::Redraw() {
 		x = ((float)w_ - fw) / 2;
 		y = ((float)h_ - fh) / 2;
 	}
+
+	x += offsetX_;
+	y += offsetY_;
 
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
 	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
@@ -317,7 +328,39 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
 	case WM_LBUTTONDBLCLK:
 		win->zoom_ = !win->zoom_;
+		// Reset the offset when zooming out (or in, doesn't matter.)
+		win->offsetX_ = 0;
+		win->offsetY_ = 0;
+		// Redrawn in WM_LBUTTONUP.
+		return 0;
+
+	case WM_LBUTTONDOWN:
+		// Only while zoomed in, otherwise it's shrink to fit mode or fixed.
+		if (win->zoom_) {
+			win->dragging_ = true;
+			win->dragStartX_ = GET_X_LPARAM(lParam) - win->offsetX_;
+			win->dragStartY_ = GET_Y_LPARAM(lParam) - win->offsetY_;
+			win->dragLastUpdate_ = GetTickCount();
+		}
+		return 0;
+
+	case WM_LBUTTONUP:
+		win->dragging_ = false;
 		win->Redraw();
+		return 0;
+
+	case WM_MOUSEMOVE:
+		if (win->dragging_) {
+			int x = GET_X_LPARAM(lParam);
+			int y = GET_Y_LPARAM(lParam);
+			win->offsetX_ = x - win->dragStartX_;
+			win->offsetY_ = y - win->dragStartY_;
+			const u32 MS_BETWEEN_DRAG_REDRAWS = 5;
+			if (GetTickCount() - win->dragLastUpdate_ > MS_BETWEEN_DRAG_REDRAWS) {
+				win->Redraw();
+			}
+			return 0;
+		}
 		break;
 	}
 	

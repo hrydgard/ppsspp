@@ -73,8 +73,10 @@ protected:
 	HDC hDC_;
 	HGLRC hGLRC_;
 	bool valid_;
+	// Width and height of the window.
 	int w_;
 	int h_;
+	// Last texture size/flipped for Redraw().
 	int tw_;
 	int th_;
 	bool tflipped_;
@@ -83,5 +85,13 @@ protected:
 	GLuint checker_;
 	GLuint tex_;
 	u32 flags_;
+	// Disable shrink (toggled by double click.)
 	bool zoom_;
+	bool dragging_;
+	int dragStartX_;
+	int dragStartY_;
+	u32 dragLastUpdate_;
+	// Offset to position the texture is drawn at.
+	int offsetX_;
+	int offsetY_;
 };
