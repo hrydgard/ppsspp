@@ -68,6 +68,10 @@ protected:
 	void CreateProgram();
 	void GenerateChecker();
 	void DrawChecker();
+	bool DragStart(int mouseX, int mouseY);
+	bool DragContinue(int mouseX, int mouseY);
+	bool DragEnd(int mouseX, int mouseY);
+	bool ToggleZoom();
 
 	HWND hWnd_;
 	HDC hDC_;
