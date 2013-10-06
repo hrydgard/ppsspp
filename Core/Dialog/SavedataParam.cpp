@@ -848,9 +848,15 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 			for (u32 i = 0; i < (u32)validDir.size(); i++)
 			{
 				entries[i].st_mode = 0x11FF;
-				__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
-				__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
-				__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
+				if (sfoFiles[i].exists) {
+					__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
+					__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
+					__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
+				} else {
+					__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
+					__IoCopyDate(entries[i].st_atime, validDir[i].atime);
+					__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
+				}
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
 				memset(entries[i].name, 0, sizeof(entries[i].name));
