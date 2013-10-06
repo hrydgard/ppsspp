@@ -167,6 +167,8 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 
+	auto disasm = gpuDebug->DissassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
+
 	for (int i = 0; i < visibleRows+2; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
@@ -211,7 +213,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		}
 		SetTextColor(hdc,textColor);
 
-		GPUDebugOp op = gpuDebug->DissassembleOp(address);
+		GPUDebugOp op = i < (int)disasm.size() ? disasm[i] : GPUDebugOp();
 
 		char addressText[64];
 		sprintf(addressText,"%08X %08X",op.pc,op.op);

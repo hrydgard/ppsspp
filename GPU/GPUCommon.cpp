@@ -1065,9 +1065,10 @@ std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
 	std::vector<GPUDebugOp> result;
 	GPUDebugOp info;
 
-	u32 prev = Memory::Read_U32(startpc - 4);
+	// Don't trigger a pause.
+	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
 	for (u32 pc = startpc; pc < endpc; pc += 4) {
-		u32 op = Memory::Read_U32(pc);
+		u32 op = Memory::IsValidAddress(pc) ? Memory::Read_U32(pc) : 0;
 		GeDisassembleOp(pc, op, prev, buffer);
 		prev = op;
 
