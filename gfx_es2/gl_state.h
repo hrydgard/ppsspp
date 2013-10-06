@@ -7,6 +7,14 @@
 
 #ifdef USING_GLES2
 
+#ifndef GL_MIN_EXT
+#define GL_MIN_EXT 0x8007
+#endif
+
+#ifndef GL_MAX_EXT
+#define GL_MAX_EXT 0x8008
+#endif
+
 #if defined(ANDROID) || defined(BLACKBERRY)
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
@@ -35,7 +43,7 @@ extern PFNGLMAPBUFFERPROC glMapBuffer;
 
 #endif
 
-
+#if !defined(IOS)
 typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
 extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
@@ -43,6 +51,7 @@ typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
 																											GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei
 																											width, GLsizei height, GLsizei depth);
 extern PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
+#endif
 
 #if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
