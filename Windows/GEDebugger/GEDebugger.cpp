@@ -263,6 +263,15 @@ void CGEDebugger::UpdatePreviews() {
 	if (bufferResult) {
 		auto fmt = SimpleGLWindow::Format(bufferTex.GetFormat());
 		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
+
+		if (gpuDebug != NULL) {
+			auto state = gpuDebug->GetGState();
+			if (state.isTextureAlphaUsed()) {
+				texWindow->SetFlags(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+			} else {
+				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
+			}
+		}
 	} else {
 		ERROR_LOG(COMMON, "Unable to get texture (may be no texture set.)");
 		texWindow->Clear();
