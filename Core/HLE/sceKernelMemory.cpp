@@ -867,6 +867,7 @@ int sceKernelPrintf(const char *formatString)
 		case 'd':
 		case 'i':
 		case 'x':
+		case 'X':
 		case 'u':
 			tempFormat[1] = format[i];
 			tempFormat[2] = '\0';
@@ -876,11 +877,15 @@ int sceKernelPrintf(const char *formatString)
 			break;
 
 		case '0':
-			if (i + 3 > n || format[i + 1] != '8' || format[i + 2] != 'x')
+			if (i + 3 > n || format[i + 1] != '8' || (format[i + 2] != 'x' && format[i + 2] != 'X'))
 				supported = false;
 			else
 			{
-				snprintf(tempFormat + 1, sizeof(tempFormat) - 1, "08x");
+				// These are the '0', '8', and 'x' or 'X' respectively.
+				tempFormat[1] = format[i];
+				tempFormat[2] = format[i + 1];
+				tempFormat[3] = format[i + 2];
+				tempFormat[4] = '\0';
 				snprintf(tempStr, sizeof(tempStr), tempFormat, PARAM(param++));
 				result += tempStr;
 				i += 3;

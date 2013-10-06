@@ -384,7 +384,7 @@ static const int defaultSymbolsAmount = sizeof(defaultSymbolsAddresses)/sizeof(c
 
 void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask) const
 {
-	ShowWindow(listbox,SW_HIDE);
+	BOOL visible = ShowWindow(listbox,SW_HIDE);
 	ListBox_ResetContent(listbox);
 
 	if (symmask & ST_DATA)
@@ -422,7 +422,8 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask) const
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
 	RedrawWindow(listbox, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 
-	ShowWindow(listbox,SW_SHOW);
+	if (visible)
+		ShowWindow(listbox,SW_SHOW);
 }
 
 void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask) const
