@@ -284,7 +284,9 @@
 #define IDC_DEBUG_BOTTOMTABS             40127
 #define ID_DEBUG_HIDEBOTTOMTABS          40128
 #define ID_DEBUG_TOGGLEBOTTOMTABTITLES   40129
-#define IDC_DEBUG_LIST_SETSTALL          40130
+#define ID_GEDBG_SETSTALLADDR            40130
+#define ID_GEDBG_GOTOPC                  40131
+#define ID_GEDBG_GOTOADDR                40132
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -297,7 +299,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        254
-#define _APS_NEXT_COMMAND_VALUE         40131
+#define _APS_NEXT_COMMAND_VALUE         40133
 #define _APS_NEXT_CONTROL_VALUE         1191
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

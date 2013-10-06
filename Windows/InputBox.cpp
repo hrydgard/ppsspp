@@ -117,8 +117,11 @@ bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t *title, u32 de
 
 	if (value == IDOK)
 	{
-		wscanf(out.c_str(),"%08x",&outvalue);
-		return true;
+		if (swscanf(out.c_str(), L"0x%08x", &outvalue) == 1)
+			return true;
+		if (swscanf(out.c_str(), L"%08x", &outvalue) == 1)
+			return true;
+		return false;
 	}
 	else 
 	{
