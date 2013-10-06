@@ -201,9 +201,6 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 }
 
 CGEDebugger::~CGEDebugger() {
-	delete frameWindow;
-	delete texWindow;
-
 	delete flags;
 	delete lighting;
 	delete textureState;

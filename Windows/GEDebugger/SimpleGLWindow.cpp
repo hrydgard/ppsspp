@@ -383,6 +383,10 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		// Continue with window creation.
 		return win != NULL ? TRUE : FALSE;
 
+	case WM_NCDESTROY:
+		delete win;
+		return 0;
+
 	case WM_LBUTTONDBLCLK:
 		if (win->ToggleZoom()) {
 			return 0;
