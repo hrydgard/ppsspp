@@ -567,7 +567,7 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:
-			editBreakpoint(index);
+			editBreakpoint(itemIndex);
 			break;
 		case ID_DISASM_ADDNEWBREAKPOINT:
 			{		

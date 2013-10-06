@@ -19,6 +19,17 @@
 
 #include <cmath>
 
+// Helper for Vec classes to clamp values.
+template<typename T>
+inline static T VecClamp(const T &v, const T &low, const T &high)
+{
+	if (v > high)
+		return high;
+	if (v < low)
+		return low;
+	return v;
+}
+
 template<typename T>
 class Vec2
 {
@@ -98,6 +109,11 @@ public:
 	T Length2() const
 	{
 		return x*x + y*y;
+	}
+
+	Vec2 Clamp(const T &l, const T &h) const
+	{
+		return Vec2(VecClamp(x, l, h), VecClamp(y, l, h));
 	}
 
 	// Only implemented for T=float
@@ -230,6 +246,11 @@ public:
 	T Length2() const
 	{
 		return x*x + y*y + z*z;
+	}
+
+	Vec3 Clamp(const T &l, const T &h) const
+	{
+		return Vec3(VecClamp(x, l, h), VecClamp(y, l, h), VecClamp(z, l, h));
 	}
 
 	// Only implemented for T=float
@@ -391,6 +412,11 @@ public:
 	T Length2() const
 	{
 		return x*x + y*y + z*z + w*w;
+	}
+
+	Vec4 Clamp(const T &l, const T &h) const
+	{
+		return Vec4(VecClamp(x, l, h), VecClamp(y, l, h), VecClamp(z, l, h), VecClamp(w, l, h));
 	}
 
 	// Only implemented for T=float

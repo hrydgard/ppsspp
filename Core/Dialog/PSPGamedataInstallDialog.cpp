@@ -26,7 +26,6 @@ namespace
 	std::vector<std::string> GetPSPFileList (std::string dirpath) {
 		std::vector<std::string> FileList;
 		auto Fileinfos = pspFileSystem.GetDirListing(dirpath);
-		std::string info;
 
 		for (auto it = Fileinfos.begin(); it != Fileinfos.end(); ++it) {
 			std::string info = (*it).name;
@@ -77,12 +76,12 @@ int PSPGamedataInstallDialog::Update() {
 		u64 totalLength;
 		u64 restLength;
 		u32 bytesToRead = 4096;
-		u8 *temp = new u8[4096];	
 		u32 inhandle;
 		u32 outhandle;	
 		size_t readSize;
 	
 		if (readFiles < numFiles) {
+			u8 *temp = new u8[4096];
 			fullinFileName = "disc0:/PSP_GAME/INSDIR/" + inFileNames[readFiles];
 			outFileName = GetGameDataInstallFileName(&request, inFileNames[readFiles]);
 			totalLength = pspFileSystem.GetFileInfo(fullinFileName).size;
@@ -108,7 +107,7 @@ int PSPGamedataInstallDialog::Update() {
 				pspFileSystem.CloseFile(inhandle);
 			}
 			updateProgress();
-			delete temp;
+			delete[] temp;
 		} else {
 			//What is this?
 			request.unknownResult1 = readFiles;

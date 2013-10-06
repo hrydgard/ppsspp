@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <WindowsX.h>
 #include "math/lin/matrix4x4.h"
 #include "gfx_es2/glsl_program.h"
 #include "Common/Common.h"
@@ -29,13 +30,13 @@ void SimpleGLWindow::RegisterClass() {
 	wndClass.lpszClassName  = windowClass;
 	wndClass.hInstance      = GetModuleHandle(0);
 	wndClass.lpfnWndProc    = WndProc;
-	wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);
+	wndClass.hCursor        = LoadCursor(NULL, IDC_ARROW);
 	wndClass.hIcon          = 0;
 	wndClass.lpszMenuName   = 0;
 	wndClass.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-	wndClass.style          = 0;
+	wndClass.style          = CS_DBLCLKS;
 	wndClass.cbClsExtra     = 0;
-	wndClass.cbWndExtra     = sizeof(SimpleGLWindow*);
+	wndClass.cbWndExtra     = sizeof(SimpleGLWindow *);
 	wndClass.hIconSm        = 0;
 
 	RegisterClassEx(&wndClass);
@@ -66,7 +67,8 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0) {
+	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0), zoom_(false),
+	  dragging_(false), offsetX_(0), offsetY_(0) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
 }
 
@@ -203,17 +205,7 @@ void SimpleGLWindow::DrawChecker() {
 }
 
 void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
-	DrawChecker();
-
-	if (flags_ & ALPHA_BLEND) {
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glBlendEquation(GL_FUNC_ADD);
-	} else {
-		glDisable(GL_BLEND);
-	}
-	glViewport(0, 0, w_, h_);
-	glScissor(0, 0, w_, h_);
+	wglMakeCurrent(hDC_, hGLRC_);
 
 	GLint components = GL_RGBA;
 	GLenum glfmt;
@@ -247,11 +239,37 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+	// Reset offset when the texture size changes.
+	if (tw_ != w || th_ != h) {
+		tw_ = w;
+		th_ = h;
+		offsetX_ = 0;
+		offsetY_ = 0;
+	}
+	tflipped_ = flipped;
+
+	Redraw();
+}
+
+void SimpleGLWindow::Redraw() {
+	DrawChecker();
+
+	if (flags_ & ALPHA_BLEND) {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquation(GL_FUNC_ADD);
+	} else {
+		glDisable(GL_BLEND);
+	}
+	glViewport(0, 0, w_, h_);
+	glScissor(0, 0, w_, h_);
+
+	glBindTexture(GL_TEXTURE_2D, tex_);
 	glsl_bind(drawProgram_);
 
-	float fw = (float)w, fh = (float)h;
+	float fw = (float)tw_, fh = (float)th_;
 	float x = 0.0f, y = 0.0f;
-	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_SHRINK_CENTER)) {
+	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -262,12 +280,15 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 			fw /= hscale;
 			fh = (float)h_;
 		}
-
-		if (flags_ & RESIZE_SHRINK_CENTER) {
-			x = ((float)w_ - fw) / 2;
-			y = ((float)h_ - fh) / 2;
-		}
 	}
+	if (flags_ & RESIZE_CENTER) {
+		x = ((float)w_ - fw) / 2;
+		y = ((float)h_ - fh) / 2;
+	}
+
+	x += offsetX_;
+	y += offsetY_;
+
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
 	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
 	static const float texCoordsFlipped[8] = {0,1, 1,1, 1,0, 0,0};
@@ -277,7 +298,7 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, flipped ? texCoordsFlipped : texCoords);
+	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, tflipped_ ? texCoordsFlipped : texCoords);
 	glActiveTexture(GL_TEXTURE0);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 
@@ -304,6 +325,43 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		
 		// Continue with window creation.
 		return win != NULL;
+
+	case WM_LBUTTONDBLCLK:
+		win->zoom_ = !win->zoom_;
+		// Reset the offset when zooming out (or in, doesn't matter.)
+		win->offsetX_ = 0;
+		win->offsetY_ = 0;
+		// Redrawn in WM_LBUTTONUP.
+		return 0;
+
+	case WM_LBUTTONDOWN:
+		// Only while zoomed in, otherwise it's shrink to fit mode or fixed.
+		if (win->zoom_) {
+			win->dragging_ = true;
+			win->dragStartX_ = GET_X_LPARAM(lParam) - win->offsetX_;
+			win->dragStartY_ = GET_Y_LPARAM(lParam) - win->offsetY_;
+			win->dragLastUpdate_ = GetTickCount();
+		}
+		return 0;
+
+	case WM_LBUTTONUP:
+		win->dragging_ = false;
+		win->Redraw();
+		return 0;
+
+	case WM_MOUSEMOVE:
+		if (win->dragging_) {
+			int x = GET_X_LPARAM(lParam);
+			int y = GET_Y_LPARAM(lParam);
+			win->offsetX_ = x - win->dragStartX_;
+			win->offsetY_ = y - win->dragStartY_;
+			const u32 MS_BETWEEN_DRAG_REDRAWS = 5;
+			if (GetTickCount() - win->dragLastUpdate_ > MS_BETWEEN_DRAG_REDRAWS) {
+				win->Redraw();
+			}
+			return 0;
+		}
+		break;
 	}
 	
 	return DefWindowProc(hwnd, msg, wParam, lParam);

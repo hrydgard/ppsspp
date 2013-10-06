@@ -1685,7 +1685,7 @@ namespace MainWindow
 			g_Config.iTexFiltering = LINEARFMV;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
-			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ( (i + 1) == g_Config.iTexFiltering )? MF_CHECKED : MF_UNCHECKED);
+			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int renderingmode[] = {
@@ -1701,7 +1701,7 @@ namespace MainWindow
 			g_Config.iRenderingMode = FB_READFBOMEMORY_GPU;
 
 		for (int i = 0; i < ARRAY_SIZE(renderingmode); i++) {
-			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED);
+			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | (( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int frameskipping[] = {
@@ -1723,7 +1723,7 @@ namespace MainWindow
 			g_Config.iFrameSkip = FRAMESKIP_MAX;
 
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
-			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
+			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | (( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int savestateSlot[] = {
@@ -1741,7 +1741,7 @@ namespace MainWindow
 			g_Config.iCurrentStateSlot = SaveState::SAVESTATESLOTS - 1;
 
 		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
-			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED);
+			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | (( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		UpdateCommands();

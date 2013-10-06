@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "gfx_es2/gl_state.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
@@ -29,6 +30,8 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/disarm.h"
+
+#include <algorithm>
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

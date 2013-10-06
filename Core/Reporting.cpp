@@ -76,16 +76,16 @@ namespace Reporting
 			return g_Config.sReportHost.npos;
 
 		// IPv6 literal?
-		std::string host = ServerHost();
-		if (host[0] == '[')
+		std::string hostString = ServerHost();
+		if (hostString[0] == '[')
 		{
-			size_t length = host.find("]:");
-			if (length != host.npos)
+			size_t length = hostString.find("]:");
+			if (length != hostString.npos)
 				++length;
 			return length;
 		}
 		else
-			return host.find(':');
+			return hostString.find(':');
 	}
 
 	// Returns only the hostname part (e.g. "report.ppsspp.org".)

@@ -736,8 +736,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	// Open ELF reader
 	ElfReader reader((void*)ptr);
 
-	if (!reader.LoadInto(loadAddress)) 	{
-		ERROR_LOG(SCEMODULE, "LoadInto failed");
+	int result = reader.LoadInto(loadAddress);
+	if (result != SCE_KERNEL_ERROR_OK) 	{
+		ERROR_LOG(SCEMODULE, "LoadInto failed with error %08x",result);
 		if (newptr)
 			delete [] newptr;
 		module->Cleanup();

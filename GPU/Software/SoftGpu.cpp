@@ -18,6 +18,7 @@
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -471,7 +472,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			if (Memory::IsValidAddress(clutAddr)) {
 				Memory::MemcpyUnchecked(clut, clutAddr, clutTotalBytes);
-			} else {
+			// TODO: Do something to the CLUT with 0?
+			} else if (clutAddr != 0) {
 				// TODO: Does this make any sense?
 				ERROR_LOG_REPORT_ONCE(badClut, G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
 				memset(clut, 0xFF, clutTotalBytes);
@@ -766,4 +768,23 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
 	// TODO: Just need the alpha value from the framebuffer...
 	return false;
+}
+
+bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
+{
+	static const int level = 0;
+	u32 bufw = GetTextureBufw(level, gstate.getTextureAddress(level), gstate.getTextureFormat());
+	switch (gstate.getTextureFormat())
+	{
+	case GE_TFMT_5650:
+	case GE_TFMT_5551:
+	case GE_TFMT_4444:
+	case GE_TFMT_8888:
+		buffer = GPUDebugBuffer(Memory::GetPointer(gstate.getTextureAddress(level)), bufw, gstate.getTextureHeight(level), gstate.getTextureFormat());
+		return true;
+
+	default:
+		// TODO: Support these...
+		return false;
+	}
 }
