@@ -66,6 +66,12 @@ static GPUDebugBuffer bufferDepth;
 static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
 
+enum PrimaryDisplayType {
+	PRIMARY_FRAMEBUF,
+	PRIMARY_DEPTHBUF,
+	PRIMARY_STENCILBUF,
+};
+
 // TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
 
 void CGEDebugger::Init() {
@@ -151,7 +157,7 @@ static void ForceUnpause() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), primaryDisplay(PRIMARY_FRAMEBUF), frameWindow(NULL), texWindow(NULL) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
 	breakCmds.resize(256, false);
 	Core_ListenShutdown(ForceUnpause);
 
@@ -174,6 +180,14 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	tabs = new TabControl(GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB));
 	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
+
+	fbTabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_FBTABS));
+	fbTabs->SetMinTabWidth(50);
+	// Must be in the same order as PrimaryDisplayType.
+	fbTabs->AddTab(NULL, L"Color");
+	fbTabs->AddTab(NULL, L"Depth");
+	fbTabs->AddTab(NULL, L"Stencil");
+	fbTabs->ShowTab(0, true);
 
 	flags = new TabStateFlags(_hInstance, m_hDlg);
 	tabs->AddTabDialog(flags, L"Flags");
@@ -207,6 +221,7 @@ CGEDebugger::~CGEDebugger() {
 	delete settings;
 	delete lists;
 	delete tabs;
+	delete fbTabs;
 }
 
 void CGEDebugger::SetupPreviews() {
@@ -234,7 +249,7 @@ void CGEDebugger::UpdatePreviews() {
 		state = gpuDebug->GetGState();
 	}
 
-	switch (primaryDisplay) {
+	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
 		SetPauseAction(PAUSE_GETFRAMEBUF);
 		primaryBuffer = &bufferFrame;
@@ -367,6 +382,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		{
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
+			break;
+		case IDC_GEDBG_FBTABS:
+			fbTabs->HandleNotify(lParam);
+			// TODO: Move this somewhere...
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
+			}
 			break;
 		}
 		break;

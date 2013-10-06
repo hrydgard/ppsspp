@@ -157,6 +157,7 @@
 #define IDC_DUMP_BROWSEFILENAME         1190
 #define IDC_GEDBG_FRAMEBUFADDR          1191
 #define IDC_GEDBG_TEXADDR               1192
+#define IDC_GEDBG_FBTABS                1193
 
 // Don't define anything else in the 3000 range.
 // It's reserved for languages.
