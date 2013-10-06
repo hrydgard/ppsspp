@@ -44,10 +44,12 @@ static const atomic_flag_init NATIVE_ATOMIC_FLAG_INIT;
 
 class atomic_flag {
 public:
-	
-	atomic_flag(const atomic_flag_init &v) : value(0) {}
+	atomic_flag() {
+	}
 
-	
+	atomic_flag(const atomic_flag_init &v) : value(0) {
+	}
+
 	void clear() {
 #if defined(_WIN32)
 		_WriteBarrier();
@@ -68,7 +70,7 @@ public:
 #elif defined(BLACKBERRY)
 		return atomic_set_value(&value, 1) != 0;
 #elif defined(__SYMBIAN32__)
-		return !g_atomic_int_compare_and_exchange(&value, 0, 1);
+		return !g_atomic_int_compare_and_exchange((volatile int*)&value, 0, 1);
 #else
 		return __sync_lock_test_and_set(&value, 1) != 0;
 #endif
