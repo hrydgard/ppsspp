@@ -1741,7 +1741,7 @@ namespace MainWindow
 			g_Config.iCurrentStateSlot = SaveState::SAVESTATESLOTS - 1;
 
 		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
-			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED);
+			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | (( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		UpdateCommands();
