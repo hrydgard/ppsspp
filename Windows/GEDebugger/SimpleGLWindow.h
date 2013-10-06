@@ -36,8 +36,9 @@ struct SimpleGLWindow {
 
 	enum Flags {
 		RESIZE_NONE = 0x00,
+		RESIZE_CENTER = 0x02,
 		RESIZE_SHRINK_FIT = 0x01,
-		RESIZE_SHRINK_CENTER = 0x02,
+		RESIZE_SHRINK_CENTER = 0x03,
 		ALPHA_IGNORE = 0x00,
 		ALPHA_BLEND = 0x04,
 	};
@@ -47,6 +48,7 @@ struct SimpleGLWindow {
 
 	void Clear();
 	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
+	void Redraw();
 	void Initialize(u32 flags);
 	static SimpleGLWindow *GetFrom(HWND hwnd);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -73,9 +75,13 @@ protected:
 	bool valid_;
 	int w_;
 	int h_;
+	int tw_;
+	int th_;
+	bool tflipped_;
 
 	GLSLProgram *drawProgram_;
 	GLuint checker_;
 	GLuint tex_;
 	u32 flags_;
+	bool zoom_;
 };
