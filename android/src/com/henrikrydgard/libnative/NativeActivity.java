@@ -106,12 +106,15 @@ public class NativeActivity extends Activity {
 	private int optimalFramesPerBuffer;
 	private int optimalSampleRate;
 	
+	//audioFocusChangeListener to listen to changes in audio state
+	private AudioFocusChangeListener audioFocusChangeListener;
+	private AudioManager audioManager;
+	
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
-		AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
 		try {
-			optimalFramesPerBuffer = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
-			optimalSampleRate = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
+			optimalFramesPerBuffer = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
+			optimalSampleRate = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
 		} catch (NumberFormatException e) {
 			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
 		}
@@ -153,6 +156,12 @@ public class NativeActivity extends Activity {
 	}
 	
 	public void Initialize() {
+		
+		//initialise audio classes. Do this here since detectOptimalAudioSettings()
+		//needs audioManager
+        this.audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+		this.audioFocusChangeListener = new AudioFocusChangeListener();
+		
         if (Build.VERSION.SDK_INT >= 9) {
         	// Native OpenSL is available. Let's use it!
         	useOpenSL = true;
@@ -214,7 +223,8 @@ public class NativeActivity extends Activity {
         } else {
         	Log.i(TAG, "OpenGL ES 2.0 detected.");
         }
-    
+        
+       
         /*
         editText = new EditText(this);
         editText.setText("Hello world");
@@ -239,9 +249,13 @@ public class NativeActivity extends Activity {
 		Window window = this.getWindow();
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
-
-		if (!useOpenSL)
-        	audioPlayer = new NativeAudioPlayer();
+		
+		
+		//intialize audio and tell PPSSPP to gain audio focus
+		if (!useOpenSL){
+			audioPlayer = new NativeAudioPlayer();
+		}
+		NativeAudioPlayer.gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
         
         Point size = new Point();
@@ -277,6 +291,9 @@ public class NativeActivity extends Activity {
 		NativeApp.audioShutdown();
 		audioPlayer = null;
 		mGLSurfaceView = null;
+		audioFocusChangeListener = null;
+		audioManager = null;
+		
 	}  
 	
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
@@ -294,6 +311,8 @@ public class NativeActivity extends Activity {
     protected void onPause() {
         super.onPause();
     	Log.i(TAG, "onPause");
+    	
+    	NativeAudioPlayer.loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
         if (audioPlayer != null) {
         	audioPlayer.stop();
         }
@@ -313,7 +332,9 @@ public class NativeActivity extends Activity {
 		} else {
 			Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
 		}
-		if (audioPlayer != null) {
+		
+		NativeAudioPlayer.gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		if (audioPlayer != null) {	
 			audioPlayer.play();
 		}
 		NativeApp.resume();
