@@ -472,7 +472,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			if (Memory::IsValidAddress(clutAddr)) {
 				Memory::MemcpyUnchecked(clut, clutAddr, clutTotalBytes);
-			} else {
+			// TODO: Do something to the CLUT with 0?
+			} else if (clutAddr != 0) {
 				// TODO: Does this make any sense?
 				ERROR_LOG_REPORT_ONCE(badClut, G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
 				memset(clut, 0xFF, clutTotalBytes);
