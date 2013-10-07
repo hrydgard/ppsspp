@@ -759,15 +759,41 @@ bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
 {
 	// We don't know the height, so just use 512, which should be the max (hopefully?)
 	// TODO: Could check clipping and such, though...?
-	// TODO: Is the value 16-bit?  It seems to be.
 	buffer = GPUDebugBuffer(depthbuf.data, gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_16BIT);
 	return true;
 }
 
 bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
-	// TODO: Just need the alpha value from the framebuffer...
-	return false;
+	buffer.Allocate(gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_8BIT);
+
+	for (int y = 0; y < 512; ++y) {
+		u8 *row = buffer.GetData() + gstate.DepthBufStride() * y;
+		switch (gstate.FrameBufFormat()) {
+		case GE_FORMAT_565:
+			memset(row, 0, gstate.DepthBufStride());
+			break;
+		case GE_FORMAT_5551:
+			for (int x = 0; x < gstate.DepthBufStride(); ++x) {
+				row[x] = (fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0 ? 0xFF : 0;
+			}
+			break;
+		case GE_FORMAT_4444:
+			for (int x = 0; x < gstate.DepthBufStride(); ++x) {
+				row[x] = Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
+			}
+			break;
+		case GE_FORMAT_8888:
+			for (int x = 0; x < gstate.DepthBufStride(); ++x) {
+				row[x] = fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
+			}
+			break;
+		case GE_FORMAT_INVALID:
+			ERROR_LOG(HLE, "Impossible framebuffer format.");
+			break;
+		}
+	}
+	return true;
 }
 
 bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
