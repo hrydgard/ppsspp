@@ -17,6 +17,7 @@
 
 #include "base/basictypes.h"
 #include "Windows/resource.h"
+#include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabState.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
@@ -527,7 +528,36 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
 			break;
 		}
 	}
-	
+}
+
+void CtrlStateValues::OnDoubleClick(int row, int column) {
+	if (gpuDebug == NULL) {
+		return;
+	}
+
+	const auto info = rows_[row];
+	switch (info.fmt) {
+	case CMD_FMT_FLAG:
+		{
+			const auto state = gpuDebug->GetGState();
+			u32 newValue = state.cmdmem[info.cmd] ^ 1;
+			SetCmdValue(newValue);
+		}
+		break;
+	}
+}
+
+void CtrlStateValues::OnRightClick(int row, int column, const POINT& point) {
+	if (gpuDebug == NULL) {
+		return;
+	}
+
+	// TODO: Copy, etc.
+}
+
+void CtrlStateValues::SetCmdValue(u32 op) {
+	SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, NULL);
+		Update();
 }
 
 TabStateValues::TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)

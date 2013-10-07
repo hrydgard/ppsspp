@@ -1096,3 +1096,12 @@ u32 GPUCommon::GetIndexAddress() {
 GPUgstate GPUCommon::GetGState() {
 	return gstate;
 }
+
+void GPUCommon::SetCmdValue(u32 op) {
+	u32 cmd = op >> 24;
+	u32 diff = op ^ gstate.cmdmem[cmd];
+
+	PreExecuteOp(op, diff);
+	gstate.cmdmem[cmd] = op;
+	ExecuteOp(op, diff);
+}

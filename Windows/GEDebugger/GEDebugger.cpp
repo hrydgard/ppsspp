@@ -41,6 +41,7 @@ enum PauseAction {
 	PAUSE_GETDEPTHBUF,
 	PAUSE_GETSTENCILBUF,
 	PAUSE_GETTEX,
+	PAUSE_SETCMDVALUE,
 };
 
 static bool attached = false;
@@ -65,6 +66,7 @@ static GPUDebugBuffer bufferFrame;
 static GPUDebugBuffer bufferDepth;
 static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
+static u32 pauseSetCmdValue;
 
 enum PrimaryDisplayType {
 	PRIMARY_FRAMEBUF,
@@ -143,6 +145,13 @@ static void RunPauseAction() {
 	case PAUSE_GETTEX:
 		bufferResult = gpuDebug->GetCurrentTexture(bufferTex);
 		break;
+
+	case PAUSE_SETCMDVALUE:
+		gpuDebug->SetCmdValue(pauseSetCmdValue);
+		break;
+
+	default:
+		ERROR_LOG(HLE, "Unsupported pause action, forgot to add it to the switch.");
 	}
 
 	actionWait.notify_one();
@@ -466,6 +475,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			u32 pc = (u32)wParam;
 			tempBreakpoint = pc;
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
+		}
+		break;
+
+	case WM_GEDBG_SETCMDWPARAM:
+		{
+			pauseSetCmdValue = (u32)wParam;
+			SetPauseAction(PAUSE_SETCMDVALUE);
 		}
 		break;
 	}
