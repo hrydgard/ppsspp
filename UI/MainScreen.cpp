@@ -202,10 +202,6 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 }
 
-class SaveChoice : public UI::Choice{
-
-};
-
 // Abstraction above path that lets you navigate easily.
 // "/" is a special path that means the root of the file system. On Windows,
 // listing this will yield drives.
