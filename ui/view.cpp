@@ -152,9 +152,6 @@ void Clickable::FocusChanged(int focusFlags) {
 		down_ = false;
 		dragging_ = false;
 	}
-	else if(focusFlags & FF_GOTFOCUS){
-		highlighted_ = true;
-	}
 }
 
  void Clickable::HighlightChanged(bool highlighted){
@@ -257,12 +254,6 @@ void StickyChoice::Key(const KeyInput &key) {
 }
 
 void StickyChoice::FocusChanged(int focusFlags) {
-	if(focusFlags & FF_GOTFOCUS){
-		highlighted_ = true;
-	}
-	if(focusFlags & FF_LOSTFOCUS){
-		highlighted_ = false;
-	}
 	// Override Clickable's FocusChanged to do nothing.
 }
 
