@@ -28,6 +28,7 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Colors.h"
+#include "GPU/Software/Rasterizer.h"
 
 static GLuint temp_texture = 0;
 
@@ -765,40 +766,15 @@ bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
 
 bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
-	buffer.Allocate(gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_8BIT);
-
-	for (int y = 0; y < 512; ++y) {
-		u8 *row = buffer.GetData() + gstate.DepthBufStride() * y;
-		switch (gstate.FrameBufFormat()) {
-		case GE_FORMAT_565:
-			memset(row, 0, gstate.DepthBufStride());
-			break;
-		case GE_FORMAT_5551:
-			for (int x = 0; x < gstate.DepthBufStride(); ++x) {
-				row[x] = (fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0 ? 0xFF : 0;
-			}
-			break;
-		case GE_FORMAT_4444:
-			for (int x = 0; x < gstate.DepthBufStride(); ++x) {
-				row[x] = Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
-			}
-			break;
-		case GE_FORMAT_8888:
-			for (int x = 0; x < gstate.DepthBufStride(); ++x) {
-				row[x] = fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
-			}
-			break;
-		case GE_FORMAT_INVALID:
-			ERROR_LOG(HLE, "Impossible framebuffer format.");
-			break;
-		}
-	}
-	return true;
+	return Rasterizer::GetCurrentStencilbuffer(buffer);
 }
 
 bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
 {
 	static const int level = 0;
+
+	WARN_LOG(G3D, "Software texture preview currently very broken.");
+
 	u32 bufw = GetTextureBufw(level, gstate.getTextureAddress(level), gstate.getTextureFormat());
 	switch (gstate.getTextureFormat())
 	{
@@ -806,6 +782,7 @@ bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
 	case GE_TFMT_5551:
 	case GE_TFMT_4444:
 	case GE_TFMT_8888:
+		// TODO: Swizzling, of course.
 		buffer = GPUDebugBuffer(Memory::GetPointer(gstate.getTextureAddress(level)), bufw, gstate.getTextureHeight(level), gstate.getTextureFormat());
 		return true;
 

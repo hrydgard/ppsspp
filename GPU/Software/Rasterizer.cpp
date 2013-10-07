@@ -959,4 +959,18 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	}
 }
 
+bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
+{
+	buffer.Allocate(gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_8BIT);
+
+	u8 *row = buffer.GetData();
+	for (int y = 0; y < 512; ++y) {
+		for (int x = 0; x < gstate.DepthBufStride(); ++x) {
+			row[x] = GetPixelStencil(x, y);
+		}
+		row += gstate.DepthBufStride();
+	}
+	return true;
+}
+
 } // namespace
