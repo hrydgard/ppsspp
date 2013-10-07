@@ -202,6 +202,10 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 }
 
+class SaveChoice : public UI::Choice{
+
+};
+
 // Abstraction above path that lets you navigate easily.
 // "/" is a special path that means the root of the file system. On Windows,
 // listing this will yield drives.
@@ -723,14 +727,22 @@ void GamePauseScreen::CreateViews() {
 	leftColumn->Add(leftColumnItems);
 
 	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
+	
 	saveSlots_->AddChoice(" 1 ");
 	saveSlots_->AddChoice(" 2 ");
 	saveSlots_->AddChoice(" 3 ");
 	saveSlots_->AddChoice(" 4 ");
 	saveSlots_->AddChoice(" 5 ");
+	
 	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
 	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
 	
+	for(int i = 0; i < 5; i++){
+		if(SaveState::HasSaveInSlot(i)){
+			saveSlots_->HighlightChoice(i);
+		}
+	}
+
 	saveStateButton_ = leftColumnItems->Add(new Choice(i->T("Save State")));
 	saveStateButton_->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
 
