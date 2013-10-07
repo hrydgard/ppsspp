@@ -17,6 +17,7 @@
 
 #include "base/basictypes.h"
 #include "Windows/resource.h"
+#include "Windows/InputBox.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabState.h"
 #include "GPU/GPUState.h"
@@ -544,6 +545,18 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 			SetCmdValue(newValue);
 		}
 		break;
+
+	default:
+		{
+			// TODO: Floats/etc., and things with multiple cmds.
+			const auto state = gpuDebug->GetGState();
+			u32 newValue = state.cmdmem[info.cmd] & 0x00FFFFFF;
+			if (InputBox_GetHex(GetModuleHandle(NULL), GetHandle(), L"New value", newValue, newValue)) {
+				newValue |= state.cmdmem[info.cmd] & 0xFF000000;
+				SetCmdValue(newValue);
+			}
+		}
+		break;
 	}
 }
 
@@ -552,7 +565,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT& point) {
 		return;
 	}
 
-	// TODO: Copy, etc.
+	// TODO: Copy, break, watch... enable?
 }
 
 void CtrlStateValues::SetCmdValue(u32 op) {
