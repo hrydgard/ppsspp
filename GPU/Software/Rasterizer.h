@@ -19,9 +19,14 @@
 
 #include "TransformUnit.h" // for DrawingCoords
 
+struct GPUDebugBuffer;
+
 namespace Rasterizer {
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2);
+
+bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+bool GetCurrentTexture(GPUDebugBuffer &buffer);
 
 }
