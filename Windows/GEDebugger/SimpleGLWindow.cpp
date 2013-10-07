@@ -227,6 +227,9 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_16BIT) {
 			glfmt = GL_UNSIGNED_SHORT;
 			components = GL_RED;
+		} else if (fmt == FORMAT_8BIT) {
+			glfmt = GL_UNSIGNED_BYTE;
+			components = GL_RED;
 		} else {
 			_dbg_assert_msg_(COMMON, false, "Invalid SimpleGLWindow format.");
 		}
@@ -253,6 +256,11 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 
 void SimpleGLWindow::Redraw() {
 	DrawChecker();
+
+	if (tw_ == 0 && th_ == 0) {
+		Swap();
+		return;
+	}
 
 	if (flags_ & ALPHA_BLEND) {
 		glEnable(GL_BLEND);
@@ -306,8 +314,63 @@ void SimpleGLWindow::Redraw() {
 }
 
 void SimpleGLWindow::Clear() {
-	DrawChecker();
-	Swap();
+	tw_ = 0;
+	th_ = 0;
+	Redraw();
+}
+
+bool SimpleGLWindow::DragStart(int mouseX, int mouseY) {
+	// Only while zoomed in, otherwise it's shrink to fit mode or fixed.
+	if (!zoom_) {
+		return false;
+	}
+
+	dragging_ = true;
+	SetCapture(hWnd_);
+	dragStartX_ = mouseX - offsetX_;
+	dragStartY_ = mouseY - offsetY_;
+	dragLastUpdate_ = GetTickCount();
+
+	return true;
+}
+
+bool SimpleGLWindow::DragContinue(int mouseX, int mouseY) {
+	if (!dragging_) {
+		return false;
+	}
+
+	offsetX_ = mouseX - dragStartX_;
+	offsetY_ = mouseY - dragStartY_;
+
+	const u32 MS_BETWEEN_DRAG_REDRAWS = 5;
+	if (GetTickCount() - dragLastUpdate_ > MS_BETWEEN_DRAG_REDRAWS) {
+		Redraw();
+	}
+
+	return true;
+}
+
+bool SimpleGLWindow::DragEnd(int mouseX, int mouseY) {
+	if (!dragging_) {
+		return false;
+	}
+
+	dragging_ = false;
+	ReleaseCapture();
+	Redraw();
+
+	return true;
+}
+
+bool SimpleGLWindow::ToggleZoom() {
+	// Reset the offset when zooming out (or in, doesn't matter.)
+	offsetX_ = 0;
+	offsetY_ = 0;
+
+	zoom_ = !zoom_;
+	Redraw();
+
+	return true;
 }
 
 SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {
@@ -320,47 +383,41 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	switch(msg)
 	{
 	case WM_NCCREATE:
-		// Allocate a new CustCtrl structure for this window.
 		win = new SimpleGLWindow(hwnd);
 		
 		// Continue with window creation.
-		return win != NULL;
+		return win != NULL ? TRUE : FALSE;
+
+	case WM_NCDESTROY:
+		delete win;
+		return 0;
 
 	case WM_LBUTTONDBLCLK:
-		win->zoom_ = !win->zoom_;
-		// Reset the offset when zooming out (or in, doesn't matter.)
-		win->offsetX_ = 0;
-		win->offsetY_ = 0;
-		// Redrawn in WM_LBUTTONUP.
-		return 0;
-
-	case WM_LBUTTONDOWN:
-		// Only while zoomed in, otherwise it's shrink to fit mode or fixed.
-		if (win->zoom_) {
-			win->dragging_ = true;
-			win->dragStartX_ = GET_X_LPARAM(lParam) - win->offsetX_;
-			win->dragStartY_ = GET_Y_LPARAM(lParam) - win->offsetY_;
-			win->dragLastUpdate_ = GetTickCount();
-		}
-		return 0;
-
-	case WM_LBUTTONUP:
-		win->dragging_ = false;
-		win->Redraw();
-		return 0;
-
-	case WM_MOUSEMOVE:
-		if (win->dragging_) {
-			int x = GET_X_LPARAM(lParam);
-			int y = GET_Y_LPARAM(lParam);
-			win->offsetX_ = x - win->dragStartX_;
-			win->offsetY_ = y - win->dragStartY_;
-			const u32 MS_BETWEEN_DRAG_REDRAWS = 5;
-			if (GetTickCount() - win->dragLastUpdate_ > MS_BETWEEN_DRAG_REDRAWS) {
-				win->Redraw();
-			}
+		if (win->ToggleZoom()) {
 			return 0;
 		}
+		break;
+
+	case WM_LBUTTONDOWN:
+		if (win->DragStart(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+			return 0;
+		}
+		break;
+
+	case WM_LBUTTONUP:
+		if (win->DragEnd(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+			return 0;
+		}
+		break;
+
+	case WM_MOUSEMOVE:
+		if (win->DragContinue(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+			return 0;
+		}
+		break;
+
+	case WM_PAINT:
+		win->Redraw();
 		break;
 	}
 	

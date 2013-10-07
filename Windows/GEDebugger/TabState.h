@@ -30,8 +30,12 @@ protected:
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
 	virtual void GetColumnText(wchar_t* dest, int row, int col);
 	virtual int GetRowCount() { return rowCount_; }
+	virtual void OnDoubleClick(int row, int column);
+	virtual void OnRightClick(int row, int column, const POINT& point);
 
 private:
+	void SetCmdValue(u32 op);
+
 	const TabStateRow *rows_;
 	int rowCount_;
 };
