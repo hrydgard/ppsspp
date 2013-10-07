@@ -54,6 +54,7 @@ enum CmdFormatType {
 	CMD_FMT_MATERIALUPDATE,
 	CMD_FMT_STENCILOP,
 	CMD_FMT_BLENDMODE,
+	CMD_FMT_FLAG,
 };
 
 struct TabStateRow {
@@ -66,25 +67,25 @@ struct TabStateRow {
 };
 
 static const TabStateRow stateFlagsRows[] = {
-	{ L"Lighting enable",      GE_CMD_LIGHTINGENABLE,          CMD_FMT_NUM },
-	{ L"Light 0 enable",       GE_CMD_LIGHTENABLE0,            CMD_FMT_NUM },
-	{ L"Light 1 enable",       GE_CMD_LIGHTENABLE1,            CMD_FMT_NUM },
-	{ L"Light 2 enable",       GE_CMD_LIGHTENABLE2,            CMD_FMT_NUM },
-	{ L"Light 3 enable",       GE_CMD_LIGHTENABLE3,            CMD_FMT_NUM },
-	{ L"Clip enable",          GE_CMD_CLIPENABLE,              CMD_FMT_NUM },
-	{ L"Cullface enable",      GE_CMD_CULLFACEENABLE,          CMD_FMT_NUM },
-	{ L"Texture map enable",   GE_CMD_TEXTUREMAPENABLE,        CMD_FMT_NUM },
-	{ L"Fog enable",           GE_CMD_FOGENABLE,               CMD_FMT_NUM },
-	{ L"Dither enable",        GE_CMD_DITHERENABLE,            CMD_FMT_NUM },
-	{ L"Alpha blend enable",   GE_CMD_ALPHABLENDENABLE,        CMD_FMT_NUM },
-	{ L"Alpha test enable",    GE_CMD_ALPHATESTENABLE,         CMD_FMT_NUM },
-	{ L"Depth test enable",    GE_CMD_ZTESTENABLE,             CMD_FMT_NUM },
-	{ L"Stencil test enable",  GE_CMD_STENCILTESTENABLE,       CMD_FMT_NUM },
-	{ L"Antialias enable",     GE_CMD_ANTIALIASENABLE,         CMD_FMT_NUM },
-	{ L"Patch cull enable",    GE_CMD_PATCHCULLENABLE,         CMD_FMT_NUM },
-	{ L"Color test enable",    GE_CMD_COLORTESTENABLE,         CMD_FMT_NUM },
-	{ L"Logic op enable",      GE_CMD_LOGICOPENABLE,           CMD_FMT_NUM },
-	{ L"Depth write disable",  GE_CMD_ZWRITEDISABLE,           CMD_FMT_NUM },
+	{ L"Lighting enable",      GE_CMD_LIGHTINGENABLE,          CMD_FMT_FLAG },
+	{ L"Light 0 enable",       GE_CMD_LIGHTENABLE0,            CMD_FMT_FLAG },
+	{ L"Light 1 enable",       GE_CMD_LIGHTENABLE1,            CMD_FMT_FLAG },
+	{ L"Light 2 enable",       GE_CMD_LIGHTENABLE2,            CMD_FMT_FLAG },
+	{ L"Light 3 enable",       GE_CMD_LIGHTENABLE3,            CMD_FMT_FLAG },
+	{ L"Clip enable",          GE_CMD_CLIPENABLE,              CMD_FMT_FLAG },
+	{ L"Cullface enable",      GE_CMD_CULLFACEENABLE,          CMD_FMT_FLAG },
+	{ L"Texture map enable",   GE_CMD_TEXTUREMAPENABLE,        CMD_FMT_FLAG },
+	{ L"Fog enable",           GE_CMD_FOGENABLE,               CMD_FMT_FLAG },
+	{ L"Dither enable",        GE_CMD_DITHERENABLE,            CMD_FMT_FLAG },
+	{ L"Alpha blend enable",   GE_CMD_ALPHABLENDENABLE,        CMD_FMT_FLAG },
+	{ L"Alpha test enable",    GE_CMD_ALPHATESTENABLE,         CMD_FMT_FLAG },
+	{ L"Depth test enable",    GE_CMD_ZTESTENABLE,             CMD_FMT_FLAG },
+	{ L"Stencil test enable",  GE_CMD_STENCILTESTENABLE,       CMD_FMT_FLAG },
+	{ L"Antialias enable",     GE_CMD_ANTIALIASENABLE,         CMD_FMT_FLAG },
+	{ L"Patch cull enable",    GE_CMD_PATCHCULLENABLE,         CMD_FMT_FLAG },
+	{ L"Color test enable",    GE_CMD_COLORTESTENABLE,         CMD_FMT_FLAG },
+	{ L"Logic op enable",      GE_CMD_LOGICOPENABLE,           CMD_FMT_FLAG },
+	{ L"Depth write disable",  GE_CMD_ZWRITEDISABLE,           CMD_FMT_FLAG },
 };
 
 static const TabStateRow stateLightingRows[] = {
@@ -97,7 +98,7 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Material alpha",       GE_CMD_MATERIALALPHA,           CMD_FMT_HEX },
 	{ L"Material specular",    GE_CMD_MATERIALSPECULAR,        CMD_FMT_HEX },
 	{ L"Mat. specular coef",   GE_CMD_MATERIALSPECULARCOEF,    CMD_FMT_FLOAT24 },
-	{ L"Reverse normals",      GE_CMD_REVERSENORMAL,           CMD_FMT_NUM },
+	{ L"Reverse normals",      GE_CMD_REVERSENORMAL,           CMD_FMT_FLAG },
 	// TODO: Format?
 	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_NUM },
 	// TODO: Format?
@@ -481,6 +482,14 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
+		}
+		break;
+
+	case CMD_FMT_FLAG:
+		if ((value & ~1) == 0) {
+			swprintf(dest, L"%d", value);
+		} else {
+			swprintf(dest, L"%06x", value);
 		}
 		break;
 
