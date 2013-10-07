@@ -70,6 +70,7 @@
     <ClCompile Include="Crypto\sha1.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
+    <ClCompile Include="ChunkFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

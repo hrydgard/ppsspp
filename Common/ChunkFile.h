@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _POINTERWRAP_H_
-#define _POINTERWRAP_H_
+#pragma once
 
 // Extremely simple serialization framework.
 
@@ -24,7 +23,7 @@
 // + Super fast
 // + Very simple
 // + Same code is used for serialization and deserializaition (in most cases)
-// - Zero backwards/forwards compatibility
+// + Sections can be versioned for backwards/forwards compatibility
 // - Serialization code for anything complex has to be manually written.
 
 #include <map>
@@ -153,73 +152,21 @@ public:
 	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_), error(ERROR_NONE) {}
 	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_), error(ERROR_NONE) {}
 
-	PointerWrapSection Section(const char *title, int ver) {
-		return Section(title, ver, ver);
-	}
+	PointerWrapSection Section(const char *title, int ver);
 
 	// The returned object can be compared against the version that was loaded.
 	// This can be used to support versions as old as minVer.
 	// Version = 0 means the section was not found.
-	PointerWrapSection Section(const char *title, int minVer, int ver) {
-		char marker[16] = {0};
-		int foundVersion = ver;
-
-		strncpy(marker, title, sizeof(marker));
-		if (!ExpectVoid(marker, sizeof(marker)))
-		{
-			// Might be before we added name markers for safety.
-			if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion)))
-				DoMarker(title);
-			// Wasn't found, but maybe we can still load the state.
-			else
-				foundVersion = 0;
-		}
-		else
-			Do(foundVersion);
-
-		if (error == ERROR_FAILURE || foundVersion < minVer || foundVersion > ver) {
-			WARN_LOG(COMMON, "Savestate failure: wrong version %d found for %s", foundVersion, title);
-			SetError(ERROR_FAILURE);
-			return PointerWrapSection(*this, -1, title);
-		}
-		return PointerWrapSection(*this, foundVersion, title);
-	}
+	PointerWrapSection Section(const char *title, int minVer, int ver);
 
 	void SetMode(Mode mode_) {mode = mode_;}
 	Mode GetMode() const {return mode;}
 	u8 **GetPPtr() {return ptr;}
-	void SetError(Error error_)
-	{
-		if (error < error_)
-			error = error_;
-		if (error > ERROR_WARNING)
-			mode = PointerWrap::MODE_MEASURE;
-	}
+	void SetError(Error error_);
 
-	bool ExpectVoid(void *data, int size)
-	{
-		switch (mode) {
-		case MODE_READ:	if (memcmp(data, *ptr, size) != 0) return false; break;
-		case MODE_WRITE: memcpy(*ptr, data, size); break;
-		case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
-		case MODE_VERIFY: for(int i = 0; i < size; i++) _dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]); break;
-		default: break;  // throw an error?
-		}
-		(*ptr) += size;
-		return true;
-	}
-
-	void DoVoid(void *data, int size)
-	{
-		switch (mode) {
-		case MODE_READ:	memcpy(data, *ptr, size); break;
-		case MODE_WRITE: memcpy(*ptr, data, size); break;
-		case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
-		case MODE_VERIFY: for(int i = 0; i < size; i++) _dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]); break;
-		default: break;  // throw an error?
-		}
-		(*ptr) += size;
-	}
+	// Same as DoVoid, except doesn't advance pointer if it doesn't match on read.
+	bool ExpectVoid(void *data, int size);
+	void DoVoid(void *data, int size);
 	
 	template<class K, class T>
 	void Do(std::map<K, T *> &x)
@@ -355,14 +302,6 @@ public:
 		DoVector(x, dv);
 	}
 
-
-	template<class T>
-	void DoPOD(std::vector<T> &x)
-	{
-		T dv = T();
-		DoVectorPOD(x, dv);
-	}
-
 	template<class T>
 	void Do(std::vector<T> &x, T &default_val)
 	{
@@ -371,16 +310,6 @@ public:
 
 	template<class T>
 	void DoVector(std::vector<T> &x, T &default_val)
-	{
-		u32 vec_size = (u32)x.size();
-		Do(vec_size);
-		x.resize(vec_size, default_val);
-		if (vec_size > 0)
-			DoArray(&x[0], vec_size);
-	}
-
-	template<class T>
-	void DoVectorPOD(std::vector<T> &x, T &default_val)
 	{
 		u32 vec_size = (u32)x.size();
 		Do(vec_size);
@@ -448,7 +377,6 @@ public:
 			Do(*itr);
 	}
 
-
 	// Store STL sets.
 	template <class T>
 	void Do(std::set<T *> &x)
@@ -505,33 +433,10 @@ public:
 	}
 
 	// Store strings.
-	void Do(std::string &x) 
-	{
-		int stringLen = (int)x.length() + 1;
-		Do(stringLen);
-		
-		switch (mode) {
-		case MODE_READ:		x = (char*)*ptr; break;
-		case MODE_WRITE:	memcpy(*ptr, x.c_str(), stringLen); break;
-		case MODE_MEASURE: break;
-		case MODE_VERIFY: _dbg_assert_msg_(COMMON, !strcmp(x.c_str(), (char*)*ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char*)*ptr, ptr); break;
-		}
-		(*ptr) += stringLen;
-	}
+	void Do(std::string &x);
+	void Do(std::wstring &x);
 
-	void Do(std::wstring &x) 
-	{
-		int stringLen = sizeof(wchar_t)*((int)x.length() + 1);
-		Do(stringLen);
-
-		switch (mode) {
-		case MODE_READ:		x = (wchar_t*)*ptr; break;
-		case MODE_WRITE:	memcpy(*ptr, x.c_str(), stringLen); break;
-		case MODE_MEASURE: break;
-		case MODE_VERIFY: _dbg_assert_msg_(COMMON, x == (wchar_t*)*ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*ptr, ptr); break;
-		}
-		(*ptr) += stringLen;
-	}
+	void Do(tm &t);
 
 	template<class T>
 	void DoClass(T &x) {
@@ -556,11 +461,6 @@ public:
 
 	template<class T>
 	void Do(T &x) {
-		DoHelper<T>::Do(this, x);
-	}
-	
-	template<class T>
-	void DoPOD(T &x) {
 		DoHelper<T>::Do(this, x);
 	}
 
@@ -633,24 +533,8 @@ public:
 		}
 	}
 
-	void DoMarker(const char* prevName, u32 arbitraryNumber=0x42)
-	{
-		u32 cookie = arbitraryNumber;
-		Do(cookie);
-		if(mode == PointerWrap::MODE_READ && cookie != arbitraryNumber)
-		{
-			PanicAlertT("Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
-			SetError(ERROR_FAILURE);
-		}
-	}
+	void DoMarker(const char *prevName, u32 arbitraryNumber = 0x42);
 };
-
-inline PointerWrapSection::~PointerWrapSection() {
-	if (ver_ > 0) {
-		p_.DoMarker(title_);
-	}
-}
-
 
 class CChunkFileReader
 {
@@ -702,83 +586,21 @@ public:
 	template<class T>
 	static Error Load(const std::string& _rFilename, int _Revision, const char *_VersionString, T& _class, std::string* _failureReason) 
 	{
-		INFO_LOG(COMMON, "ChunkReader: Loading %s" , _rFilename.c_str());
 		*_failureReason = "LoadStateWrongVersion";
 
-		if (!File::Exists(_rFilename)) {
-			*_failureReason = "LoadStateDoesntExist";
-			ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");
-			return ERROR_BAD_FILE;
+		u8 *ptr;
+		size_t sz;
+		Error error = LoadFile(_rFilename, _Revision, _VersionString, ptr, sz, _failureReason);
+		if (error == ERROR_NONE) {
+			u8 *buf = ptr;
+			error = LoadPtr(ptr, _class);
+			delete[] buf;
 		}
-				
-		// Check file size
-		const u64 fileSize = File::GetSize(_rFilename);
-		static const u64 headerSize = sizeof(SChunkHeader);
-		if (fileSize < headerSize)
-		{
-			ERROR_LOG(COMMON,"ChunkReader: File too small");
-			return ERROR_BAD_FILE;
-		}
-
-		File::IOFile pFile(_rFilename, "rb");
-		if (!pFile)
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Can't open file for reading");
-			return ERROR_BAD_FILE;
-		}
-
-		// read the header
-		SChunkHeader header;
-		if (!pFile.ReadArray(&header, 1))
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Bad header size");
-			return ERROR_BAD_FILE;
-		}
-		
-		// Check revision
-		if (header.Revision != _Revision)
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Wrong file revision, got %d expected %d",
-				header.Revision, _Revision);
-			return ERROR_BAD_FILE;
-		}
-
-		// get size
-		const int sz = (int)(fileSize - headerSize);
-		if (header.ExpectedSize != sz)
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Bad file size, got %d expected %d",
-				sz, header.ExpectedSize);
-			return ERROR_BAD_FILE;
-		}
-		
-		// read the state
-		u8* buffer = new u8[sz];
-		if (!pFile.ReadBytes(buffer, sz))
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Error reading file");
-			return ERROR_BAD_FILE;
-		}
-
-		u8 *ptr = buffer;
-		u8 *buf = buffer;
-		if (header.Compress) {
-			u8 *uncomp_buffer = new u8[header.UncompressedSize];
-			size_t uncomp_size = header.UncompressedSize;
-			snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
-			if ((int)uncomp_size != header.UncompressedSize) {
-				ERROR_LOG(COMMON,"Size mismatch: file: %i  calc: %i", (int)header.UncompressedSize, (int)uncomp_size);
-			}
-			ptr = uncomp_buffer;
-			buf = uncomp_buffer;
-			delete [] buffer;
-		}
-
-		Error error = LoadPtr(ptr, _class);
-		delete[] buf;
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
-		_failureReason->clear();
+		if (error == ERROR_NONE) {
+			_failureReason->clear();
+		}
 		return error;
 	}
 
@@ -786,65 +608,14 @@ public:
 	template<class T>
 	static Error Save(const std::string& _rFilename, int _Revision, const char *_VersionString, T& _class)
 	{
-		INFO_LOG(COMMON, "ChunkReader: Writing %s" , _rFilename.c_str());
-
-		File::IOFile pFile(_rFilename, "wb");
-		if (!pFile)
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Error opening file for write");
-			return ERROR_BAD_FILE;
-		}
-
-		bool compress = true;
-
 		// Get data
 		size_t const sz = MeasurePtr(_class);
 		u8 *buffer = new u8[sz];
 		Error error = SavePtr(buffer, _class);
 
-		// Create header
-		SChunkHeader header;
-		header.Compress = compress ? 1 : 0;
-		header.Revision = _Revision;
-		header.ExpectedSize = (int)sz;
-		header.UncompressedSize = (int)sz;
-		strncpy(header.GitVersion, _VersionString, 32);
-		header.GitVersion[31] = '\0';
+		if (error == ERROR_NONE)
+			error = SaveFile(_rFilename, _Revision, _VersionString, buffer, sz);
 
-		// Write to file
-		if (compress) {
-			size_t comp_len = snappy_max_compressed_length(sz);
-			u8 *compressed_buffer = new u8[comp_len];
-			snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
-			delete [] buffer;
-			header.ExpectedSize = (int)comp_len;
-			if (!pFile.WriteArray(&header, 1))
-			{
-				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
-				return ERROR_BAD_FILE;
-			}
-			if (!pFile.WriteBytes(&compressed_buffer[0], comp_len)) {
-				ERROR_LOG(COMMON,"ChunkReader: Failed writing compressed data");
-				return ERROR_BAD_FILE;
-			}	else {
-				INFO_LOG(COMMON, "Savestate: Compressed %i bytes into %i", (int)sz, (int)comp_len);
-			}
-			delete [] compressed_buffer;
-		} else {
-			if (!pFile.WriteArray(&header, 1))
-			{
-				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
-				return ERROR_BAD_FILE;
-			}
-			if (!pFile.WriteBytes(&buffer[0], sz))
-			{
-				ERROR_LOG(COMMON,"ChunkReader: Failed writing data");
-				return ERROR_BAD_FILE;
-			}
-			delete [] buffer;
-		}
-		
-		INFO_LOG(COMMON, "ChunkReader: Done writing %s",  _rFilename.c_str());
 		return error;
 	}
 	
@@ -873,6 +644,9 @@ public:
 	}
 
 private:
+	static CChunkFileReader::Error LoadFile(const std::string& _rFilename, int _Revision, const char *_VersionString, u8 *&buffer, size_t &sz, std::string *_failureReason);
+	static CChunkFileReader::Error SaveFile(const std::string& _rFilename, int _Revision, const char *_VersionString, u8 *buffer, size_t sz);
+
 	struct SChunkHeader
 	{
 		int Revision;
@@ -882,5 +656,3 @@ private:
 		char GitVersion[32];
 	};
 };
-
-#endif  // _POINTERWRAP_H_
