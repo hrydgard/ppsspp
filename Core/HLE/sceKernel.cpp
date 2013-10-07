@@ -247,6 +247,7 @@ void __KernelDoState(PointerWrap &p)
 		__HeapDoState(p);
 
 		__PPGeDoState(p);
+		__CheatDoState(p);
 	}
 
 	{
