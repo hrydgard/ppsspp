@@ -37,6 +37,7 @@
 
 enum PauseAction {
 	PAUSE_CONTINUE,
+	PAUSE_BREAK,
 	PAUSE_GETFRAMEBUF,
 	PAUSE_GETDEPTHBUF,
 	PAUSE_GETSTENCILBUF,
@@ -52,6 +53,7 @@ static condition_variable pauseWait;
 static PauseAction pauseAction = PAUSE_CONTINUE;
 static recursive_mutex actionLock;
 static condition_variable actionWait;
+static bool actionComplete;
 
 static recursive_mutex breaksLock;
 static std::vector<bool> breakCmds;
@@ -110,15 +112,18 @@ bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {
 	return IsOpBreakPoint(op) || IsTextureBreakPoint(op);
 }
 
-static void SetPauseAction(PauseAction act) {
+static void SetPauseAction(PauseAction act, bool waitComplete = true) {
 	{
 		lock_guard guard(pauseLock);
 		actionLock.lock();
 		pauseAction = act;
 	}
 
+	actionComplete = false;
 	pauseWait.notify_one();
-	actionWait.wait(actionLock);
+	while (waitComplete && !actionComplete) {
+		actionWait.wait(actionLock);
+	}
 	actionLock.unlock();
 }
 
@@ -129,6 +134,9 @@ static void RunPauseAction() {
 	case PAUSE_CONTINUE:
 		// Don't notify, just go back, woke up by accident.
 		return;
+
+	case PAUSE_BREAK:
+		break;
 
 	case PAUSE_GETFRAMEBUF:
 		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame);
@@ -154,15 +162,15 @@ static void RunPauseAction() {
 		ERROR_LOG(HLE, "Unsupported pause action, forgot to add it to the switch.");
 	}
 
+	actionComplete = true;
 	actionWait.notify_one();
-	pauseAction = PAUSE_CONTINUE;
+	pauseAction = PAUSE_BREAK;
 }
 
 static void ForceUnpause() {
-	lock_guard guard(pauseLock);
-	lock_guard actionGuard(actionLock);
-	pauseAction = PAUSE_CONTINUE;
-	pauseWait.notify_one();
+	SetPauseAction(PAUSE_CONTINUE, false);
+	actionComplete = true;
+	actionWait.notify_one();
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
@@ -408,7 +416,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			attached = true;
 			SetupPreviews();
 
-			pauseWait.notify_one();
+			SetPauseAction(PAUSE_CONTINUE, false);
 			breakNextOp = false;
 			breakNextDraw = true;
 			break;
@@ -424,9 +432,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 
 			// TODO: detach?  Should probably have separate UI, or just on activate?
+			SetPauseAction(PAUSE_CONTINUE, false);
 			breakNextOp = false;
 			breakNextDraw = false;
-			pauseWait.notify_one();
 			break;
 		}
 		break;
@@ -452,7 +460,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		attached = true;
 		SetupPreviews();
 
-		pauseWait.notify_one();
+		SetPauseAction(PAUSE_CONTINUE, false);
 		breakNextOp = true;
 		breakNextDraw = false;
 		break;
@@ -502,6 +510,11 @@ static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NUL
 	}
 
 	PostMessage(geDebuggerWindow->GetDlgHandle(), msg, wParam, lParam);
+
+	// Just to be sure.
+	if (pauseAction == PAUSE_CONTINUE) {
+		pauseAction = PAUSE_BREAK;
+	}
 
 	do {
 		RunPauseAction();
