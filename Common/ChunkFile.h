@@ -436,6 +436,8 @@ public:
 	void Do(std::string &x);
 	void Do(std::wstring &x);
 
+	void Do(tm &t);
+
 	template<class T>
 	void DoClass(T &x) {
 		x.DoState(*this);

@@ -75,7 +75,10 @@ void PointerWrap::DoVoid(void *data, int size) {
 	case MODE_READ:	memcpy(data, *ptr, size); break;
 	case MODE_WRITE: memcpy(*ptr, data, size); break;
 	case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
-	case MODE_VERIFY: for(int i = 0; i < size; i++) _dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]); break;
+	case MODE_VERIFY:
+		for (int i = 0; i < size; i++)
+			_dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
+		break;
 	default: break;  // throw an error?
 	}
 	(*ptr) += size;
@@ -105,6 +108,40 @@ void PointerWrap::Do(std::wstring &x) {
 	case MODE_VERIFY: _dbg_assert_msg_(COMMON, x == (wchar_t*)*ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*ptr, ptr); break;
 	}
 	(*ptr) += stringLen;
+}
+
+struct standard_tm {
+	int tm_sec;
+	int tm_min;
+	int tm_hour;
+	int tm_mday;
+	int tm_mon;
+	int tm_year;
+	int tm_wday;
+	int tm_yday;
+	int tm_isdst;
+};
+
+void PointerWrap::Do(tm &t) {
+	// We savestate this separately because some platforms use extra data at the end.
+	// However, old files may have the native tm in them.
+	// Since the first value in the struct is 0-59, we save a funny value and check for it.
+	// If our funny value ('tm' 0x1337) exists, it's a new version savestate.
+	int funnyValue = 0x13376D74;
+	if (ExpectVoid(&funnyValue, sizeof(funnyValue))) {
+		standard_tm stm;
+		if (mode == MODE_READ) {
+			// Null out the extra members, e.g. tm_gmtoff or tm_zone.
+			memset(&t, 0, sizeof(t));
+		} else {
+			memcpy(&stm, &t, sizeof(stm));
+		}
+
+		DoVoid((void *)&stm, sizeof(stm));
+		memcpy(&t, &stm, sizeof(stm));
+	} else {
+		DoVoid((void *)&t, sizeof(t));
+	}
 }
 
 void PointerWrap::DoMarker(const char *prevName, u32 arbitraryNumber) {
