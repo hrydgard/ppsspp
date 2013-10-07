@@ -13,7 +13,7 @@ symbian: MOBILITY += systeminfo
 
 # Libs
 symbian {
-	LIBS += -lCore.lib -lCommon.lib -lNative.lib
+	LIBS += -lCore.lib -lCommon.lib -lNative.lib -llibglib
 	# For now you have to copy these to the Symbian lib dir using ffmpeg/symbian-install.sh
 	LIBS += -lavformat.lib -lavcodec.lib -lavutil.lib -lswresample.lib -lswscale.lib
 }
