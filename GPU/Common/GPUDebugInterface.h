@@ -38,9 +38,10 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_8888 = 3,
 	GPU_DBG_FORMAT_INVALID = 0xFF,
 
-	// These don't, they're for depth buffers.
+	// These don't, they're for depth/stencil buffers.
 	GPU_DBG_FORMAT_FLOAT = 0x10,
 	GPU_DBG_FORMAT_16BIT = 0x11,
+	GPU_DBG_FORMAT_8BIT = 0x12,
 };
 
 struct GPUDebugBuffer {
