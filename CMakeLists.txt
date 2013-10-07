@@ -245,6 +245,8 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
+	Common/ChunkFile.cpp
+	Common/ChunkFile.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
 	Common/Crypto/aes_cbc.cpp

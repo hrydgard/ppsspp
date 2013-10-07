@@ -133,7 +133,7 @@ struct DisplayList
 	bool interruptsEnabled;
 	bool pendingInterrupt;
 	bool started;
-	u32_le *context;
+	PSPPointer<u32_le> context;
 	u32 offsetAddr;
 	bool bboxResult;
 };

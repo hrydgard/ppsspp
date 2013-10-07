@@ -548,6 +548,8 @@ void KernelObjectPool::DoState(PointerWrap &p)
 			p.Do(type);
 		}
 		pool[i]->DoState(p);
+		if (p.error >= p.ERROR_FAILURE)
+			break;
 	}
 }
 
