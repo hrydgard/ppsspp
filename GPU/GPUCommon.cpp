@@ -553,7 +553,12 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 		PreExecuteOp(op, diff);
 		if (dumpThisFrame) {
 			char temp[256];
-			u32 prev = Memory::ReadUnchecked_U32(list.pc - 4);
+			u32 prev;
+			if (Memory::IsValidAddress(list.pc - 4)) {
+				prev = Memory::ReadUnchecked_U32(list.pc - 4);
+			} else {
+				prev = 0;
+			}
 			GeDisassembleOp(list.pc, op, prev, temp);
 			NOTICE_LOG(G3D, "%s", temp);
 		}

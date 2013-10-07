@@ -1095,6 +1095,9 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // SHUFPS(XMM2, R(XMM3), _MM_SHUFFLE(0, 0, 0, 0));   // XMM2 = S3 S3 S2 S2
 // SHUFPS(XMM0, R(XMM2), _MM_SHUFFLE(2, 0, 2, 0));   // XMM0 = S3 S2 S1 S0
 // Some punpckwd etc would also work.
+// Alternatively, MOVSS and three PINSRD (SSE4) with mem source.
+// Why PINSRD instead of INSERTPS?
+// http://software.intel.com/en-us/blogs/2009/01/07/using-sse41-for-mp3-encoding-quantization
 
 // Sequence for scattering a SIMD register to sparse registers:
 // (Very serial though, better methods may be possible)
@@ -1105,7 +1108,7 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // MOVSS(fpr.R(sregs[2]), XMM0);
 // SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
 // MOVSS(fpr.R(sregs[3]), XMM0);
-
+// On SSE4 we should use EXTRACTPS.
 
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
