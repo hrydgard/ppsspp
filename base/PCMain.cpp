@@ -527,10 +527,8 @@ int main(int argc, char *argv[]) {
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
-	if (SDL_OpenAudio(&fmt, NULL) < 0) {
+	if (SDL_OpenAudio(&fmt, NULL) < 0)
 		ELOG("Failed to open audio: %s", SDL_GetError());
-		return 1;
-	}
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
