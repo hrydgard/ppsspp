@@ -771,23 +771,5 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 
 bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
 {
-	static const int level = 0;
-
-	WARN_LOG(G3D, "Software texture preview currently very broken.");
-
-	u32 bufw = GetTextureBufw(level, gstate.getTextureAddress(level), gstate.getTextureFormat());
-	switch (gstate.getTextureFormat())
-	{
-	case GE_TFMT_5650:
-	case GE_TFMT_5551:
-	case GE_TFMT_4444:
-	case GE_TFMT_8888:
-		// TODO: Swizzling, of course.
-		buffer = GPUDebugBuffer(Memory::GetPointer(gstate.getTextureAddress(level)), bufw, gstate.getTextureHeight(level), gstate.getTextureFormat());
-		return true;
-
-	default:
-		// TODO: Support these...
-		return false;
-	}
+	return Rasterizer::GetCurrentTexture(buffer);
 }
