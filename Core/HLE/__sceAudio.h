@@ -17,9 +17,6 @@
 
 #pragma once
 #include "sceAudio.h"
-#ifndef SCE_AUDIO_NO_MIX
-#define SCE_AUDIO_NO_MIX -1
-#endif
 
 
 // Easy interface for sceAudio to write to, to keep the complexity in check.

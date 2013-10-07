@@ -20,10 +20,6 @@
 #include "MemMap.h"
 #include "Host.h"
 
-#ifndef SCE_AUDIO_NO_MIX
-#define SCE_AUDIO_NO_MIX -1
-#endif
-
 class PSPMixer : public PMixer
 {
 public:

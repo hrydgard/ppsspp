@@ -194,23 +194,13 @@ void NativeHost::ShutdownSound() {
 
 int NativeMix(short *audio, int num_samples) {
 	// ILOG("Entering mixer");
-	int numMixedSamples = 0;
-
 	if (g_mixer) {
-		numMixedSamples = g_mixer->Mix(audio, num_samples);
-
-		if(numMixedSamples == SCE_AUDIO_NO_MIX) {
-			goto noMix;
-		}
-
-	}	else{
-		//this is the one place a goto is warranted. Still, find a way to rewrite
-		//;_; 
-		noMix:
+		num_samples = g_mixer->Mix(audio, num_samples);
+	}	else {
 		memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
 	// ILOG("Leaving mixer");
-	return numMixedSamples;
+	return num_samples;
 }
 
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape) {

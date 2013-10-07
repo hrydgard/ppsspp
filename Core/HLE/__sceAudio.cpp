@@ -381,7 +381,7 @@ int __AudioMix(short *outstereo, int numFrames)
 	{
 
 		if(!__gainAudioQueueLock()){
-			return SCE_AUDIO_NO_MIX;
+			return numFrames;
 		}
 			
 		
