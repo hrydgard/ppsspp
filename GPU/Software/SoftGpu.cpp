@@ -28,6 +28,7 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Colors.h"
+#include "GPU/Software/Rasterizer.h"
 
 static GLuint temp_texture = 0;
 
@@ -759,32 +760,16 @@ bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
 {
 	// We don't know the height, so just use 512, which should be the max (hopefully?)
 	// TODO: Could check clipping and such, though...?
-	// TODO: Is the value 16-bit?  It seems to be.
 	buffer = GPUDebugBuffer(depthbuf.data, gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_16BIT);
 	return true;
 }
 
 bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
-	// TODO: Just need the alpha value from the framebuffer...
-	return false;
+	return Rasterizer::GetCurrentStencilbuffer(buffer);
 }
 
 bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
 {
-	static const int level = 0;
-	u32 bufw = GetTextureBufw(level, gstate.getTextureAddress(level), gstate.getTextureFormat());
-	switch (gstate.getTextureFormat())
-	{
-	case GE_TFMT_5650:
-	case GE_TFMT_5551:
-	case GE_TFMT_4444:
-	case GE_TFMT_8888:
-		buffer = GPUDebugBuffer(Memory::GetPointer(gstate.getTextureAddress(level)), bufw, gstate.getTextureHeight(level), gstate.getTextureFormat());
-		return true;
-
-	default:
-		// TODO: Support these...
-		return false;
-	}
+	return Rasterizer::GetCurrentTexture(buffer);
 }

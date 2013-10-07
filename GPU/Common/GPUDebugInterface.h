@@ -112,7 +112,9 @@ struct GPUDebugBuffer {
 		u32 pixelSize = 2;
 		if (fmt == GPU_DBG_FORMAT_8888 || fmt == GPU_DBG_FORMAT_FLOAT) {
 			pixelSize = 4;
-		};
+		} else if (fmt == GPU_DBG_FORMAT_8BIT) {
+			pixelSize = 1;
+		}
 
 		data_ = new u8[pixelSize * stride * height];
 	}

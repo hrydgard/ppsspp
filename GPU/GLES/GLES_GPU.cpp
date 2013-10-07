@@ -1562,7 +1562,7 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, false);
+	buffer.Allocate(w, h, GE_FORMAT_8888, gstate_c.flipTexture);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
