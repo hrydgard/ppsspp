@@ -102,11 +102,13 @@ struct Theme {
 	Style buttonFocusedStyle;
 	Style buttonDownStyle;
 	Style buttonDisabledStyle;
+	Style buttonHighlightedStyle;
 
 	Style itemStyle;
 	Style itemDownStyle;
 	Style itemFocusedStyle;
 	Style itemDisabledStyle;
+	Style itemHighlightedStyle;
 
 	Style headerStyle;
 
@@ -389,12 +391,13 @@ public:
 class Clickable : public View {
 public:
 	Clickable(LayoutParams *layoutParams)
-		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false) {}
+		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false), highlighted_(false) {}
 
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
 
 	virtual void FocusChanged(int focusFlags);
+	virtual void HighlightChanged(bool highlighted);
 
 	Event OnClick;
 
@@ -407,6 +410,7 @@ protected:
 	int downCountDown_;
 	bool dragging_;
 	bool down_;
+	bool highlighted_;
 };
 
 class Button : public Clickable {
