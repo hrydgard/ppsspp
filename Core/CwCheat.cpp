@@ -23,6 +23,8 @@ void __CheatInit() {
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
 #endif
 
+	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
+
 	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
 		if (!File::Exists(activeCheatFile)) {
@@ -33,7 +35,6 @@ void __CheatInit() {
 
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
-		CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 	}
 }
@@ -44,6 +45,16 @@ void __CheatShutdown() {
 		delete cheatEngine;
 		cheatEngine = 0;
 	}
+}
+
+void __CheatDoState(PointerWrap &p) {
+	auto s = p.Section("CwCheat", 0, 1);
+	if (!s) {
+		return;
+	}
+
+	p.Do(CheatEvent);
+	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
