@@ -319,22 +319,33 @@ static inline u8 GetPixelStencil(int x, int y)
 	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
 		// TODO: Should we return 0xFF instead here?
 		return 0;
-	} else if (gstate.FrameBufFormat() != GE_FORMAT_8888) {
+	} else if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
 		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
+	} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
+		return fb.Get16(x, y, gstate.FrameBufStride()) >> 12;
 	} else {
-		// TODO: Not the whole value?
-		return ((fb.Get32(x, y, gstate.FrameBufStride()) & 0x80000000) != 0) ? 0xFF : 0;
+		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
 	}
 }
 
 static inline void SetPixelStencil(int x, int y, u8 value)
 {
+	// TODO: This seems like it maybe respects the alpha mask (at least in some scenarios?)
+
 	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
 		// Do nothing
-	} else if (gstate.FrameBufFormat() != GE_FORMAT_8888) {
-		fb.Set16(x, y, gstate.FrameBufStride(), (fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000) | ((value&0x80)<<8));
+	} else if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000;
+		pixel |= value != 0 ? 0x8000 : 0;
+		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
+	} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
+		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0xF000;
+		pixel |= (u16)value << 12;
+		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
 	} else {
-		fb.Set32(x, y, gstate.FrameBufStride(), (fb.Get32(x, y, gstate.FrameBufStride()) & ~0x80000000) | ((value&0x80)<<24));
+		u32 pixel = fb.Get32(x, y, gstate.FrameBufStride()) & ~0xFF000000;
+		pixel |= (u32)value << 24;
+		fb.Set32(x, y, gstate.FrameBufStride(), pixel);
 	}
 }
 
