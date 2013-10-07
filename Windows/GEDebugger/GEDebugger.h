@@ -29,7 +29,8 @@ enum {
 	WM_GEDBG_BREAK_DRAW,
 	WM_GEDBG_STEPDISPLAYLIST,
 	WM_GEDBG_TOGGLEPCBREAKPOINT,
-	WM_GEDBG_RUNTOWPARAM
+	WM_GEDBG_RUNTOWPARAM,
+	WM_GEDBG_SETCMDWPARAM,
 };
 
 class CtrlDisplayListView;
@@ -61,13 +62,6 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 
-	enum PrimaryDisplayType {
-		PRIMARY_FRAMEBUF,
-		PRIMARY_DEPTHBUF,
-		PRIMARY_STENCILBUF,
-	};
-
-	PrimaryDisplayType primaryDisplay;
 	CtrlDisplayListView *displayList;
 	TabDisplayLists *lists;
 	TabStateFlags *flags;
@@ -77,6 +71,7 @@ private:
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
 	TabControl *tabs;
+	TabControl *fbTabs;
 
 	int minWidth,minHeight;
 };

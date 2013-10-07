@@ -1,7 +1,8 @@
 ﻿#include "Windows/GEDebugger/CtrlDisplayListView.h"
-#include "Core/Config.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/InputBox.h"
 #include "Windows/Main.h"
+#include "Core/Config.h"
 #include <algorithm>
 
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
@@ -166,6 +167,8 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 
+	auto disasm = gpuDebug->DissassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
+
 	for (int i = 0; i < visibleRows+2; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
@@ -210,7 +213,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		}
 		SetTextColor(hdc,textColor);
 
-		GPUDebugOp op = gpuDebug->DissassembleOp(address);
+		GPUDebugOp op = i < (int)disasm.size() ? disasm[i] : GPUDebugOp();
 
 		char addressText[64];
 		sprintf(addressText,"%08X %08X",op.pc,op.op);
@@ -328,7 +331,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				redraw();
 			}
 			break;
-		case IDC_DEBUG_LIST_SETSTALL:
+		case ID_GEDBG_SETSTALLADDR:
 			{
 				gpuDebug->ResetListStall(list.id,curAddress);
 				list.stall = curAddress;
@@ -352,6 +355,24 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			{
 				SendMessage(GetParent(wnd),WM_GEDBG_RUNTOWPARAM,curAddress,0);
 				redraw();
+			}
+			break;
+		case ID_GEDBG_GOTOPC:
+			setCurAddress(list.pc);
+			scrollAddressIntoView();
+			redraw();
+			break;
+		case ID_GEDBG_GOTOADDR:
+			{
+				u32 newAddress = curAddress;
+				if (!InputBox_GetHex(GetModuleHandle(NULL), wnd, L"Address", curAddress, newAddress)) {
+					break;
+				}
+				if (Memory::IsValidAddress(newAddress)) {
+					setCurAddress(newAddress);
+					scrollAddressIntoView();
+					redraw();
+				}
 			}
 			break;
 		}

@@ -178,7 +178,10 @@ BEGIN
     PUSHBUTTON      "Resume",IDC_GEDBG_RESUME,104,0,48,14
     CONTROL         "",IDC_GEDBG_TEX,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,10,20,128,128
     CONTROL         "",IDC_GEDBG_FRAME,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,148,20,256,136
-    CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER ,10,216,480,180
+    CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,10,216,480,180
+    EDITTEXT        IDC_GEDBG_FRAMEBUFADDR,148,192,128,12,ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_GEDBG_TEXADDR,10,152,128,12,ES_READONLY | NOT WS_BORDER
+    CONTROL         "",IDC_GEDBG_FBTABS,"SysTabControl32",TCS_BUTTONS | TCS_FOCUSNEVER,384,192,110,12
 END
 
 
@@ -505,7 +508,7 @@ BEGIN
         MENUITEM "Copy Instruction (Disasm)",  ID_DISASM_COPYINSTRUCTIONDISASM
         MENUITEM "Disassemble to File",        ID_DISASM_DISASSEMBLETOFILE
         MENUITEM SEPARATOR
-        MENUITEM "Assemble Ppcode",            ID_DISASM_ASSEMBLE
+        MENUITEM "Assemble Opcode",            ID_DISASM_ASSEMBLE
         MENUITEM SEPARATOR
         MENUITEM "Run to Cursor",              ID_DISASM_RUNTOHERE
         MENUITEM "Jump to Cursor",             ID_DISASM_SETPCTOHERE
@@ -558,9 +561,11 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Run to Cursor",              ID_DISASM_RUNTOHERE
         MENUITEM "Jump to Cursor",             ID_DISASM_SETPCTOHERE
-        MENUITEM "Set Stall"                   IDC_DEBUG_LIST_SETSTALL
+        MENUITEM "Set Stall"                   ID_GEDBG_SETSTALLADDR
         MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
         MENUITEM SEPARATOR
+        MENUITEM "Go to Displaylist PC",       ID_GEDBG_GOTOPC
+        MENUITEM "Go to Address...",           ID_GEDBG_GOTOADDR
         MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW
 	END
 END

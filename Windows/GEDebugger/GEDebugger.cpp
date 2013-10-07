@@ -41,6 +41,7 @@ enum PauseAction {
 	PAUSE_GETDEPTHBUF,
 	PAUSE_GETSTENCILBUF,
 	PAUSE_GETTEX,
+	PAUSE_SETCMDVALUE,
 };
 
 static bool attached = false;
@@ -65,6 +66,13 @@ static GPUDebugBuffer bufferFrame;
 static GPUDebugBuffer bufferDepth;
 static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
+static u32 pauseSetCmdValue;
+
+enum PrimaryDisplayType {
+	PRIMARY_FRAMEBUF,
+	PRIMARY_DEPTHBUF,
+	PRIMARY_STENCILBUF,
+};
 
 // TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
 
@@ -137,6 +145,13 @@ static void RunPauseAction() {
 	case PAUSE_GETTEX:
 		bufferResult = gpuDebug->GetCurrentTexture(bufferTex);
 		break;
+
+	case PAUSE_SETCMDVALUE:
+		gpuDebug->SetCmdValue(pauseSetCmdValue);
+		break;
+
+	default:
+		ERROR_LOG(HLE, "Unsupported pause action, forgot to add it to the switch.");
 	}
 
 	actionWait.notify_one();
@@ -151,7 +166,7 @@ static void ForceUnpause() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), primaryDisplay(PRIMARY_FRAMEBUF), frameWindow(NULL), texWindow(NULL) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
 	breakCmds.resize(256, false);
 	Core_ListenShutdown(ForceUnpause);
 
@@ -174,6 +189,14 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	tabs = new TabControl(GetDlgItem(m_hDlg,IDC_GEDBG_MAINTAB));
 	HWND wnd = tabs->AddTabWindow(L"CtrlDisplayListView",L"Display List");
 	displayList = CtrlDisplayListView::getFrom(wnd);
+
+	fbTabs = new TabControl(GetDlgItem(m_hDlg, IDC_GEDBG_FBTABS));
+	fbTabs->SetMinTabWidth(50);
+	// Must be in the same order as PrimaryDisplayType.
+	fbTabs->AddTab(NULL, L"Color");
+	fbTabs->AddTab(NULL, L"Depth");
+	fbTabs->AddTab(NULL, L"Stencil");
+	fbTabs->ShowTab(0, true);
 
 	flags = new TabStateFlags(_hInstance, m_hDlg);
 	tabs->AddTabDialog(flags, L"Flags");
@@ -201,28 +224,24 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 }
 
 CGEDebugger::~CGEDebugger() {
-	delete frameWindow;
-	delete texWindow;
-
 	delete flags;
 	delete lighting;
 	delete textureState;
 	delete settings;
 	delete lists;
 	delete tabs;
+	delete fbTabs;
 }
 
 void CGEDebugger::SetupPreviews() {
 	if (frameWindow == NULL) {
 		frameWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
 		frameWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-		// TODO: Why doesn't this work?
 		frameWindow->Clear();
 	}
 	if (texWindow == NULL) {
 		texWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
 		texWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-		// TODO: Why doesn't this work?
 		texWindow->Clear();
 	}
 }
@@ -230,31 +249,42 @@ void CGEDebugger::SetupPreviews() {
 void CGEDebugger::UpdatePreviews() {
 	// TODO: Do something different if not paused?
 
+	wchar_t desc[256];
 	GPUDebugBuffer *primaryBuffer = NULL;
+	GPUgstate state;
 	bufferResult = false;
-	switch (primaryDisplay) {
+
+	if (gpuDebug != NULL) {
+		state = gpuDebug->GetGState();
+	}
+
+	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
 		SetPauseAction(PAUSE_GETFRAMEBUF);
 		primaryBuffer = &bufferFrame;
+		_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
 		break;
 
 	case PRIMARY_DEPTHBUF:
 		SetPauseAction(PAUSE_GETDEPTHBUF);
 		primaryBuffer = &bufferDepth;
+		_snwprintf(desc, ARRAY_SIZE(desc), L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
 		break;
 
 	case PRIMARY_STENCILBUF:
 		SetPauseAction(PAUSE_GETSTENCILBUF);
 		primaryBuffer = &bufferStencil;
+		_snwprintf(desc, ARRAY_SIZE(desc), L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
 		break;
 	}
 
 	if (bufferResult && primaryBuffer != NULL) {
 		auto fmt = SimpleGLWindow::Format(primaryBuffer->GetFormat());
 		frameWindow->Draw(primaryBuffer->GetData(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), primaryBuffer->GetFlipped(), fmt);
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
 	} else {
-		ERROR_LOG(COMMON, "Unable to get buffer for main display.");
 		frameWindow->Clear();
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
 	}
 
 	bufferResult = false;
@@ -265,20 +295,25 @@ void CGEDebugger::UpdatePreviews() {
 		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
 
 		if (gpuDebug != NULL) {
-			auto state = gpuDebug->GetGState();
 			if (state.isTextureAlphaUsed()) {
 				texWindow->SetFlags(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			} else {
 				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			}
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 		}
 	} else {
-		ERROR_LOG(COMMON, "Unable to get texture (may be no texture set.)");
 		texWindow->Clear();
+		if (gpuDebug == NULL || state.isTextureMapEnabled()) {
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
+		} else {
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
+		}
 	}
 
 	DisplayList list;
-	if (gpuDebug->GetCurrentDisplayList(list)) {
+	if (gpuDebug != NULL && gpuDebug->GetCurrentDisplayList(list)) {
 		displayList->setDisplayList(list);
 	}
 
@@ -357,6 +392,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
 			break;
+		case IDC_GEDBG_FBTABS:
+			fbTabs->HandleNotify(lParam);
+			// TODO: Move this somewhere...
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
+			}
+			break;
 		}
 		break;
 
@@ -378,6 +420,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_RESUME:
 			frameWindow->Clear();
 			texWindow->Clear();
+			SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"");
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
+
 			// TODO: detach?  Should probably have separate UI, or just on activate?
 			breakNextOp = false;
 			breakNextDraw = false;
@@ -430,6 +475,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			u32 pc = (u32)wParam;
 			tempBreakpoint = pc;
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
+		}
+		break;
+
+	case WM_GEDBG_SETCMDWPARAM:
+		{
+			pauseSetCmdValue = (u32)wParam;
+			SetPauseAction(PAUSE_SETCMDVALUE);
 		}
 		break;
 	}

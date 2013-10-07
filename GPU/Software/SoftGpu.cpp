@@ -431,11 +431,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
-		fb.data = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
+		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
-		fb.data = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
+		fb.data = Memory::GetPointer(gstate.getFrameBufAddress());
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
@@ -532,11 +532,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ZBUFPTR:
-		depthbuf.data = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
+		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
-		depthbuf.data = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
+		depthbuf.data = Memory::GetPointer(gstate.getDepthBufAddress());
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:
