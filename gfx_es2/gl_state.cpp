@@ -1,5 +1,6 @@
 #include "base/logging.h"
 #include "gl_state.h"
+
 #ifdef _WIN32
 #include "GL/wglew.h"
 #endif
@@ -90,12 +91,20 @@ void OpenGLState::Restore() {
 // http://stackoverflow.com/questions/16147700/opengl-es-using-tegra-specific-extensions-gl-ext-texture-array
 
 void CheckGLExtensions() {
+	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever.
 	static bool done = false;
 	if (done)
 		return;
 	done = true;
-
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
+
+#if defined(USING_GLES2) && defined(MAY_HAVE_GLES3)
+	// Try to load GLES 3.0
+	if (GL_TRUE == gl3stubInit()) {
+		gl_extensions.GLES3 = true;
+		ILOG("Full OpenGL ES 3.0 support detected!\n");
+	}
+#endif
 
 	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
 	if (extString) {

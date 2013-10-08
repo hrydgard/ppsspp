@@ -6,7 +6,14 @@
 #include <OpenGLES/ES2/gl.h>
 #include <OpenGLES/ES2/glext.h>
 #else
-#include <GLES2/gl2.h>
+
+// Support OpenGL ES 3.0
+// This uses the "DYNAMIC" approach from the gles3jni NDK sample.
+// Should work on non-Android mobile platforms too.
+#include "../gfx_es2/gl3stub.h"
+#define MAY_HAVE_GLES3 1
+// Old way: #include <GLES2/gl2.h>
+
 #include <GLES2/gl2ext.h>
 #ifndef MAEMO
 #include <EGL/egl.h>
@@ -14,6 +21,7 @@
 
 #endif
 #else // OpenGL
+#define MAY_HAVE_GLES3 1
 #include <GL/glew.h>
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>

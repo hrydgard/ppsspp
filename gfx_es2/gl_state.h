@@ -72,11 +72,11 @@ extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 
 // OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
 // as GL state changes can be expensive on some hardware.
-class OpenGLState
-{
+class OpenGLState {
 private:
 	template<GLenum cap, bool init>
 	class BoolState {
+	private:
 		bool _value;
 	public:
 		BoolState() : _value(init) {
@@ -119,7 +119,7 @@ private:
 	public: \
 		SavedState1_##func() : p1(p1def) { \
 			OpenGLState::state_count++; \
-    }; \
+		}; \
 		void set(p1type newp1) { \
 			if(newp1 != p1) { \
 				p1 = newp1; \
@@ -138,7 +138,7 @@ private:
 	public: \
 		SavedState2_##func() : p1(p1def), p2(p2def) { \
 			OpenGLState::state_count++; \
-        }; \
+		}; \
 		inline void set(p1type newp1, p2type newp2) { \
 			if(newp1 != p1 || newp2 != p2) { \
 				p1 = newp1; \
@@ -179,7 +179,7 @@ private:
 	public: \
 		SavedState3_##func() : p1(p1def), p2(p2def), p3(p3def) { \
 			OpenGLState::state_count++; \
-        }; \
+		}; \
 		inline void set(p1type newp1, p2type newp2, p3type newp3) { \
 			if(newp1 != p1 || newp2 != p2 || newp3 != p3) { \
 				p1 = newp1; \
@@ -202,7 +202,7 @@ private:
 	public: \
 		SavedState4_##func() : p1(p1def), p2(p2def), p3(p3def), p4(p4def) { \
 			OpenGLState::state_count++; \
-        }; \
+		}; \
 		inline void set(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
 			if(newp1 != p1 || newp2 != p2 || newp3 != p3 || newp4 != p4) { \
 				p1 = newp1; \
@@ -246,15 +246,15 @@ public:
 
 	// When adding a state here, don't forget to add it to OpenGLState::Restore() too
 
-	// Blend 
+	// Blending
 	BoolState<GL_BLEND, false> blend;
 	STATE4(glBlendFuncSeparate, GLenum, GLenum, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFuncSeparate;
 
-	// On OpenGL ES, using minmax blend requires glBlendEquationEXT (in theory at least).
+	// On OpenGL ES, using minmax blend requires glBlendEquationEXT (in theory at least but I don't think it's true in practice)
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 
-	// Logic Ops
+	// Logic Ops. Not available on OpenGL ES at all.
 #if !defined(USING_GLES2)
 	BoolState<GL_COLOR_LOGIC_OP, false> colorLogicOp;
 	STATE1(glLogicOp, GLenum, GL_COPY) logicOp;
@@ -294,7 +294,8 @@ public:
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
 
 #if defined(ANDROID) || defined(BLACKBERRY)
-	// QCOM Alpha Test 
+	// QCOM Alpha Test. Old school alpha test but ported to GLES2. Does not seem to benefit
+	// speed very much so probably not worth the trouble.
 	BoolState<GL_ALPHA_TEST_QCOM, false> alphaTestQCOM;
 	STATE2(glAlphaFuncQCOM, GLenum, GLclampf, GL_ALWAYS, 0.0f) alphaFuncQCOM;
 #endif
@@ -308,13 +309,12 @@ public:
 
 extern OpenGLState glstate;
 
-// Extensions to look at using: 
-// GL_NV_draw_texture
-// GL_NV_copy_image
+// Extensions to look at using:
 // GL_NV_map_buffer_range (same as GL_ARB_map_buffer_range ?)
 
 // WARNING: This gets memset-d - so no strings please
 struct GLExtensions {
+	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
 	bool OES_depth_texture;
@@ -332,17 +332,15 @@ struct GLExtensions {
 	bool ATIClampBug;
 	bool NV_draw_texture;
 	bool NV_copy_image;
-	
+
 	// EGL extensions
 
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
 };
 
-
 extern std::string g_all_gl_extensions;
 extern std::string g_all_egl_extensions;
-
 
 extern GLExtensions gl_extensions;
 
