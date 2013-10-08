@@ -16,6 +16,8 @@
 
 #include "gl3stub.h"
 
+#if defined(USING_GLES2)
+
 GLboolean gl3stubInit() {
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
     FIND_PROC(glReadBuffer);
@@ -340,3 +342,5 @@ GL_APICALL void           (* GL_APIENTRY glInvalidateSubFramebuffer) (GLenum tar
 GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+
+#endif

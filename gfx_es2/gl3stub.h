@@ -13,6 +13,7 @@
  * - Added gl3stubInit() declaration
  */
 
+#if defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <KHR/khrplatform.h>
 
@@ -488,5 +489,7 @@ extern GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum t
 #ifdef __cplusplus
 }
 #endif
+
+#endif   // USING_GLES2
 
 #endif
