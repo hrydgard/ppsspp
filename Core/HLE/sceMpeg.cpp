@@ -1363,11 +1363,11 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 	return 0;
 }
 
-u32 convertARGBToYCbCr(u32 abgr) {
+u32 convertABGRToYCbCr(u32 abgr) {
 	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
-	u8  r = (abgr >> 16) & 0xFF;
+	u8  r = (abgr >>  0) & 0xFF;
 	u8  g = (abgr >>  8) & 0xFF;
-	u8  b = (abgr >>  0) & 0xFF;
+	u8  b = (abgr >> 16) & 0xFF;
 	int  y = 0.299f * r + 0.587f * g + 0.114f * b + 0;
 	int cb = -0.169f * r - 0.331f * g + 0.499f * b + 128.0f;
 	int cr = 0.499f * r - 0.418f * g - 0.0813f * b + 128.0f;
@@ -1390,15 +1390,15 @@ int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, 
 
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; x += 4) {
-			u32 argb0 = imageBuffer[x + 0];
-			u32 argb1 = imageBuffer[x + 1];
-			u32 argb2 = imageBuffer[x + 2];
-			u32 argb3 = imageBuffer[x + 3];
+			u32 abgr0 = imageBuffer[x + 0];
+			u32 abgr1 = imageBuffer[x + 1];
+			u32 abgr2 = imageBuffer[x + 2];
+			u32 abgr3 = imageBuffer[x + 3];
 
-			u32 yCbCr0 = convertARGBToYCbCr(argb0);
-			u32 yCbCr1 = convertARGBToYCbCr(argb1);
-			u32 yCbCr2 = convertARGBToYCbCr(argb2);
-			u32 yCbCr3 = convertARGBToYCbCr(argb3);
+			u32 yCbCr0 = convertABGRToYCbCr(abgr0);
+			u32 yCbCr1 = convertABGRToYCbCr(abgr1);
+			u32 yCbCr2 = convertABGRToYCbCr(abgr2);
+			u32 yCbCr3 = convertABGRToYCbCr(abgr3);
 			
 			Y[x + 0] = (yCbCr0 >> 16) & 0xFF;
 			Y[x + 1] = (yCbCr1 >> 16) & 0xFF;
