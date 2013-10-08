@@ -25,6 +25,7 @@
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/TabDisplayLists.h"
 #include "Windows/GEDebugger/TabState.h"
+#include "Windows/InputBox.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/main.h"
@@ -60,8 +61,8 @@ static std::vector<bool> breakCmds;
 static std::set<u32> breakPCs;
 static u32 tempBreakpoint = -1;
 static std::set<u32> breakTextures;
-static bool breakNextOp = false;
-static bool breakNextDraw = false;
+static BreakNextType breakNext = BREAK_NONE;
+static u32 lastTexture = -1;
 
 static bool bufferResult;
 static GPUDebugBuffer bufferFrame;
@@ -93,10 +94,23 @@ bool CGEDebugger::IsOpBreakPoint(u32 op) {
 	return breakCmds[cmd];
 }
 
+// Hmm, this is probably kinda slow now...
 bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 	u8 cmd = op >> 24;
 	bool interesting = (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7);
 	interesting = interesting || (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7);
+
+	if (breakNext == BREAK_NEXT_NONTEX) {
+		// Okay, so we hit an interesting texture, but let's not break if this is a clut/etc.
+		// Otherwise we get garbage widths and colors.  It's annoying.
+		bool textureCmd = interesting || cmd == GE_CMD_CLUTADDR || cmd == GE_CMD_CLUTADDRUPPER || cmd == GE_CMD_LOADCLUT || cmd == GE_CMD_CLUTFORMAT;
+		textureCmd = textureCmd || (cmd >= GE_CMD_TEXSIZE0 && cmd <= GE_CMD_TEXSIZE7);
+		textureCmd = textureCmd || cmd == GE_CMD_TEXFORMAT || cmd == GE_CMD_TEXMODE || cmd == GE_CMD_TEXTUREMAPENABLE;
+		if (!textureCmd) {
+			return true;
+		}
+	}
+
 	if (!interesting || !gpuDebug) {
 		return false;
 	}
@@ -104,8 +118,18 @@ bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 	// Okay, so we just set a texture of some sort, check if it was one we were waiting for.
 	auto state = gpuDebug->GetGState();
 	int level = cmd <= GE_CMD_TEXADDR7 ? cmd - GE_CMD_TEXADDR0 : cmd - GE_CMD_TEXBUFWIDTH0;
+
+	// Are we breaking on any texture?  As long as it's level 0.
+	if (level == 0 && breakNext == BREAK_NEXT_TEX && lastTexture != state.getTextureAddress(level)) {
+		// Don't break right away, we'll get a garbage texture...
+		breakNext = BREAK_NEXT_NONTEX;
+	}
+
 	lock_guard guard(breaksLock);
-	return breakTextures.find(state.getTextureAddress(level)) != breakTextures.end();
+	if (breakTextures.find(state.getTextureAddress(level)) != breakTextures.end() && breakNext == BREAK_NONE) {
+		breakNext = BREAK_NEXT_NONTEX;
+	}
+	return false;
 }
 
 bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {
@@ -310,6 +334,10 @@ void CGEDebugger::UpdatePreviews() {
 			}
 			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
+
+			lastTexture = state.getTextureAddress(0);
+		} else {
+			lastTexture = -1;
 		}
 	} else {
 		texWindow->Clear();
@@ -318,6 +346,7 @@ void CGEDebugger::UpdatePreviews() {
 		} else {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
 		}
+		lastTexture = -1;
 	}
 
 	DisplayList list;
@@ -356,6 +385,14 @@ void CGEDebugger::SavePosition()
 		g_Config.iGEWindowW = rc.right - rc.left;
 		g_Config.iGEWindowH = rc.bottom - rc.top;
 	}
+}
+
+void CGEDebugger::SetBreakNext(BreakNextType type) {
+	attached = true;
+	SetupPreviews();
+
+	SetPauseAction(PAUSE_CONTINUE, false);
+	breakNext = type;
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -413,16 +450,33 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
-			attached = true;
-			SetupPreviews();
-
-			SetPauseAction(PAUSE_CONTINUE, false);
-			breakNextOp = false;
-			breakNextDraw = true;
+			SetBreakNext(BREAK_NEXT_DRAW);
 			break;
 
 		case IDC_GEDBG_STEP:
-			SendMessage(m_hDlg,WM_GEDBG_STEPDISPLAYLIST,0,0);
+			SetBreakNext(BREAK_NEXT_OP);
+			break;
+
+		case IDC_GEDBG_STEPTEX:
+			SetBreakNext(BREAK_NEXT_TEX);
+			break;
+
+		case IDC_GEDBG_STEPFRAME:
+			SetBreakNext(BREAK_NEXT_FRAME);
+			break;
+
+		case IDC_GEDBG_BREAKTEX:
+			{
+				u32 texAddr;
+				// TODO: Better interface that allows add/remove or something.
+				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", lastTexture, texAddr)) {
+					if (breakTextures.find(texAddr) != breakTextures.end()) {
+						breakTextures.erase(texAddr);
+					} else {
+						breakTextures.insert(texAddr);
+					}
+				}
+			}
 			break;
 
 		case IDC_GEDBG_RESUME:
@@ -433,8 +487,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 			// TODO: detach?  Should probably have separate UI, or just on activate?
 			SetPauseAction(PAUSE_CONTINUE, false);
-			breakNextOp = false;
-			breakNextDraw = false;
+			breakNext = BREAK_NONE;
 			break;
 		}
 		break;
@@ -457,12 +510,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_STEPDISPLAYLIST:
-		attached = true;
-		SetupPreviews();
-
-		SetPauseAction(PAUSE_CONTINUE, false);
-		breakNextOp = true;
-		breakNextDraw = false;
+		SetBreakNext(BREAK_NEXT_OP);
 		break;
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
@@ -526,16 +574,20 @@ void WindowsHost::GPUNotifyCommand(u32 pc) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u8 cmd = op >> 24;
 
-	if (breakNextOp || CGEDebugger::IsOpOrTextureBreakPoint(op) || CGEDebugger::IsAddressBreakPoint(pc) || pc == tempBreakpoint) {
+	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsOpOrTextureBreakPoint(op) || CGEDebugger::IsAddressBreakPoint(pc) || pc == tempBreakpoint) {
 		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }
 
 void WindowsHost::GPUNotifyDisplay(u32 framebuf, u32 stride, int format) {
+	if (breakNext == BREAK_NEXT_FRAME) {
+		// This should work fine, start stepping at the first op of the new frame.
+		breakNext = BREAK_NEXT_OP;
+	}
 }
 
 void WindowsHost::GPUNotifyDraw() {
-	if (breakNextDraw) {
+	if (breakNext == BREAK_NEXT_DRAW) {
 		PauseWithMessage(WM_GEDBG_BREAK_DRAW);
 	}
 }

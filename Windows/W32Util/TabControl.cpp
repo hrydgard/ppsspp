@@ -23,7 +23,7 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	style = (style |WS_CHILD) & tabControlStyleMask;
 	if (showTabTitles)
 		AppendPageToControl(title);
-	int index = tabs.size();
+	int index = (int)tabs.size();
 
 	RECT tabRect;
 	GetWindowRect(hwnd,&tabRect);
@@ -60,7 +60,7 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 {
 	if (showTabTitles)
 		AppendPageToControl(title);
-	int index = tabs.size();
+	int index = (int)tabs.size();
 	
 	TabInfo info = {0};
 	if (!noDisplayArea_)
@@ -155,7 +155,7 @@ void TabControl::ShowTab(HWND pageHandle)
 	{
 		if (tabs[i].pageHandle == pageHandle)
 		{
-			currentTab = i;
+			currentTab = (int)i;
 			if (showTabTitles)
 				TabCtrl_SetCurSel(hwnd,i);
 			if (oldFocus)
