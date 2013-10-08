@@ -277,7 +277,7 @@ void WindowsHost::UpdateConsolePosition()
 {
 	RECT rc;
 	HWND console = GetConsoleWindow();
-	if (console != NULL && GetWindowRect(console, &rc))
+	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console))
 	{
 		g_Config.iConsoleWindowX = rc.left;
 		g_Config.iConsoleWindowY = rc.top;
