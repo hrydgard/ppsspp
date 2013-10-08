@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "base/logging.h"
 #include "gl_state.h"
 
@@ -109,13 +111,13 @@ void CheckGLExtensions() {
 	for (int i = 0; i < len && numVer < 3; i++) {
 		if (buffer[i] == '.') {
 			buffer[i] = 0;
-			gl_extensions.ver[numVer++] = atoi(lastNumStart);
+			gl_extensions.ver[numVer++] = strtol(lastNumStart, NULL, 10);
 			i++;
 			lastNumStart = buffer + i;
 		}
 	}
 	if (numVer < 3)
-		gl_extensions.ver[numVer++] = atoi(lastNumStart);
+		gl_extensions.ver[numVer++] = strtol(lastNumStart, NULL, 10);
 
 #if defined(USING_GLES2)
 #if defined(MAY_HAVE_GLES3)
