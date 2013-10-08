@@ -329,13 +329,13 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
 static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
-	VertexAttribSetup(program->a_weight0123, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
-	VertexAttribSetup(program->a_weight4567, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
-	VertexAttribSetup(program->a_texcoord, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
-	VertexAttribSetup(program->a_color0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
-	VertexAttribSetup(program->a_color1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
-	VertexAttribSetup(program->a_normal, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
-	VertexAttribSetup(program->a_position, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
+	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
+	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
+	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
+	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
+	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
+	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
+	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
 }
 
 // The verts are in the order:  BR BL TL TR
@@ -375,7 +375,6 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 		SwapUVs(v[1], v[3]);
 }
 
-
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
 bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
@@ -395,7 +394,7 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 		memcpy(&vcolor, transformed[i].color0, 4);
 		if (vcolor != matchcolor || transformed[i].z != matchz)
 			return false;
-		
+
 		if ((i & 1) == 0) {
 			// Top left of a rectangle
 			if (transformed[i].y != 0)
@@ -598,7 +597,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 				uv[2] = 1.0f;
 				break;
-				
+
 			case GE_TEXMAP_TEXTURE_MATRIX:
 				{
 					// Projection mapping
@@ -607,11 +606,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					case GE_PROJMAP_POSITION: // Use model space XYZ as source
 						source = pos;
 						break;
-						
+
 					case GE_PROJMAP_UV: // Use unscaled UV as source
 						source = Vec3f(ruv[0], ruv[1], 0.0f);
 						break;
-						
+
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 						if (reader.hasNormal()) {
 							source = Vec3f(norm).Normalized();
@@ -620,7 +619,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
-						
+
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 						if (reader.hasNormal()) {
 							source = Vec3f(norm);
@@ -638,7 +637,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[2] = uvw[2];
 				}
 				break;
-				
+
 			case GE_TEXMAP_ENVIRONMENT_MAP:
 				// Shade mapping - use two light sources to generate U and V.
 				{
@@ -650,15 +649,16 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[2] = 1.0f;
 				}
 				break;
-				
+
 			default:
 				// Illegal
 				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
+
 			uv[0] = uv[0] * widthFactor;
 			uv[1] = uv[1] * heightFactor;
-			
+
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 			fogCoef = (v[2] + fog_end) * fog_slope;
@@ -765,6 +765,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Apparently, non-through RotateUV just breaks things.
 			// If we find a game where it helps, we'll just have to figure out how they differ.
 			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
+			// One game might be one of the Metal Gear ones, can't find the issue right now though.
 			// else
 			//	RotateUV(trans);
 
@@ -779,19 +780,19 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		}
 	}
 
-
 	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
 	// Might help for text drawing.
 
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
-		
+
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
+	glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+	int attrMask = program->attrMask;
+	if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
+	if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
+	if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
 //#ifdef USING_GLES2
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
