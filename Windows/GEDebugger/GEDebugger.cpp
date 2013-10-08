@@ -25,6 +25,7 @@
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/TabDisplayLists.h"
 #include "Windows/GEDebugger/TabState.h"
+#include "Windows/InputBox.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/main.h"
@@ -104,7 +105,7 @@ bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 		// Otherwise we get garbage widths and colors.  It's annoying.
 		bool textureCmd = interesting || cmd == GE_CMD_CLUTADDR || cmd == GE_CMD_CLUTADDRUPPER || cmd == GE_CMD_LOADCLUT || cmd == GE_CMD_CLUTFORMAT;
 		textureCmd = textureCmd || (cmd >= GE_CMD_TEXSIZE0 && cmd <= GE_CMD_TEXSIZE7);
-		textureCmd = textureCmd || cmd == GE_CMD_TEXFORMAT || cmd == GE_CMD_TEXMODE;
+		textureCmd = textureCmd || cmd == GE_CMD_TEXFORMAT || cmd == GE_CMD_TEXMODE || cmd == GE_CMD_TEXTUREMAPENABLE;
 		if (!textureCmd) {
 			return true;
 		}
@@ -125,7 +126,7 @@ bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 	}
 
 	lock_guard guard(breaksLock);
-	if (breakTextures.find(state.getTextureAddress(level)) != breakTextures.end()) {
+	if (breakTextures.find(state.getTextureAddress(level)) != breakTextures.end() && breakNext == BREAK_NONE) {
 		breakNext = BREAK_NEXT_NONTEX;
 	}
 	return false;
@@ -462,6 +463,20 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_STEPFRAME:
 			SetBreakNext(BREAK_NEXT_FRAME);
+			break;
+
+		case IDC_GEDBG_BREAKTEX:
+			{
+				u32 texAddr;
+				// TODO: Better interface that allows add/remove or something.
+				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", lastTexture, texAddr)) {
+					if (breakTextures.find(texAddr) != breakTextures.end()) {
+						breakTextures.erase(texAddr);
+					} else {
+						breakTextures.insert(texAddr);
+					}
+				}
+			}
 			break;
 
 		case IDC_GEDBG_RESUME:
