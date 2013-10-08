@@ -33,11 +33,11 @@ std::string g_all_egl_extensions;
 int OpenGLState::state_count = 0;
 
 void OpenGLState::Initialize() {
-	if(initialized) return;
+	if (initialized)
+		return;
+	initialized = true;
 
 	Restore();
-
-	initialized = true;
 }
 
 void OpenGLState::Restore() {
@@ -108,7 +108,7 @@ void CheckGLExtensions() {
 	char buffer[64] = {0};
 	if (versionStr) {
 		ILOG("GL version str: %s", versionStr);
-		strncpy(buffer, versionStr, 64);
+		strncpy(buffer, versionStr, 63);
 	}
 	const char *lastNumStart = buffer;
 	int numVer = 0;

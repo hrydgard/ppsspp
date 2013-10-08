@@ -76,7 +76,9 @@
 ** MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 */
 
+#ifndef GLEW_STATIC
 #define GLEW_STATIC
+#endif
 
 #ifndef __glew_h__
 #define __glew_h__
