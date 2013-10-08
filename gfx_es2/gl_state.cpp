@@ -98,11 +98,17 @@ void CheckGLExtensions() {
 	done = true;
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 
+	const char *renderer = (const char *)glGetString(GL_RENDERER);
+
 #if defined(USING_GLES2) && defined(MAY_HAVE_GLES3)
 	// Try to load GLES 3.0
 	if (GL_TRUE == gl3stubInit()) {
 		gl_extensions.GLES3 = true;
 		ILOG("Full OpenGL ES 3.0 support detected!\n");
+		// Though, let's ban Mali from the GLES 3 path for now, see #4078
+		if (strstr(renderer, "Mali") != 0) {
+			gl_extensions.GLES3 = false;
+		}
 	}
 #endif
 
@@ -208,7 +214,7 @@ void CheckGLExtensions() {
 		gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 		gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
 		gl_extensions.PBO_ARB = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
-		gl_extensions.ATIClampBug = ((strncmp ((char *)glGetString(GL_RENDERER), "ATI RADEON X", 12) != 0) || (strncmp ((char *)glGetString(GL_RENDERER), "ATI MOBILITY RADEON X",21) != 0));
+		gl_extensions.ATIClampBug = ((strncmp (renderer, "ATI RADEON X", 12) != 0) || (strncmp (renderer, "ATI MOBILITY RADEON X",21) != 0));
 	}
 #endif
 }
