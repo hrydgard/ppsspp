@@ -32,6 +32,18 @@ using namespace Gen;
 // Temp regs: 4 from S prefix, 4 from T prefix, 4 from D mask, and 4 for work (worst case.)
 // But most of the time prefixes aren't used that heavily so we won't use all of them.
 
+// PLANS FOR PROPER SIMD
+// 1, 2, 3, and 4-vectors will be loaded into single XMM registers
+// Matrices will be loaded into pairs, triads, or quads of XMM registers - simply by loading
+// the columns or the rows one by one.
+
+// On x86 this means that only one 4x4 matrix can be fully loaded at once but that's alright.
+// We might want to keep "linearized" columns in memory.
+
+// Implement optimized vec/matrix multiplications of all types and transposes that
+// take into account in which XMM registers the values are. Fallback: Just dump out the values
+// and do it the old way.
+
 enum {
 	NUM_TEMPS = 16,
 	TEMP0 = 32 + 128,
