@@ -794,11 +794,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
 	if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
-//#ifdef USING_GLES2
+#ifdef USING_GLES2
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-//#else
-//		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
-//#endif
+#else
+		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
+#endif
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
@@ -1066,6 +1066,7 @@ void TransformDrawEngine::DoFlush() {
 	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
+		int maxIndex = 0;
 		bool useElements = true;
 		// Cannot cache vertex data with morph enabled.
 		if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
@@ -1091,6 +1092,7 @@ void TransformDrawEngine::DoFlush() {
 					DecodeVerts(); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
+					vai->maxIndex = indexGen.MaxIndex();
 					goto rotateVBO;
 				}
 
@@ -1137,10 +1139,12 @@ void TransformDrawEngine::DoFlush() {
 						DecodeVerts();
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
+						vai->maxIndex = indexGen.MaxIndex();
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
+						
 						glGenBuffers(1, &vai->vbo);
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
@@ -1166,6 +1170,7 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
+					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
@@ -1185,6 +1190,7 @@ void TransformDrawEngine::DoFlush() {
 					if (ebo)
 						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 					vertexCount = vai->numVerts;
+					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
@@ -1207,6 +1213,7 @@ rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
+			maxIndex = indexGen.MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
@@ -1220,11 +1227,11 @@ rotateVBO:
 
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 		if (useElements) {
-//#ifdef USING_GLES2
+#ifdef USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-//#else
-//			glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-//#endif
+#else
+			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
+#endif
 			if (ebo)
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		} else {

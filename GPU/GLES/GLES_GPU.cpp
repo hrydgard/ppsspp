@@ -977,8 +977,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		gstate_c.textureChanged = true;
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff) {
+			gstate_c.textureChanged = true;
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		}
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -989,13 +991,17 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		gstate_c.textureChanged = true;
+		if (diff) {
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
 	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged = true;
+		if (diff) {
+			gstate_c.textureChanged = true;
+		}
 		// This could be used to "dirty" textures with clut.
 		break;
 

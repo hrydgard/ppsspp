@@ -242,8 +242,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	debugConfig->Get("ShowBottomTabTitles",&bShowBottomTabTitles,true);
 	debugConfig->Get("ShowDeveloperMenu", &bShowDeveloperMenu, false);
 
-	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
-	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
+	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
+	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -398,6 +398,9 @@ void Config::Save() {
 		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
 		debugConfig->Set("ShowBottomTabTitles",bShowBottomTabTitles);
 		debugConfig->Set("ShowDeveloperMenu", bShowDeveloperMenu);
+
+		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
+		speedhacks->Set("PrescaleUV", bPrescaleUV);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

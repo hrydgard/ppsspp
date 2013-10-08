@@ -93,8 +93,12 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 
 	glLinkProgram(program);
 
+	// Detaching shaders is annoying when debugging with gDebugger
+	// so let's not do that on Windows.
+#ifdef USING_GLES
 	glDetachShader(program, vs->shader);
 	glDetachShader(program, fs->shader);
+#endif
 
 	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
@@ -197,6 +201,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 }
 
 LinkedShader::~LinkedShader() {
+	// Shaders are automatically detached by glDeleteProgram.
 	glDeleteProgram(program);
 }
 

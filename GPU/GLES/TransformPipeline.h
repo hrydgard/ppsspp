@@ -80,6 +80,7 @@ public:
 
 	// Precalculated parameter for drawdrawElements
 	u16 numVerts;
+	u16 maxIndex;
 	s8 prim;
 
 	// ID information
