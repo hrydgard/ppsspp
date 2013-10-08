@@ -101,10 +101,15 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
+
+#ifndef USING_GLES2
 	const char *versionStr = (const char *)glGetString(GL_VERSION);
 
-	char buffer[64];
-	strcpy(buffer, versionStr);
+	char buffer[64] = {0};
+	if (versionStr) {
+		ILOG("GL version str: %s", versionStr);
+		strncpy(buffer, versionStr, 64);
+	}
 	const char *lastNumStart = buffer;
 	int numVer = 0;
 	int len = (int)strlen(buffer);
@@ -118,11 +123,15 @@ void CheckGLExtensions() {
 	}
 	if (numVer < 3)
 		gl_extensions.ver[numVer++] = strtol(lastNumStart, NULL, 10);
+#else
+	gl_extensions.ver[0] = 2;
+#endif
 
 #if defined(USING_GLES2)
 #if defined(MAY_HAVE_GLES3)
 	// Try to load GLES 3.0
 	if (GL_TRUE == gl3stubInit()) {
+		gl_extensions.ver[0] = 3;
 		gl_extensions.GLES3 = true;
 		ILOG("Full OpenGL ES 3.0 support detected!\n");
 		// Though, let's ban Mali from the GLES 3 path for now, see #4078
