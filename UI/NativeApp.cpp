@@ -451,8 +451,8 @@ void NativeInitGraphics() {
 	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
 	ui_theme.itemDisabledStyle.fgColor = 0xFFcccccc;
-	ui_theme.itemHighlightedStyle.background = UI::Drawable(0x22edc24c);
-	ui_theme.itemHighlightedStyle.fgColor = 0xFFbd9939;
+	ui_theme.itemHighlightedStyle.background = UI::Drawable(0xFFbdBB39);
+	ui_theme.itemHighlightedStyle.fgColor = 0xFFFFFFFF;
 
 	ui_theme.buttonStyle = ui_theme.itemStyle;
 	ui_theme.buttonFocusedStyle = ui_theme.itemFocusedStyle;
