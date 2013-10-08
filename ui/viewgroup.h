@@ -242,11 +242,18 @@ public:
 
 	void AddChoice(const std::string &title);
 	void AddChoice(ImageID buttonImage);
+
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel);
+
+	void HighlightChoice(unsigned int choice);
+
+
 	virtual void Key(const KeyInput &input);
+
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
 	void Draw(UIContext &dc);
+
 	Event OnChoice;
 
 private:

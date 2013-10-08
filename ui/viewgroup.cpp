@@ -885,6 +885,15 @@ void ChoiceStrip::SetSelection(int sel) {
 	}
 }
 
+
+
+void ChoiceStrip::HighlightChoice(unsigned int choice){
+	if (choice < (int)views_.size()){
+		static_cast<StickyChoice *>(views_[choice])->HighlightChanged(true);
+	}
+	
+};
+
 void ChoiceStrip::Key(const KeyInput &input) {
 	if (input.flags & KEY_DOWN) {
 		if (input.keyCode == NKCODE_BUTTON_L1 && selected_ > 0) {

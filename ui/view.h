@@ -102,11 +102,13 @@ struct Theme {
 	Style buttonFocusedStyle;
 	Style buttonDownStyle;
 	Style buttonDisabledStyle;
+	Style buttonHighlightedStyle;
 
 	Style itemStyle;
 	Style itemDownStyle;
 	Style itemFocusedStyle;
 	Style itemDisabledStyle;
+	Style itemHighlightedStyle;
 
 	Style headerStyle;
 
@@ -389,7 +391,7 @@ public:
 class Clickable : public View {
 public:
 	Clickable(LayoutParams *layoutParams)
-		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false) {}
+		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false){}
 
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
@@ -504,13 +506,14 @@ public:
 class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), selected_(false), centered_(false) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), selected_(false), centered_(false), highlighted_(false) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), selected_(selected), centered_(false) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), selected_(selected), centered_(false), highlighted_(false) {}
 	
 	Choice(ImageID image, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), atlasImage_(image), selected_(false) {}
+		: ClickableItem(layoutParams), atlasImage_(image), selected_(false), highlighted_(false) {}
 
+	virtual void HighlightChanged(bool highlighted);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 	virtual void SetCentered(bool c) {
@@ -525,6 +528,7 @@ protected:
 	std::string smallText_;
 	ImageID atlasImage_;
 	bool centered_;
+	bool highlighted_;
 
 private:
 	bool selected_;
@@ -541,10 +545,11 @@ public:
 	virtual void Key(const KeyInput &key);
 	virtual void Touch(const TouchInput &touch);
 	virtual void FocusChanged(int focusFlags);
-
+	
 	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
 	bool IsDown() { return down_; }
+
 protected:
 	// hackery
 	virtual bool IsSticky() const { return true; }
