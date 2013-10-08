@@ -887,9 +887,8 @@ void ChoiceStrip::SetSelection(int sel) {
 
 
 
-void ChoiceStrip::HighlightChoice(int choice){
+void ChoiceStrip::HighlightChoice(unsigned int choice){
 	if (choice < (int)views_.size()){
-		//hack of the worst kind
 		static_cast<StickyChoice *>(views_[choice])->HighlightChanged(true);
 	}
 	

@@ -244,7 +244,7 @@ public:
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel);
 
-	void HighlightChoice(int choice);
+	void HighlightChoice(unsigned int choice);
 
 
 	virtual void Key(const KeyInput &input);

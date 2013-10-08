@@ -154,9 +154,6 @@ void Clickable::FocusChanged(int focusFlags) {
 	}
 }
 
- void Clickable::HighlightChanged(bool highlighted){
- 	highlighted_ = highlighted;
- };
 
 void Clickable::Touch(const TouchInput &input) {
 	if (!enabled_) {
@@ -280,9 +277,7 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 
 void ClickableItem::Draw(UIContext &dc) {
 	Style style =	dc.theme->itemStyle;
-	if(highlighted_) {
-		style = dc.theme->itemHighlightedStyle;
-	}
+
 	if (HasFocus()) {
 		style = dc.theme->itemFocusedStyle;
 	}
@@ -305,12 +300,17 @@ void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	h += 16;
 }
 
+ void Choice::HighlightChanged(bool highlighted){
+ 	highlighted_ = highlighted;
+ };
+ 
+
 void Choice::Draw(UIContext &dc) {
 	if (!IsSticky()) {
 		ClickableItem::Draw(dc);
 	} else {
 		Style style =	dc.theme->itemStyle;
-		if(highlighted_) {
+		if (highlighted_) {
 			style = dc.theme->itemHighlightedStyle;
 		}
 		if (down_) {
@@ -380,8 +380,6 @@ void CheckBox::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
 	if (!IsEnabled())
 		style = dc.theme->itemDisabledStyle;
-	if(highlighted_)
-		style = dc.theme->itemHighlightedStyle;
 	
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
@@ -394,7 +392,7 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 
 void Button::Draw(UIContext &dc) {
 	Style style = dc.theme->buttonStyle;
-	if(highlighted_) style = dc.theme->itemHighlightedStyle;
+
 	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
 	if (down_) style = dc.theme->buttonDownStyle;
 	if (!enabled_) style = dc.theme->buttonDisabledStyle;
