@@ -21,7 +21,6 @@
 
 #endif
 #else // OpenGL
-#define MAY_HAVE_GLES3 1
 #include <GL/glew.h>
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
