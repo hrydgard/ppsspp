@@ -73,12 +73,6 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-static int glGetAttribLocationL(int program, const char *name) {
-	int attrLoc = glGetAttribLocation(program, name);
-	ERROR_LOG(HLE, "Attr Loc: %i %i %s", program, attrLoc, name);
-	return attrLoc;
-}
-
 LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	program = glCreateProgram();
@@ -89,13 +83,13 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	// Bind attribute locations to fixed locations so that they're
 	// the same in all shaders. We can use this later to minimize the calls to
 	// glEnableVertexAttribArray and glDisableVertexAttribArray.
-	glBindAttribLocation(program, ATTR_POSITION, "a_position");
-	glBindAttribLocation(program, ATTR_TEXCOORD, "a_texcoord");
-	glBindAttribLocation(program, ATTR_NORMAL, "a_normal");
-	glBindAttribLocation(program, ATTR_W1, "a_w1");
-	glBindAttribLocation(program, ATTR_W2, "a_w2");
-	glBindAttribLocation(program, ATTR_COLOR0, "a_color0");
-	glBindAttribLocation(program, ATTR_COLOR1, "a_color1");
+	glBindAttribLocation(program, ATTR_POSITION, "position");
+	glBindAttribLocation(program, ATTR_TEXCOORD, "texcoord");
+	glBindAttribLocation(program, ATTR_NORMAL, "normal");
+	glBindAttribLocation(program, ATTR_W1, "w1");
+	glBindAttribLocation(program, ATTR_W2, "w2");
+	glBindAttribLocation(program, ATTR_COLOR0, "color0");
+	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
 	glLinkProgram(program);
 
@@ -185,15 +179,13 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	}
 
 	attrMask = 0;
-	if (-1 != glGetAttribLocationL(program, "a_position")) attrMask |= 1 << ATTR_POSITION;
-	if (-1 != glGetAttribLocationL(program, "a_texcoord")) attrMask |= 1 << ATTR_TEXCOORD;
-	if (-1 != glGetAttribLocationL(program, "a_normal")) attrMask |= 1 << ATTR_NORMAL;
-	if (-1 != glGetAttribLocationL(program, "a_w1")) attrMask |= 1 << ATTR_W1;
-	if (-1 != glGetAttribLocationL(program, "a_w2")) attrMask |= 1 << ATTR_W2;
-	if (-1 != glGetAttribLocationL(program, "a_color0")) attrMask |= 1 << ATTR_COLOR0;
-	if (-1 != glGetAttribLocationL(program, "a_color1")) attrMask |= 1 << ATTR_COLOR1;
-
-	ELOG("AttrMask: %02x", attrMask);
+	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
+	if (-1 != glGetAttribLocation(program, "texcoord")) attrMask |= 1 << ATTR_TEXCOORD;
+	if (-1 != glGetAttribLocation(program, "normal")) attrMask |= 1 << ATTR_NORMAL;
+	if (-1 != glGetAttribLocation(program, "w1")) attrMask |= 1 << ATTR_W1;
+	if (-1 != glGetAttribLocation(program, "w2")) attrMask |= 1 << ATTR_W2;
+	if (-1 != glGetAttribLocation(program, "color0")) attrMask |= 1 << ATTR_COLOR0;
+	if (-1 != glGetAttribLocation(program, "color1")) attrMask |= 1 << ATTR_COLOR1;
 
 	glUseProgram(program);
 
