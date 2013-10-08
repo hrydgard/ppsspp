@@ -327,10 +327,10 @@ private:
 	bool *gridStyle_;
 	bool allowBrowsing_;
 	std::string lastText_;
-	std::string lastLink_; 
+	std::string lastLink_;
 };
 
-GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams) 
+GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gameList_(0), allowBrowsing_(allowBrowsing), gridStyle_(gridStyle), lastText_(lastText), lastLink_(lastLink) {
 	using namespace UI;
 	Refresh();
@@ -365,7 +365,8 @@ void GameBrowser::Refresh() {
 
 	if (allowBrowsing_) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
+		Margins pathMargins(5, 0);
+		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
 #ifdef ANDROID
 		topBar->Add(new Choice(m->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
@@ -376,7 +377,7 @@ void GameBrowser::Refresh() {
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		Add(topBar);
 	}
-	
+
 	if (*gridStyle_) {
 		gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150, 85), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	} else {
