@@ -353,6 +353,8 @@ VisualInfoARB (GLContext* ctx)
       else if (WGLEW_ATI_pixel_format_float && value[7] == WGL_TYPE_RGBA_FLOAT_ATI) fprintf(file, " f ");
       else if (value[7] == WGL_TYPE_RGBA_ARB) fprintf(file, " i ");
       else if (value[7] == WGL_TYPE_COLORINDEX_ARB) fprintf(file, " c ");
+      else if (value[7] == WGL_TYPE_RGBA_UNSIGNED_FLOAT_EXT) fprintf(file," p ");
+      else fprintf(file," ? ");
       /* double buffer */
       fprintf(file, " %c ", value[5] ? 'y' : '.');
       /* swap method */
