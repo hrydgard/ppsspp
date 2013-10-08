@@ -99,8 +99,26 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
+	const char *versionStr = (const char *)glGetString(GL_VERSION);
 
-#if defined(USING_GLES2) && defined(MAY_HAVE_GLES3)
+	char buffer[64];
+	strcpy(buffer, versionStr);
+	const char *lastNumStart = buffer;
+	int numVer = 0;
+	int len = (int)strlen(buffer);
+	for (int i = 0; i < len && numVer < 3; i++) {
+		if (buffer[i] == '.') {
+			buffer[i] = 0;
+			gl_extensions.ver[numVer++] = atoi(lastNumStart);
+			i++;
+			lastNumStart = buffer + i;
+		}
+	}
+	if (numVer < 3)
+		gl_extensions.ver[numVer++] = atoi(lastNumStart);
+
+#if defined(USING_GLES2)
+#if defined(MAY_HAVE_GLES3)
 	// Try to load GLES 3.0
 	if (GL_TRUE == gl3stubInit()) {
 		gl_extensions.GLES3 = true;
@@ -109,6 +127,14 @@ void CheckGLExtensions() {
 		if (strstr(renderer, "Mali") != 0) {
 			gl_extensions.GLES3 = false;
 		}
+	}
+#endif
+#else
+	// If the GL version >= 4.3, we know it's a true superset of OpenGL ES 3.0 and can thus enable
+	// modern paths.
+	// Most of it could be enabled on lower GPUs as well, but let's start this way.
+	if ((gl_extensions.ver[0] == 4 && gl_extensions.ver[1] >= 3) || gl_extensions.ver[0] > 4) {
+		gl_extensions.GLES3 = true;
 	}
 #endif
 

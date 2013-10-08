@@ -5,6 +5,9 @@
 #if defined(IOS)
 #include <OpenGLES/ES2/gl.h>
 #include <OpenGLES/ES2/glext.h>
+
+// I guess we can soon add ES 3.0 here too
+
 #else
 
 // Support OpenGL ES 3.0
@@ -21,6 +24,9 @@
 
 #endif
 #else // OpenGL
+// Now that glew is upgraded beyond 4.3, we can define MAY_HAVE_GLES3 on all platforms
+// that include glew.
+#define MAY_HAVE_GLES3
 #include <GL/glew.h>
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>

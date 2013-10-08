@@ -314,6 +314,7 @@ extern OpenGLState glstate;
 
 // WARNING: This gets memset-d - so no strings please
 struct GLExtensions {
+	int ver[3];
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
