@@ -81,7 +81,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glAttachShader(program, fs->shader);
 
 	// Bind attribute locations to fixed locations so that they're
-	// the same in all shaders. We can use this later to minimize the calls to
+	// the same in all shaders. We use this later to minimize the calls to
 	// glEnableVertexAttribArray and glDisableVertexAttribArray.
 	glBindAttribLocation(program, ATTR_POSITION, "position");
 	glBindAttribLocation(program, ATTR_TEXCOORD, "texcoord");
@@ -279,7 +279,6 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 	glUseProgram(program);
 	updateUniforms(vertType);
-	glEnableVertexAttribArray(0);
 	int enable, disable;
 	if (previous) {
 		enable = attrMask & ~previous->attrMask;
@@ -288,7 +287,7 @@ void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 		enable = attrMask;
 		disable = ~attrMask;
 	}
-	for (int i = 1; i < ATTR_COUNT; i++) {
+	for (int i = 0; i < ATTR_COUNT; i++) {
 		if (enable & (1 << i))
 			glEnableVertexAttribArray(i);
 		else if (disable & (1 << i))
@@ -297,8 +296,7 @@ void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 }
 
 void LinkedShader::stop() {
-	glDisableVertexAttribArray(0);
-	for (int i = 1; i < ATTR_COUNT; i++) {
+	for (int i = 0; i < ATTR_COUNT; i++) {
 		if (attrMask & (1 << i))
 			glDisableVertexAttribArray(i);
 	}
