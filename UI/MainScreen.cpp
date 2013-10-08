@@ -48,6 +48,8 @@
 #include <QDir>
 #endif
 
+#include <sstream>
+
 #ifdef _WIN32
 namespace MainWindow {
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
@@ -708,6 +710,8 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 void GamePauseScreen::CreateViews() {
+	static const int NUM_SAVESLOTS = 5; 
+
 	using namespace UI;
 	Margins actionMenuMargins(0, 100, 15, 0);
 	I18NCategory *gs = GetI18NCategory("Graphics");
@@ -722,14 +726,21 @@ void GamePauseScreen::CreateViews() {
 
 	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	leftColumn->Add(leftColumnItems);
-
 	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
-	saveSlots_->AddChoice(" 1 ");
-	saveSlots_->AddChoice(" 2 ");
-	saveSlots_->AddChoice(" 3 ");
-	saveSlots_->AddChoice(" 4 ");
-	saveSlots_->AddChoice(" 5 ");
+	
+	
+	for (int i = 0; i < NUM_SAVESLOTS; i++){
+		std::stringstream saveSlotText;
+		saveSlotText<<" "<<i + 1<<" ";
+		
+		saveSlots_->AddChoice(saveSlotText.str());
+
+		if (SaveState::HasSaveInSlot(i)) {
+			saveSlots_->HighlightChoice(i);
+		}
+	}
 	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
+
 	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
 	
 	saveStateButton_ = leftColumnItems->Add(new Choice(i->T("Save State")));

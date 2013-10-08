@@ -451,11 +451,14 @@ void NativeInitGraphics() {
 	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
 	ui_theme.itemDisabledStyle.fgColor = 0xFFcccccc;
+	ui_theme.itemHighlightedStyle.background = UI::Drawable(0x55bdBB39);
+	ui_theme.itemHighlightedStyle.fgColor = 0xFFFFFFFF;
 
 	ui_theme.buttonStyle = ui_theme.itemStyle;
 	ui_theme.buttonFocusedStyle = ui_theme.itemFocusedStyle;
 	ui_theme.buttonDownStyle = ui_theme.itemDownStyle;
 	ui_theme.buttonDisabledStyle = ui_theme.itemDisabledStyle;
+	ui_theme.buttonHighlightedStyle = ui_theme.itemHighlightedStyle;
 
 	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
 	ui_draw2d.Init();
