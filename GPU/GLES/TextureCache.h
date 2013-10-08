@@ -28,7 +28,7 @@ struct VirtualFramebuffer;
 enum TextureFiltering {
 	AUTO = 1,
 	NEAREST = 2,
-	LINEAR = 3,   
+	LINEAR = 3,
 	LINEARFMV = 4,
 };
 
@@ -38,8 +38,7 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
-class TextureCache 
-{
+class TextureCache {
 public:
 	TextureCache();
 	~TextureCache();
@@ -117,8 +116,9 @@ private:
 	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages);
-	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum &dstFmt);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, GLenum dstFmt);
+	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
+	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt);
 	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h);
 	template <typename T>
 	const T *GetCurrentClut();
