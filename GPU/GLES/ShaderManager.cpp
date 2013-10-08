@@ -73,7 +73,7 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform)
+LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	program = glCreateProgram();
 
@@ -193,7 +193,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
-	use(vertType);
+	use(vertType, previous);
 }
 
 LinkedShader::~LinkedShader() {
@@ -276,13 +276,23 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
-void LinkedShader::use(u32 vertType) {
+void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 	glUseProgram(program);
 	updateUniforms(vertType);
 	glEnableVertexAttribArray(0);
+	int enable, disable;
+	if (previous) {
+		enable = attrMask & ~previous->attrMask;
+		disable = (~attrMask) & previous->attrMask;
+	} else {
+		enable = attrMask;
+		disable = ~attrMask;
+	}
 	for (int i = 1; i < ATTR_COUNT; i++) {
-		if (attrMask & (1 << i))
+		if (enable & (1 << i))
 			glEnableVertexAttribArray(i);
+		else if (disable & (1 << i))
+			glDisableVertexAttribArray(i);
 	}
 }
 
@@ -536,11 +546,6 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 		return lastShader_;	// Already all set.
 	}
 
-	if (lastShader_ != 0) {
-		// There was a previous shader and we're switching.
-		lastShader_->stop();
-	}
-
 	lastVSID_ = VSID;
 	lastFSID_ = FSID;
 
@@ -595,11 +600,11 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
-		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform());	// This does "use" automatically
+		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
-		ls->use(vertType);
+		ls->use(vertType, lastShader_);
 	}
 
 	lastShader_ = ls;

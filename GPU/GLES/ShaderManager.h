@@ -40,10 +40,10 @@ enum {
 
 class LinkedShader {
 public:
-	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform);
+	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous);
 	~LinkedShader();
 
-	void use(u32 vertType);
+	void use(u32 vertType, LinkedShader *previous);
 	void stop();
 	void updateUniforms(u32 vertType);
 
