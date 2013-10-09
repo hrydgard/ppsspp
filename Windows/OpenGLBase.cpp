@@ -32,6 +32,9 @@ void GL_Resized() {
 		yres = 1;
 	glstate.viewport.set(0, 0, xres, yres);
 	glstate.viewport.restore();
+#ifndef USING_GLES2
+	glLineWidth(g_Config.iInternalResolution == 0 ? yres : g_Config.iInternalResolution);
+#endif 
 }
 
 void GL_SwapBuffers() {
