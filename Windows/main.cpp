@@ -61,8 +61,7 @@ void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor = 0, const u32 spMinor = 0)
-{
+bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor = 0, const u32 spMinor = 0) {
 	u64 conditionMask = 0;
 	OSVERSIONINFOEX osvi;
 	bool match = false;
@@ -85,8 +84,7 @@ bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor
 	return VerifyVersionInfo(&osvi, typeMask, conditionMask);
 }
 
-std::string GetWindowsVersion()
-{
+std::string GetWindowsVersion() {
 	const bool IsWindowsXPSP2 = DoesVersionMatchWindows(5, 1, 2, 0);
 	const bool IsWindowsXPSP3 = DoesVersionMatchWindows(5, 1, 3, 0);
 	const bool IsWindowsVista = DoesVersionMatchWindows(6, 0);
