@@ -16,6 +16,9 @@
 #if defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <KHR/khrplatform.h>
+#ifndef GLchar
+typedef char GLchar;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
