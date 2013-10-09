@@ -49,6 +49,7 @@ private:
 	// Event handlers
 	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
+	UI::EventReturn OnSetupOnScreenControl(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);

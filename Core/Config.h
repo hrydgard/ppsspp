@@ -120,6 +120,20 @@ public:
 	// Control
 	int iTouchButtonOpacity;
 	float fButtonScale;
+	//the PSP button's center (triangle, circle, square, cross)
+	int iPSPButtonCenterX, iPSPButtonCenterY;
+	//the D-pad (PSP cross) position
+	int iDpadX, iDpadY;
+	//the start key position
+	int iStartKeyX, iStartKeyY;
+	//the select key position; 
+	int iSelectKeyX, iSelectKeyY;
+	int iUnthrottleKeyX, iUnthrottleKeyY;
+	int iLKeyX, iLKeyY;
+	int iRKeyX, iRKeyY;
+	//position of the analog stick
+	int iAnalogStickX, iAnalogStickY;
+
 
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into

@@ -208,8 +208,28 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 #endif
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	control->Get("ButtonScale", &fButtonScale, 1.15);
+	//set these to -1 if not initialized. initializing these
+	//requires pixel coordinates which is not known right now.
+	//will be initialized in GamepadEmu::CreatePadLayout
+	control->Get("PSPButtonCenterX", &iPSPButtonCenterX, -1);
+	control->Get("PSPButtonCenterY", &iPSPButtonCenterY, -1);
+	control->Get("DPadX", &iDpadX, -1);
+	control->Get("DPadY", &iDpadY, -1);
+	control->Get("StartKeyX", &iStartKeyX, -1);
+	control->Get("StartKeyY", &iStartKeyY, -1);
+	control->Get("SelectKeyX", &iSelectKeyX, -1);
+	control->Get("SelectKeyY", &iSelectKeyY, -1);
+	control->Get("UnthrottleKeyX", &iUnthrottleKeyX, -1);
+	control->Get("UnthrottleKeyY", &iUnthrottleKeyY, -1);
+	control->Get("LKeyX", &iLKeyX, -1);
+	control->Get("LKeyY", &iLKeyY, -1);
+	control->Get("RKeyX", &iRKeyX, -1);
+	control->Get("RKeyY", &iRKeyY, -1);
+	control->Get("AnalogStickX", &iAnalogStickX, -1);
+	control->Get("AnalogStickY", &iAnalogStickY, -1);
 
-	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+
+		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("Language", &iLanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
@@ -242,8 +262,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	debugConfig->Get("ShowBottomTabTitles",&bShowBottomTabTitles,true);
 	debugConfig->Get("ShowDeveloperMenu", &bShowDeveloperMenu, false);
 
-	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
-	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
+	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
+	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -365,6 +385,23 @@ void Config::Save() {
 #endif
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
+		control->Set("PSPButtonCenterX", iPSPButtonCenterX);
+		control->Set("PSPButtonCenterY", iPSPButtonCenterY);
+		control->Set("DPadX", iDpadX);
+		control->Set("DPadY", iDpadY);
+		control->Set("StartKeyX", iStartKeyX);
+		control->Set("StartKeyY", iStartKeyY);
+		control->Set("SelectKeyX", iSelectKeyX);
+		control->Set("SelectKeyY", iSelectKeyY);
+		control->Set("UnthrottleKeyX", iUnthrottleKeyX);
+		control->Set("UnthrottleKeyY", iUnthrottleKeyY);
+		control->Set("LKeyX", iLKeyX);
+		control->Set("LKeyY", iLKeyY);
+		control->Set("RKeyX", iRKeyX);
+		control->Set("RKeyY", iRKeyY);
+		control->Set("AnalogStickX", iAnalogStickX);
+		control->Set("AnalogStickY", iAnalogStickY);
+
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("NickName", sNickName.c_str());
@@ -398,6 +435,9 @@ void Config::Save() {
 		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
 		debugConfig->Set("ShowBottomTabTitles",bShowBottomTabTitles);
 		debugConfig->Set("ShowDeveloperMenu", bShowDeveloperMenu);
+
+		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
+		speedhacks->Set("PrescaleUV", bPrescaleUV);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
