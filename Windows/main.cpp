@@ -61,10 +61,76 @@ void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
+bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor = 0, const u32 spMinor = 0)
+{
+	u64 conditionMask = 0;
+	OSVERSIONINFOEX osvi;
+	bool match = false;
+	ZeroMemory(&osvi, sizeof(osvi));
+
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = major;
+	osvi.dwMinorVersion = minor;
+	osvi.wServicePackMajor = spMajor;
+	osvi.wServicePackMinor = spMinor;
+	u32 op = VER_EQUAL;
+
+	VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, op);
+	VER_SET_CONDITION(conditionMask, VER_MINORVERSION, op);
+	VER_SET_CONDITION(conditionMask, VER_SERVICEPACKMAJOR, op);
+	VER_SET_CONDITION(conditionMask, VER_SERVICEPACKMINOR, op);
+
+	const u32 typeMask = VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR;
+
+	return VerifyVersionInfo(&osvi, typeMask, conditionMask);
+}
+
+std::string GetWindowsVersion()
+{
+	const bool IsWindowsXPSP2 = DoesVersionMatchWindows(5, 1, 2, 0);
+	const bool IsWindowsXPSP3 = DoesVersionMatchWindows(5, 1, 3, 0);
+	const bool IsWindowsVista = DoesVersionMatchWindows(6, 0);
+	const bool IsWindowsVistaSP1 = DoesVersionMatchWindows(6, 0, 1, 0);
+	const bool IsWindowsVistaSP2 = DoesVersionMatchWindows(6, 0, 2, 0);
+	const bool IsWindows7 = DoesVersionMatchWindows(6, 1);
+	const bool IsWindows7SP1 = DoesVersionMatchWindows(6, 1, 1, 0);
+	const bool IsWindows8 = DoesVersionMatchWindows(6, 2);
+	const bool IsWindows8_1 = DoesVersionMatchWindows(6, 3);
+
+	if (IsWindowsXPSP2)
+		return "Microsoft Windows XP, Service Pack 2";
+
+	if (IsWindowsXPSP3)
+		return "Microsoft Windows XP, Service Pack 3";
+
+	if (IsWindowsVista)
+		return "Microsoft Windows Vista";
+
+	if (IsWindowsVistaSP1)
+		return "Microsoft Windows Vista, Service Pack 1";
+
+	if (IsWindowsVistaSP2)
+		return "Microsoft Windows Vista, Service Pack 2";
+
+	if (IsWindows7)
+		return "Microsoft Windows 7";
+
+	if (IsWindows7SP1)
+		return "Microsoft Windows 7, Service Pack 1";
+
+	if (IsWindows8)
+		return "Microsoft Windows 8";
+
+	if (IsWindows8_1)
+		return "Microsoft Windows 8.1";
+
+	return "Unsupported version of Microsoft Windows.";
+}
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
-		return "PC:Windows";
+		return "PC: " + GetWindowsVersion();
 	case SYSPROP_LANGREGION:
 		return langRegion;
 	default:
