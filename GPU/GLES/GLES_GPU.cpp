@@ -384,26 +384,29 @@ GLES_GPU::GLES_GPU()
 	} else {
 		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
-	
+
 #ifdef ANDROID
 	if (gl_extensions.QCOM_binning_control)
 		/*
 		We can try different HINTS later or even with option to toggle for Adreno GPU
 
-		CPU_OPTIMIZED_QCOM                
+		CPU_OPTIMIZED_QCOM
 		- binning algorithm focuses on lower CPU utilization (this path increases vertex processing
-		
-		GPU_OPTIMIZED_QCOM					
+
+		GPU_OPTIMIZED_QCOM
 		- binning algorithm focuses on lower GPU utilization (this path increases CPU usage
-		
-		RENDER_DIRECT_TO_FRAMEBUFFER_QCOM 
-		- render directly to the final framebuffer and bypass tile memory 
+
+		RENDER_DIRECT_TO_FRAMEBUFFER_QCOM
+		- render directly to the final framebuffer and bypass tile memory
 		(this path has a low CPU usage, but in some cases uses more memory bandwidth)
-		
+
 		*/
-		glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
- #endif
- 
+		// Got a report this might be causing crashes, so I disabled it.
+		// There have been no reports of a consistent speedup with it on, so meh.
+		//
+		// glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
+#endif
+
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
@@ -434,6 +437,15 @@ GLES_GPU::GLES_GPU()
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
 			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
 		}
+	}
+
+	// No need to flush before the tex scale/offset commands if we are baking
+	// the tex scale/offset into the vertices anyway.
+	if (g_Config.bPrescaleUV) {
+		commandFlags_[GE_CMD_TEXSCALEU] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXSCALEV] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXOFFSETU] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
 	BuildReportingInfo();
