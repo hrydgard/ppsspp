@@ -175,6 +175,10 @@ public:
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_File; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
 
+	bool asyncBusy() {
+		return pendingAsyncResult || hasAsyncResult;
+	}
+
 	virtual void DoState(PointerWrap &p) {
 		auto s = p.Section("FileNode", 1);
 		if (!s)
@@ -323,6 +327,8 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	u32 address = __KernelGetWaitValue(threadID, error);
 	if (HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, f->GetUID())) {
 		HLEKernel::ResumeFromWait(threadID, WAITTYPE_ASYNCIO, f->GetUID(), 0);
+		// Someone woke up, so it's no longer got one.
+		f->hasAsyncResult = false;
 
 		if (Memory::IsValidAddress(address)) {
 			Memory::Write_U64((u64) f->asyncResult, address);
@@ -348,7 +354,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	}
 
 	f->pendingAsyncResult = false;
-	f->hasAsyncResult = true;
+	f->hasAsyncResult = false;
 
 	AsyncIOResult managerResult;
 	if (ioManager.WaitResult(f->handle, managerResult)) {
@@ -711,6 +717,10 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (f->asyncBusy()) {
+			result = SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return true;
+		}
 		if (!(f->openMode & FILEACCESS_READ)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
@@ -731,14 +741,13 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 				return true;
 			}
 		} else {
-			ERROR_LOG(SCEIO, "sceIoRead Reading into bad pointer %08x", data_addr);
+			ERROR_LOG_REPORT(SCEIO, "sceIoRead Reading into bad pointer %08x", data_addr);
 			// TODO: Returning 0 because it wasn't being sign-extended in async result before.
 			// What should this do?
 			result = 0;
 			return true;
 		}
 	} else {
-		ERROR_LOG(SCEIO, "sceIoRead ERROR: no file open");
 		result = error;
 		return true;
 	}
@@ -776,6 +785,7 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 		DEBUG_LOG(SCEIO, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
 		return hleDelayResult(result, "io read", us);
 	} else {
+		WARN_LOG(SCEIO, "sceIoRead(%d, %08x, %x): error %08x", id, data_addr, size, result);
 		return result;
 	}
 }
@@ -790,6 +800,10 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (f->asyncBusy()) {
+			WARN_LOG(SCEIO, "sceIoReadAsync(%d, %08x, %x): async busy", id, data_addr, size);
+			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+		}
 		int result;
 		bool complete = __IoRead(result, id, data_addr, size);
 		if (complete) {
@@ -806,7 +820,8 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	}
 }
 
-bool __IoWrite(int &result, int id, void *data_ptr, int size) {
+bool __IoWrite(int &result, int id, u32 data_addr, int size) {
+	const void *data_ptr = Memory::GetPointer(data_addr);
 	// Let's handle stdout/stderr specially.
 	if (id == 1 || id == 2) {
 		const char *str = (const char *) data_ptr;
@@ -818,6 +833,10 @@ bool __IoWrite(int &result, int id, void *data_ptr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (f->asyncBusy()) {
+			result = SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return true;
+		}
 		if (!(f->openMode & FILEACCESS_WRITE)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
@@ -861,7 +880,7 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 	}
 
 	int result;
-	bool complete = __IoWrite(result, id, Memory::GetPointer(data_addr), size);
+	bool complete = __IoWrite(result, id, data_addr, size);
 	if (!complete) {
 		DEBUG_LOG(SCEIO, "sceIoWrite(%d, %08x, %x): deferring result", id, data_addr, size);
 
@@ -876,6 +895,7 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 			return result;
 		}
 	} else {
+		WARN_LOG(SCEIO, "sceIoWrite(%d, %08x, %x): error %08x", id, data_addr, size, result);
 		return result;
 	}
 }
@@ -890,8 +910,12 @@ u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (f->asyncBusy()) {
+			WARN_LOG(SCEIO, "sceIoWriteAsync(%d, %08x, %x): async busy", id, data_addr, size);
+			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+		}
 		int result;
-		bool complete = __IoWrite(result, id, Memory::GetPointer(data_addr), size);
+		bool complete = __IoWrite(result, id, data_addr, size);
 		if (complete) {
 			f->asyncResult = result;
 			DEBUG_LOG(SCEIO, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
@@ -964,6 +988,10 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (f->asyncBusy()) {
+			WARN_LOG(SCEIO, "sceIoLseek*(%d, %llx, %i): async busy", id, offset, whence);
+			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+		}
 		FileMove seek = FILEMOVE_BEGIN;
 
 		s64 newPos = 0;
@@ -1027,6 +1055,10 @@ u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): invalid whence", id, offset, whence);
 			return SCE_KERNEL_ERROR_INVAL;
 		}
+		if (f->asyncBusy()) {
+			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): async busy", id, offset, whence);
+			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+		}
 		f->asyncResult = __IoLseek(id, offset, whence);
 		// Educated guess at timing.
 		__IoSchedAsync(f, id, 100);
@@ -1046,6 +1078,10 @@ u32 sceIoLseek32Async(int id, int offset, int whence) {
 		if (whence < 0 || whence > 2) {
 			WARN_LOG(SCEIO, "sceIoLseek32Async(%d, %x, %i): invalid whence", id, offset, whence);
 			return SCE_KERNEL_ERROR_INVAL;
+		}
+		if (f->asyncBusy()) {
+			WARN_LOG(SCEIO, "sceIoLseek*(%d, %x, %i): async busy", id, offset, whence);
+			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
 		f->asyncResult = __IoLseek(id, offset, whence);
 		// Educated guess at timing.
@@ -1860,8 +1896,12 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
-		ERROR_LOG(SCEIO, "UNIMPL %08x=sceIoIoctl id: %08x, cmd %08x, bad file", error, id, cmd);
+		ERROR_LOG(SCEIO, "%08x=sceIoIoctl id: %08x, cmd %08x, bad file", error, id, cmd);
 		return error;
+	}
+	if (f->asyncBusy()) {
+		ERROR_LOG(SCEIO, "%08x=sceIoIoctl id: %08x, cmd %08x, async busy", error, id, cmd);
+		return SCE_KERNEL_ERROR_ASYNC_BUSY;
 	}
 
 	//KD Hearts:
@@ -1957,7 +1997,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
-	//Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
+	// Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
+	// TODO: This is unsupported on ms0:/ (SCE_KERNEL_ERROR_UNSUP.)
 	case 0x01f30003:
 		INFO_LOG(SCEIO, "sceIoIoCtl: Unknown cmd %08x always returns 1", cmd);
 		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
@@ -1986,7 +2027,11 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 {
 	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
 	// Just a low estimate on timing.
-	return hleDelayResult(result, "io ctrl command", 100);
+	// TODO: What errors are delayed?
+	if (result != (int)SCE_KERNEL_ERROR_ASYNC_BUSY && result != (int)SCE_KERNEL_ERROR_UNSUP) {
+		return hleDelayResult(result, "io ctrl command", 100);
+	}
+	return result;
 }
 
 u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen)
@@ -1994,6 +2039,10 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (f->asyncBusy()) {
+			WARN_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x): async busy", id, cmd, indataPtr, inlen, outdataPtr, outlen);
+			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+		}
 		DEBUG_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
 		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
 		__IoSchedAsync(f, id, 100);
