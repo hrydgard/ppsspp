@@ -64,8 +64,7 @@ void LaunchBrowser(const char *url) {
 bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor = 0, const u32 spMinor = 0) {
 	u64 conditionMask = 0;
 	OSVERSIONINFOEX osvi;
-	bool match = false;
-	ZeroMemory(&osvi, sizeof(osvi));
+	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
 
 	osvi.dwOSVersionInfoSize = sizeof(osvi);
 	osvi.dwMajorVersion = major;
