@@ -47,7 +47,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	createLanguageMenu();
 	UpdateMenus();
 
-	int zoom = g_Config.iWindowZoom;
+	int zoom = g_Config.iInternalResolution;
 	if (zoom < 1) zoom = 1;
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
@@ -131,12 +131,12 @@ void MainWindow::UpdateMenus()
 
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.iRenderingMode == 1);
 	ui->action_OptionsLinearFiltering->setChecked(3 == g_Config.iTexFiltering);
-	ui->action_Simple_2xAA->setChecked(g_Config.bAntiAliasing);
+	ui->action_Simple_2xAA->setChecked(g_Config.bFXAA);
 
-	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iWindowZoom - 1));
-	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iWindowZoom - 1));
-	ui->action_OptionsScreen3x->setChecked(2 == (g_Config.iWindowZoom - 1));
-	ui->action_OptionsScreen4x->setChecked(3 == (g_Config.iWindowZoom - 1));
+	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iInternalResolution - 1));
+	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iInternalResolution - 1));
+	ui->action_OptionsScreen3x->setChecked(2 == (g_Config.iInternalResolution - 1));
+	ui->action_OptionsScreen4x->setChecked(3 == (g_Config.iInternalResolution - 1));
 
 	ui->action_Stretch_to_display->setChecked(g_Config.bStretchToDisplay);
 	ui->action_OptionsHardwareTransform->setChecked(g_Config.bHardwareTransform);
@@ -485,7 +485,7 @@ void MainWindow::on_action_OptionsLinearFiltering_triggered()
 
 void MainWindow::on_action_Simple_2xAA_triggered()
 {
-	g_Config.bAntiAliasing = !g_Config.bAntiAliasing;
+	g_Config.bFXAA = !g_Config.bFXAA;
 	UpdateMenus();
 }
 
@@ -552,7 +552,7 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		showNormal();
 		ui->menubar->setVisible(true);
 		ui->statusbar->setVisible(true);
-		SetZoom(g_Config.iWindowZoom);
+		SetZoom(g_Config.iInternalResolution);
 	}
 	else {
 		g_Config.bFullScreen = true;
@@ -575,7 +575,7 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		PSP_CoreParameter().outputHeight = height;
 
 		int antialias = 1;
-		if (g_Config.bAntiAliasing) antialias = 2;
+		if (g_Config.bFXAA) antialias = 2;
 		PSP_CoreParameter().renderWidth = width * antialias;
 		PSP_CoreParameter().renderHeight = height * antialias;
 
@@ -700,7 +700,7 @@ void MainWindow::on_language_changed(QAction *action)
 /* Private functions */
 void MainWindow::SetZoom(float zoom) {
 	if (zoom < 5)
-		g_Config.iWindowZoom = (int) zoom;
+		g_Config.iInternalResolution = (int) zoom;
 
 	pixel_xres = 480 * zoom;
 	pixel_yres = 272 * zoom;
@@ -722,7 +722,7 @@ void MainWindow::SetZoom(float zoom) {
 	PSP_CoreParameter().outputWidth = pixel_xres;
 	PSP_CoreParameter().outputHeight = pixel_yres;
 
-	if (g_Config.bAntiAliasing)
+	if (g_Config.bFXAA)
 	{
 		zoom *= 2;
 		PSP_CoreParameter().renderWidth = 480 * zoom;
