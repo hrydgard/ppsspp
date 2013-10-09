@@ -13,8 +13,9 @@
  * - Added gl3stubInit() declaration
  */
 
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__)
+#if defined(USING_GLES2)
 #include <GLES2/gl2.h>
+#if !defined(__SYMBIAN32__)
 
 #ifdef __cplusplus
 extern "C" {
@@ -489,6 +490,7 @@ extern GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum t
 }
 #endif
 
+#endif   // !__SYMBIAN32__
 #endif   // USING_GLES2
 
 #endif
