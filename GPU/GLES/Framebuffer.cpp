@@ -267,6 +267,7 @@ FramebufferManager::FramebufferManager() :
 	}
 	gstate_c.gpuVendor = gpuVendor;
 	NOTICE_LOG(SCEGE, "GPU Vendor : %s", cvendor);
+	SetLineWidth();
 }
 
 FramebufferManager::~FramebufferManager() {
@@ -740,6 +741,18 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	}
 }
 
+void FramebufferManager::SetLineWidth() {
+#ifndef USING_GLES2
+	if (g_Config.iInternalResolution == 0) {
+		glLineWidth(std::max(1, (int)(PSP_CoreParameter().renderWidth / 480)));
+		glPointSize(std::max(1.0f, (float)(PSP_CoreParameter().renderWidth / 480.f)));
+	} else {
+		glLineWidth(g_Config.iInternalResolution);
+		glPointSize((float)g_Config.iInternalResolution);
+	}
+#endif
+}
+
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
@@ -784,15 +797,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (resized_) {
 		ClearBuffer();
 		DestroyDraw2DProgram();
-#ifndef USING_GLES2
-		if (g_Config.iInternalResolution == 0) {
-			glLineWidth(std::max(1, (int)(PSP_CoreParameter().renderWidth / 480)));
-			glPointSize(std::max(1.0f, (float)(PSP_CoreParameter().renderWidth / 480.f)));
-		} else {
-			glLineWidth(g_Config.iInternalResolution);
-			glPointSize((float)g_Config.iInternalResolution);
-		}
-#endif 
+		SetLineWidth();
 	}
 
 	if (vfb->fbo) {
