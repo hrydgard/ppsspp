@@ -321,8 +321,10 @@ int ElfReader::LoadInto(u32 loadAddress)
 		return SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
 
 	// technically ELFCLASSNONE would freeze the system, but that's not really desireable
+	// It hurts game bootup
+	/*
 	if (header->e_ident[EI_CLASS] != ELFCLASS32)
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;*/
 
 	if (header->e_ident[EI_DATA] != ELFDATA2LSB)
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
