@@ -415,6 +415,7 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 };
 
 void EmuScreen::CreateViews() {
+	InitPadLayout();
 	root_ = CreatePadLayout(&pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);

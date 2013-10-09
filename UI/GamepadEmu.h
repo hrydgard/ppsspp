@@ -41,11 +41,11 @@ public:
 
 protected:
 	uint32_t pointerDownMask_;
+	float scale_;
 
 private:
 	int bgImg_;
 	int img_;
-	float scale_;
 	float angle_;
 	bool flipImageH_;
 };
@@ -120,4 +120,7 @@ private:
 	bool lastPointerDown_[MAX_POINTERS];
 };
 
+//initializes the layout from Config. if a default layout does not exist,
+//it sets up default values
+void InitPadLayout();
 UI::ViewGroup *CreatePadLayout(bool *pause);
