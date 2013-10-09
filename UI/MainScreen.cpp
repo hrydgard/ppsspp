@@ -100,7 +100,7 @@ public:
 private:
 	bool gridStyle_;
 	std::string gamePath_;
-	
+
 	int holdFrameCount_;
 };
 
@@ -476,15 +476,14 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
+	bool vertical = dp_yres > dp_xres;
+
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
 	leftColumn->SetClip(true);
-	root_->Add(leftColumn);
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -524,10 +523,8 @@ void MainScreen::CreateViews() {
 	}
 	*/
 
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-	root_->Add(rightColumn);
-	
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	rightColumn->Add(rightColumnItems);
 
 	char versionString[256];
@@ -552,6 +549,20 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
+
+	if (vertical) {
+		root_ = new LinearLayout(ORIENT_VERTICAL);
+		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		root_->Add(rightColumn);
+		root_->Add(leftColumn);
+	} else {
+		root_ = new LinearLayout(ORIENT_HORIZONTAL);
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+		root_->Add(leftColumn);
+		root_->Add(rightColumn);
+	}
 }
 
 void MainScreen::sendMessage(const char *message, const char *value) {
