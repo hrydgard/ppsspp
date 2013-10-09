@@ -143,7 +143,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
-	(JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
+	(JNIEnv *env, jclass, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
 	 jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
 
@@ -184,9 +184,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	g_dpi = dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
-	pixel_xres = xxres;
-	pixel_yres = yyres;
-	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 
@@ -195,7 +192,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	use_opensl_audio = juseNativeAudio;
 	ILOG("NativeApp.init() -- end");
-}	
+}
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, jclass) {
 	ILOG("NativeApp.audioInit() -- begin");
@@ -230,7 +227,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclas
 	}
 	ILOG("NativeApp.pause() - end");
 }
- 
+
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	NativeShutdown();
@@ -269,19 +266,15 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 	ILOG("MethodID: %i", (int)postCommand);
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resized
-	(JNIEnv *env, jclass, jint xxres, jint yyres) {
-	pixel_xres = xxres;
-	pixel_yres = yyres;
+extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
+	ILOG("NativeApp.displayResize(%i, %i)", w, h);
+	// TODO: Move some of the logic from displayInit here?
+	pixel_xres = w;
+	pixel_yres = h;
 	dp_xres = pixel_xres * g_dpi_scale;
 	dp_yres = pixel_yres * g_dpi_scale;
 	dp_xscale = (float)dp_xres / pixel_xres;
 	dp_yscale = (float)dp_yres / pixel_yres;
-}
-
-extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
-	ILOG("NativeApp.displayResize(%i, %i)", w, h);
-	// TODO: Move some of the logic from displayInit here?
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {

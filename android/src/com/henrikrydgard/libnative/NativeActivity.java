@@ -17,7 +17,6 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
@@ -26,7 +25,6 @@ import android.content.res.Configuration;
 import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
-import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -41,6 +39,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
@@ -79,7 +78,6 @@ class Installation {
         out.close();
     }
 }
-
  
 public class NativeActivity extends Activity {
 	// Remember to loadLibrary your JNI .so in a static {} block
@@ -87,7 +85,6 @@ public class NativeActivity extends Activity {
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
    
-	
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 	
@@ -102,14 +99,23 @@ public class NativeActivity extends Activity {
 	public static String commandParameter;
 	public static String installID;
 	
-	// Settings for best audio latency
+	// Remember settings for best audio latency
 	private int optimalFramesPerBuffer;
 	private int optimalSampleRate;
 	
-	//audioFocusChangeListener to listen to changes in audio state
+	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
-	
+	    
+    public static boolean inputBoxCancelled;
+    
+    // Allow for two connected gamepads but just consider them the same for now.
+    // Actually this is not entirely true, see the code.
+    InputDeviceState inputPlayerA;
+    InputDeviceState inputPlayerB;
+    String inputPlayerADesc;
+    
+
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
 		try {
@@ -143,7 +149,7 @@ public class NativeActivity extends Activity {
         WindowManager w = getWindowManager();
 		w.getDefaultDisplay().getSize(size);
 	}
-	
+
 	void GetScreenSize(Point size) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
 			GetScreenSizeHC(size);
@@ -194,6 +200,7 @@ public class NativeActivity extends Activity {
 		@SuppressWarnings("deprecation")
         int scrPixelFormat = display.getPixelFormat();
         Point size = new Point();
+
         GetScreenSize(size);
         int scrWidth = size.x;
         int scrHeight = size.y;
@@ -212,16 +219,21 @@ public class NativeActivity extends Activity {
 				
 		// INIT!
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(scrWidth, scrHeight, dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
 	    Log.i(TAG, "Device: " + deviceType);     
 	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
-		
- 		// Initialize Graphics
-        
+
+	    // Detect OpenGL support.
+	    // We don't currently use this detection for anything but good to have in the log.
         if (!detectOpenGLES20()) {
-        	Log.i(TAG, "OpenGL ES 2.0 NOT detected.");
+        	Log.i(TAG, "OpenGL ES 2.0 NOT detected. Things will likely go badly.");
         } else {
-        	Log.i(TAG, "OpenGL ES 2.0 detected.");
+        	if (detectOpenGLES30()) {
+            	Log.i(TAG, "OpenGL ES 3.0 detected.");
+        	}
+        	else {
+            	Log.i(TAG, "OpenGL ES 2.0 detected.");
+        	}
         }
         
        
@@ -232,8 +244,6 @@ public class NativeActivity extends Activity {
         addContentView(editText, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         */
         // inputBox("Please ener a s", "", "Save");
-		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
-	
 	}
 	
     @Override
@@ -250,27 +260,26 @@ public class NativeActivity extends Activity {
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 		
-		
-		//intialize audio and tell PPSSPP to gain audio focus
-		if (!useOpenSL){
+		// Initialize audio and tell PPSSPP to gain audio focus
+		if (!useOpenSL) {
 			audioPlayer = new NativeAudioPlayer();
 		}
 		NativeAudioPlayer.gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
         
-        Point size = new Point();
-        GetScreenSize(size);
-        NativeApp.resized(size.x, size.y);
-        
         mGLSurfaceView = new NativeGLView(this);
-        //setup the GLSurface and ask android for the correct 
-        //number of bits for r, g, b, a, depth and stencil components
+        
+        // Setup the GLSurface and ask android for the correct 
+        // Number of bits for r, g, b, a, depth and stencil components
+        // The PSP only has 16-bit Z so that should be enough.
+        // Might want to change this for other apps (24-bit might be useful).
+        // Actually, we might be able to do without both stencil and depth in
+        // the back buffer, but that would kill non-buffered rendering.
         mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
         
 		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
         setContentView(mGLSurfaceView);
-
 		if (Build.VERSION.SDK_INT >= 14) {
 			darkenOnScreenButtons();
 		}
@@ -279,21 +288,21 @@ public class NativeActivity extends Activity {
     @Override
     protected void onStop() {
     	super.onStop(); 
-    	Log.i(TAG, "onStop - do nothing, just let's switch away");
+    	Log.i(TAG, "onStop - do nothing, just let Android switch away");
     } 
 
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
+      	Log.e(TAG, "onDestroy");
 		mGLSurfaceView.onDestroy();
 		nativeRenderer.onDestroyed();
-      	Log.e(TAG, "onDestroy");
 		NativeApp.audioShutdown();
+		// Probably vain attempt to help the garbage collector...
 		audioPlayer = null;
 		mGLSurfaceView = null;
 		audioFocusChangeListener = null;
 		audioManager = null;
-		
 	}  
 	
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
@@ -306,12 +315,17 @@ public class NativeActivity extends Activity {
         ConfigurationInfo info = am.getDeviceConfigurationInfo();
         return info.reqGlEsVersion >= 0x20000;
     }
+
+    private boolean detectOpenGLES30() {
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        ConfigurationInfo info = am.getDeviceConfigurationInfo();
+        return info.reqGlEsVersion >= 0x30000;
+    }
    
     @Override 
     protected void onPause() {
         super.onPause();
     	Log.i(TAG, "onPause");
-    	
     	NativeAudioPlayer.loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
         if (audioPlayer != null) {
         	audioPlayer.stop();
@@ -353,15 +367,7 @@ public class NativeActivity extends Activity {
     public void onConfigurationChanged(Configuration newConfig) {
     	// Ignore orientation change
     	super.onConfigurationChanged(newConfig);
-    } 
-    
-    public static boolean inputBoxCancelled;
-
-    
-    // Allow for two connected joysticks but just consider them the same for now.
-    InputDeviceState inputPlayerA;
-    InputDeviceState inputPlayerB;
-    String inputPlayerADesc;
+    }
     
     // We simply grab the first input device to produce an event and ignore all others that are connected.
     @TargetApi(Build.VERSION_CODES.GINGERBREAD)
@@ -603,8 +609,12 @@ public class NativeActivity extends Activity {
     		Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
     		toast.show();
     	} else if (command.equals("showKeyboard")) {
-    		//InputMethodManager inputMethodManager=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
-    	    //inputMethodManager.toggleSoftInputFromWindow(this, InputMethodManager.SHOW_FORCED, 0);
+    		InputMethodManager inputMethodManager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+    		// No idea what the point of the ApplicationWindowToken is or if it matters where we get it from...
+    	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
+    	} else if (command.equals("hideKeyboard")) {
+    		InputMethodManager inputMethodManager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+    	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
     	} else if (command.equals("inputBox")) {
     		inputBox(params, "", "OK");
     	} else {

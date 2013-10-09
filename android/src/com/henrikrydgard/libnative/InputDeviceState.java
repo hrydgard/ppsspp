@@ -2,7 +2,6 @@ package com.henrikrydgard.libnative;
 
 import android.annotation.TargetApi;
 import android.os.Build;
-import android.util.SparseIntArray;
 import android.view.InputDevice;
 import android.view.InputDevice.MotionRange;
 import android.view.KeyEvent;

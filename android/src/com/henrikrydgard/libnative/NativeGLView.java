@@ -3,7 +3,6 @@ package com.henrikrydgard.libnative;
 // Touch- and sensor-enabled GLSurfaceView.
 // Supports simple multitouch and pressure.
 
-
 import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -47,8 +46,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			}
 		}*/
 		
-     // setEGLConfigChooser(5, 5, 5, 0, 16, 0);
-     // setDebugFlags(DEBUG_CHECK_GL_ERROR | DEBUG_LOG_GL_CALLS);
 		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		
@@ -57,7 +54,8 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		if (mController.init()) {
 			Log.i(TAG, "MOGA initialized");
 			mController.setListener(this, new Handler());
-			if (mController.getState(mController.STATE_CURRENT_PRODUCT_VERSION) == mController.ACTION_VERSION_MOGAPRO) {
+			if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGAPRO) {
+				Log.i(TAG, "MOGA pro detected");
 				isMogaPro = true;
 			}
 		} else {
@@ -65,8 +63,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		}
 	}
 
-	// This needs fleshing out. A lot.
-	// Going to want multitouch eventually.
 	public boolean onTouchEvent(final MotionEvent ev) {
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
@@ -91,8 +87,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			default:
 				break;
 			}
-			if (code != 0) 
-			{
+			if (code != 0) {
 				float x = ev.getX(i);
 				float y = ev.getY(i);
 				NativeApp.touch(x, y, code, pid);
@@ -103,7 +98,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 
 	// Sensor management
 	public void onAccuracyChanged(Sensor sensor, int arg1) {
-		// Log.i(TAG, "onAccuracyChanged");
 	}
 
 	public void onSensorChanged(SensorEvent event) {
@@ -159,9 +153,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				break;
 			}
 		}
-		//Log.i(TAG, "Moga KeyEvent " + event.getKeyCode());
-		
-		// TODO Auto-generated method stub
+
 		switch (event.getAction()) {
 		case KeyEvent.ACTION_DOWN:
 			NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode());
@@ -175,8 +167,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	// MOGA Controller - from ControllerListener
 	@Override
 	public void onMotionEvent(com.bda.controller.MotionEvent event) {
-		//Log.i(TAG, "Moga MotionEvent");
-		// TODO Auto-generated method stub
 		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_X, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X));
 		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Y, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y));
 		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Z, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z));
@@ -198,10 +188,11 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				Log.i(TAG, "Moga Connecting...");
 				break;
 			case StateEvent.ACTION_DISCONNECTED:
-				Log.i(TAG, "Moga Disonnected");
+				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
 				break;
 			}
 			break;
+			
 		case StateEvent.STATE_POWER_LOW:
 			switch (state.getAction()) {
 			case StateEvent.ACTION_TRUE:
@@ -211,6 +202,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				Log.i(TAG, "Moga Power OK");
 				break;
 			}
+			break;
 
 		default:
 			break;

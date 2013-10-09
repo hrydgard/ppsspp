@@ -185,12 +185,19 @@ void CheckGLExtensions() {
 	gl_extensions.OES_vertex_array_object = false;
 	gl_extensions.EXT_discard_framebuffer = false;
 #else
+	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
+	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
+	void *invalidAddress = (void *)eglGetProcAddress("InvalidGlCall1");
+	void *invalidAddress2 = (void *)eglGetProcAddress("AnotherInvalidGlCall2");
+	ILOG("Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
 	if (gl_extensions.NV_draw_texture) {
 		glDrawTextureNV = (PFNGLDRAWTEXTURENVPROC)eglGetProcAddress("glDrawTextureNV");
 	}
+
 	if (gl_extensions.NV_copy_image) {
 		glCopyImageSubDataNV = (PFNGLCOPYIMAGESUBDATANVPROC)eglGetProcAddress("glCopyImageSubDataNV");
 	}
+
 	gl_extensions.OES_vertex_array_object = strstr(extString, "GL_OES_vertex_array_object") != 0;
 	if (gl_extensions.OES_vertex_array_object) {
 		glGenVertexArraysOES = (PFNGLGENVERTEXARRAYSOESPROC)eglGetProcAddress ( "glGenVertexArraysOES" );
@@ -214,6 +221,7 @@ void CheckGLExtensions() {
 	if (gl_extensions.OES_mapbuffer) {
 		glMapBuffer = (PFNGLMAPBUFFERPROC)eglGetProcAddress( "glMapBufferOES" );
 	}
+
 	gl_extensions.QCOM_binning_control = strstr(extString, "GL_QCOM_binning_control") != 0;
 	gl_extensions.QCOM_alpha_test = strstr(extString, "GL_QCOM_alpha_test") != 0;
 	// Load extensions that are not auto-loaded by Android.
@@ -259,7 +267,7 @@ void CheckGLExtensions() {
 
 void OpenGLState::SetVSyncInterval(int interval) {
 #ifdef _WIN32
-	if( wglSwapIntervalEXT )
+	if (wglSwapIntervalEXT)
 		wglSwapIntervalEXT(interval);
 #endif
 }
