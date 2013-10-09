@@ -56,6 +56,7 @@ CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 static std::string langRegion;
+static std::string osName;
 
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -124,10 +125,26 @@ std::string GetWindowsVersion() {
 	return "Unsupported version of Microsoft Windows.";
 }
 
+std::string GetWindowsSystemArchitecture() {
+	SYSTEM_INFO sysinfo;
+	ZeroMemory(&sysinfo, sizeof(SYSTEM_INFO));
+	GetNativeSystemInfo(&sysinfo);
+
+	if (sysinfo.wProcessorArchitecture & PROCESSOR_ARCHITECTURE_AMD64)
+		return "(x64)";
+	// Need to check for equality here, since ANDing with 0 is always 0.
+	else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
+		return "(x86)";
+	else if (sysinfo.wProcessorArchitecture & PROCESSOR_ARCHITECTURE_ARM)
+		return "(ARM)";
+	else
+		return "(Unknown)";
+}
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
-		return "PC: " + GetWindowsVersion();
+		return osName;
 	case SYSPROP_LANGREGION:
 		return langRegion;
 	default:
@@ -171,6 +188,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	} else {
 		langRegion = "en_US";
 	}
+
+	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
 
 	std::string configFilename;
 	const char *configOption = "--config=";
