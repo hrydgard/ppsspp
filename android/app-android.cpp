@@ -324,6 +324,9 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
 	if (renderer_inited) {
+		ILOG("Calling NativeDeviceLost();");
+		NativeDeviceLost();
+		ILOG("NativeDeviceLost completed.;");
 		NativeShutdownGraphics();
 		renderer_inited = false;
 	}
