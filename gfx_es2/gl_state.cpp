@@ -128,7 +128,8 @@ void CheckGLExtensions() {
 #endif
 
 #if defined(USING_GLES2)
-#if defined(MAY_HAVE_GLES3)
+// MAY_HAVE_GLES3 defined on all platforms, maybe redundant. Otherwise exclude platforms like Symbian, Meego, Raspberry Pi
+#if defined(MAY_HAVE_GLES3) && !defined(__SYMBIAN32__)
 	// Try to load GLES 3.0
 	if (GL_TRUE == gl3stubInit()) {
 		gl_extensions.ver[0] = 3;

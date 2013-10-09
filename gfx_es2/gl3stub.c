@@ -16,7 +16,7 @@
 
 #include "gl3stub.h"
 
-#if defined(USING_GLES2)
+#if defined(USING_GLES2) && !defined(__SYMBIAN32__)
 
 GLboolean gl3stubInit() {
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
