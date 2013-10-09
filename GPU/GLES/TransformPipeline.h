@@ -42,12 +42,6 @@ struct DecVtxFormat;
 // DRAWN_ONCE -> death
 // DRAWN_RELIABLE -> death
 
-
-// Don't bother storing information about draws smaller than this.
-enum {
-	VERTEX_CACHE_THRESHOLD = 20,
-};
-
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -64,6 +58,7 @@ public:
 		drawsUntilNextFullHash = 0;
 	}
 	~VertexArrayInfo();
+
 	enum Status {
 		VAI_NEW,
 		VAI_HASHING,
@@ -78,7 +73,7 @@ public:
 	u32 vbo;
 	u32 ebo;
 
-	// Precalculated parameter for drawdrawElements
+	// Precalculated parameter for drawRangeElements
 	u16 numVerts;
 	u16 maxIndex;
 	s8 prim;
