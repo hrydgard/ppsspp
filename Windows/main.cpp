@@ -130,11 +130,12 @@ std::string GetWindowsSystemArchitecture() {
 	ZeroMemory(&sysinfo, sizeof(SYSTEM_INFO));
 	GetNativeSystemInfo(&sysinfo);
 
-	if (sysinfo.dwProcessorType & PROCESSOR_ARCHITECTURE_AMD64)
+	if (sysinfo.wProcessorArchitecture & PROCESSOR_ARCHITECTURE_AMD64)
 		return "(x64)";
-	else if (sysinfo.dwProcessorType & PROCESSOR_ARCHITECTURE_INTEL)
+	// Need to check for equality here, since ANDing with 0 is always 0.
+	else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
 		return "(x86)";
-	else if (sysinfo.dwProcessorType & PROCESSOR_ARCHITECTURE_ARM)
+	else if (sysinfo.wProcessorArchitecture & PROCESSOR_ARCHITECTURE_ARM)
 		return "(ARM)";
 	else
 		return "(Unknown)";
