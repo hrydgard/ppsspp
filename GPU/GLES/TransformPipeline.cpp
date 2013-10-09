@@ -946,6 +946,9 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 }
 
 void TransformDrawEngine::DecodeVerts() {
+	UVScale origUV;
+	if (uvScale)
+		origUV = gstate_c.uv;
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 
@@ -975,7 +978,7 @@ void TransformDrawEngine::DecodeVerts() {
 			while (j < numDrawCalls) {
 				if (drawCalls[j].verts != dc.verts)
 					break;
-				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0]) != 0))
+				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
 					break;
 
 				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
@@ -1016,6 +1019,8 @@ void TransformDrawEngine::DecodeVerts() {
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
+	if (uvScale)
+		gstate_c.uv = origUV;
 }
 
 u32 TransformDrawEngine::ComputeHash() {
@@ -1034,6 +1039,11 @@ u32 TransformDrawEngine::ComputeHash() {
 				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
+		}
+	}
+	if (uvScale) {
+		for (int i = 0; i < numDrawCalls; i++) {
+			fullhash += XXH32(&uvScale[i], sizeof(uvScale[0]), 0x0123e658);
 		}
 	}
 
