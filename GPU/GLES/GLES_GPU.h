@@ -31,8 +31,7 @@
 class ShaderManager;
 class LinkedShader;
 
-class GLES_GPU : public GPUCommon
-{
+class GLES_GPU : public GPUCommon {
 public:
 	GLES_GPU();
 	~GLES_GPU();
@@ -51,7 +50,7 @@ public:
 
 	virtual void DumpNextFrame();
 	virtual void DoState(PointerWrap &p);
-	
+
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized();
 	virtual bool DecodeTexture(u8* dest, GPUgstate state) {

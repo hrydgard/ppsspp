@@ -63,6 +63,7 @@
 // all at once, writing matrix indices into the vertices in addition to the weights, and then doing a single
 // draw call with specially generated shader to draw the whole mesh. This code will be seriously complex though.
 
+#include "base/logging.h"
 #include "base/timeutil.h"
 
 #include "Common/MemoryUtil.h"
@@ -186,6 +187,7 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 }
 
 void TransformDrawEngine::GLLost() {
+	ILOG("TransformDrawEngine::GLLost()");
 	// The objects have already been deleted.
 	memset(vbo_, 0, sizeof(vbo_));
 	memset(ebo_, 0, sizeof(ebo_));

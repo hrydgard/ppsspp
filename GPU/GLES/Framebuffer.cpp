@@ -167,20 +167,25 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 
 void FramebufferManager::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
-		SetNumExtraFBOs(0);
 		draw2dprogram_ = glsl_create_source(basic_vs, tex_fs);
 		glsl_bind(draw2dprogram_);
 		glUniform1i(draw2dprogram_->sampler0, 0);
 
+		SetNumExtraFBOs(0);
 		if (g_Config.bFXAA) {
 			useFXAA_ = true;
 			fxaaProgram_ = glsl_create("shaders/fxaa.vsh", "shaders/fxaa.fsh");
-			glsl_bind(fxaaProgram_);
-			glUniform1i(fxaaProgram_->sampler0, 0);
-			SetNumExtraFBOs(1);
-			float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
-			float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-			glUniform2f(glsl_uniform_loc(fxaaProgram_, "u_texcoordDelta"), u_delta, v_delta);
+			if (!fxaaProgram_) {
+				ERROR_LOG(G3D, "Failed to build FXAA program");
+				useFXAA_ = false;
+			} else {
+				glsl_bind(fxaaProgram_);
+				glUniform1i(fxaaProgram_->sampler0, 0);
+				SetNumExtraFBOs(1);
+				float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
+				float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+				glUniform2f(glsl_uniform_loc(fxaaProgram_, "u_texcoordDelta"), u_delta, v_delta);
+			}
 		} else {
 			fxaaProgram_ = 0;
 			useFXAA_ = false;
@@ -194,6 +199,8 @@ void FramebufferManager::DestroyDraw2DProgram() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
+	}
+	if (fxaaProgram_) {
 		glsl_destroy(fxaaProgram_);
 		fxaaProgram_ = 0;
 	}
