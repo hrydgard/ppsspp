@@ -30,6 +30,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/disarm.h"
+#include "Common/CPUDetect.h"
 
 #include <algorithm>
 
@@ -136,6 +137,7 @@ void SystemInfoScreen::CreateViews() {
 	scroll->Add(new ItemHeader("System Information"));
 	scroll->Add(new InfoItem("System Name", System_GetProperty(SYSPROP_NAME)));
 	scroll->Add(new InfoItem("System Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
+	scroll->Add(new InfoItem("CPU", cpu_info.brand_string));
 	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
 	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
 	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));
