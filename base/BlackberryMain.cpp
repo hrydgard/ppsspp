@@ -40,7 +40,22 @@ void ShowKeyboard() {
 }
 
 void Vibrate(int length_ms) {
-	vibration_request(VIBRATION_INTENSITY_LOW, 200 /* intensity (1-100), duration (ms) */);
+	// Vibration: intensity strength(1-100), duration ms(0-5000)
+	// Intensity: LOW = 1, MEDIUM = 10, HIGH = 100
+	switch (length_ms) {
+	case -1: // Keyboard Tap
+		vibration_request(VIBRATION_INTENSITY_LOW, 50);
+		break;
+	case -2: // Virtual Key
+		vibration_request(VIBRATION_INTENSITY_LOW, 25);
+		break;
+	case -3: // Long Press
+		vibration_request(VIBRATION_INTENSITY_LOW, 50);
+		break;
+	default:
+		vibration_request(VIBRATION_INTENSITY_LOW, length_ms);
+		break;
+	}
 }
 
 void LaunchBrowser(const char *url)
