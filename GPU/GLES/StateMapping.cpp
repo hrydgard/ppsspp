@@ -286,7 +286,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			// TODO: In clear mode, the stencil value is set to the alpha value of the vertex.
 			// A normal clear will be 2 points, the second point has the color.
 			// We should set "ref" to that value instead of 0.
-			glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
+			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
 		} else 
 			glstate.stencilTest.disable();
 		
@@ -327,9 +327,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Stencil Test
 		if (gstate.isStencilTestEnabled() && enableStencilTest) {
 			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
-				gstate.getStencilTestRef(),
-				gstate.getStencilTestMask());
+			switch (gstate.getClutPaletteFormat()) {
+			case GE_TFMT_5650:
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], 0, gstate.getStencilTestMask());
+				break;
+			case GE_TFMT_5551:
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], gstate.getStencilTestRef() & 0x80, gstate.getStencilTestMask());
+				break;
+			case GE_TFMT_4444:
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], gstate.getStencilTestRef() & 0xF0, gstate.getStencilTestMask());
+				break;
+			}
 			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
