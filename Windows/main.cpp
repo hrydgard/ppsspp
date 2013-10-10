@@ -62,6 +62,10 @@ void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
+void Vibrate(int length_ms) {
+	// Ignore on PC
+}
+
 bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor = 0, const u32 spMinor = 0) {
 	u64 conditionMask = 0;
 	OSVERSIONINFOEX osvi;
@@ -81,7 +85,7 @@ bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor
 
 	const u32 typeMask = VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR;
 
-	return VerifyVersionInfo(&osvi, typeMask, conditionMask);
+	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
 }
 
 std::string GetWindowsVersion() {
