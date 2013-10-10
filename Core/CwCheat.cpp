@@ -489,7 +489,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0xE: // Test commands, multiple skip
 				{
-					bool is8Bit = (comm >> 24) == 0x1;
+					bool is8Bit = (comm >> 24) == 0xE1;
 					addr = GetAddress(arg & 0x0FFFFFFF);
 					if (Memory::IsValidAddress(addr)) {
 						int memoryValue = is8Bit ? Memory::Read_U8(addr) : Memory::Read_U16(addr);
