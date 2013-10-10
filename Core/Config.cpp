@@ -188,6 +188,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	sound->Get("LowLatency", &bLowLatencyAudio, false);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
+	control->Get("HapticFeedback", &bHapticFeedback, true);
 	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
@@ -356,6 +357,7 @@ void Config::Save() {
 		sound->Set("LowLatency", bLowLatencyAudio);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
+		control->Set("HapticFeedback", bHapticFeedback);
 		control->Set("ShowAnalogStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		// control->Set("KeyMapping",iMappingMap);

@@ -36,7 +36,6 @@ public:
 	bool bAutoRun;  // start immediately
 	bool bBrowse; // when opening the emulator, immediately show a file browser
 
-
 	// General
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
@@ -103,10 +102,15 @@ public:
 	int iSFXVolume;
 	int iBGMVolume;
 
-	// UI
+	// Controls
 	bool bShowTouchControls;
-	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
+	bool bHapticFeedback;
+	int iTouchButtonOpacity;
+	float fButtonScale;
+
+	// UI
+	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
 	bool bShowDebugStats;
 	bool bAccelerometerToAnalogHoriz;
@@ -117,9 +121,6 @@ public:
 	bool bGridView2;
 	bool bGridView3;
 
-	// Control
-	int iTouchButtonOpacity;
-	float fButtonScale;
 
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into

@@ -17,6 +17,7 @@
 
 #include "GamepadEmu.h"
 #include "base/colorutil.h"
+#include "base/NativeApp.h"
 #include "math/math_util.h"
 #include "ui/virtual_input.h"
 #include "ui/ui_context.h"
@@ -56,7 +57,7 @@ void MultiTouchButton::Touch(const TouchInput &input) {
 
 void MultiTouchButton::Draw(UIContext &dc) {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-	
+
 	float scale = scale_;
 	if (IsDown()) {
 		scale *= 2.0f;
@@ -84,6 +85,9 @@ void PSPButton::Touch(const TouchInput &input) {
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
 	if (down && !lastDown) {
+		if (g_Config.bHapticFeedback) {
+			Vibrate(HAPTIC_VIRTUAL_KEY);
+		}
 		__CtrlButtonDown(pspButtonBit_);
 	} else if (lastDown && !down) {
 		__CtrlButtonUp(pspButtonBit_);
@@ -158,8 +162,15 @@ void PSPCross::ProcessTouch(float x, float y, bool down) {
 	int released = (~down_) & lastDown;
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
 	for (int i = 0; i < 4; i++) {
-		if (pressed & dir[i]) __CtrlButtonDown(dir[i]);
-		if (released & dir[i]) __CtrlButtonUp(dir[i]);
+		if (pressed & dir[i]) {
+			if (g_Config.bHapticFeedback) {
+				Vibrate(HAPTIC_VIRTUAL_KEY);
+			}
+			__CtrlButtonDown(dir[i]);
+		}
+		if (released & dir[i]) {
+			__CtrlButtonUp(dir[i]);
+		}
 	}
 }
 
