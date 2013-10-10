@@ -57,6 +57,7 @@ CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 static std::string langRegion;
 static std::string osName;
+static std::string cpuInfo;
 
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -141,12 +142,47 @@ std::string GetWindowsSystemArchitecture() {
 		return "(Unknown)";
 }
 
+std::string GetCPUInfo() {
+	DWORD type = REG_SZ;
+	HKEY hKey = nullptr;
+	const u32 max_length = 4096;
+
+	DWORD length = max_length;
+	wchar_t value[max_length];
+	ZeroMemory(value, max_length);
+
+	const wchar_t *keyToOpen = L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0";
+	const wchar_t *valueToFind = L"ProcessorNameString";
+
+	RegOpenKeyEx(HKEY_LOCAL_MACHINE, keyToOpen, 0, KEY_READ, &hKey);
+	RegQueryValueEx(hKey, valueToFind, NULL, &type, (LPBYTE)&value, &length);
+	RegCloseKey(hKey);
+
+	std::string cpuName = ConvertWStringToUTF8(value);
+
+	SYSTEM_INFO sysinfo;
+	ZeroMemory(&sysinfo, sizeof(SYSTEM_INFO));
+	GetNativeSystemInfo(&sysinfo);
+
+	const u64 cpuThreadCount = sysinfo.dwNumberOfProcessors;
+	std::string cpuInfo = cpuName + " (" + std::to_string(cpuThreadCount);
+
+	if (cpuThreadCount == 1)
+		cpuInfo.append(" thread)");
+	else
+		cpuInfo.append(" threads)");
+
+	return cpuInfo;
+}
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
 		return osName;
 	case SYSPROP_LANGREGION:
 		return langRegion;
+	case SYSPROP_CPUINFO:
+		return cpuInfo;
 	default:
 		return "";
 	}
@@ -190,6 +226,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
+	cpuInfo = GetCPUInfo();
 
 	std::string configFilename;
 	const char *configOption = "--config=";
