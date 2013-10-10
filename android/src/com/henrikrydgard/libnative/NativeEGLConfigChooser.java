@@ -139,7 +139,18 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		}
 		
 		if (chosen == null) {
-			// Fourth, accept one with 16-bit color but depth required.
+			// Fourth, accept one with 16-bit color but depth and stencil required.
+			for (int i = 0; i < configs.length; i++) {
+				ConfigAttribs c = configs[i];
+				if (c.red >= 5 && c.green >= 6 && c.blue >= 5 && c.depth >= 16 && c.stencil >= 8) {
+					chosen = c;
+					break;
+				}
+			}
+		}
+
+		if (chosen == null) {
+			// Fifth, accept one with 16-bit color but depth required.
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
 				if (c.red >= 5 && c.green >= 6 && c.blue >= 5 && c.depth >= 16) {
