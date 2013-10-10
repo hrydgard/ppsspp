@@ -518,7 +518,7 @@ void ShaderManager::DirtyShader() {
 	shaderSwitchDirty_ = 0;
 }
 
-void ShaderManager::EndFrame() { // disables vertex arrays
+void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = 0;

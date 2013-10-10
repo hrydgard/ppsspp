@@ -165,7 +165,7 @@ public:
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
 	}
-	void EndFrame();  // disables vertex arrays
+	void DirtyLastShader();  // disables vertex arrays
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }

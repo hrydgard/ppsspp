@@ -395,7 +395,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, f
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
 	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
 	const GLubyte indices[4] = {0,1,3,2};
-	
+
 	if (!draw2dprogram_) {
 		CompileDraw2DProgram();
 	}
@@ -418,7 +418,10 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, f
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
+
 	glsl_unbind();
+
+	shaderManager_->DirtyLastShader();  // dirty lastShader_
 }
 
 VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
@@ -901,7 +904,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				case GE_FORMAT_5551:
 					nvfb->colorDepth = FBO_5551;
 					break;
-				case GE_FORMAT_565: 
+				case GE_FORMAT_565:
 					nvfb->colorDepth = FBO_565;
 					break;
 				case GE_FORMAT_8888:
@@ -918,7 +921,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
-			fbo_bind_as_render_target(nvfb->fbo); 
+			fbo_bind_as_render_target(nvfb->fbo);
 			ClearBuffer();
 			glEnable(GL_DITHER);
 		} else {
