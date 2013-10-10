@@ -165,14 +165,14 @@ std::string GetCPUInfo() {
 	GetNativeSystemInfo(&sysinfo);
 
 	const u64 cpuThreadCount = sysinfo.dwNumberOfProcessors;
-	std::string cpuInfo = cpuName + " (" + std::to_string(cpuThreadCount);
+	std::string retVal = cpuName + " (" + std::to_string(cpuThreadCount);
 
 	if (cpuThreadCount == 1)
-		cpuInfo.append(" thread)");
+		retVal.append(" thread)");
 	else
-		cpuInfo.append(" threads)");
+		retVal.append(" threads)");
 
-	return cpuInfo;
+	return retVal;
 }
 
 std::string System_GetProperty(SystemProperty prop) {
