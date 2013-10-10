@@ -37,6 +37,7 @@ import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -644,15 +645,32 @@ public class NativeActivity extends Activity {
     		inputBox(params, "", "OK");
     	} else if (command.equals("vibrate")) {
 			if (vibrator != null) {
-				int milliseconds = 50;
+				int milliseconds = -1;
 				if (params != "") {
 					try {
 						milliseconds = Integer.parseInt(params);
 					} catch (NumberFormatException e) {
-						milliseconds = 50;
 					}
 				}
-				vibrator.vibrate(milliseconds);
+				// Special parameters to perform standard haptic feedback operations
+				// -1 = Standard keyboard press feedback
+				// -2 = Virtual key press
+				// -3 = Long press feedback
+				// Note that these three do not require the VIBRATE Android permission.
+				switch (milliseconds) {
+				case -1:
+					mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+					break;
+				case -2:
+					mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+					break;
+				case -3:
+					mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+					break;
+				default:
+					vibrator.vibrate(milliseconds);
+					break;
+				}
 			}
     	} else {
     		Log.e(TAG, "Unsupported command " + command + " , param: " + params);

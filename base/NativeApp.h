@@ -92,6 +92,17 @@ void NativeSaveState();  // onDestroy
 void SystemToast(const char *text);
 void ShowKeyboard();
 void ShowAd(int x, int y, bool center_x);
+
+// Vibrate either takes a number of milliseconds to vibrate unconditionally,
+// or you can specify these constants for "standard" feedback. On Android,
+// these will only be performed if haptic feedback is enabled globally.
+// Also, on Android, these will work even if you don't have the VIBRATE permission,
+// while generic vibration will not if you don't have it.
+enum {
+	HAPTIC_SOFT_KEYBOARD = -1,
+	HAPTIC_VIRTUAL_KEY = -2,
+	HAPTIC_LONG_PRESS_ACTIVATED = -3,
+};
 void Vibrate(int length_ms);
 void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
