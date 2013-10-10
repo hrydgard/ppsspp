@@ -286,6 +286,8 @@ public class NativeActivity extends Activity {
         NativeApp.audioInit();
         
         mGLSurfaceView = new NativeGLView(this);
+
+        mGLSurfaceView.setEGLContextClientVersion(2);
         
         // Setup the GLSurface and ask android for the correct 
         // Number of bits for r, g, b, a, depth and stencil components

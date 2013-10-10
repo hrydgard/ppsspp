@@ -10,6 +10,8 @@ import android.util.Log;
 public class NativeEGLConfigChooser implements EGLConfigChooser {
 	private static final String TAG = "NativeEGLConfigChooser";
 	
+	private static final int EGL_OPENGL_ES2_BIT = 4;
+
 	private class ConfigAttribs {
 		EGLConfig config;
 		public int red;
@@ -68,6 +70,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 			EGL10.EGL_DEPTH_SIZE, 16,
 			EGL10.EGL_STENCIL_SIZE, 0,
 			EGL10.EGL_SURFACE_TYPE, EGL10.EGL_WINDOW_BIT,
+			EGL10.EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 			EGL10.EGL_NONE
 		};
 

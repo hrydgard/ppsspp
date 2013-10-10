@@ -27,7 +27,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	
 	public NativeGLView(NativeActivity activity) {
 		super(activity);
-		setEGLContextClientVersion(2);
+
 		/*
 		if (Build.VERSION.SDK_INT >= 11) {
 			try {
