@@ -106,6 +106,8 @@ void ScreenManager::render() {
 }
 
 void ScreenManager::sendMessage(const char *msg, const char *value) {
+	if (!strcmp(msg, "recreateviews"))
+		RecreateAllViews();
 	if (!stack_.empty())
 		stack_.back().screen->sendMessage(msg, value);
 }

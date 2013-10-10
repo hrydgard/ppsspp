@@ -101,9 +101,9 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
+	const char *versionStr = (const char *)glGetString(GL_VERSION);
 
 #ifndef USING_GLES2
-	const char *versionStr = (const char *)glGetString(GL_VERSION);
 
 	char buffer[64] = {0};
 	if (versionStr) {
@@ -130,8 +130,10 @@ void CheckGLExtensions() {
 #if defined(USING_GLES2)
 // MAY_HAVE_GLES3 defined on all platforms, maybe redundant. Otherwise exclude platforms like Symbian, Meego, Raspberry Pi
 #if defined(MAY_HAVE_GLES3) && !defined(__SYMBIAN32__)
-	// Try to load GLES 3.0
-	if (GL_TRUE == gl3stubInit()) {
+	// Try to load GLES 3.0 only if "3.0" found in version
+	// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
+	// number of times.
+	if (strstr(versionStr, "3.0") && GL_TRUE == gl3stubInit()) {
 		gl_extensions.ver[0] = 3;
 		gl_extensions.GLES3 = true;
 		ILOG("Full OpenGL ES 3.0 support detected!\n");

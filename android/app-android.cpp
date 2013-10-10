@@ -329,6 +329,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(
 		ILOG("NativeDeviceLost completed.;");
 		NativeShutdownGraphics();
 		renderer_inited = false;
+		NativeMessageReceived("recreateviews", "");
 	}
 }
 

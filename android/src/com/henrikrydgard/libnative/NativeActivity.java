@@ -22,6 +22,7 @@ import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
+import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -275,7 +276,15 @@ public class NativeActivity extends Activity {
         // Might want to change this for other apps (24-bit might be useful).
         // Actually, we might be able to do without both stencil and depth in
         // the back buffer, but that would kill non-buffered rendering.
-        mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
+        
+        // It appears some gingerbread devices blow up if you use a config chooser at all ????  (Xperia Play)
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+        
+        // On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set the format here,
+        // if we specify that we want destination alpha in the config chooser, which we do.
+        // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
+    	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBA_8888);
+        mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
         
 		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
