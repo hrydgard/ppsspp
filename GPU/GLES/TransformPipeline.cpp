@@ -782,11 +782,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
 		TransformedVertex saved;
+		u32 stencilValue;
 		for (int i = 0; i < vertexCount; i += 2) {
 			int index = ((const u16*)inds)[i];
 			saved = transformed[index];
 			int index2 = ((const u16*)inds)[i + 1];
 			TransformedVertex &transVtx = transformed[index2];
+			if (i == 0)
+				stencilValue = transVtx.color0[3];
 			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
 			// bottom right
@@ -828,6 +831,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			trans += 6;
 
 			numTrans += 6;
+		}
+
+		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
+		// Might want to reconsider the order of things later...
+		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
+			glstate.stencilFunc.set(GL_ALWAYS, 255, stencilValue);
 		}
 	}
 
