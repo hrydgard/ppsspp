@@ -836,7 +836,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
 		// Might want to reconsider the order of things later...
 		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
-			glstate.stencilFunc.set(GL_ALWAYS, 255, stencilValue);
+			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
 		}
 	}
 
