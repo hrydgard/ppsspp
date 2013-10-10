@@ -101,6 +101,7 @@ void System_InputBox(const char *title, const char *defaultValue);
 enum SystemProperty {
 	SYSPROP_NAME,
 	SYSPROP_LANGREGION,
+	SYSPROP_CPUINFO,
 };
 
 std::string System_GetProperty(SystemProperty prop);
