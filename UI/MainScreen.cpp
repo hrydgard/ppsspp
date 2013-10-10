@@ -478,6 +478,8 @@ void MainScreen::CreateViews() {
 
 	bool vertical = dp_yres > dp_xres;
 
+	ILOG("Vertical? %c : %i %i", vertical ? 'Y' : 'N', dp_xres, dp_yres);
+
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
 	Margins actionMenuMargins(0, 10, 10, 0);
