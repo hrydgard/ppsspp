@@ -64,7 +64,9 @@ void ShowKeyboard() {
 
 void Vibrate(int length_ms) {
 	frameCommand = "vibrate";
-	frameCommandParam = "100";
+	char temp[32];
+	sprintf(temp, "%i", length_ms);
+	frameCommandParam = temp;
 }
 
 void LaunchBrowser(const char *url) {

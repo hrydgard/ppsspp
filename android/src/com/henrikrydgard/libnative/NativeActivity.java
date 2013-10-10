@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Vibrator;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -107,6 +108,8 @@ public class NativeActivity extends Activity {
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
+	
+	private Vibrator vibrator;
 	    
     public static boolean inputBoxCancelled;
     
@@ -237,7 +240,10 @@ public class NativeActivity extends Activity {
         	}
         }
         
-       
+        vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
+        if (Build.VERSION.SDK_INT >= 11) {
+        	checkForVibrator();
+        }
         /*
         editText = new EditText(this);
         editText.setText("Hello world");
@@ -245,6 +251,16 @@ public class NativeActivity extends Activity {
         addContentView(editText, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         */
         // inputBox("Please ener a s", "", "Save");
+	}
+
+	// Need API 11 to check for existence of a vibrator? Zany.
+	@TargetApi(11)
+	public void checkForVibrator() {
+        if (Build.VERSION.SDK_INT >= 11) {
+	        if (!vibrator.hasVibrator()) {
+	        	vibrator = null;
+	        }
+        }
 	}
 	
     @Override
@@ -626,6 +642,18 @@ public class NativeActivity extends Activity {
     	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
     	} else if (command.equals("inputBox")) {
     		inputBox(params, "", "OK");
+    	} else if (command.equals("vibrate")) {
+			if (vibrator != null) {
+				int milliseconds = 50;
+				if (params != "") {
+					try {
+						milliseconds = Integer.parseInt(params);
+					} catch (NumberFormatException e) {
+						milliseconds = 50;
+					}
+				}
+				vibrator.vibrate(milliseconds);
+			}
     	} else {
     		Log.e(TAG, "Unsupported command " + command + " , param: " + params);
     	}
