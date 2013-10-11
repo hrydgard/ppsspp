@@ -137,7 +137,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 		); // default is buffered rendering mode
 	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
-	graphics->Get("TextureFiltering", &iTexFiltering, 1);
+	// Set default texture filtering to Nearest
+	graphics->Get("TextureFiltering", &iTexFiltering, 2);
 	// Auto on Windows, 1x elsewhere. Maybe change to 2x on large screens?
 #ifdef _WIN32
 	graphics->Get("InternalResolution", &iInternalResolution, 0);
