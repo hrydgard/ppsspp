@@ -473,6 +473,7 @@ BEGIN
         POPUP "Texture Scaling"
         BEGIN
             MENUITEM "Off",                             ID_TEXTURESCALING_OFF
+            MENUITEM "Auto",                            ID_TEXTURESCALING_AUTO
             MENUITEM "&2x",                             ID_TEXTURESCALING_2X
             MENUITEM "&3x",                             ID_TEXTURESCALING_3X
             MENUITEM "&4x",                             ID_TEXTURESCALING_4X

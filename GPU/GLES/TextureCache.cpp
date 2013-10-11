@@ -1437,7 +1437,16 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
-	int scaleFactor = g_Config.iTexScalingLevel;
+	int scaleFactor;
+	//Auto-texture scale upto 5x rendering resolution
+	if (g_Config.iTexScalingLevel == 0)
+#ifndef USING_GLES2
+		scaleFactor = std::min(5, g_Config.iInternalResolution);
+#else
+		scaleFactor = std::min(3, g_Config.iInternalResolution);
+#endif
+	else
+		scaleFactor = g_Config.iTexScalingLevel;
 
 	// Don't scale the PPGe texture.
 	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
