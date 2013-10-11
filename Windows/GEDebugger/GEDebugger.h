@@ -33,6 +33,15 @@ enum {
 	WM_GEDBG_SETCMDWPARAM,
 };
 
+enum BreakNextType {
+	BREAK_NONE,
+	BREAK_NEXT_OP,
+	BREAK_NEXT_DRAW,
+	BREAK_NEXT_TEX,
+	BREAK_NEXT_NONTEX,
+	BREAK_NEXT_FRAME,
+};
+
 class CtrlDisplayListView;
 class TabDisplayLists;
 class TabStateFlags;
@@ -61,6 +70,7 @@ private:
 	void UpdatePreviews();
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
+	void SetBreakNext(BreakNextType type);
 
 	CtrlDisplayListView *displayList;
 	TabDisplayLists *lists;

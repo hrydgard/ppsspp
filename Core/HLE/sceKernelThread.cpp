@@ -402,6 +402,7 @@ public:
 		if (currentStack.start == (u32)-1)
 		{
 			currentStack.start = 0;
+			nt.initialStack = 0;
 			ERROR_LOG(SCEKERNEL, "Failed to allocate stack for thread");
 			return false;
 		}
@@ -437,8 +438,8 @@ public:
 		if (currentStack.start != 0) {
 			DEBUG_LOG(SCEKERNEL, "Freeing thread stack %s", nt.name);
 
-			if (nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) {
-				Memory::Memset(currentStack.start, 0, currentStack.end - currentStack.start);
+			if ((nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) != 0 && nt.initialStack != 0) {
+				Memory::Memset(nt.initialStack, 0, nt.stackSize);
 			}
 
 			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {

@@ -286,7 +286,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			// TODO: In clear mode, the stencil value is set to the alpha value of the vertex.
 			// A normal clear will be 2 points, the second point has the color.
 			// We should set "ref" to that value instead of 0.
-			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
+			// In case of clear rectangles, we set it again once we know what the color is.
+			glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
 		} else 
 			glstate.stencilTest.disable();
 		

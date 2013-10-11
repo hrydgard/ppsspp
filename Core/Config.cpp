@@ -189,6 +189,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	sound->Get("LowLatency", &bLowLatencyAudio, false);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
+	control->Get("HapticFeedback", &bHapticFeedback, true);
 	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
@@ -243,8 +244,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	debugConfig->Get("ShowBottomTabTitles",&bShowBottomTabTitles,true);
 	debugConfig->Get("ShowDeveloperMenu", &bShowDeveloperMenu, false);
 
-	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
-	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
+	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
+	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -358,6 +359,7 @@ void Config::Save() {
 		sound->Set("LowLatency", bLowLatencyAudio);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
+		control->Set("HapticFeedback", bHapticFeedback);
 		control->Set("ShowAnalogStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		// control->Set("KeyMapping",iMappingMap);
@@ -400,6 +402,9 @@ void Config::Save() {
 		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
 		debugConfig->Set("ShowBottomTabTitles",bShowBottomTabTitles);
 		debugConfig->Set("ShowDeveloperMenu", bShowDeveloperMenu);
+
+		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
+		speedhacks->Set("PrescaleUV", bPrescaleUV);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

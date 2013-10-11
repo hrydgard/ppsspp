@@ -13,7 +13,7 @@ symbian: MOBILITY += systeminfo
 
 # Libs
 symbian {
-	LIBS += -lCore.lib -lCommon.lib -lNative.lib -llibglib
+	LIBS += -lCore.lib -lCommon.lib -lNative.lib -llibglib -lhwrmvibraclient
 	# For now you have to copy these to the Symbian lib dir using ffmpeg/symbian-install.sh
 	LIBS += -lavformat.lib -lavcodec.lib -lavutil.lib -lswresample.lib -lswscale.lib
 }

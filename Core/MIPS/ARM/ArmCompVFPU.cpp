@@ -29,6 +29,8 @@
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 
+// Cool NEON references:
+// http://www.delmarnorth.com/microwave/requirements/neon-test-tutorial.pdf
 
 const bool disablePrefixes = false;
 

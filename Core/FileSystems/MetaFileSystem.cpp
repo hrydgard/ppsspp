@@ -177,9 +177,21 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	lock_guard guard(lock);
 	std::string realpath;
 
+	std::string inpath = _inpath;
+
+	// "ms0:/file.txt" is equivalent to "   ms0:/file.txt".  Yes, really.
+	if (inpath.find(':') != inpath.npos) {
+		size_t offset = 0;
+		while (inpath[offset] == ' ') {
+			offset++;
+		}
+		if (offset > 0) {
+			inpath = inpath.substr(offset);
+		}
+	}
+
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
-	std::string inpath = _inpath;
 	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
 		INFO_LOG(FILESYS, "Host0 path detected, stripping: %s", inpath.c_str());
 		inpath = inpath.substr(strlen("host0:"));

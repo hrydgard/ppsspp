@@ -173,6 +173,8 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
 	if (yes) {
 		info->DeleteAllSaveData();
+		info->saveDataSize = 0;
+		info->installDataSize = 0;
 	}
 }
 
