@@ -39,7 +39,8 @@ namespace MainWindow
 		RESOLUTION_8X = 8,
 		RESOLUTION_9X = 9,
 		RESOLUTION_MAX = 10,
-
+		
+		TEXSCALING_AUTO = 0,
 		TEXSCALING_OFF = 1,
 		TEXSCALING_2X = 2,
 		TEXSCALING_3X = 3,
@@ -65,4 +66,5 @@ namespace MainWindow
 	void _ViewFullScreen(HWND hWnd);
 	void _ViewNormal(HWND hWnd);
 	void TranslateMenus();
+	void setTexScalingMultiplier(int level);
 }
