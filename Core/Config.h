@@ -41,6 +41,7 @@ public:
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
 #ifdef _WIN32
+	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
 #endif
