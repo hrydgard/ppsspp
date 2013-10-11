@@ -290,6 +290,7 @@
 #define ID_GEDBG_SETSTALLADDR            40130
 #define ID_GEDBG_GOTOPC                  40131
 #define ID_GEDBG_GOTOADDR                40132
+#define ID_OPTIONS_PAUSE_FOCUS			 40133
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
