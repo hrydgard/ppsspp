@@ -170,7 +170,7 @@ public:
 	bool DeleteSection(const char* sectionName);
 
 	void SortSections();
-	const std::vector<Section> &Sections() { return sections; }
+	std::vector<Section> &Sections() { return sections; }
 
 	bool HasSection(const char *section) { return GetSection(section) != 0; }
 

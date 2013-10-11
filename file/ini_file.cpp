@@ -100,7 +100,7 @@ void IniFile::Section::Set(const char* key, const std::string& newValue, const s
 
 bool IniFile::Section::Get(const char* key, std::string* value, const char* defaultValue)
 {
-	std::string* line = GetLine(key, value, 0);
+	const std::string* line = GetLine(key, value, 0);
 	if (!line)
 	{
 		if (defaultValue)
