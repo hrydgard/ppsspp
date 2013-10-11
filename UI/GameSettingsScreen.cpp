@@ -147,11 +147,11 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
-	static const char *texScaleLevels[] = {"Off", "2x", "3x","4x", "5x"};
+	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x","4x", "5x"};
 #else
-	static const char *texScaleLevels[] = {"Off", "2x", "3x"};
+	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x"};
 #endif
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, ARRAY_SIZE(texScaleLevels), gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, ARRAY_SIZE(texScaleLevels), gs, screenManager()));
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));

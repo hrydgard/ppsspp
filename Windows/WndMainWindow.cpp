@@ -237,6 +237,9 @@ namespace MainWindow
 			if (++g_Config.iInternalResolution > RESOLUTION_MAX)
 				g_Config.iInternalResolution = 0;
 		}
+		
+		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
+			setTexScalingMultiplier(0);
 
 		ResizeDisplay(true, true);
 	}
@@ -1211,7 +1214,8 @@ namespace MainWindow
 					if (gpu)
 						gpu->Resized();
 					break;
-
+				
+				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
 				case ID_TEXTURESCALING_2X:  setTexScalingMultiplier(TEXSCALING_2X); break;
 				case ID_TEXTURESCALING_3X:  setTexScalingMultiplier(TEXSCALING_3X); break;
@@ -1640,20 +1644,21 @@ namespace MainWindow
 		}
 
 		static const int texscalingitems[] = {
+			ID_TEXTURESCALING_AUTO,
 			ID_TEXTURESCALING_OFF,
 			ID_TEXTURESCALING_2X,
 			ID_TEXTURESCALING_3X,
 			ID_TEXTURESCALING_4X,
 			ID_TEXTURESCALING_5X,
 		};
-		if(g_Config.iTexScalingLevel < TEXSCALING_OFF)
-			g_Config.iTexScalingLevel = TEXSCALING_OFF;
+		if(g_Config.iTexScalingLevel < TEXSCALING_AUTO)
+			g_Config.iTexScalingLevel = TEXSCALING_AUTO;
 
 		else if(g_Config.iTexScalingLevel > TEXSCALING_MAX)
 			g_Config.iTexScalingLevel = TEXSCALING_MAX;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingitems); i++) {
-			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel - 1) ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int texscalingtypeitems[] = {

@@ -293,6 +293,7 @@
 #define IDC_GEDBG_STEPTEX                40133
 #define IDC_GEDBG_STEPFRAME              40134
 #define IDC_GEDBG_BREAKTEX               40135
+#define ID_TEXTURESCALING_AUTO           40136
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
