@@ -509,6 +509,7 @@ namespace MainWindow
 
 		// Options menu
 		TranslateMenuItem(ID_OPTIONS_TOPMOST);
+		TranslateMenuItem(ID_OPTIONS_PAUSE_FOCUS);
 		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(ID_OPTIONS_CONTROLS);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
@@ -1010,14 +1011,27 @@ namespace MainWindow
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		int wmId, wmEvent;
 		std::string fn;
+		static bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 
 		switch (message) {
 		case WM_CREATE:
 			break;
 			
 		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
+			{
+				bool pause = true;
+				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+					g_activeWindow = WINDOW_MAINWINDOW;
+					pause = false;
+				}
+				if (!noFocusPause && g_Config.bPauseOnLostFocus && globalUIState == UISTATE_INGAME) {
+					if (pause != Core_IsStepping()) {	// != is xor for bools
+						if (disasmWindow[0])
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
+						else
+							Core_EnableStepping(pause);
+					}
+				}
 			}
 			break;
 
@@ -1119,6 +1133,7 @@ namespace MainWindow
 						else
 							Core_EnableStepping(true);
 					}
+					noFocusPause = !noFocusPause;	// If we pause, override pause on lost focus
 					break;
 
 				case ID_EMULATION_STOP:
@@ -1359,6 +1374,10 @@ namespace MainWindow
 					W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
 					break;
 
+				case ID_OPTIONS_PAUSE_FOCUS:
+					g_Config.bPauseOnLostFocus = !g_Config.bPauseOnLostFocus;
+					break;
+
 				case ID_OPTIONS_CONTROLS:
 					NativeMessageReceived("control mapping", "");
 					break;
@@ -1597,6 +1616,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_FXAA, g_Config.bFXAA);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
+		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);

@@ -269,7 +269,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	if (args.IsValid() && args->context.IsValid())
 		dl.context = args->context;
 	else
-		dl.context = NULL;
+		dl.context = 0;
 
 	if (head) {
 		if (currentList) {
@@ -465,7 +465,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	//	return false;
 	currentList = &list;
 
-	if (!list.started && list.context != NULL) {
+	if (!list.started && list.context.IsValid()) {
 		gstate.Save(list.context);
 	}
 	list.started = true;
@@ -485,6 +485,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 #endif
 
 	cycleLastPC = list.pc;
+	cyclesExecuted += 300;
 	downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
@@ -553,7 +554,12 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 		PreExecuteOp(op, diff);
 		if (dumpThisFrame) {
 			char temp[256];
-			u32 prev = Memory::ReadUnchecked_U32(list.pc - 4);
+			u32 prev;
+			if (Memory::IsValidAddress(list.pc - 4)) {
+				prev = Memory::ReadUnchecked_U32(list.pc - 4);
+			} else {
+				prev = 0;
+			}
 			GeDisassembleOp(list.pc, op, prev, temp);
 			NOTICE_LOG(G3D, "%s", temp);
 		}
@@ -910,7 +916,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);
 					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);
-					if (currentList->started && currentList->context != NULL) {
+					if (currentList->started && currentList->context.IsValid()) {
 						gstate.Restore(currentList->context);
 						ReapplyGfxStateInternal();
 					}
@@ -931,15 +937,50 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
+struct DisplayListOld {
+	int id;
+	u32 startpc;
+	u32 pc;
+	u32 stall;
+	DisplayListState state;
+	SignalBehavior signal;
+	int subIntrBase;
+	u16 subIntrToken;
+	DisplayListStackEntry stack[32];
+	int stackptr;
+	bool interrupted;
+	u64 waitTicks;
+	bool interruptsEnabled;
+	bool pendingInterrupt;
+	bool started;
+	size_t contextPtr;
+	u32 offsetAddr;
+	bool bboxResult;
+};
+
 void GPUCommon::DoState(PointerWrap &p) {
 	easy_guard guard(listLock);
 
-	auto s = p.Section("GPUCommon", 1);
+	auto s = p.Section("GPUCommon", 1, 2);
 	if (!s)
 		return;
 
 	p.Do<int>(dlQueue);
-	p.DoArray(dls, ARRAY_SIZE(dls));
+	if (s >= 2) {
+		p.DoArray(dls, ARRAY_SIZE(dls));
+	} else {
+		// Can only be in read mode here.
+		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
+			DisplayListOld oldDL;
+			p.Do(oldDL);
+			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
+			memcpy(&dls[i], &oldDL, sizeof(DisplayList));
+			// Fix the other fields.  Let's hope context wasn't important, it was a pointer.
+			dls[i].context = 0;
+			dls[i].offsetAddr = oldDL.offsetAddr;
+			dls[i].bboxResult = oldDL.bboxResult;
+		}
+	}
 	int currentID = 0;
 	if (currentList != NULL) {
 		ptrdiff_t off = currentList - &dls[0];
@@ -970,7 +1011,7 @@ void GPUCommon::InterruptEnd(int listid) {
 	dl.pendingInterrupt = false;
 	// TODO: Unless the signal handler could change it?
 	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
-		if (dl.started && dl.context != NULL) {
+		if (dl.started && dl.context.IsValid()) {
 			gstate.Restore(dl.context);
 			ReapplyGfxState();
 		}
@@ -1065,9 +1106,10 @@ std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
 	std::vector<GPUDebugOp> result;
 	GPUDebugOp info;
 
-	u32 prev = Memory::Read_U32(startpc - 4);
+	// Don't trigger a pause.
+	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
 	for (u32 pc = startpc; pc < endpc; pc += 4) {
-		u32 op = Memory::Read_U32(pc);
+		u32 op = Memory::IsValidAddress(pc) ? Memory::Read_U32(pc) : 0;
 		GeDisassembleOp(pc, op, prev, buffer);
 		prev = op;
 
@@ -1094,4 +1136,13 @@ u32 GPUCommon::GetIndexAddress() {
 
 GPUgstate GPUCommon::GetGState() {
 	return gstate;
+}
+
+void GPUCommon::SetCmdValue(u32 op) {
+	u32 cmd = op >> 24;
+	u32 diff = op ^ gstate.cmdmem[cmd];
+
+	PreExecuteOp(op, diff);
+	gstate.cmdmem[cmd] = op;
+	ExecuteOp(op, diff);
 }

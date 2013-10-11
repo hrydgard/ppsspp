@@ -152,6 +152,7 @@ public:
 	virtual u32 GetVertexAddress();
 	virtual u32 GetIndexAddress();
 	virtual GPUgstate GetGState();
+	virtual void SetCmdValue(u32 op);
 
 	virtual DisplayList* getList(int listid)
 	{

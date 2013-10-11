@@ -1095,6 +1095,9 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // SHUFPS(XMM2, R(XMM3), _MM_SHUFFLE(0, 0, 0, 0));   // XMM2 = S3 S3 S2 S2
 // SHUFPS(XMM0, R(XMM2), _MM_SHUFFLE(2, 0, 2, 0));   // XMM0 = S3 S2 S1 S0
 // Some punpckwd etc would also work.
+// Alternatively, MOVSS and three PINSRD (SSE4) with mem source.
+// Why PINSRD instead of INSERTPS?
+// http://software.intel.com/en-us/blogs/2009/01/07/using-sse41-for-mp3-encoding-quantization
 
 // Sequence for scattering a SIMD register to sparse registers:
 // (Very serial though, better methods may be possible)
@@ -1105,7 +1108,7 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // MOVSS(fpr.R(sregs[2]), XMM0);
 // SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
 // MOVSS(fpr.R(sregs[3]), XMM0);
-
+// On SSE4 we should use EXTRACTPS.
 
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
@@ -1164,6 +1167,76 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	ORPS(XMM1, R(tempR));
 	ORPS(XMM0, R(XMM1));
 
+	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
+
+	// TODO: Could apply D-prefix in parallel here...
+
+	MOVSS(fpr.V(dregs[0]), XMM0);
+	SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+	MOVSS(fpr.V(dregs[1]), XMM0);
+
+	if (sz != V_Single) {
+		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		MOVSS(fpr.V(dregs[2]), XMM0);
+		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		MOVSS(fpr.V(dregs[3]), XMM0);
+	}
+
+	ApplyPrefixD(dregs, outsize);
+	gpr.UnlockAllX();
+	fpr.ReleaseSpillLocks();
+}
+
+void Jit::Comp_Vx2i(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	switch ((op >> 16) & 3) {
+	case 0:  // vuc2i  
+	case 1:  // vc2i
+	case 2:  // vus2i
+		DISABLE;
+
+	case 3:  // vs2i - used heavily by GTA
+		break;
+	default:
+		DISABLE;
+	}
+
+	// OK this is vs2i. Unpacks pairs of 16-bit integers into 32-bit integers, with the values
+	// at the top.
+	// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
+	// then use it for both.
+
+	VectorSize sz = GetVecSize(op);
+	VectorSize outsize;
+	switch (sz) {
+	case V_Single:
+		outsize = V_Pair;
+		break;
+	case V_Pair:
+		outsize = V_Quad;
+		break;
+	default:
+		DISABLE;
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	MOVSS(XMM1, fpr.V(sregs[0]));
+	if (sz != V_Single) {
+		MOVSS(XMM0, fpr.V(sregs[1]));
+		PUNPCKLDQ(XMM1, R(XMM0));
+	}
+
+	// Unpack 16-bit words into 32-bit words, upper position, and we're done!
+	XORPS(XMM0, R(XMM0));
+	PUNPCKLWD(XMM0, R(XMM1));
+	
+	// Done! TODO: The rest of this should be possible to extract into a function.
 	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
 
 	// TODO: Could apply D-prefix in parallel here...
@@ -1802,10 +1875,6 @@ void Jit::Comp_VDet(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vi2x(MIPSOpcode op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vx2i(MIPSOpcode op) {
 	DISABLE;
 }
 

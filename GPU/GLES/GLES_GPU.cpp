@@ -52,8 +52,6 @@ struct CommandTableEntry {
 
 static const CommandTableEntry commandTable[] = {
 	// Changes that dirty the framebuffer
-	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -144,8 +142,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CULL, FLAG_FLUSHBEFOREONCHANGE},
@@ -197,6 +193,14 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+
+	// Region
+	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+
+	// Scissor
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -351,6 +355,23 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_B7, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_D1, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_ED, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_EF, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F0, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F1, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F2, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F3, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F4, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F5, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F6, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F7, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F8, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_F9, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FA, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FB, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
 };
 
 
@@ -363,26 +384,30 @@ GLES_GPU::GLES_GPU()
 	} else {
 		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
-	
+
 #ifdef ANDROID
-	if (gl_extensions.QCOM_binning_control)
+	if (gl_extensions.QCOM_binning_control) {
 		/*
 		We can try different HINTS later or even with option to toggle for Adreno GPU
 
-		CPU_OPTIMIZED_QCOM                
+		CPU_OPTIMIZED_QCOM
 		- binning algorithm focuses on lower CPU utilization (this path increases vertex processing
-		
-		GPU_OPTIMIZED_QCOM					
+
+		GPU_OPTIMIZED_QCOM
 		- binning algorithm focuses on lower GPU utilization (this path increases CPU usage
-		
-		RENDER_DIRECT_TO_FRAMEBUFFER_QCOM 
-		- render directly to the final framebuffer and bypass tile memory 
+
+		RENDER_DIRECT_TO_FRAMEBUFFER_QCOM
+		- render directly to the final framebuffer and bypass tile memory
 		(this path has a low CPU usage, but in some cases uses more memory bandwidth)
-		
+
 		*/
-		glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
- #endif
- 
+		// Got a report this might be causing crashes, so I disabled it.
+		// There have been no reports of a consistent speedup with it on, so meh.
+		//
+		// glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
+	}
+#endif
+
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
@@ -413,6 +438,16 @@ GLES_GPU::GLES_GPU()
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
 			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
 		}
+	}
+
+	// No need to flush before the tex scale/offset commands if we are baking
+	// the tex scale/offset into the vertices anyway.
+
+	if (g_Config.bPrescaleUV) {
+		commandFlags_[GE_CMD_TEXSCALEU] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXSCALEV] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXOFFSETU] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
 	BuildReportingInfo();
@@ -448,10 +483,12 @@ void GLES_GPU::BuildReportingInfo() {
 }
 
 void GLES_GPU::DeviceLost() {
+	ILOG("GLES_GPU: DeviceLost");
 	// Should only be executed on the GL thread.
 
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
+	// TransformDraw has registered as a GfxResourceHolder.
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
 	framebufferManager_.DeviceLost();
@@ -569,7 +606,7 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
-	shaderManager_->EndFrame();
+	shaderManager_->DirtyLastShader();
 
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
@@ -905,32 +942,28 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSCALEU:
 		if (diff) {
 			gstate_c.uv.uScale = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_TEXSCALEV:
 		if (diff) {
 			gstate_c.uv.vScale = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_TEXOFFSETU:
 		if (diff) {
 			gstate_c.uv.uOff = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_TEXOFFSETV:
 		if (diff) {
 			gstate_c.uv.vOff = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
@@ -960,8 +993,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		gstate_c.textureChanged = true;
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff) {
+			gstate_c.textureChanged = true;
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		}
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -972,13 +1007,17 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		gstate_c.textureChanged = true;
+		if (diff) {
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
 	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged = true;
+		if (diff) {
+			gstate_c.textureChanged = true;
+		}
 		// This could be used to "dirty" textures with clut.
 		break;
 
@@ -1247,6 +1286,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_STENCILTESTENABLE:
 	case GE_CMD_ZTESTENABLE:
 	case GE_CMD_ZTEST:
+	case GE_CMD_ZWRITEDISABLE:
 		break;
 
 	case GE_CMD_MORPHWEIGHT0:
@@ -1403,6 +1443,23 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_UNKNOWN_B7:
 	case GE_CMD_UNKNOWN_D1:
 	case GE_CMD_UNKNOWN_ED:
+	case GE_CMD_UNKNOWN_EF:
+	case GE_CMD_UNKNOWN_F0:
+	case GE_CMD_UNKNOWN_F1:
+	case GE_CMD_UNKNOWN_F2:
+	case GE_CMD_UNKNOWN_F3:
+	case GE_CMD_UNKNOWN_F4:
+	case GE_CMD_UNKNOWN_F5:
+	case GE_CMD_UNKNOWN_F6:
+	case GE_CMD_UNKNOWN_F7:
+	case GE_CMD_UNKNOWN_F8:
+	case GE_CMD_UNKNOWN_F9:
+	case GE_CMD_UNKNOWN_FA:
+	case GE_CMD_UNKNOWN_FB:
+	case GE_CMD_UNKNOWN_FC:
+	case GE_CMD_UNKNOWN_FD:
+	case GE_CMD_UNKNOWN_FE:
+	case GE_CMD_UNKNOWN_FF:
 		if (data != 0)
 			WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
 		break;
@@ -1562,7 +1619,7 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, false);
+	buffer.Allocate(w, h, GE_FORMAT_8888, gstate_c.flipTexture);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 

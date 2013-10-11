@@ -821,6 +821,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		u32 maxFile = param->idList->maxCount;
 
 		std::vector<PSPFileInfo> validDir;
+		std::vector<PSPFileInfo> sfoFiles;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
 		if (param->idList.IsValid())
@@ -835,13 +836,27 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				}
 			}
 
+			PSPFileInfo sfoFile;
+			for (size_t i = 0; i < validDir.size(); ++i) {
+				// GetFileName(param) == NUll here
+				// so use sfo files to set the date. 
+				sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + "PARAM.SFO");
+				sfoFiles.push_back(sfoFile);
+			}
+
 			SceUtilitySavedataIdListEntry *entries = param->idList->entries;
 			for (u32 i = 0; i < (u32)validDir.size(); i++)
 			{
 				entries[i].st_mode = 0x11FF;
-				__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
-				__IoCopyDate(entries[i].st_atime, validDir[i].atime);
-				__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
+				if (sfoFiles[i].exists) {
+					__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
+					__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
+					__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
+				} else {
+					__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
+					__IoCopyDate(entries[i].st_atime, validDir[i].atime);
+					__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
+				}
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
 				memset(entries[i].name, 0, sizeof(entries[i].name));

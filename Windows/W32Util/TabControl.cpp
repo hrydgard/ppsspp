@@ -6,7 +6,8 @@
 
 const DWORD tabControlStyleMask = ~(WS_POPUP | WS_TILEDWINDOW);
 
-TabControl::TabControl(HWND handle): hwnd(handle), showTabTitles(true),currentTab(0),ignoreBottomMargin(false)
+TabControl::TabControl(HWND handle, bool noDisplayArea)
+	: hwnd(handle), showTabTitles(true), currentTab(0), ignoreBottomMargin(false), noDisplayArea_(noDisplayArea)
 {
 	SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)this);
 	oldProc = (WNDPROC) SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
@@ -22,7 +23,7 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	style = (style |WS_CHILD) & tabControlStyleMask;
 	if (showTabTitles)
 		AppendPageToControl(title);
-	int index = tabs.size();
+	int index = (int)tabs.size();
 
 	RECT tabRect;
 	GetWindowRect(hwnd,&tabRect);
@@ -59,27 +60,30 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 {
 	if (showTabTitles)
 		AppendPageToControl(title);
-	int index = tabs.size();
-
-	RECT tabRect;
-	GetWindowRect(hwnd,&tabRect);
-	MapWindowPoints(HWND_DESKTOP,GetParent(hwnd),(LPPOINT)&tabRect,2);
-	TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
+	int index = (int)tabs.size();
 	
-	SetParent(handle,GetParent(hwnd));
-	DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD);
-	
-	TabInfo info;
-	info.hasBorder = (style & WS_BORDER) != 0;
-	info.hasClientEdge = (GetWindowLong(handle,GWL_EXSTYLE) & WS_EX_CLIENTEDGE) != 0;
-	if (hasButtons == false)
+	TabInfo info = {0};
+	if (!noDisplayArea_)
 	{
-		style &= (~WS_BORDER);
-		SetWindowLong(handle, GWL_EXSTYLE, GetWindowLong(handle,GWL_EXSTYLE) & (~WS_EX_CLIENTEDGE));
-	}
+		RECT tabRect;
+		GetWindowRect(hwnd,&tabRect);
+		MapWindowPoints(HWND_DESKTOP,GetParent(hwnd),(LPPOINT)&tabRect,2);
+		TabCtrl_AdjustRect(hwnd, FALSE, &tabRect);
 
-	SetWindowLong(handle, GWL_STYLE, style & tabControlStyleMask);
-	MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+		SetParent(handle,GetParent(hwnd));
+		DWORD style = (GetWindowLong(handle,GWL_STYLE) | WS_CHILD);
+
+		info.hasBorder = (style & WS_BORDER) != 0;
+		info.hasClientEdge = (GetWindowLong(handle,GWL_EXSTYLE) & WS_EX_CLIENTEDGE) != 0;
+		if (hasButtons == false)
+		{
+			style &= (~WS_BORDER);
+			SetWindowLong(handle, GWL_EXSTYLE, GetWindowLong(handle,GWL_EXSTYLE) & (~WS_EX_CLIENTEDGE));
+		}
+
+		SetWindowLong(handle, GWL_STYLE, style & tabControlStyleMask);
+		MoveWindow(handle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+	}
 
 	info.lastFocus = handle;
 	info.pageHandle = handle;
@@ -133,7 +137,8 @@ void TabControl::ShowTab(int index, bool setControlIndex)
 	{
 		if (oldFocus && i == index)
 			SetFocus(tabs[i].lastFocus);
-		ShowWindow(tabs[i].pageHandle,i == index ? SW_NORMAL : SW_HIDE);
+		if (!noDisplayArea_)
+			ShowWindow(tabs[i].pageHandle,i == index ? SW_NORMAL : SW_HIDE);
 	}
 
 	if (setControlIndex && showTabTitles)
@@ -150,13 +155,14 @@ void TabControl::ShowTab(HWND pageHandle)
 	{
 		if (tabs[i].pageHandle == pageHandle)
 		{
-			currentTab = i;
+			currentTab = (int)i;
 			if (showTabTitles)
 				TabCtrl_SetCurSel(hwnd,i);
 			if (oldFocus)
 				SetFocus(tabs[i].lastFocus);
 		}
-		ShowWindow(tabs[i].pageHandle,tabs[i].pageHandle == pageHandle ? SW_NORMAL : SW_HIDE);
+		if (!noDisplayArea_)
+			ShowWindow(tabs[i].pageHandle,tabs[i].pageHandle == pageHandle ? SW_NORMAL : SW_HIDE);
 	}
 }
 
@@ -176,7 +182,7 @@ void TabControl::SetShowTabTitles(bool enabled)
 		{
 			AppendPageToControl(tabs[i].title);
 			
-			if (hasButtons == false)
+			if (hasButtons == false && !noDisplayArea_)
 			{
 				DWORD style = GetWindowLong(tabs[i].pageHandle,GWL_STYLE) & (~WS_BORDER);
 				SetWindowLong(tabs[i].pageHandle,GWL_STYLE,style);
@@ -186,7 +192,7 @@ void TabControl::SetShowTabTitles(bool enabled)
 			}
 		}
 		TabCtrl_SetCurSel(hwnd,CurrentTabIndex());
-	} else if (hasButtons == false)
+	} else if (hasButtons == false && !noDisplayArea_)
 	{
 		for (int i = 0; i < (int) tabs.size(); i++)
 		{
@@ -205,6 +211,11 @@ void TabControl::SetShowTabTitles(bool enabled)
 	}
 	
 	OnResize();
+}
+
+void TabControl::SetMinTabWidth(int w)
+{
+	TabCtrl_SetMinTabWidth(hwnd, w);
 }
 
 void TabControl::NextTab(bool cycle)
@@ -265,15 +276,18 @@ void TabControl::OnResize()
 
 	int current = CurrentTabIndex();
 
-	for (size_t i = 0; i < tabs.size(); i++)
+	if (!noDisplayArea_)
 	{
-		InvalidateRect(tabs[i].pageHandle,NULL,FALSE);
-		MoveWindow(tabs[i].pageHandle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
-
-		if (i == current)
+		for (size_t i = 0; i < tabs.size(); i++)
 		{
-			InvalidateRect(tabs[i].pageHandle,NULL,TRUE);
-			UpdateWindow(tabs[i].pageHandle);
+			InvalidateRect(tabs[i].pageHandle,NULL,FALSE);
+			MoveWindow(tabs[i].pageHandle,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,TRUE);
+
+			if (i == current)
+			{
+				InvalidateRect(tabs[i].pageHandle,NULL,TRUE);
+				UpdateWindow(tabs[i].pageHandle);
+			}
 		}
 	}
 }

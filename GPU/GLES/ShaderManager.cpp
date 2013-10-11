@@ -29,6 +29,7 @@
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -43,7 +44,7 @@ Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : fai
 	OutputDebugStringUTF8(code);
 #endif
 	shader = glCreateShader(shaderType);
- 	glShaderSource(shader, 1, &code, 0);
+	glShaderSource(shader, 1, &code, 0);
 	glCompileShader(shader);
 	GLint success;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -72,12 +73,32 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform)
+LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	program = glCreateProgram();
+
 	glAttachShader(program, vs->shader);
 	glAttachShader(program, fs->shader);
+
+	// Bind attribute locations to fixed locations so that they're
+	// the same in all shaders. We use this later to minimize the calls to
+	// glEnableVertexAttribArray and glDisableVertexAttribArray.
+	glBindAttribLocation(program, ATTR_POSITION, "position");
+	glBindAttribLocation(program, ATTR_TEXCOORD, "texcoord");
+	glBindAttribLocation(program, ATTR_NORMAL, "normal");
+	glBindAttribLocation(program, ATTR_W1, "w1");
+	glBindAttribLocation(program, ATTR_W2, "w2");
+	glBindAttribLocation(program, ATTR_COLOR0, "color0");
+	glBindAttribLocation(program, ATTR_COLOR1, "color1");
+
 	glLinkProgram(program);
+
+	// Detaching shaders is annoying when debugging with gDebugger
+	// so let's not do that on Windows.
+#ifdef USING_GLES
+	glDetachShader(program, vs->shader);
+	glDetachShader(program, fs->shader);
+#endif
 
 	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
@@ -161,13 +182,14 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 		u_lightspecular[i] = glGetUniformLocation(program, temp);
 	}
 
-	a_position = glGetAttribLocation(program, "a_position");
-	a_color0 = glGetAttribLocation(program, "a_color0");
-	a_color1 = glGetAttribLocation(program, "a_color1");
-	a_texcoord = glGetAttribLocation(program, "a_texcoord");
-	a_normal = glGetAttribLocation(program, "a_normal");
-	a_weight0123 = glGetAttribLocation(program, "a_w1");
-	a_weight4567 = glGetAttribLocation(program, "a_w2");
+	attrMask = 0;
+	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
+	if (-1 != glGetAttribLocation(program, "texcoord")) attrMask |= 1 << ATTR_TEXCOORD;
+	if (-1 != glGetAttribLocation(program, "normal")) attrMask |= 1 << ATTR_NORMAL;
+	if (-1 != glGetAttribLocation(program, "w1")) attrMask |= 1 << ATTR_W1;
+	if (-1 != glGetAttribLocation(program, "w2")) attrMask |= 1 << ATTR_W2;
+	if (-1 != glGetAttribLocation(program, "color0")) attrMask |= 1 << ATTR_COLOR0;
+	if (-1 != glGetAttribLocation(program, "color1")) attrMask |= 1 << ATTR_COLOR1;
 
 	glUseProgram(program);
 
@@ -175,10 +197,11 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
-	use(vertType);
+	use(vertType, previous);
 }
 
 LinkedShader::~LinkedShader() {
+	// Shaders are automatically detached by glDeleteProgram.
 	glDeleteProgram(program);
 }
 
@@ -258,26 +281,30 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
-void LinkedShader::use(u32 vertType) {
+void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 	glUseProgram(program);
 	updateUniforms(vertType);
-	glEnableVertexAttribArray(a_position);
-	if (a_texcoord != -1) glEnableVertexAttribArray(a_texcoord);
-	if (a_color0 != -1) glEnableVertexAttribArray(a_color0);
-	if (a_color1 != -1) glEnableVertexAttribArray(a_color1);
-	if (a_normal != -1) glEnableVertexAttribArray(a_normal);
-	if (a_weight0123 != -1) glEnableVertexAttribArray(a_weight0123);
-	if (a_weight4567 != -1) glEnableVertexAttribArray(a_weight4567);
+	int enable, disable;
+	if (previous) {
+		enable = attrMask & ~previous->attrMask;
+		disable = (~attrMask) & previous->attrMask;
+	} else {
+		enable = attrMask;
+		disable = ~attrMask;
+	}
+	for (int i = 0; i < ATTR_COUNT; i++) {
+		if (enable & (1 << i))
+			glEnableVertexAttribArray(i);
+		else if (disable & (1 << i))
+			glDisableVertexAttribArray(i);
+	}
 }
 
 void LinkedShader::stop() {
-	glDisableVertexAttribArray(a_position);
-	if (a_texcoord != -1) glDisableVertexAttribArray(a_texcoord);
-	if (a_color0 != -1) glDisableVertexAttribArray(a_color0);
-	if (a_color1 != -1) glDisableVertexAttribArray(a_color1);
-	if (a_normal != -1) glDisableVertexAttribArray(a_normal);
-	if (a_weight0123 != -1) glDisableVertexAttribArray(a_weight0123);
-	if (a_weight4567 != -1) glDisableVertexAttribArray(a_weight4567);
+	for (int i = 0; i < ATTR_COUNT; i++) {
+		if (attrMask & (1 << i))
+			glDisableVertexAttribArray(i);
+	}
 }
 
 void LinkedShader::updateUniforms(u32 vertType) {
@@ -330,10 +357,10 @@ void LinkedShader::updateUniforms(u32 vertType) {
 		if (gstate.isModeThrough()) {
 			// We never get here because we don't use HW transform with through mode.
 			// Although - why don't we?
-			uvscaleoff[0] = gstate_c.uv.uScale / gstate_c.curTextureWidth;
-			uvscaleoff[1] = gstate_c.uv.vScale / gstate_c.curTextureHeight;
-			uvscaleoff[2] = gstate_c.uv.uOff / gstate_c.curTextureWidth;
-			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
+			uvscaleoff[0] = gstate_c.uv.uScale / (float)gstate_c.curTextureWidth;
+			uvscaleoff[1] = gstate_c.uv.vScale / (float)gstate_c.curTextureHeight;
+			uvscaleoff[2] = gstate_c.uv.uOff / (float)gstate_c.curTextureWidth;
+			uvscaleoff[3] = gstate_c.uv.vOff / (float)gstate_c.curTextureHeight;
 			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 		} else {
 			int w = gstate.getTextureWidth(0);
@@ -371,7 +398,6 @@ void LinkedShader::updateUniforms(u32 vertType) {
 
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
-
 	if (u_bone != -1) {
 		float allBones[8 * 16];
 
@@ -492,7 +518,7 @@ void ShaderManager::DirtyShader() {
 	shaderSwitchDirty_ = 0;
 }
 
-void ShaderManager::EndFrame() { // disables vertex arrays
+void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = 0;
@@ -500,6 +526,9 @@ void ShaderManager::EndFrame() { // disables vertex arrays
 
 
 LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
+	if (g_Config.bPrescaleUV)
+		globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
+
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -518,11 +547,6 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
 		lastShader_->updateUniforms(vertType);
 		return lastShader_;	// Already all set.
-	}
-
-	if (lastShader_ != 0) {
-		// There was a previous shader and we're switching.
-		lastShader_->stop();
 	}
 
 	lastVSID_ = VSID;
@@ -579,11 +603,11 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
-		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform());	// This does "use" automatically
+		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
-		ls->use(vertType);
+		ls->use(vertType, lastShader_);
 	}
 
 	lastShader_ = ls;

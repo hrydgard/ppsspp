@@ -24,7 +24,7 @@ Release
 Windows/x64
 Windows/ipch
 ui_atlas.zim.png
-
+android/assets
 # For Mac
 .DS_Store
 

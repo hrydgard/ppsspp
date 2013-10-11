@@ -32,6 +32,7 @@ struct SimpleGLWindow {
 
 		FORMAT_FLOAT = 0x10,
 		FORMAT_16BIT = 0x11,
+		FORMAT_8BIT = 0x12,
 	};
 
 	enum Flags {
@@ -68,6 +69,10 @@ protected:
 	void CreateProgram();
 	void GenerateChecker();
 	void DrawChecker();
+	bool DragStart(int mouseX, int mouseY);
+	bool DragContinue(int mouseX, int mouseY);
+	bool DragEnd(int mouseX, int mouseY);
+	bool ToggleZoom();
 
 	HWND hWnd_;
 	HDC hDC_;

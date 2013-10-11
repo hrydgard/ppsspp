@@ -12,6 +12,7 @@
 #include "Core/Host.h"
 #include "base/display.h"
 #include "mainwindow.h"
+#include "QtHost.h"
 #include "GPU/GLES/VertexDecoder.h"
 #include "ext/glew/GL/glew.h"
 

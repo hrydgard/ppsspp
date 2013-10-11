@@ -172,6 +172,12 @@ bool GL_Init(HWND window, std::string *error_message) {
 		m_hrc = hRC;
 	}
 
+	if (GLEW_OK != glewInit()) {
+		*error_message = "Failed to re-initialize GLEW.";
+		return false;
+	}
+
+
 	if (!m_hrc) {
 		*error_message = "No m_hrc";
 		return false;

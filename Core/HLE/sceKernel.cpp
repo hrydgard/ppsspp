@@ -247,6 +247,7 @@ void __KernelDoState(PointerWrap &p)
 		__HeapDoState(p);
 
 		__PPGeDoState(p);
+		__CheatDoState(p);
 	}
 
 	{
@@ -548,6 +549,8 @@ void KernelObjectPool::DoState(PointerWrap &p)
 			p.Do(type);
 		}
 		pool[i]->DoState(p);
+		if (p.error >= p.ERROR_FAILURE)
+			break;
 	}
 }
 

@@ -85,6 +85,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/gfx/texture_atlas.cpp \
 	../native/gfx/texture_gen.cpp \
 	../native/gfx_es2/*.cpp \
+	../native/gfx_es2/*.c \
 	../native/i18n/*.cpp \
 	../native/image/*.cpp \
 	../native/input/*.cpp \

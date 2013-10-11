@@ -113,14 +113,14 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 
 static const char * const boneWeightAttrDecl[9] = {
 	"#ERROR#",
-	"attribute mediump float a_w1;\n",
-	"attribute mediump vec2 a_w1;\n",
-	"attribute mediump vec3 a_w1;\n",
-	"attribute mediump vec4 a_w1;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump float a_w2;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump vec2 a_w2;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump vec3 a_w2;\n",
-	"attribute mediump vec4 a_w1, a_w2;\n",
+	"attribute mediump float w1;\n",
+	"attribute mediump vec2 w1;\n",
+	"attribute mediump vec3 w1;\n",
+	"attribute mediump vec4 w1;\n",
+	"attribute mediump vec4 w1;\nattribute mediump float w2;\n",
+	"attribute mediump vec4 w1;\nattribute mediump vec2 w2;\n",
+	"attribute mediump vec4 w1;\nattribute mediump vec3 w2;\n",
+	"attribute mediump vec4 w1, w2;\n",
 };
 
 enum DoLightComputation {
@@ -177,23 +177,23 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	}
 
 	if (useHWTransform)
-		WRITE(p, "attribute vec3 a_position;\n");
+		WRITE(p, "attribute vec3 position;\n");
 	else
-		WRITE(p, "attribute vec4 a_position;\n");  // need to pass the fog coord in w
+		WRITE(p, "attribute vec4 position;\n");  // need to pass the fog coord in w
 
 	if (useHWTransform && hasNormal)
-		WRITE(p, "attribute mediump vec3 a_normal;\n");
+		WRITE(p, "attribute mediump vec3 normal;\n");
 
 	if (doTexture) {
 		if (!useHWTransform && doTextureProjection)
-			WRITE(p, "attribute vec3 a_texcoord;\n");
+			WRITE(p, "attribute vec3 texcoord;\n");
 		else
-			WRITE(p, "attribute vec2 a_texcoord;\n");
+			WRITE(p, "attribute vec2 texcoord;\n");
 	}
 	if (hasColor) {
-		WRITE(p, "attribute lowp vec4 a_color0;\n");
+		WRITE(p, "attribute lowp vec4 color0;\n");
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
-			WRITE(p, "attribute lowp vec3 a_color1;\n");
+			WRITE(p, "attribute lowp vec3 color1;\n");
 	}
 
 	if (gstate.isModeThrough())	{
@@ -259,51 +259,51 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 
 	if (enableFog) {
-		WRITE(p, "uniform vec2 u_fogcoef;\n");
+		WRITE(p, "uniform mediump vec2 u_fogcoef;\n");
 	}
 
 	WRITE(p, "varying lowp vec4 v_color0;\n");
 	if (lmode) WRITE(p, "varying lowp vec3 v_color1;\n");
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "varying vec3 v_texcoord;\n");
+			WRITE(p, "varying mediump vec3 v_texcoord;\n");
 		else
-			WRITE(p, "varying vec2 v_texcoord;\n");
+			WRITE(p, "varying mediump vec2 v_texcoord;\n");
 	}
-	if (enableFog) WRITE(p, "varying float v_fogdepth;\n");
+	if (enableFog) WRITE(p, "varying mediump float v_fogdepth;\n");
 
 	WRITE(p, "void main() {\n");
 
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture)
-			WRITE(p, "  v_texcoord = a_texcoord;\n");
+			WRITE(p, "  v_texcoord = texcoord;\n");
 		if (hasColor) {
-			WRITE(p, "  v_color0 = a_color0;\n");
+			WRITE(p, "  v_color0 = color0;\n");
 			if (lmode)
-				WRITE(p, "  v_color1 = a_color1;\n");
+				WRITE(p, "  v_color1 = color1;\n");
 		} else {
 			WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			if (lmode)
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 		if (enableFog) {
-			WRITE(p, "  v_fogdepth = a_position.w;\n");
+			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (gstate.isModeThrough())	{
-			WRITE(p, "  gl_Position = u_proj_through * vec4(a_position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = u_proj_through * vec4(position.xyz, 1.0);\n");
 		} else {
-			WRITE(p, "  gl_Position = u_proj * vec4(a_position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = u_proj * vec4(position.xyz, 1.0);\n");
 		}
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!vertTypeIsSkinningEnabled(vertType)) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = (u_world * vec4(position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = normalize((u_world * vec4(a_normal, 0.0)).xyz);\n");
+				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(normal, 0.0)).xyz);\n");
 			else
-				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
 			int numWeights = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 
@@ -311,8 +311,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			const char *factor = rescale[vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT];
 
 			static const char * const boneWeightAttr[8] = {
-				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
-				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
+				"w1.x", "w1.y", "w1.z", "w1.w",
+				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
 #if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
@@ -320,14 +320,14 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			// To loop through the weights, we unfortunately need to put them in a float array.
 			// GLSL ES sucks - no way to directly initialize an array!
 			switch (numWeights) {
-			case 1: WRITE(p, "  float w[1]; w[0] = a_w1;\n"); break;
-			case 2: WRITE(p, "  float w[2]; w[0] = a_w1.x; w[1] = a_w1.y;\n"); break;
-			case 3: WRITE(p, "  float w[3]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z;\n"); break;
-			case 4: WRITE(p, "  float w[4]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w;\n"); break;
-			case 5: WRITE(p, "  float w[5]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2;\n"); break;
-			case 6: WRITE(p, "  float w[6]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y;\n"); break;
-			case 7: WRITE(p, "  float w[7]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z;\n"); break;
-			case 8: WRITE(p, "  float w[8]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z; w[7] = a_w2.w;\n"); break;
+			case 1: WRITE(p, "  float w[1]; w[0] = w1;\n"); break;
+			case 2: WRITE(p, "  float w[2]; w[0] = w1.x; w[1] = w1.y;\n"); break;
+			case 3: WRITE(p, "  float w[3]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z;\n"); break;
+			case 4: WRITE(p, "  float w[4]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w;\n"); break;
+			case 5: WRITE(p, "  float w[5]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2;\n"); break;
+			case 6: WRITE(p, "  float w[6]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y;\n"); break;
+			case 7: WRITE(p, "  float w[7]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z;\n"); break;
+			case 8: WRITE(p, "  float w[8]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z; w[7] = w2.w;\n"); break;
 			}
 
 			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
@@ -341,28 +341,28 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 #ifdef USE_BONE_ARRAY
 			if (numWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = a_w1 * u_bone[0]");
+				WRITE(p, "  mat4 skinMatrix = w1 * u_bone[0]");
 			else
-				WRITE(p, "  mat4 skinMatrix = a_w1.x * u_bone[0]");
+				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone[0]");
 			for (int i = 1; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
-				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
-				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
+				if (numWeights == 1 && i == 0) weightAttr = "w1";
+				if (numWeights == 5 && i == 4) weightAttr = "w2";
 				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
 			}
 #else
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
 			if (numWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = a_w1 * u_bone0");
+				WRITE(p, "  mat4 skinMatrix = w1 * u_bone0");
 			else
-				WRITE(p, "  mat4 skinMatrix = a_w1.x * u_bone0");
+				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone0");
 			for (int i = 1; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
-				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
-				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
+				if (numWeights == 1 && i == 0) weightAttr = "w1";
+				if (numWeights == 5 && i == 4) weightAttr = "w2";
 				WRITE(p, " + %s * u_bone%i", weightAttr, i);
 			}
 #endif
@@ -372,14 +372,14 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(a_position, 1.0)).xyz %s;\n", factor);
+			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  vec3 skinnednormal = (skinMatrix * vec4(a_normal, 0.0)).xyz %s;\n", factor);
-				WRITE(p, "  vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(normal, 0.0)).xyz %s;\n", factor);
+				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
 			} else {
-				WRITE(p, "  vec3 worldnormal = (u_world * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
+				WRITE(p, "  mediump vec3 worldnormal = (u_world * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
 			}
 		}
 
@@ -390,9 +390,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "u_matambientalpha";
-		const char *diffuseStr = (gstate.materialupdate & 2) ? (hasColor ? "a_color0.rgb" : "u_matambientalpha.rgb") : "u_matdiffuse";
-		const char *specularStr = (gstate.materialupdate & 4) ? (hasColor ? "a_color0.rgb" : "u_matambientalpha.rgb") : "u_matspecular.rgb";
+		const char *ambientStr = (gstate.materialupdate & 1) ? (hasColor ? "color0" : "u_matambientalpha") : "u_matambientalpha";
+		const char *diffuseStr = (gstate.materialupdate & 2) ? (hasColor ? "color0.rgb" : "u_matambientalpha.rgb") : "u_matdiffuse";
+		const char *specularStr = (gstate.materialupdate & 4) ? (hasColor ? "color0.rgb" : "u_matambientalpha.rgb") : "u_matspecular.rgb";
 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
@@ -508,7 +508,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		} else {
 			// Lighting doesn't affect color.
 			if (hasColor) {
-				WRITE(p, "  v_color0 = a_color0;\n");
+				WRITE(p, "  v_color0 = color0;\n");
 			} else {
 				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
@@ -524,9 +524,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (prescale) {
-					WRITE(p, "  v_texcoord = a_texcoord;\n");
+					WRITE(p, "  v_texcoord = texcoord;\n");
 				} else {
-					WRITE(p, "  v_texcoord = a_texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+					WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
 				}
 				break;
 
@@ -535,24 +535,24 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 					std::string temp_tc;
 					switch (gstate.getUVProjMode()) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(a_position.xyz, 1.0)";
+						temp_tc = "vec4(position.xyz, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-							temp_tc = StringFromFormat("vec4(a_texcoord.xy %s, 0.0, 1.0)", factor);
+							temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = "vec4(normalize(a_normal), 1.0)";
+							temp_tc = "vec4(normalize(normal), 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = "vec4(a_normal, 1.0)";
+							temp_tc = "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;

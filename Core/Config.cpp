@@ -86,6 +86,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("WindowY", &iWindowY, 100);
 	general->Get("WindowWidth", &iWindowWidth, 0);   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
 	general->Get("WindowHeight", &iWindowHeight, 0);
+	general->Get("PauseOnLostFocus", &bPauseOnLostFocus, false);
 #endif
 
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
@@ -188,6 +189,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	sound->Get("LowLatency", &bLowLatencyAudio, false);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
+	control->Get("HapticFeedback", &bHapticFeedback, true);
 	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
@@ -309,6 +311,7 @@ void Config::Save() {
 		general->Set("WindowY", iWindowY);
 		general->Set("WindowWidth", iWindowWidth);
 		general->Set("WindowHeight", iWindowHeight);
+		general->Set("PauseOnLostFocus", bPauseOnLostFocus);
 #endif
 		general->Set("Language", sLanguageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
@@ -378,6 +381,7 @@ void Config::Save() {
 		sound->Set("LowLatency", bLowLatencyAudio);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
+		control->Set("HapticFeedback", bHapticFeedback);
 		control->Set("ShowAnalogStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		// control->Set("KeyMapping",iMappingMap);

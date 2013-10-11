@@ -45,7 +45,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 ///////////////////////////////////////////////////////
 	this->paramAddr = paramAddr;
 	inFileNames = GetPSPFileList ("disc0:/PSP_GAME/INSDIR");
-	numFiles = inFileNames.size();
+	numFiles = (int)inFileNames.size();
 	readFiles = 0;
 	progressValue = 0;
 	allFilesSize = 0;

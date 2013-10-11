@@ -15,6 +15,55 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
+
+// Ideas for speeding things up on mobile OpenGL ES implementations
+//
+// Use superbuffers! Yes I just invented that name.
+//
+// The idea is to avoid respecifying the vertex format between every draw call (multiple glVertexAttribPointer ...)
+// by combining the contents of multiple draw calls into one buffer, as long as
+// they have exactly the same output vertex format. (different input formats is fine! This way
+// we can combine the data for multiple draws with different numbers of bones, as we consider numbones < 4 to be = 4)
+// into one VBO.
+//
+// This will likely be a win because I believe that between every change of VBO + glVertexAttribPointer*N, the driver will
+// perform a lot of validation, probably at draw call time, while all the validation can be skipped if the only thing
+// that changes between two draw calls is simple state or texture or a matrix etc, not anything vertex related.
+// Also the driver will have to manage hundreds instead of thousands of VBOs in games like GTA.
+//
+// * Every 10 frames or something, do the following:
+//   - Frame 1:
+//		 + Mark all drawn buffers with in-frame sequence numbers (alternatively,
+//		   just log them in an array)
+//	 - Frame 2 (beginning?):
+//	   + Take adjacent buffers that have the same output vertex format, and add them
+//	     to a list of buffers to combine. Create said buffers with appropriate sizes
+//	     and precompute the offsets that the draws should be written into.
+//	 - Frame 2 (end):
+//	   + Actually do the work of combining the buffers. This probably means re-decoding
+//	     the vertices into a new one. Will also have to apply index offsets.
+//
+// Also need to change the drawing code so that we don't glBindBuffer and respecify glVAP if
+// two subsequent drawcalls come from the same superbuffer.
+//
+// Or we ignore all of this including vertex caching and simply find a way to do highly optimized vertex streaming,
+// like Dolphin is trying to. That will likely never be able to reach the same speed as perfectly optimized
+// superbuffers though. For this we will have to JIT the vertex decoder but that's not too hard.
+//
+// Now, when do we delete superbuffers? Maybe when half the buffers within have been killed?
+//
+// Another idea for GTA which switches textures a lot while not changing much other state is to use ES 3 Array
+// textures, if they are the same size (even if they aren't, might be okay to simply resize the textures to match
+// if they're just a multiple of 2 away) or something. Then we'd have to add a W texture coordinate to choose the
+// texture within the bound texture array to the vertex data when merging into superbuffers.
+//
+// There are even more things to try. For games that do matrix palette skinning by quickly switching bones and
+// just drawing a few triangles per call (NBA, FF:CC, Tekken 6 etc) we could even collect matrices, upload them
+// all at once, writing matrix indices into the vertices in addition to the weights, and then doing a single
+// draw call with specially generated shader to draw the whole mesh. This code will be seriously complex though.
+
+#include "base/logging.h"
 #include "base/timeutil.h"
 
 #include "Common/MemoryUtil.h"
@@ -60,8 +109,9 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
-inline float clamp(float in, float min, float max) { 
-	return in < min ? min : (in > max ? max : in); 
+// Check for max first as clamping to max is more common than min when lighting.
+inline float clamp(float in, float min, float max) {
+	return in > max ? max : (in < min ? min : in);
 }
 
 TransformDrawEngine::TransformDrawEngine()
@@ -137,6 +187,7 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 }
 
 void TransformDrawEngine::GLLost() {
+	ILOG("TransformDrawEngine::GLLost()");
 	// The objects have already been deleted.
 	memset(vbo_, 0, sizeof(vbo_));
 	memset(ebo_, 0, sizeof(ebo_));
@@ -329,13 +380,13 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
 static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
-	VertexAttribSetup(program->a_weight0123, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
-	VertexAttribSetup(program->a_weight4567, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
-	VertexAttribSetup(program->a_texcoord, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
-	VertexAttribSetup(program->a_color0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
-	VertexAttribSetup(program->a_color1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
-	VertexAttribSetup(program->a_normal, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
-	VertexAttribSetup(program->a_position, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
+	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
+	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
+	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
+	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
+	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
+	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
+	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
 }
 
 // The verts are in the order:  BR BL TL TR
@@ -375,7 +426,6 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 		SwapUVs(v[1], v[3]);
 }
 
-
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
 bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
@@ -395,7 +445,7 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 		memcpy(&vcolor, transformed[i].color0, 4);
 		if (vcolor != matchcolor || transformed[i].z != matchz)
 			return false;
-		
+
 		if ((i & 1) == 0) {
 			// Top left of a rectangle
 			if (transformed[i].y != 0)
@@ -598,7 +648,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 				uv[2] = 1.0f;
 				break;
-				
+
 			case GE_TEXMAP_TEXTURE_MATRIX:
 				{
 					// Projection mapping
@@ -607,11 +657,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					case GE_PROJMAP_POSITION: // Use model space XYZ as source
 						source = pos;
 						break;
-						
+
 					case GE_PROJMAP_UV: // Use unscaled UV as source
 						source = Vec3f(ruv[0], ruv[1], 0.0f);
 						break;
-						
+
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 						if (reader.hasNormal()) {
 							source = Vec3f(norm).Normalized();
@@ -620,7 +670,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
-						
+
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 						if (reader.hasNormal()) {
 							source = Vec3f(norm);
@@ -638,7 +688,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[2] = uvw[2];
 				}
 				break;
-				
+
 			case GE_TEXMAP_ENVIRONMENT_MAP:
 				// Shade mapping - use two light sources to generate U and V.
 				{
@@ -650,15 +700,16 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[2] = 1.0f;
 				}
 				break;
-				
+
 			default:
 				// Illegal
 				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
+
 			uv[0] = uv[0] * widthFactor;
 			uv[1] = uv[1] * heightFactor;
-			
+
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 			fogCoef = (v[2] + fog_end) * fog_slope;
@@ -731,11 +782,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
 		TransformedVertex saved;
+		u32 stencilValue;
 		for (int i = 0; i < vertexCount; i += 2) {
 			int index = ((const u16*)inds)[i];
 			saved = transformed[index];
 			int index2 = ((const u16*)inds)[i + 1];
 			TransformedVertex &transVtx = transformed[index2];
+			if (i == 0)
+				stencilValue = transVtx.color0[3];
 			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
 			// bottom right
@@ -765,6 +819,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Apparently, non-through RotateUV just breaks things.
 			// If we find a game where it helps, we'll just have to figure out how they differ.
 			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
+			// One game might be one of the Metal Gear ones, can't find the issue right now though.
 			// else
 			//	RotateUV(trans);
 
@@ -777,27 +832,33 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			numTrans += 6;
 		}
-	}
 
+		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
+		// Might want to reconsider the order of things later...
+		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
+			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
+		}
+	}
 
 	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
 	// Might help for text drawing.
 
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
-		
+
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
+	glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+	int attrMask = program->attrMask;
+	if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
+	if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
+	if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
-//#ifdef USING_GLES2
+#ifdef USING_GLES2
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-//#else
-//		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
-//#endif
+#else
+		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
+#endif
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
@@ -807,7 +868,7 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
 		return iter->second;
-	VertexDecoder *dec = new VertexDecoder(); 
+	VertexDecoder *dec = new VertexDecoder();
 	dec->SetVertexType(vtype);
 	decoderMap_[vtype] = dec;
 	return dec;
@@ -856,13 +917,13 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
-		
+
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
 		prim = prevPrim_;
 	}
 	prevPrim_ = prim;
-	
+
 	SetupVertexDecoder(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
@@ -894,6 +955,9 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 }
 
 void TransformDrawEngine::DecodeVerts() {
+	UVScale origUV;
+	if (uvScale)
+		origUV = gstate_c.uv;
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 
@@ -923,7 +987,7 @@ void TransformDrawEngine::DecodeVerts() {
 			while (j < numDrawCalls) {
 				if (drawCalls[j].verts != dc.verts)
 					break;
-				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0]) != 0))
+				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
 					break;
 
 				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
@@ -964,6 +1028,8 @@ void TransformDrawEngine::DecodeVerts() {
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
+	if (uvScale)
+		gstate_c.uv = origUV;
 }
 
 u32 TransformDrawEngine::ComputeHash() {
@@ -982,6 +1048,11 @@ u32 TransformDrawEngine::ComputeHash() {
 				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
+		}
+	}
+	if (uvScale) {
+		for (int i = 0; i < numDrawCalls; i++) {
+			fullhash += XXH32(&uvScale[i], sizeof(uvScale[0]), 0x0123e658);
 		}
 	}
 
@@ -1065,6 +1136,7 @@ void TransformDrawEngine::DoFlush() {
 	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
+		int maxIndex = 0;
 		bool useElements = true;
 		// Cannot cache vertex data with morph enabled.
 		if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
@@ -1090,6 +1162,7 @@ void TransformDrawEngine::DoFlush() {
 					DecodeVerts(); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
+					vai->maxIndex = indexGen.MaxIndex();
 					goto rotateVBO;
 				}
 
@@ -1136,10 +1209,12 @@ void TransformDrawEngine::DoFlush() {
 						DecodeVerts();
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
+						vai->maxIndex = indexGen.MaxIndex();
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
+						
 						glGenBuffers(1, &vai->vbo);
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
@@ -1165,6 +1240,7 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
+					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
@@ -1184,6 +1260,7 @@ void TransformDrawEngine::DoFlush() {
 					if (ebo)
 						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 					vertexCount = vai->numVerts;
+					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
@@ -1206,6 +1283,7 @@ rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
+			maxIndex = indexGen.MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
@@ -1219,11 +1297,11 @@ rotateVBO:
 
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 		if (useElements) {
-//#ifdef USING_GLES2
+#ifdef USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-//#else
-//			glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-//#endif
+#else
+			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
+#endif
 			if (ebo)
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		} else {

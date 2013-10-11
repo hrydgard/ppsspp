@@ -67,7 +67,6 @@ class PSPButton : public MultiTouchButton {
 public:
 	PSPButton(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
-		
 	}
 	virtual void Touch(const TouchInput &input);
 	virtual bool IsDown();

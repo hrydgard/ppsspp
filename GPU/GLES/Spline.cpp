@@ -172,7 +172,7 @@ struct BezierPatch {
 		lerpColor(points[bl]->color, points[br]->color, fracU, lowerColor);
 		lerpColor(upperColor, lowerColor, fracV, color);
 	}
-	
+
 	void sampleTexUV(float u, float v, float &tu, float &tv) const {
 		u *= 3.0f;
 		v *= 3.0f;
@@ -324,7 +324,7 @@ void spline_knot(int n, int type, float *knot) {
 	if ((type & 1) == 0) {
 		knot[0] = -3;
 		knot[1] = -2;
-		knot[2] = -1; 
+		knot[2] = -1;
 	}
 	if ((type & 2) == 0) {
 		knot[n + 2] = n - 1;
@@ -452,7 +452,7 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 				// Collect influences from surrounding control points.
 				float u_weights[4];
 				float v_weights[4];
-				
+
 				int iu = (int)u;
 				int iv = (int)v;
 				spline_n_4(iu, u, knot_u, u_weights);
@@ -463,7 +463,7 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 						float u_spline = u_weights[ii];
 						float v_spline = v_weights[jj];
 						float f = u_spline * v_spline;
-						
+
 						if (f > 0.0f) {
 							SimpleVertex *a = spatch.points[spatch.count_u * (iv + jj) + (iu + ii)];
 							vert->pos += a->pos * f;
@@ -532,7 +532,7 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 	}
 }
 
-void TesselateBezierPatch(u8 *&dest, int &count, const BezierPatch &patch, u32 origVertType) {
+void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 
 	if (g_Config.bLowQualitySplineBezier) {
@@ -585,9 +585,6 @@ void TesselateBezierPatch(u8 *&dest, int &count, const BezierPatch &patch, u32 o
 	} else {
 		// Full correct tesselation of bezier patches.
 		// Note: Does not handle splines correctly.
-
-		int tess_u = gstate.getPatchDivisionU();
-		int tess_v = gstate.getPatchDivisionV();
 
 		// First compute all the vertices and put them in an array
 		SimpleVertex *vertices = new SimpleVertex[(tess_u + 1) * (tess_v + 1)];
@@ -798,9 +795,17 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	int count = 0;
 	u8 *dest = decoded2;
 
+	// Simple approximation of the real tesselation factor.
+	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
+	// like the splines, so we subdivide across the whole "mega-patch".
+	int tess_u = gstate.getPatchDivisionU() / num_patches_u;
+	int tess_v = gstate.getPatchDivisionV() / num_patches_v;
+	if (tess_u < 4) tess_u = 4;
+	if (tess_v < 4) tess_v = 4;
+
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		BezierPatch& patch = patches[patch_idx];
-		TesselateBezierPatch(dest, count, patch, origVertType);
+		TesselateBezierPatch(dest, count, tess_u, tess_v, patch, origVertType);
 	}
 	delete[] patches;
 

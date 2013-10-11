@@ -29,7 +29,8 @@ win32 {
 	HEADERS += ../Common/stdafx.h
 }
 
-SOURCES += ../Common/ConsoleListener.cpp \
+SOURCES += ../Common/ChunkFile.cpp \
+	../Common/ConsoleListener.cpp \
 	../Common/FileUtil.cpp \
 	../Common/LogManager.cpp \
 	../Common/KeyMap.cpp \

@@ -245,6 +245,8 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
+	Common/ChunkFile.cpp
+	Common/ChunkFile.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
 	Common/Crypto/aes_cbc.cpp
@@ -562,6 +564,8 @@ add_library(native STATIC
 	native/gfx_es2/glsl_program.h
 	native/gfx_es2/vertex_format.cpp
 	native/gfx_es2/vertex_format.h
+	native/gfx_es2/gl3stub.c
+	native/gfx_es2/gl3stub.h
 	native/i18n/i18n.cpp
 	native/i18n/i18n.h
 	native/image/png_load.cpp

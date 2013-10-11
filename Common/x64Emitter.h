@@ -643,7 +643,8 @@ public:
 	void PMAXUB(X64Reg dest, OpArg arg);  
 	void PMINSW(X64Reg dest, OpArg arg);  
 	void PMINUB(X64Reg dest, OpArg arg);  
-
+	// SSE4 has PMAXSB and PMINSB and PMAXUW and PMINUW too if we need them.
+	
 	void PMOVMSKB(X64Reg dest, OpArg arg);
 	void PSHUFB(X64Reg dest, OpArg arg);
 

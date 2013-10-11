@@ -25,13 +25,25 @@
 
 class Shader;
 
-class LinkedShader
-{
+// Pre-fetched attrs and uniforms
+enum {
+	ATTR_POSITION = 0,
+	ATTR_TEXCOORD = 1,
+	ATTR_NORMAL = 2,
+	ATTR_W1 = 3,
+	ATTR_W2 = 4,
+	ATTR_COLOR0 = 5,
+	ATTR_COLOR1 = 6,
+
+	ATTR_COUNT,
+};
+
+class LinkedShader {
 public:
-	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform);
+	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous);
 	~LinkedShader();
 
-	void use(u32 vertType);
+	void use(u32 vertType, LinkedShader *previous);
 	void stop();
 	void updateUniforms(u32 vertType);
 
@@ -41,14 +53,8 @@ public:
 	uint32_t program;
 	u32 dirtyUniforms;
 
-	// Pre-fetched attrs and uniforms
-	int a_position;
-	int a_color0;
-	int a_color1;
-	int a_texcoord;
-	int a_normal;
-	int a_weight0123;
-	int a_weight4567;
+	// Present attributes in the shader.
+	int attrMask;  // 1 << ATTR_ ... or-ed together.
 
 	int u_tex;
 	int u_proj;
@@ -63,7 +69,7 @@ public:
 	int u_bone[8];
 #endif
 	int numBones;
-	
+
 	// Fragment processing inputs
 	int u_alphacolorref;
 	int u_colormask;
@@ -159,7 +165,7 @@ public:
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
 	}
-	void EndFrame();  // disables vertex arrays
+	void DirtyLastShader();  // disables vertex arrays
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }

@@ -9,8 +9,12 @@
 #include "base/basictypes.h"
 #include "Core/MemMap.h"
 
+class PointerWrap;
+
 void __CheatInit();
 void __CheatShutdown();
+void __CheatDoState(PointerWrap &p);
+
 std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList);
 
 class CWCheatEngine {

@@ -36,12 +36,12 @@ public:
 	bool bAutoRun;  // start immediately
 	bool bBrowse; // when opening the emulator, immediately show a file browser
 
-
 	// General
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
 #ifdef _WIN32
+	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
 #endif
@@ -103,21 +103,10 @@ public:
 	int iSFXVolume;
 	int iBGMVolume;
 
-	// UI
+	// Controls
 	bool bShowTouchControls;
-	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
-	int iShowFPSCounter;
-	bool bShowDebugStats;
-	bool bAccelerometerToAnalogHoriz;
-	int iTiltSensitivity;
-
-	// The three tabs.
-	bool bGridView1;
-	bool bGridView2;
-	bool bGridView3;
-
-	// Control
+	bool bHapticFeedback;
 	int iTouchButtonOpacity;
 	float fButtonScale;
 	//space between PSP buttons
@@ -137,6 +126,20 @@ public:
 	int iRKeyX, iRKeyY;
 	//position of the analog stick
 	int iAnalogStickX, iAnalogStickY;
+
+	// UI
+	bool bShowDebuggerOnLoad;
+	int iShowFPSCounter;
+	bool bShowDebugStats;
+	bool bAccelerometerToAnalogHoriz;
+	int iTiltSensitivity;
+
+	// The three tabs.
+	bool bGridView1;
+	bool bGridView2;
+	bool bGridView3;
+
+	
 
 
 

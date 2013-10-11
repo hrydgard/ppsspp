@@ -137,6 +137,7 @@ public:
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
+	void SetLineWidth();
 
 #ifdef USING_GLES2
   void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
