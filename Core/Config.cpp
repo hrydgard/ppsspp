@@ -211,8 +211,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	//set these to -1 if not initialized. initializing these
 	//requires pixel coordinates which is not known right now.
 	//will be initialized in GamepadEmu::CreatePadLayout
-	control->Get("PSPButtonCenterX", &iPSPButtonCenterX, -1);
-	control->Get("PSPButtonCenterY", &iPSPButtonCenterY, -1);
+	control->Get("ActionButtonSpacing", &iActionButtonSpacing, -1);
+	control->Get("ActionButtonCenterX", &iActionButtonCenterX, -1);
+	control->Get("ActionButtonCenterY", &iActionButtonCenterY, -1);
+	control->Get("DPadRadius", &iDpadRadius, -1);
 	control->Get("DPadX", &iDpadX, -1);
 	control->Get("DPadY", &iDpadY, -1);
 	control->Get("StartKeyX", &iStartKeyX, -1);
@@ -385,8 +387,10 @@ void Config::Save() {
 #endif
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
-		control->Set("PSPButtonCenterX", iPSPButtonCenterX);
-		control->Set("PSPButtonCenterY", iPSPButtonCenterY);
+		control->Set("ActionButtonSpacing", iActionButtonSpacing);
+		control->Set("ActionButtonCenterX", iActionButtonCenterX);
+		control->Set("ActionButtonCenterY", iActionButtonCenterY);
+		control->Set("DPadRadius", iDpadRadius);
 		control->Set("DPadX", iDpadX);
 		control->Set("DPadY", iDpadY);
 		control->Set("StartKeyX", iStartKeyX);

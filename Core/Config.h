@@ -120,8 +120,12 @@ public:
 	// Control
 	int iTouchButtonOpacity;
 	float fButtonScale;
+	//space between PSP buttons
+	int iActionButtonSpacing;
 	//the PSP button's center (triangle, circle, square, cross)
-	int iPSPButtonCenterX, iPSPButtonCenterY;
+	int iActionButtonCenterX, iActionButtonCenterY;
+	//radius of the D-pad (PSP cross)
+	int iDpadRadius;
 	//the D-pad (PSP cross) position
 	int iDpadX, iDpadY;
 	//the start key position

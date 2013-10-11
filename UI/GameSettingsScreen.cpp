@@ -27,6 +27,8 @@
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
+//yuck. need a better name
+#include "UI/RepositionOnScreenControlScreen.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -213,7 +215,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new Choice(c->T("Setup on-screen Controls")))->OnClick.Handle(this, &GameSettingsScreen::OnSetupOnScreenControl);
+	controlsSettings->Add(new Choice(c->T("Reposition on-screen Controls")))->OnClick.Handle(this, &GameSettingsScreen::OnRepositionOnScreenControls);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
@@ -451,8 +453,8 @@ UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnSetupOnScreenControl(UI::EventParams &e){
-	//screenManager()->push(new ControlMappingScreen());
+UI::EventReturn GameSettingsScreen::OnRepositionOnScreenControls(UI::EventParams &e){
+	screenManager()->push(new RepositionOnScreenControlScreen());
 	return UI::EVENT_DONE;
 };
 
