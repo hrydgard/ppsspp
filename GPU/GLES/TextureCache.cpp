@@ -1440,7 +1440,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	int scaleFactor;
 	//Auto-texture scale upto 5x rendering resolution
 	if (g_Config.iTexScalingLevel == 0)
+#ifndef USING_GLES2
 		scaleFactor = std::min(5, g_Config.iInternalResolution);
+#else
+		scaleFactor = std::min(3, g_Config.iInternalResolution);
+#endif
 	else
 		scaleFactor = g_Config.iTexScalingLevel;
 
