@@ -26,7 +26,7 @@ char* GetAssembleError()
 void SplitLine(const char* Line, char* Name, char* Arguments)
 {
 	while (*Line == ' ' || *Line == '\t') Line++;
-	while (*Line != ' ')
+	while (*Line != ' ' && *Line != '\t')
 	{
 		if (*Line  == 0)
 		{
