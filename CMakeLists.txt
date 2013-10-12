@@ -1004,6 +1004,8 @@ add_library(GPU OBJECT
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h
+	GPU/Debugger/Breakpoints.cpp
+	GPU/Debugger/Breakpoints.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp

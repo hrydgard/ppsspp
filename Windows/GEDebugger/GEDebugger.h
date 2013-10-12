@@ -56,8 +56,6 @@ public:
 
 	static void Init();
 
-	static bool IsAddressBreakPoint(u32 pc);
-	static bool IsOpBreakPoint(u32 op);
 	static bool IsTextureBreakPoint(u32 op);
 	// Separate so the UI can just show op break points separately.
 	static bool IsOpOrTextureBreakPoint(u32 op);

@@ -32,9 +32,12 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
+
+using namespace GPUBreakpoints;
 
 enum PauseAction {
 	PAUSE_CONTINUE,
@@ -57,9 +60,6 @@ static condition_variable actionWait;
 static bool actionComplete;
 
 static recursive_mutex breaksLock;
-static std::vector<bool> breakCmds;
-static std::set<u32> breakPCs;
-static u32 tempBreakpoint = -1;
 static std::set<u32> breakTextures;
 static BreakNextType breakNext = BREAK_NONE;
 static u32 lastTexture = -1;
@@ -82,16 +82,6 @@ enum PrimaryDisplayType {
 void CGEDebugger::Init() {
 	SimpleGLWindow::RegisterClass();
 	CtrlDisplayListView::registerClass();
-}
-
-bool CGEDebugger::IsAddressBreakPoint(u32 pc) {
-	lock_guard guard(breaksLock);
-	return breakPCs.find(pc) != breakPCs.end();
-}
-
-bool CGEDebugger::IsOpBreakPoint(u32 op) {
-	u8 cmd = op >> 24;
-	return breakCmds[cmd];
 }
 
 // Hmm, this is probably kinda slow now...
@@ -133,7 +123,7 @@ bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 }
 
 bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {
-	return IsOpBreakPoint(op) || IsTextureBreakPoint(op);
+	return IsOpBreakpoint(op) || IsTextureBreakPoint(op);
 }
 
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
@@ -199,7 +189,7 @@ static void ForceUnpause() {
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
-	breakCmds.resize(256, false);
+	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
 	// minimum size = a little more than the default
@@ -470,6 +460,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				u32 texAddr;
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", lastTexture, texAddr)) {
+					lock_guard guard(breaksLock);
 					if (breakTextures.find(texAddr) != breakTextures.end()) {
 						breakTextures.erase(texAddr);
 					} else {
@@ -495,7 +486,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_GEDBG_BREAK_CMD:
 		{
 			u32 pc = (u32)wParam;
-			tempBreakpoint = -1;
+			ClearTempBreakpoints();
 			auto info = gpuDebug->DissassembleOp(pc);
 			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
 			UpdatePreviews();
@@ -515,21 +506,21 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
-			lock_guard guard(breaksLock);
 			u32 pc = (u32)wParam;
-			auto iter = breakPCs.find(pc);
-			if (iter != breakPCs.end())
-				breakPCs.erase(iter);
-			else
-				breakPCs.insert(pc);
+			bool temp;
+			bool isBreak = IsAddressBreakpoint(pc, temp);
+			if (isBreak && !temp) {
+				RemoveAddressBreakpoint(pc);
+			} else {
+				AddAddressBreakpoint(pc);
+			}
 		}
 		break;
 
 	case WM_GEDBG_RUNTOWPARAM:
 		{
-			lock_guard guard(breaksLock);
 			u32 pc = (u32)wParam;
-			tempBreakpoint = pc;
+			AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
 		}
 		break;
@@ -574,7 +565,7 @@ void WindowsHost::GPUNotifyCommand(u32 pc) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u8 cmd = op >> 24;
 
-	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsOpOrTextureBreakPoint(op) || CGEDebugger::IsAddressBreakPoint(pc) || pc == tempBreakpoint) {
+	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsOpOrTextureBreakPoint(op) || IsAddressBreakpoint(pc)) {
 		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }
