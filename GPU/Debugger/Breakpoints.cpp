@@ -35,6 +35,9 @@ static size_t breakTexturesCount = 0;
 static std::vector<bool> breakCmdsTemp;
 static std::set<u32> breakPCsTemp;
 static std::set<u32> breakTexturesTemp;
+static bool textureChangeTemp = false;
+
+static u32 lastTexture = 0xFFFFFFFF;
 
 // These are commands we run before breaking on a texture.
 // They are commands that affect the decoding of the texture.
@@ -92,8 +95,19 @@ u32 GetAdjustedTextureAddress(u32 op) {
 }
 
 bool IsTextureCmdBreakpoint(u32 op) {
-	u32 addr = GetAdjustedTextureAddress(op);
-	return addr != (u32)-1 && IsTextureBreakpoint(addr);
+	const u32 addr = GetAdjustedTextureAddress(op);
+	if (addr != (u32)-1) {
+		const u8 cmd = op >> 24;
+		// Only for level 0.
+		if (textureChangeTemp && addr != lastTexture && (cmd == GE_CMD_TEXADDR0 || cmd == GE_CMD_TEXBUFWIDTH0)) {
+			textureChangeTemp = false;
+			lastTexture = addr;
+			return true;
+		}
+		return IsTextureBreakpoint(addr);
+	} else {
+		return false;
+	}
 }
 
 bool IsBreakpoint(u32 pc, u32 op) {
@@ -101,7 +115,7 @@ bool IsBreakpoint(u32 pc, u32 op) {
 		return true;
 	}
 
-	if (breakTexturesCount != 0 && IsTextureCmdBreakpoint(op)) {
+	if ((breakTexturesCount != 0 || textureChangeTemp) && IsTextureCmdBreakpoint(op)) {
 		// Break on the next non-texture.
 		AddNonTextureTempBreakpoints();
 	}
@@ -206,6 +220,10 @@ void AddTextureBreakpoint(u32 addr, bool temp) {
 	breakTexturesCount = breakTextures.size();
 }
 
+void AddTextureChangeTempBreakpoint() {
+	textureChangeTemp = true;
+}
+
 void RemoveAddressBreakpoint(u32 addr) {
 	lock_guard guard(breaksLock);
 
@@ -229,6 +247,14 @@ void RemoveTextureBreakpoint(u32 addr) {
 	breakTexturesCount = breakTextures.size();
 }
 
+void RemoveTextureChangeTempBreakpoint() {
+	textureChangeTemp = false;
+}
+
+void UpdateLastTexture(u32 addr) {
+	lastTexture = addr;
+}
+
 void ClearAllBreakpoints() {
 	lock_guard guard(breaksLock);
 
@@ -244,6 +270,8 @@ void ClearAllBreakpoints() {
 
 	breakPCsCount = breakPCs.size();
 	breakTexturesCount = breakTextures.size();
+
+	textureChangeTemp = false;
 }
 
 void ClearTempBreakpoints() {
@@ -268,6 +296,8 @@ void ClearTempBreakpoints() {
 	}
 	breakTexturesTemp.clear();
 	breakPCsCount = breakTextures.size();
+
+	textureChangeTemp = false;
 }
 
 };

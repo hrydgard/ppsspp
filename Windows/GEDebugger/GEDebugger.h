@@ -56,8 +56,6 @@ public:
 
 	static void Init();
 
-	static bool IsTextureBreak(u32 op);
-
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 

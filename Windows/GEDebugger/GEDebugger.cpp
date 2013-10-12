@@ -60,7 +60,6 @@ static condition_variable actionWait;
 static bool actionComplete;
 
 static BreakNextType breakNext = BREAK_NONE;
-static u32 lastTexture = -1;
 
 static bool bufferResult;
 static GPUDebugBuffer bufferFrame;
@@ -80,40 +79,6 @@ enum PrimaryDisplayType {
 void CGEDebugger::Init() {
 	SimpleGLWindow::RegisterClass();
 	CtrlDisplayListView::registerClass();
-}
-
-// Hmm, this is probably kinda slow now...
-bool CGEDebugger::IsTextureBreak(u32 op) {
-	u8 cmd = op >> 24;
-	bool interesting = (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7);
-	interesting = interesting || (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7);
-
-	if (breakNext == BREAK_NEXT_NONTEX) {
-		// Okay, so we hit an interesting texture, but let's not break if this is a clut/etc.
-		// Otherwise we get garbage widths and colors.  It's annoying.
-		bool textureCmd = interesting || cmd == GE_CMD_CLUTADDR || cmd == GE_CMD_CLUTADDRUPPER || cmd == GE_CMD_LOADCLUT || cmd == GE_CMD_CLUTFORMAT;
-		textureCmd = textureCmd || (cmd >= GE_CMD_TEXSIZE0 && cmd <= GE_CMD_TEXSIZE7);
-		textureCmd = textureCmd || cmd == GE_CMD_TEXFORMAT || cmd == GE_CMD_TEXMODE || cmd == GE_CMD_TEXTUREMAPENABLE;
-		if (!textureCmd) {
-			return true;
-		}
-	}
-
-	if (!interesting || !gpuDebug) {
-		return false;
-	}
-
-	// Okay, so we just set a texture of some sort, check if it was one we were waiting for.
-	auto state = gpuDebug->GetGState();
-	int level = cmd <= GE_CMD_TEXADDR7 ? cmd - GE_CMD_TEXADDR0 : cmd - GE_CMD_TEXBUFWIDTH0;
-
-	// Are we breaking on any texture?  As long as it's level 0.
-	if (level == 0 && breakNext == BREAK_NEXT_TEX && lastTexture != state.getTextureAddress(level)) {
-		// Don't break right away, we'll get a garbage texture...
-		breakNext = BREAK_NEXT_NONTEX;
-	}
-
-	return false;
 }
 
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
@@ -315,9 +280,9 @@ void CGEDebugger::UpdatePreviews() {
 			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 
-			lastTexture = state.getTextureAddress(0);
+			UpdateLastTexture(state.getTextureAddress(0));
 		} else {
-			lastTexture = -1;
+			UpdateLastTexture((u32)-1);
 		}
 	} else {
 		texWindow->Clear();
@@ -326,7 +291,7 @@ void CGEDebugger::UpdatePreviews() {
 		} else {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
 		}
-		lastTexture = -1;
+		UpdateLastTexture((u32)-1);
 	}
 
 	DisplayList list;
@@ -438,6 +403,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEPTEX:
+			AddTextureChangeTempBreakpoint();
 			SetBreakNext(BREAK_NEXT_TEX);
 			break;
 
@@ -447,9 +413,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTEX:
 			{
-				u32 texAddr;
+				if (!gpuDebug) {
+					break;
+				}
+				const auto state = gpuDebug->GetGState();
+				u32 texAddr = state.getTextureAddress(0);
 				// TODO: Better interface that allows add/remove or something.
-				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", lastTexture, texAddr)) {
+				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", texAddr, texAddr)) {
 					if (IsTextureBreakpoint(texAddr)) {
 						RemoveTextureBreakpoint(texAddr);
 					} else {
@@ -554,7 +524,7 @@ void WindowsHost::GPUNotifyCommand(u32 pc) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u8 cmd = op >> 24;
 
-	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsTextureBreak(op) || IsBreakpoint(pc, op)) {
+	if (breakNext == BREAK_NEXT_OP || IsBreakpoint(pc, op)) {
 		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }

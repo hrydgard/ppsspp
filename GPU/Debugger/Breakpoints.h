@@ -34,10 +34,14 @@ namespace GPUBreakpoints {
 	void AddAddressBreakpoint(u32 addr, bool temp = false);
 	void AddCmdBreakpoint(u8 cmd, bool temp = false);
 	void AddTextureBreakpoint(u32 addr, bool temp = false);
+	void AddTextureChangeTempBreakpoint();
 
 	void RemoveAddressBreakpoint(u32 addr);
 	void RemoveCmdBreakpoint(u8 cmd);
 	void RemoveTextureBreakpoint(u32 addr);
+	void RemoveTextureChangeTempBreakpoint();
+
+	void UpdateLastTexture(u32 addr);
 
 	void ClearAllBreakpoints();
 	void ClearTempBreakpoints();
