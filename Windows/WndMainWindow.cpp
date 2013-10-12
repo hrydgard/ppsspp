@@ -66,6 +66,7 @@
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
 #include "Core/HLE/sceUtility.h"
+#include "GPU/Common/PostShader.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -108,7 +109,8 @@ namespace MainWindow
 	static size_t rawInputBufferSize;
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
-
+	static std::vector<std::string> availableShaders;
+	static std::vector<int> testVec;
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -345,12 +347,14 @@ namespace MainWindow
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Game Settings submenus
+		SUBMENU_CUSTOM_SHADERS = 8,
 		SUBMENU_RENDERING_RESOLUTION = 9,
 		SUBMENU_WINDOW_SIZE = 10,
 		SUBMENU_RENDERING_MODE = 11,
 		SUBMENU_FRAME_SKIPPING = 12,
 		SUBMENU_TEXTURE_FILTERING = 13,
 		SUBMENU_TEXTURE_SCALING = 14,
+		
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -441,6 +445,23 @@ namespace MainWindow
 
 			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, fullLanguageName.c_str());
 			countryCodes.push_back(i->first);
+		}
+	}
+
+	void CreateShadersSubmenu() {
+		const std::wstring key = L"HEY";
+		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
+		RemoveMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_BYPOSITION);
+		HMENU shaderMenu = CreatePopupMenu();
+		
+		int item = ID_SHADERS_BASE + 1;
+		InsertMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)shaderMenu, key.c_str());
+
+		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
+		availableShaders.clear();
+		for (auto i = info.begin(); i != info.end(); ++i) {
+			availableShaders.push_back(i->section);
+			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | MF_UNCHECKED, item++, ConvertUTF8ToWString(i->name).c_str());
 		}
 	}
 
@@ -557,6 +578,8 @@ namespace MainWindow
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu();
+
+		CreateShadersSubmenu();
 
 		// TODO: Urgh! Why do we need this here?
 		// The menu is supposed to enable/disable this stuff directly afterward.
@@ -1433,6 +1456,20 @@ namespace MainWindow
 
 							break;
 						}
+
+						// Handle the dynamic shader switching here.
+						// The Menu ID is contained in wParam, so subtract
+						// ID_SHADERS_BASE and an additional 1 off it.
+						index = (wParam - ID_SHADERS_BASE - 1);
+						if (index >= 0) {
+							g_Config.sPostShaderName = availableShaders[index];
+
+							if (gpu)
+								gpu->Resized();
+
+							break;
+						}
+
 						MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
 					}
 					break;

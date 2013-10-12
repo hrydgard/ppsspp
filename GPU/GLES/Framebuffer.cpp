@@ -835,7 +835,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 			// Use the extra FBO, with applied FXAA, as a texture.
 			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
-			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
+			if (extraFBOs_.size())
+				colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 		}
 
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
