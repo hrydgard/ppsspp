@@ -92,6 +92,8 @@ void RunTests()
 		output = "";
 		if (!PSP_Init(coreParam, &error_string)) {
 			ELOG("Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
+			PSP_CoreParameter().pixelWidth = pixel_xres;
+			PSP_CoreParameter().pixelHeight = pixel_yres;
 			return;
 		}
 
@@ -114,6 +116,8 @@ void RunTests()
 		std::ifstream expected(expectedFile.c_str(), std::ios_base::in);
 		if (!expected) {
 			ELOG("Error opening expectedFile %s", expectedFile.c_str());
+			PSP_CoreParameter().pixelWidth = pixel_xres;
+			PSP_CoreParameter().pixelHeight = pixel_yres;
 			return;
 		}
 
@@ -146,6 +150,7 @@ void RunTests()
 	}
 	glstate.Restore();
 	glstate.viewport.set(0,0,pixel_xres,pixel_yres);
-
+	PSP_CoreParameter().pixelWidth = pixel_xres;
+	PSP_CoreParameter().pixelHeight = pixel_yres;
 	g_Config.sReportHost = savedReportHost;
 }
