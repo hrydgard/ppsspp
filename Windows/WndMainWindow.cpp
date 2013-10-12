@@ -446,6 +446,13 @@ namespace MainWindow
 		}
 	}
 
+	void UpdateDynamicMenuCheckmarks() {
+		int item = ID_SHADERS_BASE + 1;
+
+		for (int i = 0; i < availableShaders.size(); i++)
+			CheckMenuItem(menu, item++, ((g_Config.sPostShaderName == availableShaders[i]) ? MF_CHECKED : MF_UNCHECKED));
+	}
+
 	void CreateShadersSubmenu() {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
 		
@@ -460,10 +467,18 @@ namespace MainWindow
 
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 		availableShaders.clear();
+
 		int item = ID_SHADERS_BASE + 1;
+		int checkedStatus = -1;
+
 		for (auto i = info.begin(); i != info.end(); ++i) {
+			checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
-			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | MF_UNCHECKED, item++, ConvertUTF8ToWString(i->name).c_str());
+			if (g_Config.sPostShaderName == i->section) {
+				checkedStatus = MF_CHECKED;
+			}
+
+			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(i->name).c_str());
 		}
 	}
 
@@ -1647,7 +1662,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
-		// CHECKITEM(ID_OPTIONS_FXAA, g_Config.bFXAA);  TODO: Replace with list of loaded post processing shaders
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
@@ -1798,6 +1812,7 @@ namespace MainWindow
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | (( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		UpdateDynamicMenuCheckmarks();
 		UpdateCommands();
 	}
 	
