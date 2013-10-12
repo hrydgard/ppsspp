@@ -782,10 +782,6 @@ namespace MainWindow
 		DialogManager::AddDlg(memoryWindow[0]);
 	}
 
-	void WaitForCore() {
-		Core_Stop();
-	}
-
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
@@ -1131,8 +1127,9 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
-					WaitForCore();
+					Core_Stop();
 					NativeMessageReceived("stop", "");
+					Core_WaitInactive();
 					Update();
 					break;
 
