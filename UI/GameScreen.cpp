@@ -193,10 +193,25 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 
 void GameScreen::CallbackDeleteGame(bool yes) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *ga = GetI18NCategory("Game");
 	if (yes) {
 		info->DeleteGame();
 		g_gameInfoCache.Clear();
-		screenManager()->switchScreen(new MainScreen());
+		screenManager()->push(new MainScreen());
+		if (info->saveDataSize != 0 || info->installDataSize != 0) {
+			char temp[256];
+			if(info->saveDataSize != 0 && info->installDataSize == 0)
+				sprintf(temp, "Have %1.2fMB savedata in memstick, do you want to delete?",(float) (info->saveDataSize) / 1024.f / 1024.f);
+			else if(info->saveDataSize == 0 && info->installDataSize != 0)
+				sprintf(temp, "Have %1.2fMB installdata in memstick, do you want to delete?",(float) (info->installDataSize) / 1024.f / 1024.f);
+			else 
+				sprintf(temp, "Have %1.2fMB savedata and %1.2fMB installdata in memstick, do you want to delete?",
+				(float) (info->saveDataSize) / 1024.f / 1024.f, (float) (info->installDataSize) / 1024.f / 1024.f);
+			screenManager()->push(
+				new PromptScreen(d->T(temp), ga->T("Yes"), d->T("No"),
+				std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
+		}
 	}
 }
 
