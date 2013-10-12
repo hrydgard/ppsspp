@@ -40,7 +40,8 @@ enum GlobalUIState {
 extern GlobalUIState globalUIState;
 
 inline static void UpdateUIState(GlobalUIState newState) {
-	if (globalUIState != newState) {
+	// Never leave the EXIT state.
+	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
 		host->UpdateDisassembly();
 	}

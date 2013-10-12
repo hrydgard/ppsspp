@@ -783,16 +783,7 @@ namespace MainWindow
 	}
 
 	void WaitForCore() {
-		if (Core_IsStepping()) {
-			// If the current PC is on a breakpoint, disabling stepping doesn't work without
-			// explicitly skipping it
-			CBreakPoints::SetSkipFirst(currentMIPS->pc);
-			Core_EnableStepping(false);
-		}
-
-		Core_EnableStepping(true);
-		Core_WaitInactive();
-		Core_EnableStepping(false);
+		Core_Stop();
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {

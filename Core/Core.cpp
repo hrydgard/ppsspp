@@ -127,39 +127,53 @@ void UpdateScreenScale() {
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 }
 
+static inline void UpdateRunLoop() {
+	UpdateScreenScale();
+	{
+		{
+#ifdef _WIN32
+			lock_guard guard(input_state.lock);
+			input_state.pad_buttons = 0;
+			input_state.pad_lstick_x = 0;
+			input_state.pad_lstick_y = 0;
+			input_state.pad_rstick_x = 0;
+			input_state.pad_rstick_y = 0;
+			host->PollControllers(input_state);
+			UpdateInputState(&input_state);
+#endif
+		}
+		NativeUpdate(input_state);
+		EndInputState(&input_state);
+	}
+	NativeRender();
+}
+
 void Core_RunLoop()
 {
+	while (globalUIState != UISTATE_INGAME && globalUIState != UISTATE_EXIT) {
+		time_update();
+
+#ifdef _WIN32
+		double startTime = time_now_d();
+		UpdateRunLoop();
+
+		// Simple throttling to not burn the GPU in the menu.
+		time_update();
+		double diffTime = time_now_d() - startTime;
+		int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
+		if (sleepTime > 0)
+			Sleep(sleepTime / 1000);
+		GL_SwapBuffers();
+#else
+		UpdateRunLoop();
+#endif
+	}
+
 	while (!coreState) {
 		time_update();
-		double startTime = time_now_d();
-		UpdateScreenScale();
-		{
-			{
+		UpdateRunLoop();
 #ifdef _WIN32
-				lock_guard guard(input_state.lock);
-				input_state.pad_buttons = 0;
-				input_state.pad_lstick_x = 0;
-				input_state.pad_lstick_y = 0;
-				input_state.pad_rstick_x = 0;
-				input_state.pad_rstick_y = 0;
-				host->PollControllers(input_state);
-				UpdateInputState(&input_state);
-#endif
-			}
-			NativeUpdate(input_state);
-			EndInputState(&input_state);
-		}
-		NativeRender();
-		time_update();
-		// Simple throttling to not burn the GPU in the menu.
-#ifdef _WIN32
-		if (globalUIState != UISTATE_INGAME) {
-			double diffTime = time_now_d() - startTime;
-			int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
-			if (sleepTime > 0)
-				Sleep(sleepTime / 1000);
-			GL_SwapBuffers();
-		} else if (!Core_IsStepping()) {
+		if (!Core_IsStepping()) {
 			GL_SwapBuffers();
 		}
 #endif
@@ -194,6 +208,18 @@ void Core_Run()
 #endif
 	{
 reswitch:
+		if (globalUIState != UISTATE_INGAME) {
+			if (coreStatePending) {
+				coreStatePending = false;
+				m_hInactiveEvent.notify_one();
+			}
+			if (globalUIState == UISTATE_EXIT) {
+				return;
+			}
+			Core_RunLoop();
+			continue;
+		}
+
 		switch (coreState)
 		{
 		case CORE_RUNNING:
