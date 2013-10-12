@@ -95,23 +95,31 @@ bool IsOnSeparateCPUThread() {
 	}
 }
 
+void CPU_SetState(CPUThreadState to) {
+	lock_guard guard(cpuThreadLock);
+	cpuThreadState = to;
+	cpuThreadCond.notify_one();
+	cpuThreadReplyCond.notify_one();
+}
+
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 	lock_guard guard(cpuThreadLock);
 	if (cpuThreadState == from) {
-		cpuThreadState = to;
-		cpuThreadCond.notify_one();
-		cpuThreadReplyCond.notify_one();
+		CPU_SetState(to);
 		return true;
 	} else {
 		return false;
 	}
 }
 
-void CPU_SetState(CPUThreadState to) {
+bool CPU_NextStateNot(CPUThreadState from, CPUThreadState to) {
 	lock_guard guard(cpuThreadLock);
-	cpuThreadState = to;
-	cpuThreadCond.notify_one();
-	cpuThreadReplyCond.notify_one();
+	if (cpuThreadState != from) {
+		CPU_SetState(to);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 bool CPU_IsReady() {
@@ -261,8 +269,13 @@ void Core_UpdateState(CoreState newState) {
 }
 
 void System_Wake() {
+	if (CPU_IsReady()) {
+		CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
+		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsShutdown);
+	}
 	if (gpu) {
 		gpu->FinishEventLoop();
+		gpu->SyncThread();
 	}
 }
 
@@ -302,7 +315,7 @@ void PSP_Shutdown() {
 		Core_UpdateState(CORE_ERROR);
 	Core_NotifyShutdown();
 	if (cpuThread != NULL) {
-		CPU_SetState(CPU_THREAD_SHUTDOWN);
+		CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsShutdown);
 		delete cpuThread;
 		cpuThread = 0;
