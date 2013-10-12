@@ -331,9 +331,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
 				gstate.getStencilTestRef(),
 				gstate.getStencilTestMask());
-			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
-				stencilOps[gstate.getStencilOpZFail()],  // depth fail
-				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+			if (gstate.FrameBufFormat() == GE_FORMAT_565) {
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], 0, gstate.getStencilTestMask());
+			} else if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], gstate.getStencilTestRef() & ~0x80, gstate.getStencilTestMask());
+			} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], gstate.getStencilTestRef() & ~0xF0, gstate.getStencilTestMask());
+			} else {
+				glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], gstate.getStencilTestRef() & ~0xFF, gstate.getStencilTestMask());
+			}
 		} else 
 			glstate.stencilTest.disable();
 		
