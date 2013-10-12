@@ -67,8 +67,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 				continue;
 
 			// Alright, let's loop through the sections and see if any is a shader.
-			// Ignore the first section (which only consists of the comments before the first real one).
-			for (size_t i = 1; i < ini.Sections().size(); i++) {
+			for (size_t i = 0; i < ini.Sections().size(); i++) {
 				IniFile::Section &section = ini.Sections()[i];
 				if (section.Exists("Fragment") && section.Exists("Vertex")) {
 					// Valid shader!
