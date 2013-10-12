@@ -280,7 +280,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
-		if (alphaMask && enableStencilTest) {
+		if (alphaMask) {
 			glstate.stencilTest.enable();
 			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			// TODO: In clear mode, the stencil value is set to the alpha value of the vertex.
@@ -313,7 +313,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
-			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 		} else 
 			glstate.depthTest.disable();
 		
