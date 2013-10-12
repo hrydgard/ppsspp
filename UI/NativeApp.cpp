@@ -252,14 +252,14 @@ void NativeInit(int argc, const char *argv[],
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
 	g_Config.memCardDirectory = std::string(external_directory) + "/";
-	g_Config.flashDirectory = std::string(external_directory) + "/flash0/";
+	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS)
 	g_Config.memCardDirectory = user_data_path;
-	g_Config.flashDirectory = std::string(external_directory) + "/flash0/";
+	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
 	// Linux, Mac.  Does this path really make sense?
 	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory + "/flash0/";
+	g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
 #endif
 
 #ifndef _WIN32

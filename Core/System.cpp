@@ -379,6 +379,6 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 #else
 	// TODO
 	memstickpath = g_Config.memCardDirectory;
-	flash0path = g_Config.flashDirectory;
+	flash0path = g_Config.flash0Directory;
 #endif
 }

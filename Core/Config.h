@@ -173,7 +173,7 @@ public:
 	std::string currentDirectory;
 	std::string externalDirectory; 
 	std::string memCardDirectory;
-	std::string flashDirectory;
+	std::string flash0Directory;
 	std::string internalDataDirectory;
 
 	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");

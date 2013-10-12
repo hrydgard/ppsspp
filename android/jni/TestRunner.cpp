@@ -73,7 +73,7 @@ void RunTests()
 	coreParam.updateRecent = false;
 
 #ifdef IOS
-	std::string baseDirectory = g_Config.flashDirectory + "../";
+	std::string baseDirectory = g_Config.flash0Directory + "../";
 #else
 	std::string baseDirectory = g_Config.memCardDirectory;
 #endif
