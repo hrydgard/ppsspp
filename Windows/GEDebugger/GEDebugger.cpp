@@ -59,8 +59,6 @@ static recursive_mutex actionLock;
 static condition_variable actionWait;
 static bool actionComplete;
 
-static recursive_mutex breaksLock;
-static std::set<u32> breakTextures;
 static BreakNextType breakNext = BREAK_NONE;
 static u32 lastTexture = -1;
 
@@ -85,7 +83,7 @@ void CGEDebugger::Init() {
 }
 
 // Hmm, this is probably kinda slow now...
-bool CGEDebugger::IsTextureBreakPoint(u32 op) {
+bool CGEDebugger::IsTextureBreak(u32 op) {
 	u8 cmd = op >> 24;
 	bool interesting = (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7);
 	interesting = interesting || (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7);
@@ -115,15 +113,14 @@ bool CGEDebugger::IsTextureBreakPoint(u32 op) {
 		breakNext = BREAK_NEXT_NONTEX;
 	}
 
-	lock_guard guard(breaksLock);
-	if (breakTextures.find(state.getTextureAddress(level)) != breakTextures.end() && breakNext == BREAK_NONE) {
+	if (IsTextureBreakpoint(state.getTextureAddress(level)) && breakNext == BREAK_NONE) {
 		breakNext = BREAK_NEXT_NONTEX;
 	}
 	return false;
 }
 
 bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {
-	return IsOpBreakpoint(op) || IsTextureBreakPoint(op);
+	return IsOpBreakpoint(op) || IsTextureBreak(op);
 }
 
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
@@ -460,11 +457,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				u32 texAddr;
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", lastTexture, texAddr)) {
-					lock_guard guard(breaksLock);
-					if (breakTextures.find(texAddr) != breakTextures.end()) {
-						breakTextures.erase(texAddr);
+					if (IsTextureBreakpoint(texAddr)) {
+						RemoveTextureBreakpoint(texAddr);
 					} else {
-						breakTextures.insert(texAddr);
+						AddTextureBreakpoint(texAddr);
 					}
 				}
 			}

@@ -25,12 +25,15 @@ namespace GPUBreakpoints {
 static recursive_mutex breaksLock;
 static std::vector<bool> breakCmds;
 static std::set<u32> breakPCs;
+static std::set<u32> breakTextures;
 // Small optimization to avoid a lock/lookup for the common case.
 static size_t breakPCsCount = 0;
+static size_t breakTexturesCount = 0;
 
 // If these are set, the above are also, but they should be temporary.
 static std::vector<bool> breakCmdsTemp;
 static std::set<u32> breakPCsTemp;
+static std::set<u32> breakTexturesTemp;
 
 void Init() {
 	ClearAllBreakpoints();
@@ -54,6 +57,26 @@ bool IsAddressBreakpoint(u32 addr) {
 
 	lock_guard guard(breaksLock);
 	return breakPCs.find(addr) != breakPCs.end();
+}
+
+bool IsTextureBreakpoint(u32 addr, bool &temp) {
+	if (breakTexturesCount == 0) {
+		temp = false;
+		return false;
+	}
+
+	lock_guard guard(breaksLock);
+	temp = breakTexturesTemp.find(addr) != breakTexturesTemp.end();
+	return breakTextures.find(addr) != breakTextures.end();
+}
+
+bool IsTextureBreakpoint(u32 addr) {
+	if (breakTexturesCount == 0) {
+		return false;
+	}
+
+	lock_guard guard(breaksLock);
+	return breakTextures.find(addr) != breakTextures.end();
 }
 
 bool IsCmdBreakpoint(u8 cmd, bool &temp) {
@@ -97,6 +120,22 @@ void AddCmdBreakpoint(u8 cmd, bool temp) {
 	}
 }
 
+void AddTextureBreakpoint(u32 addr, bool temp) {
+	lock_guard guard(breaksLock);
+
+	if (temp) {
+		if (breakTextures.find(addr) == breakTextures.end()) {
+			breakTexturesTemp.insert(addr);
+			breakTextures.insert(addr);
+		}
+	} else {
+		breakTexturesTemp.erase(addr);
+		breakTextures.insert(addr);
+	}
+
+	breakTexturesCount = breakTextures.size();
+}
+
 void RemoveAddressBreakpoint(u32 addr) {
 	lock_guard guard(breaksLock);
 
@@ -111,18 +150,30 @@ void RemoveCmdBreakpoint(u8 cmd) {
 	breakCmds[cmd] = false;
 }
 
+void RemoveTextureBreakpoint(u32 addr) {
+	lock_guard guard(breaksLock);
+
+	breakTexturesTemp.erase(addr);
+	breakTextures.erase(addr);
+
+	breakTexturesCount = breakTextures.size();
+}
+
 void ClearAllBreakpoints() {
 	lock_guard guard(breaksLock);
 
 	breakCmds.clear();
 	breakCmds.resize(256, false);
 	breakPCs.clear();
+	breakTextures.clear();
 
 	breakCmdsTemp.clear();
 	breakCmdsTemp.resize(256, false);
 	breakPCsTemp.clear();
+	breakTexturesTemp.clear();
 
 	breakPCsCount = breakPCs.size();
+	breakTexturesCount = breakTextures.size();
 }
 
 void ClearTempBreakpoints() {
@@ -140,8 +191,13 @@ void ClearTempBreakpoints() {
 		breakPCs.erase(*it);
 	}
 	breakPCsTemp.clear();
-
 	breakPCsCount = breakPCs.size();
+
+	for (auto it = breakTexturesTemp.begin(), end = breakTexturesTemp.end(); it != end; ++it) {
+		breakTextures.erase(*it);
+	}
+	breakTexturesTemp.clear();
+	breakPCsCount = breakTextures.size();
 }
 
 };
