@@ -48,7 +48,6 @@ private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);
 	
 	std::vector<std::string> formattedList;
-	std::vector<int> locations;
 	
 };
 
