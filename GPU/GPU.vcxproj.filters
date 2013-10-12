@@ -154,6 +154,9 @@
     <ClInclude Include="Debugger\Breakpoints.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\Stepping.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -275,6 +278,9 @@
     </ClCompile>
     <ClCompile Include="Common\PostShader.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Stepping.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
   </ItemGroup>
