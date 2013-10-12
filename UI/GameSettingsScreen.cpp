@@ -487,7 +487,12 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(s->T("General")));
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
-	list->Add(new Choice(de->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+
+	Choice *cpuTests = new Choice(de->T("Run CPU Tests"));
+	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	if (!File::Exists(g_Config.memCardDirectory + "pspautotests/tests/"))
+		cpuTests->SetEnabled(false);
+
 	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
 	list->Add(new ItemHeader(de->T("Language")));
