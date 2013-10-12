@@ -40,29 +40,21 @@ static bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
-static std::vector<bool> iEnableCheat;
-static bool * enableCheat;
+static std::deque<bool> bEnableCheat;
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
 	cheatList = cheatEngine2->GetCodesList();
-	iEnableCheat.clear();
+	bEnableCheat.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList.push_back(cheatList[i].substr(4));
-			iEnableCheat.push_back(true);
+			bEnableCheat.push_back(true);
 		}
 		if (cheatList[i].substr(0, 3) == "_C0") {
 			formattedList.push_back(cheatList[i].substr(4));
-			iEnableCheat.push_back(false);
+			bEnableCheat.push_back(false);
 		}
 	}
-	
-	enableCheat = new bool [iEnableCheat.size()]();
-	for (int i = 0; i < iEnableCheat.size(); i++)
-	{
-		enableCheat[i] = (bool)iEnableCheat.at(i);
-	}
-
 	delete cheatEngine2;
 	return formattedList;
 }
@@ -96,7 +88,7 @@ void CwCheatScreen::CreateViews() {
 	rightColumn->Add(new ItemHeader(k->T("Cheats")));
 	for (size_t i = 0; i < formattedList.size(); i++) {
 		name = formattedList[i].c_str();
-		rightColumn->Add(new CheatCheckBox(&enableCheat[i], k->T(name), "" ))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
+		rightColumn->Add(new CheatCheckBox(&bEnableCheat[i], k->T(name), ""))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
 	}
 }
 
@@ -116,7 +108,6 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 			os << "\n";
 		}
 	}
-	delete [] enableCheat;
 	os.close();
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
@@ -135,8 +126,8 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 			cheatList[j].replace(0, 3, "_C0");
 		}
 	}
-	for (int y = 0; y < iEnableCheat.size(); y++) {
-		enableCheat[y] = enableAll;
+	for (int y = 0; y < bEnableCheat.size(); y++) {
+		bEnableCheat[y] = enableAll;
 	}
 	for (int i = 0; i < (int)cheatList.size(); i++) {
 		os << cheatList[i];
