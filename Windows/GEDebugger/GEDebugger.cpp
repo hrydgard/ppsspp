@@ -113,14 +113,7 @@ bool CGEDebugger::IsTextureBreak(u32 op) {
 		breakNext = BREAK_NEXT_NONTEX;
 	}
 
-	if (IsTextureBreakpoint(state.getTextureAddress(level)) && breakNext == BREAK_NONE) {
-		breakNext = BREAK_NEXT_NONTEX;
-	}
 	return false;
-}
-
-bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {
-	return IsOpBreakpoint(op) || IsTextureBreak(op);
 }
 
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
@@ -561,7 +554,7 @@ void WindowsHost::GPUNotifyCommand(u32 pc) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u8 cmd = op >> 24;
 
-	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsOpOrTextureBreakPoint(op) || IsAddressBreakpoint(pc)) {
+	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsTextureBreak(op) || IsBreakpoint(pc, op)) {
 		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }

@@ -22,6 +22,8 @@
 namespace GPUBreakpoints {
 	void Init();
 
+	bool IsBreakpoint(u32 pc, u32 op);
+
 	bool IsAddressBreakpoint(u32 addr, bool &temp);
 	bool IsAddressBreakpoint(u32 addr);
 	bool IsCmdBreakpoint(u8 cmd, bool &temp);

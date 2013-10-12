@@ -57,8 +57,6 @@ public:
 	static void Init();
 
 	static bool IsTextureBreak(u32 op);
-	// Separate so the UI can just show op break points separately.
-	static bool IsOpOrTextureBreakPoint(u32 op);
 
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);

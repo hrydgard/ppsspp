@@ -19,6 +19,7 @@
 #include <set>
 #include "base/mutex.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/GPUState.h"
 
 namespace GPUBreakpoints {
 
@@ -35,8 +36,77 @@ static std::vector<bool> breakCmdsTemp;
 static std::set<u32> breakPCsTemp;
 static std::set<u32> breakTexturesTemp;
 
+// These are commands we run before breaking on a texture.
+// They are commands that affect the decoding of the texture.
+const static u8 textureRelatedCmds[] = {
+	GE_CMD_TEXADDR0, GE_CMD_TEXADDR1, GE_CMD_TEXADDR2, GE_CMD_TEXADDR3, GE_CMD_TEXADDR4, GE_CMD_TEXADDR5, GE_CMD_TEXADDR6, GE_CMD_TEXADDR7,
+	GE_CMD_TEXBUFWIDTH0, GE_CMD_TEXBUFWIDTH1, GE_CMD_TEXBUFWIDTH2, GE_CMD_TEXBUFWIDTH3, GE_CMD_TEXBUFWIDTH4, GE_CMD_TEXBUFWIDTH5, GE_CMD_TEXBUFWIDTH6, GE_CMD_TEXBUFWIDTH7,
+	GE_CMD_TEXSIZE0, GE_CMD_TEXSIZE1, GE_CMD_TEXSIZE2, GE_CMD_TEXSIZE3, GE_CMD_TEXSIZE4, GE_CMD_TEXSIZE5, GE_CMD_TEXSIZE6, GE_CMD_TEXSIZE7,
+
+	GE_CMD_CLUTADDR, GE_CMD_CLUTADDRUPPER, GE_CMD_LOADCLUT, GE_CMD_CLUTFORMAT,
+	GE_CMD_TEXFORMAT, GE_CMD_TEXMODE, GE_CMD_TEXTUREMAPENABLE,
+
+	// Sometimes found between clut/texture params.
+	GE_CMD_TEXFLUSH, GE_CMD_TEXSYNC,
+};
+static std::vector<bool> nonTextureCmds;
+
 void Init() {
 	ClearAllBreakpoints();
+
+	nonTextureCmds.clear();
+	nonTextureCmds.resize(256, true);
+	for (size_t i = 0; i < ARRAY_SIZE(textureRelatedCmds); ++i) {
+		nonTextureCmds[textureRelatedCmds[i]] = false;
+	}
+}
+
+void AddNonTextureTempBreakpoints() {
+	for (int i = 0; i < 256; ++i) {
+		if (nonTextureCmds[i]) {
+			AddCmdBreakpoint(i, true);
+		}
+	}
+}
+
+u32 GetAdjustedTextureAddress(u32 op) {
+	const u8 cmd = op >> 24;
+	bool interesting = (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7);
+	interesting = interesting || (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7);
+
+	if (!interesting) {
+		return (u32)-1;
+	}
+
+	int level = cmd <= GE_CMD_TEXADDR7 ? cmd - GE_CMD_TEXADDR0 : cmd - GE_CMD_TEXBUFWIDTH0;
+	u32 addr;
+
+	// Okay, so would this op modify the low or high part?
+	if (cmd <= GE_CMD_TEXADDR7) {
+		addr = (op & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
+	} else {
+		addr = (gstate.texaddr[level] & 0xFFFFF0) | ((op << 8) & 0x0F000000);
+	}
+
+	return addr;
+}
+
+bool IsTextureCmdBreakpoint(u32 op) {
+	u32 addr = GetAdjustedTextureAddress(op);
+	return addr != (u32)-1 && IsTextureBreakpoint(addr);
+}
+
+bool IsBreakpoint(u32 pc, u32 op) {
+	if (IsAddressBreakpoint(pc) || IsOpBreakpoint(op)) {
+		return true;
+	}
+
+	if (breakTexturesCount != 0 && IsTextureCmdBreakpoint(op)) {
+		// Break on the next non-texture.
+		AddNonTextureTempBreakpoints();
+	}
+
+	return false;
 }
 
 bool IsAddressBreakpoint(u32 addr, bool &temp) {
