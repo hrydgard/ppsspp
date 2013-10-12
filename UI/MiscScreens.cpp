@@ -152,7 +152,7 @@ PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title
 	for (int i = 0; i < shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sPostShaderName)
 			selected = i;
-		items.push_back(shaders_[i].section);
+		items.push_back(shaders_[i].name);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 }
