@@ -834,7 +834,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			fbo_unbind();
 
 			// Use the extra FBO, with applied FXAA, as a texture.
-			 //fbo_bind_color_as_texture(extraFBOs_[0], 0);
+			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
 			if (extraFBOs_.size())
 				colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 		}

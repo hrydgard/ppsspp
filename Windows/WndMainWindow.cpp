@@ -110,7 +110,6 @@ namespace MainWindow
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
 	static std::vector<std::string> availableShaders;
-	static std::vector<int> testVec;
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -354,7 +353,6 @@ namespace MainWindow
 		SUBMENU_FRAME_SKIPPING = 12,
 		SUBMENU_TEXTURE_FILTERING = 13,
 		SUBMENU_TEXTURE_SCALING = 14,
-		
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -584,7 +582,6 @@ namespace MainWindow
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu();
-
 
 		// TODO: Urgh! Why do we need this here?
 		// The menu is supposed to enable/disable this stuff directly afterward.
