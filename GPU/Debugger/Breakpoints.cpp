@@ -25,6 +25,8 @@ namespace GPUBreakpoints {
 static recursive_mutex breaksLock;
 static std::vector<bool> breakCmds;
 static std::set<u32> breakPCs;
+// Small optimization to avoid a lock/lookup for the common case.
+static size_t breakPCsCount = 0;
 
 // If these are set, the above are also, but they should be temporary.
 static std::vector<bool> breakCmdsTemp;
@@ -35,15 +37,22 @@ void Init() {
 }
 
 bool IsAddressBreakpoint(u32 addr, bool &temp) {
-	lock_guard guard(breaksLock);
+	if (breakPCsCount == 0) {
+		temp = false;
+		return false;
+	}
 
+	lock_guard guard(breaksLock);
 	temp = breakPCsTemp.find(addr) != breakPCsTemp.end();
 	return breakPCs.find(addr) != breakPCs.end();
 }
 
 bool IsAddressBreakpoint(u32 addr) {
-	lock_guard guard(breaksLock);
+	if (breakPCsCount == 0) {
+		return false;
+	}
 
+	lock_guard guard(breaksLock);
 	return breakPCs.find(addr) != breakPCs.end();
 }
 
@@ -70,6 +79,8 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 		breakPCsTemp.erase(addr);
 		breakPCs.insert(addr);
 	}
+
+	breakPCsCount = breakPCs.size();
 }
 
 void AddCmdBreakpoint(u8 cmd, bool temp) {
@@ -91,6 +102,8 @@ void RemoveAddressBreakpoint(u32 addr) {
 
 	breakPCsTemp.erase(addr);
 	breakPCs.erase(addr);
+
+	breakPCsCount = breakPCs.size();
 }
 
 void RemoveCmdBreakpoint(u8 cmd) {
@@ -108,6 +121,8 @@ void ClearAllBreakpoints() {
 	breakCmdsTemp.clear();
 	breakCmdsTemp.resize(256, false);
 	breakPCsTemp.clear();
+
+	breakPCsCount = breakPCs.size();
 }
 
 void ClearTempBreakpoints() {
@@ -125,6 +140,8 @@ void ClearTempBreakpoints() {
 		breakPCs.erase(*it);
 	}
 	breakPCsTemp.clear();
+
+	breakPCsCount = breakPCs.size();
 }
 
 };
