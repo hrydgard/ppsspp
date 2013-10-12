@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "gfx_es2/gl_state.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
@@ -31,8 +32,6 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/disarm.h"
 #include "Common/CPUDetect.h"
-
-#include <algorithm>
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -129,39 +128,70 @@ void SystemInfoScreen::CreateViews() {
 	I18NCategory *d = GetI18NCategory("Dialog");
 
 	using namespace UI;
-	root_ = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	LinearLayout *scroll = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	root_->Add(scroll);
+	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
+	root_->Add(leftColumn);
 
-	scroll->Add(new ItemHeader("System Information"));
-	scroll->Add(new InfoItem("System Name", System_GetProperty(SYSPROP_NAME)));
-	scroll->Add(new InfoItem("System Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
-	scroll->Add(new InfoItem("CPU", cpu_info.brand_string));
-	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
-	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
-	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));
-	scroll->Add(new InfoItem("GL Shading Language Version", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
-	scroll->Add(new Button(d->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(225, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-#ifdef _WIN32
-	scroll->Add(new ItemHeader("OpenGL Extensions"));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
+
+	root_->Add(tabHolder);
+	ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *deviceSpecs = new LinearLayout(ORIENT_VERTICAL);
+	deviceSpecs->SetSpacing(0);
+	deviceSpecsScroll->Add(deviceSpecs);
+	tabHolder->AddTab("Device Info", deviceSpecsScroll);
+
+	deviceSpecs->Add(new ItemHeader("System Information"));
+	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
+	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
+	deviceSpecs->Add(new ItemHeader("CPU Information"));
+	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
+	deviceSpecs->Add(new InfoItem("Threads", StringFromInt(cpu_info.num_cores)));
+	deviceSpecs->Add(new ItemHeader("GPU Information"));
+	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
+	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));
+	deviceSpecs->Add(new ItemHeader("OpenGL Information"));
+	deviceSpecs->Add(new InfoItem("Version Supported", (char *)glGetString(GL_VERSION)));
+	deviceSpecs->Add(new InfoItem("GLSL Version", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	
+	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
+	oglExtensions->SetSpacing(0);
+	oglExtensionsScroll->Add(oglExtensions);
+
+	tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
+
+#ifndef USING_GLES2
+	oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
 #else
-	scroll->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+	if (gl_extensions.GLES3)
+		oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
+	else
+		oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 #endif
+
 	std::vector<std::string> exts;
 	SplitString(g_all_gl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {
-		scroll->Add(new TextView(exts[i]));
+		oglExtensions->Add(new TextView(exts[i]));
 	}
 
-	scroll->Add(new ItemHeader("EGL Extensions"));
+	ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
+	eglExtensions->SetSpacing(0);
+	eglExtensionsScroll->Add(eglExtensions);
+	tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
+
+	eglExtensions->Add(new ItemHeader("EGL Extensions"));
 	exts.clear();
 	SplitString(g_all_egl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {
-		scroll->Add(new TextView(exts[i]));
+		eglExtensions->Add(new TextView(exts[i]));
 	}
 }
 
