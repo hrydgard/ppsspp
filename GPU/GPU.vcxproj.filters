@@ -19,6 +19,9 @@
     <Filter Include="DirectX9\helper">
       <UniqueIdentifier>{ba434472-5d5e-4b08-ab16-bfb7ec8e7068}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Debugger">
+      <UniqueIdentifier>{0cbddc00-4aa3-41d0-bed2-a454d37f838e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -148,6 +151,12 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Debugger\Breakpoints.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\Stepping.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -268,6 +277,12 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Debugger\Breakpoints.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Stepping.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

@@ -197,6 +197,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
+  $(SRC)/GPU/Debugger/Breakpoints.cpp \
+  $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \

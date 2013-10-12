@@ -19,7 +19,8 @@
 #include <string>
 #include <set>
 
-#include "native/base/mutex.h"
+#include "base/functional.h"
+#include "base/mutex.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
@@ -32,44 +33,20 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Stepping.h"
 #include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
 
-enum PauseAction {
-	PAUSE_CONTINUE,
-	PAUSE_BREAK,
-	PAUSE_GETFRAMEBUF,
-	PAUSE_GETDEPTHBUF,
-	PAUSE_GETSTENCILBUF,
-	PAUSE_GETTEX,
-	PAUSE_SETCMDVALUE,
-};
+using namespace GPUBreakpoints;
+using namespace GPUStepping;
 
 static bool attached = false;
 // TODO
 static bool textureCaching = true;
-static recursive_mutex pauseLock;
-static condition_variable pauseWait;
-static PauseAction pauseAction = PAUSE_CONTINUE;
-static recursive_mutex actionLock;
-static condition_variable actionWait;
-static bool actionComplete;
 
-static recursive_mutex breaksLock;
-static std::vector<bool> breakCmds;
-static std::set<u32> breakPCs;
-static u32 tempBreakpoint = -1;
-static std::set<u32> breakTextures;
 static BreakNextType breakNext = BREAK_NONE;
-static u32 lastTexture = -1;
-
-static bool bufferResult;
-static GPUDebugBuffer bufferFrame;
-static GPUDebugBuffer bufferDepth;
-static GPUDebugBuffer bufferStencil;
-static GPUDebugBuffer bufferTex;
-static u32 pauseSetCmdValue;
 
 enum PrimaryDisplayType {
 	PRIMARY_FRAMEBUF,
@@ -77,129 +54,14 @@ enum PrimaryDisplayType {
 	PRIMARY_STENCILBUF,
 };
 
-// TODO: Simplify and move out of windows stuff, just block in a common way for everyone.
-
 void CGEDebugger::Init() {
 	SimpleGLWindow::RegisterClass();
 	CtrlDisplayListView::registerClass();
 }
 
-bool CGEDebugger::IsAddressBreakPoint(u32 pc) {
-	lock_guard guard(breaksLock);
-	return breakPCs.find(pc) != breakPCs.end();
-}
-
-bool CGEDebugger::IsOpBreakPoint(u32 op) {
-	u8 cmd = op >> 24;
-	return breakCmds[cmd];
-}
-
-// Hmm, this is probably kinda slow now...
-bool CGEDebugger::IsTextureBreakPoint(u32 op) {
-	u8 cmd = op >> 24;
-	bool interesting = (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7);
-	interesting = interesting || (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7);
-
-	if (breakNext == BREAK_NEXT_NONTEX) {
-		// Okay, so we hit an interesting texture, but let's not break if this is a clut/etc.
-		// Otherwise we get garbage widths and colors.  It's annoying.
-		bool textureCmd = interesting || cmd == GE_CMD_CLUTADDR || cmd == GE_CMD_CLUTADDRUPPER || cmd == GE_CMD_LOADCLUT || cmd == GE_CMD_CLUTFORMAT;
-		textureCmd = textureCmd || (cmd >= GE_CMD_TEXSIZE0 && cmd <= GE_CMD_TEXSIZE7);
-		textureCmd = textureCmd || cmd == GE_CMD_TEXFORMAT || cmd == GE_CMD_TEXMODE || cmd == GE_CMD_TEXTUREMAPENABLE;
-		if (!textureCmd) {
-			return true;
-		}
-	}
-
-	if (!interesting || !gpuDebug) {
-		return false;
-	}
-
-	// Okay, so we just set a texture of some sort, check if it was one we were waiting for.
-	auto state = gpuDebug->GetGState();
-	int level = cmd <= GE_CMD_TEXADDR7 ? cmd - GE_CMD_TEXADDR0 : cmd - GE_CMD_TEXBUFWIDTH0;
-
-	// Are we breaking on any texture?  As long as it's level 0.
-	if (level == 0 && breakNext == BREAK_NEXT_TEX && lastTexture != state.getTextureAddress(level)) {
-		// Don't break right away, we'll get a garbage texture...
-		breakNext = BREAK_NEXT_NONTEX;
-	}
-
-	lock_guard guard(breaksLock);
-	if (breakTextures.find(state.getTextureAddress(level)) != breakTextures.end() && breakNext == BREAK_NONE) {
-		breakNext = BREAK_NEXT_NONTEX;
-	}
-	return false;
-}
-
-bool CGEDebugger::IsOpOrTextureBreakPoint(u32 op) {
-	return IsOpBreakPoint(op) || IsTextureBreakPoint(op);
-}
-
-static void SetPauseAction(PauseAction act, bool waitComplete = true) {
-	{
-		lock_guard guard(pauseLock);
-		actionLock.lock();
-		pauseAction = act;
-	}
-
-	actionComplete = false;
-	pauseWait.notify_one();
-	while (waitComplete && !actionComplete) {
-		actionWait.wait(actionLock);
-	}
-	actionLock.unlock();
-}
-
-static void RunPauseAction() {
-	lock_guard guard(actionLock);
-
-	switch (pauseAction) {
-	case PAUSE_CONTINUE:
-		// Don't notify, just go back, woke up by accident.
-		return;
-
-	case PAUSE_BREAK:
-		break;
-
-	case PAUSE_GETFRAMEBUF:
-		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame);
-		break;
-
-	case PAUSE_GETDEPTHBUF:
-		bufferResult = gpuDebug->GetCurrentDepthbuffer(bufferDepth);
-		break;
-
-	case PAUSE_GETSTENCILBUF:
-		bufferResult = gpuDebug->GetCurrentStencilbuffer(bufferStencil);
-		break;
-
-	case PAUSE_GETTEX:
-		bufferResult = gpuDebug->GetCurrentTexture(bufferTex);
-		break;
-
-	case PAUSE_SETCMDVALUE:
-		gpuDebug->SetCmdValue(pauseSetCmdValue);
-		break;
-
-	default:
-		ERROR_LOG(HLE, "Unsupported pause action, forgot to add it to the switch.");
-	}
-
-	actionComplete = true;
-	actionWait.notify_one();
-	pauseAction = PAUSE_BREAK;
-}
-
-static void ForceUnpause() {
-	SetPauseAction(PAUSE_CONTINUE, false);
-	actionComplete = true;
-	actionWait.notify_one();
-}
-
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
-	breakCmds.resize(256, false);
+	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
 	// minimum size = a little more than the default
@@ -282,9 +144,9 @@ void CGEDebugger::UpdatePreviews() {
 	// TODO: Do something different if not paused?
 
 	wchar_t desc[256];
-	GPUDebugBuffer *primaryBuffer = NULL;
+	const GPUDebugBuffer *primaryBuffer = NULL;
+	bool bufferResult = false;
 	GPUgstate state;
-	bufferResult = false;
 
 	if (gpuDebug != NULL) {
 		state = gpuDebug->GetGState();
@@ -292,21 +154,24 @@ void CGEDebugger::UpdatePreviews() {
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
-		SetPauseAction(PAUSE_GETFRAMEBUF);
-		primaryBuffer = &bufferFrame;
-		_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+		bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer);
+		if (bufferResult) {
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+		}
 		break;
 
 	case PRIMARY_DEPTHBUF:
-		SetPauseAction(PAUSE_GETDEPTHBUF);
-		primaryBuffer = &bufferDepth;
-		_snwprintf(desc, ARRAY_SIZE(desc), L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+		bufferResult = GPU_GetCurrentDepthbuffer(primaryBuffer);
+		if (bufferResult) {
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+		}
 		break;
 
 	case PRIMARY_STENCILBUF:
-		SetPauseAction(PAUSE_GETSTENCILBUF);
-		primaryBuffer = &bufferStencil;
-		_snwprintf(desc, ARRAY_SIZE(desc), L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+		bufferResult = GPU_GetCurrentStencilbuffer(primaryBuffer);
+		if (bufferResult) {
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+		}
 		break;
 	}
 
@@ -319,12 +184,12 @@ void CGEDebugger::UpdatePreviews() {
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
 	}
 
-	bufferResult = false;
-	SetPauseAction(PAUSE_GETTEX);
+	const GPUDebugBuffer *bufferTex = NULL;
+	bufferResult = GPU_GetCurrentTexture(bufferTex);
 
 	if (bufferResult) {
-		auto fmt = SimpleGLWindow::Format(bufferTex.GetFormat());
-		texWindow->Draw(bufferTex.GetData(), bufferTex.GetStride(), bufferTex.GetHeight(), bufferTex.GetFlipped(), fmt);
+		auto fmt = SimpleGLWindow::Format(bufferTex->GetFormat());
+		texWindow->Draw(bufferTex->GetData(), bufferTex->GetStride(), bufferTex->GetHeight(), bufferTex->GetFlipped(), fmt);
 
 		if (gpuDebug != NULL) {
 			if (state.isTextureAlphaUsed()) {
@@ -335,9 +200,9 @@ void CGEDebugger::UpdatePreviews() {
 			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 
-			lastTexture = state.getTextureAddress(0);
+			UpdateLastTexture(state.getTextureAddress(0));
 		} else {
-			lastTexture = -1;
+			UpdateLastTexture((u32)-1);
 		}
 	} else {
 		texWindow->Clear();
@@ -346,7 +211,7 @@ void CGEDebugger::UpdatePreviews() {
 		} else {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
 		}
-		lastTexture = -1;
+		UpdateLastTexture((u32)-1);
 	}
 
 	DisplayList list;
@@ -391,7 +256,7 @@ void CGEDebugger::SetBreakNext(BreakNextType type) {
 	attached = true;
 	SetupPreviews();
 
-	SetPauseAction(PAUSE_CONTINUE, false);
+	ResumeFromStepping();
 	breakNext = type;
 }
 
@@ -458,6 +323,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEPTEX:
+			AddTextureChangeTempBreakpoint();
 			SetBreakNext(BREAK_NEXT_TEX);
 			break;
 
@@ -467,13 +333,17 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTEX:
 			{
-				u32 texAddr;
+				if (!gpuDebug) {
+					break;
+				}
+				const auto state = gpuDebug->GetGState();
+				u32 texAddr = state.getTextureAddress(0);
 				// TODO: Better interface that allows add/remove or something.
-				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", lastTexture, texAddr)) {
-					if (breakTextures.find(texAddr) != breakTextures.end()) {
-						breakTextures.erase(texAddr);
+				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", texAddr, texAddr)) {
+					if (IsTextureBreakpoint(texAddr)) {
+						RemoveTextureBreakpoint(texAddr);
 					} else {
-						breakTextures.insert(texAddr);
+						AddTextureBreakpoint(texAddr);
 					}
 				}
 			}
@@ -486,7 +356,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 
 			// TODO: detach?  Should probably have separate UI, or just on activate?
-			SetPauseAction(PAUSE_CONTINUE, false);
+			ResumeFromStepping();
 			breakNext = BREAK_NONE;
 			break;
 		}
@@ -495,7 +365,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_GEDBG_BREAK_CMD:
 		{
 			u32 pc = (u32)wParam;
-			tempBreakpoint = -1;
+			ClearTempBreakpoints();
 			auto info = gpuDebug->DissassembleOp(pc);
 			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
 			UpdatePreviews();
@@ -515,29 +385,28 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
-			lock_guard guard(breaksLock);
 			u32 pc = (u32)wParam;
-			auto iter = breakPCs.find(pc);
-			if (iter != breakPCs.end())
-				breakPCs.erase(iter);
-			else
-				breakPCs.insert(pc);
+			bool temp;
+			bool isBreak = IsAddressBreakpoint(pc, temp);
+			if (isBreak && !temp) {
+				RemoveAddressBreakpoint(pc);
+			} else {
+				AddAddressBreakpoint(pc);
+			}
 		}
 		break;
 
 	case WM_GEDBG_RUNTOWPARAM:
 		{
-			lock_guard guard(breaksLock);
 			u32 pc = (u32)wParam;
-			tempBreakpoint = pc;
+			AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
 		}
 		break;
 
 	case WM_GEDBG_SETCMDWPARAM:
 		{
-			pauseSetCmdValue = (u32)wParam;
-			SetPauseAction(PAUSE_SETCMDVALUE);
+			GPU_SetCmdValue((u32)wParam);
 		}
 		break;
 	}
@@ -551,30 +420,19 @@ bool WindowsHost::GPUDebuggingActive() {
 	return attached;
 }
 
-static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
-	lock_guard guard(pauseLock);
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME) {
-		return;
-	}
-
+static void DeliverMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 	PostMessage(geDebuggerWindow->GetDlgHandle(), msg, wParam, lParam);
+}
 
-	// Just to be sure.
-	if (pauseAction == PAUSE_CONTINUE) {
-		pauseAction = PAUSE_BREAK;
-	}
-
-	do {
-		RunPauseAction();
-		pauseWait.wait(pauseLock);
-	} while (pauseAction != PAUSE_CONTINUE);
+static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
+	EnterStepping(std::bind(&DeliverMessage, msg, wParam, lParam));
 }
 
 void WindowsHost::GPUNotifyCommand(u32 pc) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u8 cmd = op >> 24;
 
-	if (breakNext == BREAK_NEXT_OP || CGEDebugger::IsOpOrTextureBreakPoint(op) || CGEDebugger::IsAddressBreakPoint(pc) || pc == tempBreakpoint) {
+	if (breakNext == BREAK_NEXT_OP || IsBreakpoint(pc, op)) {
 		PauseWithMessage(WM_GEDBG_BREAK_CMD, (WPARAM) pc);
 	}
 }

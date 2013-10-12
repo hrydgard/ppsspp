@@ -3,6 +3,7 @@
 #include "Windows/InputBox.h"
 #include "Windows/Main.h"
 #include "Core/Config.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include <algorithm>
 
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
@@ -205,7 +206,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		DeleteObject(backgroundPen);
 
 		// display address/symbol
-		if (CGEDebugger::IsAddressBreakPoint(address))
+		if (GPUBreakpoints::IsAddressBreakpoint(address))
 		{
 			textColor = 0x0000FF;
 			int yOffset = std::max(-1,(rowHeight-14+1)/2);
