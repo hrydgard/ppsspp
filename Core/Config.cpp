@@ -475,6 +475,11 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
 		return baseFilename;
 	}
+#ifdef _WIN32
+	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
+		return baseFilename;
+	}
+#endif
 
 	for (size_t i = 0; i < searchPath_.size(); ++i) {
 		std::string filename = searchPath_[i] + baseFilename;
