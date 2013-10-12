@@ -180,6 +180,12 @@ public:
 	void Save();
 	void RestoreDefaults();
 
+	// Used when the file is not found in the search path.  Trailing slash.
+	void SetDefaultPath(const std::string &defaultPath);
+	// Use a trailing slash.
+	void AddSearchPath(const std::string &path);
+	const std::string FindConfigFile(const std::string &baseFilename);
+
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
 	void CleanRecent();
@@ -187,6 +193,8 @@ public:
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
+	std::vector<std::string> searchPath_;
+	std::string defaultPath_;
 };
 
 extern Config g_Config;
