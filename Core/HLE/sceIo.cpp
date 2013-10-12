@@ -435,6 +435,7 @@ void __IoManagerThread() {
 }
 
 void __IoWakeManager() {
+	ioManagerThreadEnabled = false;
 	ioManager.FinishEventLoop();
 	ioManager.SyncThread();
 }
