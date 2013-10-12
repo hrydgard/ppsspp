@@ -162,6 +162,7 @@
 // Don't define anything else in the 3000 range.
 // It's reserved for languages.
 #define ID_LANGUAGE_BASE 3000
+#define ID_SHADERS_BASE  5000
 
 #define ID_FILE_EXIT                     40000
 #define ID_DEBUG_SAVEMAPFILE             40001
