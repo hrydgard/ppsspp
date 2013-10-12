@@ -94,19 +94,38 @@ u32 GetAdjustedTextureAddress(u32 op) {
 	return addr;
 }
 
+bool IsTextureChangeBreakpoint(u32 op, u32 addr) {
+	if (!textureChangeTemp) {
+		return false;
+	}
+
+	const u8 cmd = op >> 24;
+	bool enabled = gstate.isTextureMapEnabled();
+
+	// Only for level 0.
+	if (cmd != GE_CMD_TEXADDR0 && cmd != GE_CMD_TEXBUFWIDTH0) {
+		// But we don't break when it's not enabled.
+		if (cmd == GE_CMD_TEXTUREMAPENABLE) {
+			enabled = (op & 1) != 0;
+		} else {
+			return false;
+		}
+	}
+	if (enabled && addr != lastTexture) {
+		textureChangeTemp = false;
+		lastTexture = addr;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 bool IsTextureCmdBreakpoint(u32 op) {
 	const u32 addr = GetAdjustedTextureAddress(op);
 	if (addr != (u32)-1) {
-		const u8 cmd = op >> 24;
-		// Only for level 0.
-		if (textureChangeTemp && addr != lastTexture && (cmd == GE_CMD_TEXADDR0 || cmd == GE_CMD_TEXBUFWIDTH0)) {
-			textureChangeTemp = false;
-			lastTexture = addr;
-			return true;
-		}
-		return IsTextureBreakpoint(addr);
+		return IsTextureChangeBreakpoint(op, addr) || IsTextureBreakpoint(addr);
 	} else {
-		return false;
+		return IsTextureChangeBreakpoint(op, gstate.getTextureAddress(0));
 	}
 }
 
