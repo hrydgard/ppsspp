@@ -1137,15 +1137,15 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_RESET:
-					WaitForCore();
 					NativeMessageReceived("reset", "");
+					Core_EnableStepping(false);
 					break;
 
 				case ID_EMULATION_CHEATS:
 					g_Config.bEnableCheats = !g_Config.bEnableCheats;
 					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
-					WaitForCore();
 					NativeMessageReceived("reset", "");
+					Core_EnableStepping(false);
 					break;
 
 				case ID_FILE_LOADSTATEFILE:
