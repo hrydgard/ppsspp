@@ -160,6 +160,8 @@
     <ClInclude Include="Common\PostShader.h" />
     <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
+    <ClInclude Include="Debugger\Breakpoints.h" />
+    <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
     <ClInclude Include="Directx9\helper\dx_state.h" />
     <ClInclude Include="Directx9\helper\fbo.h" />
@@ -203,6 +205,8 @@
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
     <ClCompile Include="Directx9\helper\dx_state.cpp" />
     <ClCompile Include="Directx9\helper\fbo.cpp" />

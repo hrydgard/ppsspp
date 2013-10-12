@@ -321,8 +321,13 @@ int ElfReader::LoadInto(u32 loadAddress)
 		return SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
 
 	// technically ELFCLASSNONE would freeze the system, but that's not really desireable
-	if (header->e_ident[EI_CLASS] != ELFCLASS32)
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+	if (header->e_ident[EI_CLASS] != ELFCLASS32) {
+		if (header->e_ident[EI_CLASS] != 0) {
+			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		}
+
+		ERROR_LOG(LOADER, "Bad ELF, EI_CLASS (fifth byte) is 0x00, should be 0x01 - would lock up a PSP.");
+	}
 
 	if (header->e_ident[EI_DATA] != ELFDATA2LSB)
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;

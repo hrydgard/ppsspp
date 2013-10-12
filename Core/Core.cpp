@@ -141,8 +141,7 @@ static inline void UpdateRunLoop() {
 	NativeRender();
 }
 
-void Core_RunLoop()
-{
+void Core_RunLoop() {
 	while (globalUIState != UISTATE_INGAME && globalUIState != UISTATE_EXIT) {
 		time_update();
 
@@ -162,7 +161,7 @@ void Core_RunLoop()
 #endif
 	}
 
-	while (!coreState) {
+	while (!coreState && globalUIState == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
 #ifdef _WIN32
