@@ -449,16 +449,20 @@ namespace MainWindow
 	}
 
 	void CreateShadersSubmenu() {
-		const std::wstring key = L"HEY";
-		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
-		RemoveMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_BYPOSITION);
-		HMENU shaderMenu = CreatePopupMenu();
+		I18NCategory *des = GetI18NCategory("DesktopUI");
 		
-		int item = ID_SHADERS_BASE + 1;
+		const std::wstring key = ConvertUTF8ToWString(des->T("Postprocessing Shader"));
+
+		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
+		
+		HMENU shaderMenu = CreatePopupMenu();
+
+		RemoveMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_BYPOSITION);
 		InsertMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)shaderMenu, key.c_str());
 
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 		availableShaders.clear();
+		int item = ID_SHADERS_BASE + 1;
 		for (auto i = info.begin(); i != info.end(); ++i) {
 			availableShaders.push_back(i->section);
 			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | MF_UNCHECKED, item++, ConvertUTF8ToWString(i->name).c_str());
@@ -500,6 +504,8 @@ namespace MainWindow
 		TranslateMenu("Game Settings", MENU_OPTIONS);
 		TranslateMenu("Help", MENU_HELP);
 
+		CreateShadersSubmenu();
+
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD);
 		TranslateMenuItem(ID_FILE_LOAD_DIR);
@@ -539,7 +545,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_VSYNC);
-		TranslateMenuItem(ID_OPTIONS_FXAA);
+		TranslateSubMenu("Postprocessing Shader", MENU_OPTIONS, SUBMENU_CUSTOM_SHADERS);
 		TranslateSubMenu("Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
 		TranslateMenuItem(ID_OPTIONS_SCREENAUTO);
 		// Skip rendering resolution 2x-5x..
@@ -579,7 +585,6 @@ namespace MainWindow
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu();
 
-		CreateShadersSubmenu();
 
 		// TODO: Urgh! Why do we need this here?
 		// The menu is supposed to enable/disable this stuff directly afterward.
