@@ -66,6 +66,7 @@
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
 #include "Core/HLE/sceUtility.h"
+#include "GPU/Common/PostShader.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -108,7 +109,7 @@ namespace MainWindow
 	static size_t rawInputBufferSize;
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
-
+	static std::vector<std::string> availableShaders;
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -219,8 +220,7 @@ namespace MainWindow
 			osm.Show(g->T(message), 2.0f);
 		}
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu resized", "");
 	}
 
 	void SetWindowSize(int zoom) {
@@ -345,6 +345,7 @@ namespace MainWindow
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Game Settings submenus
+		SUBMENU_CUSTOM_SHADERS = 8,
 		SUBMENU_RENDERING_RESOLUTION = 9,
 		SUBMENU_WINDOW_SIZE = 10,
 		SUBMENU_RENDERING_MODE = 11,
@@ -444,6 +445,42 @@ namespace MainWindow
 		}
 	}
 
+	void UpdateDynamicMenuCheckmarks() {
+		int item = ID_SHADERS_BASE + 1;
+
+		for (int i = 0; i < availableShaders.size(); i++)
+			CheckMenuItem(menu, item++, ((g_Config.sPostShaderName == availableShaders[i]) ? MF_CHECKED : MF_UNCHECKED));
+	}
+
+	void CreateShadersSubmenu() {
+		I18NCategory *des = GetI18NCategory("DesktopUI");
+		
+		const std::wstring key = ConvertUTF8ToWString(des->T("Postprocessing Shader"));
+
+		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
+		
+		HMENU shaderMenu = CreatePopupMenu();
+
+		RemoveMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_BYPOSITION);
+		InsertMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)shaderMenu, key.c_str());
+
+		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
+		availableShaders.clear();
+
+		int item = ID_SHADERS_BASE + 1;
+		int checkedStatus = -1;
+
+		for (auto i = info.begin(); i != info.end(); ++i) {
+			checkedStatus = MF_UNCHECKED;
+			availableShaders.push_back(i->section);
+			if (g_Config.sPostShaderName == i->section) {
+				checkedStatus = MF_CHECKED;
+			}
+
+			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(i->name).c_str());
+		}
+	}
+
 	void _TranslateMenuItem(const int menuIDOrPosition, const char *key, bool byCommand = false, const std::wstring& accelerator = L"", const HMENU hMenu = menu) {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
 
@@ -478,6 +515,8 @@ namespace MainWindow
 		TranslateMenu("Debugging", MENU_DEBUG);
 		TranslateMenu("Game Settings", MENU_OPTIONS);
 		TranslateMenu("Help", MENU_HELP);
+
+		CreateShadersSubmenu();
 
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD);
@@ -518,7 +557,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_VSYNC);
-		TranslateMenuItem(ID_OPTIONS_FXAA);
+		TranslateSubMenu("Postprocessing Shader", MENU_OPTIONS, SUBMENU_CUSTOM_SHADERS);
 		TranslateSubMenu("Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
 		TranslateMenuItem(ID_OPTIONS_SCREENAUTO);
 		// Skip rendering resolution 2x-5x..
@@ -568,7 +607,7 @@ namespace MainWindow
 
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		if(gpu) gpu->ClearCacheNextFrame();
+		NativeMessageReceived("gpu clear cache", "");
 	}
 
 	void setTexFiltering(int type) {
@@ -577,7 +616,7 @@ namespace MainWindow
 
 	void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		if(gpu) gpu->ClearCacheNextFrame();
+		NativeMessageReceived("gpu clear cache", "");
 	}
 
 	void setRenderingMode(int mode = -1) {
@@ -608,7 +647,7 @@ namespace MainWindow
 			break;
 		}
 
-		if (gpu) gpu->Resized();
+		NativeMessageReceived("gpu resized", "");
 	}
 
 	void setFpsLimit(int fps) {
@@ -1211,14 +1250,6 @@ namespace MainWindow
 				case ID_OPTIONS_VSYNC:
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
-				
-				/* TODO: Add menus for post processing
-				case ID_OPTIONS_FXAA:
-					g_Config.bFXAA = !g_Config.bFXAA;
-					if (gpu)
-						gpu->Resized();
-					break;
-					*/
 
 				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
@@ -1234,8 +1265,7 @@ namespace MainWindow
 
 				case ID_TEXTURESCALING_DEPOSTERIZE:
 					g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-					if (gpu)
-						gpu->ClearCacheNextFrame();
+					NativeMessageReceived("gpu clear cache", "");
 					break;
 
 				case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
@@ -1259,8 +1289,7 @@ namespace MainWindow
 
 				case ID_OPTIONS_STRETCHDISPLAY:
 					g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-					if (gpu)
-						gpu->Resized();  // Easy way to force a clear...
+					NativeMessageReceived("gpu resized", "");
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
@@ -1287,8 +1316,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DUMPNEXTFRAME:
-					if (gpu)
-						gpu->DumpNextFrame();
+					NativeMessageReceived("gpu dump next frame", "");
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
@@ -1433,6 +1461,19 @@ namespace MainWindow
 
 							break;
 						}
+
+						// Handle the dynamic shader switching here.
+						// The Menu ID is contained in wParam, so subtract
+						// ID_SHADERS_BASE and an additional 1 off it.
+						index = (wParam - ID_SHADERS_BASE - 1);
+						if (index >= 0 && index < availableShaders.size()) {
+							g_Config.sPostShaderName = availableShaders[index];
+
+							NativeMessageReceived("gpu resized", "");
+
+							break;
+						}
+
 						MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
 					}
 					break;
@@ -1608,7 +1649,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
-		// CHECKITEM(ID_OPTIONS_FXAA, g_Config.bFXAA);  TODO: Replace with list of loaded post processing shaders
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
@@ -1759,6 +1799,7 @@ namespace MainWindow
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | (( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		UpdateDynamicMenuCheckmarks();
 		UpdateCommands();
 	}
 	
