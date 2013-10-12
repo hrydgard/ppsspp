@@ -140,7 +140,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	
 	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing and postprocessing"))); 
-	graphicsSettings->Add(new Choice(gs->T("Postprocessing shader")))->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+	graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")))->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
