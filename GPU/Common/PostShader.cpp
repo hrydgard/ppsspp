@@ -20,6 +20,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "base/logging.h"
 #include "file/ini_file.h"
@@ -80,6 +81,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.fragmentShaderFile = path + "/" + temp;
 					section.Get("Vertex", &temp, "");
 					info.vertexShaderFile = path + "/" + temp;
+					shaderInfo.erase(std::find(shaderInfo.begin(), shaderInfo.end(), info.name), shaderInfo.end());
 					shaderInfo.push_back(info);
 				}
 			}
