@@ -191,9 +191,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("HapticFeedback", &bHapticFeedback, true);
 	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
-#ifdef BLACKBERRY
-	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
-#elif defined(USING_GLES2)
+#if defined(USING_GLES2)
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (KeyMap::HasBuiltinController(name)) {
 		control->Get("ShowTouchControls", &bShowTouchControls, false);

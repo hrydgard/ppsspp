@@ -455,7 +455,7 @@ void CreditsScreen::render() {
 #endif
 #if defined(USING_QT_UI)
 		"Qt",
-#else
+#elif !defined(_WIN32)
 		"SDL",
 #endif
 		"CMake",

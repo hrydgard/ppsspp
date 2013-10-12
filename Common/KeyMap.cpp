@@ -38,17 +38,10 @@ struct DefMappingStruct {
 KeyMapping g_controllerMap;
 
 static const DefMappingStruct defaultKeyboardKeyMap[] = {
-#ifdef BLACKBERRY
-	{CTRL_SQUARE, NKCODE_J},
-	{CTRL_TRIANGLE, NKCODE_I},
-	{CTRL_CIRCLE, NKCODE_L},
-	{CTRL_CROSS, NKCODE_K},
-#else
 	{CTRL_SQUARE, NKCODE_A},
 	{CTRL_TRIANGLE, NKCODE_S},
 	{CTRL_CIRCLE, NKCODE_X},
 	{CTRL_CROSS, NKCODE_Z},
-#endif
 	{CTRL_LTRIGGER, NKCODE_Q},
 	{CTRL_RTRIGGER, NKCODE_W},
 
@@ -58,16 +51,6 @@ static const DefMappingStruct defaultKeyboardKeyMap[] = {
 #else
 	{CTRL_SELECT, NKCODE_ENTER},
 #endif
-#ifdef BLACKBERRY
-	{CTRL_UP   , NKCODE_W},
-	{CTRL_DOWN , NKCODE_S},
-	{CTRL_LEFT , NKCODE_A},
-	{CTRL_RIGHT, NKCODE_D},
-	{VIRTKEY_AXIS_Y_MAX, NKCODE_W},
-	{VIRTKEY_AXIS_Y_MIN, NKCODE_S},
-	{VIRTKEY_AXIS_X_MIN, NKCODE_A},
-	{VIRTKEY_AXIS_X_MAX, NKCODE_D},
-#else
 	{CTRL_UP   , NKCODE_DPAD_UP},
 	{CTRL_DOWN , NKCODE_DPAD_DOWN},
 	{CTRL_LEFT , NKCODE_DPAD_LEFT},
@@ -76,7 +59,6 @@ static const DefMappingStruct defaultKeyboardKeyMap[] = {
 	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
 	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
 	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
-#endif
 	{VIRTKEY_RAPID_FIRE  , NKCODE_SHIFT_LEFT},
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
@@ -125,6 +107,29 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
 	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RTRIGGER, +1 },
 	{VIRTKEY_PAUSE, NKCODE_BACK },
+};
+
+static const DefMappingStruct defaultBlackberryQWERTYKeyMap[] = {
+	{CTRL_SQUARE, NKCODE_J},
+	{CTRL_TRIANGLE, NKCODE_I},
+	{CTRL_CIRCLE, NKCODE_L},
+	{CTRL_CROSS, NKCODE_K},
+	{CTRL_LTRIGGER, NKCODE_Q},
+	{CTRL_RTRIGGER, NKCODE_W},
+	{CTRL_START, NKCODE_SPACE},
+	{CTRL_SELECT, NKCODE_ENTER},
+	{CTRL_UP   , NKCODE_W},
+	{CTRL_DOWN , NKCODE_S},
+	{CTRL_LEFT , NKCODE_A},
+	{CTRL_RIGHT, NKCODE_D},
+	{VIRTKEY_AXIS_Y_MAX, NKCODE_W},
+	{VIRTKEY_AXIS_Y_MIN, NKCODE_S},
+	{VIRTKEY_AXIS_X_MIN, NKCODE_A},
+	{VIRTKEY_AXIS_X_MAX, NKCODE_D},
+	{VIRTKEY_RAPID_FIRE  , NKCODE_SHIFT_LEFT},
+	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
+	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
+	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
 };
 
 static const DefMappingStruct defaultPadMap[] = {
@@ -268,6 +273,8 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 	case DEFAULT_MAPPING_SHIELD:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
 		break;
+	case DEFAULT_MAPPING_BLACKBERRY_QWERTY:
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultBlackberryQWERTYKeyMap, ARRAY_SIZE(defaultBlackberryQWERTYKeyMap), replace);
 	case DEFAULT_MAPPING_PAD:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
 		break;
@@ -686,6 +693,13 @@ void RestoreDefault() {
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
 	}
+#elif defined(BLACKBERRY)
+	std::string name = System_GetProperty(SYSPROP_NAME);
+	if (IsBlackberryQWERTY(name)) {
+		SetDefaultKeyMap(DEFAULT_MAPPING_BLACKBERRY_QWERTY, true);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
@@ -757,8 +771,12 @@ bool IsXperiaPlay(const std::string &name) {
 	 return name == "Sony Ericsson:R800a" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:R800x" || name == "Sony Ericsson:R800at" || name == "Sony Ericsson:SO-01D" || name == "Sony Ericsson:zeus";
 }
 
+bool IsBlackberryQWERTY(const std::string &name) {
+	return name == "Blackberry10:QWERTY";
+}
+
 bool HasBuiltinController(const std::string &name) {
-	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name);
+	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsBlackberryQWERTY(name);
 }
 
 }  // KeyMap

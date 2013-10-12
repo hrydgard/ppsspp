@@ -385,7 +385,7 @@ GLES_GPU::GLES_GPU()
 		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	if (gl_extensions.QCOM_binning_control) {
 		/*
 		We can try different HINTS later or even with option to toggle for Adreno GPU
