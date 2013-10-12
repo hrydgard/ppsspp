@@ -85,6 +85,22 @@ uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
 bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
 	ILOG("Zip path: %s", path);
+	std::set<std::string> filters;
+ 	std::string tmp;
+	if (filter) {
+		while (*filter) {
+			if (*filter == ':') {
+				filters.insert(tmp);
+				tmp = "";
+			} else {
+				tmp.push_back(*filter);
+			}
+			filter++;
+		}
+	}
+	if (tmp.size())
+		filters.insert(tmp);
+
 	// We just loop through the whole ZIP file and deduce what files are in this directory, and what subdirectories there are.
 	std::set<std::string> files;
 	std::set<std::string> directories;
@@ -96,7 +112,6 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		const char* name = zip_get_name(zip_file_, i, 0);
 		if (!name)
 			continue;
-		// ILOG("Comparing %s %s %i", name, path, pathlen);
 		if (!memcmp(name, path, pathlen)) {
 			// The prefix is right. Let's see if this is a file or path.
 			char *slashPos = strchr(name + pathlen + 1, '/');
@@ -114,7 +129,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		FileInfo info;
 		info.name = *diter;
 		info.fullName = std::string(path);
-		if (info.fullName[info.fullName.size()-1] == '/')
+		if (info.fullName[info.fullName.size() - 1] == '/')
 			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
 		info.fullName += "/" + *diter;
 		info.exists = true;
@@ -127,12 +142,17 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		FileInfo info;
 		info.name = *fiter;
 		info.fullName = std::string(path);
-		if (info.fullName[info.fullName.size()-1] == '/')
+		if (info.fullName[info.fullName.size() - 1] == '/')
 			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
 		info.fullName += "/" + *fiter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = false;
+		std::string ext = getFileExtension(info.fullName);
+		if (filter) {
+			if (filters.find(ext) == filters.end())
+				continue;
+		}
 		listing->push_back(info);
 	}
 	
