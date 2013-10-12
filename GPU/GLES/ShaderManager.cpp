@@ -487,6 +487,7 @@ ShaderManager::~ShaderManager() {
 }
 
 void ShaderManager::Clear() {
+	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
 	}
