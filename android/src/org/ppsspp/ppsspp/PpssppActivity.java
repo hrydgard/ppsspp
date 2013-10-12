@@ -34,4 +34,4 @@ public class PpssppActivity extends NativeActivity {
 	public boolean overrideKeys() {
 		return false;
 	}
-}
+}                

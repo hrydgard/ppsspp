@@ -216,11 +216,11 @@ private:
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
-	GLSLProgram *fxaaProgram_;
+	GLSLProgram *postShaderProgram_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
-	bool useFXAA_;
+	bool usePostShader_;
 
 	// Used by antialiasing
 	std::vector<FBO *> extraFBOs_;

@@ -29,6 +29,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
+#include "GPU/Common/PostShader.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
@@ -172,23 +173,31 @@ void FramebufferManager::CompileDraw2DProgram() {
 		glUniform1i(draw2dprogram_->sampler0, 0);
 
 		SetNumExtraFBOs(0);
-		if (g_Config.bFXAA) {
-			useFXAA_ = true;
-			fxaaProgram_ = glsl_create("shaders/fxaa.vsh", "shaders/fxaa.fsh");
-			if (!fxaaProgram_) {
-				ERROR_LOG(G3D, "Failed to build FXAA program");
-				useFXAA_ = false;
+		
+		const ShaderInfo *shaderInfo = 0;
+		if (g_Config.sPostShaderName != "Off") {
+			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+		}
+
+		if (shaderInfo) {
+			postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str());
+			if (!postShaderProgram_) {
+				ERROR_LOG(G3D, "Failed to build post-processing program");
+				usePostShader_ = false;
 			} else {
-				glsl_bind(fxaaProgram_);
-				glUniform1i(fxaaProgram_->sampler0, 0);
+				glsl_bind(postShaderProgram_);
+				glUniform1i(postShaderProgram_->sampler0, 0);
 				SetNumExtraFBOs(1);
 				float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
 				float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-				glUniform2f(glsl_uniform_loc(fxaaProgram_, "u_texcoordDelta"), u_delta, v_delta);
+				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texcoordDelta");
+				if (deltaLoc != -1)
+					glUniform2f(deltaLoc, u_delta, v_delta);
+				usePostShader_ = true;
 			}
 		} else {
-			fxaaProgram_ = 0;
-			useFXAA_ = false;
+			postShaderProgram_ = 0;
+			usePostShader_ = false;
 		}
 
 		glsl_unbind();
@@ -200,9 +209,9 @@ void FramebufferManager::DestroyDraw2DProgram() {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
 	}
-	if (fxaaProgram_) {
-		glsl_destroy(fxaaProgram_);
-		fxaaProgram_ = 0;
+	if (postShaderProgram_) {
+		glsl_destroy(postShaderProgram_);
+		postShaderProgram_ = 0;
 	}
 }
 
@@ -219,10 +228,10 @@ FramebufferManager::FramebufferManager() :
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf(0),
 	draw2dprogram_(0),
-	fxaaProgram_(0),
+	postShaderProgram_(0),
 	textureCache_(0),
 	shaderManager_(0),
-	useFXAA_(false)
+	usePostShader_(false)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -812,7 +821,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 		// and to discard extraFBOs_ after using them.
 
-		if (useFXAA_ && extraFBOs_.size() == 1) {
+		if (usePostShader_ && extraFBOs_.size() == 1) {
 			glBindTexture(GL_TEXTURE_2D, colorTexture);
 
 			// An additional pass, FXAA to the extra FBO.
@@ -820,7 +829,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
-			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, fxaaProgram_);
+			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
 

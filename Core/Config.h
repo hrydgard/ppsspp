@@ -94,7 +94,7 @@ public:
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bLowQualitySplineBezier;
-	bool bFXAA;
+	std::string sPostShaderName;  // Off for off.
 
 	// Sound
 	bool bEnableSound;

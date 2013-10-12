@@ -1223,13 +1223,15 @@ namespace MainWindow
 				case ID_OPTIONS_VSYNC:
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
-
+				
+				/* TODO: Add menus for post processing
 				case ID_OPTIONS_FXAA:
 					g_Config.bFXAA = !g_Config.bFXAA;
 					if (gpu)
 						gpu->Resized();
 					break;
-				
+					*/
+
 				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
 				case ID_TEXTURESCALING_2X:  setTexScalingMultiplier(TEXSCALING_2X); break;
@@ -1618,7 +1620,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
-		CHECKITEM(ID_OPTIONS_FXAA, g_Config.bFXAA);
+		// CHECKITEM(ID_OPTIONS_FXAA, g_Config.bFXAA);  TODO: Replace with list of loaded post processing shaders
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);

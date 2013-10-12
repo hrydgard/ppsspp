@@ -24,6 +24,7 @@
 #include "base/functional.h"
 #include "file/file_util.h"
 #include "ui/ui_screen.h"
+#include "GPU/Common/PostShader.h"
 
 inline void NoOpVoidBool(bool) {}
 
@@ -68,6 +69,16 @@ private:
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 	std::map<std::string, std::string> titleCodeMapping;
 	std::vector<FileInfo> langs_;
+};
+
+class PostProcScreen : public ListPopupScreen {
+public:
+	PostProcScreen(const std::string &title);
+
+private:
+	virtual void OnCompleted(DialogResult result);
+	virtual bool ShowButtons() const { return true; }
+	std::vector<ShaderInfo> shaders_;
 };
 
 class LogoScreen : public UIScreen {

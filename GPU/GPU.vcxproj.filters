@@ -147,6 +147,7 @@
     <ClInclude Include="Common\SplineCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\PostShader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -266,6 +267,7 @@
     <ClCompile Include="Common\TextureDecoder.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\PostShader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

@@ -1001,6 +1001,8 @@ add_library(GPU OBJECT
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp
 	GPU/Common/TextureDecoder.h
+	GPU/Common/PostShader.cpp
+	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h

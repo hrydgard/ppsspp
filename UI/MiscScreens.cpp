@@ -145,6 +145,24 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {
+	shaders_ = GetAllPostShaderInfo();
+	std::vector<std::string> items;
+	int selected = -1;
+	for (int i = 0; i < shaders_.size(); i++) {
+		if (shaders_[i].section == g_Config.sPostShaderName)
+			selected = i;
+		items.push_back(shaders_[i].section);
+	}
+	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+}
+
+void PostProcScreen::OnCompleted(DialogResult result) {
+	if (result != DR_OK)
+		return;
+	g_Config.sPostShaderName = shaders_[listView_->GetSelected()].section;
+}
+
 NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {
 	// Disable annoying encoding warning
 #ifdef _MSC_VER

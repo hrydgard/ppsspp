@@ -179,7 +179,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("DisableStencilTest", &bDisableStencilTest, false);
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
-	graphics->Get("FXAA", &bFXAA, false);
+	graphics->Get("PostShader", &sPostShaderName, "Off");
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -349,7 +349,7 @@ void Config::Save() {
 		graphics->Set("DisableStencilTest", bDisableStencilTest);
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
-		graphics->Set("FXAA", bFXAA);
+		graphics->Set("PostShader", sPostShaderName);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
