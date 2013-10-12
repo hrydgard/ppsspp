@@ -14,6 +14,6 @@ void main() {
   vec3 gray = vec3(luma, luma, luma) - 0.5;
   rgb -= vec3(0.5, 0.5, 0.5);
 
-  gl_FragColor.rgb = saturate(mix(rgb, gray, 2.0) + 0.5);
+  gl_FragColor.rgb = mix(rgb, gray, 2.0) + 0.5;
   gl_FragColor.a = 1.0;
 }
