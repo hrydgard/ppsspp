@@ -220,8 +220,7 @@ namespace MainWindow
 			osm.Show(g->T(message), 2.0f);
 		}
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu resized", "");
 	}
 
 	void SetWindowSize(int zoom) {
@@ -608,7 +607,7 @@ namespace MainWindow
 
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		if(gpu) gpu->ClearCacheNextFrame();
+		NativeMessageReceived("gpu clear cache", "");
 	}
 
 	void setTexFiltering(int type) {
@@ -617,7 +616,7 @@ namespace MainWindow
 
 	void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		if(gpu) gpu->ClearCacheNextFrame();
+		NativeMessageReceived("gpu clear cache", "");
 	}
 
 	void setRenderingMode(int mode = -1) {
@@ -648,7 +647,7 @@ namespace MainWindow
 			break;
 		}
 
-		if (gpu) gpu->Resized();
+		NativeMessageReceived("gpu resized", "");
 	}
 
 	void setFpsLimit(int fps) {
@@ -1251,14 +1250,6 @@ namespace MainWindow
 				case ID_OPTIONS_VSYNC:
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
-				
-				/* TODO: Add menus for post processing
-				case ID_OPTIONS_FXAA:
-					g_Config.bFXAA = !g_Config.bFXAA;
-					if (gpu)
-						gpu->Resized();
-					break;
-					*/
 
 				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
@@ -1274,8 +1265,7 @@ namespace MainWindow
 
 				case ID_TEXTURESCALING_DEPOSTERIZE:
 					g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-					if (gpu)
-						gpu->ClearCacheNextFrame();
+					NativeMessageReceived("gpu clear cache", "");
 					break;
 
 				case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
@@ -1299,8 +1289,7 @@ namespace MainWindow
 
 				case ID_OPTIONS_STRETCHDISPLAY:
 					g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-					if (gpu)
-						gpu->Resized();  // Easy way to force a clear...
+					NativeMessageReceived("gpu resized", "");
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
@@ -1327,8 +1316,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DUMPNEXTFRAME:
-					if (gpu)
-						gpu->DumpNextFrame();
+					NativeMessageReceived("gpu dump next frame", "");
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
@@ -1481,8 +1469,7 @@ namespace MainWindow
 						if (index >= 0 && index < availableShaders.size()) {
 							g_Config.sPostShaderName = availableShaders[index];
 
-							if (gpu)
-								gpu->Resized();
+							NativeMessageReceived("gpu resized", "");
 
 							break;
 						}
