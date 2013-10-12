@@ -51,61 +51,54 @@ InputState input_state;
 extern InputState input_state;
 #endif
 
-void Core_ListenShutdown(Core_ShutdownFunc func)
-{
+void Core_ListenShutdown(Core_ShutdownFunc func) {
 	shutdownFuncs.insert(func);
 }
 
-void Core_NotifyShutdown()
-{
-	for (auto it = shutdownFuncs.begin(); it != shutdownFuncs.end(); ++it)
+void Core_NotifyShutdown() {
+	for (auto it = shutdownFuncs.begin(); it != shutdownFuncs.end(); ++it) {
 		(*it)();
+	}
 }
 
-void Core_ErrorPause()
-{
+void Core_ErrorPause() {
 	Core_UpdateState(CORE_ERROR);
 }
 
-void Core_Halt(const char *msg) 
-{
+void Core_Halt(const char *msg)  {
 	Core_EnableStepping(true);
 	ERROR_LOG(CPU, "CPU HALTED : %s",msg);
 	_dbg_update_();
 }
 
-void Core_Stop()
-{
+void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
 	Core_NotifyShutdown();
 	m_hStepEvent.notify_one();
 }
 
-bool Core_IsStepping()
-{
+bool Core_IsStepping() {
 	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
 }
 
-bool Core_IsActive()
-{
+bool Core_IsActive() {
 	return coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME || coreStatePending;
 }
 
-bool Core_IsInactive()
-{
+bool Core_IsInactive() {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
 }
 
-void Core_WaitInactive()
-{
-	while (Core_IsActive())
+void Core_WaitInactive() {
+	while (Core_IsActive()) {
 		m_hInactiveEvent.wait(m_hInactiveMutex);
+	}
 }
 
-void Core_WaitInactive(int milliseconds)
-{
-	if (Core_IsActive())
+void Core_WaitInactive(int milliseconds) {
+	if (Core_IsActive()) {
 		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
+	}
 }
 
 void UpdateScreenScale() {
@@ -180,22 +173,25 @@ void Core_RunLoop()
 	}
 }
 
-void Core_DoSingleStep()
-{
+void Core_DoSingleStep() {
 	singleStepPending = true;
 	m_hStepEvent.notify_one();
 }
 
-void Core_UpdateSingleStep()
-{
+void Core_UpdateSingleStep() {
 	m_hStepEvent.notify_one();
 }
 
-void Core_SingleStep()
-{
+void Core_SingleStep() {
 	currentMIPS->SingleStep();
 }
 
+static inline void CoreStateProcessed() {
+	if (coreStatePending) {
+		coreStatePending = false;
+		m_hInactiveEvent.notify_one();
+	}
+}
 
 // Some platforms, like Android, do not call this function but handle things on their own.
 void Core_Run()
@@ -209,10 +205,7 @@ void Core_Run()
 	{
 reswitch:
 		if (globalUIState != UISTATE_INGAME) {
-			if (coreStatePending) {
-				coreStatePending = false;
-				m_hInactiveEvent.notify_one();
-			}
+			CoreStateProcessed();
 			if (globalUIState == UISTATE_EXIT) {
 				return;
 			}
@@ -230,10 +223,7 @@ reswitch:
 		// We should never get here on Android.
 		case CORE_STEPPING:
 			singleStepPending = false;
-			if (coreStatePending) {
-				coreStatePending = false;
-				m_hInactiveEvent.notify_one();
-			}
+			CoreStateProcessed();
 
 			// Check if there's any pending savestate actions.
 			SaveState::Process();
@@ -277,10 +267,7 @@ reswitch:
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
 			// Exit loop!!
-			if (coreStatePending) {
-				coreStatePending = false;
-				m_hInactiveEvent.notify_one();
-			}
+			CoreStateProcessed();
 
 			return;
 
@@ -292,19 +279,15 @@ reswitch:
 }
 
 
-void Core_EnableStepping(bool step)
-{
-	if (step)
-	{
+void Core_EnableStepping(bool step) {
+	if (step) {
 		sleep_ms(1);
 #if defined(_DEBUG)
 		host->SetDebugMode(true);
 #endif
 		m_hStepEvent.reset();
 		Core_UpdateState(CORE_STEPPING);
-	}
-	else
-	{
+	} else {
 #if defined(_DEBUG)
 		host->SetDebugMode(false);
 #endif
