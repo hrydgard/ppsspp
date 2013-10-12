@@ -485,7 +485,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 #endif
 
 	cycleLastPC = list.pc;
-	cyclesExecuted += 300;
+	cyclesExecuted += 60;
 	downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
