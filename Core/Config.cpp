@@ -493,9 +493,8 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 }
 
 void Config::RestoreDefaults() {
-	// TODO: This should probably use the correct path?
-	if(File::Exists("ppsspp.ini"))
-		File::Delete("ppsspp.ini");
+	if(File::Exists(iniFilename_))
+		File::Delete(iniFilename_);
 	recentIsos.clear();
 	currentDirectory = "";
 	Load();
