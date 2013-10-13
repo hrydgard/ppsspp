@@ -50,11 +50,12 @@ int PSPNetconfDialog::Shutdown(bool force) {
 	return PSPDialog::Shutdown();
 }
 
-void PSPNetconfDialog::DoState(PointerWrap &p) {
+void PSPNetconfDialog::DoState(PointerWrap &p) {	
+	PSPDialog::DoState(p);
+
 	auto s = p.Section("PSPNetconfigDialog", 0, 1);
 	if (!s)
 		return;
 
-	PSPDialog::DoState(p);
 	p.Do(request);
 }
