@@ -363,7 +363,7 @@ CoreParameter &PSP_CoreParameter() {
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 #ifdef _WIN32
-	std::string path = File::GetExeDirectory();
+	std::string path = ConvertWStringToUTF8(File::GetExeDirectory());
 
 	// Mount a filesystem
 	flash0path = path + "/flash0/";
@@ -402,7 +402,7 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 	// We're screwed anyway if we can't write to Documents, or can't detect it.
 	std::string testFile = "/_writable_test.$$$";
 
-	if (!File::CreateEmptyFile(path + testFile))
+	if (!File::CreateEmptyFile(memstickpath + testFile))
 		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 
 	// Clean up our mess.
