@@ -24,6 +24,9 @@
 
 template <typename B, typename Event, typename EventType, EventType EVENT_INVALID, EventType EVENT_SYNC, EventType EVENT_FINISH>
 struct ThreadEventQueue : public B {
+	ThreadEventQueue() : threadEnabled_(false), eventsRunning_(false) {
+	}
+
 	void SetThreadEnabled(bool threadEnabled) {
 		threadEnabled_ = threadEnabled;
 	}
