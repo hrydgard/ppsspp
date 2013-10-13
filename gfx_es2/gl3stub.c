@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#ifndef IOS
+
 #include "gl3stub.h"
 
 #if defined(USING_GLES2) && !defined(__SYMBIAN32__)
@@ -343,4 +345,5 @@ GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei
 GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 
+#endif
 #endif
