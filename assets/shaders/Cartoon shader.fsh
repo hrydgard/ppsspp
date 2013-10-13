@@ -14,17 +14,25 @@ const float bb = 0.5; // effects black border sensitivity; from 0.0 to 1.0
 
 uniform sampler2D sampler0;
 
+varying vec4 v_texcoord0;
+varying vec4 v_texcoord1;
+varying vec4 v_texcoord2;
+varying vec4 v_texcoord3;
+varying vec4 v_texcoord4;
+varying vec4 v_texcoord5;
+varying vec4 v_texcoord6;
+
 void main()
 {
-	vec3 c00 = texture2D(sampler0, gl_TexCoord[5].xy).xyz; 
-	vec3 c10 = texture2D(sampler0, gl_TexCoord[1].xy).xyz; 
-	vec3 c20 = texture2D(sampler0, gl_TexCoord[2].zw).xyz; 
-	vec3 c01 = texture2D(sampler0, gl_TexCoord[3].xy).xyz; 
-	vec3 c11 = texture2D(sampler0, gl_TexCoord[0].xy).xyz; 
-	vec3 c21 = texture2D(sampler0, gl_TexCoord[4].xy).xyz; 
-	vec3 c02 = texture2D(sampler0, gl_TexCoord[1].zw).xyz; 
-	vec3 c12 = texture2D(sampler0, gl_TexCoord[2].xy).xyz; 
-	vec3 c22 = texture2D(sampler0, gl_TexCoord[6].xy).xyz; 
+	vec3 c00 = texture2D(sampler0, v_texcoord5.xy).xyz; 
+	vec3 c10 = texture2D(sampler0, v_texcoord1.xy).xyz; 
+	vec3 c20 = texture2D(sampler0, v_texcoord2.zw).xyz; 
+	vec3 c01 = texture2D(sampler0, v_texcoord3.xy).xyz; 
+	vec3 c11 = texture2D(sampler0, v_texcoord0.xy).xyz; 
+	vec3 c21 = texture2D(sampler0, v_texcoord4.xy).xyz; 
+	vec3 c02 = texture2D(sampler0, v_texcoord1.zw).xyz; 
+	vec3 c12 = texture2D(sampler0, v_texcoord2.xy).xyz; 
+	vec3 c22 = texture2D(sampler0, v_texcoord6.xy).xyz; 
 	vec3 dt = vec3(1.0,1.0,1.0); 
 
 	float d1=dot(abs(c00-c22),dt);
