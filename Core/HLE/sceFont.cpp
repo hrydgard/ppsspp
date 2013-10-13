@@ -479,14 +479,22 @@ void __LoadInternalFonts() {
 		// Fonts already loaded.
 		return;
 	}
-	std::string fontPath = "flash0:/font/";
+	const std::string fontPath = "flash0:/font/";
+	const std::string fontOverridePath = "ms0:/PSP/flash0/font/";
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
 	}
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 		const FontRegistryEntry &entry = fontRegistry[i];
-		std::string fontFilename = fontPath + entry.fileName;
+		std::string fontFilename = fontOverridePath + entry.fileName;
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
+
+		if (!info.exists) {
+			// No override, let's use the default then.
+			fontFilename = fontPath + entry.fileName;
+			info = pspFileSystem.GetFileInfo(fontFilename);
+		}
+
 		if (info.exists) {
 			INFO_LOG(SCEFONT, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
 			u8 *buffer = new u8[(size_t)info.size];

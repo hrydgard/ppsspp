@@ -246,6 +246,22 @@ void NativeInit(int argc, const char *argv[],
 
 	host = new NativeHost();
 
+#if defined(ANDROID)
+	g_Config.internalDataDirectory = savegame_directory;
+	// Maybe there should be an option to use internal memory instead, but I think
+	// that for most people, using external memory (SDCard/USB Storage) makes the
+	// most sense.
+	g_Config.memCardDirectory = std::string(external_directory) + "/";
+	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS)
+	g_Config.memCardDirectory = user_data_path;
+	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
+#elif !defined(_WIN32)
+	// Linux, Mac.  Does this path really make sense?
+	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
+#endif
+
 #ifndef _WIN32
 	logger = new AndroidLogger();
 
@@ -253,19 +269,20 @@ void NativeInit(int argc, const char *argv[],
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
-	config_filename = user_data_path + "/ppsspp.ini";
-	std::string controls_filename = user_data_path + "/controls.ini";
-	g_Config.Load(config_filename.c_str(), controls_filename.c_str());
+	g_Config.AddSearchPath(user_data_path);
+	g_Config.AddSearchPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.Load();
 	g_Config.externalDirectory = external_directory;
 #endif
 
 #ifdef ANDROID
 	// On Android, create a PSP directory tree in the external_directory,
 	// to hopefully reduce confusion a bit. 
-	ILOG("Creating %s", (g_Config.externalDirectory + "/PSP").c_str());
-	mkDir((g_Config.externalDirectory + "/PSP").c_str());
-	mkDir((g_Config.externalDirectory + "/PSP/SAVEDATA").c_str());
-	mkDir((g_Config.externalDirectory + "/PSP/GAME").c_str());
+	ILOG("Creating %s", (g_Config.memCardDirectory + "PSP").c_str());
+	mkDir((g_Config.memCardDirectory + "PSP").c_str());
+	mkDir((g_Config.memCardDirectory + "PSP/SAVEDATA").c_str());
+	mkDir((g_Config.memCardDirectory + "PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
@@ -330,21 +347,6 @@ void NativeInit(int argc, const char *argv[],
 		g_Config.currentDirectory = getenv("HOME");
 #endif
 	}
-
-#if defined(ANDROID)
-	g_Config.internalDataDirectory = savegame_directory;
-	// Maybe there should be an option to use internal memory instead, but I think
-	// that for most people, using external memory (SDCard/USB Storage) makes the
-	// most sense.
-	g_Config.memCardDirectory = std::string(external_directory) + "/";
-	g_Config.flashDirectory = std::string(external_directory)+"/flash0/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS) || defined(_WIN32)
-	g_Config.memCardDirectory = user_data_path;
-	g_Config.flashDirectory = std::string(external_directory)+"flash0/";
-#else
-	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash0/";
-#endif
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
