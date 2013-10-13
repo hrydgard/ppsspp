@@ -369,3 +369,10 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 	delete [] pathbuf;
 	return false;
 }
+
+void WindowsHost::GoFullscreen(bool viewFullscreen) {
+	if (viewFullscreen)
+		MainWindow::_ViewFullScreen(MainWindow::GetHWND());
+	else
+		MainWindow::_ViewNormal(MainWindow::GetHWND());
+}
