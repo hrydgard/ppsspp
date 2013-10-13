@@ -363,25 +363,17 @@ CoreParameter &PSP_CoreParameter() {
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 #ifdef _WIN32
-	wchar_t path_buffer[_MAX_PATH];
-	char drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
-	char memstickpath_buf[_MAX_PATH];
-	char flash0path_buf[_MAX_PATH];
-	GetModuleFileName(NULL, path_buffer, ARRAY_SIZE(path_buffer));
+	std::string path = File::GetExeDirectory();
 
-	std::string path = ConvertWStringToUTF8(path_buffer);
-
-	_splitpath_s(path.c_str(), drive, dir, file, ext );
-
-	std::string executableDir = File::GetExeDirectory();
+	// Mount a filesystem
+	flash0path = path + "/flash0/";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 	wchar_t myDocumentsPath[MAX_PATH];
 	HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 
-	std::string installedFile = executableDir + "/installed.txt";
+	std::string installedFile = path + "/installed.txt";
 	bool installed = File::Exists(installedFile);
-	std::string testFile = "/_writable_test.$$$";
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && (result == S_OK))	{
@@ -393,43 +385,29 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 			}
 		} 
 
-		// If the path doesn't end with a slash, add one.
+		// Check if the file is empty first, before appending the slash.
+		if (memstickpath.empty())
+			memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+
 		size_t lastSlash = memstickpath.find_last_of("/");
 		if (lastSlash != (memstickpath.length() - 1))
 			memstickpath.append("/");
 
 		inputFile.close();
 	} else {
-		sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);
-		memstickpath = memstickpath_buf;
+		memstickpath = path + "/memstick/";
 	}
 
-	bool currentDirIsReadOnly = false;
+	// If any directory is read-only, fall back to the Documents directory.
+	// We're screwed anyway if we can't write to Documents, or can't detect it.
+	std::string testFile = "/_writable_test.$$$";
 
-	if (!installed)
-		currentDirIsReadOnly = !File::CreateEmptyFile(executableDir + testFile);
-
-	bool memstickDirIsReadOnly = false;
-
-	if (!memstickpath.empty() && !File::CreateEmptyFile(memstickpath + testFile))
-		memstickDirIsReadOnly = true;
-
-	// Clean up our mess.
-	if (!currentDirIsReadOnly)
-		File::Delete(executableDir + testFile);
-
-	if (!memstickDirIsReadOnly)
-		File::Delete(memstickpath + testFile);
-
-	// Use the Documents directory if the installedFile is blank, if the current directory is read-only,
-	// or if the custom directory is read-only.
-	// If somehow the Documents directory is read-only, then we're screwed anyway..
-	if (currentDirIsReadOnly || memstickDirIsReadOnly || memstickpath.empty())
+	if (!File::CreateEmptyFile(path + testFile))
 		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 
-	// Mount a filesystem
-	sprintf(flash0path_buf, "%s%sflash0\\", drive, dir);
-	flash0path = flash0path_buf;
+	// Clean up our mess.
+	if (File::Exists(memstickpath + testFile))
+		File::Delete(memstickpath + testFile);
 #else
 	// TODO
 	memstickpath = g_Config.memCardDirectory;
