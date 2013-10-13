@@ -3,6 +3,10 @@
 
 
 uniform sampler2D sampler0;
+varying vec4 v_texcoord0;
+varying vec4 v_texcoord1;
+varying vec4 v_texcoord2;
+varying vec4 v_texcoord3;
 
 const mat3 RGBtoYIQ = mat3(0.299, 0.596, 0.212, 
                            0.587,-0.275,-0.523, 
@@ -18,25 +22,25 @@ void main()
 {
 vec3 c0,c1;
 
-c0 = texture2D(sampler0,gl_TexCoord[0].xy).xyz;
-c0+=(texture2D(sampler0,gl_TexCoord[0].zy).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[0].xw).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[0].zw).xyz)*0.125;
+c0 = texture2D(sampler0,v_texcoord0.xy).xyz;
+c0+=(texture2D(sampler0,v_texcoord0.zy).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord0.xw).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord0.zw).xyz)*0.125;
 
-c0+= texture2D(sampler0,gl_TexCoord[1].xy).xyz;
-c0+=(texture2D(sampler0,gl_TexCoord[1].zy).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[1].xw).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[1].zw).xyz)*0.125;
+c0+= texture2D(sampler0,v_texcoord1.xy).xyz;
+c0+=(texture2D(sampler0,v_texcoord1.zy).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord1.xw).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord1.zw).xyz)*0.125;
 
-c0+= texture2D(sampler0,gl_TexCoord[2].xy).xyz;
-c0+=(texture2D(sampler0,gl_TexCoord[2].zy).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[2].xw).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[2].zw).xyz)*0.125;
+c0+= texture2D(sampler0,v_texcoord2.xy).xyz;
+c0+=(texture2D(sampler0,v_texcoord2.zy).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord2.xw).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord2.zw).xyz)*0.125;
 
-c0+= texture2D(sampler0,gl_TexCoord[3].xy).xyz;
-c0+=(texture2D(sampler0,gl_TexCoord[3].zy).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[3].xw).xyz)*0.25;
-c0+=(texture2D(sampler0,gl_TexCoord[3].zw).xyz)*0.125;
+c0+= texture2D(sampler0,v_texcoord3.xy).xyz;
+c0+=(texture2D(sampler0,v_texcoord3.zy).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord3.xw).xyz)*0.25;
+c0+=(texture2D(sampler0,v_texcoord3.zw).xyz)*0.125;
 c0*=0.153846153846;
 
 c1=RGBtoYIQ*c0;
