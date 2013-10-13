@@ -1854,7 +1854,7 @@ namespace MainWindow
 		return hInst;
 	}
 
-	void ShowDebugConsole(bool) {
+	void ToggleDebugConsoleVisibility() {
 		if (!g_Config.bEnableLogging) {
 			LogManager::GetInstance()->GetConsoleListener()->Show(false);
 			EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);

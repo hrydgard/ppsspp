@@ -375,6 +375,6 @@ void WindowsHost::GoFullscreen(bool viewFullscreen) {
 		MainWindow::_ViewNormal(MainWindow::GetHWND());
 }
 
-void WindowsHost::ShowDebugConsole(bool showConsole) {
-	MainWindow::ShowDebugConsole(showConsole);
+void WindowsHost::ToggleDebugConsoleVisibility() {
+	MainWindow::ToggleDebugConsoleVisibility();
 }

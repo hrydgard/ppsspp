@@ -533,7 +533,7 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 }
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
-	host->ShowDebugConsole(g_Config.bEnableLogging);
+	host->ToggleDebugConsoleVisibility();
 	return UI::EVENT_DONE;
 }
 

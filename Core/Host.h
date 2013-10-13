@@ -48,7 +48,7 @@ public:
 	virtual void GoFullscreen(bool) {}
 	virtual void ShutdownSound() = 0;
 	virtual void PollControllers(InputState &input_state) {}
-	virtual void ShowDebugConsole(bool) {}
+	virtual void ToggleDebugConsoleVisibility() {}
 
 	//this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {}

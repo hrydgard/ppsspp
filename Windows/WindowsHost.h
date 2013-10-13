@@ -62,7 +62,7 @@ public:
 	virtual void GPUNotifyDraw();
 	virtual void GPUNotifyTextureAttachment(u32 addr);
 	virtual bool GPUAllowTextureCache(u32 addr);
-	virtual void ShowDebugConsole(bool);
+	virtual void ToggleDebugConsoleVisibility();
 
 	virtual bool CanCreateShortcut() {return false;}  // Turn on when fixed
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title);
