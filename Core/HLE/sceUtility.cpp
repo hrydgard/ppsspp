@@ -32,6 +32,7 @@
 #include "../Dialog/PSPPlaceholderDialog.h"
 #include "../Dialog/PSPOskDialog.h"
 #include "../Dialog/PSPGamedataInstallDialog.h"
+#include "../Dialog/PSPNetconfDialog.h"
 
 #include "../native/file/ini_file.h"
 
@@ -59,7 +60,7 @@ static bool currentDialogActive;
 static PSPSaveDialog saveDialog;
 static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
-static PSPPlaceholderDialog netDialog;
+static PSPNetconfDialog netDialog;
 static PSPPlaceholderDialog screenshotDialog;
 static PSPGamedataInstallDialog gamedataInstallDialog;
 
@@ -372,15 +373,28 @@ int sceUtilityOskGetStatus()
 }
 
 
-int sceUtilityNetconfInitStart(u32 structAddr)
+int sceUtilityNetconfInitStart(u32 paramsAddr)
 {
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfInitStart(%08x)", structAddr);
-	return netDialog.Init();
+	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_NET) {
+		WARN_LOG(SCEUTILITY, "sceUtilityNetconfInitStart(%08x): wrong dialog type", paramsAddr);
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogType = UTILITY_DIALOG_NET;
+	currentDialogActive = true;	
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityNetconfInitStart(%08x)", paramsAddr);
+	return netDialog.Init(paramsAddr);
 }
 
 int sceUtilityNetconfShutdownStart(unsigned int unknown)
 {
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfShutdownStart(%i)", unknown);
+	if (currentDialogType != UTILITY_DIALOG_NET) {
+		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStartt(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogActive = false;
+
+	DEBUG_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStart()");
 	return netDialog.Shutdown();
 }
 
@@ -392,8 +406,14 @@ int sceUtilityNetconfUpdate(int animSpeed)
 
 int sceUtilityNetconfGetStatus()
 {
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfGetStatus()");
-	return netDialog.GetStatus();
+	if (currentDialogType != UTILITY_DIALOG_NET) {
+		WARN_LOG(SCEUTILITY, "sceUtilityNetconfGetStatus(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
+	int status = netDialog.GetStatus();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfGetStatus()", status);
+	return status;
 }
 
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
