@@ -180,9 +180,11 @@ enum MeasureSpecType {
 	AT_MOST,
 };
 
+// I hope I can find a way to simplify this one day.
 enum EventReturn {
-	EVENT_DONE,
-	EVENT_SKIPPED,
+	EVENT_DONE,  // Return this when no other view may process this event, for example if you changed the view hierarchy
+	EVENT_SKIPPED,  // Return this if you ignored an event
+	EVENT_CONTINUE,  // Return this if it's safe to send this event along. This hsould normally be the default choice but often EVENT_DONE is necessary.
 };
 
 enum FocusFlags {
@@ -292,7 +294,7 @@ public:
 			layoutParams_.reset(new LayoutParams());
 	}
 
-	virtual ~View() { if (HasFocus()) SetFocusedView(0); }
+	virtual ~View();
 
 	// Please note that Touch is called ENTIRELY asynchronously from drawing!
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
