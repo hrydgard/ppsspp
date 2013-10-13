@@ -889,6 +889,8 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 	case VC_NI: // c = !my_isinf(s[i]); break;
 	case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 		DISABLE;
+	default:
+		break;
 	}
 
 	// First, let's get the trivial ones.
