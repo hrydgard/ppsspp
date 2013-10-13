@@ -327,10 +327,20 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		
 		// Stencil Test
 		if (gstate.isStencilTestEnabled() && enableStencilTest) {
-			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
-				gstate.getStencilTestRef(),
-				gstate.getStencilTestMask());
+			glstate.stencilTest.enable(); 
+			int stencilValue = gstate.getStencilTestRef();
+			switch (gstate.getClutPaletteFormat()) {
+			case GE_TFMT_5650:
+				stencilValue = 0xFF;
+				break;
+			case GE_TFMT_5551:
+				stencilValue &= 0x80;
+				break;
+			case GE_TFMT_4444:
+				stencilValue &= 0xF0;
+				break;
+			}
+			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()], stencilValue, gstate.getStencilTestMask());
 			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
