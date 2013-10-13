@@ -435,9 +435,9 @@ void __IoManagerThread() {
 }
 
 void __IoWakeManager() {
+	// Ping the thread so that it knows to check coreState.
 	ioManagerThreadEnabled = false;
 	ioManager.FinishEventLoop();
-	ioManager.SyncThread();
 }
 
 void __IoInit() {

@@ -269,13 +269,10 @@ void Core_UpdateState(CoreState newState) {
 }
 
 void System_Wake() {
-	if (CPU_IsReady()) {
-		CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
-		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsShutdown);
-	}
+	// Ping the threads so they check coreState.
+	CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
 	if (gpu) {
 		gpu->FinishEventLoop();
-		gpu->SyncThread();
 	}
 }
 
