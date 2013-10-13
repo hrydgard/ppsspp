@@ -184,7 +184,7 @@ enum MeasureSpecType {
 enum EventReturn {
 	EVENT_DONE,  // Return this when no other view may process this event, for example if you changed the view hierarchy
 	EVENT_SKIPPED,  // Return this if you ignored an event
-	EVENT_CONTINUE,  // Return this if it's safe to send this event along. This hsould normally be the default choice but often EVENT_DONE is necessary.
+	EVENT_CONTINUE,  // Return this if it's safe to send this event to further listeners. This should normally be the default choice but often EVENT_DONE is necessary.
 };
 
 enum FocusFlags {
