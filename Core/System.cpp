@@ -17,6 +17,7 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#include <ShlObj.h>
 #endif
 
 #include "native/thread/thread.h"
@@ -364,18 +365,37 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 	char drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
 	char memstickpath_buf[_MAX_PATH];
 	char flash0path_buf[_MAX_PATH];
-
 	GetModuleFileName(NULL, path_buffer, ARRAY_SIZE(path_buffer));
 
 	std::string path = ConvertWStringToUTF8(path_buffer);
 
 	_splitpath_s(path.c_str(), drive, dir, file, ext );
 
-	// Mount a couple of filesystems
-	sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);
-	sprintf(flash0path_buf, "%s%sflash0\\", drive, dir);
+	std::string previousCurrentDir = g_Config.currentDirectory;
 
-	memstickpath = memstickpath_buf;
+	g_Config.currentDirectory = File::GetExeDirectory();
+
+	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
+	wchar_t myDocumentsPath[MAX_PATH];
+	HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+
+	bool installed = File::Exists(g_Config.currentDirectory + "/installed.txt");
+	std::string testFile = g_Config.currentDirectory + "/_writable_test.$$$";
+
+	// If installed.txt exists(and we can determine the Documents directory) or directory is read-only
+	if ((installed && result == S_OK) || !File::CreateEmptyFile(testFile))	{
+		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+	} else {
+		sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);
+		memstickpath = memstickpath_buf;
+	}
+
+	File::Delete(testFile);
+
+	g_Config.currentDirectory = previousCurrentDir;
+
+	// Mount a filesystem
+	sprintf(flash0path_buf, "%s%sflash0\\", drive, dir);
 	flash0path = flash0path_buf;
 #else
 	// TODO
