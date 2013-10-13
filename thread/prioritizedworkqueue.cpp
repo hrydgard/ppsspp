@@ -10,38 +10,38 @@ PrioritizedWorkQueue::~PrioritizedWorkQueue() {
 }
 
 void PrioritizedWorkQueue::Add(PrioritizedWorkQueueItem *item) {
-	mutex_.lock();
+	lock_guard guard(mutex_);
 	queue_.push_back(item);
-	mutex_.unlock();
 	notEmpty_.notify_one();
 }
 
 void PrioritizedWorkQueue::Stop() {
-	mutex_.lock();
+	lock_guard guard(mutex_);
 	done_ = true;
 	notEmpty_.notify_one();
-	mutex_.unlock();
 }
 
 void PrioritizedWorkQueue::Flush() {
 	if (queue_.empty())
 		return;
-	mutex_.lock();
+	lock_guard guard(mutex_);
 	for (auto iter = queue_.begin(); iter != queue_.end(); ++iter) {
 		delete *iter;
 	}
 	queue_.clear();
-	mutex_.unlock();
 }
 
 
 // The worker should simply call this in a loop. Will block when appropriate.
 PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
-	mutex_.lock();
+	lock_guard guard(mutex_);
+	if (done_) {
+		return 0;
+	}
+
 	while (queue_.empty()) {
 		notEmpty_.wait(mutex_);
 		if (done_) {
-			mutex_.unlock();
 			return 0;
 		}
 	}
@@ -59,11 +59,9 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 	if (best != queue_.end()) {
 		PrioritizedWorkQueueItem *poppedItem = *best;
 		queue_.erase(best);
-		mutex_.unlock();
 		return poppedItem;
 	} else {
 		// Not really sure how this can happen, but let's be safe.
-		mutex_.unlock();
 		return 0;
 	}
 }
