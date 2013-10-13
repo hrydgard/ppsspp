@@ -448,7 +448,7 @@ namespace MainWindow
 	void UpdateDynamicMenuCheckmarks() {
 		int item = ID_SHADERS_BASE + 1;
 
-		for (int i = 0; i < availableShaders.size(); i++)
+		for (size_t i = 0; i < availableShaders.size(); i++)
 			CheckMenuItem(menu, item++, ((g_Config.sPostShaderName == availableShaders[i]) ? MF_CHECKED : MF_UNCHECKED));
 	}
 

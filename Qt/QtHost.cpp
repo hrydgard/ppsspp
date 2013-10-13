@@ -29,7 +29,6 @@ Texture *uiTexture;
 UIContext *uiContext;
 
 ScreenManager *screenManager;
-std::string config_filename;
 std::string game_title;
 
 event m_hGPUStepEvent;
@@ -228,18 +227,19 @@ void QtHost::NextGPUStep()
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
-	std::string config_filename;
 	Common::EnableCrashingOnCrashes();
 	isMessagePending = false;
 
 	std::string user_data_path = savegame_directory;
+	std::string memcard_path = QDir::homePath().toStdString() + "/.ppsspp/";
 
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
 
-	config_filename = user_data_path + "ppsspp.ini";
-
-	g_Config.Load(config_filename.c_str());
+	g_Config.AddSearchPath(user_data_path);
+	g_Config.AddSearchPath(memcard_path + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.Load();
 
 	const char *fileToLog = 0;
 
@@ -309,7 +309,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	}
 
 	g_Config.memCardDirectory = QDir::homePath().toStdString()+"/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash0/";
+	g_Config.flash0Directory = g_Config.memCardDirectory+"/flash0/";
 
 	LogManager::Init();
 	if (fileToLog != NULL)

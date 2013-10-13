@@ -18,8 +18,6 @@ static int xres, yres;
 // TODO: Make config?
 static bool enableGLDebug = false;
 
-#pragma optimize("", off)
-
 void GL_Resized() {
 	if (!hWnd)
 		return;

@@ -34,6 +34,10 @@ struct ShaderInfo {
 
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
 	// SRGB texture reads, multiple shaders chained, etc.
+
+	bool operator == (const std::string &other) {
+		return name == other;
+	}
 };
 
 const ShaderInfo *GetPostShaderInfo(std::string name);

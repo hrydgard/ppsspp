@@ -20,12 +20,14 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "base/logging.h"
 #include "file/ini_file.h"
 #include "file/file_util.h"
 #include "file/vfs.h"
 
+#include "Core/Config.h"
 #include "GPU/Common/PostShader.h"
 
 static std::vector<ShaderInfo> shaderInfo;
@@ -58,7 +60,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 				name = name.substr(7);
 			if (path.substr(0, 7) == "assets/")
 				path = path.substr(7);
-			if (!ini.LoadFromVFS(name)) {
+			if (!ini.LoadFromVFS(name) && !ini.Load(fileInfo[f].fullName)) {
 				// vsh load. meh.
 			} else {
 				success = true;
@@ -79,6 +81,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.fragmentShaderFile = path + "/" + temp;
 					section.Get("Vertex", &temp, "");
 					info.vertexShaderFile = path + "/" + temp;
+					shaderInfo.erase(std::find(shaderInfo.begin(), shaderInfo.end(), info.name), shaderInfo.end());
 					shaderInfo.push_back(info);
 				}
 			}
@@ -90,6 +93,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 void LoadAllPostShaderInfo() {
 	std::vector<std::string> directories;
 	directories.push_back("assets/shaders");
+	directories.push_back(g_Config.memCardDirectory + "PSP/shaders");
 	LoadPostShaderInfo(directories);
 }
 

@@ -149,7 +149,7 @@ PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
-	for (int i = 0; i < shaders_.size(); i++) {
+	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sPostShaderName)
 			selected = i;
 		items.push_back(shaders_[i].name);

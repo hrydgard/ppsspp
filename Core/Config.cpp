@@ -19,6 +19,7 @@
 #include "base/NativeApp.h"
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Config.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
@@ -36,9 +37,8 @@ Config::~Config() { }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 {
-	iniFilename_ = iniFileName != NULL ? iniFileName : "ppsspp.ini";
-
-	controllerIniFilename_ = controllerIniFilename != NULL ? controllerIniFilename : "controls.ini";
+	iniFilename_ = FindConfigFile(iniFileName != NULL ? iniFileName : "ppsspp.ini");
+	controllerIniFilename_ = FindConfigFile(controllerIniFilename != NULL ? controllerIniFilename : "controls.ini");
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -462,9 +462,44 @@ void Config::CleanRecent() {
 	recentIsos = cleanedRecent;
 }
 
+void Config::SetDefaultPath(const std::string &defaultPath) {
+	defaultPath_ = defaultPath;
+}
+
+void Config::AddSearchPath(const std::string &path) {
+	searchPath_.push_back(path);
+}
+
+const std::string Config::FindConfigFile(const std::string &baseFilename) {
+	// Don't search for an absolute path.
+	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
+		return baseFilename;
+	}
+#ifdef _WIN32
+	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
+		return baseFilename;
+	}
+#endif
+
+	for (size_t i = 0; i < searchPath_.size(); ++i) {
+		std::string filename = searchPath_[i] + baseFilename;
+		if (File::Exists(filename)) {
+			return filename;
+		}
+	}
+
+	const std::string filename = defaultPath_.empty() ? baseFilename : defaultPath_ + baseFilename;
+	if (!File::Exists(filename)) {
+		std::string path;
+		SplitPath(filename, &path, NULL, NULL);
+		File::CreateFullPath(path);
+	}
+	return filename;
+}
+
 void Config::RestoreDefaults() {
-	if(File::Exists("ppsspp.ini"))
-		File::Delete("ppsspp.ini");
+	if(File::Exists(iniFilename_))
+		File::Delete(iniFilename_);
 	recentIsos.clear();
 	currentDirectory = "";
 	Load();

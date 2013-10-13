@@ -126,7 +126,7 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 			cheatList[j].replace(0, 3, "_C0");
 		}
 	}
-	for (int y = 0; y < bEnableCheat.size(); y++) {
+	for (size_t y = 0; y < bEnableCheat.size(); y++) {
 		bEnableCheat[y] = enableAll;
 	}
 	for (int i = 0; i < (int)cheatList.size(); i++) {
