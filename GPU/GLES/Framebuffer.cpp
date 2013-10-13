@@ -193,7 +193,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 				// user shader experiments.
 				ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
 				// let's show the first line of the error string as an OSM.
-				for (int i = 0; i < errorString.size(); i++) {
+				for (size_t i = 0; i < errorString.size(); i++) {
 					if (errorString[i] == '\n') {
 						errorString = errorString.substr(0, i);
 						break;

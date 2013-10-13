@@ -257,6 +257,10 @@ void CPU_RunLoop() {
 		coreState = CORE_POWERDOWN;
 	}
 
+	// Let's make sure the gpu has already cleaned up before we start freeing memory.
+	gpu->FinishEventLoop();
+	gpu->SyncThread(true);
+
 	CPU_Shutdown();
 	CPU_SetState(CPU_THREAD_NOT_RUNNING);
 }

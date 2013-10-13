@@ -231,7 +231,7 @@ public:
 
 	virtual void DeviceLost() = 0;
 	virtual void ReapplyGfxState() = 0;
-	virtual void SyncThread() = 0;
+	virtual void SyncThread(bool force = false) = 0;
 	virtual u64  GetTickEstimate() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 

@@ -515,14 +515,22 @@ void MetaFileSystem::DoState(PointerWrap &p)
 
 	u32 n = (u32) fileSystems.size();
 	p.Do(n);
+	bool skipPfat0 = false;
 	if (n != (u32) fileSystems.size())
 	{
-		p.SetError(p.ERROR_FAILURE);
-		ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
-		return;
+		if (n == (u32) fileSystems.size() - 1) {
+			skipPfat0 = true;
+		} else {
+			p.SetError(p.ERROR_FAILURE);
+			ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
+			return;
+		}
 	}
 
-	for (u32 i = 0; i < n; ++i)
-		fileSystems[i].system->DoState(p);
+	for (u32 i = 0; i < n; ++i) {
+		if (!skipPfat0 || fileSystems[i].prefix != "pfat0:") {
+			fileSystems[i].system->DoState(p);
+		}
+	}
 }
 
