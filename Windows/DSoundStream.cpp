@@ -11,7 +11,7 @@ namespace DSound
 
 	CRITICAL_SECTION soundCriticalSection;
 	HANDLE soundSyncEvent = NULL;
-	HANDLE hThread;
+	HANDLE hThread = NULL;
 
 	StreamCallback callback;
 
@@ -204,6 +204,7 @@ namespace DSound
 		{
 			WaitForSingleObject(hThread, 1000);
 			CloseHandle(hThread);
+			hThread = NULL;
 		}
 
 		if (threadData == 2)
