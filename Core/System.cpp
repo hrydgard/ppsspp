@@ -373,20 +373,18 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 
 	_splitpath_s(path.c_str(), drive, dir, file, ext );
 
-	std::string previousCurrentDir = g_Config.currentDirectory;
-
-	g_Config.currentDirectory = File::GetExeDirectory();
+	std::string executableDir = File::GetExeDirectory();
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 	wchar_t myDocumentsPath[MAX_PATH];
 	HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 
-	std::string installedFile = g_Config.currentDirectory + "/installed.txt";
+	std::string installedFile = executableDir + "/installed.txt";
 	bool installed = File::Exists(installedFile);
-	std::string testFile = g_Config.currentDirectory + "/_writable_test.$$$";
+	std::string testFile = "/_writable_test.$$$";
 
 	// If installed.txt exists(and we can determine the Documents directory)
-	if ((installed && result == S_OK) )	{
+	if (installed && (result == S_OK))	{
 		std::ifstream inputFile;
 		inputFile.open(installedFile);
 		if (!inputFile.fail()) {
@@ -406,16 +404,28 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 		memstickpath = memstickpath_buf;
 	}
 
-	bool currentDirIsReadOnly = !File::CreateEmptyFile(testFile);
+	bool currentDirIsReadOnly = false;
 
-	// Use the documents directory if the installedFile is blank or if we can't create a file
-	// in the current directory.
-	if (currentDirIsReadOnly || memstickpath.empty())
+	if (!installed)
+		currentDirIsReadOnly = !File::CreateEmptyFile(executableDir + testFile);
+
+	bool memstickDirIsReadOnly = false;
+
+	if (!memstickpath.empty() && !File::CreateEmptyFile(memstickpath + testFile))
+		memstickDirIsReadOnly = true;
+
+	// Clean up our mess.
+	if (!currentDirIsReadOnly)
+		File::Delete(executableDir + testFile);
+
+	if (!memstickDirIsReadOnly)
+		File::Delete(memstickpath + testFile);
+
+	// Use the Documents directory if the installedFile is blank, if the current directory is read-only,
+	// or if the custom directory is read-only.
+	// If somehow the Documents directory is read-only, then we're screwed anyway..
+	if (currentDirIsReadOnly || memstickDirIsReadOnly || memstickpath.empty())
 		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
-
-	File::Delete(testFile);
-
-	g_Config.currentDirectory = previousCurrentDir;
 
 	// Mount a filesystem
 	sprintf(flash0path_buf, "%s%sflash0\\", drive, dir);
