@@ -763,6 +763,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPGamedataInstallDialog.h
 	Core/Dialog/PSPMsgDialog.cpp
 	Core/Dialog/PSPMsgDialog.h
+	Core/Dialog/PSPNetconfDialog.cpp
+	Core/Dialog/PSPNetconfDialog.h
 	Core/Dialog/PSPOskDialog.cpp
 	Core/Dialog/PSPOskDialog.h
 	Core/Dialog/PSPPlaceholderDialog.cpp
