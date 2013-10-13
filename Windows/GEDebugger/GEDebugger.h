@@ -40,6 +40,7 @@ enum BreakNextType {
 	BREAK_NEXT_TEX,
 	BREAK_NEXT_NONTEX,
 	BREAK_NEXT_FRAME,
+	BREAK_NEXT_PRIM,
 };
 
 class CtrlDisplayListView;

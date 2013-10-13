@@ -331,6 +331,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetBreakNext(BREAK_NEXT_FRAME);
 			break;
 
+		case IDC_GEDBG_STEPPRIM:
+			AddCmdBreakpoint(GE_CMD_PRIM, true);
+			AddCmdBreakpoint(GE_CMD_BEZIER, true);
+			AddCmdBreakpoint(GE_CMD_SPLINE, true);
+			SetBreakNext(BREAK_NEXT_PRIM);
+			break;
+
 		case IDC_GEDBG_BREAKTEX:
 			{
 				if (!gpuDebug) {
