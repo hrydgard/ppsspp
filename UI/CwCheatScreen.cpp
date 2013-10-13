@@ -153,7 +153,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 	std::vector<std::string> title;
 	bool finished = false, skip = false;
 	std::vector<std::string> newList;
-#if defined(ANDROID) || defined(__SYMBIAN32__) || defined(BLACKBERRY)
+#if defined(ANDROID) || defined(__SYMBIAN32__) || defined(BLACKBERRY) || defined(_WIN32)
 	std::string cheatDir = g_Config.memCardDirectory + "PSP/Cheats/cheat.db";
 	is.open(cheatDir.c_str());
 #else
