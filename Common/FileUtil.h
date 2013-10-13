@@ -125,7 +125,7 @@ std::string GetBundleDirectory();
 #endif
 
 #ifdef _WIN32
-std::string &GetExeDirectory();
+std::wstring &GetExeDirectory();
 #endif
 
 // simple wrapper for cstdlib file functions to
