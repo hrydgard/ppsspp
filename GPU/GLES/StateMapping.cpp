@@ -29,6 +29,34 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 
+static bool DepthTestPassed()
+{
+	switch (gstate.getDepthTestFunction()) {
+	case GE_COMP_NEVER:
+		return false;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+static bool StencilTestPassed()
+{
+	switch (gstate.getStencilTestFunction()) {
+	case GE_COMP_NEVER:
+		return false;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 static const GLushort aLookup[11] = {
 	GL_DST_COLOR,
 	GL_ONE_MINUS_DST_COLOR,
@@ -331,9 +359,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
 				gstate.getStencilTestRef(),
 				gstate.getStencilTestMask());
-			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
-				stencilOps[gstate.getStencilOpZFail()],  // depth fail
-				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+			glstate.stencilOp.set(!StencilTestPassed ? stencilOps[gstate.getStencilOpSFail()] : GL_REPLACE,  // stencil fail
+				!DepthTestPassed ? stencilOps[gstate.getStencilOpZFail()] : GL_REPLACE,  // depth fail
+				DepthTestPassed ? stencilOps[gstate.getStencilOpZPass()] : GL_REPLACE); // depth pass
+
 		} else 
 			glstate.stencilTest.disable();
 		
