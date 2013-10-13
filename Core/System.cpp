@@ -18,6 +18,8 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <ShlObj.h>
+#include <iostream>
+#include <string>
 #endif
 
 #include "native/thread/thread.h"
@@ -379,16 +381,37 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 	wchar_t myDocumentsPath[MAX_PATH];
 	HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 
-	bool installed = File::Exists(g_Config.currentDirectory + "/installed.txt");
+	std::string installedFile = g_Config.currentDirectory + "/installed.txt";
+	bool installed = File::Exists(installedFile);
 	std::string testFile = g_Config.currentDirectory + "/_writable_test.$$$";
 
-	// If installed.txt exists(and we can determine the Documents directory) or directory is read-only
-	if ((installed && result == S_OK) || !File::CreateEmptyFile(testFile))	{
-		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+	// If installed.txt exists(and we can determine the Documents directory)
+	if ((installed && result == S_OK) )	{
+		std::ifstream inputFile;
+		inputFile.open(installedFile);
+		if (!inputFile.fail()) {
+			while (!inputFile.eof()) {
+				std::getline(inputFile, memstickpath);
+			}
+		} 
+
+		// If the path doesn't end with a slash, add one.
+		size_t lastSlash = memstickpath.find_last_of("/");
+		if (lastSlash != (memstickpath.length() - 1))
+			memstickpath.append("/");
+
+		inputFile.close();
 	} else {
 		sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);
 		memstickpath = memstickpath_buf;
 	}
+
+	bool currentDirIsReadOnly = !File::CreateEmptyFile(testFile);
+
+	// Use the documents directory if the installedFile is blank or if we can't create a file
+	// in the current directory.
+	if (currentDirIsReadOnly || memstickpath.empty())
+		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 
 	File::Delete(testFile);
 
