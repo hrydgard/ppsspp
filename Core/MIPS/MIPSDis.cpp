@@ -278,7 +278,10 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
+		int sa = (op>>6)	& 0x1F;
 		const char *name = MIPSGetName(op);
+		if (((op & 0x3f) == 6) && sa == 1)
+			name = "rotrv";
 		sprintf(out, "%s\t%s, %s, %s",name,RN(rd),RN(rt),RN(rs));
 	}
 
