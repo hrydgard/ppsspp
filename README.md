@@ -3,7 +3,7 @@ PPSSPP - a fast and portable PSP emulator
 
 Written by Henrik Rydgård
 
-Released under the GPL 2.0 in November 2012
+Originally released under the GPL 2.0 (and later) in November 2012
 
 Official website:
 http://www.ppsspp.org/
@@ -11,6 +11,17 @@ http://www.ppsspp.org/
 To contribute, see [the development page][ppsspp-devel].
 
 For the latest source code and build instructions, see [our github page][ppsspp-repo].
+
+
+What's new in 0.9.5
+-------------------
+* Many, many emulation fixes including bezier/spline curve support, fixing LocoRoco and others
+* Performance improvements in some games
+* Post-processing shaders like FXAA, scanlines, vignette
+* More solid save states (we will try to keep them working from now on. Save states only upgrade forward,
+  not backward to older versions though).
+* Huge debugger improvements
+* ...
 
 Basic build instructions
 ------------------------
