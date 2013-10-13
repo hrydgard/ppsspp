@@ -6,6 +6,7 @@
 
 #include "base/logging.h"
 #include "file/vfs.h"
+#include "file/zip_read.h"
 #include "glsl_program.h"
 
 static std::set<GLSLProgram *> active_programs;
@@ -97,36 +98,51 @@ void glsl_refresh() {
 
 bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 	struct stat vs, fs;
-	if (0 == stat(program->vshader_filename, &vs))
-		program->vshader_mtime = vs.st_mtime;
-	else
-		program->vshader_mtime = 0;
-
-	if (0 == stat(program->fshader_filename, &fs))
-		program->fshader_mtime = fs.st_mtime;
-	else
-		program->fshader_mtime = 0;
-	
 	char *vsh_src = 0, *fsh_src = 0;
 
-	if (!program->vshader_source) 
-	{
+	if (strlen(program->vshader_filename) > 0 && 0 == stat(program->vshader_filename, &vs)) {
+		program->vshader_mtime = vs.st_mtime;
+		if (!program->vshader_source) {
+			size_t sz;
+			vsh_src = (char *)ReadLocalFile(program->vshader_filename, &sz);
+		}
+	} else {
+		program->vshader_mtime = 0;
+	}
+
+	if (strlen(program->fshader_filename) > 0 && 0 == stat(program->fshader_filename, &fs)) {
+		program->fshader_mtime = fs.st_mtime;
+		if (!program->fshader_source) {
+			size_t sz;
+			fsh_src = (char *)ReadLocalFile(program->fshader_filename, &sz);
+		}
+	} else {
+		program->fshader_mtime = 0;
+	}
+
+	if (!program->vshader_source && !vsh_src) {
 		size_t sz;
 		vsh_src = (char *)VFSReadFile(program->vshader_filename, &sz);
-		if (!vsh_src) {
-			ELOG("File missing: %s", program->vshader_filename);
-			return false;
-		}
 	}
-	if (!program->fshader_source)
-	{
+	if (!program->vshader_source && !vsh_src) {
+		ELOG("File missing: %s", program->vshader_filename);
+		if (error_message) {
+			*error_message = std::string("File missing: ") + program->vshader_filename;
+		}
+		delete [] fsh_src;
+		return false;
+	}
+	if (!program->fshader_source && !fsh_src) {
 		size_t sz;
 		fsh_src = (char *)VFSReadFile(program->fshader_filename, &sz);
-		if (!fsh_src) {
-			ELOG("File missing: %s", program->fshader_filename);
-			delete [] vsh_src;
-			return false;
+	}
+	if (!program->fshader_source && !fsh_src) {
+		ELOG("File missing: %s", program->fshader_filename);
+		if (error_message) {
+			*error_message = std::string("File missing: ") + program->fshader_filename;
 		}
+		delete [] vsh_src;
+		return false;
 	}
 
 	GLuint vsh = glCreateShader(GL_VERTEX_SHADER);
