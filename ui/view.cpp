@@ -103,13 +103,14 @@ void Event::Trigger(EventParams &e) {
 
 // Call this from UI thread
 EventReturn Event::Dispatch(EventParams &e) {
+	bool eventHandled = false;
 	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
 		if ((iter->func)(e) == UI::EVENT_DONE) {
 			// Event is handled, stop looping immediately. This event might even have gotten deleted.
-			return UI::EVENT_DONE;
+			eventHandled = true;
 		}
 	}
-	return UI::EVENT_SKIPPED;
+	return eventHandled ? UI::EVENT_DONE : UI::EVENT_SKIPPED;
 }
 
 void View::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -368,6 +369,12 @@ void PopupHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(text_.c_str(), bounds_.x + 12, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
+}
+
+EventReturn CheckBox::OnClicked(EventParams &e) {
+	if (toggle_)
+		*toggle_ = !(*toggle_);
+	return EVENT_DONE;
 }
 
 void CheckBox::Draw(UIContext &dc) {

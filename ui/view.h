@@ -596,11 +596,7 @@ public:
 
 	virtual void Draw(UIContext &dc);
 
-	EventReturn OnClicked(EventParams &e) {
-		if (toggle_)
-			*toggle_ = !(*toggle_);
-		return EVENT_DONE;
-	}
+	EventReturn OnClicked(EventParams &e);
 
 private:
 	bool *toggle_;
