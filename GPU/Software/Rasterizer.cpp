@@ -317,7 +317,7 @@ static inline void SetPixelDepth(int x, int y, u16 value)
 static inline u8 GetPixelStencil(int x, int y)
 {
 	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
-		// TODO: Should we return 0xFF instead here?
+		// Always treated as 0 for comparison purposes.
 		return 0;
 	} else if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
 		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
@@ -399,6 +399,17 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Ve
 
 static inline bool StencilTestPassed(u8 stencil)
 {
+	switch (gstate.FrameBufFormat()) {
+	case GE_FORMAT_4444:
+		// For comparison purposes, 0x1 is treated as 0x11 (0x10 is less, 0x12 is more.)
+		// This is not true for updates to the value, e.g. GE_STENCILOP_INCR.
+		stencil = Convert4To8(stencil);
+		break;
+	default:
+		// Every other case is already okay (5551 is 0 or 0xff.)
+		break;
+	}
+
 	// TODO: Does the masking logic make any sense?
 	stencil &= gstate.getStencilTestMask();
 	u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
@@ -444,7 +455,21 @@ static inline void ApplyStencilOp(int op, int x, int y)
 			return;
 
 		case GE_STENCILOP_REPLACE:
-			SetPixelStencil(x, y, reference_stencil);
+			switch (gstate.FrameBufFormat()) {
+			case GE_FORMAT_8888:
+				SetPixelStencil(x, y, reference_stencil);
+				break;
+			case GE_FORMAT_4444:
+				// Replace with the top 4 bits only.
+				SetPixelStencil(x, y, reference_stencil >> 4);
+				break;
+			case GE_FORMAT_5551:
+				// Replace with the value of the top bit only.
+				SetPixelStencil(x, y, reference_stencil >> 7);
+				break;
+			default:
+				break;
+			}
 			break;
 
 		case GE_STENCILOP_INVERT:
@@ -452,15 +477,26 @@ static inline void ApplyStencilOp(int op, int x, int y)
 			break;
 
 		case GE_STENCILOP_INCR:
-			// TODO: Does this overflow?
-			if (old_stencil != 0xFF)
-				SetPixelStencil(x, y, old_stencil+1);
+			switch (gstate.FrameBufFormat()) {
+			case GE_FORMAT_8888:
+			case GE_FORMAT_5551:
+				if (old_stencil != 0xFF) {
+					SetPixelStencil(x, y, old_stencil + 1);
+				}
+				break;
+			case GE_FORMAT_4444:
+				if (old_stencil != 0xF) {
+					SetPixelStencil(x, y, old_stencil + 1);
+				}
+				break;
+			default:
+				break;
+			}
 			break;
 
 		case GE_STENCILOP_DECR:
-			// TODO: Does this underflow?
 			if (old_stencil != 0)
-				SetPixelStencil(x, y, old_stencil-1);
+				SetPixelStencil(x, y, old_stencil - 1);
 			break;
 	}
 }
