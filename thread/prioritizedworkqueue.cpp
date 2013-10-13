@@ -12,8 +12,8 @@ PrioritizedWorkQueue::~PrioritizedWorkQueue() {
 void PrioritizedWorkQueue::Add(PrioritizedWorkQueueItem *item) {
 	mutex_.lock();
 	queue_.push_back(item);
-	mutex_.unlock();
 	notEmpty_.notify_one();
+	mutex_.unlock();
 }
 
 void PrioritizedWorkQueue::Stop() {
@@ -38,7 +38,7 @@ void PrioritizedWorkQueue::Flush() {
 // The worker should simply call this in a loop. Will block when appropriate.
 PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 	mutex_.lock();
-	while (queue_.empty()) {
+	while (queue_.empty() && !done_) {
 		notEmpty_.wait(mutex_);
 		if (done_) {
 			mutex_.unlock();
