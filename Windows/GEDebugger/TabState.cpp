@@ -58,6 +58,7 @@ enum CmdFormatType {
 	CMD_FMT_STENCILOP,
 	CMD_FMT_BLENDMODE,
 	CMD_FMT_FLAG,
+	CMD_FMT_CLEARMODE,
 };
 
 struct TabStateRow {
@@ -189,8 +190,7 @@ static const TabStateRow stateTextureRows[] = {
 };
 
 static const TabStateRow stateSettingsRows[] = {
-	// TODO: Format.  This is almost a flag...
-	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_HEX },
+	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_CLEARMODE },
 	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
 	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_TEXFMT },
 	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
@@ -491,6 +491,26 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
+		}
+		break;
+
+	case CMD_FMT_CLEARMODE:
+		if (value == 0) {
+			swprintf(dest, L"%d", value);
+		} else if ((value & ~(GE_CLEARMODE_ALL | 1)) == 0) {
+			const char *clearmodes[] = {
+				"1, write disabled",
+				"1, write color",
+				"1, write alpha/stencil",
+				"1, write color, alpha/stencil",
+				"1, write depth",
+				"1, write color, depth",
+				"1, write alpha/stencil, depth",
+				"1, write color, alpha/stencil, depth",
+			};
+			swprintf(dest, L"%S", clearmodes[value >> 8]);
+		} else {
+			swprintf(dest, L"%06x", value);
 		}
 		break;
 
