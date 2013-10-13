@@ -89,7 +89,8 @@ struct ThreadEventQueue : public B {
 		} while (CoreTiming::GetTicks() < globalticks);
 	}
 
-	void SyncThread() {
+	// Force ignores coreState.
+	void SyncThread(bool force = false) {
 		if (!threadEnabled_) {
 			return;
 		}
@@ -98,7 +99,7 @@ struct ThreadEventQueue : public B {
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
-		while (HasEvents() && coreState == CORE_RUNNING) {
+		while (HasEvents() && (force || coreState == CORE_RUNNING)) {
 			eventsDrain_.wait_for(eventsLock_, 1);
 		}
 	}
