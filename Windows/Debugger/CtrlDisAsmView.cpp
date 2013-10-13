@@ -1141,7 +1141,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 			return;
 		}
 
-		for (int i = 0; searchQuery[i] != 0; i++)
+		for (int i = 0; i < searchQuery.size(); i++)
 		{
 			searchQuery[i] = tolower(searchQuery[i]);
 		}

@@ -110,7 +110,7 @@ const tMipsOpcode MipsOpcodes[] = {
 // 110 | TGE   | TGEU  | TLT   | TLTU  | TEQ   |  ---  | TNE   |  ---  |
 // 111 | dsll  |  ---  | dsrl  | dsra  |dsll32 |  ---  |dsrl32 |dsra32 |
 //  hi |-------|-------|-------|-------|-------|-------|-------|-------|
-// *1:	rotr when rs = 1 (PSP only)		*2:	rotrv when rs = 1 (PSP only)
+// *1:	rotr when rs = 1 (PSP only)		*2:	rotrv when sa = 1 (PSP only)
 // *3:	dsrlv on PS2, clz on PSP		*4:	dsrav on PS2, clo on PSP
 // *5:	dadd on PS2, max on PSP			*6:	daddu on PS2, min on PSP
 // *7:	dsub on PS2, msub on PSP		*8:	dsubu on PS2, msubu on PSP
@@ -127,8 +127,8 @@ const tMipsOpcode MipsOpcodes[] = {
 	{ "sllv",	"d,s",		0x00000004,	O_RDT|O_RS },
 	{ "srlv",	"d,t,s",	0x00000006,	O_RD|O_RT|O_RS },
 	{ "srlv",	"d,s",		0x00000006,	O_RDT|O_RS },
-	{ "rotrv",	"d,t,s",	0x00200006,	O_RD|O_RT|O_RS },
-	{ "rotrv",	"d,s",		0x00200006,	O_RDT|O_RS },
+	{ "rotrv",	"d,t,s",	0x00000046,	O_RD|O_RT|O_RS },
+	{ "rotrv",	"d,s",		0x00000046,	O_RDT|O_RS },
 	{ "srav",	"d,t,s",	0x00000007,	O_RD|O_RT|O_RS },
 	{ "srav",	"d,s",		0x00000007,	O_RDT|O_RS },
 	{ "jr",		"s",		0x00000008,	O_RS|MO_DELAY|MO_NODELAY },
