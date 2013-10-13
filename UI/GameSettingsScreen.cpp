@@ -136,7 +136,7 @@ void GameSettingsScreen::CreateViews() {
 	// graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 #endif
 	
 	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing and postprocessing"))); 
@@ -302,6 +302,11 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
+	host->GoFullscreen(g_Config.bFullScreen);
 	return UI::EVENT_DONE;
 }
 
