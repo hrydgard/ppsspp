@@ -59,6 +59,9 @@ enum CmdFormatType {
 	CMD_FMT_BLENDMODE,
 	CMD_FMT_FLAG,
 	CMD_FMT_CLEARMODE,
+	CMD_FMT_TEXFUNC,
+	CMD_FMT_TEXMODE,
+	CMD_FMT_LOGICOP,
 };
 
 struct TabStateRow {
@@ -155,8 +158,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_TEXMODE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
@@ -166,8 +168,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_TEXFUNC, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
 	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
@@ -215,8 +216,7 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_BLENDMODE, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
-	// TODO: Format.
-	{ L"Logic Op",             GE_CMD_LOGICOP,                 CMD_FMT_HEX, GE_CMD_LOGICOPENABLE },
+	{ L"Logic Op",             GE_CMD_LOGICOP,                 CMD_FMT_LOGICOP, GE_CMD_LOGICOPENABLE },
 	{ L"Fog 1",                GE_CMD_FOG1,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog 2",                GE_CMD_FOG2,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog color",            GE_CMD_FOGCOLOR,                CMD_FMT_HEX, GE_CMD_FOGENABLE },
@@ -511,6 +511,70 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			swprintf(dest, L"%S", clearmodes[value >> 8]);
 		} else {
 			swprintf(dest, L"%06x", value);
+		}
+		break;
+
+	case CMD_FMT_TEXFUNC:
+		{
+			const char *texfuncs[] = {
+				"modulate",
+				"decal",
+				"blend",
+				"replace",
+				"add",
+			};
+			const u8 func = (value >> 0) & 0xFF;
+			const u8 rgba = (value >> 8) & 0xFF;
+			const u8 colorDouble = (value >> 16) & 0xFF;
+
+			if (rgba <= 1 && colorDouble <= 1 && func < (u8)ARRAY_SIZE(texfuncs)) {
+				swprintf(dest, L"%S, %S%S", texfuncs[func], rgba ? "RGBA" : "RGB", colorDouble ? ", color doubling" : "");
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXMODE:
+		{
+			const u8 swizzle = (value >> 0) & 0xFF;
+			const u8 clutLevels = (value >> 8) & 0xFF;
+			const u8 maxLevel = (value >> 16) & 0xFF;
+
+			if (swizzle <= 1 && clutLevels <= 1 && maxLevel <= 7) {
+				swprintf(dest, L"%S%d levels%S", swizzle ? "swizzled, " : "", maxLevel + 1, clutLevels ? ", CLUT per level" : "");
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_LOGICOP:
+		{
+			const char *logicOps[] = {
+				"clear",
+				"and",
+				"reverse and",
+				"copy",
+				"inverted and",
+				"noop",
+				"xor",
+				"or",
+				"negated or",
+				"equivalence",
+				"inverted",
+				"reverse or",
+				"inverted copy",
+				"inverted or",
+				"negated and",
+				"set",
+			};
+
+			if (value < ARRAY_SIZE(logicOps)) {
+				swprintf(dest, L"%S", logicOps[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
 		}
 		break;
 
