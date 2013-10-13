@@ -42,9 +42,6 @@
 
 #ifdef _WIN32
 namespace MainWindow {
-	enum { 
-		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
-	};
 	extern HWND hwndMain;
 }
 #endif
@@ -479,8 +476,6 @@ void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
-	enableLogging_ = g_Config.bEnableLogging;
-
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *de = GetI18NCategory("Developer");
 	I18NCategory *gs = GetI18NCategory("Graphics");
@@ -498,7 +493,7 @@ void DeveloperToolsScreen::CreateViews() {
 	if (!File::Exists(g_Config.memCardDirectory + "pspautotests/tests/"))
 		cpuTests->SetEnabled(false);
 
-	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	list->Add(new CheckBox(&g_Config.bEnableLogging, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
@@ -515,10 +510,6 @@ void DeveloperToolsScreen::sendMessage(const char *message, const char *value){
 UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 
-	g_Config.bEnableLogging = enableLogging_;
-#ifdef _WIN32
-	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
-#endif
 	g_Config.Save();
 
 	return UI::EVENT_DONE;
@@ -542,9 +533,7 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 }
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
-#ifdef _WIN32
-	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
-#endif
+	host->ShowDebugConsole(g_Config.bEnableLogging);
 	return UI::EVENT_DONE;
 }
 

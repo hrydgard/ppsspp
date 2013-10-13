@@ -169,8 +169,6 @@ void WindowsHost::SetDebugMode(bool mode)
 	}
 }
 
-extern BOOL g_bFullScreen;
-
 void WindowsHost::PollControllers(InputState &input_state)
 {
 	bool doPad = true;
@@ -375,4 +373,8 @@ void WindowsHost::GoFullscreen(bool viewFullscreen) {
 		MainWindow::_ViewFullScreen(MainWindow::GetHWND());
 	else
 		MainWindow::_ViewNormal(MainWindow::GetHWND());
+}
+
+void WindowsHost::ShowDebugConsole(bool showConsole) {
+	MainWindow::ShowDebugConsole(showConsole);
 }

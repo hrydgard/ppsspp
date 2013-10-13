@@ -1588,16 +1588,6 @@ namespace MainWindow
 			SetCursor(LoadCursor(0, IDC_ARROW));
 			break;
 
-		case WM_USER_LOG_STATUS_CHANGED:
-			if(!g_Config.bEnableLogging) {
-				LogManager::GetInstance()->GetConsoleListener()->Show(false);
-				EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
-			} else {
-				LogManager::GetInstance()->GetConsoleListener()->Show(true);
-				EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
-			}
-			break;
-
 		case WM_USER_UPDATE_UI:
 			TranslateMenus();
 			Update();
@@ -1862,5 +1852,16 @@ namespace MainWindow
 
 	HINSTANCE GetHInstance() {
 		return hInst;
+	}
+
+	void ShowDebugConsole(bool) {
+		if (!g_Config.bEnableLogging) {
+			LogManager::GetInstance()->GetConsoleListener()->Show(false);
+			EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
+		}
+		else {
+			LogManager::GetInstance()->GetConsoleListener()->Show(true);
+			EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
+		}
 	}
 }
