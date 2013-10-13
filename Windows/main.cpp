@@ -171,6 +171,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	SetCurrentDirectory(modulePath);
 	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
 
+#ifndef _DEBUG
+	bool hideLog = true;
+#else
+	bool hideLog = false;
+#endif
+
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 
@@ -232,6 +238,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			switch (__argv[i][1])
 			{
 			case 'l':
+				hideLog = false;
 				g_Config.bEnableLogging = true;
 				break;
 			case 's':
@@ -252,7 +259,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #endif
 
 	LogManager::Init();
-	LogManager::GetInstance()->GetConsoleListener()->Open(!g_Config.bEnableLogging, 150, 120, "PPSSPP Debug Console");
+	// Consider at least the following cases before changing this code:
+	//   - By default in Release, the console should be hidden by default even if logging is enabled.
+	//   - By default in Debug, the console should be shown by default.
+	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
+	//   - It should be possible to log to a file without showing the console.
+	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
 
 
 	//Windows, API init stuff
