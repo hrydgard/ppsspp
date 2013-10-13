@@ -47,6 +47,7 @@ enum CmdFormatType {
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
 	CMD_FMT_TEXFMT,
+	CMD_FMT_CLUTFMT,
 	CMD_FMT_COLORTEST,
 	CMD_FMT_ALPHATEST,
 	CMD_FMT_STENCILTEST,
@@ -62,6 +63,7 @@ enum CmdFormatType {
 	CMD_FMT_TEXFUNC,
 	CMD_FMT_TEXMODE,
 	CMD_FMT_LOGICOP,
+	CMD_FMT_TEXWRAP,
 };
 
 struct TabStateRow {
@@ -162,8 +164,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_TEXWRAP, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
@@ -171,7 +172,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_TEXFUNC, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
-	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
+	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_CLUTFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
 	{ L"Texture L1 addr",      GE_CMD_TEXADDR1,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH1 },
 	{ L"Texture L2 addr",      GE_CMD_TEXADDR2,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH2 },
@@ -349,6 +350,29 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			};
 			if (value < (u32)ARRAY_SIZE(texformats)) {
 				swprintf(dest, L"%S", texformats[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_CLUTFMT:
+		{
+			const char *clutformats[] = {
+				"BGR 5650",
+				"ABGR 1555",
+				"ABGR 4444",
+				"ABGR 8888",
+			};
+			const u8 palette = (value >> 0) & 0xFF;
+			const u8 mask = (value >> 8) & 0xFF;
+			const u8 offset = (value >> 16) & 0xFF;
+			if (palette < (u8)ARRAY_SIZE(clutformats) && offset < 0x20) {
+				if (offset == 0) {
+					swprintf(dest, L"%S & %02x", clutformats[palette], mask);
+				} else {
+					swprintf(dest, L"%S & %02x, offset +%d", clutformats[palette], mask, offset);
+				}
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
@@ -572,6 +596,18 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 			if (value < ARRAY_SIZE(logicOps)) {
 				swprintf(dest, L"%S", logicOps[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXWRAP:
+		{
+			if ((value & ~0x0101) == 0) {
+				const bool clampS = (value & 0x0001) != 0;
+				const bool clampT = (value & 0x0100) != 0;
+				swprintf(dest, L"%S s, %S t", clampS ? "clamp" : "wrap", clampT ? "clamp" : "wrap");
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
