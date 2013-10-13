@@ -1,6 +1,10 @@
 // Natural shader, GLSL code adapted from:
 // http://forums.ngemu.com/showthread.php?t=76098
 
+#ifdef GL_ES
+precision mediump float;
+precision mediump int;
+#endif
 
 uniform sampler2D sampler0;
 varying vec4 v_texcoord0;

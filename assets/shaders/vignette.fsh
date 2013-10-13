@@ -1,4 +1,4 @@
-// Simple false color shader
+// Simple vignette shader - darker towards the corners like in the unprocessed output of a real camera.
 
 #ifdef GL_ES
 precision mediump float;
