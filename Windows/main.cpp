@@ -170,11 +170,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 	SetCurrentDirectory(modulePath);
 	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
-#ifndef _DEBUG
-	bool hideLog = true;
-#else
-	bool hideLog = false;
-#endif
 
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
@@ -237,7 +232,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			switch (__argv[i][1])
 			{
 			case 'l':
-				hideLog = false;
+				g_Config.bEnableLogging = true;
 				break;
 			case 's':
 				g_Config.bAutoRun = false;
@@ -252,9 +247,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				g_Config.bFullScreen = false;
 		}
 	}
+#ifdef _DEBUG
+	g_Config.bEnableLogging = true;
+#endif
 
 	LogManager::Init();
-	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
+	LogManager::GetInstance()->GetConsoleListener()->Open(!g_Config.bEnableLogging, 150, 120, "PPSSPP Debug Console");
 
 
 	//Windows, API init stuff
