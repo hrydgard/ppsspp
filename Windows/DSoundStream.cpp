@@ -195,6 +195,8 @@ namespace DSound
 		if (!dsBuffer)
 			return;
 
+		EnterCriticalSection(&soundCriticalSection);
+
 		if (threadData == 0)
 			threadData = 1;
 
@@ -217,6 +219,7 @@ namespace DSound
 		if (soundSyncEvent != NULL)
 			CloseHandle(soundSyncEvent);
 		soundSyncEvent = NULL;
+		LeaveCriticalSection(&soundCriticalSection);
 	}
 
 
