@@ -360,6 +360,7 @@ namespace SaveState
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					osm.Show(i18nLoadFailure, 2.0);
+					ERROR_LOG(COMMON, "Load state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
 					osm.Show(s->T(reason.c_str(), i18nLoadFailure), 2.0);
@@ -376,6 +377,7 @@ namespace SaveState
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					osm.Show(i18nSaveFailure, 2.0);
+					ERROR_LOG(COMMON, "Save state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
 					osm.Show(i18nSaveFailure, 2.0);
