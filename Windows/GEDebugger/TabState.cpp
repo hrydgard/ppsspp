@@ -49,6 +49,7 @@ enum CmdFormatType {
 	CMD_FMT_TEXFMT,
 	CMD_FMT_COLORTEST,
 	CMD_FMT_ALPHATEST,
+	CMD_FMT_STENCILTEST,
 	CMD_FMT_ZTEST,
 	CMD_FMT_OFFSETADDR,
 	CMD_FMT_VADDR,
@@ -208,7 +209,7 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_NUM, GE_CMD_CULLFACEENABLE },
 	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
 	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
-	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_ALPHATEST, GE_CMD_STENCILTESTENABLE },
+	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_STENCILTEST, GE_CMD_STENCILTESTENABLE },
 	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_STENCILOP, GE_CMD_STENCILTESTENABLE },
 	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
 	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_BLENDMODE, GE_CMD_ALPHABLENDENABLE },
@@ -368,13 +369,19 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		break;
 
 	case CMD_FMT_ALPHATEST:
+	case CMD_FMT_STENCILTEST:
 		{
-			static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			const u8 mask = (value >> 16) & 0xff;
 			const u8 ref = (value >> 8) & 0xff;
 			const u8 func = (value >> 0) & 0xff;
 			if (func < (u8)ARRAY_SIZE(alphaTestFuncs)) {
-				swprintf(dest, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
+				if (info.fmt == CMD_FMT_ALPHATEST) {
+					swprintf(dest, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
+				} else if (info.fmt == CMD_FMT_STENCILTEST) {
+					// Stencil test is the other way around.
+					swprintf(dest, L"pass if (%02x & %02x) %S (a & %02x)", ref, mask, alphaTestFuncs[func], mask);
+				}
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
@@ -383,7 +390,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_ZTEST:
 		{
-			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			if (value < (u32)ARRAY_SIZE(zTestFuncs)) {
 				swprintf(dest, L"pass if src %S dst", zTestFuncs[value]);
 			} else {
