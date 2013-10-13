@@ -28,10 +28,19 @@ restart:
 	float y = 10.0f;
 	// Then draw them all. 
 	for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
-		float alpha = (iter->endTime - time_now_d()) * 4;
-		if (alpha > 1.0) alpha = 1.0;
-		if (alpha < 0.0) alpha = 0.0;
-		draw.DrawTextShadow(UBUNTU24, iter->text.c_str(), dp_xres / 2, y, colorAlpha(iter->color, alpha), ALIGN_TOP | ALIGN_HCENTER);
+		float alpha = (iter->endTime - time_now_d()) * 4.0f;
+		if (alpha > 1.0) alpha = 1.0f;
+		if (alpha < 0.0) alpha = 0.0f;
+		// Messages that are wider than the screen are left-aligned instead of centered.
+		float tw, th;
+		draw.MeasureText(UBUNTU24, iter->text.c_str(), &tw, &th);
+		float x = dp_xres / 2;
+		int align = ALIGN_TOP | ALIGN_HCENTER;
+		if (tw > dp_xres) {
+			align = ALIGN_TOP | ALIGN_LEFT;
+			x = 2;
+		}
+		draw.DrawTextShadow(UBUNTU24, iter->text.c_str(), x, y, colorAlpha(iter->color, alpha), align);
 		y += h;
 	}
 }

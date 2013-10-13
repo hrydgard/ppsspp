@@ -34,6 +34,8 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
 
+#include "UI/OnScreenDisplay.h"
+
 #include <algorithm>
 
 #if defined(USING_GLES2)
@@ -168,9 +170,14 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 
 void FramebufferManager::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
-		draw2dprogram_ = glsl_create_source(basic_vs, tex_fs);
-		glsl_bind(draw2dprogram_);
-		glUniform1i(draw2dprogram_->sampler0, 0);
+		std::string errorString;
+		draw2dprogram_ = glsl_create_source(basic_vs, tex_fs, &errorString);
+		if (!draw2dprogram_) {
+			ERROR_LOG_REPORT(G3D, "Failed to compile draw2dprogram! This shouldn't happen.\n%s", errorString.c_str());
+		} else {
+			glsl_bind(draw2dprogram_);
+			glUniform1i(draw2dprogram_->sampler0, 0);
+		}
 
 		SetNumExtraFBOs(0);
 		
@@ -180,9 +187,19 @@ void FramebufferManager::CompileDraw2DProgram() {
 		}
 
 		if (shaderInfo) {
-			postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str());
+			postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
 			if (!postShaderProgram_) {
-				ERROR_LOG(G3D, "Failed to build post-processing program");
+				// DO NOT turn this into a report, as it will pollute our logs with all kinds of
+				// user shader experiments.
+				ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
+				// let's show the first line of the error string as an OSM.
+				for (int i = 0; i < errorString.size(); i++) {
+					if (errorString[i] == '\n') {
+						errorString = errorString.substr(0, i);
+						break;
+					}
+				}
+				osm.Show("Post-shader error: " + errorString + " ...", 10.0f, 0xFF3090FF);
 				usePostShader_ = false;
 			} else {
 				glsl_bind(postShaderProgram_);
