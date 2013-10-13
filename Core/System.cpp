@@ -17,6 +17,9 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#include <ShlObj.h>
+#include <iostream>
+#include <string>
 #endif
 
 #include "native/thread/thread.h"
@@ -360,23 +363,51 @@ CoreParameter &PSP_CoreParameter() {
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 #ifdef _WIN32
-	wchar_t path_buffer[_MAX_PATH];
-	char drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
-	char memstickpath_buf[_MAX_PATH];
-	char flash0path_buf[_MAX_PATH];
+	std::string path = File::GetExeDirectory();
 
-	GetModuleFileName(NULL, path_buffer, ARRAY_SIZE(path_buffer));
+	// Mount a filesystem
+	flash0path = path + "/flash0/";
 
-	std::string path = ConvertWStringToUTF8(path_buffer);
+	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
+	wchar_t myDocumentsPath[MAX_PATH];
+	HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 
-	_splitpath_s(path.c_str(), drive, dir, file, ext );
+	std::string installedFile = path + "/installed.txt";
+	bool installed = File::Exists(installedFile);
 
-	// Mount a couple of filesystems
-	sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);
-	sprintf(flash0path_buf, "%s%sflash0\\", drive, dir);
+	// If installed.txt exists(and we can determine the Documents directory)
+	if (installed && (result == S_OK))	{
+		std::ifstream inputFile;
+		inputFile.open(installedFile);
+		if (!inputFile.fail()) {
+			while (!inputFile.eof()) {
+				std::getline(inputFile, memstickpath);
+			}
+		} 
 
-	memstickpath = memstickpath_buf;
-	flash0path = flash0path_buf;
+		// Check if the file is empty first, before appending the slash.
+		if (memstickpath.empty())
+			memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+
+		size_t lastSlash = memstickpath.find_last_of("/");
+		if (lastSlash != (memstickpath.length() - 1))
+			memstickpath.append("/");
+
+		inputFile.close();
+	} else {
+		memstickpath = path + "/memstick/";
+	}
+
+	// If any directory is read-only, fall back to the Documents directory.
+	// We're screwed anyway if we can't write to Documents, or can't detect it.
+	std::string testFile = "/_writable_test.$$$";
+
+	if (!File::CreateEmptyFile(path + testFile))
+		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+
+	// Clean up our mess.
+	if (File::Exists(memstickpath + testFile))
+		File::Delete(memstickpath + testFile);
 #else
 	// TODO
 	memstickpath = g_Config.memCardDirectory;
