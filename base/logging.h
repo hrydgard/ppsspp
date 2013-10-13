@@ -7,6 +7,10 @@
 // Disable annoying warnings in VS
 #ifdef _MSC_VER
 #pragma warning (disable:4996)   //strcpy may be dangerous
+
+#if !defined(snprintf)
+#define snprintf _snprintf
+#endif
 #endif
 
 #undef Crash
@@ -66,10 +70,10 @@ inline void Crash() {
 
 void OutputDebugStringUTF8(const char *p);
 
-#define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "I: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
-#define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "W: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
-#define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "E: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
-#define FLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "F: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "F: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp); Crash();}
+#define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "I: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "W: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "E: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define FLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "F: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "F: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp); Crash();}
 
 // TODO: Win32 version using OutputDebugString
 #else

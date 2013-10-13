@@ -1,10 +1,10 @@
 // Utility code for loading GLSL shaders.
 // Has support for auto-reload, see glsl_refresh
 
-#ifndef _RENDER_UTIL
-#define _RENDER_UTIL
+#pragma once
 
 #include <map>
+#include <string>
 #include <time.h>
 
 #include "gfx/gl_lost_manager.h"
@@ -46,18 +46,17 @@ struct GLSLProgram : public GfxResourceHolder {
 	void GLLost();
 };
 
-
-// C API, old skool
+// C API, old skool. Not much point either...
 
 // From files (VFS)
-GLSLProgram *glsl_create(const char *vshader_file, const char *fshader_file);
+GLSLProgram *glsl_create(const char *vshader_file, const char *fshader_file, std::string *error_message = 0);
 // Directly from source code
-GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src);
+GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src, std::string *error_message = 0);
 void glsl_destroy(GLSLProgram *program);
 
 // If recompilation of the program fails, the program is untouched and error messages
 // are logged and the function returns false.
-bool glsl_recompile(GLSLProgram *program);
+bool glsl_recompile(GLSLProgram *program, std::string *error_message = 0);
 void glsl_bind(const GLSLProgram *program);
 void glsl_unbind();
 int glsl_attrib_loc(const GLSLProgram *program, const char *name);
@@ -67,7 +66,3 @@ int glsl_uniform_loc(const GLSLProgram *program, const char *name);
 // fstat-s all the source files of all the shaders to see if they
 // should be recompiled, and recompiles them if so.
 void glsl_refresh();
-
-// Use glUseProgramObjectARB(NULL); to unset.
-
-#endif	// _RENDER_UTIL
