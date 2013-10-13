@@ -36,6 +36,7 @@
 #include "file/zip_read.h"
 #include "native/ext/stb_image_write/stb_image_writer.h"
 #include "native/ext/jpge/jpge.h"
+#include "native/util/text/utf8.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx/gl_lost_manager.h"
@@ -368,7 +369,7 @@ void NativeInit(int argc, const char *argv[],
 	INFO_LOG(BOOT, "Logger inited.");
 #else
 	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = File::GetExeDirectory();
+		g_Config.currentDirectory = ConvertWStringToUTF8(File::GetExeDirectory());
 	}
 	g_Config.memCardDirectory = "MemStick/";
 #endif	

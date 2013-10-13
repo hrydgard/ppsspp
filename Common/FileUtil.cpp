@@ -652,13 +652,13 @@ std::string GetBundleDirectory()
 #endif
 
 #ifdef _WIN32
-std::string &GetExeDirectory()
+std::wstring &GetExeDirectory()
 {
-	static std::string DolphinPath;
+	static std::wstring DolphinPath;
 	if (DolphinPath.empty())
 	{
-		char Dolphin_exe_Path[2048];
-		GetModuleFileNameA(NULL, Dolphin_exe_Path, 2048);
+		wchar_t Dolphin_exe_Path[2048];
+		GetModuleFileName(NULL, Dolphin_exe_Path, 2048);
 		DolphinPath = Dolphin_exe_Path;
 		DolphinPath = DolphinPath.substr(0, DolphinPath.find_last_of('\\'));
 	}
