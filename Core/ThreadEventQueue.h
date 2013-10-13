@@ -45,10 +45,15 @@ struct ThreadEventQueue : public B {
 		return !events_.empty();
 	}
 
+	void NotifyDrain() {
+		lock_guard guard(eventsLock_);
+		eventsDrain_.notify_one();
+	}
+
 	Event GetNextEvent() {
 		lock_guard guard(eventsLock_);
 		if (events_.empty()) {
-			eventsDrain_.notify_one();
+			NotifyDrain();
 			return EVENT_INVALID;
 		}
 
@@ -59,6 +64,8 @@ struct ThreadEventQueue : public B {
 
 	void RunEventsUntil(u64 globalticks) {
 		lock_guard guard(eventsLock_);
+		eventsRunning_ = true;
+
 		do {
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
 				eventsLock_.unlock();
@@ -79,7 +86,7 @@ struct ThreadEventQueue : public B {
 
 			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
 			if (ShouldExitEventLoop() || !threadEnabled_) {
-				return;
+				break;
 			}
 
 			// coreState changes won't wake us, so recheck periodically.
@@ -87,6 +94,10 @@ struct ThreadEventQueue : public B {
 				eventsWait_.wait(eventsLock_);
 			}
 		} while (CoreTiming::GetTicks() < globalticks);
+
+		// This will force the waiter to check coreState, even if we didn't actually drain.
+		NotifyDrain();
+		eventsRunning_ = false;
 	}
 
 	// Force ignores coreState.
@@ -99,7 +110,7 @@ struct ThreadEventQueue : public B {
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
-		while (HasEvents() && (force || coreState == CORE_RUNNING)) {
+		while (HasEvents() && eventsRunning_ && (force || coreState == CORE_RUNNING)) {
 			eventsDrain_.wait_for(eventsLock_, 1);
 		}
 	}
@@ -116,6 +127,7 @@ protected:
 
 private:
 	bool threadEnabled_;
+	bool eventsRunning_;
 	std::deque<Event> events_;
 	recursive_mutex eventsLock_;
 	condition_variable eventsWait_;

@@ -18,6 +18,10 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+void Vibrate(int length_ms) {
+	// TODO: Haptic feedback?
+}
+
 int main(int argc, char *argv[])
 {
 	@autoreleasepool {

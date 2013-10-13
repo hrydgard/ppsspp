@@ -541,6 +541,7 @@ add_library(native STATIC
 	native/file/vfs.h
 	native/file/zip_read.cpp
 	native/file/zip_read.h
+	native/gfx/gl_common.h
 	native/gfx/gl_debug_log.cpp
 	native/gfx/gl_debug_log.h
 	native/gfx/gl_lost_manager.cpp
