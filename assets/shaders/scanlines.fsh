@@ -1,11 +1,6 @@
 // Simple Scanlines shader, created to use in PPSSPP.
 // Looks good at Internal resolution same as viewport.
 
-#ifdef GL_ES
-precision mediump float;
-precision mediump int;
-#endif
-
 #define PI 3.14159
 
 uniform sampler2D sampler0;
