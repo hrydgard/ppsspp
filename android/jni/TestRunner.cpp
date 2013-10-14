@@ -51,6 +51,14 @@ static const char * const testsToRun[] = {
 	"cpu/vfpu/gum",
 };
 
+static std::string TrimNewlines(const std::string &s) {
+	size_t p = s.find_last_not_of("\r\n");
+	if (p == s.npos) {
+		return "";
+	}
+	return s.substr(0, p + 1);
+}
+
 void RunTests()
 {
 	std::string output;
@@ -63,7 +71,7 @@ void RunTests()
 	coreParam.startPaused = false;
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
-	coreParam.headLess = false;
+	coreParam.headLess = true;
 	coreParam.renderWidth = 480;
 	coreParam.renderHeight = 272;
 	coreParam.pixelWidth = 480;
@@ -116,9 +124,7 @@ void RunTests()
 		std::ifstream expected(expectedFile.c_str(), std::ios_base::in);
 		if (!expected) {
 			ELOG("Error opening expectedFile %s", expectedFile.c_str());
-			PSP_CoreParameter().pixelWidth = pixel_xres;
-			PSP_CoreParameter().pixelHeight = pixel_yres;
-			return;
+			break;
 		}
 
 		std::istringstream logoutput(output);
@@ -130,10 +136,8 @@ void RunTests()
 			std::getline(expected, e);
 			std::getline(logoutput, o);
 			// Remove stray returns
-			while (e[e.size()-1] == 10 || e[e.size()-1] == 13)
-				e = e.substr(0, e.size() - 1);  // For some reason we get some extra character
-			while (o[o.size()-1] == 10 || o[o.size()-1] == 13)
-				o = o.substr(0, o.size() - 1);  // For some reason we get some extra character
+			e = TrimNewlines(e);
+			o = TrimNewlines(o);
 			if (e != o) {
 				ELOG("DIFF on line %i!", line);
 				ELOG("O: %s", o.c_str());
@@ -152,5 +156,6 @@ void RunTests()
 	glstate.viewport.set(0,0,pixel_xres,pixel_yres);
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
+	PSP_CoreParameter().headLess = false;
 	g_Config.sReportHost = savedReportHost;
 }
