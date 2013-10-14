@@ -415,6 +415,8 @@ bool IniFile::Load(const char* filename)
 	std::ifstream in;
 #ifdef _WIN32
 	in.open(ConvertUTF8ToWString(filename), std::ios::in);
+#else
+	in.open(filename, std::ios::in);
 #endif
 	if (in.fail()) return false;
 
