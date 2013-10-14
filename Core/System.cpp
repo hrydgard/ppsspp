@@ -377,15 +377,18 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && (result == S_OK))	{
-		std::wifstream inputFile(ConvertUTF8ToWString(installedFile));
-		inputFile.imbue(std::locale(inputFile.getloc(), new std::codecvt_utf8<wchar_t>));
+		std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+
 		if (!inputFile.fail() && inputFile.is_open()) {
-			std::wstring tempString;
-			// Skip UTF-8 encoding bytes. There are 3 of them.
-			inputFile.seekg(3);
+			std::string tempString;
+			
 			std::getline(inputFile, tempString);
 
-			memstickpath = ConvertWStringToUTF8(tempString);
+			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
+			if (tempString.substr(0, 3) == "\xEF\xBB\xBF") 
+				tempString = tempString.substr(3);
+
+			memstickpath = tempString;
 		}
 		inputFile.close();
 
