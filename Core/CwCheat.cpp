@@ -19,13 +19,14 @@ void __CheatInit() {
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
 #if defined(ANDROID) || defined(__SYMBIAN32__) || defined(_WIN32)
 	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
+	File::CreateFullPath(g_Config.memCardDirectory + "PSP/Cheats");
 #else
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
+	File::CreateFullPath(CHEATS_DIR);
 #endif
 
 	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 
-	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
 		if (!File::Exists(activeCheatFile)) {
 			File::CreateEmptyFile(activeCheatFile);
