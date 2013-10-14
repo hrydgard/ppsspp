@@ -6,13 +6,17 @@ DEFINES -= UNICODE
 INCLUDEPATH += ../ext/zlib ../native/ext/glew ../Common
 
 win32-msvc* {
-	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast
+	QMAKE_CXXFLAGS_RELEASE += /O3 /arch:SSE2 /fp:fast
 	DEFINES += _MBCS GLEW_STATIC NOMINMAX NODRAWTEXT _CRT_SECURE_NO_WARNINGS
 	PRECOMPILED_HEADER = ../Windows/stdafx.h
 	PRECOMPILED_SOURCE = ../Windows/stdafx.cpp
 } else {
 	QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
 	QMAKE_CXXFLAGS += -std=c++0x -ffast-math -fno-strict-aliasing
+	QMAKE_CFLAGS_RELEASE -= -O2
+	QMAKE_CFLAGS_RELEASE += -O3
+	QMAKE_CXXFLAGS_RELEASE -= -O2
+	QMAKE_CXXFLAGS_RELEASE += -O3
 }
 
 # Arch specific

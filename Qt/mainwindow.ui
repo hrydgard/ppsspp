@@ -168,7 +168,6 @@
      <addaction name="menuAnisotropic_filtering"/>
      <addaction name="action_OptionsBufferedRendering"/>
      <addaction name="action_OptionsLinearFiltering"/>
-     <addaction name="action_Simple_2xAA"/>
      <addaction name="separator"/>
      <addaction name="menuZoom"/>
      <addaction name="action_Stretch_to_display"/>
