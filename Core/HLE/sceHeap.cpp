@@ -82,8 +82,11 @@ int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
 	if (!Memory::IsValidAddress(memAddr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	Heap *heap = getHeap(heapAddr);
-	if (!heap)
+	if (!heap) {
+		ERROR_LOG(HLE, "sceHeapFreeHeapMemory(%08x, %08x): invalid heap", heapAddr, memAddr);
 		return SCE_KERNEL_ERROR_INVALID_ID;
+	}
+
 	if(!heap->alloc.FreeExact(memAddr))
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 
@@ -99,8 +102,11 @@ int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
 int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 	Heap *heap = getHeap(heapAddr);
 	u32 grain = 4;
-	if (!heap)
+	if (!heap) {
+		ERROR_LOG(HLE, "sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x): invalid heap", heapAddr, memSize, paramsPtr);
 		return SCE_KERNEL_ERROR_INVALID_ID;
+	}
+
 	if (Memory::Read_U32(paramsPtr) == 8)
 		grain = Memory::Read_U32(paramsPtr + 4);
 	u32 addr = heap->alloc.AllocAligned(memSize,grain,grain,heap->fromtop);
@@ -125,7 +131,18 @@ int sceHeapGetTotalFreeSize(u32 heapAddr) {
 }
 
 int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapIsAllocatedHeapMemory(%08x, %08x)", heapPtr, memPtr);
+	if (!Memory::IsValidAddress(memPtr)) {
+		ERROR_LOG(HLE, "sceHeapIsAllocatedHeapMemory(%08x, %08x): invalid address", heapPtr, memPtr);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+
+	DEBUG_LOG(HLE, "sceHeapIsAllocatedHeapMemory(%08x, %08x)", heapPtr, memPtr);
+	Heap *heap = getHeap(heapPtr);
+	// An invalid heap is fine, it's not a member of this heap one way or another.
+	// Only an exact address matches.  Off by one crashes, and off by 4 says no.
+	if (heap && heap->alloc.GetBlockStartFromAddress(memPtr) == memPtr) {
+		return 1;
+	}
 	return 0;
 }
 
