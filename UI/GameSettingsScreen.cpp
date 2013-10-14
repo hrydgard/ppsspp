@@ -490,8 +490,14 @@ void DeveloperToolsScreen::CreateViews() {
 
 	Choice *cpuTests = new Choice(de->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-	if (!File::Exists(g_Config.memCardDirectory + "pspautotests/tests/"))
+#ifdef IOS
+	const std::string testDirectory = g_Config.flash0Directory + "../";
+#else
+	const std::string testDirectory = g_Config.memCardDirectory;
+#endif
+	if (!File::Exists(testDirectory + "pspautotests/tests/")) {
 		cpuTests->SetEnabled(false);
+	}
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);

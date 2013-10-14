@@ -1771,7 +1771,9 @@ bad:
 	{
 		// S & D valid
 		Reporting::ReportMessage("vlgb not implemented");
-		_dbg_assert_msg_(CPU,0,"vlgb not implemented");
+		if (!PSP_CoreParameter().headLess) {
+			_dbg_assert_msg_(CPU,0,"vlgb not implemented");
+		}
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1780,7 +1782,9 @@ bad:
 	// bit manipulation on the raw floats.
 	void Int_Vwbn(MIPSOpcode op) {
 		Reporting::ReportMessage("vwbn not implemented");
-		_dbg_assert_msg_(CPU,0,"vwbn not implemented");
+		if (!PSP_CoreParameter().headLess) {
+			_dbg_assert_msg_(CPU,0,"vwbn not implemented");
+		}
 		PC += 4;
 		EatPrefixes();
 
@@ -1813,7 +1817,9 @@ bad:
 	void Int_Vsbn(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("vsbn not implemented");
-		_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+		if (!PSP_CoreParameter().headLess) {
+			_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+		}
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1821,7 +1827,9 @@ bad:
 	void Int_Vsbz(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("vsbz not implemented");
-		_dbg_assert_msg_(CPU,0,"vsbz not implemented");
+		if (!PSP_CoreParameter().headLess) {
+			_dbg_assert_msg_(CPU,0,"vsbz not implemented");
+		}
 		PC += 4;
 		EatPrefixes();
 	}
