@@ -41,6 +41,14 @@ struct Heap {
 
 std::map<u32,Heap*> heapList;
 
+static Heap *getHeap(u32 addr) {
+	auto found = heapList.find(addr);
+	if (found == heapList.end()) {
+		return NULL;
+	}
+	return found->second;
+}
+
 void __HeapDoState(PointerWrap &p) {
 	auto s = p.Section("sceHeap", 1, 2);
 	if (!s)
@@ -51,8 +59,7 @@ void __HeapDoState(PointerWrap &p) {
 	}
 }
 
-enum SceHeapAttr
-{
+enum SceHeapAttr {
 	PSP_HEAP_ATTR_HIGHMEM = 0x4000,
 	PSP_HEAP_ATTR_EXT     = 0x8000,
 };
@@ -74,7 +81,7 @@ int sceHeapReallocHeapMemoryWithOption(u32 heapPtr, u32 memPtr, int memSize, u32
 int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
 	if (!Memory::IsValidAddress(memAddr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-	Heap *heap = heapList[heapAddr];
+	Heap *heap = getHeap(heapAddr);
 	if (!heap)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	if(!heap->alloc.FreeExact(memAddr))
@@ -90,7 +97,7 @@ int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
 }
 
 int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
-	Heap *heap = heapList[heapAddr];
+	Heap *heap = getHeap(heapAddr);
 	u32 grain = 4;
 	if (!heap)
 		return SCE_KERNEL_ERROR_INVALID_ID;
@@ -102,7 +109,7 @@ int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 }
 
 int sceHeapGetTotalFreeSize(u32 heapAddr) {
-	Heap *heap = heapList[heapAddr];
+	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapGetTotalFreeSize(%08x): invalid heap", heapAddr);
 		return SCE_KERNEL_ERROR_INVALID_ID;
@@ -123,15 +130,14 @@ int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
 }
 
 int sceHeapDeleteHeap(u32 heapAddr) {
-	auto found = heapList.find(heapAddr);
-	if (found == heapList.end()) {
+	Heap *heap = getHeap(heapAddr);
+	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapDeleteHeap(%08x): invalid heap", heapAddr);
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
 	DEBUG_LOG(HLE, "sceHeapDeleteHeap(%08x)", heapAddr);
-	Heap *heap = found->second;
-	heapList.erase(found);
+	heapList.erase(heapAddr);
 	delete heap;
 	return 0;
 }
@@ -166,7 +172,7 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 }
 
 int sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
-	Heap *heap = heapList[heapAddr];
+	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);
 		return SCE_KERNEL_ERROR_INVALID_ID;
