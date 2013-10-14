@@ -114,11 +114,16 @@ u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 			ERROR_LOG(HLE, "sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x): invalid param size", heapAddr, memSize, paramsPtr);
 			return 0;
 		}
+		if (size > 8) {
+			WARN_LOG_REPORT(HLE, "sceHeapAllocHeapMemoryWithOption(): unexpected param size %d", size);
+		}
 		grain = Memory::Read_U32(paramsPtr + 4);
 	}
 
-	u32 addr = heap->alloc.AllocAligned(memSize,grain,grain,heap->fromtop);
 	DEBUG_LOG(HLE,"sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapAddr, memSize, paramsPtr);
+	// There's 8 bytes at the end of every block, reserved.
+	memSize += 8;
+	u32 addr = heap->alloc.AllocAligned(memSize, grain, grain, true);
 	return addr;
 }
 
@@ -200,11 +205,12 @@ u32 sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);
-		// Yes, not 0 (rturns a pointer), but an error code.  Strange.
+		// Yes, not 0 (returns a pointer), but an error code.  Strange.
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
 	DEBUG_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
+	// There's 8 bytes at the end of every block, reserved.
 	memSize += 8;
 	// Always goes down, regardless of whether the heap is high or low.
 	u32 addr = heap->alloc.Alloc(memSize, true);
