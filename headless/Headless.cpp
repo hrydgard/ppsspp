@@ -79,14 +79,13 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
 
-	HEADLESSHOST_CLASS h1;
-	HeadlessHost h2;
-	if (typeid(h1) != typeid(h2))
+#if HEADLESSHOST_CLASS != HeadlessHost
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
 		fprintf(stderr, "                        options: gles, software, directx9\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
+#endif
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
 	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
@@ -100,8 +99,10 @@ static HeadlessHost * getHost(GPUCore gpuCore) {
 	switch(gpuCore) {
 	case GPU_NULL:
 		return new HeadlessHost();
+#ifdef _WIN32
 	case GPU_DIRECTX9:
 		return new WindowsHeadlessHostDx9();
+#endif
 	default:
 		return new HEADLESSHOST_CLASS();
 	}
