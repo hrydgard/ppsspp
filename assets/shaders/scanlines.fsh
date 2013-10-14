@@ -10,7 +10,7 @@ uniform sampler2D sampler0;
 varying vec2 v_texcoord0;
 
 float offset = 1.0;
-float frequency = 166;
+float frequency = 166.0;
 
 void main()
 {
