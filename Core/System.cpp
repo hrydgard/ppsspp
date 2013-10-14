@@ -19,6 +19,7 @@
 #include "Common/CommonWindows.h"
 #include <ShlObj.h>
 #include <string>
+#include <codecvt>
 #endif
 
 #include "native/thread/thread.h"
@@ -376,14 +377,17 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && (result == S_OK))	{
-		FILE *file = File::OpenCFile(installedFile, "r, ccs=UTF-8");
+		std::wifstream inputFile(ConvertUTF8ToWString(installedFile));
+		inputFile.imbue(std::locale(inputFile.getloc(), new std::codecvt_utf8<wchar_t>));
+		if (!inputFile.fail() && inputFile.is_open()) {
+			std::wstring tempString;
+			// Skip UTF-8 encoding bytes. There are 3 of them.
+			inputFile.seekg(3);
+			std::getline(inputFile, tempString);
 
-		if (file) {
-			wchar_t buffer[MAX_PATH] = { 0 };
-			fread(buffer, sizeof(wchar_t), MAX_PATH, file);
-			fclose(file);
-			memstickpath = ConvertWStringToUTF8(std::wstring(buffer));
+			memstickpath = ConvertWStringToUTF8(tempString);
 		}
+		inputFile.close();
 
 		// Check if the file is empty first, before appending the slash.
 		if (memstickpath.empty())
