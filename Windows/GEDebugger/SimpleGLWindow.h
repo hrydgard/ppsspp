@@ -49,10 +49,14 @@ struct SimpleGLWindow {
 
 	void Clear();
 	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
-	void Redraw();
+	void Redraw(bool andSwap = true);
 	void Initialize(u32 flags);
 	static SimpleGLWindow *GetFrom(HWND hwnd);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+	// To draw something custom.
+	void Begin();
+	void End();
 
 	void SetFlags(u32 flags) {
 		flags_ = flags;

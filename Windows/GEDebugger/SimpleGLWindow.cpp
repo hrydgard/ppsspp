@@ -254,11 +254,13 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	Redraw();
 }
 
-void SimpleGLWindow::Redraw() {
+void SimpleGLWindow::Redraw(bool andSwap) {
 	DrawChecker();
 
 	if (tw_ == 0 && th_ == 0) {
-		Swap();
+		if (andSwap) {
+			Swap();
+		}
 		return;
 	}
 
@@ -310,13 +312,23 @@ void SimpleGLWindow::Redraw() {
 	glActiveTexture(GL_TEXTURE0);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 
-	Swap();
+	if (andSwap) {
+		Swap();
+	}
 }
 
 void SimpleGLWindow::Clear() {
 	tw_ = 0;
 	th_ = 0;
 	Redraw();
+}
+
+void SimpleGLWindow::Begin() {
+	Redraw(false);
+}
+
+void SimpleGLWindow::End() {
+	Swap();
 }
 
 bool SimpleGLWindow::DragStart(int mouseX, int mouseY) {

@@ -287,6 +287,7 @@
     <ClCompile Include="GEDebugger\SimpleGLWindow.cpp" />
     <ClCompile Include="GEDebugger\TabDisplayLists.cpp" />
     <ClCompile Include="GEDebugger\TabState.cpp" />
+    <ClCompile Include="GEDebugger\VertexPreview.cpp" />
     <ClCompile Include="InputDevice.cpp" />
     <ClCompile Include="KeyboardDevice.cpp" />
     <ClCompile Include="W32Util\DialogManager.cpp" />

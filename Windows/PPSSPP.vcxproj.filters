@@ -134,6 +134,9 @@
     <ClCompile Include="Debugger\DumpMemoryWindow.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="GEDebugger\VertexPreview.cpp">
+      <Filter>Windows\GE Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
