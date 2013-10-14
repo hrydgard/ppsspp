@@ -79,18 +79,21 @@ int sceHeapReallocHeapMemoryWithOption(u32 heapPtr, u32 memPtr, int memSize, u32
 }
 
 int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
-	if (!Memory::IsValidAddress(memAddr))
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapFreeHeapMemory(%08x, %08x): invalid heap", heapAddr, memAddr);
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
-	if(!heap->alloc.FreeExact(memAddr))
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	DEBUG_LOG(HLE, "sceHeapFreeHeapMemory(%08x, %08x)", heapAddr, memAddr);
+	// An invalid address will crash the PSP, but 0 is always returns success.
+	if (memAddr == 0) {
+		return 0;
+	}
 
-	DEBUG_LOG(HLE,"sceHeapFreeHeapMemory(%08x, %08x)", heapAddr, memAddr);
+	if (!heap->alloc.FreeExact(memAddr)) {
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
 	return 0;
 }
 
