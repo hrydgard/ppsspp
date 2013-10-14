@@ -103,9 +103,12 @@ int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 
 int sceHeapGetTotalFreeSize(u32 heapAddr) {
 	Heap *heap = heapList[heapAddr];
-	if (!heap)
+	if (!heap) {
+		ERROR_LOG(HLE, "sceHeapGetTotalFreeSize(%08x): invalid heap", heapAddr);
 		return SCE_KERNEL_ERROR_INVALID_ID;
-	DEBUG_LOG(HLE,"UNIMPL sceHeapGetTotalFreeSize(%08x)", heapAddr);
+	}
+
+	DEBUG_LOG(HLE, "sceHeapGetTotalFreeSize(%08x)", heapAddr);
 	u32 free = heap->alloc.GetTotalFreeBytes();
 	if (free >= 8) {
 		// Every allocation requires an extra 8 bytes.
@@ -120,10 +123,16 @@ int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
 }
 
 int sceHeapDeleteHeap(u32 heapAddr) {
-	Heap *heap = heapList[heapAddr];
-	if(heapList.erase(heapAddr) != 0)
-		delete heap;
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapDeleteHeap(%08x)", heapAddr);
+	auto found = heapList.find(heapAddr);
+	if (found == heapList.end()) {
+		ERROR_LOG(HLE, "sceHeapDeleteHeap(%08x): invalid heap", heapAddr);
+		return SCE_KERNEL_ERROR_INVALID_ID;
+	}
+
+	DEBUG_LOG(HLE, "sceHeapDeleteHeap(%08x)", heapAddr);
+	Heap *heap = found->second;
+	heapList.erase(found);
+	delete heap;
 	return 0;
 }
 
@@ -159,7 +168,7 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 int sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = heapList[heapAddr];
 	if (!heap) {
-		WARN_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);
+		ERROR_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
