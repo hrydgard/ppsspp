@@ -59,13 +59,20 @@ void __CheatShutdown() {
 }
 
 void __CheatDoState(PointerWrap &p) {
-	auto s = p.Section("CwCheat", 0, 1);
+	auto s = p.Section("CwCheat", 0, 2);
 	if (!s) {
 		return;
 	}
 
 	p.Do(CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
+
+	if (s < 2) {
+		// Before this we didn't have a checkpoint, so reset didn't work.
+		// Let's just force one in.
+		CoreTiming::RemoveEvent(CheatEvent);
+		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+	}
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
