@@ -607,7 +607,6 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
-	path = ReplaceAll(e.s, "//", "/");
 #else
 	std::string path = e.s;
 #endif
@@ -618,7 +617,6 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 	#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
-	path = ReplaceAll(e.s, "//", "/");
 #else
 	std::string path = e.s;
 #endif
