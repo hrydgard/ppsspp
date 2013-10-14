@@ -381,11 +381,11 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 
 		if (!inputFile.fail() && inputFile.is_open()) {
 			std::string tempString;
-			
+
 			std::getline(inputFile, tempString);
 
 			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-			if (tempString.substr(0, 3) == "\xEF\xBB\xBF") 
+			if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
 				tempString = tempString.substr(3);
 
 			memstickpath = tempString;
@@ -403,10 +403,17 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 		memstickpath = path + "/memstick/";
 	}
 
-	// If any directory is read-only, fall back to the Documents directory.
-	// We're screwed anyway if we can't write to Documents, or can't detect it.
+	// Create the memstickpath before trying to write to it, and fall back on Documents yet again
+	// if we can't make it.
+	if (!File::Exists(memstickpath)) {
+		if(!File::CreateDir(memstickpath))
+			memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+	}
+
 	const std::string testFile = "/_writable_test.$$$";
 
+	// If any directory is read-only, fall back to the Documents directory.
+	// We're screwed anyway if we can't write to Documents, or can't detect it.
 	if (!File::CreateEmptyFile(memstickpath + testFile))
 		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 
