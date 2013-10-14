@@ -6,6 +6,11 @@
 
 // Color variables
 
+#ifdef GL_ES
+precision mediump float;
+precision mediump int;
+#endif
+
 const vec3 c_ch = vec3(1.0,1.0,1.0);  //  rgb color channel intensity
 const float   a = 1.20 ;              //  saturation 
 const float   b = 1.00 ;              //  brightness 
