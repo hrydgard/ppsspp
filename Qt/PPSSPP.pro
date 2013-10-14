@@ -44,7 +44,7 @@ linux {
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
-HEADERS += ../native/base/QtMain.h
+#HEADERS += ../native/base/QtMain.h
 
 # UI
 SOURCES += ../UI/*Screen.cpp \

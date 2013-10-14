@@ -131,7 +131,6 @@ void MainWindow::UpdateMenus()
 
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.iRenderingMode == 1);
 	ui->action_OptionsLinearFiltering->setChecked(3 == g_Config.iTexFiltering);
-	ui->action_Simple_2xAA->setChecked(g_Config.bFXAA);
 
 	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iInternalResolution - 1));
 	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iInternalResolution - 1));
@@ -483,12 +482,6 @@ void MainWindow::on_action_OptionsLinearFiltering_triggered()
 	UpdateMenus();
 }
 
-void MainWindow::on_action_Simple_2xAA_triggered()
-{
-	g_Config.bFXAA = !g_Config.bFXAA;
-	UpdateMenus();
-}
-
 void MainWindow::on_action_OptionsScreen1x_triggered()
 {
 	SetZoom(1);
@@ -573,11 +566,8 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		PSP_CoreParameter().pixelHeight = height;
 		PSP_CoreParameter().outputWidth = width;
 		PSP_CoreParameter().outputHeight = height;
-
-		int antialias = 1;
-		if (g_Config.bFXAA) antialias = 2;
-		PSP_CoreParameter().renderWidth = width * antialias;
-		PSP_CoreParameter().renderHeight = height * antialias;
+		PSP_CoreParameter().renderWidth = width;
+		PSP_CoreParameter().renderHeight = height;
 
 		pixel_xres = width;
 		pixel_yres = height;
@@ -721,13 +711,6 @@ void MainWindow::SetZoom(float zoom) {
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 	PSP_CoreParameter().outputWidth = pixel_xres;
 	PSP_CoreParameter().outputHeight = pixel_yres;
-
-	if (g_Config.bFXAA)
-	{
-		zoom *= 2;
-		PSP_CoreParameter().renderWidth = 480 * zoom;
-		PSP_CoreParameter().renderHeight = 272 * zoom;
-	}
 
 	if (gpu)
 		gpu->Resized();

@@ -209,7 +209,11 @@ reswitch:
 				return;
 			}
 			Core_RunLoop();
+#if defined(USING_QT_UI) && !defined(USING_GLES2)
+			return;
+#else
 			continue;
+#endif
 		}
 
 		switch (coreState)

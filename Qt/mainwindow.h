@@ -87,7 +87,6 @@ private slots:
 
 	void on_action_OptionsBufferedRendering_triggered();
 	void on_action_OptionsLinearFiltering_triggered();
-	void on_action_Simple_2xAA_triggered();
 
 	void on_action_OptionsScreen1x_triggered();
 	void on_action_OptionsScreen2x_triggered();

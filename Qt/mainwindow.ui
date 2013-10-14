@@ -590,14 +590,6 @@
     <string>DisplayList...</string>
    </property>
   </action>
-  <action name="action_Simple_2xAA">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Simple 2xAA</string>
-   </property>
-  </action>
   <action name="action_AFOff">
    <property name="checkable">
     <bool>true</bool>
