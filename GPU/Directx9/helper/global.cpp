@@ -77,8 +77,9 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 	ID3DXBuffer* pShaderCode;
 	ID3DXBuffer* pErrorMsg;
 
-	HRESULT hr;
+	HRESULT hr = -1;
 
+#ifdef _XBOX
 	// Compile pixel shader.
 	hr = D3DXCompileShader( code, 
 		(UINT)strlen( code ),
@@ -90,6 +91,7 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 		&pShaderCode, 
 		&pErrorMsg,
 		pShaderTable );
+#endif
 	if( FAILED(hr) )
 	{
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
@@ -112,9 +114,10 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 	ID3DXBuffer* pShaderCode;
 	ID3DXBuffer* pErrorMsg;
 
-	HRESULT hr;
+	HRESULT hr = -1;
 
 	// Compile pixel shader.
+#ifdef _XBOX
 	hr = D3DXCompileShader( code, 
 		(UINT)strlen( code ),
 		NULL, 
@@ -125,6 +128,7 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 		&pShaderCode, 
 		&pErrorMsg,
 		pShaderTable );
+#endif
 	if( FAILED(hr) )
 	{
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
@@ -144,7 +148,10 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 void CompileShaders() {
 	ID3DXBuffer* pShaderCode;
 	ID3DXBuffer* pErrorMsg;
-	HRESULT hr;
+	HRESULT hr = -1;
+
+#ifdef _XBOX
+
 	// Compile vertex shader.
 	hr = D3DXCompileShader( vscode, 
 		(UINT)strlen( vscode ),
@@ -156,6 +163,8 @@ void CompileShaders() {
 		&pShaderCode, 
 		&pErrorMsg,
 		NULL );
+#endif 
+
 	if( FAILED(hr) )
 	{
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
@@ -168,6 +177,7 @@ void CompileShaders() {
 
 	pShaderCode->Release();
 
+#ifdef _XBOX
 	// Compile pixel shader.
 	hr = D3DXCompileShader( pscode, 
 		(UINT)strlen( pscode ),
@@ -179,6 +189,8 @@ void CompileShaders() {
 		&pShaderCode, 
 		&pErrorMsg,
 		NULL );
+#endif
+
 	if( FAILED(hr) )
 	{
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());

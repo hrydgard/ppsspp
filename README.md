@@ -15,13 +15,20 @@ For the latest source code and build instructions, see [our github page][ppsspp-
 
 What's new in 0.9.5
 -------------------
-* Many, many emulation fixes including bezier/spline curve support, fixing LocoRoco and others
+* Many, many emulation fixes:
+  - bezier/spline curve support, fixing LocoRoco and others
+  - stencil clear emulation, fixing Final Fantasy IV text
 * Performance improvements in some games
 * Post-processing shaders like FXAA, scanlines, vignette
 * More solid save states (we will try to keep them working from now on. Save states only upgrade forward,
   not backward to older versions though).
 * Huge debugger improvements
-* ...
+* Made Win32 menu bar translatable, and NewUI instantly changes when a new language is selected
+* Multiple UI bugs were fixed
+* Win32: Ability to store PPSSPP's config files and memory stick files in places other than the same directory
+* Android-x86 support
+* Unofficial port for modified Xbox 360 consoles
+
 
 Basic build instructions
 ------------------------
