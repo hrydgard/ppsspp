@@ -489,8 +489,8 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
-
-	if (g_Config.iTexFiltering == NEAREST) {
+	// Force Nearest when color test enabled and rendering resolution greater than 480x272
+	if (g_Config.iTexFiltering == NEAREST || (gstate.isColorTestEnabled() && g_Config.iInternalResolution != 1)) {
 		magFilt &= ~1;
 		minFilt &= ~1;
 	}
