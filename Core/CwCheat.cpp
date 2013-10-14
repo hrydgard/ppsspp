@@ -7,7 +7,6 @@
 #include "MIPS/MIPS.h"
 #include "Core/Config.h"
 
-const static std::string CHEATS_DIR = "cheats";
 static int CheatEvent = -1;
 std::string gameTitle;
 std::string activeCheatFile;
@@ -29,13 +28,9 @@ static void __CheatStart() {
 	__CheatStop();
 
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
-#if defined(ANDROID) || defined(__SYMBIAN32__) || defined(_WIN32)
+
 	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
 	File::CreateFullPath(g_Config.memCardDirectory + "PSP/Cheats");
-#else
-	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
-	File::CreateFullPath(CHEATS_DIR);
-#endif
 
 	if (!File::Exists(activeCheatFile)) {
 		File::CreateEmptyFile(activeCheatFile);
