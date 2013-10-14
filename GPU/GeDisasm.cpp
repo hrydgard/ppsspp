@@ -807,8 +807,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_ALPHATEST:
 		{
-			const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
-			sprintf(buffer, "Alpha test settings: %06x (%02x%s(c & %02x))", data, (data >> 8) & 0xFF, alphaTestFuncs[data & 7], (data >> 16) & 0xFF);
+			const char *alphaTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			sprintf(buffer, "Alpha test settings: %06x ((c & %02x)%s%02x)", data, (data >> 16) & 0xFF, (data >> 8) & 0xFF, alphaTestFuncs[data & 7]);
 		}
 		break;
 
@@ -905,7 +905,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_TEXWRAP:
-		sprintf(buffer, "TexWrap %06x", data);
+		if (data & ~0x0101)
+			sprintf(buffer, "TexWrap %s s, %s t (extra %x)", data & 1 ? "clamp" : "wrap", data & 0x100 ? "clamp" : "wrap", data);
+		else
+			sprintf(buffer, "TexWrap %s s, %s t", data & 1 ? "clamp" : "wrap", data & 0x100 ? "clamp" : "wrap");
 		break;
 
 	case GE_CMD_TEXLEVEL:

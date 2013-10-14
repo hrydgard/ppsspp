@@ -47,8 +47,10 @@ enum CmdFormatType {
 	CMD_FMT_F16_XY,
 	CMD_FMT_VERTEXTYPE,
 	CMD_FMT_TEXFMT,
+	CMD_FMT_CLUTFMT,
 	CMD_FMT_COLORTEST,
 	CMD_FMT_ALPHATEST,
+	CMD_FMT_STENCILTEST,
 	CMD_FMT_ZTEST,
 	CMD_FMT_OFFSETADDR,
 	CMD_FMT_VADDR,
@@ -57,6 +59,11 @@ enum CmdFormatType {
 	CMD_FMT_STENCILOP,
 	CMD_FMT_BLENDMODE,
 	CMD_FMT_FLAG,
+	CMD_FMT_CLEARMODE,
+	CMD_FMT_TEXFUNC,
+	CMD_FMT_TEXMODE,
+	CMD_FMT_LOGICOP,
+	CMD_FMT_TEXWRAP,
 };
 
 struct TabStateRow {
@@ -153,22 +160,19 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_TEXMODE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_TEXWRAP, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_TEXFUNC, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
-	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
+	{ L"CLUT format",          GE_CMD_CLUTFORMAT,              CMD_FMT_CLUTFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Texture L0 addr",      GE_CMD_TEXADDR0,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH0 },
 	{ L"Texture L1 addr",      GE_CMD_TEXADDR1,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH1 },
 	{ L"Texture L2 addr",      GE_CMD_TEXADDR2,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_TEXBUFWIDTH2 },
@@ -188,8 +192,7 @@ static const TabStateRow stateTextureRows[] = {
 };
 
 static const TabStateRow stateSettingsRows[] = {
-	// TODO: Format.  This is almost a flag...
-	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_HEX },
+	{ L"Clear mode",           GE_CMD_CLEARMODE,               CMD_FMT_CLEARMODE },
 	{ L"Framebuffer",          GE_CMD_FRAMEBUFPTR,             CMD_FMT_PTRWIDTH, 0, GE_CMD_FRAMEBUFWIDTH },
 	{ L"Framebuffer format",   GE_CMD_FRAMEBUFPIXFORMAT,       CMD_FMT_TEXFMT },
 	{ L"Depthbuffer",          GE_CMD_ZBUFPTR,                 CMD_FMT_PTRWIDTH, 0, GE_CMD_ZBUFWIDTH },
@@ -208,14 +211,13 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_NUM, GE_CMD_CULLFACEENABLE },
 	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
 	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
-	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_ALPHATEST, GE_CMD_STENCILTESTENABLE },
+	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_STENCILTEST, GE_CMD_STENCILTESTENABLE },
 	{ L"Stencil test op",      GE_CMD_STENCILOP,               CMD_FMT_STENCILOP, GE_CMD_STENCILTESTENABLE },
 	{ L"Depth test",           GE_CMD_ZTEST,                   CMD_FMT_ZTEST, GE_CMD_ZTESTENABLE },
 	{ L"Alpha blend mode",     GE_CMD_BLENDMODE,               CMD_FMT_BLENDMODE, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color A",        GE_CMD_BLENDFIXEDA,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
 	{ L"Blend color B",        GE_CMD_BLENDFIXEDB,             CMD_FMT_HEX, GE_CMD_ALPHABLENDENABLE },
-	// TODO: Format.
-	{ L"Logic Op",             GE_CMD_LOGICOP,                 CMD_FMT_HEX, GE_CMD_LOGICOPENABLE },
+	{ L"Logic Op",             GE_CMD_LOGICOP,                 CMD_FMT_LOGICOP, GE_CMD_LOGICOPENABLE },
 	{ L"Fog 1",                GE_CMD_FOG1,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog 2",                GE_CMD_FOG2,                    CMD_FMT_FLOAT24, GE_CMD_FOGENABLE },
 	{ L"Fog color",            GE_CMD_FOGCOLOR,                CMD_FMT_HEX, GE_CMD_FOGENABLE },
@@ -354,6 +356,29 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		}
 		break;
 
+	case CMD_FMT_CLUTFMT:
+		{
+			const char *clutformats[] = {
+				"BGR 5650",
+				"ABGR 1555",
+				"ABGR 4444",
+				"ABGR 8888",
+			};
+			const u8 palette = (value >> 0) & 0xFF;
+			const u8 mask = (value >> 8) & 0xFF;
+			const u8 offset = (value >> 16) & 0xFF;
+			if (palette < (u8)ARRAY_SIZE(clutformats) && offset < 0x20) {
+				if (offset == 0) {
+					swprintf(dest, L"%S & %02x", clutformats[palette], mask);
+				} else {
+					swprintf(dest, L"%S & %02x, offset +%d", clutformats[palette], mask, offset);
+				}
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
 	case CMD_FMT_COLORTEST:
 		{
 			static const char *colorTests[] = {"NEVER", "ALWAYS", " == ", " != "};
@@ -368,13 +393,19 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		break;
 
 	case CMD_FMT_ALPHATEST:
+	case CMD_FMT_STENCILTEST:
 		{
-			static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			const u8 mask = (value >> 16) & 0xff;
 			const u8 ref = (value >> 8) & 0xff;
 			const u8 func = (value >> 0) & 0xff;
 			if (func < (u8)ARRAY_SIZE(alphaTestFuncs)) {
-				swprintf(dest, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
+				if (info.fmt == CMD_FMT_ALPHATEST) {
+					swprintf(dest, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
+				} else if (info.fmt == CMD_FMT_STENCILTEST) {
+					// Stencil test is the other way around.
+					swprintf(dest, L"pass if (%02x & %02x) %S (a & %02x)", ref, mask, alphaTestFuncs[func], mask);
+				}
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
@@ -383,7 +414,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_ZTEST:
 		{
-			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			if (value < (u32)ARRAY_SIZE(zTestFuncs)) {
 				swprintf(dest, L"pass if src %S dst", zTestFuncs[value]);
 			} else {
@@ -481,6 +512,102 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 			if (blendFactorA < (u8)ARRAY_SIZE(blendFactorsA) && blendFactorB < (u8)ARRAY_SIZE(blendFactorsB) && blendMode < (u32)ARRAY_SIZE(blendModes)) {
 				swprintf(dest, L"%S: %S, %S", blendModes[blendMode], blendFactorsA[blendFactorA], blendFactorsB[blendFactorB]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_CLEARMODE:
+		if (value == 0) {
+			swprintf(dest, L"%d", value);
+		} else if ((value & ~(GE_CLEARMODE_ALL | 1)) == 0) {
+			const char *clearmodes[] = {
+				"1, write disabled",
+				"1, write color",
+				"1, write alpha/stencil",
+				"1, write color, alpha/stencil",
+				"1, write depth",
+				"1, write color, depth",
+				"1, write alpha/stencil, depth",
+				"1, write color, alpha/stencil, depth",
+			};
+			swprintf(dest, L"%S", clearmodes[value >> 8]);
+		} else {
+			swprintf(dest, L"%06x", value);
+		}
+		break;
+
+	case CMD_FMT_TEXFUNC:
+		{
+			const char *texfuncs[] = {
+				"modulate",
+				"decal",
+				"blend",
+				"replace",
+				"add",
+			};
+			const u8 func = (value >> 0) & 0xFF;
+			const u8 rgba = (value >> 8) & 0xFF;
+			const u8 colorDouble = (value >> 16) & 0xFF;
+
+			if (rgba <= 1 && colorDouble <= 1 && func < (u8)ARRAY_SIZE(texfuncs)) {
+				swprintf(dest, L"%S, %S%S", texfuncs[func], rgba ? "RGBA" : "RGB", colorDouble ? ", color doubling" : "");
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXMODE:
+		{
+			const u8 swizzle = (value >> 0) & 0xFF;
+			const u8 clutLevels = (value >> 8) & 0xFF;
+			const u8 maxLevel = (value >> 16) & 0xFF;
+
+			if (swizzle <= 1 && clutLevels <= 1 && maxLevel <= 7) {
+				swprintf(dest, L"%S%d levels%S", swizzle ? "swizzled, " : "", maxLevel + 1, clutLevels ? ", CLUT per level" : "");
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_LOGICOP:
+		{
+			const char *logicOps[] = {
+				"clear",
+				"and",
+				"reverse and",
+				"copy",
+				"inverted and",
+				"noop",
+				"xor",
+				"or",
+				"negated or",
+				"equivalence",
+				"inverted",
+				"reverse or",
+				"inverted copy",
+				"inverted or",
+				"negated and",
+				"set",
+			};
+
+			if (value < ARRAY_SIZE(logicOps)) {
+				swprintf(dest, L"%S", logicOps[value]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXWRAP:
+		{
+			if ((value & ~0x0101) == 0) {
+				const bool clampS = (value & 0x0001) != 0;
+				const bool clampT = (value & 0x0100) != 0;
+				swprintf(dest, L"%S s, %S t", clampS ? "clamp" : "wrap", clampT ? "clamp" : "wrap");
 			} else {
 				swprintf(dest, L"%06x", value);
 			}

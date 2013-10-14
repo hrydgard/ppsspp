@@ -20,7 +20,6 @@
 #include <set>
 
 #include "base/functional.h"
-#include "base/mutex.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
@@ -216,6 +215,13 @@ void CGEDebugger::UpdatePreviews() {
 
 	DisplayList list;
 	if (gpuDebug != NULL && gpuDebug->GetCurrentDisplayList(list)) {
+		const u32 op = Memory::Read_U32(list.pc);
+		const u32 cmd = op >> 24;
+		// TODO: Bezier/spline?
+		if (cmd == GE_CMD_PRIM) {
+			UpdatePrimPreview(op);
+		}
+
 		displayList->setDisplayList(list);
 	}
 
@@ -226,8 +232,7 @@ void CGEDebugger::UpdatePreviews() {
 	lists->Update();
 }
 
-void CGEDebugger::UpdateSize(WORD width, WORD height)
-{
+void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	// only resize the tab for now
 	HWND tabControl = GetDlgItem(m_hDlg, IDC_GEDBG_MAINTAB);
 
@@ -329,6 +334,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_STEPFRAME:
 			SetBreakNext(BREAK_NEXT_FRAME);
+			break;
+
+		case IDC_GEDBG_STEPPRIM:
+			AddCmdBreakpoint(GE_CMD_PRIM, true);
+			AddCmdBreakpoint(GE_CMD_BEZIER, true);
+			AddCmdBreakpoint(GE_CMD_SPLINE, true);
+			SetBreakNext(BREAK_NEXT_PRIM);
 			break;
 
 		case IDC_GEDBG_BREAKTEX:
