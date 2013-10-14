@@ -18,8 +18,8 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <ShlObj.h>
-#include <iostream>
 #include <string>
+#include <codecvt>
 #endif
 
 #include "native/thread/thread.h"
@@ -363,27 +363,34 @@ CoreParameter &PSP_CoreParameter() {
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 #ifdef _WIN32
-	std::string path = ConvertWStringToUTF8(File::GetExeDirectory());
+	const std::string path = ConvertWStringToUTF8(File::GetExeDirectory());
 
 	// Mount a filesystem
 	flash0path = path + "/flash0/";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 	wchar_t myDocumentsPath[MAX_PATH];
-	HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 
-	std::string installedFile = path + "/installed.txt";
-	bool installed = File::Exists(installedFile);
+	const std::string installedFile = path + "/installed.txt";
+	const bool installed = File::Exists(installedFile);
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && (result == S_OK))	{
-		std::ifstream inputFile;
-		inputFile.open(installedFile);
-		if (!inputFile.fail()) {
-			while (!inputFile.eof()) {
-				std::getline(inputFile, memstickpath);
-			}
-		} 
+		std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+
+		if (!inputFile.fail() && inputFile.is_open()) {
+			std::string tempString;
+			
+			std::getline(inputFile, tempString);
+
+			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
+			if (tempString.substr(0, 3) == "\xEF\xBB\xBF") 
+				tempString = tempString.substr(3);
+
+			memstickpath = tempString;
+		}
+		inputFile.close();
 
 		// Check if the file is empty first, before appending the slash.
 		if (memstickpath.empty())
@@ -392,15 +399,13 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 		size_t lastSlash = memstickpath.find_last_of("/");
 		if (lastSlash != (memstickpath.length() - 1))
 			memstickpath.append("/");
-
-		inputFile.close();
 	} else {
 		memstickpath = path + "/memstick/";
 	}
 
 	// If any directory is read-only, fall back to the Documents directory.
 	// We're screwed anyway if we can't write to Documents, or can't detect it.
-	std::string testFile = "/_writable_test.$$$";
+	const std::string testFile = "/_writable_test.$$$";
 
 	if (!File::CreateEmptyFile(memstickpath + testFile))
 		memstickpath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
