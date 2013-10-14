@@ -153,8 +153,9 @@ int sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = heapList[heapAddr];
 	if (!heap)
 		return SCE_KERNEL_ERROR_INVALID_ID;
-	u32 addr = heap->alloc.Alloc(memSize, heap->fromtop);
-	DEBUG_LOG(HLE,"sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
+	// Always goes down, regardless of whether the heap is high or low.
+	u32 addr = heap->alloc.Alloc(memSize, true);
+	DEBUG_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
 	return addr;
 }
 
