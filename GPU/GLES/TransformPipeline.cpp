@@ -79,6 +79,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/Common/SplineCommon.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
@@ -839,6 +840,120 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 		// Any out. For testing that the planes are in the right locations.
 		// if (out != 0) return false;
 	}
+
+	return true;
+}
+
+// TODO: Probably move this to common code (with normalization?)
+
+static inline Vec3f ClipToScreenTemp(const Vec4f& coords)
+{
+	Vec3f ret;
+	// TODO: Check for invalid parameters (x2 < x1, etc)
+	float vpx1 = getFloat24(gstate.viewportx1);
+	float vpx2 = getFloat24(gstate.viewportx2);
+	float vpy1 = getFloat24(gstate.viewporty1);
+	float vpy2 = getFloat24(gstate.viewporty2);
+	float vpz1 = getFloat24(gstate.viewportz1);
+	float vpz2 = getFloat24(gstate.viewportz2);
+
+	float retx = coords.x * vpx1 / coords.w + vpx2;
+	float rety = coords.y * vpy1 / coords.w + vpy2;
+	float retz = coords.z * vpz1 / coords.w + vpz2;
+
+	if (gstate.clipEnable & 0x1) {
+		if (retz < 0.f) retz = 0.f;
+		if (retz > 65535.f) retz = 65535.f;
+	}
+
+	// 16 = 0xFFFF / 4095.9375
+	return Vec3f(retx * 16, rety * 16, retz);
+}
+
+static Vec3f ScreenToDrawing(const Vec3f& coords)
+{
+	Vec3f ret;
+	// TODO: What to do when offset > coord?
+	ret.x = (((u32)coords.x - gstate.getOffsetX16())/16) & 0x3ff;
+	ret.y = (((u32)coords.y - gstate.getOffsetY16())/16) & 0x3ff;
+	ret.z = coords.z;
+	return ret;
+}
+
+// TODO: This probably is not the best interface.
+bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	// This is always for the current vertices.
+	u16 indexLowerBound = 0;
+	u16 indexUpperBound = count - 1;
+
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
+		const u16 *inds16 = (const u16 *)inds;
+
+		if (inds) {
+			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
+			indices.resize(count);
+			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			case GE_VTYPE_IDX_16BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds16[i];
+				}
+				break;
+			case GE_VTYPE_IDX_8BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds[i];
+				}
+				break;
+			default:
+				return false;
+			}
+		} else {
+			indices.clear();
+		}
+	} else {
+		indices.clear();
+	}
+
+	// TODO: Manage better.
+	u8 *temp_buffer = new u8[65536 * 24];
+	SimpleVertex *simpleVertices = new SimpleVertex[indexUpperBound + 1];
+	NormalizeVertices((u8 *)simpleVertices, temp_buffer, Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+
+	Mat3x3<float> world_matrix(gstate.worldMatrix);
+	Mat3x3<float> view_matrix(gstate.viewMatrix);
+	Mat4x4<float> projection_matrix(gstate.projMatrix);
+
+	vertices.resize(indexUpperBound + 1);
+	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
+		const SimpleVertex &vert = simpleVertices[i];
+
+		if (gstate.isModeThrough()) {
+			vertices[i].u = vert.uv[0];
+			vertices[i].v = vert.uv[1];
+			vertices[i].x = vert.pos.x;
+			vertices[i].y = vert.pos.y;
+			vertices[i].z = vert.pos.z;
+		} else {
+			// TODO: This doesn't work correctly and is inefficient.
+
+			Vec3f modelPos = vert.pos;
+			Vec3f worldPos = (world_matrix * modelPos) + Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
+			Vec3f viewPos = (view_matrix * worldPos) + Vec3<float>(gstate.viewMatrix[9], gstate.viewMatrix[10], gstate.viewMatrix[11]);
+			Vec4f clipPos = projection_matrix * Vec4f(viewPos.x, viewPos.y, viewPos.z, 1.0f);
+			Vec3f screenPos = ClipToScreenTemp(clipPos);
+			Vec3f drawPos = ScreenToDrawing(screenPos);
+
+			vertices[i].u = vert.uv[0];
+			vertices[i].v = vert.uv[1];
+			vertices[i].x = drawPos.x;
+			vertices[i].y = drawPos.y;
+			// TODO: Ought to be the drawPos.z but then things don't draw at all...
+			vertices[i].z = vert.pos.z;
+		}
+	}
+
+	delete [] temp_buffer;
+	delete [] simpleVertices;
 
 	return true;
 }

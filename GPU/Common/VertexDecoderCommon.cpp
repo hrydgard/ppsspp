@@ -42,7 +42,7 @@ int DecFmtSize(u8 fmt) {
 	}
 }
 
-void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
+void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
 	// Find index bounds. Could cache this in display lists.
 	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck.
 	int lowerBound = 0x7FFFFFFF;

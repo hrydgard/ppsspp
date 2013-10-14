@@ -69,6 +69,16 @@ struct SimpleGLWindow {
 		SwapBuffers(hDC_);
 	}
 
+	int Width() {
+		return w_;
+	}
+
+	int Height() {
+		return h_;
+	}
+
+	void GetContentSize(float &x, float &y, float &fw, float &fh);
+
 	static void RegisterClass();
 protected:
 	void SetupGL();

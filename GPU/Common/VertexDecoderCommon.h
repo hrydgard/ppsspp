@@ -71,7 +71,7 @@ struct TransformedVertex
 	u8 color1[4];   // prelit
 };
 
-void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
+void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
 enum {
 	STAT_VERTSSUBMITTED = 0,

@@ -176,6 +176,14 @@ private:
 	bool flipped_;
 };
 
+struct GPUDebugVertex {
+	float u;
+	float v;
+	float x;
+	float y;
+	float z;
+};
+
 class GPUDebugInterface {
 public:
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
@@ -197,6 +205,10 @@ public:
 	// Needs to be called from the GPU thread.
 	// Calling from a separate thread (e.g. UI) may fail.
 	virtual void SetCmdValue(u32 op) = 0;
+
+	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+		return false;
+	}
 
 	// Needs to be called from the GPU thread, so on the same thread as a notification is fine.
 	// Calling from a separate thread (e.g. UI) may fail.
