@@ -99,16 +99,24 @@ int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
 	return 0;
 }
 
-int sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
+u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 	Heap *heap = getHeap(heapAddr);
 	u32 grain = 4;
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x): invalid heap", heapAddr, memSize, paramsPtr);
-		return SCE_KERNEL_ERROR_INVALID_ID;
+		return 0;
 	}
 
-	if (Memory::Read_U32(paramsPtr) == 8)
+	// 0 is ignored.
+	if (paramsPtr != 0) {
+		u32 size = Memory::Read_U32(paramsPtr);
+		if (size < 8) {
+			ERROR_LOG(HLE, "sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x): invalid param size", heapAddr, memSize, paramsPtr);
+			return 0;
+		}
 		grain = Memory::Read_U32(paramsPtr + 4);
+	}
+
 	u32 addr = heap->alloc.AllocAligned(memSize,grain,grain,heap->fromtop);
 	DEBUG_LOG(HLE,"sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapAddr, memSize, paramsPtr);
 	return addr;
@@ -188,10 +196,11 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	return heap->address;
 }
 
-int sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
+u32 sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);
+		// Yes, not 0 (rturns a pointer), but an error code.  Strange.
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
@@ -209,12 +218,12 @@ static const HLEFunction sceHeap[] =
 	{0x1C84B58D,WrapI_UUIU<sceHeapReallocHeapMemoryWithOption>,"sceHeapReallocHeapMemoryWithOption"},
 	{0x2ABADC63,WrapI_UU<sceHeapFreeHeapMemory>,"sceHeapFreeHeapMemory"},
 	{0x2A0C2009,WrapI_UU<sceHeapGetMallinfo>,"sceHeapGetMallinfo"},
-	{0x2B7299D8,WrapI_UUU<sceHeapAllocHeapMemoryWithOption>,"sceHeapAllocHeapMemoryWithOption"},
+	{0x2B7299D8,WrapU_UUU<sceHeapAllocHeapMemoryWithOption>,"sceHeapAllocHeapMemoryWithOption"},
 	{0x4929B40D,WrapI_U<sceHeapGetTotalFreeSize>,"sceHeapGetTotalFreeSize"},
 	{0x7012BBDD,WrapI_UU<sceHeapIsAllocatedHeapMemory>,"sceHeapIsAllocatedHeapMemory"},
 	{0x70210B73,WrapI_U<sceHeapDeleteHeap>,"sceHeapDeleteHeap"},
 	{0x7DE281C2,WrapI_CUIU<sceHeapCreateHeap>,"sceHeapCreateHeap"},
-	{0xA8E102A0,WrapI_UU<sceHeapAllocHeapMemory>,"sceHeapAllocHeapMemory"},
+	{0xA8E102A0,WrapU_UU<sceHeapAllocHeapMemory>,"sceHeapAllocHeapMemory"},
 };
 
 void Register_sceHeap()
