@@ -1236,7 +1236,7 @@ void ARMXEmitter::VCVT(ARMReg Dest, ARMReg Source, int flags)
 	if (single_double)
 	{
 		// S32<->F64
-		if ((flags & TO_INT) || (flags & TO_FLOAT))
+		if (flags & TO_INT)
 		{
 			if (single_to_double)
 			{

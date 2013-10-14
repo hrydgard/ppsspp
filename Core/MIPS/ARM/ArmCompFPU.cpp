@@ -273,13 +273,13 @@ void Jit::Comp_FPU2op(MIPSOpcode op)
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.5f, R0);
+		MOVI2F(S0, 0.4999999f, R0);
 		VADD(S0,fpr.R(fs),S0);
 		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
 		break;
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.5f, R0);
+		MOVI2F(S0, 0.4999999f, R0);
 		VSUB(S0,fpr.R(fs),S0);
 		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
 		break;
@@ -297,7 +297,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op)
 		//	 2: Round up (ceil)
 		//	 3: Round down (floor)
 		CMP(R0, Operand2(2));
-		SetCC(CC_GE); MOVI2F(S0, 0.5f, R1);
+		SetCC(CC_GE); MOVI2F(S0, 0.4999999f, R1);
 		SetCC(CC_GT); VSUB(S0,fpr.R(fs),S0);
 		SetCC(CC_EQ); VADD(S0,fpr.R(fs),S0);
 		SetCC(CC_GE); VCVT(fpr.R(fd), S0, TO_INT | IS_SIGNED); /* 2,3 */
