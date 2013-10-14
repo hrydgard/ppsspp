@@ -106,7 +106,12 @@ int sceHeapGetTotalFreeSize(u32 heapAddr) {
 	if (!heap)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	DEBUG_LOG(HLE,"UNIMPL sceHeapGetTotalFreeSize(%08x)", heapAddr);
-	return heap->alloc.GetTotalFreeBytes();
+	u32 free = heap->alloc.GetTotalFreeBytes();
+	if (free >= 8) {
+		// Every allocation requires an extra 8 bytes.
+		free -= 8;
+	}
+	return free;
 }
 
 int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
@@ -125,10 +130,10 @@ int sceHeapDeleteHeap(u32 heapAddr) {
 int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	if (paramsPtr != 0) {
 		u32 size = Memory::Read_U32(paramsPtr);
-		WARN_LOG_REPORT(SCEKERNEL, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
+		WARN_LOG_REPORT(HLE, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
 	}	
 	if (name == NULL) {
-		WARN_LOG(SCEKERNEL,"sceHeapCreateHeap(): name is NULL");
+		WARN_LOG_REPORT(HLE, "sceHeapCreateHeap(): name is NULL");
 		return 0;
 	}
 	int allocSize = (heapSize + 3) & ~3;
@@ -138,24 +143,30 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	heap->fromtop = (attr & PSP_HEAP_ATTR_HIGHMEM) != 0;
 	u32 addr = userMemory.Alloc(heap->size, heap->fromtop, "Heap");
 	if (addr == (u32)-1) {
-		ERROR_LOG(SCEKERNEL, "sceHeapCreateHeap(): Failed to allocate %i bytes memory", allocSize);	
+		ERROR_LOG(HLE, "sceHeapCreateHeap(): Failed to allocate %i bytes memory", allocSize);	
 		delete heap;
 		return 0;
 	}
 	heap->address = addr;
-	heap->alloc.Init(heap->address,heap->size);
+
+	// Some of the heap is reseved by the implementation (the first 128 bytes, and 8 after each block.)
+	heap->alloc.Init(heap->address + 128, heap->size - 128);
 	heapList[heap->address] = heap;
-	DEBUG_LOG(HLE,"sceHeapCreateHeap(%s, %08x, %08x, %08x)", name, heapSize, attr, paramsPtr);
+	DEBUG_LOG(HLE, "%08x=sceHeapCreateHeap(%s, %08x, %08x, %08x)", heap->address, name, heapSize, attr, paramsPtr);
 	return heap->address;
 }
 
 int sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = heapList[heapAddr];
-	if (!heap)
+	if (!heap) {
+		WARN_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);
 		return SCE_KERNEL_ERROR_INVALID_ID;
+	}
+
+	DEBUG_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
+	memSize += 8;
 	// Always goes down, regardless of whether the heap is high or low.
 	u32 addr = heap->alloc.Alloc(memSize, true);
-	DEBUG_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x)", heapAddr, memSize);
 	return addr;
 }
 
