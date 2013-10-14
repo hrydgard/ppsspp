@@ -12,10 +12,22 @@ static int CheatEvent = -1;
 std::string gameTitle;
 std::string activeCheatFile;
 static CWCheatEngine *cheatEngine;
+static bool cheatsEnabled;
 void hleCheat(u64 userdata, int cyclesLate);
 void trim2(std::string& str);
 
-void __CheatInit() {
+static void __CheatStop() {
+	if (cheatEngine != 0) {
+		cheatEngine->Exit();
+		delete cheatEngine;
+		cheatEngine = 0;
+	}
+	cheatsEnabled = false;
+}
+
+static void __CheatStart() {
+	__CheatStop();
+
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
 #if defined(ANDROID) || defined(__SYMBIAN32__) || defined(_WIN32)
 	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
@@ -25,27 +37,30 @@ void __CheatInit() {
 	File::CreateFullPath(CHEATS_DIR);
 #endif
 
+	if (!File::Exists(activeCheatFile)) {
+		File::CreateEmptyFile(activeCheatFile);
+	}
+
+	cheatEngine = new CWCheatEngine();
+	cheatEngine->CreateCodeList();
+	g_Config.bReloadCheats = false;
+	cheatsEnabled = true;
+}
+
+void __CheatInit() {
+	// Always register the event, want savestates to be compatible whether cheats on or off.
 	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 
 	if (g_Config.bEnableCheats) {
-		if (!File::Exists(activeCheatFile)) {
-			File::CreateEmptyFile(activeCheatFile);
-		}
-
-		cheatEngine = new CWCheatEngine();
-
-		cheatEngine->CreateCodeList();
-		g_Config.bReloadCheats = false;
-		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
+		__CheatStart();
 	}
+
+	// Only check once a second for cheats to be enabled.
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
 }
 
 void __CheatShutdown() {
-	if (cheatEngine != 0) {
-		cheatEngine->Exit();
-		delete cheatEngine;
-		cheatEngine = 0;
-	}
+	__CheatStop();
 }
 
 void __CheatDoState(PointerWrap &p) {
@@ -59,19 +74,26 @@ void __CheatDoState(PointerWrap &p) {
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
-	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
+	if (cheatsEnabled != g_Config.bEnableCheats) {
+		// Okay, let's move to the desired state, then.
+		if (g_Config.bEnableCheats) {
+			__CheatStart();
+		} else {
+			__CheatStop();
+		}
+	}
 
-	if (!cheatEngine)
+	// Only check once a second for cheats to be enabled.
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+
+	if (!cheatEngine || !cheatsEnabled)
 		return;
 	
 	if (g_Config.bReloadCheats) { //Checks if the "reload cheats" button has been pressed.
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
 	}
-	if (g_Config.bEnableCheats) {
-		
-		cheatEngine->Run();
-	}
+	cheatEngine->Run();
 }
 
 CWCheatEngine::CWCheatEngine() {
