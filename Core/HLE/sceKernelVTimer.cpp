@@ -46,16 +46,18 @@ struct VTimer : public KernelObject {
 	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
 
 	virtual void DoState(PointerWrap &p) {
-		auto s = p.Section("VTimer", 1);
+		auto s = p.Section("VTimer", 1, 2);
 		if (!s)
 			return;
 
 		p.Do(nvt);
-		p.Do(memoryPtr);
+		if (s < 2) {
+			u32 memoryPtr;
+			p.Do(memoryPtr);
+		}
 	}
 
 	NativeVTimer nvt;
-	u32 memoryPtr;
 };
 
 KernelObject *__KernelVTimerObject() {
@@ -110,6 +112,8 @@ void __rescheduleVTimer(SceUID id, int delay) {
 
 class VTimerIntrHandler : public IntrHandler
 {
+	static const int HANDLER_STACK_SPACE = 48;
+
 public:
 	VTimerIntrHandler() : IntrHandler(PSP_SYSTIMER1_INTR) {}
 
@@ -122,18 +126,17 @@ public:
 		if (error)
 			return false;
 
-		if (vtimer->memoryPtr == 0) {
-			u32 size = 16;
-			vtimer->memoryPtr = kernelMemory.Alloc(size, true, "VTimer");
-		}
+		// Reserve some stack space for arguments.
+		u32 argArea = currentMIPS->r[MIPS_REG_SP];
+		currentMIPS->r[MIPS_REG_SP] -= HANDLER_STACK_SPACE;
 
-		Memory::Write_U64(vtimer->nvt.schedule, vtimer->memoryPtr);
-		Memory::Write_U64(__getVTimerCurrentTime(vtimer), vtimer->memoryPtr + 8);
+		Memory::Write_U64(vtimer->nvt.schedule, argArea - 16);
+		Memory::Write_U64(__getVTimerCurrentTime(vtimer), argArea - 8);
 
 		currentMIPS->pc = vtimer->nvt.handlerAddr;
 		currentMIPS->r[MIPS_REG_A0] = vtimer->GetUID();
-		currentMIPS->r[MIPS_REG_A1] = vtimer->memoryPtr;
-		currentMIPS->r[MIPS_REG_A2] = vtimer->memoryPtr + 8;
+		currentMIPS->r[MIPS_REG_A1] = argArea - 16;
+		currentMIPS->r[MIPS_REG_A2] = argArea - 8;
 		currentMIPS->r[MIPS_REG_A3] = vtimer->nvt.commonAddr;
 
 		return true;
@@ -141,6 +144,8 @@ public:
 
 	virtual void handleResult(PendingInterrupt &pend) {
 		int result = currentMIPS->r[MIPS_REG_V0];
+
+		currentMIPS->r[MIPS_REG_SP] += HANDLER_STACK_SPACE;
 
 		int vtimerID = vtimers.front();
 		vtimers.pop_front();
@@ -193,7 +198,6 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	vtimer->nvt.size = sizeof(NativeVTimer);
 	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-	vtimer->memoryPtr = 0;
 
 	if (optParamAddr != 0) {
 		u32 size = Memory::Read_U32(optParamAddr);
@@ -221,9 +225,6 @@ u32 sceKernelDeleteVTimer(u32 uid) {
 			break;
 		}
 	}
-
-	if (vt->memoryPtr != 0)
-		kernelMemory.Free(vt->memoryPtr);
 
 	return kernelObjects.Destroy<VTimer>(uid);
 }
