@@ -297,7 +297,14 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 
 		FileInfo info;
 		info.name = virtualName;
-		info.fullName = std::string(directory) + "/" + virtualName;
+		std::string dir = directory;
+
+		// Only append a slash if there isn't one on the end.
+		size_t lastSlash = dir.find_last_of("/");
+		if (lastSlash != (dir.length() - 1))
+			dir.append("/");
+
+		info.fullName = dir + virtualName;
 		info.isDirectory = isDirectory(info.fullName);
 		info.exists = true;
 		info.size = 0;
