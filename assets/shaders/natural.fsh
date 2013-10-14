@@ -1,4 +1,6 @@
-// Natural shader, GLSL code adapted from:
+// Natural Vision Shader, modified to use in PPSSPP.
+
+// by ShadX (Modded by SimoneT)
 // http://forums.ngemu.com/showthread.php?t=76098
 
 #ifdef GL_ES
