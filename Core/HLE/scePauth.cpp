@@ -30,7 +30,7 @@ int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea
 {
 	u8 *src, *key;
 	u32 crc;
-	char path[256], name[256];
+	char name[256];
 	std::string hostPath;
 	FILE *fp;
 	int size;
