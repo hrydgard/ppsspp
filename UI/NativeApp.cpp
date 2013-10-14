@@ -511,7 +511,7 @@ void NativeShutdownGraphics() {
 void TakeScreenshot() {
 #ifdef _WIN32
 	g_TakeScreenshot = false;
-	mkDir("screenshots");
+	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
 	int i = 0;
@@ -519,9 +519,9 @@ void TakeScreenshot() {
 	char temp[256];
 	while (i < 10000){
 		if(g_Config.bScreenshotsAsPNG)
-			sprintf(temp, "screenshots/screen%05d.png", i);
+			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.png", g_Config.memCardDirectory.c_str(), i);
 		else
-			sprintf(temp, "screenshots/screen%05d.jpg", i);
+			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.jpg", g_Config.memCardDirectory.c_str(), i);
 		FileInfo info;
 		if (!getFileInfo(temp, &info))
 			break;
