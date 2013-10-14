@@ -7,70 +7,95 @@
 #include "MIPS/MIPS.h"
 #include "Core/Config.h"
 
-const static std::string CHEATS_DIR = "cheats";
 static int CheatEvent = -1;
 std::string gameTitle;
 std::string activeCheatFile;
 static CWCheatEngine *cheatEngine;
+static bool cheatsEnabled;
 void hleCheat(u64 userdata, int cyclesLate);
 void trim2(std::string& str);
 
-void __CheatInit() {
-	gameTitle = g_paramSFO.GetValueString("DISC_ID");
-#if defined(ANDROID) || defined(__SYMBIAN32__) || defined(_WIN32)
-	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
-#else
-	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
-#endif
-
-	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
-
-	File::CreateFullPath(CHEATS_DIR);
-	if (g_Config.bEnableCheats) {
-		if (!File::Exists(activeCheatFile)) {
-			File::CreateEmptyFile(activeCheatFile);
-		}
-
-		cheatEngine = new CWCheatEngine();
-
-		cheatEngine->CreateCodeList();
-		g_Config.bReloadCheats = false;
-		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
-	}
-}
-
-void __CheatShutdown() {
+static void __CheatStop() {
 	if (cheatEngine != 0) {
 		cheatEngine->Exit();
 		delete cheatEngine;
 		cheatEngine = 0;
 	}
+	cheatsEnabled = false;
+}
+
+static void __CheatStart() {
+	__CheatStop();
+
+	gameTitle = g_paramSFO.GetValueString("DISC_ID");
+
+	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
+	File::CreateFullPath(g_Config.memCardDirectory + "PSP/Cheats");
+
+	if (!File::Exists(activeCheatFile)) {
+		File::CreateEmptyFile(activeCheatFile);
+	}
+
+	cheatEngine = new CWCheatEngine();
+	cheatEngine->CreateCodeList();
+	g_Config.bReloadCheats = false;
+	cheatsEnabled = true;
+}
+
+void __CheatInit() {
+	// Always register the event, want savestates to be compatible whether cheats on or off.
+	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
+
+	if (g_Config.bEnableCheats) {
+		__CheatStart();
+	}
+
+	// Only check once a second for cheats to be enabled.
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+}
+
+void __CheatShutdown() {
+	__CheatStop();
 }
 
 void __CheatDoState(PointerWrap &p) {
-	auto s = p.Section("CwCheat", 0, 1);
+	auto s = p.Section("CwCheat", 0, 2);
 	if (!s) {
 		return;
 	}
 
 	p.Do(CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
+
+	if (s < 2) {
+		// Before this we didn't have a checkpoint, so reset didn't work.
+		// Let's just force one in.
+		CoreTiming::RemoveEvent(CheatEvent);
+		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+	}
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
-	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
+	if (cheatsEnabled != g_Config.bEnableCheats) {
+		// Okay, let's move to the desired state, then.
+		if (g_Config.bEnableCheats) {
+			__CheatStart();
+		} else {
+			__CheatStop();
+		}
+	}
 
-	if (!cheatEngine)
+	// Only check once a second for cheats to be enabled.
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+
+	if (!cheatEngine || !cheatsEnabled)
 		return;
 	
 	if (g_Config.bReloadCheats) { //Checks if the "reload cheats" button has been pressed.
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
 	}
-	if (g_Config.bEnableCheats) {
-		
-		cheatEngine->Run();
-	}
+	cheatEngine->Run();
 }
 
 CWCheatEngine::CWCheatEngine() {
@@ -201,6 +226,9 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	std::string line;
 	std::vector<std::string> codesList;  // Read from INI here
 	std::ifstream list(activeCheatFile.c_str());
+	if (!list) {
+		return codesList;
+	}
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
 		if (line.length() > 3 && line.substr(0,1) == "_"){
