@@ -21,59 +21,16 @@ include $(CLEAR_VARS)
 
 #TARGET_PLATFORM := android-8
 
-LOCAL_MODULE := ppsspp_jni
-
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DUSING_GLES2 -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing
-# yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder -Wno-literal-suffix
-LOCAL_C_INCLUDES := \
-  $(LOCAL_PATH)/../../Common \
-  $(LOCAL_PATH)/../.. \
-  $(LOCAL_PATH)/$(NATIVE)/base \
-  $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
-  $(LOCAL_PATH)/$(NATIVE) \
-  $(LOCAL_PATH)
-
-LOCAL_STATIC_LIBRARIES := native libzip
-LOCAL_LDLIBS := -lz -lGLESv2 -lEGL -ldl -llog
-ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavformat.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavcodec.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswresample.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswscale.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavutil.a
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv7/include
-LOCAL_CFLAGS += -DARMEABI_V7A
-endif
-ifeq ($(TARGET_ARCH_ABI),armeabi)
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavformat.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavcodec.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libswresample.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libswscale.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavutil.a
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv6/include
-LOCAL_CFLAGS += -DARMEABI
-endif
-ifeq ($(TARGET_ARCH_ABI),x86)
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavformat.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavcodec.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswresample.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswscale.a
-LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
-endif
+include $(LOCAL_PATH)/Locals.mk
 
 #  $(SRC)/Core/EmuThread.cpp \
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
-
 ifeq ($(TARGET_ARCH_ABI),x86) 
-
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -fomit-frame-pointer -mtune=atom -mssse3
 
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
@@ -93,8 +50,6 @@ endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMV7
-
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
@@ -114,8 +69,6 @@ endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi)
 
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
-
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
@@ -133,7 +86,7 @@ ARCH_FILES := \
 
 endif
 
-LOCAL_SRC_FILES := \
+EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
@@ -148,7 +101,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/UI/ui_atlas.cpp \
-  $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
@@ -162,7 +114,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
-  $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/amctrl.c \
@@ -322,8 +273,28 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Util/PPGeDraw.cpp \
   $(SRC)/git-version.cpp
 
+# These are the files just for ppsspp_jni
+LOCAL_MODULE := ppsspp_jni
+LOCAL_SRC_FILES := \
+  $(EXEC_AND_LIB_FILES) \
+  $(SRC)/native/android/app-android.cpp \
+  $(SRC)/UI/NativeApp.cpp
 
 include $(BUILD_SHARED_LIBRARY)
+
+
+ifeq ($(HEADLESS),1)
+  include $(CLEAR_VARS)
+  include $(LOCAL_PATH)/Locals.mk
+
+  LOCAL_MODULE := ppsspp_headless
+  LOCAL_SRC_FILES := \
+    $(EXEC_AND_LIB_FILES) \
+    $(SRC)/headless/Headless.cpp \
+    $(SRC)/headless/Compare.cpp
+
+  include $(BUILD_EXECUTABLE)
+endif
 
 $(call import-module,libzip)
 $(call import-module,native)
