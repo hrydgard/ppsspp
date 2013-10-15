@@ -1,5 +1,6 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
+#include "util/text/utf8.h"
 #include "Common/CommonWindows.h"
 #include "native/gfx_es2/gl_state.h"
 #include "native/gfx/gl_common.h"
@@ -119,13 +120,12 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;											// Return FALSE
 	}
 
-	if (!(PixelFormat = ChoosePixelFormat(hDC,&pfd)))
-	{
+	if (!(PixelFormat = ChoosePixelFormat(hDC, &pfd)))	{
 		*error_message = "Can't Find A Suitable PixelFormat.";
 		return false;
 	}
 
-	if (!SetPixelFormat(hDC,PixelFormat,&pfd)) {
+	if (!SetPixelFormat(hDC, PixelFormat, &pfd)) {
 		*error_message = "Can't Set The PixelFormat.";
 		return false;
 	}
@@ -135,9 +135,38 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;
 	}	
 
-	if (!wglMakeCurrent(hDC,hRC)) {
+	if (!wglMakeCurrent(hDC, hRC)) {
 		*error_message = "Can't activate the GL Rendering Context.";
 		return false;
+	}
+
+	// Check for really old OpenGL drivers and refuse to run really early in some cases.
+
+	// TODO: Also either tell the user to give up or point the user to the right websites. Here's some collected
+	// information about a system that will not work:
+
+	// GL_VERSION                        GL_VENDOR        GL_RENDERER
+	// "1.4.0 - Build 8.14.10.2364"      "intel"          intel Pineview Platform
+
+	const char *glver = (const char *)glGetString(GL_VERSION);
+	if (!memcmp(glver, "1.4.0", 5) ||
+		!memcmp(glver, "1.3.0", 5) ||
+		!memcmp(glver, "1.2.0", 5) ||
+		!memcmp(glver, "1.1.0", 5) ||
+		!memcmp(glver, "1.0.0", 5)) {
+
+		// TODO:
+		const char *text = "Insufficient OpenGL driver support detected!\r\n\r\n"
+			"Your GPU reports that it does not support OpenGL 2.0, which is currently "
+		  "required for PPSSPP to run.\r\n\r\n"
+			"Please check that your GPU is compatible with OpenGL 2.0. If it is, you need "
+			"to find and install new graphics drivers from your GPU vendor's website.\r\n\r\n";
+		  "Visit the forums at http://forums.ppsspp.org for more information.";
+
+		const char *title = "OpenGL driver error";
+		MessageBox(0, ConvertUTF8ToWString(text).c_str(), ConvertUTF8ToWString(title).c_str(), MB_ICONWARNING);
+		// Avoid further error messages. Let's just bail, it's safe.
+		ExitProcess(0);
 	}
 
 	if (GLEW_OK != glewInit()) {
