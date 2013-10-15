@@ -1,0 +1,2 @@
+This gets renamed to "installed.txt" in the installer.
+Tells PPSSPP to consider itself installed and to not write data files into its own directory.

@@ -13,3 +13,6 @@
 [submodule "dx9sdk"]
 	path = dx9sdk
 	url = https://github.com/hrydgard/minidx9.git
+[submodule "redist"]
+	path = redist
+	url = https://github.com/hrydgard/ppsspp-redist.git
