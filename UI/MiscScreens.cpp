@@ -406,6 +406,7 @@ void CreditsScreen::render() {
 		"mikusp",
 		"aquanull",
 		"The Dax",
+		"bollu",
 		"tmaul",
 		"artart78",
 		"ced2911",
