@@ -363,17 +363,17 @@ CoreParameter &PSP_CoreParameter() {
 std::string GetSysDirectory(PSPDirectories directoryType) {
 	switch (directoryType) {
 	case DIRECTORY_CHEATS:
-		return g_Config.memCardDirectory + "/PSP/Cheats/";
+		return g_Config.memCardDirectory + "PSP/Cheats/";
 	case DIRECTORY_GAME:
-		return g_Config.memCardDirectory + "/PSP/GAME/";
+		return g_Config.memCardDirectory + "PSP/GAME/";
 	case DIRECTORY_SAVEDATA:
-		return g_Config.memCardDirectory + "/PSP/SAVEDATA/";
+		return g_Config.memCardDirectory + "PSP/SAVEDATA/";
 	case DIRECTORY_SCREENSHOT:
-		return g_Config.memCardDirectory + "/PSP/SCREENSHOT/";
+		return g_Config.memCardDirectory + "PSP/SCREENSHOT/";
 	case DIRECTORY_SYSTEM:
-		return g_Config.memCardDirectory + "/PSP/SYSTEM/";
+		return g_Config.memCardDirectory + "PSP/SYSTEM/";
 	case DIRECTORY_PAUTH:
-		return g_Config.memCardDirectory + "/PAUTH/";
+		return g_Config.memCardDirectory + "PAUTH/";
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
 		ERROR_LOG(FILESYS, "Unknown directory type.");
