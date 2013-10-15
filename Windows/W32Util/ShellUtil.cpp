@@ -12,7 +12,7 @@
 
 namespace W32Util
 {
-	std::string BrowseForFolder(HWND parent, char *title)
+	std::string BrowseForFolder(HWND parent, const char *title)
 	{
 		std::wstring titleString = ConvertUTF8ToWString(title);
 
