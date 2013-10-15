@@ -480,9 +480,8 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	bool vertical = dp_yres > dp_xres;
-
-	ILOG("Vertical? %c : %i %i", vertical ? 'Y' : 'N', dp_xres, dp_yres);
+	// Vertical mode is not finished.
+	bool vertical = false;  // dp_yres > dp_xres;
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 

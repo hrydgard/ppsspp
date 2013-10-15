@@ -263,36 +263,6 @@ FramebufferManager::FramebufferManager() :
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	// Check vendor string to try and guess GPU
-	const char *cvendor = (char *)glGetString(GL_VENDOR);
-	if (cvendor) {
-		const std::string vendor(cvendor);
-		if (vendor == "NVIDIA Corporation"
-			|| vendor == "Nouveau"
-			|| vendor == "nouveau") {
-				gpuVendor = GPU_VENDOR_NVIDIA;
-		} else if (vendor == "Advanced Micro Devices, Inc."
-			|| vendor == "ATI Technologies Inc.") {
-				gpuVendor = GPU_VENDOR_AMD;
-		} else if (vendor == "Intel"
-			|| vendor == "Intel Inc."
-			|| vendor == "Intel Corporation"
-			|| vendor == "Tungsten Graphics, Inc") { // We'll assume this last one means Intel
-				gpuVendor = GPU_VENDOR_INTEL;
-		} else if (vendor == "ARM") {
-			gpuVendor = GPU_VENDOR_ARM;
-		} else if (vendor == "Imagination Technologies") {
-			gpuVendor = GPU_VENDOR_POWERVR;
-		} else if (vendor == "Qualcomm") {
-			gpuVendor = GPU_VENDOR_ADRENO;
-		} else {
-			gpuVendor = GPU_VENDOR_UNKNOWN;
-		}
-	} else {
-		gpuVendor = GPU_VENDOR_UNKNOWN;
-	}
-	gstate_c.gpuVendor = gpuVendor;
-	NOTICE_LOG(SCEGE, "GPU Vendor : %s", cvendor);
 	SetLineWidth();
 }
 
@@ -715,6 +685,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		if (useBufferedRendering_) {
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
+				// adreno needs us to reset the viewport after switching render targets.
+				
+				glstate.viewport.restore();
 			} else {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
 				fbo_unbind();
@@ -1113,7 +1086,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	if (vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
-		bool reverseOrder = (gpuVendor == GPU_VENDOR_NVIDIA) || (gpuVendor == GPU_VENDOR_AMD);
+		bool reverseOrder = (gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD);
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)

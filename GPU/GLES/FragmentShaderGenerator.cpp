@@ -27,12 +27,14 @@
 #endif
 #endif
 
-#include "FragmentShaderGenerator.h"
-#include "Framebuffer.h"
-#include "../ge_constants.h"
-#include "../GPUState.h"
-#include "Core/Reporting.h"
 #include <cstdio>
+
+#include "gfx_es2/gl_state.h"
+#include "Core/Reporting.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/Framebuffer.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
 #define WRITE p+=sprintf
 
@@ -250,13 +252,13 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	if (enableAlphaTest) {
-		if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
+		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
 			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n"); 
 	}
 	if (enableColorTest) {
-		if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
+		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
 			WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
 			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n"); 
@@ -326,7 +328,7 @@ void GenerateFragmentShader(char *buffer) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) {
+				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					// Work around bad PVR driver problem where equality check + discard just doesn't work.
 					if (alphaTestFunc != 3)
 						WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
@@ -351,7 +353,7 @@ void GenerateFragmentShader(char *buffer) {
 			WARN_LOG_REPORT_ONCE(colortest, G3D, "Color test function : %s", colorTestFuncs[colorTestFunc]); 
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
+				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
 					WRITE(p, "if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 				else
 					WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);

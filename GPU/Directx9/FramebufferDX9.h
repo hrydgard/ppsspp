@@ -152,7 +152,6 @@ private:
 	// Used by ReadFramebufferToMemory
 	void BlitFramebuffer_(VirtualFramebufferDX9 *src, VirtualFramebufferDX9 *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
 	void PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb);
-	int gpuVendor;
 	std::vector<VirtualFramebufferDX9 *> bvfbs_; // blitting FBOs
 	
 	// Used by DrawPixels

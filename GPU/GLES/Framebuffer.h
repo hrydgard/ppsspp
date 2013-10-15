@@ -39,16 +39,6 @@ enum {
 };
 
 enum {	
-	GPU_VENDOR_NVIDIA = 1,
-	GPU_VENDOR_AMD = 2,
-	GPU_VENDOR_INTEL = 3,
-	GPU_VENDOR_ARM = 4,
-	GPU_VENDOR_POWERVR = 5,
-	GPU_VENDOR_ADRENO = 6,
-	GPU_VENDOR_UNKNOWN = 0,
-};
-
-enum {	
 	FB_NON_BUFFERED_MODE = 0,
 	FB_BUFFERED_MODE = 1,
 #ifndef USING_GLES2
@@ -200,7 +190,6 @@ private:
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
 	void PackFramebufferSync_(VirtualFramebuffer *vfb);
-	int gpuVendor;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 
 	std::set<std::pair<u32, u32>> knownFramebufferCopies_;

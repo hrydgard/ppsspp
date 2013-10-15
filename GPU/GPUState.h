@@ -454,7 +454,6 @@ struct GPUStateCache
 	u32 curRTHeight;
 
 	u32 getRelativeAddress(u32 data) const;
-	int gpuVendor;
 };
 
 // TODO: Implement support for these.

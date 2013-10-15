@@ -25,8 +25,8 @@
 
 #include <map>
 
-
 #include "base/logging.h"
+#include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Config.h"
@@ -227,7 +227,7 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
 static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
-	if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) {
+	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 		const float col[4] = {
 			(float)((color & 0xFF)) * (1.0f / 255.0f),
 			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
