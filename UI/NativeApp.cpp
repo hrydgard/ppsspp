@@ -367,12 +367,6 @@ void NativeInit(int argc, const char *argv[],
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
-#else
-	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = ConvertWStringToUTF8(File::GetExeDirectory());
-	}
-	// TODO: Is this even needed, when PPSSPP uses GetSysDirectories in multiple other places?
-	g_Config.memCardDirectory = "memstick/";
 #endif	
 
 	i18nrepo.LoadIni(g_Config.sLanguageIni);

@@ -86,15 +86,12 @@ unsigned int WINAPI TheThread(void *)
 
 	setCurrentThreadName("EmuThread");
 
-	std::string memstick, flash0;
-	GetSysDirectories(memstick, flash0);
-
 	// Native overwrites host. Can't allow that.
 
 	Host *oldHost = host;
 	UpdateScreenScale();
 
-	NativeInit(__argc, (const char **)__argv, memstick.c_str(), memstick.c_str(), "1234");
+	NativeInit(__argc, (const char **)__argv, "1234", "1234", "1234");
 	Host *nativeHost = host;
 	host = oldHost;
 

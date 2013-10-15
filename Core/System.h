@@ -36,6 +36,17 @@ enum GlobalUIState {
 	UISTATE_EXIT,
 };
 
+// Use these in conjunction with GetSysDirectory.
+enum PSPDirectories {
+	DIRECTORY_MEMSTICK,
+	DIRECTORY_FLASH0,
+	DIRECTORY_CHEATS,
+	DIRECTORY_SCREENSHOT,
+	DIRECTORY_SYSTEM,
+	DIRECTORY_GAME,
+	DIRECTORY_SAVEDATA,
+	DIRECTORY_PAUTH,
+};
 
 extern GlobalUIState globalUIState;
 
@@ -58,7 +69,8 @@ void Audio_Init();
 bool IsOnSeparateCPUThread();
 bool IsAudioInitialised();
 
-void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
+std::string GetSysDirectory(PSPDirectories directoryType);
+void InitSysDirectories();
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
 enum CoreState
