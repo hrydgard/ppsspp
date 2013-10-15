@@ -103,6 +103,37 @@ void CheckGLExtensions() {
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
 	const char *versionStr = (const char *)glGetString(GL_VERSION);
 
+	// Check vendor string to try and guess GPU
+	const char *cvendor = (char *)glGetString(GL_VENDOR);
+	if (cvendor) {
+		const std::string vendor(cvendor);
+		if (vendor == "NVIDIA Corporation"
+			|| vendor == "Nouveau"
+			|| vendor == "nouveau") {
+				gl_extensions.gpuVendor = GPU_VENDOR_NVIDIA;
+		} else if (vendor == "Advanced Micro Devices, Inc."
+			|| vendor == "ATI Technologies Inc.") {
+				gl_extensions.gpuVendor = GPU_VENDOR_AMD;
+		} else if (vendor == "Intel"
+			|| vendor == "Intel Inc."
+			|| vendor == "Intel Corporation"
+			|| vendor == "Tungsten Graphics, Inc") { // We'll assume this last one means Intel
+				gl_extensions.gpuVendor = GPU_VENDOR_INTEL;
+		} else if (vendor == "ARM") {
+			gl_extensions.gpuVendor = GPU_VENDOR_ARM;
+		} else if (vendor == "Imagination Technologies") {
+			gl_extensions.gpuVendor = GPU_VENDOR_POWERVR;
+		} else if (vendor == "Qualcomm") {
+			gl_extensions.gpuVendor = GPU_VENDOR_ADRENO;
+		} else {
+			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
+		}
+	} else {
+		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
+	}
+
+	ILOG("GPU Vendor : %s", cvendor);
+
 #ifndef USING_GLES2
 
 	char buffer[64] = {0};
