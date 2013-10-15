@@ -1127,20 +1127,11 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_LOAD_MEMSTICK:
-					{
-						std::string memStickDir, flash0dir;
-						GetSysDirectories(memStickDir, flash0dir);
-						memStickDir += "PSP\\GAME\\";
-						BrowseAndBoot(memStickDir);
-					}
+					BrowseAndBoot(GetSysDirectory(DIRECTORY_GAME));
 					break;
 
 				case ID_FILE_MEMSTICK:
-					{
-						std::string memStickDir, flash0dir;
-						GetSysDirectories(memStickDir, flash0dir);
-						ShellExecuteA(NULL, "open", memStickDir.c_str(), 0, 0, SW_SHOW);
-					}
+					ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memCardDirectory).c_str(), 0, 0, SW_SHOW);
 					break;
 
 				case ID_TOGGLE_PAUSE:

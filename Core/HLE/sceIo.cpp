@@ -448,15 +448,11 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	std::string memstickpath;
-	std::string flash0path;
-	GetSysDirectories(memstickpath, flash0path);
-
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memCardDirectory);
 #ifdef ANDROID
 	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");
 #else
-	flash0System = new DirectoryFileSystem(&pspFileSystem, flash0path);
+	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
 #endif
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
