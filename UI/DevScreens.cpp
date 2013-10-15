@@ -149,7 +149,11 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
+#ifdef ARM
+	deviceSpecs->Add(new InfoItem("Cores", StringFromInt(cpu_info.num_cores)));
+#else
 	deviceSpecs->Add(new InfoItem("Threads", StringFromInt(cpu_info.num_cores)));
+#endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
 	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
 	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));

@@ -208,9 +208,9 @@ void CPUInfo::Detect()
 				continue;
 			if (strncmp(buf + sizeof(marker) - 1, qcCPU, sizeof(qcCPU) - 1) == 0) {
 				isVFP4 = true;
-				strcpy(brand_string, "Qualcomm\n");
+				strcpy(brand_string, "Qualcomm ");
 			} else {
-				strcpy(brand_string, "TI\n");
+				strcpy(brand_string, "TI ");
 			}
 			strncat(brand_string, buf + sizeof(marker) - 1, strlen(buf) - sizeof(marker));
 			break;
@@ -218,7 +218,7 @@ void CPUInfo::Detect()
 		fclose(fp);
 	}
 #elif defined(SYMBIAN)
-	strcpy(brand_string, "Samsung\nARMv6");
+	strcpy(brand_string, "Samsung ARMv6");
 #endif
 	// Hardcode this for now
 	bSwp = true;
