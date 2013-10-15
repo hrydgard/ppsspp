@@ -188,10 +188,11 @@ void CPUInfo::Detect()
 	bool isVFP4 = false;
 #ifdef IOS
 	isVFP3 = true;
-    // Check for swift arch (VFP4`)
+    // Check for swift arch (VFP4)
     #ifdef __ARM_ARCH_7S__
         isVFP4 = true;
-    #endif // #ifdef __ARM_ARCH_7S__
+    #endif
+	strcpy(brand_string, "Apple");
 #elif defined(BLACKBERRY)
 	isVFP3 = true;
 	const char cpuInfoPath[] = "/pps/services/hw_info/inventory";
@@ -205,12 +206,19 @@ void CPUInfo::Detect()
 		{
 			if (strncmp(buf, marker, sizeof(marker) - 1))
 				continue;
-			if (strncmp(buf + sizeof(marker) - 1, qcCPU, sizeof(qcCPU) - 1) == 0)
+			if (strncmp(buf + sizeof(marker) - 1, qcCPU, sizeof(qcCPU) - 1) == 0) {
 				isVFP4 = true;
+				strcpy(brand_string, "Qualcomm\n");
+			} else {
+				strcpy(brand_string, "TI\n");
+			}
+			strncat(brand_string, buf + sizeof(marker) - 1, strlen(buf) - sizeof(marker));
 			break;
 		}
 		fclose(fp);
 	}
+#elif defined(SYMBIAN)
+	strcpy(brand_string, "Samsung\nARMv6");
 #endif
 	// Hardcode this for now
 	bSwp = true;
