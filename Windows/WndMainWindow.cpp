@@ -1131,7 +1131,7 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_MEMSTICK:
-					ShellExecuteA(NULL, "open", g_Config.memCardDirectory.c_str(), 0, 0, SW_SHOW);
+					ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memCardDirectory).c_str(), 0, 0, SW_SHOW);
 					break;
 
 				case ID_TOGGLE_PAUSE:
