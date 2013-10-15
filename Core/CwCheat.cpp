@@ -29,8 +29,8 @@ static void __CheatStart() {
 
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
 
-	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
-	File::CreateFullPath(g_Config.memCardDirectory + "PSP/Cheats");
+	activeCheatFile = GetSysDirectory(DIRECTORY_CHEATS) + gameTitle + ".ini";
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
 	if (!File::Exists(activeCheatFile)) {
 		File::CreateEmptyFile(activeCheatFile);

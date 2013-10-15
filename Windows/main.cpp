@@ -217,14 +217,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
-	std::string memstickpath, flash0path;
-	GetSysDirectories(memstickpath, flash0path);
+	// On Win32 it makes more sense to initialize the system directories here 
+	// because the next place it was called was in the EmuThread, and it's too late by then.
+	InitSysDirectories();
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
 	g_Config.AddSearchPath("");
-	g_Config.AddSearchPath(memstickpath + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(memstickpath + "PSP/SYSTEM/");
+	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename, controlsConfigFilename);
 
 	// The rest is handled in NativeInit().
