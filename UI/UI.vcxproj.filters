@@ -28,8 +28,10 @@
     <ClCompile Include="ControlMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DevScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="CwCheatScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
   </ItemGroup>
@@ -60,8 +62,10 @@
     <ClInclude Include="ControlMappingScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="DevScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="CwCheatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
