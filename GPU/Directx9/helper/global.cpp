@@ -74,8 +74,8 @@ LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader = NULL;  // Pixel Shader
 bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable) {
 	LPD3DXCONSTANTTABLE shaderTable = *pShaderTable;
 
-	ID3DXBuffer* pShaderCode;
-	ID3DXBuffer* pErrorMsg;
+	ID3DXBuffer* pShaderCode = NULL;
+	ID3DXBuffer* pErrorMsg = NULL;
 
 	HRESULT hr = -1;
 
@@ -111,8 +111,8 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable) {
 	LPD3DXCONSTANTTABLE shaderTable = *pShaderTable;
 
-	ID3DXBuffer* pShaderCode;
-	ID3DXBuffer* pErrorMsg;
+	ID3DXBuffer* pShaderCode = NULL;
+	ID3DXBuffer* pErrorMsg = NULL;
 
 	HRESULT hr = -1;
 
@@ -146,8 +146,8 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 }
 
 void CompileShaders() {
-	ID3DXBuffer* pShaderCode;
-	ID3DXBuffer* pErrorMsg;
+	ID3DXBuffer* pShaderCode = NULL;
+	ID3DXBuffer* pErrorMsg = NULL;
 	HRESULT hr = -1;
 
 #ifdef _XBOX
