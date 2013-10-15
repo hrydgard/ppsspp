@@ -15,8 +15,10 @@
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
-	case SYSPROP_NAME:
-		return "Blackberry10:" + (pixel_xres != pixel_yres) ? "Touch" : "QWERTY";
+	case SYSPROP_NAME: {
+		std::string name = "Blackberry10:";
+		return name + ((pixel_xres != pixel_yres) ? "Touch" : "QWERTY");
+	}
 	case SYSPROP_LANGREGION:
 		return "en_US";
 	default:
