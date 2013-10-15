@@ -487,7 +487,8 @@ public:
 		currentStack.start = 0;
 	}
 
-	~Thread()
+	// Can't use a destructor since savestates will call that too.
+	void Cleanup()
 	{
 		// Callbacks are automatically deleted when their owning thread is deleted.
 		for (auto it = callbacks.begin(), end = callbacks.end(); it != end; ++it)
@@ -1798,6 +1799,8 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 			if (callback && callback->nc.notifyCount != 0)
 				readyCallbacksCount--;
 		}
+
+		t->Cleanup();
 	}
 
 	return kernelObjects.Destroy<Thread>(threadID);
