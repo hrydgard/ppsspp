@@ -74,7 +74,7 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 	std::string memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
 	std::vector<FileInfo> dirs;
-	getFilesInDir((memc).c_str(), &dirs);
+	getFilesInDir(memc.c_str(), &dirs);
 	
 	std::vector<std::string> directories;
 	for (size_t i = 0; i < dirs.size(); i++) {

@@ -218,7 +218,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	// On Win32 it makes more sense to initialize the system directories here 
-	// because GetSysDirectories was called much later than this..
+	// because the next place it was called was in the EmuThread, and it's too late by then.
 	InitSysDirectories();
 
 	// Load config up here, because those changes below would be overwritten
