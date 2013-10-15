@@ -808,7 +808,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_ALPHATEST:
 		{
 			const char *alphaTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
-			sprintf(buffer, "Alpha test settings: %06x ((c & %02x)%s%02x)", data, (data >> 16) & 0xFF, (data >> 8) & 0xFF, alphaTestFuncs[data & 7]);
+			sprintf(buffer, "Alpha test settings: %06x ((c & %02x)%s%02x)", data, (data >> 16) & 0xFF, alphaTestFuncs[data & 7], (data >> 8) & 0xFF);
 		}
 		break;
 
