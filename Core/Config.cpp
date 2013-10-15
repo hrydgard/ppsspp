@@ -82,8 +82,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
 #ifdef _WIN32
 	general->Get("TopMost", &bTopMost);
-	general->Get("WindowX", &iWindowX, 40);
-	general->Get("WindowY", &iWindowY, 100);
+	general->Get("WindowX", &iWindowX, -1); // -1 tells us to center the window.
+	general->Get("WindowY", &iWindowY, -1);
 	general->Get("WindowWidth", &iWindowWidth, 0);   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
 	general->Get("WindowHeight", &iWindowHeight, 0);
 	general->Get("PauseOnLostFocus", &bPauseOnLostFocus, false);
