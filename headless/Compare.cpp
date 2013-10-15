@@ -53,7 +53,7 @@ struct BufferedLineReader {
 
 	void Fill() {
 		while (valid_ < MAX_BUFFER && HasMoreLines()) {
-			buffer_[valid_++] = ReadLine();
+			buffer_[valid_++] = TrimNewlines(ReadLine());
 		}
 	}
 
@@ -126,6 +126,14 @@ protected:
 			pos_ = next + 1;
 			return result;
 		}
+	}
+
+	static std::string TrimNewlines(const std::string &s) {
+		size_t p = s.find_last_not_of("\r\n");
+		if (p == s.npos) {
+			return "";
+		}
+		return s.substr(0, p + 1);
 	}
 
 	int valid_;
