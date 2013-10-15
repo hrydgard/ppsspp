@@ -381,12 +381,12 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
+#ifdef _WIN32
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
-
 	if (!g_Config.memCardDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
-#ifdef _WIN32
+
 	const std::string path = ConvertWStringToUTF8(File::GetExeDirectory());
 
 	// Mount a filesystem
@@ -449,9 +449,5 @@ void InitSysDirectories() {
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
 	}
-#else
-	// TODO: Perhaps move your platforms' directory stuff out of NativeInit and into here.
-	memstickpath = g_Config.memCardDirectory;
-	flash0path = g_Config.flash0Directory;
-#endif
 }
+#endif
