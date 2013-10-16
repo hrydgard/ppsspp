@@ -358,8 +358,10 @@ namespace MainWindow
 		// Then center if necessary.
 		if (g_Config.iWindowX == -1 && g_Config.iWindowY == -1) {
 			// Center the window.
-			g_Config.iWindowX = screenX + (screenWidth - g_Config.iWindowWidth) / 2;
-			g_Config.iWindowY = screenY + (screenHeight - g_Config.iWindowHeight) / 2;
+			const int primaryScreenWidth = GetSystemMetrics(SM_CXSCREEN);
+			const int primaryScreenHeight = GetSystemMetrics(SM_CYSCREEN);
+			g_Config.iWindowX = (primaryScreenWidth - g_Config.iWindowWidth) / 2;
+			g_Config.iWindowY = (primaryScreenHeight - g_Config.iWindowHeight) / 2;
 			rc.left = g_Config.iWindowX;
 			rc.top = g_Config.iWindowY;
 			rc.right = rc.left + g_Config.iWindowWidth;
