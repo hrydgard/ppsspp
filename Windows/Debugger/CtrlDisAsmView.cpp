@@ -575,6 +575,7 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	}
 
 	SelectObject(hdc,oldPen);
+	DeleteObject(pen);
 }
 
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
