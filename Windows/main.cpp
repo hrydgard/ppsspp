@@ -306,8 +306,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//so.. we're at the message pump of the GUI thread
 	for (MSG msg; GetMessage(&msg, NULL, 0, 0); )	// for no quit
 	{
-		//DSound_UpdateSound();
-
 		if (msg.message == WM_KEYDOWN)
 		{
 			//hack to enable/disable menu command accelerate keys

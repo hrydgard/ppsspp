@@ -82,7 +82,7 @@ extern InputState input_state;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define CURSORUPDATE_INTERVAL_MS 50
+#define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
 #ifndef HID_USAGE_PAGE_GENERIC
@@ -819,8 +819,7 @@ namespace MainWindow
 		dev[1].dwFlags = 0;
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
-		SetFocus(hwndDisplay);
-
+		SetFocus(hwndMain);
 		return TRUE;
 	}
 
@@ -854,7 +853,7 @@ namespace MainWindow
 		}
 
 		if (browseDirectory) {
-			std::string dir = W32Util::BrowseForFolder(GetHWND(),"Choose directory");
+			std::string dir = W32Util::BrowseForFolder(GetHWND(), "Choose directory");
 			if (dir == "") {
 				if (!isPaused)
 					Core_EnableStepping(false);
