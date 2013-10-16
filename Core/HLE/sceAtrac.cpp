@@ -278,7 +278,6 @@ struct Atrac {
 		av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
 	}
 #endif // USE_FFMPEG
-
 };
 
 struct AtracSingleResetBufferInfo {
@@ -596,7 +595,8 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample);
-				AVPacket packet;
+				AVPacket packet = {0};
+				av_init_packet(&packet);
 				int got_frame, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
 					if (packet.stream_index == atrac->audio_stream_index) {
