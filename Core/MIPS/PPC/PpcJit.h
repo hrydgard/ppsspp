@@ -51,6 +51,11 @@ namespace MIPSComp
 			PREFIX_KNOWN_DIRTY = 0x11,
 		};
 
+		PpcJitState()
+			: prefixSFlag(PREFIX_UNKNOWN),
+			prefixTFlag(PREFIX_UNKNOWN),
+			prefixDFlag(PREFIX_UNKNOWN) {}
+
 		u32 compilerPC;
 		u32 blockStart;
 		bool cancel;

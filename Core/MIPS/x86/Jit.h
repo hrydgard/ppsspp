@@ -71,6 +71,11 @@ struct JitState
 		AFTER_REWIND_PC_BAD_STATE = 0x02,
 	};
 
+	JitState()
+		: prefixSFlag(PREFIX_UNKNOWN),
+		prefixTFlag(PREFIX_UNKNOWN),
+		prefixDFlag(PREFIX_UNKNOWN) {}
+
 	u32 compilerPC;
 	u32 blockStart;
 	int nextExit;
