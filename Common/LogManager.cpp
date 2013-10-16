@@ -95,7 +95,9 @@ LogManager::LogManager() {
 
 	// Remove file logging on small devices
 #if !defined(USING_GLES2) || defined(_DEBUG)
-	fileLog_ = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
+	// No real need to make GetSysDirectory have an entry for this since only this constructor uses it..
+	const std::string logFileName = g_Config.memCardDirectory + "PSP/SYSTEM/Logs/ppsspp.log";
+	fileLog_ = new FileLogListener(logFileName.c_str());
 	consoleLog_ = new ConsoleListener();
 	debuggerLog_ = new DebuggerLogListener();
 #else
