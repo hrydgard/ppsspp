@@ -77,6 +77,8 @@ bool GestureDetector::GetGestureInfo(Gesture gesture, float info[4]) const {
 		return false;
 	}
 
+	memset(info, 0, sizeof(float) * 4);
+
 	switch (gesture) {
 	case GESTURE_DRAG_HORIZONTAL:
 		info[0] = pointers[0].lastX - pointers[0].downX;
@@ -89,34 +91,4 @@ bool GestureDetector::GetGestureInfo(Gesture gesture, float info[4]) const {
 	default:
 		return false;
 	}
-/*
-
-bool down(int i, float *xdelta, float *ydelta) {
-	if (!pointers[i].down) {
-		return false;
-	}
-	*xdelta = pointers[i].downX;
-	*ydelta = pointers[i].downY;
-	return true;
-}
-
-bool dragDistance(int i, float *xdelta, float *ydelta) {
-	if (!pointers[i].down)
-		return false;
-
-	*xdelta = pointers[i].X - pointers[i].downX;
-	*ydelta = pointers[i].Y - pointers[i].downY;
-	return true;
-}
-
-bool dragDelta(int i, float *xdelta, float *ydelta) {
-	if (!pointers[i].down)
-		return false;
-
-	*xdelta = pointers[i].X - pointers[i].lastX;
-	*ydelta = pointers[i].Y - pointers[i].lastY;
-	return true;
-}
-*/
-
 }

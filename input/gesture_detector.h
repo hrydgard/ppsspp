@@ -1,9 +1,9 @@
 #include "input/input_state.h"
 #include "math/geom2d.h"
 
-// WIP - doesn't do much yet
 // Mainly for detecting (multi-)touch gestures but also useable for left button mouse dragging etc.
-
+// Currently only supports simple scroll-drags with inertia.
+// TODO: Two-finger zoom/rotate etc.
 
 enum Gesture {
 	GESTURE_DRAG_VERTICAL = 1,
@@ -23,11 +23,9 @@ public:
 	bool GetGestureInfo(Gesture gesture, float info[4]) const;
 
 private:
-	Bounds bounds_;
-
 	// jazzhands!
 	enum Locals {
-		MAX_PTRS = 10 
+		MAX_PTRS = 10,
 	};
 
 	struct Pointer {

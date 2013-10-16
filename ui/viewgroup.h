@@ -188,7 +188,7 @@ private:
 class ScrollView : public ViewGroup {
 public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0) :
-		ViewGroup(layoutParams), 
+		ViewGroup(layoutParams),
 		orientation_(orientation),
 		scrollPos_(0),
 		scrollStart_(0),
