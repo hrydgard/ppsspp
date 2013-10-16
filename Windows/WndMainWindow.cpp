@@ -1556,14 +1556,11 @@ namespace MainWindow
 					TCHAR filename[512];
 					DragQueryFile(hdrop,0,filename,512);
 					TCHAR *type = filename+_tcslen(filename)-3;
-
-					SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
-					// Ugly, need to wait for the stop message to process in the EmuThread.
-					Sleep(20);
 					
 					Update();
 
 					NativeMessageReceived("boot", ConvertWStringToUTF8(filename).c_str());
+					Core_EnableStepping(false);
 				}
 			}
 			break;
