@@ -246,6 +246,8 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
+	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
+
 	enableReports_ = Reporting::IsEnabled();
 //#ifndef ANDROID 
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
