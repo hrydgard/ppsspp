@@ -22,9 +22,10 @@ What's new in 0.9.5
 * Post-processing shaders like FXAA, scanlines, vignette
 * More solid save states (we will try to keep them working from now on. Save states only upgrade forward,
   not backward to older versions though).
-* Huge debugger improvements
-* Made Win32 menu bar translatable, and NewUI instantly changes when a new language is selected
-* Multiple UI bugs were fixed
+* Change render resolution independently of window size
+* Massive debugger improvements
+* Win32 menu bar is now translatable
+* Multiple UI bugs were fixed, and the UI instantly changes when a new language is selected
 * Win32: Ability to store PPSSPP's config files and memory stick files in places other than the same directory
 * Android-x86 support
 * Unofficial port for modified Xbox 360 consoles
