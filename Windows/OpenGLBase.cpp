@@ -7,6 +7,8 @@
 #include "util/text/utf8.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
+#include "util/text/utf8.h"
+#include "i18n/i18n.h"
 
 #include "Windows/OpenGLBase.h"
 
@@ -121,22 +123,22 @@ bool GL_Init(HWND window, std::string *error_message) {
 	}
 
 	if (!(PixelFormat = ChoosePixelFormat(hDC, &pfd)))	{
-		*error_message = "Can't Find A Suitable PixelFormat.";
+		*error_message = "Can't find a suitable PixelFormat.";
 		return false;
 	}
 
 	if (!SetPixelFormat(hDC, PixelFormat, &pfd)) {
-		*error_message = "Can't Set The PixelFormat.";
+		*error_message = "Can't set the PixelFormat.";
 		return false;
 	}
 
 	if (!(hRC = wglCreateContext(hDC)))	{
-		*error_message = "Can't Create A GL Rendering Context.";
+		*error_message = "Can't create a GL rendering context.";
 		return false;
 	}
 
 	if (!wglMakeCurrent(hDC, hRC)) {
-		*error_message = "Can't activate the GL Rendering Context.";
+		*error_message = "Can't activate the GL rendering context.";
 		return false;
 	}
 
@@ -147,24 +149,23 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	// GL_VERSION                        GL_VENDOR        GL_RENDERER
 	// "1.4.0 - Build 8.14.10.2364"      "intel"          intel Pineview Platform
+	I18NCategory *err = GetI18NCategory("Error");
 
-	const char *glver = (const char *)glGetString(GL_VERSION);
-	if (!memcmp(glver, "1.5", 3) ||
-		!memcmp(glver, "1.4", 3) ||
-		!memcmp(glver, "1.3", 3) ||
-		!memcmp(glver, "1.2", 3) ||
-		!memcmp(glver, "1.1", 3) ||
-		!memcmp(glver, "1.0", 3)) {
-		// TODO:
-		const char *text = "Insufficient OpenGL driver support detected!\r\n\r\n"
-			"Your GPU reports that it does not support OpenGL 2.0, which is currently "
-			"required for PPSSPP to run.\r\n\r\n"
-			"Please check that your GPU is compatible with OpenGL 2.0. If it is, you need "
-			"to find and install new graphics drivers from your GPU vendor's website.\r\n\r\n";
+	std::string glVersion = (const char *)glGetString(GL_VERSION);
+	std::string glRenderer = (const char *)glGetString(GL_RENDERER);
+	const std::string openGL_1 = "1.";
+
+	if (glRenderer == "GDI Generic" || glVersion.substr(0, openGL_1.size()) == openGL_1) {
+		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
+			"Your GPU reports that it does not support OpenGL 2.0, which is currently required for PPSSPP to run.\n\n"
+			"Please check that your GPU is compatible with OpenGL 2.0.If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\n"
 			"Visit the forums at http://forums.ppsspp.org for more information.";
 
-		const char *title = "OpenGL driver error";
-		MessageBox(0, ConvertUTF8ToWString(text).c_str(), ConvertUTF8ToWString(title).c_str(), MB_ICONWARNING);
+		std::wstring error = ConvertUTF8ToWString(err->T("InsufficientOpenGLDriver", defaultError));
+		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
+
+		MessageBox(hWnd, error.c_str(), title.c_str(), MB_ICONERROR);
+
 		// Avoid further error messages. Let's just bail, it's safe.
 		ExitProcess(0);
 	}
@@ -212,13 +213,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	std::string renderer = (const char *)glGetString(GL_RENDERER);
-	if (renderer == "GDI Generic") {
-		// Windows XP, no OpenGL driver installed.
-		*error_message = "PPSSPP requires working OpenGL drivers, version 2.0 or higher.\r\nPlease install the latest drivers for your graphics card (GPU).\r\nSee ppsspp.org/faq.html for more information.";
-		return false;
-	}
-
 	/*
 	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_VERSION)).c_str(),0,0);
 	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_VENDOR)).c_str(),0,0);
@@ -236,20 +230,20 @@ bool GL_Init(HWND window, std::string *error_message) {
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 	}
 
-	GL_Resized();								// Set Up Our Perspective GL Screen
+	GL_Resized();								// Set up our perspective GL screen
 	return true;												// Success
 }
 
 void GL_Shutdown() { 
 	if (hRC) {
-		// Are We Able To Release The DC And RC Contexts?
+		// Are we able to release the DC and RC contexts?
 		if (!wglMakeCurrent(NULL,NULL)) {
-			MessageBox(NULL,L"Release Of DC And RC Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release of DC and RC failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 
-		// Are We Able To Delete The RC?
+		// Are we able to delete the RC?
 		if (!wglDeleteContext(hRC)) {
-			MessageBox(NULL,L"Release Rendering Context Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release rendering context failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 		hRC = NULL;
 	}
@@ -257,7 +251,7 @@ void GL_Shutdown() {
 	if (hDC && !ReleaseDC(hWnd,hDC)) {
 		DWORD err = GetLastError();
 		if (err != ERROR_DC_NOT_FOUND) {
-			MessageBox(NULL,L"Release Device Context Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release device context failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 		hDC = NULL;
 	}
