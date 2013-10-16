@@ -19,6 +19,9 @@ Source: "README.md"; DestName: "README.txt"; DestDir: "{app}"; Flags: isreadme
 Source: "notinstalled.txt"; DestName: "installed.txt"; DestDir: "{app}";
 Source: "assets\ppge_atlas.zim"; DestDir: "{app}\assets"
 Source: "assets\ui_atlas.zim"; DestDir: "{app}\assets"
+Source: "assets\langregion.ini"; DestDir: "{app}\assets"
+Source: "assets\Roboto-Condensed.ttf"; DestDir: "{app}\assets"
+Source: "assets\shaders\*.*"; DestDir: "{app}\assets\shaders"
 Source: "lang\*.ini"; DestDir: "{app}\lang"
 Source: "flash0\font\*.*"; DestDir: "{app}\flash0\font"
 Source: "redist/vcredist_x86.exe"; DestDir: {tmp}
@@ -30,12 +33,3 @@ Filename: {app}\PPSSPPWindows.exe; Description: {cm:LaunchProgram,{cm:AppName}};
 
 [Icons]
 Name: "{commonprograms}\PPSSPP"; Filename: "{app}\PPSSPPWindows.exe"
-
-[Code]
-begin
-
-if (not isUninstaller()) then begin
-  SaveStringToFile(ExpandFilename('installed.txt'), 'Installed' + #13#10, False);
-end
-
-end.
