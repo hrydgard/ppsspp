@@ -118,6 +118,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	cpu->Get("Jit", &bJit, true);
 #endif
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
+	cpu->Get("AtomicAudioLocks", &bAtomicAudioLocks, false);
+	
 #ifdef __SYMBIAN32__
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
 #else
@@ -314,6 +316,7 @@ void Config::Save() {
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
+		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);	
 		cpu->Set("SeparateIOThread", bSeparateIOThread);
 		cpu->Set("FastMemory", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
