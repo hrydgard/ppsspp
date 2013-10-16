@@ -48,7 +48,7 @@ volatile u32 ConsoleListener::logPendingReadPos = 0;
 volatile u32 ConsoleListener::logPendingWritePos = 0;
 #endif
 
-ConsoleListener::ConsoleListener()
+ConsoleListener::ConsoleListener() : bHidden(true)
 {
 #ifdef _WIN32
 	hConsole = NULL;
@@ -58,6 +58,7 @@ ConsoleListener::ConsoleListener()
 	{
 		hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 		InitializeCriticalSection(&criticalSection);
+		logPending = new char[LOG_PENDING_MAX];
 	}
 	++refCount;
 #else
@@ -98,9 +99,20 @@ bool WINAPI ConsoleHandler(DWORD msgType)
 // 100, 100, "Dolphin Log Console"
 // Open console window - width and height is the size of console window
 // Name is the window title
-void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title)
+void ConsoleListener::Init(bool AutoOpen, int Width, int Height, const char *Title)
 {
-  bHidden = Hidden;
+#ifdef _WIN32
+	openWidth_ = Width;
+	openHeight_ = Height;
+	title_ = ConvertUTF8ToWString(Title);
+
+	if (AutoOpen)
+		Open();
+#endif
+}
+
+void ConsoleListener::Open()
+{
 #ifdef _WIN32
 	if (!GetConsoleWindow())
 	{
@@ -111,18 +123,16 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 		// disable console close button
 		HMENU hMenu=GetSystemMenu(hConWnd,false);
 		EnableMenuItem(hMenu,SC_CLOSE,MF_GRAYED|MF_BYCOMMAND);
-		// Hide
-		if (Hidden) ShowWindow(hConWnd, SW_HIDE);
 		// Save the window handle that AllocConsole() created
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 		// Set console handler
 		if(SetConsoleCtrlHandler((PHANDLER_ROUTINE)ConsoleHandler, TRUE)){OutputDebugString(L"Console handler is installed!\n");}
 		// Set the console window title
-		SetConsoleTitle(ConvertUTF8ToWString(Title).c_str());
+		SetConsoleTitle(title_.c_str());
 		SetConsoleCP(CP_UTF8);
 
 		// Set letter space
-		LetterSpace(Width, LOG_MAX_DISPLAY_LINES);
+		LetterSpace(openWidth_, LOG_MAX_DISPLAY_LINES);
 		//MoveWindow(GetConsoleWindow(), 200,200, 800,800, true);
 	}
 	else
@@ -131,26 +141,25 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 	}
 
 	if (hTriggerEvent != NULL && hThread == NULL)
-	{
-		logPending = new char[LOG_PENDING_MAX];
 		hThread = (HANDLE)_beginthreadex(NULL, 0, &ConsoleListener::RunThread, this, 0, NULL);
-	}
 #endif
 }
 
 void ConsoleListener::Show(bool bShow)
 {
 #ifdef _WIN32
-  if (bShow && bHidden)
-  {
-    ShowWindow(GetConsoleWindow(), SW_SHOW);
-    bHidden = false;
-  }
-  else if (!bShow && !bHidden)
-  {
-    ShowWindow(GetConsoleWindow(), SW_HIDE);
-    bHidden = true;
-  }
+	if (bShow && bHidden)
+	{
+		if (!IsOpen())
+			Open();
+		ShowWindow(GetConsoleWindow(), SW_SHOW);
+		bHidden = false;
+	}
+	else if (!bShow && !bHidden)
+	{
+		ShowWindow(GetConsoleWindow(), SW_HIDE);
+		bHidden = true;
+	}
 #endif
 }
 
@@ -216,6 +225,7 @@ bool ConsoleListener::IsOpen()
 */
 void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst)
 {
+	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
 #ifdef _WIN32
 	BOOL SB, SW;
 	if (BufferFirst)
@@ -240,6 +250,7 @@ void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int S
 }
 void ConsoleListener::LetterSpace(int Width, int Height)
 {
+	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
 #ifdef _WIN32
 	// Get console info
 	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
@@ -435,6 +446,8 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 
 void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len)
 {
+	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
+
 	/*
 	const int MAX_BYTES = 1024*10;
 	char Str[MAX_BYTES];
@@ -488,6 +501,7 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 
 void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool Resize)
 {
+	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
 #ifdef _WIN32
 	// Check size
 	if (Width < 8 || Height < 12) return;
@@ -576,7 +590,7 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 {
 #if defined(_WIN32)
-	if (hThread == NULL)
+	if (hThread == NULL && IsOpen())
 		WriteToConsole(Level, Text, strlen(Text));
 	else
 		SendToThread(Level, Text);
@@ -608,6 +622,7 @@ void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 // Clear console screen
 void ConsoleListener::ClearScreen(bool Cursor)
 { 
+	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
 #if defined(_WIN32)
 	COORD coordScreen = { 0, 0 }; 
 	DWORD cCharsWritten; 

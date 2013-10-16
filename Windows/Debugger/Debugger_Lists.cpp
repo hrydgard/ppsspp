@@ -661,7 +661,7 @@ void CtrlStackTraceView::loadStackTrace()
 {
 	auto threads = GetThreadsInfo();
 
-	u32 entry, stackTop;
+	u32 entry = 0, stackTop = 0;
 	for (size_t i = 0; i < threads.size(); i++)
 	{
 		if (threads[i].isCurrent)
@@ -672,6 +672,10 @@ void CtrlStackTraceView::loadStackTrace()
 		}
 	}
 
-	frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
+	if (entry != 0) {
+		frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
+	} else {
+		frames.clear();
+	}
 	Update();
 }
