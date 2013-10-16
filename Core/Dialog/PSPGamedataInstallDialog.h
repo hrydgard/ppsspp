@@ -43,7 +43,7 @@ public:
 	virtual ~PSPGamedataInstallDialog();
 
 	virtual int Init(u32 paramAddr);
-	virtual int Update();
+	virtual int Update(int animSpeed);
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 

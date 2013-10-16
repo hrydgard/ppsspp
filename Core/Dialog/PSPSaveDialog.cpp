@@ -523,7 +523,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 	PPGeDrawRect(202.0f, ey, 466.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPSaveDialog::Update()
+int PSPSaveDialog::Update(int animSpeed)
 {
 	switch (status) {
 	case SCE_UTILITY_STATUS_FINISHED:
@@ -553,7 +553,7 @@ int PSPSaveDialog::Update()
 	}
 
 	buttons = __CtrlPeekButtons();
-	UpdateFade();
+	UpdateFade(animSpeed);
 
 	okButtonImg = I_CIRCLE;
 	cancelButtonImg = I_CROSS;

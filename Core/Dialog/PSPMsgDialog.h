@@ -58,7 +58,7 @@ public:
 	virtual ~PSPMsgDialog();
 
 	virtual int Init(unsigned int paramAddr);
-	virtual int Update();
+	virtual int Update(int animSpeed);
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();

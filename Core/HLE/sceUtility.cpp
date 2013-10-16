@@ -160,7 +160,7 @@ int sceUtilitySavedataUpdate(int animSpeed)
 	}
 
 	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataUpdate(%d)", animSpeed);
-	int result = saveDialog.Update();
+	int result = saveDialog.Update(animSpeed);
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);
 	return result;
@@ -281,7 +281,7 @@ int sceUtilityMsgDialogUpdate(int animSpeed)
 	}
 
 	DEBUG_LOG(SCEUTILITY,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
-	return msgDialog.Update();
+	return msgDialog.Update(animSpeed);
 }
 
 int sceUtilityMsgDialogGetStatus()
@@ -349,7 +349,7 @@ int sceUtilityOskUpdate(int animSpeed)
 	}
 
 	DEBUG_LOG(SCEUTILITY, "sceUtilityOskUpdate(%i)", animSpeed);
-	return oskDialog.Update();
+	return oskDialog.Update(animSpeed);
 }
 
 int sceUtilityOskGetStatus()
@@ -401,7 +401,7 @@ int sceUtilityNetconfShutdownStart(unsigned int unknown)
 int sceUtilityNetconfUpdate(int animSpeed)
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfUpdate(%i)", animSpeed);
-	return netDialog.Update();
+	return netDialog.Update(animSpeed);
 }
 
 int sceUtilityNetconfGetStatus()
@@ -446,7 +446,7 @@ u32 sceUtilityScreenshotShutdownStart()
 	return screenshotDialog.Shutdown();
 }
 
-u32 sceUtilityScreenshotUpdate(u32 unknown)
+u32 sceUtilityScreenshotUpdate(u32 animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -454,8 +454,8 @@ u32 sceUtilityScreenshotUpdate(u32 unknown)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityScreenshotUpdate(%d)", unknown);
-	return screenshotDialog.Update();
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityScreenshotUpdate(%d)", animSpeed);
+	return screenshotDialog.Update(animSpeed);
 }
 
 int sceUtilityScreenshotGetStatus()
@@ -497,15 +497,15 @@ int sceUtilityGamedataInstallShutdownStart() {
 	return gamedataInstallDialog.Shutdown();
 }
 
-int sceUtilityGamedataInstallUpdate(int Speed) {
+int sceUtilityGamedataInstallUpdate(int animSpeed) {
 	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(%i)", Speed);
-	return gamedataInstallDialog.Update();
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(%i)", animSpeed);
+	return gamedataInstallDialog.Update(animSpeed);
 }
 
 int sceUtilityGamedataInstallGetStatus()

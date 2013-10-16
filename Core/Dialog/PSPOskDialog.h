@@ -206,7 +206,7 @@ public:
 	virtual ~PSPOskDialog();
 
 	virtual int Init(u32 oskPtr);
-	virtual int Update();
+	virtual int Update(int animSpeed);
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();

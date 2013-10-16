@@ -39,7 +39,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	return 0;
 }
 
-int PSPNetconfDialog::Update() {
+int PSPNetconfDialog::Update(int animSpeed) {
 	return 0;
 }
 

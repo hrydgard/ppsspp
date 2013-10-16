@@ -204,7 +204,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPMsgDialog::Update()
+int PSPMsgDialog::Update(int animSpeed)
 {
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
@@ -217,7 +217,7 @@ int PSPMsgDialog::Update()
 	}
 	else
 	{
-		UpdateFade();
+		UpdateFade(animSpeed);
 
 		buttons = __CtrlPeekButtons();
 

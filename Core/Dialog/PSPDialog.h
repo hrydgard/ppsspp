@@ -51,7 +51,7 @@ public:
 	PSPDialog();
 	virtual ~PSPDialog();
 
-	virtual int Update();
+	virtual int Update(int animSpeed) = 0;
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();
@@ -82,7 +82,7 @@ protected:
 	void DisplayButtons(int flags);
 
 	void StartFade(bool fadeIn_);
-	void UpdateFade();
+	void UpdateFade(int animSpeed);
 	u32 CalcFadedColor(u32 inColor);
 
 	DialogStatus status;

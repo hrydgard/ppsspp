@@ -842,7 +842,7 @@ int PSPOskDialog::NativeKeyboard()
 }
 #endif
 
-int PSPOskDialog::Update()
+int PSPOskDialog::Update(int animSpeed)
 {
 	buttons = __CtrlReadLatch();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
@@ -863,7 +863,7 @@ int PSPOskDialog::Update()
 	}
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{		
-		UpdateFade();
+		UpdateFade(animSpeed);
 
 		StartDraw();
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));

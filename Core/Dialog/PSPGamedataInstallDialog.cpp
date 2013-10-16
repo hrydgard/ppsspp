@@ -67,7 +67,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	return 0;
 }
 
-int PSPGamedataInstallDialog::Update() {
+int PSPGamedataInstallDialog::Update(int animSpeed) {
 	if (status == SCE_UTILITY_STATUS_INITIALIZE){
 		status = SCE_UTILITY_STATUS_RUNNING;
 	} else if (status == SCE_UTILITY_STATUS_RUNNING) {

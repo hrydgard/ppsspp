@@ -31,7 +31,7 @@ int PSPPlaceholderDialog::Init()
 	return 0;
 }
 
-int PSPPlaceholderDialog::Update()
+int PSPPlaceholderDialog::Update(int animSpeed)
 {
 	//__UtilityUpdate();
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
