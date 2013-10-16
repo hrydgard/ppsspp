@@ -487,16 +487,6 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	HPEN pen;
 	u32 windowEnd = windowStart+(visibleRows+2)*instructionSize;
 	
-	// highlight line in a different color if it affects the currently selected opcode
-	if (line.first == curAddress || line.second == curAddress)
-	{
-		pen = CreatePen(0,0,0x257AFA);
-	} else {
-		pen = CreatePen(0,0,0xFF3020);
-	}
-	
-	HPEN oldPen = (HPEN) SelectObject(hdc,pen);
-
 	int topY;
 	int bottomY;
 	if (line.first < windowStart)
@@ -525,8 +515,18 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	{
 		return;
 	}
-			
+
+	// highlight line in a different color if it affects the currently selected opcode
+	if (line.first == curAddress || line.second == curAddress)
+	{
+		pen = CreatePen(0,0,0x257AFA);
+	} else {
+		pen = CreatePen(0,0,0xFF3020);
+	}
+	
+	HPEN oldPen = (HPEN) SelectObject(hdc,pen);
 	int x = pixelPositions.arrowsStart+line.laneIndex*8;
+
 	if (topY < 0)	// first is not visible, but second is
 	{
 		MoveToEx(hdc,x-2,bottomY,0);
