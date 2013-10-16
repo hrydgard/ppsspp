@@ -2018,12 +2018,13 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 
 	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
 	currentMIPS->r[MIPS_REG_A0] = args;
-	currentMIPS->r[MIPS_REG_SP] -= 256;
-	u32 location = currentMIPS->r[MIPS_REG_SP];
 	currentMIPS->r[MIPS_REG_SP] -= (args + 0xf) & ~0xf;
+	u32 location = currentMIPS->r[MIPS_REG_SP];
 	currentMIPS->r[MIPS_REG_A1] = location;
-	for (int i = 0; i < args; i++)
-		Memory::Write_U8(argp[i], location + i);
+	if (argp)
+		Memory::Memcpy(location, argp, args);
+	// Let's assume same as starting a new thread, 64 bytes for safety/kernel.
+	currentMIPS->r[MIPS_REG_SP] -= 64;
 
 	return id;
 }
