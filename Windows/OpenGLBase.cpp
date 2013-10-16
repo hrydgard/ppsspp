@@ -155,8 +155,13 @@ bool GL_Init(HWND window, std::string *error_message) {
 	std::string glRenderer = (const char *)glGetString(GL_RENDERER);
 
 	if (glRenderer == "GDI Generic" || glVersion.find("1.") != std::string::npos) {
-		std::wstring error = ConvertUTF8ToWString(err->T("InsufficientOpenGLDriver"));
-		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError"));
+		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
+			"Your GPU reports that it does not support OpenGL 2.0, which is currently required for PPSSPP to run.\n\n"
+			"Please check that your GPU is compatible with OpenGL 2.0.If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\n"
+			"Visit the forums at http://forums.ppsspp.org for more information.";
+
+		std::wstring error = ConvertUTF8ToWString(err->T("InsufficientOpenGLDriver", defaultError));
+		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
 
 		MessageBox(hWnd, error.c_str(), title.c_str(), MB_ICONERROR);
 
@@ -224,7 +229,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 	}
 
-	GL_Resized();								// Setup our perspective GL screen
+	GL_Resized();								// Set up our perspective GL screen
 	return true;												// Success
 }
 
