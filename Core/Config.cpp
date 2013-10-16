@@ -231,9 +231,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	control->Get("RKeyY", &iRKeyY, -1);
 	control->Get("AnalogStickX", &iAnalogStickX, -1);
 	control->Get("AnalogStickY", &iAnalogStickY, -1);
-
-
-		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+	
+	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("Language", &iLanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
