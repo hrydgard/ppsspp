@@ -52,7 +52,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
 	general->Get("FirstRun", &bFirstRun, true);
-	general->Get("Enable Logging", &bEnableLogging, true);
+	general->Get("Enable Logging", &bEnableLogging, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
