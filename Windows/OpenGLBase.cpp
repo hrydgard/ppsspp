@@ -153,8 +153,9 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	std::string glVersion = (const char *)glGetString(GL_VERSION);
 	std::string glRenderer = (const char *)glGetString(GL_RENDERER);
+	const std::string openGL_1 = "1.";
 
-	if (glRenderer == "GDI Generic" || glVersion.find("1.") != std::string::npos) {
+	if (glRenderer == "GDI Generic" || glVersion.substr(0, openGL_1.size()) == openGL_1) {
 		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
 			"Your GPU reports that it does not support OpenGL 2.0, which is currently required for PPSSPP to run.\n\n"
 			"Please check that your GPU is compatible with OpenGL 2.0.If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\n"
