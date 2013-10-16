@@ -30,7 +30,8 @@ public:
 	ConsoleListener();
 	~ConsoleListener();
 
-	void Open(bool Hidden = false, int Width = 200, int Height = 100, const char * Name = "DebugConsole (PPSSPP)");
+	void Init(bool AutoOpen = true, int Width = 200, int Height = 100, const char * Name = "DebugConsole (PPSSPP)");
+	void Open();
 	void UpdateHandle();
 	void Close();
 	bool IsOpen();
@@ -63,6 +64,10 @@ private:
 	static char *logPending;
 	static volatile u32 logPendingReadPos;
 	static volatile u32 logPendingWritePos;
+
+	int openWidth_;
+	int openHeight_;
+	std::wstring title_;
 #endif
 	bool bHidden;
 	bool bUseColor;
