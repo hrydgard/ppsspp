@@ -62,7 +62,8 @@ void GameScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 	
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 	Choice *play = new Choice(ga->T("Play"));
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
