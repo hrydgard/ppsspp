@@ -1,4 +1,4 @@
-#include "RepositionOnScreenControlScreen.h"
+#include "TouchControlLayoutScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "base/colorutil.h"
@@ -135,11 +135,11 @@ private:
 
 
 
-RepositionOnScreenControlScreen::RepositionOnScreenControlScreen(){
+TouchControlLayoutScreen::TouchControlLayoutScreen(){
 	pickedControl_ = 0;
 };
 
-void RepositionOnScreenControlScreen::touch(const TouchInput &touch){
+void TouchControlLayoutScreen::touch(const TouchInput &touch){
 	UIScreen::touch(touch);
 
 	using namespace UI;
@@ -184,7 +184,7 @@ void RepositionOnScreenControlScreen::touch(const TouchInput &touch){
 
 };
 
-UI::EventReturn RepositionOnScreenControlScreen::OnBack(UI::EventParams &e){
+UI::EventReturn TouchControlLayoutScreen::OnBack(UI::EventParams &e){
 	g_Config.Save();
 
 	if(PSP_IsInited()) {
@@ -199,7 +199,7 @@ UI::EventReturn RepositionOnScreenControlScreen::OnBack(UI::EventParams &e){
 
 
 
-void RepositionOnScreenControlScreen::CreateViews(){
+void TouchControlLayoutScreen::CreateViews(){
 //setup g_Config for button layout
 	InitPadLayout();
 
@@ -211,7 +211,7 @@ void RepositionOnScreenControlScreen::CreateViews(){
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 10));
-	back->OnClick.Handle(this, &RepositionOnScreenControlScreen::OnBack);
+	back->OnClick.Handle(this, &TouchControlLayoutScreen::OnBack);
 	root_->Add(back);
 
 
@@ -248,7 +248,10 @@ void RepositionOnScreenControlScreen::CreateViews(){
 };
 
 
-DragDropButton *RepositionOnScreenControlScreen::getPickedControl(const int x, const int y){
+
+//return the control which was picked up bu the touchEvent. If a control
+//was already picked up, then it's being dragged around, so just return that instead
+DragDropButton *TouchControlLayoutScreen::getPickedControl(const int x, const int y){
 
 	if(pickedControl_ != 0){
 		return pickedControl_;

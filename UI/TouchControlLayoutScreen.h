@@ -24,10 +24,10 @@
 
 class DragDropButton;
 
-class RepositionOnScreenControlScreen : public UIDialogScreenWithBackground{
+class TouchControlLayoutScreen : public UIDialogScreenWithBackground{
 public:
 
-	RepositionOnScreenControlScreen();
+	TouchControlLayoutScreen();
 
 	virtual void CreateViews();
 	virtual void touch(const TouchInput &touch);

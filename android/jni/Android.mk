@@ -161,7 +161,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
-  $(SRC)/UI/RepositionOnScreenControlScreen.cpp \
+  $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
