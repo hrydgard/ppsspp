@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string>
 
+#include <bps/region.h> // Get region and language
 #include "BlackberryMain.h"
 #include "base/NKCodeFromBlackberry.h"
 
@@ -19,8 +20,12 @@ std::string System_GetProperty(SystemProperty prop) {
 		std::string name = "Blackberry10:";
 		return name + ((pixel_xres != pixel_yres) ? "Touch" : "QWERTY");
 	}
-	case SYSPROP_LANGREGION:
-		return "en_US";
+	case SYSPROP_LANGREGION: {
+		char *lang = 0;
+		char *region = 0;
+		region_get(&lang, &region);
+		return std::string(lang) + "_" + std::string(region);
+	}
 	default:
 		return "";
 	}
