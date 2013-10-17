@@ -921,8 +921,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/MpegDemux.h
 	Core/HW/MemoryStick.cpp
 	Core/HW/MemoryStick.h
-	Core/HW/OMAConvert.cpp
-	Core/HW/OMAConvert.h
 	Core/HW/SasAudio.cpp
 	Core/HW/SasAudio.h
 	Core/Host.cpp

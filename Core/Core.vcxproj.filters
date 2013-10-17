@@ -424,9 +424,6 @@
     <ClCompile Include="HLE\sceMp3.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="HW\OMAConvert.cpp">
-      <Filter>HW</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
@@ -851,9 +848,6 @@
     </ClInclude>
     <ClInclude Include="HLE\sceMp3.h">
       <Filter>HLE\Libraries</Filter>
-    </ClInclude>
-    <ClInclude Include="HW\OMAConvert.h">
-      <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h">
       <Filter>MIPS\JitCommon</Filter>
