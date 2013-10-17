@@ -18,8 +18,7 @@ const int PRIVATE_STREAM_1         = 0x000001bd;
 const int PADDING_STREAM           = 0x000001be;
 const int PRIVATE_STREAM_2         = 0x000001bf;
 
-MpegDemux::MpegDemux(int size, int offset) : m_audioStream(size)
-{
+MpegDemux::MpegDemux(int size, int offset) : m_audioStream(size) {
 	m_buf = new u8[size];
 
 	m_len = size;
@@ -28,9 +27,21 @@ MpegDemux::MpegDemux(int size, int offset) : m_audioStream(size)
 	m_readSize = 0;
 }
 
+MpegDemux::~MpegDemux(void) {
+}
 
-MpegDemux::~MpegDemux(void)
-{
+void MpegDemux::DoState(PointerWrap &p) {
+	auto s = p.Section("MpegDemux", 1);
+	if (!s)
+		return;
+
+	p.Do(m_index);
+	p.Do(m_len);
+	p.Do(m_audioChannel);
+	p.Do(m_readSize);
+	if (m_buf)
+		p.DoArray(m_buf, m_len);
+	p.DoClass(m_audioStream);
 }
 
 bool MpegDemux::addStreamData(u8* buf, int addSize) {

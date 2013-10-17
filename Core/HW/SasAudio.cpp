@@ -163,7 +163,7 @@ int SasAtrac3::setContext(u32 context) {
 	contextAddr = context;
 	atracID = _AtracGetIDByContext(context);
 	if (!sampleQueue)
-		sampleQueue = new Atrac3plus_Decoder::BufferQueue;
+		sampleQueue = new BufferQueue();
 	sampleQueue->clear();
 	return 0;
 }
@@ -180,7 +180,7 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 		_AtracDecodeData(atracID, (u8*)buf, &numSamples, &finish, &remains);
 		if (numSamples > 0)
 			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
-		else 
+		else
 			finish = 1;
 	}
 	sampleQueue->pop_front((u8*)outbuf, wantedbytes);
@@ -202,7 +202,7 @@ void SasAtrac3::DoState(PointerWrap &p) {
 	p.Do(contextAddr);
 	p.Do(atracID);
 	if (p.mode == p.MODE_READ && atracID >= 0 && !sampleQueue) {
-		sampleQueue = new Atrac3plus_Decoder::BufferQueue;
+		sampleQueue = new BufferQueue();
 	}
 }
 

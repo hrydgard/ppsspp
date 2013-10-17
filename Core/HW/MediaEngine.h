@@ -53,7 +53,8 @@ public:
 	bool loadStream(u8* buffer, int readSize, int RingbufferSize);
 	// open the mpeg context
 	bool openContext();
-	// Returns number of packets actually added.
+
+	// Returns number of packets actually added. I guess the buffer might be full.
 	int addStreamData(u8* buffer, int addSize);
 
 	void setVideoStream(int streamNum) { m_videoStream = streamNum; }
@@ -64,7 +65,7 @@ public:
 
 	bool stepVideo(int videoPixelMode);
 	int writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
-	int writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+	int writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height);
 	int getAudioSamples(u8* buffer);
 
@@ -81,8 +82,9 @@ public:
 private:
 	void updateSwsFormat(int videoPixelMode);
 
-public:
+public:  // TODO: Very little of this below should be public.
 
+	// Video ffmpeg context - not used for audio
 	AVFormatContext *m_pFormatCtx;
 	AVCodecContext *m_pCodecCtx;
 	AVFrame *m_pFrame;
@@ -92,17 +94,19 @@ public:
 	int m_sws_fmt;
 	u8 *m_buffer;
 	int m_videoStream;
+
+	// Used by the demuxer.
 	int m_audioStream;
 
-	int  m_desWidth;
-	int  m_desHeight;
+	int m_desWidth;
+	int m_desHeight;
 	int m_decodingsize;
 	int m_bufSize;
 	s64 m_videopts;
-	Atrac3plus_Decoder::BufferQueue *m_pdata;
-	
+	BufferQueue *m_pdata;
+
 	MpegDemux *m_demux;
-	void* m_audioContext;
+	void *m_audioContext;
 	s64 m_audiopts;
 
 	s64 m_firstTimeStamp;
@@ -112,6 +116,6 @@ public:
 	bool m_noAudioData;
 
 	int m_ringbuffersize;
-	u8 m_mpegheader[0x10000];
+	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
 	int m_mpegheaderReadPos;
 };

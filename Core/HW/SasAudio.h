@@ -25,7 +25,7 @@
 #include "../Globals.h"
 #include "ChunkFile.h"
 
-#include "Core/HW/atrac3plus.h"
+#include "Core/HW/BufferQueue.h"
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
@@ -109,16 +109,17 @@ private:
 
 class SasAtrac3 {
 public:
-	SasAtrac3() : contextAddr(0), atracID(-1), sampleQueue(0){}
+	SasAtrac3() : contextAddr(0), atracID(-1), sampleQueue(0) {}
 	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
 	int setContext(u32 context);
 	int getNextSamples(s16* outbuf, int wantedSamples);
 	int addStreamData(u8* buf, u32 addbytes);
 	void DoState(PointerWrap &p);
+
 private:
 	u32 contextAddr;
 	int atracID;
-	Atrac3plus_Decoder::BufferQueue *sampleQueue;
+	BufferQueue *sampleQueue;
 };
 
 // Max height: 0x40000000 I think
@@ -175,7 +176,7 @@ struct SasVoice
 {
 	SasVoice()
 		: playing(false),
-		  paused(false),
+			paused(false),
 			on(false),
 			type(VOICETYPE_OFF),
 			vagAddr(0),

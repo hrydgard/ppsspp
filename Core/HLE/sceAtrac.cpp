@@ -15,9 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// This is pretty much a stub implementation. Doesn't actually do anything, just tries to return values
-// to keep games happy anyway. So, no ATRAC3 music until someone has reverse engineered Atrac3+.
-
 
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
@@ -25,6 +22,7 @@
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/HW/MediaEngine.h"
+#include "Core/HW/BufferQueue.h"
 #include "Common/ChunkFile.h"
 
 #include "sceKernel.h"
@@ -250,7 +248,7 @@ struct Atrac {
 	InputBuffer first;
 	InputBuffer second;
 
-	Atrac3plus_Decoder::BufferQueue sampleQueue;
+	BufferQueue sampleQueue;
 	void* decoder_context;
 
 	PSPPointer<SceAtracId> atracContext;

@@ -298,7 +298,7 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 	m_videopts = 0;
 	m_audiopts = 0;
 	m_ringbuffersize = RingbufferSize;
-	m_pdata = new Atrac3plus_Decoder::BufferQueue(RingbufferSize + 2048);
+	m_pdata = new BufferQueue(RingbufferSize + 2048);
 	if (!m_pdata)
 		return false;
 	m_pdata->push(buffer, readSize);

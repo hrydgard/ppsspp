@@ -4,7 +4,7 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "Core/HW/atrac3plus.h"
+#include "Core/HW/BufferQueue.h"
 #include "Common/ChunkFile.h"
 
 class MpegDemux
@@ -18,6 +18,9 @@ public:
 
 	// return its framesize
 	int getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2);
+
+	void DoState(PointerWrap &p);
+
 private:
 	struct PesHeader {
 		long pts;
@@ -30,6 +33,7 @@ private:
 			channel = chan;
 		}
 	};
+
 	int read8() {
 		return m_buf[m_index++] & 0xFF;
 	}
@@ -52,25 +56,11 @@ private:
 	}
 	int readPesHeader(PesHeader &pesHeader, int length, int startCode);
 	int demuxStream(bool bdemux, int startCode, int channel);
-public:
-	void DoState(PointerWrap &p) {
-		auto s = p.Section("MpegDemux", 1);
-		if (!s)
-			return;
 
-		p.Do(m_index);
-		p.Do(m_len);
-		p.Do(m_audioChannel);
-		p.Do(m_readSize);
-		if (m_buf)
-			p.DoArray(m_buf, m_len);
-		p.DoClass(m_audioStream);
-	}
-private:
 	int m_index;
 	int m_len;
 	u8* m_buf;
-	Atrac3plus_Decoder::BufferQueue m_audioStream;
+	BufferQueue m_audioStream;
 	u8  m_audioFrame[0x2000];
 	int m_audioChannel;
 	int m_readSize;
