@@ -171,6 +171,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
+  $(SRC)/Core/HW/SimpleAT3Dec.cpp \
   $(SRC)/Core/HW/atrac3plus.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \

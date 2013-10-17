@@ -253,6 +253,7 @@ struct Atrac {
 	SwrContext      *pSwrCtx;
 	AVFrame         *pFrame;
 	int audio_stream_index;
+
 	void ReleaseFFMPEGContext() {
 		if (pFrame)
 			av_free(pFrame);
@@ -313,7 +314,6 @@ void __AtracInit() {
 	avcodec_register_all();
 	av_register_all();
 #endif // USE_FFMPEG
-
 }
 
 void __AtracDoState(PointerWrap &p) {
@@ -340,7 +340,6 @@ void __AtracShutdown() {
 		delete atracIDs[i];
 		atracIDs[i] = NULL;
 	}
-
 }
 
 Atrac *getAtrac(int atracID) {
@@ -954,7 +953,7 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 }
 
 #ifdef USE_FFMPEG
-int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
+static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	Atrac *atrac = (Atrac *)opaque;
 	if (atrac->decodePos > atrac->first.filesize)
@@ -967,7 +966,7 @@ int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 	return size;
 }
 
-int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
+static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
 {
 	Atrac *atrac = (Atrac*)opaque;
 	if (offset > atrac->first.filesize)
@@ -1656,7 +1655,8 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			int forceseekSample = 0x200000;
 			atrac->SeekToSample(forceseekSample);
 			atrac->SeekToSample(atrac->currentSample);
-			AVPacket packet;
+			AVPacket packet = {0};
+			av_init_packet(&packet);
 			int got_frame, avret;
 			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
 				if (packet.stream_index == atrac->audio_stream_index) {

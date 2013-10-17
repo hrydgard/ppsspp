@@ -30,6 +30,8 @@
 #include "ChunkFile.h"
 #include "Core/HW/MpegDemux.h"
 
+struct SimpleAT3;
+
 struct SwsContext;
 struct AVFrame;
 struct AVIOContext;
@@ -106,7 +108,7 @@ public:  // TODO: Very little of this below should be public.
 	BufferQueue *m_pdata;
 
 	MpegDemux *m_demux;
-	void *m_audioContext;
+	SimpleAT3 *m_audioContext;
 	s64 m_audiopts;
 
 	s64 m_firstTimeStamp;
