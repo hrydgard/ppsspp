@@ -641,22 +641,6 @@ bool SetCurrentDir(const std::string &directory)
 	return __chdir(directory.c_str()) == 0;
 }
 
-#if defined(__APPLE__)
-std::string GetBundleDirectory() 
-{
-	CFURLRef BundleRef;
-	char AppBundlePath[MAXPATHLEN];
-	// Get the main bundle for the app
-	BundleRef = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-	CFStringRef BundlePath = CFURLCopyFileSystemPath(BundleRef, kCFURLPOSIXPathStyle);
-	CFStringGetFileSystemRepresentation(BundlePath, AppBundlePath, sizeof(AppBundlePath));
-	CFRelease(BundleRef);
-	CFRelease(BundlePath);
-
-	return AppBundlePath;
-}
-#endif
-
 #ifdef _WIN32
 std::wstring &GetExeDirectory()
 {

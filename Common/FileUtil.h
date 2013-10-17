@@ -26,17 +26,6 @@
 
 #include "Common.h"
 
-// User directory indices for GetUserPath
-enum {
-	D_USER_IDX,
-	D_SCREENSHOTS_IDX,
-	D_LOGS_IDX,
-	D_CONFIG_IDX,
-	F_CONFIG_IDX,
-	F_MAINLOG_IDX,
-	NUM_PATH_INDICES
-};
-
 #ifdef _WIN32
 inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 	if (localtime_s(result, clock) == 0)
@@ -112,17 +101,6 @@ void CopyDir(const std::string &source_path, const std::string &dest_path);
 
 // Set the current directory to given directory
 bool SetCurrentDir(const std::string &directory);
-
-// Returns a pointer to a string with a Dolphin data dir in the user's home
-// directory. To be used in "multi-user" mode (that is, installed).
-std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath="");
-
-// Returns the path to where the sys file are
-std::string GetSysDirectory();
-
-#ifdef __APPLE__
-std::string GetBundleDirectory();
-#endif
 
 #ifdef _WIN32
 std::wstring &GetExeDirectory();
