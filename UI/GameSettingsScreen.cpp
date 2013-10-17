@@ -15,13 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/colorutil.h"
+#include "base/timeutil.h"
+#include "math/curves.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
 #include "UI/EmuScreen.h"
-#include "UI/PluginScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
@@ -30,14 +32,10 @@
 
 #include "Core/Config.h"
 #include "Core/Host.h"
-#include "android/jni/TestRunner.h"
-#include "GPU/GPUInterface.h"
-#include "base/colorutil.h"
-#include "base/timeutil.h"
-#include "math/curves.h"
-#include "Core/HW/atrac3plus.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "android/jni/TestRunner.h"
+#include "GPU/GPUInterface.h"
 #include "Common/KeyMap.h"
 
 #ifdef _WIN32
@@ -189,10 +187,7 @@ void GameSettingsScreen::CreateViews() {
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
 
-	std::string atracString;
-	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
-	audioSettings->Add(new Choice(a->T(atracString.c_str())))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
 
 	audioSettings->Add(new PopupSliderChoice(&g_Config.iSFXVolume, 0, 8, a->T("SFX volume"), screenManager()));
 	audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, 8, a->T("BGM volume"), screenManager()));
@@ -369,31 +364,20 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
-	screenManager()->push(new PluginScreen());
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	// If we're in-game, return to the game via DR_CANCEL.
-	if(PSP_IsInited()) {
+	if (PSP_IsInited()) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 		host->UpdateScreen();
 	} else {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if(g_Config.bEnableSound) {
-		if(PSP_IsInited() && !IsAudioInitialised())
+	if (g_Config.bEnableSound) {
+		if (PSP_IsInited() && !IsAudioInitialised())
 			Audio_Init();
 	}
-	// It doesn't matter if audio is inited or not, it'll still output no sound
-	// if the mixer isn't available, so go ahead and init/shutdown at our leisure.
-	if(Atrac3plus_Decoder::IsInstalled()) {
-		if(g_Config.bEnableAtrac3plus)
-			Atrac3plus_Decoder::Init();
-		else Atrac3plus_Decoder::Shutdown();
-	}
+
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	g_Config.Save();
 
@@ -425,11 +409,6 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	}
 
 	#endif
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnFactoryReset(UI::EventParams &e) {
-	screenManager()->push(new PluginScreen());
 	return UI::EVENT_DONE;
 }
 
