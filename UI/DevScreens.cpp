@@ -188,7 +188,9 @@ void SystemInfoScreen::CreateViews() {
 #ifdef ARM
 	deviceSpecs->Add(new InfoItem("Cores", StringFromInt(cpu_info.num_cores)));
 #else
-	deviceSpecs->Add(new InfoItem("Threads", StringFromInt(cpu_info.num_cores)));
+	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
+	std::string cores = StringFromFormat("%d (%d per core, %d cores)", totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
+	deviceSpecs->Add(new InfoItem("Threads", cores));
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
 	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
