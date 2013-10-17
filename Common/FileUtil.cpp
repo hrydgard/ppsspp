@@ -15,7 +15,6 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include "CommonPaths.h"
 #include "FileUtil.h"
 #include "StringUtils.h"
 
@@ -51,6 +50,13 @@
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat
 #define fstat64 fstat
+#endif
+
+#define DIR_SEP "/"
+#ifdef _WIN32
+#define DIR_SEP_CHRS "/\\"
+#else
+#define DIR_SEP_CHRS "/"
 #endif
 
 // Hack
@@ -665,55 +671,6 @@ std::wstring &GetExeDirectory()
 	return DolphinPath;
 }
 #endif
-
-std::string GetSysDirectory()
-{
-	std::string sysDir;
-
-#if defined (__APPLE__)
-	sysDir = GetBundleDirectory();
-	sysDir += DIR_SEP;
-	sysDir += SYSDATA_DIR;
-#else
-	sysDir = SYSDATA_DIR;
-#endif
-	sysDir += DIR_SEP;
-
-	INFO_LOG(COMMON, "GetSysDirectory: Setting to %s:", sysDir.c_str());
-	return sysDir;
-}
-
-// Returns a string with a Dolphin data dir or file in the user's home
-// directory. To be used in "multi-user" mode (that is, installed).
-std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
-{
-	static std::string paths[NUM_PATH_INDICES];
-
-	// Set up all paths and files on the first run
-	if (paths[D_USER_IDX].empty())
-	{
-#ifdef _WIN32
-		// TODO: use GetExeDirectory() here instead of ROOT_DIR so that if the cwd is changed we still have the correct paths?
-		paths[D_USER_IDX] = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
-#elif defined(__SYMBIAN32__)
-        paths[D_USER_IDX] = "E:" DIR_SEP "PPSSPP" DIR_SEP;
-#else
-		if (File::Exists(ROOT_DIR DIR_SEP USERDATA_DIR))
-			paths[D_USER_IDX] = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
-		else
-			paths[D_USER_IDX] = std::string(getenv("HOME")) + DIR_SEP DOLPHIN_DATA_DIR DIR_SEP;
-#endif
-		INFO_LOG(COMMON, "GetUserPath: Setting user directory to %s:", paths[D_USER_IDX].c_str());
-
-		paths[D_CONFIG_IDX]			= paths[D_USER_IDX] + CONFIG_DIR DIR_SEP;
-		paths[D_SCREENSHOTS_IDX]	= paths[D_USER_IDX] + SCREENSHOTS_DIR DIR_SEP;
-		paths[D_LOGS_IDX]			= paths[D_USER_IDX] + LOGS_DIR DIR_SEP;
-		paths[F_CONFIG_IDX]			= paths[D_CONFIG_IDX] + CONFIG_FILE;
-		paths[F_MAINLOG_IDX]		= paths[D_LOGS_IDX] + MAIN_LOG;
-	}
-
-	return paths[DirIDX];
-}
 
 IOFile::IOFile()
 	: m_file(NULL), m_good(true)
