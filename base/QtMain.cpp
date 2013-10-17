@@ -10,6 +10,7 @@
 #include <QDir>
 #include <QDesktopWidget>
 #include <QDesktopServices>
+#include <QSystemLocale>
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
@@ -40,8 +41,12 @@ std::string System_GetProperty(SystemProperty prop) {
 #else
 		return "Qt";
 #endif
-	case SYSPROP_LANGREGION:
-		return "en_US";
+	case SYSPROP_LANGREGION: {
+		QString lang, region;
+		QSystemLocale::query(QSystemLocale::NativeLanguageName, lang);
+		QSystemLocale::query(QSystemLocale::NativeCountryName, region);
+		return lang.toStdString() + std::string("_") + region.toStdString();
+	}
 	default:
 		return "";
 	}
