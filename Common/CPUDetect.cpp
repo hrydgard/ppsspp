@@ -192,6 +192,8 @@ void CPUInfo::Detect()
 		int apic_id_core_id_size = (cpu_id[2] >> 12) & 0xF;
 		if (apic_id_core_id_size == 0) {
 			if (ht) {
+#ifdef _WIN32
+				// TODO: Make this work on non-Windows.
 				// 0x0B is the preferred method on i7(i5, i3, too? Unsure..).
 				// Inspired by https://github.com/D-Programming-Language/druntime/blob/master/src/core/cpuid.d#L562.
 				if (vendor == VENDOR_INTEL && max_std_fn >= 0x0B) {
@@ -201,8 +203,11 @@ void CPUInfo::Detect()
 					int totalThreads = cpu_id[1] & 0xFFFF;
 					num_cores = totalThreads / logical_cpu_count;
 				}
-				// New mechanism for modern Intel CPUs.
 				else if (vendor == VENDOR_INTEL) {
+#else
+				// New mechanism for modern Intel CPUs.
+				if (vendor == VENDOR_INTEL) {
+#endif
 					__cpuid(cpu_id, 0x00000004);
 					int cores_x_package = ((cpu_id[0] >> 26) & 0x3F) + 1;
 					HTT = (cores_x_package < logical_cpu_count);
