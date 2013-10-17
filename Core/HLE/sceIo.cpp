@@ -469,6 +469,7 @@ void __IoInit() {
 	if (ioManagerThreadEnabled) {
 		Core_ListenShutdown(&__IoWakeManager);
 		ioManagerThread = new std::thread(&__IoManagerThread);
+		ioManagerThread->detach();
 	}
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);

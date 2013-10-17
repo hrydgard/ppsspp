@@ -293,6 +293,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
+		cpuThread->detach();
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	} else {
 		CPU_Init();
