@@ -359,7 +359,6 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	}
 #ifdef __SYMBIAN32__
-	g_Config.bHardwareTransform = true;
 	g_Config.bSeparateCPUThread = false;
 	g_Config.bSeparateIOThread = false;
 #endif
