@@ -430,6 +430,9 @@
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="HW\SimpleAT3Dec.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="HW\atrac3plus.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -854,6 +857,9 @@
     </ClInclude>
     <ClInclude Include="Cwcheat.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SimpleAT3Dec.h">
+      <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HW\atrac3plus.h">
       <Filter>HW</Filter>
