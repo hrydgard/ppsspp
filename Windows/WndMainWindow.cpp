@@ -46,7 +46,6 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/HW/atrac3plus.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
