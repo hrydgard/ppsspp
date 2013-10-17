@@ -39,12 +39,14 @@
 #include "native/util/text/utf8.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/draw_text.h"
+#include "gfx_es2/draw_buffer.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
+#include "ui/ui.h"
 #include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -57,7 +59,6 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "Core/HW/atrac3plus.h"
 #include "Common/MemArena.h"
 
 #include "ui_atlas.h"
@@ -65,8 +66,8 @@
 #include "GameInfoCache.h"
 #include "UIShader.h"
 
-#include "UI/PluginScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/MiscScreens.h"
 
 // The new UI framework, for initialization
 
@@ -395,7 +396,7 @@ void NativeInit(int argc, const char *argv[],
 		}
 #endif
 	}
-	
+
 	if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
@@ -585,7 +586,6 @@ void NativeUpdate(InputState &input) {
 		}
 	}
 
-	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
 	screenManager->update(input);
 }
 
