@@ -23,6 +23,8 @@
 // Only Linux platforms have /proc/cpuinfo
 #if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
 const char procfile[] = "/proc/cpuinfo";
+// https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
+const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 char *GetCPUString()
 {
@@ -147,6 +149,25 @@ int GetCoreCount()
 	int cores = 0;
 	char buf[1024];
 	FILE *fp;
+
+	fp = fopen(syscpupresentfile, "r");
+	if (fp)
+	{
+		fgets(buf, sizeof(buf), fp);
+		fclose(fp);
+
+		int low, high;
+		// Technically, this could be "1-2,4,8-23" but for ARM devices that seems unlikely.
+		int found = sscanf(buf, "%d-%d", &low, &high);
+
+		// Only a single number, so just one slot/core (actually threads.)
+		if (found == 1)
+			return 1;
+		if (found == 2)
+			return high - low + 1;
+
+		// Okay, let's fall back.
+	}
 
 	fp = fopen(procfile, "r");
 	if (!fp)
