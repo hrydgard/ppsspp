@@ -85,9 +85,7 @@ int __KernelCancelVTimer(SceUID id) {
 		return error;
 
 	CoreTiming::UnscheduleEvent(vtimerTimer, id);
-	vt->nvt.schedule = 0;
 	vt->nvt.handlerAddr = 0;
-	vt->nvt.commonAddr = 0;
 	return 0;
 }
 
