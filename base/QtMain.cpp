@@ -41,12 +41,8 @@ std::string System_GetProperty(SystemProperty prop) {
 #else
 		return "Qt";
 #endif
-	case SYSPROP_LANGREGION: {
-		QString lang, region;
-		QSystemLocale::query(QSystemLocale::NativeLanguageName, lang);
-		QSystemLocale::query(QSystemLocale::NativeCountryName, region);
-		return lang.toStdString() + std::string("_") + region.toStdString();
-	}
+	case SYSPROP_LANGREGION:
+		return QLocale::system().name().toStdString();
 	default:
 		return "";
 	}
