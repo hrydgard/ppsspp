@@ -484,8 +484,9 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 
 void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 {
+	HPEN pen;
 	u32 windowEnd = windowStart+(visibleRows+2)*instructionSize;
-
+	
 	int topY;
 	int bottomY;
 	if (line.first < windowStart)
@@ -514,8 +515,18 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	{
 		return;
 	}
-			
+
+	// highlight line in a different color if it affects the currently selected opcode
+	if (line.first == curAddress || line.second == curAddress)
+	{
+		pen = CreatePen(0,0,0x257AFA);
+	} else {
+		pen = CreatePen(0,0,0xFF3020);
+	}
+	
+	HPEN oldPen = (HPEN) SelectObject(hdc,pen);
 	int x = pixelPositions.arrowsStart+line.laneIndex*8;
+
 	if (topY < 0)	// first is not visible, but second is
 	{
 		MoveToEx(hdc,x-2,bottomY,0);
@@ -562,6 +573,9 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 			LineTo(hdc,x+1,bottomY+5);
 		}
 	}
+
+	SelectObject(hdc,oldPen);
+	DeleteObject(pen);
 }
 
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
@@ -577,7 +591,6 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	SetBkMode(hdc, TRANSPARENT);
 
 	HPEN nullPen=CreatePen(0,0,0xffffff);
-	HPEN condPen=CreatePen(0,0,0xFF3020);
 	HBRUSH nullBrush=CreateSolidBrush(0xffffff);
 	HBRUSH currentBrush=CreateSolidBrush(0xFFEfE8);
 
@@ -665,7 +678,6 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,font);
 	}
 
-	SelectObject(hdc,condPen);
 	for (size_t i = 0; i < visibleFunctionAddresses.size(); i++)
 	{
 		auto it = functions.find(visibleFunctionAddresses[i]);
@@ -693,7 +705,6 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	DeleteDC(hdc);
 
 	DeleteObject(nullPen);
-	DeleteObject(condPen);
 
 	DeleteObject(nullBrush);
 	DeleteObject(currentBrush);
