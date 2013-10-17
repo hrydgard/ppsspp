@@ -292,6 +292,7 @@ namespace MIPSInt
 		}
 
 		int rs = _RS;
+		int rd = _RD;
 		u32 addr = R(rs);
 		switch (op & 0x3f) 
 		{
@@ -300,7 +301,7 @@ namespace MIPSInt
 			DelayBranchTo(addr);
 			break;
 		case 9: //jalr
-			R(31) = PC + 8;
+			R(rd) = PC + 8;
 			DelayBranchTo(addr);
 			break;
 		}

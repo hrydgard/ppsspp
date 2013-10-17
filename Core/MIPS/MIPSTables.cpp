@@ -184,7 +184,7 @@ const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ..... xxxxx
 
 	//8
 	INSTR("jr",    &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|DELAYSLOT),
-	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|OUT_RA|DELAYSLOT),
+	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|OUT_RD|DELAYSLOT),
 	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_EQ),
 	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_NE),
 	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall, IN_MEM|IN_OTHER|OUT_MEM|OUT_OTHER),
