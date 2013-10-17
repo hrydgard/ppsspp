@@ -75,17 +75,20 @@ u64 __getVTimerCurrentTime(VTimer* vt) {
 	return vt->nvt.current + __getVTimerRunningTime(vt);
 }
 
-void __cancelVTimer(SceUID id) {
+int __KernelCancelVTimer(SceUID id) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
 
-	if (error)
-		return;
+	// TODO: 0 returns a different error code, except inside the handler?
+	// Also, inside the handler returns that same different error code for the timer?
+	if (!vt)
+		return error;
 
 	CoreTiming::UnscheduleEvent(vtimerTimer, id);
 	vt->nvt.schedule = 0;
 	vt->nvt.handlerAddr = 0;
 	vt->nvt.commonAddr = 0;
+	return 0;
 }
 
 void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
@@ -151,7 +154,7 @@ public:
 		vtimers.pop_front();
 
 		if (result == 0)
-			__cancelVTimer(vtimerID);
+			__KernelCancelVTimer(vtimerID);
 		else
 			__rescheduleVTimer(vtimerID, result);
 	}
@@ -440,9 +443,7 @@ u32 sceKernelCancelVTimerHandler(u32 uid) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelCancelVTimerHandler(%08x)", uid);
 
 	//__cancelVTimer checks if uid is valid
-	__cancelVTimer(uid);
-
-	return 0;
+	return __KernelCancelVTimer(uid);
 }
 
 u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
