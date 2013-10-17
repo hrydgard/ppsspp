@@ -10,9 +10,6 @@
     <ClCompile Include="EmuScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="PluginScreen.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
     <ClCompile Include="GameScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -42,9 +39,6 @@
     <ClInclude Include="UIShader.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
-    <ClInclude Include="PluginScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="GameScreen.h">
