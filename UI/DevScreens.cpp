@@ -33,6 +33,15 @@
 #include "ext/disarm.h"
 #include "Common/CPUDetect.h"
 
+static const char *logLevelList[] = {
+	"Notice",
+	"Error",
+	"Warn",
+	"Info",
+	"Debug",
+	"Verb."
+};
+
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
@@ -78,19 +87,11 @@ void LogConfigScreen::CreateViews() {
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
 	topbar->Add(new Choice("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	topbar->Add(new Choice("Log Level"))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
 
 	vert->Add(topbar);
 
 	vert->Add(new ItemHeader("Log Channels"));
-
-	static const char *logLevelList[] = {
-		"Notice",
-		"Error",
-		"Warn",
-		"Info",
-		"Debug",
-		"Verb."
-	};
 
 	LogManager *logMan = LogManager::GetInstance();
 
@@ -121,6 +122,41 @@ UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	}
 
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
+	RecreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
+	auto logLevelScreen = new LogLevelScreen("Log Level");
+	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
+	screenManager()->push(logLevelScreen);
+	return UI::EVENT_DONE;
+}
+
+LogLevelScreen::LogLevelScreen(const std::string &title) : ListPopupScreen(title) {
+	int NUMLOGLEVEL = 6;    
+	std::vector<std::string> list;
+	for(int i = 0; i < NUMLOGLEVEL; ++i) {
+		list.push_back(logLevelList[i]);
+	}
+	adaptor_ = UI::StringVectorListAdaptor(list, -1);
+}
+
+void LogLevelScreen::OnCompleted(DialogResult result) {
+	if (result != DR_OK)
+		return;
+	int selected = listView_->GetSelected();
+	LogManager *logMan = LogManager::GetInstance();
+	
+	for (int i = 0; i < LogManager::GetNumChannels(); ++i) {
+		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+		LogChannel *chan = logMan->GetLogChannel(type);
+		if(chan->enable_ )
+			chan->level_ = selected + 1;
+	}
 }
 
 void SystemInfoScreen::CreateViews() {

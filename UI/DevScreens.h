@@ -48,6 +48,17 @@ public:
 
 private:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
+	UI::EventReturn OnLogLevel(UI::EventParams &e);
+	UI::EventReturn OnLogLevelChange(UI::EventParams &e);
+};
+
+class LogLevelScreen : public ListPopupScreen {
+public:
+	LogLevelScreen(const std::string &title);
+
+private:
+	virtual void OnCompleted(DialogResult result);
+
 };
 
 class SystemInfoScreen : public UIDialogScreenWithBackground {
