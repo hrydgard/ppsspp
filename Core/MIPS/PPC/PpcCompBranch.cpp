@@ -360,6 +360,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op) {
 		return;
 	}
 	MIPSGPReg rs = _RS;
+	MIPSGPReg rd = _RD;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
@@ -394,7 +395,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op) {
 	case 9: //jalr
 		// mips->reg = js.compilerPC + 8;
 		MOVI2R(SREG, js.compilerPC + 8);
-		STW(SREG, CTXREG, MIPS_REG_RA * 4);
+		STW(SREG, CTXREG, (int)rd * 4);
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");

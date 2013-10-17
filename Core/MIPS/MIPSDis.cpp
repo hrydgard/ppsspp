@@ -328,10 +328,13 @@ namespace MIPSDis
 	}
 	void Dis_JumpRegType(MIPSOpcode op, char *out)
 	{
-		int rs = (op>>21)&0x1f;
+		int rs = _RS;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t->%s",name,RN(rs));
-
+		if ((op & 0x3f) == 9 && rd != MIPS_REG_RA)
+			sprintf(out, "%s\t%s,->%s", name, RN(rd), RN(rs));
+		else
+			sprintf(out, "%s\t->%s", name, RN(rs));
 	}
 
 	void Dis_Allegrex(MIPSOpcode op, char *out)
