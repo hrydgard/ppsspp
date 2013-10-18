@@ -679,6 +679,9 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 		GetWindowRect(statusBarWnd,&windowRect);
 		topHeightOffset = (windowRect.bottom-windowRect.top);
 	}
+	
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	int disassemblyRowHeight = ptr->getRowHeight();
 
 	// disassembly
 	GetWindowRect(disasm,&windowRect);
@@ -686,6 +689,12 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	positions[0].x = windowRect.left;
 	positions[0].y = windowRect.top;
 	
+	// compute border height of the disassembly
+	int totalHeight = windowRect.bottom-windowRect.top;
+	GetClientRect(disasm,&windowRect);
+	int clientHeight = windowRect.bottom-windowRect.top;
+	int borderHeight = totalHeight-clientHeight;
+
 	// left tabs
 	GetWindowRect(leftTabs,&windowRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&windowRect,2);
@@ -700,13 +709,14 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	int bottomHeightOffset = positions[0].y;
 	positions[0].w = width-borderMargin-positions[0].x;
 	positions[0].h = (height-bottomHeightOffset-topHeightOffset) * weight;
+	positions[0].h = ((positions[0].h-borderHeight)/disassemblyRowHeight)*disassemblyRowHeight+borderHeight;
 	positions[1].h = positions[0].h-(positions[1].y-positions[0].y);
 
 	// bottom tabs
 	positions[2].x = borderMargin;
 	positions[2].y = positions[0].y+positions[0].h+borderMargin;
 	positions[2].w = width-2*borderMargin;
-	positions[2].h = height-bottomHeightOffset-positions[2].y;
+	positions[2].h = hideBottomTabs ? 0 : height-bottomHeightOffset-positions[2].y;
 
 	// now actually move all the windows
 	MoveWindow(disasm,positions[0].x,positions[0].y,positions[0].w,positions[0].h,TRUE);

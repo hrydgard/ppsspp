@@ -127,6 +127,7 @@ public:
 	};
 
 	void getOpcodeText(u32 address, char* dest);
+	int getRowHeight() { return rowHeight; };
 	u32 yToAddress(int y);
 
 	void setDontRedraw(bool b) { dontRedraw = b; };
