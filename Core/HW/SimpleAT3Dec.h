@@ -22,10 +22,10 @@
 // Wraps FFMPEG in a nice interface that's drop-in compatible with
 // the old one. Decodes packet by packet - does NOT demux. That's done by
 // MpegDemux. Only decodes Atrac3+, not regular Atrac3.
-//
+
 // Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
 
-// Ideally, Maxim's AT3plug decoder would be available as a standalone library
+// Ideally, Maxim's Atrac3+ decoder would be available as a standalone library
 // that we could link, as that would be totally sufficient for the use case here.
 // However, it will be maintained as a part of FFMPEG so that's the way we'll go
 // for simplicity and sanity.
