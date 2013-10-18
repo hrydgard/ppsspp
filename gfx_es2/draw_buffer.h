@@ -9,6 +9,8 @@
 #include "gfx/texture_atlas.h"
 #include "math/geom2d.h"
 
+#undef DrawText
+
 struct Atlas;
 
 enum {

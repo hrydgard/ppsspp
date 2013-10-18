@@ -22,6 +22,8 @@
 #include "math/math_util.h"
 #include "math/geom2d.h"
 
+#undef small
+
 struct KeyInput;
 struct TouchInput;
 struct AxisInput;
