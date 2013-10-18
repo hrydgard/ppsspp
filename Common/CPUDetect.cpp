@@ -196,7 +196,7 @@ void CPUInfo::Detect()
 				// TODO: Make this work on non-Windows.
 				// 0x0B is the preferred method on i7(i5, i3, too? Unsure..).
 				// Inspired by https://github.com/D-Programming-Language/druntime/blob/master/src/core/cpuid.d#L562.
-				if (vendor == VENDOR_INTEL && max_std_fn >= 0x0B) {
+				if (vendor == VENDOR_INTEL && max_std_fn >= 0x0B && std::string(brand_string).find("Core(TM) i") != std::string::npos) {
 					__cpuidex(cpu_id, 0x0B, 0);
 					logical_cpu_count = cpu_id[1] & 0xFFFF;
 					__cpuidex(cpu_id, 0x0B, 1);
