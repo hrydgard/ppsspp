@@ -36,6 +36,7 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -D__STDC_CONSTANT_MACROS")
 	if (NOT USING_GLES2)
 		# Not working yet.
 		set(USE_FFMPEG ON)
