@@ -25,26 +25,6 @@ QTM_USE_NAMESPACE
 #include "base/NKCodeFromQt.h"
 
 // Input
-const int buttonMappings[18] = {
-	Qt::Key_X + 0x20,   //A
-	Qt::Key_S + 0x20,   //B
-	Qt::Key_Z + 0x20,   //X
-	Qt::Key_A + 0x20,   //Y
-	Qt::Key_Q + 0x20,   //LBUMPER
-	Qt::Key_W + 0x20,   //RBUMPER
-	Qt::Key_1,          //START
-	Qt::Key_2,          //SELECT
-	Qt::Key_Up,         //UP
-	Qt::Key_Down,       //DOWN
-	Qt::Key_Left,       //LEFT
-	Qt::Key_Right,      //RIGHT
-	0,                  //MENU (event)
-	Qt::Key_Backspace,  //BACK
-	Qt::Key_I + 0x20,   //JOY UP
-	Qt::Key_K + 0x20,   //JOY DOWN
-	Qt::Key_J + 0x20,   //JOY LEFT
-	Qt::Key_L + 0x20,   //JOY RIGHT
-};
 void SimulateGamepad(InputState *input);
 
 //GUI
@@ -56,7 +36,9 @@ public:
 		QGLWidget(parent)
 	{
 		setAttribute(Qt::WA_AcceptTouchEvents);
+#if QT_VERSION < 0x50000
 		setAttribute(Qt::WA_LockLandscapeOrientation);
+#endif
 #ifdef USING_GLES2
 		acc = new QAccelerometer(this);
 		acc->start();
@@ -205,7 +187,7 @@ class MainAudio: public QObject
 public:
 	MainAudio() {
 		QAudioFormat fmt;
-		fmt.setFrequency(AUDIO_FREQ);
+		fmt.setSampleRate(AUDIO_FREQ);
 		fmt.setCodec("audio/pcm");
 		fmt.setChannelCount(AUDIO_CHANNELS);
 		fmt.setSampleSize(AUDIO_SAMPLESIZE);

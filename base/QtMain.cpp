@@ -5,12 +5,12 @@
 // Qt 4.7 implementation of the framework.
 // Currently supports: Symbian, Blackberry, Meego, Linux, Windows
 
-#include <QtGui/QApplication>
+#include <QApplication>
 #include <QUrl>
 #include <QDir>
 #include <QDesktopWidget>
 #include <QDesktopServices>
-#include <QSystemLocale>
+#include <QLocale>
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
