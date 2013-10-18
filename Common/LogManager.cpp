@@ -95,7 +95,7 @@ LogManager::LogManager() {
 
 	// Remove file logging on small devices
 #if !defined(USING_GLES2) || defined(_DEBUG)
-	fileLog_ = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
+	fileLog_ = new FileLogListener("");
 	consoleLog_ = new ConsoleListener();
 	debuggerLog_ = new DebuggerLogListener();
 #else

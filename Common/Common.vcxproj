@@ -172,7 +172,6 @@
     <ClInclude Include="ChunkFile.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
-    <ClInclude Include="CommonPaths.h" />
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="CommonWindows.h" />
     <ClInclude Include="ConsoleListener.h" />
