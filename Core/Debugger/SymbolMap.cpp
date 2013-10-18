@@ -581,7 +581,7 @@ Sigmap sigmap;
 void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 {
 	sigs.clear();
-	//SymbolMap::ResetSymbolMap();
+	// symbolMap.Clear();
 	//#1: Read the signature file and put them in a fast data structure
 	FILE *f = File::OpenCFile(filename, "r");
 	int count;

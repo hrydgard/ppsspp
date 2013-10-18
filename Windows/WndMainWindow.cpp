@@ -1338,9 +1338,9 @@ namespace MainWindow
 					if (W32Util::BrowseForFileName(false, hWnd, L"Save .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
-		
+
 				case ID_DEBUG_RESETSYMBOLTABLE:
-					symbolMap.ResetSymbolMap();
+					symbolMap.Clear();
 
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
