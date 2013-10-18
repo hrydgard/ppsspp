@@ -89,6 +89,7 @@ class CtrlDisAsmView
 	bool searching;
 	bool dontRedraw;
 	bool keyTaken;
+	bool stepScrolling;
 
 	void assembleOpcode(u32 address, std::string defaultText);
 	void disassembleToFile();
@@ -141,6 +142,8 @@ public:
 	{
 		return debugger;
 	}
+
+	u32 getWindowEnd() { return windowStart+visibleRows*instructionSize; };
 	void gotoAddr(unsigned int addr)
 	{
 		u32 windowEnd = windowStart+visibleRows*instructionSize;

@@ -189,10 +189,12 @@ void CDisasm::stepOver()
 
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	u32 currentPc = cpu->GetPC();
+	u32 windowEnd = ptr->getWindowEnd();
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
-	u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
+	u32 breakpointAddress = currentPc+cpu->getInstructionSize(0);
 	if (info.isBranch)
 	{
 		if (info.isConditional == false)
@@ -206,13 +208,24 @@ void CDisasm::stepOver()
 				breakpointAddress = info.branchTarget;
 			}
 		} else {						// beq, ...
-			// set breakpoint at branch target
-			breakpointAddress = info.branchTarget;
-			CBreakPoints::AddBreakPoint(breakpointAddress,true);
-
-			// and after the delay slot
-			breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);	
+			if (info.conditionMet)
+			{
+				breakpointAddress = info.branchTarget;
+			} else {
+				breakpointAddress = currentPc+2*cpu->getInstructionSize(0);
+				if (breakpointAddress == windowEnd-4)
+					ptr->scrollWindow(1);
+				else if (breakpointAddress == windowEnd)
+					ptr->scrollWindow(2);
+				else if (breakpointAddress == windowEnd+4)
+					ptr->scrollWindow(3);
+			}
 		}
+	} else {
+		if (breakpointAddress == windowEnd-4)
+			ptr->scrollWindow(1);
+		else if (breakpointAddress == windowEnd)
+			ptr->scrollWindow(2);
 	}
 
 	SetDebugMode(false, true);
