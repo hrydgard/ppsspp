@@ -85,6 +85,43 @@ void __cpuid(int regs[4], int cpuid_leaf)
 #endif
 }
 
+void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
+{
+#ifdef ANDROID
+	// Use the /dev/cpu/%i/cpuid interface
+	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
+	if (f) {
+		lseek64(f, ((uint64_t)ecxval << 32) | cpuid_leaf, SEEK_SET);
+		read(f, (void *)regs, 16);
+		close(f);
+	} else {
+		ELOG("CPUID %08x failed!", cpuid_leaf);
+	}
+#else
+	asm volatile (
+#if defined(__i386__)
+		"pushl %%ebx;\n\t"
+#endif
+		"movl %4, %%eax;\n\t"
+		"movl %5, %%ecx;\n\t"
+		"cpuid;\n\t"
+		"movl %%eax, %0;\n\t"
+		"movl %%ebx, %1;\n\t"
+		"movl %%ecx, %2;\n\t"
+		"movl %%edx, %3;\n\t"
+#if defined(__i386__)
+		"popl %%ebx;\n\t"
+#endif
+		:"=m" (regs[0]), "=m" (regs[1]), "=m" (regs[2]), "=m" (regs[3])
+		:"r" (cpuid_leaf), "r" (ecxval)
+		:"%eax",
+#if !defined(__i386__)
+		"%ebx",
+#endif
+		"%ecx", "%edx");
+#endif
+}
+
 #endif
 #endif
 
@@ -192,22 +229,21 @@ void CPUInfo::Detect()
 		int apic_id_core_id_size = (cpu_id[2] >> 12) & 0xF;
 		if (apic_id_core_id_size == 0) {
 			if (ht) {
-#ifdef _WIN32
-				// TODO: Make this work on non-Windows.
-				// 0x0B is the preferred method on i7(i5, i3, too? Unsure..).
-				// Inspired by https://github.com/D-Programming-Language/druntime/blob/master/src/core/cpuid.d#L562.
+				// 0x0B is the preferred method on Core i series processors.
+				// Inspired by https://github.com/D-Programming-Language/druntime/blob/23b0d1f41e27638bda2813af55823b502195a58d/src/core/cpuid.d#L562.
+				bool hasLeafB = false;
 				if (vendor == VENDOR_INTEL && max_std_fn >= 0x0B) {
 					__cpuidex(cpu_id, 0x0B, 0);
-					logical_cpu_count = cpu_id[1] & 0xFFFF;
-					__cpuidex(cpu_id, 0x0B, 1);
-					int totalThreads = cpu_id[1] & 0xFFFF;
-					num_cores = totalThreads / logical_cpu_count;
+					if (cpu_id[1] != 0) {
+						logical_cpu_count = cpu_id[1] & 0xFFFF;
+						__cpuidex(cpu_id, 0x0B, 1);
+						int totalThreads = cpu_id[1] & 0xFFFF;
+						num_cores = totalThreads / logical_cpu_count;
+						hasLeafB = true;
+					}
 				}
-				else if (vendor == VENDOR_INTEL) {
-#else
-				// New mechanism for modern Intel CPUs.
-				if (vendor == VENDOR_INTEL) {
-#endif
+				// Old new mechanism for modern Intel CPUs.
+				if (!hasLeafB && vendor == VENDOR_INTEL) {
 					__cpuid(cpu_id, 0x00000004);
 					int cores_x_package = ((cpu_id[0] >> 26) & 0x3F) + 1;
 					HTT = (cores_x_package < logical_cpu_count);
