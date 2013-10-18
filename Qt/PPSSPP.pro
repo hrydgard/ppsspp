@@ -106,19 +106,20 @@ symbian {
 	ICON = ../assets/icon.svg
 
 	# Folders:
-	assets.sources = ../flash0 ../assets/shaders ../assets/langregion.ini
+	assets.sources = ../flash0 ../assets/langregion.ini
 	assets.path = E:/PPSSPP
-
+	shaders.sources = ../assets/shaders
+	shaders.path = E:/PPSSPP/PSP
 	lang.sources = $$files(../lang/*.ini)
 # Unsupported languages on Symbian.
-!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") {
+contains(QMAKE_HOST.os, "Windows") {
 	lang.sources -= ..\\lang/ja_JP.ini ..\\lang/ko_KR.ini ..\\lang/zh_CN.ini ..\\lang/zh_TW.ini
 } else {
 	lang.sources -= ../lang/ja_JP.ini ../lang/ko_KR.ini ../lang/zh_CN.ini ../lang/zh_TW.ini
 }
 	lang.path = E:/PPSSPP/lang
 
-	DEPLOYMENT += vendor_deploy assets lang
+	DEPLOYMENT += vendor_deploy assets shaders lang
 
 	# 268 MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
@@ -127,15 +128,17 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	assets.files = ../flash0 ../assets/shaders ../assets/langregion.ini
+	assets.files = ../flash0 ../assets/langregion.ini
 	assets.path = /opt/PPSSPP
+	shaders.files = ../assets/shaders
+	shaders.path = /opt/PPSSPP/PSP
 	lang.files = $$files(../lang/*.ini)
 	lang.path = /opt/PPSSPP/lang
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
 	icon.files = ../assets/icon-114.png
 	icon.path = /usr/share/icons/hicolor/114x114/apps
-	INSTALLS += target assets lang desktopfile icon
+	INSTALLS += target assets shaders lang desktopfile icon
 	# Booster
 	QMAKE_CXXFLAGS += -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
 	QMAKE_LFLAGS += -pie -rdynamic
