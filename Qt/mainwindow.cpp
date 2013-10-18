@@ -375,7 +375,7 @@ void MainWindow::on_action_DebugSaveMapFile_triggered()
 
 void MainWindow::on_action_DebugResetSymbolTable_triggered()
 {
-	symbolMap.ResetSymbolMap();
+	symbolMap.Clear();
 	notifyMapsLoaded();
 }
 

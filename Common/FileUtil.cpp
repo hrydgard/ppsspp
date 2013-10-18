@@ -120,7 +120,7 @@ static void StripTailDirSlashes(std::wstring &fname)
 		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
 			return;
 
-		while (wcschr(_T(DIR_SEP_CHRS), fname[i]))
+		while (wcschr((const wchar_t*)_T(DIR_SEP_CHRS), fname[i]))
 			fname[i--] = '\0';
 	}
 	return;
