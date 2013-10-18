@@ -60,54 +60,43 @@ void SymbolMap::AnalyzeBackwards()
 #ifndef BWLINKS
 	return;
 #else
-	for (int i=0; i<numEntries; i++)
-	{
+	for (int i = 0; i < numEntries; i++) {
 		u32 ptr = entries[i].vaddress;
-		if (ptr)
-		{
-			if (entries[i].type == ST_FUNCTION)
-			{
-				for (int a = 0; a<entries[i].size/4; a++)
+		if (!ptr || entries[i].type != ST_FUNCTION)
+			continue;
+		for (int a = 0; a < entries[i].size/4; a++) {
+			u32 inst = CMemory::ReadUncheckedu32(ptr);
+
+			switch (inst >> 26) {
+			case 18:
 				{
-					u32 inst = CMemory::ReadUncheckedu32(ptr);
+					if (LK) {
+						u32 addr;
+						if(AA)
+							addr = SignExt26(LI << 2);
+						else
+							addr = ptr + SignExt26(LI << 2);
 
-					switch (inst>>26)
-					{
-					case 18:
-						{
-							if (LK) //LK
-							{
-								u32 addr;
-								if(AA)
-									addr = SignExt26(LI << 2);
-								else
-									addr = ptr + SignExt26(LI << 2);
-
-								int funNum = SymbolMap::GetSymbolNum(addr);
-								if (funNum>=0) 
-									entries[funNum].backwardLinks.push_back(ptr);
-							}
-							break;
-						}
-					default:
-						;
+						int funNum = GetSymbolNum(addr);
+						if (funNum >= 0)
+							entries[funNum].backwardLinks.push_back(ptr);
 					}
-
-					ptr+=4;
+					break;
 				}
+			default:
+				;
 			}
+
+			ptr += 4;
 		}
 	}
 #endif
 }
 
-
-void SymbolMap::ResetSymbolMap()
-{
+void SymbolMap::Clear() {
 	lock_guard guard(lock_);
 #ifdef BWLINKS
-	for (int i=0; i<numEntries; i++)
-	{
+	for (int i=0; i<numEntries; i++) {
 		entries[i].backwardLinks.clear();
 	}
 #endif
@@ -115,7 +104,6 @@ void SymbolMap::ResetSymbolMap()
 	uniqueEntries.clear();
 	entryRanges.clear();
 }
-
 
 void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType st)
 {
@@ -137,7 +125,7 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 bool SymbolMap::LoadSymbolMap(const char *filename)
 {
 	lock_guard guard(lock_);
-	SymbolMap::ResetSymbolMap();
+	Clear();
 	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
 		return false;
@@ -202,8 +190,8 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 		}
 	}
 	fclose(f);
-	SymbolMap::SortSymbols();
-//	SymbolMap::AnalyzeBackwards();
+	SortSymbols();
+	//	SymbolMap::AnalyzeBackwards();
 	return true;
 }
 
@@ -456,16 +444,15 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask) const
 	}
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
 	RedrawWindow(listbox, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
-	
 	ShowWindow(listbox,SW_SHOW);
 }
 
 void SymbolMap::FillListBoxBLinks(HWND listbox, int num) const
-{	
+{
 	ListBox_ResetContent(listbox);
 
 	lock_guard guard(lock_);
-		
+
 	int style = GetWindowLong(listbox,GWL_STYLE);
 
 	const MapEntry &e = entries[num];
@@ -486,6 +473,7 @@ int SymbolMap::GetNumSymbols() const
 	lock_guard guard(lock_);
 	return (int)entries.size();
 }
+
 SymbolType SymbolMap::GetSymbolType(int i) const
 {
 	return entries[i].type;

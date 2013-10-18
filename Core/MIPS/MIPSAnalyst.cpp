@@ -28,8 +28,7 @@
 using namespace MIPSCodeUtils;
 using namespace std;
 
-namespace MIPSAnalyst
-{
+namespace MIPSAnalyst {
 	// Only can ever output a single reg.
 	MIPSGPReg GetOutGPReg(MIPSOpcode op) {
 		MIPSInfo opinfo = MIPSGetInfo(op);
@@ -68,7 +67,6 @@ namespace MIPSAnalyst
 		if (reg2 != MIPS_REG_ZERO && GetOutGPReg(op) == reg2) {
 			return false;
 		}
-
 		return true;
 	}
 
@@ -240,66 +238,52 @@ namespace MIPSAnalyst
 		}
 	}
 
-	void ScanForFunctions(u32 startAddr, u32 endAddr /*, std::vector<u32> knownEntries*/)
-	{
+	void ScanForFunctions(u32 startAddr, u32 endAddr /*, std::vector<u32> knownEntries*/) {
 		Function currentFunction = {startAddr};
 
 		u32 furthestBranch = 0;
 		bool looking = false;
 		bool end = false;
-		bool isStraightLeaf=true;
+		bool isStraightLeaf = true;
 		u32 addr;
-		for (addr = startAddr; addr<=endAddr; addr+=4)
-		{
+		for (addr = startAddr; addr <= endAddr; addr+=4) {
 			SymbolInfo syminfo;
-			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION))
-			{
+			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
 				addr = syminfo.address + syminfo.size;
 				continue;
 			}
 
 			MIPSOpcode op = Memory::Read_Instruction(addr);
 			u32 target = GetBranchTargetNoRA(addr);
-			if (target != INVALIDTARGET)
-			{
+			if (target != INVALIDTARGET) {
 				isStraightLeaf = false;
-				if (target > furthestBranch)
-				{
+				if (target > furthestBranch) {
 					furthestBranch = target;
 				}
 			}
-			if (op == MIPS_MAKE_JR_RA())
-			{
-				if (furthestBranch >= addr)
-				{
+			if (op == MIPS_MAKE_JR_RA()) {
+				if (furthestBranch >= addr) {
 					looking = true;
 					addr+=4;
-				}
-				else
-				{
+				} else {
 					end = true;
 				}
 			}
 
-			if (looking)
-			{
-				if (addr >= furthestBranch)
-				{
+			if (looking) {
+				if (addr >= furthestBranch) {
 					u32 sureTarget = GetSureBranchTarget(addr);
-					if (sureTarget != INVALIDTARGET && sureTarget < addr)
-					{
+					if (sureTarget != INVALIDTARGET && sureTarget < addr) {
 						end = true;
 					}
 					sureTarget = GetJumpTarget(addr);
-					if (sureTarget != INVALIDTARGET && sureTarget < addr && ((op&0xFC000000)==0x08000000))
-					{
+					if (sureTarget != INVALIDTARGET && sureTarget < addr && ((op&0xFC000000)==0x08000000)) {
 						end = true;
 					}
 					//end = true;
 				}
 			}
-			if (end)
-			{
+			if (end) {
 				currentFunction.end = addr + 4;
 				currentFunction.isStraightLeaf = isStraightLeaf;
 				functions.push_back(currentFunction);
@@ -314,8 +298,7 @@ namespace MIPSAnalyst
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++)
-		{
+		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
 			(*iter).size = ((*iter).end-(*iter).start+4);
 			char temp[256];
 			sprintf(temp,"z_un_%08x",(*iter).start);
@@ -324,39 +307,35 @@ namespace MIPSAnalyst
 		HashFunctions();
 	}
 
-	struct HashMapFunc
-	{
+	struct HashMapFunc {
 		char name[64];
 		u32 hash;
 		u32 size; //number of bytes
 	};
 
-	void StoreHashMap(const char *filename)
-	{
+	void StoreHashMap(const char *filename) {
 		FILE *file = File::OpenCFile(filename,"wb");
 		u32 num = 0;
-		if(fwrite(&num,4,1,file) != 1) //fill in later
+		if (fwrite(&num,4,1,file) != 1) //fill in later
 			WARN_LOG(CPU, "Could not store hash map %s", filename);
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++)
-		{
+		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
 			Function &f=*iter;
-			if (f.hasHash && f.size>=12)
-			{
+			if (f.hasHash && f.size >= 12) {
 				HashMapFunc temp;
-				memset(&temp,0,sizeof(temp));
+				memset(&temp, 0, sizeof(temp));
 				strcpy(temp.name, f.name);
 				temp.hash=f.hash;
 				temp.size=f.size;
-				if(fwrite((char*)&temp,sizeof(temp),1,file) != 1) {
+				if (fwrite((char*)&temp, sizeof(temp), 1, file) != 1) {
 					WARN_LOG(CPU, "Could not store hash map %s", filename);
 					break;
 				}
 				num++;
 			}
 		}
-		fseek(file,0,SEEK_SET);
-		if(fwrite(&num,4,1,file) != 1) //fill in later
+		fseek(file, 0, SEEK_SET);
+		if (fwrite(&num, 4, 1, file) != 1)  // fill in later
 			WARN_LOG(CPU, "Could not store hash map %s", filename);
 		fclose(file);
 	}
@@ -369,18 +348,15 @@ namespace MIPSAnalyst
 
 		FILE *file = File::OpenCFile(filename, "rb");
 		int num;
-		if(fread(&num,4,1,file) == 1) {
-			for (int i=0; i<num; i++)
-			{
+		if (fread(&num, 4, 1, file) == 1) {
+			for (int i = 0; i < num; i++) {
 				HashMapFunc temp;
-				if(fread(&temp,sizeof(temp),1,file) == 1) {
+				if(fread(&temp, sizeof(temp), 1, file) == 1) {
 					map<u32,Function*>::iterator iter = hashToFunction.find(temp.hash);
-					if (iter != hashToFunction.end())
-					{
+					if (iter != hashToFunction.end()) {
 						//yay, found a function!
 						Function &f = *(iter->second);
-						if (f.size==temp.size)
-						{
+						if (f.size == temp.size) {
 							strcpy(f.name, temp.name);
 							f.hash=temp.hash;
 							f.size=temp.size;
@@ -391,32 +367,16 @@ namespace MIPSAnalyst
 		}
 		fclose(file);
 	}
-	void CompileLeafs()
-	{
-		/*
-		int count=0;
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++)
-		{
-		Function &f = *iter;
-		if (f.isStraightLeaf)
-		{
-		MIPSComp::CompileAt(f.start);
-		count++;
-		}
-		}
-		LOG(CPU,"Precompiled %i straight leaf functions",count);*/
-	}
 
-	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op)
-	{
+	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op) {
 		std::vector<MIPSGPReg> vec;
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & IN_RS) vec.push_back(MIPS_GET_RS(op));
 		if (info & IN_RT) vec.push_back(MIPS_GET_RT(op));
 		return vec;
 	}
-	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op)
-	{
+
+	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op) {
 		std::vector<MIPSGPReg> vec;
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
@@ -425,10 +385,9 @@ namespace MIPSAnalyst
 		return vec;
 	}
 
-	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address)
-	{
+	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address) {
 		MipsOpcodeInfo info;
-		memset(&info,0,sizeof(info));
+		memset(&info, 0, sizeof(info));
 
 		if (!Memory::IsValidAddress(address)) {
 			return info;
@@ -441,18 +400,15 @@ namespace MIPSAnalyst
 		MIPSOpcode op = info.encodedOpcode;
 		MIPSInfo opInfo = MIPSGetInfo(op);
 		info.isLikelyBranch = (opInfo & LIKELY) != 0;
-		
+
 		//j , jal, ...
-		if (opInfo & IS_JUMP)
-		{
+		if (opInfo & IS_JUMP) {
 			info.isBranch = true;
-			if (opInfo & OUT_RA)	// link
-			{
+			if (opInfo & OUT_RA) {	// link
 				info.isLinkedBranch = true;
 			}
 
-			if (opInfo & IN_RS)		// to register
-			{
+			if (opInfo & IN_RS) { // to register
 				info.isBranchToRegister = true;
 				info.branchRegisterNum = (int)MIPS_GET_RS(op);
 				info.branchTarget = cpu->GetRegValue(0,info.branchRegisterNum);
@@ -462,13 +418,11 @@ namespace MIPSAnalyst
 		}
 
 		// movn, movz
-		if (opInfo & IS_CONDMOVE)
-		{
+		if (opInfo & IS_CONDMOVE) {
 			info.isConditional = true;
 
 			u32 rt = cpu->GetRegValue(0, (int)MIPS_GET_RT(op));
-			switch (opInfo & CONDTYPE_MASK)
-			{
+			switch (opInfo & CONDTYPE_MASK) {
 			case CONDTYPE_EQ:
 				info.conditionMet = (rt == 0);
 				break;
@@ -479,32 +433,27 @@ namespace MIPSAnalyst
 		}
 
 		// beq, bgtz, ...
-		if (opInfo & IS_CONDBRANCH)
-		{
+		if (opInfo & IS_CONDBRANCH) {
 			info.isBranch = true;
 			info.isConditional = true;
 			info.branchTarget = GetBranchTarget(address);
-			
-			if (opInfo & OUT_RA)	// link
-			{
+
+			if (opInfo & OUT_RA) {  // link
 				info.isLinkedBranch = true;
 			}
 
 			u32 rt = cpu->GetRegValue(0, (int)MIPS_GET_RT(op));
 			u32 rs = cpu->GetRegValue(0, (int)MIPS_GET_RS(op));
-			switch (opInfo & CONDTYPE_MASK)
-			{
+			switch (opInfo & CONDTYPE_MASK) {
 			case CONDTYPE_EQ:
 				info.conditionMet = (rt == rs);
-				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))		// always true
-				{
+				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
 					info.isConditional = false;
 				}
 				break;
 			case CONDTYPE_NE:
 				info.conditionMet = (rt != rs);
-				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))		// always true
-				{
+				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
 					info.isConditional = false;
 				}
 				break;
@@ -524,12 +473,9 @@ namespace MIPSAnalyst
 		}
 
 		// lw, sh, ...
-		if ((opInfo & IN_MEM) || (opInfo & OUT_MEM))
-		{
+		if ((opInfo & IN_MEM) || (opInfo & OUT_MEM)) {
 			info.isDataAccess = true;
-			
-			switch (opInfo & MEMTYPE_MASK)
-			{
+			switch (opInfo & MEMTYPE_MASK) {
 			case MEMTYPE_BYTE:
 				info.dataSize = 1;
 				break;

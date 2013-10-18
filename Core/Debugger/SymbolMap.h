@@ -23,14 +23,12 @@
 #include <set>
 #include <map>
 
-enum SymbolType
-{
+enum SymbolType {
 	ST_FUNCTION=1,
 	ST_DATA=2
 };
 
-struct SymbolInfo
-{
+struct SymbolInfo {
 	u32 address;
 	u32 size;
 };
@@ -40,15 +38,14 @@ struct HWND__;
 typedef struct HWND__ *HWND;
 #endif
 
-class SymbolMap
-{
+class SymbolMap {
 public:
 	SymbolMap() {}
 	bool LoadSymbolMap(const char *filename);
 	void SaveSymbolMap(const char *filename) const;
 	bool LoadNocashSym(const char *ilename);
 	void AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType symbol);
-	void ResetSymbolMap();
+	void Clear();
 	void AnalyzeBackwards();
 	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION) const;
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
@@ -76,20 +73,18 @@ public:
 	void CompileFuncSignaturesFile(const char *filename) const;
 
 private:
-	struct MapEntryUniqueInfo
-	{
+	struct MapEntryUniqueInfo {
 		u32 address;
 		u32 vaddress;
 		u32 size;
 		SymbolType type;
 
-		bool operator <(const MapEntryUniqueInfo &other) const {
+		bool operator < (const MapEntryUniqueInfo &other) const {
 			return vaddress < other.vaddress;
 		}
 	};
 
-	struct MapEntry : public MapEntryUniqueInfo
-	{
+	struct MapEntry : public MapEntryUniqueInfo {
 		char name[128];
 		u32 unknown;
 		u32 runCount;
@@ -97,9 +92,7 @@ private:
 #ifdef BWLINKS
 		std::vector <u32> backwardLinks;
 #endif
-
-		void UndecorateName()
-		{
+		void UndecorateName() {
 			// TODO
 		}
 	};
