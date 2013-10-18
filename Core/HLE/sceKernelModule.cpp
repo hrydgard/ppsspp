@@ -1200,7 +1200,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	}
 
 	// Wipe kernel here, loadexec should reset the entire system
-	if (__KernelIsRunning()) {
+	if (__KernelIsRunning())
+	{
 		__KernelShutdown();
 		//HLE needs to be reset here
 		HLEShutdown();
@@ -1227,7 +1228,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 
-	symbolMap.Clear();
 	Module *module = __KernelLoadModule(temp, 0, error_string);
 
 	if (!module || module->isFake) {
