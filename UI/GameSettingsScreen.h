@@ -58,7 +58,6 @@ private:
 	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnPostProcShader(UI::EventParams &e);
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
-	UI::EventReturn OnFactoryReset(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
