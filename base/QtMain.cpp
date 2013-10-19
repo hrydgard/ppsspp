@@ -19,10 +19,6 @@
 #endif
 #include "QtMain.h"
 
-#if defined(Q_WS_X11) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(__SYMBIAN32__) && !defined(BLACKBERRY)
-#define X11LINUXDESKTOP
-#endif
-
 InputState* input_state;
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -34,7 +30,7 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "Qt:Blackberry10";
 #elif defined(MEEGO_EDITION_HARMATTAN)
 		return "Qt:Meego";
-#elif defined(Q_WS_X11)
+#elif defined(Q_OS_LINUX)
 		return "Qt:Linux";
 #elif defined(_WIN32)
 		return "Qt:Windows";
@@ -106,7 +102,7 @@ float CalculateDPIScale()
 
 Q_DECL_EXPORT int main(int argc, char *argv[])
 {
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 	QApplication a(argc, argv);
@@ -115,7 +111,7 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-#ifdef X11LINUXDESKTOP
+#if defined(Q_OS_LINUX) && !defined(ARM)
 	g_dpi_scale = 1.0f;
 #else
 	g_dpi_scale = CalculateDPIScale();
@@ -140,7 +136,7 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
 
-#if !defined(Q_WS_X11) || defined(ARM)
+#if !defined(Q_OS_LINUX) || defined(ARM)
 	MainUI w;
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
