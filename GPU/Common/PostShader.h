@@ -28,6 +28,7 @@ struct ShaderInfo {
 	std::string iniFile;  // which ini file was this definition in? So we can write settings back later
 	std::string section;  // ini file section. This is saved.
 	std::string name;     // Fancy display name. TODO: Not using yet.
+	std::string slider;   // specify slider the shader use
 
 	std::string fragmentShaderFile;
 	std::string vertexShaderFile;

@@ -81,6 +81,8 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.fragmentShaderFile = path + "/" + temp;
 					section.Get("Vertex", &temp, "");
 					info.vertexShaderFile = path + "/" + temp;
+					section.Get("Slider", &temp, "");
+					info.slider = temp;
 					shaderInfo.erase(std::find(shaderInfo.begin(), shaderInfo.end(), info.name), shaderInfo.end());
 					shaderInfo.push_back(info);
 				}

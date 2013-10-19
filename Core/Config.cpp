@@ -182,6 +182,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("PostShader", &sPostShaderName, "Off");
+	graphics->Get("PostShaderLevel", &iPostShaderLevel, 100);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -351,6 +352,7 @@ void Config::Save() {
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("PostShader", sPostShaderName);
+		graphics->Set("PostShaderLevel", iPostShaderLevel);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

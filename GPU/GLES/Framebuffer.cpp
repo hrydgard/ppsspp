@@ -168,6 +168,24 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 	}
 }
 
+void FramebufferManager::PassPostShaderUniforms() {
+	float u_texture = (float)PSP_CoreParameter().renderWidth;
+	float v_texture = (float)PSP_CoreParameter().renderHeight;
+	float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
+	float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+	int level = std::min(100, g_Config.iPostShaderLevel);
+	int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texcoordDelta");
+	int textureLoc = glsl_uniform_loc(postShaderProgram_, "u_texture");
+	int levelLoc = glsl_uniform_loc(postShaderProgram_, "u_amount");
+
+	if (deltaLoc != -1)
+		glUniform2f(deltaLoc, u_delta, v_delta);
+	if (textureLoc != -1)
+		glUniform2f(deltaLoc, u_texture, v_texture);
+	if (levelLoc != -1)
+		glUniform1i(levelLoc, level);
+}
+
 void FramebufferManager::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;
@@ -205,11 +223,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 				glsl_bind(postShaderProgram_);
 				glUniform1i(postShaderProgram_->sampler0, 0);
 				SetNumExtraFBOs(1);
-				float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
-				float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texcoordDelta");
-				if (deltaLoc != -1)
-					glUniform2f(deltaLoc, u_delta, v_delta);
+				PassPostShaderUniforms();
 				usePostShader_ = true;
 			}
 		} else {

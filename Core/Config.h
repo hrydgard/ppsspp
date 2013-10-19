@@ -96,6 +96,7 @@ public:
 	bool bAlwaysDepthWrite;
 	bool bLowQualitySplineBezier;
 	std::string sPostShaderName;  // Off for off.
+	int iPostShaderLevel; // 0 = minimum, .. , 100 =maximum.
 
 	// Sound
 	bool bEnableSound;
