@@ -49,6 +49,7 @@ QtHost::QtHost(MainWindow *mainWindow_)
 
 bool QtHost::InitGL(std::string *error_string)
 {
+	return true;
 }
 
 void QtHost::ShutdownGL()
@@ -248,7 +249,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	hideLog = false;
 #endif
 
-	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -257,9 +257,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case 'd':
 				// Enable debug logging
 				logLevel = LogTypes::LDEBUG;
-				break;
-			case 'g':
-				gfxLog = true;
 				break;
 			case 'j':
 				g_Config.bJit = true;
@@ -314,8 +311,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager::Init();
 	if (fileToLog != NULL)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
-
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 
 	g_gameInfoCache.Init();
 
