@@ -149,10 +149,10 @@ struct GPUDebugBuffer {
 private:
 	bool alloc_;
 	u8 *data_;
-	u32 height_;
 	u32 stride_;
-	bool flipped_;
+	u32 height_;
 	GPUDebugBufferFormat fmt_;
+	bool flipped_;
 };
 
 class GPUDebugInterface {
