@@ -180,6 +180,10 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
 		distance = dirY / sqrtf(distance);
 		break;
+	case FOCUS_PREV:
+	case FOCUS_NEXT:
+		ELOG("Invalid focus direction");
+		break;
 	}
 
 	return distance;
@@ -193,10 +197,10 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		return result;
 
 	// First, find the position of the view in the list.
-	size_t num = -1;
+	int num = -1;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i] == view) {
-			num = i;
+			num = (int)i;
 			break;
 		}
 	}
@@ -888,7 +892,7 @@ void ChoiceStrip::SetSelection(int sel) {
 
 
 void ChoiceStrip::HighlightChoice(unsigned int choice){
-	if (choice < (int)views_.size()){
+	if (choice < (unsigned int)views_.size()){
 		static_cast<StickyChoice *>(views_[choice])->HighlightChanged(true);
 	}
 	

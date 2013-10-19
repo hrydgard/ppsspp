@@ -101,7 +101,7 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 }
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
-	: title_(title), box_(0) {
+	: box_(0), title_(title) {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	button1_ = d->T(button1.c_str());
 	button2_ = d->T(button2.c_str());

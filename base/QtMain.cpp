@@ -119,20 +119,20 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	net::Init();
 #ifdef __SYMBIAN32__
-	char* savegame_dir = "E:/PPSSPP/";
-	char* assets_dir = "E:/PPSSPP/";
+	const char *savegame_dir = "E:/PPSSPP/";
+	cosnt char *assets_dir = "E:/PPSSPP/";
 #elif defined(BLACKBERRY)
-	char* savegame_dir = "/accounts/1000/shared/misc/";
-	char* assets_dir = "app/native/assets/";
+	const char *savegame_dir = "/accounts/1000/shared/misc/";
+	const char *assets_dir = "app/native/assets/";
 #elif defined(MEEGO_EDITION_HARMATTAN)
-	char* savegame_dir = "/home/user/MyDocs/PPSSPP/";
+	const char *savegame_dir = "/home/user/MyDocs/PPSSPP/";
 	QDir myDocs("/home/user/MyDocs/");
 	if (!myDocs.exists("PPSSPP"))
 		myDocs.mkdir("PPSSPP");
-	char* assets_dir = "/opt/PPSSPP/";
+	const char *assets_dir = "/opt/PPSSPP/";
 #else
-	char* savegame_dir = "./";
-	char* assets_dir = "./";
+	const char *savegame_dir = "./";
+	const char *assets_dir = "./";
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
 

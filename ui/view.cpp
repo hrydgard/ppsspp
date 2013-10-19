@@ -51,7 +51,7 @@ void DispatchEvents() {
 }
 
 void RemoveQueuedEvents(View *v) {
-	for (int i = 0; i < g_dispatchQueue.size(); i++) {
+	for (size_t i = 0; i < g_dispatchQueue.size(); i++) {
 		if (g_dispatchQueue[i].params.v == v)
 			g_dispatchQueue.erase(g_dispatchQueue.begin() + i);
 	}

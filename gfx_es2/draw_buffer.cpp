@@ -23,7 +23,7 @@ enum {
 
 // #define USE_VBO
 
-DrawBuffer::DrawBuffer() : count_(0), atlas(0), program_(0) {
+DrawBuffer::DrawBuffer() : program_(0), count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
 	fontscaley = 1.0f;
