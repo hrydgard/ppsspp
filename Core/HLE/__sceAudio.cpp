@@ -118,7 +118,9 @@ void __AudioInit() {
 	mixBuffer = new s32[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	
+	__blockForAudioQueueLock();
+	outAudioQueue.clear();
+	__releaseAcquiredLock();
 }
 
 void __AudioDoState(PointerWrap &p) {
