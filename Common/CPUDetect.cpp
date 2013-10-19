@@ -16,7 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #ifdef ANDROID
-#include <sys/stat.h> 
+#include <sys/stat.h>
 #include <fcntl.h>
 #endif
 
@@ -44,46 +44,6 @@
 #include <sys/types.h>
 #include <machine/cpufunc.h>
 #elif !defined(MIPS)
-void __cpuid(int regs[4], int cpuid_leaf)
-{
-#ifdef ANDROID
-	// Use the /dev/cpu/%i/cpuid interface
-	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
-	if (f) {
-		lseek(f, (uint32_t)cpuid_leaf, SEEK_SET);
-		read(f, (void *)regs, 16);
-		close(f);
-	} else {
-		ELOG("CPUID %08x failed!", cpuid_leaf);
-	}
-#else
-	int eax, ebx, ecx, edx;
-	asm volatile (
-#if defined(__i386__)
-		"pushl %%ebx;\n\t"
-#endif
-		"movl %4, %%eax;\n\t"
-		"cpuid;\n\t"
-		"movl %%eax, %0;\n\t"
-		"movl %%ebx, %1;\n\t"
-		"movl %%ecx, %2;\n\t"
-		"movl %%edx, %3;\n\t"
-#if defined(__i386__)
-		"popl %%ebx;\n\t"
-#endif
-		:"=m" (eax), "=m" (ebx), "=m" (ecx), "=m" (edx)
-		:"r" (cpuid_leaf)
-		:"%eax",
-#if !defined(__i386__)
-		"%ebx",
-#endif
-		"%ecx", "%edx");
-	regs[0] = eax;
-	regs[1] = ebx;
-	regs[2] = ecx;
-	regs[3] = edx;
-#endif
-}
 
 void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
 {
@@ -121,6 +81,10 @@ void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
 		"%ecx", "%edx");
 #endif
 }
+void __cpuid(int regs[4], int cpuid_leaf)
+{
+	__cpuidex(regs, cpuid_leaf, 0);
+}
 
 #endif
 #endif
@@ -154,19 +118,19 @@ void CPUInfo::Detect()
 	OS64bit = (f64 == TRUE) ? true : false;
 #endif
 #endif
-	
+
 	// Set obvious defaults, for extra safety
 	if (Mode64bit) {
 		bSSE = true;
 		bSSE2 = true;
 		bLongMode = true;
 	}
-	
+
 	// Assume CPU supports the CPUID instruction. Those that don't can barely
 	// boot modern OS:es anyway.
 	int cpu_id[4];
 	memset(cpu_string, 0, sizeof(cpu_string));
-	
+
 	// Detect CPU's CPUID capabilities, and grab cpu string
 	__cpuid(cpu_id, 0x00000000);
 	u32 max_std_fn = cpu_id[0];  // EAX
@@ -181,10 +145,10 @@ void CPUInfo::Detect()
 		vendor = VENDOR_AMD;
 	else
 		vendor = VENDOR_OTHER;
-	
+
 	// Set reasonable default brand string even if brand string not available.
 	strcpy(brand_string, cpu_string);
-	
+
 	// Detect family and other misc stuff.
 	bool ht = false;
 	HTT = ht;
@@ -221,7 +185,7 @@ void CPUInfo::Detect()
 	}
 
 	num_cores = (logical_cpu_count == 0) ? 1 : logical_cpu_count;
-	
+
 	if (max_ex_fn >= 0x80000008) {
 		// Get number of cores. This is a bit complicated. Following AMD manual here.
 		__cpuid(cpu_id, 0x80000008);
@@ -255,7 +219,7 @@ void CPUInfo::Detect()
 			// Use AMD's new method.
 			num_cores = (cpu_id[2] & 0xFF) + 1;
 		}
-	} 
+	}
 }
 
 // Turn the cpu info into a string we can show
