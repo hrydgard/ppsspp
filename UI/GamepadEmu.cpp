@@ -269,32 +269,167 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
-
-
-UI::ViewGroup *CreatePadLayout(bool *pause) {
-	using namespace UI;
-
-	AnchorLayout *root = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+void InitPadLayout(){
 
 	// TODO: See if we can make some kind of global scaling for views instead of this hackery.
 	float scale = g_Config.fButtonScale;
 
-	// const int button_spacing = 50 * controlScale;
-	const int button_spacing = 50 * scale;
-	const int arrow_spacing = 40 * scale;
+	//PSP buttons (triangle, circle, square, cross)---------------------
+	//space between the PSP buttons (traingle, circle, square and cross)
+	const int Action_button_spacing = 50 * scale;
 
-	const int circleX = 40 * scale;
-	const int circleY = 120 * scale;
+	if(g_Config.iActionButtonSpacing == -1){
+		g_Config.iActionButtonSpacing = Action_button_spacing;
+	}
 
-	const int startX = 170 * scale;
-	const int leftX = 40 * scale;
-	const int leftY = (g_Config.bShowAnalogStick ? 250 : 120) * scale;
-	const int stickX = leftX + arrow_spacing;
-	const int stickY = 80 * scale;
-	const int bottomStride = 100 * scale;
+	//position of the circle button (the PSP circle button). It is the farthest to the left
+	int Action_button_center_X = dp_xres - Action_button_spacing * 2;
+	int Action_button_center_Y = dp_yres - Action_button_spacing * 2;
 
-	const int crosspadRadius = 40 * scale;
+	if(g_Config.iActionButtonCenterX == -1 || g_Config.iActionButtonCenterY == -1 ){
+		//setup defaults
+		g_Config.iActionButtonCenterX = Action_button_center_X;
+		g_Config.iActionButtonCenterY = Action_button_center_Y;
+	}
 
+	
+	//D-PAD (up down left right) (aka PSP cross)--------------------------------------------------------------
+	//radius to the D-pad
+	const int D_pad_Radius = 40 * scale;
+
+	if(g_Config.iDpadRadius == -1){
+		g_Config.iDpadRadius = D_pad_Radius;
+	}
+
+	int D_pad_X = 2.5 * D_pad_Radius;
+	int D_pad_Y = dp_yres - D_pad_Radius;
+	if(g_Config.bShowAnalogStick){
+		D_pad_Y -= 200 * scale;
+	}
+
+	if(g_Config.iDpadX == -1 || g_Config.iDpadY == -1 ){
+		//setup defaults
+		g_Config.iDpadX = D_pad_X;
+		g_Config.iDpadY = D_pad_Y;
+	}
+
+	//analog stick-------------------------------------------------------
+	//keep the analog stick right below the D pad
+	int analog_stick_X = D_pad_X;
+	int analog_stick_Y = dp_yres - 80 * scale;
+
+	if(g_Config.iAnalogStickX == -1 || g_Config.iAnalogStickY == -1 ){
+		g_Config.iAnalogStickX = analog_stick_X;
+		g_Config.iAnalogStickY = analog_stick_Y;
+	}
+
+	//select, start, throttle--------------------------------------------
+	//space between the bottom keys (space between select, start and un-throttle)
+	const int bottom_key_spacing = 100 * scale;
+	
+	int start_key_X = dp_xres / 2 - (bottom_key_spacing) * scale;
+	int start_key_Y = dp_yres - 60 * scale;
+
+	if(g_Config.iStartKeyX == -1 || g_Config.iStartKeyY == -1 ){
+		g_Config.iStartKeyX = start_key_X;
+		g_Config.iStartKeyY = start_key_Y;
+	}
+	
+
+	int select_key_X = dp_xres / 2;
+	int select_key_Y = dp_yres - 60 * scale;
+
+	if(g_Config.iSelectKeyX == -1 || g_Config.iSelectKeyY == -1 ){
+		g_Config.iSelectKeyX = select_key_X;
+		g_Config.iSelectKeyY = select_key_Y;
+	}
+
+	int unthrottle_key_X = dp_xres / 2 + (bottom_key_spacing);
+	int unthrottle_key_Y = dp_yres - 60 * scale;
+
+	if(g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ){
+		g_Config.iUnthrottleKeyX = unthrottle_key_X;
+		g_Config.iUnthrottleKeyY = unthrottle_key_Y;
+	}
+
+	//L and R------------------------------------------------------------
+	int l_key_X = 70 * scale;
+	int l_key_Y = 40 * scale;
+
+	if(g_Config.iLKeyX == -1 || g_Config.iLKeyY == -1 ){
+		g_Config.iLKeyX = l_key_X;
+		g_Config.iLKeyY = l_key_Y;
+	}
+
+	int r_key_X = dp_xres - 60 * scale;
+	int r_key_Y = 40 * scale;
+
+	if(g_Config.iRKeyX == -1 || g_Config.iRKeyY == -1 ){
+		g_Config.iRKeyX = r_key_X;
+		g_Config.iRKeyY = r_key_Y;
+	}
+	
+};
+
+
+
+UI::ViewGroup *CreatePadLayout(bool *pause) {
+	//standard coord system
+
+	using namespace UI;
+
+	AnchorLayout *root = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+
+	//PSP buttons (triangle, circle, square, cross)---------------------
+	//space between the PSP buttons (traingle, circle, square and cross)
+	const int Action_button_spacing = g_Config.iActionButtonSpacing;
+	//position of the circle button (the PSP circle button). It is the farthest to the left
+	int Action_button_center_X = g_Config.iActionButtonCenterX;
+	int Action_button_center_Y = g_Config.iActionButtonCenterY;
+
+	const int Action_circle_button_X = Action_button_center_X - Action_button_spacing;
+	const int Action_circle_button_Y = Action_button_center_Y;
+
+	const int Action_cross_button_X = Action_button_center_X;
+	const int Action_cross_button_Y =  Action_button_center_Y + Action_button_spacing;
+
+	const int Action_triangle_button_X = Action_button_center_X;
+	const int Action_triangle_button_Y = Action_button_center_Y - Action_button_spacing;
+
+	const int Action_square_button_X = Action_button_center_X + Action_button_spacing;
+	const int Action_square_button_Y = Action_button_center_Y;
+
+	//D-PAD (up down left right) (aka PSP cross)--------------------------------------------------------------
+	//radius to the D-pad
+	const int D_pad_Radius = g_Config.iDpadRadius;
+
+	int D_pad_X = g_Config.iDpadX;
+	int D_pad_Y = g_Config.iDpadY;
+
+	//select, start, throttle--------------------------------------------
+	//space between the bottom keys (space between select, start and un-throttle)
+	int start_key_X = g_Config.iStartKeyX;
+	int start_key_Y = g_Config.iStartKeyY;
+
+
+	int select_key_X = g_Config.iSelectKeyX;
+	int select_key_Y = g_Config.iSelectKeyY;
+
+	int unthrottle_key_X = g_Config.iUnthrottleKeyX;
+	int unthrottle_key_Y = g_Config.iUnthrottleKeyY;
+
+	//L and R------------------------------------------------------------
+	int l_key_X = g_Config.iLKeyX;
+	int l_key_Y = g_Config.iLKeyY;
+
+	int r_key_X = g_Config.iRKeyX;
+	int r_key_Y = g_Config.iRKeyY;
+
+	
+	//analog stick-------------------------------------------------------
+	int analog_stick_X = g_Config.iAnalogStickX;
+	int analog_stick_Y = g_Config.iAnalogStickY;
+	
 	const int halfW = dp_xres / 2;
 
 #if USE_PAUSE_BUTTON
@@ -302,23 +437,24 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 #endif
 
 	if (g_Config.bShowTouchControls) {
-		root->Add(new BoolButton(&PSP_CoreParameter().unthrottle, I_RECT, I_ARROW, scale, new AnchorLayoutParams(NONE, NONE, startX + 2 * bottomStride, 30, true)))->SetAngle(180);
+		
+		float scale = g_Config.fButtonScale;
+		root->Add(new PSPButton(CTRL_CIRCLE, I_ROUND, I_CIRCLE, scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
+		root->Add(new PSPButton(CTRL_CROSS, I_ROUND, I_CROSS, scale, new AnchorLayoutParams(Action_cross_button_X, Action_cross_button_Y, NONE, NONE, true)));
+		root->Add(new PSPButton(CTRL_TRIANGLE, I_ROUND, I_TRIANGLE, scale, new AnchorLayoutParams(Action_triangle_button_X, Action_triangle_button_Y, NONE, NONE, true)));
+		root->Add(new PSPButton(CTRL_SQUARE, I_ROUND, I_SQUARE, scale, new AnchorLayoutParams(Action_square_button_X, Action_square_button_Y, NONE, NONE, true)));
 
-		root->Add(new PSPButton(CTRL_CIRCLE, I_ROUND, I_CIRCLE, scale, new AnchorLayoutParams(NONE, NONE, circleX, circleY, true)));
-		root->Add(new PSPButton(CTRL_CROSS, I_ROUND, I_CROSS, scale, new AnchorLayoutParams(NONE, NONE, circleX + button_spacing, circleY - button_spacing, true)));
-		root->Add(new PSPButton(CTRL_TRIANGLE, I_ROUND, I_TRIANGLE, scale, new AnchorLayoutParams(NONE, NONE, circleX + button_spacing, circleY + button_spacing, true)));
-		root->Add(new PSPButton(CTRL_SQUARE, I_ROUND, I_SQUARE, scale, new AnchorLayoutParams(NONE, NONE, circleX + button_spacing * 2, circleY, true)));
+		root->Add(new PSPButton(CTRL_START, I_RECT, I_START, scale, new AnchorLayoutParams(start_key_X, start_key_Y, NONE, NONE, true)));
+		root->Add(new PSPButton(CTRL_SELECT, I_RECT, I_SELECT, scale, new AnchorLayoutParams(select_key_X, select_key_Y, NONE, NONE, true)));
+		root->Add(new BoolButton(&PSP_CoreParameter().unthrottle, I_RECT, I_ARROW, scale, new AnchorLayoutParams(unthrottle_key_X, unthrottle_key_Y, NONE, NONE, true)))->SetAngle(180);
 
-		root->Add(new PSPButton(CTRL_START, I_RECT, I_START, scale, new AnchorLayoutParams(NONE, NONE, startX, 30, true)));
-		root->Add(new PSPButton(CTRL_SELECT, I_RECT, I_SELECT, scale, new AnchorLayoutParams(NONE, NONE, startX + bottomStride, 30, true)));
+		root->Add(new PSPButton(CTRL_LTRIGGER, I_SHOULDER, I_L, scale, new AnchorLayoutParams(l_key_X, l_key_Y, NONE, NONE, true)));
+		root->Add(new PSPButton(CTRL_RTRIGGER, I_SHOULDER, I_R, scale, new AnchorLayoutParams(r_key_X,r_key_Y, NONE, NONE, true)))->FlipImageH(true);
 
-		root->Add(new PSPButton(CTRL_LTRIGGER, I_SHOULDER, I_L, scale, new AnchorLayoutParams(10, 10, NONE, NONE, false)));
-		root->Add(new PSPButton(CTRL_RTRIGGER, I_SHOULDER, I_R, scale, new AnchorLayoutParams(NONE, 10, 10, NONE, false)))->FlipImageH(true);
-
-		root->Add(new PSPCross(I_DIR, I_ARROW, scale, crosspadRadius, new AnchorLayoutParams(leftX + arrow_spacing, NONE, NONE, leftY, true)));
+		root->Add(new PSPCross(I_DIR, I_ARROW, scale, D_pad_Radius, new AnchorLayoutParams(D_pad_X, D_pad_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowAnalogStick) {
-			root->Add(new PSPStick(I_STICKBG, I_STICK, 0, scale, new AnchorLayoutParams(stickX, NONE, NONE, stickY, true)));
+			root->Add(new PSPStick(I_STICKBG, I_STICK, 0, scale, new AnchorLayoutParams(analog_stick_X, analog_stick_Y, NONE, NONE, true)));
 		}
 	}
 
