@@ -156,7 +156,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 						sprintf(temp, "%s (0x%x b)", symbolMap.GetSymbolName(fn),symbolMap.GetSymbolSize(fn));
 					painter.drawText(205,rowY1 - 2 + rowHeight, temp);
 
-					textPen.setColor(0xFF0000000);
+					textPen.setColor(0xFF000000);
 					painter.setPen(textPen);
 
 					if (align==4)
