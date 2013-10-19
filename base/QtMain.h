@@ -198,11 +198,14 @@ public:
 		output = new QAudioOutput(fmt);
 		output->setBufferSize(mixlen);
 		feed = output->start();
-		timer = startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
+		if (feed != NULL)
+			timer = startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
 	}
 	~MainAudio() {
-		killTimer(timer);
-		feed->close();
+		if (feed != NULL) {
+			killTimer(timer);
+			feed->close();
+		}
 		output->stop();
 		delete output;
 		free(mixbuf);
