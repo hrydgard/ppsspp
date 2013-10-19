@@ -109,8 +109,10 @@ static void JitLogMiss(MIPSOpcode op)
 	func(op);
 }
 
+#ifdef _MSC_VER
 // JitBlockCache doesn't use this, just stores it.
 #pragma warning(disable:4355)
+#endif
 Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 {
 	blocks.Init();
