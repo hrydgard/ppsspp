@@ -170,6 +170,7 @@ private:
 	void DestroyDraw2DProgram();
 
 	void SetNumExtraFBOs(int num);
+	void PassPostShaderUniforms();
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;

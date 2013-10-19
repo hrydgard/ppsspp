@@ -136,6 +136,13 @@ void GameSettingsScreen::CreateViews() {
 	
 	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing and postprocessing"))); 
 	graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")))->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+	const ShaderInfo *shaderInfo;
+	if (g_Config.sPostShaderName != "Off") {
+		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	}
+	if (shaderInfo->slider == "level") {
+		graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPostShaderLevel, 0, 100, s->T("Level", "Level"), screenManager()));
+	}
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
@@ -438,6 +445,7 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	RecreateViews();
 	if (gpu) {
 		gpu->Resized();
 	}
