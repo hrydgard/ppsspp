@@ -1296,7 +1296,7 @@ int sceAtracReinit(int at3Count, int at3plusCount)
 	}
 
 	// If we ran out of space, we still initialize some, but return an error.
-	int result = space >= 0 ? 0 : SCE_KERNEL_ERROR_OUT_OF_MEMORY;
+	int result = space >= 0 ? 0 : (int)SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	if (atracInited || next == 0) {
 		INFO_LOG(ME, "sceAtracReinit(%d, %d)", at3Count, at3plusCount);
 		atracInited = true;

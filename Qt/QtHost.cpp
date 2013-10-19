@@ -49,6 +49,7 @@ QtHost::QtHost(MainWindow *mainWindow_)
 
 bool QtHost::InitGL(std::string *error_string)
 {
+	return true;
 }
 
 void QtHost::ShutdownGL()
@@ -213,7 +214,7 @@ void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 	EmuThread_LockDraw(true);
 }
 
-void QtHost::SetGPUStep(bool value, int flag, int data)
+void QtHost::SetGPUStep(bool value, int flag, u32 data)
 {
 	m_GPUStep = value;
 	m_GPUFlag = flag;
@@ -243,24 +244,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	const char *fileToLog = 0;
 
-	bool hideLog = true;
-#ifdef _DEBUG
-	hideLog = false;
-#endif
-
-	bool gfxLog = false;
 	// Parse command line
-	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
 			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				logLevel = LogTypes::LDEBUG;
-				break;
-			case 'g':
-				gfxLog = true;
-				break;
 			case 'j':
 				g_Config.bJit = true;
 				g_Config.bSaveSettings = false;
@@ -268,9 +255,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case 'i':
 				g_Config.bJit = false;
 				g_Config.bSaveSettings = false;
-				break;
-			case 'l':
-				hideLog = false;
 				break;
 			case 's':
 				g_Config.bAutoRun = false;
@@ -314,8 +298,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager::Init();
 	if (fileToLog != NULL)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
-
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 
 	g_gameInfoCache.Init();
 

@@ -26,13 +26,13 @@
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
+	timer(this),
 	nextState(CORE_POWERDOWN),
+	lastUIState(UISTATE_MENU),
 	dialogDisasm(0),
 	memoryWindow(0),
 	memoryTexWindow(0),
-	timer(this),
-	displaylistWindow(0),
-	lastUIState(UISTATE_MENU)
+	displaylistWindow(0)
 {
 	ui->setupUi(this);
 

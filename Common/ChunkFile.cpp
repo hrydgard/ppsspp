@@ -203,7 +203,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename
 	sz = (int)(fileSize - headerSize);
 	if (header.ExpectedSize != sz)
 	{
-		ERROR_LOG(COMMON, "ChunkReader: Bad file size, got %d expected %d", sz, header.ExpectedSize);
+		ERROR_LOG(COMMON, "ChunkReader: Bad file size, got %u expected %u", (u32)sz, header.ExpectedSize);
 		return ERROR_BAD_FILE;
 	}
 
@@ -220,8 +220,8 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
 		snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
-		if ((int)uncomp_size != header.UncompressedSize) {
-			ERROR_LOG(COMMON, "Size mismatch: file: %i  calc: %i", (int)header.UncompressedSize, (int)uncomp_size);
+		if ((u32)uncomp_size != header.UncompressedSize) {
+			ERROR_LOG(COMMON, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
@@ -248,8 +248,8 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string& _rFilename
 	SChunkHeader header;
 	header.Compress = compress ? 1 : 0;
 	header.Revision = _Revision;
-	header.ExpectedSize = (int)sz;
-	header.UncompressedSize = (int)sz;
+	header.ExpectedSize = (u32)sz;
+	header.UncompressedSize = (u32)sz;
 	strncpy(header.GitVersion, _VersionString, 32);
 	header.GitVersion[31] = '\0';
 
@@ -259,7 +259,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string& _rFilename
 		u8 *compressed_buffer = new u8[comp_len];
 		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
 		delete [] buffer;
-		header.ExpectedSize = (int)comp_len;
+		header.ExpectedSize = (u32)comp_len;
 		if (!pFile.WriteArray(&header, 1))
 		{
 			ERROR_LOG(COMMON, "ChunkReader: Failed writing header");

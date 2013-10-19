@@ -137,7 +137,7 @@ public:
 	void Step();
 
 	int GetHeight() const {
-		return height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
+		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
 	}
 	bool HasEnded() const {
 		return state_ == STATE_OFF;

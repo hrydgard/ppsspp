@@ -289,7 +289,7 @@ void Debugger_Disasm::on_GotoLr_clicked()
 void Debugger_Disasm::on_GotoInt_currentIndexChanged(int index)
 {
 	CtrlDisAsmView *ptr = ui->DisasmView;
-	int addr = ui->GotoInt->itemData(index,Qt::UserRole).toInt();
+	u32 addr = ui->GotoInt->itemData(index,Qt::UserRole).toInt();
 	if (addr != 0xFFFFFFFF)
 		ptr->gotoAddr(addr);
 }

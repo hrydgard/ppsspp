@@ -325,7 +325,7 @@ private:
 };
 
 GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gameList_(0), allowBrowsing_(allowBrowsing), gridStyle_(gridStyle), lastText_(lastText), lastLink_(lastLink) {
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink) {
 	using namespace UI;
 	Refresh();
 }

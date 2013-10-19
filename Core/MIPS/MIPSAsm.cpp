@@ -359,6 +359,8 @@ bool CMipsInstruction::Validate()
 			}
 			Vars.Immediate &= 0x03FFFFFF;
 			break;
+		case MIPS_NOIMMEDIATE:
+			break;
 		}
 	}
 
@@ -420,6 +422,8 @@ void CMipsInstruction::Encode()
 		break;
 	case MIPS_IMMEDIATE26:
 		encoding |= (Vars.Immediate & 0x03FFFFFF);
+		break;
+	case MIPS_NOIMMEDIATE:
 		break;
 	}
 }
