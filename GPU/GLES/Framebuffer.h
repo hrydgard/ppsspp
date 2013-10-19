@@ -190,14 +190,6 @@ private:
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
 	void PackFramebufferSync_(VirtualFramebuffer *vfb);
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
-
-#ifndef USING_GLES2
-	AsyncPBO *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
-#endif
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
@@ -216,4 +208,13 @@ private:
 
 	bool resized_;
 	bool useBufferedRendering_;
+
+	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+
+	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+
+#ifndef USING_GLES2
+	AsyncPBO *pixelBufObj_; //this isn't that large
+	u8 currentPBO_;
+#endif
 };

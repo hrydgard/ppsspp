@@ -1063,7 +1063,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
 		if (packed) {
-			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %08x, fb_address = %08x, stride = %u, pbo = %u",
+			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
 			pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, pixelBufObj_[nextPBO].stride, nextPBO);
 
 			if (useCPU) {
