@@ -185,5 +185,7 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	case UI::DRAW_STRETCH_IMAGE:
 		uidrawbuffer_->DrawImageStretch(drawable.image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);
 		break;
+	case UI::DRAW_NOTHING:
+		break;
 	} 
 }
