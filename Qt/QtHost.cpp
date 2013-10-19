@@ -244,20 +244,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	const char *fileToLog = 0;
 
-	bool hideLog = true;
-#ifdef _DEBUG
-	hideLog = false;
-#endif
-
 	// Parse command line
-	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
 			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				logLevel = LogTypes::LDEBUG;
-				break;
 			case 'j':
 				g_Config.bJit = true;
 				g_Config.bSaveSettings = false;
@@ -265,9 +255,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case 'i':
 				g_Config.bJit = false;
 				g_Config.bSaveSettings = false;
-				break;
-			case 'l':
-				hideLog = false;
 				break;
 			case 's':
 				g_Config.bAutoRun = false;
