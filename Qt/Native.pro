@@ -47,6 +47,11 @@ INCLUDEPATH += ../native/ext/vjson
 SOURCES += ../native/ext/stb_image/stb_image.c
 HEADERS += ../native/ext/stb_image/stb_image.h
 INCLUDEPATH += ../native/ext/stb_image
+win32 {
+    SOURCES += ../native/ext/stb_image_write/stb_image_write.c
+    HEADERS += ../native/ext/stb_image_write/stb_image_writer.h
+    INCLUDEPATH += ../native/ext/stb_image_write
+}
 
 # Stb_vorbis
 
