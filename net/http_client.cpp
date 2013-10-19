@@ -27,7 +27,7 @@
 namespace net {
 
 Connection::Connection() 
-		: port_(-1), sock_(-1), resolved_(NULL) {
+		: port_(-1), resolved_(NULL), sock_(-1) {
 }
 
 Connection::~Connection() {
@@ -286,7 +286,7 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 }
 
 Download::Download(const std::string &url, const std::string &outfile)
-	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0), cancelled_(false) {
+	: progress_(0.0f), url_(url), outfile_(outfile), resultCode_(0), failed_(false), cancelled_(false) {
 }
 
 Download::~Download() {
