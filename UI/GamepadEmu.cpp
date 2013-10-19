@@ -327,7 +327,7 @@ void InitPadLayout() {
 	//space between the bottom keys (space between select, start and un-throttle)
 	const int bottom_key_spacing = 100 * scale;
 	
-	int start_key_X = dp_xres / 2 - (bottom_key_spacing) * scale;
+	int start_key_X = dp_xres / 2 + (bottom_key_spacing) * scale;
 	int start_key_Y = dp_yres - 60 * scale;
 
 	if(g_Config.iStartKeyX == -1 || g_Config.iStartKeyY == -1 ){
@@ -343,7 +343,7 @@ void InitPadLayout() {
 		g_Config.iSelectKeyY = select_key_Y;
 	}
 
-	int unthrottle_key_X = dp_xres / 2 + (bottom_key_spacing);
+	int unthrottle_key_X = dp_xres / 2 - (bottom_key_spacing) * scale;
 	int unthrottle_key_Y = dp_yres - 60 * scale;
 
 	if (g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ){
@@ -408,7 +408,6 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	//space between the bottom keys (space between select, start and un-throttle)
 	int start_key_X = g_Config.iStartKeyX;
 	int start_key_Y = g_Config.iStartKeyY;
-
 
 	int select_key_X = g_Config.iSelectKeyX;
 	int select_key_Y = g_Config.iSelectKeyY;

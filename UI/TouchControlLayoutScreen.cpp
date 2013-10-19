@@ -263,17 +263,22 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	controls_.push_back(new DragDropButton(g_Config.iSelectKeyX, g_Config.iSelectKeyY, I_RECT, I_SELECT, scale));
 	controls_.push_back(new DragDropButton(g_Config.iStartKeyX, g_Config.iStartKeyY, I_RECT, I_START, scale));
-	controls_.push_back(new DragDropButton(g_Config.iUnthrottleKeyX, g_Config.iUnthrottleKeyY, I_RECT, I_ARROW, scale));
+	DragDropButton *unthrottle = new DragDropButton(g_Config.iUnthrottleKeyX, g_Config.iUnthrottleKeyY, I_RECT, I_ARROW, scale);
+	unthrottle->SetAngle(180.0f);
+	controls_.push_back(unthrottle);
 
 	controls_.push_back(new DragDropButton(g_Config.iLKeyX, g_Config.iLKeyY, I_SHOULDER, I_L, scale));
-	controls_.push_back(new DragDropButton(g_Config.iRKeyX, g_Config.iRKeyY, I_SHOULDER, I_R, scale));
+	DragDropButton *rbutton = new DragDropButton(g_Config.iRKeyX, g_Config.iRKeyY, I_SHOULDER, I_R, scale);
+	rbutton->FlipImageH(true);
+	controls_.push_back(rbutton);
 
 	if (g_Config.bShowAnalogStick) {
 		controls_.push_back(new DragDropButton(g_Config.iAnalogStickX, g_Config.iAnalogStickY, I_STICKBG, I_STICK, scale));
 	};
+	I18NCategory *ms = GetI18NCategory("MainSettings");
 
 	I18NCategory *c = GetI18NCategory("Controls");
-	tabHolder->AddTab(c->T("Controls"), controlsHolder);
+	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
 	for (size_t i = 0; i < controls_.size(); i++) {
 		root_->Add(controls_[i]);
