@@ -46,7 +46,9 @@ contains(MEEGO_EDITION,harmattan): {
 
 linux:!mobile_platform: {
 	DEFINES += __STDC_CONSTANT_MACROS
-	INCLUDEPATH += ../ffmpeg/linux/$${QMAKE_HOST.arch}/include
+	g++-32:QMAKE_TARGET.arch = x86
+	linux-g++-64:QMAKE_TARGET.arch = x86_64
+	INCLUDEPATH += ../ffmpeg/linux/$${QMAKE_TARGET.arch}/include
 }
 qnx {
 	# Use mkspec: unsupported/qws/qnx-armv7-g++
