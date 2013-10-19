@@ -88,7 +88,7 @@ static const LogNameTableEntry logTable[] = {
 LogManager::LogManager() {
 	for (size_t i = 0; i < ARRAY_SIZE(logTable); i++) {
 		if (i != logTable[i].logType) {
-			FLOG("Bad logtable at %i", i);
+			FLOG("Bad logtable at %i", (int)i);
 		}
 		log_[logTable[i].logType] = new LogChannel(logTable[i].name, logTable[i].longName);
 	}

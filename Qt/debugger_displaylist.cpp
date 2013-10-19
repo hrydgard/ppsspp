@@ -182,7 +182,7 @@ void Debugger_DisplayList::ShowDLCode()
 	std::set<u32> usedTexAddr;
 	std::set<u32> usedVtxAddr;
 	std::set<u32> usedIdxAddr;
-	for(int i = 0; i < drawGPUState.size(); i++)
+	for(int i = 0; i < (int)drawGPUState.size(); i++)
 	{
 		// Textures
 		QTreeWidgetItem* item = new QTreeWidgetItem();

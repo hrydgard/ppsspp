@@ -651,8 +651,8 @@ private:
 	{
 		int Revision;
 		int Compress;
-		int ExpectedSize;
-		int UncompressedSize;
+		u32 ExpectedSize;
+		u32 UncompressedSize;
 		char GitVersion[32];
 	};
 };

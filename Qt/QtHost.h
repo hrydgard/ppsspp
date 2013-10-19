@@ -53,7 +53,7 @@ public:
 	bool GpuStep();
 	void SendGPUWait(u32 cmd, u32 addr, void* data);
 	void SendGPUStart();
-	void SetGPUStep(bool value, int flag = 0, int data = 0);
+	void SetGPUStep(bool value, int flag = 0, u32 data = 0);
 	void NextGPUStep();
 
 signals:
@@ -62,7 +62,7 @@ private:
 	MainWindow* mainWindow;
 	bool m_GPUStep;
 	int m_GPUFlag;
-	int m_GPUData;
+	u32 m_GPUData;
 };
 
 #endif // QTAPP_H

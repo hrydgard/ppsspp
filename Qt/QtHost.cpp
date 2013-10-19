@@ -213,7 +213,7 @@ void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 	EmuThread_LockDraw(true);
 }
 
-void QtHost::SetGPUStep(bool value, int flag, int data)
+void QtHost::SetGPUStep(bool value, int flag, u32 data)
 {
 	m_GPUStep = value;
 	m_GPUFlag = flag;
