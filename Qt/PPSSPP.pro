@@ -1,9 +1,12 @@
 TARGET = PPSSPPQt
 
 QT += core gui opengl
-CONFIG += mobility
-MOBILITY += multimedia
-win32: QT += multimedia
+win32|greaterThan(QT_MAJOR_VERSION,4) {
+    QT += multimedia
+} else {
+    CONFIG += mobility
+    MOBILITY += multimedia
+}
 greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 VERSION = 0.9.1
 

@@ -18,7 +18,6 @@ win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE -= -O2
 	QMAKE_CXXFLAGS_RELEASE += -O3
 }
-
 # Arch specific
 xarch = $$find(QT_ARCH, "86")
 contains(QT_ARCH, windows)|count(xarch, 1) {
@@ -46,8 +45,11 @@ contains(MEEGO_EDITION,harmattan): {
 
 linux:!mobile_platform: {
 	DEFINES += __STDC_CONSTANT_MACROS
-	g++-32:QMAKE_TARGET.arch = x86
-	linux-g++-64:QMAKE_TARGET.arch = x86_64
+	contains(QT_ARCH, x86_64) {
+		QMAKE_TARGET.arch = x86_64
+	} else {
+		QMAKE_TARGET.arch = x86
+	}
 	INCLUDEPATH += ../ffmpeg/linux/$${QMAKE_TARGET.arch}/include
 }
 qnx {
