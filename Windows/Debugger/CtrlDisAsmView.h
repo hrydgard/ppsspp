@@ -127,6 +127,7 @@ public:
 	};
 
 	void getOpcodeText(u32 address, char* dest);
+	int getRowHeight() { return rowHeight; };
 	u32 yToAddress(int y);
 
 	void setDontRedraw(bool b) { dontRedraw = b; };
@@ -140,6 +141,8 @@ public:
 	{
 		return debugger;
 	}
+
+	u32 getWindowEnd() { return windowStart+visibleRows*instructionSize; };
 	void gotoAddr(unsigned int addr)
 	{
 		u32 windowEnd = windowStart+visibleRows*instructionSize;

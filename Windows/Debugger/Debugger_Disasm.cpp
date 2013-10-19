@@ -163,9 +163,37 @@ void CDisasm::stepInto()
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
+	u32 currentPc = cpu->GetPC();
+	u32 windowEnd = ptr->getWindowEnd();
 
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	u32 newAddress = currentPc+cpu->getInstructionSize(0);
+
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
+	if (info.isBranch)
+	{
+		if (newAddress == windowEnd-4)
+			ptr->scrollWindow(1);
+		else if (newAddress == windowEnd)
+			ptr->scrollWindow(2);
+	} else {
+		bool scroll = true;
+		if (currentMIPS->inDelaySlot)
+		{
+			MIPSAnalyst::MipsOpcodeInfo prevInfo = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc-cpu->getInstructionSize(0));
+			if (!prevInfo.isConditional || prevInfo.conditionMet)
+				scroll = false;
+		}
+
+		if (scroll)
+		{
+			if (newAddress == windowEnd-4)
+				ptr->scrollWindow(1);
+			else if (newAddress == windowEnd)
+				ptr->scrollWindow(2);
+		}
+	}
 
 	Core_DoSingleStep();		
 	Sleep(1);
@@ -189,10 +217,12 @@ void CDisasm::stepOver()
 
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	u32 currentPc = cpu->GetPC();
+	u32 windowEnd = ptr->getWindowEnd();
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
-	u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
+	u32 breakpointAddress = currentPc+cpu->getInstructionSize(0);
 	if (info.isBranch)
 	{
 		if (info.isConditional == false)
@@ -206,13 +236,24 @@ void CDisasm::stepOver()
 				breakpointAddress = info.branchTarget;
 			}
 		} else {						// beq, ...
-			// set breakpoint at branch target
-			breakpointAddress = info.branchTarget;
-			CBreakPoints::AddBreakPoint(breakpointAddress,true);
-
-			// and after the delay slot
-			breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);	
+			if (info.conditionMet)
+			{
+				breakpointAddress = info.branchTarget;
+			} else {
+				breakpointAddress = currentPc+2*cpu->getInstructionSize(0);
+				if (breakpointAddress == windowEnd-4)
+					ptr->scrollWindow(1);
+				else if (breakpointAddress == windowEnd)
+					ptr->scrollWindow(2);
+				else if (breakpointAddress == windowEnd+4)
+					ptr->scrollWindow(3);
+			}
 		}
+	} else {
+		if (breakpointAddress == windowEnd-4)
+			ptr->scrollWindow(1);
+		else if (breakpointAddress == windowEnd)
+			ptr->scrollWindow(2);
 	}
 
 	SetDebugMode(false, true);
@@ -679,6 +720,9 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 		GetWindowRect(statusBarWnd,&windowRect);
 		topHeightOffset = (windowRect.bottom-windowRect.top);
 	}
+	
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	int disassemblyRowHeight = ptr->getRowHeight();
 
 	// disassembly
 	GetWindowRect(disasm,&windowRect);
@@ -686,6 +730,12 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	positions[0].x = windowRect.left;
 	positions[0].y = windowRect.top;
 	
+	// compute border height of the disassembly
+	int totalHeight = windowRect.bottom-windowRect.top;
+	GetClientRect(disasm,&windowRect);
+	int clientHeight = windowRect.bottom-windowRect.top;
+	int borderHeight = totalHeight-clientHeight;
+
 	// left tabs
 	GetWindowRect(leftTabs,&windowRect);
 	MapWindowPoints(HWND_DESKTOP,m_hDlg,(LPPOINT)&windowRect,2);
@@ -700,13 +750,14 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	int bottomHeightOffset = positions[0].y;
 	positions[0].w = width-borderMargin-positions[0].x;
 	positions[0].h = (height-bottomHeightOffset-topHeightOffset) * weight;
+	positions[0].h = ((positions[0].h-borderHeight)/disassemblyRowHeight)*disassemblyRowHeight+borderHeight;
 	positions[1].h = positions[0].h-(positions[1].y-positions[0].y);
 
 	// bottom tabs
 	positions[2].x = borderMargin;
 	positions[2].y = positions[0].y+positions[0].h+borderMargin;
 	positions[2].w = width-2*borderMargin;
-	positions[2].h = height-bottomHeightOffset-positions[2].y;
+	positions[2].h = hideBottomTabs ? 0 : height-bottomHeightOffset-positions[2].y;
 
 	// now actually move all the windows
 	MoveWindow(disasm,positions[0].x,positions[0].y,positions[0].w,positions[0].h,TRUE);

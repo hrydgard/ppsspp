@@ -485,7 +485,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 {
 	HPEN pen;
-	u32 windowEnd = windowStart+(visibleRows+2)*instructionSize;
+	u32 windowEnd = windowStart+visibleRows*instructionSize;
 	
 	int topY;
 	int bottomY;
@@ -600,7 +600,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 	HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOPDISABLE);
 
-	for (int i = 0; i < visibleRows+2; i++)
+	for (int i = 0; i < visibleRows; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,address);
