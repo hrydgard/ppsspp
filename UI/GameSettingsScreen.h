@@ -47,7 +47,6 @@ private:
 	UI::CheckBox *enableReportsCheckbox_;
 
 	// Event handlers
-	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnBack(UI::EventParams &e);
