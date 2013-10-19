@@ -275,7 +275,7 @@ void InitPadLayout() {
 	float scale = g_Config.fButtonScale;
 
 	//PSP buttons (triangle, circle, square, cross)---------------------
-	//space between the PSP buttons (traingle, circle, square and cross)
+	//space between the PSP buttons (triangle, circle, square and cross)
 	const int Action_button_spacing = 50 * scale;
 
 	if(g_Config.iActionButtonSpacing == -1){
@@ -334,12 +334,11 @@ void InitPadLayout() {
 		g_Config.iStartKeyX = start_key_X;
 		g_Config.iStartKeyY = start_key_Y;
 	}
-	
 
 	int select_key_X = dp_xres / 2;
 	int select_key_Y = dp_yres - 60 * scale;
 
-	if(g_Config.iSelectKeyX == -1 || g_Config.iSelectKeyY == -1 ){
+	if (g_Config.iSelectKeyX == -1 || g_Config.iSelectKeyY == -1 ){
 		g_Config.iSelectKeyX = select_key_X;
 		g_Config.iSelectKeyY = select_key_Y;
 	}
@@ -347,7 +346,7 @@ void InitPadLayout() {
 	int unthrottle_key_X = dp_xres / 2 + (bottom_key_spacing);
 	int unthrottle_key_Y = dp_yres - 60 * scale;
 
-	if(g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ){
+	if (g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ){
 		g_Config.iUnthrottleKeyX = unthrottle_key_X;
 		g_Config.iUnthrottleKeyY = unthrottle_key_Y;
 	}
@@ -356,7 +355,7 @@ void InitPadLayout() {
 	int l_key_X = 70 * scale;
 	int l_key_Y = 40 * scale;
 
-	if(g_Config.iLKeyX == -1 || g_Config.iLKeyY == -1 ){
+	if (g_Config.iLKeyX == -1 || g_Config.iLKeyY == -1 ){
 		g_Config.iLKeyX = l_key_X;
 		g_Config.iLKeyY = l_key_Y;
 	}
@@ -364,11 +363,10 @@ void InitPadLayout() {
 	int r_key_X = dp_xres - 60 * scale;
 	int r_key_Y = 40 * scale;
 
-	if(g_Config.iRKeyX == -1 || g_Config.iRKeyY == -1 ){
+	if (g_Config.iRKeyX == -1 || g_Config.iRKeyY == -1 ){
 		g_Config.iRKeyX = r_key_X;
 		g_Config.iRKeyY = r_key_Y;
 	}
-	
 };
 
 
@@ -387,7 +385,7 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	int Action_button_center_X = g_Config.iActionButtonCenterX;
 	int Action_button_center_Y = g_Config.iActionButtonCenterY;
 
-	const int Action_circle_button_X = Action_button_center_X - Action_button_spacing;
+	const int Action_circle_button_X = Action_button_center_X + Action_button_spacing;
 	const int Action_circle_button_Y = Action_button_center_Y;
 
 	const int Action_cross_button_X = Action_button_center_X;
@@ -396,7 +394,7 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	const int Action_triangle_button_X = Action_button_center_X;
 	const int Action_triangle_button_Y = Action_button_center_Y - Action_button_spacing;
 
-	const int Action_square_button_X = Action_button_center_X + Action_button_spacing;
+	const int Action_square_button_X = Action_button_center_X - Action_button_spacing;
 	const int Action_square_button_Y = Action_button_center_Y;
 
 	//D-PAD (up down left right) (aka PSP cross)--------------------------------------------------------------
