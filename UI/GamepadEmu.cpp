@@ -269,7 +269,7 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
-void InitPadLayout(){
+void InitPadLayout() {
 
 	// TODO: See if we can make some kind of global scaling for views instead of this hackery.
 	float scale = g_Config.fButtonScale;

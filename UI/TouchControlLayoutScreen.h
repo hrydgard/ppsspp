@@ -26,7 +26,6 @@ class DragDropButton;
 
 class TouchControlLayoutScreen : public UIDialogScreenWithBackground{
 public:
-
 	TouchControlLayoutScreen();
 
 	virtual void CreateViews();
@@ -34,6 +33,7 @@ public:
 
 protected:
 	virtual UI::EventReturn OnBack(UI::EventParams &e);
+	virtual UI::EventReturn OnReset(UI::EventParams &e);
 
 private:
 	DragDropButton *pickedControl_;
