@@ -30,6 +30,12 @@ x86 {
 win32 {
 	SOURCES += ../Windows/OpenGLBase.cpp
 	HEADERS += ../Windows/OpenGLBase.h
+
+	SOURCES += ../GPU/Directx9/helper/*.cpp
+	HEADERS += ../GPU/Directx9/helper/*.h
+	SOURCES += ../GPU/Directx9/*.cpp
+	HEADERS += ../GPU/Directx9/*.h
+	INCLUDEPATH += ../dx9sdk/Include
 }
 
 SOURCES += ../Core/*.cpp \ # Core

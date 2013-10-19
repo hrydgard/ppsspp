@@ -28,7 +28,12 @@ win32 {
 		LIBS += -L$$OUT_PWD/debug
 	}
 	FFMPEG_DIR = ../ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32
+	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32 -lShell32 -lAdvapi32
+	contains($$QMAKE_TARGET.arch, x86_64) {
+		LIBS += $$files(../dx9sdk/Lib/x64/*.lib)
+	} else {
+		LIBS += $$files(../dx9sdk/Lib/x86/*.lib)
+	}
 	LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${FFMPEG_DIR}avutil.lib $${FFMPEG_DIR}swresample.lib $${FFMPEG_DIR}swscale.lib
 }
 linux {
