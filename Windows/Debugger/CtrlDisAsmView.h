@@ -89,7 +89,6 @@ class CtrlDisAsmView
 	bool searching;
 	bool dontRedraw;
 	bool keyTaken;
-	bool stepScrolling;
 
 	void assembleOpcode(u32 address, std::string defaultText);
 	void disassembleToFile();

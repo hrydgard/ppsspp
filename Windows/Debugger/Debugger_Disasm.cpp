@@ -168,27 +168,30 @@ void CDisasm::stepInto()
 
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	u32 newAddress = currentPc+cpu->getInstructionSize(0);
 
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
 	if (info.isBranch)
 	{
-		u32 newAddress = currentPc+cpu->getInstructionSize(0);
 		if (newAddress == windowEnd-4)
 			ptr->scrollWindow(1);
 		else if (newAddress == windowEnd)
 			ptr->scrollWindow(2);
 	} else {
-		if (!currentMIPS->inDelaySlot)
+		bool scroll = true;
+		if (currentMIPS->inDelaySlot)
 		{
-			MIPSAnalyst::MipsOpcodeInfo prevInfo = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC()-cpu->getInstructionSize(0));
-			if (!prevInfo.isBranch || (prevInfo.isConditional && !prevInfo.conditionMet))
-			{
-				u32 newAddress = currentPc+cpu->getInstructionSize(0);
-				if (newAddress == windowEnd-4)
-					ptr->scrollWindow(1);
-				else if (newAddress == windowEnd)
-					ptr->scrollWindow(2);
-			}
+			MIPSAnalyst::MipsOpcodeInfo prevInfo = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc-cpu->getInstructionSize(0));
+			if (!prevInfo.isConditional || prevInfo.conditionMet)
+				scroll = false;
+		}
+
+		if (scroll)
+		{
+			if (newAddress == windowEnd-4)
+				ptr->scrollWindow(1);
+			else if (newAddress == windowEnd)
+				ptr->scrollWindow(2);
 		}
 	}
 
