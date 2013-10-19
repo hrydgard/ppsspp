@@ -163,9 +163,34 @@ void CDisasm::stepInto()
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
+	u32 currentPc = cpu->GetPC();
+	u32 windowEnd = ptr->getWindowEnd();
 
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
+	if (info.isBranch)
+	{
+		u32 newAddress = currentPc+cpu->getInstructionSize(0);
+		if (newAddress == windowEnd-4)
+			ptr->scrollWindow(1);
+		else if (newAddress == windowEnd)
+			ptr->scrollWindow(2);
+	} else {
+		if (!currentMIPS->inDelaySlot)
+		{
+			MIPSAnalyst::MipsOpcodeInfo prevInfo = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC()-cpu->getInstructionSize(0));
+			if (!prevInfo.isBranch || (prevInfo.isConditional && !prevInfo.conditionMet))
+			{
+				u32 newAddress = currentPc+cpu->getInstructionSize(0);
+				if (newAddress == windowEnd-4)
+					ptr->scrollWindow(1);
+				else if (newAddress == windowEnd)
+					ptr->scrollWindow(2);
+			}
+		}
+	}
 
 	Core_DoSingleStep();		
 	Sleep(1);
