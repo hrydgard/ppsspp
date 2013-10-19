@@ -319,7 +319,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_gameInfoCache.Init();
 
-#if !defined(USING_GLES2)
+#if defined(Q_OS_LINUX) && !defined(ARM)
 	// Start Desktop UI
 	MainWindow* mainWindow = new MainWindow();
 	mainWindow->show();
