@@ -39,12 +39,14 @@
 #include "native/util/text/utf8.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/draw_text.h"
+#include "gfx_es2/draw_buffer.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
+#include "ui/ui.h"
 #include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -57,7 +59,6 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "Core/HW/atrac3plus.h"
 #include "Common/MemArena.h"
 
 #include "ui_atlas.h"
@@ -65,8 +66,8 @@
 #include "GameInfoCache.h"
 #include "UIShader.h"
 
-#include "UI/PluginScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/MiscScreens.h"
 
 // The new UI framework, for initialization
 
@@ -225,13 +226,13 @@ void NativeInit(int argc, const char *argv[],
 #ifdef IOS
 	user_data_path += "/";
 #elif defined(__APPLE__)
-    char program_path[4090];
-    uint32_t program_path_size = sizeof(program_path);
-    _NSGetExecutablePath(program_path,&program_path_size);
-    *(strrchr(program_path, '/')+1) = '\0';
-    char assets_path[4096];
-    sprintf(assets_path,"%sassets/",program_path);
-    VFSRegister("", new DirectoryAssetReader(assets_path));
+	char program_path[4090];
+	uint32_t program_path_size = sizeof(program_path);
+	_NSGetExecutablePath(program_path,&program_path_size);
+	*(strrchr(program_path, '/')+1) = '\0';
+	char assets_path[4096];
+	sprintf(assets_path,"%sassets/",program_path);
+	VFSRegister("", new DirectoryAssetReader(assets_path));
 #endif
 
 	// We want this to be FIRST.
@@ -382,20 +383,12 @@ void NativeInit(int argc, const char *argv[],
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
-	
+
 	g_gameInfoCache.Init();
 
 
 	screenManager = new ScreenManager();
 
-	if (boot_filename.empty()) {
-#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || (defined(MACOSX) && defined(_M_IX64))
-		if (Atrac3plus_Decoder::CanAutoInstall()) {
-			Atrac3plus_Decoder::DoAutoInstall();
-		}
-#endif
-	}
-	
 	if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
@@ -585,7 +578,6 @@ void NativeUpdate(InputState &input) {
 		}
 	}
 
-	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
 	screenManager->update(input);
 }
 

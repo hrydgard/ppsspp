@@ -19,7 +19,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
-#include "Core/HW/atrac3plus.h"
+#include "Core/HW/SimpleAT3Dec.h"
 
 #include <algorithm>
 
@@ -101,11 +101,11 @@ void ffmpeg_logger(void *, int level, const char *format, va_list va_args) {
 
 	// Let's color the log line appropriately.
 	if (level <= AV_LOG_PANIC) {
-		ERROR_LOG(ME, "%s", tmp);
+		ERROR_LOG(ME, "FF: %s", tmp);
 	} else if (level >= AV_LOG_VERBOSE) {
-		DEBUG_LOG(ME, "%s", tmp);
+		DEBUG_LOG(ME, "FF: %s", tmp);
 	} else {
-		INFO_LOG(ME, "%s", tmp);
+		INFO_LOG(ME, "FF: %s", tmp);
 	}
 }
 
@@ -172,7 +172,7 @@ void MediaEngine::closeMedia() {
 	m_pFormatCtx = 0;
 	m_pdata = 0;
 	m_demux = 0;
-	Atrac3plus_Decoder::CloseContext(&m_audioContext);
+	AT3Close(&m_audioContext);
 	m_isVideoEnd = false;
 	m_noAudioData = false;
 }
@@ -243,12 +243,12 @@ bool MediaEngine::openContext() {
 	m_pFormatCtx = avformat_alloc_context();
 	m_pIOContext = avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, 0);
 	m_pFormatCtx->pb = m_pIOContext;
-  
+
 	// Open video file
-	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
+	if (avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
 		return false;
 
-	if(avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
+	if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
 		return false;
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
@@ -270,19 +270,19 @@ bool MediaEngine::openContext() {
 
 	// Get a pointer to the codec context for the video stream
 	m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
-  
+
 	// Find the decoder for the video stream
 	AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
 	if(pCodec == NULL)
 		return false;
-  
+
 	// Open codec
 	AVDictionary *optionsDict = 0;
 	if(avcodec_open2(m_pCodecCtx, pCodec, &optionsDict)<0)
 		return false; // Could not open codec
 
 	setVideoDim();
-	m_audioContext = Atrac3plus_Decoder::OpenContext();
+	m_audioContext = AT3Create();
 	m_isVideoEnd = false;
 	m_noAudioData = false;
 	m_mpegheaderReadPos++;
@@ -627,8 +627,11 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	}
 	int outbytes = 0;
 
-	if(m_audioContext != NULL)
-		Atrac3plus_Decoder::Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer);
+	if (m_audioContext != NULL) {
+		if (!AT3Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
+			ERROR_LOG(ME, "AT3 decode failed during video playback");
+		}
+	}
 
 	if (headerCode1 == 0x24) {
 		// it a mono atrac3plus, convert it to stereo

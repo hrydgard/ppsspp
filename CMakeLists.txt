@@ -36,6 +36,7 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -D__STDC_CONSTANT_MACROS")
 	if (NOT USING_GLES2)
 		# Not working yet.
 		set(USE_FFMPEG ON)
@@ -911,8 +912,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
-	Core/HW/atrac3plus.cpp
-	Core/HW/atrac3plus.h
+	Core/HW/SimpleAT3Dec.cpp
+	Core/HW/SimpleAT3Dec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp
@@ -1153,7 +1154,6 @@ set(NativeAppSource
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp
 	UI/OnScreenDisplay.cpp
-	UI/PluginScreen.cpp
 	UI/ControlMappingScreen.cpp
 	UI/CwCheatScreen.cpp
 	UI/ui_atlas.cpp)
