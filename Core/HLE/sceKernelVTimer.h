@@ -30,7 +30,7 @@ u64 sceKernelGetVTimerBaseWide(u32 uid);
 u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr);
 u64 sceKernelGetVTimerTimeWide(u32 uid);
 u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr);
-u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock);
+u64 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock);
 
 // TODO
 void _sceKernelReturnFromTimerHandler();

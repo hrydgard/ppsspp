@@ -844,7 +844,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xC0B3FFD2,WrapU64_U<sceKernelGetVTimerTimeWide>,"sceKernelGetVTimerTimeWide"},
 	{0x5F32BEAA,WrapU_UU<sceKernelReferVTimerStatus>,"sceKernelReferVTimerStatus"},
 	{0x542AD630,WrapU_UU<sceKernelSetVTimerTime>,"sceKernelSetVTimerTime"},
-	{0xFB6425C3,WrapU_UU64<sceKernelSetVTimerTimeWide>,"sceKernelSetVTimerTimeWide"},
+	{0xFB6425C3,WrapU64_UU64<sceKernelSetVTimerTimeWide>,"sceKernelSetVTimerTimeWide"},
 	{0xd8b299ae,WrapU_UUUU<sceKernelSetVTimerHandler>,"sceKernelSetVTimerHandler"},
 	{0x53B00E9A,WrapU_UU64UU<sceKernelSetVTimerHandlerWide>,"sceKernelSetVTimerHandlerWide"},
 

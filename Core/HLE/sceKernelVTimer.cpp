@@ -294,10 +294,9 @@ u64 sceKernelGetVTimerTimeWide(u32 uid) {
 	return time;
 }
 
-u64 __setVTimer(VTimer *vt, u64 time) {
+u64 __KernelSetVTimer(VTimer *vt, u64 time) {
 	u64 current = __getVTimerCurrentTime(vt);
-	vt->nvt.base = vt->nvt.base + __getVTimerCurrentTime(vt) - time;
-	vt->nvt.current = 0;
+	vt->nvt.current = time;
 
 	return current;
 }
@@ -315,27 +314,23 @@ u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
 
 	u64 time = Memory::Read_U64(timeClockAddr);
 	if (Memory::IsValidAddress(timeClockAddr))
-		Memory::Write_U64(__setVTimer(vt, time), timeClockAddr);
+		Memory::Write_U64(__KernelSetVTimer(vt, time), timeClockAddr);
 
 	return 0;
 }
 
-u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
+u64 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu", uid, timeClock);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
-	if (error) {
+	if (error || vt == NULL) {
 		WARN_LOG(SCEKERNEL, "%08x=sceKernelSetVTimerTimeWide(%08x, %llu)", error, uid, timeClock);
-		return error;
-	}
-
-	if (vt == NULL) {
 		return -1;
 	}
 
-	return __setVTimer(vt, timeClock);
+	return __KernelSetVTimer(vt, timeClock);
 }
 
 void __startVTimer(VTimer *vt) {
