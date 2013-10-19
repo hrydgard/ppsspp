@@ -185,7 +185,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
-	sound->Get("EnableAtrac3plus", &bEnableAtrac3plus, true);
 	sound->Get("VolumeBGM", &iBGMVolume, 7);
 	sound->Get("VolumeSFX", &iSFXVolume, 7);
 	sound->Get("LowLatency", &bLowLatencyAudio, false);
@@ -375,7 +374,6 @@ void Config::Save() {
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
-		sound->Set("EnableAtrac3plus", bEnableAtrac3plus);
 		sound->Set("VolumeBGM", iBGMVolume);
 		sound->Set("VolumeSFX", iSFXVolume);
 		sound->Set("LowLatency", bLowLatencyAudio);

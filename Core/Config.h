@@ -99,7 +99,6 @@ public:
 
 	// Sound
 	bool bEnableSound;
-	bool bEnableAtrac3plus;
 	bool bLowLatencyAudio;
 	int iSFXVolume;
 	int iBGMVolume;
