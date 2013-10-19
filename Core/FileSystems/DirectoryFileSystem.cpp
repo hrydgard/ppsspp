@@ -416,7 +416,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 #endif
 
 	// TODO: Better error codes.
-	return retValue ? 0 : SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS;
+	return retValue ? 0 : (int)SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS;
 }
 
 bool DirectoryFileSystem::RemoveFile(const std::string &filename) {

@@ -1027,7 +1027,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	}
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);
-	int ret = psmfplayer->mediaengine->IsVideoEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+	int ret = psmfplayer->mediaengine->IsVideoEnd() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 	int delaytime = 3000;
@@ -1052,7 +1052,7 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		psmfplayer->mediaengine->getAudioSamples(Memory::GetPointer(audioDataAddr));
 	}
-	int ret = psmfplayer->mediaengine->IsNoAudioData() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
 }
 
