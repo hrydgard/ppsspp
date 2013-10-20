@@ -24,7 +24,7 @@
 
 class TouchControlVisibilityScreen : public UIScreenWithBackground {
 public:
-	TouchControlVisibilityScreen();
+	TouchControlVisibilityScreen::TouchControlVisibilityScreen() { }
 
 	virtual void CreateViews();
 
@@ -33,7 +33,5 @@ protected:
 	virtual UI::EventReturn OnToggleAll(UI::EventParams &e);
 
 private:
-	//DragDropButton *pickedControl_;
-	//std::vector<DragDropButton *> controls_;
-	//DragDropButton *getPickedControl(const int x, const int y);
+	std::map<std::string, bool*> keyToggles;
 };

@@ -217,7 +217,6 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new Choice("Control Visibility..."))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
-	controlsSettings->Add(new Choice("Control Visibility..."))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

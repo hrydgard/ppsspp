@@ -272,7 +272,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	rbutton->FlipImageH(true);
 	controls_.push_back(rbutton);
 
-	if (g_Config.bShowAnalogStick) {
+	if (g_Config.bShowTouchAnalogStick) {
 		controls_.push_back(new DragDropButton(g_Config.iAnalogStickX, g_Config.iAnalogStickY, I_STICKBG, I_STICK, scale));
 	};
 	I18NCategory *ms = GetI18NCategory("MainSettings");

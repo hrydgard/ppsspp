@@ -23,10 +23,6 @@
 #include <vector>
 #include <string>
 
-TouchControlVisibilityScreen::TouchControlVisibilityScreen() {
-
-}
-
 void TouchControlVisibilityScreen::CreateViews() {
 	using namespace UI;
 
@@ -58,7 +54,6 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyImages["L"] = I_L;
 	keyImages["R"] = I_R;
 
-	std::map<std::string, bool*> keyToggles;
 	keyToggles["Circle"] = &g_Config.bShowTouchCircle;
 	keyToggles["Cross"] = &g_Config.bShowTouchCross;
 	keyToggles["Square"] = &g_Config.bShowTouchSquare;
@@ -98,5 +93,8 @@ UI::EventReturn TouchControlVisibilityScreen::OnBack(UI::EventParams &e) {
 }
 
 UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
+	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i)
+		*i->second = !*i->second;
+
 	return UI::EVENT_DONE;
 }
