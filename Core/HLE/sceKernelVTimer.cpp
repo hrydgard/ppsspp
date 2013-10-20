@@ -255,7 +255,7 @@ u64 sceKernelGetVTimerBaseWide(u32 uid) {
 
 	if (error) {
 		WARN_LOG(SCEKERNEL, "%08x=sceKernelGetVTimerBaseWide(%08x)", error, uid);
-		return error;
+		return -1;
 	}
 
 	return vt->nvt.base;
@@ -287,7 +287,7 @@ u64 sceKernelGetVTimerTimeWide(u32 uid) {
 
 	if (error) {
 		WARN_LOG(SCEKERNEL, "%08x=sceKernelGetVTimerTimeWide(%08x)", error, uid);
-		return error;
+		return -1;
 	}
 
 	u64 time = __getVTimerCurrentTime(vt);
