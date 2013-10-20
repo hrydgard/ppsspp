@@ -197,10 +197,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	control->Get("ShowTouchSquare", &bShowTouchSquare, true);
 	control->Get("ShowTouchTriangle", &bShowTouchTriangle, true);
 	control->Get("ShowTouchStart", &bShowTouchStart, true);
-	control->Get("ShowTouchSelect", &bShowTouchSelect);
+	control->Get("ShowTouchSelect", &bShowTouchSelect, true);
 	control->Get("ShowTouchLTrigger", &bShowTouchLTrigger, true);
 	control->Get("ShowTouchRTrigger", &bShowTouchRTrigger, true);
 	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
+	control->Get("ShowTouchDpad", &bShowTouchDpad, true);
 	control->Get("ShowTouchUnthrottle", &bShowTouchUnthrottle, true);
 
 #if defined(USING_GLES2)
@@ -402,6 +403,7 @@ void Config::Save() {
 		control->Set("ShowTouchRTrigger", bShowTouchRTrigger);
 		control->Set("ShowAnalogStick", bShowTouchAnalogStick);
 		control->Set("ShowTouchUnthrottle", bShowTouchUnthrottle);
+		control->Set("ShowTouchDpad", bShowTouchDpad);
 
 		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
