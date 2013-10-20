@@ -15,9 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/HW/SimpleAT3Dec.h"
+#include "Core/HW/MediaEngine.h"
+#include "Core/HW/BufferQueue.h"
+
 #ifdef USE_FFMPEG
 
-// Urgh! Why is this needed?
+// TODO: Replace all these by -D__STDC_CONSTANT_MACROS
 #ifdef ANDROID
 #ifndef UINT64_C
 #define UINT64_C(c) (c ## ULL)
@@ -29,13 +33,6 @@ extern "C" {
 #include <libswresample/swresample.h>
 #include <libavutil/samplefmt.h>
 }
-#endif // USE_FFMPEG
-
-#include "Core/HW/SimpleAT3Dec.h"
-#include "Core/HW/MediaEngine.h"
-#include "Core/HW/BufferQueue.h"
-
-#ifdef USE_FFMPEG
 
 struct SimpleAT3 {
 public:

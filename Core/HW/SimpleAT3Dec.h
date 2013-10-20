@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include "base/basictypes.h"
 
 // Wraps FFMPEG in a nice interface that's drop-in compatible with
