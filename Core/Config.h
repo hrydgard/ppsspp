@@ -103,21 +103,6 @@ public:
 	int iSFXVolume;
 	int iBGMVolume;
 
-	// Controls
-	bool bShowTouchControls;
-	bool bShowTouchCross;
-	bool bShowTouchCircle;
-	bool bShowTouchSquare;
-	bool bShowTouchTriangle;
-	bool bShowTouchStart;
-	bool bShowTouchSelect;
-	bool bShowTouchLTrigger;
-	bool bShowTouchRTrigger;
-	bool bShowTouchAnalogStick;
-	bool bShowTouchUnthrottle;
-	bool bShowTouchDpad;
-	bool bHapticFeedback;
-
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
@@ -130,7 +115,7 @@ public:
 	bool bGridView2;
 	bool bGridView3;
 
-	// Control
+	// Control Positions
 	int iTouchButtonOpacity;
 	float fButtonScale;
 	//space between PSP buttons
@@ -150,6 +135,26 @@ public:
 	int iRKeyX, iRKeyY;
 	//position of the analog stick
 	int iAnalogStickX, iAnalogStickY;
+
+	// Controls Visibility
+	bool bShowTouchControls;
+
+	bool bShowTouchCircle;
+	bool bShowTouchCross;
+	bool bShowTouchTriangle;
+	bool bShowTouchSquare;
+
+	bool bShowTouchStart;
+	bool bShowTouchSelect;
+	bool bShowTouchUnthrottle;
+
+	bool bShowTouchLTrigger;
+	bool bShowTouchRTrigger;
+	
+	bool bShowTouchAnalogStick;
+	bool bShowTouchDpad;
+	
+	bool bHapticFeedback;
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
 	// proper options when good enough.
