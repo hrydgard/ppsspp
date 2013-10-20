@@ -58,8 +58,6 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #define bswap_32(x) OSSwapInt32(x)
 #define bswap_64(x) OSSwapInt64(x)
 #else
-// Otherwise it doesn't exist (Symbian, Blackberry10)
-#define UINT64_C(c) static_cast<unsigned long long>(c ## ULL)
 #define bswap_32(x) (0 | ((x & 0x000000ff) << 24) \
                        | ((x & 0x0000ff00) << 8)  \
                        | ((x & 0x00ff0000) >> 8)  \
