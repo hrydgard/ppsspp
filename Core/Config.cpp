@@ -192,16 +192,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("HapticFeedback", &bHapticFeedback, true);
 	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
-	control->Get("ShowTouchCross", &bShowTouchCross);
-	control->Get("ShowTouchCircle", &bShowTouchCircle);
-	control->Get("ShowTouchSquare", &bShowTouchSquare);
-	control->Get("ShowTouchTriangle", &bShowTouchTriangle);
-	control->Get("ShowTouchStart", &bShowTouchStart);
+	control->Get("ShowTouchCross", &bShowTouchCross, true);
+	control->Get("ShowTouchCircle", &bShowTouchCircle, true);
+	control->Get("ShowTouchSquare", &bShowTouchSquare, true);
+	control->Get("ShowTouchTriangle", &bShowTouchTriangle, true);
+	control->Get("ShowTouchStart", &bShowTouchStart, true);
 	control->Get("ShowTouchSelect", &bShowTouchSelect);
-	control->Get("ShowTouchLTrigger", &bShowTouchLTrigger);
-	control->Get("ShowTouchRTrigger", &bShowTouchRTrigger);
-	control->Get("ShowAnalogStick", &bShowTouchAnalogStick);
-	control->Get("ShowTouchUnthrottle", &bShowTouchUnthrottle);
+	control->Get("ShowTouchLTrigger", &bShowTouchLTrigger, true);
+	control->Get("ShowTouchRTrigger", &bShowTouchRTrigger, true);
+	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
+	control->Get("ShowTouchUnthrottle", &bShowTouchUnthrottle, true);
 
 #if defined(USING_GLES2)
 	std::string name = System_GetProperty(SYSPROP_NAME);

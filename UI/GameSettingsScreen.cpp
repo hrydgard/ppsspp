@@ -214,7 +214,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new Choice(c->T("Custom layout...")))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
-	controlsSettings->Add(new Choice("Control Visibility..."))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
+	controlsSettings->Add(new Choice(c->T("Control Visibility...")))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
 
