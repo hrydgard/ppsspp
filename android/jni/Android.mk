@@ -113,6 +113,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
+  $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \

@@ -105,7 +105,17 @@ public:
 
 	// Controls
 	bool bShowTouchControls;
-	bool bShowAnalogStick;
+	bool bShowTouchCross;
+	bool bShowTouchCircle;
+	bool bShowTouchSquare;
+	bool bShowTouchTriangle;
+	bool bShowTouchStart;
+	bool bShowTouchSelect;
+	bool bShowTouchLTrigger;
+	bool bShowTouchRTrigger;
+	bool bShowTouchAnalogStick;
+	bool bShowTouchUnthrottle;
+	bool bShowTouchDpad;
 	bool bHapticFeedback;
 
 	// UI

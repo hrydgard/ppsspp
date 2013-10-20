@@ -1138,6 +1138,7 @@ set(NativeAppSource
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.cpp
 	UI/TouchControlLayoutScreen.cpp
+	UI/TouchControlVisibilityScreen.cpp
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp
 	UI/OnScreenDisplay.cpp

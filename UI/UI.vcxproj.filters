@@ -34,6 +34,9 @@
     <ClCompile Include="TouchControlLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="TouchControlVisibilityScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -66,6 +69,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TouchControlLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TouchControlVisibilityScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
