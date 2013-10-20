@@ -359,7 +359,8 @@ u32 sceKernelStartVTimer(u32 uid) {
 }
 
 void __stopVTimer(VTimer *vt) {
-	vt->nvt.current += __getVTimerCurrentTime(vt);
+	// This increases (__getVTimerCurrentTime includes nvt.current.)
+	vt->nvt.current = __getVTimerCurrentTime(vt);
 	vt->nvt.active = 0;
 	vt->nvt.base = 0;
 }
