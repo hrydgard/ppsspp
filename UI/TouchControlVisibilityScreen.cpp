@@ -16,13 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "TouchControlVisibilityScreen.h"
-#include "Common/KeyMap.h"
 #include "Core/Config.h"
 #include "ui/ui_atlas.h"
 #include "i18n/i18n.h"
-
-#include <vector>
-#include <string>
 
 void TouchControlVisibilityScreen::CreateViews() {
 	using namespace UI;

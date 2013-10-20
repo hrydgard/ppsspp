@@ -17,14 +17,13 @@
 
 #pragma once
 
-#include "base/functional.h"
-#include "ui/view.h"
 #include "MiscScreens.h"
-#include <vector>
+
+#include <map>
 
 class TouchControlVisibilityScreen : public UIScreenWithBackground {
 public:
-	TouchControlVisibilityScreen::TouchControlVisibilityScreen() { }
+	TouchControlVisibilityScreen() { }
 
 	virtual void CreateViews();
 
