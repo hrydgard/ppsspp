@@ -842,20 +842,20 @@ void TextureCache::SetTexture(bool force) {
 
 	if (iter != cache.end()) {
 		entry = &iter->second;
+		// Check for FBO - slow!
+		if (entry->framebuffer) {
+			SetTextureFramebuffer(entry);
+			lastBoundTexture = -1;
+			entry->lastFrame = gpuStats.numFlips;
+			return;
+		}
+
 		// Validate the texture still matches the cache entry.
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
 #ifndef USING_GLES2
 		match &= host->GPUAllowTextureCache(texaddr);
 #endif
-
-		// Check for FBO - slow!
-		if (entry->framebuffer && match) {
-			SetTextureFramebuffer(entry);
-			lastBoundTexture = -1;
-			entry->lastFrame = gpuStats.numFlips;
-			return;
-		}
 
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
