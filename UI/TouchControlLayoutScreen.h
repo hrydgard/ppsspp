@@ -30,10 +30,12 @@ public:
 
 	virtual void CreateViews();
 	virtual void touch(const TouchInput &touch);
+	virtual void dialogFinished(const Screen *dialog, DialogResult result);
 
 protected:
 	virtual UI::EventReturn OnBack(UI::EventParams &e);
 	virtual UI::EventReturn OnReset(UI::EventParams &e);
+	virtual UI::EventReturn OnVisibility(UI::EventParams &e);
 
 private:
 	DragDropButton *pickedControl_;

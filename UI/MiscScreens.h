@@ -84,7 +84,7 @@ private:
 class LogoScreen : public UIScreen {
 public:
 	LogoScreen(const std::string &bootFilename)
-		: bootFilename_(bootFilename), frames_(0) {}
+		: bootFilename_(bootFilename), frames_(0), switched_(false) {}
 	void key(const KeyInput &key);
 	void update(InputState &input);
 	void render();
@@ -95,6 +95,7 @@ private:
 	void Next();
 	std::string bootFilename_;
 	int frames_;
+	bool switched_;
 };
 
 class CreditsScreen : public UIDialogScreenWithBackground {

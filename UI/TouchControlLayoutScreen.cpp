@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "TouchControlLayoutScreen.h"
+#include "TouchControlVisibilityScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "base/colorutil.h"
@@ -236,6 +237,11 @@ UI::EventReturn TouchControlLayoutScreen::OnBack(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 };
 
+UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
+	screenManager()->push(new TouchControlVisibilityScreen());
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	g_Config.iActionButtonSpacing = -1;
 	g_Config.iActionButtonCenterX = -1;
@@ -260,20 +266,28 @@ UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 };
 
+void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	RecreateViews();
+}
+
 void TouchControlLayoutScreen::CreateViews() {
 	// setup g_Config for button layout
 	InitPadLayout();
 
 	using namespace UI;
 
+	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *d = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	Choice *reset = new Choice(d->T("Reset"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 84));
 	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *visibility = new Choice(c->T("Visibility"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 158));
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	back->OnClick.Handle(this, &TouchControlLayoutScreen::OnBack);
+	visibility->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+	root_->Add(visibility);
 	root_->Add(reset);
 	root_->Add(back);
 
@@ -287,17 +301,14 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
-	I18NCategory *c = GetI18NCategory("Controls");
 	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
-	
-	if(!g_Config.bShowTouchControls){
+	if (!g_Config.bShowTouchControls){
 		return;
 	}
 
 	float scale = g_Config.fButtonScale;
 	controls_.clear();
-
 
 	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.iActionButtonCenterX, g_Config.iActionButtonCenterY, g_Config.iActionButtonSpacing, scale);
 	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
@@ -306,26 +317,29 @@ void TouchControlLayoutScreen::CreateViews() {
 	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
 
 	controls_.push_back(actionButtons);
-	
+
 	if (g_Config.bShowTouchCross) {
 		controls_.push_back(new PSPDPadButtons(g_Config.iDpadX, g_Config.iDpadY, g_Config.iDpadRadius, scale));
 	}
 
-	if (g_Config.bShowTouchSelect)
+	if (g_Config.bShowTouchSelect) {
 		controls_.push_back(new DragDropButton(g_Config.iSelectKeyX, g_Config.iSelectKeyY, I_RECT, I_SELECT, scale));
-	
-	if (g_Config.bShowTouchStart)
+	}
+
+	if (g_Config.bShowTouchStart) {
 		controls_.push_back(new DragDropButton(g_Config.iStartKeyX, g_Config.iStartKeyY, I_RECT, I_START, scale));
-	
+	}
+
 	if (g_Config.bShowTouchUnthrottle) {
 		DragDropButton *unthrottle = new DragDropButton(g_Config.iUnthrottleKeyX, g_Config.iUnthrottleKeyY, I_RECT, I_ARROW, scale);
 		unthrottle->SetAngle(180.0f);
 		controls_.push_back(unthrottle);
 	}
 
-	if (g_Config.bShowTouchLTrigger)
+	if (g_Config.bShowTouchLTrigger) {
 		controls_.push_back(new DragDropButton(g_Config.iLKeyX, g_Config.iLKeyY, I_SHOULDER, I_L, scale));
-	
+	}
+
 	if (g_Config.bShowTouchRTrigger) {
 		DragDropButton *rbutton = new DragDropButton(g_Config.iRKeyX, g_Config.iRKeyY, I_SHOULDER, I_R, scale);
 		rbutton->FlipImageH(true);
@@ -339,8 +353,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	for (size_t i = 0; i < controls_.size(); i++) {
 		root_->Add(controls_[i]);
 	}
-
-};
+}
 
 // return the control which was picked up by the touchEvent. If a control
 // was already picked up, then it's being dragged around, so just return that instead

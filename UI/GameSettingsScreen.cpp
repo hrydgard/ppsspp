@@ -106,16 +106,23 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()));
-	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
-
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
 	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("Low quality spline/bezier curves (speed)")));
+	graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")))->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+#ifdef _WIN32
+	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+#endif
+	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
+#ifdef BLACKBERRY
+	if (pixel_xres == pixel_yres)
+		graphicsSettings->Add(new CheckBox(&g_Config.bPartialStretch, gs->T("Partial Vertical Stretch")));
+#endif
+	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
+
+	graphicsSettings->Add(new ItemHeader(gs->T("Performance")));
 
 #ifndef USING_GLES2
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
@@ -123,28 +130,16 @@ void GameSettingsScreen::CreateViews() {
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 #endif
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-#ifdef BLACKBERRY
-	if (pixel_xres == pixel_yres)
-		graphicsSettings->Add(new CheckBox(&g_Config.bPartialStretch, gs->T("Partial Vertical Stretch")));
-#endif
-	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
+
 	// This setting is not really useful for anyone atm.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
-#ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
-#endif
-	
-	graphicsSettings->Add(new ItemHeader(gs->T("Antialiasing and postprocessing"))); 
-	graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")))->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
-	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
-
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
 	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x","4x", "5x"};
@@ -167,6 +162,11 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
 	if (PSP_IsInited())
 		prescale->SetEnabled(false);
+
+	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
+	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 
 	// Developer tools are not accessible ingame, so it goes here.
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
@@ -214,7 +214,6 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new Choice(c->T("Custom layout...")))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
-	controlsSettings->Add(new Choice(c->T("Control Visibility...")))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
 
@@ -225,18 +224,11 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
+	systemSettings->Add(new ItemHeader(s->T("UI Language")));
+	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+
 	systemSettings->Add(new ItemHeader(s->T("Emulation")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
-
-#ifdef IOS
-	if (isJailed) {
-		systemSettings->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
-	} else {
-		systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
-	}
-#else
-	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
-#endif
 
 #ifndef __SYMBIAN32__
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
@@ -247,16 +239,13 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
 
 	enableReports_ = Reporting::IsEnabled();
-//#ifndef ANDROID 
+//#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
 //#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
-	
-	systemSettings->Add(new ItemHeader(s->T("UI Language"))); 
-	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
-	
+
 	systemSettings->Add(new ItemHeader(s->T("General")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
@@ -461,11 +450,6 @@ UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn GameSettingsScreen::OnTouchControlVisibility(UI::EventParams &e) {
-	screenManager()->push(new TouchControlVisibilityScreen());
-	return UI::EVENT_DONE;
-};
-
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
@@ -479,6 +463,17 @@ void DeveloperToolsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(s->T("General")));
+
+#ifdef IOS
+	if (isJailed) {
+		list->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
+	} else {
+		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	}
+#else
+	list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+#endif
+
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
 

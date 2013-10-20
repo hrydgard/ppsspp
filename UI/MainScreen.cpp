@@ -554,7 +554,7 @@ void MainScreen::CreateViews() {
 #if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
-	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 #ifndef __SYMBIAN32__
