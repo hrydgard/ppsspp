@@ -36,8 +36,8 @@ void TouchControlVisibilityScreen::CreateViews() {
 	topBar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &TouchControlVisibilityScreen::OnToggleAll);
 
 	vert->Add(topBar);
-
-	vert->Add(new ItemHeader("Touch Control Visibility"));
+	I18NCategory *co = GetI18NCategory("Control Mapping");
+	vert->Add(new ItemHeader(co->T("Touch Control Visibility")));
 
 	const int cellSize = 400;
 
