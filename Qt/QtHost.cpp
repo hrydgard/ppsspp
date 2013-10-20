@@ -156,6 +156,27 @@ bool QtHost::IsDebuggingEnabled()
 #endif
 }
 
+bool QtHost::GPUDebuggingActive()
+{
+	auto dialogDisplayList = mainWindow->GetDialogDisplaylist();
+	if (dialogDisplayList && dialogDisplayList->isVisible())
+	{
+		if (GpuStep())
+			SendGPUStart();
+
+		return true;
+	}
+	return false;
+}
+
+void QtHost::GPUNotifyCommand(u32 pc)
+{
+	u32 op = Memory::ReadUnchecked_U32(pc);
+	u32 cmd = op >> 24;
+	if (GpuStep())
+		SendGPUWait(cmd, pc, &gstate);
+}
+
 void QtHost::SendCoreWait(bool isWaiting)
 {
 	mainWindow->CoreEmitWait(isWaiting);
