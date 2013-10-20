@@ -40,10 +40,6 @@
 #define _M_ARM32
 #endif
 
-// SVN version number
-extern const char *scm_rev_str;
-extern const char *netplay_dolphin_ver;
-
 // Force enable logging in the right modes. For some reason, something had changed
 // so that debugfast no longer logged.
 #if defined(_DEBUG) || defined(DEBUGFAST)
@@ -75,11 +71,6 @@ private:
 #undef STACKALIGN
 #define STACKALIGN __attribute__((__force_align_arg_pointer__))
 #endif
-// We use wxWidgets on OS X only if it is version 2.9+ with Cocoa support.
-#ifdef __WXOSX_COCOA__
-#define HAVE_WX 1
-#define USE_WX 1	// Use wxGLCanvas
-#endif
 
 #elif defined _WIN32
 
@@ -87,10 +78,6 @@ private:
 	#if !defined _MSC_VER || _MSC_VER <= 1000
 		#error needs at least version 1000 of MSC
 	#endif
-
-#ifndef NOMINMAX
-	#define NOMINMAX
-#endif
 
 // Memory leak checks
 	#define CHECK_HEAP_INTEGRITY()
@@ -102,11 +89,6 @@ private:
 	#define GC_ALIGNED128(x) __declspec(align(128)) x
 	#define GC_ALIGNED16_DECL(x) __declspec(align(16)) x
 	#define GC_ALIGNED64_DECL(x) __declspec(align(64)) x
-
-// Since it is always around on windows
-	#define HAVE_WX 1
-
-	#define HAVE_PORTAUDIO 1
 
 // Debug definitions
 	#if defined(_DEBUG)
@@ -154,10 +136,6 @@ private:
 #define __getcwd getcwd
 #define __chdir chdir
 #endif
-
-// Dummy macro for marking translatable strings that can not be immediately translated.
-// wxWidgets does not have a true dummy macro for this.
-#define _trans(a) a
 
 #if defined __GNUC__
 # if defined __SSE4_2__
@@ -212,24 +190,6 @@ inline double bswapd( double f )
 
   return dat2.f;
 }
-
-// Host communication.
-enum HOST_COMM
-{
-	// Begin at 10 in case there is already messages with wParam = 0, 1, 2 and so on
-	WM_USER_STOP = 10,
-	WM_USER_CREATE,
-	WM_USER_SETCURSOR,
-	WM_USER_KEYDOWN,
-};
-
-// Used for notification on emulation state
-enum EMUSTATE_CHANGE
-{
-	EMUSTATE_CHANGE_PLAY = 1,
-	EMUSTATE_CHANGE_PAUSE,
-	EMUSTATE_CHANGE_STOP
-};
 
 #include "Swap.h"
 
