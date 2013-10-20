@@ -57,9 +57,9 @@
 extern int g_iNumVideos;
 
 static const char tex_fs[] =
-	"#ifdef GL_ES\n"
+#ifdef USING_GLES2
 	"precision mediump float;\n"
-	"#endif\n"
+#endif
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
@@ -68,9 +68,6 @@ static const char tex_fs[] =
 	"}\n";
 
 static const char basic_vs[] =
-#ifndef USING_GLES2
-	"#version 120\n"
-#endif
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
 	"uniform mat4 u_viewproj;\n"
