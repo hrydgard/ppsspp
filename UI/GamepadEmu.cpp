@@ -278,7 +278,7 @@ void InitPadLayout() {
 	//space between the PSP buttons (triangle, circle, square and cross)
 	const int Action_button_spacing = 50 * scale;
 
-	if(g_Config.iActionButtonSpacing == -1){
+	if (g_Config.iActionButtonSpacing == -1) {
 		g_Config.iActionButtonSpacing = Action_button_spacing;
 	}
 
@@ -297,7 +297,7 @@ void InitPadLayout() {
 	//radius to the D-pad
 	const int D_pad_Radius = 40 * scale;
 
-	if(g_Config.iDpadRadius == -1){
+	if (g_Config.iDpadRadius == -1){
 		g_Config.iDpadRadius = D_pad_Radius;
 	}
 
@@ -307,7 +307,7 @@ void InitPadLayout() {
 		D_pad_Y -= 200 * scale;
 	}
 
-	if(g_Config.iDpadX == -1 || g_Config.iDpadY == -1 ){
+	if(g_Config.iDpadX == -1 || g_Config.iDpadY == -1 ) {
 		//setup defaults
 		g_Config.iDpadX = D_pad_X;
 		g_Config.iDpadY = D_pad_Y;
@@ -318,7 +318,7 @@ void InitPadLayout() {
 	int analog_stick_X = D_pad_X;
 	int analog_stick_Y = dp_yres - 80 * scale;
 
-	if(g_Config.iAnalogStickX == -1 || g_Config.iAnalogStickY == -1 ){
+	if (g_Config.iAnalogStickX == -1 || g_Config.iAnalogStickY == -1 ) {
 		g_Config.iAnalogStickX = analog_stick_X;
 		g_Config.iAnalogStickY = analog_stick_Y;
 	}
@@ -330,7 +330,7 @@ void InitPadLayout() {
 	int start_key_X = dp_xres / 2 + (bottom_key_spacing) * scale;
 	int start_key_Y = dp_yres - 60 * scale;
 
-	if(g_Config.iStartKeyX == -1 || g_Config.iStartKeyY == -1 ){
+	if (g_Config.iStartKeyX == -1 || g_Config.iStartKeyY == -1 ) {
 		g_Config.iStartKeyX = start_key_X;
 		g_Config.iStartKeyY = start_key_Y;
 	}
@@ -338,7 +338,7 @@ void InitPadLayout() {
 	int select_key_X = dp_xres / 2;
 	int select_key_Y = dp_yres - 60 * scale;
 
-	if (g_Config.iSelectKeyX == -1 || g_Config.iSelectKeyY == -1 ){
+	if (g_Config.iSelectKeyX == -1 || g_Config.iSelectKeyY == -1 ) {
 		g_Config.iSelectKeyX = select_key_X;
 		g_Config.iSelectKeyY = select_key_Y;
 	}
@@ -346,7 +346,7 @@ void InitPadLayout() {
 	int unthrottle_key_X = dp_xres / 2 - (bottom_key_spacing) * scale;
 	int unthrottle_key_Y = dp_yres - 60 * scale;
 
-	if (g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ){
+	if (g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ) {
 		g_Config.iUnthrottleKeyX = unthrottle_key_X;
 		g_Config.iUnthrottleKeyY = unthrottle_key_Y;
 	}
@@ -355,7 +355,7 @@ void InitPadLayout() {
 	int l_key_X = 70 * scale;
 	int l_key_Y = 40 * scale;
 
-	if (g_Config.iLKeyX == -1 || g_Config.iLKeyY == -1 ){
+	if (g_Config.iLKeyX == -1 || g_Config.iLKeyY == -1 ) {
 		g_Config.iLKeyX = l_key_X;
 		g_Config.iLKeyY = l_key_Y;
 	}
@@ -363,7 +363,7 @@ void InitPadLayout() {
 	int r_key_X = dp_xres - 60 * scale;
 	int r_key_Y = 40 * scale;
 
-	if (g_Config.iRKeyX == -1 || g_Config.iRKeyY == -1 ){
+	if (g_Config.iRKeyX == -1 || g_Config.iRKeyY == -1 ) {
 		g_Config.iRKeyX = r_key_X;
 		g_Config.iRKeyY = r_key_Y;
 	}

@@ -457,12 +457,12 @@ UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e){
+UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 	screenManager()->push(new TouchControlLayoutScreen());
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn GameSettingsScreen::OnTouchControlVisibility(UI::EventParams &e){
+UI::EventReturn GameSettingsScreen::OnTouchControlVisibility(UI::EventParams &e) {
 	screenManager()->push(new TouchControlVisibilityScreen());
 	return UI::EVENT_DONE;
 };
