@@ -28,8 +28,9 @@ void TouchControlVisibilityScreen::CreateViews() {
 	vert->SetSpacing(0);
 
 	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL);
-	topBar->Add(new Choice("Back"))->OnClick.Handle<TouchControlVisibilityScreen>(this, &TouchControlVisibilityScreen::OnBack);
-	topBar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &TouchControlVisibilityScreen::OnToggleAll);
+	I18NCategory *di = GetI18NCategory("Dialog");
+	topBar->Add(new Choice(di->T("Back")))->OnClick.Handle<TouchControlVisibilityScreen>(this, &TouchControlVisibilityScreen::OnBack);
+	topBar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &TouchControlVisibilityScreen::OnToggleAll);
 
 	vert->Add(topBar);
 	I18NCategory *co = GetI18NCategory("Controls");
@@ -97,8 +98,9 @@ UI::EventReturn TouchControlVisibilityScreen::OnBack(UI::EventParams &e) {
 }
 
 UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
-	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i)
-		*i->second = !*i->second;
-
+	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
+		*i->second = toggleSwitch;
+	}
+	toggleSwitch = !toggleSwitch;
 	return UI::EVENT_DONE;
 }

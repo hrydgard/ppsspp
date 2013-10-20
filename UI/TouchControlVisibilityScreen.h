@@ -26,6 +26,7 @@ public:
 	TouchControlVisibilityScreen() { }
 
 	virtual void CreateViews();
+	bool toggleSwitch;
 
 protected:
 	virtual UI::EventReturn OnBack(UI::EventParams &e);
