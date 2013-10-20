@@ -1680,7 +1680,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				}
 			}
 			atrac->currentSample += numSamples;
-			numSamples = ATRAC3_MAX_SAMPLES;
+			numSamples = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 			Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
 			atrac->SeekToSample(atrac->currentSample);
 			if (atrac->decodePos >= atrac->first.size) {
