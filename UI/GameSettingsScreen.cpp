@@ -29,8 +29,8 @@
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
-//yuck. need a better name
 #include "UI/TouchControlLayoutScreen.h"
+#include "UI/TouchControlVisibilityScreen.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -214,9 +214,10 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new Choice(c->T("Custom layout...")))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
+	controlsSettings->Add(new Choice("Control Visibility..."))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
+	controlsSettings->Add(new Choice("Control Visibility..."))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlVisibility);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -458,6 +459,11 @@ UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e){
 	screenManager()->push(new TouchControlLayoutScreen());
+	return UI::EVENT_DONE;
+};
+
+UI::EventReturn GameSettingsScreen::OnTouchControlVisibility(UI::EventParams &e){
+	screenManager()->push(new TouchControlVisibilityScreen());
 	return UI::EVENT_DONE;
 };
 

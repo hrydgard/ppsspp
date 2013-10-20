@@ -191,7 +191,18 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("HapticFeedback", &bHapticFeedback, true);
-	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
+	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
+	control->Get("ShowTouchCross", bShowTouchCross);
+	control->Get("ShowTouchCircle", bShowTouchCircle);
+	control->Get("ShowTouchSquare", bShowTouchSquare);
+	control->Get("ShowTouchTriangle", bShowTouchTriangle);
+	control->Get("ShowTouchStart", bShowTouchStart);
+	control->Get("ShowTouchSelect", bShowTouchSelect);
+	control->Get("ShowTouchLTrigger", bShowTouchLTrigger);
+	control->Get("ShowTouchRTrigger", bShowTouchRTrigger);
+	control->Get("ShowAnalogStick", bShowTouchAnalogStick);
+	control->Get("ShowTouchUnthrottle", bShowTouchUnthrottle);
+
 #if defined(USING_GLES2)
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (KeyMap::HasBuiltinController(name)) {
@@ -380,8 +391,19 @@ void Config::Save() {
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("HapticFeedback", bHapticFeedback);
-		control->Set("ShowAnalogStick", bShowAnalogStick);
+		
 		control->Set("ShowTouchControls", bShowTouchControls);
+		control->Set("ShowTouchCross", bShowTouchCross);
+		control->Set("ShowTouchCircle", bShowTouchCircle);
+		control->Set("ShowTouchSquare", bShowTouchSquare);
+		control->Set("ShowTouchTriangle", bShowTouchTriangle);
+		control->Set("ShowTouchStart", bShowTouchStart);
+		control->Set("ShowTouchSelect", bShowTouchSelect);
+		control->Set("ShowTouchLTrigger", bShowTouchLTrigger);
+		control->Set("ShowTouchRTrigger", bShowTouchRTrigger);
+		control->Set("ShowAnalogStick", bShowTouchAnalogStick);
+		control->Set("ShowTouchUnthrottle", bShowTouchUnthrottle);
+
 		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);

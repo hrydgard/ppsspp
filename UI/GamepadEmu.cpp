@@ -303,7 +303,7 @@ void InitPadLayout() {
 
 	int D_pad_X = 2.5 * D_pad_Radius;
 	int D_pad_Y = dp_yres - D_pad_Radius;
-	if(g_Config.bShowAnalogStick){
+	if (g_Config.bShowTouchAnalogStick){
 		D_pad_Y -= 200 * scale;
 	}
 
@@ -432,28 +432,46 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	if (g_Config.bShowTouchControls) {
 		
 		float scale = g_Config.fButtonScale;
+<<<<<<< HEAD
 
 #if USE_PAUSE_BUTTON
 		root->Add(new BoolButton(pause, I_ROUND, I_ARROW, scale, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 #endif
 
+=======
+		if (g_Config.bShowTouchCircle)
+>>>>>>> 86338a5... Add a touch control visibility screen. All touch controls can now be toggled on or off, except for the Pause button on platforms that have it, as a safety precaution.
 		root->Add(new PSPButton(CTRL_CIRCLE, I_ROUND, I_CIRCLE, scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
-		root->Add(new PSPButton(CTRL_CROSS, I_ROUND, I_CROSS, scale, new AnchorLayoutParams(Action_cross_button_X, Action_cross_button_Y, NONE, NONE, true)));
-		root->Add(new PSPButton(CTRL_TRIANGLE, I_ROUND, I_TRIANGLE, scale, new AnchorLayoutParams(Action_triangle_button_X, Action_triangle_button_Y, NONE, NONE, true)));
-		root->Add(new PSPButton(CTRL_SQUARE, I_ROUND, I_SQUARE, scale, new AnchorLayoutParams(Action_square_button_X, Action_square_button_Y, NONE, NONE, true)));
 
-		root->Add(new PSPButton(CTRL_START, I_RECT, I_START, scale, new AnchorLayoutParams(start_key_X, start_key_Y, NONE, NONE, true)));
-		root->Add(new PSPButton(CTRL_SELECT, I_RECT, I_SELECT, scale, new AnchorLayoutParams(select_key_X, select_key_Y, NONE, NONE, true)));
-		root->Add(new BoolButton(&PSP_CoreParameter().unthrottle, I_RECT, I_ARROW, scale, new AnchorLayoutParams(unthrottle_key_X, unthrottle_key_Y, NONE, NONE, true)))->SetAngle(180);
+		if (g_Config.bShowTouchCross)
+			root->Add(new PSPButton(CTRL_CROSS, I_ROUND, I_CROSS, scale, new AnchorLayoutParams(Action_cross_button_X, Action_cross_button_Y, NONE, NONE, true)));
 
-		root->Add(new PSPButton(CTRL_LTRIGGER, I_SHOULDER, I_L, scale, new AnchorLayoutParams(l_key_X, l_key_Y, NONE, NONE, true)));
-		root->Add(new PSPButton(CTRL_RTRIGGER, I_SHOULDER, I_R, scale, new AnchorLayoutParams(r_key_X,r_key_Y, NONE, NONE, true)))->FlipImageH(true);
+		if (g_Config.bShowTouchTriangle)
+			root->Add(new PSPButton(CTRL_TRIANGLE, I_ROUND, I_TRIANGLE, scale, new AnchorLayoutParams(Action_triangle_button_X, Action_triangle_button_Y, NONE, NONE, true)));
 
-		root->Add(new PSPCross(I_DIR, I_ARROW, scale, D_pad_Radius, new AnchorLayoutParams(D_pad_X, D_pad_Y, NONE, NONE, true)));
+		if (g_Config.bShowTouchSquare)
+			root->Add(new PSPButton(CTRL_SQUARE, I_ROUND, I_SQUARE, scale, new AnchorLayoutParams(Action_square_button_X, Action_square_button_Y, NONE, NONE, true)));
 
-		if (g_Config.bShowAnalogStick) {
+		if (g_Config.bShowTouchStart)
+			root->Add(new PSPButton(CTRL_START, I_RECT, I_START, scale, new AnchorLayoutParams(start_key_X, start_key_Y, NONE, NONE, true)));
+
+		if (g_Config.bShowTouchSelect)
+			root->Add(new PSPButton(CTRL_SELECT, I_RECT, I_SELECT, scale, new AnchorLayoutParams(select_key_X, select_key_Y, NONE, NONE, true)));
+
+		if (g_Config.bShowTouchUnthrottle)
+			root->Add(new BoolButton(&PSP_CoreParameter().unthrottle, I_RECT, I_ARROW, scale, new AnchorLayoutParams(unthrottle_key_X, unthrottle_key_Y, NONE, NONE, true)))->SetAngle(180);
+
+		if (g_Config.bShowTouchLTrigger)
+			root->Add(new PSPButton(CTRL_LTRIGGER, I_SHOULDER, I_L, scale, new AnchorLayoutParams(l_key_X, l_key_Y, NONE, NONE, true)));
+
+		if (g_Config.bShowTouchRTrigger)
+			root->Add(new PSPButton(CTRL_RTRIGGER, I_SHOULDER, I_R, scale, new AnchorLayoutParams(r_key_X,r_key_Y, NONE, NONE, true)))->FlipImageH(true);
+
+		if (g_Config.bShowTouchDpad)
+			root->Add(new PSPCross(I_DIR, I_ARROW, scale, D_pad_Radius, new AnchorLayoutParams(D_pad_X, D_pad_Y, NONE, NONE, true)));
+
+		if (g_Config.bShowTouchAnalogStick)
 			root->Add(new PSPStick(I_STICKBG, I_STICK, 0, scale, new AnchorLayoutParams(analog_stick_X, analog_stick_Y, NONE, NONE, true)));
-		}
 	}
 
 	return root;
