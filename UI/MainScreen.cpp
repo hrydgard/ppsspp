@@ -516,9 +516,7 @@ void MainScreen::CreateViews() {
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
 
-	if (g_Config.recentIsos.size() > 0) {
-		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
-	}
+	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
@@ -529,8 +527,14 @@ void MainScreen::CreateViews() {
 	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
+
+	if (g_Config.recentIsos.size() > 0) {
+		leftColumn->SetCurrentTab(0);
+	}else{
+		leftColumn->SetCurrentTab(1);
+	}
 /*
-	if (info) {
+	if (info) {	
 		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
 		tvGameSize_ = leftColumn->Add(new TextView(0, "...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 250, NONE, NONE)));
