@@ -281,6 +281,9 @@
     <None Include="version.rc">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\android\jni\Locals.mk">
+      <Filter>Other Platforms</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

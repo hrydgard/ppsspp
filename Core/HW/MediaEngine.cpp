@@ -25,13 +25,6 @@
 
 #ifdef USE_FFMPEG
 
-// Urgh! Why is this needed?
-#ifdef ANDROID
-#ifndef UINT64_C
-#define UINT64_C(c) (c ## ULL)
-#endif
-#endif
-
 extern "C" {
 
 #include "libavcodec/avcodec.h"

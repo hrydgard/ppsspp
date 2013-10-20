@@ -73,18 +73,12 @@ static const int MAX_CONFIG_VOLUME = 8;
 
 #ifdef USE_FFMPEG
 
-// Urgh! Why is this needed?
-#ifdef ANDROID
-#ifndef UINT64_C
-#define UINT64_C(c) (c ## ULL)
-#endif
-#endif
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 #include <libavutil/samplefmt.h>
 }
+
 #endif // USE_FFMPEG
 
 struct InputBuffer {

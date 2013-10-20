@@ -21,13 +21,6 @@
 
 #ifdef USE_FFMPEG
 
-// TODO: Replace all these by -D__STDC_CONSTANT_MACROS
-#ifdef ANDROID
-#ifndef UINT64_C
-#define UINT64_C(c) (c ## ULL)
-#endif
-#endif
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>

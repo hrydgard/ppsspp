@@ -39,8 +39,8 @@ static GLuint program;
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
-FormatBuffer fb = {NULL};
-FormatBuffer depthbuf = {NULL};
+FormatBuffer fb;
+FormatBuffer depthbuf;
 u32 clut[4096];
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)

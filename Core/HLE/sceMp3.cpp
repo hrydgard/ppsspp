@@ -29,12 +29,6 @@
 #define PRId64  "%llu" 
 #endif
 
-// Urgh! Why is this needed?
-#ifdef ANDROID
-#ifndef UINT64_C
-#define UINT64_C(c) (c ## ULL)
-#endif
-#endif
 extern "C" {
 #include <libavutil/opt.h>
 #include <libavformat/avformat.h>
