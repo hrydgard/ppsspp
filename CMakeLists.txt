@@ -38,7 +38,6 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -D__STDC_CONSTANT_MACROS")
 	if (NOT USING_GLES2)
-		# Not working yet.
 		set(USE_FFMPEG ON)
 	endif()
 endif()
@@ -48,10 +47,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(USE_FFMPEG ON)
 endif()
 
-if(ANDROID OR BLACKBERRY OR IOS OR PANDORA OR MAEMO OR MACOSX OR LINUX)
+if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
-elseif(NOT DEFINED HEADLESS)
-	set(HEADLESS ON)
 endif()
 
 # User-editable options (go into CMakeCache.txt)
@@ -1129,18 +1126,6 @@ if(WIN32)
 	setup_target_project(PPSSPPWindows Windows)
 endif()
 
-if(HEADLESS)
-	add_executable(PPSSPPHeadless
-		headless/Headless.cpp
-		UI/OnScreenDisplay.cpp
-		headless/StubHost.h
-		headless/Compare.cpp
-		headless/Compare.h)
-	target_link_libraries(PPSSPPHeadless ${CoreLibName}
-		${COCOA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
-	setup_target_project(PPSSPPHeadless headless)
-endif()
-
 set(NativeAppSource
 	UI/NativeApp.cpp
 	UI/DevScreens.cpp
@@ -1287,6 +1272,18 @@ endif()
 if(USE_FFMPEG AND NOT DEFINED FFMPEG_LIBRARIES)
 	message(WARNING "FFMPEG_BUILDDIR variable or manual path definition is required to enable FFmpeg. Disabling it.")
 	unset(USE_FFMPEG)
+endif()
+
+if(HEADLESS)
+	add_executable(PPSSPPHeadless
+		headless/Headless.cpp
+		UI/OnScreenDisplay.cpp
+		headless/StubHost.h
+		headless/Compare.cpp
+		headless/Compare.h)
+	target_link_libraries(PPSSPPHeadless
+		${COCOA_LIBRARY} ${LinkCommon})
+	setup_target_project(PPSSPPHeadless headless)
 endif()
 
 if (TargetBin)
