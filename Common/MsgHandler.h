@@ -18,8 +18,6 @@
 #ifndef _MSGHANDLER_H_
 #define _MSGHANDLER_H_
 
-#include <string>
-
 // Message alerts
 enum MSG_TYPE
 {
@@ -28,13 +26,6 @@ enum MSG_TYPE
 	WARNING,
 	CRITICAL
 };
-
-typedef bool (*MsgAlertHandler)(const char* caption, const char* text, 
-                                bool yes_no, int Style);
-typedef std::string (*StringTranslator)(const char* text);
-
-void RegisterMsgAlertHandler(MsgAlertHandler handler);
-void RegisterStringTranslator(StringTranslator translator);
 
 extern bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 #ifdef __GNUC__
