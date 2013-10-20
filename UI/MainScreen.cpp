@@ -511,11 +511,14 @@ void MainScreen::CreateViews() {
 		m->T("How to get homebrew & demos"), "http://www.ppsspp.org/gethomebrew.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
+	
 	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
 
-	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+	if (g_Config.recentIsos.size() > 0) {
+		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+	}
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
