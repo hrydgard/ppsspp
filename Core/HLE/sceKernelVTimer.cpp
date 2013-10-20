@@ -25,6 +25,7 @@
 #include "ChunkFile.h"
 
 static int vtimerTimer = -1;
+static SceUID runningVTimer = 0;
 static std::list<SceUID> vtimers;
 
 struct NativeVTimer {
@@ -140,6 +141,8 @@ public:
 		currentMIPS->r[MIPS_REG_A2] = argArea - 8;
 		currentMIPS->r[MIPS_REG_A3] = vtimer->nvt.commonAddr;
 
+		runningVTimer = vtimerID;
+
 		return true;
 	}
 
@@ -150,6 +153,8 @@ public:
 
 		int vtimerID = vtimers.front();
 		vtimers.pop_front();
+
+		runningVTimer = 0;
 
 		if (result == 0)
 			__KernelCancelVTimer(vtimerID);
@@ -170,19 +175,27 @@ void __KernelTriggerVTimer(u64 userdata, int cyclesLate) {
 }
 
 void __KernelVTimerDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelVTimer", 1);
+	auto s = p.Section("sceKernelVTimer", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(vtimerTimer);
 	p.Do(vtimers);
 	CoreTiming::RestoreRegisterEvent(vtimerTimer, "VTimer", __KernelTriggerVTimer);
+
+	if (s >= 2)
+		p.Do(runningVTimer);
+	else
+		runningVTimer = 0;
 }
 
 void __KernelVTimerInit() {
 	vtimers.clear();
 	__RegisterIntrHandler(PSP_SYSTIMER1_INTR, new VTimerIntrHandler());
 	vtimerTimer = CoreTiming::RegisterEvent("VTimer", __KernelTriggerVTimer);
+
+	// Intentionally starts at 0.  This explains the behavior where 0 is treated differently outside a timer.
+	runningVTimer = 0;
 }
 
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
@@ -366,6 +379,10 @@ void __stopVTimer(VTimer *vt) {
 }
 
 u32 sceKernelStopVTimer(u32 uid) {
+	if (uid == runningVTimer) {
+		WARN_LOG(SCEKERNEL, "sceKernelStopVTimer(%08x): invalid vtimer", uid);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
 	DEBUG_LOG(SCEKERNEL, "sceKernelStopVTimer(%08x)", uid);
 
 	u32 error;
@@ -383,7 +400,7 @@ u32 sceKernelStopVTimer(u32 uid) {
 }
 
 u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
-	if (uid == 0) {
+	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
@@ -409,7 +426,7 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 }
 
 u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
-	if (uid == 0) {
+	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
@@ -434,6 +451,11 @@ u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u3
 }
 
 u32 sceKernelCancelVTimerHandler(u32 uid) {
+	if (uid == runningVTimer) {
+		WARN_LOG(SCEKERNEL, "sceKernelCancelVTimerHandler(%08x): invalid vtimer", uid);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
+
 	DEBUG_LOG(SCEKERNEL, "sceKernelCancelVTimerHandler(%08x)", uid);
 
 	//__cancelVTimer checks if uid is valid
