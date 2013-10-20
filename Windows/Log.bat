@@ -1,4 +1,17 @@
 @echo off
-IF exist .\ppsspp.log Del .\ppsspp.log
-IF exist .\PPSSPPWindows.exe PPSSPPWindows.exe  --log=ppsspp.log
-IF exist .\PPSSPPWindows64.exe PPSSPPWindows64.exe --log=ppsspp.log
+set LOGFILE=ppsspp.log
+
+del "%LOGFILE%" 2> NUL
+if exist PPSSPPWindows64.exe (
+    PPSSPPWindows64.exe --log="%LOGFILE%"
+    goto exit
+)
+if exist PPSSPPWindows.exe (
+    PPSSPPWindows.exe --log="%LOGFILE%"
+    goto exit
+)
+
+echo Unable to find PPSSPPWindows.exe.
+pause
+
+:exit
