@@ -120,7 +120,7 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	net::Init();
 #ifdef __SYMBIAN32__
 	const char *savegame_dir = "E:/PPSSPP/";
-	cosnt char *assets_dir = "E:/PPSSPP/";
+	const char *assets_dir = "E:/PPSSPP/";
 #elif defined(BLACKBERRY)
 	const char *savegame_dir = "/accounts/1000/shared/misc/";
 	const char *assets_dir = "app/native/assets/";
