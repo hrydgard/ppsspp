@@ -212,8 +212,10 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivity, 10, 200, c->T("Tilt Sensitivity"), screenManager()));
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new Choice(c->T("Custom layout...")))->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
+	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")))->OnClick.Handle(this, &GameSettingsScreen::OnToggleTouchControls);
+	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
+	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
+	layoutEditorChoice_->SetEnabled(g_Config.bShowTouchControls);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
 
@@ -272,10 +274,14 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
+UI::EventReturn GameSettingsScreen::OnToggleTouchControls(UI::EventParams &e) {
+	layoutEditorChoice_->SetEnabled(g_Config.bShowTouchControls);
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 	g_Config.recentIsos.clear();
 	OnRecentChanged.Trigger(e);
-
 	return UI::EVENT_DONE;
 }
 
