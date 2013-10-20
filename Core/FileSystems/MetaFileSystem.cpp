@@ -29,7 +29,8 @@ static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, 
 
 	while (start < len)
 	{
-		size_t i = pathString.find('/', start);
+		// TODO: This should only be done for ms0:/ etc.
+		size_t i = pathString.find_first_of('/\\', start);
 		if (i == std::string::npos)
 			i = len;
 
