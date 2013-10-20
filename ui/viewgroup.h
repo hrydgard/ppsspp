@@ -291,6 +291,7 @@ public:
 		tabs_[currentTab_]->SetVisibility(V_GONE);
 		currentTab_ = tab;
 		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		tabStrip_->SetSelection(tab);
 	}
 
 	int GetCurrentTab() const { return currentTab_; }
