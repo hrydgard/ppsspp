@@ -19,6 +19,7 @@
 #include "Common/KeyMap.h"
 #include "Core/Config.h"
 #include "ui/ui_atlas.h"
+#include "i18n/i18n.h"
 
 #include <vector>
 #include <string>
@@ -68,6 +69,8 @@ void TouchControlVisibilityScreen::CreateViews() {
 
 	std::map<std::string, int>::iterator imageFinder;
 
+	I18NCategory *mc = GetI18NCategory("MappableControls");
+
 	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
@@ -78,7 +81,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		if (imageFinder != keyImages.end()) {
 			row->Add(new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f)));
 		} else {
-			row->Add(new Choice(i->first, new LinearLayoutParams(1.0f)));
+			row->Add(new Choice(mc->T(i->first.c_str()), new LinearLayoutParams(1.0f)));
 		}
 		grid->Add(row);
 	}
