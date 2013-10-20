@@ -303,7 +303,7 @@ void InitPadLayout() {
 
 	int D_pad_X = 2.5 * D_pad_Radius;
 	int D_pad_Y = dp_yres - D_pad_Radius;
-	if (g_Config.bShowTouchAnalogStick){
+	if (g_Config.bShowTouchAnalogStick) {
 		D_pad_Y -= 200 * scale;
 	}
 
@@ -430,21 +430,12 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	const int halfW = dp_xres / 2;
 
 	if (g_Config.bShowTouchControls) {
-		
 		float scale = g_Config.fButtonScale;
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 #if USE_PAUSE_BUTTON
 		root->Add(new BoolButton(pause, I_ROUND, I_ARROW, scale, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 #endif
-
-=======
-=======
-
->>>>>>> 4936897... Make Toggle All actually function.
 		if (g_Config.bShowTouchCircle)
->>>>>>> 86338a5... Add a touch control visibility screen. All touch controls can now be toggled on or off, except for the Pause button on platforms that have it, as a safety precaution.
 		root->Add(new PSPButton(CTRL_CIRCLE, I_ROUND, I_CIRCLE, scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchCross)

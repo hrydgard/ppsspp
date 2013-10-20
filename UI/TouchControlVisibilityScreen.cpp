@@ -74,10 +74,10 @@ void TouchControlVisibilityScreen::CreateViews() {
 	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
-
-		imageFinder = keyImages.find(i->first);
 		row->Add(new CheckBox(i->second, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
 
+		imageFinder = keyImages.find(i->first);
+		
 		if (imageFinder != keyImages.end()) {
 			row->Add(new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f)));
 		} else {
