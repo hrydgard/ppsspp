@@ -477,13 +477,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		return true;
 	}
 
-	// TODO: Use new interface.
-#if defined(USING_QT_UI)
-	if (host->GpuStep()) {
-		host->SendGPUStart();
-	}
-#endif
-
 	cycleLastPC = list.pc;
 	cyclesExecuted += 60;
 	downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
@@ -543,12 +536,6 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 		host->GPUNotifyCommand(list.pc);
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
-
-		// TODO: Replace.
-#if defined(USING_QT_UI)
-		if (host->GpuStep())
-			host->SendGPUWait(cmd, list.pc, &gstate);
-#endif
 
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		PreExecuteOp(op, diff);

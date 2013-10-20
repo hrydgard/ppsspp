@@ -72,10 +72,6 @@ public:
 	virtual void GPUNotifyTextureAttachment(u32 addr) {}
 	virtual bool GPUAllowTextureCache(u32 addr) { return true; }
 
-	virtual bool GpuStep() { return false; }
-	virtual void SendGPUStart() {}
-	virtual void SendGPUWait(u32 cmd, u32 addr, void* data) {}
-
 	virtual bool CanCreateShortcut() {return false;}
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 

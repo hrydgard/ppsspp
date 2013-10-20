@@ -44,10 +44,13 @@ public:
 	void ShutdownSound();
 
 	bool IsDebuggingEnabled();
+	bool GPUDebuggingActive();
 	void BootDone();
 	void PrepareShutdown();
 	bool AttemptLoadSymbolMap();
 	void SetWindowTitle(const char *message);
+
+	void GPUNotifyCommand(u32 pc);
 
 	void SendCoreWait(bool);
 	bool GpuStep();
