@@ -73,7 +73,25 @@ public:
 		crossId_ = I_CROSS;
 		triangleId_ = I_TRIANGLE;
 		squareId_ = I_SQUARE;
+
+		circleVisible_ = triangleVisible_ = squareVisible_ = crossVisible_ = true;
 	};
+
+	void setCircleVisibility(bool visible){
+		circleVisible_ = visible;
+	}
+
+	void setCrossVisibility(bool visible){
+		crossVisible_ = visible;
+	}
+
+	void setTriangleVisibility(bool visible){
+		triangleVisible_ = visible;
+	}
+
+	void setSquareVisibility(bool visible){
+		squareVisible_ = visible;
+	}
 
 	void Draw(UIContext &dc) {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
@@ -84,17 +102,25 @@ public:
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
 
-		dc.Draw()->DrawImageRotated(roundId_, centerX + actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
-		dc.Draw()->DrawImageRotated(circleId_,  centerX + actionButtonSpacing_, centerY, scale_, 0, color, false);
+		if (circleVisible_) {
+			dc.Draw()->DrawImageRotated(roundId_, centerX + actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(circleId_,  centerX + actionButtonSpacing_, centerY, scale_, 0, color, false);
+		}
 
-		dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + actionButtonSpacing_, scale_, 0, colorBg, false);
-		dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + actionButtonSpacing_, scale_, 0, color, false);
+		if (crossVisible_) {
+			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + actionButtonSpacing_, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + actionButtonSpacing_, scale_, 0, color, false);
+		}
 
-		dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - actionButtonSpacing_, scale_, 0, colorBg, false);
-		dc.Draw()->DrawImageRotated(triangleId_, centerX, centerY - actionButtonSpacing_, scale_, 0, color, false);
-
-		dc.Draw()->DrawImageRotated(roundId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
-		dc.Draw()->DrawImageRotated(squareId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, color, false);
+		if (triangleVisible_) {
+			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - actionButtonSpacing_, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(triangleId_, centerX, centerY - actionButtonSpacing_, scale_, 0, color, false);
+		}
+		
+		if (squareVisible_){
+			dc.Draw()->DrawImageRotated(roundId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(squareId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, color, false);
+		}
 	};
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
@@ -107,6 +133,9 @@ public:
 	};
 
 private:
+
+	bool circleVisible_, crossVisible_, triangleVisible_, squareVisible_;
+
 	int roundId_;
 	int circleId_, crossId_, triangleId_, squareId_;
 
@@ -256,33 +285,61 @@ void TouchControlLayoutScreen::CreateViews() {
 	//serves no other purpose.
 	AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	float scale = g_Config.fButtonScale;
-	controls_.clear();
-	controls_.push_back(new PSPActionButtons(g_Config.iActionButtonCenterX, g_Config.iActionButtonCenterY, g_Config.iActionButtonSpacing, scale));
-	controls_.push_back(new PSPDPadButtons(g_Config.iDpadX, g_Config.iDpadY, g_Config.iDpadRadius, scale));
-
-	controls_.push_back(new DragDropButton(g_Config.iSelectKeyX, g_Config.iSelectKeyY, I_RECT, I_SELECT, scale));
-	controls_.push_back(new DragDropButton(g_Config.iStartKeyX, g_Config.iStartKeyY, I_RECT, I_START, scale));
-	DragDropButton *unthrottle = new DragDropButton(g_Config.iUnthrottleKeyX, g_Config.iUnthrottleKeyY, I_RECT, I_ARROW, scale);
-	unthrottle->SetAngle(180.0f);
-	controls_.push_back(unthrottle);
-
-	controls_.push_back(new DragDropButton(g_Config.iLKeyX, g_Config.iLKeyY, I_SHOULDER, I_L, scale));
-	DragDropButton *rbutton = new DragDropButton(g_Config.iRKeyX, g_Config.iRKeyY, I_SHOULDER, I_R, scale);
-	rbutton->FlipImageH(true);
-	controls_.push_back(rbutton);
-
-	if (g_Config.bShowTouchAnalogStick) {
-		controls_.push_back(new DragDropButton(g_Config.iAnalogStickX, g_Config.iAnalogStickY, I_STICKBG, I_STICK, scale));
-	};
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
 	I18NCategory *c = GetI18NCategory("Controls");
 	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
+	
+	if(!g_Config.bShowTouchControls){
+		return;
+	}
+
+	float scale = g_Config.fButtonScale;
+	controls_.clear();
+
+
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.iActionButtonCenterX, g_Config.iActionButtonCenterY, g_Config.iActionButtonSpacing, scale);
+	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
+	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
+	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
+	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
+
+	controls_.push_back(actionButtons);
+	
+	if (g_Config.bShowTouchCross) {
+		controls_.push_back(new PSPDPadButtons(g_Config.iDpadX, g_Config.iDpadY, g_Config.iDpadRadius, scale));
+	}
+
+	if (g_Config.bShowTouchSelect)
+		controls_.push_back(new DragDropButton(g_Config.iSelectKeyX, g_Config.iSelectKeyY, I_RECT, I_SELECT, scale));
+	
+	if (g_Config.bShowTouchStart)
+		controls_.push_back(new DragDropButton(g_Config.iStartKeyX, g_Config.iStartKeyY, I_RECT, I_START, scale));
+	
+	if (g_Config.bShowTouchUnthrottle) {
+		DragDropButton *unthrottle = new DragDropButton(g_Config.iUnthrottleKeyX, g_Config.iUnthrottleKeyY, I_RECT, I_ARROW, scale);
+		unthrottle->SetAngle(180.0f);
+		controls_.push_back(unthrottle);
+	}
+
+	if (g_Config.bShowTouchLTrigger)
+		controls_.push_back(new DragDropButton(g_Config.iLKeyX, g_Config.iLKeyY, I_SHOULDER, I_L, scale));
+	
+	if (g_Config.bShowTouchRTrigger) {
+		DragDropButton *rbutton = new DragDropButton(g_Config.iRKeyX, g_Config.iRKeyY, I_SHOULDER, I_R, scale);
+		rbutton->FlipImageH(true);
+		controls_.push_back(rbutton);
+	}
+
+	if (g_Config.bShowTouchAnalogStick) {
+		controls_.push_back(new DragDropButton(g_Config.iAnalogStickX, g_Config.iAnalogStickY, I_STICKBG, I_STICK, scale));
+	};
+
 	for (size_t i = 0; i < controls_.size(); i++) {
 		root_->Add(controls_[i]);
 	}
+
 };
 
 // return the control which was picked up by the touchEvent. If a control
