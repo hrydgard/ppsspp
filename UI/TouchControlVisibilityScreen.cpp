@@ -73,11 +73,16 @@ void TouchControlVisibilityScreen::CreateViews() {
 		row->Add(new CheckBox(i->second, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
 
 		imageFinder = keyImages.find(i->first);
-		
+		Choice *choice;
+
 		if (imageFinder != keyImages.end()) {
-			row->Add(new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f)));
+			choice = new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f));
+			choice->SetCentered(true);
+			row->Add(choice);
 		} else {
-			row->Add(new Choice(mc->T(i->first.c_str()), new LinearLayoutParams(1.0f)));
+			choice = new Choice(mc->T(i->first.c_str()), new LinearLayoutParams(1.0f));
+			choice->SetCentered(true);
+			row->Add(choice);
 		}
 		grid->Add(row);
 	}
