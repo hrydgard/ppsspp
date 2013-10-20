@@ -511,6 +511,7 @@ void MainScreen::CreateViews() {
 		m->T("How to get homebrew & demos"), "http://www.ppsspp.org/gethomebrew.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
+	
 	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
@@ -526,8 +527,14 @@ void MainScreen::CreateViews() {
 	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
+
+	if (g_Config.recentIsos.size() > 0) {
+		leftColumn->SetCurrentTab(0);
+	}else{
+		leftColumn->SetCurrentTab(1);
+	}
 /*
-	if (info) {
+	if (info) {	
 		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
 		tvGameSize_ = leftColumn->Add(new TextView(0, "...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 250, NONE, NONE)));
