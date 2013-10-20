@@ -17,7 +17,7 @@
 
 #include "TouchControlVisibilityScreen.h"
 #include "Core/Config.h"
-#include "ui/ui_atlas.h"
+#include "UI/ui_atlas.h"
 #include "i18n/i18n.h"
 
 void TouchControlVisibilityScreen::CreateViews() {
