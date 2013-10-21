@@ -710,6 +710,8 @@ void GamePauseScreen::key(const KeyInput &key) {
 	}
 }
 
+void DrawBackground(float alpha);
+
 void GamePauseScreen::DrawBackground(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
 	dc.Flush();
@@ -728,6 +730,10 @@ void GamePauseScreen::DrawBackground(UIContext &dc) {
 			dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
 			dc.Flush();
 			dc.RebindTexture();
+		} else {
+			::DrawBackground(1.0f);			
+			dc.RebindTexture();
+			dc.Flush();
 		}
 	}
 }
