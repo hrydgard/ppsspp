@@ -111,10 +111,10 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-#if defined(Q_OS_LINUX) && !defined(ARM)
-	g_dpi_scale = 1.0f;
-#else
+#ifdef ARM
 	g_dpi_scale = CalculateDPIScale();
+#else
+	g_dpi_scale = 1.0f;
 #endif
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	net::Init();
@@ -139,7 +139,11 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 #if !defined(Q_OS_LINUX) || defined(ARM)
 	MainUI w;
 	w.resize(pixel_xres, pixel_yres);
+#ifdef ARM
 	w.showFullScreen();
+#else
+	w.show();
+#endif
 #endif
 #ifdef __SYMBIAN32__
 	// Set RunFast hardware mode for VFPv2.
