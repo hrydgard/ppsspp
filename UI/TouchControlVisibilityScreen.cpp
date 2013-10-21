@@ -101,6 +101,8 @@ UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
 		*i->second = toggleSwitch;
 	}
+
 	toggleSwitch = !toggleSwitch;
+
 	return UI::EVENT_DONE;
 }
