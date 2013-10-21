@@ -861,6 +861,7 @@ void TextureCache::SetTexture(bool force) {
 			} else {
 				// Make sure we re-evaluate framebuffers.
 				DetachFramebuffer(entry, texaddr, entry->framebuffer);
+				match = false;
 			}
 		}
 
