@@ -26,7 +26,6 @@ public:
 	TouchControlVisibilityScreen() { }
 
 	virtual void CreateViews();
-	bool toggleSwitch;
 
 protected:
 	virtual UI::EventReturn OnBack(UI::EventParams &e);
@@ -34,4 +33,5 @@ protected:
 
 private:
 	std::map<std::string, bool*> keyToggles;
+	bool toggleSwitch;
 };

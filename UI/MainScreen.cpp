@@ -586,11 +586,11 @@ void MainScreen::CreateViews() {
 }
 
 void MainScreen::sendMessage(const char *message, const char *value) {
+	// Always call the base class method first to handle the most common messages.
+	UIScreenWithBackground::sendMessage(message, value);
+
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
-	}
-	if (!strcmp(message, "language")) {
-		screenManager()->RecreateAllViews();
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
@@ -845,6 +845,8 @@ UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 }
 
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
+	// Since the language message isn't allowed to be in native, we have to have add this
+	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
 	if (!strcmp(message, "language")) {
 		screenManager()->RecreateAllViews();
 	}

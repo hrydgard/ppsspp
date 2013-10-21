@@ -33,6 +33,7 @@ public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
 	virtual void DrawBackground(UIContext &dc);
+	virtual void sendMessage(const char *message, const char *value);
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
@@ -40,6 +41,7 @@ public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
 	virtual void DrawBackground(UIContext &dc);
+	virtual void sendMessage(const char *message, const char *value);
 };
 
 class PromptScreen : public UIDialogScreenWithBackground {

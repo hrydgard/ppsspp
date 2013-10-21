@@ -94,14 +94,28 @@ void DrawBackground(float alpha) {
 	}
 }
 
+void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager) {
+	if (!strcmp(message, "language")) {
+		manager->RecreateAllViews();
+	}
+}
+
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
 	dc.Flush();
 }
 
+void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
+	HandleCommonMessages(message, value, screenManager());
+}
+
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
 	dc.Flush();
+}
+
+void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
+	HandleCommonMessages(message, value, screenManager());
 }
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
