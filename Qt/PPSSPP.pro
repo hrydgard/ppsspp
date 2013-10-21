@@ -1,56 +1,60 @@
 TARGET = PPSSPPQt
-
-QT += core gui opengl
-win32|greaterThan(QT_MAJOR_VERSION,4) {
-    QT += multimedia
-} else {
-    CONFIG += mobility
-    MOBILITY += multimedia
-}
-greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 VERSION = 0.9.1
 
+# Main Qt modules
+QT += core gui opengl
 include(Settings.pri)
+
+# Extra Qt modules
+linux: CONFIG += link_pkgconfig
+win32|greaterThan(QT_MAJOR_VERSION,4) {
+	QT += multimedia
+} else {
+	linux:packagesExist(QtMultimedia) {
+		QT += multimedia
+	} else {
+		CONFIG += mobility
+		MOBILITY += multimedia
+	}
+}
+greaterThan(QT_MAJOR_VERSION,4): QT += widgets
+
 mobile_platform: MOBILITY += sensors
 symbian: MOBILITY += systeminfo
 
-# Libs
-symbian {
-	LIBS += -lCore.lib -lCommon.lib -lNative.lib -llibglib -lhwrmvibraclient
-	# For now you have to copy these to the Symbian lib dir using ffmpeg/symbian-install.sh
-	LIBS += -lavformat.lib -lavcodec.lib -lavutil.lib -lswresample.lib -lswscale.lib
-}
-qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
+# PPSSPP Libs
+win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/release/
+else:win32:CONFIG(debug, debug|release): LIBS += -L$$OUT_PWD/debug/
+else:unix: LIBS += -L$$OUT_PWD
+else:symbian: XT=".lib"
+LIBS += -lCore$${XT} -lCommon$${XT} -lNative$${XT}
+
+# FFMPEG Path
+win32:  FFMPEG_DIR = ../ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
+linux:  FFMPEG_DIR = ../ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
+qnx:    FFMPEG_DIR = ../ffmpeg/blackberry/armv7/lib/
+symbian:FFMPEG_DIR = -l
+
+# External (platform-dependant) libs
+unix: LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
+else: LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${FFMPEG_DIR}avutil.lib $${FFMPEG_DIR}swresample.lib $${FFMPEG_DIR}swscale.lib
+
 win32 {
-	CONFIG(release, debug|release) {
-		LIBS += -L$$OUT_PWD/release
-	} else {
-		LIBS += -L$$OUT_PWD/debug
-	}
-	FFMPEG_DIR = ../ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32 -lShell32 -lAdvapi32
-	contains($$QMAKE_TARGET.arch, x86_64) {
-		LIBS += $$files(../dx9sdk/Lib/x64/*.lib)
-	} else {
-		LIBS += $$files(../dx9sdk/Lib/x86/*.lib)
-	}
-	LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${FFMPEG_DIR}avutil.lib $${FFMPEG_DIR}swresample.lib $${FFMPEG_DIR}swscale.lib
+	LIBS += -lwinmm -lws2_32 -lShell32 -lAdvapi32
+	contains($$QMAKE_TARGET.arch, x86_64): LIBS += $$files(../dx9sdk/Lib/x64/*.lib)
+	else: LIBS += $$files(../dx9sdk/Lib/x86/*.lib)
 }
 linux {
-	LIBS += -L. -lCore -lCommon -lNative -ldl
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
-	!mobile_platform {
-		CONFIG += link_pkgconfig
-		packagesExist(sdl) {
-			DEFINES += QT_HAS_SDL
-			PKGCONFIG += sdl
-		}
-		FFMPEG_DIR = ../ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
-		LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
+	packagesExist(sdl) {
+		DEFINES += QT_HAS_SDL
+		PKGCONFIG += sdl
 	}
-	# put this at the end avoids problems with some compilers
-	LIBS += -lz
 }
+qnx: LIBS += -lscreen
+symbian: LIBS += -llibglib -lhwrmvibraclient
+# Avoids problems with some compilers
+unix: LIBS += -lz
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
@@ -68,16 +72,24 @@ SOURCES += ../UI/*Screen.cpp \
 HEADERS += ../UI/*.h
 INCLUDEPATH += .. ../Common ../native
 
-# Temporarily only use new UI for Linux desktop
+# Use forms UI for Linux desktop
 linux:!mobile_platform {
-	MOC_DIR = moc
-	UI_DIR = ui
-	RCC_DIR = rcc
 	SOURCES += *.cpp
 	HEADERS += *.h
 	FORMS += *.ui
 	RESOURCES += resources.qrc
 	INCLUDEPATH += ../Qt
+
+	# Translations
+	TRANSLATIONS = $$files(languages/ppsspp_*.ts)
+
+	lang.name = lrelease ${QMAKE_FILE_IN}
+	lang.input = TRANSLATIONS
+	lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
+	lang.commands = $$[QT_INSTALL_BINS]/lrelease ${QMAKE_FILE_IN}
+	lang.CONFIG = no_link
+	QMAKE_EXTRA_COMPILERS += lang
+	PRE_TARGETDEPS += compiler_lang_make_all
 } else {
 	# Desktop handles the Init separately
 	SOURCES += ../UI/NativeApp.cpp
@@ -90,29 +102,11 @@ symbian {
 	SOURCES += ../UI/ui_atlas.cpp
 }
 
-# Translations
-TRANSLATIONS = $$files(languages/ppsspp_*.ts)
-
-lang.name = lrelease ${QMAKE_FILE_IN}
-lang.input = TRANSLATIONS
-lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
-lang.commands = $$[QT_INSTALL_BINS]/lrelease ${QMAKE_FILE_IN}
-lang.CONFIG = no_link
-QMAKE_EXTRA_COMPILERS += lang
-PRE_TARGETDEPS += compiler_lang_make_all
-
 # Packaging
 symbian {
-	# App UID:
 	TARGET.UID3 = 0xE0095B1D
-
-	# App Name:
 	DEPLOYMENT.display_name = PPSSPP
-
-	# App Vendor:
 	vendor_deploy.pkg_prerules = "%{\"Qtness\"}" ":\"Qtness\""
-
-	# App Icon:
 	ICON = ../assets/icon.svg
 
 	# Folders:
@@ -121,12 +115,9 @@ symbian {
 	shaders.sources = ../assets/shaders
 	shaders.path = E:/PPSSPP/PSP
 	lang.sources = $$files(../lang/*.ini)
-# Unsupported languages on Symbian.
-contains(QMAKE_HOST.os, "Windows") {
-	lang.sources -= ..\\lang/ja_JP.ini ..\\lang/ko_KR.ini ..\\lang/zh_CN.ini ..\\lang/zh_TW.ini
-} else {
-	lang.sources -= ../lang/ja_JP.ini ../lang/ko_KR.ini ../lang/zh_CN.ini ../lang/zh_TW.ini
-}
+	# Unsupported languages on Symbian. Slashes differ depending on host.
+	contains(QMAKE_HOST.os, "Windows"): lang.sources -= ..\\lang/ja_JP.ini ..\\lang/ko_KR.ini ..\\lang/zh_CN.ini ..\\lang/zh_TW.ini
+	else: lang.sources -= ../lang/ja_JP.ini ../lang/ko_KR.ini ../lang/zh_CN.ini ../lang/zh_TW.ini
 	lang.path = E:/PPSSPP/lang
 
 	DEPLOYMENT += vendor_deploy assets shaders lang
