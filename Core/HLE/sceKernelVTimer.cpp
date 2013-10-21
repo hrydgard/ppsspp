@@ -93,8 +93,23 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 
 	vt->nvt.schedule = schedule;
 
-	if (vt->nvt.active == 1 && vt->nvt.handlerAddr != 0)
-		CoreTiming::ScheduleEvent(usToCycles((u64)vt->nvt.schedule), vtimerTimer, vt->GetUID());
+	if (vt->nvt.active == 1 && vt->nvt.handlerAddr != 0) {
+		// The "real" base is base + current.  But when setting the time, base is important.
+		// The schedule is relative to those.
+		u64 cyclesIntoFuture;
+		// It seems like the minimum is approximately 200us?
+		if (schedule < __getVTimerCurrentTime(vt))
+			cyclesIntoFuture = usToCycles(200);
+		else {
+			u64 goalTicks = usToCycles(vt->nvt.base + schedule - vt->nvt.current);
+			if (goalTicks < CoreTiming::GetTicks())
+				cyclesIntoFuture = usToCycles(200);
+			else
+				cyclesIntoFuture = goalTicks - CoreTiming::GetTicks();
+		}
+
+		CoreTiming::ScheduleEvent(cyclesIntoFuture, vtimerTimer, vt->GetUID());
+	}
 }
 
 void __rescheduleVTimer(SceUID id, int delay) {
@@ -104,10 +119,10 @@ void __rescheduleVTimer(SceUID id, int delay) {
 	if (error)
 		return;
 
-	if (delay < 0)
+	if (delay < 100)
 		delay = 100;
 
-	__KernelScheduleVTimer(vt, delay);
+	__KernelScheduleVTimer(vt, vt->nvt.schedule + delay);
 }
 
 class VTimerIntrHandler : public IntrHandler
