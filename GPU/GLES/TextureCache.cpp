@@ -135,7 +135,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 				// Start it over from 0 (unless it's safe.)
 				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
 				iter->second.framesUntilNextFullHash = 0;
-			} else {
+			} else if (!iter->second.framebuffer) {
 				iter->second.invalidHint++;
 			}
 		}
@@ -148,7 +148,9 @@ void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
 			// Clear status -> STATUS_HASHING.
 			iter->second.status &= ~TexCacheEntry::STATUS_MASK;
 		}
-		iter->second.invalidHint++;
+		if (!iter->second.framebuffer) {
+			iter->second.invalidHint++;
+		}
 	}
 }
 
@@ -850,11 +852,16 @@ void TextureCache::SetTexture(bool force) {
 #endif
 
 		// Check for FBO - slow!
-		if (entry->framebuffer && match) {
-			SetTextureFramebuffer(entry);
-			lastBoundTexture = -1;
-			entry->lastFrame = gpuStats.numFlips;
-			return;
+		if (entry->framebuffer) {
+			if (match) {
+				SetTextureFramebuffer(entry);
+				lastBoundTexture = -1;
+				entry->lastFrame = gpuStats.numFlips;
+				return;
+			} else {
+				// Make sure we re-evaluate framebuffers.
+				DetachFramebuffer(entry, texaddr, entry->framebuffer);
+			}
 		}
 
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
