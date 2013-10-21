@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QDebug>
 #include <QDir>
+#include <QCoreApplication>
 
 #include "QtHost.h"
 #include "LogManager.h"
@@ -313,8 +314,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = QDir::homePath().toStdString();
 	}
 
-	g_Config.memCardDirectory = QDir::homePath().toStdString()+"/.ppsspp/";
-	g_Config.flash0Directory = g_Config.memCardDirectory+"/flash0/";
+	g_Config.memCardDirectory = QDir::homePath().toStdString() + "/.ppsspp/";
+
+#if defined(Q_OS_LINUX) && !defined(ARM)
+	std::string program_path = QCoreApplication::applicationDirPath().toStdString();
+	if (File::Exists(program_path + "/flash0"))
+		g_Config.flash0Directory = program_path + "/flash0/";
+	else if (File::Exists(program_path + "/../flash0"))
+		g_Config.flash0Directory = program_path + "/../flash0/";
+	else
+		g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
+#else
+	g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
+#endif
 
 	LogManager::Init();
 	if (fileToLog != NULL)
