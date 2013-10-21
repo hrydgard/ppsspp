@@ -329,8 +329,9 @@ int main(int argc, const char* argv[])
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #elif !defined(_WIN32)
-	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
-	g_Config.flash0Directory = g_Config.memCardDirectory+"/flash/";
+	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	// TODO: This isn't a great place.
+	g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
 #endif
 
 	if (screenshotFilename != 0)
