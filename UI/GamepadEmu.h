@@ -26,7 +26,7 @@
 class MultiTouchButton : public UI::View {
 public:
 	MultiTouchButton(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: UI::View(layoutParams), pointerDownMask_(0), bgImg_(bgImg), img_(img), scale_(scale), angle_(0.0f), flipImageH_(false) {
+		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
 	}
 
 	virtual void Key(const KeyInput &input) {}
