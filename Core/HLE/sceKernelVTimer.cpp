@@ -80,8 +80,6 @@ int __KernelCancelVTimer(SceUID id) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
 
-	// TODO: 0 returns a different error code, except inside the handler?
-	// Also, inside the handler returns that same different error code for the timer?
 	if (!vt)
 		return error;
 
@@ -355,6 +353,11 @@ void __startVTimer(VTimer *vt) {
 }
 
 u32 sceKernelStartVTimer(u32 uid) {
+	if (uid == runningVTimer) {
+		WARN_LOG(SCEKERNEL, "sceKernelStartVTimer(%08x): invalid vtimer", uid);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
+
 	DEBUG_LOG(SCEKERNEL, "sceKernelStartVTimer(%08x)", uid);
 
 	u32 error;
