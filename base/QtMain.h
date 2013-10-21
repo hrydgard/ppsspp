@@ -192,8 +192,8 @@ public:
 		fmt.setChannelCount(AUDIO_CHANNELS);
 		fmt.setSampleSize(AUDIO_SAMPLESIZE);
 		fmt.setByteOrder(QAudioFormat::LittleEndian);
-		fmt.setSampleType(QAudioFormat::SignedInt);
-		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
+		fmt.setSampleType(QAudioFormat::Float);
+		mixlen = 4*AUDIO_CHANNELS*AUDIO_SAMPLES;
 		mixbuf = (char*)malloc(mixlen);
 		output = new QAudioOutput(fmt);
 		output->setBufferSize(mixlen);
