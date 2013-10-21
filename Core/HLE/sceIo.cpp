@@ -1797,7 +1797,8 @@ u32 sceIoPollAsync(int id, u32 address) {
 			}
 			return 0; //completed
 		} else {
-			WARN_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoPollAsync(%i, %08x)", id, address);
+			// This seems to be normal-ish usage so demoted to DEBUG from WARN.
+			DEBUG_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoPollAsync(%i, %08x)", id, address);
 			return SCE_KERNEL_ERROR_NOASYNC;
 		}
 	} else {

@@ -799,7 +799,7 @@ u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr)
 		//return -1;
 	} else {
 		if (Memory::IsValidAddress(errorAddr))
-			Memory::Write_U32(-1, errorAddr);
+			Memory::Write_U32(0, errorAddr);
 	}
 	return 0;
 }
@@ -1665,32 +1665,33 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			av_init_packet(&packet);
 			int got_frame, avret;
 			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-				if (packet.stream_index == atrac->audio_stream_index) {
-					got_frame = 0;
-					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
-					if (avret < 0) {
-						ERROR_LOG(ME, "atracID: %i, avcodec_decode_audio4: Error decoding audio %d", atracID, avret);
-						av_free_packet(&packet);
-						atrac->failedDecode = true;
-						break;
-					}
+				if (packet.stream_index != atrac->audio_stream_index)
+					continue;
 
-					if (got_frame) {
-						// got a frame
-						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
-							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-						u8* out = Memory::GetPointer(samplesAddr);
-						numSamples = atrac->pFrame->nb_samples;
-						avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-							(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
-						if (avret < 0) {
-							ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-						}
-					}
+				got_frame = 0;
+				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+				if (avret < 0) {
+					ERROR_LOG(ME, "atracID: %i, avcodec_decode_audio4: Error decoding audio %d", atracID, avret);
 					av_free_packet(&packet);
-					if (got_frame)
-						break;
+					atrac->failedDecode = true;
+					break;
 				}
+
+				if (got_frame) {
+					// got a frame
+					int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
+						atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
+					u8* out = Memory::GetPointer(samplesAddr);
+					numSamples = atrac->pFrame->nb_samples;
+					avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
+						(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+					if (avret < 0) {
+						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+					}
+				}
+				av_free_packet(&packet);
+				if (got_frame)
+					break;
 			}
 		}
 
