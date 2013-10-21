@@ -307,7 +307,10 @@ u64 sceKernelGetVTimerTimeWide(u32 uid) {
 
 u64 __KernelSetVTimer(VTimer *vt, u64 time) {
 	u64 current = __getVTimerCurrentTime(vt);
-	vt->nvt.current = time;
+	vt->nvt.current = time - __getVTimerRunningTime(vt);
+
+	// Run if we're now passed the schedule.
+	__KernelScheduleVTimer(vt, vt->nvt.schedule);
 
 	return current;
 }
