@@ -25,8 +25,8 @@ symbian: MOBILITY += systeminfo
 # PPSSPP Libs
 win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/release/
 else:win32:CONFIG(debug, debug|release): LIBS += -L$$OUT_PWD/debug/
-else:unix: LIBS += -L$$OUT_PWD
 else:symbian: XT=".lib"
+else:unix: LIBS += -L$$OUT_PWD
 LIBS += -lCore$${XT} -lCommon$${XT} -lNative$${XT}
 
 # FFMPEG Path
@@ -36,8 +36,8 @@ qnx:    FFMPEG_DIR = ../ffmpeg/blackberry/armv7/lib/
 symbian:FFMPEG_DIR = -l
 
 # External (platform-dependant) libs
-unix: LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
-else: LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${FFMPEG_DIR}avutil.lib $${FFMPEG_DIR}swresample.lib $${FFMPEG_DIR}swscale.lib
+win32|symbian: LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${FFMPEG_DIR}avutil.lib $${FFMPEG_DIR}swresample.lib $${FFMPEG_DIR}swscale.lib
+else: LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
 
 win32 {
 	LIBS += -lwinmm -lws2_32 -lShell32 -lAdvapi32
@@ -54,7 +54,7 @@ linux {
 qnx: LIBS += -lscreen
 symbian: LIBS += -llibglib -lhwrmvibraclient
 # Avoids problems with some compilers
-unix: LIBS += -lz
+unix:!symbian: LIBS += -lz
 
 # Main
 SOURCES += ../native/base/QtMain.cpp

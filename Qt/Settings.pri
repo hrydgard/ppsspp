@@ -1,5 +1,5 @@
 DEFINES += USING_QT_UI USE_FFMPEG
-unix:!qnx:!macx: CONFIG += linux
+unix:!qnx:!symbian:!macx: CONFIG += linux
 
 # Global specific
 INCLUDEPATH += ../ext/zlib ../native/ext/glew ../Common
