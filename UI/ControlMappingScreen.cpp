@@ -214,9 +214,10 @@ void ControlMappingScreen::CreateViews() {
 }
 
 void ControlMappingScreen::sendMessage(const char *message, const char *value) {
-	if (!strcmp(message, "language")) {
-		screenManager()->RecreateAllViews();
-	}
+	// Always call the base class method first, to handle common messages, then
+	// handle other specific messages after.
+	UIDialogScreenWithBackground::sendMessage(message, value);
+
 	if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));

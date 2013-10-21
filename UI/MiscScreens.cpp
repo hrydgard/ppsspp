@@ -30,6 +30,8 @@
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
+#include "UI/GameSettingsScreen.h"
+#include "UI/ControlMappingScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
@@ -99,9 +101,21 @@ void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	dc.Flush();
 }
 
+void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		screenManager()->RecreateAllViews();
+	}
+}
+
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
 	dc.Flush();
+}
+
+void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		screenManager()->RecreateAllViews();
+	}
 }
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
