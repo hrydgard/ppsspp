@@ -179,7 +179,7 @@ private:
 // Audio
 #define AUDIO_FREQ 44100
 #define AUDIO_CHANNELS 2
-#define AUDIO_SAMPLES 1024
+#define AUDIO_SAMPLES 2048
 #define AUDIO_SAMPLESIZE 16
 class MainAudio: public QObject
 {
@@ -192,7 +192,7 @@ public:
 		fmt.setChannelCount(AUDIO_CHANNELS);
 		fmt.setSampleSize(AUDIO_SAMPLESIZE);
 		fmt.setByteOrder(QAudioFormat::LittleEndian);
-		fmt.setSampleType(QAudioFormat::Float);
+		fmt.setSampleType(QAudioFormat::SignedInt);
 		mixlen = 4*AUDIO_CHANNELS*AUDIO_SAMPLES;
 		mixbuf = (char*)malloc(mixlen);
 		output = new QAudioOutput(fmt);
