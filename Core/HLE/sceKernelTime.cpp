@@ -80,9 +80,9 @@ u64 sceKernelGetSystemTimeWide()
 
 int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
 {
-	DEBUG_LOG(SCEKERNEL,"sceKernelUSec2SysClock(%i, %08x )", usec, clockPtr);
+	DEBUG_LOG(SCEKERNEL,"sceKernelUSec2SysClock(%i, %08x)", usec, clockPtr);
 	if (Memory::IsValidAddress(clockPtr))
-		Memory::Write_U32((usec & 0xFFFFFFFFL), clockPtr);
+		Memory::Write_U64((usec & 0xFFFFFFFFL), clockPtr);
 	hleEatCycles(165);
 	return 0;
 }
