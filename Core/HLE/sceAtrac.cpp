@@ -592,39 +592,45 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 				av_init_packet(&packet);
 				int got_frame, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-					if (packet.stream_index == atrac->audio_stream_index) {
-						got_frame = 0;
-						avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
-						if (avret < 0) {
-							ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
-							av_free_packet(&packet);
-							// Avoid getting stuck in a loop (Virtua Tennis)
-							*SamplesNum = 0;
-							*finish = 1;
-							*remains = 0;
-							return ATRAC_ERROR_ALL_DATA_DECODED;
-						}
+					if (packet.stream_index != atrac->audio_stream_index)
+						continue;
 
-						if (got_frame) {
-							// got a frame
-							int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
-								atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-							u8 *out = outbuf;
-							if (out != NULL) {
-								numSamples = atrac->pFrame->nb_samples;
-								avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-									(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
-								if (avret < 0) {
-									ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-								}
+					got_frame = 0;
+					int bytes_in_packet = packet.size;
+					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+					if (avret < 0) {
+						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
+						// No need to free the packet if decode_audio4 fails.
+						// Avoid getting stuck in a loop (Virtua Tennis)
+						*SamplesNum = 0;
+						*finish = 1;
+						*remains = 0;
+						return ATRAC_ERROR_ALL_DATA_DECODED;
+					}
+					if (avret != packet.size) {
+						ERROR_LOG_REPORT_ONCE(multipacket, ME, "WARNING: Remaining data in packet - we currently only decode one frame/packet");
+					}
+
+					if (got_frame) {
+						// got a frame
+						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
+							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
+						u8 *out = outbuf;
+						if (out != NULL) {
+							numSamples = atrac->pFrame->nb_samples;
+							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
+								(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+							if (avret < 0) {
+								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
 						}
-						av_free_packet(&packet);
-						if (got_frame)
-							break;
+					}
+					av_free_packet(&packet);
+					if (got_frame) {
+						// We only want one frame per call, let's continue the next time.
+						break;
 					}
 				}
-
 			}
 #endif // USE_FFMPEG
 
