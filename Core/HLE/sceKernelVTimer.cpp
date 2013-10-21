@@ -473,8 +473,12 @@ u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
 		return error;
 	}
 
-	if (Memory::IsValidAddress(statusAddr))
-		Memory::WriteStruct(statusAddr, &vt->nvt);
+	if (Memory::IsValidAddress(statusAddr)) {
+		NativeVTimer status = vt->nvt;
+		u32 size = Memory::Read_U32(statusAddr);
+		status.current = __getVTimerCurrentTime(vt);
+		Memory::Memcpy(statusAddr, &status, std::min(size, (u32)sizeof(status)));
+	}
 
 	return 0;
 }
