@@ -62,23 +62,18 @@ void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
 #if defined(__i386__)
 		"pushl %%ebx;\n\t"
 #endif
-		"movl %4, %%eax;\n\t"
-		"movl %5, %%ecx;\n\t"
 		"cpuid;\n\t"
-		"movl %%eax, %0;\n\t"
 		"movl %%ebx, %1;\n\t"
-		"movl %%ecx, %2;\n\t"
-		"movl %%edx, %3;\n\t"
 #if defined(__i386__)
 		"popl %%ebx;\n\t"
 #endif
-		:"=m" (regs[0]), "=m" (regs[1]), "=m" (regs[2]), "=m" (regs[3])
-		:"r" (cpuid_leaf), "r" (ecxval)
-		:"%eax",
+		:"=a" (regs[0]), "=m" (regs[1]), "=c" (regs[2]), "=d" (regs[3])
+		:"a" (cpuid_leaf), "c" (ecxval)
 #if !defined(__i386__)
-		"%ebx",
+		:"%ebx");
+#else
+		);
 #endif
-		"%ecx", "%edx");
 #endif
 }
 void __cpuid(int regs[4], int cpuid_leaf)
