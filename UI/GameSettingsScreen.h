@@ -93,7 +93,6 @@ public:
 
 protected:
 	virtual void CreateViews();
-	virtual void sendMessage(const char *message, const char *value);
 
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);

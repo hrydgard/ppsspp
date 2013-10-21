@@ -586,11 +586,12 @@ void MainScreen::CreateViews() {
 }
 
 void MainScreen::sendMessage(const char *message, const char *value) {
+	// Always call the base class method first, to handle common messages, then
+	// handle other specific messages after.
+	UIScreenWithBackground::sendMessage(message, value);
+
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
-	}
-	if (!strcmp(message, "language")) {
-		screenManager()->RecreateAllViews();
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);

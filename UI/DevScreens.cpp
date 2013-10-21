@@ -196,7 +196,9 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
 	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));
 	deviceSpecs->Add(new ItemHeader("OpenGL Version Information"));
-	deviceSpecs->Add(new InfoItem("OpenGL", (char *)glGetString(GL_VERSION)));
+	std::string openGL = (char *)glGetString(GL_VERSION);
+	openGL.resize(30);
+	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
 	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
 	
 	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
