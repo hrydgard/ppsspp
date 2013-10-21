@@ -3596,7 +3596,8 @@ void sceKernelCheckCallback()
 	bool callbacksProcessed = __KernelForceCallbacks();
 
 	if (callbacksProcessed) {
-		DEBUG_LOG(SCEKERNEL,"sceKernelCheckCallback() - processed a callback.");
+		DEBUG_LOG(SCEKERNEL, "sceKernelCheckCallback() - processed a callback.");
+		// The RETURN(1) above is still active here, unless __KernelForceCallbacks changed it.
 	} else {
 		RETURN(0);
 	}
