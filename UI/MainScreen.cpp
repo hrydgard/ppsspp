@@ -212,7 +212,6 @@ public:
 
 	void SetPath(const std::string &path);
 	void GetListing(std::vector<FileInfo> &fileInfo, const char *filter = 0);
-	
 	void Navigate(const std::string &path);
 
 	std::string GetPath() {
@@ -237,7 +236,7 @@ public:
 };
 
 // Normalize slashes.
-void PathBrowser::SetPath(const std::string &path) { 
+void PathBrowser::SetPath(const std::string &path) {
 	if (path[0] == '!') {
 		path_ = path;
 		return;
@@ -305,7 +304,7 @@ public:
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
-	
+
 private:
 	void Refresh();
 
@@ -358,6 +357,8 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 	if (!folder.size())
 		return UI::EVENT_DONE;
 	path_.SetPath(folder);
+#else
+	path_.SetPath(getenv("HOME"));
 #endif
 
 	g_Config.currentDirectory = path_.GetPath();
@@ -378,10 +379,10 @@ void GameBrowser::Refresh() {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		Margins pathMargins(5, 0);
 		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
-#ifdef ANDROID
-		topBar->Add(new Choice(m->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
-#elif defined(_WIN32)
+#if defined(_WIN32)
 		topBar->Add(new Choice(m->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+#else
+		topBar->Add(new Choice(m->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 		layoutChoice->AddChoice(I_GRID);

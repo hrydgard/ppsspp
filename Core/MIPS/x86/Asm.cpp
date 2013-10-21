@@ -15,21 +15,21 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "math/math_util.h"
+
 #include "ABI.h"
 #include "x64Emitter.h"
 
-#include "../../MemMap.h"
-
 #include "Core/Core.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Common/MemoryUtil.h"
 
-#include "Jit.h"
-#include "../JitCommon/JitCommon.h"
-#include "../../Core.h"
-#include "Asm.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/x86/Asm.h"
+#include "Core/MIPS/x86/Jit.h"
 
 using namespace Gen;
 

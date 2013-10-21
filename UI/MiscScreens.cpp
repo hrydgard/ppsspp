@@ -313,7 +313,7 @@ void LogoScreen::render() {
 	if (bootFilename_.size()) {
 		ui_draw2d.DrawTextShadow(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
-	
+
 	dc.End();
 	dc.Flush();
 }
@@ -328,14 +328,14 @@ void CreditsScreen::CreateViews() {
 #ifndef GOLD
 	root_->Add(new Button(c->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 #endif
-	if(g_Config.sLanguageIni == "zh_CN" ||g_Config.sLanguageIni == "zh_TW") {
-	  root_->Add(new Button(c->T("PPSSPP Chinese Forum"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnChineseForum);
-	  root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
-	  root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 228, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
+	if (g_Config.sLanguageIni == "zh_CN" ||g_Config.sLanguageIni == "zh_TW") {
+		root_->Add(new Button(c->T("PPSSPP Chinese Forum"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnChineseForum);
+		root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
+		root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 228, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
 	else {
-	  root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
-	  root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
+		root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
+		root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
 #ifdef GOLD
 	root_->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
@@ -390,12 +390,11 @@ void CreditsScreen::render() {
 	const char * credits[] = {
 		"PPSSPP",
 		"",
-		c->T("title", "A fast and portable PSP emulator"),	
+		c->T("title", "A fast and portable PSP emulator"),
 		"",
 		"",
 		c->T("created", "Created by"),
 		"Henrik Rydg\xc3\xa5rd",
-		"(aka hrydgard, ector)",
 		"",
 		"",
 		c->T("contributors", "Contributors:"),
@@ -436,7 +435,8 @@ void CreditsScreen::render() {
 		c->T("specialthanks", "Special thanks to:"),
 		"Keith Galocy at nVidia (hw, advice)",
 		"Orphis (build server)",
-		"angelxwind (iOS build server)",
+		"angelxwind (iOS builds)",
+		"W.MS (iOS builds)",
 		"solarmystic (testing)",
 		"all the forum mods",
 		"",
@@ -478,11 +478,10 @@ void CreditsScreen::render() {
 		"",
 		"",
 		c->T("info1", "PPSSPP is only intended to play games you own."),
-		"",
 		c->T("info2", "Please make sure that you own the rights to any games"),
 		c->T("info3", "you play by owning the UMD or by buying the digital"),
 		c->T("info4", "download from the PSN store on your real PSP."),
-		"",	
+		"",
 		"",
 		c->T("info5", "PSP is a trademark by Sony, Inc."),
 	};
@@ -508,30 +507,6 @@ void CreditsScreen::render() {
 		}
 		y += itemHeight;
 	}
-
-	/*
-	I18NCategory *c = GetI18NCategory("PSPCredits");
-	I18NCategory *d = GetI18NCategory("Dialog");
-
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, d->T("Back"), ALIGN_BOTTOMRIGHT)) {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
-#ifdef ANDROID
-#ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, c->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
-		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
-	}
-#endif
-#else
-#ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, c->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
-		LaunchBrowser("http://central.ppsspp.org/buygold");
-	}
-#endif
-#endif
-	UIEnd();
-	*/
 
 	dc.End();
 	dc.Flush();
