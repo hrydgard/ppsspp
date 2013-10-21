@@ -169,7 +169,6 @@ void Clickable::FocusChanged(int focusFlags) {
 	}
 }
 
-
 void Clickable::Touch(const TouchInput &input) {
 	if (!enabled_) {
 		dragging_ = false;
@@ -190,12 +189,12 @@ void Clickable::Touch(const TouchInput &input) {
 	} else if (input.flags & TOUCH_MOVE) {
 		if (dragging_)
 			down_ = bounds_.Contains(input.x, input.y);
-	} 
+	}
 	if (input.flags & TOUCH_UP) {
 		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
 			Click();
 		}
-		down_ = false;	
+		down_ = false;
 		downCountDown_ = 0;
 		dragging_ = false;
 	}
@@ -212,7 +211,7 @@ bool IsEscapeKeyCode(int keyCode) {
 }
 
 void Clickable::Key(const KeyInput &key) {
-	if (!HasFocus()) {
+	if (!HasFocus() && key.deviceId != DEVICE_ID_MOUSE) {
 		down_ = false;
 		return;
 	}
@@ -285,7 +284,7 @@ void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
-	if (layoutParams_->width == WRAP_CONTENT) 
+	if (layoutParams_->width == WRAP_CONTENT)
 		layoutParams_->width = FILL_PARENT;
 	layoutParams_->height = ITEM_HEIGHT;
 }
@@ -299,7 +298,7 @@ void ClickableItem::Draw(UIContext &dc) {
 	if (down_) {
 		style = dc.theme->itemDownStyle;
 	}
-	
+
 	dc.FillRect(style.background, bounds_);
 }
 
@@ -315,10 +314,9 @@ void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	h += 16;
 }
 
- void Choice::HighlightChanged(bool highlighted){
- 	highlighted_ = highlighted;
- };
- 
+void Choice::HighlightChanged(bool highlighted){
+	highlighted_ = highlighted;
+}
 
 void Choice::Draw(UIContext &dc) {
 	if (!IsSticky()) {
@@ -401,7 +399,7 @@ void CheckBox::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
 	if (!IsEnabled())
 		style = dc.theme->itemDisabledStyle;
-	
+
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);

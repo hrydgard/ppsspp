@@ -513,7 +513,6 @@ public:
 		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), centered_(false), highlighted_(false), selected_(selected) {}
-	
 	Choice(ImageID image, LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), atlasImage_(image), centered_(false), highlighted_(false), selected_(false) {}
 
