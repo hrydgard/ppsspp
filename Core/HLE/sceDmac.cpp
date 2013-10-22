@@ -40,6 +40,8 @@ void __DmacDoState(PointerWrap &p) {
 }
 
 int __DmacMemcpy(u32 dst, u32 src, u32 size) {
+	if (src + size > dst) 
+		 return 0x80000023;
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
 
 	src &= ~0x40000000;
