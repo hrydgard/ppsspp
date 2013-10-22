@@ -313,7 +313,7 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnShaderChange(UI::EventParams &e) {
 	if (gpu) {
-		gpu->Resized();
+		gpu->ClearShaderCache();
 	}
 	return UI::EVENT_DONE;
 }

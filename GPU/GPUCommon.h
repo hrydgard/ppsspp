@@ -171,5 +171,5 @@ public:
 	{
 		return std::vector<FramebufferInfo>();
 	}
-
+	virtual void ClearShaderCache() {}
 };

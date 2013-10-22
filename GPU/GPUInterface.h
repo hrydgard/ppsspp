@@ -176,8 +176,7 @@ struct GPUEvent {
 	}
 };
 
-class GPUInterface
-{
+class GPUInterface {
 public:
 	virtual ~GPUInterface() {}
 
@@ -237,6 +236,7 @@ public:
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized() = 0;
+	virtual void ClearShaderCache() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
