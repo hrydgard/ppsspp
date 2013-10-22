@@ -442,10 +442,12 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 
 	u64 schedule = Memory::Read_U64(scheduleAddr);
 	vt->nvt.handlerAddr = handlerFuncAddr;
-	if (handlerFuncAddr)
+	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
-
-	__KernelScheduleVTimer(vt, schedule);
+		__KernelScheduleVTimer(vt, schedule);
+	} else {
+		__KernelScheduleVTimer(vt, vt->nvt.schedule);
+	}
 
 	return 0;
 }
@@ -467,10 +469,12 @@ u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u3
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
 
 	vt->nvt.handlerAddr = handlerFuncAddr;
-	if (handlerFuncAddr)
+	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
-
-	__KernelScheduleVTimer(vt, schedule);
+		__KernelScheduleVTimer(vt, schedule);
+	} else {
+		__KernelScheduleVTimer(vt, vt->nvt.schedule);
+	}
 
 	return 0;
 }
