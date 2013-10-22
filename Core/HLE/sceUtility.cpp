@@ -236,7 +236,7 @@ u32 sceUtilityUnloadModule(u32 module)
 	}
 	currentlyLoadedModules.erase(module);
 
-	DEBUG_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i)", module);
+	INFO_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: If not loaded, it should not reschedule actually...
 	if (module == 0x3FF)
