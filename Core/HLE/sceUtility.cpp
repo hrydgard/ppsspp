@@ -208,12 +208,18 @@ u32 sceUtilityLoadModule(u32 module)
 		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
 	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
-	if (module == PSP_MODULE_NET_HTTPSTORAGE && !(currentlyLoadedModules.find(PSP_MODULE_NET_HTTP) != currentlyLoadedModules.end())) //Fix Kamen Rider Climax Heroes OOO - ULJS00331
+	//Fix Kamen Rider Climax Heroes OOO - ULJS00331 loading
+	//Fix Naruto Shippuden Kizuna Drive (error module load failed)
+	if (module == PSP_MODULE_NET_HTTPSTORAGE && !(currentlyLoadedModules.find(PSP_MODULE_NET_HTTP) != currentlyLoadedModules.end()))
+	{
+		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule: Library not found");
 		return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND;
-	currentlyLoadedModules.insert(module);
-
+	}
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: Some modules have dependencies, but they still resched.
+
+	currentlyLoadedModules.insert(module);
+
 	if (module == 0x3FF)
 		return hleDelayResult(0, "utility module loaded", 130);
 	else
