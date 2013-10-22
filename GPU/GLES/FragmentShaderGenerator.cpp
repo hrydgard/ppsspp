@@ -195,7 +195,6 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 }
 
 // Missing: Z depth range
-// Also, logic ops etc, of course. Urgh.
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
@@ -235,7 +234,7 @@ void GenerateFragmentShader(char *buffer) {
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 	}
-	if (gstate.isTextureMapEnabled()) 
+	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
 		WRITE(p, "uniform lowp vec3 u_texenv;\n");
 	
 	WRITE(p, "varying lowp vec4 v_color0;\n");
@@ -243,7 +242,7 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "varying lowp vec3 v_color1;\n");
 	if (enableFog) {
 		WRITE(p, "uniform lowp vec3 u_fogcolor;\n");
-		WRITE(p, "varying mediump float v_fogdepth;\n");
+		WRITE(p, "varying highp float v_fogdepth;\n");
 	}
 	if (doTexture)
 	{
@@ -356,9 +355,9 @@ void GenerateFragmentShader(char *buffer) {
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
-					WRITE(p, "if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 				else
-					WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 			}
 		}
 

@@ -143,10 +143,12 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	// Remove lowp/mediump in non-mobile implementations
 	WRITE(p, "#define lowp\n");
 	WRITE(p, "#define mediump\n");
+	WRITE(p, "#define highp\n");
 #else
 	// Need to remove lowp/mediump for Mac
 	WRITE(p, "#define lowp\n");
 	WRITE(p, "#define mediump\n");
+	WRITE(p, "#define highp\n");
 #endif
 
 	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
@@ -203,6 +205,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		// Add all the uniforms we'll need to transform properly.
 	}
 
+	bool prescale = g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0;
+
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
 		WRITE(p, "uniform mat4 u_world;\n");
@@ -219,7 +223,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			}
 #endif
 		}
-		if (doTexture) {
+		if (doTexture && (!prescale || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP)) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		}
 		for (int i = 0; i < 4; i++) {
@@ -259,7 +263,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 
 	if (enableFog) {
-		WRITE(p, "uniform mediump vec2 u_fogcoef;\n");
+		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
 	WRITE(p, "varying lowp vec4 v_color0;\n");
@@ -270,7 +274,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		else
 			WRITE(p, "varying mediump vec2 v_texcoord;\n");
 	}
-	if (enableFog) WRITE(p, "varying mediump float v_fogdepth;\n");
+	if (enableFog) WRITE(p, "varying highp float v_fogdepth;\n");
 
 	WRITE(p, "void main() {\n");
 
@@ -518,8 +522,6 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 		// Step 3: UV generation
 		if (doTexture) {
-			bool prescale = g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0;
-
 			switch (gstate.getUVGenMode()) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
