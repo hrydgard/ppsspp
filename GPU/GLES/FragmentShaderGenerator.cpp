@@ -61,6 +61,7 @@ const bool safeDestFactors[16] = {
 
 
 static bool IsAlphaTestTriviallyTrue() {
+
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
 	int alphaTestMask = gstate.getAlphaTestMask();
@@ -155,7 +156,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 	} else {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
-		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
+		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
@@ -217,7 +218,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
+	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = gstate.isColorDoublingEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
@@ -325,7 +326,7 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
-		if (enableAlphaTest && !g_Config.bDisableAlphaTest) {
+		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
