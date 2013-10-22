@@ -451,7 +451,10 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			WARN_LOG(SCEKERNEL, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			if (handle != 0)
+			{
+				WARN_LOG(SCEKERNEL, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			}
 			outError = T::GetMissingErrorCode();
 			return 0;
 		}

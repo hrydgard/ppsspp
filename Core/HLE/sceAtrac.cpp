@@ -1252,7 +1252,8 @@ u32 sceAtracStartEntry()
 
 u32 sceAtracSetLoopNum(int atracID, int loopNum)
 {
-	INFO_LOG(ME, "sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
+	// Spammed in MHU
+	DEBUG_LOG(ME, "sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac) {
 		if (atrac->loopinfoNum == 0)
