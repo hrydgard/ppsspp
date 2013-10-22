@@ -233,7 +233,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 
 	case VIRTKEY_PAUSE:
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		pauseTrigger_ = true;
 		break;
 
 	case VIRTKEY_AXIS_X_MIN:

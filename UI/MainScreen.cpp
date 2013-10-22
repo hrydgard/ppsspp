@@ -545,6 +545,7 @@ void MainScreen::CreateViews() {
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL);
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
 	char versionString[256];
