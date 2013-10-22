@@ -1064,6 +1064,10 @@ int __AtracSetContext(Atrac *atrac) {
 	atrac->audio_stream_index = ret;
 	atrac->pCodecCtx = atrac->pFormatCtx->streams[atrac->audio_stream_index]->codec;
 
+	// Appears we need to force mono in some cases. (See CPkmn's comments in issue #4248)
+	if (atrac->atracChannels == 1)
+		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
+
 	// open codec
 	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
