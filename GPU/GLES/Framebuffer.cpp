@@ -401,7 +401,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	if (texture) {
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
 #if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY)
-		if (gl_extensions.NV_draw_texture) {
+		if (gl_extensions.NV_draw_texture && !program) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
 			// Actually, on Desktop we should just use glBlitFramebuffer.
 			glDrawTextureNV(texture, 0,
@@ -423,11 +423,11 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
 	const GLubyte indices[4] = {0,1,3,2};
 
-	if (!draw2dprogram_) {
-		CompileDraw2DProgram();
-	}
-
 	if (!program) {
+		if (!draw2dprogram_) {
+			CompileDraw2DProgram();
+		}
+
 		program = draw2dprogram_;
 	}
 
