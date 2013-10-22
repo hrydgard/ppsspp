@@ -400,13 +400,13 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	if (texture) {
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS)
+#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY)
 		if (gl_extensions.NV_draw_texture) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
 			// Actually, on Desktop we should just use glBlitFramebuffer.
 			glDrawTextureNV(texture, 0,
 				x, y, w, h, 0.0f,
-				0, 0, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+				0, 0, uscale, vscale);
 			return;
 		}
 #endif
@@ -863,6 +863,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 			// Use the extra FBO, with applied FXAA, as a texture.
 			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
+			if (extraFBOs_.size() == 0) {
+				ERROR_LOG(G3D, "WTF?");
+				return;
+			}
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
