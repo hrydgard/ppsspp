@@ -32,6 +32,9 @@ struct ShaderInfo {
 	std::string fragmentShaderFile;
 	std::string vertexShaderFile;
 
+	// Run at output instead of input resolution
+	bool outputResolution;
+
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
 	// SRGB texture reads, multiple shaders chained, etc.
 

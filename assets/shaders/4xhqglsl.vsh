@@ -1,7 +1,7 @@
 attribute vec4 a_position;
 attribute vec2 a_texcoord0;
 uniform mat4 u_viewproj;
-uniform vec2 u_texcoordDelta;
+uniform vec2 u_texelDelta;
 
 varying vec4 v_texcoord0;
 varying vec4 v_texcoord1;
@@ -15,8 +15,8 @@ float scaleoffset = 0.8;
 
 void main()
 {
-  float x = u_texcoordDelta.x*scaleoffset;
-  float y = u_texcoordDelta.y*scaleoffset;
+  float x = u_texelDelta.x*scaleoffset;
+  float y = u_texelDelta.y*scaleoffset;
   vec2 dg1 = vec2( x,y);
   vec2 dg2 = vec2(-x,y);
   vec2 sd1 = dg1*0.5;

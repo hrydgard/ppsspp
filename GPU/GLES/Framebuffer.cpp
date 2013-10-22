@@ -135,14 +135,14 @@ void CenterRect(float *x, float *y, float *w, float *h,
 	}
 }
 
-void ClearBuffer() {
+static void ClearBuffer() {
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-void DisableState() {
+static void DisableState() {
 	glstate.blend.disable();
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
@@ -184,6 +184,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 		}
 
 		if (shaderInfo) {
+			postShaderAtOutputResolution_ = shaderInfo->outputResolution;
 			postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
 			if (!postShaderProgram_) {
 				// DO NOT turn this into a report, as it will pollute our logs with all kinds of
@@ -204,9 +205,21 @@ void FramebufferManager::CompileDraw2DProgram() {
 				SetNumExtraFBOs(1);
 				float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
 				float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
-				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texcoordDelta");
+				float u_pixel_delta = u_delta;
+				float v_pixel_delta = v_delta;
+				if (postShaderAtOutputResolution_) {
+					float x, y, w, h;
+					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+					u_pixel_delta = 1.0f / w;
+					v_pixel_delta = 1.0f / h;
+				}
+
+				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
 				if (deltaLoc != -1)
 					glUniform2f(deltaLoc, u_delta, v_delta);
+				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
+				if (pixelDeltaLoc != -1)
+					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
 				usePostShader_ = true;
 			}
 		} else {
@@ -370,16 +383,37 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos))
-	{
+	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,512,272, GL_RGBA, GL_UNSIGNED_BYTE, pixelFormat == GE_FORMAT_8888 ? framebuf : convBuf);
 
-	DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
+	// This draws directly at the backbuffer so if there's a post shader, we need to apply it here. Should try to unify this path
+	// with the regular path somehow, but this simple solution works for most of the post shaders (it always runs at output resolution so FXAA may look odd).
+	if (usePostShader_) {
+		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+	} else {
+		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
+	}
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
+void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
+	if (texture) {
+		// We know the texture, we can do a DrawTexture shortcut on nvidia.
+#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS)
+		if (gl_extensions.NV_draw_texture) {
+			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
+			// Actually, on Desktop we should just use glBlitFramebuffer.
+			glDrawTextureNV(texture, 0,
+				x, y, w, h, 0.0f,
+				0, 0, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+			return;
+		}
+#endif
+
+		glBindTexture(GL_TEXTURE_2D, texture);
+	}
+
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
 	float v1 = flip ? 1.0f : 1.0f - vscale;
@@ -770,7 +804,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			}
 
 			if (!vfb) {
-				// Just a pointer to plain memory to draw. Draw it. And make sure to set the viewport...
+				// Just a pointer to plain memory to draw. Draw it.
 				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
 				return;
 			}
@@ -806,44 +840,40 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		GLuint colorTexture = fbo_get_color_texture(vfb->fbo);
 
+		// Output coordinates
+		float x, y, w, h;
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 		// and to discard extraFBOs_ after using them.
 
-		if (usePostShader_ && extraFBOs_.size() == 1) {
-			glBindTexture(GL_TEXTURE_2D, colorTexture);
-
+		if (!usePostShader_) {
+			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			// These are in the output display coordinates
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, FXAA to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
-			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
 
 			// Use the extra FBO, with applied FXAA, as a texture.
 			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
+			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			// These are in the output display coordinates
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+		} else {
+			// Use post-shader, but run shader at output resolution.
+			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			// These are in the output display coordinates
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 		}
 
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-		// These are in the output display coordinates
-		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS)
-		if (gl_extensions.NV_draw_texture) {
-			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
-			// Actually, on Desktop we should just use glBlitFramebuffer.
-			glDrawTextureNV(colorTexture, 0,
-				x, y, w, h, 0.0f,
-				0, 0, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
-			return;
-		}
-#endif
-
-		glBindTexture(GL_TEXTURE_2D, colorTexture);
-		DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 }
@@ -990,7 +1020,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 
 	CompileDraw2DProgram();
 
-	DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, upscale, vscale, draw2dprogram_);
+	DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, upscale, vscale, draw2dprogram_);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();

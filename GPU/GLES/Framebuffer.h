@@ -115,7 +115,9 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
+
+	// If texture != 0, will bind it.
+	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -202,6 +204,7 @@ private:
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
 	bool usePostShader_;
+	bool postShaderAtOutputResolution_;
 
 	// Used by antialiasing
 	std::vector<FBO *> extraFBOs_;

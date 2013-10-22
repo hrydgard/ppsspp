@@ -40,6 +40,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	ShaderInfo off;
 	off.name = "Off";
 	off.section = "Off";
+	off.outputResolution = false;
 	shaderInfo.push_back(off);
 
 	for (size_t d = 0; d < directories.size(); d++) {
@@ -81,6 +82,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.fragmentShaderFile = path + "/" + temp;
 					section.Get("Vertex", &temp, "");
 					info.vertexShaderFile = path + "/" + temp;
+					section.Get("OutputResolution", &info.outputResolution, false);
 					shaderInfo.erase(std::find(shaderInfo.begin(), shaderInfo.end(), info.name), shaderInfo.end());
 					shaderInfo.push_back(info);
 				}
