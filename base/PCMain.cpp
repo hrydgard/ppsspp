@@ -523,7 +523,7 @@ int main(int argc, char *argv[]) {
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 1024;
+	fmt.samples = 2048;
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 

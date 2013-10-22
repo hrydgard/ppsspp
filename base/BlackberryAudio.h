@@ -11,7 +11,8 @@
 
 #include "base/NativeApp.h"
 
-#define SAMPLE_SIZE 44100
+#define AUDIO_FREQ 44100
+#define SAMPLE_SIZE 2048
 class BlackberryAudio
 {
 public:
@@ -53,22 +54,23 @@ private:
 		{
 			size_t frames_ready;
 			alGetSourcei(source, AL_SOURCE_STATE, &state);
-			if (state != AL_PLAYING)
-				frames_ready = NativeMix(stream, SAMPLE_SIZE / 2);
+			if (state != AL_PLAYING) {
+				frames_ready = NativeMix((short*)stream, SAMPLE_SIZE);
+			}
 			else
 				frames_ready = 0;
 			if (frames_ready > 0)
 			{
 				const size_t bytes_ready = frames_ready * sizeof(short) * 2;
 				alSourcei(source, AL_BUFFER, 0);
-				alBufferData(buffer, AL_FORMAT_STEREO16, stream, bytes_ready, SAMPLE_SIZE);
+				alBufferData(buffer, AL_FORMAT_STEREO16, stream, bytes_ready, AUDIO_FREQ);
 				alSourcei(source, AL_BUFFER, buffer);
 				alSourcePlay(source);
 				// TODO: Maybe this could get behind?
-				usleep((1000000 * frames_ready) / SAMPLE_SIZE);
+				usleep((1000000 * frames_ready) / AUDIO_FREQ);
 			}
 			else
-				usleep(100);
+				usleep(100000);
 		}
 	}
 	ALCdevice *alcDevice;
@@ -76,7 +78,7 @@ private:
 	ALenum state;
 	ALuint buffer;
 	ALuint source;
-	short stream[SAMPLE_SIZE];
+	char stream[4*SAMPLE_SIZE];
 	pthread_t thread_handle;
 };
 #endif

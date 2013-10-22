@@ -193,7 +193,7 @@ public:
 		fmt.setSampleSize(AUDIO_SAMPLESIZE);
 		fmt.setByteOrder(QAudioFormat::LittleEndian);
 		fmt.setSampleType(QAudioFormat::SignedInt);
-		mixlen = 4*AUDIO_CHANNELS*AUDIO_SAMPLES;
+		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
 		mixbuf = (char*)malloc(mixlen);
 		output = new QAudioOutput(fmt);
 		output->setBufferSize(mixlen);
@@ -214,7 +214,7 @@ public:
 protected:
 	void timerEvent(QTimerEvent *) {
 		memset(mixbuf, 0, mixlen);
-		NativeMix((short *)mixbuf, mixlen / 4);
+		NativeMix((short *)mixbuf, AUDIO_SAMPLES);
 		feed->write(mixbuf, mixlen);
 	}
 private:
