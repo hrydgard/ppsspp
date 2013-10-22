@@ -794,8 +794,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
 
+#if !defined(USING_GLES2)
 		if (!reader.LoadSymbols())
 			MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
+#endif
 	}
 
 	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
