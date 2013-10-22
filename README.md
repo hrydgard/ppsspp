@@ -29,6 +29,10 @@ What's new in 0.9.5
 * Win32: Ability to store PPSSPP's config files and memory stick files in places other than the same directory
 * Android-x86 support
 * Unofficial port for modified Xbox 360 consoles
+* Atrac3+ plugin no longer required. Symbian now supports Atrac3+ audio.
+* Haptic feedback support for mobile devices.
+* Accurate system information for mobile devices.
+* Qt audio has been fixed.
 
 
 Basic build instructions
@@ -108,15 +112,14 @@ Qt (recommended)
 A Qt-based frontend is available in the Qt/ dir.
 Open PPSSPPQt.pro with [Qt Creator 2.6+][qt-creator].
 Install libsdl1.2 if you want to use USB Gamepad.
-If the build has an error about finding mobility or multimedia:
+If the build has an error about QAudioOutput:
 - Install the package "qtmobility-dev"
 
 SDL
 
-Alternatively, install the libsdl1.2 (SDL 1.2) development headers. This is called `libsdl1.2-dev` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
+Alternatively, install the libsdl1.2 (SDL 1.2) development headers.
+This is called `libsdl1.2-dev` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
 `sdl12` on BSD ports.
-
-You will need a recent version of ffmpeg (1.1 or greater, which means libav 9.1 or greater probably) or development packets (for distributions with separate packets) for libavformat, libavcodec, libswresample and libswscale (still version 9.1 or greater).
 
 Currently the user interface is identical to Android's, operated
 with the mouse.
