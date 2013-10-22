@@ -1,5 +1,4 @@
-// Simple Scanlines shader, created to use in PPSSPP.
-// Looks good at Internal resolution same as viewport.
+// Advanced Scanlines (CRT) shader, created to use in PPSSPP.
 
 #ifdef GL_ES
 precision mediump float;
@@ -15,8 +14,18 @@ float frequency = 166.0;
 void main()
 {
   float pos0 = (v_texcoord0.y + offset) * frequency;
-  float pos1 = cos((fract( pos0 ) - 0.5)*3.14159);
+  float pos1 = cos((fract( pos0 ) - 0.5)*3.1415926);
   vec4 pel = texture2D( sampler0, v_texcoord0 );
+  
+  // slight contrast curve
+  vec4 color = pel*0.5+0.5*pel*pel*1.2;
+  color *= 2.0;
+  
+  // color tint
+  color *= vec4(0.9,1.0,0.7, 0.0);
+  
+  // vignette
+  color *= 1.1 - 0.6 * (dot(v_texcoord0 - 0.5, v_texcoord0 - 0.5) * 2.0);
 
-  gl_FragColor = mix(vec4(0,0,0,0), pel, pos1);
+  gl_FragColor.rgba = mix(vec4(0,0,0,0), color, pos1);
 }
