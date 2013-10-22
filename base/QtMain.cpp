@@ -11,6 +11,7 @@
 #include <QDesktopWidget>
 #include <QDesktopServices>
 #include <QLocale>
+#include <QThread>
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
@@ -155,10 +156,15 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	vibra = CHWRMVibra::NewL();
 #endif
 
+	QThread* thread = new QThread;
 	MainAudio *audio = new MainAudio();
+	audio->moveToThread(thread);
+	QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+	thread->start();
 
 	int ret = a.exec();
 	delete audio;
+	thread->quit();
 #ifdef __SYMBIAN32__
 	delete vibra;
 #endif

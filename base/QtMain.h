@@ -214,8 +214,9 @@ public:
 protected:
 	void timerEvent(QTimerEvent *) {
 		memset(mixbuf, 0, mixlen);
-		NativeMix((short *)mixbuf, AUDIO_SAMPLES);
-		feed->write(mixbuf, mixlen);
+		size_t frames = NativeMix((short *)mixbuf, AUDIO_SAMPLES);
+		if (frames > 0)
+			feed->write(mixbuf, sizeof(short) * 2 * frames);
 	}
 private:
 	QIODevice* feed;
