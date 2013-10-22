@@ -349,7 +349,11 @@ u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
 }
 
 u64 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu", uid, timeClock);
+	if (__IsInInterrupt()) {
+		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu): in interrupt", uid, timeClock);
+		return -1;
+	}
+	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu)", uid, timeClock);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
