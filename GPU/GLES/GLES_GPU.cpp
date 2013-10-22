@@ -1574,6 +1574,7 @@ void GLES_GPU::ClearCacheNextFrame() {
 
 void GLES_GPU::Resized() {
 	framebufferManager_.Resized();
+	shaderManager_->ClearCache(true);
 }
 
 std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList()

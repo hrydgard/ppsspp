@@ -31,6 +31,7 @@
 
 #include "gfx_es2/gl_state.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/ge_constants.h"
@@ -324,7 +325,7 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
-		if (enableAlphaTest) {
+		if (enableAlphaTest && !g_Config.bDisableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
