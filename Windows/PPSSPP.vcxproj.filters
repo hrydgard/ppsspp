@@ -263,9 +263,6 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\README.md" />
-    <None Include="..\android\atlasscript.txt">
-      <Filter>Other Platforms</Filter>
-    </None>
     <None Include="..\android\jni\Application.mk">
       <Filter>Other Platforms</Filter>
     </None>
@@ -282,6 +279,12 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\android\jni\Locals.mk">
+      <Filter>Other Platforms</Filter>
+    </None>
+    <None Include="..\atlasscript.txt">
+      <Filter>Other Platforms</Filter>
+    </None>
+    <None Include="..\atlasscript_lowmem.txt">
       <Filter>Other Platforms</Filter>
     </None>
   </ItemGroup>
