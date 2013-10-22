@@ -71,6 +71,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
 		return 0x80000023;
 	}
+
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
 		WARN_LOG_REPORT(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.

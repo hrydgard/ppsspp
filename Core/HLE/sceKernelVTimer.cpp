@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "sceKernel.h"
@@ -235,7 +236,7 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	return id;
 }
 
-u32 sceKernelDeleteVTimer(u32 uid) {
+u32 sceKernelDeleteVTimer(SceUID uid) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelDeleteVTimer(%08x)", uid);
 
 	u32 error;
@@ -256,7 +257,7 @@ u32 sceKernelDeleteVTimer(u32 uid) {
 	return kernelObjects.Destroy<VTimer>(uid);
 }
 
-u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr) {
+u32 sceKernelGetVTimerBase(SceUID uid, u32 baseClockAddr) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerBase(%08x, %08x)", uid, baseClockAddr);
 
 	u32 error;
@@ -273,7 +274,7 @@ u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr) {
 	return 0;
 }
 
-u64 sceKernelGetVTimerBaseWide(u32 uid) {
+u64 sceKernelGetVTimerBaseWide(SceUID uid) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerBaseWide(%08x)", uid);
 
 	u32 error;
@@ -287,7 +288,7 @@ u64 sceKernelGetVTimerBaseWide(u32 uid) {
 	return vt->nvt.base;
 }
 
-u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
+u32 sceKernelGetVTimerTime(SceUID uid, u32 timeClockAddr) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerTime(%08x, %08x)", uid, timeClockAddr);
 
 	u32 error;
@@ -305,7 +306,7 @@ u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
 	return 0;
 }
 
-u64 sceKernelGetVTimerTimeWide(u32 uid) {
+u64 sceKernelGetVTimerTimeWide(SceUID uid) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerTimeWide(%08x)", uid);
 
 	u32 error;
@@ -330,7 +331,7 @@ u64 __KernelSetVTimer(VTimer *vt, u64 time) {
 	return current;
 }
 
-u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
+u32 sceKernelSetVTimerTime(SceUID uid, u32 timeClockAddr) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerTime(%08x, %08x)", uid, timeClockAddr);
 
 	u32 error;
@@ -348,7 +349,7 @@ u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
 	return 0;
 }
 
-u64 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
+u64 sceKernelSetVTimerTimeWide(SceUID uid, u64 timeClock) {
 	if (__IsInInterrupt()) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu): in interrupt", uid, timeClock);
 		return -1;
@@ -374,7 +375,7 @@ void __startVTimer(VTimer *vt) {
 		__KernelScheduleVTimer(vt, vt->nvt.schedule);
 }
 
-u32 sceKernelStartVTimer(u32 uid) {
+u32 sceKernelStartVTimer(SceUID uid) {
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelStartVTimer(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
@@ -403,7 +404,7 @@ void __stopVTimer(VTimer *vt) {
 	vt->nvt.base = 0;
 }
 
-u32 sceKernelStopVTimer(u32 uid) {
+u32 sceKernelStopVTimer(SceUID uid) {
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelStopVTimer(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
@@ -424,7 +425,7 @@ u32 sceKernelStopVTimer(u32 uid) {
 	return error;
 }
 
-u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
+u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
@@ -452,7 +453,7 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 	return 0;
 }
 
-u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
+u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
@@ -479,7 +480,7 @@ u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u3
 	return 0;
 }
 
-u32 sceKernelCancelVTimerHandler(u32 uid) {
+u32 sceKernelCancelVTimerHandler(SceUID uid) {
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelCancelVTimerHandler(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
@@ -491,7 +492,7 @@ u32 sceKernelCancelVTimerHandler(u32 uid) {
 	return __KernelCancelVTimer(uid);
 }
 
-u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
+u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelReferVTimerStatus(%08x, %08x)", uid, statusAddr);
 
 	u32 error;
