@@ -754,6 +754,7 @@ void FramebufferManager::SetLineWidth() {
 
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
+	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	currentRenderVfb_ = 0;
 
 	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
@@ -769,7 +770,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			}
 
 			if (!vfb) {
-				// Just a pointer to plain memory to draw. Draw it.
+				// Just a pointer to plain memory to draw. Draw it. And make sure to set the viewport...
 				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
 				return;
 			}
