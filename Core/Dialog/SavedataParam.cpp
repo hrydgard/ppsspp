@@ -1088,7 +1088,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveDataListCount++;
 		}
 
-		if (saveDataListCount > 0)
+		if (saveDataListCount > 1)
 		{
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
