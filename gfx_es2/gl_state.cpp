@@ -253,7 +253,6 @@ void CheckGLExtensions() {
 		glMapBuffer = (PFNGLMAPBUFFERPROC)eglGetProcAddress( "glMapBufferOES" );
 	}
 
-	gl_extensions.QCOM_binning_control = strstr(extString, "GL_QCOM_binning_control") != 0;
 	gl_extensions.QCOM_alpha_test = strstr(extString, "GL_QCOM_alpha_test") != 0;
 	// Load extensions that are not auto-loaded by Android.
 	if (gl_extensions.QCOM_alpha_test) {
