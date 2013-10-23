@@ -171,7 +171,6 @@ void CPU_Init() {
 
 	Memory::Init();
 	mipsr4k.Reset();
-	mipsr4k.pc = 0;
 
 	host->AttemptLoadSymbolMap();
 
