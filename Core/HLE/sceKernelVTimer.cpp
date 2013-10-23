@@ -113,7 +113,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 	}
 }
 
-void __rescheduleVTimer(SceUID id, int delay) {
+void __rescheduleVTimer(SceUID id, u32 delay) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
 
@@ -161,7 +161,7 @@ public:
 	}
 
 	virtual void handleResult(PendingInterrupt &pend) {
-		int result = currentMIPS->r[MIPS_REG_V0];
+		u32 result = currentMIPS->r[MIPS_REG_V0];
 
 		currentMIPS->r[MIPS_REG_SP] += HANDLER_STACK_SPACE;
 
