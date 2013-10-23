@@ -254,6 +254,15 @@ struct SaveFileInfo
 	int textureWidth;
 	int textureHeight;
 
+	SaveFileInfo() : size(0), saveName(""), idx(0),
+	                 textureData(0), textureWidth(0), textureHeight(0)
+	{
+		memset(title, 0, 128);
+		memset(saveTitle, 0, 128);
+		memset(saveDetail, 0, 1024);
+		modif_time = {0};
+	}
+
 	void DoState(PointerWrap &p)
 	{
 		auto s = p.Section("SaveFileInfo", 1);
