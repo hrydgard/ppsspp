@@ -215,6 +215,8 @@ struct SasVoice
 
 	void DoState(PointerWrap &p);
 
+	void ReadSamples(s16 *output, int numSamples);
+
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
 	bool on;   // key-on, key-off.
@@ -274,6 +276,7 @@ public:
 	FILE *audioDump;
 
 	void Mix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0);
+	void MixVoice(SasVoice &voice);
 
 	// Applies reverb to send buffer, according to waveformEffect.
 	void ApplyReverb();
