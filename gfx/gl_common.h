@@ -31,7 +31,7 @@
 #endif
 #endif
 
-#ifndef GLchar
+#if !defined(GLchar) && !defined(__APPLE__)
 typedef char GLchar;
 #endif
 
