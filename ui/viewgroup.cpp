@@ -14,6 +14,9 @@ namespace UI {
 
 const float ITEM_HEIGHT = 64.f;
 
+static recursive_mutex focusLock;
+static std::vector<int> focusMoves;
+
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w - (margins.left + margins.right);
 	inner.h = h - (margins.right + margins.left); 
@@ -140,6 +143,33 @@ bool ViewGroup::SubviewFocused(View *view) {
 	return false;
 }
 
+static float HorizontalOverlap(const Bounds &a, const Bounds &b) {
+	if (a.x2() < b.x || b.x2() < a.x)
+		return 0.0f;
+	// okay they do overlap. Let's clip.
+	float maxMin = std::max(a.x, b.x);
+	float minMax = std::min(a.x2(), b.x2());
+	float overlap = minMax - maxMin;
+	if (overlap < 0.0f)
+		return 0.0f;
+	else
+		return std::min(1.0f, overlap / std::min(a.w, b.w));
+}
+
+// Returns the percentage the smaller one overlaps the bigger one.
+static float VerticalOverlap(const Bounds &a, const Bounds &b) {
+	if (a.y2() < b.y || b.y2() < a.y)
+		return 0.0f;
+	// okay they do overlap. Let's clip.
+	float maxMin = std::max(a.y, b.y);
+	float minMax = std::min(a.y2(), b.y2());
+	float overlap = minMax - maxMin;
+	if (overlap < 0.0f)
+		return 0.0f;
+	else
+		return std::min(1.0f, overlap / std::min(a.h, b.h));
+}
+
 float GetDirectionScore(View *origin, View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
@@ -155,30 +185,42 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 	float dx = destPos.x - originPos.x;
 	float dy = destPos.y - originPos.y;
 
-	float distance = sqrtf(dx*dx+dy*dy);
+	float distance = sqrtf(dx*dx + dy*dy);
+	float overlap = 0.0f;
 	float dirX = dx / distance;
 	float dirY = dy / distance;
 
+	bool wrongDirection = false;
+	float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
+	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
+	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
+		ILOG("Contain overlap");
+		return 0.0;
+	}
 	switch (direction) {
 	case FOCUS_LEFT:
-		distance = -dirX / sqrtf(distance);
-		//if (dirX > 0.0f) return 0.0f;
-		//if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
+		overlap = vertOverlap;
+		if (dirX > 0.0f) {
+			wrongDirection = true;
+		}
 		break;
 	case FOCUS_UP:
-		distance = -dirY / sqrtf(distance);
-		//if (dirY > 0.0f) return 0.0f;
-		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
+		overlap = horizOverlap;
+		if (dirY > 0.0f) {
+			wrongDirection = true;
+		}
 		break;
 	case FOCUS_RIGHT:
-		//if (dirX < 0.0f) return 0.0f;
-		//if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
-		distance = dirX / sqrtf(distance);
+		overlap = vertOverlap;
+		if (dirX < 0.0f) {
+			wrongDirection = true;
+		}
 		break;
 	case FOCUS_DOWN:
-		//if (dirY < 0.0f) return 0.0f;
-		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
-		distance = dirY / sqrtf(distance);
+		overlap = horizOverlap;
+		if (dirY < 0.0f) {
+			wrongDirection = true;
+		}
 		break;
 	case FOCUS_PREV:
 	case FOCUS_NEXT:
@@ -186,7 +228,10 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		break;
 	}
 
-	return distance;
+	if (wrongDirection)
+		return 0.0f;
+	else
+		return 1.0f/distance + overlap*10;
 }
 
 
@@ -207,7 +252,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 
 	// TODO: Do the cardinal directions right. Now we just map to
 	// prev/next.
-	
+
 	switch (direction) {
 	case FOCUS_PREV:
 		// If view not found, no neighbor to find.
@@ -257,7 +302,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 
 	default:
 		return result;
-	} 
+	}
 }
 
 void MoveFocus(ViewGroup *root, FocusDirection direction) {
@@ -287,7 +332,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
 	if (views_.empty())
-		return; 
+		return;
 
 	float sum = 0.0f;
 	float maxOther = 0.0f;
@@ -991,9 +1036,6 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	root->SetBounds(rootBounds);
 	root->Layout();
 }
-
-static recursive_mutex focusLock;
-static std::vector<int> focusMoves;
 
 void KeyEvent(const KeyInput &key, ViewGroup *root) {
 	if (key.flags & KEY_DOWN) {

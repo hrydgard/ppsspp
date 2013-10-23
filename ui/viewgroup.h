@@ -354,7 +354,7 @@ private:
 class ListView : public ScrollView {
 public:
 	ListView(ListAdaptor *a, LayoutParams *layoutParams = 0);
-	
+
 	int GetSelected() { return adaptor_->GetSelected(); }
 
 	Event OnChoice;

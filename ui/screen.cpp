@@ -2,6 +2,7 @@
 #include "input/input_state.h"
 #include "ui/screen.h"
 #include "ui/ui.h"
+#include "ui/view.h"
 
 ScreenManager::ScreenManager() {
 	nextScreen_ = 0;
@@ -60,6 +61,7 @@ void ScreenManager::switchToNext() {
 		delete temp.screen;
 	}
 	nextScreen_ = 0;
+	UI::SetFocusedView(0);
 }
 
 void ScreenManager::touch(const TouchInput &touch) {
@@ -148,6 +150,7 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	if (screen->isTransparent()) {
 		layerFlags |= LAYER_TRANSPARENT;
 	}
+	UI::SetFocusedView(0);
 	Layer layer = {screen, layerFlags};
 	stack_.push_back(layer);
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-// More traditional UI framework than ui/ui.h. 
+// More traditional UI framework than ui/ui.h.
 
 // Still very simple to use.
 

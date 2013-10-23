@@ -20,6 +20,10 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 
+namespace UI {
+	class View;
+}
+
 struct InputState;
 
 enum DialogResult {
@@ -121,6 +125,7 @@ private:
 	struct Layer {
 		Screen *screen;
 		int flags;  // From LAYER_ enum above
+		UI::View *focusedView;  // TODO: save focus here. Going for quick solution now to reset focus.
 	};
 
 	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
