@@ -107,7 +107,7 @@ endif()
 include_directories("${CMAKE_SOURCE_DIR}")
 
 if(BLACKBERRY)
-	add_definitions(-DBLACKBERRY)
+	add_definitions(-DBLACKBERRY=${BLACKBERRY})
 endif()
 
 if(ANDROID)

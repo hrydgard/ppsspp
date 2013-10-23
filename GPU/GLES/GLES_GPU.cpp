@@ -401,8 +401,8 @@ GLES_GPU::GLES_GPU()
 		(this path has a low CPU usage, but in some cases uses more memory bandwidth)
 
 		*/
-		// Got a report this might be causing crashes, so I disabled it.
-		// There have been no reports of a consistent speedup with it on, so meh.
+		// This is a feature called 'FlexRender' which is only available on Adreno 3xx
+		// The feature is not recommended as the GPU already switches between tiled and direct automatically
 		//
 		// glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
 	}
