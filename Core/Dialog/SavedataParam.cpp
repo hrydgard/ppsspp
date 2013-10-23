@@ -1303,8 +1303,10 @@ int SavedataParam::GetLatestSave()
 	time_t idxTime = 0;
 	for (int i = 0; i < saveNameListDataCount; ++i)
 	{
+		if (saveDataList[i].size == 0)
+			continue;
 		time_t thisTime = mktime(&saveDataList[i].modif_time);
-		if (idxTime < thisTime)
+		if ((s64)idxTime < (s64)thisTime)
 		{
 			idx = i;
 			idxTime = thisTime;
@@ -1319,8 +1321,10 @@ int SavedataParam::GetOldestSave()
 	time_t idxTime = 0;
 	for (int i = 0; i < saveNameListDataCount; ++i)
 	{
+		if (saveDataList[i].size == 0)
+			continue;
 		time_t thisTime = mktime(&saveDataList[i].modif_time);
-		if (idxTime > thisTime)
+		if ((s64)idxTime > (s64)thisTime)
 		{
 			idx = i;
 			idxTime = thisTime;
