@@ -1294,14 +1294,14 @@ int SavedataParam::GetFirstListSave()
 
 int SavedataParam::GetLastListSave()
 {
-	return saveDataListCount - 1;
+	return saveNameListDataCount - 1;
 }
 
 int SavedataParam::GetLatestSave()
 {
 	int idx = 0;
 	time_t idxTime = 0;
-	for (int i = 0; i < saveDataListCount; ++i)
+	for (int i = 0; i < saveNameListDataCount; ++i)
 	{
 		time_t thisTime = mktime(&saveDataList[i].modif_time);
 		if (idxTime < thisTime)
@@ -1317,7 +1317,7 @@ int SavedataParam::GetOldestSave()
 {
 	int idx = 0;
 	time_t idxTime = 0;
-	for (int i = 0; i < saveDataListCount; ++i)
+	for (int i = 0; i < saveNameListDataCount; ++i)
 	{
 		time_t thisTime = mktime(&saveDataList[i].modif_time);
 		if (idxTime > thisTime)
@@ -1332,7 +1332,7 @@ int SavedataParam::GetOldestSave()
 int SavedataParam::GetFirstDataSave()
 {
 	int idx = 0;
-	for (int i = 0; i < saveDataListCount; ++i)
+	for (int i = 0; i < saveNameListDataCount; ++i)
 	{
 		if (saveDataList[i].size != 0)
 		{
@@ -1346,7 +1346,7 @@ int SavedataParam::GetFirstDataSave()
 int SavedataParam::GetLastDataSave()
 {
 	int idx = 0;
-	for (int i = saveDataListCount; i > 0; )
+	for (int i = saveNameListDataCount; i > 0; )
 	{
 		--i;
 		if (saveDataList[i].size != 0)
@@ -1361,7 +1361,7 @@ int SavedataParam::GetLastDataSave()
 int SavedataParam::GetFirstEmptySave()
 {
 	int idx = 0;
-	for (int i = 0; i < saveDataListCount; ++i)
+	for (int i = 0; i < saveNameListDataCount; ++i)
 	{
 		if (saveDataList[i].size == 0)
 		{
@@ -1375,7 +1375,7 @@ int SavedataParam::GetFirstEmptySave()
 int SavedataParam::GetLastEmptySave()
 {
 	int idx = 0;
-	for (int i = saveDataListCount; i > 0; )
+	for (int i = saveNameListDataCount; i > 0; )
 	{
 		--i;
 		if (saveDataList[i].size == 0)
