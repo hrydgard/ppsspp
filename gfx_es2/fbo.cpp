@@ -6,7 +6,7 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
 
-#if defined(USING_GLES2)
+#if defined(USING_GLES2) && !defined(BLACKBERRY)
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_RGBA8 GL_RGBA

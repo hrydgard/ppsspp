@@ -6,7 +6,6 @@
  * gl3.h last updated on $Date: 2013-02-12 14:37:24 -0800 (Tue, 12 Feb 2013) $
  *
  * Changes:
- * - Added #include <GLES2/gl2.h>
  * - Removed duplicate OpenGL ES 2.0 declarations
  * - Converted OpenGL ES 3.0 function prototypes to function pointer
  *   declarations
@@ -14,8 +13,6 @@
  */
 
 #if defined(USING_GLES2)
-#include <GLES2/gl2.h>
-#if !defined(__SYMBIAN32__)
 
 #ifdef __cplusplus
 extern "C" {
@@ -490,7 +487,6 @@ extern GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum t
 }
 #endif
 
-#endif   // !__SYMBIAN32__
 #endif   // USING_GLES2
 
 #endif

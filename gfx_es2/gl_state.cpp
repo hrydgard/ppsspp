@@ -15,8 +15,7 @@ PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV ;
 PFNGLMAPBUFFERPROC glMapBuffer;
-#endif
-#if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
+
 PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
@@ -159,8 +158,8 @@ void CheckGLExtensions() {
 #endif
 
 #if defined(USING_GLES2)
-// MAY_HAVE_GLES3 defined on all platforms, maybe redundant. Otherwise exclude platforms like Symbian, Meego, Raspberry Pi
-#if defined(MAY_HAVE_GLES3) && !defined(__SYMBIAN32__)
+	// MAY_HAVE_GLES3 defined on all platforms that support it
+#if defined(MAY_HAVE_GLES3)
 	// Try to load GLES 3.0 only if "3.0" found in version
 	// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
 	// number of times.
@@ -214,10 +213,7 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
-#if defined(IOS) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
-	gl_extensions.OES_vertex_array_object = false;
-	gl_extensions.EXT_discard_framebuffer = false;
-#else
+#if defined(ANDROID) || defined(BLACKBERRY)
 	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
 	void *invalidAddress = (void *)eglGetProcAddress("InvalidGlCall1");
@@ -243,7 +239,9 @@ void CheckGLExtensions() {
 	if (gl_extensions.EXT_discard_framebuffer) {
 		glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC)eglGetProcAddress("glDiscardFramebufferEXT");
 	}
-
+#else
+	gl_extensions.OES_vertex_array_object = false;
+	gl_extensions.EXT_discard_framebuffer = false;
 #endif
 #else
 	// Desktops support minmax

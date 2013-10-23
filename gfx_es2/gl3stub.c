@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef IOS
+#if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
 
-#include "gl3stub.h"
+#include "../gfx/gl_common.h"
 
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__)
+#if defined(USING_GLES2)
 
 GLboolean gl3stubInit() {
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
