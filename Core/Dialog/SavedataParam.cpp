@@ -1075,50 +1075,48 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList.IsValid())
-	{
+	if (param->saveNameList.IsValid()) {
 		Clear();
 
 		saveNameListData = param->saveNameList;
 
 		// Get number of fileName in array
 		saveDataListCount = 0;
-		while (saveNameListData[saveDataListCount][0] != 0)
-		{
+		while (saveNameListData[saveDataListCount][0] != 0) {
 			saveDataListCount++;
 		}
 
-		if (saveDataListCount > 0)
-		{
+		if (saveDataListCount > 0) {
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
 
 			// get and stock file info for each file
 			int realCount = 0;
-			for (int i = 0; i < saveDataListCount; i++)
-			{
+			for (int i = 0; i < saveDataListCount; i++) {
 				// TODO: Maybe we should fill the list with existing files instead?
 				if (strcmp(saveNameListData[i], "<>") == 0)
 					continue;
 
 				DEBUG_LOG(SCEUTILITY,"Name : %s",saveNameListData[i]);
 
-				std::string fileDataPath = savePath+GetGameName(param) + saveNameListData[i] + "/" + param->fileName;
-				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
-				if (info.exists)
-				{
-					SetFileInfo(realCount, info, saveNameListData[i]);
-
-					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath.c_str());
-					realCount++;
-				}
-				else
-				{
-					if (listEmptyFile)
-					{
+				std::string fileDataPath1 = savePath+GetGameName(param) + saveNameListData[i] + "/" + param->fileName;
+				std::string fileDataPath2 = savePath + GetGameName(param) + GetSaveName(param) + "/" + param->fileName;
+				PSPFileInfo info1 = pspFileSystem.GetFileInfo(fileDataPath1);
+				PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+				if (info1.exists) {
+					SetFileInfo(realCount, info1, saveNameListData[i]);
+					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath1.c_str());
+					++realCount;
+				} else if (saveDataListCount == 1 && info2.exists) {
+					// This seems might only be used when saveDataListCount=1.
+					SetFileInfo(realCount, info2, GetSaveName(param));
+					DEBUG_LOG(SCEUTILITY,"%s doesn't Exist but %s Exist",fileDataPath1.c_str(), fileDataPath2.c_str());
+					++realCount;
+				} else {
+					if (listEmptyFile) {
 						ClearFileInfo(saveDataList[realCount], saveNameListData[i]);
 						DEBUG_LOG(SCEUTILITY,"Don't Exist");
-						realCount++;
+						++realCount;
 					}
 				}
 			}
