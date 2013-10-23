@@ -87,15 +87,11 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
 
 #Portable native and separate code on android in future is easy you needs add files 
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
-
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
-LOCAL_SRC_FILES += math/math_util.cpp 
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
-LOCAL_SRC_FILES += math/math_utilarmv6.cpp 
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI
 else ifeq ($(TARGET_ARCH_ABI),x86)
-LOCAL_SRC_FILES += math/math_util.cpp 
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 endif
 

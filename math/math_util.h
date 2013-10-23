@@ -193,6 +193,5 @@ inline uint16_t ShrinkToHalf(float full) {
 
 // FPU control.
 void EnableFZ();
-void DisableFZ();
 
 #endif

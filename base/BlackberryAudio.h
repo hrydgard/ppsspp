@@ -9,6 +9,7 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
+#include "math/math_util.h"
 #include "base/NativeApp.h"
 
 #define AUDIO_FREQ 44100
@@ -50,6 +51,7 @@ public:
 private:
 	void* RunAudio()
 	{
+		EnableFZ();
 		while(true)
 		{
 			size_t frames_ready;
