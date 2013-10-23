@@ -290,7 +290,7 @@ SasInstance::SasInstance()
 	audioDump = fopen("D:\\audio.raw", "wb");
 #endif
 	memset(&waveformEffect, 0, sizeof(waveformEffect));
-	waveformEffect.type = -1;
+	waveformEffect.type = PSP_SAS_EFFECT_TYPE_OFF;
 	waveformEffect.isDryOn = 1;
 }
 
@@ -340,6 +340,7 @@ static inline s16 clamp_s16(int i) {
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	int voicesPlayingCount = 0;
+
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
@@ -434,7 +435,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
 				int envelopeValue = voice.envelope.GetHeight();
 				envelopeValue = (envelopeValue + (1 << 14)) >> 15;
-
+					
 				// We just scale by the envelope before we scale by volumes.
 				// Again, we round up by adding (1 << 14) first (*after* multiplying.)
 				sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
@@ -448,6 +449,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
 				voice.envelope.Step();
 			}
+
 			voice.sampleFrac = sampleFrac;
 			// Let's hope grainSize is a power of 2.
 			//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
@@ -461,11 +463,11 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 		}
 	}
 
-	//if (voicesPlayingCount)
-	//	NOTICE_LOG(SAS, "Sas mixed %i voices", voicesPlayingCount);
-	// Okay, apply effects processing to the Send buffer alone here.
-	// Reverb, echo, what have you.
-	// TODO
+	// Okay, apply effects processing to the Send buffer.
+	//if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF)
+	//	ApplyReverb();
+
+	// Then mix the send buffer in with the rest.
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
 	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
@@ -498,6 +500,12 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #ifdef AUDIO_TO_FILE
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif
+}
+
+void SasInstance::ApplyReverb() {
+	// for (int i = 0; i < grainSize * 2; i += 2) {
+		// modify sendBuffer
+	// }
 }
 
 void SasInstance::DoState(PointerWrap &p) {

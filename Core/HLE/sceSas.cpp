@@ -451,7 +451,6 @@ u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
 	return 0;
 }
 
-
 u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 	DEBUG_LOG(SCESAS, "sceSasGetAllEnvelopeHeights(%08x, %i)", core, heightsAddr);
 
@@ -460,8 +459,8 @@ u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 	}
 
 	for (int i = 0; i < PSP_SAS_VOICES_MAX; i++) {
-			int voiceHeight = sas->voices[i].envelope.GetHeight();
-			Memory::Write_U32(voiceHeight, heightsAddr + i * 4);
+		int voiceHeight = sas->voices[i].envelope.GetHeight();
+		Memory::Write_U32(voiceHeight, heightsAddr + i * 4);
 	}
 
 	return 0;
