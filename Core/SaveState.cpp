@@ -95,7 +95,7 @@ namespace SaveState
 			int n = (next_-- + size_) % size_;
 			if (states_[n].empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
-			
+
 			SaveStart state;
 			return CChunkFileReader::LoadPtr(&states_[n][0], state);
 		}

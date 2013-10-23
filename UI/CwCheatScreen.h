@@ -40,16 +40,17 @@ public:
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
+
 protected:
 	virtual void CreateViews();
 
 private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);
-	
-	std::vector<std::string> formattedList;
-	
+	std::vector<std::string> formattedList_;
+	bool anythingChanged_;
 };
 
+// TODO: Instead just hook the OnClick event on a regular checkbox.
 class CheatCheckBox : public ClickableItem, public CwCheatScreen {
 public:
 	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
@@ -65,21 +66,18 @@ public:
 		}
 		bool temp;
 		temp = *toggle_;
-		if (temp == 1)
-		{
+		if (temp) {
 			activatedCheat = text_;
 			processFileOn(activatedCheat);
-		}
-		if (temp == 0)
-		{
+		} else {
 			deactivatedCheat = text_;
 			processFileOff(deactivatedCheat);
 		}
 		return EVENT_DONE;
 	}
+
 private:
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
-
 };
