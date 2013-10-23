@@ -302,7 +302,19 @@ public class NativeActivity extends Activity {
         // On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set the format here,
         // if we specify that we want destination alpha in the config chooser, which we do.
         // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
-    	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBA_8888);
+        
+        // So what we really want is a RGBA8888 surface that is treated by the compositor as OPAQUE.
+        // Simply asking for OPAQUE here seems to do the trick on most devices, and seems to be required
+        // for some Mali devices to treat the surface as actually opaque (it seems to composite with blending
+        // agains a black background otherwise). However, on older devices like Xperia Play, this causes a 
+        // BAD_MATCH exception later. Choosing RGBA_8888 here works fine though and everything is drawn correctly.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.GINGERBREAD_MR1) {
+        	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBA_8888);
+        } else {
+        	// Workaround for Mali but appears to work on other devices too
+        	mGLSurfaceView.getHolder().setFormat(PixelFormat.OPAQUE);
+        }
+        
         mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
         
 		nativeRenderer = new NativeRenderer(this);
