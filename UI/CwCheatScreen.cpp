@@ -103,8 +103,7 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params) {
 	os.close();
 	g_Config.bReloadCheats = true;
 	if (MIPSComp::jit) {
-		auto blocks = MIPSComp::jit->GetBlockCache();
-		blocks->Clear();
+		MIPSComp::jit->ClearCache();
 	}
 	return UI::EVENT_DONE;
 }
