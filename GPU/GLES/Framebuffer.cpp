@@ -177,7 +177,6 @@ void FramebufferManager::CompileDraw2DProgram() {
 		}
 
 		SetNumExtraFBOs(0);
-		
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
 			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
@@ -402,8 +401,9 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
 #if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY)
 		if (gl_extensions.NV_draw_texture && !program) {
-			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems glew doesn't have a clue.
-			// Actually, on Desktop we should just use glBlitFramebuffer.
+			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
+			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
+			// so that's a little gnarly, will have to modify all callers.
 			glDrawTextureNV(texture, 0,
 				x, y, w, h, 0.0f,
 				0, 0, uscale, vscale);
@@ -441,7 +441,6 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-	//glDrawArrays(GL_TRIANGLE_FAN, 0, 4); // glDrawElements tested slightly faster on OpenGL atleast
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
@@ -467,24 +466,15 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	}
 
 	DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", addr);
-#if 0  // defined(_DEBUG)
-	std::string debug = "FBOs: ";
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		char temp[256];
-		sprintf(temp, "%08x %i %i", vfbs_[i]->fb_address, vfbs_[i]->width, vfbs_[i]->height);
-		debug += std::string(temp);
-	}
-	ERROR_LOG(SCEGE, "FBOs: %s", debug.c_str());
-#endif
 	return 0;
 }
 
 // Heuristics to figure out the size of FBO to create.
-static void DrawingSize(int &drawing_width, int &drawing_height) {
-	int default_width = 480; 
+static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
+	int default_width = 480;
 	int default_height = 272;
-	int viewport_width = (int) gstate.getViewportX1(); 
-	int viewport_height = (int) gstate.getViewportY1(); 
+	int viewport_width = (int) gstate.getViewportX1();
+	int viewport_height = (int) gstate.getViewportY1();
 	int region_width = gstate.getRegionX2() + 1;
 	int region_height = gstate.getRegionY2() + 1;
 	int scissor_width = gstate.getScissorX2() + 1;
@@ -497,7 +487,7 @@ static void DrawingSize(int &drawing_width, int &drawing_height) {
 	if (viewport_width <= 1 && viewport_height <=1) {
 		viewport_width = default_width;
 		viewport_height = default_height;
-	} 
+	}
 
 	if (fb_stride > 0 && fb_stride < 512) {
 		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
@@ -563,14 +553,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// Yeah this is not completely right. but it'll do for now.
 	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
 	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
-		
-	// As there are no clear "framebuffer width" and "framebuffer height" registers,
-	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
-	
+
 	GEBufferFormat fmt = gstate.FrameBufFormat();
 
+	// As there are no clear "framebuffer width" and "framebuffer height" registers,
+	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	DrawingSize(drawing_width, drawing_height);
+	EstimateDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
@@ -657,7 +646,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 					break;
 			}
 		}
-			
+
 		if (useBufferedRendering_) {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			if (vfb->fbo) {
@@ -701,7 +690,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		if (updateVRAM && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
-		} 
+		}
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -717,7 +706,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
 				// adreno needs us to reset the viewport after switching render targets.
-				
 				glstate.viewport.restore();
 			} else {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
@@ -733,18 +721,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			fbo_unbind();
 
 			// Let's ignore rendering to targets that have not (yet) been displayed.
-			if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER)
+			if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
 				gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
-			else
-				gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-
-			/*
-			if (drawing_width == 480 && drawing_height == 272) {
-				gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPNONFB;
-				// OK!
 			} else {
-				gstate_c.skipDrawReason |= ~SKIPDRAW_SKIPNONFB;
-			}*/
+				gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+			}
 		}
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
@@ -1031,6 +1012,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 }
 
 // TODO: SSE/NEON
+// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format) {
 	if (format == GE_FORMAT_8888) {
 		if (src == dst) {
