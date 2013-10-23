@@ -13,6 +13,12 @@
 #include "SHA1.h"
 #include "amctrl.h"
 
+//Turn off optimization in VS2013
+#ifdef _MSC_VER
+#if (_MSC_VER == 1800)
+#pragma optimize( "", off )
+#endif
+#endif 
 /*************************************************************/
 
 static const u8 loc_1CD4[16] = {0xE3, 0x50, 0xED, 0x1D, 0x91, 0x0A, 0x1F, 0xD0, 0x29, 0xBB, 0x1C, 0x3E, 0xF3, 0x40, 0x77, 0xFB};
