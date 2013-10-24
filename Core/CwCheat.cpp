@@ -3,7 +3,6 @@
 #include "../Core/CoreParameter.h"
 #include "StringUtils.h"
 #include "Common/FileUtil.h"
-#include "Config.h"
 #include "MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "util/text/utf8.h"
