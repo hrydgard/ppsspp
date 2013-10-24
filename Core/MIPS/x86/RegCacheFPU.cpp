@@ -23,7 +23,7 @@
 
 u32 FPURegCache::tempValues[NUM_TEMPS];
 
-FPURegCache::FPURegCache() : mips(0), emit(0) {
+FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
 	vregs = regs + 32;
@@ -31,21 +31,31 @@ FPURegCache::FPURegCache() : mips(0), emit(0) {
 
 void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
+
+	if (!initialReady)
+		SetupInitialRegs();
+
+	memcpy(xregs, xregsInitial, sizeof(xregs));
+	memcpy(regs, regsInitial, sizeof(regs));
+}
+
+void FPURegCache::SetupInitialRegs() {
 	for (int i = 0; i < NUM_X_FPREGS; i++) {
-		xregs[i].mipsReg = -1;
-		xregs[i].dirty = false;
+		xregsInitial[i].mipsReg = -1;
+		xregsInitial[i].dirty = false;
 	}
-	memset(regs, 0, sizeof(regs));
+	memset(regsInitial, 0, sizeof(regsInitial));
 	OpArg base = GetDefaultLocation(0);
 	for (int i = 0; i < 32; i++) {
-		regs[i].location = base;
+		regsInitial[i].location = base;
 		base.IncreaseOffset(sizeof(float));
 	}
 	base = GetDefaultLocation(32);
 	for (int i = 32; i < NUM_MIPS_FPRS; i++) {
-		regs[i].location = base;
+		regsInitial[i].location = base;
 		base.IncreaseOffset(sizeof(float));
 	}
+	initialReady = true;
 }
 
 void FPURegCache::SpillLock(int p1, int p2, int p3, int p4) {
