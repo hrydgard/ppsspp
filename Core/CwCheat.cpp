@@ -6,6 +6,7 @@
 #include "Config.h"
 #include "MIPS/MIPS.h"
 #include "Core/Config.h"
+#include "util/text/utf8.h"
 
 static int CheatEvent = -1;
 std::string gameTitle;
@@ -231,6 +232,9 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	}
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
+#ifdef _WIN32
+		line = ConvertANSIToUTF8(line);
+#endif
 		if (line.length() > 3 && line.substr(0,1) == "_"){
 			codesList.push_back(line);
 		}
