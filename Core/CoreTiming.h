@@ -79,6 +79,7 @@ namespace CoreTiming
 
 	u64 GetTicks();
 	u64 GetIdleTicks();
+	u64 GetGlobalTimeUs();
 
 	// Returns the event_type identifier.
 	int RegisterEvent(const char *name, TimedCallback callback);
