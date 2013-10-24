@@ -70,7 +70,7 @@ u64 __getVTimerRunningTime(VTimer *vt) {
 	if (vt->nvt.active == 0)
 		return 0;
 
-	return cyclesToUs(CoreTiming::GetTicks()) - vt->nvt.base;
+	return CoreTiming::GetGlobalTimeUs() - vt->nvt.base;
 }
 
 u64 __getVTimerCurrentTime(VTimer* vt) {
@@ -102,11 +102,11 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 		if (schedule < __getVTimerCurrentTime(vt))
 			cyclesIntoFuture = usToCycles(200);
 		else {
-			u64 goalTicks = usToCycles(vt->nvt.base + schedule - vt->nvt.current);
-			if (goalTicks < CoreTiming::GetTicks())
+			u64 goalUs = vt->nvt.base + schedule - vt->nvt.current;
+			if (goalUs < CoreTiming::GetGlobalTimeUs())
 				cyclesIntoFuture = usToCycles(200);
 			else
-				cyclesIntoFuture = goalTicks - CoreTiming::GetTicks();
+				cyclesIntoFuture = usToCycles(goalUs - CoreTiming::GetGlobalTimeUs());
 		}
 
 		CoreTiming::ScheduleEvent(cyclesIntoFuture, vtimerTimer, vt->GetUID());
@@ -369,7 +369,7 @@ u64 sceKernelSetVTimerTimeWide(SceUID uid, u64 timeClock) {
 
 void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
-	vt->nvt.base = cyclesToUs(CoreTiming::GetTicks());
+	vt->nvt.base = CoreTiming::GetGlobalTimeUs();
 
 	if (vt->nvt.handlerAddr != 0)
 		__KernelScheduleVTimer(vt, vt->nvt.schedule);
