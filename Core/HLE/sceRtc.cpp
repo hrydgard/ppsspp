@@ -55,7 +55,7 @@ const int PSP_TIME_INVALID_MICROSECONDS = -7;
 u64 __RtcGetCurrentTick()
 {
 	// TODO: It's probably expecting ticks since January 1, 0001?
-	return cyclesToUs(CoreTiming::GetTicks()) + rtcBaseTicks;
+	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
 }
 
 #if defined(_WIN32)
@@ -131,7 +131,7 @@ void __RtcDoState(PointerWrap &p)
 
 void __RtcTimeOfDay(PSPTimeval *tv)
 {
-	s64 additionalUs = cyclesToUs(CoreTiming::GetTicks());
+	s64 additionalUs = CoreTiming::GetGlobalTimeUs();
 	*tv = rtcBaseTime;
 
 	s64 adjustedUs = additionalUs + tv->tv_usec;

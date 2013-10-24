@@ -120,7 +120,7 @@ void __CtrlUpdateLatch()
 		
 	ctrlOldButtons = buttons;
 
-	ctrlBufs[ctrlBuf].frame = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
+	ctrlBufs[ctrlBuf].frame = (u32) CoreTiming::GetGlobalTimeUs();
 	if (!analogEnabled)
 		memset(ctrlBufs[ctrlBuf].analog, CTRL_ANALOG_CENTER, sizeof(ctrlBufs[ctrlBuf].analog));
 

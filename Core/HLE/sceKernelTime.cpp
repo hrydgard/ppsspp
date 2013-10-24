@@ -50,7 +50,7 @@ void __KernelTimeDoState(PointerWrap &p)
 
 int sceKernelGetSystemTime(u32 sysclockPtr)
 {
-	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
+	u64 t = CoreTiming::GetGlobalTimeUs();
 	if (Memory::IsValidAddress(sysclockPtr)) 
 		Memory::Write_U64(t, sysclockPtr);
 	DEBUG_LOG(SCEKERNEL, "sceKernelGetSystemTime(out:%16llx)", t);
@@ -62,7 +62,7 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 u32 sceKernelGetSystemTimeLow()
 {
 	// This clock should tick at 1 Mhz.
-	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
+	u64 t = CoreTiming::GetGlobalTimeUs();
 	VERBOSE_LOG(SCEKERNEL,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
 	hleEatCycles(165);
 	hleReSchedule("system time");
@@ -71,7 +71,7 @@ u32 sceKernelGetSystemTimeLow()
 
 u64 sceKernelGetSystemTimeWide()
 {
-	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
+	u64 t = CoreTiming::GetGlobalTimeUs();
 	DEBUG_LOG(SCEKERNEL,"%i=sceKernelGetSystemTimeWide()",(u32)t);
 	hleEatCycles(250);
 	hleReSchedule("system time");
@@ -80,9 +80,9 @@ u64 sceKernelGetSystemTimeWide()
 
 int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
 {
-	DEBUG_LOG(SCEKERNEL,"sceKernelUSec2SysClock(%i, %08x )", usec, clockPtr);
+	DEBUG_LOG(SCEKERNEL,"sceKernelUSec2SysClock(%i, %08x)", usec, clockPtr);
 	if (Memory::IsValidAddress(clockPtr))
-		Memory::Write_U32((usec & 0xFFFFFFFFL), clockPtr);
+		Memory::Write_U64((usec & 0xFFFFFFFFL), clockPtr);
 	hleEatCycles(165);
 	return 0;
 }
@@ -125,7 +125,7 @@ int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 high
 
 u32 sceKernelLibcClock()
 {
-	u32 retVal = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
+	u32 retVal = (u32) CoreTiming::GetGlobalTimeUs();
 	DEBUG_LOG(SCEKERNEL, "%i = sceKernelLibcClock", retVal);
 	hleEatCycles(330);
 	hleReSchedule("libc clock");
@@ -134,7 +134,7 @@ u32 sceKernelLibcClock()
 
 u32 sceKernelLibcTime(u32 outPtr)
 {
-	u32 t = (u32) start_time + (u32) (CoreTiming::GetTicks() / CPU_HZ);
+	u32 t = (u32) start_time + (u32) (CoreTiming::GetGlobalTimeUs() / 1000000ULL);
 
 	DEBUG_LOG(SCEKERNEL, "%i = sceKernelLibcTime(%08X)", t, outPtr);
 	// The PSP sure takes its sweet time on this function.

@@ -150,7 +150,7 @@ KernelObject *__KernelAlarmObject()
 
 void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
 {
-	alarm->alm.schedule = (CoreTiming::GetTicks() + ticks) / (u64) CoreTiming::GetClockFrequencyMHz();
+	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + ticks / (u64) CoreTiming::GetClockFrequencyMHz();
 	CoreTiming::ScheduleEvent((int) ticks, alarmTimer, alarm->GetUID());
 }
 
