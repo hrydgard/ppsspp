@@ -58,6 +58,7 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "sceMp3.h"
 #include "sceMpeg.h"
 #include "sceNet.h"
 #include "sceNetAdhoc.h"
@@ -157,6 +158,7 @@ void __KernelShutdown()
 	__NetAdhocShutdown();
 	__FontShutdown();
 
+	__Mp3Shutdown();
 	__MpegShutdown();
 	__PsmfShutdown();
 	__PPGeShutdown();
@@ -231,6 +233,7 @@ void __KernelDoState(PointerWrap &p)
 		__ImposeDoState(p);
 		__IoDoState(p);
 		__JpegDoState(p);
+		__Mp3DoState(p);
 		__MpegDoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);
