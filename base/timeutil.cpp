@@ -21,7 +21,7 @@ static float curtime_f = 0;
 __int64 _frequency = 0;
 __int64 _starttime = 0;
 
-double real_time_now(){
+double real_time_now() {
 	if (_frequency == 0) {
 		QueryPerformanceFrequency((LARGE_INTEGER*)&_frequency);
 		QueryPerformanceCounter((LARGE_INTEGER*)&_starttime);
@@ -32,6 +32,12 @@ double real_time_now(){
 	return ((double) (time - _starttime) / (double) _frequency);
 }
 
+#elif defined(BLACKBERRY)
+double real_time_now() {
+	struct timespec time;
+	clock_gettime(CLOCK_MONOTONIC, &time); // Linux must use CLOCK_MONOTONIC_RAW due to time warps
+	return time.tv_sec + time.tv_nsec / 1.0e9;
+}
 #else
 
 uint64_t _frequency = 0;
