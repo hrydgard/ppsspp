@@ -59,6 +59,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 
+	if (!File::Exists(currentDirectory))
+		currentDirectory = "";
+
 	std::string defaultLangRegion = "en_US";
 	if (bFirstRun) {
 		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
