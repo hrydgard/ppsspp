@@ -55,7 +55,7 @@ public:
 		_WriteBarrier();
 		value = 0;
 #elif defined(BLACKBERRY)
-		atomic_set(&value, 0);
+		atomic_clr(&value, 1);
 #elif defined(__SYMBIAN32__)
 		g_atomic_int_set(&value, 0);
 #else
