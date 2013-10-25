@@ -51,7 +51,6 @@ public:
 private:
 	void* RunAudio()
 	{
-		EnableFZ();
 		while(true)
 		{
 			size_t frames_ready;

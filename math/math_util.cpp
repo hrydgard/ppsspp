@@ -1,7 +1,7 @@
 #include "math/math_util.h"
 #include <stdlib.h>
 
-#if defined(__ARM_ARCH_7A__)
+#if defined(__ARM_ARCH_7A__) && !defined(BLACKBERRY)
 
 void EnableFZ()
 {
