@@ -155,7 +155,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] = 1;
 	} else {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
-		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
+		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !g_Config.bDisableFog;
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled();
@@ -216,7 +216,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear() && !g_Config.bDisableFog;
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = gstate.isColorDoublingEnabled();

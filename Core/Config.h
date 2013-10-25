@@ -166,6 +166,7 @@ public:
 	//     which currently isn't done so if texscale/offset isn't static (like in Tekken 6) things go wrong.
 	bool bPrescaleUV;
 	bool bDisableAlphaTest;  // Helps PowerVR immensely, breaks some graphics
+	bool bDisableFog;
 	// End GLES hacks.
 
 	// SystemParam

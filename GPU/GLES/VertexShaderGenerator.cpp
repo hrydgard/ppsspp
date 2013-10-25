@@ -60,7 +60,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear() && !g_Config.bDisableFog;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	memset(id->d, 0, sizeof(id->d));
@@ -158,7 +158,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
-	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear() && !g_Config.bDisableFog;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
 

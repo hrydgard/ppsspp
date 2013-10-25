@@ -278,6 +278,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
 	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
 	speedhacks->Get("DisableAlphaTest", &bDisableAlphaTest, false);
+	speedhacks->Get("DisableFog", &bDisableFog, false);
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -468,6 +469,7 @@ void Config::Save() {
 		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
 		speedhacks->Set("PrescaleUV", bPrescaleUV);
 		speedhacks->Set("DisableAlphaTest", bDisableAlphaTest);
+		speedhacks->Set("DisableFog", bDisableFog);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
