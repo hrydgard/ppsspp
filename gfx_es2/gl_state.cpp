@@ -126,6 +126,9 @@ void CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_POWERVR;
 		} else if (vendor == "Qualcomm") {
 			gl_extensions.gpuVendor = GPU_VENDOR_ADRENO;
+		} else if (vendor == "Broadcom") {
+			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
+			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
 		} else {
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 		}
