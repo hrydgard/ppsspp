@@ -41,10 +41,33 @@ extern "C" {
 static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
 
 struct Mp3Context {
+	Mp3Context()
+		:
+#ifdef USE_FFMPEG
+		avformat_context(NULL), avio_context(NULL), resampler_context(NULL),
+#endif
+		mediaengine(NULL) {
+	}
+
+	~Mp3Context() {
+#ifdef USE_FFMPEG
+		if (avio_context != NULL) {
+			av_free(avio_context->buffer);
+			av_free(avio_context);
+		}
+		if (avformat_context != NULL) {
+			avformat_free_context(avformat_context);
+		}
+		if (resampler_context != NULL) {
+			swr_free(&resampler_context);
+		}
+#endif
+	}
+
 	void DoState(PointerWrap &p) {
-	auto s = p.Section("Mp3Context", 1, 2);
-	if (!s)
-		return;
+		auto s = p.Section("Mp3Context", 1, 2);
+		if (!s)
+			return;
 
 		p.Do(mp3StreamStart);
 		p.Do(mp3StreamEnd);
@@ -294,11 +317,6 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	ctx->mp3Bitrate = 128;
 	ctx->mp3SamplingRate = 44100;
 
-#ifdef USE_FFMPEG
-	ctx->avformat_context = NULL;
-	ctx->avio_context = NULL;
-#endif
-
 	mp3Map[mp3Addr] = ctx;
 	return mp3Addr;
 }
@@ -543,10 +561,6 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 		return -1;
 	}
 
-#ifdef USE_FFMPEG
-	av_free(ctx->avio_context->buffer);
-	av_free(ctx->avio_context);
-#endif
 	mp3Map.erase(mp3Map.find(mp3));
 
 	delete ctx;
