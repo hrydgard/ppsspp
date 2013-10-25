@@ -99,14 +99,8 @@ struct Mp3Context {
 };
 
 static std::map<u32, Mp3Context *> mp3Map;
-static u32 lastMp3Handle = 0;
 
 Mp3Context *getMp3Ctx(u32 mp3) {
-	if (mp3Map.find(mp3) == mp3Map.end()) {
-		ERROR_LOG(ME, "Bad mp3 handle %08x - using last one (%08x) instead", mp3, lastMp3Handle);
-		mp3 = lastMp3Handle;
-	}
-
 	if (mp3Map.find(mp3) == mp3Map.end())
 		return NULL;
 	return mp3Map[mp3];
