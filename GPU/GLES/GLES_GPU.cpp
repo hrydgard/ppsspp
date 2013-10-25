@@ -1436,9 +1436,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_UNKNOWN_FC:
 	case GE_CMD_UNKNOWN_FD:
 	case GE_CMD_UNKNOWN_FE:
-	case GE_CMD_UNKNOWN_FF:
 		if (data != 0)
 			WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		break;
+	case GE_CMD_UNKNOWN_FF:
+		// This is hit in quite a few games, supposedly it is a no-op.
+		// Might be used for debugging or something?
 		break;
 		
 	default:
