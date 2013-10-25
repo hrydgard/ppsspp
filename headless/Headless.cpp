@@ -326,7 +326,10 @@ int main(int argc, const char* argv[])
 	g_Config.iInternalResolution = 1;
 	g_Config.bFrameSkipUnthrottle = false;
 
+#ifdef _WIN32
 	InitSysDirectories();
+#endif
+
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #elif !defined(_WIN32)

@@ -23,6 +23,7 @@
 #include "Config.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
+#include "gfx_es2/gpu_features.h"
 #include "HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
 
@@ -35,8 +36,7 @@ extern bool isJailed;
 Config::Config() { }
 Config::~Config() { }
 
-void Config::Load(const char *iniFileName, const char *controllerIniFilename)
-{
+void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	iniFilename_ = FindConfigFile(iniFileName != NULL ? iniFileName : "ppsspp.ini");
 	controllerIniFilename_ = FindConfigFile(controllerIniFilename != NULL ? controllerIniFilename : "controls.ini");
 
@@ -91,7 +91,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 	recent->Get("MaxRecent", &iMaxRecent, 30);
-	
+
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
 		iMaxRecent = 30;
@@ -119,7 +119,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 #endif
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
 	cpu->Get("AtomicAudioLocks", &bAtomicAudioLocks, false);
-	
+
 #ifdef __SYMBIAN32__
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
 #else
@@ -130,14 +130,13 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
-	graphics->Get("RenderingMode", &iRenderingMode, 
-		// Many ARMv6 devices have serious problems with buffered rendering.
-#if defined(ARM) && !defined(ARMV7)
-		0
-#else
-		1
-#endif
-		); // default is buffered rendering mode
+
+	int renderingModeDefault = 1;  // Buffered
+	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
+		renderingModeDefault = 0;  // Non-buffered
+	}
+
+	graphics->Get("RenderingMode", &iRenderingMode, renderingModeDefault);
 	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
