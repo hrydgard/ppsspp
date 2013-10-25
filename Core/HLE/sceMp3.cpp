@@ -22,7 +22,6 @@
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/Reporting.h"
-#include "Core/HW/MediaEngine.h"
 
 #ifdef USE_FFMPEG
 #ifndef PRId64
@@ -40,13 +39,16 @@ extern "C" {
 
 static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
 
+struct Mp3Context;
+int __Mp3InitContext(Mp3Context *ctx);
+
 struct Mp3Context {
 	Mp3Context()
-		:
 #ifdef USE_FFMPEG
-		avformat_context(NULL), avio_context(NULL), resampler_context(NULL),
+		: avformat_context(NULL), avio_context(NULL), resampler_context(NULL) {
+#else
+	{
 #endif
-		mediaengine(NULL) {
 	}
 
 	~Mp3Context() {
@@ -65,7 +67,7 @@ struct Mp3Context {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Mp3Context", 1, 2);
+		auto s = p.Section("Mp3Context", 1);
 		if (!s)
 			return;
 
@@ -75,18 +77,20 @@ struct Mp3Context {
 		p.Do(mp3BufSize);
 		p.Do(mp3PcmBuf);
 		p.Do(mp3PcmBufSize);
+		p.Do(readPosition);
+		p.Do(bufferRead);
+		p.Do(bufferWrite);
+		p.Do(bufferAvailable);
 		p.Do(mp3DecodedBytes);
-		if (s >= 2)
-			p.Do(mp3SumDecodedSamples);
-		else
-			mp3SumDecodedSamples = 0;
 		p.Do(mp3LoopNum);
 		p.Do(mp3MaxSamples);
-		p.Do(mp3Bitrate);
+		p.Do(mp3SumDecodedSamples);
 		p.Do(mp3Channels);
+		p.Do(mp3Bitrate);
 		p.Do(mp3SamplingRate);
 		p.Do(mp3Version);
-		p.DoClass(mediaengine);
+
+		__Mp3InitContext(this);
 	}
 
 	int mp3StreamStart;
@@ -106,7 +110,6 @@ struct Mp3Context {
 	int mp3LoopNum;
 	int mp3MaxSamples;
 	int mp3SumDecodedSamples;
-	MediaEngine *mediaengine;
 
 	int mp3Channels;
 	int mp3Bitrate;
@@ -127,6 +130,21 @@ Mp3Context *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
 		return NULL;
 	return mp3Map[mp3];
+}
+
+void __Mp3Shutdown() {
+	for (auto it = mp3Map.begin(), end = mp3Map.end(); it != end; ++it) {
+		delete it->second;
+	}
+	mp3Map.clear();
+}
+
+void __Mp3DoState(PointerWrap &p) {
+	auto s = p.Section("sceMp3", 0, 1);
+	if (!s)
+		return;
+
+	p.Do(mp3Map);
 }
 
 /* MP3 */
@@ -253,7 +271,7 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 	return ctx->bufferAvailable != ctx->mp3BufSize && ctx->readPosition < ctx->mp3StreamEnd;
 }
 
-int readFunc(void *opaque, uint8_t *buf, int buf_size) {
+static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
 
 	int res = 0;
@@ -333,28 +351,10 @@ int sceMp3TermResource() {
 	return 0;
 }
 
-int sceMp3Init(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	// Read in the header and swap the endian
-	int header = Memory::Read_U32(ctx->mp3Buf);
-	header = (header >> 24) |
-		((header<<8) & 0x00FF0000) |
-		((header>>8) & 0x0000FF00) |
-		(header << 24);
-
-	ctx->mp3Version = ((header >> 19) & 0x3);
-
+int __Mp3InitContext(Mp3Context *ctx) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
-
-	u8* avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
+	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
 	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
 	ctx->avformat_context = avformat_alloc_context();
 	ctx->avformat_context->pb = ctx->avio_context;
@@ -396,12 +396,6 @@ int sceMp3Init(u32 mp3) {
 		ctx->decoder_context->sample_rate,
 		0, NULL);
 
-	// Let's just grab this info from FFMPEG, it seems more reliable than the code above.
-
-	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
-	ctx->mp3Channels = ctx->decoder_context->channels;
-	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
-
 	if (!ctx->resampler_context) {
 		ERROR_LOG(ME, "Could not allocate resampler context %d", ret);
 		return -1;
@@ -411,6 +405,39 @@ int sceMp3Init(u32 mp3) {
 		ERROR_LOG(ME, "Failed to initialize the resampling context %d", ret);
 		return -1;
 	}
+
+	return 0;
+#endif
+}
+
+int sceMp3Init(u32 mp3) {
+	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
+
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	// Read in the header and swap the endian
+	int header = Memory::Read_U32(ctx->mp3Buf);
+	header = (header >> 24) |
+		((header<<8) & 0x00FF0000) |
+		((header>>8) & 0x0000FF00) |
+		(header << 24);
+
+	ctx->mp3Version = ((header >> 19) & 0x3);
+
+#ifdef USE_FFMPEG
+	int ret = __Mp3InitContext(ctx);
+	if (ret != 0)
+		return ret;
+
+	// Let's just grab this info from FFMPEG, it seems more reliable than the code above.
+
+	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
+	ctx->mp3Channels = ctx->decoder_context->channels;
+	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
 
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
 #endif
