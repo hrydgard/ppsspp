@@ -704,14 +704,6 @@ void GamePauseScreen::update(InputState &input) {
 	UIScreen::update(input);
 }
 
-void GamePauseScreen::key(const KeyInput &key) {
-	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
-		screenManager()->finishDialog(this, DR_CANCEL);
-	} else {
-		UIScreen::key(key);
-	}
-}
-
 void DrawBackground(float alpha);
 
 void GamePauseScreen::DrawBackground(UIContext &dc) {

@@ -28,6 +28,7 @@ public:
 		: gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
 
 	virtual void update(InputState &input);
+	virtual void onFinish(DialogResult result);
 
 	UI::Event OnLanguageChanged;
 	UI::Event OnRecentChanged;
@@ -91,6 +92,7 @@ private:
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:
 	DeveloperToolsScreen() {}
+	virtual void onFinish(DialogResult result);
 
 protected:
 	virtual void CreateViews();

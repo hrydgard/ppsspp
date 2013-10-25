@@ -71,10 +71,10 @@ void CwCheatScreen::CreateViews() {
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
 	leftColumn->Add(new ItemHeader(k->T("Options")));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnBack);
-	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnAddCheat);
-	leftColumn->Add(new Choice(k->T("Import Cheats")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnImportCheat);
-	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnEnableAll);
+	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
+	leftColumn->Add(new Choice(k->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
 
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 	rightScroll->SetScrollToTop(false);
@@ -91,8 +91,7 @@ void CwCheatScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params) {
-	screenManager()->finishDialog(this, DR_OK);
+void CwCheatScreen::onFinish(DialogResult result) {
 	os.open(activeCheatFile.c_str());
 	for (int j = 0; j < (int)cheatList.size(); j++) {
 		os << cheatList[j];
@@ -105,7 +104,6 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params) {
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {

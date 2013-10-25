@@ -41,6 +41,7 @@ public:
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
+	virtual void onFinish(DialogResult result);
 protected:
 	virtual void CreateViews();
 

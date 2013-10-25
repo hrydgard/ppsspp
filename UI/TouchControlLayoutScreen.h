@@ -24,13 +24,14 @@
 
 class DragDropButton;
 
-class TouchControlLayoutScreen : public UIDialogScreenWithBackground{
+class TouchControlLayoutScreen : public UIDialogScreenWithBackground {
 public:
 	TouchControlLayoutScreen();
 
 	virtual void CreateViews();
 	virtual void touch(const TouchInput &touch);
 	virtual void dialogFinished(const Screen *dialog, DialogResult result);
+	virtual void onFinish(DialogResult reason);
 
 protected:
 	virtual UI::EventReturn OnBack(UI::EventParams &e);

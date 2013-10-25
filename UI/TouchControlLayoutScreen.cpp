@@ -225,9 +225,11 @@ void TouchControlLayoutScreen::touch(const TouchInput &touch) {
 	}
 };
 
-UI::EventReturn TouchControlLayoutScreen::OnBack(UI::EventParams &e) {
-	g_Config.Save();
 
+
+UI::EventReturn TouchControlLayoutScreen::OnBack(UI::EventParams &e) {
+
+	// Hm, wtf?
 	if (PSP_IsInited()) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	} else {
@@ -236,6 +238,10 @@ UI::EventReturn TouchControlLayoutScreen::OnBack(UI::EventParams &e) {
 
 	return UI::EVENT_DONE;
 };
+
+void TouchControlLayoutScreen::onFinish(DialogResult reason) {
+	g_Config.Save();
+}
 
 UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 	screenManager()->push(new TouchControlVisibilityScreen());
