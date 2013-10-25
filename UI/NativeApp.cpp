@@ -569,8 +569,6 @@ void TakeScreenshot() {
 }
 
 void NativeRender() {
-	EnableFZ();
-
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
