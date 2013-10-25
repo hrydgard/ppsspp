@@ -223,7 +223,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			}
 #endif
 		}
-		if (doTexture && (!prescale || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP)) {
+		if (doTexture && (!prescale || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX)) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		}
 		for (int i = 0; i < 4; i++) {
