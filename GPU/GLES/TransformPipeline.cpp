@@ -1175,7 +1175,8 @@ void TransformDrawEngine::DoFlush() {
 						vai->numFrames++;
 					}
 					if (vai->drawsUntilNextFullHash == 0) {
-						u32 newHash = ComputeHash();
+						// When DisableVertexHashing is true , set newHash = vai->hash 
+						u32 newHash = g_Config.bDisableVertexHashing ? vai->hash : ComputeHash();
 						if (newHash != vai->hash) {
 							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 							if (vai->vbo) {
