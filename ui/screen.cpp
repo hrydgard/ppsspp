@@ -170,7 +170,7 @@ void ScreenManager::RecreateAllViews() {
 	}
 }
 
-void ScreenManager::finishDialog(const Screen *dialog, DialogResult result) {
+void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 	if (stack_.empty()) {
 		ELOG("Must be in a dialog to finishDialog");
 		return;
@@ -179,6 +179,7 @@ void ScreenManager::finishDialog(const Screen *dialog, DialogResult result) {
 		ELOG("Wrong dialog being finished!");
 		return;
 	}
+	dialog->onFinish(result);
 	dialogFinished_ = dialog;
 	dialogResult_ = result;
 }

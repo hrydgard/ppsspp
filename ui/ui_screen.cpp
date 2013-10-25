@@ -55,7 +55,7 @@ void UIScreen::key(const KeyInput &key) {
 
 void UIDialogScreen::key(const KeyInput &key) {
 	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
-		screenManager()->finishDialog(this, DR_CANCEL);
+		screenManager()->finishDialog(this, DR_BACK);
 	} else {
 		UIScreen::key(key);
 	}
@@ -96,7 +96,7 @@ void UIScreen::axis(const AxisInput &axis) {
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	screenManager()->finishDialog(this, DR_BACK);
 	return UI::EVENT_DONE;
 }
 
@@ -114,7 +114,7 @@ void PopupScreen::touch(const TouchInput &touch) {
 	}
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y))
-		screenManager()->finishDialog(this, DR_CANCEL);
+		screenManager()->finishDialog(this, DR_BACK);
 
 	UIDialogScreen::touch(touch);
 }
@@ -183,7 +183,7 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
 	if (callback_)
-		callback_(adaptor_.GetSelected());	
+		callback_(adaptor_.GetSelected());
 	screenManager()->finishDialog(this, DR_OK);
 	OnCompleted(DR_OK);
 	OnChoice.Dispatch(e);

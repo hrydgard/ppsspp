@@ -31,6 +31,7 @@ enum DialogResult {
 	DR_CANCEL,
 	DR_YES,
 	DR_NO,
+	DR_BACK,
 };
 
 class ScreenManager;
@@ -43,6 +44,7 @@ public:
 		screenManager_ = 0;
 	}
 
+	virtual void onFinish(DialogResult reason) {}
 	virtual void update(InputState &input) {}
 	virtual void render() {}
 	virtual void deviceLost() {}
@@ -99,7 +101,7 @@ public:
 	void RecreateAllViews();
 
 	// Pops the dialog away.
-	void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
+	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
 
 	// Instant touch, separate from the update() mechanism.
 	void touch(const TouchInput &touch);
