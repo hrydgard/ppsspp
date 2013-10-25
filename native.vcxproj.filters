@@ -222,6 +222,9 @@
     <ClInclude Include="gfx_es2\gl_state.h">
       <Filter>gfx</Filter>
     </ClInclude>
+    <ClInclude Include="gfx_es2\gpu_features.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
     <ClInclude Include="util\text\utf8.h">
       <Filter>util</Filter>
     </ClInclude>
@@ -453,6 +456,9 @@
       <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\gl_state.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="util\text\utf8.cpp">

@@ -230,6 +230,7 @@
     <ClInclude Include="gfx_es2\fbo.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\gl_state.h" />
+    <ClInclude Include="gfx_es2\gpu_features.h" />
     <ClInclude Include="gfx_es2\vertex_format.h" />
     <ClInclude Include="i18n\i18n.h" />
     <ClInclude Include="image\png_load.h" />
@@ -364,6 +365,7 @@
     <ClCompile Include="gfx_es2\fbo.cpp" />
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
     <ClCompile Include="gfx_es2\gl_state.cpp" />
+    <ClCompile Include="gfx_es2\gpu_features.cpp" />
     <ClCompile Include="gfx_es2\vertex_format.cpp" />
     <ClCompile Include="i18n\i18n.cpp" />
     <ClCompile Include="image\png_load.cpp" />
