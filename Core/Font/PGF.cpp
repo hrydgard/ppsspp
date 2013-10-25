@@ -508,8 +508,8 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 				xx = pixelIndex / glyph.h;
 				yy = pixelIndex % glyph.h;
 			}
-
-			int pixelX = x + xx;
+			// Increase extra 5 pixels to render font correctly in Growlancer Wayfarer of time
+			int pixelX = x + xx + 5;
 			int pixelY = y + yy;
 			if (pixelX >= clipX && pixelX < clipX + clipWidth && pixelY >= clipY && pixelY < clipY + clipHeight) {
 				// 4-bit color value
