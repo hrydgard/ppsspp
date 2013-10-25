@@ -24,6 +24,10 @@
 #include <pthread_np.h>
 #endif
 
+#ifdef BLACKBERRY
+#include <sys/neutrino.h>
+#endif
+
 #ifdef USE_BEGINTHREADEX
 #include <process.h>
 #endif
@@ -38,7 +42,7 @@ int CurrentThreadId()
 #elif defined __APPLE__
 	return mach_thread_self();
 #else
-	return 0;
+	return pthread_self();
 #endif
 }
 	
@@ -142,7 +146,11 @@ void SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
 
 void SetCurrentThreadAffinity(u32 mask)
 {
+#ifdef BLACKBERRY
+	ThreadCtl(_NTO_TCTL_RUNMASK, &mask);
+#else
 	SetThreadAffinity(pthread_self(), mask);
+#endif
 }
 
 static pthread_key_t threadname_key;
@@ -170,6 +178,9 @@ static void ThreadnameKeyAlloc()
 
 void SetCurrentThreadName(const char* szThreadName)
 {
+#ifdef BLACKBERRY
+	pthread_setname_np(pthread_self(), szThreadName);
+#else
 	pthread_once(&threadname_key_once, ThreadnameKeyAlloc);
 
 	void* threadname;
@@ -177,6 +188,7 @@ void SetCurrentThreadName(const char* szThreadName)
 		free(threadname);
 
 	pthread_setspecific(threadname_key, strdup(szThreadName));
+#endif
 
 	INFO_LOG(COMMON, "%s(%s)\n", __FUNCTION__, szThreadName);
 }
