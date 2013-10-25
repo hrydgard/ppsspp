@@ -4,6 +4,7 @@
 #include <string.h>
 #include <string>
 #include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 
 #ifdef USING_GLES2
 
@@ -303,50 +304,8 @@ public:
 
 extern OpenGLState glstate;
 
-enum {	
-	GPU_VENDOR_NVIDIA = 1,
-	GPU_VENDOR_AMD = 2,
-	GPU_VENDOR_INTEL = 3,
-	GPU_VENDOR_ARM = 4,
-	GPU_VENDOR_POWERVR = 5,
-	GPU_VENDOR_ADRENO = 6,
-	GPU_VENDOR_UNKNOWN = 0,
-};
-
-// Extensions to look at using:
-// GL_NV_map_buffer_range (same as GL_ARB_map_buffer_range ?)
-
-// WARNING: This gets memset-d - so no strings please
-struct GLExtensions {
-	int ver[3];
-	int gpuVendor;
-	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
-	bool OES_depth24;
-	bool OES_packed_depth_stencil;
-	bool OES_depth_texture;
-	bool EXT_discard_framebuffer;
-	bool FBO_ARB;
-	bool FBO_EXT;
-	bool PBO_ARB;
-	bool EXT_swap_control_tear;
-	bool QCOM_alpha_test;
-	bool OES_mapbuffer;
-	bool OES_vertex_array_object;
-	bool EXT_shader_framebuffer_fetch;
-	bool EXT_blend_minmax;
-	bool ATIClampBug;
-	bool NV_draw_texture;
-	bool NV_copy_image;
-
-	// EGL extensions
-
-	bool EGL_NV_system_time;
-	bool EGL_NV_coverage_sample;
-};
 
 extern std::string g_all_gl_extensions;
 extern std::string g_all_egl_extensions;
-
-extern GLExtensions gl_extensions;
 
 void CheckGLExtensions();

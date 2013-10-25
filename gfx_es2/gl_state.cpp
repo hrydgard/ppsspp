@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "base/logging.h"
+#include "base/NativeApp.h"
 #include "gl_state.h"
 
 #ifdef _WIN32
@@ -104,6 +105,7 @@ void CheckGLExtensions() {
 
 	// Check vendor string to try and guess GPU
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
+	// TODO: move this stuff to gpu_features.cpp
 	if (cvendor) {
 		const std::string vendor(cvendor);
 		if (vendor == "NVIDIA Corporation"
@@ -293,6 +295,8 @@ void CheckGLExtensions() {
 		gl_extensions.ATIClampBug = ((strncmp (renderer, "ATI RADEON X", 12) != 0) || (strncmp (renderer, "ATI MOBILITY RADEON X",21) != 0));
 	}
 #endif
+
+	ProcessGPUFeatures();
 }
 
 void OpenGLState::SetVSyncInterval(int interval) {
