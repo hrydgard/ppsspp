@@ -16,7 +16,7 @@
 #ifdef __SYMBIAN32__
 #include <e32std.h>
 #include <QSystemScreenSaver>
-#include <hwrmvibra.h>
+#include <QFeedbackHapticsEffect>
 #include "SymbianMediaKeys.h"
 #endif
 #include "QtMain.h"
@@ -46,28 +46,17 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
-#ifdef __SYMBIAN32__
-CHWRMVibra* vibra;
-#endif
-
 void Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
 	else if (length_ms == -2)
 		length_ms = 25;
-	// Qt 4.8 does not have any cross-platform Vibrate. Symbian-only for now.
-#ifdef __SYMBIAN32__
-	CHWRMVibra::TVibraModeState iState = vibra->VibraSettings();
-	CHWRMVibra::TVibraStatus iStatus = vibra->VibraStatus();
-	// User has not enabled vibration in settings.
-	if(iState != CHWRMVibra::EVibraModeON)
-		return;
-	if(iStatus != CHWRMVibra::EVibraStatusStopped)
-		vibra->StopVibraL();
-#endif
-
-#ifdef __SYMBIAN32__
-	vibra->StartVibraL(length_ms, 20);
+	// Symbian only for now
+#if defined(__SYMBIAN32__)
+	QFeedbackHapticsEffect effect;
+	effect.setIntensity(0.2);
+	effect.setDuration(length_ms);
+	effect.start();
 #endif
 }
 
@@ -153,8 +142,6 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	// Disable screensaver
 	QSystemScreenSaver *ssObject = new QSystemScreenSaver(&w);
 	ssObject->setScreenSaverInhibit();
-	// Start vibration service
-	vibra = CHWRMVibra::NewL();
 	SymbianMediaKeys* mediakeys = new SymbianMediaKeys();
 #endif
 
@@ -167,9 +154,6 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 
 	int ret = a.exec();
 	delete audio;
-#ifdef __SYMBIAN32__
-	delete vibra;
-#endif
 	thread->quit();
 	NativeShutdown();
 	net::Shutdown();
