@@ -53,13 +53,17 @@ linux {
 	}
 }
 qnx: LIBS += -lscreen
-symbian: LIBS += -llibglib -lhwrmvibraclient
+symbian: LIBS += -llibglib -lhwrmvibraclient -lRemConCoreApi -lRemConInterfaceBase
 # Avoids problems with some compilers
 unix:!symbian: LIBS += -lz
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
+symbian {
+	SOURCES += ../native/base/SymbianMediaKeys.cpp
+	HEADERS += ../native/base/SymbianMediaKeys.h
+}
 
 # UI
 SOURCES += ../UI/*Screen.cpp \
