@@ -130,7 +130,7 @@
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
     <Lib>
-      <AdditionalDependencies>..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avdevice.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
