@@ -17,6 +17,7 @@
 #include <e32std.h>
 #include <QSystemScreenSaver>
 #include <hwrmvibra.h>
+#include "SymbianMediaKeys.h"
 #endif
 #include "QtMain.h"
 
@@ -154,6 +155,7 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	ssObject->setScreenSaverInhibit();
 	// Start vibration service
 	vibra = CHWRMVibra::NewL();
+	SymbianMediaKeys* mediakeys = new SymbianMediaKeys();
 #endif
 
 	QThread* thread = new QThread;
