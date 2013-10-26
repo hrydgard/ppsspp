@@ -1395,11 +1395,11 @@ void FramebufferManager::DestroyAllFBOs() {
 	vfbs_.clear();
 }
 
-void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
+void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	addr &= ~0x40000000;
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
-	if (addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr()) {
+	if (addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr() || safe) {
 		// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
 		if (!Memory::IsValidAddress(displayFramebufPtr_))
 			return;

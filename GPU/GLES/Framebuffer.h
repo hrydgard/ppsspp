@@ -128,7 +128,7 @@ public:
 	void DeviceLost();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
-	void UpdateFromMemory(u32 addr, int size);
+	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 
 #ifdef USING_GLES2
