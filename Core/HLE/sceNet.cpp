@@ -130,6 +130,7 @@ u32 sceNetTerm() {
 }
 
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
+	// TODO: Read from config
 	static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 6 };
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
@@ -138,14 +139,18 @@ u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	return 0;
 }
 
+u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
+	return sceWlanGetEtherAddr(addrAddr);
+}
+
 u32 sceWlanDevIsPowerOn() {
 	DEBUG_LOG(SCENET, "UNTESTED 0=sceWlanDevIsPowerOn()");
-	return 0;
+	return 1;
 }
 
 u32 sceWlanGetSwitchState() {
 	DEBUG_LOG(SCENET, "UNTESTED sceWlanGetSwitchState()");
-	return 0;
+	return 1;
 }
 
 // Probably a void function, but often returns a useful value.
@@ -348,7 +353,7 @@ const HLEFunction sceNet[] = {
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
 	{0x89360950, WrapI_UU<sceNetEtherNtostr>, "sceNetEtherNtostr"},
 	{0xd27961c9, WrapI_UU<sceNetEtherStrton>, "sceNetEtherStrton"},
-	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"},
+	{0x0bf0a3ae, WrapU_U<sceNetGetLocalEtherAddr>, "sceNetGetLocalEtherAddr"},
 	{0x50647530, 0, "sceNetFreeThreadinfo"},
 	{0xcc393e48, WrapI_U<sceNetGetMallocStat>, "sceNetGetMallocStat"},
 	{0xad6844c6, 0, "sceNetThreadAbort"},
