@@ -1008,6 +1008,11 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
+	// Always generate a texture name, we might need it if the texture is replaced later.
+	if (!replaceImages) {
+		glGenTextures(1, &entry->texture);
+	}
+
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
@@ -1031,10 +1036,6 @@ void TextureCache::SetTexture(bool force) {
 		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return;
-	}
-
-	if (!replaceImages) {
-		glGenTextures(1, &entry->texture);
 	}
 	glBindTexture(GL_TEXTURE_2D, entry->texture);
 	lastBoundTexture = entry->texture;
