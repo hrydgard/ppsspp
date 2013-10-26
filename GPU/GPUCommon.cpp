@@ -206,26 +206,25 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 
 	int id = -1;
-	bool oldCompatibility = true;
+	u64 currentTicks = CoreTiming::GetTicks();
+	// Check compatibility
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
 		//numStacks = 0;
 		//stack = NULL;
-		oldCompatibility = false;
-	}
-
-	u64 currentTicks = CoreTiming::GetTicks();
-	for (int i = 0; i < DisplayListMaxCount; ++i) {
-		if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
-			if (dls[i].pc == listpc && !oldCompatibility) {
-				ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
-				return 0x80000021;
+		for (int i = 0; i < DisplayListMaxCount; ++i) {
+			if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
+				if (dls[i].pc == listpc) {
+					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+					return 0x80000021;
+				}
+				//if(dls[i].stack == stack) {
+				//	ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list stack %08X already used", context);
+				//	return 0x80000021;
+				//}
 			}
-			//if(dls[i].stack == stack) {
-			//	ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list stack %08X already used", context);
-			//	return 0x80000021;
-			//}
 		}
 	}
+
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		int possibleID = (i + nextListID) % DisplayListMaxCount;
 		auto possibleList = dls[possibleID];
