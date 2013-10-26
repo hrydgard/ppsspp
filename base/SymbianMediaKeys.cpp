@@ -9,6 +9,8 @@
 #include <QApplication>
 #include "SymbianMediakeys.h"
 #include "input/keycodes.h"
+#include "base/NativeApp.h"
+
 #define KTimeOut 80
 
 SymbianMediaKeys::SymbianMediaKeys()
@@ -51,192 +53,159 @@ void SymbianMediaKeys::subscribeKeyEvent(QObject* aObject ){
 void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId, 
 	TRemConCoreApiButtonAction aButtonAct){
 	 QKeyEvent *event = NULL;
-	TRequestStatus status;
-       switch( aOperationId )
-       {
-       case ERemConCoreApiPausePlayFunction:
-           {
-           switch (aButtonAct)
-               {
-               case ERemConCoreApiButtonPress:
-                    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
-                                                            NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
-                   break;
-               case ERemConCoreApiButtonRelease:
-                    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
-                                                                    NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
-            	   // Play/Pause button released
-                   break;
-               case ERemConCoreApiButtonClick:
-                   // Play/Pause button clicked
-            	   playtimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
-                                                                            NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
-                   break;
-               default:
-                   // Play/Pause unknown action
-                   break;
-               }                               
+	 TRequestStatus status;
+     switch( aOperationId ){
+		case ERemConCoreApiPausePlayFunction:
+        {
+			switch (aButtonAct){
+			case ERemConCoreApiButtonPress:
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PLAY_PAUSE, KEY_DOWN));
+			    break;
+		    case ERemConCoreApiButtonRelease:
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PLAY_PAUSE, KEY_UP));
+			   break;
+		   case ERemConCoreApiButtonClick:
+				playtimer->start(KTimeOut);
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PLAY_PAUSE, KEY_DOWN));
+			   break;
+		   default:
+			   // Play/Pause unknown action
+			   break;
+			}                               
            break;
            }   
          
        case ERemConCoreApiStop:
-           {
-           switch (aButtonAct)
-               {
-        	   case ERemConCoreApiButtonPress:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_STOP, Qt::NoModifier,
-                           NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
-                  break;
-               case ERemConCoreApiButtonRelease:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_STOP, Qt::NoModifier,
-                                           NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
-                  break;
-               case ERemConCoreApiButtonClick:
-            	   stoptimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_STOP, Qt::NoModifier,
-                                           NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
-                   break;   
-               default:
-                     
+	   {
+	   switch (aButtonAct){
+			case ERemConCoreApiButtonPress:
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_STOP, KEY_DOWN));
+			  break;
+			case ERemConCoreApiButtonRelease:
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_STOP, KEY_UP));
+				break;
+			case ERemConCoreApiButtonClick:
+				stoptimer->start(KTimeOut);
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_STOP, KEY_DOWN));
+				break;   
+		   default:
                 break; 
-               }
-           break;
-           }
+			}
+			break;
+	   }
        case ERemConCoreApiRewind:
-           {
-           switch (aButtonAct)
-               {
-        	   case ERemConCoreApiButtonPress:  
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-                                         NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-                  break;
-               case ERemConCoreApiButtonRelease: 
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-                                                 NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-                  break;
-               case ERemConCoreApiButtonClick:
-            	   backwardtimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-                                                 NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-               default:
-                break; 
-               }
+	   {
+           switch (aButtonAct){
+				case ERemConCoreApiButtonPress:  
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_DOWN));
+					break;
+				case ERemConCoreApiButtonRelease: 
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_UP));
+					break;
+				case ERemConCoreApiButtonClick:
+					backwardtimer->start(KTimeOut);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_DOWN));
+				default:
+					break; 
+		   }
            break;
-           }    
+	   }    
        case ERemConCoreApiFastForward:
-           {
-           switch (aButtonAct)
-               {
-        	   case ERemConCoreApiButtonPress:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-                  break;
-               case ERemConCoreApiButtonRelease:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-                  break;
-               case ERemConCoreApiButtonClick:
-            	   forwardtimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-               default:      
-                break; 
-               }
-           break;
-           }       
+	   {
+			switch (aButtonAct){
+				case ERemConCoreApiButtonPress:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_DOWN));
+					break;
+				case ERemConCoreApiButtonRelease:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_UP));
+					break;
+				case ERemConCoreApiButtonClick:
+					forwardtimer->start(KTimeOut);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_DOWN));
+				default:      
+					break; 
+			}
+			break;
+	   }       
        case ERemConCoreApiVolumeUp:
-           {   
-           switch (aButtonAct)
-               {
-           	   case ERemConCoreApiButtonPress:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_UP, Qt::NoModifier,
-                           NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonRelease:
+	   {   
+           switch (aButtonAct){
+				case ERemConCoreApiButtonPress:
+					event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_UP, Qt::NoModifier,
+					NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
+					break;
+				case ERemConCoreApiButtonRelease:
                    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_VOLUME_UP, Qt::NoModifier,
-                                           NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
+				   NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
 				  break;
-			   case ERemConCoreApiButtonClick:
-				   voluptimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_UP, Qt::NoModifier,
-                                           NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
-			   default:      
+				case ERemConCoreApiButtonClick:
+					voluptimer->start(KTimeOut);
+					event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_UP, Qt::NoModifier,
+					NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
+				default:      
 				break; 
                }
            break;
-           }       
-       case ERemConCoreApiVolumeDown:
-           {
-           switch (aButtonAct)
-               {
-          	   case ERemConCoreApiButtonPress:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_DOWN, Qt::NoModifier,
-                           NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonRelease:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_VOLUME_DOWN, Qt::NoModifier,
-                                       NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonClick:
-				   voldowntimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_DOWN, Qt::NoModifier,
-                                       NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
-			   default:      
-				break; 
+		}       
+		case ERemConCoreApiVolumeDown:
+		{
+			switch (aButtonAct){
+				case ERemConCoreApiButtonPress:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_VOLUME_DOWN, KEY_DOWN));
+					break;
+				case ERemConCoreApiButtonRelease:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_VOLUME_DOWN, KEY_UP));
+					break;
+				case ERemConCoreApiButtonClick:
+					voldowntimer->start(KTimeOut);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_VOLUME_DOWN, KEY_DOWN));
+				default:      
+					break; 
                }
            break;
-           }  
-       case ERemConCoreApiBackward:
-           {
-           switch (aButtonAct)
-               {
-          	   case ERemConCoreApiButtonPress:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-                           NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonRelease:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-                           NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonClick:
-				   backwardtimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-                           NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-			   default:      
-				break; 
+		}  
+		case ERemConCoreApiBackward:
+		{
+			switch (aButtonAct)
+			{
+				case ERemConCoreApiButtonPress:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_DOWN));
+					break;
+				case ERemConCoreApiButtonRelease:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_UP));
+					break;
+				case ERemConCoreApiButtonClick:
+					backwardtimer->start(KTimeOut);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_DOWN));
+				default:      
+					break; 
                }
+			break;
+		}       
+		case ERemConCoreApiForward:
+		{
+			switch (aButtonAct)
+			{
+				case ERemConCoreApiButtonPress:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_DOWN));
+					break;
+				case ERemConCoreApiButtonRelease:
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_UP));
+					break;
+				case ERemConCoreApiButtonClick:
+					forwardtimer->start(KTimeOut);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_DOWN));  
+				default:      
+					break; 
+		   }
            break;
-           }       
-       case ERemConCoreApiForward:
-           {
-           switch (aButtonAct)
-               {
-          	   case ERemConCoreApiButtonPress:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonRelease:
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-				  break;
-			   case ERemConCoreApiButtonClick:
-				   forwardtimer->start(KTimeOut);
-                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-				   
-			   default:      
-				break; 
-               }
-           break;
-           }
+		}
        	
-       default:
-           break;
-       }
-       //complete key event
-       QCoreApplication::postEvent (receiver, event);
-       CompleteMediaKeyEvent( aOperationId );
+		default:
+			break;
+   }
+   //complete key event
+   CompleteMediaKeyEvent( aOperationId );
 }
 
 void SymbianMediaKeys::MrccatoPlay(TRemConCoreApiPlaybackSpeed aSpeed, 
@@ -267,81 +236,76 @@ void SymbianMediaKeys::MrccatoSelectAudioInputFunction(TUint8 aAudioInputSignalN
 }
 
 void SymbianMediaKeys::CompleteMediaKeyEvent( TRemConCoreApiOperationId aOperationId ){
-	if	( !IsActive() )
-            {
-            switch ( aOperationId )
-                {
-                case ERemConCoreApiVolumeUp:
-                    {
-                    iRemConCore->VolumeUpResponse( iStatus, KErrNone );
-                    SetActive();
-                    }
-                    break;
-
-                case ERemConCoreApiVolumeDown:
-                    {
-                    iRemConCore->VolumeDownResponse( iStatus, KErrNone );
-                    SetActive();
-                    }
-                    break;
-                case ERemConCoreApiPlay:
-                    {
-                    iRemConCore-> PlayResponse(iStatus, KErrNone);
-                    SetActive();
-                    }
-                    break;
-                case ERemConCoreApiStop:
-                    {
-                    iRemConCore->StopResponse(iStatus, KErrNone);
-                    SetActive();
-                    }
-                    break;
-
-                case ERemConCoreApiPause:
-                    {
-                    iRemConCore->PauseResponse(iStatus, KErrNone);
-                    SetActive();
-                    }
-                    break;
-                case ERemConCoreApiRewind:
-                    {
-                    iRemConCore->RewindResponse(iStatus, KErrNone);
-                    SetActive();
-                    }
-                    break;
-                case ERemConCoreApiFastForward:
-                    {
-                    iRemConCore->FastForwardResponse(iStatus, KErrNone);
-                    SetActive();
-                    }
-                    break;
-                case ERemConCoreApiForward:
-                    {
-                    iRemConCore->ForwardResponse( iStatus, KErrNone );
-                    SetActive();
-                    }
-                    break;
-                case ERemConCoreApiBackward:
-                    {
-                    iRemConCore->BackwardResponse(iStatus, KErrNone );
-                    SetActive();
-                    }
-                    break;
-                default:
-                    {
-                    }
-                    break;
-                }
-            }
-	else
+	if	( !IsActive() ){
+		switch ( aOperationId )
 		{
+			case ERemConCoreApiVolumeUp:
+			{
+				iRemConCore->VolumeUpResponse( iStatus, KErrNone );
+				SetActive();
+				break;
+			}
+
+			case ERemConCoreApiVolumeDown:
+			{
+				iRemConCore->VolumeDownResponse( iStatus, KErrNone );
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiPlay:
+			{
+				iRemConCore-> PlayResponse(iStatus, KErrNone);
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiStop:
+			{
+				iRemConCore->StopResponse(iStatus, KErrNone);
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiPause:
+			{
+				iRemConCore->PauseResponse(iStatus, KErrNone);
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiRewind:
+			{
+				iRemConCore->RewindResponse(iStatus, KErrNone);
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiFastForward:
+			{
+				iRemConCore->FastForwardResponse(iStatus, KErrNone);
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiForward:
+			{
+				iRemConCore->ForwardResponse( iStatus, KErrNone );
+				SetActive();
+				break;
+			}
+			case ERemConCoreApiBackward:
+			{
+				iRemConCore->BackwardResponse(iStatus, KErrNone );
+				SetActive();
+				break;
+			}
+			default:
+				break;
+		}
+	}
+	else{
 		//active, append to queue
 		iResponseQ.Append( aOperationId );
-		}
+	}
 }
 
 void SymbianMediaKeys::RunL(){
-	 if ( iResponseQ.Count() ){
+	if ( iResponseQ.Count() ){
 		CompleteMediaKeyEvent( iResponseQ[0] );
 		//remove old response from que
 		iResponseQ.Remove(0);
@@ -354,42 +318,30 @@ void SymbianMediaKeys::DoCancel(){
 
 void SymbianMediaKeys::playtimerexpired(){
 	playtimer->stop();
-    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
-               NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
-	QCoreApplication::postEvent (receiver, event);
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PLAY_PAUSE, KEY_UP));
 }
 
 void SymbianMediaKeys::stoptimerexpired(){
 	stoptimer->stop();
-    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_STOP, Qt::NoModifier,
-            NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
-	QCoreApplication::postEvent (receiver, event);
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_STOP, KEY_UP));
 }
 	
 void SymbianMediaKeys::forwardtimerexpired(){
 	forwardtimer->stop();
-    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_NEXT, Qt::NoModifier,
-            NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
-	QCoreApplication::postEvent (receiver, event);
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_NEXT, KEY_UP));
 }
 	
 void SymbianMediaKeys::backwardtimerexpired(){
 	backwardtimer->stop();
-    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
-            NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
-	QCoreApplication::postEvent (receiver, event);
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_MEDIA_PREVIOUS, KEY_UP));
 }
 	
 void SymbianMediaKeys::voluptimerexpired(){
 	voluptimer->stop();
-    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_VOLUME_UP, Qt::NoModifier,
-            NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
-	QCoreApplication::postEvent (receiver, event);
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_VOLUME_UP, KEY_UP));
 }
 
 void SymbianMediaKeys::voldowntimerexpired(){
 	voldowntimer->stop();
-    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_VOLUME_DOWN, Qt::NoModifier,
-            NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
-	QCoreApplication::postEvent (receiver, event);
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_VOLUME_DOWN, KEY_UP));
 }

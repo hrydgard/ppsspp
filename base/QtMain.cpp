@@ -156,7 +156,6 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	// Start vibration service
 	vibra = CHWRMVibra::NewL();
 	SymbianMediaKeys* mediakeys = new SymbianMediaKeys();
-	mediakeys->subscribeKeyEvent(&w);
 #endif
 
 	QThread* thread = new QThread;
