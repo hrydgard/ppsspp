@@ -186,6 +186,21 @@ class MainAudio: public QObject
 	Q_OBJECT
 public:
 	MainAudio() {
+	}
+	~MainAudio() {
+		if (feed != NULL) {
+			killTimer(timer);
+			feed->close();
+		}
+		if (output) {
+			output->stop();
+			delete output;
+		}
+		if (mixbuf)
+			free(mixbuf);
+	}
+public slots:
+	void run() {
 		QAudioFormat fmt;
 		fmt.setSampleRate(AUDIO_FREQ);
 		fmt.setCodec("audio/pcm");
@@ -200,15 +215,6 @@ public:
 		feed = output->start();
 		if (feed != NULL)
 			timer = startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
-	}
-	~MainAudio() {
-		if (feed != NULL) {
-			killTimer(timer);
-			feed->close();
-		}
-		output->stop();
-		delete output;
-		free(mixbuf);
 	}
 
 protected:

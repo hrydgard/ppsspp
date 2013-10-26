@@ -156,23 +156,19 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	vibra = CHWRMVibra::NewL();
 #endif
 
-#ifdef __SYMBIAN32__
-	MainAudio *audio = new MainAudio();
-#else
 	QThread* thread = new QThread;
 	MainAudio *audio = new MainAudio();
 	audio->moveToThread(thread);
+	QObject::connect(thread, SIGNAL(started()), audio, SLOT(run()));
 	QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 	thread->start();
-#endif
 
 	int ret = a.exec();
 	delete audio;
 #ifdef __SYMBIAN32__
 	delete vibra;
-#else
-	thread->quit();
 #endif
+	thread->quit();
 	NativeShutdown();
 	net::Shutdown();
 	return ret;
