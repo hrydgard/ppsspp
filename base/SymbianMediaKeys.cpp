@@ -8,15 +8,8 @@
 #include <QKeyEvent>
 #include <QApplication>
 #include "SymbianMediakeys.h"
-
+#include "input/keycodes.h"
 #define KTimeOut 80
-
-#define KPlayButtonPress 0x101
-#define KStopButtonPress 0x102
-#define KForwardButtonPress 0x103
-#define KBackwardButtonPress 0x104
-#define KVolUpButtonPress 0x105
-#define KVolDownButtonPress 0x106
 
 SymbianMediaKeys::SymbianMediaKeys()
 	: CActive ( EPriorityNormal ){
@@ -66,19 +59,19 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
                case ERemConCoreApiButtonPress:
-            	    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KPlayButtonPress, Qt::NoModifier,
-															KPlayButtonPress, KPlayButtonPress,Qt::NoModifier);
+                    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
+                                                            NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
                    break;
                case ERemConCoreApiButtonRelease:
-              	    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KPlayButtonPress, Qt::NoModifier,
-           															KPlayButtonPress, KPlayButtonPress,Qt::NoModifier);
+                    event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
+                                                                    NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
             	   // Play/Pause button released
                    break;
                case ERemConCoreApiButtonClick:
                    // Play/Pause button clicked
             	   playtimer->start(KTimeOut);
-            	   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KPlayButtonPress, Qt::NoModifier,
-            	 															KPlayButtonPress, KPlayButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
+                                                                            NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
                    break;
                default:
                    // Play/Pause unknown action
@@ -92,17 +85,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
         	   case ERemConCoreApiButtonPress:
-        		   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KStopButtonPress, Qt::NoModifier,
-        				   KStopButtonPress, KStopButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_STOP, Qt::NoModifier,
+                           NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
                   break;
                case ERemConCoreApiButtonRelease:
-            	   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KStopButtonPress, Qt::NoModifier,
-            	           				   KStopButtonPress, KStopButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_STOP, Qt::NoModifier,
+                                           NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
                   break;
                case ERemConCoreApiButtonClick:
             	   stoptimer->start(KTimeOut);
-            	   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KStopButtonPress, Qt::NoModifier,
-            	           				   KStopButtonPress, KStopButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_STOP, Qt::NoModifier,
+                                           NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
                    break;   
                default:
                      
@@ -115,17 +108,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
         	   case ERemConCoreApiButtonPress:  
-        		   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KBackwardButtonPress, Qt::NoModifier,
-        		              			 KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+                                         NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
                   break;
                case ERemConCoreApiButtonRelease: 
-         		   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KBackwardButtonPress, Qt::NoModifier,
-                		              			 KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+                                                 NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
                   break;
                case ERemConCoreApiButtonClick:
             	   backwardtimer->start(KTimeOut);
-         		   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KBackwardButtonPress, Qt::NoModifier,
-                		              			 KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+                                                 NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
                default:
                 break; 
                }
@@ -136,17 +129,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
         	   case ERemConCoreApiButtonPress:
-        		   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KForwardButtonPress, Qt::NoModifier,
-        				   KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
                   break;
                case ERemConCoreApiButtonRelease:
-            	   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KForwardButtonPress, Qt::NoModifier,
-            	        				   KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
                   break;
                case ERemConCoreApiButtonClick:
             	   forwardtimer->start(KTimeOut);
-            	   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KForwardButtonPress, Qt::NoModifier,
-            	        				   KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
                default:      
                 break; 
                }
@@ -157,17 +150,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
            	   case ERemConCoreApiButtonPress:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KVolUpButtonPress, Qt::NoModifier,
-						   KVolUpButtonPress, KVolUpButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_UP, Qt::NoModifier,
+                           NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonRelease:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KVolUpButtonPress, Qt::NoModifier,
-				 						   KVolUpButtonPress, KVolUpButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_VOLUME_UP, Qt::NoModifier,
+                                           NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonClick:
 				   voluptimer->start(KTimeOut);
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KVolUpButtonPress, Qt::NoModifier,
-				 						   KVolUpButtonPress, KVolUpButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_UP, Qt::NoModifier,
+                                           NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
 			   default:      
 				break; 
                }
@@ -178,17 +171,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
           	   case ERemConCoreApiButtonPress:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KVolDownButtonPress, Qt::NoModifier,
-						   KVolDownButtonPress, KVolDownButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_DOWN, Qt::NoModifier,
+                           NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonRelease:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KVolDownButtonPress, Qt::NoModifier,
-									   KVolDownButtonPress, KVolDownButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_VOLUME_DOWN, Qt::NoModifier,
+                                       NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonClick:
 				   voldowntimer->start(KTimeOut);
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KVolDownButtonPress, Qt::NoModifier,
-									   KVolDownButtonPress, KVolDownButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_VOLUME_DOWN, Qt::NoModifier,
+                                       NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
 			   default:      
 				break; 
                }
@@ -199,17 +192,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
           	   case ERemConCoreApiButtonPress:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KBackwardButtonPress, Qt::NoModifier,
-						   KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+                           NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonRelease:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KBackwardButtonPress, Qt::NoModifier,
-						   KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+                           NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonClick:
 				   backwardtimer->start(KTimeOut);
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KBackwardButtonPress, Qt::NoModifier,
-						   KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+                           NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
 			   default:      
 				break; 
                }
@@ -220,17 +213,17 @@ void SymbianMediaKeys::MrccatoCommand(TRemConCoreApiOperationId aOperationId,
            switch (aButtonAct)
                {
           	   case ERemConCoreApiButtonPress:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KForwardButtonPress, Qt::NoModifier,
-						   KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonRelease:
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, KForwardButtonPress, Qt::NoModifier,
-				  						   KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyRelease, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
 				  break;
 			   case ERemConCoreApiButtonClick:
 				   forwardtimer->start(KTimeOut);
-				   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, KForwardButtonPress, Qt::NoModifier,
-				  						   KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+                   event =  QKeyEvent::createExtendedKeyEvent( QEvent::KeyPress, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+                                           NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
 				   
 			   default:      
 				break; 
@@ -361,42 +354,42 @@ void SymbianMediaKeys::DoCancel(){
 
 void SymbianMediaKeys::playtimerexpired(){
 	playtimer->stop();
-	QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, KPlayButtonPress, Qt::NoModifier,
-			   KPlayButtonPress, KPlayButtonPress,Qt::NoModifier);
+    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_PLAY_PAUSE, Qt::NoModifier,
+               NKCODE_MEDIA_PLAY_PAUSE, NKCODE_MEDIA_PLAY_PAUSE,Qt::NoModifier);
 	QCoreApplication::postEvent (receiver, event);
 }
 
 void SymbianMediaKeys::stoptimerexpired(){
 	stoptimer->stop();
-	QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, KStopButtonPress, Qt::NoModifier,
-			KStopButtonPress, KStopButtonPress,Qt::NoModifier);
+    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_STOP, Qt::NoModifier,
+            NKCODE_MEDIA_STOP, NKCODE_MEDIA_STOP,Qt::NoModifier);
 	QCoreApplication::postEvent (receiver, event);
 }
 	
 void SymbianMediaKeys::forwardtimerexpired(){
 	forwardtimer->stop();
-	QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, KForwardButtonPress, Qt::NoModifier,
-			KForwardButtonPress, KForwardButtonPress,Qt::NoModifier);
+    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_NEXT, Qt::NoModifier,
+            NKCODE_MEDIA_NEXT, NKCODE_MEDIA_NEXT,Qt::NoModifier);
 	QCoreApplication::postEvent (receiver, event);
 }
 	
 void SymbianMediaKeys::backwardtimerexpired(){
 	backwardtimer->stop();
-	QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, KBackwardButtonPress, Qt::NoModifier,
-			KBackwardButtonPress, KBackwardButtonPress,Qt::NoModifier);
+    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_MEDIA_PREVIOUS, Qt::NoModifier,
+            NKCODE_MEDIA_PREVIOUS, NKCODE_MEDIA_PREVIOUS,Qt::NoModifier);
 	QCoreApplication::postEvent (receiver, event);
 }
 	
 void SymbianMediaKeys::voluptimerexpired(){
 	voluptimer->stop();
-	QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, KVolUpButtonPress, Qt::NoModifier,
-			KVolUpButtonPress, KVolUpButtonPress,Qt::NoModifier);
+    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_VOLUME_UP, Qt::NoModifier,
+            NKCODE_VOLUME_UP, NKCODE_VOLUME_UP,Qt::NoModifier);
 	QCoreApplication::postEvent (receiver, event);
 }
 
 void SymbianMediaKeys::voldowntimerexpired(){
 	voldowntimer->stop();
-	QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, KVolDownButtonPress, Qt::NoModifier,
-			KVolDownButtonPress, KVolDownButtonPress,Qt::NoModifier);
+    QKeyEvent* event =  QKeyEvent::createExtendedKeyEvent(QEvent::KeyRelease, NKCODE_VOLUME_DOWN, Qt::NoModifier,
+            NKCODE_VOLUME_DOWN, NKCODE_VOLUME_DOWN,Qt::NoModifier);
 	QCoreApplication::postEvent (receiver, event);
 }
