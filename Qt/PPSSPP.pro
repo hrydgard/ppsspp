@@ -20,7 +20,7 @@ win32|greaterThan(QT_MAJOR_VERSION,4) {
 greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 
 mobile_platform: MOBILITY += sensors
-symbian: MOBILITY += systeminfo
+symbian: MOBILITY += systeminfo feedback
 
 # PPSSPP Libs
 win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/release/
@@ -53,7 +53,7 @@ linux {
 	}
 }
 qnx: LIBS += -lscreen
-symbian: LIBS += -llibglib -lhwrmvibraclient -lRemConCoreApi -lRemConInterfaceBase
+symbian: LIBS += -llibglib -lRemConCoreApi -lRemConInterfaceBase
 # Avoids problems with some compilers
 unix:!symbian: LIBS += -lz
 
