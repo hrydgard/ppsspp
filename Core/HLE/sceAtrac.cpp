@@ -1199,10 +1199,13 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
 	int ret = atrac->Analyze();
+	// Try not to delete the atrac ID
+	/*
 	if (ret < 0) {
 		delete atrac;
 		return ret;
-	}
+	} 
+	*/
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
