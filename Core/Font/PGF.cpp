@@ -453,7 +453,7 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) {
 	return true;
 }
 
-void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) {
+void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType, bool original) {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
 		// No Glyph available for this charCode, try to use the alternate char.
@@ -511,6 +511,11 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 			int pixelX = x + xx;
 			int pixelY = y + yy;
+
+			// Apply offset by 1px for non-original PSP fonts
+			if (!original) 
+				pixelX += 1;
+
 			if (pixelX >= clipX && pixelX < clipX + clipWidth && pixelY >= clipY && pixelY < clipY + clipHeight) {
 				// 4-bit color value
 				int pixelColor = value;
