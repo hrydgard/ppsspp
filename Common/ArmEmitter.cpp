@@ -267,7 +267,7 @@ void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
 	if (BLInRange(func)) {
 		BL(func);
 	} else {
-		MOVI2R(reg, (uintptr_t)(func));
+		MOVI2R(reg, (u32)(uintptr_t)(func));
 		BL(reg);
 	}
 }
@@ -392,7 +392,7 @@ FixupBranch ARMXEmitter::B_CC(CCFlags Cond)
 }
 void ARMXEmitter::B_CC(CCFlags Cond, const void *fnptr)
 {
-	s32 distance = (intptr_t)fnptr - ((intptr_t)(code) + 8);
+	ptrdiff_t distance = (intptr_t)fnptr - ((intptr_t)(code) + 8);
 	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "B_CC out of range (%p calls %p)", code, fnptr);
@@ -411,7 +411,7 @@ FixupBranch ARMXEmitter::BL_CC(CCFlags Cond)
 }
 void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 {
-	s32 distance =  ((intptr_t)(code) - 8)  - (intptr_t)branch.ptr;
+	ptrdiff_t distance =  ((intptr_t)(code) - 8)  - (intptr_t)branch.ptr;
 	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "SetJumpTarget out of range (%p calls %p)", code,
@@ -425,7 +425,7 @@ void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 }
 void ARMXEmitter::B (const void *fnptr)
 {
-	s32 distance = (intptr_t)fnptr - (intptr_t(code) + 8);
+	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
 	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "B out of range (%p calls %p)", code, fnptr);
@@ -439,7 +439,7 @@ void ARMXEmitter::B(ARMReg src)
 }
 
 bool ARMXEmitter::BLInRange(const void *fnptr) {
-	s32 distance = (intptr_t)fnptr - (intptr_t(code) + 8);
+	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
 	if (distance <= -33554432 || distance > 33554432)
 		return false;
 	else
@@ -448,7 +448,7 @@ bool ARMXEmitter::BLInRange(const void *fnptr) {
 
 void ARMXEmitter::BL(const void *fnptr)
 {
-	s32 distance = (intptr_t)fnptr - (intptr_t(code) + 8);
+	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
 	_assert_msg_(JIT, distance > -33554432
                      && distance <=  33554432,
                      "BL out of range (%p calls %p)", code, fnptr);
