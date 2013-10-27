@@ -21,6 +21,10 @@
 
 #include <map>
 
+namespace UI {
+	class CheckBox;
+}
+
 class TouchControlVisibilityScreen : public UIScreenWithBackground {
 public:
 	TouchControlVisibilityScreen() { }
@@ -28,10 +32,17 @@ public:
 	virtual void CreateViews();
 
 protected:
-	virtual UI::EventReturn OnBack(UI::EventParams &e);
 	virtual UI::EventReturn OnToggleAll(UI::EventParams &e);
 
 private:
 	std::map<std::string, bool*> keyToggles;
 	bool toggleSwitch;
+
+	class ChoiceEventHandler{
+	public:
+		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
+		UI::EventReturn onChoiceClick(UI::EventParams &e);
+	private:
+		UI::CheckBox *checkbox_;
+	};
 };

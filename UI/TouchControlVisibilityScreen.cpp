@@ -71,20 +71,25 @@ void TouchControlVisibilityScreen::CreateViews() {
 	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
-		row->Add(new CheckBox(i->second, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
+
+		CheckBox *checkbox = new CheckBox(i->second, "", "", new LinearLayoutParams(50, WRAP_CONTENT));
+		row->Add(checkbox);
 
 		imageFinder = keyImages.find(i->first);
 		Choice *choice;
 
 		if (imageFinder != keyImages.end()) {
-			choice = new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f));
-			choice->SetCentered(true);
-			row->Add(choice);
+			choice = new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f));	
 		} else {
 			choice = new Choice(mc->T(i->first.c_str()), new LinearLayoutParams(1.0f));
-			choice->SetCentered(true);
-			row->Add(choice);
 		}
+
+		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
+		choice->OnClick.Handle(choiceEventHandler, &ChoiceEventHandler::onChoiceClick);
+
+		choice->SetCentered(true);
+		
+		row->Add(choice);
 		grid->Add(row);
 	}
 }
@@ -106,3 +111,9 @@ UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn TouchControlVisibilityScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
+	checkbox_->Toggle();
+
+	return UI::EVENT_DONE;
+};
