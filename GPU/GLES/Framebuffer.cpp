@@ -502,16 +502,13 @@ static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 		}
 	} else {
 		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_stride == region_width && region_width == viewport_width) { 
+		if (fb_stride == region_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
-		} else if (fb_stride == viewport_width) { 
+		} else { 
 			drawing_width = viewport_width;
 			drawing_height = viewport_height;
-		} else {
-			drawing_width = default_width;
-			drawing_height = default_height;
-		}
+		} 
 	}
 }
 
@@ -580,8 +577,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				vfb->fb_stride = fb_stride;
 				v->format = fmt;
 				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
-				v->width = drawing_width;
-				v->height = drawing_height;
+				//v->width = drawing_width;
+				//v->height = drawing_height;
 				break;
 			} else {
 				INFO_LOG(HLE, "Enlarging framebuffer from (%i, %i) to (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
