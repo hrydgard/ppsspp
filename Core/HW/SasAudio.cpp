@@ -424,8 +424,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
 
 		u32 sampleFrac = voice.sampleFrac;
-		const int MAX_CONFIG_VOLUME = 20;
-		int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
+		// We need to shift by 12 anyway, so combine that with the volume shift.
+		int volumeShift = (12 + MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
 		if (volumeShift < 0) volumeShift = 0;
 		for (int i = 0; i < grainSize; i++) {
 			// For now: nearest neighbour, not even using the resample history at all.

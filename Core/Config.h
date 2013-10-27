@@ -24,6 +24,8 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
+const int MAX_CONFIG_VOLUME = 8;
+
 struct Config {
 public:
 	Config();

@@ -18,6 +18,7 @@
 #include <map>
 #include <algorithm>
 
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
@@ -211,6 +212,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 					ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
 					return -1;
 				}
+				__AdjustBGMVolume((s16 *)out, frame.nb_samples * frame.channels);
 
 				//av_samples_copy(&audio_dst_data, frame.data, 0, 0, frame.nb_samples, frame.channels, (AVSampleFormat)frame.format);
 
