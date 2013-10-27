@@ -1275,6 +1275,7 @@ endif()
 
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
+file(INSTALL flash0 lang DESTINATION .)
 
 # Fix CMake some Xcode settings.
 if(APPLE)

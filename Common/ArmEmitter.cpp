@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stddef.h>
 
 // For cache flushing on Symbian/iOS/Blackberry
 #ifdef __SYMBIAN32__

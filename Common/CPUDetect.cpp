@@ -57,13 +57,18 @@ void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
 	} else {
 		ELOG("CPUID %08x failed!", cpuid_leaf);
 	}
+#elif defined(__i386__) && defined(__PIC__)
+	asm (
+		"xchgl %%ebx, %1;\n\t"
+		"cpuid;\n\t"
+		"xchgl %%ebx, %1;\n\t"
+		:"=a" (regs[0]), "=r" (regs[1]), "=c" (regs[2]), "=d" (regs[3])
+		:"a" (cpuid_leaf), "c" (ecxval));
 #else
 	asm (
 		"cpuid;\n\t"
-		"movl %%ebx, %1;\n\t"
-		:"=a" (regs[0]), "=m" (regs[1]), "=c" (regs[2]), "=d" (regs[3])
-		:"a" (cpuid_leaf), "c" (ecxval)
-		:"%ebx");
+		:"=a" (regs[0]), "=b" (regs[1]), "=c" (regs[2]), "=d" (regs[3])
+		:"a" (cpuid_leaf), "c" (ecxval));
 #endif
 }
 void __cpuid(int regs[4], int cpuid_leaf)
