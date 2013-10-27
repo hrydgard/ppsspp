@@ -284,36 +284,41 @@ if(WIN32)
 	target_link_libraries(Common winmm)
 endif()
 
-add_library(zlib STATIC
-	ext/zlib/adler32.c
-	ext/zlib/compress.c
-	ext/zlib/crc32.c
-	ext/zlib/crc32.h
-	ext/zlib/deflate.c
-	ext/zlib/deflate.h
-	ext/zlib/gzclose.c
-	ext/zlib/gzguts.h
-	ext/zlib/gzlib.c
-	ext/zlib/gzread.c
-	ext/zlib/gzwrite.c
-	ext/zlib/infback.c
-	ext/zlib/inffast.c
-	ext/zlib/inffast.h
-	ext/zlib/inffixed.h
-	ext/zlib/inflate.c
-	ext/zlib/inflate.h
-	ext/zlib/inftrees.c
-	ext/zlib/inftrees.h
-	ext/zlib/make_vms.com
-	ext/zlib/trees.c
-	ext/zlib/trees.h
-	ext/zlib/uncompr.c
-	ext/zlib/zconf.h
-	ext/zlib/zlib.h
-	ext/zlib/zutil.c
-	ext/zlib/zutil.h
-)
-include_directories(ext/zlib)
+if(BLACKBERRY)
+	set(LIBZIP z)
+else()
+	add_library(zlib STATIC
+		ext/zlib/adler32.c
+		ext/zlib/compress.c
+		ext/zlib/crc32.c
+		ext/zlib/crc32.h
+		ext/zlib/deflate.c
+		ext/zlib/deflate.h
+		ext/zlib/gzclose.c
+		ext/zlib/gzguts.h
+		ext/zlib/gzlib.c
+		ext/zlib/gzread.c
+		ext/zlib/gzwrite.c
+		ext/zlib/infback.c
+		ext/zlib/inffast.c
+		ext/zlib/inffast.h
+		ext/zlib/inffixed.h
+		ext/zlib/inflate.c
+		ext/zlib/inflate.h
+		ext/zlib/inftrees.c
+		ext/zlib/inftrees.h
+		ext/zlib/make_vms.com
+		ext/zlib/trees.c
+		ext/zlib/trees.h
+		ext/zlib/uncompr.c
+		ext/zlib/zconf.h
+		ext/zlib/zlib.h
+		ext/zlib/zutil.c
+		ext/zlib/zutil.h
+	)
+	include_directories(ext/zlib)
+	set(LIBZIP zlib)
+endif()
 
 add_library(snappy STATIC
 	ext/snappy/snappy-c.cpp
@@ -351,11 +356,6 @@ if(NOT USING_GLES2)
 	include_directories(native/ext/glew)
 	set(GLEW_LIBRARIES glew)
 endif()
-
-add_library(sha1 STATIC
-	native/ext/sha1/sha1.cpp
-	native/ext/sha1/sha1.h)
-include_directories(native/ext/sha1)
 
 add_library(stb_image STATIC
 	native/ext/stb_image/stb_image.c
@@ -426,7 +426,7 @@ if(ANDROID)
 		native/ext/libzip/zip_unchange_data.c)
 	target_link_libraries(libzip zlib)
 	include_directories(native/ext/libzip)
-	set(LIBZIP libzip)
+	set(LIBZIP libzip zlib)
 endif()
 
 set(nativeExtra)
@@ -581,8 +581,6 @@ add_library(native STATIC
 	native/input/keycodes.h
 	native/input/input_state.h
 	native/input/input_state.cpp
-	native/json/json_writer.cpp
-	native/json/json_writer.h
 	native/math/curves.cpp
 	native/math/curves.h
 	native/math/expression_parser.cpp
@@ -600,8 +598,6 @@ add_library(native STATIC
 	native/math/lin/vec3.h
 	native/math/math_util.cpp
 	native/math/math_util.h
-	native/midi/midi_input.cpp
-	native/midi/midi_input.h
 	native/net/http_client.cpp
 	native/net/http_client.h
 	native/net/resolve.cpp
@@ -646,28 +642,16 @@ add_library(native STATIC
 	native/ext/jpge/jpgd.cpp
 	native/ext/jpge/jpgd.h
 	native/ext/jpge/jpge.cpp
-	native/ext/jpge/jpge.h
-	native/ext/rapidxml/rapidxml.hpp
-	native/ext/rapidxml/rapidxml_iterators.hpp
-	native/ext/rapidxml/rapidxml_print.hpp
-	native/ext/rapidxml/rapidxml_utils.hpp
-	native/ext/vjson/json.cpp
-	native/ext/vjson/json.h
-	native/ext/vjson/block_allocator.cpp
-	native/ext/vjson/block_allocator.h)
+	native/ext/jpge/jpge.h)
 include_directories(native)
-# rapidxml is headers only so we can't make a lib specific for it
-include_directories(native/ext/rapidxml)
-target_link_libraries(native ${LIBZIP} rg_etc1 sha1 stb_image stb_vorbis #vjson
-	zlib snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP} rg_etc1 stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
+
 if(ANDROID)
 	target_link_libraries(native log)
-endif()
-setup_target_project(native native)
-
-if(WIN32)
+elseif(WIN32)
 	target_link_libraries(native ws2_32 winmm)
 endif()
+setup_target_project(native native)
 
 add_library(kirk STATIC
 	ext/libkirk/AES.c
@@ -730,7 +714,6 @@ elseif(X86)
 		ext/disarm.cpp)
 endif()
 
-# atrac3plus.cpp used dl* functions on non-win32 platforms
 # Core needs to be linked with dl on these platforms
 if(LINUX)
   set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
@@ -1147,7 +1130,7 @@ set(NativeAppSource
 	UI/ControlMappingScreen.cpp
 	UI/CwCheatScreen.cpp
 	UI/ui_atlas.cpp)
-if(ANDROID)
+if(ANDROID AND ARM)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
 endif()
 set(NativeAssets
