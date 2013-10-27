@@ -146,7 +146,7 @@ void GPRRegCache::FlushR(X64Reg reg)
 {
 	if (reg >= NUM_X_REGS)
 		PanicAlert("Flushing non existent reg");
-	if (!xregs[reg].free)
+	else if (!xregs[reg].free)
 		StoreFromRegister(xregs[reg].mipsReg);
 }
 

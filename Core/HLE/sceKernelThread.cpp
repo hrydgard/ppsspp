@@ -1580,7 +1580,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled)
 {
 	// r and f are immediately next to each other and must be.
-	memcpy(ctx->r, currentMIPS->r, sizeof(ctx->r) + sizeof(ctx->f));
+	memcpy((void *)ctx->r, (void *)currentMIPS->r, sizeof(ctx->r) + sizeof(ctx->f));
 
 	if (vfpuEnabled)
 	{
@@ -1595,7 +1595,7 @@ void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled)
 void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 {
 	// r and f are immediately next to each other and must be.
-	memcpy(currentMIPS->r, ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
+	memcpy((void *)currentMIPS->r, (void *)ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
 
 	if (vfpuEnabled)
 	{
