@@ -30,9 +30,11 @@ What's new in 0.9.5
 * Android-x86 support
 * Unofficial port for modified Xbox 360 consoles
 * Atrac3+ plugin no longer required. Symbian now supports Atrac3+ audio.
+* Symbian audio and ffmpeg is now threaded for more consistent media processing.
 * Haptic feedback support for mobile devices.
 * Accurate system information for mobile devices.
 * Qt audio has been fixed.
+* Analog controller support for Blackberry.
 
 
 Basic build instructions
