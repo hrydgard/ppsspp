@@ -1092,14 +1092,37 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		{
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
-
+			
 			// get and stock file info for each file
 			int realCount = 0;
-			for (int i = 0; i < saveDataListCount; i++)
-			{
-				// TODO: Maybe we should fill the list with existing files instead?
-				if (strcmp(saveNameListData[i], "<>") == 0)
+			for (int i = 0; i < saveDataListCount; i++) {
+				// "<>" means saveName can be anything...
+				if (strcmp(saveNameListData[i], "<>") == 0) {
+					std::string fileDataPath = "";
+					auto allSaves = pspFileSystem.GetDirListing(savePath);
+					std::string gameName = GetGameName(param);
+					std::string saveName = "";
+					for(auto it = allSaves.begin(); it != allSaves.end(); ++it) {
+						if(strncmp(it->name.c_str(),gameName.c_str(),strlen(gameName.c_str())) == 0) {
+							fileDataPath = savePath + it->name +  "/" + param->fileName;
+							saveName = it->name.substr(strlen(gameName.c_str()));
+							PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
+							if (info.exists) {
+								SetFileInfo(realCount, info, saveName);
+								DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath.c_str());
+								++realCount;
+							} else {
+								if (listEmptyFile) {
+									ClearFileInfo(saveDataList[realCount], saveName);
+									DEBUG_LOG(SCEUTILITY,"Don't Exist");
+									++realCount;
+								}
+							}
+							break;
+						}
+					}
 					continue;
+				}
 
 				DEBUG_LOG(SCEUTILITY,"Name : %s",saveNameListData[i]);
 
