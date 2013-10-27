@@ -219,7 +219,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// control->Get("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
-	control->Get("TiltSensitivity", &iTiltSensitivity, 100);
+	
+	control->Get("TiltBaseX", &fTiltBaseX, 0);
+	control->Get("TiltBaseY", &fTiltBaseY, 0);
+	control->Get("InvertTiltX", &bInvertTiltX, false);
+	control->Get("InvertTiltY", &bInvertTiltY, true);
+	control->Get("TiltSensitivityX", &iTiltSensitivityX, 100);
+	control->Get("TiltSensitivityY", &iTiltSensitivityY, 100);
+
 #endif
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	control->Get("ButtonScale", &fButtonScale, 1.15);
@@ -411,7 +418,12 @@ void Config::Save() {
 		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
-		control->Set("TiltSensitivity", iTiltSensitivity);
+		control->Set("TiltBaseX", fTiltBaseX);
+		control->Set("TiltBaseY", fTiltBaseY);
+		control->Set("InvertTiltX", bInvertTiltX);
+		control->Set("InvertTiltY", bInvertTiltY);
+		control->Set("TiltSensitivityX", iTiltSensitivityX);
+		control->Set("TiltSensitivityY", iTiltSensitivityY);
 #endif
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
