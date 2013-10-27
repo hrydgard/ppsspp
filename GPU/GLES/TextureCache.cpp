@@ -29,7 +29,6 @@
 
 #include "ext/xxhash.h"
 #include "math/math_util.h"
-#include "native/ext/cityhash/city.h"
 #include "native/gfx_es2/gl_state.h"
 
 #ifdef _M_SSE

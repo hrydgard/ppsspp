@@ -26,7 +26,6 @@
 #include "Core/CoreTiming.h"
 
 #include "helper/dx_state.h"
-#include "native/ext/cityhash/city.h"
 #include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"

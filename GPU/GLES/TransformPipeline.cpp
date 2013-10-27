@@ -75,7 +75,6 @@
 #include "Core/CoreTiming.h"
 
 #include "native/gfx_es2/gl_state.h"
-#include "native/ext/cityhash/city.h"
 #include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"

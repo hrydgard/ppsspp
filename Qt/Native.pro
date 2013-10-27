@@ -23,12 +23,6 @@ SOURCES += ../native/ext/rg_etc1/rg_etc1.cpp
 HEADERS += ../native/ext/rg_etc1/rg_etc1.h
 INCLUDEPATH += ../native/ext/rg_etc1
 
-# Cityhash
-
-SOURCES += ../native/ext/cityhash/city.cpp
-HEADERS += ../native/ext/cityhash/*.h
-INCLUDEPATH += ../native/ext/cityhash
-
 # JPGE
 SOURCES += ../native/ext/jpge/*.cpp
 HEADERS += ../native/ext/jpge/*.h

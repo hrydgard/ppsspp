@@ -334,13 +334,6 @@ add_library(rg_etc1 STATIC
 	native/ext/rg_etc1/rg_etc1.h)
 include_directories(native/ext/rg_etc1)
 
-add_library(cityhash STATIC
-	native/ext/cityhash/city.cpp
-	native/ext/cityhash/city.h
-	native/ext/cityhash/citycrc.h
-)
-include_directories(ext/cityhash)
-
 if(NOT USING_GLES2)
 	include_directories(${OPENGL_INCLUDE_DIR})
 
@@ -961,7 +954,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
+target_link_libraries(${CoreLibName} Common native kirk xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
@@ -1296,7 +1289,6 @@ if(APPLE)
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
 
 	# These can be fast even for debug.
-	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
 endif()
