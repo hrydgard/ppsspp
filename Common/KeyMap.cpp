@@ -15,15 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "file/ini_file.h"
 #include "input/input_state.h"
-#include "../Core/Config.h"
 #include "base/NativeApp.h"
+
 #include "KeyMap.h"
 #include "../Core/HLE/sceUtility.h"
+#include "../Core/Config.h"
 
 #include <algorithm>
-
 
 namespace KeyMap {
 
@@ -37,11 +41,67 @@ struct DefMappingStruct {
 
 KeyMapping g_controllerMap;
 
-static const DefMappingStruct defaultKeyboardKeyMap[] = {
+static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{CTRL_SQUARE, NKCODE_A},
 	{CTRL_TRIANGLE, NKCODE_S},
 	{CTRL_CIRCLE, NKCODE_X},
 	{CTRL_CROSS, NKCODE_Z},
+	{CTRL_LTRIGGER, NKCODE_Q},
+	{CTRL_RTRIGGER, NKCODE_W},
+
+	{CTRL_START, NKCODE_SPACE},
+#ifdef _WIN32
+	{CTRL_SELECT, NKCODE_V},
+#else
+	{CTRL_SELECT, NKCODE_ENTER},
+#endif
+	{CTRL_UP   , NKCODE_DPAD_UP},
+	{CTRL_DOWN , NKCODE_DPAD_DOWN},
+	{CTRL_LEFT , NKCODE_DPAD_LEFT},
+	{CTRL_RIGHT, NKCODE_DPAD_RIGHT},
+	{VIRTKEY_AXIS_Y_MAX, NKCODE_I},
+	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
+	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
+	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
+	{VIRTKEY_RAPID_FIRE  , NKCODE_SHIFT_LEFT},
+	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
+	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
+	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+};
+
+static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
+	{CTRL_SQUARE, NKCODE_Q},
+	{CTRL_TRIANGLE, NKCODE_S},
+	{CTRL_CIRCLE, NKCODE_X},
+	{CTRL_CROSS, NKCODE_W},
+	{CTRL_LTRIGGER, NKCODE_Q},
+	{CTRL_RTRIGGER, NKCODE_W},
+
+	{CTRL_START, NKCODE_SPACE},
+#ifdef _WIN32
+	{CTRL_SELECT, NKCODE_V},
+#else
+	{CTRL_SELECT, NKCODE_ENTER},
+#endif
+	{CTRL_UP   , NKCODE_DPAD_UP},
+	{CTRL_DOWN , NKCODE_DPAD_DOWN},
+	{CTRL_LEFT , NKCODE_DPAD_LEFT},
+	{CTRL_RIGHT, NKCODE_DPAD_RIGHT},
+	{VIRTKEY_AXIS_Y_MAX, NKCODE_I},
+	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
+	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
+	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
+	{VIRTKEY_RAPID_FIRE  , NKCODE_SHIFT_LEFT},
+	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
+	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
+	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+};
+
+static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
+	{CTRL_SQUARE, NKCODE_A},
+	{CTRL_TRIANGLE, NKCODE_S},
+	{CTRL_CIRCLE, NKCODE_X},
+	{CTRL_CROSS, NKCODE_Y},
 	{CTRL_LTRIGGER, NKCODE_Q},
 	{CTRL_RTRIGGER, NKCODE_W},
 
@@ -265,7 +325,34 @@ static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t
 void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 	switch (dmap) {
 	case DEFAULT_MAPPING_KEYBOARD:
-		SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultKeyboardKeyMap, ARRAY_SIZE(defaultKeyboardKeyMap), replace);
+		{
+			bool azerty = false;
+			bool qwertz = false;
+#ifdef _WIN32
+			HKL localeId = GetKeyboardLayout(0);
+			
+			// TODO: Is this list complete enough?
+			switch ((int)localeId & 0xFFFF) {
+			case 0x407:
+				qwertz = true;
+				break;
+			case 0x040c:
+			case 0x080c:
+			case 0x1009:
+				azerty = true;
+				break;
+			default:
+				break;
+			}
+#endif
+			if (azerty) {
+				SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultAzertyKeyboardKeyMap, ARRAY_SIZE(defaultAzertyKeyboardKeyMap), replace);
+			} else if (qwertz) {
+				SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertzKeyboardKeyMap, ARRAY_SIZE(defaultQwertzKeyboardKeyMap), replace);
+			} else {
+				SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertyKeyboardKeyMap, ARRAY_SIZE(defaultQwertyKeyboardKeyMap), replace);
+			}
+		}
 		break;
 	case DEFAULT_MAPPING_X360:
 		SetDefaultKeyMap(DEVICE_ID_X360_0, default360KeyMap, ARRAY_SIZE(default360KeyMap), replace);

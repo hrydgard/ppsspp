@@ -84,7 +84,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
+	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 
@@ -371,15 +371,7 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
-	// If we're in-game, return to the game via DR_CANCEL.
-	if (PSP_IsInited()) {
-		screenManager()->finishDialog(this, DR_CANCEL);
-		host->UpdateScreen();
-	} else {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
+void GameSettingsScreen::onFinish(DialogResult result) {
 	if (g_Config.bEnableSound) {
 		if (PSP_IsInited() && !IsAudioInitialised())
 			Audio_Init();
@@ -391,6 +383,16 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	host->UpdateUI();
 
 	KeyMap::UpdateConfirmCancelKeys();
+}
+
+UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
+	// If we're in-game, return to the game via DR_CANCEL.
+	if (PSP_IsInited()) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+		host->UpdateScreen();
+	} else {
+		screenManager()->finishDialog(this, DR_OK);
+	}
 
 	return UI::EVENT_DONE;
 }
@@ -508,21 +510,16 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
-	list->Add(new Choice(d->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
+	list->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
-
+void DeveloperToolsScreen::onFinish(DialogResult result) {
 	g_Config.Save();
-
-	return UI::EVENT_DONE;
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
-	if(yes)
+	if (yes)
 		g_Config.RestoreDefaults();
-
 	host->UpdateUI();
 }
 

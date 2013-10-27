@@ -25,6 +25,10 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 
+#ifndef _XBOX
+#include "gfx_es2/gl_state.h"
+#endif
+
 #include "Common/Thread.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -179,7 +183,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1);
+	auto s = p.Section("sceDisplay", 1, 2);
 	if (!s)
 		return;
 
@@ -205,10 +209,17 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(leaveVblankEvent);
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
 	p.Do(afterFlipEvent);
-	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlipEVent", &hleAfterFlip);
+	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
 
 	p.Do(gstate);
 	p.Do(gstate_c);
+#ifndef _XBOX
+	if (s < 2) {
+		// This shouldn't have been savestated anyway, but it was.
+		// It's unlikely to overlap with the first value in gpuStats.
+		p.ExpectVoid(&gl_extensions.gpuVendor, sizeof(gl_extensions.gpuVendor));
+	}
+#endif
 	p.Do(gpuStats);
 	gpu->DoState(p);
 

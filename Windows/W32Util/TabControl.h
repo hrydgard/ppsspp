@@ -16,11 +16,16 @@ public:
 	void ShowTab(HWND pageHandle);
 	void NextTab(bool cycle);
 	void PreviousTab(bool cycle);
-	int CurrentTabIndex() { return currentTab; };
-	HWND CurrentTabHandle() { return tabs[currentTab].pageHandle; };
+	int CurrentTabIndex() { return currentTab; }
+	HWND CurrentTabHandle() {
+		if (currentTab < 0 || currentTab >= (int)tabs.size()) {
+			return NULL;
+		}
+		return tabs[currentTab].pageHandle;
+	}
 	void SetShowTabTitles(bool enabled);
-	void SetIgnoreBottomMargin(bool enabled) { ignoreBottomMargin = enabled; };
-	bool GetShowTabTitles() { return showTabTitles; };
+	void SetIgnoreBottomMargin(bool enabled) { ignoreBottomMargin = enabled; }
+	bool GetShowTabTitles() { return showTabTitles; }
 	void SetMinTabWidth(int w);
 
 private:

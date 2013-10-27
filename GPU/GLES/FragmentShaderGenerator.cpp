@@ -176,10 +176,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		}
 
 		id->d[0] |= (lmode & 1) << 7;
-		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
+		id->d[0] |= enableAlphaTest << 8;
 		if (enableAlphaTest)
 			id->d[0] |= gstate.getAlphaTestFunction() << 9;
-		id->d[0] |= gstate.isColorTestEnabled() << 12;
+		id->d[0] |= enableColorTest << 12;
 		if (enableColorTest)
 			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;

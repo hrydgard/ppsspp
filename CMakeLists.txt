@@ -560,6 +560,8 @@ add_library(native STATIC
 	native/gfx_es2/fbo.h
 	native/gfx_es2/gl_state.cpp
 	native/gfx_es2/gl_state.h
+	native/gfx_es2/gpu_features.cpp
+	native/gfx_es2/gpu_features.h
 	native/gfx_es2/glsl_program.cpp
 	native/gfx_es2/glsl_program.h
 	native/gfx_es2/vertex_format.cpp

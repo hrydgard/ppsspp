@@ -260,7 +260,7 @@ struct SaveFileInfo
 		memset(title, 0, 128);
 		memset(saveTitle, 0, 128);
 		memset(saveDetail, 0, 1024);
-		modif_time = {0};
+		memset(&modif_time, 0, sizeof(modif_time));
 	}
 
 	void DoState(PointerWrap &p)

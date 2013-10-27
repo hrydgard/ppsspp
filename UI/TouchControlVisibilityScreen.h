@@ -25,11 +25,12 @@ namespace UI {
 	class CheckBox;
 }
 
-class TouchControlVisibilityScreen : public UIScreenWithBackground {
+class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {
 public:
 	TouchControlVisibilityScreen() { }
 
 	virtual void CreateViews();
+	virtual void onFinish(DialogResult result);
 
 protected:
 	virtual UI::EventReturn OnToggleAll(UI::EventParams &e);

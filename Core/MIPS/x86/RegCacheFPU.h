@@ -155,10 +155,15 @@ public:
 	X64Reg GetFreeXReg();
 private:
 	const int *GetAllocationOrder(int &count);
+	void SetupInitialRegs();
 
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
+
+	bool initialReady;
+	MIPSCachedFPReg regsInitial[NUM_MIPS_FPRS];
+	X64CachedFPReg xregsInitial[NUM_X_FPREGS];
 
 	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
 	static u32 tempValues[NUM_TEMPS];

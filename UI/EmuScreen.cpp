@@ -132,9 +132,8 @@ EmuScreen::~EmuScreen() {
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-
 	// TODO: improve the way with which we got commands from PauseMenu.
-	// DR_CANCEL means clicked on "continue", DR_OK means clicked on "back to menu",
+	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());

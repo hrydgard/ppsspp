@@ -56,7 +56,6 @@ class GamePauseScreen : public UIScreen {
 public:
 	GamePauseScreen(const std::string &filename) : UIScreen(), gamePath_(filename), saveSlots_(NULL) {}
 	~GamePauseScreen();
-	virtual void key(const KeyInput &key);
 
 protected:
 	virtual void DrawBackground(UIContext &dc);

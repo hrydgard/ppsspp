@@ -58,22 +58,12 @@ void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
 		ELOG("CPUID %08x failed!", cpuid_leaf);
 	}
 #else
-	asm volatile (
-#if defined(__i386__)
-		"pushl %%ebx;\n\t"
-#endif
+	asm (
 		"cpuid;\n\t"
 		"movl %%ebx, %1;\n\t"
-#if defined(__i386__)
-		"popl %%ebx;\n\t"
-#endif
 		:"=a" (regs[0]), "=m" (regs[1]), "=c" (regs[2]), "=d" (regs[3])
 		:"a" (cpuid_leaf), "c" (ecxval)
-#if !defined(__i386__)
 		:"%ebx");
-#else
-		);
-#endif
 #endif
 }
 void __cpuid(int regs[4], int cpuid_leaf)

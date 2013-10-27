@@ -76,6 +76,8 @@ int slicelength;
 
 MEMORY_ALIGNED16(s64) globalTimer;
 s64 idledCycles;
+s64 lastGlobalTimeTicks;
+s64 lastGlobalTimeUs;
 
 static std::recursive_mutex externalEventSection;
 
@@ -84,6 +86,11 @@ void (*advanceCallback)(int cyclesExecuted) = NULL;
 
 void SetClockFrequencyMHz(int cpuMhz)
 {
+	// When the mhz changes, we keep track of what "time" it was before hand.
+	// This way, time always moves forward, even if mhz is changed.
+	lastGlobalTimeUs = GetGlobalTimeUs();
+	lastGlobalTimeTicks = GetTicks();
+
 	CPU_HZ = cpuMhz * 1000000;
 	// TODO: Rescale times of scheduled events?
 }
@@ -91,6 +98,13 @@ void SetClockFrequencyMHz(int cpuMhz)
 int GetClockFrequencyMHz()
 {
 	return CPU_HZ / 1000000;
+}
+
+u64 GetGlobalTimeUs()
+{
+	s64 ticksSinceLast = GetTicks() - lastGlobalTimeTicks;
+	s64 usSinceLast = ticksSinceLast / GetClockFrequencyMHz();
+	return lastGlobalTimeUs + usSinceLast;
 }
 
 
@@ -162,6 +176,8 @@ void Init()
 	slicelength = INITIAL_SLICE_LENGTH;
 	globalTimer = 0;
 	idledCycles = 0;
+	lastGlobalTimeTicks = 0;
+	lastGlobalTimeUs = 0;
 	hasTsEvents = 0;
 }
 
@@ -624,7 +640,7 @@ void DoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 
-	auto s = p.Section("CoreTiming", 1);
+	auto s = p.Section("CoreTiming", 1, 2);
 	if (!s)
 		return;
 
@@ -640,6 +656,14 @@ void DoState(PointerWrap &p)
 	p.Do(slicelength);
 	p.Do(globalTimer);
 	p.Do(idledCycles);
+
+	if (s >= 2) {
+		p.Do(lastGlobalTimeTicks);
+		p.Do(lastGlobalTimeUs);
+	} else {
+		lastGlobalTimeTicks = 0;
+		lastGlobalTimeUs = 0;
+	}
 }
 
 }	// namespace

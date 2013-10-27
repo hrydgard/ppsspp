@@ -290,7 +290,7 @@ SasInstance::SasInstance()
 	audioDump = fopen("D:\\audio.raw", "wb");
 #endif
 	memset(&waveformEffect, 0, sizeof(waveformEffect));
-	waveformEffect.type = -1;
+	waveformEffect.type = PSP_SAS_EFFECT_TYPE_OFF;
 	waveformEffect.isDryOn = 1;
 }
 
@@ -338,134 +338,148 @@ static inline s16 clamp_s16(int i) {
 	return i;
 }
 
+void SasVoice::ReadSamples(s16 *output, int numSamples) {
+	// Read N samples into the resample buffer. Could do either PCM or VAG here.
+	switch (type) {
+	case VOICETYPE_VAG:
+		{
+			vag.GetSamples(output, numSamples);
+			if (vag.End()) {
+				// NOTICE_LOG(SAS, "Hit end of VAG audio");
+				playing = false;
+				on = false;  // ??
+			}
+		}
+		break;
+	case VOICETYPE_PCM:
+		{
+			u32 size = std::min(pcmSize * 2 - pcmIndex, (int)(numSamples * sizeof(s16)));
+			if (!on) {
+				pcmIndex = 0;
+				break;
+			}
+			Memory::Memcpy(output, pcmAddr + pcmIndex, size);
+			int remaining = numSamples * sizeof(s16) - size;
+			if (remaining > 0) {
+				memset(output + size, 0, remaining);
+			}
+			pcmIndex += size;
+			if (pcmIndex >= pcmSize * 2) {
+				pcmIndex = 0;
+			}
+		}
+		break;
+	case VOICETYPE_ATRAC3:
+		{
+			int ret = atrac3.getNextSamples(output, numSamples);
+			if (ret) {
+				// Hit atrac3 voice end
+				playing = false;
+				on = false;  // ??
+			}
+		}
+		break;
+	default:
+		{
+			memset(output, 0, numSamples * sizeof(s16));
+		}
+		break;
+	}
+}
+
+void SasInstance::MixVoice(SasVoice &voice) {
+	switch (voice.type) {
+	case VOICETYPE_VAG:
+		if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
+			break;
+	case VOICETYPE_PCM:
+		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
+			break;
+	default: 
+		// Load resample history (so we can use a wide filter)
+		resampleBuffer[0] = voice.resampleHist[0];
+		resampleBuffer[1] = voice.resampleHist[1];
+
+		// Figure out number of samples to read.
+		// Actually this is not entirely correct - we need to get one extra sample, and store it
+		// for the next time around. A little complicated...
+		// But for now, see Smoothness HACKERY below :P
+		u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
+		if ((int)numSamples > grainSize * 4) {
+			ERROR_LOG(SASMIX, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
+			numSamples = grainSize * 4;
+		}
+
+		voice.ReadSamples(resampleBuffer + 2, numSamples);
+
+		// Smoothness HACKERY
+		resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
+
+		// Save resample history
+		voice.resampleHist[0] = resampleBuffer[2 + numSamples - 2];
+		voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
+
+		// Resample to the correct pitch, writing exactly "grainSize" samples.
+		// This is a HORRIBLE resampler by the way.
+		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
+
+		u32 sampleFrac = voice.sampleFrac;
+		const int MAX_CONFIG_VOLUME = 20;
+		int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
+		if (volumeShift < 0) volumeShift = 0;
+		for (int i = 0; i < grainSize; i++) {
+			// For now: nearest neighbour, not even using the resample history at all.
+			int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
+			sampleFrac += voice.pitch;
+
+			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
+			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
+			int envelopeValue = voice.envelope.GetHeight();
+			envelopeValue = (envelopeValue + (1 << 14)) >> 15;
+
+			// We just scale by the envelope before we scale by volumes.
+			// Again, we round up by adding (1 << 14) first (*after* multiplying.)
+			sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
+
+			// We mix into this 32-bit temp buffer and clip in a second loop
+			// Ideally, the shift right should be there too but for now I'm concerned about
+			// not overflowing.
+			mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> volumeShift; // Max = 16 and Min = 12(default)
+			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
+			sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 12;
+			sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
+			voice.envelope.Step();
+		}
+
+		voice.sampleFrac = sampleFrac;
+		// Let's hope grainSize is a power of 2.
+		//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
+		voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
+
+		if (voice.envelope.HasEnded())
+		{
+			// NOTICE_LOG(SAS, "Hit end of envelope");
+			voice.playing = false;
+		}
+	}
+}
+
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	int voicesPlayingCount = 0;
+
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
 			continue;
 		voicesPlayingCount++;
-
-		// TODO: Special case no-resample case for speed
-
-		switch (voice.type) {
-		case VOICETYPE_VAG:
-			if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
-				break;
-		case VOICETYPE_PCM:
-			if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
-				break;
-		default: 
-			// Load resample history (so we can use a wide filter)
-			resampleBuffer[0] = voice.resampleHist[0];
-			resampleBuffer[1] = voice.resampleHist[1];
-
-			// Figure out number of samples to read.
-			// Actually this is not entirely correct - we need to get one extra sample, and store it
-			// for the next time around. A little complicated...
-			// But for now, see Smoothness HACKERY below :P
-			u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
-			if ((int)numSamples > grainSize * 4) {
-				ERROR_LOG(SASMIX, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
-				numSamples = grainSize * 4;
-			}
-
-			// Read N samples into the resample buffer. Could do either PCM or VAG here.
-			switch (voice.type) {
-			case VOICETYPE_VAG:
-				{
-					voice.vag.GetSamples(resampleBuffer + 2, numSamples);
-					if (voice.vag.End()) {
-						// NOTICE_LOG(SAS, "Hit end of VAG audio");
-						voice.playing = false;
-						voice.on = false;  // ??
-					}
-				}
-				break;
-			case VOICETYPE_PCM:
-				{
-					u32 size = std::min(voice.pcmSize * 2 - voice.pcmIndex, (int)(numSamples * sizeof(s16)));
-					memset(resampleBuffer + 2, 0, numSamples * sizeof(s16));
-					if (!voice.on) {
-						voice.pcmIndex = 0;
-						break;
-					}
-					Memory::Memcpy(resampleBuffer + 2, voice.pcmAddr + voice.pcmIndex, size);
-					voice.pcmIndex += size;
-					if (voice.pcmIndex >= voice.pcmSize * 2) {
-						voice.pcmIndex = 0;
-					}
-				}
-				break;
-			case VOICETYPE_ATRAC3:
-				{
-					int ret = voice.atrac3.getNextSamples(resampleBuffer + 2, numSamples);
-					if (ret) {
-						// Hit atrac3 voice end
-						voice.playing = false;
-						voice.on = false;  // ??
-					}
-				}
-				break;
-			default:
-				{
-					memset(resampleBuffer + 2, 0, numSamples * sizeof(s16));
-				}
-				break;
-			}
-			// Smoothness HACKERY
-			resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
-
-			// Save resample history
-			voice.resampleHist[0] = resampleBuffer[2 + numSamples - 2];
-			voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
-
-			// Resample to the correct pitch, writing exactly "grainSize" samples.
-			u32 sampleFrac = voice.sampleFrac;
-			const int MAX_CONFIG_VOLUME = 20;
-			int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
-			if (volumeShift < 0) volumeShift = 0;
-			for (int i = 0; i < grainSize; i++) {
-				// For now: nearest neighbour, not even using the resample history at all.
-				int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
-				sampleFrac += voice.pitch;
-
-				// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
-				// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
-				int envelopeValue = voice.envelope.GetHeight();
-				envelopeValue = (envelopeValue + (1 << 14)) >> 15;
-
-				// We just scale by the envelope before we scale by volumes.
-				// Again, we round up by adding (1 << 14) first (*after* multiplying.)
-				sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
-
-				// We mix into this 32-bit temp buffer and clip in a second loop
-				// Ideally, the shift right should be there too but for now I'm concerned about
-				// not overflowing.
-				mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> volumeShift; // Max = 16 and Min = 12(default)
-				mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
-				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 12;
-				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
-				voice.envelope.Step();
-			}
-			voice.sampleFrac = sampleFrac;
-			// Let's hope grainSize is a power of 2.
-			//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
-			voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
-
-			if (voice.envelope.HasEnded())
-			{
-				// NOTICE_LOG(SAS, "Hit end of envelope");
-				voice.playing = false;
-			}
-		}
+		MixVoice(voice);
 	}
 
-	//if (voicesPlayingCount)
-	//	NOTICE_LOG(SAS, "Sas mixed %i voices", voicesPlayingCount);
-	// Okay, apply effects processing to the Send buffer alone here.
-	// Reverb, echo, what have you.
-	// TODO
+	// Okay, apply effects processing to the Send buffer.
+	//if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF)
+	//	ApplyReverb();
+
+	// Then mix the send buffer in with the rest.
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
 	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
@@ -498,6 +512,12 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #ifdef AUDIO_TO_FILE
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif
+}
+
+void SasInstance::ApplyReverb() {
+	// for (int i = 0; i < grainSize * 2; i += 2) {
+		// modify sendBuffer
+	// }
 }
 
 void SasInstance::DoState(PointerWrap &p) {

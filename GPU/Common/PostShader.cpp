@@ -83,6 +83,14 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					section.Get("Vertex", &temp, "");
 					info.vertexShaderFile = path + "/" + temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
+
+#ifdef USING_GLES2
+					// Let's ignore shaders we can't support. TODO: Check for GLES 3.0
+					bool requiresIntegerSupport;
+					section.Get("RequiresIntSupport", &requiresIntegerSupport, false);
+					if (requiresIntegerSupport)
+						continue;
+#endif
 					shaderInfo.erase(std::find(shaderInfo.begin(), shaderInfo.end(), info.name), shaderInfo.end());
 					shaderInfo.push_back(info);
 				}

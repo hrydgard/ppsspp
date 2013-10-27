@@ -50,6 +50,17 @@ enum {
 
 	PSP_SAS_ENVELOPE_HEIGHT_MAX = 0x40000000,
 	PSP_SAS_ENVELOPE_FREQ_MAX = 0x7FFFFFFF,
+
+	PSP_SAS_EFFECT_TYPE_OFF = -1,
+	PSP_SAS_EFFECT_TYPE_ROOM = 0,
+	PSP_SAS_EFFECT_TYPE_UNK1 = 1,
+	PSP_SAS_EFFECT_TYPE_UNK2 = 2,
+	PSP_SAS_EFFECT_TYPE_UNK3 = 3,
+	PSP_SAS_EFFECT_TYPE_HALL = 4,
+	PSP_SAS_EFFECT_TYPE_SPACE = 5,
+	PSP_SAS_EFFECT_TYPE_ECHO = 6,
+	PSP_SAS_EFFECT_TYPE_DELAY = 7,
+	PSP_SAS_EFFECT_TYPE_PIPE = 8,
 };
 
 struct WaveformEffect
@@ -204,6 +215,8 @@ struct SasVoice
 
 	void DoState(PointerWrap &p);
 
+	void ReadSamples(s16 *output, int numSamples);
+
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
 	bool on;   // key-on, key-off.
@@ -225,6 +238,11 @@ struct SasVoice
 
 	int volumeLeft;
 	int volumeRight;
+
+	// I am pretty sure that volumeLeftSend and effectLeft really are the same thing (and same for right of course).
+	// We currently have nothing that ever modifies volume*Send.
+	// One game that uses an effect (probably a reverb) is MHU.
+
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
 	int effectLeft;
@@ -258,6 +276,10 @@ public:
 	FILE *audioDump;
 
 	void Mix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0);
+	void MixVoice(SasVoice &voice);
+
+	// Applies reverb to send buffer, according to waveformEffect.
+	void ApplyReverb();
 
 	void DoState(PointerWrap &p);
 

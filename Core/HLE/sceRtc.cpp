@@ -55,7 +55,7 @@ const int PSP_TIME_INVALID_MICROSECONDS = -7;
 u64 __RtcGetCurrentTick()
 {
 	// TODO: It's probably expecting ticks since January 1, 0001?
-	return cyclesToUs(CoreTiming::GetTicks()) + rtcBaseTicks;
+	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
 }
 
 #if defined(_WIN32)
@@ -79,7 +79,7 @@ time_t rtc_timegm(struct tm *tm)
 	return _mkgmtime(tm);
 }
 
-#elif defined(__GLIBC__) && !defined(ANDROID)
+#elif (defined(__GLIBC__) && !defined(ANDROID)) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #define rtc_timegm timegm
 #else
 
@@ -131,7 +131,7 @@ void __RtcDoState(PointerWrap &p)
 
 void __RtcTimeOfDay(PSPTimeval *tv)
 {
-	s64 additionalUs = cyclesToUs(CoreTiming::GetTicks());
+	s64 additionalUs = CoreTiming::GetGlobalTimeUs();
 	*tv = rtcBaseTime;
 
 	s64 adjustedUs = additionalUs + tv->tv_usec;
@@ -409,7 +409,7 @@ int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#if defined(__GLIBC__) || defined(__SYMBIAN32__)
+#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
@@ -432,7 +432,7 @@ int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#if defined(__GLIBC__) || defined(__SYMBIAN32__)
+#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
