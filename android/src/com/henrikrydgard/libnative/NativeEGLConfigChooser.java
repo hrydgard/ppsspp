@@ -105,7 +105,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		// First, find our ideal configuration
 		for (int i = 0; i < configs.length; i++) {
 			ConfigAttribs c = configs[i];
-			if (c.red == 8 && c.green == 8 && c.blue == 8 && /* c.alpha == 0 &&*/ c.stencil >= 8 && c.depth == 16) {
+			if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth == 16) {
 				chosen = c;
 				break;
 			}
@@ -115,7 +115,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 			// Second, accept one with bigger depth.
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
-				if (c.red == 8 && c.green == 8 && c.blue == 8 && /* c.alpha == 8 && */ c.stencil >= 8 && c.depth > 16) {
+				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth > 16) {
 					chosen = c;
 					break;
 				}
@@ -126,7 +126,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 			// Third, accept one with no stencil.
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
-				if (c.red == 8 && c.green == 8 && c.blue == 8 && /* c.alpha == 8 && */ c.depth >= 16) {
+				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.depth >= 16) {
 					chosen = c;
 					break;
 				}
@@ -134,10 +134,10 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		}
 		
 		if (chosen == null) {
-			// Third, accept one with no alpha but with stencil.
+			// Third, accept one with alpha but with stencil.
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
-				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.stencil >= 8 && c.depth >= 16) {
+				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 8 && c.stencil >= 8 && c.depth >= 16) {
 					chosen = c;
 					break;
 				}
