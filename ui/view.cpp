@@ -383,9 +383,13 @@ void PopupHeader::Draw(UIContext &dc) {
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
 }
 
-EventReturn CheckBox::OnClicked(EventParams &e) {
+void CheckBox::Toggle(){
 	if (toggle_)
 		*toggle_ = !(*toggle_);
+};
+
+EventReturn CheckBox::OnClicked(EventParams &e) {
+	Toggle();
 	return EVENT_CONTINUE;  // It's safe to keep processing events.
 }
 
