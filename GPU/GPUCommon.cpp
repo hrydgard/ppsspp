@@ -217,13 +217,10 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
 					return 0x80000021;
 				}
-				//if(dls[i].stack == stack) {
-				//	ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list stack %08X already used", context);
-				//	return 0x80000021;
-				//}
 			}
 		}
 	}
+	// TODO Check if list stack dls[i].stack already used then return 0x80000021 as above
 
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		int possibleID = (i + nextListID) % DisplayListMaxCount;
