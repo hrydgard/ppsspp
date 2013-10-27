@@ -52,10 +52,12 @@ private:
 	UI::EventReturn OnExit(UI::EventParams &e);
 };
 
-class GamePauseScreen : public UIScreen {
+class GamePauseScreen : public UIDialogScreen {
 public:
-	GamePauseScreen(const std::string &filename) : UIScreen(), gamePath_(filename), saveSlots_(NULL) {}
+	GamePauseScreen(const std::string &filename) : UIDialogScreen(), gamePath_(filename), saveSlots_(NULL) {}
 	~GamePauseScreen();
+
+	virtual void onFinish(DialogResult result);
 
 protected:
 	virtual void DrawBackground(UIContext &dc);
@@ -66,12 +68,11 @@ protected:
 private:
 	UI::EventReturn OnMainSettings(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnContinue(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
-	
+
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
