@@ -81,7 +81,7 @@ inline uint64 swap64(uint64 _data) {return _byteswap_uint64(_data);}
 inline uint16 swap16(uint16 _data) {return bswap_16(_data);}
 inline uint32 swap32(uint32 _data) {return bswap_32(_data);}
 inline uint64 swap64(uint64 _data) {return bswap_64(_data);}
-#elif defined(__SYMBIAN32__) || defined(__FreeBSD__)
+#elif defined(__FreeBSD__)
 #include <sys/endian.h>
 inline uint16 swap16(uint16 _data) {return bswap16(_data);}
 inline uint32 swap32(uint32 _data) {return bswap32(_data);}
