@@ -248,8 +248,6 @@ add_library(Common STATIC
 	Common/ChunkFile.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
-	Common/Crypto/aes_cbc.cpp
-	Common/Crypto/aes_core.cpp
 	Common/Crypto/md5.cpp
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
