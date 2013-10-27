@@ -158,6 +158,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 	case SCREEN_EVENT_GAMEPAD:
 	case SCREEN_EVENT_JOYSTICK:
 		char device_id[16];
+		int analog0[3];
 		screen_device_t device;
 		screen_get_event_property_pv(screen_event, SCREEN_PROPERTY_DEVICE, (void**)&device);
 		screen_get_device_property_cv(device, SCREEN_PROPERTY_ID_STRING, sizeof(device_id), device_id);
@@ -166,6 +167,20 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 			int mask = 1 << i;
 			if ((old_buttons & mask) != (buttons & mask))
 				NativeKey(KeyInput(DEVICE_ID_PAD_0, KeyMapPadBlackberrytoNative.find(mask)->second, (buttons & mask) ? KEY_DOWN : KEY_UP));
+		}
+		if (!screen_get_device_property_iv(device, SCREEN_PROPERTY_ANALOG0, analog0)) {
+			for (int i = 0; i < 3; i++) {
+				AxisInput axis;
+				axis.axisId = (i == 0) ? JOYSTICK_AXIS_X : (
+				              (i == 1) ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_Z);
+				// 1.2 to try to approximate the PSP's clamped rectangular range.
+				axis.value = 1.2 * analog0[i] / 128.0f;
+				if (axis.value > 1.0f) axis.value = 1.0f;
+				if (axis.value < -1.0f) axis.value = -1.0f;
+				axis.deviceId = DEVICE_ID_PAD_0;
+				axis.flags = 0;
+				NativeAxis(axis);
+			}
 		}
 		old_buttons = buttons;
 		break;
