@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "base/basictypes.h"
+
 // Android
 #if defined(ANDROID)
 #include <sys/endian.h>
@@ -60,6 +62,34 @@
 #if !COMMON_BIG_ENDIAN && !COMMON_LITTLE_ENDIAN
 #define COMMON_LITTLE_ENDIAN 1
 #endif
+
+inline float swapf( float f )
+{
+  union
+  {
+    float f;
+    unsigned int u32;
+  } dat1, dat2;
+
+  dat1.f = f;
+  dat2.u32 = swap32(dat1.u32);
+
+  return dat2.f;
+}
+
+inline double swapd( double f )
+{
+  union
+  {
+    double f;
+    unsigned long long u64;
+  } dat1, dat2;
+
+  dat1.f = f;
+  dat2.u64 = swap64(dat1.u64);
+
+  return dat2.f;
+}
 
 template <typename T, typename F>
 struct swap_struct_t {
@@ -453,35 +483,35 @@ bool operator==(const S &p, const swap_struct_t<T, F> v) {
 template <typename T>
 struct swap_64_t {
 	static T swap(T x) {
-		return (T)bswap64(*(u64 *)&x);
+		return (T)swap64(*(u64 *)&x);
 	}
 };
 
 template <typename T>
 struct swap_32_t {
 	static T swap(T x) {
-		return (T)bswap32(*(u32 *)&x);
+		return (T)swap32(*(u32 *)&x);
 	}
 };
 
 template <typename T>
 struct swap_16_t {
 	static T swap(T x) {
-		return (T)bswap16(*(u16 *)&x);
+		return (T)swap16(*(u16 *)&x);
 	}
 };
 
 template <typename T>
 struct swap_float_t {
 	static T swap(T x) {
-		return (T)bswapf(*(float *)&x);
+		return (T)swapf(*(float *)&x);
 	}
 };
 
 template <typename T>
 struct swap_double_t {
 	static T swap(T x) {
-		return (T)bswapd(*(double *)&x);
+		return (T)swapd(*(double *)&x);
 	}
 };
 

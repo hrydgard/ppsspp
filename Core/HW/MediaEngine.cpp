@@ -327,7 +327,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 #ifdef USE_FFMPEG
 		if (!m_pFormatCtx) {
 			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
-			int mpegoffset = bswap32(*(int*)(m_mpegheader + 8));
+			int mpegoffset = swap32(*(int*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
 			openContext();
 		}
