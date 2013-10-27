@@ -135,7 +135,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 				// Start it over from 0 (unless it's safe.)
 				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
 				iter->second.framesUntilNextFullHash = 0;
-			} else {
+			} else if (!iter->second.framebuffer) {
 				iter->second.invalidHint++;
 			}
 		}
@@ -148,7 +148,9 @@ void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
 			// Clear status -> STATUS_HASHING.
 			iter->second.status &= ~TexCacheEntry::STATUS_MASK;
 		}
-		iter->second.invalidHint++;
+		if (!iter->second.framebuffer) {
+			iter->second.invalidHint++;
+		}
 	}
 }
 
@@ -850,11 +852,17 @@ void TextureCache::SetTexture(bool force) {
 #endif
 
 		// Check for FBO - slow!
-		if (entry->framebuffer && match) {
-			SetTextureFramebuffer(entry);
-			lastBoundTexture = -1;
-			entry->lastFrame = gpuStats.numFlips;
-			return;
+		if (entry->framebuffer) {
+			if (match) {
+				SetTextureFramebuffer(entry);
+				lastBoundTexture = -1;
+				entry->lastFrame = gpuStats.numFlips;
+				return;
+			} else {
+				// Make sure we re-evaluate framebuffers.
+				DetachFramebuffer(entry, texaddr, entry->framebuffer);
+				match = false;
+			}
 		}
 
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
@@ -1000,6 +1008,11 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
+	// Always generate a texture name, we might need it if the texture is replaced later.
+	if (!replaceImages) {
+		glGenTextures(1, &entry->texture);
+	}
+
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
@@ -1023,10 +1036,6 @@ void TextureCache::SetTexture(bool force) {
 		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return;
-	}
-
-	if (!replaceImages) {
-		glGenTextures(1, &entry->texture);
 	}
 	glBindTexture(GL_TEXTURE_2D, entry->texture);
 	lastBoundTexture = entry->texture;
