@@ -600,7 +600,8 @@ public:
 	virtual void Draw(UIContext &dc);
 
 	EventReturn OnClicked(EventParams &e);
-
+	//allow external agents to toggle the checkbox
+	void Toggle();
 private:
 	bool *toggle_;
 	std::string text_;
