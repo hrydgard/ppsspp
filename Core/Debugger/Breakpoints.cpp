@@ -278,7 +278,6 @@ void CBreakPoints::SetSkipFirst(u32 pc)
 u32 CBreakPoints::CheckSkipFirst()
 {
 	u32 pc = breakSkipFirstAt_;
-	breakSkipFirstAt_ = 0;
 	if (breakSkipFirstTicks_ == CoreTiming::GetTicks())
 		return pc;
 	return 0;
