@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Config.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -111,6 +112,17 @@ bool InitFFmpeg() {
 	av_log_set_callback(&ffmpeg_logger);
 
 	return true;
+}
+
+void __AdjustBGMVolume(s16 *samples, u32 count) {
+	if (g_Config.iBGMVolume < 0 || g_Config.iBGMVolume >= MAX_CONFIG_VOLUME) {
+		return;
+	}
+
+	int volumeShift = MAX_CONFIG_VOLUME - g_Config.iBGMVolume;
+	for (u32 i = 0; i < count; ++i) {
+		samples[i] >>= volumeShift;
+	}
 }
 
 MediaEngine::MediaEngine(): m_pdata(0) {

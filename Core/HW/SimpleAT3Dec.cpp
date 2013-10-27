@@ -142,6 +142,7 @@ bool SimpleAT3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
 			return false;
 		}
+		__AdjustBGMVolume((s16 *)outbuf, numSamples * frame_->channels);
 	}
 
 	return true;
