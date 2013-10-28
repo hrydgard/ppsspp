@@ -444,6 +444,7 @@ void CreditsScreen::render() {
 		"JulianoAmaralChaves",
 		"vnctdj",
 		"kaienfr",
+		"shenweip",
 		"",
 		"",
 		c->T("specialthanks", "Special thanks to:"),
