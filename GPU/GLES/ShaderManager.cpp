@@ -54,6 +54,10 @@ Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : fai
 		GLsizei len;
 		glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
 		infoLog[len] = '\0';
+#ifdef ANDROID
+		ELOG("Error in shader compilation! %s\n", infoLog);
+		ELOG("Shader source:\n%s\n", (const char *)code);
+#endif
 		ERROR_LOG(G3D, "Error in shader compilation!\n");
 		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
@@ -108,6 +112,9 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 		if (bufLength) {
 			char* buf = new char[bufLength];
 			glGetProgramInfoLog(program, bufLength, NULL, buf);
+#ifdef ANDROID
+			ELOG("Could not link program:\n %s", buf);
+#endif
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
 			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
 			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());

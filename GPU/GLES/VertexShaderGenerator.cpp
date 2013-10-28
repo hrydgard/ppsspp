@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <locale.h>
 
+#include "gfx_es2/gpu_features.h"
+
 #if defined(_WIN32) && defined(_DEBUG)
 #include "Common/CommonWindows.h"
 #endif
@@ -26,7 +28,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
-
 #include "GPU/GLES/VertexShaderGenerator.h"
 
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
@@ -274,7 +275,16 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		else
 			WRITE(p, "varying mediump vec2 v_texcoord;\n");
 	}
-	if (enableFog) WRITE(p, "varying highp float v_fogdepth;\n");
+
+
+	if (enableFog) {
+		// See the fragment shader generator
+		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+			WRITE(p, "varying highp float v_fogdepth;\n");
+		} else {
+			WRITE(p, "varying mediump float v_fogdepth;\n");
+		}
+	}
 
 	WRITE(p, "void main() {\n");
 
