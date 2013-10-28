@@ -103,9 +103,9 @@ struct AtracLoopInfo {
 };
 
 struct Atrac {
-	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2),
+	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0), loopNum(0), codecType(0), failedDecode(false) {
+		currentSample(0), endSample(0), firstSampleoffset(0), loopinfoNum(0), loopNum(0), codecType(0), failedDecode(false) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -389,6 +389,7 @@ int Atrac::Analyze() {
 	loopStartSample = -1;
 	loopEndSample = -1;
 	decodePos = 0;
+	atracChannels = 2;
 
 	if (first.size < 0x100)	{
 		ERROR_LOG_REPORT(ME, "Atrac buffer very small: %d", first.size);
