@@ -485,13 +485,13 @@ void EmuScreen::update(InputState &input) {
 		float delta_x =  tiltInputCurve(normalized_input_x * 2.0 * (g_Config.iTiltSensitivityX)) ;
 
 		//if the invert is enabled, invert the motion
-		if (g_Config.bInvertTiltX){
+		if (g_Config.bInvertTiltX) {
 			delta_x *= -1;
 		}
 
 		float delta_y =  tiltInputCurve(normalized_input_y * 2.0 * (g_Config.iTiltSensitivityY)) ;
 		
-		if (g_Config.bInvertTiltY){
+		if (g_Config.bInvertTiltY) {
 			delta_y *= -1;
 		}
 

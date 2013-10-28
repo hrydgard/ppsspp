@@ -5,7 +5,7 @@
 
 TiltAnalogSettingsScreen::TiltAnalogSettingsScreen() : currentTiltX_(0), currentTiltY_(0) {};
 
-void TiltAnalogSettingsScreen::CreateViews(){
+void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
 	I18NCategory *c = GetI18NCategory("Controls");
@@ -38,7 +38,7 @@ void TiltAnalogSettingsScreen::CreateViews(){
 	root_->Add(settings);
 };
 
-void TiltAnalogSettingsScreen::update(InputState &input){
+void TiltAnalogSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	//I'm not sure why y is x and x is y. i's probably because of the orientation
 	//of the screen (the x and y are in portrait coordinates). once portrait and 
@@ -49,7 +49,7 @@ void TiltAnalogSettingsScreen::update(InputState &input){
 };
 
 
-UI::EventReturn TiltAnalogSettingsScreen::OnBack(UI::EventParams &e){
+UI::EventReturn TiltAnalogSettingsScreen::OnBack(UI::EventParams &e) {
 	if (PSP_IsInited()) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	} else {
@@ -60,7 +60,7 @@ UI::EventReturn TiltAnalogSettingsScreen::OnBack(UI::EventParams &e){
 };
 
 
-UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e){
+UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 	g_Config.fTiltBaseX = currentTiltX_;
 	g_Config.fTiltBaseY = currentTiltY_;
 
