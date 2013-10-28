@@ -1193,6 +1193,10 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 
 int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {
+	// Based on JpcspTrace log , fixes #3845
+	if (bufferSize == 0)
+		return 2;
+		
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
