@@ -330,14 +330,6 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	resampleBuffer = new s16[grainSize * 4 + 3];
 }
 
-static inline s16 clamp_s16(int i) {
-	if (i > 32767)
-		return 32767;
-	if (i < -32768)
-		return -32768;
-	return i;
-}
-
 void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	// Read N samples into the resample buffer. Could do either PCM or VAG here.
 	switch (type) {
