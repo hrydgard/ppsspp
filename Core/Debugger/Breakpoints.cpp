@@ -248,6 +248,12 @@ void CBreakPoints::ClearAllMemChecks()
 	}
 }
 
+static inline u32 NotCached(u32 val)
+{
+	// Remove the cached part of the address.
+	return val & ~0x40000000;
+}
+
 MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 {
 	std::vector<MemCheck>::iterator iter;
@@ -256,18 +262,25 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 		MemCheck &check = *iter;
 		if (check.end != 0)
 		{
-			if (address + size > check.start && address < check.end)
+			if (NotCached(address + size) > NotCached(check.start) && NotCached(address) < NotCached(check.end))
 				return &check;
 		}
 		else
 		{
-			if (check.start == address)
+			if (NotCached(check.start) == NotCached(address))
 				return &check;
 		}
 	}
 
 	//none found
 	return 0;
+}
+
+void CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc)
+{
+	auto check = GetMemCheck(address, size);
+	if (check)
+		check->Action(address, write, size, pc);
 }
 
 void CBreakPoints::SetSkipFirst(u32 pc)
@@ -278,10 +291,25 @@ void CBreakPoints::SetSkipFirst(u32 pc)
 u32 CBreakPoints::CheckSkipFirst()
 {
 	u32 pc = breakSkipFirstAt_;
-	breakSkipFirstAt_ = 0;
 	if (breakSkipFirstTicks_ == CoreTiming::GetTicks())
 		return pc;
 	return 0;
+}
+
+const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges()
+{
+	std::vector<MemCheck> ranges = memChecks_;
+	for (auto it = memChecks_.begin(), end = memChecks_.end(); it != end; ++it)
+	{
+		MemCheck check = *it;
+		// Toggle the cached part of the address.
+		check.start ^= 0x40000000;
+		if (check.end != 0)
+			check.end ^= 0x40000000;
+		ranges.push_back(check);
+	}
+
+	return ranges;
 }
 
 const std::vector<MemCheck> CBreakPoints::GetMemChecks()

@@ -790,9 +790,7 @@ void JitMemCheck(u32 addr, int size, int isWrite)
 	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
 		return;
 
-	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
-	if (check)
-		check->Action(addr, isWrite == 1, size, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(addr, isWrite == 1, size, currentMIPS->pc);
 }
 
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
@@ -817,7 +815,7 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 
 void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
-	const auto memchecks = CBreakPoints::GetMemChecks();
+	const auto memchecks = CBreakPoints::GetMemCheckRanges();
 	bool possible = false;
 	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
 	{

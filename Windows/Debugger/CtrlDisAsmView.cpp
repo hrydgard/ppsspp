@@ -1023,8 +1023,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_RUNTOHERE:
 			{
-				debugger->setBreakpoint(curAddress);
-				debugger->runToBreakpoint();
+				SendMessage(GetParent(wnd), WM_COMMAND, ID_DEBUG_RUNTOLINE, 0);
 				redraw();
 			}
 			break;
