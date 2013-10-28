@@ -10,6 +10,7 @@
 
 #include <bps/locale.h> // Get locale
 #include "BlackberryMain.h"
+#include "Core/Config.h"
 #include "base/NKCodeFromBlackberry.h"
 
 // Simple implementations of System functions
@@ -272,6 +273,10 @@ void BlackberryMain::runMain() {
 		{
 			emulating = true;
 			switchDisplay(screen_emu);
+			if (g_Config.iShowFPSCounter == 4) {
+				int options = SCREEN_DEBUG_STATISTICS;
+				screen_set_window_property_iv(screen_win[0], SCREEN_PROPERTY_DEBUG, &options);
+			}
 		} else if (globalUIState != UISTATE_INGAME && emulating) {
 			emulating = false;
 			switchDisplay(screen_ui);
