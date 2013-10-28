@@ -378,8 +378,7 @@ int getCodecType(u32 addr) {
 	return 0;
 }
 
-int Atrac::Analyze()
-{
+int Atrac::Analyze() {
 	// reset some values
 	codecType = 0;
 	currentSample = 0;
@@ -509,7 +508,7 @@ u32 sceAtracGetAtracID(int codecType) {
 	atrac->codecType = codecType;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracGetAtracID(%i): no free ID", codecType);
+		ERROR_LOG(ME, "sceAtracGetAtracID(%i): no free ID", codecType);
 		delete atrac;
 		return atracID;
 	}
@@ -570,8 +569,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	return 0;
 }
 
-u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains)
-{
+u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains) {
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
@@ -671,8 +669,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 	return ret;
 }
 
-u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
-{
+u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
@@ -690,9 +687,8 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	return ret;
 }
 
-u32 sceAtracEndEntry()
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracEndEntry()");
+u32 sceAtracEndEntry() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracEndEntry()");
 	return 0;
 }
 
@@ -964,8 +960,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 	return 0;
 }
 
-u32 sceAtracReleaseAtracID(int atracID)
-{
+u32 sceAtracReleaseAtracID(int atracID) {
 	INFO_LOG(ME, "sceAtracReleaseAtracID(%i)", atracID);
 	return deleteAtrac(atracID);
 }
@@ -996,8 +991,7 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 }
 
 #ifdef USE_FFMPEG
-static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
-{
+static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
 	Atrac *atrac = (Atrac *)opaque;
 	if (atrac->decodePos > atrac->first.filesize)
 		return -1;
@@ -1009,8 +1003,7 @@ static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 	return size;
 }
 
-static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
-{
+static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence) {
 	Atrac *atrac = (Atrac*)opaque;
 	if (offset > atrac->first.filesize)
 		return -1;
@@ -1126,8 +1119,7 @@ int __AtracSetContext(Atrac *atrac) {
 	return 0;
 }
 
-int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
-{
+int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
@@ -1169,8 +1161,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	return 0;
 }
 
-int _AtracSetData(int atracID, u32 buffer, u32 bufferSize, bool needReturnAtracID = false)
-{
+int _AtracSetData(int atracID, u32 buffer, u32 bufferSize, bool needReturnAtracID = false) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return -1;
@@ -1213,12 +1204,11 @@ u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
 		return ATRAC_ERROR_NO_DATA;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
 	return 0;
 }
 
-u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
-{
+u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac != NULL) {
 		INFO_LOG(ME, "sceAtracSetData(%i, %08x, %08x)", atracID, buffer, bufferSize);
@@ -1240,8 +1230,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	}
 }
 
-int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
-{
+int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize) {
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
@@ -1255,7 +1244,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
+		ERROR_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1266,8 +1255,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	return atracID;
 }
 
-int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
 		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
@@ -1281,7 +1269,7 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1292,9 +1280,8 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	return atracID;
 }
 
-u32 sceAtracStartEntry()
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracStartEntry(.)");
+u32 sceAtracStartEntry() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracStartEntry()");
 	return 0;
 }
 
@@ -1321,8 +1308,7 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	return 0;
 }
 
-int sceAtracReinit(int at3Count, int at3plusCount)
-{
+int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
 		if (atracIDs[i] != NULL) {
 			ERROR_LOG_REPORT(ME, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
@@ -1398,8 +1384,7 @@ int sceAtracIsSecondBufferNeeded(int atracID) {
 	return 0;
 }
 
-int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, u32 MOutHalfBufferSize)
-{
+int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, u32 MOutHalfBufferSize) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad atrac ID", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
@@ -1435,8 +1420,7 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	return ret;
 }
 
-int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
-{
+int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
@@ -1446,7 +1430,7 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1457,8 +1441,7 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 	return atracID;
 }
 
-int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
 		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
@@ -1472,7 +1455,7 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1483,8 +1466,7 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	return atracID;
 }
 
-int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr)
-{
+int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr) {
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
@@ -1493,11 +1475,11 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 	atrac->Analyze();
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID",  buffer, bufferSize, fileSize, metadataSizeAddr);
+		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID",  buffer, bufferSize, fileSize, metadataSizeAddr);
 		delete atrac;
 		return atracID;
 	}
-	ERROR_LOG(ME, "UNIMPL %d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
+	WARN_LOG(ME, "%d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
 	return atracID;
 }
 
@@ -1547,8 +1529,7 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	*(u32*)(buf + 0xfc) = atrac->atracID;
 }
 
-int _sceAtracGetContextAddress(int atracID)
-{
+int _sceAtracGetContextAddress(int atracID) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
@@ -1581,8 +1562,7 @@ static const u16 at3HeaderMap[][4] = {
 
 static const int at3HeaderMapSize = sizeof(at3HeaderMap)/(sizeof(u16) * 4);
 
-bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
-{
+bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3HeaderMapSize; i ++) {
 		if (at3HeaderMap[i][0] == atrac->atracBytesPerFrame && at3HeaderMap[i][1] == atrac->atracChannels) {
 			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3Header) - 8;
@@ -1641,8 +1621,7 @@ static const u16 at3plusHeaderMap[][3] = {
 
 static const int at3plusHeaderMapSize = sizeof(at3plusHeaderMap)/(sizeof(u16) * 3);
 
-bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
-{
+bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3plusHeaderMapSize; i += 2) {
 		if (at3plusHeaderMap[i][0] == atrac->atracBytesPerFrame && at3plusHeaderMap[i][1] == atrac->atracChannels) {
 			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeader) - 8;
@@ -1795,8 +1774,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 	return 0;
 }
 
-int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
 		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): invalid read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
@@ -1809,7 +1787,7 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	atrac->Analyze();
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1817,8 +1795,7 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	return createAtrac(atrac, codecType);
 }
 
-const HLEFunction sceAtrac3plus[] =
-{
+const HLEFunction sceAtrac3plus[] = {
 	{0x7db31251,WrapU_IU<sceAtracAddStreamData>,"sceAtracAddStreamData"},
 	{0x6a8c3cd5,WrapU_IUUUU<sceAtracDecodeData>,"sceAtracDecodeData"},
 	{0xd5c28cc0,WrapU_V<sceAtracEndEntry>,"sceAtracEndEntry"},
@@ -1860,8 +1837,7 @@ const HLEFunction sceAtrac3plus[] =
 };
 
 
-void Register_sceAtrac3plus()
-{
+void Register_sceAtrac3plus() {
 	// Two names
 	RegisterModule("sceATRAC3plus_Library", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
 	RegisterModule("sceAtrac3plus", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
