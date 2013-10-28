@@ -55,7 +55,12 @@ void UIScreen::key(const KeyInput &key) {
 
 void UIDialogScreen::key(const KeyInput &key) {
 	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
-		screenManager()->finishDialog(this, DR_BACK);
+		if (finished_) {
+			ELOG("Screen already finished");
+		} else {
+			finished_ = true;
+			screenManager()->finishDialog(this, DR_BACK);
+		}
 	} else {
 		UIScreen::key(key);
 	}
@@ -124,7 +129,7 @@ void PopupScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	box_ = new LinearLayout(ORIENT_VERTICAL, 
+	box_ = new LinearLayout(ORIENT_VERTICAL,
 		new AnchorLayoutParams(550, FillVertical() ? dp_yres - 30 : WRAP_CONTENT, dp_xres / 2, dp_yres / 2, NONE, NONE, true));
 
 	root_->Add(box_);

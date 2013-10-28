@@ -36,7 +36,11 @@ private:
 
 class UIDialogScreen : public UIScreen {
 public:
+	UIDialogScreen() : UIScreen(), finished_(false) {}
 	virtual void key(const KeyInput &key);
+
+private:
+	bool finished_;
 };
 
 
