@@ -701,7 +701,7 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
 	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): bad data", atracID, sample, bufferInfoAddr);
+		ERROR_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): no data", atracID, sample, bufferInfoAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else if (!bufferInfo.IsValid()) {
 		ERROR_LOG_REPORT(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid buffer, should crash", atracID, sample, bufferInfoAddr);
@@ -1187,7 +1187,11 @@ u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 half
 	if (atrac != NULL) {
 		atrac->first.addr = halfBuffer;
 		atrac->first.size = readSize;
-		atrac->Analyze();
+		ret = atrac->Analyze();
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x): bad data", atracID, halfBuffer, readSize, halfBufferSize);
+			return ret;
+		}
 		atrac->atracOutputChannels = 2;
 		ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	}
@@ -1215,11 +1219,12 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
 		int ret = atrac->Analyze();
-		if (ret == 0 && (int)atrac->codecType != atracIDTypes[atracID]) {
-			ERROR_LOG(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
+		} else if ((int)atrac->codecType != atracIDTypes[atracID]) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
 			ret = ATRAC_ERROR_WRONG_CODECTYPE;
-		}
-		if (ret == 0) {
+		} else {
 			atrac->atracOutputChannels = 2;
 			ret = _AtracSetData(atracID, buffer, bufferSize);
 		}
@@ -1238,6 +1243,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize) {
 	atrac->first.size = bufferSize;
 	int ret = atrac->Analyze();
 	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): bad data", buffer, bufferSize);
 		delete atrac;
 		return ret;
 	}
@@ -1265,7 +1271,12 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
-	atrac->Analyze();
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return ret;
+	}
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
@@ -1274,7 +1285,7 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
+	ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
@@ -1399,7 +1410,11 @@ int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, 
 	if (atrac != NULL) {
 		atrac->first.addr = MOutHalfBuffer;
 		atrac->first.size = readSize;
-		atrac->Analyze();
+		ret = atrac->Analyze();
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad data", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+			return ret;
+		}
 		atrac->atracOutputChannels = 1;
 		ret = _AtracSetData(atracID, MOutHalfBuffer, MOutHalfBufferSize);
 	}
@@ -1413,6 +1428,7 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	if (atrac != NULL) {
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
+		// TODO: Error code for bad data (probably yes)?
 		atrac->Analyze();
 		atrac->atracOutputChannels = 1;
 		ret = _AtracSetData(atracID, buffer, bufferSize);
@@ -1426,6 +1442,7 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
+	// TODO: Error code for bad data (probably yes)?
 	atrac->Analyze();
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
@@ -1443,7 +1460,7 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 
 int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
-		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 	int codecType = getCodecType(halfBuffer);
@@ -1451,16 +1468,21 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
-	atrac->Analyze();
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return ret;
+	}
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
+	ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
@@ -1472,6 +1494,7 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
+	// TODO: Seems to use different error codes?
 	atrac->Analyze();
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
@@ -1784,6 +1807,7 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
+	// TODO: Different error codes.
 	atrac->Analyze();
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
