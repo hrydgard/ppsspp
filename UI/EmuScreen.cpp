@@ -192,15 +192,16 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 //curve1 implements a smooth deadzone as described here:
 //http://www.gamasutra.com/blogs/JoshSutphin/20130416/190541/Doing_Thumbstick_Dead_Zones_Right.php
 inline float curve1(float x) {
-    const float deadzone = g_Config.fDeadzoneRadius;
-    const float factor = 1.0f / (1.0f - deadzone);
-    if (x > deadzone) {
-            return (x - deadzone) * (x - deadzone) * factor;
-    } else if (x < -deadzone) {
-            return -(x + deadzone) * (x + deadzone) * factor;
-    } else {
-            return 0.0f;
-    }
+	const float deadzone = g_Config.fDeadzoneRadius;
+	const float factor = 1.0f / (1.0f - deadzone);
+
+	if (x > deadzone) {
+		return (x - deadzone) * (x - deadzone) * factor;
+	} else if (x < -deadzone) {
+		return -(x + deadzone) * (x + deadzone) * factor;
+	} else {
+		return 0.0f;
+	}
 
 }
 
@@ -484,13 +485,13 @@ void EmuScreen::update(InputState &input) {
 		float delta_x =  curve1(normalized_input_x * 2.0 * (g_Config.iTiltSensitivityX)) ;
 
 		//if the invert is enabled, invert the motion
-		if(g_Config.bInvertTiltX){
+		if (g_Config.bInvertTiltX){
 			delta_x *= -1;
 		}
 
 		float delta_y =  curve1(normalized_input_y * 2.0 * (g_Config.iTiltSensitivityY)) ;
 		
-		if(g_Config.bInvertTiltY){
+		if (g_Config.bInvertTiltY){
 			delta_y *= -1;
 		}
 
