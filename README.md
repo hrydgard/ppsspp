@@ -8,9 +8,9 @@ Originally released under the GPL 2.0 (and later) in November 2012
 Official website:
 http://www.ppsspp.org/
 
-To contribute, see [the development page][ppsspp-devel].
+To contribute, see [the development page](http://www.ppsspp.org/development.html).
 
-For the latest source code, see [our github page][ppsspp-repo].
+For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
