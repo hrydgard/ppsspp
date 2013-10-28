@@ -85,10 +85,34 @@ enum {
   ERROR_NET_ADHOCCTL_NOT_INITIALIZED           = 0x80410b08,
   ERROR_NET_ADHOCCTL_DISCONNECTED              = 0x80410b09,
   ERROR_NET_ADHOCCTL_BUSY                      = 0x80410b10,
-  ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
+  ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12, 
 
-  ERROR_NET_NO_SPACE                           = 0x80410001, 
+  ERROR_NET_ADHOC_MATCHING_INVALID_MODE = 0x80410801,
+  ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM = 0x80410803,
+  ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT = 0x80410804,
+  ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN = 0x80410805,
+  ERROR_NET_ADHOC_MATCHING_INVALID_ARG = 0x80410806,
+  ERROR_NET_ADHOC_MATCHING_INVALID_ID = 0x80410807,
+  ERROR_NET_ADHOC_MATCHING_ID_NOT_AVAIL = 0x80410808,
+  ERROR_NET_ADHOC_MATCHING_NO_SPACE = 0x80410809,
+  ERROR_NET_ADHOC_MATCHING_IS_RUNNING = 0x8041080A,
+  ERROR_NET_ADHOC_MATCHING_NOT_RUNNING = 0x8041080B,
+  ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET = 0x8041080C,
+  ERROR_NET_ADHOC_MATCHING_TARGET_NOT_READY = 0x8041080D,
+  ERROR_NET_ADHOC_MATCHING_EXCEED_MAXNUM = 0x8041080E,
+  ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS = 0x8041080F,
+  ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED = 0x80410810,
+  ERROR_NET_ADHOC_MATCHING_BUSY = 0x80410811,
+  ERROR_NET_ADHOC_MATCHING_PORT_IN_USE = 0x80410814,
+  ERROR_NET_ADHOC_MATCHING_STACKSIZE_TOO_SHORT = 0x80410815,
+  ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN = 0x80410816,
+  ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED = 0x80410817,
+  ERROR_NET_ADHOC_MATCHING_DATA_BUSY = 0x80410818,
+
+  ERROR_NET_NO_SPACE                           = 0x80410001 
 };
+
+int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown);
 
 enum {
   PSP_ADHOC_POLL_READY_TO_SEND = 1,
@@ -274,8 +298,19 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 	uint64_t lastping;
 } SceNetAdhocMatchingMemberInternal;
 
-// Adhoc Matching Handler
-typedef void(*SceNetAdhocMatchingHandler)(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt);
+
+// Matching handler
+struct SceNetAdhocMatchingHandlerArgs {
+  int id;
+  int event;
+  SceNetEtherAddr * peer;
+  int optlen;
+  void * opt;
+};
+
+struct SceNetAdhocMatchingHandler {
+  u32 entryPoint;
+};
 
 // Thread Message Stack Item
 typedef struct ThreadMessage
@@ -1224,6 +1259,49 @@ int __getActivePeerCount(void) {
 	return count;
 }
 
+/**
+ * Find Internal Matching Context for Matching ID
+ * @param id Matching ID
+ * @return Matching Context Pointer or... NULL
+ */
+SceNetAdhocMatchingContext * __findMatchingContext(int id) {
+	// Iterate Matching Context List
+	SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
+		// Found Matching ID
+		if(item->id == id) return item;
+	}
+	
+	// Context not found
+	return NULL;
+}
+
+/**
+ * Find Free Matching ID
+ * @return First unoccupied Matching ID
+ */
+int __findFreeMatchingID(void) {
+	// Minimum Matching ID
+	int min = 1;
+	
+	// Maximum Matching ID
+	int max = 0;
+	
+	// Find highest Matching ID
+	SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
+		// New Maximum
+		if(max < item->id) max = item->id;
+	}
+	
+	// Find unoccupied ID
+	int i = min; for(; i < max; i++) {
+		// Found unoccupied ID
+		if(__findMatchingContext(i) == NULL) return i;
+	}
+	
+	// Append at virtual end
+	return max + 1;
+}
+
 void __handlerUpdateCallback(u64 userdata, int cycleslate){
   int buff[2];
   split64(userdata,buff);
@@ -2132,7 +2210,7 @@ int sceNetAdhocGetSocketAlert() {
 
 int sceNetAdhocMatchingInit(u32 memsize) {
 	// Uninitialized Library
-	if(netAdhocMatchingInited) {
+	if(!netAdhocMatchingInited) {
 		// Save Fake Pool Size
 		fakePoolSize = memsize;
 		
@@ -2142,16 +2220,8 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 		// Return Success
 		return 0;
 	}else{
-  }
-
-	
-	// Initialized Library
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
-  if (netAdhocMatchingInited) 
     return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
-  netAdhocMatchingInited = true;
-
-  return 0;
+  }
 }
 
 int sceNetAdhocMatchingTerm() {
@@ -2164,9 +2234,102 @@ int sceNetAdhocMatchingTerm() {
 
 
 // Presumably returns a "matchingId".
-int sceNetAdhocMatchingCreate(int mode, int maxPeers, int port, int bufSize, int helloDelay, int pingDelay, int initCount, int msgDelay, u32 callbackAddr) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingCreate(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", mode, maxPeers, port, bufSize, helloDelay, pingDelay, initCount, msgDelay, callbackAddr);
-  return -1;
+int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int hello_int, int keepalive_int, int init_count, int rexmt_int, u32 callbackAddr) {
+  ERROR_LOG(SCENET, "sceNetAdhocMatchingCreate");
+  SceNetAdhocMatchingHandler handler;
+  handler.entryPoint = callbackAddr;
+
+	// Library initialized
+	if(netAdhocMatchingInited) {
+		// Valid Member Limit
+		if(maxnum > 1 && maxnum <= 16) {
+			// Valid Receive Buffer size
+			if(rxbuflen >= 1024) {
+				// Valid Arguments
+				if(mode >= 1 && mode <= 3) {
+					// Iterate Matching Contexts
+					SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
+						// Port Match found
+						if(item->port == port) return ERROR_NET_ADHOC_MATCHING_PORT_IN_USE;
+					}
+					
+					// Allocate Context Memory
+					SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
+				
+					// Allocated Memory
+					if(context != NULL) {
+						// Create PDP Socket
+						SceNetEtherAddr localmac; __getLocalMac(&localmac);
+            const char * mac = (const  char *)&localmac.data;
+						int socket = sceNetAdhocPdpCreate(mac, (uint32_t)port, rxbuflen, 0);
+						// Created PDP Socket
+						if(socket > 0) {
+							// Clear Memory
+							memset(context, 0, sizeof(SceNetAdhocMatchingContext));
+						
+							// Allocate Receive Buffer
+							context->rxbuf = (uint8_t *)malloc(rxbuflen);
+						
+							// Allocated Memory
+							if(context->rxbuf != NULL) {
+								// Clear Memory
+								memset(context->rxbuf, 0, rxbuflen);
+								
+								// Fill in Context Data
+								context->id = __findFreeMatchingID();
+								context->mode = mode;	
+								context->maxpeers = maxnum;
+								context->port = port;
+								context->socket = socket;
+								context->rxbuflen = rxbuflen;
+								context->hello_int = hello_int;
+								context->keepalive_int = 500000;
+								//context->keepalive_int = keepalive_int;
+								context->resendcounter = init_count;
+								context->keepalivecounter = 100;
+								//context->keepalivecounter = init_count;
+								context->resend_int = rexmt_int;
+								context->handler = handler;
+								
+								// Fill in Selfpeer
+								context->mac = localmac;
+								
+								// Link Context
+								context->next = contexts;
+								contexts = context;
+								
+								// Return Matching ID
+								return context->id;
+							}
+							
+							// Close PDP Socket
+							sceNetAdhocPdpDelete(socket, 0);
+						}
+						
+						// Free Memory
+						free(context);
+						
+						// Port in use
+						if(socket < 1) return ERROR_NET_ADHOC_MATCHING_PORT_IN_USE;
+					}
+					
+					// Out of Memory
+					return ERROR_NET_ADHOC_MATCHING_NO_SPACE;
+				}
+				
+				// InvalidERROR_NET_Arguments
+				return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
+			}
+			
+			// Invalid Receive Buffer Size
+			return ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT;
+		}
+		
+		// Invalid Member Limit
+		return ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM;
+	}
+	// Uninitialized Library
+	return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
 }
 
 int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
