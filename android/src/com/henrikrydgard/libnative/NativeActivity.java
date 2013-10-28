@@ -386,11 +386,7 @@ public class NativeActivity extends Activity {
 			darkenOnScreenButtons();
 		}
 	}
-     
-	public boolean overrideKeys() {
-		return true;
-	}
-   
+    
     // Prevent destroying and recreating the main activity when the device rotates etc,
     // since this would stop the sound.
     @Override
@@ -437,16 +433,30 @@ public class NativeActivity extends Activity {
 			if (state == null) {
 				return super.dispatchKeyEvent(event);
 			}
-	
+			
+			// Let's let volume and back through to dispatchKeyEvent.
+			boolean passThrough = false;
+			switch (event.getKeyCode()) {
+			case KeyEvent.KEYCODE_BACK:
+			case KeyEvent.KEYCODE_VOLUME_DOWN:
+			case KeyEvent.KEYCODE_VOLUME_UP:
+			case KeyEvent.KEYCODE_VOLUME_MUTE:
+			case KeyEvent.KEYCODE_MENU:
+				passThrough = true;
+				break;
+			default:
+				break;
+			}
+			
 			switch (event.getAction()) {
 			case KeyEvent.ACTION_DOWN:
-				if (state.onKeyDown(event)) {
+				if (state.onKeyDown(event) && !passThrough) {
 					return true;
 				}
 				break;
 	
 			case KeyEvent.ACTION_UP:
-				if (state.onKeyUp(event)) {
+				if (state.onKeyUp(event) && !passThrough) {
 					return true;
 				}
 				break;
