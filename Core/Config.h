@@ -110,7 +110,19 @@ public:
 	int iShowFPSCounter;
 	bool bShowDebugStats;
 	bool bAccelerometerToAnalogHoriz;
-	int iTiltSensitivity;
+
+	//Analog stick tilting
+	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
+	//considers this orientation to be equal to no movement of the analog stick.
+	float fTiltBaseX, fTiltBaseY;
+	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
+	bool bInvertTiltX, bInvertTiltY; 
+	//the sensitivity of the tilt in the x direction
+	int iTiltSensitivityX;
+	//the sensitivity of the tilt in the Y direction
+	int iTiltSensitivityY;
+	//the deadzone radius of the tilt
+	float fDeadzoneRadius;
 
 	// The three tabs.
 	bool bGridView1;

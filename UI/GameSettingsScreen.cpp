@@ -31,6 +31,7 @@
 #include "UI/DevScreens.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
+#include "UI/TiltAnalogSettingsScreen.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -217,7 +218,9 @@ void GameSettingsScreen::CreateViews() {
 #ifdef USING_GLES2
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivity, 10, 200, c->T("Tilt Sensitivity"), screenManager()));
+	Choice *tiltAnalog = controlsSettings->Add(new Choice(c->T("Customize tilt")));
+	tiltAnalog->OnClick.Handle(this, &GameSettingsScreen::OnTiltAnalogSettings);
+	tiltAnalog->SetEnabled(g_Config.bAccelerometerToAnalogHoriz);
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")))->OnClick.Handle(this, &GameSettingsScreen::OnToggleTouchControls);
@@ -470,6 +473,11 @@ UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 	screenManager()->push(new TouchControlLayoutScreen());
+	return UI::EVENT_DONE;
+};
+
+UI::EventReturn GameSettingsScreen::OnTiltAnalogSettings(UI::EventParams &e){
+	screenManager()->push(new TiltAnalogSettingsScreen());
 	return UI::EVENT_DONE;
 };
 
