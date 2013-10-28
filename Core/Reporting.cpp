@@ -18,7 +18,6 @@
 #include "Core/Reporting.h"
 
 #include "Common/CPUDetect.h"
-#include "Common/StdThread.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -32,6 +31,7 @@
 #include "net/url.h"
 
 #include "base/buffer.h"
+#include "thread/thread.h"
 
 #include <stdlib.h>
 #include <cstdarg>
