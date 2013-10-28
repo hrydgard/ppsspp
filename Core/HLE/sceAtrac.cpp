@@ -547,13 +547,16 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracAddStreamData(%i, %08x): bad atrac ID", atracID, bytesToAdd);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracAddStreamData(%i, %08x): no data", atracID, bytesToAdd);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		DEBUG_LOG(ME, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 		// TODO
 		if (bytesToAdd > atrac->first.writableBytes)
 			return ATRAC_ERROR_ADD_DATA_IS_TOO_BIG;
 
-		if (atrac->data_buf && (bytesToAdd > 0)) {
+		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
 		}
@@ -572,7 +575,11 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
-	if (atrac != NULL) {
+	if (atrac == NULL) {
+		ret = ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ret = ATRAC_ERROR_NO_DATA;
+	} else {
 		// We already passed the end - return an error (many games check for this.)
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			*SamplesNum = 0;
@@ -650,7 +657,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			} else if (atrac->currentSample >= atrac->endSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize)) {
 				finishFlag = 1;
-      }
+			}
 
 			*finish = finishFlag;
 			*remains = atrac->getRemainFrames();
@@ -659,8 +666,6 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			// refresh atracContext
 			_AtracGenarateContext(atrac, atrac->atracContext);
 		}
-	} else {
-		ret = ATRAC_ERROR_BAD_ATRACID;
 	}
 
 	return ret;
@@ -672,7 +677,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 finish = 0;
 	int remains = 0;
 	int ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
-	if (ret != (int)ATRAC_ERROR_BAD_ATRACID) {
+	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		Memory::Write_U32(numSamples, numSamplesAddr);
 		Memory::Write_U32(finish, finishFlagAddr);
 		Memory::Write_U32(remains, remainAddr);
@@ -691,8 +696,7 @@ u32 sceAtracEndEntry()
 	return 0;
 }
 
-u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr)
-{
+u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr) {
 	PSPPointer<AtracResetBufferInfo> bufferInfo;
 	bufferInfo = bufferInfoAddr;
 
@@ -700,6 +704,9 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 	if (!atrac) {
 		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): bad data", atracID, sample, bufferInfoAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else if (!bufferInfo.IsValid()) {
 		ERROR_LOG_REPORT(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid buffer, should crash", atracID, sample, bufferInfoAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
@@ -744,6 +751,9 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetBitrate(%i, %08x): bad atrac ID", atracID, outBitrateAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetBitrate(%i, %08x): no data", atracID, outBitrateAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		DEBUG_LOG(ME, "sceAtracGetBitrate(%i, %08x)", atracID, outBitrateAddr);
 		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
@@ -762,11 +772,14 @@ u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetChannel(%i, %08x): bad atrac ID", atracID, channelAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
-		if (Memory::IsValidAddress(channelAddr))
-			Memory::Write_U32(atrac->atracChannels, channelAddr);
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetChannel(%i, %08x): no data", atracID, channelAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
+	if (Memory::IsValidAddress(channelAddr))
+		Memory::Write_U32(atrac->atracChannels, channelAddr);
 	return 0;
 }
 
@@ -775,6 +788,9 @@ u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x): bad atrac ID", atracID, loopNumAddr, statusAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x): no data", atracID, loopNumAddr, statusAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		DEBUG_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNumAddr, statusAddr);
 		if (Memory::IsValidAddress(loopNumAddr))
@@ -795,6 +811,9 @@ u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetInternalErrorInfo(%i, %08x): bad atrac ID", atracID, errorAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		WARN_LOG(ME, "sceAtracGetInternalErrorInfo(%i, %08x): no data", atracID, errorAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		ERROR_LOG(ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
 		if (Memory::IsValidAddress(errorAddr))
@@ -808,12 +827,15 @@ u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetMaxSample(%i, %08x): bad atrac ID", atracID, maxSamplesAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetMaxSample(%i, %08x)", atracID, maxSamplesAddr);
-		if (Memory::IsValidAddress(maxSamplesAddr)) {
-			int atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-			Memory::Write_U32(atracSamplesPerFrame, maxSamplesAddr);
-		}
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetMaxSample(%i, %08x): no data", atracID, maxSamplesAddr);
+		return ATRAC_ERROR_NO_DATA;
+	}
+
+	DEBUG_LOG(ME, "sceAtracGetMaxSample(%i, %08x)", atracID, maxSamplesAddr);
+	if (Memory::IsValidAddress(maxSamplesAddr)) {
+		int atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		Memory::Write_U32(atracSamplesPerFrame, maxSamplesAddr);
 	}
 	return 0;
 }
@@ -823,13 +845,16 @@ u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x): bad atrac ID", atracID, outposAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x)", atracID, outposAddr);
-		if (atrac->currentSample >= atrac->endSample)
-			return ATRAC_ERROR_ALL_DATA_DECODED;
-		if (Memory::IsValidAddress(outposAddr))
-			Memory::Write_U32(atrac->currentSample, outposAddr);
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x): no data", atracID, outposAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x)", atracID, outposAddr);
+	if (atrac->currentSample >= atrac->endSample)
+		return ATRAC_ERROR_ALL_DATA_DECODED;
+	if (Memory::IsValidAddress(outposAddr))
+		Memory::Write_U32(atrac->currentSample, outposAddr);
 	return 0;
 }
 
@@ -838,6 +863,9 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetNextSample(%i, %08x): bad atrac ID", atracID, outNAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetNextSample(%i, %08x): no data", atracID, outNAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
 		if (atrac->currentSample >= atrac->endSample) {
@@ -855,17 +883,19 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 	return 0;
 }
 
-u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
-{
+u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): bad atrac ID", atracID, remainAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
-		if (Memory::IsValidAddress(remainAddr))
-			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): no data", atracID, remainAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
+	if (Memory::IsValidAddress(remainAddr))
+		Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
 	return 0;
 }
 
@@ -874,6 +904,9 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x): bad atrac ID", atracID, outposAddr, outBytesAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x): no data", atracID, outposAddr, outBytesAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
 	ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
 	if (Memory::IsValidAddress(outposAddr) && atrac)
@@ -884,21 +917,23 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr) {
 	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 }
 
-u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
-{
+u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): bad atrac ID", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
-		if (Memory::IsValidAddress(outEndSampleAddr))
-			Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
-		if (Memory::IsValidAddress(outLoopStartSampleAddr))
-			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
-		if (Memory::IsValidAddress(outLoopEndSampleAddr))
-			Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): no data", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+	if (Memory::IsValidAddress(outEndSampleAddr))
+		Memory::Write_U32(atrac->endSample, outEndSampleAddr);
+	if (Memory::IsValidAddress(outLoopStartSampleAddr))
+		Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr);
+	if (Memory::IsValidAddress(outLoopEndSampleAddr))
+		Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr);
 	return 0;
 }
 
@@ -910,19 +945,22 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): bad atrac ID", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
-		// reset the temp buf for adding more stream data
-		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
-		atrac->first.offset = 0;
-
-		if (Memory::IsValidAddress(writeAddr))
-		Memory::Write_U32(atrac->first.addr, writeAddr);
-		if (Memory::IsValidAddress(writableBytesAddr))
-		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
-		if (Memory::IsValidAddress(readOffsetAddr))
-		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+	// reset the temp buf for adding more stream data
+	atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+	atrac->first.offset = 0;
+
+	if (Memory::IsValidAddress(writeAddr))
+		Memory::Write_U32(atrac->first.addr, writeAddr);
+	if (Memory::IsValidAddress(writableBytesAddr))
+		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
+	if (Memory::IsValidAddress(readOffsetAddr))
+		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
 	return 0;
 }
 
@@ -937,6 +975,9 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): bad atrac ID", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): no data", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		if (bytesWrittenFirstBuf > 0)
@@ -1167,6 +1208,9 @@ u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): bad atrac ID", atracID, secondBuffer, secondBufferSize);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): no data", atracID, secondBuffer, secondBufferSize);
+		return ATRAC_ERROR_NO_DATA;
 	}
 
 	ERROR_LOG(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
@@ -1259,6 +1303,9 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i): bad atrac ID", atracID, loopNum);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no data", atracID, loopNum);
+		return ATRAC_ERROR_NO_DATA;
 	}
 
 	// Spammed in MHU
@@ -1327,6 +1374,9 @@ int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracGetOutputChannel(%i, %08x): bad atrac ID", atracID, outputChanPtr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetOutputChannel(%i, %08x): no data", atracID, outputChanPtr);
+		return ATRAC_ERROR_NO_DATA;
 	}
 
 	DEBUG_LOG(ME, "sceAtracGetOutputChannel(%i, %08x)", atracID, outputChanPtr);
@@ -1340,6 +1390,9 @@ int sceAtracIsSecondBufferNeeded(int atracID) {
 	if (!atrac) {
 		ERROR_LOG(ME, "sceAtracIsSecondBufferNeeded(%i): bad atrac ID", atracID);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracIsSecondBufferNeeded(%i): no data", atracID);
+		return ATRAC_ERROR_NO_DATA;
 	}
 	WARN_LOG(ME, "UNIMPL sceAtracIsSecondBufferNeeded(%i)", atracID);
 	return 0;
