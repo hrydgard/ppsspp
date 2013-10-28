@@ -1528,6 +1528,10 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	if (context->info.endSample > 0) {
 		// do not change info.state if this was not called at first time
 		// In Sol Trigger, it would set info.state = 0x10 outside
+		// TODO: Should we just keep this in PSP ram then, or something?
+	} else if (!atrac->data_buf) {
+		// State 1, no buffer yet.
+		context->info.state = 1;
 	} else if (atrac->first.size >= atrac->first.filesize) {
 		// state 2, all data loaded
 		context->info.state = 2;
