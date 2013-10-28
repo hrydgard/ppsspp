@@ -58,7 +58,7 @@ void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
-	
+
 	iAlternateSpeedPercent_ = 3;
 	for (int i = 0; i < 8; i++) {
 		if (g_Config.iFpsLimit <= alternateSpeedTable[i]) {
@@ -394,18 +394,6 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	KeyMap::UpdateConfirmCancelKeys();
 }
 
-UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
-	// If we're in-game, return to the game via DR_CANCEL.
-	if (PSP_IsInited()) {
-		screenManager()->finishDialog(this, DR_CANCEL);
-		host->UpdateScreen();
-	} else {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
-	return UI::EVENT_DONE;
-}
-
 /*
 void GlobalSettingsScreen::CreateViews() {
 	using namespace UI;
@@ -524,6 +512,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
+	list->Add(new ItemHeader(""));
 	list->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 

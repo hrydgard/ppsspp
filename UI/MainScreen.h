@@ -55,7 +55,7 @@ private:
 class GamePauseScreen : public UIDialogScreen {
 public:
 	GamePauseScreen(const std::string &filename) : UIDialogScreen(), gamePath_(filename), saveSlots_(NULL) {}
-	~GamePauseScreen();
+	virtual ~GamePauseScreen();
 
 	virtual void onFinish(DialogResult result);
 

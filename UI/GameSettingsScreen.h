@@ -52,11 +52,9 @@ private:
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
-	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
 	UI::EventReturn OnToggleTouchControls(UI::EventParams &e);
 	UI::EventReturn OnTiltAnalogSettings(UI::EventParams &e);
-	
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);

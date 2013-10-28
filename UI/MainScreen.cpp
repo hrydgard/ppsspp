@@ -778,9 +778,10 @@ void GamePauseScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
+	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
@@ -794,7 +795,7 @@ void GamePauseScreen::CreateViews() {
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(gamePath_));	
+	screenManager()->push(new GameSettingsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

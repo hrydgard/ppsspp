@@ -23,12 +23,10 @@
 
 class TiltAnalogSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	TiltAnalogSettingsScreen();
+	TiltAnalogSettingsScreen() : currentTiltX_(0), currentTiltY_(0) {}
 
 	virtual void CreateViews();
 	virtual void update(InputState &input);
-protected:
-	virtual UI::EventReturn OnBack(UI::EventParams &e);
 private:
 	UI::EventReturn OnCalibrate(UI::EventParams &e);
 	float currentTiltX_, currentTiltY_;

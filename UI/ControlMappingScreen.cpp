@@ -193,7 +193,7 @@ void ControlMappingScreen::CreateViews() {
 	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
 	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle(this, &ControlMappingScreen::OnBack);
+	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	/*
 	ChoiceStrip *mode = leftColumn->Add(new ChoiceStrip(ORIENT_VERTICAL));
 	mode->AddChoice("Replace");
@@ -221,17 +221,6 @@ void ControlMappingScreen::sendMessage(const char *message, const char *value) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));
 	}
-}
-
-UI::EventReturn ControlMappingScreen::OnBack(UI::EventParams &e) {
-	// If we're in-game, return to the game via DR_CANCEL.
-	if(PSP_IsInited()) {
-		screenManager()->finishDialog(this, DR_CANCEL);
-	} else {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
