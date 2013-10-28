@@ -31,6 +31,9 @@
     <ClCompile Include="CwCheatScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="TiltAnalogSettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="TouchControlLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -66,6 +69,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="CwCheatScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltAnalogSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TouchControlLayoutScreen.h">
