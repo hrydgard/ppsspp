@@ -209,7 +209,7 @@ namespace Reporting
 		postdata.Add("pixel_height", PSP_CoreParameter().pixelHeight);
 		postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
-		if (g_Config.iShowFPSCounter)
+		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4)
 		{
 			float vps, fps;
 			__DisplayGetAveragedFPS(&vps, &fps);

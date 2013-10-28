@@ -168,7 +168,11 @@ void GameSettingsScreen::CreateViews() {
 		prescale->SetEnabled(false);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
-	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
+	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"
+#ifdef BLACKBERRY
+	                                   , "Statistics"
+#endif
+	                                  };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 
