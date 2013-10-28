@@ -1098,12 +1098,12 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			for (int i = 0; i < saveDataListCount; i++) {
 				// "<>" means saveName can be anything...
 				if (strcmp(saveNameListData[i], "<>") == 0) {
-					std::string fileDataPath = "";
+					std::string fileDataPath = "";				
+					// TODO:Maybe we need a way to reorder the files...
 					auto allSaves = pspFileSystem.GetDirListing(savePath);
 					std::string gameName = GetGameName(param);
 					std::string saveName = "";
 					for(auto it = allSaves.begin(); it != allSaves.end(); ++it) {
-
 						if(strncmp(it->name.c_str(),gameName.c_str(),strlen(gameName.c_str())) == 0) {
 							saveName = it->name.substr(strlen(gameName.c_str()));						
 							
@@ -1118,9 +1118,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 								++realCount;
 							} else {
 								if (listEmptyFile) {
-									ClearFileInfo(saveDataList[realCount], saveName);
-									DEBUG_LOG(SCEUTILITY,"Don't Exist");
-									++realCount;
+									// If file doesn't exist,we only skip...
+									continue;
 								}
 							}
 							break;
