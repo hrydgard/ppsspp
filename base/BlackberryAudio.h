@@ -56,7 +56,7 @@ private:
 			size_t frames_ready;
 			alGetSourcei(source, AL_SOURCE_STATE, &state);
 			if (state != AL_PLAYING) {
-				frames_ready = NativeMix((short*)stream, SAMPLE_SIZE);
+				frames_ready = NativeMix((short*)stream, 5*SAMPLE_SIZE);
 			}
 			else
 				frames_ready = 0;
@@ -68,10 +68,10 @@ private:
 				alSourcei(source, AL_BUFFER, buffer);
 				alSourcePlay(source);
 				// TODO: Maybe this could get behind?
-				usleep((1000000 * frames_ready) / AUDIO_FREQ);
+				usleep((1000000 * SAMPLE_SIZE) / AUDIO_FREQ);
 			}
 			else
-				usleep(100000);
+				usleep(10000);
 		}
 	}
 	ALCdevice *alcDevice;
@@ -79,7 +79,7 @@ private:
 	ALenum state;
 	ALuint buffer;
 	ALuint source;
-	char stream[4*SAMPLE_SIZE];
+	char stream[20*SAMPLE_SIZE];
 	pthread_t thread_handle;
 };
 #endif
