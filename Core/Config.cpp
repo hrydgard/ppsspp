@@ -226,6 +226,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("InvertTiltY", &bInvertTiltY, true);
 	control->Get("TiltSensitivityX", &iTiltSensitivityX, 100);
 	control->Get("TiltSensitivityY", &iTiltSensitivityY, 100);
+	control->Get("DeadzoneRadius", &fDeadzoneRadius, 0.35);
 
 #endif
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
@@ -424,6 +425,7 @@ void Config::Save() {
 		control->Set("InvertTiltY", bInvertTiltY);
 		control->Set("TiltSensitivityX", iTiltSensitivityX);
 		control->Set("TiltSensitivityY", iTiltSensitivityY);
+		control->Set("DeadzoneRadius", fDeadzoneRadius);
 #endif
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);

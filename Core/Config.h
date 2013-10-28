@@ -119,6 +119,8 @@ public:
 	int iTiltSensitivityX;
 	//the sensitivity of the tilt in the Y direction
 	int iTiltSensitivityY;
+	//the deadzone radius of the tilt
+	float fDeadzoneRadius;
 
 	// The three tabs.
 	bool bGridView1;

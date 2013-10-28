@@ -192,7 +192,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 //curve1 implements a smooth deadzone as described here:
 //http://www.gamasutra.com/blogs/JoshSutphin/20130416/190541/Doing_Thumbstick_Dead_Zones_Right.php
 inline float curve1(float x) {
-    const float deadzone = 0.03f;
+    const float deadzone = g_Config.fDeadzoneRadius;
     const float factor = 1.0f / (1.0f - deadzone);
     if (x > deadzone) {
             return (x - deadzone) * (x - deadzone) * factor;
