@@ -127,14 +127,6 @@ static bool netAdhocInited;
 static bool netAdhocctlInited;
 static bool netAdhocMatchingInited;
 
-// These might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc..
-struct SceNetAdhocctlParams {
-  s32_le channel; //which ad-hoc channel to connect to
-  char name[8]; //connection name
-  u8 bssid[6];  //BSSID of the connection?
-  char nickname[128]; //PSP's nickname?
-};
-
 // psp strutcs and definitions
 #define ADHOCCTL_MODE_ADHOC 0
 #define ADHOCCTL_MODE_GAMEMODE 1
@@ -162,23 +154,12 @@ struct SceNetAdhocctlParams {
 #define UTILITY_NETCONF_STATUS_FINISHED 3
 #define UTILITY_NETCONF_STATUS_SHUTDOWN 4
 
-// Ethernet Address (MAC)
+
+// Ethernet Address
 #define ETHER_ADDR_LEN 6
 typedef struct SceNetEtherAddr {
   uint8_t data[ETHER_ADDR_LEN];
-} SceNetEtherAddr;
-
-// Adhoc Virtual Network Name (1234ABCD)
-#define ADHOCCTL_GROUPNAME_LEN 8
-typedef struct SceNetAdhocctlGroupName {
-  uint8_t data[ADHOCCTL_GROUPNAME_LEN];
-} SceNetAdhocctlGroupName;
-
-// Player Nickname
-#define ADHOCCTL_NICKNAME_LEN 128
-typedef struct SceNetAdhocctlNickname {
-  uint8_t data[ADHOCCTL_NICKNAME_LEN];
-} SceNetAdhocctlNickname;
+} __attribute__((packed)) SceNetEtherAddr;
 
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
@@ -188,11 +169,17 @@ typedef struct SceNetAdhocctlAdhocId {
   uint8_t padding[3];
 } SceNetAdhocctlAdhocId;
 
+// Adhoc Virtual Network Name
+#define ADHOCCTL_GROUPNAME_LEN 8
+typedef struct SceNetAdhocctlGroupName {
+  uint8_t data[ADHOCCTL_GROUPNAME_LEN];
+} __attribute__((packed)) SceNetAdhocctlGroupName;
+
 // Virtual Network Host Information
 typedef struct SceNetAdhocctlBSSId {
   SceNetEtherAddr mac_addr;
   uint8_t padding[2];
-};
+} __attribute__((packed)) SceNetAdhocctlBSSId;
 
 // Virtual Network Information
 typedef struct SceNetAdhocctlScanInfo {
@@ -201,14 +188,21 @@ typedef struct SceNetAdhocctlScanInfo {
   SceNetAdhocctlGroupName group_name;
   SceNetAdhocctlBSSId bssid;
   int mode;
-};
+} __attribute__((packed)) SceNetAdhocctlScanInfo;
+
+// Player Nickname
+#define ADHOCCTL_NICKNAME_LEN 128
+typedef struct SceNetAdhocctlNickname {
+  uint8_t data[ADHOCCTL_NICKNAME_LEN];
+} __attribute__((packed)) SceNetAdhocctlNickname;
+
 // Active Virtual Network Information
 typedef struct SceNetAdhocctlParameter {
   int channel;
   SceNetAdhocctlGroupName group_name;
   SceNetAdhocctlBSSId bssid;
   SceNetAdhocctlNickname nickname;
-};
+} __attribute__((packed)) SceNetAdhocctlParameter;
 
 // Peer Information
 typedef struct SceNetAdhocctlPeerInfo {
@@ -218,14 +212,15 @@ typedef struct SceNetAdhocctlPeerInfo {
   uint32_t ip_addr;
   uint8_t padding[2];
   uint64_t last_recv;
-};
+} __attribute__((packed)) SceNetAdhocctlPeerInfo;
 
 // Game Mode Peer List
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
 typedef struct SceNetAdhocctlGameModeInfo {
   int num;
   SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
-};
+} __attribute__((packed)) SceNetAdhocctlGameModeInfo;
+// Ethernet Address (MAC)
 
 // Socket Polling Event Listener
 typedef struct SceNetAdhocPollSd {
@@ -275,27 +270,27 @@ typedef struct SceNetAdhocGameModeBufferStat {
 
 // Matching Peer Information
 typedef struct SceNetAdhocMatchingMember {
-	struct SceNetAdhocMatchingMember * next;
-	SceNetEtherAddr addr;
-	uint8_t padding[2];
+  struct SceNetAdhocMatchingMember * next;
+  SceNetEtherAddr addr;
+  uint8_t padding[2];
 } __attribute__((packed)) SceNetAdhocMatchingMember;
 
 // Internal Matching Peer Information
 typedef struct SceNetAdhocMatchingMemberInternal {
-	// Next Peer
-	struct SceNetAdhocMatchingMemberInternal * next;
-	
-	// MAC Address
-	SceNetEtherAddr mac;
-	
-	// State Variable
-	int state;
-	
-	// Send in Progress
-	int sending;
-	
-	// Last Heartbeat
-	uint64_t lastping;
+  // Next Peer
+  struct SceNetAdhocMatchingMemberInternal * next;
+
+  // MAC Address
+  SceNetEtherAddr mac;
+
+  // State Variable
+  int state;
+
+  // Send in Progress
+  int sending;
+
+  // Last Heartbeat
+  uint64_t lastping;
 } SceNetAdhocMatchingMemberInternal;
 
 
@@ -315,93 +310,93 @@ struct SceNetAdhocMatchingHandler {
 // Thread Message Stack Item
 typedef struct ThreadMessage
 {
-	// Next Thread Message
-	struct ThreadMessage * next;
-	
-	// Stack Event Opcode
-	uint32_t opcode;
-	
-	// Target MAC Address
-	SceNetEtherAddr mac;
-	
-	// Optional Data Length
-	int optlen;
+  // Next Thread Message
+  struct ThreadMessage * next;
+
+  // Stack Event Opcode
+  uint32_t opcode;
+
+  // Target MAC Address
+  SceNetEtherAddr mac;
+
+  // Optional Data Length
+  int optlen;
 } ThreadMessage;
 
 // Established Peer
 
 // Context Information
 typedef struct SceNetAdhocMatchingContext {
-	// Next Context
-	struct SceNetAdhocMatchingContext * next;
-	
-	// Externally Visible ID
-	int id;
-	
-	// Matching Mode (HOST, CLIENT, P2P)
-	int mode;
-	
-	// Running Flag (1 = running, 0 = created)
-	int running;
-	
-	// Maximum Number of Peers (for HOST, P2P)
-	int maxpeers;
-	
-	// Local MAC Address
-	SceNetEtherAddr mac;
-	
-	// Peer List for Connectees
-	SceNetAdhocMatchingMemberInternal * peerlist;
-	
-	// Local PDP Port
-	uint16_t port;
-	
-	// Local PDP Socket
-	int socket;
-	
-	// Receive Buffer Length
-	int rxbuflen;
-	
-	// Receive Buffer
-	uint8_t * rxbuf;
-	
-	// Hello Broadcast Interval (Microseconds)
-	uint32_t hello_int;
-	
-	// Keep-Alive Broadcast Interval (Microseconds)
-	uint32_t keepalive_int;
-	
-	// Resend Interval (Microseconds)
-	uint32_t resend_int;
-	
-	// Resend-Counter
-	int resendcounter;
-	
-	// Keep-Alive Counter
-	int keepalivecounter;
-	
-	// Event Handler
-	SceNetAdhocMatchingHandler handler;
-	
-	// Hello Data Length
-	uint32_t hellolen;
-	
-	// Hello Data
-	void * hello;
-	
-	// Event Caller Thread
-	int event_thid;
-	
-	// IO Handler Thread
-	int input_thid;
-	
-	// Event Caller Thread Message Stack
-	int event_stack_lock;
-	ThreadMessage * event_stack;
-	
-	// IO Handler Thread Message Stack
-	int input_stack_lock;
-	ThreadMessage * input_stack;
+  // Next Context
+  struct SceNetAdhocMatchingContext * next;
+
+  // Externally Visible ID
+  int id;
+
+  // Matching Mode (HOST, CLIENT, P2P)
+  int mode;
+
+  // Running Flag (1 = running, 0 = created)
+  int running;
+
+  // Maximum Number of Peers (for HOST, P2P)
+  int maxpeers;
+
+  // Local MAC Address
+  SceNetEtherAddr mac;
+
+  // Peer List for Connectees
+  SceNetAdhocMatchingMemberInternal * peerlist;
+
+  // Local PDP Port
+  uint16_t port;
+
+  // Local PDP Socket
+  int socket;
+
+  // Receive Buffer Length
+  int rxbuflen;
+
+  // Receive Buffer
+  uint8_t * rxbuf;
+
+  // Hello Broadcast Interval (Microseconds)
+  uint32_t hello_int;
+
+  // Keep-Alive Broadcast Interval (Microseconds)
+  uint32_t keepalive_int;
+
+  // Resend Interval (Microseconds)
+  uint32_t resend_int;
+
+  // Resend-Counter
+  int resendcounter;
+
+  // Keep-Alive Counter
+  int keepalivecounter;
+
+  // Event Handler
+  SceNetAdhocMatchingHandler handler;
+
+  // Hello Data Length
+  uint32_t hellolen;
+
+  // Hello Data
+  void * hello;
+
+  // Event Caller Thread
+  int event_thid;
+
+  // IO Handler Thread
+  int input_thid;
+
+  // Event Caller Thread Message Stack
+  int event_stack_lock;
+  ThreadMessage * event_stack;
+
+  // IO Handler Thread Message Stack
+  int input_stack_lock;
+  ThreadMessage * input_stack;
 } SceNetAdhocMatchingContext;
 
 // End of psp definitions
@@ -611,7 +606,7 @@ long long __milliseconds_now() {
 /* chages to the blocking mode of the socket
    1 to set noblocking
    0 to set blocking
-*/
+   */
 void __change_blocking_mode(int fd, int nonblocking) {
   unsigned long on = 1;
   unsigned long off = 0;
@@ -624,13 +619,13 @@ void __change_blocking_mode(int fd, int nonblocking) {
     ioctlsocket(fd, FIONBIO, &off);
   }
 #else
-    if(nonblocking) fcntl(fd, F_SETFL, O_NONBLOCK);
-    else {
-      // Get Flags
-      int flags = fcntl(fd, F_GETFL);
-      // Remove Non-Blocking Flag
-      fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-    }
+  if(nonblocking) fcntl(fd, F_SETFL, O_NONBLOCK);
+  else {
+    // Get Flags
+    int flags = fcntl(fd, F_GETFL);
+    // Remove Non-Blocking Flag
+    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+  }
 #endif
 }
 
@@ -661,6 +656,12 @@ int __init_network(SceNetAdhocctlAdhocId *adhoc_id){
     printf("Socket error %d", iResult);
     return iResult;
   }
+
+  memset(&parameter,0,sizeof(parameter));
+  strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
+  parameter.channel = 1; // Fake Channel 1
+  __getLocalMac(&parameter.bssid.mac_addr);
+
 
   SceNetAdhocctlLoginPacketC2S packet;
   packet.base.opcode = OPCODE_LOGIN;
@@ -1220,17 +1221,17 @@ void __deleteAllPTP(void) {
  * @return Number of Virtual Networks
  */
 int __countAvailableNetworks(void) {
-	// Network Count
-	int count = 0;
-	
-	// Group Reference
-	SceNetAdhocctlScanInfo * group = networks;
-	
-	// Count Groups
-	for(; group != NULL; group = group->next) count++;
-	
-	// Return Network Count
-	return count;
+  // Network Count
+  int count = 0;
+
+  // Group Reference
+  SceNetAdhocctlScanInfo * group = networks;
+
+  // Count Groups
+  for(; group != NULL; group = group->next) count++;
+
+  // Return Network Count
+  return count;
 }
 
 /**
@@ -1238,25 +1239,25 @@ int __countAvailableNetworks(void) {
  * @return Number of active Peers
  */
 int __getActivePeerCount(void) {
-	// Counter
-	int count = 0;
-	
-	// #ifdef LOCALHOST_AS_PEER
-	// // Increase for Localhost
-	// count++;
-	// #endif
-	
-	// Peer Reference
-	SceNetAdhocctlPeerInfo * peer = friends;
-	
-	// Iterate Peers
-	for(; peer != NULL; peer = peer->next) {
-		// Increase Counter
-		count++;
-	}
-	
-	// Return Result
-	return count;
+  // Counter
+  int count = 0;
+
+  // #ifdef LOCALHOST_AS_PEER
+  // // Increase for Localhost
+  // count++;
+  // #endif
+
+  // Peer Reference
+  SceNetAdhocctlPeerInfo * peer = friends;
+
+  // Iterate Peers
+  for(; peer != NULL; peer = peer->next) {
+    // Increase Counter
+    count++;
+  }
+
+  // Return Result
+  return count;
 }
 
 /**
@@ -1265,14 +1266,14 @@ int __getActivePeerCount(void) {
  * @return Matching Context Pointer or... NULL
  */
 SceNetAdhocMatchingContext * __findMatchingContext(int id) {
-	// Iterate Matching Context List
-	SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
-		// Found Matching ID
-		if(item->id == id) return item;
-	}
-	
-	// Context not found
-	return NULL;
+  // Iterate Matching Context List
+  SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
+    // Found Matching ID
+    if(item->id == id) return item;
+  }
+
+  // Context not found
+  return NULL;
 }
 
 /**
@@ -1280,26 +1281,26 @@ SceNetAdhocMatchingContext * __findMatchingContext(int id) {
  * @return First unoccupied Matching ID
  */
 int __findFreeMatchingID(void) {
-	// Minimum Matching ID
-	int min = 1;
-	
-	// Maximum Matching ID
-	int max = 0;
-	
-	// Find highest Matching ID
-	SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
-		// New Maximum
-		if(max < item->id) max = item->id;
-	}
-	
-	// Find unoccupied ID
-	int i = min; for(; i < max; i++) {
-		// Found unoccupied ID
-		if(__findMatchingContext(i) == NULL) return i;
-	}
-	
-	// Append at virtual end
-	return max + 1;
+  // Minimum Matching ID
+  int min = 1;
+
+  // Maximum Matching ID
+  int max = 0;
+
+  // Find highest Matching ID
+  SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
+    // New Maximum
+    if(max < item->id) max = item->id;
+  }
+
+  // Find unoccupied ID
+  int i = min; for(; i < max; i++) {
+    // Found unoccupied ID
+    if(__findMatchingContext(i) == NULL) return i;
+  }
+
+  // Append at virtual end
+  return max + 1;
 }
 
 void __handlerUpdateCallback(u64 userdata, int cycleslate){
@@ -1347,13 +1348,22 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 // Seems to always return 0, and write 0 to the pointer..
 // TODO: Eventually research what possible states there are
 int sceNetAdhocctlGetState(u32 ptrToStatus) {
-  WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetState(%x)", ptrToStatus);
-  if (Memory::IsValidAddress(ptrToStatus))
-    Memory::Write_U32(0, ptrToStatus);
-  else
-    ERROR_LOG(SCENET, "UNTESTED sceNetAdhocctlGetState(%x): Tried to write invalid location", ptrToStatus);
-
-  return 0;
+	// Library initialized
+	if(netAdhocctlInited) {
+		// Valid Arguments
+		if(Memory::IsValidAddress(ptrToStatus)) {
+			// Return Thread Status
+      Memory::Write_U32(threadStatus,ptrToStatus);
+			// Return Success
+			return 0;
+		}
+		
+		// Invalid Arguments
+		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+	}
+	
+	// Library uninitialized
+	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
 /**
@@ -1450,20 +1460,28 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
   return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-// TODO: Should we really write the struct if we're disconnected?
+/**
+ * Get Adhoc Parameter
+ * @param parameter OUT: Adhoc Parameter
+ * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_INVALID_ARG
+ */
 int sceNetAdhocctlGetParameter(u32 paramAddr) {
-  WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetParameter(%x)", paramAddr);
-  struct SceNetAdhocctlParams params;
-  params.channel = 0;
-  for (int i = 0; i < 6; i++)
-    params.bssid[i] = i + 1;
-  strcpy(params.name, "");
-  strcpy(params.nickname, "");
+  // Library initialized
+  if(netAdhocctlInited) {
+    // Valid Arguments
+    if(Memory::IsValidAddress(paramAddr)) {
+      // Copy Parameter
+      Memory::WriteStruct(paramAddr,&parameter);
+      // Return Success
+      return 0;
+    }
 
-  if (Memory::IsValidAddress(paramAddr))
-    Memory::WriteStruct(paramAddr, &params);
+    // Invalid Arguments
+    return ERROR_NET_ADHOCCTL_INVALID_ARG;
+  }
 
-  return ERROR_NET_ADHOCCTL_DISCONNECTED;
+  // Library uninitialized
+  return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
 /**
@@ -1785,107 +1803,107 @@ int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 
 int sceNetAdhocctlScan() {
 
-	// Library initialized
-	if(netAdhocctlInited) {
-		// Not connected
-		if(threadStatus == ADHOCCTL_STATE_DISCONNECTED) {
+  // Library initialized
+  if(netAdhocctlInited) {
+    // Not connected
+    if(threadStatus == ADHOCCTL_STATE_DISCONNECTED) {
       threadStatus = ADHOCCTL_STATE_SCANNING;
 
-			// Prepare Scan Request Packet
-			uint8_t opcode = OPCODE_SCAN;
-			
-			// Send Scan Request Packet
-			send(metasocket, (char *)&opcode, 1, 0);
-			
-			// Return Success
-			return 0;
-		}
-		
-		// Library is busy
-		return ERROR_NET_ADHOCCTL_BUSY;
-	}
-	
-	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+      // Prepare Scan Request Packet
+      uint8_t opcode = OPCODE_SCAN;
+
+      // Send Scan Request Packet
+      send(metasocket, (char *)&opcode, 1, 0);
+
+      // Return Success
+      return 0;
+    }
+
+    // Library is busy
+    return ERROR_NET_ADHOCCTL_BUSY;
+  }
+
+  // Library uninitialized
+  return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
 int sceNetAdhocctlGetScanInfo(u32 size, u32 bufAddr) {
   int * buflen = (int *)Memory::GetPointer(size);
   SceNetAdhocctlScanInfo * buf = NULL;
   if(Memory::IsValidAddress(bufAddr)){
-      buf = (SceNetAdhocctlScanInfo *)Memory::GetPointer(bufAddr);
+    buf = (SceNetAdhocctlScanInfo *)Memory::GetPointer(bufAddr);
   }
-	// Library initialized
-	if(netAdhocctlInited) {
-		// Minimum Argument Requirements
-		if(buflen != NULL) {
-			// Multithreading Lock
+  // Library initialized
+  if(netAdhocctlInited) {
+    // Minimum Argument Requirements
+    if(buflen != NULL) {
+      // Multithreading Lock
       peerlock.lock();
-			
-			// Length Returner Mode
-			if(buf == NULL) *buflen = __countAvailableNetworks() * sizeof(SceNetAdhocctlScanInfo);
-			
-			// Normal Information Mode
-			else {
-				// Clear Memory
-				memset(buf, 0, *buflen);
-				
-				// Network Discovery Counter
-				int discovered = 0;
-				
-				// Count requested Networks
-				int requestcount = *buflen / sizeof(SceNetAdhocctlScanInfo);
-				
-				// Minimum Argument Requirements
-				if(requestcount > 0) {
-					// Group List Element
-					SceNetAdhocctlScanInfo * group = networks;
-					
-					// Iterate Group List
-					for(; group != NULL && discovered < requestcount; group = group->next) {
-						// Copy Group Information
-						buf[discovered] = *group;
-						
-						// Exchange Adhoc Channel
-						// sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &buf[discovered].channel);
-						
-						// Fake Channel Number 1 on Automatic Channel
-						// if(buf[discovered].channel == 0) buf[discovered].channel = 1;
+
+      // Length Returner Mode
+      if(buf == NULL) *buflen = __countAvailableNetworks() * sizeof(SceNetAdhocctlScanInfo);
+
+      // Normal Information Mode
+      else {
+        // Clear Memory
+        memset(buf, 0, *buflen);
+
+        // Network Discovery Counter
+        int discovered = 0;
+
+        // Count requested Networks
+        int requestcount = *buflen / sizeof(SceNetAdhocctlScanInfo);
+
+        // Minimum Argument Requirements
+        if(requestcount > 0) {
+          // Group List Element
+          SceNetAdhocctlScanInfo * group = networks;
+
+          // Iterate Group List
+          for(; group != NULL && discovered < requestcount; group = group->next) {
+            // Copy Group Information
+            buf[discovered] = *group;
+
+            // Exchange Adhoc Channel
+            // sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &buf[discovered].channel);
+
+            // Fake Channel Number 1 on Automatic Channel
+            // if(buf[discovered].channel == 0) buf[discovered].channel = 1;
 
             //Always Fake Channel 1
             buf[discovered].channel = 1;
-						
-						// Increase Discovery Counter
-						discovered++;
-					}
-					
-					// Link List
-					int i = 0; for(; i < discovered - 1; i++) {
-						// Link Network
-						buf[i].next = &buf[i + 1];
-					}
-					
-					// Fix Last Element
-					if(discovered > 0) buf[discovered - 1].next = NULL;
-				}
-				
-				// Fix Size
-				*buflen = discovered * sizeof(SceNetAdhocctlScanInfo);
-			}
-			
-			// Multithreading Unlock
+
+            // Increase Discovery Counter
+            discovered++;
+          }
+
+          // Link List
+          int i = 0; for(; i < discovered - 1; i++) {
+            // Link Network
+            buf[i].next = &buf[i + 1];
+          }
+
+          // Fix Last Element
+          if(discovered > 0) buf[discovered - 1].next = NULL;
+        }
+
+        // Fix Size
+        *buflen = discovered * sizeof(SceNetAdhocctlScanInfo);
+      }
+
+      // Multithreading Unlock
       peerlock.unlock();
-			
-			// Return Success
-			return 0;
-		}
-		
-		// Generic Error
-		return -1;
-	}
-	
-	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+
+      // Return Success
+      return 0;
+    }
+
+    // Generic Error
+    return -1;
+  }
+
+  // Library uninitialized
+  return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
 // TODO: How many handlers can the PSP actually have for Adhocctl?
@@ -2209,17 +2227,17 @@ int sceNetAdhocGetSocketAlert() {
 }
 
 int sceNetAdhocMatchingInit(u32 memsize) {
-	// Uninitialized Library
-	if(!netAdhocMatchingInited) {
-		// Save Fake Pool Size
-		fakePoolSize = memsize;
-		
-		// Initialize Library
-		netAdhocMatchingInited = true;
-		
-		// Return Success
-		return 0;
-	}else{
+  // Uninitialized Library
+  if(!netAdhocMatchingInited) {
+    // Save Fake Pool Size
+    fakePoolSize = memsize;
+
+    // Initialize Library
+    netAdhocMatchingInited = true;
+
+    // Return Success
+    return 0;
+  }else{
     return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
   }
 }
@@ -2239,97 +2257,97 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int 
   SceNetAdhocMatchingHandler handler;
   handler.entryPoint = callbackAddr;
 
-	// Library initialized
-	if(netAdhocMatchingInited) {
-		// Valid Member Limit
-		if(maxnum > 1 && maxnum <= 16) {
-			// Valid Receive Buffer size
-			if(rxbuflen >= 1024) {
-				// Valid Arguments
-				if(mode >= 1 && mode <= 3) {
-					// Iterate Matching Contexts
-					SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
-						// Port Match found
-						if(item->port == port) return ERROR_NET_ADHOC_MATCHING_PORT_IN_USE;
-					}
-					
-					// Allocate Context Memory
-					SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
-				
-					// Allocated Memory
-					if(context != NULL) {
-						// Create PDP Socket
-						SceNetEtherAddr localmac; __getLocalMac(&localmac);
+  // Library initialized
+  if(netAdhocMatchingInited) {
+    // Valid Member Limit
+    if(maxnum > 1 && maxnum <= 16) {
+      // Valid Receive Buffer size
+      if(rxbuflen >= 1024) {
+        // Valid Arguments
+        if(mode >= 1 && mode <= 3) {
+          // Iterate Matching Contexts
+          SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
+            // Port Match found
+            if(item->port == port) return ERROR_NET_ADHOC_MATCHING_PORT_IN_USE;
+          }
+
+          // Allocate Context Memory
+          SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
+
+          // Allocated Memory
+          if(context != NULL) {
+            // Create PDP Socket
+            SceNetEtherAddr localmac; __getLocalMac(&localmac);
             const char * mac = (const  char *)&localmac.data;
-						int socket = sceNetAdhocPdpCreate(mac, (uint32_t)port, rxbuflen, 0);
-						// Created PDP Socket
-						if(socket > 0) {
-							// Clear Memory
-							memset(context, 0, sizeof(SceNetAdhocMatchingContext));
-						
-							// Allocate Receive Buffer
-							context->rxbuf = (uint8_t *)malloc(rxbuflen);
-						
-							// Allocated Memory
-							if(context->rxbuf != NULL) {
-								// Clear Memory
-								memset(context->rxbuf, 0, rxbuflen);
-								
-								// Fill in Context Data
-								context->id = __findFreeMatchingID();
-								context->mode = mode;	
-								context->maxpeers = maxnum;
-								context->port = port;
-								context->socket = socket;
-								context->rxbuflen = rxbuflen;
-								context->hello_int = hello_int;
-								context->keepalive_int = 500000;
-								//context->keepalive_int = keepalive_int;
-								context->resendcounter = init_count;
-								context->keepalivecounter = 100;
-								//context->keepalivecounter = init_count;
-								context->resend_int = rexmt_int;
-								context->handler = handler;
-								
-								// Fill in Selfpeer
-								context->mac = localmac;
-								
-								// Link Context
-								context->next = contexts;
-								contexts = context;
-								
-								// Return Matching ID
-								return context->id;
-							}
-							
-							// Close PDP Socket
-							sceNetAdhocPdpDelete(socket, 0);
-						}
-						
-						// Free Memory
-						free(context);
-						
-						// Port in use
-						if(socket < 1) return ERROR_NET_ADHOC_MATCHING_PORT_IN_USE;
-					}
-					
-					// Out of Memory
-					return ERROR_NET_ADHOC_MATCHING_NO_SPACE;
-				}
-				
-				// InvalidERROR_NET_Arguments
-				return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
-			}
-			
-			// Invalid Receive Buffer Size
-			return ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT;
-		}
-		
-		// Invalid Member Limit
-		return ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM;
-	}
-	// Uninitialized Library
-	return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
+            int socket = sceNetAdhocPdpCreate(mac, (uint32_t)port, rxbuflen, 0);
+            // Created PDP Socket
+            if(socket > 0) {
+              // Clear Memory
+              memset(context, 0, sizeof(SceNetAdhocMatchingContext));
+
+              // Allocate Receive Buffer
+              context->rxbuf = (uint8_t *)malloc(rxbuflen);
+
+              // Allocated Memory
+              if(context->rxbuf != NULL) {
+                // Clear Memory
+                memset(context->rxbuf, 0, rxbuflen);
+
+                // Fill in Context Data
+                context->id = __findFreeMatchingID();
+                context->mode = mode;	
+                context->maxpeers = maxnum;
+                context->port = port;
+                context->socket = socket;
+                context->rxbuflen = rxbuflen;
+                context->hello_int = hello_int;
+                context->keepalive_int = 500000;
+                //context->keepalive_int = keepalive_int;
+                context->resendcounter = init_count;
+                context->keepalivecounter = 100;
+                //context->keepalivecounter = init_count;
+                context->resend_int = rexmt_int;
+                context->handler = handler;
+
+                // Fill in Selfpeer
+                context->mac = localmac;
+
+                // Link Context
+                context->next = contexts;
+                contexts = context;
+
+                // Return Matching ID
+                return context->id;
+              }
+
+              // Close PDP Socket
+              sceNetAdhocPdpDelete(socket, 0);
+            }
+
+            // Free Memory
+            free(context);
+
+            // Port in use
+            if(socket < 1) return ERROR_NET_ADHOC_MATCHING_PORT_IN_USE;
+          }
+
+          // Out of Memory
+          return ERROR_NET_ADHOC_MATCHING_NO_SPACE;
+        }
+
+        // InvalidERROR_NET_Arguments
+        return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
+      }
+
+      // Invalid Receive Buffer Size
+      return ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT;
+    }
+
+    // Invalid Member Limit
+    return ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM;
+  }
+  // Uninitialized Library
+  return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
 }
 
 int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
@@ -2459,82 +2477,82 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
   int * buflen = (int *)Memory::GetPointer(sizeAddr);
   SceNetAdhocctlPeerInfo * buf = NULL;
   if(Memory::IsValidAddress(bufAddr)){
-      buf = (SceNetAdhocctlPeerInfo *)Memory::GetPointer(bufAddr);
+    buf = (SceNetAdhocctlPeerInfo *)Memory::GetPointer(bufAddr);
   }
-	// Initialized Library
-	if(netAdhocctlInited) {
-		// Minimum Arguments
-		if(buflen != NULL) {
-			// Multithreading Lock
+  // Initialized Library
+  if(netAdhocctlInited) {
+    // Minimum Arguments
+    if(buflen != NULL) {
+      // Multithreading Lock
       peerlock.lock();
-			
-			// Length Calculation Mode
-			if(buf == NULL) *buflen = __getActivePeerCount() * sizeof(SceNetAdhocctlPeerInfo);
-			
-			// Normal Mode
-			else {
-				// Discovery Counter
-				int discovered = 0;
-				
-				// Calculate Request Count
-				int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfo);
-				
-				// Clear Memory
-				memset(buf, 0, *buflen);
-				
-				// Minimum Arguments
-				if(requestcount > 0) {
-					#ifdef LOCALHOST_AS_PEER
-					// // Get Local IP Address
-					// union SceNetApctlInfo info; if(sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &info) == 0)
-					// {
-					// 	// Add Local Address
-					// 	buf[discovered].nickname = _parameter.nickname;
-					// 	sceWlanGetEtherAddr((void *)buf[discovered].mac_addr.data);
-					// 	sceNetInetInetAton(info.ip, &buf[discovered].ip_addr);
-					// 	buf[discovered++].last_recv = sceKernelGetSystemTimeWide();
-					// }
-					#endif
-					
-					// Peer Reference
-					SceNetAdhocctlPeerInfo * peer = friends;
-					
-					// Iterate Peers
-					for(; peer != NULL && discovered < requestcount; peer = peer->next) {
-						// Fake Receive Time
-						peer->last_recv = (uint64_t)time(NULL); 
-						
-						// Copy Peer Info
-						buf[discovered++] = *peer;
-					}
-					
-					// Link List
-					int i = 0; for(; i < discovered - 1; i++) {
-						// Link Network
-						buf[i].next = &buf[i + 1];
-					}
-					
-					// Fix Last Element
-					if(discovered > 0) buf[discovered - 1].next = NULL;
-				}
-				
-				// Fix Size
-				*buflen = discovered * sizeof(SceNetAdhocctlPeerInfo);
-			}
-			
-			// Multithreading Unlock
+
+      // Length Calculation Mode
+      if(buf == NULL) *buflen = __getActivePeerCount() * sizeof(SceNetAdhocctlPeerInfo);
+
+      // Normal Mode
+      else {
+        // Discovery Counter
+        int discovered = 0;
+
+        // Calculate Request Count
+        int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfo);
+
+        // Clear Memory
+        memset(buf, 0, *buflen);
+
+        // Minimum Arguments
+        if(requestcount > 0) {
+#ifdef LOCALHOST_AS_PEER
+          // // Get Local IP Address
+          // union SceNetApctlInfo info; if(sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &info) == 0)
+          // {
+          // 	// Add Local Address
+          // 	buf[discovered].nickname = _parameter.nickname;
+          // 	sceWlanGetEtherAddr((void *)buf[discovered].mac_addr.data);
+          // 	sceNetInetInetAton(info.ip, &buf[discovered].ip_addr);
+          // 	buf[discovered++].last_recv = sceKernelGetSystemTimeWide();
+          // }
+#endif
+
+          // Peer Reference
+          SceNetAdhocctlPeerInfo * peer = friends;
+
+          // Iterate Peers
+          for(; peer != NULL && discovered < requestcount; peer = peer->next) {
+            // Fake Receive Time
+            peer->last_recv = (uint64_t)time(NULL); 
+
+            // Copy Peer Info
+            buf[discovered++] = *peer;
+          }
+
+          // Link List
+          int i = 0; for(; i < discovered - 1; i++) {
+            // Link Network
+            buf[i].next = &buf[i + 1];
+          }
+
+          // Fix Last Element
+          if(discovered > 0) buf[discovered - 1].next = NULL;
+        }
+
+        // Fix Size
+        *buflen = discovered * sizeof(SceNetAdhocctlPeerInfo);
+      }
+
+      // Multithreading Unlock
       peerlock.unlock();
-			
-			// Return Success
-			return 0;
-		}
-		
-		// Invalid Arguments
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
-	}
-	
-	// Uninitialized Library
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+
+      // Return Success
+      return 0;
+    }
+
+    // Invalid Arguments
+    return ERROR_NET_ADHOCCTL_INVALID_ARG;
+  }
+
+  // Uninitialized Library
+  return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
 int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr) {
