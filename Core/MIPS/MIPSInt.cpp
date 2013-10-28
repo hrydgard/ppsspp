@@ -790,7 +790,7 @@ namespace MIPSInt
 			R(rd) = ((R(rt) & 0xFF00FF00) >> 8) | ((R(rt) & 0x00FF00FF) << 8);
 			break;
 		case 0xE0: //wsbw
-			R(rd) = swap32(R(rt));
+			R(rd) = _byteswap_ulong(R(rt));
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret ALLEGREX instruction that can't be interpreted");

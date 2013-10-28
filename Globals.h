@@ -30,6 +30,15 @@
 #define IS_LITTLE_ENDIAN (*(const u16 *)"\0\xff" >= 0x100)
 #define IS_BIG_ENDIAN (*(const u16 *)"\0\xff" < 0x100)
 
+#ifndef _WIN32
+
+inline u32 _byteswap_ulong(u32 data)
+{
+  return ((data << 24)) | ((data >> 24)) | ((data >> 8) & 0x0000FF00) | ((data << 8) & 0x00FF0000);
+}
+
+#endif
+
 inline u8 Convert4To8(u8 v)
 {
 	// Swizzle bits: 00012345 -> 12345123

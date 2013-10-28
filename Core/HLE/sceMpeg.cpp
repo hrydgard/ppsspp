@@ -261,8 +261,8 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 		ctx->mpegVersion = -1;
 		break;
 	}
-	ctx->mpegOffset = swap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
-	ctx->mpegStreamSize = swap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
+	ctx->mpegOffset = bswap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
+	ctx->mpegStreamSize = bswap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
 	ctx->mpegFirstTimestamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
 	ctx->mpegLastTimestamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);

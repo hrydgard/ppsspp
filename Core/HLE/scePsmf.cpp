@@ -203,8 +203,8 @@ public:
 		int streamId = Memory::Read_U8(addr);
 		int privateStreamId = Memory::Read_U8(addr + 1);
 		// two unknowns here
-		psmf->EPMapOffset = swap32(Memory::Read_U32(addr + 4));
-		psmf->EPMapEntriesNum = swap32(Memory::Read_U32(addr + 8));
+		psmf->EPMapOffset = bswap32(Memory::Read_U32(addr + 4));
+		psmf->EPMapEntriesNum = bswap32(Memory::Read_U32(addr + 8));
 		psmf->videoWidth = Memory::Read_U8(addr + 12) * 16;
 		psmf->videoHeight = Memory::Read_U8(addr + 13) * 16;
 
@@ -239,14 +239,14 @@ Psmf::Psmf(u32 data) {
 	headerOffset = data;
 	magic = Memory::Read_U32(data);
 	version = Memory::Read_U32(data + 4);
-	streamOffset = swap32(Memory::Read_U32(data + 8));
-	streamSize = swap32(Memory::Read_U32(data + 12));
-	streamDataTotalSize = swap32(Memory::Read_U32(data + 0x50));
+	streamOffset = bswap32(Memory::Read_U32(data + 8));
+	streamSize = bswap32(Memory::Read_U32(data + 12));
+	streamDataTotalSize = bswap32(Memory::Read_U32(data + 0x50));
 	presentationStartTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_FIRST_TIMESTAMP_OFFSET));
 	presentationEndTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET));
-	streamDataNextBlockSize = swap32(Memory::Read_U32(data + 0x6A));
-	streamDataNextInnerBlockSize = swap32(Memory::Read_U32(data + 0x7C));
-	numStreams = swap16(Memory::Read_U16(data + 0x80));
+	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
+	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
+	numStreams = bswap16(Memory::Read_U16(data + 0x80));
 
 	currentStreamNum = -1;
 	currentAudioStreamNum = -1;
@@ -604,7 +604,7 @@ u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 {
 	WARN_LOG(ME, "scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
 	if (Memory::IsValidAddress(offsetAddr)) {
-		Memory::Write_U32(swap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
+		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
 	}
 	return 0;
 }
@@ -613,7 +613,7 @@ u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
 	WARN_LOG(ME, "scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::Write_U32(swap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
+		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
 	}
 	return 0;
 }
@@ -838,9 +838,9 @@ int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int 
 		u8* buf = psmfplayer->tempbuf;
 		u32 tempbufSize = sizeof(psmfplayer->tempbuf);
 		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
-		int mpegoffset = swap32(*(u32*)(buf + PSMF_STREAM_OFFSET_OFFSET));
+		int mpegoffset = bswap32(*(u32*)(buf + PSMF_STREAM_OFFSET_OFFSET));
 		psmfplayer->readSize = size - mpegoffset;
-		psmfplayer->streamSize = swap32(*(u32*)(buf + PSMF_STREAM_SIZE_OFFSET));
+		psmfplayer->streamSize = bswap32(*(u32*)(buf + PSMF_STREAM_SIZE_OFFSET));
 		psmfplayer->fileoffset = offset + mpegoffset;
 		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
