@@ -268,6 +268,32 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
+int EstimatePerVertexCost() {
+	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
+	// runs in parallel with transform.
+
+	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
+
+	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
+	// went too fast and starts doing all the work over again).
+
+	int cost = 20;
+	if (gstate.isLightingEnabled()) {
+		cost += 10;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		if (gstate.isLightChanEnabled(i))
+			cost += 10;
+	}
+	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
+		cost += 20;
+	}
+	// TODO: morphcount
+
+	return cost;
+}
+
 void SoftGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
@@ -303,6 +329,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			if (type != GE_PRIM_TRIANGLES && type != GE_PRIM_TRIANGLE_STRIP && type != GE_PRIM_TRIANGLE_FAN && type != GE_PRIM_RECTANGLES) {
 				ERROR_LOG_REPORT(G3D, "Software: DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+				cyclesExecuted += EstimatePerVertexCost() * count;
 				break;
 			}
 
@@ -321,7 +348,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
-			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType);
+			cyclesExecuted += EstimatePerVertexCost() * count;
+			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
+				TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType);
+			}
 		}
 		break;
 
@@ -361,7 +391,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				break;
 			}
 
-			TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
+			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
+				TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
+			}
 			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
 		}
 		break;
