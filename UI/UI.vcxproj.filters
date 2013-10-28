@@ -31,13 +31,13 @@
     <ClCompile Include="CwCheatScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="TiltAnalogSettingsScreen.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
     <ClCompile Include="TouchControlLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="TouchControlVisibilityScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
   </ItemGroup>
@@ -71,13 +71,13 @@
     <ClInclude Include="CwCheatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="TiltAnalogSettingsScreen.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
     <ClInclude Include="TouchControlLayoutScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TouchControlVisibilityScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltAnalogSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

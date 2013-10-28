@@ -49,7 +49,7 @@
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
-    <ClCompile Include="TiltAnalogSettingsScreen.h" />
+    <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="UIShader.h" />
