@@ -24,6 +24,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
 	I18NCategory *c = GetI18NCategory("Controls");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -49,6 +50,8 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(calibrate);
 
 	root_->Add(settings);
+	settings->Add(new ItemHeader(""));
+	settings->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void TiltAnalogSettingsScreen::update(InputState &input) {
