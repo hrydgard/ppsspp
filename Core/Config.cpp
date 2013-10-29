@@ -218,8 +218,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #endif
 	// control->Get("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
-	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
-	
+	control->Get("TiltInputType", &iTiltInputType, 0);
 	control->Get("TiltBaseX", &fTiltBaseX, 0);
 	control->Get("TiltBaseY", &fTiltBaseY, 0);
 	control->Get("InvertTiltX", &bInvertTiltX, false);
@@ -418,7 +417,7 @@ void Config::Save() {
 
 		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
-		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
+		control->Set("TiltInputType", iTiltInputType);	
 		control->Set("TiltBaseX", fTiltBaseX);
 		control->Set("TiltBaseY", fTiltBaseY);
 		control->Set("InvertTiltX", bInvertTiltX);

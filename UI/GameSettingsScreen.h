@@ -47,6 +47,7 @@ private:
 	UI::TextView *tvGameSize_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
+	UI::Choice *tiltSetttingsChoice_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -55,7 +56,8 @@ private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
 	UI::EventReturn OnToggleTouchControls(UI::EventParams &e);
-	UI::EventReturn OnTiltAnalogSettings(UI::EventParams &e);
+	UI::EventReturn OnToggleTiltSettings(UI::EventParams &e);
+	UI::EventReturn OnTiltSettings(UI::EventParams &e);
 	
 
 	// Global settings handlers

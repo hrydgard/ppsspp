@@ -42,6 +42,8 @@ public:
 	virtual void key(const KeyInput &key);
 	virtual void axis(const AxisInput &axis);
 
+	static void resetTiltState();
+
 protected:
 	virtual void CreateViews();
 	UI::EventReturn OnDevTools(UI::EventParams &params);
@@ -55,6 +57,11 @@ private:
 	void onVKeyUp(int virtualKeyCode);
 	void setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax);
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
+
+	//these receive (x, y) in normalized range [0, 1]
+	void generateTiltAnalogStickEvent(float x, float y);
+	void generateTiltDPadEvent(float x, float y);
+	void generateTiltPSPActionButtonEvent(float x, float y);
 
 	bool booted_;
 	std::string gamePath_;

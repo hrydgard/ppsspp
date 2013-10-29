@@ -21,9 +21,9 @@
 #include "ui/view.h"
 #include "MiscScreens.h"
 
-class TiltAnalogSettingsScreen : public UIDialogScreenWithBackground {
+class TiltSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	TiltAnalogSettingsScreen();
+	TiltSettingsScreen();
 
 	virtual void CreateViews();
 	virtual void update(InputState &input);

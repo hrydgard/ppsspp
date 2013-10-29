@@ -31,7 +31,7 @@
 #include "UI/DevScreens.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
-#include "UI/TiltAnalogSettingsScreen.h"
+#include "UI/TiltSettingsScreen.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -211,10 +211,14 @@ void GameSettingsScreen::CreateViews() {
 
 #ifdef USING_GLES2
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
-	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
-	Choice *tiltAnalog = controlsSettings->Add(new Choice(c->T("Customize tilt")));
-	tiltAnalog->OnClick.Handle(this, &GameSettingsScreen::OnTiltAnalogSettings);
-	tiltAnalog->SetEnabled(g_Config.bAccelerometerToAnalogHoriz);
+	
+	static const char *tiltInputTypes[] = { "Off", "Analog stick", "D-Pad", "PSP Action Buttons", };
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, c->T("Tilt Control Type"), tiltInputTypes, 0, ARRAY_SIZE(tiltInputTypes), c, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnToggleTiltSettings);
+	
+	tiltSetttingsChoice_ = controlsSettings->Add(new Choice(c->T("Customize tilt")));
+	tiltSetttingsChoice_ ->OnClick.Handle(this, &GameSettingsScreen::OnTiltSettings);
+	tiltSetttingsChoice_->SetEnabled(g_Config.iTiltInputType != 0);
+
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")))->OnClick.Handle(this, &GameSettingsScreen::OnToggleTouchControls);
@@ -283,6 +287,13 @@ UI::EventReturn GameSettingsScreen::OnToggleTouchControls(UI::EventParams &e) {
 	layoutEditorChoice_->SetEnabled(g_Config.bShowTouchControls);
 	return UI::EVENT_DONE;
 }
+UI::EventReturn GameSettingsScreen::OnToggleTiltSettings(UI::EventParams &e) {	
+	tiltSetttingsChoice_->SetEnabled(g_Config.iTiltInputType != 0);
+	EmuScreen::resetTiltState();
+	return UI::EVENT_DONE;
+}
+
+
 
 UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 	g_Config.recentIsos.clear();
@@ -470,8 +481,8 @@ UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn GameSettingsScreen::OnTiltAnalogSettings(UI::EventParams &e){
-	screenManager()->push(new TiltAnalogSettingsScreen());
+UI::EventReturn GameSettingsScreen::OnTiltSettings(UI::EventParams &e){
+	screenManager()->push(new TiltSettingsScreen());
 	return UI::EVENT_DONE;
 };
 

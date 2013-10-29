@@ -107,7 +107,9 @@ public:
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
 	bool bShowDebugStats;
-	bool bAccelerometerToAnalogHoriz;
+		
+	//0 - Off; 1 - Analog stick; 2 - D-PAD; 3 - PSP Action buttons (cross, triangle...)
+	int iTiltInputType;
 
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input

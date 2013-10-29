@@ -401,6 +401,107 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 }
 
 
+
+void EmuScreen::generateTiltAnalogStickEvent(float x, float y) {
+	__CtrlSetAnalogX(clamp1(x), CTRL_STICK_LEFT);
+	__CtrlSetAnalogY(clamp1(y), CTRL_STICK_LEFT);
+};
+
+
+
+void EmuScreen::generateTiltDPadEvent(float x, float y) {
+
+	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
+
+	if (x == 0) {
+		__CtrlButtonUp(CTRL_RIGHT);
+		__CtrlButtonUp(CTRL_LEFT);
+
+	}
+
+	if (y == 0) {
+		__CtrlButtonUp(CTRL_UP);
+		__CtrlButtonUp(CTRL_DOWN);
+
+	}
+
+	if (x == 0 && y == 0) {
+		return;
+	}
+
+	int ctrlMask = 0;
+	int direction = (int)(floorf((atan2f(y, x) / (2 * M_PI) * 8) + 0.5f)) & 7;
+	switch (direction) {
+	case 0: ctrlMask |= CTRL_RIGHT; break;
+	case 1: ctrlMask |= CTRL_RIGHT | CTRL_DOWN; break;
+	case 2: ctrlMask |= CTRL_DOWN; break;
+	case 3: ctrlMask |= CTRL_DOWN | CTRL_LEFT; break;
+	case 4: ctrlMask |= CTRL_LEFT; break;
+	case 5: ctrlMask |= CTRL_UP | CTRL_LEFT; break;
+	case 6: ctrlMask |= CTRL_UP; break;
+	case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		if (ctrlMask & dir[i]) { 
+			__CtrlButtonDown(dir[i]);
+		}
+	}
+	
+
+}
+
+void EmuScreen::generateTiltPSPActionButtonEvent(float x, float y) {
+
+	static const int buttons[4] = {CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE};
+
+	if (x == 0) {
+		__CtrlButtonUp(CTRL_SQUARE);
+		__CtrlButtonUp(CTRL_CIRCLE);	
+	}
+
+	if (y == 0) {
+		__CtrlButtonUp(CTRL_TRIANGLE);
+		__CtrlButtonUp(CTRL_CROSS);	
+	}
+
+	if (x == 0 && y == 0) {
+		return;
+	}
+
+	int dirction = (int)(floorf( (atan2f(y, x) * (1.0 / M_PI) * 4) + 0.5f)) & 3;
+	__CtrlButtonDown(buttons[dirction]);
+
+};
+
+void EmuScreen::resetTiltState(){
+	//this is ugly, but it's needed since the entire tilt system is
+	//stateless. So, when a tilt option is changed, we have to reset 
+	//the tilt. 
+	//this scenario will take place without this:
+	//1) tilt is Analog based. the device is tilted. Analog controller is being moved
+	//2) user changes mode to D-Pad and goes back to game
+	//3) the event handling loop sends all events to D-Pad now. 
+	//	The analog controller doesn't know that the type of tilt input has changed.
+	//	It keeps sending tilt events for the analog.
+
+	//D-Pad
+	__CtrlButtonUp(CTRL_RIGHT);
+	__CtrlButtonUp(CTRL_LEFT);
+	__CtrlButtonUp(CTRL_UP);
+	__CtrlButtonUp(CTRL_DOWN);
+
+	//action buttons
+	__CtrlButtonUp(CTRL_SQUARE);
+	__CtrlButtonUp(CTRL_CIRCLE);
+	__CtrlButtonUp(CTRL_TRIANGLE);
+	__CtrlButtonUp(CTRL_CROSS);		
+
+	//analog
+	__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
+	__CtrlSetAnalogY(0.0f, CTRL_STICK_LEFT);
+}
+
 // TODO: Get rid of this.
 static const struct { int from, to; } legacy_touch_mapping[12] = {
 	{PAD_BUTTON_A, CTRL_CROSS},
@@ -470,8 +571,11 @@ void EmuScreen::update(InputState &input) {
 	// Apply tilt to left stick
 	// TODO: Make into an axis
 #ifdef USING_GLES2
-	if (g_Config.bAccelerometerToAnalogHoriz) {
-		
+	if (g_Config.iTiltInputType != 0) {
+		//Note - we don't care about z axis since it is perpendicular to the
+		//plan of the device, so any rotation about Z is utterly useless 
+		//(the analog stick maps to x and y axes, not Z axes)
+
 		//get the "base" coordinate system which is setup by the calibration system 
 		float base_x = g_Config.fTiltBaseX;
 		float base_y = g_Config.fTiltBaseY;
@@ -496,13 +600,21 @@ void EmuScreen::update(InputState &input) {
 		}
 
 		//clamp the delta between [-1, 1]
-		leftstick_x += clamp1(delta_x);
-		__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
+		float true_x = clamp1(delta_x);
+		float true_y = clamp1(delta_y);
+		
+		if (g_Config.iTiltInputType == 1) {
+			generateTiltAnalogStickEvent(true_x, true_y);
+		}
 
-		
-		leftstick_y += clamp1(delta_y);
-		__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
-		
+		else if (g_Config.iTiltInputType == 2) {
+			generateTiltDPadEvent(true_x, true_y);
+		}
+
+		else if (g_Config.iTiltInputType == 3) {
+			generateTiltPSPActionButtonEvent(true_x, true_y);
+		}
+
 	}
 #endif
 
