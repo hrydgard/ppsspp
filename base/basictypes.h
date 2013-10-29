@@ -73,6 +73,10 @@ inline uint8 swap8(uint8 _data) {return _data;}
 inline uint16 swap16(uint16 _data) {return _byteswap_ushort(_data);}
 inline uint32 swap32(uint32 _data) {return _byteswap_ulong (_data);}
 inline uint64 swap64(uint64 _data) {return _byteswap_uint64(_data);}
+#elif defined(ARM)
+inline uint16 swap16 (uint16 _data) { uint32 data = _data; __asm__ ("rev16 %0, %1\n" : "=l" (data) : "l" (data)); return (uint16)data;} 
+inline uint32 swap32 (uint32 _data) {__asm__ ("rev %0, %1\n" : "=l" (_data) : "l" (_data)); return _data;} 
+inline uint64 swap64(uint64 _data) {return ((uint64)swap32(_data) << 32) | swap32(_data >> 32);}
 #elif __linux__
 #include <byteswap.h>
 #undef swap16
@@ -86,10 +90,6 @@ inline uint64 swap64(uint64 _data) {return bswap_64(_data);}
 inline uint16 swap16(uint16 _data) {return bswap16(_data);}
 inline uint32 swap32(uint32 _data) {return bswap32(_data);}
 inline uint64 swap64(uint64 _data) {return bswap64(_data);}
-#elif defined(ARM)
-inline uint16 swap16 (uint16 _data) { uint32 data = _data; __asm__ ("rev16 %0, %1\n" : "=l" (data) : "l" (data)); return (uint16)data;} 
-inline uint32 swap32 (uint32 _data) {__asm__ ("rev %0, %1\n" : "=l" (_data) : "l" (_data)); return _data;} 
-inline uint64 swap64(uint64 _data) {return ((uint64)swap32(_data) << 32) | swap32(_data >> 32);}
 #elif defined(__GNUC__)
 inline uint16 swap16(uint16 _data) {return (_data >> 8) | (_data << 8);}
 inline uint32 swap32(uint32 _data) {return __builtin_bswap32(_data);}

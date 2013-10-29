@@ -264,52 +264,14 @@ std::string System_GetProperty(SystemProperty prop) {
 
 InputState input_state;
 
-
-const int buttonMappings[14] = {
-#ifdef PANDORA
-	SDLK_PAGEDOWN,  //X => cross
-	SDLK_END,       //B => circle
-	SDLK_HOME,      //A => box
-	SDLK_PAGEUP,    //Y => triangle
-	SDLK_RSHIFT,    //LBUMPER
-	SDLK_RCTRL,	    //RBUMPER
-	SDLK_LALT,      //START
-	SDLK_LCTRL,     //SELECT
-#else
-	SDLK_z,         //A
-	SDLK_x,         //B
-	SDLK_a,         //X
-	SDLK_s,	        //Y
-	SDLK_q,         //LBUMPER
-	SDLK_w,         //RBUMPER
-	SDLK_SPACE,     //START
-	SDLK_v,	        //SELECT
-#endif
-	SDLK_UP,        //UP
-	SDLK_DOWN,      //DOWN
-	SDLK_LEFT,      //LEFT
-	SDLK_RIGHT,     //RIGHT
-#ifdef PANDORA
-	SDLK_SPACE,     //MENU
-#else
-	SDLK_m,         //MENU
-#endif
-	SDLK_BACKSPACE,	//BACK
-};
-
 void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_buttons = 0;
 	input->pad_lstick_x = 0;
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
-	/*
-	for (int b = 0; b < 14; b++) {
-		if (keys[buttonMappings[b]])
-			input->pad_buttons |= (1<<b);
-	}
-	*/
 
+// TODO: Use NativeAxis for joy instead.
 #ifdef PANDORA
 	if ((ljoy)||(rjoy)) {
 		SDL_JoystickUpdate();
@@ -322,23 +284,6 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 			input->pad_rstick_y = max(min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f), -1.0f);
 		}
 	}
-#else
-	if (keys[SDLK_i])
-		input->pad_lstick_y=1;
-	else if (keys[SDLK_k])
-		input->pad_lstick_y=-1;
-	if (keys[SDLK_j])
-		input->pad_lstick_x=-1;
-	else if (keys[SDLK_l])
-		input->pad_lstick_x=1;
-	if (keys[SDLK_KP8])
-		input->pad_rstick_y=1;
-	else if (keys[SDLK_KP2])
-		input->pad_rstick_y=-1;
-	if (keys[SDLK_KP4])
-		input->pad_rstick_x=-1;
-	else if (keys[SDLK_KP6])
-		input->pad_rstick_x=1;
 #endif
 }
 
@@ -358,7 +303,6 @@ int main(int argc, char *argv[]) {
 	bool aspect43 = false;
 	const char *zoomenv = getenv("ZOOM");
 	const char *tabletenv = getenv("TABLET");
-	const char *ipad = getenv("IPAD");
 
 	if (zoomenv) {
 		zoom = atof(zoomenv);
@@ -366,26 +310,19 @@ int main(int argc, char *argv[]) {
 	if (tabletenv) {
 		tablet = atoi(tabletenv) ? true : false;
 	}
-	if (ipad) {
-		aspect43 = true;
-	}
 
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 
 	// Change these to temporarily test other resolutions.
-	aspect43 = false;
 	tablet = false;
 	float density = 1.0f;
-	//zoom = 1.5f;
 
+	// TODO: Just grab the dimensions from EGL
 	if (landscape) {
 		if (tablet) {
 			pixel_xres = 1280 * zoom;
 			pixel_yres = 800 * zoom;
-		} else if (aspect43) {
-			pixel_xres = 1024 * zoom;
-			pixel_yres = 768 * zoom;
 		} else {
 #ifdef MAEMO
 			pixel_xres = 800 * zoom;
@@ -402,9 +339,6 @@ int main(int argc, char *argv[]) {
 		if (tablet) {
 			pixel_xres = 800 * zoom;
 			pixel_yres = 1280 * zoom;
-		} else if (aspect43) {
-			pixel_xres = 768 * zoom;
-			pixel_yres = 1024 * zoom;
 		} else {
 #ifdef MAEMO
 			pixel_xres = 480 * zoom;
@@ -635,7 +569,6 @@ int main(int argc, char *argv[]) {
 					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
-					g_buttonTracker.Process(key);
 					break;
 				}
 			case SDL_KEYUP:
@@ -646,7 +579,6 @@ int main(int argc, char *argv[]) {
 					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
-					g_buttonTracker.Process(key);
 					break;
 				}
 			case SDL_MOUSEBUTTONDOWN:
@@ -779,12 +711,6 @@ int main(int argc, char *argv[]) {
 			lastT = t;
 		}
 #endif
-
-		// Simple frame rate limiting
-//		while (time_now() < t + 1.0f/60.0f) {
-//			sleep_ms(0);
-//			time_update();
-//		}
 		time_update();
 		t = time_now();
 		framecount++;

@@ -403,7 +403,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jcl
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_DOWN;
 	NativeKey(keyInput);
-	g_buttonTracker.Process(keyInput);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
@@ -412,7 +411,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclas
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_UP;
 	NativeKey(keyInput);
-	g_buttonTracker.Process(keyInput);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(

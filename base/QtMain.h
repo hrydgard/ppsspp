@@ -146,7 +146,6 @@ protected:
 
 	void paintGL()
 	{
-		SimulateGamepad(&input_state);
 		updateAccelerometer();
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);

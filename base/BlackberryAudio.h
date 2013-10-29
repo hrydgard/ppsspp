@@ -9,7 +9,6 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
-#include "math/math_util.h"
 #include "base/NativeApp.h"
 
 #define AUDIO_FREQ 44100
