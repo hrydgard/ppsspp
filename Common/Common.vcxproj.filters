@@ -22,7 +22,6 @@
     <ClInclude Include="MsgHandler.h" />
     <ClInclude Include="StdConditionVariable.h" />
     <ClInclude Include="StdMutex.h" />
-    <ClInclude Include="StdThread.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="Thunk.h" />

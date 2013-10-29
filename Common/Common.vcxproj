@@ -190,7 +190,6 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="StdConditionVariable.h" />
     <ClInclude Include="StdMutex.h" />
-    <ClInclude Include="StdThread.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="Thread.h" />
