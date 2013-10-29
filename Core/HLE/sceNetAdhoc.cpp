@@ -18,16 +18,8 @@
 
 // sceNetAdhoc
 
-// These acronyms are seen in function names:
-// * PDP: a proprietary Sony protocol similar to UDP.
-// * PTP: a proprietary Sony protocol similar to TCP.
-
-// We will need to wrap them into the similar UDP and TCP messages. If we want to
-// play adhoc remotely online, I guess we'll need to wrap both into TCP/IP.
-
-// We will need some server infrastructure to provide match making. We'll
-// group players per game. Maybe allow players to join rooms and then start the game,
-// instead of the other way around?
+// This is a direct port of colorbird code from http://code.google.com/p/aemu/
+// All credit goes to him!
 
 #include "../Config.h"
 #include "Core/HLE/HLE.h"
@@ -42,7 +34,7 @@
 
 // Temporary stuff
 #include <thread>
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <WS2tcpip.h>
 #else
 #include <sys/types.h>
@@ -51,13 +43,19 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
+#include <mutex>
+// End of extra includes
+
+#ifdef _MSC_VER
+#define PACK
+#else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define Sleep sleep
 #define closesocket close
+#define PACK __attribute__((packed))
 #endif
-#include <mutex>
-// End of extra includes
 
 enum {
   ERROR_NET_ADHOC_INVALID_SOCKET_ID            = 0x80410701,
@@ -154,32 +152,27 @@ static bool netAdhocMatchingInited;
 #define UTILITY_NETCONF_STATUS_FINISHED 3
 #define UTILITY_NETCONF_STATUS_SHUTDOWN 4
 
-
+#ifdef _MSC_VER 
+#pragma pack(push, 1)
+#endif
 // Ethernet Address
 #define ETHER_ADDR_LEN 6
 typedef struct SceNetEtherAddr {
   uint8_t data[ETHER_ADDR_LEN];
-} __attribute__((packed)) SceNetEtherAddr;
+} PACK SceNetEtherAddr;
 
-// Adhoc ID (Game Product Key)
-#define ADHOCCTL_ADHOCID_LEN 9
-typedef struct SceNetAdhocctlAdhocId {
-  int type;
-  uint8_t data[ADHOCCTL_ADHOCID_LEN];
-  uint8_t padding[3];
-} SceNetAdhocctlAdhocId;
 
 // Adhoc Virtual Network Name
 #define ADHOCCTL_GROUPNAME_LEN 8
 typedef struct SceNetAdhocctlGroupName {
   uint8_t data[ADHOCCTL_GROUPNAME_LEN];
-} __attribute__((packed)) SceNetAdhocctlGroupName;
+} PACK SceNetAdhocctlGroupName;
 
 // Virtual Network Host Information
 typedef struct SceNetAdhocctlBSSId {
   SceNetEtherAddr mac_addr;
   uint8_t padding[2];
-} __attribute__((packed)) SceNetAdhocctlBSSId;
+} PACK SceNetAdhocctlBSSId;
 
 // Virtual Network Information
 typedef struct SceNetAdhocctlScanInfo {
@@ -188,13 +181,13 @@ typedef struct SceNetAdhocctlScanInfo {
   SceNetAdhocctlGroupName group_name;
   SceNetAdhocctlBSSId bssid;
   int mode;
-} __attribute__((packed)) SceNetAdhocctlScanInfo;
+} PACK SceNetAdhocctlScanInfo;
 
 // Player Nickname
 #define ADHOCCTL_NICKNAME_LEN 128
 typedef struct SceNetAdhocctlNickname {
   uint8_t data[ADHOCCTL_NICKNAME_LEN];
-} __attribute__((packed)) SceNetAdhocctlNickname;
+} PACK SceNetAdhocctlNickname;
 
 // Active Virtual Network Information
 typedef struct SceNetAdhocctlParameter {
@@ -202,7 +195,7 @@ typedef struct SceNetAdhocctlParameter {
   SceNetAdhocctlGroupName group_name;
   SceNetAdhocctlBSSId bssid;
   SceNetAdhocctlNickname nickname;
-} __attribute__((packed)) SceNetAdhocctlParameter;
+} PACK SceNetAdhocctlParameter;
 
 // Peer Information
 typedef struct SceNetAdhocctlPeerInfo {
@@ -212,25 +205,35 @@ typedef struct SceNetAdhocctlPeerInfo {
   uint32_t ip_addr;
   uint8_t padding[2];
   uint64_t last_recv;
-} __attribute__((packed)) SceNetAdhocctlPeerInfo;
+} PACK SceNetAdhocctlPeerInfo;
 
 // Game Mode Peer List
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
 typedef struct SceNetAdhocctlGameModeInfo {
   int num;
   SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
-} __attribute__((packed)) SceNetAdhocctlGameModeInfo;
-// Ethernet Address (MAC)
+} PACK SceNetAdhocctlGameModeInfo;
+#ifdef _MSC_VER 
+#pragma pack(pop)
+#endif
+
+// Adhoc ID (Game Product Key)
+#define ADHOCCTL_ADHOCID_LEN 9
+typedef struct SceNetAdhocctlAdhocId {
+  int type;
+  uint8_t data[ADHOCCTL_ADHOCID_LEN];
+  uint8_t padding[3];
+} SceNetAdhocctlAdhocId;
 
 // Socket Polling Event Listener
-typedef struct SceNetAdhocPollSd {
+struct SceNetAdhocPollSd {
   int id;
   int events;
   int revents;
 };
 
 // PDP Socket Status
-typedef struct SceNetAdhocPdpStat {
+struct SceNetAdhocPdpStat {
   struct SceNetAdhocPdpStat * next;
   int id;
   SceNetEtherAddr laddr;
@@ -239,7 +242,7 @@ typedef struct SceNetAdhocPdpStat {
 };
 
 // PTP Socket Status
-typedef struct SceNetAdhocPtpStat {
+struct SceNetAdhocPtpStat {
   struct SceNetAdhocPtpStat * next;
   int id;
   SceNetEtherAddr laddr;
@@ -252,14 +255,14 @@ typedef struct SceNetAdhocPtpStat {
 };
 
 // Gamemode Optional Peer Buffer Data
-typedef struct SceNetAdhocGameModeOptData {
+struct SceNetAdhocGameModeOptData {
   uint32_t size;
   uint32_t flag;
   uint64_t last_recv;
 };
 
 // Gamemode Buffer Status
-typedef struct SceNetAdhocGameModeBufferStat {
+struct SceNetAdhocGameModeBufferStat {
   struct SceNetAdhocGameModeBufferStat * next;
   int id;
   void * ptr;
@@ -268,12 +271,6 @@ typedef struct SceNetAdhocGameModeBufferStat {
   SceNetAdhocGameModeOptData opt;
 };
 
-// Matching Peer Information
-typedef struct SceNetAdhocMatchingMember {
-  struct SceNetAdhocMatchingMember * next;
-  SceNetEtherAddr addr;
-  uint8_t padding[2];
-} __attribute__((packed)) SceNetAdhocMatchingMember;
 
 // Internal Matching Peer Information
 typedef struct SceNetAdhocMatchingMemberInternal {
@@ -412,17 +409,22 @@ typedef struct SceNetAdhocMatchingContext {
 
 // PSP Product Code
 #define PRODUCT_CODE_LENGTH 9
+
+#ifdef _MSC_VER 
+#pragma pack(push,1) 
+#endif
+
 typedef struct
 {
   // Game Product Code (ex. ULUS12345)
   char data[PRODUCT_CODE_LENGTH];
-} __attribute__((packed)) SceNetAdhocctlProductCode;
+} PACK SceNetAdhocctlProductCode;
 
 // Basic Packet
 typedef struct
 {
   uint8_t opcode;
-} __attribute__((packed)) SceNetAdhocctlPacketBase;
+} PACK SceNetAdhocctlPacketBase;
 
 // C2S Login Packet
 typedef struct
@@ -431,21 +433,21 @@ typedef struct
   SceNetEtherAddr mac;
   SceNetAdhocctlNickname name;
   SceNetAdhocctlProductCode game;
-} __attribute__((packed)) SceNetAdhocctlLoginPacketC2S;
+} PACK SceNetAdhocctlLoginPacketC2S;
 
 // C2S Connect Packet
 typedef struct
 {
   SceNetAdhocctlPacketBase base;
   SceNetAdhocctlGroupName group;
-} __attribute__((packed)) SceNetAdhocctlConnectPacketC2S;
+} PACK SceNetAdhocctlConnectPacketC2S;
 
 // C2S Chat Packet
 typedef struct
 {
   SceNetAdhocctlPacketBase base;
   char message[64];
-} __attribute__((packed)) SceNetAdhocctlChatPacketC2S;
+} PACK SceNetAdhocctlChatPacketC2S;
 
 // S2C Connect Packet
 typedef struct
@@ -454,14 +456,14 @@ typedef struct
   SceNetAdhocctlNickname name;
   SceNetEtherAddr mac;
   uint32_t ip;
-} __attribute__((packed)) SceNetAdhocctlConnectPacketS2C;
+} PACK SceNetAdhocctlConnectPacketS2C;
 
 // S2C Disconnect Packet
 typedef struct
 {
   SceNetAdhocctlPacketBase base;
   uint32_t ip;
-} __attribute__((packed)) SceNetAdhocctlDisconnectPacketS2C;
+} PACK SceNetAdhocctlDisconnectPacketS2C;
 
 // S2C Scan Packet
 typedef struct
@@ -469,21 +471,24 @@ typedef struct
   SceNetAdhocctlPacketBase base;
   SceNetAdhocctlGroupName group;
   SceNetEtherAddr mac;
-} __attribute__((packed)) SceNetAdhocctlScanPacketS2C;
+} PACK SceNetAdhocctlScanPacketS2C;
 
 // S2C Connect BSSID Packet
 typedef struct
 {
   SceNetAdhocctlPacketBase base;
   SceNetEtherAddr mac;
-} __attribute__((packed)) SceNetAdhocctlConnectBSSIDPacketS2C;
+} PACK SceNetAdhocctlConnectBSSIDPacketS2C;
 
 // S2C Chat Packet
 typedef struct
 {
   SceNetAdhocctlChatPacketC2S base;
   SceNetAdhocctlNickname name;
-} __attribute__((packed)) SceNetAdhocctlChatPacketS2C;
+} PACK SceNetAdhocctlChatPacketS2C;
+#ifdef _MSC_VER 
+#pragma pack(pop)
+#endif
 
 // Aux vars
 static int metasocket;
@@ -562,7 +567,7 @@ void __getLocalMac(SceNetEtherAddr * addr){
 
 // This only usefull if the server is running on the same machine as the client
 int __getLocalIp(sockaddr_in * SocketAddress){
-#ifdef _WIN32
+#ifdef _MSC_VER
   // Get local host name
   char szHostName[128] = "";
 
@@ -586,7 +591,7 @@ int __getLocalIp(sockaddr_in * SocketAddress){
 
 // Returns current system time in miliseconds, windows only!
 long long __milliseconds_now() {
-#ifdef _WIN32
+#ifdef _MSC_VER
   static LARGE_INTEGER s_frequency;
   static BOOL s_use_qpc = QueryPerformanceFrequency(&s_frequency);
   if (s_use_qpc) {
@@ -606,11 +611,11 @@ long long __milliseconds_now() {
 /* chages to the blocking mode of the socket
    1 to set noblocking
    0 to set blocking
-   */
+*/
 void __change_blocking_mode(int fd, int nonblocking) {
   unsigned long on = 1;
   unsigned long off = 0;
-#ifdef _WIN32
+#ifdef _MSC_VER
   if(nonblocking){
     // Change to Non-Blocking Mode
     ioctlsocket(fd,FIONBIO,&on);
@@ -632,7 +637,7 @@ void __change_blocking_mode(int fd, int nonblocking) {
 // Inits all basic net functionality and logins the user to the main server
 int __init_network(SceNetAdhocctlAdhocId *adhoc_id){
   int iResult = 0;
-#ifdef _WIN32
+#ifdef _MSC_VER
   WSADATA data;
   iResult = WSAStartup(MAKEWORD(2,2),&data);
   if(iResult != NOERROR){
@@ -859,7 +864,7 @@ int __friendFinder(){
           SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
 
           // Fix for Idiots that try to troll the "ME" Nametag
-#ifdef _WIN32 
+#ifdef _MSC_VER 
           if(stricmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
 #else
           if(strcasecmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
@@ -996,11 +1001,7 @@ int __friendFinder(){
     }
 
     //      Delay Thread (10ms)
-#ifdef _WIN32
-    Sleep(10);
-#else
     sleep(10);
-#endif
   }
 
   // Log Shutdown
@@ -2015,7 +2016,7 @@ int sceNetAdhocctlTerm() {
     closesocket(metasocket);
     metasocket = -1;
 
-#ifdef _WIN32
+#ifdef _MSC_VER
     WSACleanup(); // WINDOWS ONLY!
 #endif
   }
@@ -2481,7 +2482,7 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   uint32_t ip_addr;
   u32 padding; // Changed the pointer to u32
   uint64_t last_recv;
-} __attribute__((packed)) SceNetAdhocctlPeerInfoEmu;
+} SceNetAdhocctlPeerInfoEmu; 
 
 int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
   int * buflen = (int *)Memory::GetPointer(sizeAddr);
