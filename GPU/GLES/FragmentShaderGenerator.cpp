@@ -196,15 +196,14 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
+	bool highpFog = false;
 #if defined(GLSL_ES_1_0)
 	WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	WRITE(p, "precision lowp float;\n");
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
-	if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
-		WRITE(p, "#define highp mediump\n");
-	}
+	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE(p, "#version 110\n");
 	// Remove lowp/mediump in non-mobile implementations
@@ -246,7 +245,7 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "varying lowp vec3 v_color1;\n");
 	if (enableFog) {
 		WRITE(p, "uniform lowp vec3 u_fogcolor;\n");
-		WRITE(p, "varying highp float v_fogdepth;\n");
+		WRITE(p, "varying %s float v_fogdepth;\n", highpFog ? "highp" : "mediump");
 	}
 	if (doTexture)
 	{
