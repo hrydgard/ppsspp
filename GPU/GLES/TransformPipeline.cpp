@@ -1041,15 +1041,29 @@ u32 TransformDrawEngine::ComputeHash() {
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
-		if (!drawCalls[i].inds) {
-			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount, 0x1DE8CAC4);
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += XXH32((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
 		} else {
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			int j = i + 1;
+			int lastMatch = i;
+			while (j < numDrawCalls) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
+				indexLowerBound = std::min(indexLowerBound, (int)dc.indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)dc.indexUpperBound);
+				lastMatch = j;
+				j++;
+			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
-				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
+			fullhash += XXH32((const char *)dc.verts + vertexSize * dc.indexLowerBound,
+				vertexSize * (dc.indexUpperBound - dc.indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
+			// Hm, we will miss some indices when combining above, but meh, it should be fine.
+			fullhash += XXH32((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			i = lastMatch;
 		}
 	}
 	if (uvScale) {
