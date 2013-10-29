@@ -291,11 +291,10 @@ View *GetFocusedView();
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), enabled_(true), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabled_(true), enabledPtr_(0) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
-
 	virtual ~View();
 
 	// Please note that Touch is called ENTIRELY asynchronously from drawing!
@@ -344,7 +343,13 @@ public:
 	}
 
 	void SetEnabled(bool enabled) { enabled_ = enabled; }
-	bool IsEnabled() const { return enabled_; }
+	bool IsEnabled() const {
+		if (enabledPtr_)
+			return *enabledPtr_;
+		else
+			return enabled_;
+	}
+	void SetEnabledPtr(bool *enabled) { enabledPtr_ = enabled; }
 
 	void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -362,7 +367,6 @@ protected:
 	scoped_ptr<LayoutParams> layoutParams_;
 
 	std::string tag_;
-	bool enabled_;
 	Visibility visibility_;
 
 	// Results of measure pass. Set these in Measure.
@@ -375,6 +379,9 @@ protected:
 	scoped_ptr<Matrix4x4> transform_;
 
 private:
+	bool *enabledPtr_;
+	bool enabled_;
+
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
 

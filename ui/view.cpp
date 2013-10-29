@@ -170,7 +170,7 @@ void Clickable::FocusChanged(int focusFlags) {
 }
 
 void Clickable::Touch(const TouchInput &input) {
-	if (!enabled_) {
+	if (!IsEnabled()) {
 		dragging_ = false;
 		down_ = false;
 		return;
@@ -235,7 +235,7 @@ void Clickable::Key(const KeyInput &key) {
 
 void StickyChoice::Touch(const TouchInput &input) {
 	dragging_ = false;
-	if (!enabled_) {
+	if (!IsEnabled()) {
 		down_ = false;
 		return;
 	}
@@ -418,8 +418,8 @@ void Button::Draw(UIContext &dc) {
 
 	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
 	if (down_) style = dc.theme->buttonDownStyle;
-	if (!enabled_) style = dc.theme->buttonDisabledStyle;
-	
+	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	dc.FillRect(style.background, bounds_);
 	float tw, th;
