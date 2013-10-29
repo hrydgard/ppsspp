@@ -1191,7 +1191,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	}
 }
 
-int sceAtracSetDataAndGetID(u32 buffer, s32 bufferSize)
+int sceAtracSetDataAndGetID(u32 buffer, int bufferSize)
 {
 	if (bufferSize < 0) {
 		WARN_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x) bufferSize negative value", buffer, bufferSize);
@@ -1769,7 +1769,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x3f6e26b5,WrapU_IUUU<sceAtracSetHalfwayBuffer>,"sceAtracSetHalfwayBuffer"},
 	{0x83bf7afd,WrapU_IUU<sceAtracSetSecondBuffer>,"sceAtracSetSecondBuffer"},
 	{0x0E2A73AB,WrapU_IUU<sceAtracSetData>,"sceAtracSetData"}, //?
-	{0x7a20e7af,WrapI_US<sceAtracSetDataAndGetID>,"sceAtracSetDataAndGetID"},
+	{0x7a20e7af,WrapI_UI<sceAtracSetDataAndGetID>,"sceAtracSetDataAndGetID"},
 	{0xd1f59fdb,WrapU_V<sceAtracStartEntry>,"sceAtracStartEntry"},
 	{0x868120b5,WrapU_II<sceAtracSetLoopNum>,"sceAtracSetLoopNum"},
 	{0x132f1eca,WrapI_II<sceAtracReinit>,"sceAtracReinit"},
