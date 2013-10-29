@@ -718,15 +718,11 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 		// minWritebytes should not be bigger than writeablebytes
 		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
 
-		// If we've already loaded everything, the answer is 0.
-		if (atrac->first.size >= atrac->first.filesize) {
-			Sampleoffset = 0;
-		}
-
+		bool isFileEnd = atrac->first.size >= atrac->first.filesize;
 		bufferInfo->first.writePosPtr = atrac->first.addr;
-		bufferInfo->first.writableBytes = atrac->first.writableBytes;
-		bufferInfo->first.minWriteBytes = minWritebytes;
-		bufferInfo->first.filePos = Sampleoffset;
+		bufferInfo->first.writableBytes = isFileEnd ? 0 : atrac->first.writableBytes;
+		bufferInfo->first.minWriteBytes = isFileEnd ? 0 : atrac->atracBytesPerFrame * 2;
+		bufferInfo->first.filePos = isFileEnd ? 0 : Sampleoffset;
 
 		// TODO: It seems like this is always the same as the first buffer's pos?
 		bufferInfo->second.writePosPtr = atrac->first.addr;
