@@ -446,7 +446,8 @@ void CallSyscall(MIPSOpcode op)
 		}
 		else
 			func();
-
+		for (int i = 4; i <= 11; i++)
+			currentMIPS->r[i] = 0xDEADBEEF;
 		if (hleAfterSyscall != HLE_AFTER_NOTHING)
 			hleFinishSyscall(modulenum, funcnum);
 	}
