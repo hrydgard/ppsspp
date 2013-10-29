@@ -49,6 +49,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(calibrate);
 
 	root_->Add(settings);
+	scroll->Add(new Button(d->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void TiltAnalogSettingsScreen::update(InputState &input) {
