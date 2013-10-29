@@ -609,7 +609,7 @@ int __getLocalIp(sockaddr_in * SocketAddress){
 }
 
 // Returns current system time in miliseconds, windows only!
-long long __milliseconds_now() {
+uint64_t __milliseconds_now() {
 #ifdef _MSC_VER
   static LARGE_INTEGER s_frequency;
   static BOOL s_use_qpc = QueryPerformanceFrequency(&s_frequency);
@@ -623,7 +623,7 @@ long long __milliseconds_now() {
 #else
   timeval val;
   gettimeofday(&val,NULL);
-  return val.tv_usec * 1000;
+  return val.tv_usec/1000;
 #endif
 }
 
@@ -806,22 +806,22 @@ int __friendFinder(){
   chat.base.opcode = OPCODE_CHAT;
 
   // Last Ping Time
-  long long lastping = 0;
+  uint64_t lastping = 0;
 
   // Last Time Reception got updated
   uint64_t lastreceptionupdate = 0;
-
+  
+  uint64_t now;
   // Finder Loop
   while(netAdhocctlInited) {
     // Acquire Network Lock
     //_acquireNetworkLock();
 
     // Ping Server
-
-    if(__milliseconds_now() - lastping >= 100) {
-      printf("sent ping\n");
+    now = __milliseconds_now();
+    if(now - lastping >= 100) {
       // Update Ping Time
-      lastping = __milliseconds_now();
+      lastping = now;
 
       // Prepare Packet
       uint8_t opcode = OPCODE_PING;
@@ -906,7 +906,7 @@ int __friendFinder(){
         // Enough Data available
         if(rxpos >= sizeof(SceNetAdhocctlConnectPacketS2C)) {
           // Log Incoming Peer
-          INFO_LOG(SCENET,"Incoming Peer Data...\n");
+          INFO_LOG(SCENET,"Incoming Peer Data...");
 
           // Cast Packet
           SceNetAdhocctlConnectPacketS2C * packet = (SceNetAdhocctlConnectPacketS2C *)rx;
@@ -934,7 +934,7 @@ int __friendFinder(){
         // Enough Data available
         if(rxpos >= sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
           // Log Incoming Peer Delete Request
-          INFO_LOG(SCENET,"FriendFinder: Incoming Peer Data Delete Request...\n");
+          INFO_LOG(SCENET,"FriendFinder: Incoming Peer Data Delete Request...");
 
           // Cast Packet
           SceNetAdhocctlDisconnectPacketS2C * packet = (SceNetAdhocctlDisconnectPacketS2C *)rx;
@@ -962,7 +962,7 @@ int __friendFinder(){
         // Enough Data available
         if(rxpos >= sizeof(SceNetAdhocctlScanPacketS2C)) {
           // Log Incoming Network Information
-          INFO_LOG(SCENET,"Incoming Group Information...\n");
+          INFO_LOG(SCENET,"Incoming Group Information...");
           // Cast Packet
           SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
 
@@ -999,7 +999,7 @@ int __friendFinder(){
       // Scan Complete Packet
       else if(rx[0] == OPCODE_SCAN_COMPLETE) {
         // Log Scan Completion
-        INFO_LOG(SCENET,"FriendFinder: Incoming Scan complete response...\n");
+        INFO_LOG(SCENET,"FriendFinder: Incoming Scan complete response...");
 
         // Change State
         threadStatus = ADHOCCTL_STATE_DISCONNECTED;
@@ -1019,11 +1019,12 @@ int __friendFinder(){
         rxpos -= 1;
       }
     }
-    __msleep(1000);
+    // Original value was 10 ms, I think 100 is just fine
+    __msleep(100);
   }
 
   // Log Shutdown
-  INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread\n");
+  INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread");
 
   // Return Success
   return 0;
