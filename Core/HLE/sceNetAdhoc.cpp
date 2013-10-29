@@ -39,10 +39,11 @@
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/time.h>
+#include <time.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #endif
 #include <mutex>
 // End of extra includes
@@ -52,7 +53,6 @@
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
-#define Sleep sleep
 #define closesocket close
 #define PACK __attribute__((packed))
 #endif
@@ -75,9 +75,12 @@ enum {
   ERROR_NET_ADHOC_WOULD_BLOCK                  = 0x80410709,
   ERROR_NET_ADHOC_INVALID_DATALEN              = 0x80410705,
   ERROR_NET_ADHOC_INVALID_PORT                 = 0x80410703,
-
+  ERROR_NET_ADHOC_NOT_LISTENED                 = 0x8040070E,
+  ERROR_NET_ADHOC_NOT_OPENED                   = 0x8040070D,
+  ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL          = 0x8041070F,
+  ERROR_NET_ADHOC_NOT_CONNECTED                = 0x8041070B,
+  
   ERROR_NET_ADHOCCTL_INVALID_ARG               = 0x80410B04,
-
   ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF           = 0x80410b03,
   ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED       = 0x80410b07,
   ERROR_NET_ADHOCCTL_NOT_INITIALIZED           = 0x80410b08,
@@ -151,6 +154,11 @@ static bool netAdhocMatchingInited;
 #define UTILITY_NETCONF_STATUS_RUNNING 2
 #define UTILITY_NETCONF_STATUS_FINISHED 3
 #define UTILITY_NETCONF_STATUS_SHUTDOWN 4
+
+// PTP Connection States
+#define PTP_STATE_CLOSED 0
+#define PTP_STATE_LISTEN 1
+#define PTP_STATE_ESTABLISHED 4
 
 #ifdef _MSC_VER 
 #pragma pack(push, 1)
@@ -243,7 +251,7 @@ struct SceNetAdhocPdpStat {
 
 // PTP Socket Status
 struct SceNetAdhocPtpStat {
-  struct SceNetAdhocPtpStat * next;
+  u32 next; // Changed the pointer to u32
   int id;
   SceNetEtherAddr laddr;
   SceNetEtherAddr paddr;
@@ -503,6 +511,7 @@ static SceNetAdhocPdpStat * pdp[255];
 static SceNetAdhocPtpStat * ptp[255];
 static uint32_t fakePoolSize = 0;
 static SceNetAdhocMatchingContext * contexts = NULL;
+static int one = 1;
 // End of Aux vars
 
 struct AdhocctlHandler {
@@ -555,6 +564,16 @@ void split64(u64 num, int buff[]){
   buff[1] = num2;
 }
 
+void __msleep(int mseconds){
+#ifdef _MSVER
+  Sleep(mseconds);
+#else
+  timespec t_spec;
+  t_spec.tv_sec = 0;
+  t_spec.tv_nsec = 100000*mseconds;
+  nanosleep(&t_spec, NULL);
+#endif
+}
 u64 join32(u32 num1, u32 num2){
   return (u64)num2 << 32 | num1;
 }
@@ -624,7 +643,7 @@ void __change_blocking_mode(int fd, int nonblocking) {
     ioctlsocket(fd, FIONBIO, &off);
   }
 #else
-  if(nonblocking) fcntl(fd, F_SETFL, O_NONBLOCK);
+  if(nonblocking == 1) fcntl(fd, F_SETFL, O_NONBLOCK);
   else {
     // Get Flags
     int flags = fcntl(fd, F_GETFL);
@@ -800,6 +819,7 @@ int __friendFinder(){
     // Ping Server
 
     if(__milliseconds_now() - lastping >= 100) {
+      printf("sent ping\n");
       // Update Ping Time
       lastping = __milliseconds_now();
 
@@ -999,9 +1019,7 @@ int __friendFinder(){
         rxpos -= 1;
       }
     }
-
-    //      Delay Thread (10ms)
-    sleep(10);
+    __msleep(1000);
   }
 
   // Log Shutdown
@@ -1304,6 +1322,37 @@ int __findFreeMatchingID(void) {
   return max + 1;
 }
 
+
+/**
+ * PTP Socket Counter
+ * @return Number of internal PTP Sockets
+ */
+int __getPTPSocketCount(void) {
+  // Socket Counter
+  int counter = 0;
+
+  // Count Sockets
+  int i = 0; for(; i < 255; i++) if(ptp[i] != NULL) counter++;
+
+  // Return Socket Count
+  return counter;
+}
+
+
+/**
+ * Check whether PTP Port is in use or not
+ * @param port To-be-checked Port Number
+ * @return 1 if in use or... 0
+ */
+int __IsPTPPortInUse(uint16_t port) {
+	// Iterate Sockets
+	int i = 0; for(; i < 255; i++) if(ptp[i] != NULL && ptp[i]->lport == port) return 1;
+	
+	// Unused Port
+	return 0;
+}
+
+
 void __handlerUpdateCallback(u64 userdata, int cycleslate){
   int buff[2];
   split64(userdata,buff);
@@ -1312,7 +1361,7 @@ void __handlerUpdateCallback(u64 userdata, int cycleslate){
 
 u32 sceNetAdhocInit() {
   // Library uninitialized
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocInit()");
+  INFO_LOG(SCENET, "sceNetAdhocInit()");
   if(!netAdhocInited) {
     // Clear Translator Memory
     memset(&pdp, 0, sizeof(pdp));
@@ -1329,7 +1378,7 @@ u32 sceNetAdhocInit() {
 }
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
+  INFO_LOG(SCENET, "sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
   if (netAdhocctlInited) {
     return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
   }else{
@@ -1344,10 +1393,6 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
   return 0;
 }
 
-
-
-// Seems to always return 0, and write 0 to the pointer..
-// TODO: Eventually research what possible states there are
 int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	// Library initialized
 	if(netAdhocctlInited) {
@@ -1376,7 +1421,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_INVALID_ADDR, ADHOC_PORT_NOT_AVAIL, ADHOC_INVALID_PORT, ADHOC_PORT_IN_USE, NET_NO_SPACE
  */
 int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPdpCreate(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
+  INFO_LOG(SCENET, "sceNetAdhocPdpCreate(%s, %d, %d, %d)", mac, port, bufferSize, unknown);
   // Library is initialized
   SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
   if(netAdhocInited) {
@@ -1402,7 +1447,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
           addr.sin_family = AF_INET;
           addr.sin_addr.s_addr = INADDR_ANY;
 
-          addr.sin_port = htons(port); //This not safe in any way...
+          addr.sin_port = htons(port); // This not safe in any way...
 
           // Bound Socket to local Port
           if(bind(usocket, (sockaddr *)&addr, sizeof(addr)) == 0) {
@@ -1467,6 +1512,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_INVALID_ARG
  */
 int sceNetAdhocctlGetParameter(u32 paramAddr) {
+  INFO_LOG(SCENET, "sceNetAdhocctlGetParameter(%u)",paramAddr);
   // Library initialized
   if(netAdhocctlInited) {
     // Valid Arguments
@@ -1759,7 +1805,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID
  */
 int sceNetAdhocPdpDelete(int id, int unknown) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPdpDelete(%d, %d)", id, unknown);
+  INFO_LOG(SCENET, "sceNetAdhocPdpDelete(%d, %d)", id, unknown);
   // Library is initialized
   if(netAdhocInited) {
     // Valid Arguments
@@ -2008,7 +2054,7 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 }
 
 int sceNetAdhocctlTerm() {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlTerm()");
+  INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
   if(netAdhocInited){
     netAdhocctlInited = false;
     friendFinderThread.join();
@@ -2045,7 +2091,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_INVALID_ARG, ADHOCCTL_BUSY
  */
 int sceNetAdhocctlCreate(const char *groupName) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreate(%s)", groupName);
+  INFO_LOG(SCENET, "sceNetAdhocctlCreate(%s)", groupName);
   const SceNetAdhocctlGroupName * groupNameStruct = (const SceNetAdhocctlGroupName *)groupName;
   // Library initialized
   if(netAdhocctlInited) {
@@ -2098,7 +2144,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 
 int sceNetAdhocctlConnect(u32 ptrToGroupName) {
   if (Memory::IsValidAddress(ptrToGroupName)) {
-    ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlConnect(groupName=%s)", Memory::GetCharPointer(ptrToGroupName));
+    INFO_LOG(SCENET, "sceNetAdhocctlConnect(groupName=%s)", Memory::GetCharPointer(ptrToGroupName));
     return sceNetAdhocctlCreate(Memory::GetCharPointer(ptrToGroupName));
   } else {
     return ERROR_NET_ADHOC_INVALID_ADDR;
@@ -2116,7 +2162,7 @@ int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *macAddr, 
 }
 
 int sceNetAdhocTerm() {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocTerm()");
+  INFO_LOG(SCENET, "sceNetAdhocTerm()");
   // Library is initialized
   if(netAdhocInited) {
     // Delete PDP Sockets
@@ -2147,49 +2193,807 @@ int sceNetAdhocGetPdpStat(int structSize, u32 structAddr) {
   return 0;
 }
 
-int sceNetAdhocGetPtpStat(int structSize, u32 structAddr) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetPtpStat(%i, %08x)", structSize, structAddr);
+
+/**
+ * Adhoc Emulator PTP Socket List Getter
+ * @param buflen IN: Length of Buffer in Bytes OUT: Required Length of Buffer in Bytes
+ * @param buf PTP Socket List Buffer (can be NULL if you wish to receive Required Length)
+ * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED
+ */
+int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
+  // INFO_LOG(SCENET,"sceNetAdhocGetPtpStat(%u,%u)",structSize,structAddr);
+  // Spams a lot 
+  int * buflen = (int *)Memory::GetPointer(structSize);
+	// Library is initialized
+	if(netAdhocInited) {
+		// Length Returner Mode
+		if(buflen != NULL && !Memory::IsValidAddress(structAddr)) {
+			// Return Required Size
+			*buflen = sizeof(SceNetAdhocPtpStat) * __getPTPSocketCount();
+			
+			// Success
+			return 0;
+		}
+		
+		// Status Returner Mode
+		else if(buflen != NULL && Memory::IsValidAddress(structAddr)) {
+			// Socket Count
+			int socketcount = __getPTPSocketCount();
+      SceNetAdhocPtpStat * buf = (SceNetAdhocPtpStat *)Memory::GetPointer(structAddr);
+			
+			// Figure out how many Sockets we will return
+			int count = *buflen / sizeof(SceNetAdhocPtpStat);
+			if(count > socketcount) count = socketcount;
+			
+			// Copy Counter
+			int i = 0;
+			
+			// Iterate Sockets
+			int j = 0; for(; j < 255 && i < count; j++) {
+				// Active Socket
+				if(ptp[j] != NULL) {
+					// Copy Socket Data from internal Memory
+					buf[i] = *ptp[j];
+					
+					// Fix Client View Socket ID
+					buf[i].id = j + 1;
+					
+					// Write End of List Reference
+					buf[i].next = 0;
+					
+					// Link previous Element to this one
+					if(i > 0) buf[i-1].next = structAddr+(i*sizeof(SceNetAdhocPtpStat))+
+            sizeof(SceNetAdhocPtpStat);
+					
+					// Increment Counter
+					i++;
+				}
+			}
+			
+			// Update Buffer Length
+			*buflen = i * sizeof(SceNetAdhocPtpStat);
+			
+			// Success
+			return 0;
+		}
+		
+		// Invalid Arguments
+		return ERROR_NET_ADHOC_INVALID_ARG;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+}
+
+
+/**
+ * Adhoc Emulator PTP Active Socket Creator
+ * @param saddr Local MAC (Unused)
+ * @param sport Local Binding Port
+ * @param daddr Target MAC
+ * @param dport Target Port
+ * @param bufsize Socket Buffer Size
+ * @param rexmt_int Retransmit Interval (in Microseconds)
+ * @param rexmt_cnt Retransmit Count
+ * @param flag Bitflags (Unused)
+ * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT
+ */
+int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int unknown) {
+  INFO_LOG(SCENET, "sceNetAdhocPtpOpen(%s,%d,%s,%d,%d,%d,%d,%d)", srcmac, sport,
+      dstmac,dport,bufsize, rexmt_int, rexmt_cnt, unknown);
+  SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
+  SceNetEtherAddr * daddr = (SceNetEtherAddr *)dstmac;
+	// Library is initialized
+	if(netAdhocInited) {
+		// Valid Addresses
+		if(saddr != NULL && _IsLocalMAC(saddr) && daddr != NULL && !__isBroadcastMAC(daddr)) {
+			// Random Port required
+			if(sport == 0) {
+				// Find unused Port
+				// while(sport == 0 || _IsPTPPortInUse(sport)) {
+				// 	// Generate Port Number
+				// 	sport = (uint16_t)_getRandomNumber(65535);
+				// }
+			}
+			
+			// Valid Ports
+			if(!__IsPTPPortInUse(sport) && dport != 0) {
+				// Valid Arguments
+				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
+					// Create Infrastructure Socket
+          int tcpsocket = INVALID_SOCKET;
+					tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+					
+					// Valid Socket produced
+					if(tcpsocket > 0) {
+						// Enable Port Re-use
+						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+						
+						// Binding Information for local Port
+						sockaddr_in addr;
+						// addr.sin_len = sizeof(addr);
+						addr.sin_family = AF_INET;
+						addr.sin_addr.s_addr = INADDR_ANY;
+						addr.sin_port = htons(sport);
+						
+						// Bound Socket to local Port
+						if(bind(tcpsocket, (sockaddr *)&addr, sizeof(addr)) == 0) {
+							// Allocate Memory
+							SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+							
+							// Allocated Memory
+							if(internal != NULL) {
+								// Find Free Translator ID
+								int i = 0; for(; i < 255; i++) if(ptp[i] == NULL) break;
+								
+								// Found Free Translator ID
+								if(i < 255) {
+									// Clear Memory
+									memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+									
+									// Copy Infrastructure Socket ID
+									internal->id = tcpsocket;
+									
+									// Copy Address Information
+									internal->laddr = *saddr;
+									internal->paddr = *daddr;
+									internal->lport = sport;
+									internal->pport = dport;
+									
+									// Set Buffer Size
+									internal->rcv_sb_cc = bufsize;
+									
+									// Link PTP Socket
+									ptp[i] = internal;
+									
+									// Add Port Forward to Router
+									// sceNetPortOpen("TCP", sport);
+									
+									// Return PTP Socket Pointer
+									return i + 1;
+								}
+								
+								// Free Memory
+								free(internal);
+							}
+						}
+						
+						// Close Socket
+						closesocket(tcpsocket);
+					}
+				}
+				
+				// Invalid Arguments
+				return ERROR_NET_ADHOC_INVALID_ARG;
+			}
+			
+			// Invalid Ports
+			return ERROR_NET_ADHOC_INVALID_PORT;
+		}
+		
+		// Invalid Addresses
+		return ERROR_NET_ADHOC_INVALID_ADDR;
+	}
+	
   return 0;
 }
 
-int sceNetAdhocPtpOpen(const char *srcmac, int srcport, const char *dstmac, int dstport, int bufsize, int retryDelay, int retryCount, int unknown) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpOpen(%s : %i, %s : %i, %i, %i, %i, %08x)", srcmac, srcport, dstmac, dstport, bufsize, retryDelay, retryCount, unknown);
-  return 0;
+
+/**
+ * Adhoc Emulator PTP Connection Acceptor
+ * @param id Socket File Descriptor
+ * @param addr OUT: Peer MAC Address
+ * @param port OUT: Peer Port
+ * @param timeout Accept Timeout (in Microseconds)
+ * @param flag Nonblocking Flag
+ * @return Socket ID >= 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_LISTENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
+ */
+int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeout, int flag) {
+  SceNetEtherAddr * addr = NULL;
+  if(Memory::IsValidAddress(peerMacAddrPtr)){
+    addr = Memory::GetStruct<SceNetEtherAddr>(peerMacAddrPtr);
+  }
+  uint16_t * port = NULL;
+  if(Memory::IsValidAddress(peerPortPtr)){
+    port = (uint16_t *)Memory::GetPointer(peerPortPtr);
+  }
+  INFO_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%s,%d,%u,%d)",id, addr->data,*port,timeout,
+      flag);
+	// Library is initialized
+	if(netAdhocInited) {
+		// Valid Socket
+		if(id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+			// Cast Socket
+			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			
+			// Listener Socket
+			if(socket->state == PTP_STATE_LISTEN) {
+				// Valid Arguments
+				if(addr != NULL && port != NULL) {
+					// Address Information
+					sockaddr_in peeraddr;
+					memset(&peeraddr, 0, sizeof(peeraddr));
+					uint32_t peeraddrlen = sizeof(peeraddr);
+					
+					// Local Address Information
+					sockaddr_in local;
+					memset(&local, 0, sizeof(local));
+					uint32_t locallen = sizeof(local);
+					
+					// Grab Nonblocking Flag
+					uint32_t nbio = 0;
+          int sockflag = fcntl(socket->id, F_GETFL, O_NONBLOCK);
+          nbio = sockflag & O_NONBLOCK;
+					// Switch to Nonblocking Behaviour
+					if(nbio == 0) {
+						// Overwrite Socket Option
+            __change_blocking_mode(socket->id,1);
+					}
+					
+					// Accept Connection
+					int newsocket = accept(socket->id, (sockaddr *)&peeraddr, &peeraddrlen);
+					
+					// Blocking Behaviour
+					if(!flag && newsocket == -1) {
+						// Get Start Time
+						uint32_t starttime = __milliseconds_now();
+						
+						// Retry until Timeout hits
+						while((timeout == 0 || (__milliseconds_now() - starttime) < timeout) && newsocket == -1) {
+							// Accept Connection
+							newsocket = accept(socket->id, (sockaddr *)&peeraddr, &peeraddrlen);
+							
+							// Wait a bit...
+							__msleep(1);
+						}
+					}
+					
+					// Restore Blocking Behaviour
+					if(nbio == 0) {
+						// Restore Socket Option
+            __change_blocking_mode(socket->id,0);
+					}
+					
+					// Accepted New Connection
+					if(newsocket > 0) {
+						// Enable Port Re-use
+						setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+						
+						// Grab Local Address
+						if(getsockname(newsocket, (sockaddr *)&local, &locallen) == 0) {
+							// Peer MAC
+							SceNetEtherAddr mac;
+							
+							// Find Peer MAC
+							if(__resolveIP(peeraddr.sin_addr.s_addr, &mac) == 0) {
+								// Allocate Memory
+								SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+								
+								// Allocated Memory
+								if(internal != NULL) {
+									// Find Free Translator ID
+									int i = 0; for(; i < 255; i++) if(ptp[i] == NULL) break;
+									
+									// Found Free Translator ID
+									if(i < 255) {
+										// Clear Memory
+										memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+										
+										// Copy Socket Descriptor to Structure
+										internal->id = newsocket;
+										
+										// Copy Local Address Data to Structure
+										__getLocalMac(&internal->laddr);
+										internal->lport = htons(local.sin_port);
+										
+										// Copy Peer Address Data to Structure
+										internal->paddr = mac;
+										internal->pport = htons(peeraddr.sin_port);
+										
+										// Set Connected State
+										internal->state = PTP_STATE_ESTABLISHED;
+										
+										// Return Peer Address Information
+										*addr = internal->paddr;
+										*port = internal->pport;
+										
+										// Link PTP Socket
+										ptp[i] = internal;
+										
+										// Add Port Forward to Router
+										// sceNetPortOpen("TCP", internal->lport);
+										
+										// Return Socket
+										return i + 1;
+									}
+									
+									// Free Memory
+									free(internal);
+								}
+							}
+						}
+						
+						// Close Socket
+						closesocket(newsocket);
+					}
+					
+					// Action would block
+					if(flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+					
+					// Timeout
+					return ERROR_NET_ADHOC_TIMEOUT;
+				}
+				
+				// Invalid Arguments
+				return ERROR_NET_ADHOC_INVALID_ARG;
+			}
+			
+			// Client Socket
+			return ERROR_NET_ADHOC_NOT_LISTENED;
+		}
+		
+		// Invalid Socket
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeout, int nonblock) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpAccept(%i, %08x, %08x, %i, %i)", id, peerMacAddrPtr, peerPortPtr, timeout, nonblock);
-  return 0;
+
+/**
+ * Adhoc Emulator PTP Connection Opener
+ * @param id Socket File Descriptor
+ * @param timeout Connect Timeout (in Microseconds)
+ * @param flag Nonblocking Flag
+ * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_CONNECTION_REFUSED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_OPENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
+ */
+int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
+	// Library is initialized
+	if(netAdhocInited)
+	{
+		// Valid Socket
+		if(id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+			// Cast Socket
+			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			
+			// Valid Client Socket
+			if(socket->state == 0) {
+				// Target Address
+				sockaddr_in sin;
+				memset(&sin, 0, sizeof(sin));
+				
+				// Setup Target Address
+				// sin.sin_len = sizeof(sin);
+				sin.sin_family = AF_INET;
+				sin.sin_port = htons(socket->pport);
+				
+				// Grab Peer IP
+				if(__resolveMAC(&socket->paddr, &sin.sin_addr.s_addr) == 0) {
+					// Grab Nonblocking Flag
+					uint32_t nbio = 0;
+          int fileflags = fcntl(socket->id,F_GETFL,O_NONBLOCK);
+          nbio = fileflags & O_NONBLOCK;
+					// Switch to Nonblocking Behaviour
+					if(nbio == 0) {
+						// Overwrite Socket Option
+            __change_blocking_mode(socket->id, 1);
+					}
+					
+					// Connect Socket to Peer (Nonblocking)
+					int connectresult = connect(socket->id, (sockaddr *)&sin, sizeof(sin));
+					
+					// Grab Error Code
+					int errorcode = errno;
+					
+					// Restore Blocking Behaviour
+					if(nbio == 0) {
+						// Restore Socket Option
+            __change_blocking_mode(socket->id,0);
+					}
+					
+					// Instant Connection (Lucky!)
+					if(connectresult == 0 || (connectresult == -1 && errorcode == EISCONN)) {
+						// Set Connected State
+						socket->state = PTP_STATE_ESTABLISHED;
+						
+						// Success
+						return 0;
+					}
+					
+					// Connection in Progress
+					else if(connectresult == -1 && errorcode == EINPROGRESS) {
+						// Nonblocking Mode
+						if(flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+						
+						// Blocking Mode
+						else {
+							// Grab Connection Start Time
+							uint32_t starttime = __milliseconds_now();
+							
+							// Peer Information (for Connection-Polling)
+							sockaddr_in peer;
+							memset(&peer, 0, sizeof(peer));
+							uint32_t peerlen = sizeof(peer);
+							
+							// Wait for Connection
+							while((timeout == 0 || (__milliseconds_now() - starttime) < timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
+								// Wait 1ms
+                __msleep(1);
+							}
+							
+							// Connected in Time
+							if(sin.sin_addr.s_addr == peer.sin_addr.s_addr/* && sin.sin_port == peer.sin_port*/) {
+								// Set Connected State
+								socket->state = PTP_STATE_ESTABLISHED;
+								
+								// Success
+								return 0;
+							}
+							
+							// Timeout occured
+							return ERROR_NET_ADHOC_TIMEOUT;
+						}
+					}
+				}
+				
+				// Peer not found
+				return ERROR_NET_ADHOC_CONNECTION_REFUSED;
+			}
+			
+			// Not a valid Client Socket
+			return ERROR_NET_ADHOC_NOT_OPENED;
+		}
+		
+		// Invalid Socket
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-int sceNetAdhocPtpConnect(int id, int timeout, int nonblock) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpConnect(%i, %i, %i)", id, timeout, nonblock);
-  return -1;
-}
 
+/**
+ * Adhoc Emulator PTP Socket Closer
+ * @param id Socket File Descriptor
+ * @param flag Bitflags (Unused)
+ * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED
+ */
 int sceNetAdhocPtpClose(int id, int unknown) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpClose(%i, %i)", id, unknown);
-  return 0;
+  INFO_LOG(SCENET,"sceNetAdhocPtpClose(%d,%d)",id,unknown);
+	// Library is initialized
+	if(netAdhocInited) {
+		// Valid Arguments & Atleast one Socket
+		if(id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+			// Cast Socket
+			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			
+			// Close Connection
+			closesocket(socket->id);
+			
+			// Remove Port Forward from Router
+			// sceNetPortClose("TCP", socket->lport);
+			
+			// Free Memory
+			free(socket);
+			
+			// Free Reference
+			ptp[id - 1] = NULL;
+			
+			// Success
+			return 0;
+		}
+		
+		// Invalid Argument
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-int sceNetAdhocPtpListen(const char *srcmac, int srcport, int bufsize, int retryDelay, int retryCount, int queue, int unk) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpListen(%s : %i, %i, %i, %i, %i, %i)", srcmac, srcport, bufsize, retryDelay, retryCount, queue, unk);
-  return 0;
+
+/**
+ * Adhoc Emulator PTP Passive Socket Creator
+ * @param saddr Local MAC (Unused)
+ * @param sport Local Binding Port
+ * @param bufsize Socket Buffer Size
+ * @param rexmt_int Retransmit Interval (in Microseconds)
+ * @param rexmt_cnt Retransmit Count
+ * @param backlog Size of Connection Queue
+ * @param flag Bitflags (Unused)
+ * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_PORT_NOT_AVAIL, ADHOC_PORT_IN_USE, NET_NO_SPACE
+ */
+int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int unk) {
+  INFO_LOG(SCENET, "sceNetAdhocPtpListen(%s,%d,%d,%d,%d,%d,%d)",
+      srcmac,sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk);
+	// Library is initialized
+  SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
+	if(netAdhocInited) {
+		// Valid Address
+		if(saddr != NULL && _IsLocalMAC(saddr))
+		{
+			// Random Port required
+			if(sport == 0) {
+				// Find unused Port
+				// while(sport == 0 || __IsPTPPortInUse(sport))
+				// {
+				// 	// Generate Port Number
+				// 	sport = (uint16_t)_getRandomNumber(65535);
+				// }
+			}
+			
+			// Valid Ports
+			if(!__IsPTPPortInUse(sport)) {
+				// Valid Arguments
+				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
+				{
+					// Create Infrastructure Socket
+					int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+					
+					// Valid Socket produced
+					if(tcpsocket > 0) {
+						// Enable Port Re-use
+						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+						
+						// Binding Information for local Port
+						sockaddr_in addr;
+						addr.sin_family = AF_INET;
+						addr.sin_addr.s_addr = INADDR_ANY;
+						addr.sin_port = htons(sport);
+						
+						// Bound Socket to local Port
+						if(bind(tcpsocket, (sockaddr *)&addr, sizeof(addr)) == 0) {
+							// Switch into Listening Mode
+							if(listen(tcpsocket, backlog) == 0) {
+								// Allocate Memory
+								SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+								
+								// Allocated Memory
+								if(internal != NULL) {
+									// Find Free Translator ID
+									int i = 0; for(; i < 255; i++) if(ptp[i] == NULL) break;
+									
+									// Found Free Translator ID
+									if(i < 255) {
+										// Clear Memory
+										memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+										
+										// Copy Infrastructure Socket ID
+										internal->id = tcpsocket;
+										
+										// Copy Address Information
+										internal->laddr = *saddr;
+										internal->lport = sport;
+										
+										// Flag Socket as Listener
+										internal->state = PTP_STATE_LISTEN;
+										
+										// Set Buffer Size
+										internal->rcv_sb_cc = bufsize;
+										
+										// Link PTP Socket
+										ptp[i] = internal;
+										
+										// Add Port Forward to Router
+										// sceNetPortOpen("TCP", sport);
+										
+										// Return PTP Socket Pointer
+										return i + 1;
+									}
+									
+									// Free Memory
+									free(internal);
+								}
+							}
+						}
+						
+						// Close Socket
+						closesocket(tcpsocket);
+					}
+					
+					// Socket not available
+					return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
+				}
+				
+				// Invalid Arguments
+				return ERROR_NET_ADHOC_INVALID_ARG;
+			}
+			
+			// Invalid Ports
+			return ERROR_NET_ADHOC_PORT_IN_USE;
+		}
+		
+		// Invalid Addresses
+		return ERROR_NET_ADHOC_INVALID_ADDR;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-int sceNetAdhocPtpSend(int id, u32 data, u32 dataSizeAddr, int timeout, int nonblock) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpSend(%i, %08x, %08x, %i, %i)", id, data, dataSizeAddr, timeout, nonblock);
-  return 0;
+/**
+ * Adhoc Emulator PTP Sender
+ * @param id Socket File Descriptor
+ * @param data Data Payload
+ * @param len IN: Length of Payload OUT: Sent Data (in Bytes)
+ * @param timeout Send Timeout (in Microseconds)
+ * @param flag Nonblocking Flag
+ * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_CONNECTED, ADHOC_THREAD_ABORTED, ADHOC_INVALID_DATALEN, ADHOC_DISCONNECTED, NET_INTERNAL, NET_NO_SPACE
+ */
+int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
+  int * len = (int *)Memory::GetPointer(dataSizeAddr);
+  const char * data = Memory::GetCharPointer(dataAddr);
+	// Library is initialized
+	if(netAdhocInited) {
+		// Valid Socket
+		if(id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+			// Cast Socket
+			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			
+			// Connected Socket
+			if(socket->state == PTP_STATE_ESTABLISHED) {
+				// Valid Arguments
+				if(data != NULL && len != NULL && *len > 0) {
+					// Schedule Timeout Removal
+					if(flag) timeout = 0;
+					
+					// Apply Send Timeout Settings to Socket
+					setsockopt(socket->id, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+					
+					// Acquire Network Lock
+					// _acquireNetworkLock();
+					
+					// Send Data
+          __change_blocking_mode(socket->id, flag);
+					int sent = send(socket->id, data, *len, 0);
+          int error = errno;
+          __change_blocking_mode(socket->id, 0);
+					
+					// Free Network Lock
+					// _freeNetworkLock();
+					
+					// Success
+					if(sent > 0) {
+						// Save Length
+						*len = sent;
+						
+						// Return Success
+						return 0;
+					}
+					
+					// Non-Critical Error
+					else if(sent == -1 && error  == EAGAIN) {
+						// Blocking Situation
+						if(flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+						
+						// Timeout
+						return ERROR_NET_ADHOC_TIMEOUT;
+					}
+					
+					// Change Socket State
+					socket->state = PTP_STATE_CLOSED;
+					
+					// Disconnected
+					return ERROR_NET_ADHOC_DISCONNECTED;
+				}
+				
+				// Invalid Arguments
+				return ERROR_NET_ADHOC_INVALID_ARG;
+			}
+			
+			// Not connected
+			return ERROR_NET_ADHOC_NOT_CONNECTED;
+		}
+		
+		// Invalid Socket
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int nonblock) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpRecv(%i, %08x, %08x, %i, %i)", id, data, dataSizeAddr, timeout, nonblock);
-  return 0;
+
+/**
+ * Adhoc Emulator PTP Receiver
+ * @param id Socket File Descriptor
+ * @param buf Data Buffer
+ * @param len IN: Buffersize OUT: Received Data (in Bytes)
+ * @param timeout Receive Timeout (in Microseconds)
+ * @param flag Nonblocking Flag
+ * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_DISCONNECTED, NET_INTERNAL
+ */
+int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int flag) {
+  void * buf = (void *)Memory::GetPointer(data);
+  int * len = (int *)Memory::GetPointer(dataSizeAddr);
+	// Library is initialized
+	if(netAdhocInited) {
+		// Valid Socket
+		if(id > 0 && id <= 255 && ptp[id - 1] != NULL && ptp[id - 1]->state == PTP_STATE_ESTABLISHED) {
+			// Cast Socket
+			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			
+			// Valid Arguments
+			if(buf != NULL && len != NULL && *len > 0) {
+				// Schedule Timeout Removal
+				if(flag) timeout = 0;
+				
+				// Apply Send Timeout Settings to Socket
+				setsockopt(socket->id, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+				
+				// Acquire Network Lock
+				// _acquireNetworkLock();
+				
+				// Receive Data
+        __change_blocking_mode(socket->id, flag);
+				int received = recv(socket->id, buf, *len, 0);
+        int error = errno;
+        __change_blocking_mode(socket->id, 0);
+				
+				// Free Network Lock
+				// _freeNetworkLock();
+				
+				// Received Data
+				if(received > 0) {
+					// Save Length
+					*len = received;
+					
+					// Return Success
+					return 0;
+				}
+				
+				// Non-Critical Error
+				else if(received == -1 && error == EAGAIN) {
+					// Blocking Situation
+					if(flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+					
+					// Timeout
+					return ERROR_NET_ADHOC_TIMEOUT;
+				}
+				
+				// Change Socket State
+				socket->state = PTP_STATE_CLOSED;
+				
+				// Disconnected
+				return ERROR_NET_ADHOC_DISCONNECTED;
+			}
+			
+			// Invalid Arguments
+			return ERROR_NET_ADHOC_INVALID_ARG;
+		}
+		
+		// Invalid Socket
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+	
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
+/**
+ * Adhoc Emulator PTP Flusher
+ * @param id Socket File Descriptor
+ * @param timeout Flush Timeout (in Microseconds)
+ * @param flag Nonblocking Flag
+ * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_DISCONNECTED, ADHOC_NOT_CONNECTED, NET_INTERNAL
+ */
 int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
-  ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpFlush(%i, %i, %i)", id, timeout, nonblock);
-  return 0;
+  INFO_LOG(SCENET,"sceNetAdhocPtpFlush(%d,%d,%d)", id, timeout, nonblock);
+	// Library initialized
+	if(netAdhocInited) {
+		// Valid Socket
+		if(id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+			// Dummy Result
+			return 0;
+		}
+		
+		// Invalid Socket
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+	// Library uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
 int sceNetAdhocGameModeCreateMaster(u32 data, int size) {
@@ -2254,7 +3058,7 @@ int sceNetAdhocMatchingTerm() {
 
 // Presumably returns a "matchingId".
 int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int hello_int, int keepalive_int, int init_count, int rexmt_int, u32 callbackAddr) {
-  ERROR_LOG(SCENET, "sceNetAdhocMatchingCreate");
+  INFO_LOG(SCENET, "sceNetAdhocMatchingCreate");
   SceNetAdhocMatchingHandler handler;
   handler.entryPoint = callbackAddr;
 
@@ -2433,7 +3237,7 @@ const HLEFunction sceNetAdhoc[] = {
   {0xe08bdac1, WrapI_CIIIIII<sceNetAdhocPtpListen>, "sceNetAdhocPtpListen"},
   {0xfc6fc07b, WrapI_III<sceNetAdhocPtpConnect>, "sceNetAdhocPtpConnect"},
   {0x9ac2eeac, WrapI_III<sceNetAdhocPtpFlush>, "sceNetAdhocPtpFlush"},
-  {0xb9685118, WrapI_IU<sceNetAdhocGetPtpStat>, "sceNetAdhocGetPtpStat"},
+  {0xb9685118, WrapI_UU<sceNetAdhocGetPtpStat>, "sceNetAdhocGetPtpStat"},
   {0x3278ab0c, WrapI_CUI<sceNetAdhocGameModeCreateReplica>, "sceNetAdhocGameModeCreateReplica"},
   {0x98c204c8, WrapI_V<sceNetAdhocGameModeUpdateMaster>, "sceNetAdhocGameModeUpdateMaster"}, 
   {0xfa324b4e, WrapI_IU<sceNetAdhocGameModeUpdateReplica>, "sceNetAdhocGameModeUpdateReplica"},
