@@ -308,8 +308,9 @@ inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualK
 }
 
 void EmuScreen::key(const KeyInput &key) {
-	if (key.keyCode == NKCODE_BACK)
+	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
 		pauseTrigger_ = true;
+	}
 
 	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
@@ -469,8 +470,8 @@ void EmuScreen::generateTiltPSPActionButtonEvent(float x, float y) {
 		return;
 	}
 
-	int dirction = (int)(floorf( (atan2f(y, x) * (1.0 / M_PI) * 4) + 0.5f)) & 3;
-	__CtrlButtonDown(buttons[dirction]);
+	int direction = (int)(floorf((atan2f(y, x) / (2 * M_PI) * 4) + 0.5f)) & 3;
+	__CtrlButtonDown(buttons[direction]);
 
 };
 
@@ -711,7 +712,7 @@ void EmuScreen::render() {
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
-	
+
 	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
 	ui_draw2d.Flush();

@@ -53,9 +53,7 @@ private:
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
-	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
-	UI::EventReturn OnToggleTouchControls(UI::EventParams &e);
 	UI::EventReturn OnToggleTiltSettings(UI::EventParams &e);
 	UI::EventReturn OnTiltSettings(UI::EventParams &e);
 	

@@ -29,7 +29,6 @@ public:
 protected:
 	virtual void CreateViews();
 	virtual void sendMessage(const char *message, const char *value);
-	virtual UI::EventReturn OnBack(UI::EventParams &e);
 
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);

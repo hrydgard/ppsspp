@@ -9,10 +9,12 @@ void TiltSettingsScreen::CreateViews() {
 	using namespace UI;
 
 	I18NCategory *c = GetI18NCategory("Controls");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
-	root_ = root_ = new ScrollView(ORIENT_VERTICAL);
+	root_ = new ScrollView(ORIENT_VERTICAL);
 
 	LinearLayout *settings = new LinearLayout(ORIENT_VERTICAL);
+
 	settings->SetSpacing(0);
 	
 
@@ -31,12 +33,14 @@ void TiltSettingsScreen::CreateViews() {
 	InfoItem *calibrationInfo = new InfoItem("To calibrate, keep device on a flat surface and press calibrate.", "");
 	settings->Add(calibrationInfo);
 
-	Choice *calibrate = new Choice(c->T("Calibrate Tilt sensors"));
+	Choice *calibrate = new Choice(c->T("Calibrate D-Pad"));
 	calibrate->OnClick.Handle(this, &TiltSettingsScreen::OnCalibrate);
 	settings->Add(calibrate);
 
 	root_->Add(settings);
-};
+	settings->Add(new ItemHeader(""));
+	settings->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
 
 void TiltSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);

@@ -28,8 +28,8 @@ include $(LOCAL_PATH)/Locals.mk
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
-ifeq ($(TARGET_ARCH_ABI),x86) 
-
+ifeq ($(TARGET_ARCH_ABI),x86)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
@@ -47,7 +47,7 @@ ARCH_FILES := \
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
-
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
@@ -66,7 +66,7 @@ ARCH_FILES := \
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi)
-
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
@@ -206,9 +206,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
-  $(SRC)/Core/HLE/__sceAudio.cpp \
-  $(SRC)/Core/HLE/sceAudio.cpp \
-  $(SRC)/Core/HLE/sceAudiocodec.cpp \
+  $(SRC)/Core/HLE/__sceAudio.cpp.arm \
+  $(SRC)/Core/HLE/sceAudio.cpp.arm \
+  $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp \

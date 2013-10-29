@@ -18,8 +18,13 @@
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 #include "Common.h"
-#include "native/ext/cityhash/city.h"
 #include "native/ext/jpge/jpgd.h"
+
+//Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
+//#define JPEG_DEBUG
+#ifdef JPEG_DEBUG
+#include "ext/xxhash.h"
+#endif
 
 #include <algorithm>
 
@@ -54,9 +59,6 @@ u32 convertYCbCrToABGR (int y, int cb, int cr) {
 
 	return 0xFF000000 | (b << 16) | (g << 8) | (r << 0);
 }
-
-//Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
-//#define JPEG_DEBUG
 
 int sceJpegDecompressAllImage()
 {
@@ -193,8 +195,8 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 #ifdef JPEG_DEBUG
 		char jpeg_fname[256];
 		u8 *jpegBuf = Memory::GetPointer(jpegAddr);
-		uint32 jpeg_cityhash = CityHash32((const char *)jpegBuf, jpegSize);
-		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_cityhash);
+		uint32 jpeg_xxhash = XXH32((const char *)jpegBuf, jpegSize, 0xC0108888);
+		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_xxhash);
 		FILE *wfp = fopen(jpeg_fname, "wb");
 		if (!wfp) {
 			_wmkdir(L"Jpeg\\");

@@ -312,7 +312,9 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
+	bool useConvBuf = false;
 	if (pixelFormat != GE_FORMAT_8888 || linesize != 512) {
+		useConvBuf = true;
 		if (!convBuf) {
 			convBuf = new u8[512 * 272 * 4];
 		}
@@ -385,7 +387,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,512,272, GL_RGBA, GL_UNSIGNED_BYTE, pixelFormat == GE_FORMAT_8888 ? framebuf : convBuf);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : framebuf);
 
 	// This draws directly at the backbuffer so if there's a post shader, we need to apply it here. Should try to unify this path
 	// with the regular path somehow, but this simple solution works for most of the post shaders (it always runs at output resolution so FXAA may look odd).

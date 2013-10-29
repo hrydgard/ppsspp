@@ -564,13 +564,12 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 #ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
-
+	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -756,23 +755,20 @@ void GamePauseScreen::CreateViews() {
 
 	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	leftColumn->Add(leftColumnItems);
+
 	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
-	
-	
 	for (int i = 0; i < NUM_SAVESLOTS; i++){
 		std::stringstream saveSlotText;
-		saveSlotText<<" "<<i + 1<<" ";
-		
+		saveSlotText << " " << i + 1 << " ";
 		saveSlots_->AddChoice(saveSlotText.str());
-
 		if (SaveState::HasSaveInSlot(i)) {
 			saveSlots_->HighlightChoice(i);
 		}
 	}
-	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
 
+	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
 	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
-	
+
 	saveStateButton_ = leftColumnItems->Add(new Choice(i->T("Save State")));
 	saveStateButton_->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
 
@@ -782,10 +778,11 @@ void GamePauseScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
-	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
+	rightColumnItems->SetSpacing(0.0f);
+	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
@@ -798,7 +795,7 @@ void GamePauseScreen::CreateViews() {
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(gamePath_));	
+	screenManager()->push(new GameSettingsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -808,10 +805,10 @@ UI::EventReturn GamePauseScreen::OnStateSelected(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnContinue(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_CANCEL);
-	if (gpu) gpu->Resized();
-	return UI::EVENT_DONE;
+void GamePauseScreen::onFinish(DialogResult result) {
+	// Do we really always need to "gpu->Resized" here?
+	if (gpu)
+		gpu->Resized();
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {

@@ -69,8 +69,6 @@ const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
 static const int atracDecodeDelay = 2300;
 
-static const int MAX_CONFIG_VOLUME = 8;
-
 #ifdef USE_FFMPEG
 
 extern "C" {
@@ -626,6 +624,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
+							__AdjustBGMVolume((s16 *)out, numSamples * atrac->pFrame->channels);
 						}
 					}
 					av_free_packet(&packet);
@@ -1693,6 +1692,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
+					__AdjustBGMVolume((s16 *)out, numSamples * atrac->pFrame->channels);
 				}
 				av_free_packet(&packet);
 				if (got_frame)

@@ -23,24 +23,10 @@ SOURCES += ../native/ext/rg_etc1/rg_etc1.cpp
 HEADERS += ../native/ext/rg_etc1/rg_etc1.h
 INCLUDEPATH += ../native/ext/rg_etc1
 
-# Cityhash
-
-SOURCES += ../native/ext/cityhash/city.cpp
-HEADERS += ../native/ext/cityhash/*.h
-INCLUDEPATH += ../native/ext/cityhash
-
 # JPGE
 SOURCES += ../native/ext/jpge/*.cpp
 HEADERS += ../native/ext/jpge/*.h
 INCLUDEPATH += ../native/ext/jpge
-
-# VJSON
-
-SOURCES += ../native/ext/vjson/json.cpp \
-	../native/ext/vjson/block_allocator.cpp
-HEADERS += ../native/ext/vjson/json.h \
-	../native/ext/vjson/block_allocator.h
-INCLUDEPATH += ../native/ext/vjson
 
 # Stb_image
 
@@ -94,12 +80,10 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/i18n/*.cpp \
 	../native/image/*.cpp \
 	../native/input/*.cpp \
-	../native/json/json_writer.cpp \
 	../native/math/curves.cpp \
 	../native/math/expression_parser.cpp \
 	../native/math/math_util.cpp \
 	../native/math/lin/*.cpp \
-	../native/midi/midi_input.cpp \
 	../native/net/*.cpp \
 	../native/profiler/profiler.cpp \
 	../native/thread/*.cpp \
@@ -131,10 +115,8 @@ HEADERS +=  ../native/audio/*.h \
 	../native/i18n/*.h \
 	../native/image/*.h \
 	../native/input/*.h \
-	../native/json/json_writer.h \
 	../native/math/*.h \
 	../native/math/lin/*.h \
-	../native/midi/midi_input.h \
 	../native/net/*.h \
 	../native/profiler/profiler.h \
 	../native/thread/*.h \
@@ -142,7 +124,6 @@ HEADERS +=  ../native/audio/*.h \
 	../native/util/bits/*.h \
 	../native/util/hash/hash.h \
 	../native/util/random/*.h \
-	../native/util/text/utf8.h \
-	../native/ext/rapidxml/*.hpp
+	../native/util/text/utf8.h
 INCLUDEPATH += ../native
 

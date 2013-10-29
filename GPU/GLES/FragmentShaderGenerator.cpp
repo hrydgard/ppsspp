@@ -29,7 +29,7 @@
 
 #include <cstdio>
 
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gpu_features.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
@@ -59,9 +59,7 @@ const bool safeDestFactors[16] = {
 	true, //GE_DSTBLEND_FIXB,
 };
 
-
 static bool IsAlphaTestTriviallyTrue() {
-
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
 	int alphaTestMask = gstate.getAlphaTestMask();
@@ -75,7 +73,7 @@ static bool IsAlphaTestTriviallyTrue() {
 
 	case GE_COMP_GEQUAL:
 		return alphaTestRef == 0;
-		
+
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
 	case GE_COMP_NOTEQUAL:
@@ -201,6 +199,12 @@ void GenerateFragmentShader(char *buffer) {
 #if defined(GLSL_ES_1_0)
 	WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	WRITE(p, "precision lowp float;\n");
+
+	// PowerVR needs highp to do the fog in MHU correctly.
+	// Others don't, and some can't handle highp in the fragment shader.
+	if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
+		WRITE(p, "#define highp mediump\n");
+	}
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE(p, "#version 110\n");
 	// Remove lowp/mediump in non-mobile implementations
@@ -236,7 +240,7 @@ void GenerateFragmentShader(char *buffer) {
 	}
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
 		WRITE(p, "uniform lowp vec3 u_texenv;\n");
-	
+
 	WRITE(p, "varying lowp vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying lowp vec3 v_color1;\n");

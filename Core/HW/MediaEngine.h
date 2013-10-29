@@ -45,6 +45,8 @@ inline s64 getMpegTimeStamp(u8* buf) {
 
 bool InitFFmpeg();
 
+void __AdjustBGMVolume(s16 *samples, u32 count);
+
 class MediaEngine
 {
 public:

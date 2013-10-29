@@ -26,8 +26,7 @@
 
 struct AxisInput;
 
-class EmuScreen : public UIScreen
-{
+class EmuScreen : public UIScreen {
 public:
 	EmuScreen(const std::string &filename);
 	~EmuScreen();
@@ -65,10 +64,12 @@ private:
 
 	bool booted_;
 	std::string gamePath_;
+
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	std::string errorMessage_;
 
+	// If set, pauses at the end of the frame.
 	bool pauseTrigger_;
 
 	// To track mappable virtual keys. We can have as many as we want.

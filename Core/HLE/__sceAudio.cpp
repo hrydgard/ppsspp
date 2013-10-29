@@ -63,17 +63,16 @@ bool __gainAudioQueueLock();
 void __releaseAcquiredLock();
 void __blockForAudioQueueLock();
 
-
-static inline s16 clamp_s16(int i) {
-	if (i > 32767)
-		return 32767;
-	if (i < -32768)
-		return -32768;
-	return i;
-}
-
 static inline s16 adjustvolume(s16 sample, int vol) {
-	return clamp_s16((sample * vol) >> 15);
+#ifdef ARM
+	register int r;
+	asm volatile("smulwb %0, %1, %2\n\t" \
+	             "ssat %0, #16, %0" \
+	             : "=r"(r) : "r"(vol), "r"(sample));
+	return r;
+#else
+	return clamp_s16((sample * vol) >> 16);
+#endif
 }
 
 void hleAudioUpdate(u64 userdata, int cyclesLate) {
@@ -205,6 +204,13 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		return ret;
 	}
 
+	int leftVol = chan.leftVolume;
+	int rightVol = chan.rightVolume;
+	// Possible optimisation: Check if volume is 1<<15 (seems common) in which case volume is ignored
+	// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue
+	leftVol <<=1;
+	rightVol <<=1;
+
 	if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
 		const u32 totalSamples = chan.sampleCount * 2;
 
@@ -222,10 +228,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 				s16 *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
 				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-				int leftVol = chan.leftVolume;
-				int rightVol = chan.rightVolume;
 
-				// TODO: SSE/NEON implementations
+				// TODO: SSE/NEON (VQDMULH) implementations
 				for (u32 i = 0; i < sz1; i += 2) {
 					buf1[i] = adjustvolume(sampleData[i], leftVol);
 					buf1[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
@@ -242,11 +246,11 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		} else {
 			for (u32 i = 0; i < totalSamples; i++) {
 				s16 sampleL = (s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i);
-				sampleL = adjustvolume(sampleL, chan.leftVolume);
+				sampleL = adjustvolume(sampleL, leftVol);
 				chan.sampleQueue.push(sampleL);
 				i++;
 				s16 sampleR = (s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i);
-				sampleR = adjustvolume(sampleR, chan.rightVolume);
+				sampleR = adjustvolume(sampleR, rightVol);
 				chan.sampleQueue.push(sampleR);
 			}
 		}
@@ -255,8 +259,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		for (u32 i = 0; i < chan.sampleCount; i++) {
 			// Expand to stereo
 			s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-			chan.sampleQueue.push(adjustvolume(sample, chan.leftVolume));
-			chan.sampleQueue.push(adjustvolume(sample, chan.rightVolume));
+			chan.sampleQueue.push(adjustvolume(sample, leftVol));
+			chan.sampleQueue.push(adjustvolume(sample, rightVol));
 		}
 	}
 	return ret;

@@ -377,6 +377,7 @@ static const CommandTableEntry commandTable[] = {
 
 GLES_GPU::GLES_GPU()
 : resized_(false) {
+#ifdef _WIN32
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	if (gl_extensions.EXT_swap_control_tear) {
 		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
@@ -384,6 +385,7 @@ GLES_GPU::GLES_GPU()
 	} else {
 		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
+#endif
 
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
@@ -495,6 +497,7 @@ void GLES_GPU::BeginFrame() {
 }
 
 void GLES_GPU::BeginFrameInternal() {
+#ifdef _WIN32
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
@@ -510,6 +513,7 @@ void GLES_GPU::BeginFrameInternal() {
 		}
 		lastVsync_ = desiredVSyncInterval;
 	}
+#endif
 
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();

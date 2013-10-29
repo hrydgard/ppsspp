@@ -75,7 +75,6 @@
 #include "Core/CoreTiming.h"
 
 #include "native/gfx_es2/gl_state.h"
-#include "native/ext/cityhash/city.h"
 #include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
@@ -100,9 +99,10 @@ const GLuint glprim[8] = {
 };
 
 enum {
-	DECODED_VERTEX_BUFFER_SIZE = 65536 * 48,
-	DECODED_INDEX_BUFFER_SIZE = 65536 * 20,
-	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
+	VERTEX_BUFFER_MAX = 65536,
+	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 48,
+	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 20,
+	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
 #define QUAD_INDICES_MAX 32768
@@ -124,6 +124,7 @@ TransformDrawEngine::TransformDrawEngine()
 		textureCache_(0),
 		framebufferManager_(0),
 		numDrawCalls(0),
+		vertexCountInDrawCalls(0),
 		uvScale(0) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
@@ -915,7 +916,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
 	// TODO: Is this the right thing to do?
@@ -952,6 +953,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 		uvScale[numDrawCalls] = gstate_c.uv;
 	}
 	numDrawCalls++;
+	vertexCountInDrawCalls += vertexCount;
 }
 
 void TransformDrawEngine::DecodeVerts() {
@@ -1327,6 +1329,7 @@ rotateVBO:
 	indexGen.Reset();
 	collectedVerts = 0;
 	numDrawCalls = 0;
+	vertexCountInDrawCalls = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 
 #ifndef USING_GLES2

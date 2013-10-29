@@ -282,6 +282,7 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	case V_Pair:    c='C'; row=(reg>>5)&2; break;
 	case V_Triple:	c='C'; row=(reg>>6)&1; break;
 	case V_Quad:    c='C'; row=(reg>>5)&2; break;
+	default:        c='?'; break;
 	}
 	if (transpose && c == 'C') c='R';
 	if (transpose)
@@ -305,6 +306,7 @@ const char *GetMatrixNotation(int reg, MatrixSize size)
   case M_2x2:     c='M'; row=(reg>>5)&2; break;
   case M_3x3:     c='M'; row=(reg>>6)&1; break;
   case M_4x4:     c='M'; row=(reg>>5)&2; break;
+  default:        c='?'; break;
   }
   if (transpose && c=='M') c='E';
   sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);

@@ -29,7 +29,6 @@
 
 #include "ext/xxhash.h"
 #include "math/math_util.h"
-#include "native/ext/cityhash/city.h"
 
 extern int g_iNumVideos;
 

@@ -893,8 +893,14 @@ namespace MIPSInt
 					high >>= 15;
 					d[i] = low | (high << 16);
 				}
-				if (sz == V_Quad) oz = V_Pair;
-				if (sz == V_Pair) oz = V_Single;
+				switch (sz) {
+				case V_Quad: oz = V_Pair; break;
+				case V_Pair: oz = V_Single; break;
+				default:
+					_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+					oz = V_Single;
+					break;
+				}
 			}
 			break;
 		case 3:  //vi2s
@@ -906,8 +912,14 @@ namespace MIPSInt
 					high >>= 16;
 					d[i] = low | (high << 16);
 				}
-				if (sz == V_Quad) oz = V_Pair;
-				if (sz == V_Pair) oz = V_Single;
+				switch (sz) {
+				case V_Quad: oz = V_Pair; break;
+				case V_Pair: oz = V_Single; break;
+				default:
+					_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+					oz = V_Single;
+					break;
+				}
 			}
 			break;
 		default:

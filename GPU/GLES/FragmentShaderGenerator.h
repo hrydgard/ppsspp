@@ -19,15 +19,12 @@
 
 #include "Globals.h"
 
-struct FragmentShaderID
-{
+struct FragmentShaderID {
 	FragmentShaderID() {d[0] = 0xFFFFFFFF;}
 	void clear() {d[0] = 0xFFFFFFFF;}
 	u32 d[1];
-	bool operator < (const FragmentShaderID &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
+	bool operator < (const FragmentShaderID &other) const {
+		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] < other.d[i])
 				return true;
 			if (d[i] > other.d[i])
@@ -35,10 +32,8 @@ struct FragmentShaderID
 		}
 		return false;
 	}
-	bool operator == (const FragmentShaderID &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
+	bool operator == (const FragmentShaderID &other) const {
+		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] != other.d[i])
 				return false;
 		}
@@ -46,7 +41,6 @@ struct FragmentShaderID
 	}
 };
 
-
 void ComputeFragmentShaderID(FragmentShaderID *id);
-
 void GenerateFragmentShader(char *buffer);
+

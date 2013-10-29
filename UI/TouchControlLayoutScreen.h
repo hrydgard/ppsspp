@@ -34,7 +34,6 @@ public:
 	virtual void onFinish(DialogResult reason);
 
 protected:
-	virtual UI::EventReturn OnBack(UI::EventParams &e);
 	virtual UI::EventReturn OnReset(UI::EventParams &e);
 	virtual UI::EventReturn OnVisibility(UI::EventParams &e);
 

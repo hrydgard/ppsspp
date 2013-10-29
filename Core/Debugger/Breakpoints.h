@@ -123,9 +123,13 @@ public:
 	static void ClearAllMemChecks();
 
 	static MemCheck *GetMemCheck(u32 address, int size);
+	static void ExecMemCheck(u32 address, bool write, int size, u32 pc);
 
 	static void SetSkipFirst(u32 pc);
 	static u32 CheckSkipFirst();
+
+	// Includes uncached addresses.
+	static const std::vector<MemCheck> GetMemCheckRanges();
 
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();

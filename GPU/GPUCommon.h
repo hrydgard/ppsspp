@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Common/MemoryUtil.h"
 #include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -62,6 +63,13 @@ public:
 		lock_guard guard(curTickEstLock_);
 		return curTickEst_;
 #endif
+	}
+
+	void *operator new(size_t s) {
+		return AllocateAlignedMemory(s, 16);
+	}
+	void operator delete(void *p) {
+		FreeAlignedMemory(p);
 	}
 
 protected:

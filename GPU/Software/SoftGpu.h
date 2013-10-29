@@ -73,6 +73,10 @@ public:
 		fullInfo = "Software";
 	}
 
+	virtual bool FramebufferReallyDirty() {
+		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
+	}
+
 	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);

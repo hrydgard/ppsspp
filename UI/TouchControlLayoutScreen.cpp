@@ -225,20 +225,6 @@ void TouchControlLayoutScreen::touch(const TouchInput &touch) {
 	}
 };
 
-
-
-UI::EventReturn TouchControlLayoutScreen::OnBack(UI::EventParams &e) {
-
-	// Hm, wtf?
-	if (PSP_IsInited()) {
-		screenManager()->finishDialog(this, DR_CANCEL);
-	} else {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
-	return UI::EVENT_DONE;
-};
-
 void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save();
 }
@@ -291,7 +277,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 10));
 	Choice *visibility = new Choice(c->T("Visibility"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 158));
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
-	back->OnClick.Handle(this, &TouchControlLayoutScreen::OnBack);
+	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	visibility->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
 	root_->Add(visibility);
 	root_->Add(reset);
@@ -300,9 +286,9 @@ void TouchControlLayoutScreen::CreateViews() {
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftMargin, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 
-	//this is more for show than anything else. It's used to provide a boundary 
-	//so that buttons like back can be placed within the boundary.
-	//serves no other purpose.
+	// this is more for show than anything else. It's used to provide a boundary
+	// so that buttons like back can be placed within the boundary.
+	// serves no other purpose.
 	AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	I18NCategory *ms = GetI18NCategory("MainSettings");

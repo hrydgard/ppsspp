@@ -533,7 +533,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
 	if (gpu->FramebufferDirty()) {
-		if (g_Config.iShowFPSCounter) {
+		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
 			CalculateFPS();
 		}
 
