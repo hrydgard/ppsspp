@@ -219,7 +219,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// control->Get("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
-	
+
 	control->Get("TiltBaseX", &fTiltBaseX, 0);
 	control->Get("TiltBaseY", &fTiltBaseY, 0);
 	control->Get("InvertTiltX", &bInvertTiltX, false);

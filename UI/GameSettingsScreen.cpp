@@ -102,7 +102,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -220,13 +220,13 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 	Choice *tiltAnalog = controlsSettings->Add(new Choice(c->T("Customize tilt")));
 	tiltAnalog->OnClick.Handle(this, &GameSettingsScreen::OnTiltAnalogSettings);
-	tiltAnalog->SetEnabled(g_Config.bAccelerometerToAnalogHoriz);
+	tiltAnalog->SetEnabledPtr(&g_Config.bAccelerometerToAnalogHoriz);
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")))->OnClick.Handle(this, &GameSettingsScreen::OnToggleTouchControls);
+	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
-	layoutEditorChoice_->SetEnabled(g_Config.bShowTouchControls);
+	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()));
 
@@ -285,11 +285,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
-UI::EventReturn GameSettingsScreen::OnToggleTouchControls(UI::EventParams &e) {
-	layoutEditorChoice_->SetEnabled(g_Config.bShowTouchControls);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 	g_Config.recentIsos.clear();
 	OnRecentChanged.Trigger(e);
@@ -299,12 +294,6 @@ UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 	// Hmm, strange mechanism.
 	g_Config.bReloadCheats = true;
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
-	enableReports_ = Reporting::IsEnabled();
-	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	return UI::EVENT_DONE;
 }
 
