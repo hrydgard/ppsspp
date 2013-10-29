@@ -206,7 +206,7 @@ typedef struct SceNetAdhocctlParameter {
 
 // Peer Information
 typedef struct SceNetAdhocctlPeerInfo {
-  struct SceNetAdhocctlPeerInfo * next;
+  SceNetAdhocctlPeerInfo * next;
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
   uint32_t ip_addr;
@@ -2473,11 +2473,21 @@ int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
   return -1;
 }
 
+// Peer Information with u32 pointers
+typedef struct SceNetAdhocctlPeerInfoEmu {
+  u32 next; // Changed the pointer to u32
+  SceNetAdhocctlNickname nickname;
+  SceNetEtherAddr mac_addr;
+  uint32_t ip_addr;
+  u32 padding; // Changed the pointer to u32
+  uint64_t last_recv;
+} __attribute__((packed)) SceNetAdhocctlPeerInfoEmu;
+
 int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
   int * buflen = (int *)Memory::GetPointer(sizeAddr);
-  SceNetAdhocctlPeerInfo * buf = NULL;
+  SceNetAdhocctlPeerInfoEmu * buf = NULL;
   if(Memory::IsValidAddress(bufAddr)){
-    buf = (SceNetAdhocctlPeerInfo *)Memory::GetPointer(bufAddr);
+    buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(bufAddr);
   }
   // Initialized Library
   if(netAdhocctlInited) {
@@ -2487,7 +2497,7 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
       peerlock.lock();
 
       // Length Calculation Mode
-      if(buf == NULL) *buflen = __getActivePeerCount() * sizeof(SceNetAdhocctlPeerInfo);
+      if(buf == NULL) *buflen = __getActivePeerCount() * sizeof(SceNetAdhocctlPeerInfoEmu);
 
       // Normal Mode
       else {
@@ -2495,25 +2505,13 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
         int discovered = 0;
 
         // Calculate Request Count
-        int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfo);
+        int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfoEmu);
 
         // Clear Memory
         memset(buf, 0, *buflen);
 
         // Minimum Arguments
         if(requestcount > 0) {
-#ifdef LOCALHOST_AS_PEER
-          // // Get Local IP Address
-          // union SceNetApctlInfo info; if(sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &info) == 0)
-          // {
-          // 	// Add Local Address
-          // 	buf[discovered].nickname = _parameter.nickname;
-          // 	sceWlanGetEtherAddr((void *)buf[discovered].mac_addr.data);
-          // 	sceNetInetInetAton(info.ip, &buf[discovered].ip_addr);
-          // 	buf[discovered++].last_recv = sceKernelGetSystemTimeWide();
-          // }
-#endif
-
           // Peer Reference
           SceNetAdhocctlPeerInfo * peer = friends;
 
@@ -2523,17 +2521,22 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
             peer->last_recv = (uint64_t)time(NULL); 
 
             // Copy Peer Info
-            buf[discovered++] = *peer;
+            buf[discovered].nickname = peer->nickname;
+            buf[discovered].mac_addr = peer->mac_addr;
+            buf[discovered].ip_addr = peer->ip_addr;
+            buf[discovered].last_recv = peer->last_recv;
+            discovered++;
+
           }
 
           // Link List
           int i = 0; for(; i < discovered - 1; i++) {
             // Link Network
-            buf[i].next = &buf[i + 1];
+            buf[i].next = bufAddr+(sizeof(SceNetAdhocctlPeerInfoEmu)*i)+
+              sizeof(SceNetAdhocctlPeerInfoEmu);
           }
-
           // Fix Last Element
-          if(discovered > 0) buf[discovered - 1].next = NULL;
+          if(discovered > 0) buf[discovered - 1].next = 0;
         }
 
         // Fix Size
