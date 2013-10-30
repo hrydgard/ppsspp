@@ -310,7 +310,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	controls_.push_back(actionButtons);
 
-	if (g_Config.bShowTouchCross) {
+	if (g_Config.bShowTouchDpad) {
 		controls_.push_back(new PSPDPadButtons(g_Config.iDpadX, g_Config.iDpadY, g_Config.iDpadRadius, scale));
 	}
 
