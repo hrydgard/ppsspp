@@ -305,6 +305,7 @@ int main(int argc, char *argv[]) {
 	// Make sure to request a somewhat modern GL context at least - the
 	// latest supported by MacOSX (really, really sad...)
 	// Requires SDL 2.0
+	// We really should upgrade to SDL 2.0 soon.
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 #endif
@@ -336,6 +337,12 @@ int main(int argc, char *argv[]) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
 #endif
+	if ((mode & SDL_FULLSCREEN) == 0) {
+		// set a sensible default resolution (2x)
+		pixel_xres = 480 * 2;
+		pixel_yres = 272 * 2;
+	}
+
 	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
