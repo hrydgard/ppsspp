@@ -1334,7 +1334,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (newVal != gstate.projMatrix[num]) {
 				Flush();
 				gstate.projMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX);
+				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 			}
 			num++;
 			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
