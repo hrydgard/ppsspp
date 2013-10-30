@@ -277,6 +277,9 @@ FramebufferManager::FramebufferManager() :
 	convBuf(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
+	postShaderAtOutputResolution_(false),
+	plainColorLoc_(-1),
+	resized_(false),
 	textureCache_(0),
 	shaderManager_(0),
 	usePostShader_(false)

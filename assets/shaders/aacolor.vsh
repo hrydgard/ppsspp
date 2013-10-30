@@ -3,7 +3,6 @@
 
 attribute vec4 a_position;
 attribute vec2 a_texcoord0;
-uniform mat4 u_viewproj;
 uniform vec2 u_texelDelta;
 
 varying vec4 v_texcoord0;
@@ -21,7 +20,7 @@ void main()
 {
   float x = u_texelDelta.x*scaleoffset;
   float y = u_texelDelta.y*scaleoffset;
-  gl_Position = u_viewproj * a_position;
+  gl_Position = a_position;
   v_texcoord0 = a_texcoord0.xyxy;
   v_texcoord1 = v_texcoord0;
   v_texcoord2 = v_texcoord0;
