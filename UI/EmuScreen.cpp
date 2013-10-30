@@ -144,7 +144,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	
 	//user didn't click continue. he went back to the main screen and is loading 
 	//the game from there.
-	if(result != DR_CANCEL && result != DR_BACK){
+	if (result != DR_CANCEL && result != DR_BACK){
 		autoLoad();
 	}
 
@@ -633,7 +633,7 @@ void EmuScreen::deviceLost() {
 
 void EmuScreen::autoLoad(){
 	//check if save state has save, if so, load
-	if(g_Config.bEnableAutoLoad && SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)){
+	if (g_Config.bEnableAutoLoad && SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)){
 		SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0, 0);
 	}
 };
