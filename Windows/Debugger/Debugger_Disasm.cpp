@@ -370,15 +370,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_DEBUG_DSIPLAYREGISTERLIST:
-				TabCtrl_SetCurSel(GetDlgItem(m_hDlg, IDC_LEFTTABS),0);
-				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
-				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
+				leftTabs->ShowTab(0);
 				break;
 				
 			case ID_DEBUG_DSIPLAYFUNCTIONLIST:
-				TabCtrl_SetCurSel(GetDlgItem(m_hDlg, IDC_LEFTTABS),1);
-				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_HIDE);
-				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_NORMAL);
+				leftTabs->ShowTab(1);
 				break;
 
 			case ID_DEBUG_ADDBREAKPOINT:
@@ -644,12 +640,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			memory->gotoAddr(wParam);
 			
 			// display the memory viewer too
-			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-			HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
-			HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
-			ShowWindow(bp,SW_HIDE);
-			ShowWindow(mem,SW_NORMAL);
-			ShowWindow(threads,SW_HIDE);
+			bottomTabs->ShowTab(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 		}
 		break;
 	case WM_SIZE:

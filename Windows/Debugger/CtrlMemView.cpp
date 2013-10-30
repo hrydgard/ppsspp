@@ -44,7 +44,6 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	matchAddress = -1;
 	searching = false;
 
-	ctrlDown = false;
 	hasFocus = false;
 	windowStart = curAddress;
 	asciiSelected = false;
@@ -133,7 +132,6 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		ccp->onChar(wParam,lParam);
 		return 0;
 	case WM_KEYUP:
-		if (wParam == VK_CONTROL) ccp->ctrlDown = false;
 		return 0;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: SetFocus(hwnd); rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
@@ -304,13 +302,12 @@ void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
-	if (ctrlDown)
+	if (GetAsyncKeyState(VK_CONTROL))
 	{	
 		switch (tolower(wParam & 0xFFFF))
 		{
 		case 'g':
 			{
-				ctrlDown = false;
 				u32 addr;
 				if (executeExpressionWindow(wnd,debugger,addr) == false) return;
 				gotoAddr(addr);
@@ -347,9 +344,6 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_PRIOR:
 		scrollWindow(-visibleRows);
 		break;
-	case VK_CONTROL:
-		ctrlDown = true;
-		break;
 	case VK_TAB:
 		SendMessage(GetParent(wnd),WM_DEB_TABPRESSED,0,0);
 		break;
@@ -360,7 +354,7 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 {
-	if (ctrlDown || wParam == VK_TAB) return;
+	if (GetAsyncKeyState(VK_CONTROL) || wParam == VK_TAB) return;
 
 	if (!Memory::IsValidAddress(curAddress))
 	{
@@ -584,7 +578,6 @@ void CtrlMemView::search(bool continueSearch)
 	u32 searchAddress;
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
-		ctrlDown = false;
 		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
 		{
 			SetFocus(wnd);

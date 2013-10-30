@@ -264,7 +264,6 @@ void BreakpointWindow::loadFromBreakpoint(BreakPoint& breakpoint)
 
 	enabled = breakpoint.enabled;
 	address = breakpoint.addr;
-	enabled = breakpoint.enabled;
 	size = 1;
 
 	if (breakpoint.hasCond)
@@ -273,4 +272,13 @@ void BreakpointWindow::loadFromBreakpoint(BreakPoint& breakpoint)
 	} else {
 		condition[0] = 0;
 	}
+}
+
+void BreakpointWindow::initBreakpoint(u32 _address)
+{
+	memory = false;
+	enabled = true;
+	address = _address;
+	size = 1;
+	condition[0] = 0;
 }
