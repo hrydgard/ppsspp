@@ -41,6 +41,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/SaveState.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
@@ -122,6 +123,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (strstr(renderer, "Chainfire3D") != 0) {
 		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
+
+	autoLoad();
 }
 
 EmuScreen::~EmuScreen() {
@@ -138,6 +141,13 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());
 	}
+	
+	//user didn't click continue. he went back to the main screen and is loading 
+	//the game from there.
+	if(result != DR_CANCEL && result != DR_BACK){
+		autoLoad();
+	}
+
 	RecreateViews();
 }
 
@@ -620,3 +630,10 @@ void EmuScreen::deviceLost() {
 	if (gpu)
 		gpu->DeviceLost();
 }
+
+void EmuScreen::autoLoad(){
+	//check if save state has save, if so, load
+	if(g_Config.bEnableAutoLoad && SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)){
+		SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0, 0);
+	}
+};

@@ -55,6 +55,8 @@ private:
 	void setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax);
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
+	void autoLoad();
+	
 	bool booted_;
 	std::string gamePath_;
 
