@@ -29,7 +29,7 @@ Originally released under the GPL 2.0 (and later) in November 2012
 Official website:
 http://www.ppsspp.org/
 
-To contribute, see [the development page](http://www.ppspp.org/development.html).
+To contribute, see [the development page](http://www.ppsspp.org/development.html).
 
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
