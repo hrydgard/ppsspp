@@ -351,7 +351,9 @@ void hleEatMicro(int usec)
 const static u32 deadbeefRegs[12] = {0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF};
 inline static void SetDeadbeefRegs()
 {
-	// TODO: Debug setting?
+	if (g_Config.bSkipDeadbeefFilling)
+		return;
+
 	currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = 0xDEADBEEF;
 	// Set all the arguments and temp regs.
 	memcpy(&currentMIPS->r[MIPS_REG_A0], deadbeefRegs, sizeof(deadbeefRegs));

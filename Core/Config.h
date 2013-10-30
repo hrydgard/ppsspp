@@ -215,6 +215,8 @@ public:
 	bool bDisplayStatusBar;
 	bool bShowBottomTabTitles;
 	bool bShowDeveloperMenu;
+	// Double edged sword: much easier debugging, but not accurate.
+	bool bSkipDeadbeefFilling;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 

@@ -285,6 +285,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	debugConfig->Get("DisplayStatusBar", &bDisplayStatusBar, true);
 	debugConfig->Get("ShowBottomTabTitles",&bShowBottomTabTitles,true);
 	debugConfig->Get("ShowDeveloperMenu", &bShowDeveloperMenu, false);
+	debugConfig->Get("SkipDeadbeefFilling", &bSkipDeadbeefFilling, false);
 
 	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
 	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
@@ -481,6 +482,7 @@ void Config::Save() {
 		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
 		debugConfig->Set("ShowBottomTabTitles",bShowBottomTabTitles);
 		debugConfig->Set("ShowDeveloperMenu", bShowDeveloperMenu);
+		debugConfig->Set("SkipDeadbeefFilling", bSkipDeadbeefFilling);
 
 		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
 		speedhacks->Set("PrescaleUV", bPrescaleUV);
