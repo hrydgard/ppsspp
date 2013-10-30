@@ -142,13 +142,6 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());
 	}
-	
-	//user didn't click continue. he went back to the main screen and is loading 
-	//the game from there.
-	/*
-	if (result != DR_CANCEL && result != DR_BACK){
-		autoLoad();
-	}*/
 
 	RecreateViews();
 }
@@ -636,7 +629,7 @@ void EmuScreen::deviceLost() {
 void EmuScreen::autoLoad(){
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot();
-	if (g_Config.bEnableAutoLoad && lastSlot != -1){
+	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
 		SaveState::LoadSlot(lastSlot, 0, 0);
 	}
 };
