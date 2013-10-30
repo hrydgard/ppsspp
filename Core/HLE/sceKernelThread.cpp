@@ -1284,6 +1284,7 @@ bool __KernelSwitchOffThread(const char *reason)
 		Thread *t = kernelObjects.GetFast<Thread>(threadIdleID[0]);
 		if (t)
 		{
+			hleSkipDeadbeef();
 			__KernelSwitchContext(t, reason);
 			return true;
 		}
@@ -1327,6 +1328,8 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 
 void __KernelIdle()
 {
+	hleSkipDeadbeef();
+
 	CoreTiming::Idle();
 	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
 	// that was triggered at the end of the Idle period must get a chance to be scheduled.
@@ -2206,6 +2209,8 @@ int sceKernelGetThreadStackFreeSize(SceUID threadID)
 
 void __KernelReturnFromThread()
 {
+	hleSkipDeadbeef();
+
 	int exitStatus = currentMIPS->r[MIPS_REG_V0];
 	Thread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Returned from a NULL thread.");
@@ -3001,11 +3006,14 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	// Stack should stay aligned even though we saved only 3 regs.
 	currentMIPS->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
 
+	hleSkipDeadbeef();
 	return 0;
 }
 
 void __KernelReturnFromExtendStack()
 {
+	hleSkipDeadbeef();
+
 	Thread *thread = __GetCurrentThread();
 	if (!thread)
 	{
@@ -3269,6 +3277,7 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 
 void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
+	hleSkipDeadbeef();
 	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
 
 	if (thread) {
@@ -3376,6 +3385,8 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 
 void __KernelReturnFromMipsCall()
 {
+	hleSkipDeadbeef();
+
 	Thread *cur = __GetCurrentThread();
 	if (cur == NULL)
 	{

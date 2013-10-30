@@ -52,6 +52,8 @@ enum
 	HLE_AFTER_RUN_INTERRUPTS = 0x10,
 	// Switch to CORE_STEPPING after the syscall (for debugging.)
 	HLE_AFTER_DEBUG_BREAK = 0x20,
+	// Don't fill temp regs with 0xDEADBEEF.
+	HLE_AFTER_SKIP_DEADBEEF = 0x40,
 };
 
 typedef std::vector<Syscall> SyscallVector;
@@ -287,6 +289,11 @@ void hleDebugBreak()
 	hleAfterSyscall |= HLE_AFTER_DEBUG_BREAK;
 }
 
+void hleSkipDeadbeef()
+{
+	hleAfterSyscall |= HLE_AFTER_SKIP_DEADBEEF;
+}
+
 // Pauses execution after an HLE call.
 bool hleExecuteDebugBreak(const HLEFunction &func)
 {
@@ -341,8 +348,26 @@ void hleEatMicro(int usec)
 	hleEatCycles((int) usToCycles(usec));
 }
 
+const static u32 deadbeefRegs[12] = {0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF};
+inline static void SetDeadbeefRegs()
+{
+	// TODO: Debug setting?
+	currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = 0xDEADBEEF;
+	// Set all the arguments and temp regs.
+	memcpy(&currentMIPS->r[MIPS_REG_A0], deadbeefRegs, sizeof(deadbeefRegs));
+	// Using a magic number since there's confusion/disagreement on reg names.
+	currentMIPS->r[24] = 0xDEADBEEF;
+	currentMIPS->r[25] = 0xDEADBEEF;
+
+	currentMIPS->lo = 0xDEADBEEF;
+	currentMIPS->hi = 0xDEADBEEF;
+}
+
 inline void hleFinishSyscall(int modulenum, int funcnum)
 {
+	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)
+		SetDeadbeefRegs();
+
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
 		__KernelForceCallbacks();
 
@@ -449,6 +474,8 @@ void CallSyscall(MIPSOpcode op)
 
 		if (hleAfterSyscall != HLE_AFTER_NOTHING)
 			hleFinishSyscall(modulenum, funcnum);
+		else
+			SetDeadbeefRegs();
 	}
 	else
 	{

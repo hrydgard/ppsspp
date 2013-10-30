@@ -1601,6 +1601,7 @@ u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp,
 void __KernelReturnFromModuleFunc()
 {
 	// Return from the thread as normal.
+	hleSkipDeadbeef();
 	__KernelReturnFromThread();
 
 	SceUID leftModuleID = __KernelGetCurThreadModuleId();
