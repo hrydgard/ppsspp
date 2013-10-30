@@ -63,18 +63,17 @@ static const char tex_fs[] =
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
-	"	gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).rgb;\n"
-	"	gl_FragColor.a = 1.0;\n"
+	"  gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).rgb;\n"
+	"  gl_FragColor.a = 1.0;\n"
 	"}\n";
 
 static const char basic_vs[] =
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
-	"uniform mat4 u_viewproj;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
 	"  v_texcoord0 = a_texcoord0;\n"
-	"  gl_Position = u_viewproj * a_position;\n"
+	"  gl_Position = a_position;\n"
 	"}\n";
 
 // Aggressively delete unused FBO:s to save gpu memory.
@@ -421,7 +420,18 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	float v1 = flip ? 1.0f : 1.0f - vscale;
 	float v2 = flip ? 1.0f - vscale : 1.0f;
 
-	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
+	float pos[12] = {
+		x,y,0,
+		x+w,y,0,
+		x+w,y+h,0,
+		x,y+h,0
+	};
+
+	for (int i = 0; i < 4; i++) {
+		pos[i * 3] = pos[i * 3] / (destW * 0.5) - 1.0f;
+		pos[i * 3 + 1] = -(pos[i * 3 + 1] / (destH * 0.5) - 1.0f);
+	}
+
 	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
 	const GLubyte indices[4] = {0,1,3,2};
 
@@ -434,9 +444,6 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	glsl_bind(program);
-	Matrix4x4 ortho;
-	ortho.setOrtho(0, destW, destH, 0, -1, 1);
-	glUniformMatrix4fv(program->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glEnableVertexAttribArray(program->a_position);
