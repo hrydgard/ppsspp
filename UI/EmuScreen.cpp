@@ -626,7 +626,7 @@ void EmuScreen::deviceLost() {
 		gpu->DeviceLost();
 }
 
-void EmuScreen::autoLoad(){
+void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot();
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
