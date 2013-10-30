@@ -297,65 +297,14 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 int main(int argc, char *argv[]) {
 	std::string app_name;
 	std::string app_name_nice;
-
-	float zoom = 1.0f;
-	bool tablet = false;
-	bool aspect43 = false;
-	const char *zoomenv = getenv("ZOOM");
-	const char *tabletenv = getenv("TABLET");
-
-	if (zoomenv) {
-		zoom = atof(zoomenv);
-	}
-	if (tabletenv) {
-		tablet = atoi(tabletenv) ? true : false;
-	}
-
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
-
-	// Change these to temporarily test other resolutions.
-	tablet = false;
-	float density = 1.0f;
-
-	// TODO: Just grab the dimensions from EGL
-	if (landscape) {
-		if (tablet) {
-			pixel_xres = 1280 * zoom;
-			pixel_yres = 800 * zoom;
-		} else {
-#ifdef MAEMO
-			pixel_xres = 800 * zoom;
-			pixel_yres = 480 * zoom;
-#else
-			pixel_xres = 960 * zoom;
-			pixel_yres = 544 * zoom;
-#endif
-		}
-	} else {
-		// PC development hack for more space
-		//pixel_xres = 1580 * zoom;
-		//pixel_yres = 1000 * zoom;
-		if (tablet) {
-			pixel_xres = 800 * zoom;
-			pixel_yres = 1280 * zoom;
-		} else {
-#ifdef MAEMO
-			pixel_xres = 480 * zoom;
-			pixel_yres = 800 * zoom;
-#else
-			pixel_xres = 544 * zoom;
-			pixel_yres = 960 * zoom;
-#endif
-		}
-	}
-
 
 	net::Init();
 #ifdef __APPLE__
 	// Make sure to request a somewhat modern GL context at least - the
 	// latest supported by MacOSX (really, really sad...)
-	// Requires SDL 2.0 (which is even more sad, as that hasn't been released yet)
+	// Requires SDL 2.0
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 #endif
@@ -378,13 +327,16 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
-	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0,
+	int mode;
 #ifdef USING_GLES2
-		SDL_SWSURFACE | SDL_FULLSCREEN
+	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
 #else
-		SDL_OPENGL
+	mode = SDL_OPENGL;
+	for (int i = 1; i < argc; i++)
+		if (!strcmp(argv[i],"--fullscreen"))
+			mode |= SDL_FULLSCREEN;
 #endif
-		) == NULL) {
+	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
 		return(2);
@@ -413,6 +365,11 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 
+	// Maybe resize screen first if on a desktop
+	const SDL_VideoInfo* info = SDL_GetVideoInfo();
+	pixel_xres = info->current_w;
+	pixel_yres = info->current_h;
+
 #ifdef _MSC_VER
 	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
 	TCHAR path[MAX_PATH];
@@ -438,8 +395,8 @@ int main(int argc, char *argv[]) {
 	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
 #endif
 
-	dp_xres = (float)pixel_xres * density / zoom;
-	dp_yres = (float)pixel_yres * density / zoom;
+	dp_xres = (float)pixel_xres;
+	dp_yres = (float)pixel_yres;
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 
 	NativeInitGraphics();
