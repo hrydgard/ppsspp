@@ -297,6 +297,9 @@
 #define ID_OPTIONS_PAUSE_FOCUS           40136
 #define ID_TEXTURESCALING_AUTO           40137
 #define IDC_GEDBG_STEPPRIM               40138
+#define ID_DISASM_ADDFUNCTION            40139
+#define ID_DISASM_REMOVEFUNCTION         40140
+
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
