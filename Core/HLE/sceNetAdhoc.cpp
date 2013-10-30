@@ -2056,13 +2056,14 @@ int sceNetAdhocctlTerm() {
   INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
   if(netAdhocInited){
     netAdhocctlInited = false;
-    friendFinderThread.join();
+    if(friendFinderThread.joinable()){
+      friendFinderThread.join();
+    }
     // Free sttuf here
     closesocket(metasocket);
-    metasocket = -1;
-
+    metasocket = INVALID_SOCKET;
 #ifdef _MSC_VER
-    WSACleanup(); // WINDOWS ONLY!
+    WSACleanup();
 #endif
   }
 
