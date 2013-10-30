@@ -25,6 +25,7 @@
 #include "Core/HLE/HLE.h"
 #include "../CoreTiming.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "native/base/timeutil.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -42,7 +43,6 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#include <time.h>
 #include <fcntl.h>
 #include <errno.h>
 #endif
@@ -609,25 +609,6 @@ int __getLocalIp(sockaddr_in * SocketAddress){
 #endif
 }
 
-// Returns current system time in miliseconds, windows only!
-uint64_t __milliseconds_now() {
-#ifdef _MSC_VER
-  static LARGE_INTEGER s_frequency;
-  static BOOL s_use_qpc = QueryPerformanceFrequency(&s_frequency);
-  if (s_use_qpc) {
-    LARGE_INTEGER now;
-    QueryPerformanceCounter(&now);
-    return (1000LL * now.QuadPart) / s_frequency.QuadPart;
-  } else {
-    return GetTickCount();
-  }
-#else
-  timeval val;
-  gettimeofday(&val,NULL);
-  return val.tv_usec/1000;
-#endif
-}
-
 /* chages to the blocking mode of the socket
    1 to set noblocking
    0 to set blocking
@@ -825,7 +806,7 @@ int __friendFinder(){
     //_acquireNetworkLock();
 
     // Ping Server
-    now = __milliseconds_now();
+    now = real_time_now()*1000.0;
     if(now - lastping >= 100) {
       // Update Ping Time
       lastping = now;
@@ -1027,7 +1008,7 @@ int __friendFinder(){
       }
     }
     // Original value was 10 ms, I think 100 is just fine
-    __msleep(100);
+    sleep_ms(100);
   }
 
   // Log Shutdown
@@ -2444,15 +2425,15 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 					// Blocking Behaviour
 					if(!flag && newsocket == -1) {
 						// Get Start Time
-						uint32_t starttime = __milliseconds_now();
+						uint32_t starttime = (uint32_t)(real_time_now()*1000.0);
 						
 						// Retry until Timeout hits
-						while((timeout == 0 || (__milliseconds_now() - starttime) < timeout) && newsocket == -1) {
+						while((timeout == 0 ||((uint32_t)(real_time_now()*1000.0) - starttime) < timeout) && newsocket == -1) {
 							// Accept Connection
 							newsocket = accept(socket->id, (sockaddr *)&peeraddr, &peeraddrlen);
 							
 							// Wait a bit...
-							__msleep(1);
+							sleep_ms(1);
 						}
 					}
 					
@@ -2617,7 +2598,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						// Blocking Mode
 						else {
 							// Grab Connection Start Time
-							uint32_t starttime = __milliseconds_now();
+							uint32_t starttime = (uint32_t)(real_time_now()*1000.0);
 							
 							// Peer Information (for Connection-Polling)
 							sockaddr_in peer;
@@ -2625,9 +2606,9 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 							uint32_t peerlen = sizeof(peer);
 							
 							// Wait for Connection
-							while((timeout == 0 || (__milliseconds_now() - starttime) < timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
+							while((timeout == 0 || ( (uint32_t)(real_time_now()*1000.0) - starttime) < timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
 								// Wait 1ms
-                __msleep(1);
+                sleep_ms(1);
 							}
 							
 							// Connected in Time
