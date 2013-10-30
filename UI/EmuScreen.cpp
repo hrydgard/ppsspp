@@ -110,6 +110,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
+	autoLoad();
+
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
 #ifdef _WIN32
@@ -124,7 +126,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
 
-	autoLoad();
 }
 
 EmuScreen::~EmuScreen() {
@@ -144,9 +145,10 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	
 	//user didn't click continue. he went back to the main screen and is loading 
 	//the game from there.
+	/*
 	if (result != DR_CANCEL && result != DR_BACK){
 		autoLoad();
-	}
+	}*/
 
 	RecreateViews();
 }
@@ -633,7 +635,8 @@ void EmuScreen::deviceLost() {
 
 void EmuScreen::autoLoad(){
 	//check if save state has save, if so, load
-	if (g_Config.bEnableAutoLoad && SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)){
-		SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0, 0);
+	int lastSlot = SaveState::GetNewestSlot();
+	if (g_Config.bEnableAutoLoad && lastSlot != -1){
+		SaveState::LoadSlot(lastSlot, 0, 0);
 	}
 };
