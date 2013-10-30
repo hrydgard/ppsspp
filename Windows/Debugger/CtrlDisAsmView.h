@@ -83,7 +83,6 @@ class CtrlDisAsmView
 
 	std::vector<u32> jumpStack;
 
-	bool controlHeld;
 	std::string searchQuery;
 	int matchAddress;
 	bool searching;
@@ -171,7 +170,8 @@ public:
 		showHex=s;
 	}
 
-	void toggleBreakpoint();
+	void toggleBreakpoint(bool toggleEnabled = false);
+	void editBreakpoint();
 
 	void scrollWindow(int lines)
 	{
