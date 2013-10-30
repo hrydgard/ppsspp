@@ -39,10 +39,11 @@
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #include <time.h>
 #include <fcntl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <errno.h>
 #endif
 #include <mutex>
@@ -660,33 +661,39 @@ int __init_network(SceNetAdhocctlAdhocId *adhoc_id){
   WSADATA data;
   iResult = WSAStartup(MAKEWORD(2,2),&data);
   if(iResult != NOERROR){
-    printf("Wsa failed with error %d\n",iResult);
+    ERROR_LOG(SCENET, "Wsa failed");
     return iResult;
   }
 #endif
   metasocket = INVALID_SOCKET;
   metasocket = socket(AF_INET,SOCK_STREAM, IPPROTO_TCP);
   if(metasocket == INVALID_SOCKET){
-    printf("invalid socket");
+    ERROR_LOG(SCENET,"invalid socket");
     return INVALID_SOCKET;
   }
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(27312);
-  server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-  iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
+  server_addr.sin_port = htons(27312); // Maybe read this from config too
 
-  if(iResult == SOCKET_ERROR){
-    printf("Socket error %d", iResult);
+  // Resolve dns 
+  addrinfo * resultAddr;
+  iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
+  if(iResult !=  0){
+    printf("Dns error\n");
     return iResult;
   }
-
+  server_addr.sin_addr.s_addr = ((sockaddr_in *)resultAddr->ai_addr)->sin_addr.s_addr;
+  iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
+  if(iResult == SOCKET_ERROR){
+    ERROR_LOG(SCENET,"Socket error");
+    return iResult;
+  }
   memset(&parameter,0,sizeof(parameter));
   strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
   parameter.channel = 1; // Fake Channel 1
+
+  // Prepare Login Packet
   __getLocalMac(&parameter.bssid.mac_addr);
-
-
   SceNetAdhocctlLoginPacketC2S packet;
   packet.base.opcode = OPCODE_LOGIN;
   SceNetEtherAddr addres;
