@@ -13,6 +13,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
+#include "Windows/Debugger/BreakpointWindow.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Globals.h"
 #include "Windows/main.h"
@@ -277,7 +278,6 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		ccp->redraw();
 		break;
 	case WM_KILLFOCUS:
-		ccp->controlHeld = false;
 		ccp->hasFocus=false;
 		ccp->redraw();
 		break;
@@ -327,7 +327,6 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
-	controlHeld = false;
 	dontRedraw = false;
 	keyTaken = false;
 
@@ -646,6 +645,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		{
 			if (enabled) textColor = 0x0000FF;
 			int yOffset = max(-1,(rowHeight-14+1)/2);
+			if (!enabled) yOffset++;
 			DrawIconEx(hdc,2,rowY1+1+yOffset,enabled ? breakPoint : breakPointDisable,32,32,0,0,DI_NORMAL);
 		}
 		SetTextColor(hdc,textColor);
@@ -765,13 +765,44 @@ void CtrlDisAsmView::onChar(WPARAM wParam, LPARAM lParam)
 	assembleOpcode(curAddress,str);
 }
 
+
+void CtrlDisAsmView::editBreakpoint()
+{
+	BreakpointWindow win(wnd,debugger);
+
+	bool exists = false;
+	if (CBreakPoints::IsAddressBreakPoint(curAddress))
+	{
+		auto breakpoints = CBreakPoints::GetBreakpoints();
+		for (size_t i = 0; i < breakpoints.size(); i++)
+		{
+			if (breakpoints[i].addr == curAddress)
+			{
+				win.loadFromBreakpoint(breakpoints[i]);
+				exists = true;
+				break;
+			}
+		}
+	}
+
+	if (!exists)
+		win.initBreakpoint(curAddress);
+
+	if (win.exec())
+	{
+		if (exists)
+			CBreakPoints::RemoveBreakPoint(curAddress);
+		win.addBreakpoint();
+	}
+}
+
 void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
 	dontRedraw = false;
 	u32 windowEnd = windowStart+visibleRows*instructionSize;
 	keyTaken = true;
 
-	if (controlHeld)
+	if (GetAsyncKeyState(VK_CONTROL))
 	{
 		switch (tolower(wParam & 0xFFFF))
 		{
@@ -785,16 +816,20 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			disassembleToFile();
 			break;
 		case 'a':
-			controlHeld = false;
 			assembleOpcode(curAddress,"");
 			break;
 		case 'g':
 			{
 				u32 addr;
-				controlHeld = false;
 				if (executeExpressionWindow(wnd,debugger,addr) == false) return;
 				gotoAddr(addr);
 			}
+			break;
+		case 'e':	// edit breakpoint
+			editBreakpoint();
+			break;
+		case 'd':	// toogle breakpoint enabled
+			toggleBreakpoint(true);
 			break;
 		}
 	} else {
@@ -842,9 +877,6 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		case VK_TAB:
 			displaySymbols = !displaySymbols;
 			break;
-		case VK_CONTROL:
-			controlHeld = true;
-			break;
 		case VK_SPACE:
 			debugger->toggleBreakpoint(curAddress);
 			break;
@@ -858,12 +890,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
 {
-	switch (wParam & 0xFFFF)
-	{
-	case VK_CONTROL:
-		controlHeld = false;
-		break;
-	}
+
 }
 
 void CtrlDisAsmView::scrollAddressIntoView()
@@ -895,7 +922,7 @@ void CtrlDisAsmView::redraw()
 	UpdateWindow(wnd); 
 }
 
-void CtrlDisAsmView::toggleBreakpoint()
+void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
 {
 	bool enabled;
 	if (CBreakPoints::IsAddressBreakPoint(curAddress,&enabled))
@@ -904,12 +931,16 @@ void CtrlDisAsmView::toggleBreakpoint()
 		{
 			// enable disabled breakpoints
 			CBreakPoints::ChangeBreakPoint(curAddress,true);
-		} else if (CBreakPoints::GetBreakPointCondition(curAddress) != NULL)
+		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress) != NULL)
 		{
 			// don't just delete a breakpoint with a custom condition
 			int ret = MessageBox(wnd,L"This breakpoint has a custom condition.\nDo you want to remove it?",L"Confirmation",MB_YESNO);
-			if (ret != IDYES) return;
-			CBreakPoints::RemoveBreakPoint(curAddress);
+			if (ret == IDYES)
+				CBreakPoints::RemoveBreakPoint(curAddress);
+		} else if (toggleEnabled)
+		{
+			// disable breakpoint
+			CBreakPoints::ChangeBreakPoint(curAddress,false);
 		} else {
 			// otherwise just remove breakpoint
 			CBreakPoints::RemoveBreakPoint(curAddress);

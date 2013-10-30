@@ -37,7 +37,6 @@ class CtrlMemView
 	int asciiStart;
 	bool asciiSelected;
 	int selectedNibble;
-	bool ctrlDown;
 
 	int visibleRows;
 	

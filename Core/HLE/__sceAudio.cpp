@@ -206,25 +206,33 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 
 	int leftVol = chan.leftVolume;
 	int rightVol = chan.rightVolume;
-	// Possible optimisation: Check if volume is 1<<15 (seems common) in which case volume is ignored
-	// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue
-	leftVol <<=1;
-	rightVol <<=1;
 
-	if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
-		const u32 totalSamples = chan.sampleCount * 2;
+	if (leftVol == (1 << 15) && rightVol == (1 << 15) && IS_LITTLE_ENDIAN) {
+		// Good news: the volume doesn't affect the values at all.
+		// We can just do a direct memory copy.
+		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
+		s16 *buf1 = 0, *buf2 = 0;
+		size_t sz1, sz2;
+		chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
 
-		if (IS_LITTLE_ENDIAN) {
-			s16 *sampleData = (s16 *) Memory::GetPointer(chan.sampleAddress);
+		if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
+			Memory::Memcpy(buf1, chan.sampleAddress, (u32)sz1 * sizeof(s16));
+			if (buf2)
+				Memory::Memcpy(buf2, chan.sampleAddress + (u32)sz1 * sizeof(s16), (u32)sz2 * sizeof(s16));
+		}
+	} else {
+		// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue.
+		// This way we can optimally shift by 16.
+		leftVol <<=1;
+		rightVol <<=1;
+
+		if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
+			const u32 totalSamples = chan.sampleCount * 2;
+
+			s16_le *sampleData = (s16_le *) Memory::GetPointer(chan.sampleAddress);
 
 			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
-			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16))) {
-#if 0
-				for (u32 i = 0; i < totalSamples; i += 2) {
-					chan.sampleQueue.push(adjustvolume(*sampleData++, chan.leftVolume));
-					chan.sampleQueue.push(adjustvolume(*sampleData++, chan.rightVolume));
-				}
-#else
+			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
 				s16 *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
 				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
@@ -241,26 +249,14 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 						buf2[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
 					}
 				}
-#endif
 			}
-		} else {
-			for (u32 i = 0; i < totalSamples; i++) {
-				s16 sampleL = (s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i);
-				sampleL = adjustvolume(sampleL, leftVol);
-				chan.sampleQueue.push(sampleL);
-				i++;
-				s16 sampleR = (s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i);
-				sampleR = adjustvolume(sampleR, rightVol);
-				chan.sampleQueue.push(sampleR);
+		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
+			for (u32 i = 0; i < chan.sampleCount; i++) {
+				// Expand to stereo
+				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
+				chan.sampleQueue.push(adjustvolume(sample, leftVol));
+				chan.sampleQueue.push(adjustvolume(sample, rightVol));
 			}
-		}
-	}
-	else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
-		for (u32 i = 0; i < chan.sampleCount; i++) {
-			// Expand to stereo
-			s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-			chan.sampleQueue.push(adjustvolume(sample, leftVol));
-			chan.sampleQueue.push(adjustvolume(sample, rightVol));
 		}
 	}
 	return ret;

@@ -47,6 +47,8 @@ private:
 	UI::TextView *tvGameSize_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
+	UI::Choice *postProcChoice_;
+	UI::PopupMultiChoice *resolutionChoice_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -67,6 +69,7 @@ private:
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
+	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;

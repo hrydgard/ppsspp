@@ -1058,8 +1058,8 @@ u32 TransformDrawEngine::ComputeHash() {
 			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += XXH32((const char *)dc.verts + vertexSize * dc.indexLowerBound,
-				vertexSize * (dc.indexUpperBound - dc.indexLowerBound), 0x029F3EE1);
+			fullhash += XXH32((const char *)dc.verts + vertexSize * indexLowerBound,
+				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
 			fullhash += XXH32((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
