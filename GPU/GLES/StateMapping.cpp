@@ -15,6 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
+// Alpha/stencil is a convoluted mess. Some good comments are here:
+// https://github.com/hrydgard/ppsspp/issues/3768
+
+
 #include "StateMapping.h"
 #include "native/gfx_es2/gl_state.h"
 
