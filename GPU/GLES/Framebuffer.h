@@ -206,7 +206,7 @@ private:
 	bool usePostShader_;
 	bool postShaderAtOutputResolution_;
 
-	// Used by antialiasing
+	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;

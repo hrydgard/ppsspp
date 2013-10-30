@@ -835,7 +835,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
-			// An additional pass, FXAA to the extra FBO.
+			// An additional pass, post-processing shader to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
@@ -844,7 +844,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 			fbo_unbind();
 
-			// Use the extra FBO, with applied FXAA, as a texture.
+			// Use the extra FBO, with applied post-processing shader, as a texture.
 			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
 			if (extraFBOs_.size() == 0) {
 				ERROR_LOG(G3D, "WTF?");
