@@ -524,7 +524,9 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Kill Function",              ID_DISASM_ADDHLE
         MENUITEM "Rename Function...",         ID_DISASM_RENAMEFUNCTION
-    END
+		MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
+		MENUITEM "Add Function here",          ID_DISASM_ADDFUNCTION
+		END
     POPUP "funclist"
     BEGIN
         MENUITEM "Kill Function",              ID_FUNCLIST_KILLFUNCTION
