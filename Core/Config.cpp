@@ -180,8 +180,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
 	graphics->Get("VSyncInterval", &bVSync, false);
-	graphics->Get("DisableStencilTest", &bDisableStencilTest, false);
-	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("PostShader", &sPostShaderName, "Off");
 
@@ -289,6 +287,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
 	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
 	speedhacks->Get("DisableAlphaTest", &bDisableAlphaTest, false);
+	speedhacks->Get("DisableStencilTest", &bDisableStencilTest, false);
+	speedhacks->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
+	speedhacks->Get("DisableVertexHashing", &bDisableVertexHashing, false);
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -390,8 +391,6 @@ void Config::Save() {
 		graphics->Set("TexScalingType", iTexScalingType);
 		graphics->Set("TexDeposterize", bTexDeposterize);
 		graphics->Set("VSyncInterval", bVSync);
-		graphics->Set("DisableStencilTest", bDisableStencilTest);
-		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("PostShader", sPostShaderName);
 
@@ -485,6 +484,9 @@ void Config::Save() {
 		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
 		speedhacks->Set("PrescaleUV", bPrescaleUV);
 		speedhacks->Set("DisableAlphaTest", bDisableAlphaTest);
+		speedhacks->Set("DisableStencilTest", bDisableStencilTest);
+		speedhacks->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
+		speedhacks->Set("DisableVertexTexHashing", bDisableVertexHashing);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
