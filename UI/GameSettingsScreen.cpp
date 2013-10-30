@@ -113,7 +113,10 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
-	graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")))->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
+	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+	postProcChoice_->SetEnabled(g_Config.iRenderingMode != 0);
+
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 #endif
@@ -286,11 +289,13 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
-// We do not want to report when rendering mode is Framebuffer to memory - so many issues
-// are caused by that (framebuffer copies overwriting display lists, etc).
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
+	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
+	// are caused by that (framebuffer copies overwriting display lists, etc).
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+
+	postProcChoice_->SetEnabled(g_Config.iRenderingMode != 0);
 	return UI::EVENT_DONE;
 }
 
