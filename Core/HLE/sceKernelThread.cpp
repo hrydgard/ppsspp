@@ -1892,9 +1892,10 @@ void ThreadContext::reset()
 {
 	for (int i = 0; i<32; i++)
 	{
-		r[i] = 0;
-		f[i] = 0.0f;
+		r[i] = 0xDEADBEEF;
+		fi[i] = 0x7f800001;
 	}
+	r[0] = 0;
 	for (int i = 0; i<128; i++)
 	{
 		v[i] = 0.0f;
@@ -1919,15 +1920,13 @@ void ThreadContext::reset()
 	fpcond = 0;
 	fcr0 = 0;
 	fcr31 = 0;
-	hi = 0;
-	lo = 0;
+	hi = 0xDEADBEEF;
+	lo = 0xDEADBEEF;
 }
 
 void __KernelResetThread(Thread *t, int lowestPriority)
 {
 	t->context.reset();
-	t->context.hi = 0;
-	t->context.lo = 0;
 	t->context.pc = t->nt.entrypoint;
 
 	// If the thread would be better than lowestPriority, reset to its initial.  Yes, kinda odd...

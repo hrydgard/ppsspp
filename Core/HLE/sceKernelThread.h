@@ -114,9 +114,15 @@ struct ThreadContext
 
 	// r must be followed by f.
 	u32 r[32];
-	float f[32];
-
-	float v[128];
+	union {
+		float f[32];
+		u32 fi[32];
+		int fs[32];
+	};
+	union {
+		float v[128];
+		u32 vi[128];
+	};
 	u32 vfpuCtrl[16];
 
 	union {
