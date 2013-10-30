@@ -506,7 +506,8 @@ void __LoadInternalFonts() {
 				continue;
 			} 
 			// Our provided font of jpn0.pgf has size 4367080 bytes 
-			if (entry.fileName == "jpn0.pgf" && (int)info.size == 4367080) {
+			// This is an ugly hack to workaround incorrect metrics in it.
+			if (std::string(entry.fileName) == "jpn0.pgf" && (int)info.size == 4367080) {
 				original = false;
 			}
 
