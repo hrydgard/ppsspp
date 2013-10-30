@@ -731,10 +731,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		}
 	}
 
-	// Here's the best opportunity to try to detect rectangles used to clear the screen, and 
+	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
 	// replace them with real OpenGL clears. This can provide a speedup on certain mobile chips.
-	// Disabled for now - depth does not come out exactly the same
-
+	// Disabled for now - depth does not come out exactly the same.
+	//
+	// An alternative option is to simply ditch all the verts except the first and last to create a single
+	// rectangle out of many. Quite a small optimization though.
 	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
 		u32 clearColor;
 		memcpy(&clearColor, transformed[0].color0, 4);
@@ -749,7 +751,16 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		bool colorMask = gstate.isClearModeColorMask();
 		bool alphaMask = gstate.isClearModeAlphaMask();
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-		glstate.stencilTest.set(false);
+		if (alphaMask) {
+			glstate.stencilTest.set(true);
+			// Clear stencil
+			// TODO: extract the stencilValue properly, see below
+			int stencilValue = 0;
+			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
+		} else {
+			// Don't touch stencil
+			glstate.stencilTest.set(false);
+		}
 		glstate.scissorTest.set(false);
 		bool depthMask = gstate.isClearModeDepthMask();
 

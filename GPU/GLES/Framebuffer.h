@@ -38,7 +38,7 @@ enum {
 	FB_USAGE_TEXTURE = 4,
 };
 
-enum {	
+enum {
 	FB_NON_BUFFERED_MODE = 0,
 	FB_BUFFERED_MODE = 1,
 #ifndef USING_GLES2
@@ -52,7 +52,7 @@ enum {
 struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_render;
-	bool memoryUpdated; 
+	bool memoryUpdated;
 
 	u32 fb_address;
 	u32 z_address;
@@ -118,6 +118,8 @@ public:
 
 	// If texture != 0, will bind it.
 	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
+
+	void DrawPlainColor(u32 color);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -199,7 +201,9 @@ private:
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
+	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
+	int plainColorLoc_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;

@@ -299,35 +299,37 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			// We should set "ref" to that value instead of 0.
 			// In case of clear rectangles, we set it again once we know what the color is.
 			glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
-		} else 
+		} else {
 			glstate.stencilTest.disable();
-		
+		}
 	} else {
-
 #if !defined(USING_GLES2)
 		// Logic Ops
 		if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 			glstate.colorLogicOp.enable();
 			glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
-		} else
+		} else {
 			glstate.colorLogicOp.disable();
-#endif		
+		}
+#endif
 		// Set cull
 		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		if (cullEnabled) {
 			glstate.cullFace.enable();
 			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
-		} else
+		} else {
 			glstate.cullFace.disable();
-	
+		}
+
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
-		} else 
+		} else {
 			glstate.depthTest.disable();
-		
+		}
+
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
@@ -335,7 +337,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
-		
+
 		// Stencil Test
 		if (gstate.isStencilTestEnabled() && enableStencilTest) {
 			glstate.stencilTest.enable();

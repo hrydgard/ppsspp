@@ -24,7 +24,6 @@
 
 using namespace Gen;
 
-
 // GPRs are numbered 0 to 31
 // VFPU regs are numbered 32 to 159.
 // Then we have some temp regs for VFPU handling from 160 to 175.
