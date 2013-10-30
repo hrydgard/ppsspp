@@ -134,7 +134,9 @@ void GameSettingsScreen::CreateViews() {
 #else
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 #endif
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
+	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()));
+	resolutionChoice_->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
+	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != 0);
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
@@ -296,6 +298,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
 	postProcChoice_->SetEnabled(g_Config.iRenderingMode != 0);
+	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != 0);
 	return UI::EVENT_DONE;
 }
 

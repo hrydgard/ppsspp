@@ -48,6 +48,7 @@ private:
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;
+	UI::PopupMultiChoice *resolutionChoice_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
