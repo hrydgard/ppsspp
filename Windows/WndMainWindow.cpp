@@ -1074,6 +1074,16 @@ namespace MainWindow
 							Core_EnableStepping(pause);
 					}
 				}
+
+				if (wParam == WA_INACTIVE) {
+					// Force-release TAB, which is the most annoying one when alt tabbing
+					// This isn't exactly a correct solution but will fix this annoyance for many.
+					KeyInput key;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					key.keyCode = NKCODE_TAB;
+					key.flags = KEY_UP;
+					NativeKey(key);
+				}
 			}
 			break;
 
