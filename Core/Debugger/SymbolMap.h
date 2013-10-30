@@ -45,6 +45,7 @@ public:
 	void SaveSymbolMap(const char *filename) const;
 	bool LoadNocashSym(const char *ilename);
 	void AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType symbol);
+	void RemoveSymbolNum(int symbolnum);
 	void Clear();
 	void AnalyzeBackwards();
 	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION) const;
@@ -58,6 +59,7 @@ public:
 	int GetNumSymbols() const;
 	const char *GetSymbolName(int i) const;
 	void SetSymbolName(int i, const char *newname);
+	void SetSymbolSize(int i, int newSize);
 	u32 GetSymbolSize(int i) const;
 	u32 GetSymbolAddr(int i) const;
 	SymbolType GetSymbolType(int i) const;

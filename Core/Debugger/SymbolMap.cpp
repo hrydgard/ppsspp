@@ -122,6 +122,16 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 	}
 }
 
+void SymbolMap::RemoveSymbolNum(int symbolnum){
+	lock_guard guard(lock_);
+	MapEntry &toRemove = entries[symbolnum];
+	
+	uniqueEntries.erase((const MapEntryUniqueInfo) toRemove);
+	entryRanges.erase(toRemove.vaddress + toRemove.size);
+
+	entries.erase(entries.begin() + symbolnum);
+}
+
 bool SymbolMap::LoadSymbolMap(const char *filename)
 {
 	lock_guard guard(lock_);
@@ -486,6 +496,23 @@ const char *SymbolMap::GetSymbolName(int i) const
 void SymbolMap::SetSymbolName(int i, const char *newname)
 {
 	strncpy(entries[i].name, newname, sizeof(entries[i].name));
+}
+
+void SymbolMap::SetSymbolSize(int i, int newSize){
+	lock_guard guard(lock_);
+	MapEntry &e = entries[i];
+	
+	std::set<MapEntryUniqueInfo>::iterator it = uniqueEntries.find((const MapEntryUniqueInfo) e);
+	if (it != uniqueEntries.end()){
+		MapEntryUniqueInfo temp = *it;
+		temp.size = newSize;
+		uniqueEntries.erase(it);
+		uniqueEntries.insert(temp);
+	}
+	entryRanges.erase(e.vaddress + e.size);
+	entryRanges.insert(std::pair<u32,u32>(e.vaddress+newSize,e.vaddress));
+
+	e.size = newSize;
 }
 
 u32 SymbolMap::GetSymbolAddr(int i) const
