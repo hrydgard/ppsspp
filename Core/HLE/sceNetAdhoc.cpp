@@ -26,6 +26,7 @@
 #include "../CoreTiming.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "native/base/timeutil.h"
+#include "native/base/mutex.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -46,7 +47,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #endif
-#include <mutex>
 // End of extra includes
 
 #ifdef _MSC_VER
@@ -507,7 +507,7 @@ static SceNetAdhocctlParameter parameter;
 static std::thread friendFinderThread;
 static SceNetAdhocctlPeerInfo * friends = NULL;
 static SceNetAdhocctlScanInfo * networks = NULL;
-static std::mutex peerlock;
+static recursive_mutex peerlock;
 static SceNetAdhocPdpStat * pdp[255];
 static SceNetAdhocPtpStat * ptp[255];
 static uint32_t fakePoolSize = 0;
