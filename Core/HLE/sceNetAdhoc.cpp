@@ -186,10 +186,10 @@ typedef struct SceNetAdhocctlBSSId {
 // Virtual Network Information
 typedef struct SceNetAdhocctlScanInfo {
   struct SceNetAdhocctlScanInfo * next;
-  int channel;
+  s32_le channel;
   SceNetAdhocctlGroupName group_name;
   SceNetAdhocctlBSSId bssid;
-  int mode;
+  s32_le mode;
 } PACK SceNetAdhocctlScanInfo;
 
 // Player Nickname
@@ -200,7 +200,7 @@ typedef struct SceNetAdhocctlNickname {
 
 // Active Virtual Network Information
 typedef struct SceNetAdhocctlParameter {
-  int channel;
+  s32_le channel;
   SceNetAdhocctlGroupName group_name;
   SceNetAdhocctlBSSId bssid;
   SceNetAdhocctlNickname nickname;
@@ -211,15 +211,25 @@ typedef struct SceNetAdhocctlPeerInfo {
   SceNetAdhocctlPeerInfo * next;
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  uint32_t ip_addr;
+  u32_le ip_addr;
   uint8_t padding[2];
-  uint64_t last_recv;
+  u64_le last_recv;
 } PACK SceNetAdhocctlPeerInfo;
+
+// Peer Information with u32 pointers
+typedef struct SceNetAdhocctlPeerInfoEmu {
+  u32_le next; // Changed the pointer to u32
+  SceNetAdhocctlNickname nickname;
+  SceNetEtherAddr mac_addr;
+  u32_le ip_addr;
+  u32 padding; // Changed the pointer to u32
+  u64_le last_recv;
+} SceNetAdhocctlPeerInfoEmu;
 
 // Game Mode Peer List
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
 typedef struct SceNetAdhocctlGameModeInfo {
-  int num;
+  s32_le num;
   SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
 } PACK SceNetAdhocctlGameModeInfo;
 #ifdef _MSC_VER 
@@ -229,54 +239,54 @@ typedef struct SceNetAdhocctlGameModeInfo {
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
 typedef struct SceNetAdhocctlAdhocId {
-  int type;
+  s32_le type;
   uint8_t data[ADHOCCTL_ADHOCID_LEN];
   uint8_t padding[3];
 } SceNetAdhocctlAdhocId;
 
 // Socket Polling Event Listener
 struct SceNetAdhocPollSd {
-  int id;
-  int events;
-  int revents;
+  s32_le id;
+  s32_le events;
+  s32_le revents;
 };
 
 // PDP Socket Status
 struct SceNetAdhocPdpStat {
   struct SceNetAdhocPdpStat * next;
-  int id;
+  s32_le id;
   SceNetEtherAddr laddr;
-  uint16_t lport;
-  uint32_t rcv_sb_cc;
+  u16_le lport;
+  u32_le rcv_sb_cc;
 };
 
 // PTP Socket Status
 struct SceNetAdhocPtpStat {
-  u32 next; // Changed the pointer to u32
-  int id;
+  u32_le next; // Changed the pointer to u32
+  s32_le id;
   SceNetEtherAddr laddr;
   SceNetEtherAddr paddr;
-  uint16_t lport;
-  uint16_t pport;
-  uint32_t snd_sb_cc;
-  uint32_t rcv_sb_cc;
-  int state;
+  u16_le lport;
+  u16_le pport;
+  u32_le snd_sb_cc;
+  u32_le rcv_sb_cc;
+  s32_le state;
 };
 
 // Gamemode Optional Peer Buffer Data
 struct SceNetAdhocGameModeOptData {
-  uint32_t size;
-  uint32_t flag;
-  uint64_t last_recv;
+  u32_le size;
+  u32_le flag;
+  u64_le last_recv;
 };
 
 // Gamemode Buffer Status
 struct SceNetAdhocGameModeBufferStat {
   struct SceNetAdhocGameModeBufferStat * next;
-  int id;
+  s32_le id;
   void * ptr;
-  uint32_t size;
-  uint32_t master;
+  u32_le size;
+  u32_le master;
   SceNetAdhocGameModeOptData opt;
 };
 
@@ -290,27 +300,27 @@ typedef struct SceNetAdhocMatchingMemberInternal {
   SceNetEtherAddr mac;
 
   // State Variable
-  int state;
+  s32_le state;
 
   // Send in Progress
-  int sending;
+  s32_le sending;
 
   // Last Heartbeat
-  uint64_t lastping;
+  u64_le lastping;
 } SceNetAdhocMatchingMemberInternal;
 
 
 // Matching handler
 struct SceNetAdhocMatchingHandlerArgs {
-  int id;
-  int event;
+  s32_le id;
+  s32_le event;
   SceNetEtherAddr * peer;
-  int optlen;
+  s32_le optlen;
   void * opt;
 };
 
 struct SceNetAdhocMatchingHandler {
-  u32 entryPoint;
+  u32_le entryPoint;
 };
 
 // Thread Message Stack Item
@@ -320,13 +330,13 @@ typedef struct ThreadMessage
   struct ThreadMessage * next;
 
   // Stack Event Opcode
-  uint32_t opcode;
+  u32_le opcode;
 
   // Target MAC Address
   SceNetEtherAddr mac;
 
   // Optional Data Length
-  int optlen;
+  s32_le optlen;
 } ThreadMessage;
 
 // Established Peer
@@ -337,16 +347,16 @@ typedef struct SceNetAdhocMatchingContext {
   struct SceNetAdhocMatchingContext * next;
 
   // Externally Visible ID
-  int id;
+  s32_le id;
 
   // Matching Mode (HOST, CLIENT, P2P)
-  int mode;
+  s32_le mode;
 
   // Running Flag (1 = running, 0 = created)
-  int running;
+  s32_le running;
 
   // Maximum Number of Peers (for HOST, P2P)
-  int maxpeers;
+  s32_le maxpeers;
 
   // Local MAC Address
   SceNetEtherAddr mac;
@@ -355,53 +365,53 @@ typedef struct SceNetAdhocMatchingContext {
   SceNetAdhocMatchingMemberInternal * peerlist;
 
   // Local PDP Port
-  uint16_t port;
+  u16_le port;
 
   // Local PDP Socket
-  int socket;
+  s32_le socket;
 
   // Receive Buffer Length
-  int rxbuflen;
+  s32_le rxbuflen;
 
   // Receive Buffer
   uint8_t * rxbuf;
 
   // Hello Broadcast Interval (Microseconds)
-  uint32_t hello_int;
+  u32_le hello_int;
 
   // Keep-Alive Broadcast Interval (Microseconds)
-  uint32_t keepalive_int;
+  u32_le keepalive_int;
 
   // Resend Interval (Microseconds)
-  uint32_t resend_int;
+  u32_le resend_int;
 
   // Resend-Counter
-  int resendcounter;
+  s32_le resendcounter;
 
   // Keep-Alive Counter
-  int keepalivecounter;
+  s32_le keepalivecounter;
 
   // Event Handler
   SceNetAdhocMatchingHandler handler;
 
   // Hello Data Length
-  uint32_t hellolen;
+  u32_le hellolen;
 
   // Hello Data
   void * hello;
 
   // Event Caller Thread
-  int event_thid;
+  s32_le event_thid;
 
   // IO Handler Thread
-  int input_thid;
+  s32_le input_thid;
 
   // Event Caller Thread Message Stack
-  int event_stack_lock;
+  s32_le event_stack_lock;
   ThreadMessage * event_stack;
 
   // IO Handler Thread Message Stack
-  int input_stack_lock;
+  s32_le input_stack_lock;
   ThreadMessage * input_stack;
 } SceNetAdhocMatchingContext;
 
@@ -3267,15 +3277,6 @@ int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
   return -1;
 }
 
-// Peer Information with u32 pointers
-typedef struct SceNetAdhocctlPeerInfoEmu {
-  u32 next; // Changed the pointer to u32
-  SceNetAdhocctlNickname nickname;
-  SceNetEtherAddr mac_addr;
-  uint32_t ip_addr;
-  u32 padding; // Changed the pointer to u32
-  uint64_t last_recv;
-} SceNetAdhocctlPeerInfoEmu; 
 
 int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
   int * buflen = (int *)Memory::GetPointer(sizeAddr);
