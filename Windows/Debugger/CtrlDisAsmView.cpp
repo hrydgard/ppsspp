@@ -1079,6 +1079,63 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				}
 			}
 			break;
+		case ID_DISASM_REMOVEFUNCTION:
+			{
+				char statusBarTextBuff[256];
+				int sym = symbolMap.GetSymbolNum(curAddress);
+				if (sym != -1)
+				{
+					u32 funcBegin = symbolMap.GetAddress(sym);
+					int prev = symbolMap.GetSymbolNum(funcBegin - 1);
+					if (prev != -1)
+					{
+						int expandedSize = symbolMap.GetSymbolSize(prev) + symbolMap.GetSymbolSize(sym);
+						symbolMap.SetSymbolSize(prev, expandedSize);
+					}
+					symbolMap.RemoveSymbolNum(sym);
+					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
+				}
+				else
+				{
+					snprintf(statusBarTextBuff,256, "WARNING: unable to find function symbol here");
+					SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
+				}
+				redraw();
+			}
+			break;
+		case ID_DISASM_ADDFUNCTION:
+			{
+				char statusBarTextBuff[256];
+				int sym = symbolMap.GetSymbolNum(curAddress);
+				if (sym != -1)
+				{
+					if (symbolMap.GetAddress(sym) == curAddress)
+					{
+						snprintf(statusBarTextBuff,256, "WARNING: There's already a function entry point at this adress");
+						SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
+					}
+					else
+					{
+						char symname[128];
+						int prevSize = symbolMap.GetSymbolSize(sym);
+						u32 prevAddr = symbolMap.GetSymbolAddr(sym);
+						int newSize = curAddress - prevAddr;
+						symbolMap.SetSymbolSize(sym, newSize);
+						newSize = prevSize - newSize;
+						snprintf(symname,128,"u_un_%08X",curAddress);
+						symbolMap.AddSymbol(symname, curAddress, newSize, ST_FUNCTION);
+						symbolMap.SortSymbols();
+						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
+					}
+				}
+				else
+				{
+					snprintf(statusBarTextBuff, 256, "WARNING: unable to add function symbol here");
+					SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
+				}
+				redraw();
+			}
+			break;
 		case ID_DISASM_DISASSEMBLETOFILE:
 			disassembleToFile();
 			break;
