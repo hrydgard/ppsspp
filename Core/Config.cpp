@@ -115,10 +115,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	IniFile::Section *prePath = iniFile.GetOrCreateSection("PreferredPath");
-	prePath->Get("MaxPrePath", &iMaxPrePath, 3);
+	prePath->Get("MaxPrePath", &iMaxPrePath, 5);
 	prePath->Get("CurrentPrePath", &iCurrentPrePath, 0);
 	if(iMaxPrePath == 0)
-		iMaxPrePath = 3;
+		iMaxPrePath = 5;
 	PrePathList.clear();			
 	for (int i = 0; i <= iMaxPrePath; ++i) {
 		char keyName[64];
