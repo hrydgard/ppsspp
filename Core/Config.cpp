@@ -114,6 +114,20 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
+	IniFile::Section *prePath = iniFile.GetOrCreateSection("PreferredPath");
+	prePath->Get("MaxPrePath", &iMaxPrePath, 3);
+	prePath->Get("CurrentPrePath", &iCurrentPrePath, 0);
+	if(iMaxPrePath == 0)
+		iMaxPrePath = 3;
+	PrePathList.clear();			
+	for (int i = 0; i <= iMaxPrePath; ++i) {
+		char keyName[64];
+		std::string fileName;
+		sprintf(keyName,"Position%d",i);
+		if (prePath->Get(keyName,&fileName,"") && fileName.length() != 0)	
+			PrePathList.push_back(fileName);
+	}
+
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
 	cpu->Get("Jit", &bJit, !isJailed);
@@ -356,6 +370,20 @@ void Config::Save() {
 			} 
 		}
 
+		IniFile::Section *prePath = iniFile.GetOrCreateSection("PreferredPath");
+		prePath->Set("MaxPrePath", iMaxPrePath);
+		prePath->Set("CurrentPrePath", iCurrentPrePath);
+
+		for (int i = 0; i < iMaxPrePath; ++i) {
+			char keyName[64];
+			sprintf(keyName,"Position%d",i);
+			if (i < (int)PrePathList.size()) {
+				prePath->Set(keyName, PrePathList[i]);
+			} else {
+				prePath->Delete(keyName); 
+			} 
+		}
+
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
@@ -542,6 +570,15 @@ void Config::CleanRecent() {
 		}
 	}
 	recentIsos = cleanedRecent;
+}
+
+void Config::AddPreferredPath(const std::string path) {
+	PrePathList.push_back(path);
+}
+
+void Config::DeletePreferredPath(int index) {
+	auto target = PrePathList.begin() + index;
+	PrePathList.erase(target);
 }
 
 void Config::SetDefaultPath(const std::string &defaultPath) {

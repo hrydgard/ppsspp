@@ -312,6 +312,10 @@ private:
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
+	UI::EventReturn PrePathAction(UI::EventParams &e, int action);
+	UI::EventReturn OnAddPrePath(UI::EventParams &e);
+	UI::EventReturn OnDeletePrePath(UI::EventParams &e);
+	UI::EventReturn prePathChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
 
@@ -331,6 +335,45 @@ GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, 
 
 UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
 	*gridStyle_ = e.a == 0 ? true : false;
+	Refresh();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::OnAddPrePath(UI::EventParams &e) {
+	return PrePathAction(e, 0);
+}
+
+UI::EventReturn GameBrowser::OnDeletePrePath(UI::EventParams &e) {
+	return PrePathAction(e, 1);
+}
+
+UI::EventReturn GameBrowser::PrePathAction(UI::EventParams &e, int action) {
+	enum {
+		ADDACTION = 0,
+		DELETEACTION = 1,
+	};
+
+	switch (action)
+	{
+	case ADDACTION:
+		g_Config.AddPreferredPath(path_.GetPath());
+		g_Config.iCurrentPrePath = g_Config.PrePathList.size() - 1;
+		break;
+	case DELETEACTION:
+		g_Config.DeletePreferredPath(g_Config.iCurrentPrePath);
+		g_Config.iCurrentPrePath = -1;
+		break;
+	}
+	Refresh();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::prePathChange(UI::EventParams &e) {
+	int index = e.a;
+	g_Config.iCurrentPrePath = index;
+	std::string path = g_Config.PrePathList[index];
+	path_.SetPath(path);
+	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 	return UI::EVENT_DONE;
 }
@@ -377,6 +420,7 @@ void GameBrowser::Refresh() {
 
 	if (allowBrowsing_) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		LinearLayout *prePathBar = new LinearLayout(ORIENT_HORIZONTAL,new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));  //Preferred path bar.
 		Margins pathMargins(5, 0);
 		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
 #if defined(_WIN32)
@@ -389,7 +433,37 @@ void GameBrowser::Refresh() {
 		layoutChoice->AddChoice(I_LINES);
 		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
+
+		prePathBar->Add(new TextView(m->T("Preferred Path:"), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
+
+		ChoiceStrip *prePathChoice = prePathBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
+		for (int i = 0; i < g_Config.PrePathList.size(); ++i) {
+			std::stringstream prePathText;
+			prePathText << " " << i + 1 << " ";
+			prePathChoice->AddChoice(prePathText.str());
+		}
+		if(g_Config.iCurrentPrePath >= 0)
+			prePathChoice->SetSelection(g_Config.iCurrentPrePath);
+		else 
+			prePathChoice->SetSelection(g_Config.iMaxPrePath + 1); //Means no selection.
+
+		prePathChoice->OnChoice.Handle(this, &GameBrowser::prePathChange);		
+		
+		Choice *AddPrePosAction = prePathBar->Add(new Choice("+"));
+		AddPrePosAction->OnClick.Handle(this, &GameBrowser::OnAddPrePath);
+		AddPrePosAction->SetEnabled(g_Config.PrePathList.size() < g_Config.iMaxPrePath);
+
+		Choice *DeletePrePosAction = prePathBar->Add(new Choice("X"));
+		DeletePrePosAction->OnClick.Handle(this, &GameBrowser::OnDeletePrePath);
+		DeletePrePosAction->SetEnabled((g_Config.PrePathList.size() > 0));	
+
+		if(g_Config.iCurrentPrePath >= 0 && g_Config.getCurrentPrePath() != g_Config.currentDirectory) {
+			prePathChoice->SetSelection(g_Config.iMaxPrePath + 1);//Means no selection.
+			DeletePrePosAction->SetEnabled(false);
+		}
+
 		Add(topBar);
+		Add(prePathBar);
 	}
 
 	if (*gridStyle_) {
