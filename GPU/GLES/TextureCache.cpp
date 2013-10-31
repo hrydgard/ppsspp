@@ -53,14 +53,14 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
-	clutBufConverted_ = new u32[4096];  // 16KB
-	clutBufRaw_ = new u32[4096];  // 16KB
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
 TextureCache::~TextureCache() {
-	delete [] clutBufConverted_;
-	delete [] clutBufRaw_;
+	FreeAlignedMemory(clutBufConverted_);
+	FreeAlignedMemory(clutBufRaw_);
 }
 
 void TextureCache::Clear(bool delete_them) {
