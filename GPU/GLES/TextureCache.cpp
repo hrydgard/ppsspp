@@ -527,11 +527,33 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
-	// TODO: All these can be further sped up with SSE or NEON.
+	// TODO: NEON.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
-			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+#ifdef _M_SSE
+			const __m128i maskA = _mm_set1_epi32(0x000F000F);
+			const __m128i maskB = _mm_set1_epi32(0x00F000F0);
+			const __m128i maskG = _mm_set1_epi32(0x0F000F00);
+			const __m128i maskR = _mm_set1_epi32(0xF000F000);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 8;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i v = _mm_and_si128(_mm_srli_epi32(c, 12), maskA);
+				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi32(c, 4), maskB));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 4), maskG));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 12), maskR));
+				_mm_store_si128(&dstp[i], v);
+			}
+			// The remainder is done in chunks of 2, SSE was chunks of 8.
+			int i = sseChunks * 8 / 2;
+#else
+			int i = 0;
+#endif
+			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
 				dst[i] = ((c >> 12) & 0x000F000F) |
 				       ((c >> 4)  & 0x00F000F0) |
@@ -540,9 +562,32 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 			}
 		}
 		break;
+	// Final Fantasy 2 uses this heavily in animated textures.
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
-			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+#ifdef _M_SSE
+			const __m128i maskA = _mm_set1_epi32(0x00010001);
+			const __m128i maskB = _mm_set1_epi32(0x003E003E);
+			const __m128i maskG = _mm_set1_epi32(0x07C007C0);
+			const __m128i maskR = _mm_set1_epi32(0xF800F800);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 8;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i v = _mm_and_si128(_mm_srli_epi32(c, 15), maskA);
+				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi32(c, 9), maskB));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 1), maskG));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 11), maskR));
+				_mm_store_si128(&dstp[i], v);
+			}
+			// The remainder is done in chunks of 2, SSE was chunks of 8.
+			int i = sseChunks * 8 / 2;
+#else
+			int i = 0;
+#endif
+			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
 				dst[i] = ((c >> 15) & 0x00010001) |
 				       ((c >> 9)  & 0x003E003E) |
@@ -553,7 +598,27 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
 		{
-			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+#ifdef _M_SSE
+			const __m128i maskB = _mm_set1_epi32(0x001F001F);
+			const __m128i maskG = _mm_set1_epi32(0x07E007E0);
+			const __m128i maskR = _mm_set1_epi32(0xF800F800);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 8;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i v = _mm_and_si128(_mm_srli_epi32(c, 11), maskB);
+				v = _mm_or_si128(v, _mm_and_si128(c, maskG));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 11), maskR));
+				_mm_store_si128(&dstp[i], v);
+			}
+			// The remainder is done in chunks of 2, SSE was chunks of 8.
+			int i = sseChunks * 8 / 2;
+#else
+			int i = 0;
+#endif
+			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
 				dst[i] = ((c >> 11) & 0x001F001F) |
 				       ((c >> 0)  & 0x07E007E0) |
