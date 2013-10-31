@@ -517,17 +517,20 @@ public:
 class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), iconImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), centered_(false), highlighted_(false), selected_(selected) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), iconImage_(-1), centered_(false), highlighted_(false), selected_(selected) {}
 	Choice(ImageID image, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), atlasImage_(image), centered_(false), highlighted_(false), selected_(false) {}
+		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
 
 	virtual void HighlightChanged(bool highlighted);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 	virtual void SetCentered(bool c) {
 		centered_ = c;
+	}
+	virtual void SetIcon(ImageID iconImage) {
+		iconImage_ = iconImage;
 	}
 
 protected:
@@ -537,6 +540,7 @@ protected:
 	std::string text_;
 	std::string smallText_;
 	ImageID atlasImage_;
+	ImageID iconImage_;  // Only applies for text, non-centered
 	bool centered_;
 	bool highlighted_;
 
