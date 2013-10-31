@@ -172,8 +172,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		// Bind it all together
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 	} else {
 		ILOG("Creating %i x %i FBO using separate stencil", width, height);
 		// TEGRA
