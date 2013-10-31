@@ -124,10 +124,7 @@ namespace KeyMap {
 	// Use if to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
 	// your platform's keys to KeyMap keys.
-	//
-	// Returns KEYMAP_ERROR_UNKNOWN_KEY
-	// for any unmapped key
-	int KeyToPspButton(int deviceId, int key);
+	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
 	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys);
 
 	int TranslateKeyCodeToAxis(int keyCode, int &direction);
@@ -141,7 +138,7 @@ namespace KeyMap {
 	// Direction is negative or positive.
 	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
 
-	int AxisToPspButton(int deviceId, int axisId, int direction);
+	bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
 
