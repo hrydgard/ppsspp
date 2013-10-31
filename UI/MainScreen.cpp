@@ -378,7 +378,7 @@ void GameBrowser::Refresh() {
 	if (allowBrowsing_) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		Margins pathMargins(5, 0);
-		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
+		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
 #if defined(_WIN32)
 		topBar->Add(new Choice(m->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
@@ -568,7 +568,11 @@ void MainScreen::CreateViews() {
 #ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #endif
-	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
+#ifndef GOLD
+	Choice *gold = rightColumnItems->Add(new Choice(m->T("Support PPSSPP")));
+	gold->OnClick.Handle(this, &MainScreen::OnSupport);
+	gold->SetIcon(I_ICONGOLD);
+#endif
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);

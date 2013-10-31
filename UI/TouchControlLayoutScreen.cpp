@@ -357,7 +357,7 @@ DragDropButton *TouchControlLayoutScreen::getPickedControl(const int x, const in
 	for (size_t i = 0; i < controls_.size(); i++) {
 		DragDropButton *control = controls_[i];
 		const Bounds &bounds = control->GetBounds();
-		static const int thresholdFactor = 1.5;
+		const float thresholdFactor = 1.5f;
 
 		Bounds tolerantBounds(bounds.x, bounds.y, bounds.w * thresholdFactor, bounds.h * thresholdFactor);
 		if (tolerantBounds.Contains(x, y)) {
