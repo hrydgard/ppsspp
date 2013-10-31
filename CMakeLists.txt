@@ -160,7 +160,7 @@ if(NOT MSVC)
 	endif()
 
 	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE -O3 -mfpu=neon -mtune=cortex-a9)
+		add_definitions(-D_QNX_SOURCE -O2 -mfpu=neon -mtune=cortex-a9)
 	endif()
 
 	if(X86 AND NOT MIPS)
