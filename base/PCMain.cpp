@@ -232,6 +232,10 @@ void LaunchBrowser(const char *url)
 #elif __linux__
 	std::string command = std::string("xdg-open ") + url;
 	system(command.c_str());
+#elif __APPLE__
+	char temp[1024];
+	sprintf(temp, "open %s", url);
+	system(temp);
 #else
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #endif
