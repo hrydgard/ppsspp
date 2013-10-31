@@ -97,7 +97,7 @@ bool isJailed;
 
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
-
+static bool isOuya;
 recursive_mutex pendingMutex;
 static bool isMessagePending;
 static std::string pendingMessage;
@@ -420,6 +420,9 @@ void NativeInit(int argc, const char *argv[],
 	} else {
 		screenManager->switchScreen(new LogoScreen(boot_filename));
 	}
+
+	std::string sysName = System_GetProperty(SYSPROP_NAME);
+	isOuya = KeyMap::IsOuya(sysName);
 }
 
 void NativeInitGraphics() {
@@ -631,14 +634,19 @@ void NativeTouch(const TouchInput &touch) {
 }
 
 void NativeKey(const KeyInput &key) {
+	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
 	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);
 }
 
 void NativeAxis(const AxisInput &key) {
+	// ILOG("Axis id: %i value: %f", (int)key.axisId, key.value);
 	if (key.axisId >= JOYSTICK_AXIS_ACCELEROMETER_X && key.axisId <= JOYSTICK_AXIS_ACCELEROMETER_Z)	{
 		// Disable accelerometer as an axis for now.
+		return;
+	}
+	if (isOuya && key.axisId >= JOYSTICK_AXIS_OUYA_UNKNOWN1 && key.axisId <= JOYSTICK_AXIS_OUYA_UNKNOWN4) {
 		return;
 	}
 	if (screenManager)

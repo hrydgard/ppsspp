@@ -854,7 +854,7 @@ bool IsNvidiaShield(const std::string &name) {
 }
 
 bool IsXperiaPlay(const std::string &name) {
-	 return name == "Sony Ericsson:R800a" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:R800x" || name == "Sony Ericsson:R800at" || name == "Sony Ericsson:SO-01D" || name == "Sony Ericsson:zeus";
+	return name == "Sony Ericsson:R800a" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:R800x" || name == "Sony Ericsson:R800at" || name == "Sony Ericsson:SO-01D" || name == "Sony Ericsson:zeus";
 }
 
 bool IsBlackberryQWERTY(const std::string &name) {
