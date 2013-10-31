@@ -102,20 +102,31 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		// We now ignore destination alpha as a workaround for the Mali issue
 		// where we get badly composited if we use it.
 		
-		// First, find our ideal configuration
+		// First, find our ideal configuration. Prefer depth.
 		for (int i = 0; i < configs.length; i++) {
 			ConfigAttribs c = configs[i];
-			if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth == 16) {
+			if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth >= 24) {
 				chosen = c;
 				break;
 			}
 		}
 
 		if (chosen == null) {
-			// Second, accept one with bigger depth.
+			// Then, prefer one with 20-bit depth (Tegra 3)
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
-				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth > 16) {
+				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth >= 20) {
+					chosen = c;
+					break;
+				}
+			}
+		}
+		
+		if (chosen == null) {
+			// Second, accept one with 16-bit depth.
+			for (int i = 0; i < configs.length; i++) {
+				ConfigAttribs c = configs[i];
+				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 0 && c.stencil >= 8 && c.depth >= 16) {
 					chosen = c;
 					break;
 				}
@@ -133,6 +144,17 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 			}
 		}
 		
+		if (chosen == null) {
+			// Third, accept one with alpha but with stencil.
+			for (int i = 0; i < configs.length; i++) {
+				ConfigAttribs c = configs[i];
+				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 8 && c.stencil >= 8 && c.depth >= 24) {
+					chosen = c;
+					break;
+				}
+			}
+		}
+
 		if (chosen == null) {
 			// Third, accept one with alpha but with stencil.
 			for (int i = 0; i < configs.length; i++) {
