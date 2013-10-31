@@ -1141,12 +1141,14 @@ GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutF
 	}
 }
 
-void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt) {
+void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufwout) {
 	void *finalBuf = NULL;
 
 	u32 texaddr = gstate.getTextureAddress(level);
 
 	int bufw = GetTextureBufw(level, texaddr, format);
+	if (bufwout)
+		*bufwout = bufw;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
@@ -1332,7 +1334,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (w != bufw) {
+	if (!gl_extensions.EXT_unpack_subimage && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1428,7 +1430,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
 
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt);
+	int bufw;
+	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, &bufw);
 	if (finalBuf == NULL) {
 		return;
 	}
@@ -1439,8 +1442,12 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	gpuStats.numTexturesDecoded++;
 
 	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
-	// glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
-	// glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
+	bool useUnpack = false;
+	if (gl_extensions.EXT_unpack_subimage && w != bufw) {
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
+		glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
+		useUnpack = true;
+	}
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
@@ -1482,6 +1489,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 			// Try again.
 			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
 		}
+	}
+
+	if (useUnpack) {
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
 }
 
