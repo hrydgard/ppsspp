@@ -46,7 +46,7 @@ struct GLExtensions {
 	bool ATIClampBug;
 	bool NV_draw_texture;
 	bool NV_copy_image;
-
+	bool EXT_unpack_subimage;  // always supported on desktop and ES3
 	// EGL extensions
 
 	bool EGL_NV_system_time;

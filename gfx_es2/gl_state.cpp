@@ -218,6 +218,7 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
+	gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
 #if defined(ANDROID) || defined(BLACKBERRY)
 	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
@@ -249,9 +250,14 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_discard_framebuffer = false;
 #endif
 #else
-	// Desktops support minmax
+	// Desktops support minmax and subimage unpack (GL_UNPACK_ROW_LENGTH etc)
 	gl_extensions.EXT_blend_minmax = true;
+	gl_extensions.EXT_unpack_subimage = true;
 #endif
+	// GLES 3 subsumes many ES2 extensions.
+	if (gl_extensions.GLES3) {
+		gl_extensions.EXT_unpack_subimage = true;
+	}
 
 #if defined(ANDROID) || defined(BLACKBERRY)
 	if (gl_extensions.OES_mapbuffer) {
