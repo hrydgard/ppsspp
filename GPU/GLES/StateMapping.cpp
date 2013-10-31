@@ -374,7 +374,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
 		renderWidthFactor = (float)renderWidth / 480.f;
-		renderHeightFactor = (float)renderHeight / 270.f;
+		renderHeightFactor = (float)renderHeight / 272.f;
 	}
 
 	bool throughmode = gstate.isModeThrough();
