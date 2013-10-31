@@ -477,7 +477,7 @@ elseif(SDL_FOUND)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
-    message(FATAL_ERROR "Could not find SDL. Failing.")
+	message(FATAL_ERROR "Could not find SDL. Failing.")
 endif()
 
 if(X86)
@@ -1293,6 +1293,10 @@ if(APPLE)
 	# These can be fast even for debug.
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+endif()
+
+if(APPLE AND NOT IOS)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -F /Library/Frameworks")
 endif()
 
 # packaging and code signing
