@@ -30,4 +30,4 @@ public class PpssppActivity extends NativeActivity {
 		super.onStop();
 		EasyTracker.getInstance(this).activityStop(this);
 	}
-}
+}   
