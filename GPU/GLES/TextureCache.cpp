@@ -1444,12 +1444,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	bool useUnpack = false;
 	if (gl_extensions.EXT_unpack_subimage && w != bufw) {
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
-		glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 		useUnpack = true;
 	}
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
-	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
 	int scaleFactor;
 	//Auto-texture scale upto 5x rendering resolution
@@ -1492,7 +1490,6 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	if (useUnpack) {
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
 }
 
