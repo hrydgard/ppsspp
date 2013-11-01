@@ -53,14 +53,14 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
-	clutBufConverted_ = new u32[4096];  // 16KB
-	clutBufRaw_ = new u32[4096];  // 16KB
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
 TextureCache::~TextureCache() {
-	delete [] clutBufConverted_;
-	delete [] clutBufRaw_;
+	FreeAlignedMemory(clutBufConverted_);
+	FreeAlignedMemory(clutBufRaw_);
 }
 
 void TextureCache::Clear(bool delete_them) {
@@ -527,11 +527,31 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
-	// TODO: All these can be further sped up with SSE or NEON.
+	// TODO: NEON.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
-			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+#ifdef _M_SSE
+			const __m128i maskB = _mm_set1_epi16(0x00F0);
+			const __m128i maskG = _mm_set1_epi16(0x0F00);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 8;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i v = _mm_srli_epi16(c, 12);
+				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 4), maskB));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 4), maskG));
+				v = _mm_or_si128(v, _mm_slli_epi16(c, 12));
+				_mm_store_si128(&dstp[i], v);
+			}
+			// The remainder is done in chunks of 2, SSE was chunks of 8.
+			int i = sseChunks * 8 / 2;
+#else
+			int i = 0;
+#endif
+			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
 				dst[i] = ((c >> 12) & 0x000F000F) |
 				       ((c >> 4)  & 0x00F000F0) |
@@ -540,9 +560,30 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 			}
 		}
 		break;
+	// Final Fantasy 2 uses this heavily in animated textures.
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
-			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+#ifdef _M_SSE
+			const __m128i maskB = _mm_set1_epi16(0x003E);
+			const __m128i maskG = _mm_set1_epi16(0x07C0);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 8;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i v = _mm_srli_epi16(c, 15);
+				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 9), maskB));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 1), maskG));
+				v = _mm_or_si128(v, _mm_slli_epi16(c, 11));
+				_mm_store_si128(&dstp[i], v);
+			}
+			// The remainder is done in chunks of 2, SSE was chunks of 8.
+			int i = sseChunks * 8 / 2;
+#else
+			int i = 0;
+#endif
+			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
 				dst[i] = ((c >> 15) & 0x00010001) |
 				       ((c >> 9)  & 0x003E003E) |
@@ -553,7 +594,25 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
 		{
-			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+#ifdef _M_SSE
+			const __m128i maskG = _mm_set1_epi16(0x07E0);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 8;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i v = _mm_srli_epi16(c, 11);
+				v = _mm_or_si128(v, _mm_and_si128(c, maskG));
+				v = _mm_or_si128(v, _mm_slli_epi16(c, 11));
+				_mm_store_si128(&dstp[i], v);
+			}
+			// The remainder is done in chunks of 2, SSE was chunks of 8.
+			int i = sseChunks * 8 / 2;
+#else
+			int i = 0;
+#endif
+			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
 				dst[i] = ((c >> 11) & 0x001F001F) |
 				       ((c >> 0)  & 0x07E007E0) |
@@ -622,16 +681,22 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	u32 check = 0;
 
 #ifdef _M_SSE
-	// Make sure both the size and start are aligned, OR will get either.
-	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0x1f) == 0) {
+	if (((intptr_t)checkp & 0xf) == 0 && (sizeInRAM & 0x3f) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
+		__m128i cursor2 = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
+		__m128i update = _mm_set1_epi16(0x2455U);
 		const __m128i *p = (const __m128i *)checkp;
-		for (u32 i = 0; i < sizeInRAM / 16; i += 2) {
-			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i]));
+		for (u32 i = 0; i < sizeInRAM / 16; i += 4) {
+			__m128i chunk = _mm_mullo_epi16(_mm_load_si128(&p[i]), cursor2);
+			cursor = _mm_add_epi32(cursor, chunk);
 			cursor = _mm_xor_si128(cursor, _mm_load_si128(&p[i + 1]));
+			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i + 2]));
+			chunk = _mm_mullo_epi16(_mm_load_si128(&p[i + 3]), cursor2);
+			cursor = _mm_xor_si128(cursor, chunk);
+			cursor2 = _mm_add_epi16(cursor2, update);
 		}
 		// Add the four parts into the low i32.
-		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
+		cursor = _mm_add_epi32(cursor, _mm_add_epi32(_mm_srli_si128(cursor, 8), cursor2));
 		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
 		check = _mm_cvtsi128_si32(cursor);
 	} else {
