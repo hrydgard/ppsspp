@@ -19,6 +19,9 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 #include "FileUtil.h"
+#ifdef BLACKBERRY
+#include <bps/deviceinfo.h>
+#endif
 
 // Only Linux platforms have /proc/cpuinfo
 #if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
@@ -136,15 +139,9 @@ bool CheckCPUFeature(const char *feature)
 	fclose(fp);
 	return false;
 }
-#endif
 
 int GetCoreCount()
 {
-#ifdef __SYMBIAN32__
-	return 1;
-#elif defined(BLACKBERRY) || defined(IOS)
-	return 2;
-#else
 	const char marker[] = "processor\t: ";
 	int cores = 0;
 	char buf[1024];
@@ -182,8 +179,8 @@ int GetCoreCount()
 	
 	fclose(fp);
 	return cores;
-#endif
 }
+#endif
 
 CPUInfo cpu_info;
 
@@ -203,43 +200,29 @@ void CPUInfo::Detect()
 	vendor = VENDOR_ARM;
 	
 	// Get the information about the CPU 
-	num_cores = GetCoreCount();
 #if defined(__SYMBIAN32__) || defined(BLACKBERRY) || defined(IOS)
 	bool isVFP3 = false;
 	bool isVFP4 = false;
 #ifdef IOS
 	isVFP3 = true;
-    // Check for swift arch (VFP4)
-    #ifdef __ARM_ARCH_7S__
-        isVFP4 = true;
-    #endif
+	// Check for swift arch (VFP4)
+#ifdef __ARM_ARCH_7S__
+	isVFP4 = true;
+#endif
 	strcpy(brand_string, "Apple");
+	num_cores = 2;
 #elif defined(BLACKBERRY)
 	isVFP3 = true;
-	const char cpuInfoPath[] = "/pps/services/hw_info/inventory";
-	const char marker[] = "Processor_Name::";
-	const char qcCPU[] = "MSM";
-	char buf[1024];
-	FILE* fp;
-	if (fp = fopen(cpuInfoPath, "r"))
-	{
-		while (fgets(buf, sizeof(buf), fp))
-		{
-			if (strncmp(buf, marker, sizeof(marker) - 1))
-				continue;
-			if (strncmp(buf + sizeof(marker) - 1, qcCPU, sizeof(qcCPU) - 1) == 0) {
-				isVFP4 = true;
-				strcpy(brand_string, "Qualcomm ");
-			} else {
-				strcpy(brand_string, "TI ");
-			}
-			strncat(brand_string, buf + sizeof(marker) - 1, strlen(buf) - sizeof(marker));
-			break;
-		}
-		fclose(fp);
-	}
+	deviceinfo_details_t* details;
+	deviceinfo_get_details(&details);
+	num_cores = deviceinfo_details_get_processor_core_count(details);
+	strcpy(brand_string, deviceinfo_details_get_processor_name(details));
+	if (!strncmp(brand_string, "MSM", 3))
+		isVFP4 = true;
+	deviceinfo_free_details(&details);
 #elif defined(SYMBIAN)
 	strcpy(brand_string, "Samsung ARMv6");
+	num_cores = 1;
 #endif
 	// Hardcode this for now
 	bSwp = true;
@@ -278,6 +261,7 @@ void CPUInfo::Detect()
 	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
+	num_cores = GetCoreCount();
 #endif
 // On android, we build a separate library for ARMv7 so this is fine.
 // TODO: Check for ARMv7 on other platforms.
