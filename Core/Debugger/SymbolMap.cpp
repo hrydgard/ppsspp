@@ -243,7 +243,14 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 		{
 			continue;			// not supported yet
 		} else {				// labels
-			AddSymbol(value,address,1,ST_FUNCTION);
+			int size = 1;
+			char* seperator = strchr(value,',');
+			if (seperator != NULL)
+			{
+				*seperator = 0;
+				sscanf(seperator+1,"%08X",&size);
+			}
+			AddSymbol(value,address,size,ST_FUNCTION);
 		}
 	}
 
