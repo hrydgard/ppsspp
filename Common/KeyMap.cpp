@@ -250,8 +250,8 @@ static const DefMappingStruct defaultOuyaMap[] = {
 	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
 	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
 	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, -1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
+	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
+	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
 };
 
 static const DefMappingStruct defaultXperiaPlay[] = {
