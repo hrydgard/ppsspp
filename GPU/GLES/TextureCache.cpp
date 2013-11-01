@@ -532,20 +532,18 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
 #ifdef _M_SSE
-			const __m128i maskA = _mm_set1_epi32(0x000F000F);
-			const __m128i maskB = _mm_set1_epi32(0x00F000F0);
-			const __m128i maskG = _mm_set1_epi32(0x0F000F00);
-			const __m128i maskR = _mm_set1_epi32(0xF000F000);
+			const __m128i maskB = _mm_set1_epi16(0x00F0);
+			const __m128i maskG = _mm_set1_epi16(0x0F00);
 
 			__m128i *srcp = (__m128i *)src;
 			__m128i *dstp = (__m128i *)dst;
 			const int sseChunks = numPixels / 8;
 			for (int i = 0; i < sseChunks; ++i) {
 				__m128i c = _mm_load_si128(&srcp[i]);
-				__m128i v = _mm_and_si128(_mm_srli_epi32(c, 12), maskA);
-				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi32(c, 4), maskB));
-				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 4), maskG));
-				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 12), maskR));
+				__m128i v = _mm_srli_epi16(c, 12);
+				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 4), maskB));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 4), maskG));
+				v = _mm_or_si128(v, _mm_slli_epi16(c, 12));
 				_mm_store_si128(&dstp[i], v);
 			}
 			// The remainder is done in chunks of 2, SSE was chunks of 8.
@@ -566,20 +564,18 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
 #ifdef _M_SSE
-			const __m128i maskA = _mm_set1_epi32(0x00010001);
-			const __m128i maskB = _mm_set1_epi32(0x003E003E);
-			const __m128i maskG = _mm_set1_epi32(0x07C007C0);
-			const __m128i maskR = _mm_set1_epi32(0xF800F800);
+			const __m128i maskB = _mm_set1_epi16(0x003E);
+			const __m128i maskG = _mm_set1_epi16(0x07C0);
 
 			__m128i *srcp = (__m128i *)src;
 			__m128i *dstp = (__m128i *)dst;
 			const int sseChunks = numPixels / 8;
 			for (int i = 0; i < sseChunks; ++i) {
 				__m128i c = _mm_load_si128(&srcp[i]);
-				__m128i v = _mm_and_si128(_mm_srli_epi32(c, 15), maskA);
-				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi32(c, 9), maskB));
-				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 1), maskG));
-				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 11), maskR));
+				__m128i v = _mm_srli_epi16(c, 15);
+				v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 9), maskB));
+				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 1), maskG));
+				v = _mm_or_si128(v, _mm_slli_epi16(c, 11));
 				_mm_store_si128(&dstp[i], v);
 			}
 			// The remainder is done in chunks of 2, SSE was chunks of 8.
@@ -599,18 +595,16 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	case GL_UNSIGNED_SHORT_5_6_5:
 		{
 #ifdef _M_SSE
-			const __m128i maskB = _mm_set1_epi32(0x001F001F);
-			const __m128i maskG = _mm_set1_epi32(0x07E007E0);
-			const __m128i maskR = _mm_set1_epi32(0xF800F800);
+			const __m128i maskG = _mm_set1_epi16(0x07E0);
 
 			__m128i *srcp = (__m128i *)src;
 			__m128i *dstp = (__m128i *)dst;
 			const int sseChunks = numPixels / 8;
 			for (int i = 0; i < sseChunks; ++i) {
 				__m128i c = _mm_load_si128(&srcp[i]);
-				__m128i v = _mm_and_si128(_mm_srli_epi32(c, 11), maskB);
+				__m128i v = _mm_srli_epi16(c, 11);
 				v = _mm_or_si128(v, _mm_and_si128(c, maskG));
-				v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi32(c, 11), maskR));
+				v = _mm_or_si128(v, _mm_slli_epi16(c, 11));
 				_mm_store_si128(&dstp[i], v);
 			}
 			// The remainder is done in chunks of 2, SSE was chunks of 8.
