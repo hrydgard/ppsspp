@@ -214,12 +214,12 @@ void BlackberryMain::startMain(int argc, char *argv[]) {
 
 	net::Init();
 	startDisplays();
-	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/misc/", "app/native/assets/", "BADCOFFEE");
-	NativeInitGraphics();
 	screen_request_events(screen_cxt);
 	navigator_request_events(0);
 	dialog_request_events(0);
 	vibration_request_events(0);
+	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/misc/", "app/native/assets/", "BADCOFFEE");
+	NativeInitGraphics();
 	audio = new BlackberryAudio();
 	runMain();
 }
