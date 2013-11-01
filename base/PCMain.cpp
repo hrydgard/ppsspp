@@ -233,9 +233,8 @@ void LaunchBrowser(const char *url)
 	std::string command = std::string("xdg-open ") + url;
 	system(command.c_str());
 #elif __APPLE__
-	char temp[1024];
-	sprintf(temp, "open %s", url);
-	system(temp);
+	std::string command = std::string("open ") + url;
+	system(command.c_str());
 #else
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #endif
@@ -248,6 +247,9 @@ void LaunchMarket(const char *url)
 #elif __linux__
 	std::string command = std::string("xdg-open ") + url;
 	system(command.c_str());
+#elif __APPLE__
+	std::string command = std::string("open ") + url;
+	system(command.c_str());
 #else
 	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #endif
@@ -258,7 +260,10 @@ void LaunchEmail(const char *email_address)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
-	std::string command = std::string("xdg-open mailto:") + email_address;
+	std::string command = std::string("xdg-email ") + email_address;
+	system(command.c_str());
+#elif __APPLE__
+	std::string command = std::string("open mailto:") + email_address;
 	system(command.c_str());
 #else
 	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform", email_address);
