@@ -1248,7 +1248,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_8888:
 		if (!gstate.isTextureSwizzled()) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if (w == bufw) {
+			if (gl_extensions.EXT_unpack_subimage || w == bufw) {
 				finalBuf = Memory::GetPointer(texaddr);
 			} else {
 				int len = bufw * h;
@@ -1262,7 +1262,6 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		}
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_DXT1:
