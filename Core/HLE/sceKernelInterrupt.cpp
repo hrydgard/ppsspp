@@ -405,6 +405,8 @@ void __KernelReturnFromInterrupt()
 {
 	VERBOSE_LOG(SCEINTC, "Left interrupt handler at %08x", currentMIPS->pc);
 
+	hleSkipDeadbeef();
+
 	// This is what we just ran.
 	PendingInterrupt pend = pendingInterrupts.front();
 	pendingInterrupts.pop_front();
