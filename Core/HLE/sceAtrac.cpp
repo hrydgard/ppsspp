@@ -103,9 +103,9 @@ struct AtracLoopInfo {
 };
 
 struct Atrac {
-	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2),
+	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0), loopNum(0), codecType(0), failedDecode(false) {
+		currentSample(0), endSample(0), firstSampleoffset(0), loopinfoNum(0), loopNum(0), codecType(0), failedDecode(false) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -378,8 +378,7 @@ int getCodecType(u32 addr) {
 	return 0;
 }
 
-int Atrac::Analyze()
-{
+int Atrac::Analyze() {
 	// reset some values
 	codecType = 0;
 	currentSample = 0;
@@ -390,6 +389,7 @@ int Atrac::Analyze()
 	loopStartSample = -1;
 	loopEndSample = -1;
 	decodePos = 0;
+	atracChannels = 2;
 
 	if (first.size < 0x100)	{
 		ERROR_LOG_REPORT(ME, "Atrac buffer very small: %d", first.size);
@@ -509,7 +509,7 @@ u32 sceAtracGetAtracID(int codecType) {
 	atrac->codecType = codecType;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracGetAtracID(%i): no free ID", codecType);
+		ERROR_LOG(ME, "sceAtracGetAtracID(%i): no free ID", codecType);
 		delete atrac;
 		return atracID;
 	}
@@ -542,18 +542,21 @@ u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
 // (We always have "first.offset + first.writableBytes = atracBufSize").
 // We only reset the temp buf when games call sceAtracGetStreamDataInfo,
 // because that function would tell games how to add the left stream data.
-u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
-{
-	DEBUG_LOG(ME, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
+u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return 0;
+		ERROR_LOG(ME, "sceAtracAddStreamData(%i, %08x): bad atrac ID", atracID, bytesToAdd);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracAddStreamData(%i, %08x): no data", atracID, bytesToAdd);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
+		DEBUG_LOG(ME, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 		// TODO
 		if (bytesToAdd > atrac->first.writableBytes)
 			return ATRAC_ERROR_ADD_DATA_IS_TOO_BIG;
 
-		if (atrac->data_buf && (bytesToAdd > 0)) {
+		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
 		}
@@ -567,12 +570,15 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 	return 0;
 }
 
-u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains)
-{
+u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains) {
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
-	if (atrac != NULL) {
+	if (atrac == NULL) {
+		ret = ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ret = ATRAC_ERROR_NO_DATA;
+	} else {
 		// We already passed the end - return an error (many games check for this.)
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			*SamplesNum = 0;
@@ -650,7 +656,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			} else if (atrac->currentSample >= atrac->endSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize)) {
 				finishFlag = 1;
-      }
+			}
 
 			*finish = finishFlag;
 			*remains = atrac->getRemainFrames();
@@ -659,20 +665,17 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			// refresh atracContext
 			_AtracGenarateContext(atrac, atrac->atracContext);
 		}
-	} else {
-		ret = ATRAC_ERROR_BAD_ATRACID;
 	}
 
 	return ret;
 }
 
-u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
-{
+u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
 	int ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
-	if (ret != (int)ATRAC_ERROR_BAD_ATRACID) {
+	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		Memory::Write_U32(numSamples, numSamplesAddr);
 		Memory::Write_U32(finish, finishFlagAddr);
 		Memory::Write_U32(remains, remainAddr);
@@ -685,14 +688,12 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	return ret;
 }
 
-u32 sceAtracEndEntry()
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracEndEntry()");
+u32 sceAtracEndEntry() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracEndEntry()");
 	return 0;
 }
 
-u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr)
-{
+u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr) {
 	PSPPointer<AtracResetBufferInfo> bufferInfo;
 	bufferInfo = bufferInfoAddr;
 
@@ -700,6 +701,9 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 	if (!atrac) {
 		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
 		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): no data", atracID, sample, bufferInfoAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else if (!bufferInfo.IsValid()) {
 		ERROR_LOG_REPORT(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid buffer, should crash", atracID, sample, bufferInfoAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
@@ -739,13 +743,16 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 	}
 }
 
-u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetBitrate(%i, %08x)", atracID, outBitrateAddr);
+u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		ERROR_LOG(ME, "sceAtracGetBitrate(%i, %08x): bad atrac ID", atracID, outBitrateAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetBitrate(%i, %08x): no data", atracID, outBitrateAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
+		DEBUG_LOG(ME, "sceAtracGetBitrate(%i, %08x)", atracID, outBitrateAddr);
 		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 		if (atrac->codecType == PSP_MODE_AT_3_PLUS)
 			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
@@ -757,26 +764,32 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	return 0;
 }
 
-u32 sceAtracGetChannel(int atracID, u32 channelAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
+u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
-	} else {
-		if (Memory::IsValidAddress(channelAddr))
-			Memory::Write_U32(atrac->atracChannels, channelAddr);
+		ERROR_LOG(ME, "sceAtracGetChannel(%i, %08x): bad atrac ID", atracID, channelAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetChannel(%i, %08x): no data", atracID, channelAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
+	if (Memory::IsValidAddress(channelAddr))
+		Memory::Write_U32(atrac->atracChannels, channelAddr);
 	return 0;
 }
 
-u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNumAddr, statusAddr);
+u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		ERROR_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x): bad atrac ID", atracID, loopNumAddr, statusAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x): no data", atracID, loopNumAddr, statusAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
+		DEBUG_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNumAddr, statusAddr);
 		if (Memory::IsValidAddress(loopNumAddr))
 			Memory::Write_U32(atrac->loopNum, loopNumAddr);
 		// return audio's loopinfo in at3 file
@@ -790,57 +803,68 @@ u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr)
 	return 0;
 }
 
-u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr)
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
+u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		ERROR_LOG(ME, "sceAtracGetInternalErrorInfo(%i, %08x): bad atrac ID", atracID, errorAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		WARN_LOG(ME, "sceAtracGetInternalErrorInfo(%i, %08x): no data", atracID, errorAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
+		ERROR_LOG(ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
 		if (Memory::IsValidAddress(errorAddr))
 			Memory::Write_U32(0, errorAddr);
 	}
 	return 0;
 }
 
-u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
-{
+u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracGetMaxSample(%i, %08x): bad atrac ID", atracID, maxSamplesAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetMaxSample(%i, %08x): no data", atracID, maxSamplesAddr);
+		return ATRAC_ERROR_NO_DATA;
+	}
+
 	DEBUG_LOG(ME, "sceAtracGetMaxSample(%i, %08x)", atracID, maxSamplesAddr);
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		//return -1;
-	} else {
-		if (Memory::IsValidAddress(maxSamplesAddr)) {
-			int atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-			Memory::Write_U32(atracSamplesPerFrame, maxSamplesAddr);
-		}
+	if (Memory::IsValidAddress(maxSamplesAddr)) {
+		int atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		Memory::Write_U32(atracSamplesPerFrame, maxSamplesAddr);
 	}
 	return 0;
 }
 
-u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
-{
+u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x): bad atrac ID", atracID, outposAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x): no data", atracID, outposAddr);
+		return ATRAC_ERROR_NO_DATA;
+	}
+
 	DEBUG_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x)", atracID, outposAddr);
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return -1;
-	} else {
-		if (atrac->currentSample >= atrac->endSample)
-			return ATRAC_ERROR_ALL_DATA_DECODED;
-		if (Memory::IsValidAddress(outposAddr))
-			Memory::Write_U32(atrac->currentSample, outposAddr);
-	}
+	if (atrac->currentSample >= atrac->endSample)
+		return ATRAC_ERROR_ALL_DATA_DECODED;
+	if (Memory::IsValidAddress(outposAddr))
+		Memory::Write_U32(atrac->currentSample, outposAddr);
 	return 0;
 }
 
-u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
+u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
-		Memory::Write_U32(1, outNAddr);
+		ERROR_LOG(ME, "sceAtracGetNextSample(%i, %08x): bad atrac ID", atracID, outNAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetNextSample(%i, %08x): no data", atracID, outNAddr);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
+		DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
 		if (atrac->currentSample >= atrac->endSample) {
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(0, outNAddr);
@@ -856,27 +880,32 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 	return 0;
 }
 
-u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
+u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		if (Memory::IsValidAddress(remainAddr))
-			Memory::Write_U32(12, remainAddr);
-	} else {
-		if (Memory::IsValidAddress(remainAddr))
-			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
+		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): bad atrac ID", atracID, remainAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): no data", atracID, remainAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
+	if (Memory::IsValidAddress(remainAddr))
+		Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
 	return 0;
 }
 
-u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
-{
-	ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
+u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x): bad atrac ID", atracID, outposAddr, outBytesAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x): no data", atracID, outposAddr, outBytesAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+	ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
 	if (Memory::IsValidAddress(outposAddr) && atrac)
 		Memory::Write_U32(atrac->second.fileoffset, outposAddr);
 	if (Memory::IsValidAddress(outBytesAddr) && atrac)
@@ -885,60 +914,68 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 }
 
-u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
-	} else {
-		if (Memory::IsValidAddress(outEndSampleAddr))
-			Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
-		if (Memory::IsValidAddress(outLoopStartSampleAddr))
-			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
-		if (Memory::IsValidAddress(outLoopEndSampleAddr))
-			Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
+		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): bad atrac ID", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): no data", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+	if (Memory::IsValidAddress(outEndSampleAddr))
+		Memory::Write_U32(atrac->endSample, outEndSampleAddr);
+	if (Memory::IsValidAddress(outLoopStartSampleAddr))
+		Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr);
+	if (Memory::IsValidAddress(outLoopEndSampleAddr))
+		Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr);
 	return 0;
 }
 
 // Games call this function to get some info for add more stream data,
 // such as where the data read from, where the data add to,
 // and how many bytes are allowed to add.
-u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr)
-{
-	DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
-	} else {
-		// reset the temp buf for adding more stream data
-		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
-		atrac->first.offset = 0;
-
-		if (Memory::IsValidAddress(writeAddr))
-		Memory::Write_U32(atrac->first.addr, writeAddr);
-		if (Memory::IsValidAddress(writableBytesAddr))
-		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
-		if (Memory::IsValidAddress(readOffsetAddr))
-		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
+		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): bad atrac ID", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+	// reset the temp buf for adding more stream data
+	atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+	atrac->first.offset = 0;
+
+	if (Memory::IsValidAddress(writeAddr))
+		Memory::Write_U32(atrac->first.addr, writeAddr);
+	if (Memory::IsValidAddress(writableBytesAddr))
+		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
+	if (Memory::IsValidAddress(readOffsetAddr))
+		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
 	return 0;
 }
 
-u32 sceAtracReleaseAtracID(int atracID)
-{
+u32 sceAtracReleaseAtracID(int atracID) {
 	INFO_LOG(ME, "sceAtracReleaseAtracID(%i)", atracID);
 	return deleteAtrac(atracID);
 }
 
-u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf)
-{
-	INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): bad atrac ID", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): no data", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+		return ATRAC_ERROR_NO_DATA;
 	} else {
+		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		if (bytesWrittenFirstBuf > 0)
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
 		atrac->currentSample = sample;
@@ -955,8 +992,7 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 }
 
 #ifdef USE_FFMPEG
-static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
-{
+static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
 	Atrac *atrac = (Atrac *)opaque;
 	if (atrac->decodePos > atrac->first.filesize)
 		return -1;
@@ -968,8 +1004,7 @@ static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 	return size;
 }
 
-static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
-{
+static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence) {
 	Atrac *atrac = (Atrac*)opaque;
 	if (offset > atrac->first.filesize)
 		return -1;
@@ -1085,8 +1120,7 @@ int __AtracSetContext(Atrac *atrac) {
 	return 0;
 }
 
-int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
-{
+int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
@@ -1128,8 +1162,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	return 0;
 }
 
-int _AtracSetData(int atracID, u32 buffer, u32 bufferSize, bool needReturnAtracID = false)
-{
+int _AtracSetData(int atracID, u32 buffer, u32 bufferSize, bool needReturnAtracID = false) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return -1;
@@ -1140,47 +1173,59 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize, bool needReturnAtracI
 	return hleDelayResult(ret, "atrac set data", 100);
 }
 
-u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x): bad atrac ID", atracID, halfBuffer, readSize, halfBufferSize);
+		return ATRAC_ERROR_BAD_ATRACID;
+	}
+
 	INFO_LOG(ME, "sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x)", atracID, halfBuffer, readSize, halfBufferSize);
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
-	Atrac *atrac = getAtrac(atracID);
 	int ret = 0;
 	if (atrac != NULL) {
 		atrac->first.addr = halfBuffer;
 		atrac->first.size = readSize;
-		atrac->Analyze();
+		ret = atrac->Analyze();
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x): bad data", atracID, halfBuffer, readSize, halfBufferSize);
+			return ret;
+		}
 		atrac->atracOutputChannels = 2;
 		ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	}
 	return ret;
 }
 
-u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
+u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): bad atrac ID", atracID, secondBuffer, secondBufferSize);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): no data", atracID, secondBuffer, secondBufferSize);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
 	return 0;
 }
 
-u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
-{
+u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac != NULL) {
 		INFO_LOG(ME, "sceAtracSetData(%i, %08x, %08x)", atracID, buffer, bufferSize);
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
 		int ret = atrac->Analyze();
-		if (ret == 0 && (int)atrac->codecType != atracIDTypes[atracID]) {
-			ERROR_LOG(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
+		} else if ((int)atrac->codecType != atracIDTypes[atracID]) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
 			ret = ATRAC_ERROR_WRONG_CODECTYPE;
-		}
-		if (ret == 0) {
+		} else {
 			atrac->atracOutputChannels = 2;
 			ret = _AtracSetData(atracID, buffer, bufferSize);
 		}
@@ -1191,8 +1236,13 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	}
 }
 
-int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
-{
+int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
+	// A large value happens in Tales of VS, and isn't handled somewhere properly as a u32.
+	// It's impossible for it to be that big anyway, so cap it.
+	if (bufferSize < 0) {
+		WARN_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x): negative bufferSize", buffer, bufferSize);
+		bufferSize = 0x10000000;
+	}
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
@@ -1200,13 +1250,14 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.size = bufferSize;
 	int ret = atrac->Analyze();
 	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): bad data", buffer, bufferSize);
 		delete atrac;
 		return ret;
 	}
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
+		ERROR_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1217,8 +1268,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	return atracID;
 }
 
-int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
 		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
@@ -1228,47 +1278,55 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
-	atrac->Analyze();
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return ret;
+	}
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
+	ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
 }
 
-u32 sceAtracStartEntry()
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracStartEntry(.)");
+u32 sceAtracStartEntry() {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracStartEntry()");
 	return 0;
 }
 
-u32 sceAtracSetLoopNum(int atracID, int loopNum)
-{
+u32 sceAtracSetLoopNum(int atracID, int loopNum) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i): bad atrac ID", atracID, loopNum);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no data", atracID, loopNum);
+		return ATRAC_ERROR_NO_DATA;
+	}
+
 	// Spammed in MHU
 	DEBUG_LOG(ME, "sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
-	Atrac *atrac = getAtrac(atracID);
-	if (atrac) {
-		if (atrac->loopinfoNum == 0)
-			return ATRAC_ERROR_NO_LOOP_INFORMATION;
-		atrac->loopNum = loopNum;
-		if (loopNum != 0 && atrac->loopinfoNum == 0) {
-			// Just loop the whole audio
-			atrac->loopStartSample = 0;
-			atrac->loopEndSample = atrac->endSample;
-		}
+	if (atrac->loopinfoNum == 0)
+		return ATRAC_ERROR_NO_LOOP_INFORMATION;
+	atrac->loopNum = loopNum;
+	if (loopNum != 0 && atrac->loopinfoNum == 0) {
+		// Just loop the whole audio
+		atrac->loopStartSample = 0;
+		atrac->loopEndSample = atrac->endSample;
 	}
 	return 0;
 }
 
-int sceAtracReinit(int at3Count, int at3plusCount)
-{
+int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
 		if (atracIDs[i] != NULL) {
 			ERROR_LOG_REPORT(ME, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
@@ -1315,51 +1373,69 @@ int sceAtracReinit(int at3Count, int at3plusCount)
 	}
 }
 
-int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr)
-{
-	DEBUG_LOG(ME, "sceAtracGetOutputChannel(%i, %08x)", atracID, outputChanPtr);
-	Atrac *atrac = getAtrac(atracID);
-	if (Memory::IsValidAddress(outputChanPtr))
-		Memory::Write_U32(atrac ? atrac->atracOutputChannels : 2, outputChanPtr);
-	return 0;
-}
-
-int sceAtracIsSecondBufferNeeded(int atracID)
-{
-	ERROR_LOG(ME, "UNIMPL sceAtracIsSecondBufferNeeded(%i)", atracID);
+int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		ERROR_LOG(ME, "sceAtracGetOutputChannel(%i, %08x): bad atrac ID", atracID, outputChanPtr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracGetOutputChannel(%i, %08x): no data", atracID, outputChanPtr);
+		return ATRAC_ERROR_NO_DATA;
 	}
+
+	DEBUG_LOG(ME, "sceAtracGetOutputChannel(%i, %08x)", atracID, outputChanPtr);
+	if (Memory::IsValidAddress(outputChanPtr))
+		Memory::Write_U32(atrac->atracOutputChannels, outputChanPtr);
 	return 0;
 }
 
-int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, u32 MOutHalfBufferSize)
-{
+int sceAtracIsSecondBufferNeeded(int atracID) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracIsSecondBufferNeeded(%i): bad atrac ID", atracID);
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->data_buf) {
+		ERROR_LOG(ME, "sceAtracIsSecondBufferNeeded(%i): no data", atracID);
+		return ATRAC_ERROR_NO_DATA;
+	}
+	WARN_LOG(ME, "UNIMPL sceAtracIsSecondBufferNeeded(%i)", atracID);
+	return 0;
+}
+
+int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, u32 MOutHalfBufferSize) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad atrac ID", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+		return ATRAC_ERROR_BAD_ATRACID;
+	}
+
 	INFO_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x)", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
 	if (readSize > MOutHalfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
-	Atrac *atrac = getAtrac(atracID);
 	int ret = 0;
 	if (atrac != NULL) {
 		atrac->first.addr = MOutHalfBuffer;
 		atrac->first.size = readSize;
-		atrac->Analyze();
+		ret = atrac->Analyze();
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad data", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+			return ret;
+		}
 		atrac->atracOutputChannels = 1;
 		ret = _AtracSetData(atracID, MOutHalfBuffer, MOutHalfBufferSize);
 	}
 	return ret;
 }
-
-u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize)
-{
+u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	INFO_LOG(ME, "sceAtracSetMOutData(%i, %08x, %08x)", atracID, buffer, bufferSize);
 	Atrac *atrac = getAtrac(atracID);
+	// TODO: What is the proper error code here?
 	int ret = 0;
 	if (atrac != NULL) {
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
+		// TODO: Error code for bad data (probably yes)?
 		atrac->Analyze();
 		atrac->atracOutputChannels = 1;
 		ret = _AtracSetData(atracID, buffer, bufferSize);
@@ -1367,18 +1443,18 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize)
 	return ret;
 }
 
-int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
-{
+int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
+	// TODO: Error code for bad data (probably yes)?
 	atrac->Analyze();
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1389,10 +1465,9 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 	return atracID;
 }
 
-int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
-		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 	int codecType = getCodecType(halfBuffer);
@@ -1400,36 +1475,41 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
-	atrac->Analyze();
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return ret;
+	}
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
+	ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
 }
 
-int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr)
-{
+int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr) {
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
+	// TODO: Seems to use different error codes?
 	atrac->Analyze();
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID",  buffer, bufferSize, fileSize, metadataSizeAddr);
+		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID",  buffer, bufferSize, fileSize, metadataSizeAddr);
 		delete atrac;
 		return atracID;
 	}
-	ERROR_LOG(ME, "UNIMPL %d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
+	WARN_LOG(ME, "%d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
 	return atracID;
 }
 
@@ -1455,6 +1535,10 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	if (context->info.endSample > 0) {
 		// do not change info.state if this was not called at first time
 		// In Sol Trigger, it would set info.state = 0x10 outside
+		// TODO: Should we just keep this in PSP ram then, or something?
+	} else if (!atrac->data_buf) {
+		// State 1, no buffer yet.
+		context->info.state = 1;
 	} else if (atrac->first.size >= atrac->first.filesize) {
 		// state 2, all data loaded
 		context->info.state = 2;
@@ -1479,8 +1563,7 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	*(u32*)(buf + 0xfc) = atrac->atracID;
 }
 
-int _sceAtracGetContextAddress(int atracID)
-{
+int _sceAtracGetContextAddress(int atracID) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
@@ -1513,8 +1596,7 @@ static const u16 at3HeaderMap[][4] = {
 
 static const int at3HeaderMapSize = sizeof(at3HeaderMap)/(sizeof(u16) * 4);
 
-bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
-{
+bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3HeaderMapSize; i ++) {
 		if (at3HeaderMap[i][0] == atrac->atracBytesPerFrame && at3HeaderMap[i][1] == atrac->atracChannels) {
 			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3Header) - 8;
@@ -1573,8 +1655,7 @@ static const u16 at3plusHeaderMap[][3] = {
 
 static const int at3plusHeaderMapSize = sizeof(at3plusHeaderMap)/(sizeof(u16) * 3);
 
-bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
-{
+bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3plusHeaderMapSize; i += 2) {
 		if (at3plusHeaderMap[i][0] == atrac->atracBytesPerFrame && at3plusHeaderMap[i][1] == atrac->atracChannels) {
 			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeader) - 8;
@@ -1591,11 +1672,15 @@ bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 	return false;
 }
 
-int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
-{
-	INFO_LOG(ME, "sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	Atrac *atrac = getAtrac(atracID);
-	if (atrac && Memory::IsValidAddress(paramsAddr)) {
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracLowLevelInitDecoder(%i, %08x): bad atrac ID", atracID, paramsAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	}
+
+	INFO_LOG(ME, "sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+	if (Memory::IsValidAddress(paramsAddr)) {
 		atrac->atracChannels = Memory::Read_U32(paramsAddr);
 		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
 		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
@@ -1645,11 +1730,14 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 	return 0;
 }
 
-int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
-{
-	DEBUG_LOG(ME, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
 	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x): bad atrac ID", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+		return ATRAC_ERROR_BAD_ATRACID;
+	}
 
+	DEBUG_LOG(ME, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 #ifdef USE_FFMPEG
 	if (atrac && atrac->pCodecCtx && Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) &&
   		Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr)) {
@@ -1720,8 +1808,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 	return 0;
 }
 
-int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
-{
+int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
 	if (readSize > halfBufferSize) {
 		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): invalid read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
@@ -1731,10 +1818,11 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
+	// TODO: Different error codes.
 	atrac->Analyze();
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return atracID;
 	}
@@ -1742,8 +1830,7 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	return createAtrac(atrac, codecType);
 }
 
-const HLEFunction sceAtrac3plus[] =
-{
+const HLEFunction sceAtrac3plus[] = {
 	{0x7db31251,WrapU_IU<sceAtracAddStreamData>,"sceAtracAddStreamData"},
 	{0x6a8c3cd5,WrapU_IUUUU<sceAtracDecodeData>,"sceAtracDecodeData"},
 	{0xd5c28cc0,WrapU_V<sceAtracEndEntry>,"sceAtracEndEntry"},
@@ -1765,7 +1852,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x3f6e26b5,WrapU_IUUU<sceAtracSetHalfwayBuffer>,"sceAtracSetHalfwayBuffer"},
 	{0x83bf7afd,WrapU_IUU<sceAtracSetSecondBuffer>,"sceAtracSetSecondBuffer"},
 	{0x0E2A73AB,WrapU_IUU<sceAtracSetData>,"sceAtracSetData"}, //?
-	{0x7a20e7af,WrapI_UU<sceAtracSetDataAndGetID>,"sceAtracSetDataAndGetID"},
+	{0x7a20e7af,WrapI_UI<sceAtracSetDataAndGetID>,"sceAtracSetDataAndGetID"},
 	{0xd1f59fdb,WrapU_V<sceAtracStartEntry>,"sceAtracStartEntry"},
 	{0x868120b5,WrapU_II<sceAtracSetLoopNum>,"sceAtracSetLoopNum"},
 	{0x132f1eca,WrapI_II<sceAtracReinit>,"sceAtracReinit"},
@@ -1785,8 +1872,7 @@ const HLEFunction sceAtrac3plus[] =
 };
 
 
-void Register_sceAtrac3plus()
-{
+void Register_sceAtrac3plus() {
 	// Two names
 	RegisterModule("sceATRAC3plus_Library", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
 	RegisterModule("sceAtrac3plus", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
