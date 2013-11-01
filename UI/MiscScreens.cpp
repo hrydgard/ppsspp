@@ -449,6 +449,7 @@ void CreditsScreen::render() {
 		"",
 		"",
 		c->T("specialthanks", "Special thanks to:"),
+		"Maxim for his amazing Atrac3+ decoder work",
 		"Keith Galocy at nVidia (hw, advice)",
 		"Orphis (build server)",
 		"angelxwind (iOS builds)",
