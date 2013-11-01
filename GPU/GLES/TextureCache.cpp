@@ -681,8 +681,7 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	u32 check = 0;
 
 #ifdef _M_SSE
-	// Make sure both the size and start are aligned, OR will get either.
-	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0x3f) == 0) {
+	if (((intptr_t)checkp & 0xf) == 0 && (sizeInRAM & 0x3f) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
 		__m128i cursor2 = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
 		__m128i update = _mm_set1_epi16(0x2455U);
