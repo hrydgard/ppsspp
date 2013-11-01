@@ -31,6 +31,18 @@
     </icon>
     <splashscreen>icon-114.png</splashscreen>
 
+	<invoke-target id="com.Qtness.PPSSPP.openrom">
+        <invoke-target-name>Open PSP ROM</invoke-target-name>
+        <invoke-target-type>application</invoke-target-type>
+        <icon><image>icon-114.png</image></icon>
+        <filter>
+            <action>bb.action.OPEN</action>
+            <mime-type>*</mime-type>
+                <property var="uris" value="file://"/>
+                <property var="exts" value="iso,cso,pbp,prx"/>
+        </filter>
+    </invoke-target>
+
     <env var="LD_LIBRARY_PATH" value="app/native/lib:/usr/lib/qt4/lib/:/accounts/1000/shared/misc/"/>
 
     <permission system="true">run_native</permission>
