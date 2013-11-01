@@ -544,6 +544,25 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 
+			case SDL_JOYHATMOTION:
+				{
+					AxisInput axisX;
+					AxisInput axisY;
+					axisX.axisId = JOYSTICK_AXIS_HAT_X;
+					axisY.axisId = JOYSTICK_AXIS_HAT_Y;
+					axisX.deviceId = DEVICE_ID_PAD_0;
+					axisY.deviceId = DEVICE_ID_PAD_0;
+					axisX.value = 0.0f;
+					axisY.value = 0.0f;
+					if (event.jhat.value & SDL_HAT_LEFT) axisX.value = -1.0f;
+					if (event.jhat.value & SDL_HAT_RIGHT) axisX.value = 1.0f;
+					if (event.jhat.value & SDL_HAT_DOWN) axisY.value = -1.0f;
+					if (event.jhat.value & SDL_HAT_UP) axisY.value = 1.0f;
+					NativeAxis(axisX);
+					NativeAxis(axisY);
+				}
+				break;
+
 			case SDL_KEYDOWN:
 				{
 					int k = event.key.keysym.sym;
