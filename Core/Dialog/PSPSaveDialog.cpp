@@ -924,10 +924,8 @@ int PSPSaveDialog::Update(int animSpeed)
 					}
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-					// TODO: This should probably actually delete something.
-					// For now, always say it couldn't be deleted.
-					WARN_LOG(SCEUTILITY, "FAKE sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
-					param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
+					DEBUG_LOG(SCEUTILITY, "FAKE sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
+					param.GetPspParam()->common.result = param.DeleteData(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				//case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:

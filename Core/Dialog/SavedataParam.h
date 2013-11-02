@@ -296,6 +296,7 @@ public:
 	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
 	std::string GetSaveDir(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
+	int DeleteData(SceUtilitySavedataParam* param);
 	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
 	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	int GetSizes(SceUtilitySavedataParam* param);

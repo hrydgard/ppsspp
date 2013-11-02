@@ -261,6 +261,20 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 	return true;
 }
 
+int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
+	if(!param)
+		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+	if (param->fileName == NULL)
+		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+
+	std::string filename = savePath + GetGameName(param) + GetSaveName(param) + "/" + param->fileName;
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (info.exists)
+		pspFileSystem.RemoveFile(filename);
+
+	return 0;
+}
+
 bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode)
 {
 	if (!param) {
