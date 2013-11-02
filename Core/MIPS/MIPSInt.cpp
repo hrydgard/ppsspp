@@ -22,15 +22,15 @@
 #include "math/math_util.h"
 
 #include "Common/Common.h"
-#include "../Core.h"
-#include "MIPS.h"
-#include "MIPSInt.h"
-#include "MIPSTables.h"
+#include "Core/Core.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
-
-#include "../HLE/HLE.h"
-#include "../System.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/System.h"
 
 #define R(i) (currentMIPS->r[i])
 #define F(i) (currentMIPS->f[i])
@@ -159,7 +159,10 @@ namespace MIPSInt
 			mipsr4k.pc += 4;
 		}
 		mipsr4k.inDelaySlot = false;
-		CallSyscall(op);
+		if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+			GetFunc("FakeSysCalls", NID_IDLE)->func();
+		else
+			CallSyscall(op);
 	}
 
 	void Int_Sync(MIPSOpcode op)
