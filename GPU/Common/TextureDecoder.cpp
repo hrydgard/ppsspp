@@ -15,9 +15,61 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CPUDetect.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/TextureDecoderNEON.h"
 
 // TODO: Move some common things into here.
+
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#endif
+
+static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
+	u32 check = 0;
+
+#ifdef _M_SSE
+	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
+		__m128i cursor = _mm_set1_epi32(0);
+		__m128i cursor2 = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
+		__m128i update = _mm_set1_epi16(0x2455U);
+		const __m128i *p = (const __m128i *)checkp;
+		for (u32 i = 0; i < size / 16; i += 4) {
+			__m128i chunk = _mm_mullo_epi16(_mm_load_si128(&p[i]), cursor2);
+			cursor = _mm_add_epi32(cursor, chunk);
+			cursor = _mm_xor_si128(cursor, _mm_load_si128(&p[i + 1]));
+			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i + 2]));
+			chunk = _mm_mullo_epi16(_mm_load_si128(&p[i + 3]), cursor2);
+			cursor = _mm_xor_si128(cursor, chunk);
+			cursor2 = _mm_add_epi16(cursor2, update);
+		}
+		// Add the four parts into the low i32.
+		cursor = _mm_add_epi32(cursor, _mm_add_epi32(_mm_srli_si128(cursor, 8), cursor2));
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
+		check = _mm_cvtsi128_si32(cursor);
+	} else {
+#else
+	{
+#endif
+		const u32 *p = (const u32 *)checkp;
+		for (u32 i = 0; i < size / 8; ++i) {
+			check += *p++;
+			check ^= *p++;
+		}
+	}
+
+	return check;
+}
+
+QuickTexHashFunc DoQuickTexHash = &QuickTexHashSSE2;
+
+void SetupQuickTexHash() {
+#ifdef ARM
+	if (cpu_info.bNEON) {
+		DoQuickTexHash = &QuickTexHashNEON;
+	}
+#endif
+}
 
 static inline u32 makecol(int r, int g, int b, int a) {
 	return (a << 24) | (r << 16) | (g << 8) | b;

@@ -56,6 +56,7 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
+	SetupQuickTexHash();
 }
 
 TextureCache::~TextureCache() {
@@ -678,39 +679,8 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
-	u32 check = 0;
 
-#ifdef _M_SSE
-	if (((intptr_t)checkp & 0xf) == 0 && (sizeInRAM & 0x3f) == 0) {
-		__m128i cursor = _mm_set1_epi32(0);
-		__m128i cursor2 = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
-		__m128i update = _mm_set1_epi16(0x2455U);
-		const __m128i *p = (const __m128i *)checkp;
-		for (u32 i = 0; i < sizeInRAM / 16; i += 4) {
-			__m128i chunk = _mm_mullo_epi16(_mm_load_si128(&p[i]), cursor2);
-			cursor = _mm_add_epi32(cursor, chunk);
-			cursor = _mm_xor_si128(cursor, _mm_load_si128(&p[i + 1]));
-			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i + 2]));
-			chunk = _mm_mullo_epi16(_mm_load_si128(&p[i + 3]), cursor2);
-			cursor = _mm_xor_si128(cursor, chunk);
-			cursor2 = _mm_add_epi16(cursor2, update);
-		}
-		// Add the four parts into the low i32.
-		cursor = _mm_add_epi32(cursor, _mm_add_epi32(_mm_srli_si128(cursor, 8), cursor2));
-		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
-		check = _mm_cvtsi128_si32(cursor);
-	} else {
-#else
-	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
-	{
-#endif
-		for (u32 i = 0; i < sizeInRAM / 8; ++i) {
-			check += *checkp++;
-			check ^= *checkp++;
-		}
-	}
-
-	return check;
+	return DoQuickTexHash(checkp, sizeInRAM);
 }
 
 inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
