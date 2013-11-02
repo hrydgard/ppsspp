@@ -262,7 +262,7 @@ public:
 
 	bool GetCharInfo(int charCode, PGFCharInfo *ci);
 	void GetFontInfo(PGFFontInfo *fi);
-	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType, bool original = true);
+	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType, bool packagedFont);
 
 	void DoState(PointerWrap &p);
 
