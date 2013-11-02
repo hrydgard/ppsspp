@@ -1313,7 +1313,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_8888:
 		if (!gstate.isTextureSwizzled()) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if (gl_extensions.EXT_unpack_subimage || w == bufw) {
+			if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) || w == bufw) {
 				finalBuf = Memory::GetPointer(texaddr);
 			} else {
 				int len = bufw * h;
@@ -1398,7 +1398,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (!gl_extensions.EXT_unpack_subimage && w != bufw) {
+	if ((g_Config.iTexScalingLevel != 1 || !gl_extensions.EXT_unpack_subimage) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1507,7 +1507,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
 	bool useUnpack = false;
-	if (gl_extensions.EXT_unpack_subimage && w != bufw) {
+	if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 		useUnpack = true;
 	}
