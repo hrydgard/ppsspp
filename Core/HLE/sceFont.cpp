@@ -104,7 +104,7 @@ class LoadedFont;
 class FontLib;
 class Font;
 int GetInternalFontIndex(Font *font);
-bool original;
+bool packagedFont;
 
 // These should not need to be state saved.
 static std::vector<Font *> internalFonts;
@@ -508,7 +508,7 @@ void __LoadInternalFonts() {
 			// Our provided font of jpn0.pgf has size 4367080 bytes 
 			// This is an ugly hack to workaround incorrect metrics in it.
 			if (std::string(entry.fileName) == "jpn0.pgf" && (int)info.size == 4367080) {
-				original = false;
+				packagedFont = true;
 			}
 
 			pspFileSystem.ReadFile(handle, buffer, info.size);
@@ -874,7 +874,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH, original);
+	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH, packagedFont);
 	return 0;
 }
 
@@ -892,7 +892,7 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 	INFO_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH, original);
+	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH, packagedFont);
 	return 0;
 }
 
