@@ -22,9 +22,8 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswscale.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv7/include
-  LOCAL_CFLAGS += -DARMEABI_V7A
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMV7
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
 endif
 ifeq ($(TARGET_ARCH_ABI),armeabi)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavformat.a
@@ -33,9 +32,8 @@ ifeq ($(TARGET_ARCH_ABI),armeabi)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libswscale.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv6/include
-  LOCAL_CFLAGS += -DARMEABI
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
 endif
 ifeq ($(TARGET_ARCH_ABI),x86)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavformat.a

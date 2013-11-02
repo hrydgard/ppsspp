@@ -29,7 +29,6 @@ include $(LOCAL_PATH)/Locals.mk
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
 ifeq ($(TARGET_ARCH_ABI),x86)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
@@ -47,8 +46,8 @@ ARCH_FILES := \
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
 ARCH_FILES := \
+  $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ArmThunk.cpp \
@@ -66,7 +65,6 @@ ARCH_FILES := \
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
@@ -147,7 +145,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
-  $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \

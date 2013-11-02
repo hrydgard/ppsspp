@@ -64,7 +64,7 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashSSE2;
 
 void SetupQuickTexHash() {
-#ifdef ARM
+#ifdef ARMEABI_V7A
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
 	}
