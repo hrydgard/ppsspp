@@ -1279,6 +1279,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	if (param_argp) delete[] param_argp;
 	if (param_key) delete[] param_key;
+
+	hleSkipDeadbeef();
 	return true;
 }
 
