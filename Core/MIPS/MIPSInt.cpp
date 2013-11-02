@@ -159,10 +159,7 @@ namespace MIPSInt
 			mipsr4k.pc += 4;
 		}
 		mipsr4k.inDelaySlot = false;
-		if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
-			GetFunc("FakeSysCalls", NID_IDLE)->func();
-		else
-			CallSyscall(op);
+		CallSyscall(op);
 	}
 
 	void Int_Sync(MIPSOpcode op)

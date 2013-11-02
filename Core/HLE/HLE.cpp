@@ -365,7 +365,7 @@ inline static void SetDeadbeefRegs()
 	currentMIPS->hi = 0xDEADBEEF;
 }
 
-inline void hleFinishSyscall(int modulenum, int funcnum)
+inline void hleFinishSyscall(const HLEFunction &info)
 {
 	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)
 		SetDeadbeefRegs();
@@ -386,7 +386,7 @@ inline void hleFinishSyscall(int modulenum, int funcnum)
 
 	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
 	{
-		if (!hleExecuteDebugBreak(moduleDB[modulenum].funcTable[funcnum]))
+		if (!hleExecuteDebugBreak(info))
 		{
 			// We'll do it next syscall.
 			hleAfterSyscall = HLE_AFTER_DEBUG_BREAK;
@@ -435,6 +435,69 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 	}
 }
 
+inline void CallSyscallWithFlags(const HLEFunction *info)
+{
+	const u32 flags = info->flags;
+	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled())
+	{
+		DEBUG_LOG(HLE, "%s: dispatch suspended", info->name);
+		RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
+	}
+	else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt())
+	{
+		DEBUG_LOG(HLE, "%s: in interrupt", info->name);
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
+	}
+	else
+		info->func();
+
+	if (hleAfterSyscall != HLE_AFTER_NOTHING)
+		hleFinishSyscall(*info);
+	else
+		SetDeadbeefRegs();
+}
+
+inline void CallSyscallWithoutFlags(const HLEFunction *info)
+{
+	info->func();
+
+	if (hleAfterSyscall != HLE_AFTER_NOTHING)
+		hleFinishSyscall(*info);
+	else
+		SetDeadbeefRegs();
+}
+
+const HLEFunction *GetSyscallInfo(MIPSOpcode op)
+{
+	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
+	int funcnum = callno & 0xFFF;
+	int modulenum = (callno & 0xFF000) >> 12;
+	if (funcnum == 0xfff)
+	{
+		ERROR_LOG(HLE,"Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
+		return NULL;
+	}
+	return &moduleDB[modulenum].funcTable[funcnum];
+}
+
+void *GetQuickSyscallFunc(MIPSOpcode op)
+{
+	// TODO: Clear jit cache on g_Config.bShowDebugStats change?
+	if (g_Config.bShowDebugStats)
+		return NULL;
+
+	const HLEFunction *info = GetSyscallInfo(op);
+	if (!info || !info->func)
+		return NULL;
+
+	// TODO: Do this with a flag?
+	if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+		return (void *)info->func;
+	if (info->flags != 0)
+		return (void *)&CallSyscallWithFlags;
+	return (void *)&CallSyscallWithoutFlags;
+}
+
 void CallSyscall(MIPSOpcode op)
 {
 	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
@@ -443,49 +506,27 @@ void CallSyscall(MIPSOpcode op)
 		time_update();
 		start = time_now_d();
 	}
-	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
-	int funcnum = callno & 0xFFF;
-	int modulenum = (callno & 0xFF000) >> 12;
-	if (funcnum == 0xfff)
+	const HLEFunction *info = GetSyscallInfo(op);
+	if (info)
 	{
-		ERROR_LOG(HLE,"Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
-		return;
-	}
-	HLEFunc func = moduleDB[modulenum].funcTable[funcnum].func;
-	if (func)
-	{
-		// TODO: Move to jit/interp.
-		u32 flags = moduleDB[modulenum].funcTable[funcnum].flags;
-		if (flags != 0)
+		if (info->func)
 		{
-			if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled())
-			{
-				DEBUG_LOG(HLE, "%s: dispatch suspended", moduleDB[modulenum].funcTable[funcnum].name);
-				RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
-			}
-			else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt())
-			{
-				DEBUG_LOG(HLE, "%s: in interrupt", moduleDB[modulenum].funcTable[funcnum].name);
-				RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
-			}
+			if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+				info->func();
+			else if (info->flags != 0)
+				CallSyscallWithFlags(info);
 			else
-				func();
+				CallSyscallWithoutFlags(info);
 		}
 		else
-			func();
-
-		if (hleAfterSyscall != HLE_AFTER_NOTHING)
-			hleFinishSyscall(modulenum, funcnum);
-		else
-			SetDeadbeefRegs();
-	}
-	else
-	{
-		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
+			ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name);
 	}
 	if (g_Config.bShowDebugStats)
 	{
 		time_update();
+		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
+		int funcnum = callno & 0xFFF;
+		int modulenum = (callno & 0xFF000) >> 12;
 		updateSyscallStats(modulenum, funcnum, time_now_d() - start);
 	}
 }
