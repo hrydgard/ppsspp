@@ -26,6 +26,7 @@ static const u16 MEMORY_ALIGNED16(QuickTexHashInitial[8]) = {0x0001U, 0x0083U, 0
 
 u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	u32 check = 0;
+	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 		uint32x4_t cursor = vdupq_n_u32(0);
@@ -46,10 +47,13 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 		cursor = vaddq_u32(cursor, cursor2);
 		check = vgetq_lane_u32(cursor, 0) + vgetq_lane_u32(cursor, 1) + vgetq_lane_u32(cursor, 2) + vgetq_lane_u32(cursor, 3);
 	} else {
+		const u32 size_u32 = size / 4;
 		const u32 *p = (const u32 *)checkp;
-		for (u32 i = 0; i < size / 8; ++i) {
-			check += *p++;
-			check ^= *p++;
+		for (u32 i = 0; i < size_u32; i += 4) {
+			check += p[i + 0];
+			check ^= p[i + 1];
+			check += p[i + 2];
+			check ^= p[i + 3];
 		}
 	}
 

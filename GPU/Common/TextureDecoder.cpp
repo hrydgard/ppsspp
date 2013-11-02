@@ -17,6 +17,7 @@
 
 #include "Common/CPUDetect.h"
 #include "GPU/Common/TextureDecoder.h"
+// NEON is in a separate file so that it can be compiled with a runtime check.
 #include "GPU/Common/TextureDecoderNEON.h"
 
 // TODO: Move some common things into here.
@@ -43,8 +44,9 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 			cursor = _mm_xor_si128(cursor, chunk);
 			cursor2 = _mm_add_epi16(cursor2, update);
 		}
+		cursor = _mm_add_epi32(cursor, cursor2);
 		// Add the four parts into the low i32.
-		cursor = _mm_add_epi32(cursor, _mm_add_epi32(_mm_srli_si128(cursor, 8), cursor2));
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
 		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
 		check = _mm_cvtsi128_si32(cursor);
 	} else {
@@ -61,13 +63,34 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	return check;
 }
 
-QuickTexHashFunc DoQuickTexHash = &QuickTexHashSSE2;
+static u32 QuickTexHashBasic(const void *checkp, u32 size) {
+#ifdef __GNUC__
+	__builtin_prefetch(checkp, 0, 0);
+#endif
 
+	u32 check = 0;
+	const u32 size_u32 = size / 4;
+	const u32 *p = (const u32 *)checkp;
+	for (u32 i = 0; i < size_u32; i += 4) {
+		check += p[i + 0];
+		check ^= p[i + 1];
+		check += p[i + 2];
+		check ^= p[i + 3];
+	}
+
+	return check;
+}
+
+QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
+
+// This has to be done after CPUDetect has done its magic.
 void SetupQuickTexHash() {
 #ifdef ARMV7
-	if (cpu_info.bNEON) {
+	if (cpu_info.bNEON)
 		DoQuickTexHash = &QuickTexHashNEON;
-	}
+#else
+	if (cpu_info.bSSE2)
+		DoQuickTexHash = &QuickTexHashSSE2;
 #endif
 }
 
