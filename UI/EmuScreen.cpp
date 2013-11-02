@@ -41,6 +41,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
@@ -186,6 +187,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	}
 	else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
+	}
+	if (!strcmp(message, "clear jit")) {
+		if (MIPSComp::jit) {
+			MIPSComp::jit->ClearCache();
+		}
 	}
 }
 

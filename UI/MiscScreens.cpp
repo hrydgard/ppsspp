@@ -32,6 +32,7 @@
 #include "UI/MainScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
 
@@ -48,7 +49,6 @@
 #include "gfx_es2/gl_state.h"
 #include "util/random/rng.h"
 
-#include "Core/HLE/sceUtility.h"
 #include "UI/ui_atlas.h"
 
 static const int symbols[4] = {
@@ -94,12 +94,21 @@ void DrawBackground(float alpha) {
 	}
 }
 
+void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager) {
+	if (!strcmp(message, "clear jit")) {
+		if (MIPSComp::jit) {
+			MIPSComp::jit->ClearCache();
+		}
+	}
+}
+
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
 	dc.Flush();
 }
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
+	HandleCommonMessages(message, value, screenManager());
 	I18NCategory *de = GetI18NCategory("Developer");
 	if (!strcmp(message, "language screen")) {
 		auto langScreen = new NewLanguageScreen(de->T("Language"));
@@ -132,6 +141,7 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 }
 
 void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
+	HandleCommonMessages(message, value, screenManager());
 	I18NCategory *de = GetI18NCategory("Developer");
 	if (!strcmp(message, "language screen")) {
 		auto langScreen = new NewLanguageScreen(de->T("Language"));

@@ -843,22 +843,10 @@ UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
-	if (host) {
-		host->UpdateUI();
-	}
-
-	return UI::EVENT_DONE;
-}
-
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
 	// Since the language message isn't allowed to be in native, we have to have add this
 	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
-	I18NCategory *de = GetI18NCategory("Developer");
-	if (!strcmp(message, "language screen")) {
-		auto langScreen = new NewLanguageScreen(de->T("Language"));
-		langScreen->OnChoice.Handle(this, &GamePauseScreen::OnLanguageChange);
-		screenManager()->push(langScreen);
+	if (!strcmp(message, "language")) {
+		screenManager()->RecreateAllViews();
 	}
 }

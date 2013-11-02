@@ -1255,6 +1255,7 @@ namespace MainWindow
 
 				case ID_DEBUG_SHOWDEBUGSTATISTICS:
 					g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
+					NativeMessageReceived("clear jit", "");
 					break;
 
 				case ID_OPTIONS_HARDWARETRANSFORM:

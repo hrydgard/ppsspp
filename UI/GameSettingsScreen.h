@@ -74,6 +74,7 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
+	bool showDebugStats_;
 };
 
 /*

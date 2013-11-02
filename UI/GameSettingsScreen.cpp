@@ -37,6 +37,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
 #include "Common/KeyMap.h"
@@ -58,6 +59,7 @@ void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
+	showDebugStats_ = g_Config.bShowDebugStats;
 
 	iAlternateSpeedPercent_ = 3;
 	for (int i = 0; i < 8; i++) {
@@ -181,7 +183,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	                                  };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
+	graphicsSettings->Add(new CheckBox(&showDebugStats_, gs->T("Show Debug Statistics")));
 
 	// Developer tools are not accessible ingame, so it goes here.
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
@@ -375,6 +377,13 @@ void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
+	if (g_Config.bShowDebugStats != showDebugStats_) {
+		// This affects the jit.
+		if (MIPSComp::jit) {
+			MIPSComp::jit->ClearCache();
+		}
+		g_Config.bShowDebugStats = showDebugStats_;
+	}
 }
 
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
