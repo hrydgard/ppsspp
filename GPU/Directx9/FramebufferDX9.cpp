@@ -345,10 +345,13 @@ static void DrawingSize(int &drawing_width, int &drawing_height) {
 		}
 		} else {
 		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_width == region_width && region_width != scissor_width) { 
+		if (fb_width == region_width && region_width == viewport_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
-	} else {
+		} else if (fb_width == viewport_width) { 
+			drawing_width = viewport_width;
+			drawing_height = viewport_height;
+		} else {
 			drawing_width = default_width;
 			drawing_height = default_height;
 		}
@@ -411,17 +414,13 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 	VirtualFramebufferDX9 *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebufferDX9 *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
+		if (MaskedEqual(v->fb_address, fb_address) && v->width >= drawing_width && v->height >= drawing_height) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
-			vfb->format = fmt;
-			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
-				v->width = drawing_width;
-				v->height = drawing_height;
-			}
-			break; 
+			v->format = fmt;
+			break;
 		}
 	}
 
@@ -597,7 +596,7 @@ void FramebufferManagerDX9::CopyDisplayToOutput() {
 
 	
 	fbo_unbind();
-	
+	dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	currentRenderVfb_ = 0;
 
 	VirtualFramebufferDX9 *vfb = GetDisplayFBO();
