@@ -284,36 +284,27 @@ void VertexDecoder::Step_Color8888Morph() const
 void VertexDecoder::Step_NormalS8() const
 {
 	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
-	u8 xorval = 0;
-	if (gstate.areNormalsReversed())
-		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j];
 	normal[3] = 0;
 }
 
 void VertexDecoder::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
-	u16 xorval = 0;
-	if (gstate.areNormalsReversed())
-		xorval = 0xFFFF;
 	const s16 *sv = (const s16*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j];
 	normal[3] = 0;
 }
 
 void VertexDecoder::Step_NormalFloat() const
 {
-	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	float multiplier = 1.0f;
-	if (gstate.areNormalsReversed())
-		multiplier = -multiplier;
-	const float *fv = (const float*)(ptr_ + nrmoff);
+	u32 *normal = (u32 *)(decoded_ + decFmt.nrmoff);
+	const u32 *fv = (const u32*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = fv[j] * multiplier;
+		normal[j] = fv[j];
 }
 
 void VertexDecoder::Step_NormalS8Morph() const
@@ -322,12 +313,8 @@ void VertexDecoder::Step_NormalS8Morph() const
 	memset(normal, 0, sizeof(float)*3);
 	for (int n = 0; n < morphcount; n++)
 	{
-		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.areNormalsReversed()) {
-			multiplier = -multiplier;
-		}
 		const s8 *bv = (const s8*)(ptr_ + onesize_*n + nrmoff);
-		multiplier *= (1.0f/127.0f);
+		float multiplier = gstate_c.morphWeights[n] * (1.0f/127.0f);
 		for (int j = 0; j < 3; j++)
 			normal[j] += bv[j] * multiplier;
 	}
@@ -339,12 +326,8 @@ void VertexDecoder::Step_NormalS16Morph() const
 	memset(normal, 0, sizeof(float)*3);
 	for (int n = 0; n < morphcount; n++)
 	{
-		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.areNormalsReversed()) {
-			multiplier = -multiplier;
-		}
+		float multiplier = gstate_c.morphWeights[n] * (1.0f/32767.0f);
 		const s16 *sv = (const s16 *)(ptr_ + onesize_*n + nrmoff);
-		multiplier *= (1.0f/32767.0f);
 		for (int j = 0; j < 3; j++)
 			normal[j] += sv[j] * multiplier;
 	}
@@ -357,9 +340,6 @@ void VertexDecoder::Step_NormalFloatMorph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.areNormalsReversed()) {
-			multiplier = -multiplier;
-		}
 		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
 		for (int j = 0; j < 3; j++)
 			normal[j] += fv[j] * multiplier;

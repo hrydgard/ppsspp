@@ -109,6 +109,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
 		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= gstate.areNormalsReversed() << 26;
 	}
 }
 
@@ -162,6 +163,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
+	bool flipNormal = gstate.areNormalsReversed();
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
@@ -315,7 +317,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(normal, 0.0)).xyz);\n");
+				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
 			else
 				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
@@ -390,7 +392,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(normal, 0.0)).xyz %s;\n", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
 				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
 			} else {
 				WRITE(p, "  mediump vec3 worldnormal = (u_world * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
@@ -558,13 +560,13 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = "vec4(normalize(normal), 1.0)";
+							temp_tc = flipNormal ? "vec4(normalize(-normal), 1.0)" : "vec4(normalize(normal), 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = "vec4(normal, 1.0)";
+							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
@@ -583,8 +585,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 			}
 
-			if (flipV) 
-				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");	
+			if (flipV)
+				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
 		}
 
 		// Compute fogdepth
