@@ -22,6 +22,10 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
+void SetupQuickTexHash();
+typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
+extern QuickTexHashFunc DoQuickTexHash;
+
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
 

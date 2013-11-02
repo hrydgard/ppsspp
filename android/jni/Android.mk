@@ -147,6 +147,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
+  $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \

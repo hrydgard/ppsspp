@@ -159,6 +159,9 @@
     <ClInclude Include="Common\PostShader.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TextureDecoderNEON.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -285,6 +288,9 @@
       <Filter>Debugger</Filter>
     </ClCompile>
     <ClCompile Include="Common\PostShader.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
