@@ -507,20 +507,21 @@ void CallSyscall(MIPSOpcode op)
 		start = time_now_d();
 	}
 	const HLEFunction *info = GetSyscallInfo(op);
-	if (info)
+	if (!info)
+		return;
+
+	if (info->func)
 	{
-		if (info->func)
-		{
-			if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
-				info->func();
-			else if (info->flags != 0)
-				CallSyscallWithFlags(info);
-			else
-				CallSyscallWithoutFlags(info);
-		}
+		if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+			info->func();
+		else if (info->flags != 0)
+			CallSyscallWithFlags(info);
 		else
-			ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name);
+			CallSyscallWithoutFlags(info);
 	}
+	else
+		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name);
+
 	if (g_Config.bShowDebugStats)
 	{
 		time_update();
