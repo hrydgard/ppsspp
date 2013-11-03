@@ -41,6 +41,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/SaveState.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
@@ -109,6 +110,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
+	autoLoad();
+
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
 #ifdef _WIN32
@@ -122,6 +125,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (strstr(renderer, "Chainfire3D") != 0) {
 		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
+
 }
 
 EmuScreen::~EmuScreen() {
@@ -138,6 +142,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());
 	}
+
 	RecreateViews();
 }
 
@@ -620,3 +625,11 @@ void EmuScreen::deviceLost() {
 	if (gpu)
 		gpu->DeviceLost();
 }
+
+void EmuScreen::autoLoad() {
+	//check if save state has save, if so, load
+	int lastSlot = SaveState::GetNewestSlot();
+	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
+		SaveState::LoadSlot(lastSlot, 0, 0);
+	}
+};

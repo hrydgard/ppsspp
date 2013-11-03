@@ -246,7 +246,7 @@ namespace SaveState
 		return false;
 	}
 
-	int GetMostRecentSaveSlot() {
+	int GetNewestSlot() {
 		int newestSlot = -1;
 		tm newestDate = {0};
 		for (int i = 0; i < SAVESTATESLOTS; i++) {

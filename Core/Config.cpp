@@ -72,6 +72,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	general->Get("Language", &sLanguageIni, defaultLangRegion.c_str());
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
+	general->Get("EnableAutoLoad", &bEnableAutoLoad, false);
 	general->Get("EnableCheats", &bEnableCheats, false);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
 	general->Get("StateSlot", &iCurrentStateSlot, 0);
@@ -338,6 +339,7 @@ void Config::Save() {
 #endif
 		general->Set("Language", sLanguageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
+		general->Set("EnableAutoLoad", bEnableAutoLoad);
 		general->Set("EnableCheats", bEnableCheats);
 		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
 		general->Set("StateSlot", iCurrentStateSlot);
