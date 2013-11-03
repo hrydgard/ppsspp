@@ -160,7 +160,7 @@ if(NOT MSVC)
 	endif()
 
 	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE -O2 -mfpu=neon -mtune=cortex-a9)
+		add_definitions(-D_QNX_SOURCE -DARMV7 -O2 -mfpu=neon -mtune=cortex-a9)
 	endif()
 
 	if(X86 AND NOT MIPS)
@@ -173,6 +173,7 @@ if(NOT MSVC)
 		# armv7s (without resorting to FastMemory) is still a work in progress
 		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
 		set(CMAKE_OSX_ARCHITECTURES "armv7")
+		add_definitions(-DARMV7)
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
@@ -969,6 +970,9 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
+if(BLACKBERRY OR IOS OR ARMEABI_V7A)
+	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
+endif()
 add_library(GPU OBJECT
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/VertexDecoderCommon.cpp
@@ -977,6 +981,7 @@ add_library(GPU OBJECT
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp
 	GPU/Common/TextureDecoder.h
+	${GPU_NEON}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h

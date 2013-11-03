@@ -1619,11 +1619,7 @@ namespace MIPSComp
 
 	// Very heavily used by FF:CC
 	void Jit::Comp_VRot(MIPSOpcode op) {
-		// Not sure about the ABI so I disable on non-Android ARM and on 32-bit X86 except Windows..
-#if !defined(ARMV7) || !defined(ANDROID)
-		DISABLE;
-#endif
-
+		// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
 		CONDITIONAL_DISABLE;
 
 		// This op doesn't support prefixes anyway..
