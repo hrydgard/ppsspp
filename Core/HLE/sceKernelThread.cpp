@@ -837,6 +837,7 @@ int g_inCbCount = 0;
 SceUID currentCallbackThreadID = 0;
 int readyCallbacksCount = 0;
 SceUID currentThread;
+Thread *currentThreadPtr;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
@@ -933,10 +934,13 @@ void MipsCall::setReturnValue(u64 value)
 }
 
 inline Thread *__GetCurrentThread() {
-	if (currentThread != 0)
-		return kernelObjects.GetFast<Thread>(currentThread);
-	else
-		return NULL;
+	return currentThreadPtr;
+}
+
+inline void __SetCurrentThread(Thread *thread, SceUID threadID, const char *name) {
+	currentThread = threadID;
+	currentThreadPtr = thread;
+	hleCurrentThreadName = name;
 }
 
 u32 __KernelMipsCallReturnAddress() {
@@ -1118,7 +1122,7 @@ void __KernelThreadingInit()
 	dispatchEnabled = true;
 	memset(waitTypeFuncs, 0, sizeof(waitTypeFuncs));
 
-	currentThread = 0;
+	__SetCurrentThread(NULL, 0, NULL);
 	g_inCbCount = 0;
 	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
@@ -1186,7 +1190,7 @@ void __KernelThreadingDoState(PointerWrap &p)
 
 	p.Do(pausedDelays);
 
-	hleCurrentThreadName = __KernelGetThreadName(currentThread);
+	__SetCurrentThread(kernelObjects.GetFast<Thread>(currentThread), currentThread, __KernelGetThreadName(currentThread));
 	lastSwitchCycles = CoreTiming::GetTicks();
 }
 
@@ -1369,9 +1373,8 @@ void __KernelThreadingShutdown()
 	mipsCalls.clear();
 	threadReturnHackAddr = 0;
 	cbReturnHackAddr = 0;
-	currentThread = 0;
+	__SetCurrentThread(NULL, 0, NULL);
 	intReturnHackAddr = 0;
-	hleCurrentThreadName = NULL;
 	pausedDelays.clear();
 }
 
@@ -1782,10 +1785,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 	__KernelRemoveFromThreadQueue(threadID);
 
 	if (currentThread == threadID)
-	{
-		currentThread = 0;
-		hleCurrentThreadName = NULL;
-	}
+		__SetCurrentThread(NULL, 0, NULL);
 	if (currentCallbackThreadID == threadID)
 	{
 		currentCallbackThreadID = 0;
@@ -2012,8 +2012,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	Thread *prevThread = __GetCurrentThread();
 	if (prevThread && prevThread->isRunning())
 		__KernelChangeReadyState(currentThread, true);
-	currentThread = id;
-	hleCurrentThreadName = "root";
+	__SetCurrentThread(thread, id, "root");
 	thread->nt.status = THREADSTATUS_RUNNING; // do not schedule
 
 	strcpy(thread->nt.name, "root");
@@ -3205,18 +3204,14 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 
 	if (target)
 	{
-		currentThread = target->GetUID();
-		hleCurrentThreadName = target->nt.name;
+		__SetCurrentThread(target, target->GetUID(), target->nt.name);
 		__KernelChangeReadyState(target, currentThread, false);
 		target->nt.status = (target->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
 
 		__KernelLoadContext(&target->context, (target->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 	}
 	else
-	{
-		currentThread = 0;
-		hleCurrentThreadName = NULL;
-	}
+		__SetCurrentThread(NULL, 0, NULL);
 
 #if DEBUG_LEVEL <= MAX_LOGLEVEL || DEBUG_LOG == NOTICE_LOG
 	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
