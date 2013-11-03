@@ -630,7 +630,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
-							__AdjustBGMVolume((s16 *)out, numSamples * atrac->pFrame->channels);
+							__AdjustBGMVolume((s16 *)out, numSamples * atrac->atracOutputChannels);
 						}
 					}
 					av_free_packet(&packet);
@@ -1780,7 +1780,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
-					__AdjustBGMVolume((s16 *)out, numSamples * atrac->pFrame->channels);
+					__AdjustBGMVolume((s16 *)out, numSamples * atrac->atracOutputChannels);
 				}
 				av_free_packet(&packet);
 				if (got_frame)
