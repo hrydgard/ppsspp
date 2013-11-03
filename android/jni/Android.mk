@@ -97,21 +97,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/UI/ui_atlas.cpp \
-  $(SRC)/UI/DevScreens.cpp \
-  $(SRC)/UI/EmuScreen.cpp \
-  $(SRC)/UI/MainScreen.cpp \
-  $(SRC)/UI/MiscScreens.cpp \
-  $(SRC)/UI/UIShader.cpp \
-  $(SRC)/UI/GamepadEmu.cpp \
-  $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/OnScreenDisplay.cpp \
-  $(SRC)/UI/GameScreen.cpp \
-  $(SRC)/UI/ControlMappingScreen.cpp \
-  $(SRC)/UI/GameSettingsScreen.cpp \
-  $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
-  $(SRC)/UI/TouchControlLayoutScreen.cpp \
-  $(SRC)/UI/TouchControlVisibilityScreen.cpp \
-  $(SRC)/UI/CwCheatScreen.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/amctrl.c \
@@ -275,6 +261,20 @@ LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(EXEC_AND_LIB_FILES) \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/UI/DevScreens.cpp \
+  $(SRC)/UI/EmuScreen.cpp \
+  $(SRC)/UI/MainScreen.cpp \
+  $(SRC)/UI/MiscScreens.cpp \
+  $(SRC)/UI/UIShader.cpp \
+  $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/GameInfoCache.cpp \
+  $(SRC)/UI/GameScreen.cpp \
+  $(SRC)/UI/ControlMappingScreen.cpp \
+  $(SRC)/UI/GameSettingsScreen.cpp \
+  $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
+  $(SRC)/UI/TouchControlLayoutScreen.cpp \
+  $(SRC)/UI/TouchControlVisibilityScreen.cpp \
+  $(SRC)/UI/CwCheatScreen.cpp \
   $(SRC)/UI/NativeApp.cpp
 
 include $(BUILD_SHARED_LIBRARY)
@@ -295,6 +295,10 @@ endif
 
 $(call import-module,libzip)
 $(call import-module,native)
+
+ifeq ($(ANDROID_NDK_PROFILER),1)
+  $(call import-module,android-ndk-profiler)
+endif
 
 jni/$(SRC)/git-version.cpp:
 	-./git-version-gen.sh

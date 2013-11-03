@@ -26,6 +26,12 @@
 #include "WindowsHeadlessHostDx9.h"
 #endif
 
+// https://github.com/richq/android-ndk-profiler
+#ifdef ANDROID_NDK_PROFILER
+#include <stdlib.h>
+#include "android/android-ndk-profiler/prof.h"
+#endif
+
 class PrintfLogger : public LogListener
 {
 public:
@@ -175,6 +181,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 int main(int argc, const char* argv[])
 {
+#ifdef ANDROID_NDK_PROFILER
+	setenv("CPUPROFILE_FREQUENCY", "500", 1);
+	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
+	monstartup("ppsspp_headless");
+#endif
+
 	bool fullLog = false;
 	bool useJit = true;
 	bool autoCompare = false;
@@ -378,6 +390,10 @@ int main(int argc, const char* argv[])
 	delete host;
 	host = NULL;
 	headlessHost = NULL;
+
+#ifdef ANDROID_NDK_PROFILER
+	moncleanup();
+#endif
 
 	return 0;
 }
