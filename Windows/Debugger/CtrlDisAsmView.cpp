@@ -473,6 +473,10 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		if (MIPSComp::jit)
 			MIPSComp::jit->ClearCacheAt(address - 4, 8);
 		scanFunctions();
+
+		if (address == curAddress)
+			gotoAddr(curAddress+4);
+
 		redraw();
 	} else {
 		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
