@@ -1926,33 +1926,13 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 
 static float sincostemp[2];
 
-union u32float {
-	u32 u;
-	float f;
-
-	operator float() const {
-		return f;
-	}
-
-	inline u32float &operator *=(const float &other) {
-		f *= other;
-		return *this;
-	}
-};
-
-#ifdef _M_X64
-typedef float SinCosArg;
-#else
-typedef u32float SinCosArg;
-#endif
-
-void SinCos(SinCosArg angle) {
+void SinCos(float angle) {
 	angle *= (float)1.57079632679489661923;  // pi / 2
 	sincostemp[0] = sinf(angle);
 	sincostemp[1] = cosf(angle);
 }
 
-void SinCosNegSin(SinCosArg angle) {
+void SinCosNegSin(float angle) {
 	angle *= (float)1.57079632679489661923;  // pi / 2
 	sincostemp[0] = -sinf(angle);
 	sincostemp[1] = cosf(angle);
@@ -1960,7 +1940,13 @@ void SinCosNegSin(SinCosArg angle) {
 
 // Very heavily used by FF:CC
 void Jit::Comp_VRot(MIPSOpcode op) {
+	// DISABLE;
 	CONDITIONAL_DISABLE;
+
+	// Keeping it enabled in x64 non-windows as it seems fine there.
+#if defined(_M_IX86) && !defined(_WIN32)
+	DISABLE;
+#endif
 
 	int vd = _VD;
 	int vs = _VS;
@@ -1984,8 +1970,12 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	MOVSS(XMM0, fpr.V(sreg));
 	ABI_CallFunction(negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
 #else
-	// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-	ABI_CallFunction(negSin ? (void *)&SinCosNegSin : (void *)&SinCos, fpr.V(sreg));
+	// Sigh, passing floats with cdecl isn't pretty.
+	MOVSS(XMM0, fpr.V(sreg));
+	SUB(32, R(ESP), Imm32(4));
+	MOVSS(MatR(ESP), XMM0);
+	ABI_CallFunction(negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+	ADD(32, R(ESP), Imm32(4));
 #endif
 
 	MOVSS(XMM0, M(&sincostemp[0]));
