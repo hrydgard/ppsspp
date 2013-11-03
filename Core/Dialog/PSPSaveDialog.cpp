@@ -924,7 +924,7 @@ int PSPSaveDialog::Update(int animSpeed)
 					}
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-					DEBUG_LOG(SCEUTILITY, "FAKE sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
+					DEBUG_LOG(SCEUTILITY, "sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
 					param.GetPspParam()->common.result = param.DeleteData(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
