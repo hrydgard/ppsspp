@@ -72,6 +72,7 @@ private:
 
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
+	UI::EventReturn OnRewind(UI::EventParams &e);
 
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);

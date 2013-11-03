@@ -520,7 +520,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Thread", 1);
+		auto s = p.Section("Thread", 1, 2);
 		if (!s)
 			return;
 
@@ -537,6 +537,12 @@ public:
 		p.Do(pendingMipsCalls);
 		p.Do(pushedStacks);
 		p.Do(currentStack);
+
+		if (s >= 2)
+		{
+			p.Do(waitingThreads);
+			p.Do(pausedWaits);
+		}
 	}
 
 	NativeThread nt;

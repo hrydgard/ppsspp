@@ -779,6 +779,12 @@ void GamePauseScreen::CreateViews() {
 	loadStateButton_ = leftColumnItems->Add(new Choice(i->T("Load State")));
 	loadStateButton_->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
 
+	if (g_Config.iRewindFlipFrequency > 0) {
+		UI::Choice *rewindButton = leftColumnItems->Add(new Choice(i->T("Rewind")));
+		rewindButton->SetEnabled(SaveState::CanRewind());
+		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
+	}
+
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 
@@ -833,6 +839,14 @@ UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
+	SaveState::Rewind(0, 0);
+
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen());
 	return UI::EVENT_DONE;
