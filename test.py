@@ -282,10 +282,13 @@ tests_ignored = [
 
 
 def init():
-  global PPSSPP_EXE
+  global PPSSPP_EXE, TEST_ROOT
   if not os.path.exists("pspautotests"):
-    print("Please run git submodule init; git submodule update;")
-    sys.exit(1)
+    if os.path.exists(os.path.dirname(__file__) + "/pspautotests"):
+      TEST_ROOT = os.path.dirname(__file__) + "/pspautotests/tests/";
+    else:
+      print("Please run git submodule init; git submodule update;")
+      sys.exit(1)
 
   if not os.path.exists(TEST_ROOT + "cpu/cpu_alu/cpu_alu.prx"):
     print("Please install the pspsdk and run make in common/ and in all the tests")
