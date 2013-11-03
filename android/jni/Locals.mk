@@ -48,6 +48,6 @@ endif
 
 # Compile with profiling.
 ifeq ($(ANDROID_NDK_PROFILER),1)
-  LOCAL_CFLAGS += -pg
+  LOCAL_CFLAGS += -pg -DANDROID_NDK_PROFILER
   LOCAL_STATIC_LIBRARIES += android-ndk-profiler
 endif
