@@ -471,8 +471,6 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 		return false;
 	}
 
-	u8 *data_ = param->dataBuf;
-
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
 	{
@@ -482,13 +480,36 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 		}
 	}
 
+	if(!LoadSaveData(param, saveDirName, dirPath, secureMode)) // Load main savedata
+		return false;
+
+	LoadSFO(param, dirPath);  // Load sfo
+
+	// Don't know what it is, but PSP always respond this and this unlock some game
+	param->bind = 1021;
+
+	// Load another files,seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
+
+	// Load ICON0.PNG
+	LoadFile(dirPath, ICON0_FILENAME, &param->icon0FileData);
+	// Load ICON1.PNG
+	LoadFile(dirPath, ICON1_FILENAME, &param->icon1FileData);
+	// Load PIC1.PNG
+	LoadFile(dirPath, PIC1_FILENAME, &param->pic1FileData);
+	// Load SND0.AT3
+	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
+
+	return true;
+}
+
+bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string dirPath, bool secureMode) {
+	u8 *data_ = param->dataBuf;
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	s64 readSize;
 	INFO_LOG(SCEUTILITY,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
 	u8* saveData = 0;
 	int saveSize = -1;
-	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize))
-	{
+	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {
 		ERROR_LOG(SCEUTILITY,"Error reading file %s",filePath.c_str());
 		return false;
 	}
@@ -497,15 +518,60 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	// copy back save name in request
 	strncpy(param->saveName, saveDirName.c_str(), 20);
 
+	bool isCrypted = IsSaveEncrypted(param, saveDirName) && secureMode;
+	bool saveDone = false;
+	if (isCrypted) {
+		LoadDecryptedSave(param, data_, saveData, saveSize, saveDone);
+	}
+	if (!saveDone) {
+		LoadNotCryptedSave(param, data_, saveData, saveSize);
+	}
+	param->dataSize = (SceSize)saveSize;
+	delete[] saveData;
+
+	return true;
+}
+
+void SavedataParam::LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, bool &saveDone) {
+	int align_len = align16(saveSize);
+		u8* data_base = new u8[align_len];
+		u8* cryptKey = new u8[0x10];
+		memset(cryptKey,0,0x10);
+
+		if(param->key[0] != 0) {
+			memcpy(cryptKey, param->key, 0x10);
+		}
+		memset(data_base + saveSize, 0, align_len - saveSize);
+		memcpy(data_base, saveData, saveSize);
+
+		int decryptMode = 1;
+		if(param->key[0] != 0) {
+			decryptMode = (GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3);
+		}
+
+		if(DecryptSave(decryptMode, data_base, &saveSize, &align_len, ((param->key[0] != 0)?cryptKey:0)) == 0) {
+			if (param->dataBuf.IsValid())
+				memcpy(data, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
+			saveDone = true;
+		}
+		delete[] data_base;
+		delete[] cryptKey;
+}
+
+void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize) {
+	if (param->dataBuf.IsValid())
+		memcpy(data, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
+}
+
+void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string dirPath) {
 	ParamSFOData sfoFile;
 	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if(sfoInfo.exists) // Read sfo
-	{
+	if(sfoInfo.exists) {  
+		// Read sfo 
 		u8 *sfoData = new u8[(size_t)sfoInfo.size];
 		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL))
-		{
+		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL)) {
 			sfoFile.ReadSFO(sfoData,sfoSize);
 
 			// copy back info in request
@@ -516,49 +582,16 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 		}
 		delete[] sfoData;
 	}
-	// Don't know what it is, but PSP always respond this and this unlock some game
-	param->bind = 1021;
+}
 
-	bool isCrypted = IsSaveEncrypted(param, saveDirName) && secureMode;
-	bool saveDone = false;
-	if(isCrypted)// Try to decrypt
-	{
-		int align_len = align16(saveSize);
-		u8* data_base = new u8[align_len];
-		u8* cryptKey = new u8[0x10];
-		memset(cryptKey,0,0x10);
-
-		if(param->key[0] != 0)
-		{
-			memcpy(cryptKey, param->key, 0x10);
-		}
-		memset(data_base + saveSize, 0, align_len - saveSize);
-		memcpy(data_base, saveData, saveSize);
-
-		int decryptMode = 1;
-		if(param->key[0] != 0)
-		{
-			decryptMode = (GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3);
-		}
-
-		if(DecryptSave(decryptMode, data_base, &saveSize, &align_len, ((param->key[0] != 0)?cryptKey:0)) == 0)
-		{
-			if (param->dataBuf.IsValid())
-				memcpy(data_, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
-			saveDone = true;
-		}
-		delete[] data_base;
-		delete[] cryptKey;
-	}
-	if(!saveDone) // not crypted or decrypt fail
-	{
-		if (param->dataBuf.IsValid())
-			memcpy(data_, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
-	}
-	param->dataSize = (SceSize)saveSize;
-	delete[] saveData;
-
-	return true;
+void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
+	std::string filePath = dirPath + "/" + filename;
+	s64 readSize = -1;
+	if(!fileData->buf.IsValid())
+		return;
+	u8 *buf = fileData->buf;
+	if(ReadPSPFile(filePath, &buf, fileData->bufSize, &readSize))
+		fileData->size = readSize;
 }
 
 int SavedataParam::EncryptData(unsigned int mode,
