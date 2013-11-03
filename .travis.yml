@@ -1,0 +1,36 @@
+# https://travis-ci.org
+
+language: cpp
+
+env:
+  - PPSSPP_BUILD_TYPE=Linux
+  - PPSSPP_BUILD_TYPE=Android
+
+compiler:
+  - clang
+  - gcc
+
+before_install:
+  - sudo add-apt-repository -y ppa:ubuntu-sdk-team/ppa
+  - sudo apt-get update
+  - sudo apt-get install cmake libsdl1.2-dev openjdk-7-jdk ant lib32z1-dev lib32stdc++6
+  - git submodule update --init --recursive
+  - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then wget --timeout=30 http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2 -O ndk.tar.bz2 && tar -xf ndk.tar.bz2; fi
+  - if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi
+  - export ANDROID_HOME=$(pwd)/android-ndk-r9 NDK=$(pwd)/android-ndk-r9
+
+before_script:
+  - mkdir build-travis
+  - cd build-travis
+  - cmake -DHEADLESS=ON ..
+  - cd ..
+
+script:
+  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then cd build-travis && make && cd ..; else cd android && ./ab.sh && cd ..; fi
+  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then ./test.py; fi
+
+# For now, Android clang seems to be failing to build.
+matrix:
+  exclude:
+    - compiler: clang
+      env: PPSSPP_BUILD_TYPE=Android
