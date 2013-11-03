@@ -341,10 +341,10 @@ private:
 	void ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName);
 
 	bool LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string dirPath, bool secureMode);
-	void LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int saveSize, bool &saveDone);
-	void LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int saveSize);
+	void LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, bool &saveDone);
+	void LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize);
 	void LoadSFO(SceUtilitySavedataParam *param, const std::string dirPath);
-	void LoadFile();
+	void LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData);
 
 	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);

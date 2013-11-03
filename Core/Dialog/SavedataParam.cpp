@@ -479,13 +479,23 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 			return false;
 		}
 	}
-	if(!LoadSaveData(param, saveDirName, dirPath, secureMode))
+
+	if(!LoadSaveData(param, saveDirName, dirPath, secureMode)) // Load main savedata
 		return false;
 
-	LoadSFO(param, dirPath);
+	LoadSFO(param, dirPath);  // Load sfo
 
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
+
+	// Load ICON0.PNG
+	LoadFile(dirPath, ICON0_FILENAME, &param->icon0FileData);
+	// Load ICON1.PNG
+	LoadFile(dirPath, ICON1_FILENAME, &param->icon1FileData);
+	// Load PIC1.PNG
+	LoadFile(dirPath, PIC1_FILENAME, &param->pic1FileData);
+	// Load SND0.AT3
+	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
 
 	return true;
 }
@@ -520,7 +530,7 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	return true;
 }
 
-void SavedataParam::LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int saveSize, bool &saveDone) {
+void SavedataParam::LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, bool &saveDone) {
 	int align_len = align16(saveSize);
 		u8* data_base = new u8[align_len];
 		u8* cryptKey = new u8[0x10];
@@ -546,7 +556,7 @@ void SavedataParam::LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, 
 		delete[] cryptKey;
 }
 
-void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int saveSize) {
+void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize) {
 	if (param->dataBuf.IsValid())
 		memcpy(data, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
 }
@@ -570,6 +580,14 @@ void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string di
 		}
 		delete[] sfoData;
 	}
+}
+
+void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
+	std::string filePath = dirPath + "/" + filename;
+	s64 readSize = -1;
+	u8 *buf = fileData->buf;
+	if(ReadPSPFile(filePath, &buf, fileData->bufSize, &readSize))
+		fileData->size = readSize;
 }
 
 int SavedataParam::EncryptData(unsigned int mode,
