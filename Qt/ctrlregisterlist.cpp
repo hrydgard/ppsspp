@@ -137,7 +137,7 @@ void CtrlRegisterList::paintEvent(QPaintEvent *)
 	int maxRowsDisplay =rect().bottom()/rowHeight - 1;
 
 	selection = std::min(std::max(selection,0),numRowsTotal);
-	curVertOffset = std::min(std::max(curVertOffset, 0),numRowsTotal - maxRowsDisplay);
+	curVertOffset = std::max(std::min(curVertOffset,numRowsTotal - maxRowsDisplay),0);
 
 	QScrollBar *bar = findChild<QScrollBar*>("RegListScroll");
 	if(bar)
