@@ -404,7 +404,7 @@ namespace MIPSAnalyst {
 		//j , jal, ...
 		if (opInfo & IS_JUMP) {
 			info.isBranch = true;
-			if (opInfo & OUT_RA) {	// link
+			if ((opInfo & OUT_RA) || (opInfo & OUT_RD)) {	// link
 				info.isLinkedBranch = true;
 			}
 
