@@ -488,6 +488,8 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
 
+	// Load another files,seems these are required by some games, e.g. Fushigi no Dungeon Fuurai no Shiren 4 Plus.
+
 	// Load ICON0.PNG
 	LoadFile(dirPath, ICON0_FILENAME, &param->icon0FileData);
 	// Load ICON1.PNG
@@ -585,6 +587,8 @@ void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string di
 void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize = -1;
+	if(!fileData->buf.IsValid())
+		return;
 	u8 *buf = fileData->buf;
 	if(ReadPSPFile(filePath, &buf, fileData->bufSize, &readSize))
 		fileData->size = readSize;
