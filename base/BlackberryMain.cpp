@@ -8,10 +8,13 @@
 #include <unistd.h>
 #include <string>
 
-#include <bps/locale.h> // Get locale
+#include <bps/locale.h>           // Get locale
+#include <bps/navigator_invoke.h> // Receive invocation messages
 #include "BlackberryMain.h"
 #include "Core/Config.h"
 #include "base/NKCodeFromBlackberry.h"
+
+#include "UI/MiscScreens.h"
 
 // Simple implementations of System functions
 
@@ -241,6 +244,14 @@ void BlackberryMain::runMain() {
 			} else if (domain == navigator_get_domain()) {
 				switch(bps_event_get_code(event))
 				{
+				case NAVIGATOR_INVOKE_TARGET:
+					{
+						const navigator_invoke_invocation_t *invoke = navigator_invoke_event_get_invocation(event);
+						if(invoke) {
+							boot_filename = navigator_invoke_invocation_get_uri(invoke)+7; // Remove file://
+						}
+					}
+					break;
 				case NAVIGATOR_BACK:
 				case NAVIGATOR_SWIPE_DOWN:
 					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE, KEY_DOWN));
