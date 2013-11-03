@@ -446,15 +446,23 @@ namespace MIPSAnalyst {
 			u32 rs = cpu->GetRegValue(0, (int)MIPS_GET_RS(op));
 			switch (opInfo & CONDTYPE_MASK) {
 			case CONDTYPE_EQ:
-				info.conditionMet = (rt == rs);
-				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
-					info.isConditional = false;
+				if (opInfo & IN_FPUFLAG) {	// fpu branch
+					info.conditionMet = currentMIPS->fpcond == 0;
+				} else {
+					info.conditionMet = (rt == rs);
+					if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
+						info.isConditional = false;
+					}
 				}
 				break;
 			case CONDTYPE_NE:
-				info.conditionMet = (rt != rs);
-				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
-					info.isConditional = false;
+				if (opInfo & IN_FPUFLAG) {	// fpu branch
+					info.conditionMet = currentMIPS->fpcond != 0;
+				} else {
+					info.conditionMet = (rt != rs);
+					if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
+						info.isConditional = false;
+					}
 				}
 				break;
 			case CONDTYPE_LEZ:

@@ -43,6 +43,9 @@ struct MIPSInfo {
 #define CONDTYPE_LTZ	0x00000005
 #define CONDTYPE_GEZ	0x00000006
 
+#define CONDTYPE_FPUFALSE	CONDTYPE_EQ
+#define CONDTYPE_FPUTRUE	CONDTYPE_NE
+
 // as long as the other flags are checked,
 // there is no way to misinterprete these
 // as CONDTYPE_X
