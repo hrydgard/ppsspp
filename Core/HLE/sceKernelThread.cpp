@@ -932,7 +932,7 @@ void MipsCall::setReturnValue(u64 value)
 	savedV1 = (value >> 32) & 0xFFFFFFFF;
 }
 
-Thread *__GetCurrentThread() {
+inline Thread *__GetCurrentThread() {
 	if (currentThread != 0)
 		return kernelObjects.GetFast<Thread>(currentThread);
 	else

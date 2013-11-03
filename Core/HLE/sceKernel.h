@@ -480,11 +480,7 @@ public:
 	T *GetFast(SceUID handle)
 	{
 		const SceUID realHandle = handle - handleOffset;
-		if (realHandle < 0 || realHandle >= maxCount || !occupied[realHandle])
-		{
-			ERROR_LOG(SCEKERNEL, "Kernel: Bad fast object handle %i (%08x)", handle, handle);
-			return 0;
-		}
+		_dbg_assert_(SCEKERNEL, realHandle >= 0 && realHandle < maxCount && occupied[realHandle]);
 		return static_cast<T *>(pool[realHandle]);
 	}
 
