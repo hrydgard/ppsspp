@@ -534,9 +534,7 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,3),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
 		{
 		case ID_REGLIST_GOTOINMEMORYVIEW:
-			for (int i=0; i<numCPUs; i++)
-				if (memoryWindow[i])
-					memoryWindow[i]->Goto(val);
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,val,0);
 			break;
 		case ID_REGLIST_GOTOINDISASM:
 			for (int i=0; i<numCPUs; i++)
