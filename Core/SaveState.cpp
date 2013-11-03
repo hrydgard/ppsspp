@@ -125,8 +125,6 @@ namespace SaveState
 	// TODO: Should this be configurable?
 	static const int REWIND_NUM_STATES = 5;
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
-	// TODO: g_Config setting or something instead.
-	static int rewindStateFreq = 0;
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
 	static float rewindLastTime = 0.0f;
@@ -318,7 +316,7 @@ namespace SaveState
 
 	static inline void CheckRewindState()
 	{
-		if (gpuStats.numFlips % rewindStateFreq != 0)
+		if (gpuStats.numFlips % g_Config.iRewindFlipFrequency != 0)
 			return;
 
 		// For fast-forwarding, otherwise they may be useless and too close.
@@ -333,7 +331,7 @@ namespace SaveState
 
 	void Process()
 	{
-		if (rewindStateFreq != 0 && gpuStats.numFlips != 0)
+		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
 
 		if (!needsProcess)

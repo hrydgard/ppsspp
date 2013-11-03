@@ -92,6 +92,7 @@ public:
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
 	int iCurrentStateSlot;
+	int iRewindFlipFrequency;
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bDisableStencilTest;
