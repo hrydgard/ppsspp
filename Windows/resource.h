@@ -159,9 +159,6 @@
 #define IDC_GEDBG_TEXADDR               1192
 #define IDC_GEDBG_FBTABS                1193
 
-// Don't define anything else in the 3000 range.
-// It's reserved for languages.
-#define ID_LANGUAGE_BASE 3000
 #define ID_SHADERS_BASE  5000
 
 #define ID_FILE_EXIT                     40000
@@ -299,7 +296,7 @@
 #define IDC_GEDBG_STEPPRIM               40138
 #define ID_DISASM_ADDFUNCTION            40139
 #define ID_DISASM_REMOVEFUNCTION         40140
-
+#define ID_OPTIONS_LANGUAGE              40141
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

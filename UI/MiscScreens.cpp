@@ -94,19 +94,36 @@ void DrawBackground(float alpha) {
 	}
 }
 
-void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager) {
-	if (!strcmp(message, "language")) {
-		manager->RecreateAllViews();
-	}
-}
-
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
 	dc.Flush();
 }
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
-	HandleCommonMessages(message, value, screenManager());
+	I18NCategory *de = GetI18NCategory("Developer");
+	if (!strcmp(message, "language screen")) {
+		auto langScreen = new NewLanguageScreen(de->T("Language"));
+		langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
+		screenManager()->push(langScreen);
+	}
+}
+
+UI::EventReturn UIScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
+	RecreateViews();
+	if (host) {
+		host->UpdateUI();
+	}
+
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
+	RecreateViews();
+	if (host) {
+		host->UpdateUI();
+	}
+
+	return UI::EVENT_DONE;
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
@@ -115,7 +132,12 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 }
 
 void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
-	HandleCommonMessages(message, value, screenManager());
+	I18NCategory *de = GetI18NCategory("Developer");
+	if (!strcmp(message, "language screen")) {
+		auto langScreen = new NewLanguageScreen(de->T("Language"));
+		langScreen->OnChoice.Handle(this, &UIDialogScreenWithBackground::OnLanguageChange);
+		screenManager()->push(langScreen);
+	}
 }
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)

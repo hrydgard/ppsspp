@@ -391,20 +391,19 @@ namespace MainWindow
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
 		MENU_OPTIONS = 3,
-		MENU_LANGUAGE = 4,
-		MENU_HELP = 5,
+		MENU_HELP = 4,
 
 		// File submenus
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Game Settings submenus
-		SUBMENU_CUSTOM_SHADERS = 8,
-		SUBMENU_RENDERING_RESOLUTION = 9,
-		SUBMENU_WINDOW_SIZE = 10,
-		SUBMENU_RENDERING_MODE = 11,
-		SUBMENU_FRAME_SKIPPING = 12,
-		SUBMENU_TEXTURE_FILTERING = 13,
-		SUBMENU_TEXTURE_SCALING = 14,
+		SUBMENU_CUSTOM_SHADERS = 9,
+		SUBMENU_RENDERING_RESOLUTION = 10,
+		SUBMENU_WINDOW_SIZE = 11,
+		SUBMENU_RENDERING_MODE = 12,
+		SUBMENU_FRAME_SKIPPING = 13,
+		SUBMENU_TEXTURE_FILTERING = 14,
+		SUBMENU_TEXTURE_SCALING = 15,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -458,44 +457,6 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
 		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
-	}
-
-	void CreateLanguageMenu() {
-		I18NCategory *des = GetI18NCategory("DesktopUI");
-
-		const std::wstring languageKey = ConvertUTF8ToWString(des->T("Language"));
-
-		// Like in CreateHelpMenu, remove and insert the new menu.
-		RemoveMenu(menu, MENU_LANGUAGE, MF_BYPOSITION);
-
-		HMENU langMenu = CreatePopupMenu();
-		InsertMenu(menu, MENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)langMenu, languageKey.c_str());
-
-		// Create the Language menu items by creating a new menu item for each
-		// language with its full name("English", "Magyar", etc.) as the value.
-		// Also collect the country codes while we're at it so we can send them to
-		// NativeMessageReceived easier.
-		auto langValuesMap = GetLangValuesMapping();
-
-		// Start adding items after ID_LANGUAGE_BASE.
-		int item = ID_LANGUAGE_BASE + 1;
-		std::wstring fullLanguageName;
-		int checkedStatus = -1;
-
-		for(auto i = langValuesMap.begin(); i != langValuesMap.end(); ++i) {
-			fullLanguageName = ConvertUTF8ToWString(i->second.first);
-
-			checkedStatus = MF_UNCHECKED;
-
-			if(g_Config.sLanguageIni == i->first) {
-				checkedStatus = MF_CHECKED;
-				// Update iLanguage so games boot with the proper language, if available.
-				g_Config.iLanguage = langValuesMap[g_Config.sLanguageIni].second;
-			}
-
-			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, fullLanguageName.c_str());
-			countryCodes.push_back(i->first);
-		}
 	}
 
 	void UpdateDynamicMenuCheckmarks() {
@@ -603,6 +564,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, L"\tCtrl+M");
 
 		// Options menu
+		TranslateMenuItem(ID_OPTIONS_LANGUAGE);
 		TranslateMenuItem(ID_OPTIONS_TOPMOST);
 		TranslateMenuItem(ID_OPTIONS_PAUSE_FOCUS);
 		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS);
@@ -643,9 +605,6 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_SHOWFPS);
 		TranslateMenuItem(ID_EMULATION_SOUND);
 		TranslateMenuItem(ID_EMULATION_CHEATS, L"\tCtrl+T");
-
-		// Language menu: it's translated in CreateLanguageMenu.
-		CreateLanguageMenu();
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu();
@@ -1236,6 +1195,10 @@ namespace MainWindow
 					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 
+				case ID_OPTIONS_LANGUAGE:
+					NativeMessageReceived("language screen", "");
+					break;
+
 				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(RESOLUTION_AUTO); break;
 				case ID_OPTIONS_SCREEN1X:   SetInternalResolution(RESOLUTION_NATIVE); break;
 				case ID_OPTIONS_SCREEN2X:   SetInternalResolution(RESOLUTION_2X); break;
@@ -1456,28 +1419,10 @@ namespace MainWindow
 
 				default:
 					{
-						// Just handle language switching here.
-						// The Menu ID is contained in wParam, so subtract
-						// ID_LANGUAGE_BASE and an additional 1 off it.
-						u32 index = (wParam - ID_LANGUAGE_BASE - 1);
-						if(index >= 0 && index < countryCodes.size()) {
-							std::string oldLang = g_Config.sLanguageIni;
-							g_Config.sLanguageIni = countryCodes[index];
-
-							if(i18nrepo.LoadIni(g_Config.sLanguageIni)) {
-								NativeMessageReceived("language", "");
-								PostMessage(hwndMain, WM_USER_UPDATE_UI, 0, 0);
-							}
-							else
-								g_Config.sLanguageIni = oldLang;
-
-							break;
-						}
-
 						// Handle the dynamic shader switching here.
 						// The Menu ID is contained in wParam, so subtract
 						// ID_SHADERS_BASE and an additional 1 off it.
-						index = (wParam - ID_SHADERS_BASE - 1);
+						u32 index = (wParam - ID_SHADERS_BASE - 1);
 						if (index >= 0 && index < availableShaders.size()) {
 							g_Config.sPostShaderName = availableShaders[index];
 
