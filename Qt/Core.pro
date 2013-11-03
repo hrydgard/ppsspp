@@ -56,13 +56,16 @@ SOURCES += ../Core/*.cpp \ # Core
 	../GPU/Math3D.cpp \
 	../GPU/Null/NullGpu.cpp \
 	../GPU/GLES/*.cpp \
-	$$files(../GPU/Common/*.cpp) \
+	../GPU/Common/IndexGenerator.cpp \
+	../GPU/Common/TextureDecoder.cpp \
+	../GPU/Common/VertexDecoderCommon.cpp \
+	../GPU/Common/PostShader.cpp \
 	../ext/libkirk/*.c \ # Kirk
 	../ext/xxhash.c \ # xxHash
 	../ext/xbrz/*.cpp # XBRZ
 
-x86|symbian {
-	SOURCES -= ../GPU/Common/TextureDecoderNEON.cpp
+!x86:!symbian {
+	SOURCES += ../GPU/Common/TextureDecoderNEON.cpp
 }
 
 # Software GPU
