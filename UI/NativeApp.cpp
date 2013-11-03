@@ -85,6 +85,12 @@ static UI::Theme ui_theme;
 #include "ios/iOSCoreAudio.h"
 #endif
 
+// https://github.com/richq/android-ndk-profiler
+#ifdef ANDROID_NDK_PROFILER
+#include <stdlib.h>
+#include "android/android-ndk-profiler/prof.h"
+#endif
+
 Texture *uiTexture;
 
 ScreenManager *screenManager;
@@ -239,6 +245,12 @@ const std::string NativeProgramPath() {
 
 void NativeInit(int argc, const char *argv[],
 								const char *savegame_directory, const char *external_directory, const char *installID) {
+#ifdef ANDROID_NDK_PROFILER
+	setenv("CPUPROFILE_FREQUENCY", "500", 1);
+	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
+	monstartup("ppsspp_jni.so");
+#endif
+
 	bool skipLogo = false;
 	EnableFZ();
 	setlocale( LC_ALL, "C" );
@@ -676,6 +688,9 @@ void NativeShutdown() {
 	g_Config.Save();
 #ifndef _WIN32
 	LogManager::Shutdown();
+#endif
+#ifdef ANDROID_NDK_PROFILER
+	moncleanup();
 #endif
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
