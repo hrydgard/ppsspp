@@ -1078,7 +1078,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
-	// Todo: The compressed color formats
+	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
+	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
+	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
@@ -1219,22 +1221,111 @@ void VertexDecoderJitCache::Jit_Color8888() {
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
-	/*
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
-	MOV(32, R(tempReg2), R(tempReg1));
-	MOV(32, R(tempReg3), R(tempReg2));
-	AND(32, R(tempReg3), Imm8(0xF));   // t3 = 
-	*/
-	
-	// TODO
+
+	// 0000ABGR, copy R and double forwards.
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0x0000000F));
+	MOV(32, R(tempReg2), R(tempReg3));
+	SHL(32, R(tempReg3), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// tempReg1 -> 00ABGR00, then double G backwards.
+	SHL(32, R(tempReg1), Imm8(8));
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0x0000F000));
+	OR(32, R(tempReg2), R(tempReg3));
+	SHR(32, R(tempReg3), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// Now do B forwards again (still 00ABGR00.)
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0x000F0000));
+	OR(32, R(tempReg2), R(tempReg3));
+	SHL(32, R(tempReg3), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// tempReg1 -> ABGR0000, then double A backwards.
+	SHL(32, R(tempReg1), Imm8(8));
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0xF000000));
+	OR(32, R(tempReg2), R(tempReg3));
+	SHR(32, R(tempReg3), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
-	// TODO
+	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
+
+	MOV(32, R(tempReg2), R(tempReg1));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
+
+	// B (we do R and B at the same time, they're both 5.)
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0x0000F800));
+	SHL(32, R(tempReg3), Imm8(5));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// Expand 5 -> 8.  At this point we have 00BB00RR.
+	MOV(32, R(tempReg3), R(tempReg2));
+	SHL(32, R(tempReg2), Imm8(3));
+	SHR(32, R(tempReg3), Imm8(2));
+	OR(32, R(tempReg2), R(tempReg3));
+	AND(32, R(tempReg2), Imm32(0x00FF00FF));
+
+	// Now's as good a time to put in A as any.
+	OR(32, R(tempReg2), Imm8(0xFF000000));
+
+	// Last, we need to align, extract, and expand G.
+	// 3 to align to G, and then 2 to expand to 8.
+	SHL(32, R(tempReg1), Imm8(3 + 2));
+	AND(32, R(tempReg1), Imm32(0x0000FC00));
+	MOV(32, R(tempReg3), R(tempReg1));
+	// 2 to account for tempReg1 being preshifted, 4 for expansion.
+	SHR(32, R(tempReg3), Imm8(2 + 4));
+	OR(32, R(tempReg1), R(tempReg3));
+	AND(32, R(tempReg1), Imm32(0x0000FF00));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	// TODO
+	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
+
+	MOV(32, R(tempReg2), R(tempReg1));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
+
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0x000003E0));
+	SHL(32, R(tempReg3), Imm8(3));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg3), Imm32(0x00007C00));
+	SHL(32, R(tempReg3), Imm8(6));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// Expand 5 -> 8.  After this is just A.
+	MOV(32, R(tempReg3), R(tempReg2));
+	SHL(32, R(tempReg2), Imm8(3));
+	SHR(32, R(tempReg3), Imm8(2));
+	// Chop off the bits that were shifted out.
+	AND(32, R(tempReg3), Imm32(0x00070707));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// For A, we shift it to a single bit, and then subtract and XOR.
+	// That's probably the simplest way to expand it...
+	SHR(32, R(tempReg1), Imm8(15));
+	// If it was 0, it's now -1, otherwise it's 0.  Easy.
+	SUB(32, R(tempReg1), Imm8(1));
+	XOR(32, R(tempReg1), Imm32(0xFF000000));
+	AND(32, R(tempReg1), Imm32(0xFF000000));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
