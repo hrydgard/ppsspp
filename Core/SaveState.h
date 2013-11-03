@@ -52,6 +52,9 @@ namespace SaveState
 	// Warning: callback will be called on a different thread.
 	void Rewind(Callback callback = 0, void *cbUserData = 0);
 
+	// Returns true if there are rewind snapshots available.
+	bool CanRewind();
+
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();
 };

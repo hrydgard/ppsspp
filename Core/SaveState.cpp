@@ -75,7 +75,7 @@ namespace SaveState
 		CChunkFileReader::Error Save()
 		{
 			int n = next_++ % size_;
-			if (n == first_)
+			if ((next_ % size_) == first_)
 				++first_;
 
 			SaveStart state;
@@ -89,7 +89,7 @@ namespace SaveState
 		CChunkFileReader::Error Restore()
 		{
 			// No valid states left.
-			if (next_ == first_)
+			if (Empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
 
 			int n = (next_-- + size_) % size_;
@@ -98,6 +98,17 @@ namespace SaveState
 
 			SaveStart state;
 			return CChunkFileReader::LoadPtr(&states_[n][0], state);
+		}
+
+		void Clear()
+		{
+			first_ = 0;
+			next_ = 0;
+		}
+
+		bool Empty()
+		{
+			return next_ == first_;
 		}
 
 		typedef std::vector<u8> StateBuffer;
@@ -177,6 +188,11 @@ namespace SaveState
 	void Rewind(Callback callback, void *cbUserData)
 	{
 		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), callback, cbUserData));
+	}
+
+	bool CanRewind()
+	{
+		return !rewindStates.Empty();
 	}
 
 
@@ -317,7 +333,7 @@ namespace SaveState
 
 	void Process()
 	{
-		if (rewindStateFreq != 0)
+		if (rewindStateFreq != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
 
 		if (!needsProcess)
@@ -429,5 +445,6 @@ namespace SaveState
 		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
 
 		std::lock_guard<std::recursive_mutex> guard(mutex);
+		rewindStates.Clear();
 	}
 }
