@@ -26,6 +26,8 @@
 #include "ui/ui_screen.h"
 #include "GPU/Common/PostShader.h"
 
+extern std::string boot_filename;
+
 inline void NoOpVoidBool(bool) {}
 
 class UIScreenWithBackground : public UIScreen {
@@ -85,8 +87,8 @@ private:
 
 class LogoScreen : public UIScreen {
 public:
-	LogoScreen(const std::string &bootFilename)
-		: bootFilename_(bootFilename), frames_(0), switched_(false) {}
+	LogoScreen()
+		: frames_(0), switched_(false) {}
 	void key(const KeyInput &key);
 	void update(InputState &input);
 	void render();
@@ -95,7 +97,6 @@ public:
 
 private:
 	void Next();
-	std::string bootFilename_;
 	int frames_;
 	bool switched_;
 };

@@ -356,12 +356,11 @@ void NativeInitGraphics()
 
 	screenManager = new ScreenManager();
 	if (boot_filename.empty()) {
-		screenManager->switchScreen(new LogoScreen(boot_filename));
+		screenManager->switchScreen(new LogoScreen());
 	} else {
 		// Go directly into the game.
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	}
-	// screenManager->switchScreen(new FileSelectScreen());
 
 	UIShader_Init();
 

@@ -85,11 +85,6 @@ static UI::Theme ui_theme;
 #include "ios/iOSCoreAudio.h"
 #endif
 
-#ifdef BLACKBERRY
-#include <bps/navigator.h>
-#include <bps/navigator_invoke.h>
-#endif
-
 Texture *uiTexture;
 
 ScreenManager *screenManager;
@@ -420,29 +415,10 @@ void NativeInit(int argc, const char *argv[],
 
 	screenManager = new ScreenManager();
 
-#ifdef BLACKBERRY
-	// Check if the system has sent us any messages at runtime
-	while (true) {
-		bps_event_t *event = NULL;
-		bps_get_event(&event, 0);
-		if (event == NULL)
-			break;
-		// Were we opened to run a specific ROM?
-		if (bps_event_get_domain(event) == navigator_get_domain() &&
-		    bps_event_get_code(event) == NAVIGATOR_INVOKE_TARGET) {
-			const navigator_invoke_invocation_t *invoke = navigator_invoke_event_get_invocation(event);
-			if(invoke) {
-				boot_filename = navigator_invoke_invocation_get_uri(invoke)+7; // Remove file://
-				skipLogo = true;
-			}
-		}
-	}
-#endif
-
 	if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
-		screenManager->switchScreen(new LogoScreen(boot_filename));
+		screenManager->switchScreen(new LogoScreen());
 	}
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);

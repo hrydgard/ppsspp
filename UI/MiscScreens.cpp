@@ -266,8 +266,8 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
-		if (bootFilename_.size()) {
-			screenManager()->switchScreen(new EmuScreen(bootFilename_));
+		if (boot_filename.size()) {
+			screenManager()->switchScreen(new EmuScreen(boot_filename));
 		} else {
 			screenManager()->switchScreen(new MainScreen());
 		}
@@ -324,8 +324,8 @@ void LogoScreen::render() {
 	dc.DrawText(temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.DrawText("www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	if (bootFilename_.size()) {
-		ui_draw2d.DrawTextShadow(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	if (boot_filename.size()) {
+		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
 
 	dc.End();
