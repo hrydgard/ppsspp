@@ -17,15 +17,26 @@
 
 #pragma once
 
-#include "GPU/GPUState.h"
-#include "Globals.h"
 #include "base/basictypes.h"
+
+#ifdef ARM
+#include "Common/ArmEmitter.h"
+#else
+#include "Common/x64Emitter.h"
+#endif
+
+#include "Globals.h"
 #include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class VertexDecoder;
+class VertexDecoderJitCache;
 
 typedef void (VertexDecoder::*StepFunction)() const;
+
+
+typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 // Right now
 //   - compiles into list of called functions
@@ -34,19 +45,16 @@ typedef void (VertexDecoder::*StepFunction)() const;
 class VertexDecoder
 {
 public:
-	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
-	~VertexDecoder() {}
+	VertexDecoder();
 
-	// prim is needed knowledge for a performance hack (PrescaleUV)
-	void SetVertexType(u32 vtype);
+	// A jit cache is not mandatory, we don't use it in the sw renderer
+	void SetVertexType(u32 vtype, VertexDecoderJitCache *jitCache = 0);
+
 	u32 VertexType() const { return fmt_; }
 
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
 
 	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
-
-	// This could be easily generalized to inject any one component. Don't know another use for it though.
-	u32 InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const;
 
 	bool hasColor() const { return col != 0; }
 	int VertexSize() const { return size; }  // PSP format size
@@ -67,8 +75,6 @@ public:
 	void Step_TcU16Through() const;
 	void Step_TcU16ThroughDouble() const;
 	void Step_TcFloatThrough() const;
-
-	// TODO: tcmorph
 
 	void Step_Color4444() const;
 	void Step_Color565() const;
@@ -147,4 +153,62 @@ public:
 	int nweights;
 
 	int stats_[NUM_VERTEX_DECODER_STATS];
+
+	JittedVertexDecoder jitted_;
+
+	friend class VertexDecoderJitCache;
+};
+
+
+// A compiled vertex decoder takes the following arguments (C calling convention):
+// u8 *src, u8 *dst, int count
+//
+// x86:
+//   src is placed in esi and dst in edi
+//   for every vertex, we step esi and edi forwards by the two vertex sizes
+//   all movs are done relative to esi and edi
+//
+// that's it!
+
+
+#ifdef ARM
+class VertexDecoderJitCache : public ARMXCodeBlock {
+#else
+class VertexDecoderJitCache : public Gen::XCodeBlock {
+#endif
+public:
+	VertexDecoderJitCache();
+
+	// Returns a pointer to the code to run.
+	JittedVertexDecoder Compile(const VertexDecoder &dec);
+
+	void Jit_WeightsU8();
+	void Jit_WeightsU16();
+	void Jit_WeightsFloat();
+
+	void Jit_TcU8();
+	void Jit_TcU16();
+	void Jit_TcFloat();
+
+	void Jit_TcU16Through();
+	void Jit_TcFloatThrough();
+
+	void Jit_Color8888();
+	void Jit_Color4444();
+	void Jit_Color565();
+	void Jit_Color5551();
+
+	void Jit_NormalS8();
+	void Jit_NormalS16();
+	void Jit_NormalFloat();
+
+	void Jit_PosS8();
+	void Jit_PosS8Through();
+	void Jit_PosS16();
+	void Jit_PosS16Through();
+	void Jit_PosFloat();
+
+private:
+	bool CompileStep(const VertexDecoder &dec, int i);
+	const VertexDecoder *dec_;
 };

@@ -151,6 +151,8 @@ TransformDrawEngine::TransformDrawEngine()
 	memset(vbo_, 0, sizeof(vbo_));
 	memset(ebo_, 0, sizeof(ebo_));
 	indexGen.Setup(decIndex);
+	decJitCache_ = new VertexDecoderJitCache();
+
 	InitDeviceObjects();
 	register_gl_resource_holder(this);
 }
@@ -164,6 +166,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 	delete [] quadIndices_;
 
 	unregister_gl_resource_holder(this);
+	delete [] decJitCache_;
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
@@ -881,7 +884,7 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 	if (iter != decoderMap_.end())
 		return iter->second;
 	VertexDecoder *dec = new VertexDecoder();
-	dec->SetVertexType(vtype);
+	dec->SetVertexType(vtype, decJitCache_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }
