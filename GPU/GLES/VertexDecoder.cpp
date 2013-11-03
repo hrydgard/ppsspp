@@ -24,6 +24,8 @@
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
 
+extern void DisassembleArm(const u8 *data, int size);
+
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
@@ -106,7 +108,8 @@ void VertexDecoder::Step_WeightsFloat() const
 
 void VertexDecoder::Step_TcU8() const
 {
-	u16 *uv = (u16*)(decoded_ + decFmt.uvoff);
+	// u32 to write two bytes of zeroes for free.
+	u32 *uv = (u32*)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
 	*uv = *uvdata;
 }
@@ -760,12 +763,12 @@ int VertexDecoder::ToString(char *output) const {
 }
 
 VertexDecoderJitCache::VertexDecoderJitCache() {
-	using namespace Gen;
 	// 32k should be enough.
 	AllocCodeSpace(1024 * 32);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
 #if defined(_WIN32)
+	using namespace Gen;
 	for (int i = 0; i < 100; i++) {
 		MOV(32, R(EAX), R(EBX));
 		RET();
@@ -773,16 +776,256 @@ VertexDecoderJitCache::VertexDecoderJitCache() {
 #endif
 }
 
+typedef void (VertexDecoderJitCache::*JitStepFunction)();
+
+struct JitLookup {
+	StepFunction func;
+	JitStepFunction jitFunc;
+};
+
 #ifdef ARM
 
-// TODO
+using namespace ArmGen;
+
+static const ARMReg tempReg1 = R3;
+static const ARMReg tempReg2 = R4;
+static const ARMReg tempReg3 = R5;
+static const ARMReg scratchReg = R6;
+static const ARMReg srcReg = R0;
+static const ARMReg dstReg = R1;
+static const ARMReg counterReg = R2;
+
+
+static const JitLookup jitLookup[] = {
+	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
+	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
+	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+
+	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
+	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
+	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+
+	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
+	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
+
+	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
+	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
+	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
+
+	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
+	// Todo: The compressed color formats
+
+	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
+	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
+	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
+
+	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
+	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
+	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
+};
+
+
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
-	return 0;
+	// return 0;
+
+	dec_ = &dec;
+	const u8 *start = this->GetCodePtr();
+
+	// TODO: Test and make work
+
+	SetCC(CC_AL);
+
+	// TODO: Overkill
+	PUSH(8, R4, R5, R6, R7, R8, R9, R10, _LR);
+
+	JumpTarget loopStart = GetCodePtr();
+	for (int i = 0; i < dec.numSteps_; i++) {
+		if (!CompileStep(dec, i)) {
+			// Reset the code ptr and return zero to indicate that we failed.
+			SetCodePtr(const_cast<u8 *>(start));
+			return 0;
+		}
+	}
+
+	ADDI2R(srcReg, srcReg, dec.VertexSize(), scratchReg);
+	ADDI2R(dstReg, dstReg, dec.decFmt.stride, scratchReg);
+	SUBS(counterReg, counterReg, 1);
+	B_CC(CC_NEQ, loopStart);
+
+	POP(8, R4, R5, R6, R7, R8, R9, R10, _PC);
+	
+	// DisassembleArm(start, GetCodePtr() - start);
+
+	return (JittedVertexDecoder)start;
 }
 
-bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
-	return false;
+void VertexDecoderJitCache::Jit_WeightsU8() {
+	// Basic implementation - a byte at a time. TODO: Optimize
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDRB(tempReg1, srcReg, dec_->weightoff + j);
+		STRB(tempReg1, dstReg, dec_->decFmt.w0off + j);
+	}
+	if (j & 3) {
+		// Create a zero register. Might want to make a fixed one.
+		EOR(scratchReg, scratchReg, scratchReg);
+	}
+	while (j & 3) {
+		STRB(scratchReg, dstReg, dec_->decFmt.w0off + j);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16() {
+	// Basic implementation - a short at a time. TODO: Optimize
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
+		STRH(tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
+	}
+	if (j & 3) {
+		// Create a zero register. Might want to make a fixed one.
+		EOR(scratchReg, scratchReg, scratchReg);
+	}
+	while (j & 3) {
+		STRH(scratchReg, dstReg, dec_->decFmt.w0off + j * 2);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloat() {
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDR(tempReg1, srcReg, dec_->weightoff + j * 4);
+		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+	}
+	if (j & 3) {
+		// Create a zero register. Might want to make a fixed one.
+		EOR(scratchReg, scratchReg, scratchReg);
+	}
+	while (j & 3) {  // Zero additional weights rounding up to 4.
+		STR(scratchReg, dstReg, dec_->decFmt.w0off + j * 4);
+		j++;
+	}
+}
+// Fill last two bytes with zeroes to align to 4 bytes. MOVZX does it for us, handy.
+void VertexDecoderJitCache::Jit_TcU8() {
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16() {
+	LDR(tempReg1, srcReg, dec_->tcoff);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcFloat() {
+	LDR(tempReg1, srcReg, dec_->tcoff);
+	LDR(tempReg2, srcReg, dec_->tcoff + 4);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Through() {
+	LDR(tempReg1, srcReg, dec_->tcoff);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatThrough() {
+	LDR(tempReg1, srcReg, dec_->tcoff);
+	LDR(tempReg2, srcReg, dec_->tcoff + 4);
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_Color8888() {
+	LDR(tempReg1, srcReg, dec_->coloff);
+	STR(tempReg1, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color4444() {
+	// TODO
+}
+
+void VertexDecoderJitCache::Jit_Color565() {
+	// TODO
+}
+
+void VertexDecoderJitCache::Jit_Color5551() {
+	// TODO
+}
+// Copy 3 bytes and then a zero. Might as well copy four.
+void VertexDecoderJitCache::Jit_NormalS8() {
+	LDR(tempReg1, srcReg, dec_->nrmoff);
+	ANDI2R(tempReg1, tempReg1, 0x00FFFFFF, scratchReg);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+}
+
+// Copy 6 bytes and then 2 zeroes.
+void VertexDecoderJitCache::Jit_NormalS16() {
+	LDR(tempReg1, srcReg, dec_->nrmoff, false);
+	LDRH(tempReg2, srcReg, dec_->nrmoff + 4, false);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff, false);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloat() {
+	// ldmia?
+	LDR(tempReg1, srcReg, dec_->nrmoff, false);
+	LDR(tempReg2, srcReg, dec_->nrmoff + 4, false);
+	LDR(tempReg3, srcReg, dec_->nrmoff + 8, false);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff, false);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4, false);
+	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 8, false);
+}
+
+// Through expands into floats, always. Might want to look at changing this.
+void VertexDecoderJitCache::Jit_PosS8Through() {
+	// TODO: SIMD
+	for (int i = 0; i < 3; i++) {
+		LDRSB(tempReg1, srcReg, dec_->posoff + i);
+		VMOV(S0, tempReg1);
+		VCVT(S0, S0, TO_FLOAT);
+		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
+	}
+}
+
+// Through expands into floats, always. Might want to look at changing this.
+void VertexDecoderJitCache::Jit_PosS16Through() {
+	// TODO: SIMD
+	for (int i = 0; i < 3; i++) {
+		LDRSH(tempReg1, srcReg, dec_->posoff + i * 2);
+		VMOV(S0, tempReg1);
+		VCVT(S0, S0, TO_FLOAT);
+		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
+	}
+}
+
+// Copy 3 bytes and then a zero. Might as well copy four.
+void VertexDecoderJitCache::Jit_PosS8() {
+	LDR(tempReg1, srcReg, dec_->posoff);
+	ANDI2R(tempReg1, tempReg1, 0x00FFFFFF, scratchReg);
+	STR(tempReg1, dstReg, dec_->decFmt.posoff);
+}
+
+// Copy 6 bytes and then 2 zeroes.
+void VertexDecoderJitCache::Jit_PosS16() {
+	LDR(tempReg1, srcReg, dec_->posoff);
+	LDR(tempReg2, srcReg, dec_->posoff + 4);  // WARNING: This SHOULD be an LDRH but things break! why?
+	STR(tempReg1, dstReg, dec_->decFmt.posoff);
+	STR(tempReg2, dstReg, dec_->decFmt.posoff + 4);
+}
+
+// Just copy 12 bytes.
+void VertexDecoderJitCache::Jit_PosFloat() {
+	// ldmia?
+	LDR(tempReg1, srcReg, dec_->posoff);
+	LDR(tempReg2, srcReg, dec_->posoff + 4);
+	LDR(tempReg3, srcReg, dec_->posoff + 8);
+	STR(tempReg1, dstReg, dec_->decFmt.posoff);
+	STR(tempReg2, dstReg, dec_->decFmt.posoff + 4);
+	STR(tempReg3, dstReg, dec_->decFmt.posoff + 8);
 }
 
 #elif defined(_M_X64) || defined(_M_IX86)
@@ -814,12 +1057,6 @@ static const X64Reg dstReg = EDI;
 static const X64Reg counterReg = ECX;
 #endif
 
-typedef void (VertexDecoderJitCache::*JitStepFunction)();
-
-struct JitLookup {
-	StepFunction func;
-	JitStepFunction jitFunc;
-};
 
 // To debug, just comment them out one at a time until it works. We fall back
 // on the interpreter if the compiler fails.
@@ -868,7 +1105,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	MOV(32, R(srcReg), MDisp(ESP, 16 + offset + 0));
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
-
 #endif
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
@@ -892,7 +1128,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	J_CC(CC_NZ, loopStart);
 
 #ifdef _M_IX86
-	// Store register values
+	// Restore register values
 	POP(EBP);
 	POP(EBX);
 	POP(EDI);
@@ -902,17 +1138,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	RET();
 
 	return (JittedVertexDecoder)start;
-}
-
-bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
-	// See if we find a matching JIT function
-	for (int i = 0; i < ARRAY_SIZE(jitLookup); i++) {
-		if (dec.steps_[step] == jitLookup[i].func) {
-			((*this).*jitLookup[i].jitFunc)();
-			return true;
-		}
-	}
-	return false;
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8() {
@@ -1081,4 +1306,19 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
 }
 
+#elif defined(PPC)
+
+#error This should not be built for PowerPC, at least not yet.
+
 #endif
+
+bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
+	// See if we find a matching JIT function
+	for (int i = 0; i < ARRAY_SIZE(jitLookup); i++) {
+		if (dec.steps_[step] == jitLookup[i].func) {
+			((*this).*jitLookup[i].jitFunc)();
+			return true;
+		}
+	}
+	return false;
+}

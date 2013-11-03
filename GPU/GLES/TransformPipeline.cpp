@@ -166,7 +166,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 	delete [] quadIndices_;
 
 	unregister_gl_resource_holder(this);
-	delete [] decJitCache_;
+	delete decJitCache_;
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}

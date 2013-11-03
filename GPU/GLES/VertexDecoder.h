@@ -172,7 +172,7 @@ public:
 
 
 #ifdef ARM
-class VertexDecoderJitCache : public ARMXCodeBlock {
+class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
 #else
 class VertexDecoderJitCache : public Gen::XCodeBlock {
 #endif
