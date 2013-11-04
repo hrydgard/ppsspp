@@ -4,6 +4,7 @@ set(SRCS
   lin/quat.cpp
   lin/aabb.cpp
 	curves.cpp
+	math_util.cpp
   )
 
 set(SRCS ${SRCS})
