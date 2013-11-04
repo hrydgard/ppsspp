@@ -291,7 +291,7 @@ View *GetFocusedView();
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabled_(true), enabledPtr_(0) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabledPtr_(0), enabled_(true) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
@@ -310,7 +310,7 @@ public:
 	void Move(Bounds bounds) {
 		bounds_ = bounds;
 	}
-	
+
 	// Views don't do anything here in Layout, only containers implement this.
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	virtual void Layout() {}
