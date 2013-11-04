@@ -128,22 +128,19 @@ namespace DSound
 			dsBuffer->GetCurrentPosition((DWORD *)&currentPos, 0);
 			int numBytesToRender = RoundDown128(ModBufferSize(currentPos - lastPos)); 
 
-			//renderStuff(numBytesToRender/2);
-			//if (numBytesToRender>bufferSize/2) numBytesToRender=0;
-
 			if (numBytesToRender >= 256)
 			{
 				int numBytesRendered = 4 * (*callback)(realtimeBuffer, numBytesToRender >> 2, 16, 44100, 2);
-
-				if (numBytesRendered != 0)
-					writeDataToBuffer(lastPos, (char *)realtimeBuffer, numBytesRendered);
+				//We need to copy the full buffer, regardless of what the mixer claims to have filled
+				//If we don't do this then the sound will loop if the sound stops and the mixer writes only zeroes
+				numBytesRendered = numBytesToRender;
+				writeDataToBuffer(lastPos, (char *) realtimeBuffer, numBytesRendered);
 
 				currentPos = ModBufferSize(lastPos + numBytesRendered);
 				totalRenderedBytes += numBytesRendered;
 
 				lastPos = currentPos;
 			}
-
 
 			LeaveCriticalSection(&soundCriticalSection);
 			WaitForSingleObject(soundSyncEvent, MAXWAIT);
