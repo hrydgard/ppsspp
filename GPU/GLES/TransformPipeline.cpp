@@ -1081,9 +1081,7 @@ u32 TransformDrawEngine::ComputeHash() {
 		}
 	}
 	if (uvScale) {
-		for (int i = 0; i < numDrawCalls; i++) {
-			fullhash += XXH32(&uvScale[i], sizeof(uvScale[0]), 0x0123e658);
-		}
+		fullhash += XXH32(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 	}
 
 	return fullhash;

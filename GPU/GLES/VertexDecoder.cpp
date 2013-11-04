@@ -1248,7 +1248,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	// tempReg1 -> ABGR0000, then double A backwards.
 	SHL(32, R(tempReg1), Imm8(8));
 	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg3), Imm32(0xF000000));
+	AND(32, R(tempReg3), Imm32(0xF0000000));
 	OR(32, R(tempReg2), R(tempReg3));
 	SHR(32, R(tempReg3), Imm8(4));
 	OR(32, R(tempReg2), R(tempReg3));
@@ -1276,7 +1276,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 	AND(32, R(tempReg2), Imm32(0x00FF00FF));
 
 	// Now's as good a time to put in A as any.
-	OR(32, R(tempReg2), Imm8(0xFF000000));
+	OR(32, R(tempReg2), Imm32(0xFF000000));
 
 	// Last, we need to align, extract, and expand G.
 	// 3 to align to G, and then 2 to expand to 8.
