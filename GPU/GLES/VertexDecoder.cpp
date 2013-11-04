@@ -964,20 +964,23 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
-	LDR(tempReg1, srcReg, dec_->nrmoff, false);
-	LDRH(tempReg2, srcReg, dec_->nrmoff + 4, false);
-	STR(tempReg1, dstReg, dec_->decFmt.nrmoff, false);
-	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4, false);
+	LDR(tempReg1, srcReg, dec_->nrmoff);
+	LDRH(tempReg2, srcReg, dec_->nrmoff + 4);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	// ldmia?
-	LDR(tempReg1, srcReg, dec_->nrmoff, false);
-	LDR(tempReg2, srcReg, dec_->nrmoff + 4, false);
-	LDR(tempReg3, srcReg, dec_->nrmoff + 8, false);
-	STR(tempReg1, dstReg, dec_->decFmt.nrmoff, false);
-	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4, false);
-	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 8, false);
+	//ADD(scratchReg, srcReg, dec_->nrmoff);
+	//LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	//ADD(scratchReg, dstReg, dec_->decFmt.nrmoff);
+	//STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	LDR(tempReg1, srcReg, dec_->nrmoff);
+	LDR(tempReg2, srcReg, dec_->nrmoff + 4);
+	LDR(tempReg3, srcReg, dec_->nrmoff + 8);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
+	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
 }
 
 // Through expands into floats, always. Might want to look at changing this.
@@ -1019,7 +1022,10 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	// ldmia?
+	//ADD(scratchReg, srcReg, dec_->posoff);
+	//LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	//ADD(scratchReg, dstReg, dec_->decFmt.posoff);
+	//STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 	LDR(tempReg1, srcReg, dec_->posoff);
 	LDR(tempReg2, srcReg, dec_->posoff + 4);
 	LDR(tempReg3, srcReg, dec_->posoff + 8);
