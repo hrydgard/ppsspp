@@ -194,7 +194,7 @@ public:
 				shift = 0;
 			break;
 		case ST_ASR:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: LSR %u", shift);
+			_assert_msg_(JIT, shift < 32, "Invalid Operand2: ASR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			if (shift == 32)
@@ -524,6 +524,10 @@ public:
 
 	void STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	void LDMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
+	void STMIA(ARMReg dest, bool WriteBack, const int Regnum, ...);
+	void LDMIA(ARMReg dest, bool WriteBack, const int Regnum, ...);
+	void STM(ARMReg dest, bool Add, bool Before, bool WriteBack, const int Regnum, ...);
+	void LDM(ARMReg dest, bool Add, bool Before, bool WriteBack, const int Regnum, ...);
 
 	// Exclusive Access operations
 	void LDREX(ARMReg dest, ARMReg base);

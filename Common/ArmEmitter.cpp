@@ -845,6 +845,19 @@ void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op2, bool RegAdd) {
 void ARMXEmitter::STRH (ARMReg result, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(4, result, base, op2, RegAdd);}
 void ARMXEmitter::STRB (ARMReg result, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(2, result, base, op2, RegAdd);}
 
+#define VA_TO_REGLIST(RegList, Regnum) \
+{ \
+	u8 Reg; \
+	va_list vl; \
+	va_start(vl, Regnum); \
+	for (int i = 0; i < Regnum; i++) \
+	{ \
+		Reg = va_arg(vl, u32); \
+		RegList |= (1 << Reg); \
+	} \
+	va_end(vl); \
+}
+
 void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList)
 {
 	Write32(condition | (op << 20) | (WriteBack << 21) | (dest << 16) | RegList);
@@ -852,33 +865,41 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 void ARMXEmitter::STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {
 	u16 RegList = 0;
-	u8 Reg;
-	int i;
-	va_list vl;
-	va_start(vl, Regnum);
-	for (i=0;i<Regnum;i++)
-	{
-		Reg = va_arg(vl, u32);
-		RegList |= (1 << Reg);
-	}
-	va_end(vl);
-	WriteRegStoreOp(0x90, dest, WriteBack, RegList);
+	VA_TO_REGLIST(RegList, Regnum);
+	WriteRegStoreOp(0x80 | 0x10 | 0, dest, WriteBack, RegList);
 }
 void ARMXEmitter::LDMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {
 	u16 RegList = 0;
-	u8 Reg;
-	int i;
-	va_list vl;
-	va_start(vl, Regnum);
-	for (i=0;i<Regnum;i++)
-	{
-		Reg = va_arg(vl, u32);
-		RegList |= (1 << Reg);
-	}
-	va_end(vl);
-	WriteRegStoreOp(0x89, dest, WriteBack, RegList);
+	VA_TO_REGLIST(RegList, Regnum);
+	WriteRegStoreOp(0x80 | 0x08 | 1, dest, WriteBack, RegList);
 }
+void ARMXEmitter::STMIA(ARMReg dest, bool WriteBack, const int Regnum, ...)
+{
+	u16 RegList = 0;
+	VA_TO_REGLIST(RegList, Regnum);
+	WriteRegStoreOp(0x80 | 0x08 | 0, dest, WriteBack, RegList);
+}
+void ARMXEmitter::LDMIA(ARMReg dest, bool WriteBack, const int Regnum, ...)
+{
+	u16 RegList = 0;
+	VA_TO_REGLIST(RegList, Regnum);
+	WriteRegStoreOp(0x80 | 0x08 | 1, dest, WriteBack, RegList);
+}
+void ARMXEmitter::STM(ARMReg dest, bool Add, bool Before, bool WriteBack, const int Regnum, ...)
+{
+	u16 RegList = 0;
+	VA_TO_REGLIST(RegList, Regnum);
+	WriteRegStoreOp(0x80 | (Before << 4) | (Add << 3) | 0, dest, WriteBack, RegList);
+}
+void ARMXEmitter::LDM(ARMReg dest, bool Add, bool Before, bool WriteBack, const int Regnum, ...)
+{
+	u16 RegList = 0;
+	VA_TO_REGLIST(RegList, Regnum);
+	WriteRegStoreOp(0x80 | (Before << 4) | (Add << 3) | 1, dest, WriteBack, RegList);
+}
+
+#undef VA_TO_REGLIST
 
 ARMReg ARMXEmitter::SubBase(ARMReg Reg)
 {
