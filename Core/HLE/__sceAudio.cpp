@@ -404,7 +404,7 @@ int __AudioMix(short *outstereo, int numFrames)
 
 	int remains = (int)(numFrames * 2 - sz1 - sz2);
 	if (remains > 0)
-		memset(outstereo + numFrames * 2 - remains, 0, remains);
+		memset(outstereo + numFrames * 2 - remains, 0, remains*sizeof(s16));
 
 	if (sz1 + sz2 < (size_t)numFrames) {
 		underrun = (int)(sz1 + sz2) / 2;
