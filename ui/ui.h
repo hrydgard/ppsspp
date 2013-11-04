@@ -23,10 +23,11 @@
 #define GEN_ID_LOOP(i) ((__LINE__) + ((int)i) * 13612)
 #endif
 
-#include "gfx_es2/draw_buffer.h"
-
 #include <string>
 #include <vector>
+
+#include "gfx_es2/draw_buffer.h"
+#include "input/input_state.h"
 
 class Texture;
 class UIContext;
@@ -126,11 +127,6 @@ private:
 	float xSpacing_;
 	float ySpacing_;
 };
-
-
-#ifndef MAX_POINTERS
-#define MAX_POINTERS 8
-#endif
 
 // "Mouse" out of habit, applies just as well to touch events.
 // TODO: Change to "pointer"

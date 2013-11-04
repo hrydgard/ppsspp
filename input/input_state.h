@@ -60,9 +60,7 @@ enum {
 	PAD_BUTTON_UNTHROTTLE = 1 << 20, // Click Tab to unthrottle
 };
 
-#ifndef MAX_POINTERS
 #define MAX_POINTERS 10
-#endif
 
 #ifndef MAX_KEYQUEUESIZE
 #define MAX_KEYQUEUESIZE 20
