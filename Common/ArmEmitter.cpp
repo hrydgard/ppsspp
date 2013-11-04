@@ -192,6 +192,17 @@ void ARMXEmitter::CMPI2R(ARMReg rs, u32 val, ARMReg scratch)
 	}
 }
 
+void ARMXEmitter::TSTI2R(ARMReg rs, u32 val, ARMReg scratch)
+{
+	Operand2 op2;
+	if (TryMakeOperand2(val, op2)) {
+		TST(rs, op2);
+	} else {
+		MOVI2R(scratch, val);
+		TST(rs, scratch);
+	}
+}
+
 void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
 	Operand2 op2;
