@@ -814,6 +814,7 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
+	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
 	// Todo: The compressed color formats
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
@@ -965,12 +966,37 @@ void VertexDecoderJitCache::Jit_Color4444() {
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
-	// TODO
+	// Ignoring the top 16 bits.
+	LDR(tempReg1, srcReg, dec_->coloff);
+
+	// Spread out R and B first.  This puts them in 0x001F001F.
+	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0xF800, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 5));
+
+	// Expand 5 -> 8.
+	LSL(tempReg3, tempReg2, 3);
+	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSR, 2));
+	ANDI2R(tempReg2, tempReg2, 0x00FF00FF, scratchReg);
+
+	// Now finally G.  We start by shoving it into a wall.
+	LSR(tempReg1, tempReg1, 5);
+	ANDI2R(tempReg1, tempReg1, 0x003F, scratchReg);
+	LSL(tempReg3, tempReg1, 2);
+	// Don't worry, shifts into a wall.
+	ORR(tempReg3, tempReg3, Operand2(tempReg1, ST_LSR, 4));
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 8));
+
+	// Add in full alpha.
+	ORI2R(tempReg1, tempReg2, 0xFF000000, scratchReg);
+
+	STR(tempReg1, dstReg, dec_->decFmt.c0off);
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
 	// TODO
 }
+
 // Copy 3 bytes and then a zero. Might as well copy four.
 void VertexDecoderJitCache::Jit_NormalS8() {
 	LDR(tempReg1, srcReg, dec_->nrmoff);
