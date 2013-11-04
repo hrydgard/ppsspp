@@ -634,9 +634,10 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	WriteDowncount(offset);
 	js.downcountAmount = -offset;
 
-	// Skip the CallSyscall overhead for __KernelIdle, which is called a lot.
-	if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
-		ABI_CallFunction((void *)GetFunc("FakeSysCalls", NID_IDLE)->func);
+	// Skip the CallSyscall where possible.
+	void *quickFunc = GetQuickSyscallFunc(op);
+	if (quickFunc)
+		ABI_CallFunctionP(quickFunc, (void *)GetSyscallInfo(op));
 	else
 		ABI_CallFunctionC((void *)&CallSyscall, op.encoding);
 

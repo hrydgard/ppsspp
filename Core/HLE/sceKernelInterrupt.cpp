@@ -108,11 +108,11 @@ void sceKernelIsCpuIntrEnable()
 	RETURN(retVal);
 }
 
-void sceKernelIsCpuIntrSuspended()
+int sceKernelIsCpuIntrSuspended(int flag)
 {
-	u32 retVal = !__InterruptsEnabled(); 
-	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrSuspended()", retVal);
-	RETURN(retVal);
+	int retVal = flag == 0 ? 1 : 0;
+	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrSuspended(%d)", retVal, flag);
+	return retVal;
 }
 
 void sceKernelCpuResumeIntrWithSync(u32 enable)
@@ -588,7 +588,7 @@ const HLEFunction Kernel_Library[] =
 	{0x092968F4,sceKernelCpuSuspendIntr, "sceKernelCpuSuspendIntr"},
 	{0x5F10D406,WrapV_U<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
 	{0x3b84732d,WrapV_U<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
-	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
+	{0x47a0b729,WrapI_I<sceKernelIsCpuIntrSuspended>, "sceKernelIsCpuIntrSuspended"}, //flags
 	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"},
 	{0xa089eca4,WrapU_UUU<sceKernelMemset>, "sceKernelMemset"},
 	{0xDC692EE3,WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},

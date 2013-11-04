@@ -120,3 +120,8 @@ bool WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
+
+const HLEFunction *GetSyscallInfo(MIPSOpcode op);
+// For jit, takes arg: const HLEFunction *
+void *GetQuickSyscallFunc(MIPSOpcode op);
+

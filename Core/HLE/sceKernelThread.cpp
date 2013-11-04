@@ -1338,7 +1338,8 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 
 void __KernelIdle()
 {
-	hleSkipDeadbeef();
+	// Don't skip 0xDEADBEEF here, this is called directly bypassing CallSyscall().
+	// That means the hle flag would stick around until the next call.
 
 	CoreTiming::Idle();
 	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
