@@ -8,7 +8,7 @@ add_definitions(-Wall)
 add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
-add_definitions(-fopenmp)
+#add_definitions(-fopenmp)
 
 if(IOS)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
@@ -52,7 +52,7 @@ add_subdirectory(../ext/stb_image stb_image)
 
 
 add_executable(atlastool atlastool.cpp)
-target_link_libraries(atlastool ${PNG_LIBRARY} freetype util image z stb_image rg_etc1 file zip gomp)
+target_link_libraries(atlastool ${PNG_LIBRARY} freetype util image z stb_image rg_etc1 file zip)
 
 add_executable(zimtool zimtool.cpp)
-target_link_libraries(zimtool ${PNG_LIBRARY} freetype image z stb_image rg_etc1 file zip gomp)
+target_link_libraries(zimtool ${PNG_LIBRARY} freetype image z stb_image rg_etc1 file zip)
