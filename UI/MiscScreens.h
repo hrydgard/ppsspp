@@ -36,6 +36,7 @@ public:
 protected:
 	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value);
+	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
@@ -44,6 +45,7 @@ public:
 protected:
 	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value);
+	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
 
 class PromptScreen : public UIDialogScreenWithBackground {

@@ -43,7 +43,6 @@ private:
 	// Event handlers
 	UI::EventReturn OnLoadFile(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnRecentChange(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
 	UI::EventReturn OnSupport(UI::EventParams &e);
@@ -73,6 +72,8 @@ private:
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
 	UI::EventReturn OnRewind(UI::EventParams &e);
+
+	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);

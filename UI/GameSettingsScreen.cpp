@@ -435,7 +435,7 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	RecreateViews();
-	OnLanguageChanged.Trigger(e);
+
 	if (host) {
 		host->UpdateUI();
 	}

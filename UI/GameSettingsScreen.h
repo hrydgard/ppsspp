@@ -30,7 +30,6 @@ public:
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
 
-	UI::Event OnLanguageChanged;
 	UI::Event OnRecentChanged;
 
 protected:
