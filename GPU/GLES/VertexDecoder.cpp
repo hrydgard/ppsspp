@@ -815,7 +815,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
-	// Todo: The compressed color formats
+	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
@@ -994,7 +994,28 @@ void VertexDecoderJitCache::Jit_Color565() {
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	// TODO
+	// Ignoring the top 16 bits.
+	LDR(tempReg1, srcReg, dec_->coloff);
+
+	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x07E0, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 3));
+	ANDI2R(tempReg3, tempReg1, 0xF800, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 6));
+
+	// Expand 5 -> 8.
+	LSR(tempReg3, tempReg2, 2);
+	// Clean up the bits that were shifted right.
+	ANDI2R(tempReg3, tempReg1, 0x07070707, scratchReg);
+	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSL, 3));
+
+	// Now we just need alpha.
+	TSTI2R(tempReg1, 0x8000, scratchReg);
+	SetCC(CC_NEQ);
+	ORI2R(tempReg2, tempReg2, 0xFF000000, scratchReg);
+	SetCC(CC_AL);
+
+	STR(tempReg2, dstReg, dec_->decFmt.c0off);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
