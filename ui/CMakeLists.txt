@@ -1,6 +1,8 @@
 set(SRCS
   ui.cpp
   ui_context.cpp
+	view.cpp
+	viewgroup.cpp
   screen.cpp
   virtual_input.cpp
 )
