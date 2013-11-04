@@ -39,6 +39,7 @@
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 #include "util/const_map.h"
+#include "math/math_util.h"
 
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
@@ -47,23 +48,6 @@
 #include <X11/Xutil.h>
 #include "SDL_syswm.h"
 #include "math.h"
-
-#ifdef PANDORA
-void enable_runfast()
-{
-	static const unsigned int x = 0x04086060;
-	static const unsigned int y = 0x03000000;
-	int r;
-	asm volatile (
-		"fmrx	%0, fpscr			\n\t"	//r0 = FPSCR
-		"and	%0, %0, %1			\n\t"	//r0 = r0 & 0x04086060
-		"orr	%0, %0, %2			\n\t"	//r0 = r0 | 0x03000000
-		"fmxr	fpscr, %0			\n\t"	//FPSCR = r0
-		: "=r"(r)
-		: "r"(x), "r"(y)
-	);
-}
-#endif
 
 EGLDisplay          g_eglDisplay    = NULL;
 EGLContext          g_eglContext    = NULL;
@@ -356,11 +340,17 @@ int main(int argc, char *argv[]) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
 #endif
-	if ((mode & SDL_FULLSCREEN) == 0) {
+	if (mode & SDL_FULLSCREEN) {
+		const SDL_VideoInfo* info = SDL_GetVideoInfo();
+		pixel_xres = info->current_w;
+		pixel_yres = info->current_h;
+	} else {
 		// set a sensible default resolution (2x)
 		pixel_xres = 480 * 2;
 		pixel_yres = 272 * 2;
 	}
+	dp_xres = (float)pixel_xres;
+	dp_yres = (float)pixel_yres;
 
 	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
@@ -391,11 +381,6 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 
-	// Maybe resize screen first if on a desktop
-	const SDL_VideoInfo* info = SDL_GetVideoInfo();
-	pixel_xres = info->current_w;
-	pixel_yres = info->current_h;
-
 #ifdef _MSC_VER
 	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
 	TCHAR path[MAX_PATH];
@@ -421,12 +406,7 @@ int main(int argc, char *argv[]) {
 	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
 #endif
 
-	dp_xres = (float)pixel_xres;
-	dp_yres = (float)pixel_yres;
 	pixel_in_dps = (float)pixel_xres / dp_xres;
-
-	NativeInitGraphics();
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 
 	float dp_xscale = (float)dp_xres / pixel_xres;
 	float dp_yscale = (float)dp_yres / pixel_yres;
@@ -435,6 +415,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
+	NativeInitGraphics();
 
 	SDL_AudioSpec fmt;
 	fmt.freq = 44100;
@@ -457,13 +438,13 @@ int main(int argc, char *argv[]) {
 		if (numjoys > 1)
 			rjoy = SDL_JoystickOpen(1);
 	}
-	enable_runfast(); // VFPv2 RunFast
 #else
 	SDL_JoystickEventState(SDL_ENABLE);
 	if (numjoys > 0) {
 		joy = SDL_JoystickOpen(0);
 	}
 #endif
+	EnableFZ();
 
 	// This is just a standard mapping that matches the X360 controller on MacOSX. Names will probably be all wrong
 	// on other controllers.

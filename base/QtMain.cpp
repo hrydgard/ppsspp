@@ -54,7 +54,7 @@ void Vibrate(int length_ms) {
 	// Symbian only for now
 #if defined(__SYMBIAN32__)
 	QFeedbackHapticsEffect effect;
-	effect.setIntensity(0.4);
+	effect.setIntensity(0.8);
 	effect.setDuration(length_ms);
 	effect.start();
 #endif
