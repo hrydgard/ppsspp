@@ -813,7 +813,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
-	// Todo: The compressed color formats
+	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
+	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
+	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
@@ -945,16 +947,77 @@ void VertexDecoderJitCache::Jit_Color8888() {
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
-	// TODO
+	// Ignoring the top 16 bits.
+	LDR(tempReg1, srcReg, dec_->coloff);
+
+	// Spread out the components.
+	ANDI2R(tempReg2, tempReg1, 0x000F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x00F0, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 4));
+	ANDI2R(tempReg3, tempReg1, 0x0F00, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 8));
+	ANDI2R(tempReg3, tempReg1, 0xF000, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 12));
+
+	// And saturate.
+	ORR(tempReg1, tempReg2, Operand2(tempReg2, ST_LSL, 4));
+
+	STR(tempReg1, dstReg, dec_->decFmt.c0off);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
-	// TODO
+	// Ignoring the top 16 bits.
+	LDR(tempReg1, srcReg, dec_->coloff);
+
+	// Spread out R and B first.  This puts them in 0x001F001F.
+	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0xF800, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 5));
+
+	// Expand 5 -> 8.
+	LSL(tempReg3, tempReg2, 3);
+	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSR, 2));
+	ANDI2R(tempReg2, tempReg2, 0x00FF00FF, scratchReg);
+
+	// Now finally G.  We start by shoving it into a wall.
+	LSR(tempReg1, tempReg1, 5);
+	ANDI2R(tempReg1, tempReg1, 0x003F, scratchReg);
+	LSL(tempReg3, tempReg1, 2);
+	// Don't worry, shifts into a wall.
+	ORR(tempReg3, tempReg3, Operand2(tempReg1, ST_LSR, 4));
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 8));
+
+	// Add in full alpha.
+	ORI2R(tempReg1, tempReg2, 0xFF000000, scratchReg);
+
+	STR(tempReg1, dstReg, dec_->decFmt.c0off);
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	// TODO
+	// Ignoring the top 16 bits.
+	LDR(tempReg1, srcReg, dec_->coloff);
+
+	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x07E0, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 3));
+	ANDI2R(tempReg3, tempReg1, 0xF800, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 6));
+
+	// Expand 5 -> 8.
+	LSR(tempReg3, tempReg2, 2);
+	// Clean up the bits that were shifted right.
+	ANDI2R(tempReg3, tempReg1, 0x07070707, scratchReg);
+	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSL, 3));
+
+	// Now we just need alpha.
+	TSTI2R(tempReg1, 0x8000, scratchReg);
+	SetCC(CC_NEQ);
+	ORI2R(tempReg2, tempReg2, 0xFF000000, scratchReg);
+	SetCC(CC_AL);
+
+	STR(tempReg2, dstReg, dec_->decFmt.c0off);
 }
+
 // Copy 3 bytes and then a zero. Might as well copy four.
 void VertexDecoderJitCache::Jit_NormalS8() {
 	LDR(tempReg1, srcReg, dec_->nrmoff);
@@ -964,20 +1027,23 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
-	LDR(tempReg1, srcReg, dec_->nrmoff, false);
-	LDRH(tempReg2, srcReg, dec_->nrmoff + 4, false);
-	STR(tempReg1, dstReg, dec_->decFmt.nrmoff, false);
-	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4, false);
+	LDR(tempReg1, srcReg, dec_->nrmoff);
+	LDRH(tempReg2, srcReg, dec_->nrmoff + 4);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	// ldmia?
-	LDR(tempReg1, srcReg, dec_->nrmoff, false);
-	LDR(tempReg2, srcReg, dec_->nrmoff + 4, false);
-	LDR(tempReg3, srcReg, dec_->nrmoff + 8, false);
-	STR(tempReg1, dstReg, dec_->decFmt.nrmoff, false);
-	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4, false);
-	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 8, false);
+	//ADD(scratchReg, srcReg, dec_->nrmoff);
+	//LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	//ADD(scratchReg, dstReg, dec_->decFmt.nrmoff);
+	//STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	LDR(tempReg1, srcReg, dec_->nrmoff);
+	LDR(tempReg2, srcReg, dec_->nrmoff + 4);
+	LDR(tempReg3, srcReg, dec_->nrmoff + 8);
+	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
+	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
 }
 
 // Through expands into floats, always. Might want to look at changing this.
@@ -1019,7 +1085,10 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	// ldmia?
+	//ADD(scratchReg, srcReg, dec_->posoff);
+	//LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	//ADD(scratchReg, dstReg, dec_->decFmt.posoff);
+	//STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 	LDR(tempReg1, srcReg, dec_->posoff);
 	LDR(tempReg2, srcReg, dec_->posoff + 4);
 	LDR(tempReg3, srcReg, dec_->posoff + 8);
