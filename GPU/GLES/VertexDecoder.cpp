@@ -1127,7 +1127,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	ADD(32, R(dstReg), Imm32(dec.decFmt.stride));
 #endif
 	SUB(32, R(counterReg), Imm8(1));
-	J_CC(CC_NZ, loopStart);
+	J_CC(CC_NZ, loopStart, true);
 
 #ifdef _M_IX86
 	// Restore register values
