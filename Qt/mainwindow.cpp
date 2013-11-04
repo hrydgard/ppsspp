@@ -90,6 +90,11 @@ void MainWindow::Update()
 
 	if (lastUIState != globalUIState) {
 		lastUIState = globalUIState;
+		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !QApplication::overrideCursor() && !g_Config.bShowTouchControls)
+			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+		if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen && QApplication::overrideCursor())
+			QApplication::restoreOverrideCursor();
+
 		UpdateMenus();
 	}
 }
@@ -546,6 +551,9 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		ui->menubar->setVisible(true);
 		ui->statusbar->setVisible(true);
 		SetZoom(g_Config.iInternalResolution);
+		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
+			QApplication::restoreOverrideCursor();
+
 	}
 	else {
 		g_Config.bFullScreen = true;
@@ -575,6 +583,9 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		dp_yres = pixel_yres;
 		if (gpu)
 			gpu->Resized();
+		if (globalUIState == UISTATE_INGAME && !g_Config.bShowTouchControls)
+			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+
 	}
 }
 
