@@ -813,6 +813,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
+	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	// Todo: The compressed color formats
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
@@ -945,7 +946,22 @@ void VertexDecoderJitCache::Jit_Color8888() {
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
-	// TODO
+	// Ignoring the top 16 bits.
+	LDR(tempReg1, srcReg, dec_->coloff);
+
+	// Spread out the components.
+	ANDI2R(tempReg2, tempReg1, 0x000F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x00F0, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 4));
+	ANDI2R(tempReg3, tempReg1, 0x0F00, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 8));
+	ANDI2R(tempReg3, tempReg1, 0xF000, scratchReg);
+	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 12));
+
+	// And saturate.
+	ORR(tempReg1, tempReg2, Operand2(tempReg2, ST_LSL, 4));
+
+	STR(tempReg1, dstReg, dec_->decFmt.c0off);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
