@@ -289,8 +289,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 
 	int imm3 = (op >> 18) & 7;
 
-	MOVI2R(R0, (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
-	LDR(R0, R0, Operand2(0, TYPE_IMM));
+	LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * VFPU_CTRL_CC);
 	TST(R0, Operand2(1 << imm3, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
@@ -378,6 +377,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
+	ARMReg destReg = R8;
 	if (IsSyscall(delaySlotOp)) {
 		gpr.MapReg(rs);
 		MOV(R8, gpr.R(rs)); 
@@ -387,7 +387,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	} else if (delaySlotIsNice) {
 		CompileDelaySlot(DELAYSLOT_NICE);
 		gpr.MapReg(rs);
-		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
+		destReg = gpr.R(rs);  // Safe because FlushAll doesn't change any regs
 		FlushAll();
 	} else {
 		// Delay slot
@@ -410,7 +410,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		break;
 	}
 
-	WriteExitDestInR(R8);
+	WriteExitDestInR(destReg);
 	js.compiling = false;
 }
 
