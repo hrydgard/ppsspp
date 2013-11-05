@@ -17,6 +17,7 @@
 #include "base/display.h"
 #include "base/NKCodeFromQt.h"
 #include "GPU/GPUInterface.h"
+#include "UI/GamepadEmu.h"
 
 #include "QtHost.h"
 #include "EmuThread.h"
@@ -551,6 +552,7 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		ui->menubar->setVisible(true);
 		ui->statusbar->setVisible(true);
 		SetZoom(g_Config.iInternalResolution);
+		InitPadLayout();
 		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 
@@ -583,6 +585,7 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		dp_yres = pixel_yres;
 		if (gpu)
 			gpu->Resized();
+		InitPadLayout();
 		if (globalUIState == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
