@@ -237,23 +237,44 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	//requires pixel coordinates which is not known right now.
 	//will be initialized in GamepadEmu::CreatePadLayout
 	control->Get("ActionButtonSpacing", &iActionButtonSpacing, -1);
-	control->Get("ActionButtonCenterX", &iActionButtonCenterX, -1);
-	control->Get("ActionButtonCenterY", &iActionButtonCenterY, -1);
+	control->Get("ActionButtonCenterX", &fActionButtonCenterX, -1.0);
+	control->Get("ActionButtonCenterY", &fActionButtonCenterY, -1.0);
 	control->Get("DPadRadius", &iDpadRadius, -1);
-	control->Get("DPadX", &iDpadX, -1);
-	control->Get("DPadY", &iDpadY, -1);
-	control->Get("StartKeyX", &iStartKeyX, -1);
-	control->Get("StartKeyY", &iStartKeyY, -1);
-	control->Get("SelectKeyX", &iSelectKeyX, -1);
-	control->Get("SelectKeyY", &iSelectKeyY, -1);
-	control->Get("UnthrottleKeyX", &iUnthrottleKeyX, -1);
-	control->Get("UnthrottleKeyY", &iUnthrottleKeyY, -1);
-	control->Get("LKeyX", &iLKeyX, -1);
-	control->Get("LKeyY", &iLKeyY, -1);
-	control->Get("RKeyX", &iRKeyX, -1);
-	control->Get("RKeyY", &iRKeyY, -1);
-	control->Get("AnalogStickX", &iAnalogStickX, -1);
-	control->Get("AnalogStickY", &iAnalogStickY, -1);
+	control->Get("DPadX", &fDpadX, -1.0);
+	control->Get("DPadY", &fDpadY, -1.0);
+	control->Get("StartKeyX", &fStartKeyX, -1.0);
+	control->Get("StartKeyY", &fStartKeyY, -1.0);
+	control->Get("SelectKeyX", &fSelectKeyX, -1.0);
+	control->Get("SelectKeyY", &fSelectKeyY, -1.0);
+	control->Get("UnthrottleKeyX", &fUnthrottleKeyX, -1.0);
+	control->Get("UnthrottleKeyY", &fUnthrottleKeyY, -1.0);
+	control->Get("LKeyX", &fLKeyX, -1.0);
+	control->Get("LKeyY", &fLKeyY, -1.0);
+	control->Get("RKeyX", &fRKeyX, -1.0);
+	control->Get("RKeyY", &fRKeyY, -1.0);
+	control->Get("AnalogStickX", &fAnalogStickX, -1.0);
+	control->Get("AnalogStickY", &fAnalogStickY, -1.0);
+
+	// MIGRATION: For users who had the old static touch layout, aren't I nice?
+	if (fDpadX > 1.0 || fDpadY > 1.0) // Likely the rest are too!
+	{
+		fActionButtonCenterX /= dp_xres;
+		fActionButtonCenterY /= dp_yres;
+		fDpadX /= dp_xres;
+		fDpadY /= dp_yres;
+		fStartKeyX /= dp_xres;
+		fStartKeyY /= dp_yres;
+		fSelectKeyX /= dp_xres;
+		fSelectKeyY /= dp_yres;
+		fUnthrottleKeyX /= dp_xres;
+		fUnthrottleKeyY /= dp_yres;
+		fLKeyX /= dp_xres;
+		fLKeyY /= dp_yres;
+		fRKeyX /= dp_xres;
+		fRKeyY /= dp_yres;
+		fAnalogStickX /= dp_xres;
+		fAnalogStickY /= dp_yres;
+	}
 	
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
@@ -434,23 +455,23 @@ void Config::Save() {
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
 		control->Set("ActionButtonSpacing", iActionButtonSpacing);
-		control->Set("ActionButtonCenterX", iActionButtonCenterX);
-		control->Set("ActionButtonCenterY", iActionButtonCenterY);
+		control->Set("ActionButtonCenterX", fActionButtonCenterX);
+		control->Set("ActionButtonCenterY", fActionButtonCenterY);
 		control->Set("DPadRadius", iDpadRadius);
-		control->Set("DPadX", iDpadX);
-		control->Set("DPadY", iDpadY);
-		control->Set("StartKeyX", iStartKeyX);
-		control->Set("StartKeyY", iStartKeyY);
-		control->Set("SelectKeyX", iSelectKeyX);
-		control->Set("SelectKeyY", iSelectKeyY);
-		control->Set("UnthrottleKeyX", iUnthrottleKeyX);
-		control->Set("UnthrottleKeyY", iUnthrottleKeyY);
-		control->Set("LKeyX", iLKeyX);
-		control->Set("LKeyY", iLKeyY);
-		control->Set("RKeyX", iRKeyX);
-		control->Set("RKeyY", iRKeyY);
-		control->Set("AnalogStickX", iAnalogStickX);
-		control->Set("AnalogStickY", iAnalogStickY);
+		control->Set("DPadX", fDpadX);
+		control->Set("DPadY", fDpadY);
+		control->Set("StartKeyX", fStartKeyX);
+		control->Set("StartKeyY", fStartKeyY);
+		control->Set("SelectKeyX", fSelectKeyX);
+		control->Set("SelectKeyY", fSelectKeyY);
+		control->Set("UnthrottleKeyX", fUnthrottleKeyX);
+		control->Set("UnthrottleKeyY", fUnthrottleKeyY);
+		control->Set("LKeyX", fLKeyX);
+		control->Set("LKeyY", fLKeyY);
+		control->Set("RKeyX", fRKeyX);
+		control->Set("RKeyY", fRKeyY);
+		control->Set("AnalogStickX", fAnalogStickX);
+		control->Set("AnalogStickY", fAnalogStickY);
 
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");

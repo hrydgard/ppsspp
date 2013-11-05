@@ -286,10 +286,10 @@ void InitPadLayout() {
 	int Action_button_center_X = dp_xres - Action_button_spacing * 2;
 	int Action_button_center_Y = dp_yres - Action_button_spacing * 2;
 
-	if(g_Config.iActionButtonCenterX == -1 || g_Config.iActionButtonCenterY == -1 ) {
+	if(g_Config.fActionButtonCenterX == -1.0 || g_Config.fActionButtonCenterY == -1.0 ) {
 		//setup defaults
-		g_Config.iActionButtonCenterX = Action_button_center_X;
-		g_Config.iActionButtonCenterY = Action_button_center_Y;
+		g_Config.fActionButtonCenterX = (float)Action_button_center_X / dp_xres;
+		g_Config.fActionButtonCenterY = (float)Action_button_center_Y / dp_yres;
 	}
 
 	
@@ -307,10 +307,10 @@ void InitPadLayout() {
 		D_pad_Y -= 200 * scale;
 	}
 
-	if(g_Config.iDpadX == -1 || g_Config.iDpadY == -1 ) {
+	if(g_Config.fDpadX == -1.0 || g_Config.fDpadY == -1.0 ) {
 		//setup defaults
-		g_Config.iDpadX = D_pad_X;
-		g_Config.iDpadY = D_pad_Y;
+		g_Config.fDpadX = (float)D_pad_X / dp_xres;
+		g_Config.fDpadY = (float)D_pad_Y / dp_yres;
 	}
 
 	//analog stick-------------------------------------------------------
@@ -318,9 +318,9 @@ void InitPadLayout() {
 	int analog_stick_X = D_pad_X;
 	int analog_stick_Y = dp_yres - 80 * scale;
 
-	if (g_Config.iAnalogStickX == -1 || g_Config.iAnalogStickY == -1 ) {
-		g_Config.iAnalogStickX = analog_stick_X;
-		g_Config.iAnalogStickY = analog_stick_Y;
+	if (g_Config.fAnalogStickX == -1.0 || g_Config.fAnalogStickY == -1.0 ) {
+		g_Config.fAnalogStickX = (float)analog_stick_X / dp_xres;
+		g_Config.fAnalogStickY = (float)analog_stick_Y / dp_yres;
 	}
 
 	//select, start, throttle--------------------------------------------
@@ -330,42 +330,42 @@ void InitPadLayout() {
 	int start_key_X = dp_xres / 2 + (bottom_key_spacing) * scale;
 	int start_key_Y = dp_yres - 60 * scale;
 
-	if (g_Config.iStartKeyX == -1 || g_Config.iStartKeyY == -1 ) {
-		g_Config.iStartKeyX = start_key_X;
-		g_Config.iStartKeyY = start_key_Y;
+	if (g_Config.fStartKeyX == -1.0 || g_Config.fStartKeyY == -1.0 ) {
+		g_Config.fStartKeyX = (float)start_key_X / dp_xres;
+		g_Config.fStartKeyY = (float)start_key_Y / dp_yres;
 	}
 
 	int select_key_X = dp_xres / 2;
 	int select_key_Y = dp_yres - 60 * scale;
 
-	if (g_Config.iSelectKeyX == -1 || g_Config.iSelectKeyY == -1 ) {
-		g_Config.iSelectKeyX = select_key_X;
-		g_Config.iSelectKeyY = select_key_Y;
+	if (g_Config.fSelectKeyX == -1.0 || g_Config.fSelectKeyY == -1.0 ) {
+		g_Config.fSelectKeyX = (float)select_key_X / dp_xres;
+		g_Config.fSelectKeyY = (float)select_key_Y / dp_yres;
 	}
 
 	int unthrottle_key_X = dp_xres / 2 - (bottom_key_spacing) * scale;
 	int unthrottle_key_Y = dp_yres - 60 * scale;
 
-	if (g_Config.iUnthrottleKeyX == -1 || g_Config.iUnthrottleKeyY == -1 ) {
-		g_Config.iUnthrottleKeyX = unthrottle_key_X;
-		g_Config.iUnthrottleKeyY = unthrottle_key_Y;
+	if (g_Config.fUnthrottleKeyX == -1.0 || g_Config.fUnthrottleKeyY == -1.0 ) {
+		g_Config.fUnthrottleKeyX = (float)unthrottle_key_X / dp_xres;
+		g_Config.fUnthrottleKeyY = (float)unthrottle_key_Y / dp_yres;
 	}
 
 	//L and R------------------------------------------------------------
 	int l_key_X = 70 * scale;
 	int l_key_Y = 40 * scale;
 
-	if (g_Config.iLKeyX == -1 || g_Config.iLKeyY == -1 ) {
-		g_Config.iLKeyX = l_key_X;
-		g_Config.iLKeyY = l_key_Y;
+	if (g_Config.fLKeyX == -1.0 || g_Config.fLKeyY == -1.0 ) {
+		g_Config.fLKeyX = (float)l_key_X / dp_xres;
+		g_Config.fLKeyY = (float)l_key_Y / dp_yres;
 	}
 
 	int r_key_X = dp_xres - 60 * scale;
 	int r_key_Y = 40 * scale;
 
-	if (g_Config.iRKeyX == -1 || g_Config.iRKeyY == -1 ) {
-		g_Config.iRKeyX = r_key_X;
-		g_Config.iRKeyY = r_key_Y;
+	if (g_Config.fRKeyX == -1.0 || g_Config.fRKeyY == -1.0 ) {
+		g_Config.fRKeyX = (float)r_key_X / dp_xres;
+		g_Config.fRKeyY = (float)r_key_Y / dp_yres;
 	}
 };
 
@@ -382,8 +382,8 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	//space between the PSP buttons (traingle, circle, square and cross)
 	const int Action_button_spacing = g_Config.iActionButtonSpacing;
 	//position of the circle button (the PSP circle button). It is the farthest to the left
-	int Action_button_center_X = g_Config.iActionButtonCenterX;
-	int Action_button_center_Y = g_Config.iActionButtonCenterY;
+	int Action_button_center_X = g_Config.fActionButtonCenterX * dp_xres;
+	int Action_button_center_Y = g_Config.fActionButtonCenterY * dp_yres;
 
 	const int Action_circle_button_X = Action_button_center_X + Action_button_spacing;
 	const int Action_circle_button_Y = Action_button_center_Y;
@@ -401,31 +401,31 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	//radius to the D-pad
 	const int D_pad_Radius = g_Config.iDpadRadius;
 
-	int D_pad_X = g_Config.iDpadX;
-	int D_pad_Y = g_Config.iDpadY;
+	int D_pad_X = g_Config.fDpadX * dp_xres;
+	int D_pad_Y = g_Config.fDpadY * dp_yres;
 
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
-	int start_key_X = g_Config.iStartKeyX;
-	int start_key_Y = g_Config.iStartKeyY;
+	int start_key_X = g_Config.fStartKeyX * dp_xres;
+	int start_key_Y = g_Config.fStartKeyY * dp_yres;
 
-	int select_key_X = g_Config.iSelectKeyX;
-	int select_key_Y = g_Config.iSelectKeyY;
+	int select_key_X = g_Config.fSelectKeyX * dp_xres;
+	int select_key_Y = g_Config.fSelectKeyY * dp_yres;
 
-	int unthrottle_key_X = g_Config.iUnthrottleKeyX;
-	int unthrottle_key_Y = g_Config.iUnthrottleKeyY;
+	int unthrottle_key_X = g_Config.fUnthrottleKeyX * dp_xres;
+	int unthrottle_key_Y = g_Config.fUnthrottleKeyY * dp_yres;
 
 	//L and R------------------------------------------------------------
-	int l_key_X = g_Config.iLKeyX;
-	int l_key_Y = g_Config.iLKeyY;
+	int l_key_X = g_Config.fLKeyX * dp_xres;
+	int l_key_Y = g_Config.fLKeyY * dp_yres;
 
-	int r_key_X = g_Config.iRKeyX;
-	int r_key_Y = g_Config.iRKeyY;
+	int r_key_X = g_Config.fRKeyX * dp_xres;
+	int r_key_Y = g_Config.fRKeyY * dp_yres;
 
 	
 	//analog stick-------------------------------------------------------
-	int analog_stick_X = g_Config.iAnalogStickX;
-	int analog_stick_Y = g_Config.iAnalogStickY;
+	int analog_stick_X = g_Config.fAnalogStickX * dp_xres;
+	int analog_stick_Y = g_Config.fAnalogStickY * dp_yres;
 	
 	const int halfW = dp_xres / 2;
 

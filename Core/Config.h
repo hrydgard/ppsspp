@@ -137,20 +137,20 @@ public:
 	//space between PSP buttons
 	int iActionButtonSpacing;
 	//the PSP button's center (triangle, circle, square, cross)
-	int iActionButtonCenterX, iActionButtonCenterY;
+	float fActionButtonCenterX, fActionButtonCenterY;
 	//radius of the D-pad (PSP cross)
 	int iDpadRadius;
 	//the D-pad (PSP cross) position
-	int iDpadX, iDpadY;
+	float fDpadX, fDpadY;
 	//the start key position
-	int iStartKeyX, iStartKeyY;
+	float fStartKeyX, fStartKeyY;
 	//the select key position; 
-	int iSelectKeyX, iSelectKeyY;
-	int iUnthrottleKeyX, iUnthrottleKeyY;
-	int iLKeyX, iLKeyY;
-	int iRKeyX, iRKeyY;
+	float fSelectKeyX, fSelectKeyY;
+	float fUnthrottleKeyX, fUnthrottleKeyY;
+	float fLKeyX, fLKeyY;
+	float fRKeyX, fRKeyY;
 	//position of the analog stick
-	int iAnalogStickX, iAnalogStickY;
+	float fAnalogStickX, fAnalogStickY;
 
 	// Controls Visibility
 	bool bShowTouchControls;

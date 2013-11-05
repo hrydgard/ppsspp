@@ -32,18 +32,18 @@ static const int leftMargin = 140;
 
 // convert from screen coordinates (leftMargin to dp_xres) to actual fullscreen coordinates (0 to dp_xres)
 static inline int toFullscreenCoord(int screenx) {
-	return  ((float)dp_xres / (dp_xres - leftMargin)) * (screenx - leftMargin);
+	return  ((float)1.0 / (dp_xres - leftMargin)) * (screenx - leftMargin);
 }
 
 // convert from external fullscreen  coordinates(0 to dp_xres)  to the current partial coordinates (leftMargin to dp_xres)
-static inline int fromFullscreenCoord(int controllerX) {
-	return leftMargin + ((dp_xres - leftMargin) / (float)dp_xres) * controllerX;
+static inline int fromFullscreenCoord(float controllerX) {
+	return leftMargin + (dp_xres - leftMargin) * controllerX;
 };
 
 class DragDropButton : public MultiTouchButton {
 public:
-	DragDropButton(int &x, int &y, int bgImg, int img, float scale) 
-	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y, UI::NONE, UI::NONE, true)),
+	DragDropButton(float &x, float &y, int bgImg, int img, float scale) 
+	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y*dp_yres, UI::NONE, UI::NONE, true)),
     x_(x), y_(y) {
 		scale_ = scale;
 	}
@@ -56,16 +56,16 @@ public:
 
 	void SavePosition() {
 		x_ = toFullscreenCoord(bounds_.centerX());
-		y_ = bounds_.centerY();
+		y_ = bounds_.centerY() / dp_yres;
 	}
 
 private:
-	int &x_, &y_;
+	float &x_, &y_;
 };
 
 class PSPActionButtons : public DragDropButton {
 public:
-	PSPActionButtons(int &x, int &y, int actionButtonSpacing, float scale) 
+	PSPActionButtons(float &x, float &y, int actionButtonSpacing, float scale) 
 	: DragDropButton(x, y, -1, -1, scale), actionButtonSpacing_(actionButtonSpacing) {
 		using namespace UI;
 		roundId_ = I_ROUND;
@@ -145,7 +145,7 @@ private:
 
 class PSPDPadButtons : public DragDropButton {
 public:
-	PSPDPadButtons(int &x, int &y, int DpadRadius, float scale) 
+	PSPDPadButtons(float &x, float &y, int DpadRadius, float scale) 
 		: DragDropButton(x, y, -1, -1, scale), DpadRadius_(DpadRadius) {
 	}
 
@@ -236,23 +236,23 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	g_Config.iActionButtonSpacing = -1;
-	g_Config.iActionButtonCenterX = -1;
-	g_Config.iActionButtonCenterY = -1;
+	g_Config.fActionButtonCenterX = -1.0;
+	g_Config.fActionButtonCenterY = -1.0;
 	g_Config.iDpadRadius = -1;
-	g_Config.iDpadX = -1;
-	g_Config.iDpadY = -1;
-	g_Config.iStartKeyX = -1;
-	g_Config.iStartKeyY = -1;
-	g_Config.iSelectKeyX = -1;
-	g_Config.iSelectKeyY = -1;
-	g_Config.iUnthrottleKeyX = -1;
-	g_Config.iUnthrottleKeyY = -1;
-	g_Config.iLKeyX = -1;
-	g_Config.iLKeyY = -1;
-	g_Config.iRKeyX = -1;
-	g_Config.iRKeyY = -1;
-	g_Config.iAnalogStickX = -1;
-	g_Config.iAnalogStickY = -1;
+	g_Config.fDpadX = -1.0;
+	g_Config.fDpadY = -1.0;
+	g_Config.fStartKeyX = -1.0;
+	g_Config.fStartKeyY = -1.0;
+	g_Config.fSelectKeyX = -1.0;
+	g_Config.fSelectKeyY = -1.0;
+	g_Config.fUnthrottleKeyX = -1.0;
+	g_Config.fUnthrottleKeyY = -1.0;
+	g_Config.fLKeyX = -1.0;
+	g_Config.fLKeyY = -1.0;
+	g_Config.fRKeyX = -1.0;
+	g_Config.fRKeyY = -1.0;
+	g_Config.fAnalogStickX = -1.0;
+	g_Config.fAnalogStickY = -1.0;
 	InitPadLayout();
 	RecreateViews();
 	return UI::EVENT_DONE;
@@ -302,7 +302,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	float scale = g_Config.fButtonScale;
 	controls_.clear();
 
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.iActionButtonCenterX, g_Config.iActionButtonCenterY, g_Config.iActionButtonSpacing, scale);
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.fActionButtonCenterX, g_Config.fActionButtonCenterY, g_Config.iActionButtonSpacing, scale);
 	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
 	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
 	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
@@ -311,35 +311,35 @@ void TouchControlLayoutScreen::CreateViews() {
 	controls_.push_back(actionButtons);
 
 	if (g_Config.bShowTouchDpad) {
-		controls_.push_back(new PSPDPadButtons(g_Config.iDpadX, g_Config.iDpadY, g_Config.iDpadRadius, scale));
+		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.iDpadRadius, scale));
 	}
 
 	if (g_Config.bShowTouchSelect) {
-		controls_.push_back(new DragDropButton(g_Config.iSelectKeyX, g_Config.iSelectKeyY, I_RECT, I_SELECT, scale));
+		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, I_RECT, I_SELECT, scale));
 	}
 
 	if (g_Config.bShowTouchStart) {
-		controls_.push_back(new DragDropButton(g_Config.iStartKeyX, g_Config.iStartKeyY, I_RECT, I_START, scale));
+		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, I_RECT, I_START, scale));
 	}
 
 	if (g_Config.bShowTouchUnthrottle) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.iUnthrottleKeyX, g_Config.iUnthrottleKeyY, I_RECT, I_ARROW, scale);
+		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, I_RECT, I_ARROW, scale);
 		unthrottle->SetAngle(180.0f);
 		controls_.push_back(unthrottle);
 	}
 
 	if (g_Config.bShowTouchLTrigger) {
-		controls_.push_back(new DragDropButton(g_Config.iLKeyX, g_Config.iLKeyY, I_SHOULDER, I_L, scale));
+		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, I_SHOULDER, I_L, scale));
 	}
 
 	if (g_Config.bShowTouchRTrigger) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.iRKeyX, g_Config.iRKeyY, I_SHOULDER, I_R, scale);
+		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, I_SHOULDER, I_R, scale);
 		rbutton->FlipImageH(true);
 		controls_.push_back(rbutton);
 	}
 
 	if (g_Config.bShowTouchAnalogStick) {
-		controls_.push_back(new DragDropButton(g_Config.iAnalogStickX, g_Config.iAnalogStickY, I_STICKBG, I_STICK, scale));
+		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, I_STICKBG, I_STICK, scale));
 	};
 
 	for (size_t i = 0; i < controls_.size(); i++) {
