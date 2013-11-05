@@ -69,8 +69,11 @@ void IndexGenerator::AddPrim(int prim, int vertexCount) {
 }
 
 void IndexGenerator::AddPoints(int numVerts) {
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numVerts; i++)
-		*inds_++ = index_ + i;
+		*outInds++ = startIndex + i;
+	inds_ = outInds;
 	// ignore overflow verts
 	index_ += numVerts;
 	count_ += numVerts;
@@ -79,12 +82,14 @@ void IndexGenerator::AddPoints(int numVerts) {
 }
 
 void IndexGenerator::AddList(int numVerts) {
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numVerts; i += 3) {
-		*inds_++ = index_ + i;
-		*inds_++ = index_ + i + 1;
-		*inds_++ = index_ + i + 2;
+		*outInds++ = startIndex + i;
+		*outInds++ = startIndex + i + 1;
+		*outInds++ = startIndex + i + 2;
 	}
-
+	inds_ = outInds;
 	// ignore overflow verts
 	index_ += numVerts;
 	count_ += numVerts;
@@ -94,14 +99,17 @@ void IndexGenerator::AddList(int numVerts) {
 
 void IndexGenerator::AddStrip(int numVerts) {
 	int wind = 1;
-	int numTris = numVerts - 2;
+	const int numTris = numVerts - 2;
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numTris; i++) {
-		int ibase = index_ + i;
-		*inds_++ = ibase;
-		*inds_++ = ibase + wind;
+		const int ibase = startIndex + i;
+		*outInds++ = ibase;
+		*outInds++ = ibase + wind;
 		wind ^= 3;  // toggle between 1 and 2
-		*inds_++ = ibase + wind;
+		*outInds++ = ibase + wind;
 	}
+	inds_ = outInds;
 	index_ += numVerts;
 	count_ += numTris * 3;
 	// This is so we can detect one single strip by just looking at seenPrims_.
@@ -118,12 +126,15 @@ void IndexGenerator::AddStrip(int numVerts) {
 }
 
 void IndexGenerator::AddFan(int numVerts) {
-	int numTris = numVerts - 2;
+	const int numTris = numVerts - 2;
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numTris; i++) {
-		*inds_++ = index_;
-		*inds_++ = index_ + i + 1;
-		*inds_++ = index_ + i + 2;
+		*outInds++ = startIndex;
+		*outInds++ = startIndex + i + 1;
+		*outInds++ = startIndex + i + 2;
 	}
+	inds_ = outInds;
 	index_ += numVerts;
 	count_ += numTris * 3;
 	prim_ = GE_PRIM_TRIANGLES;
@@ -132,10 +143,13 @@ void IndexGenerator::AddFan(int numVerts) {
 
 //Lines
 void IndexGenerator::AddLineList(int numVerts) {
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numVerts; i += 2) {
-		*inds_++ = index_ + i;
-		*inds_++ = index_ + i + 1;
+		*outInds++ = startIndex + i;
+		*outInds++ = startIndex + i + 1;
 	}
+	inds_ = outInds;
 	index_ += numVerts;
 	count_ += numVerts;
 	prim_ = GE_PRIM_LINES;
@@ -143,11 +157,14 @@ void IndexGenerator::AddLineList(int numVerts) {
 }
 
 void IndexGenerator::AddLineStrip(int numVerts) {
-	int numLines = numVerts - 1;
+	const int numLines = numVerts - 1;
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numLines; i++) {
-		*inds_++ = index_ + i;
-		*inds_++ = index_ + i + 1;
+		*outInds++ = startIndex + i;
+		*outInds++ = startIndex + i + 1;
 	}
+	inds_ = outInds;
 	index_ += numVerts;
 	count_ += numLines * 2;
 	prim_ = GE_PRIM_LINES;
@@ -155,10 +172,13 @@ void IndexGenerator::AddLineStrip(int numVerts) {
 }
 
 void IndexGenerator::AddRectangles(int numVerts) {
+	u16 *outInds = inds_;
+	const int startIndex = index_;
 	for (int i = 0; i < numVerts; i += 2) {
-		*inds_++ = index_ + i;
-		*inds_++ = index_ + i + 1;
+		*outInds++ = startIndex + i;
+		*outInds++ = startIndex + i + 1;
 	}
+	inds_ = outInds;
 	index_ += numVerts;
 	count_ += numVerts;
 	prim_ = GE_PRIM_RECTANGLES;
