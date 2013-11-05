@@ -1078,7 +1078,7 @@ void VertexDecoderJitCache::Jit_PosS8() {
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_PosS16() {
 	LDR(tempReg1, srcReg, dec_->posoff);
-	LDR(tempReg2, srcReg, dec_->posoff + 4);  // WARNING: This SHOULD be an LDRH but things break! why?
+	LDRH(tempReg2, srcReg, dec_->posoff + 4);
 	STR(tempReg1, dstReg, dec_->decFmt.posoff);
 	STR(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 }
@@ -1474,7 +1474,7 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	// See if we find a matching JIT function
-	for (int i = 0; i < ARRAY_SIZE(jitLookup); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(jitLookup); i++) {
 		if (dec.steps_[step] == jitLookup[i].func) {
 			((*this).*jitLookup[i].jitFunc)();
 			return true;
