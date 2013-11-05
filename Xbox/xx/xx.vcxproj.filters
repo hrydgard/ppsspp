@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="native%28small%29">
+      <UniqueIdentifier>{211d765b-1f9a-485e-ae7b-1bffd0b117ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="jit">
+      <UniqueIdentifier>{02d155c4-e957-4f00-871e-1d32602561b4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Compare.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\file\ini_file.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\file\zip_read.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\i18n\i18n.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\base\stringutil.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\base\timeutil.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\base\buffer.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\file\fd_util.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\file\file_util.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\image\png_load.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\stb_image\stb_image.c">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\display_xbox.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\cityhash\city.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\thread\threadpool.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XboxHost.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\math\lin\matrix4x4.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\math\lin\quat.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XinputDevice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\InputDevice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\gfx\texture_atlas.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\util\text\utf8.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\image\zim_load.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XboxMain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\input\input_state.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\jpge\jpgd.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\jpge\jpge.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\math\expression_parser.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XboxOnScreenDisplay.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Jit\bram.cpp">
+      <Filter>jit</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XboxOs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\xxhash.c">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\XaudioSound.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\sha1\sha1.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Compare.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\StubHost.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\file\ini_file.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\file\zip_read.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\i18n\i18n.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\base\stringutil.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\base\timeutil.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\base\buffer.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\file\fd_util.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\file\file_util.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\image\png_load.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\ext\stb_image\stb_image.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\ext\cityhash\citycrc.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\ext\cityhash\city.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\thread\threadpool.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XinputDevice.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\InputDevice.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XboxHost.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\gfx\texture_atlas.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\util\text\utf8.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\image\zim_load.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\input\input_state.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\ext\jpge\jpgd.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\ext\jpge\jpge.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\math\expression_parser.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XboxOnScreenDisplay.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Jit\bram.h">
+      <Filter>jit</Filter>
+    </ClInclude>
+    <ClInclude Include="..\XaudioSound.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\native\ext\sha1\sha1.h">
+      <Filter>native%28small%29</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
