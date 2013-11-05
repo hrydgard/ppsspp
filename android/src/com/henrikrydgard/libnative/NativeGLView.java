@@ -54,7 +54,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		if (mController.init()) {
 			Log.i(TAG, "MOGA initialized");
 			mController.setListener(this, new Handler());
-			if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGAPRO) {
+			if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) != Controller.ACTION_VERSION_MOGA) {
 				Log.i(TAG, "MOGA pro detected");
 				isMogaPro = true;
 			}
