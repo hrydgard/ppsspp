@@ -23,10 +23,8 @@ mobile_platform: MOBILITY += sensors
 symbian: MOBILITY += systeminfo feedback
 
 # PPSSPP Libs
-win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/release/
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$OUT_PWD/debug/
-else:symbian: XT=".lib"
-else:unix: LIBS += -L$$OUT_PWD
+symbian: XT=".lib"
+else: LIBS += -L$$CONFIG_DIR
 LIBS += -lCore$${XT} -lCommon$${XT} -lNative$${XT}
 
 # FFMPEG Path

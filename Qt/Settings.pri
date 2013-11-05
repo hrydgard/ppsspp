@@ -2,6 +2,12 @@ DEFINES += USING_QT_UI USE_FFMPEG
 unix:!qnx:!symbian:!macx: CONFIG += linux
 
 # Global specific
+win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
+else:win32:CONFIG(debug, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/debug)
+else:CONFIG_DIR=$$OUT_PWD
+OBJECTS_DIR = $$CONFIG_DIR/.obj/$$TARGET
+MOC_DIR = $$CONFIG_DIR/.moc/$$TARGET
+UI_DIR = $$CONFIG_DIR/.ui/$$TARGET
 INCLUDEPATH += ../ext/zlib ../native/ext/glew ../Common
 
 win32-msvc* {
