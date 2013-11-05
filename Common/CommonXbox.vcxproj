@@ -299,14 +299,12 @@
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ChunkFile.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
-    <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="Crypto\md5.cpp" />
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="ExtendedTrace.cpp" />
-    <ClCompile Include="FileSearch.cpp" />
     <ClCompile Include="FileUtil.cpp" />
-    <ClCompile Include="Hash.cpp" />
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MathUtil.cpp" />
@@ -328,7 +326,7 @@
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="Version.cpp" />
+    <ClCompile Include="XboxCPUDetect.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

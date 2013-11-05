@@ -61,11 +61,8 @@
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
-    <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="ExtendedTrace.cpp" />
-    <ClCompile Include="FileSearch.cpp" />
     <ClCompile Include="FileUtil.cpp" />
-    <ClCompile Include="Hash.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="MemArena.cpp" />
@@ -75,7 +72,6 @@
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="Version.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Crypto\md5.cpp">
       <Filter>Crypto</Filter>
@@ -90,6 +86,8 @@
     <ClCompile Include="Crypto\sha1.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
+    <ClCompile Include="ChunkFile.cpp" />
+    <ClCompile Include="XboxCPUDetect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
