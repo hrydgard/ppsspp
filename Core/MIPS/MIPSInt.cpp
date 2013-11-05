@@ -787,7 +787,7 @@ namespace MIPSInt
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
-			R(rd) = swap16(R(rt));
+			R(rd) = ((R(rt) & 0xFF00FF00) >> 8) | ((R(rt) & 0x00FF00FF) << 8);
 			break;
 		case 0xE0: //wsbw
 			R(rd) = swap32(R(rt));
