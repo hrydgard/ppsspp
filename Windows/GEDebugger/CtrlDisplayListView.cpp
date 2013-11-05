@@ -264,7 +264,7 @@ void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	int line = y/rowHeight;
 	u32 newAddress = windowStart + line*instructionSize;
 	
-	bool extend = KeyDownAsync(VK_SHIFT) != 0;
+	bool extend = KeyDownAsync(VK_SHIFT);
 	if (button == 1)
 	{
 		if (newAddress == curAddress && hasFocus)
@@ -412,28 +412,28 @@ void CtrlDisplayListView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	switch (wParam & 0xFFFF)
 	{
 	case VK_DOWN:
-		setCurAddress(curAddress + instructionSize, KeyDownAsync(VK_SHIFT) != 0);
+		setCurAddress(curAddress + instructionSize, KeyDownAsync(VK_SHIFT));
 		scrollAddressIntoView();
 		break;
 	case VK_UP:
-		setCurAddress(curAddress - instructionSize, KeyDownAsync(VK_SHIFT) != 0);
+		setCurAddress(curAddress - instructionSize, KeyDownAsync(VK_SHIFT));
 		scrollAddressIntoView();
 		break;
 	case VK_NEXT:
 		if (curAddress != windowEnd - instructionSize && curAddressIsVisible()) {
-			setCurAddress(windowEnd - instructionSize, KeyDownAsync(VK_SHIFT) != 0);
+			setCurAddress(windowEnd - instructionSize, KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 		} else {
-			setCurAddress(curAddress + visibleRows * instructionSize, KeyDownAsync(VK_SHIFT) != 0);
+			setCurAddress(curAddress + visibleRows * instructionSize, KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 		}
 		break;
 	case VK_PRIOR:
 		if (curAddress != windowStart && curAddressIsVisible()) {
-			setCurAddress(windowStart, KeyDownAsync(VK_SHIFT) != 0);
+			setCurAddress(windowStart, KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 		} else {
-			setCurAddress(curAddress - visibleRows * instructionSize, KeyDownAsync(VK_SHIFT) != 0);
+			setCurAddress(curAddress - visibleRows * instructionSize, KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 		}
 		break;
