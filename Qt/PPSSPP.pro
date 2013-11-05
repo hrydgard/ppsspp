@@ -38,8 +38,11 @@ win32|symbian: LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${F
 else: LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
 
 win32 {
+	#Use a fixed base-address under windows
+	QMAKE_LFLAGS += /FIXED /BASE:"0x00400000"
+	QMAKE_LFLAGS += /DYNAMICBASE:NO
 	LIBS += -lwinmm -lws2_32 -lShell32 -lAdvapi32
-	contains($$QMAKE_TARGET.arch, x86_64): LIBS += $$files(../dx9sdk/Lib/x64/*.lib)
+	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files(../dx9sdk/Lib/x64/*.lib)
 	else: LIBS += $$files(../dx9sdk/Lib/x86/*.lib)
 }
 linux {
@@ -75,8 +78,8 @@ SOURCES += ../UI/*Screen.cpp \
 HEADERS += ../UI/*.h
 INCLUDEPATH += .. ../Common ../native
 
-# Use forms UI for Linux desktop
-linux:!mobile_platform {
+# Use forms UI for desktop platforms
+!mobile_platform {
 	SOURCES += *.cpp
 	HEADERS += *.h
 	FORMS += *.ui

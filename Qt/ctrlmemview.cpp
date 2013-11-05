@@ -82,6 +82,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 
 	QFont normalFont("Arial", 10);
 	QFont alignedFont("Monospace", 10);
+    alignedFont.setStyleHint(QFont::Monospace);
 	painter.setFont(normalFont);
 
 	int i;
@@ -162,12 +163,16 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 					if (align==4)
 					{
 						u32 value = Memory::ReadUnchecked_U32(address);
-						sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(symbolMap.GetSymbolNum(value)));
+						int symbolnum = symbolMap.GetSymbolNum(value);
+						if(symbolnum>=0)
+							sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(symbolnum));
 					}
 					else if (align==2)
 					{
 						u16 value = Memory::ReadUnchecked_U16(address);
-						sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(symbolMap.GetSymbolNum(value)));
+						int symbolnum = symbolMap.GetSymbolNum(value);
+						if(symbolnum>=0)
+							sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(symbolnum));
 					}
 
 					painter.drawText(85,rowY1 - 2 + rowHeight, temp);

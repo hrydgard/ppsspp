@@ -80,7 +80,6 @@ void QtHost::UpdateDisassembly()
 {
 	if(mainWindow->GetDialogDisasm())
 	{
-		mainWindow->GetDialogDisasm()->GotoPC();
 		mainWindow->GetDialogDisasm()->Update();
 	}
 	if(mainWindow->GetDialogDisplaylist())
@@ -334,7 +333,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_gameInfoCache.Init();
 
-#if defined(Q_OS_LINUX) && !defined(ARM)
+#if !defined(ARM)
 	// Start Desktop UI
 	MainWindow* mainWindow = new MainWindow();
 	mainWindow->show();
