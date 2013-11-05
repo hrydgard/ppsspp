@@ -424,17 +424,11 @@
     <ClCompile Include="HLE\sceMp3.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="HW\OMAConvert.cpp">
-      <Filter>HW</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="HW\atrac3plus.cpp">
-      <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HW\MpegDemux.cpp">
       <Filter>HW</Filter>
@@ -494,6 +488,12 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\SimpleAT3Dec.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPNetconfDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
   </ItemGroup>
@@ -852,17 +852,11 @@
     <ClInclude Include="HLE\sceMp3.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="HW\OMAConvert.h">
-      <Filter>HW</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h">
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
     <ClInclude Include="Cwcheat.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="HW\atrac3plus.h">
-      <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
@@ -904,6 +898,12 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Dialog\PSPGamedataInstallDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SimpleAT3Dec.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPNetconfDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
   </ItemGroup>

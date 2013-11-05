@@ -273,6 +273,7 @@
     <ClCompile Include="Dialog\PSPDialog.cpp" />
     <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="Dialog\PSPNetconfDialog.cpp" />
     <ClCompile Include="Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
     <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
@@ -347,12 +348,11 @@
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
     <ClCompile Include="HW\AsyncIOManager.cpp" />
-    <ClCompile Include="HW\atrac3plus.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\MpegDemux.cpp" />
-    <ClCompile Include="HW\OMAConvert.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
+    <ClCompile Include="HW\SimpleAT3Dec.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -591,6 +591,7 @@
     <ClInclude Include="Dialog\PSPDialog.h" />
     <ClInclude Include="Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="Dialog\PSPNetconfDialog.h" />
     <ClInclude Include="Dialog\PSPOskDialog.h" />
     <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
     <ClInclude Include="Dialog\PSPSaveDialog.h" />
@@ -667,12 +668,11 @@
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\AsyncIOManager.h" />
-    <ClInclude Include="HW\atrac3plus.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MpegDemux.h" />
-    <ClInclude Include="HW\OMAConvert.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
+    <ClInclude Include="HW\SimpleAT3Dec.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\ArmAsm.h">
