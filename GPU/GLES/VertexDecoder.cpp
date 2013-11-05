@@ -764,8 +764,8 @@ int VertexDecoder::ToString(char *output) const {
 }
 
 VertexDecoderJitCache::VertexDecoderJitCache() {
-	// 32k should be enough.
-	AllocCodeSpace(1024 * 32);
+	// 64k should be enough.
+	AllocCodeSpace(1024 * 64);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
 #if defined(_WIN32)
@@ -1172,7 +1172,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
 #endif
-
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -1227,7 +1226,7 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), R(tempReg1));
 	}
 	while (j & 3) {
-		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), Imm8(0));
+		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), Imm16(0));
 		j++;
 	}
 }
