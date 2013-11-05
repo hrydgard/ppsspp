@@ -1034,16 +1034,13 @@ void VertexDecoderJitCache::Jit_NormalS16() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	//ADD(scratchReg, srcReg, dec_->nrmoff);
-	//LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
-	//ADD(scratchReg, dstReg, dec_->decFmt.nrmoff);
-	//STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	// Might not be aligned to 4, so we can't use LDMIA.
 	LDR(tempReg1, srcReg, dec_->nrmoff);
 	LDR(tempReg2, srcReg, dec_->nrmoff + 4);
 	LDR(tempReg3, srcReg, dec_->nrmoff + 8);
-	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
-	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
-	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+	// But this is always aligned to 4 so we're safe.
+	ADD(scratchReg, dstReg, dec_->decFmt.nrmoff);
+	STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 }
 
 // Through expands into floats, always. Might want to look at changing this.
@@ -1085,16 +1082,13 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	//ADD(scratchReg, srcReg, dec_->posoff);
-	//LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
-	//ADD(scratchReg, dstReg, dec_->decFmt.posoff);
-	//STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	// Might not be aligned to 4, so we can't use LDMIA.
 	LDR(tempReg1, srcReg, dec_->posoff);
 	LDR(tempReg2, srcReg, dec_->posoff + 4);
 	LDR(tempReg3, srcReg, dec_->posoff + 8);
-	STR(tempReg1, dstReg, dec_->decFmt.posoff);
-	STR(tempReg2, dstReg, dec_->decFmt.posoff + 4);
-	STR(tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	// But this is always aligned to 4 so we're safe.
+	ADD(scratchReg, dstReg, dec_->decFmt.posoff);
+	STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 }
 
 #elif defined(_M_X64) || defined(_M_IX86)
@@ -1278,10 +1272,15 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
+#ifdef _M_X64
+	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
+	MOV(64, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
+#else
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(32, R(tempReg2), MDisp(srcReg, dec_->tcoff + 4));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff + 4), R(tempReg2));
+#endif
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
