@@ -751,10 +751,10 @@ void CtrlDisAsmView::followBranch()
 	{
 		jumpStack.push_back(curAddress);
 		gotoAddr(info.branchTarget);
-	} else if (info.isDataAccess)
+	} else if (info.hasRelevantAddress)
 	{
 		// well, not  exactly a branch, but we can do something anyway
-		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,info.dataAddress,0);
+		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,info.releventAddress,0);
 		SetFocus(wnd);
 	}
 }
@@ -849,7 +849,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case VK_NEXT:
 			if (curAddress != windowEnd - instructionSize && curAddressIsVisible()) {
-				setCurAddress(windowEnd - instructionSize, GetAsyncKeyState(VK_SHIFT));
+				setCurAddress(windowEnd - instructionSize, KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
 				setCurAddress(curAddress + visibleRows * instructionSize, KeyDownAsync(VK_SHIFT));
