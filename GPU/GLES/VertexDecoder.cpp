@@ -696,9 +696,10 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
-	} else
-		ERROR_LOG_REPORT(G3D, "Vertices without position found") 
-		
+	} else {
+		ERROR_LOG_REPORT(G3D, "Vertices without position found");
+	}
+
 	decFmt.stride = decOff;
 
 	size = align(size, biggest);
@@ -723,7 +724,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
 		jitted_(ptr_, decoded_, count);
-	
+
 		// Do we need to update the pointers?
 		ptr_ += size * count;
 		decoded_ += stride * count;
@@ -1049,7 +1050,7 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	for (int i = 0; i < 3; i++) {
 		LDRSB(tempReg1, srcReg, dec_->posoff + i);
 		VMOV(S0, tempReg1);
-		VCVT(S0, S0, TO_FLOAT);
+		VCVT(S0, S0, TO_FLOAT | IS_SIGNED);
 		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
 	}
 }
@@ -1060,7 +1061,7 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	for (int i = 0; i < 3; i++) {
 		LDRSH(tempReg1, srcReg, dec_->posoff + i * 2);
 		VMOV(S0, tempReg1);
-		VCVT(S0, S0, TO_FLOAT);
+		VCVT(S0, S0, TO_FLOAT | IS_SIGNED);
 		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
 	}
 }
@@ -1135,7 +1136,7 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	
+
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
@@ -1148,7 +1149,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
 	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
-	
+
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
