@@ -525,6 +525,7 @@ static SceNetAdhocMatchingContext * contexts = NULL;
 static int one = 1;
 // End of Aux vars
 
+
 struct AdhocctlHandler {
   u32 entryPoint;
   u32 argument;
@@ -539,8 +540,15 @@ void __NetAdhocInit() {
   adhocctlHandlers.clear();
 }
 
-void __NetAdhocShutdown() {
 
+int sceNetAdhocTerm();
+int sceNetAdhocctlTerm();
+int sceNetAdhocMatchingTerm();
+
+void __NetAdhocShutdown() {
+  sceNetAdhocTerm();
+  sceNetAdhocctlTerm();
+  sceNetAdhocMatchingTerm();
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
@@ -2054,7 +2062,7 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 int sceNetAdhocctlTerm() {
   INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
-  if(netAdhocInited){
+  if(netAdhocctlInited){
     netAdhocctlInited = false;
     if(friendFinderThread.joinable()){
       friendFinderThread.join();
