@@ -109,7 +109,7 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
 
-#if !defined(Q_OS_LINUX) || defined(ARM)
+#if defined(ARM)
 	MainUI w;
 	w.resize(pixel_xres, pixel_yres);
 #ifdef ARM
