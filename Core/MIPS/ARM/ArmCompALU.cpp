@@ -522,20 +522,12 @@ namespace MIPSComp
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
-			if (cpu_info.bArmV7) {
 				gpr.MapDirtyIn(rd, rt);
 				REV16(gpr.R(rd), gpr.R(rt));
-			} else {
-				Comp_Generic(op);
-			}
 			break;
 		case 0xE0: //wsbw
-			if (cpu_info.bArmV7) {
 				gpr.MapDirtyIn(rd, rt);
 				REV(gpr.R(rd), gpr.R(rt));
-			} else {
-				Comp_Generic(op);
-			}
 			break;
 		default:
 			Comp_Generic(op);

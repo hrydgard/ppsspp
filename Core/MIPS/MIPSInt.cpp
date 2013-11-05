@@ -787,10 +787,10 @@ namespace MIPSInt
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
-			R(rd) = ((R(rt) & 0xFF00FF00) >> 8) | ((R(rt) & 0x00FF00FF) << 8);
+			R(rd) = swap16(R(rt));
 			break;
 		case 0xE0: //wsbw
-			R(rd) = _byteswap_ulong(R(rt));
+			R(rd) = swap32(R(rt));
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret ALLEGREX instruction that can't be interpreted");
