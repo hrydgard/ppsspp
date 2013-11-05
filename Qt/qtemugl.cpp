@@ -4,6 +4,7 @@
 
 #include "base/display.h"
 #include "base/timeutil.h"
+#include "Core/Config.h"
 
 QtEmuGL::QtEmuGL(QWidget *parent) :
 	QGLWidget(parent)
@@ -41,7 +42,8 @@ void QtEmuGL::paintGL()
 
 void QtEmuGL::mouseDoubleClickEvent(QMouseEvent *)
 {
-	emit doubleClick();
+	if (!g_Config.bShowTouchControls || globalUIState != UISTATE_INGAME)
+		emit doubleClick();
 }
 
 void QtEmuGL::mousePressEvent(QMouseEvent *e)
