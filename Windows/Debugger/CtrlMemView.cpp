@@ -302,7 +302,7 @@ void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
-	if (GetAsyncKeyState(VK_CONTROL))
+	if (KeyDownAsync(VK_CONTROL))
 	{	
 		switch (tolower(wParam & 0xFFFF))
 		{
@@ -354,7 +354,7 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 {
-	if (GetAsyncKeyState(VK_CONTROL) || wParam == VK_TAB) return;
+	if (KeyDownAsync(VK_CONTROL) || wParam == VK_TAB) return;
 
 	if (!Memory::IsValidAddress(curAddress))
 	{
@@ -649,12 +649,12 @@ void CtrlMemView::search(bool continueSearch)
 		while (index < endIndex)
 		{
 			// cancel search
-			if ((index % 256) == 0 && GetAsyncKeyState(VK_ESCAPE))
+			if ((index % 256) == 0 && KeyDownAsync(VK_ESCAPE))
 			{
 				searching = false;
 				return;
 			}
-
+		
 			if (memcmp(&dataPointer[index],searchData.data(),searchData.size()) == 0)
 			{
 				matchAddress = index+segmentStart;

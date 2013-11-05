@@ -802,7 +802,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	u32 windowEnd = windowStart+visibleRows*instructionSize;
 	keyTaken = true;
 
-	if (GetAsyncKeyState(VK_CONTROL))
+	if (KeyDownAsync(VK_CONTROL))
 	{
 		switch (tolower(wParam & 0xFFFF))
 		{
@@ -836,11 +836,11 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		switch (wParam & 0xFFFF)
 		{
 		case VK_DOWN:
-			setCurAddress(curAddress + instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
+			setCurAddress(curAddress + instructionSize, KeyDownAsync(VK_SHIFT) != 0);
 			scrollAddressIntoView();
 			break;
 		case VK_UP:
-			setCurAddress(curAddress - instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
+			setCurAddress(curAddress - instructionSize, KeyDownAsync(VK_SHIFT) != 0);
 			scrollAddressIntoView();
 			break;
 		case VK_NEXT:
@@ -848,16 +848,16 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 				setCurAddress(windowEnd - instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(curAddress + visibleRows * instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
+				setCurAddress(curAddress + visibleRows * instructionSize, KeyDownAsync(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			}
 			break;
 		case VK_PRIOR:
 			if (curAddress != windowStart && curAddressIsVisible()) {
-				setCurAddress(windowStart, GetAsyncKeyState(VK_SHIFT) != 0);
+				setCurAddress(windowStart, KeyDownAsync(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(curAddress - visibleRows * instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
+				setCurAddress(curAddress - visibleRows * instructionSize, KeyDownAsync(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			}
 			break;
@@ -957,7 +957,7 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	int y = HIWORD(lParam);
 
 	u32 newAddress = yToAddress(y);
-	bool extend = GetAsyncKeyState(VK_SHIFT) != 0;
+	bool extend = KeyDownAsync(VK_SHIFT) != 0;
 	if (button == 1)
 	{
 		if (newAddress == curAddress && hasFocus)
@@ -983,7 +983,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 	{
 		int x = LOWORD(lParam);
 		int y = HIWORD(lParam);
-		setCurAddress(yToAddress(y), GetAsyncKeyState(VK_SHIFT) != 0);
+		setCurAddress(yToAddress(y), KeyDownAsync(VK_SHIFT) != 0);
 		redraw();
 	}
 	else if (button == 2)
@@ -1152,7 +1152,7 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 	{
 		int x = LOWORD(lParam);
 		int y = HIWORD(lParam);
-		setCurAddress(yToAddress(y), GetAsyncKeyState(VK_SHIFT) != 0);
+		setCurAddress(yToAddress(y), KeyDownAsync(VK_SHIFT) != 0);
 		// TODO: Perhaps don't do this every time, but on a timer?
 		redraw();
 	}
@@ -1287,7 +1287,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 		}
 
 		// cancel search
-		if ((searchAddress % 256) == 0 && GetAsyncKeyState(VK_ESCAPE))
+		if ((searchAddress % 256) == 0 && KeyDownAsync(VK_ESCAPE))
 		{
 			searching = false;
 			return;
