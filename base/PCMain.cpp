@@ -8,38 +8,31 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <ShellAPI.h>
-#else
-#include <pwd.h>
-#include <unistd.h>
-#include <stdlib.h>
-#endif
-
-#include <string>
-#include <map>
-#ifdef _WIN32
 #include "SDL/SDL.h"
 #include "SDL/SDL_timer.h"
 #include "SDL/SDL_audio.h"
 #include "SDL/SDL_video.h"
 #else
+#include <pwd.h>
 #include "SDL.h"
 #include "SDL_timer.h"
 #include "SDL_audio.h"
 #include "SDL_video.h"
 #endif
+#include "Core/Core.h"
+#include "Core/Config.h"
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx_es2/gl_state.h"
-#include "gfx_es2/glsl_program.h"
-#include "file/zip_read.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
-#include "base/NKCodeFromSDL.h"
-#include "base/NativeApp.h"
 #include "net/resolve.h"
+#include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "math/math_util.h"
+
+GlobalUIState lastUIState = UISTATE_MENU;
 
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
@@ -344,10 +337,12 @@ int main(int argc, char *argv[]) {
 		const SDL_VideoInfo* info = SDL_GetVideoInfo();
 		pixel_xres = info->current_w;
 		pixel_yres = info->current_h;
+		g_Config.bFullScreen = true;
 	} else {
 		// set a sensible default resolution (2x)
 		pixel_xres = 480 * 2;
 		pixel_yres = 272 * 2;
+		g_Config.bFullScreen = false;
 	}
 	dp_xres = (float)pixel_xres;
 	dp_yres = (float)pixel_yres;
@@ -678,6 +673,15 @@ int main(int argc, char *argv[]) {
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		NativeRender();
+#ifndef MAEMO
+		if (lastUIState != globalUIState) {
+			lastUIState = globalUIState;
+			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
+				SDL_ShowCursor(SDL_DISABLE);
+			if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen)
+				SDL_ShowCursor(SDL_ENABLE);
+		}
+#endif
 
 		EndInputState(&input_state);
 
