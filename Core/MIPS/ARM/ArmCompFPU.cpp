@@ -339,7 +339,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				BFI(gpr.R(rt), R0, 23, 1);
 			} else {
 				AND(R0, R0, Operand2(1)); // Just in case
-				BIC(gpr.R(rt), gpr.R(rt), Operand2(0x1 << 23));
+				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
 				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
 			}
 		}
