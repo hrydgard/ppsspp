@@ -393,7 +393,7 @@ namespace MIPSComp
 
 		int pos = _POS;
 		int size = _SIZE + 1;
-		u32 mask = 0xFFFFFFFFUL >> (32 - size);
+		u32 mask = (1 << size) - 1;
 
 		// Don't change $zr.
 		if (rt == 0)
@@ -436,15 +436,13 @@ namespace MIPSComp
 				}
 				else
 				{
+					gpr.MapDirtyIn(rt, rs, false);
 					if (cpu_info.bArmV7) {
-						gpr.MapDirtyIn(rt, rs, false);
 						BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
 					} else {
-						gpr.MapDirtyIn(rt, rs, false);
 						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
-						MOV(R0, Operand2(R0, ST_LSL, pos));
 						ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
-						ORR(gpr.R(rt), gpr.R(rt), R0);
+						ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, pos));
 					}
 				}
 			}

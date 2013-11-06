@@ -22,6 +22,7 @@
 
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Common/CPUDetect.h"
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
@@ -333,10 +334,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		{
 			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 			LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
-			AND(R0, R0, Operand2(1)); // Just in case
 			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-			BIC(gpr.R(rt), gpr.R(rt), Operand2(0x1 << 23));
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+			if (cpu_info.bArmV7) {
+				BFI(gpr.R(rt), R0, 23, 1);
+			} else {
+				AND(R0, R0, Operand2(1)); // Just in case
+				BIC(gpr.R(rt), gpr.R(rt), Operand2(0x1 << 23));
+				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+			}
 		}
 		else if (fs == 0)
 		{
@@ -375,8 +380,12 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			*/
 			// Update MIPS state
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
-			AND(R0, R0, Operand2(1));
+			if (cpu_info.bArmV7) {
+				UBFX(R0, gpr.R(rt), 23, 1);
+			} else {
+				MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
+				AND(R0, R0, Operand2(1));
+			}
 			STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 		}
 		return;
