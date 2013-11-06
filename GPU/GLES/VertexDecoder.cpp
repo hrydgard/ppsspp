@@ -776,8 +776,8 @@ VertexDecoderJitCache::VertexDecoderJitCache() {
 		MOV(32, R(EAX), R(EBX));
 		RET();
 	}
-#else
-	BKPT(0);
+#elif defined(ARM)
+	BKPt(0);
 	BKPT(0);
 #endif
 }
