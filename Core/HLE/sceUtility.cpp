@@ -518,7 +518,8 @@ int sceUtilityGamedataInstallGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallGetStatus(): wrong dialog type");
+		// This is called incorrectly all the time by some games. So let's not bother warning.
+		// WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
