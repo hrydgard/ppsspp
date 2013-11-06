@@ -820,7 +820,8 @@ namespace MainWindow
 				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 					Core_EnableStepping(false);
 				}
-
+				
+				dir = ReplaceAll(dir, "\\", "/");
 				NativeMessageReceived("boot", dir.c_str());
 			}
 		}
