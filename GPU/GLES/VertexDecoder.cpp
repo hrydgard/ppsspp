@@ -777,8 +777,10 @@ VertexDecoderJitCache::VertexDecoderJitCache() {
 		RET();
 	}
 #else
+#ifdef ARM
 	BKPT(0);
 	BKPT(0);
+#endif
 #endif
 }
 
