@@ -996,7 +996,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 	// Expand 5 -> 8.
 	LSL(tempReg3, tempReg2, 3);
 	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSR, 2));
-	ANDI2R(tempReg2, tempReg2, 0x00FF00FF, scratchReg);
+	ANDI2R(tempReg2, tempReg2, 0xFFFF00FF, scratchReg);
 
 	// Now finally G.  We start by shoving it into a wall.
 	LSR(tempReg1, tempReg1, 5);
@@ -1024,7 +1024,8 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	// Expand 5 -> 8.
 	LSR(tempReg3, tempReg2, 2);
 	// Clean up the bits that were shifted right.
-	ANDI2R(tempReg3, tempReg1, 0x07070707, scratchReg);
+	BIC(tempReg3, tempReg1, AssumeMakeOperand2(0x000000F8));
+	BIC(tempReg3, tempReg3, AssumeMakeOperand2(0x0000F800));
 	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSL, 3));
 
 	// Now we just need alpha.
