@@ -57,25 +57,26 @@ void ThreadPool::StartWorkers() {
 }
 
 void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int upper) {
-	mutex.lock();
-	StartWorkers();
-	int range = upper-lower;
-	if(range >= numThreads*2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
+	int range = upper - lower;
+	if (range >= numThreads * 2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
+		lock_guard guard(mutex);
+		StartWorkers();
+
 		// could do slightly better load balancing for the generic case, 
 		// but doesn't matter since all our loops are power of 2
-		int chunk = range/numThreads; 
+		int chunk = range / numThreads;
 		int s = lower;
-		for(int i=0; i<numThreads-1; ++i) {
+		for (int i = 0; i < numThreads - 1; ++i) {
 			workers[i]->Process(std::bind(loop, s, s+chunk));
 			s+=chunk;
 		}
+		// This is the final chunk.
 		loop(s, upper);
-		for(int i=0; i<numThreads-1; ++i) {
+		for (int i = 0; i < numThreads - 1; ++i) {
 			workers[i]->WaitForCompletion();
 		}
 	} else {
 		loop(lower, upper);
 	}
-	mutex.unlock();
 }
 
