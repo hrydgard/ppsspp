@@ -92,6 +92,8 @@ void CwCheatScreen::CreateViews() {
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {
+	if (result != DR_BACK) // This only works for BACK here.
+		return;
 	os.open(activeCheatFile.c_str());
 	for (int j = 0; j < (int)cheatList.size(); j++) {
 		os << cheatList[j];
