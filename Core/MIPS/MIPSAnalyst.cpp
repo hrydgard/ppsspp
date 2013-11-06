@@ -401,6 +401,32 @@ namespace MIPSAnalyst {
 		MIPSInfo opInfo = MIPSGetInfo(op);
 		info.isLikelyBranch = (opInfo & LIKELY) != 0;
 
+		// gather relevant address for alu operations
+		// that's usually the value of the dest register
+		switch (MIPS_GET_OP(op))
+		{
+		case 0:		// special
+			switch (MIPS_GET_FUNC(op))
+			{
+			case 0x20:	// add
+			case 0x21:	// addu
+				info.hasRelevantAddress = true;
+				info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+cpu->GetRegValue(0,MIPS_GET_RT(op));
+				break;
+			case 0x22:	// sub
+			case 0x23:	// subu
+				info.hasRelevantAddress = true;
+				info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))-cpu->GetRegValue(0,MIPS_GET_RT(op));
+				break;
+			}
+			break;
+		case 0x08:	// addi
+		case 0x09:	// adiu
+			info.hasRelevantAddress = true;
+			info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+((s16)(op & 0xFFFF));
+			break;
+		}
+
 		//j , jal, ...
 		if (opInfo & IS_JUMP) {
 			info.isBranch = true;
@@ -502,6 +528,9 @@ namespace MIPSAnalyst {
 			u32 rs = cpu->GetRegValue(0, (int)MIPS_GET_RS(op));
 			s16 imm16 = op & 0xFFFF;
 			info.dataAddress = rs + imm16;
+
+			info.hasRelevantAddress = true;
+			info.releventAddress = info.dataAddress;
 		}
 
 		return info;
