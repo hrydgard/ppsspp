@@ -936,7 +936,9 @@ void VertexDecoderJitCache::Jit_TcU8() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16() {
-	LDR(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -948,7 +950,9 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	LDR(tempReg1, srcReg, dec_->tcoff);  // possibly unaligned access
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -1033,23 +1037,33 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	STR(tempReg2, dstReg, dec_->decFmt.c0off);
 }
 
-// Copy 3 bytes and then a zero. Might as well copy four.
 void VertexDecoderJitCache::Jit_NormalS8() {
-	LDR(tempReg1, srcReg, dec_->nrmoff);
-	ANDI2R(tempReg1, tempReg1, 0x00FFFFFF, scratchReg);
+	LDRB(tempReg1, srcReg, dec_->nrmoff);
+	LDRB(tempReg2, srcReg, dec_->nrmoff + 1);
+	LDRB(tempReg3, srcReg, dec_->nrmoff + 2);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 8));
+	ORR(tempReg1, tempReg1, Operand2(tempReg3, ST_LSL, 16));
 	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
+
+	// Copy 3 bytes and then a zero. Might as well copy four.
+	// LDR(tempReg1, srcReg, dec_->nrmoff);
+	// ANDI2R(tempReg1, tempReg1, 0x00FFFFFF, scratchReg);
+	// STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
 }
 
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
-	LDR(tempReg1, srcReg, dec_->nrmoff);
-	LDRH(tempReg2, srcReg, dec_->nrmoff + 4);
+	LDRH(tempReg1, srcReg, dec_->nrmoff);
+	LDRH(tempReg2, srcReg, dec_->nrmoff + 2);
+	LDRH(tempReg3, srcReg, dec_->nrmoff + 4);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
 	STR(tempReg1, dstReg, dec_->decFmt.nrmoff);
-	STR(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
+	STR(tempReg3, dstReg, dec_->decFmt.nrmoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
 	// Might not be aligned to 4, so we can't use LDMIA.
+	// Actually - not true: This will always be aligned. TODO
 	LDR(tempReg1, srcReg, dec_->nrmoff);
 	LDR(tempReg2, srcReg, dec_->nrmoff + 4);
 	LDR(tempReg3, srcReg, dec_->nrmoff + 8);
@@ -1061,9 +1075,12 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	// TODO: SIMD
+	LDRSB(tempReg1, srcReg, dec_->posoff);
+	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
+	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
+	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	for (int i = 0; i < 3; i++) {
-		LDRSB(tempReg1, srcReg, dec_->posoff + i);
-		VMOV(S0, tempReg1);
+		VMOV(S0, tr[i]);
 		VCVT(S0, S0, TO_FLOAT | IS_SIGNED);
 		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
 	}
@@ -1071,10 +1088,13 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
+	LDRSH(tempReg1, srcReg, dec_->posoff);
+	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
+	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
+	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	// TODO: SIMD
 	for (int i = 0; i < 3; i++) {
-		LDRSH(tempReg1, srcReg, dec_->posoff + i * 2);
-		VMOV(S0, tempReg1);
+		VMOV(S0, tr[i]);
 		VCVT(S0, S0, TO_FLOAT | IS_SIGNED);
 		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
 	}
@@ -1082,17 +1102,22 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 
 // Copy 3 bytes and then a zero. Might as well copy four.
 void VertexDecoderJitCache::Jit_PosS8() {
-	LDR(tempReg1, srcReg, dec_->posoff);
-	ANDI2R(tempReg1, tempReg1, 0x00FFFFFF, scratchReg);
+	LDRB(tempReg1, srcReg, dec_->posoff);
+	LDRB(tempReg2, srcReg, dec_->posoff + 1);
+	LDRB(tempReg3, srcReg, dec_->posoff + 2);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 8));
+	ORR(tempReg1, tempReg1, Operand2(tempReg3, ST_LSL, 16));
 	STR(tempReg1, dstReg, dec_->decFmt.posoff);
 }
 
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_PosS16() {
-	LDR(tempReg1, srcReg, dec_->posoff);
-	LDRH(tempReg2, srcReg, dec_->posoff + 4);
+	LDRH(tempReg1, srcReg, dec_->posoff);
+	LDRH(tempReg2, srcReg, dec_->posoff + 2);
+	LDRH(tempReg3, srcReg, dec_->posoff + 4);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
 	STR(tempReg1, dstReg, dec_->decFmt.posoff);
-	STR(tempReg2, dstReg, dec_->decFmt.posoff + 4);
+	STR(tempReg3, dstReg, dec_->decFmt.posoff + 4);
 }
 
 // Just copy 12 bytes.
