@@ -931,7 +931,9 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 
 // Fill last two bytes with zeroes to align to 4 bytes. LDRH does it for us, handy.
 void VertexDecoderJitCache::Jit_TcU8() {
-	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRB(tempReg1, srcReg, dec_->tcoff);
+	LDRB(tempReg2, srcReg, dec_->tcoff + 1);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 8));
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
