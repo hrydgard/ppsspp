@@ -604,18 +604,19 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
+	const u8 *commandFlags = commandFlags_;
 	for (; downcount > 0; --downcount) {
-		u32 op = Memory::ReadUnchecked_U32(list.pc);
-		u32 cmd = op >> 24;
-		u8 cmdFlags = commandFlags_[cmd];
-		u32 diff = op ^ gstate.cmdmem[cmd];
+		const u32 op = Memory::ReadUnchecked_U32(list.pc);
+		const u32 cmd = op >> 24;
+		const u8 cmdFlags = commandFlags[cmd];
+		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 			transformDraw_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;
 		if (cmdFlags & FLAG_EXECUTE)
-			ExecuteOp(op, diff);
+			ExecuteOpInternal(op, diff);
 
 		list.pc += 4;
 	}
@@ -659,6 +660,10 @@ void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 }
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
+	return ExecuteOpInternal(op, diff);
+}
+
+void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
