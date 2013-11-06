@@ -67,7 +67,9 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 }
 #endif
 
-VertexDecoder::VertexDecoder() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {}
+VertexDecoder::VertexDecoder() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {
+	memset(stats_, 0, sizeof(stats_));
+}
 
 void VertexDecoder::Step_WeightsU8() const
 {
@@ -630,7 +632,7 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		coloff = size;
 		size += colsize[col];
 		if (colalign[col] > biggest)
-			biggest = colalign[col]; 
+			biggest = colalign[col];
 
 		steps_[numSteps_++] = morphcount == 1 ? colstep[col] : colstep_morph[col];
 
@@ -774,6 +776,9 @@ VertexDecoderJitCache::VertexDecoderJitCache() {
 		MOV(32, R(EAX), R(EBX));
 		RET();
 	}
+#else
+	BKPT(0);
+	BKPT(0);
 #endif
 }
 
@@ -795,7 +800,6 @@ static const ARMReg scratchReg = R6;
 static const ARMReg srcReg = R0;
 static const ARMReg dstReg = R1;
 static const ARMReg counterReg = R2;
-
 
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
@@ -827,8 +831,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
 };
 
-
-
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// return 0;
 
@@ -839,14 +841,19 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	SetCC(CC_AL);
 
-	// TODO: Overkill
-	PUSH(8, R4, R5, R6, R7, R8, R9, R10, _LR);
+	PUSH(6, R4, R5, R6, R7, R8, _LR);
+
+	// Preserving our FP scratch register appears to improve stability.
+	VMOV(R7, S0);
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
 			// Reset the code ptr and return zero to indicate that we failed.
 			SetCodePtr(const_cast<u8 *>(start));
+			char temp[1024] = {0};
+			dec.ToString(temp);
+			INFO_LOG(HLE, "Could not compile vertex decoder: %s", temp);
 			return 0;
 		}
 	}
@@ -856,12 +863,18 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUBS(counterReg, counterReg, 1);
 	B_CC(CC_NEQ, loopStart);
 
-	POP(8, R4, R5, R6, R7, R8, R9, R10, _PC);
+	VMOV(S0, R7); // restore our fp scratch
+
+	EOR(R0, R0, R0);
+	POP(6, R4, R5, R6, R7, R8, _PC);
+
+	BKPT(0);
 
 	// DisassembleArm(start, GetCodePtr() - start);
-	// char temp[1024] = {0};
-	// dec.ToString(temp);
-	// INFO_LOG(HLE, "%s", temp);
+
+	char temp[1024] = {0};
+	dec.ToString(temp);
+	INFO_LOG(HLE, "%s", temp);
 
 	return (JittedVertexDecoder)start;
 }
@@ -915,7 +928,8 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		j++;
 	}
 }
-// Fill last two bytes with zeroes to align to 4 bytes. MOVZX does it for us, handy.
+
+// Fill last two bytes with zeroes to align to 4 bytes. LDRH does it for us, handy.
 void VertexDecoderJitCache::Jit_TcU8() {
 	LDRH(tempReg1, srcReg, dec_->tcoff);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);

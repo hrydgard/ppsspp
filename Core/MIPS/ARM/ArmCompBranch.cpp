@@ -64,13 +64,13 @@ void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
-		
+
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
-	
+
 	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
 	{
 		gpr.MapReg(rs);
@@ -81,7 +81,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 		gpr.MapReg(rt);
 		CMP(gpr.R(rt), Operand2(0, TYPE_IMM));
 	}
-	else 
+	else
 	{
 		gpr.MapInIn(rs, rt);
 		CMP(gpr.R(rs), gpr.R(rt));
@@ -168,7 +168,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool
 void Jit::Comp_RelBranch(MIPSOpcode op)
 {
 	// The CC flags here should be opposite of the actual branch becuase they skip the branching action.
-	switch (op>>26) 
+	switch (op >> 26)
 	{
 	case 4: BranchRSRTComp(op, CC_NEQ, false); break;//beq
 	case 5: BranchRSRTComp(op, CC_EQ,  false); break;//bne
@@ -289,7 +289,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 
 	int imm3 = (op >> 18) & 7;
 
-	LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * VFPU_CTRL_CC);
+	LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
 	TST(R0, Operand2(1 << imm3, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
