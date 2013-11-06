@@ -857,8 +857,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	B_CC(CC_NEQ, loopStart);
 
 	POP(8, R4, R5, R6, R7, R8, R9, R10, _PC);
-	
+
 	// DisassembleArm(start, GetCodePtr() - start);
+	// char temp[1024] = {0};
+	// dec.ToString(temp);
+	// INFO_LOG(HLE, "%s", temp);
 
 	return (JittedVertexDecoder)start;
 }
@@ -931,7 +934,7 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	LDR(tempReg1, srcReg, dec_->tcoff);
+	LDR(tempReg1, srcReg, dec_->tcoff);  // possibly unaligned access
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -948,8 +951,7 @@ void VertexDecoderJitCache::Jit_Color8888() {
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
-	// Ignoring the top 16 bits.
-	LDR(tempReg1, srcReg, dec_->coloff);
+	LDRH(tempReg1, srcReg, dec_->coloff);
 
 	// Spread out the components.
 	ANDI2R(tempReg2, tempReg1, 0x000F, scratchReg);
@@ -967,8 +969,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
-	// Ignoring the top 16 bits.
-	LDR(tempReg1, srcReg, dec_->coloff);
+	LDRH(tempReg1, srcReg, dec_->coloff);
 
 	// Spread out R and B first.  This puts them in 0x001F001F.
 	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
@@ -995,8 +996,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	// Ignoring the top 16 bits.
-	LDR(tempReg1, srcReg, dec_->coloff);
+	LDRH(tempReg1, srcReg, dec_->coloff);
 
 	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
 	ANDI2R(tempReg3, tempReg1, 0x07E0, scratchReg);
