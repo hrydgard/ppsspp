@@ -726,10 +726,6 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
 		jitted_(ptr_, decoded_, count);
-
-		// Do we need to update the pointers?
-		ptr_ += size * count;
-		decoded_ += stride * count;
 	} else {
 		// Interpret the decode steps
 		for (; count; count--) {
@@ -870,13 +866,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	EOR(R0, R0, R0);
 	POP(6, R4, R5, R6, R7, R8, _PC);
 
-	BKPT(0);
+	FlushIcache();
 
 	// DisassembleArm(start, GetCodePtr() - start);
-
-	char temp[1024] = {0};
-	dec.ToString(temp);
-	INFO_LOG(HLE, "%s", temp);
+	// char temp[1024] = {0};
+	// dec.ToString(temp);
+	// INFO_LOG(HLE, "%s", temp);
 
 	return (JittedVertexDecoder)start;
 }
