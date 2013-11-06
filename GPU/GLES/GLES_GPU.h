@@ -37,6 +37,7 @@ public:
 	~GLES_GPU();
 	virtual void InitClear();
 	virtual void PreExecuteOp(u32 op, u32 diff);
+	void ExecuteOpInternal(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
