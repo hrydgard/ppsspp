@@ -93,6 +93,7 @@ public:
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;
+	bool bEnableAutoLoad;
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bDisableStencilTest;
