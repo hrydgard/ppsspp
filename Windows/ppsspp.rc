@@ -503,7 +503,9 @@ BEGIN
         MENUITEM "Go to in Disasm",            ID_MEMVIEW_GOTOINDISASM
         MENUITEM "Copy address",               ID_MEMVIEW_COPYADDRESS
         MENUITEM SEPARATOR
-        MENUITEM "Copy Value",                 ID_MEMVIEW_COPYVALUE
+        MENUITEM "Copy Value (8 bit)",         ID_MEMVIEW_COPYVALUE_8
+        MENUITEM "Copy Value (16 bit)",        ID_MEMVIEW_COPYVALUE_16
+        MENUITEM "Copy Value (32 bit)",        ID_MEMVIEW_COPYVALUE_32
         MENUITEM "Dump...",                    ID_MEMVIEW_DUMP
     END
     POPUP "disasm"
