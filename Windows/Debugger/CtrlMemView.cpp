@@ -53,6 +53,9 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	addressStart = charWidth;
 	hexStart = addressStart + 9*charWidth;
 	asciiStart = hexStart + (rowSize*3+1)*charWidth;
+
+	// set redraw timer
+	SetTimer(wnd,1,1000,0);
 }
 
 CtrlMemView::~CtrlMemView()
@@ -149,6 +152,10 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		break;
 	case WM_GETDLGCODE:	// we want to process the arrow keys and all characters ourselves
 		return DLGC_WANTARROWS|DLGC_WANTCHARS|DLGC_WANTTAB;
+		break;
+	case WM_TIMER:
+		if (wParam == 1 && IsWindowVisible(ccp->wnd))
+			ccp->redraw();
 		break;
     default:
         break;
