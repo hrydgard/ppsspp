@@ -787,6 +787,9 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
+static const float by128 = 1.0f / 128.0f;
+static const float by32768 = 1.0f / 32768.0f;
+
 #ifdef ARM
 
 using namespace ArmGen;
@@ -798,6 +801,12 @@ static const ARMReg scratchReg = R6;
 static const ARMReg srcReg = R0;
 static const ARMReg dstReg = R1;
 static const ARMReg counterReg = R2;
+static const ARMReg fpScratchReg = S4;
+static const ARMReg fpScratchReg2 = S5;
+static const ARMReg fpUscaleReg = S0;
+static const ARMReg fpVscaleReg = S1;
+static const ARMReg fpUoffsetReg = S2;
+static const ARMReg fpVoffsetReg = S3;
 
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
@@ -807,6 +816,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+
+	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
+	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
+	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
@@ -830,19 +843,40 @@ static const JitLookup jitLookup[] = {
 };
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
-	// return 0;
-
 	dec_ = &dec;
 	const u8 *start = this->GetCodePtr();
 
-	// TODO: Test and make work
+	bool prescaleStep = false;
+	// Look for prescaled texcoord steps
+	for (int i = 0; i < dec.numSteps_; i++) {
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
+				dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
+				dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			prescaleStep = true;
+		}
+	}
 
 	SetCC(CC_AL);
 
 	PUSH(6, R4, R5, R6, R7, R8, _LR);
 
-	// Preserving our FP scratch register appears to improve stability.
-	VMOV(R7, S0);
+	// Keep the scale/offset in a few fp registers if we need it.
+	if (prescaleStep) {
+		MOVI2R(R3, (u32)(&gstate_c.uv), scratchReg);
+		VLDR(fpUscaleReg, R3, 0);
+		VLDR(fpVscaleReg, R3, 4);
+		VLDR(fpUoffsetReg, R3, 8);
+		VLDR(fpVoffsetReg, R3, 12);
+		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+			MOVI2F(fpScratchReg, by128, scratchReg);
+			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
+			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
+		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+			MOVI2F(fpScratchReg, by32768, scratchReg);
+			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
+			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
+		}
+	}
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -861,17 +895,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUBS(counterReg, counterReg, 1);
 	B_CC(CC_NEQ, loopStart);
 
-	VMOV(S0, R7); // restore our fp scratch
-
-	EOR(R0, R0, R0);
 	POP(6, R4, R5, R6, R7, R8, _PC);
 
 	FlushIcache();
 
-	// DisassembleArm(start, GetCodePtr() - start);
-	// char temp[1024] = {0};
-	// dec.ToString(temp);
-	// INFO_LOG(HLE, "%s", temp);
+	DisassembleArm(start, GetCodePtr() - start);
+	char temp[1024] = {0};
+	dec.ToString(temp);
+	INFO_LOG(HLE, "%s", temp);
 
 	return (JittedVertexDecoder)start;
 }
@@ -960,6 +991,51 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	LDR(tempReg2, srcReg, dec_->tcoff + 4);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU8Prescale() {
+	// TODO: SIMD
+	LDRB(tempReg1, srcReg, dec_->tcoff);
+	LDRB(tempReg2, srcReg, dec_->tcoff + 1);
+	VMOV(fpScratchReg, tempReg1);
+	VMOV(fpScratchReg2, tempReg2);
+	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+	// Could replace VMUL + VADD with VMLA but would require 2 more regs as we don't want to destroy fp*offsetReg. Later.
+	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Prescale() {
+	// TODO: SIMD
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+	VMOV(fpScratchReg, tempReg1);
+	VMOV(fpScratchReg2, tempReg2);
+	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescale() {
+	// TODO: SIMD
+	VLDR(fpScratchReg, srcReg, dec_->tcoff);
+	VLDR(fpScratchReg2, srcReg, dec_->tcoff + 4);
+	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
@@ -1080,23 +1156,23 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	for (int i = 0; i < 3; i++) {
-		VMOV(S0, tr[i]);
-		VCVT(S0, S0, TO_FLOAT | IS_SIGNED);
-		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
+		VMOV(fpScratchReg, tr[i]);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.posoff + i * 4);
 	}
 }
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
+	// TODO: SIMD
 	LDRSH(tempReg1, srcReg, dec_->posoff);
 	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
 	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
-	// TODO: SIMD
 	for (int i = 0; i < 3; i++) {
-		VMOV(S0, tr[i]);
-		VCVT(S0, S0, TO_FLOAT | IS_SIGNED);
-		VSTR(S0, dstReg, dec_->decFmt.posoff + i * 4);
+		VMOV(fpScratchReg, tr[i]);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.posoff + i * 4);
 	}
 }
 
@@ -1160,6 +1236,14 @@ static const X64Reg dstReg = EDI;
 static const X64Reg counterReg = ECX;
 #endif
 
+// XMM0-XMM5 are volatile on Windows X64
+// XMM0-XMM7 are arguments (and thus volatile) on System V ABI (other x64 platforms)
+static const X64Reg fpUscaleReg = XMM0;
+static const X64Reg fpVscaleReg = XMM1;
+static const X64Reg fpUoffsetReg = XMM2;
+static const X64Reg fpVoffsetReg = XMM3;
+static const X64Reg fpScratchReg = XMM4;
+static const X64Reg fpScratchReg2 = XMM5;
 
 // To debug, just comment them out one at a time until it works. We fall back
 // on the interpreter if the compiler fails.
@@ -1172,6 +1256,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+
+	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
+	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
+	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
@@ -1194,6 +1282,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
 };
 
+// TODO: This should probably be global...
+#ifdef _M_X64
+#define PTRBITS 64
+#else
+#define PTRBITS 32
+#endif
+
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
 	const u8 *start = this->GetCodePtr();
@@ -1211,6 +1306,44 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
 #endif
+
+	// Save XMM4/XMM5 which apparently can be problematic?
+	// Actually, if they are, it must be a compiler bug because they SHOULD be ok.
+	// So I won't bother.
+	// SUB(PTRBITS, R(ESP), Imm8(32));
+	// MOVUPS(MDisp(ESP, 0), XMM4);
+	// MOVUPS(MDisp(ESP, 16), XMM5);
+
+	bool prescaleStep = false;
+	// Look for prescaled texcoord steps
+	for (int i = 0; i < dec.numSteps_; i++) {
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
+				dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
+				dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			prescaleStep = true;
+		}
+	}
+
+	// Keep the scale/offset in a few fp registers if we need it.
+	if (prescaleStep) {
+#ifdef _M_X64
+		MOV(64, R(tempReg1), Imm64((u64)(&gstate_c.uv)));
+#else
+		MOV(32, R(tempReg1), Imm32((u32)(&gstate_c.uv)));
+#endif
+		MOVSS(fpUscaleReg, MDisp(tempReg1, 0));
+		MOVSS(fpVscaleReg, MDisp(tempReg1, 4));
+		MOVSS(fpUoffsetReg, MDisp(tempReg1, 8));
+		MOVSS(fpVoffsetReg, MDisp(tempReg1, 12));
+		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+			MULSS(fpUscaleReg, M((void *)&by128));
+			MULSS(fpVscaleReg, M((void *)&by128));
+		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+			MULSS(fpUscaleReg, M((void *)&by32768));
+			MULSS(fpVscaleReg, M((void *)&by32768));
+		}
+	}
+
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -1221,15 +1354,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
-#ifdef _M_X64
-	ADD(64, R(srcReg), Imm32(dec.VertexSize()));
-	ADD(64, R(dstReg), Imm32(dec.decFmt.stride));
-#else
-	ADD(32, R(srcReg), Imm32(dec.VertexSize()));
-	ADD(32, R(dstReg), Imm32(dec.decFmt.stride));
-#endif
+	ADD(PTRBITS, R(srcReg), Imm32(dec.VertexSize()));
+	ADD(PTRBITS, R(dstReg), Imm32(dec.decFmt.stride));
 	SUB(32, R(counterReg), Imm8(1));
 	J_CC(CC_NZ, loopStart, true);
+
+	// MOVUPS(XMM4, MDisp(ESP, 0));
+	// MOVUPS(XMM5, MDisp(ESP, 16));
+	// ADD(PTRBITS, R(ESP), Imm8(32));
 
 #ifdef _M_IX86
 	// Restore register values
@@ -1303,6 +1435,46 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff + 4), R(tempReg2));
 #endif
+}
+
+void VertexDecoderJitCache::Jit_TcU8Prescale() {
+	// TODO: SIMD
+	MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->tcoff));
+	MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->tcoff + 1));
+	CVTSI2SS(fpScratchReg, R(tempReg1));
+	CVTSI2SS(fpScratchReg2, R(tempReg2));
+	MULSS(fpScratchReg, R(fpUscaleReg));
+	MULSS(fpScratchReg2, R(fpVscaleReg));
+	ADDSS(fpScratchReg, R(fpUoffsetReg));
+	ADDSS(fpScratchReg2, R(fpVoffsetReg));
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Prescale() {
+	// TODO: SIMD
+	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
+	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
+	CVTSI2SS(fpScratchReg, R(tempReg1));
+	CVTSI2SS(fpScratchReg2, R(tempReg2));
+	MULSS(fpScratchReg, R(fpUscaleReg));
+	MULSS(fpScratchReg2, R(fpVscaleReg));
+	ADDSS(fpScratchReg, R(fpUoffsetReg));
+	ADDSS(fpScratchReg2, R(fpVoffsetReg));
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescale() {
+	// TODO: SIMD
+	MOVSS(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	MOVSS(fpScratchReg2, MDisp(srcReg, dec_->tcoff + 4));
+	MULSS(fpScratchReg, R(fpUscaleReg));
+	MULSS(fpScratchReg2, R(fpVscaleReg));
+	ADDSS(fpScratchReg, R(fpUoffsetReg));
+	ADDSS(fpScratchReg2, R(fpVoffsetReg));
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
@@ -1464,8 +1636,8 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	// TODO: SIMD
 	for (int i = 0; i < 3; i++) {
 		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
-		CVTSI2SS(XMM0, R(tempReg1));
-		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), XMM0);
+		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), fpScratchReg);
 	}
 }
 
@@ -1474,8 +1646,8 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	// TODO: SIMD
 	for (int i = 0; i < 3; i++) {
 		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff + i * 2));
-		CVTSI2SS(XMM0, R(tempReg1));
-		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), XMM0);
+		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), fpScratchReg);
 	}
 }
 

@@ -57,6 +57,7 @@ public:
 	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
 
 	bool hasColor() const { return col != 0; }
+	bool hasTexcoord() const { return tc != 0; }
 	int VertexSize() const { return size; }  // PSP format size
 
 	void Step_WeightsU8() const;
@@ -189,6 +190,10 @@ public:
 	void Jit_TcU8();
 	void Jit_TcU16();
 	void Jit_TcFloat();
+
+	void Jit_TcU8Prescale();
+	void Jit_TcU16Prescale();
+	void Jit_TcFloatPrescale();
 
 	void Jit_TcU16Through();
 	void Jit_TcFloatThrough();
