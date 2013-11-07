@@ -527,11 +527,13 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 }
 
 // Maybe should write this in ASM...
-void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
+void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {	
+    const u8 *commandFlags = commandFlags_;
 	for (; downcount > 0; --downcount) {
-		u32 op = Memory::ReadUnchecked_U32(list.pc);
+        // We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		u32 op = *(const u32_le *)(Memory::base + list.pc);
 		u32 cmd = op >> 24;
-		u8 cmdFlags = commandFlags_[cmd];
+		u8 cmdFlags = commandFlags[cmd];
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {

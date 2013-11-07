@@ -24,11 +24,18 @@
 
 #include "GPU/Common/VertexDecoderCommon.h"
 
+#ifdef PPC
+#include "Common/PpcEmitter.h"
+#endif
+
 namespace DX9 {
 
 class VertexDecoderDX9;
+class VertexDecoderJitCache;
 
 typedef void (VertexDecoderDX9::*StepFunction)() const;
+
+typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 // Right now
 //   - compiles into list of called functions
@@ -41,7 +48,7 @@ public:
 	~VertexDecoderDX9() {}
 
 	// prim is needed knowledge for a performance hack (PrescaleUV)
-	void SetVertexType(u32 vtype);
+	void SetVertexType(u32 vtype, VertexDecoderJitCache *jitCache = 0);
 	u32 VertexType() const { return fmt_; }
 
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
@@ -150,6 +157,61 @@ public:
 	int nweights;
 
 	int stats_[NUM_VERTEX_DECODER_STATS];
+
+	JittedVertexDecoder jitted_;
+
+	friend class VertexDecoderJitCache;
 };
 
+
+// A compiled vertex decoder takes the following arguments (C calling convention):
+// u8 *src, u8 *dst, int count
+//
+// x86:
+//   src is placed in esi and dst in edi
+//   for every vertex, we step esi and edi forwards by the two vertex sizes
+//   all movs are done relative to esi and edi
+//
+// that's it!
+
+
+#ifdef PPC
+class VertexDecoderJitCache : public PpcGen::PPCXCodeBlock {
+public:
+	VertexDecoderJitCache();
+
+	// Returns a pointer to the code to run.
+	JittedVertexDecoder Compile(const VertexDecoderDX9 &dec);
+
+	void Jit_WeightsU8();
+	void Jit_WeightsU16();
+	void Jit_WeightsFloat();
+
+	void Jit_TcU8();
+	void Jit_TcU16();
+	void Jit_TcFloat();
+
+	void Jit_TcU16Through();
+	void Jit_TcFloatThrough();
+
+	void Jit_Color8888();
+	void Jit_Color4444();
+	void Jit_Color565();
+	void Jit_Color5551();
+
+	void Jit_NormalS8();
+	void Jit_NormalS16();
+	void Jit_NormalFloat();
+
+	void Jit_PosS8();
+	void Jit_PosS8Through();
+	void Jit_PosS16();
+	void Jit_PosS16Through();
+	void Jit_PosFloat();
+
+private:
+	bool CompileStep(const VertexDecoderDX9 &dec, int i);
+	const VertexDecoderDX9 *dec_;
+};
+#endif
 };
