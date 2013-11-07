@@ -75,6 +75,7 @@ public:
 private:
 	void UpdateDisasm();
 	UI::EventReturn OnRandomBlock(UI::EventParams &e);
+	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
 	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
 
 	int currentBlock_;

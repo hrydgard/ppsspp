@@ -27,6 +27,7 @@
 #include "UI/DevScreens.h"
 #include "UI/GameSettingsScreen.h"
 #include "Common/LogManager.h"
+#include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -264,6 +265,7 @@ void JitCompareScreen::CreateViews() {
 
 	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
 	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
+	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView("no block"));
 }
@@ -346,6 +348,33 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 	UpdateDisasm();
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	int numBlocks = blockCache->GetNumBlocks();
+	if (numBlocks > 0) {
+		bool anyVFPU = false;
+		int tries = 0;
+		while (!anyVFPU && tries < 10000) {
+			currentBlock_ = rand() % numBlocks;
+			const JitBlock *b = blockCache->GetBlock(currentBlock_);
+			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
+				MIPSOpcode opcode = Memory::Read_Instruction(addr);
+				if (MIPSGetInfo(opcode) & IS_VFPU) {
+					char temp[256];
+					MIPSDisAsm(opcode, addr, temp);
+					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp)
+					anyVFPU = true;
+					break;
+				}
+			}
+			tries++;
+		}
+	}
+	UpdateDisasm();
+	return UI::EVENT_DONE;
+}
+
 
 UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
