@@ -207,7 +207,9 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	int leftVol = chan.leftVolume;
 	int rightVol = chan.rightVolume;
 
-	if (leftVol == (1 << 15) && rightVol == (1 << 15) && IS_LITTLE_ENDIAN) {
+	if (leftVol == (1 << 15) && rightVol == (1 << 15) && chan.format == PSP_AUDIO_FORMAT_STEREO && IS_LITTLE_ENDIAN) {
+		// TODO: Add mono->stereo conversion to this path.
+
 		// Good news: the volume doesn't affect the values at all.
 		// We can just do a direct memory copy.
 		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
