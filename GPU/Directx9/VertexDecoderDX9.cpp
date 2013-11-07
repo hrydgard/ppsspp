@@ -1108,6 +1108,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
+		/*
 		if (!CompileStep(dec, i)) {
 			// Reset the code ptr and return zero to indicate that we failed.
 			SetCodePtr(const_cast<u8 *>(start));
@@ -1116,6 +1117,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 			INFO_LOG(HLE, "Could not compile vertex decoder: %s", temp);
 			return 0;
 		}
+		*/
 	}
 
 	ADDI(srcReg, srcReg, dec.VertexSize());

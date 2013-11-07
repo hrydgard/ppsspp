@@ -204,7 +204,7 @@ int main(int argc, const char* argv[])
 	
 	//bootFilename = "game:\\AI Go.iso";
 	//bootFilename = "game:\\PSP_-_Puzzle_Bobble.ISO";
-	//bootFilename = "game:\\cube.elf";
+	bootFilename = "game:\\cube.elf";
 	//bootFilename = "game:\\string.prx";
 	//bootFilename = "game:\\PSP\\GAME\\PSPRICK\\EBOOT.PBP";
 
@@ -236,7 +236,7 @@ int main(int argc, const char* argv[])
 
 	//bootFilename = "game:\\2ch-disg.iso";
 	//bootFilename = "game:\\God of War Chains of Olympus [Rip].cso";
-	bootFilename = "game:\\Bleach.iso";
+	//bootFilename = "game:\\Bleach.iso";
 	//bootFilename = "game:\\0-khbbs.iso";
 	//bootFilename = "game:\\Castlevania Dracula X Chronicle.cso";
 	
