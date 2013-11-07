@@ -46,8 +46,8 @@
 #define LOOPOPTIMIZATION 0
 
 // We can disable nice delay slots.
-#define CONDITIONAL_NICE_DELAYSLOT delaySlotIsNice = false;
-// #define CONDITIONAL_NICE_DELAYSLOT ;
+// #define CONDITIONAL_NICE_DELAYSLOT delaySlotIsNice = false;
+#define CONDITIONAL_NICE_DELAYSLOT ;
 
 using namespace MIPSAnalyst;
 
