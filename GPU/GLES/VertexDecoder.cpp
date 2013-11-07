@@ -801,8 +801,8 @@ static const ARMReg scratchReg = R6;
 static const ARMReg srcReg = R0;
 static const ARMReg dstReg = R1;
 static const ARMReg counterReg = R2;
-static const ARMReg fpScratch = S4;
-static const ARMReg fpScratch2 = S5;
+static const ARMReg fpScratchReg = S4;
+static const ARMReg fpScratchReg2 = S5;
 static const ARMReg fpUscaleReg = S0;
 static const ARMReg fpVscaleReg = S1;
 static const ARMReg fpUoffsetReg = S2;
@@ -816,6 +816,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+
+	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
+	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
+	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
@@ -864,15 +868,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		VLDR(fpUoffsetReg, R3, 8);
 		VLDR(fpVoffsetReg, R3, 12);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MOVI2R(R3, (u32)(&by128), scratchReg);
-			VLDR(fpScratch, R3, 0);
-			VMUL(fpUscaleReg, fpUscaleReg, R3);
-			VMUL(fpVscaleReg, fpVscaleReg, R3);
+			MOVI2F(fpScratchReg, by128, scratchReg);
+			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
+			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MOVI2R(R3, (u32)(&by32768), scratchReg);
-			VLDR(fpScratch, R3, 0);
-			VMUL(fpUscaleReg, fpUscaleReg, R3);
-			VMUL(fpVscaleReg, fpVscaleReg, R3);
+			MOVI2F(fpScratchReg, by32768, scratchReg);
+			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
+			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
 		}
 	}
 
@@ -897,10 +899,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	FlushIcache();
 
-	// DisassembleArm(start, GetCodePtr() - start);
-	// char temp[1024] = {0};
-	// dec.ToString(temp);
-	// INFO_LOG(HLE, "%s", temp);
+	DisassembleArm(start, GetCodePtr() - start);
+	char temp[1024] = {0};
+	dec.ToString(temp);
+	INFO_LOG(HLE, "%s", temp);
 
 	return (JittedVertexDecoder)start;
 }
@@ -989,6 +991,51 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	LDR(tempReg2, srcReg, dec_->tcoff + 4);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU8Prescale() {
+	// TODO: SIMD
+	LDRB(tempReg1, srcReg, dec_->tcoff);
+	LDRB(tempReg2, srcReg, dec_->tcoff + 1);
+	VMOV(fpScratchReg, tempReg1);
+	VMOV(fpScratchReg2, tempReg2);
+	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+	// Could replace VMUL + VADD with VMLA but would require 2 more regs as we don't want to destroy fp*offsetReg. Later.
+	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Prescale() {
+	// TODO: SIMD
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+	VMOV(fpScratchReg, tempReg1);
+	VMOV(fpScratchReg2, tempReg2);
+	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescale() {
+	// TODO: SIMD
+	VLDR(fpScratchReg, srcReg, dec_->tcoff);
+	VLDR(fpScratchReg2, srcReg, dec_->tcoff + 4);
+	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
@@ -1109,9 +1156,9 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	for (int i = 0; i < 3; i++) {
-		VMOV(fpScratch, tr[i]);
-		VCVT(fpScratch, fpScratch, TO_FLOAT | IS_SIGNED);
-		VSTR(fpScratch, dstReg, dec_->decFmt.posoff + i * 4);
+		VMOV(fpScratchReg, tr[i]);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.posoff + i * 4);
 	}
 }
 
@@ -1123,9 +1170,9 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	for (int i = 0; i < 3; i++) {
-		VMOV(fpScratch, tr[i]);
-		VCVT(fpScratch, fpScratch, TO_FLOAT | IS_SIGNED);
-		VSTR(fpScratch, dstReg, dec_->decFmt.posoff + i * 4);
+		VMOV(fpScratchReg, tr[i]);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.posoff + i * 4);
 	}
 }
 
@@ -1195,7 +1242,7 @@ static const X64Reg fpVscaleReg = XMM1;
 static const X64Reg fpUoffsetReg = XMM2;
 static const X64Reg fpVoffsetReg = XMM3;
 static const X64Reg fpScratchReg = XMM4;
-static const X64Reg fpScratch2Reg = XMM5;
+static const X64Reg fpScratchReg2 = XMM5;
 
 
 // To debug, just comment them out one at a time until it works. We fall back
@@ -1383,13 +1430,13 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 	MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->tcoff + 1));
 	CVTSI2SS(fpScratchReg, R(tempReg1));
-	CVTSI2SS(fpScratch2Reg, R(tempReg1));
+	CVTSI2SS(fpScratchReg2, R(tempReg2));
 	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratch2Reg, R(fpVscaleReg));
+	MULSS(fpScratchReg2, R(fpVscaleReg));
 	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratch2Reg, R(fpVoffsetReg));
+	ADDSS(fpScratchReg2, R(fpVoffsetReg));
 	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratch2Reg);
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
@@ -1397,25 +1444,25 @@ void VertexDecoderJitCache::Jit_TcU16Prescale() {
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
 	CVTSI2SS(fpScratchReg, R(tempReg1));
-	CVTSI2SS(fpScratch2Reg, R(tempReg1));
+	CVTSI2SS(fpScratchReg2, R(tempReg2));
 	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratch2Reg, R(fpVscaleReg));
+	MULSS(fpScratchReg2, R(fpVscaleReg));
 	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratch2Reg, R(fpVoffsetReg));
+	ADDSS(fpScratchReg2, R(fpVoffsetReg));
 	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratch2Reg);
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 	// TODO: SIMD
 	MOVSS(fpScratchReg, MDisp(srcReg, dec_->tcoff));
-	MOVSS(fpScratch2Reg, MDisp(srcReg, dec_->tcoff + 4));
+	MOVSS(fpScratchReg2, MDisp(srcReg, dec_->tcoff + 4));
 	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratch2Reg, R(fpVscaleReg));
+	MULSS(fpScratchReg2, R(fpVscaleReg));
 	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratch2Reg, R(fpVoffsetReg));
+	ADDSS(fpScratchReg2, R(fpVoffsetReg));
 	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratch2Reg);
+	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
