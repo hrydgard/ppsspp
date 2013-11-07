@@ -142,8 +142,7 @@ namespace MIPSComp
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		bool doCheck = false;
 
-		switch (o)
-		{
+		switch (o) {
 		case 32: //lb
 		case 33: //lh
 		case 35: //lw

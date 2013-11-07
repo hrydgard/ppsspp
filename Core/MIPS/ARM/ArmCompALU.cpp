@@ -55,7 +55,7 @@ namespace MIPSComp
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
 		} else {
 			gpr.MapDirtyIn(rt, rs);
-			// TODO: Special case when uimm can be represented as an Operand2
+			// Special case when uimm can be represented as an Operand2
 			Operand2 op2;
 			if (TryMakeOperand2(uimm, op2)) {
 				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);

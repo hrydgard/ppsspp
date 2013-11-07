@@ -103,17 +103,17 @@ allocate:
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 			if (!(mapFlags & MAP_NOINIT)) {
-				if (mr[mipsReg].loc == ML_MEM) {
-					if (mipsReg != 0) {
+				if (mipsReg == 0) {
+					// If we get a request to load the zero register, at least we won't spend
+					// time on a memory access...
+					emit_->MOV((ARMReg)reg, 0);
+				} else {
+					if (mr[mipsReg].loc == ML_MEM) {
 						emit_->LDR((ARMReg)reg, CTXREG, GetMipsRegOffset(mipsReg));
-					} else {
-						// If we get a request to load the zero register, at least we won't spend
-						// time on a memory access...
-						emit_->MOV((ARMReg)reg, 0);
+					} else if (mr[mipsReg].loc == ML_IMM) {
+						emit_->MOVI2R((ARMReg)reg, mr[mipsReg].imm);
+						ar[reg].isDirty = true;  // IMM is always dirty.
 					}
-				} else if (mr[mipsReg].loc == ML_IMM) {
-					emit_->MOVI2R((ARMReg)reg, mr[mipsReg].imm);
-					ar[reg].isDirty = true;  // IMM is always dirty.
 				}
 			}
 			ar[reg].mipsReg = mipsReg;
@@ -204,8 +204,10 @@ void ArmRegCache::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
-		emit_->MOVI2R(R0, mr[r].imm);
-		emit_->STR(R0, CTXREG, GetMipsRegOffset(r));
+		if (r != 0) {
+			emit_->MOVI2R(R0, mr[r].imm);
+			emit_->STR(R0, CTXREG, GetMipsRegOffset(r));
+		}
 		break;
 
 	case ML_ARMREG:
@@ -213,7 +215,9 @@ void ArmRegCache::FlushR(MIPSReg r) {
 			ERROR_LOG(JIT, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			emit_->STR((ARMReg)mr[r].reg, CTXREG, GetMipsRegOffset(r));
+			if (r != 0) {
+				emit_->STR((ARMReg)mr[r].reg, CTXREG, GetMipsRegOffset(r));
+			}
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;
