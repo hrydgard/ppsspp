@@ -818,11 +818,11 @@ namespace PpcGen {
 
 #if 1
 		// load fpr buff
-		MOVI2R(R5, (u32)&_fprTmp);
+		MOVI2R(R10, (u32)&_fprTmp);
 		
 		// Save fpr
 		for(int i = 14; i < 32; i ++) {
-			SFD((PPCReg)i, R5, i * regSize);
+			SFD((PPCReg)i, R10, i * regSize);
 		}
 #endif
 	}

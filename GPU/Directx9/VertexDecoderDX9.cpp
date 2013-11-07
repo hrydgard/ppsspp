@@ -967,7 +967,7 @@ void VertexDecoderDX9::DecodeVerts(u8 *decodedptr, const void *verts, int indexL
 
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
-	if (jitted_ && 0) {
+	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
 		jitted_(ptr_, decoded_, count);
 	} else {
@@ -1050,15 +1050,16 @@ struct JitLookup {
 
 using namespace PpcGen;
 
-static const PPCReg tempReg1 = R3;
-static const PPCReg tempReg2 = R4;
-static const PPCReg tempReg3 = R5;
-static const PPCReg scratchReg = R6;
-static const PPCReg srcReg = R7;
-static const PPCReg dstReg = R8;
-static const PPCReg counterReg = R9;
+static const PPCReg srcReg = R20;
+static const PPCReg dstReg = R21;
+static const PPCReg counterReg = R22;
 
-static const PPCReg fpScratchReg = FPR6; 
+static const PPCReg tempReg1 = R23;
+static const PPCReg tempReg2 = R24;
+static const PPCReg tempReg3 = R25;
+static const PPCReg scratchReg = R26;
+
+static const PPCReg fpScratchReg = FPR26; 
 
 static const JitLookup jitLookup[] = {
 	{&VertexDecoderDX9::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
@@ -1090,8 +1091,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoderDX9::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
 };
 
+/** Called like this jitted_(r3, r4, r5); **/
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) {
-	return 0;
+	//return 0;
 
 	dec_ = &dec;
 	const u8 *start = this->GetCodePtr();
@@ -1099,10 +1101,15 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 	// TODO: Test and make work
 	Prologue();
 
+	// Copy some regs
+	MR(srcReg, R3);
+	MR(dstReg, R4);
+	MR(counterReg, R5);
+
 	// Preserving our FP scratch register appears to improve stability.
-	MOVI2F(fpScratchReg, 0);
+	//MOVI2F(fpScratchReg, 0);
 	
-	Break();
+	//Break();
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -1118,15 +1125,22 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 
 	ADDI(srcReg, srcReg, dec.VertexSize());
 	ADDI(dstReg, dstReg, dec.decFmt.stride);
-	MOVI2R(scratchReg, 1);
+
 	// subf. => counterReg --;
-	SUBF(counterReg, counterReg, scratchReg, 1);
+	//Break();
+	SUBF(counterReg, scratchReg, counterReg, 0);
 	
-	Break();
+	//Break();
 	// if (counterReg!=0) => loopStart
+	CMPI(counterReg, 0);
 	BNE(loopStart);
 
+	//Break();
+
 	Epilogue();
+
+	// Return
+	BLR();
 
 	FlushIcache();
 
