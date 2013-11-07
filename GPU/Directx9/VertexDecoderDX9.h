@@ -44,7 +44,7 @@ typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 class VertexDecoderDX9
 {
 public:
-	VertexDecoderDX9() : coloff(0), nrmoff(0), posoff(0) {}
+	VertexDecoderDX9();
 	~VertexDecoderDX9() {}
 
 	// prim is needed knowledge for a performance hack (PrescaleUV)

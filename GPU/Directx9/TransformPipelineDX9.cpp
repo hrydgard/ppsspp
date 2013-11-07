@@ -76,20 +76,21 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
 	uvScale(0) {
-		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-		// Allocate nicely aligned memory. Maybe graphics drivers will
-		// appreciate it.
-		// All this is a LOT of memory, need to see if we can cut down somehow.
-		decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE);
-		decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
-		transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
-		transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
+	// Allocate nicely aligned memory. Maybe graphics drivers will
+	// appreciate it.
+	// All this is a LOT of memory, need to see if we can cut down somehow.
+	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE);
+	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
+	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
+	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	
-		if (g_Config.bPrescaleUV) {
-			uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-		}
-		indexGen.Setup(decIndex);
-		InitDeviceObjects();
+	if (g_Config.bPrescaleUV) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
+	indexGen.Setup(decIndex);
+	decJitCache_ = new VertexDecoderJitCache();
+	InitDeviceObjects();
 }
 
 TransformDrawEngineDX9::~TransformDrawEngineDX9() {
@@ -98,7 +99,8 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-
+	
+	delete decJitCache_;
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
@@ -853,7 +855,7 @@ VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	if (iter != decoderMap_.end())
 		return iter->second;
 	VertexDecoderDX9 *dec = new VertexDecoderDX9(); 
-	dec->SetVertexType(vtype);
+	dec->SetVertexType(vtype, decJitCache_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }

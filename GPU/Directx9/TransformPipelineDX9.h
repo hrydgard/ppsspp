@@ -166,7 +166,8 @@ private:
 
 	// Cached vertex decoders
 	std::map<u32, VertexDecoderDX9 *> decoderMap_;
-	VertexDecoderDX9 *dec_;
+	VertexDecoderDX9 *dec_;	
+	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
