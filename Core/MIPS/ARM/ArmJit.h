@@ -233,6 +233,7 @@ public:
 	void Comp_VCrossQuat(MIPSOpcode op);
 	void Comp_Vsge(MIPSOpcode op);
 	void Comp_Vslt(MIPSOpcode op);
+	void Comp_Vsgn(MIPSOpcode op);
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 

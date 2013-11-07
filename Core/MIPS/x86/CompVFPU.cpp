@@ -534,7 +534,6 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
 
-	// TODO: Force read one of them into regs? probably not.
 	u8 sregs[4], tregs[4], dregs[1];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixT(tregs, sz, _VT);
@@ -570,6 +569,14 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	ApplyPrefixD(dregs, V_Single);
 
 	fpr.ReleaseSpillLocks();
+}
+
+void Jit::Comp_Vsge(MIPSOpcode op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vslt(MIPSOpcode op) {
+	DISABLE;
 }
 
 void Jit::Comp_VCrossQuat(MIPSOpcode op) {
@@ -1015,14 +1022,6 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 	gpr.UnlockAllX();
 }
 
-void Jit::Comp_Vsge(MIPSOpcode op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vslt(MIPSOpcode op) {
-	DISABLE;
-}
-
 // There are no immediates for floating point, so we need to load these
 // from RAM. Might as well have a table ready.
 extern const float mulTableVi2f[32] = {
@@ -1365,6 +1364,60 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[i]), XMM0);
 	}
 	ApplyPrefixD(dregs, sz);
+	fpr.ReleaseSpillLocks();
+}
+
+void Jit::Comp_Vsgn(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	X64Reg tempxregs[4];
+	for (int i = 0; i < n; ++i)
+	{
+		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs))
+		{
+			int reg = fpr.GetTempV();
+			fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
+			fpr.SpillLockV(reg);
+			tempxregs[i] = fpr.VX(reg);
+		}
+		else
+		{
+			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.SpillLockV(dregs[i]);
+			tempxregs[i] = fpr.VX(dregs[i]);
+		}
+	}
+
+	XORPS(XMM0, R(XMM0));
+	for (int i = 0; i < n; ++i)
+	{
+		CMPEQSS(XMM0, fpr.V(sregs[i]));  // XMM0 = s[i] == 0.0f
+		MOVSS(XMM1, fpr.V(sregs[i]));
+		// Preserve sign bit, replace rest with ones
+		ANDPS(XMM1, M((void *)&signBitLower));
+		ORPS(XMM1, M((void *)&oneOneOneOne));
+		// If really was equal to zero, zap. Note that ANDN negates the destination.
+		ANDNPS(XMM0, R(XMM1));
+		MOVAPS(tempxregs[i], R(XMM0));
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
+			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
+	}
+
+	ApplyPrefixD(dregs, sz);
+
 	fpr.ReleaseSpillLocks();
 }
 
@@ -2017,5 +2070,6 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 	fpr.ReleaseSpillLocks();
 }
+
 
 }

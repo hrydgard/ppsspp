@@ -518,7 +518,8 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
-			DISABLE;
+			// Don't think matrix init ops care about prefixes.
+			// DISABLE;
 		}
 
 		MatrixSize sz = GetMtxSize(op);
@@ -637,17 +638,6 @@ namespace MIPSComp
 		VMOV(fpr.V(dregs[0]), S0);
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-	}
-
-	void Jit::Comp_Vhoriz(MIPSOpcode op) {
-		DISABLE;
-
-		switch ((op >> 16) & 31) {
-		case 6:  // vfad
-			break;
-		case 7:  // vavg
-			break;
-		}
 	}
 
 	void Jit::Comp_VecDo3(MIPSOpcode op) {
@@ -1677,6 +1667,68 @@ namespace MIPSComp
 				break;
 			}
 		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
+	void Jit::Comp_Vhoriz(MIPSOpcode op) {
+		DISABLE;
+
+		switch ((op >> 16) & 31) {
+		case 6:  // vfad
+			break;
+		case 7:  // vavg
+			break;
+		}
+	}
+
+	void Jit::Comp_Vsgn(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix() || disablePrefixes) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		for (int i = 0; i < n; ++i) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			// Let's do it integer registers for now. NEON later.
+			// There's gotta be a shorter way, can't find one though that takes
+			// care of NaNs like the interpreter (ignores them and just operates on the bits).
+			MOVI2F(S0, 0.0f, R0);
+			VCMP(fpr.V(sregs[i]), S0);
+			VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+			VMOV(R0, fpr.V(sregs[i]));
+			AND(R0, R0, AssumeMakeOperand2(0x80000000));
+			ORR(R0, R0, AssumeMakeOperand2(0x3F800000));
+			SetCC(CC_EQ);
+			MOV(R1, AssumeMakeOperand2(0x0));
+			SetCC(CC_AL);
+			VMOV(fpr.V(tempregs[i]), R0);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 }
