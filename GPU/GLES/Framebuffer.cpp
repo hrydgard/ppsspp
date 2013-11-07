@@ -663,14 +663,18 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address) && v->width >= drawing_width && v->height >= drawing_height) {
-			// Let's not be so picky for now. Let's say this is the one.
-			vfb = v;
-			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			v->format = fmt;
-			break;
-		}
+		if (MaskedEqual(v->fb_address, fb_address)) {
+			if (v->format == fmt) {
+				// Let's not be so picky for now. Let's say this is the one.
+				vfb = v;
+				vfb->fb_stride = fb_stride;
+				break;
+			} else {
+				DestroyFramebuf(v);
+				vfbs_.erase(vfbs_.begin() + i--);
+				break;
+			}   
+		} 
 	}
 
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
