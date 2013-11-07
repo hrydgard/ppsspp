@@ -203,6 +203,7 @@ namespace PpcGen
 		void BA (const void *fnptr);
 		void BLA(const void *fnptr);
 		void BEQ(const void *fnptr);
+		void BNE(const void *fnptr);
 		void BLE(const void *fnptr);
 		void BLT(const void *fnptr);
 		void BGT(const void *fnptr);

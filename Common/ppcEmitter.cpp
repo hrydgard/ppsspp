@@ -223,11 +223,18 @@ namespace PpcGen {
 	void PPCXEmitter::BEQ (const void *fnptr) {
 		CHECK_SMALL_JUMP
 
-			s32 func =  (s32)fnptr - s32(code);
+		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41820000 | ( func & 0xfffc));
 		Write32(instr);
 	}
 
+	void PPCXEmitter::BNE (const void *fnptr) {
+		CHECK_SMALL_JUMP
+
+		s32 func =  (s32)fnptr - s32(code);
+		u32 instr = (0x40820000 | ( func & 0xfffc));
+		Write32(instr);
+	}
 
 	void PPCXEmitter::BGT(const void *fnptr) {
 		CHECK_SMALL_JUMP
