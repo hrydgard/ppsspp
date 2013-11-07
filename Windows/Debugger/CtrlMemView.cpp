@@ -416,7 +416,15 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		//popup menu?
 		POINT pt;
 		GetCursorPos(&pt);
-		switch (TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,0),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
+
+		bool enable16 = !asciiSelected && (curAddress % 2) == 0;
+		bool enable32 = !asciiSelected && (curAddress % 4) == 0;
+
+		HMENU menu = GetSubMenu(g_hPopupMenus,0);
+		EnableMenuItem(menu,ID_MEMVIEW_COPYVALUE_16,enable16 ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_MEMVIEW_COPYVALUE_32,enable32 ? MF_ENABLED : MF_GRAYED);
+
+		switch (TrackPopupMenuEx(menu,TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
 		{
 		case ID_MEMVIEW_DUMP:
      
@@ -432,19 +440,37 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				break;
 			}
 
-		case ID_MEMVIEW_COPYVALUE:
+		case ID_MEMVIEW_COPYVALUE_8:
 			{
 				char temp[24];
 
 				// it's admittedly not really useful like this
 				if (asciiSelected)
 				{
-					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
+					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::Read_U8(curAddress) : '.';
 					if (c < 32|| c >= 128) c = '.';
 					sprintf(temp,"%c",c);
 				} else {
-					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
+					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::Read_U8(curAddress) : 0xFF);
 				}
+				W32Util::CopyTextToClipboard(wnd,temp);
+			}
+			break;
+			
+		case ID_MEMVIEW_COPYVALUE_16:
+			{
+				char temp[24];
+
+				sprintf(temp,"%04X",Memory::IsValidAddress(curAddress) ? Memory::Read_U16(curAddress) : 0xFFFF);
+				W32Util::CopyTextToClipboard(wnd,temp);
+			}
+			break;
+			
+		case ID_MEMVIEW_COPYVALUE_32:
+			{
+				char temp[24];
+
+				sprintf(temp,"%08X",Memory::IsValidAddress(curAddress) ? Memory::Read_U32(curAddress) : 0xFFFFFFFF);
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;

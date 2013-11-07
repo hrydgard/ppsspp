@@ -166,7 +166,7 @@
 #define ID_DISASM_ADDHLE                 40002
 #define ID_FUNCLIST_KILLFUNCTION         40003
 #define ID_DISASM_RUNTOHERE              40004
-#define ID_MEMVIEW_COPYVALUE             40005
+#define ID_MEMVIEW_COPYVALUE_8           40005
 #define ID_DISASM_COPYINSTRUCTIONDISASM  40006
 #define ID_DISASM_COPYINSTRUCTIONHEX     40007
 #define ID_EMULATION_SPEEDLIMIT          40008
@@ -297,6 +297,8 @@
 #define ID_DISASM_ADDFUNCTION            40139
 #define ID_DISASM_REMOVEFUNCTION         40140
 #define ID_OPTIONS_LANGUAGE              40141
+#define ID_MEMVIEW_COPYVALUE_16          40142
+#define ID_MEMVIEW_COPYVALUE_32          40143
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -309,7 +311,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        254
-#define _APS_NEXT_COMMAND_VALUE         40139
+#define _APS_NEXT_COMMAND_VALUE         40144
 #define _APS_NEXT_CONTROL_VALUE         1193
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
