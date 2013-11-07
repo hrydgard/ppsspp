@@ -1106,11 +1106,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 	MR(dstReg, R4);
 	MR(counterReg, R5);
 
-	// Preserving our FP scratch register appears to improve stability.
-	//MOVI2F(fpScratchReg, 0);
-	
-	//Break();
-
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
@@ -1126,16 +1121,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 	ADDI(srcReg, srcReg, dec.VertexSize());
 	ADDI(dstReg, dstReg, dec.decFmt.stride);
 
-	// subf. => counterReg --;
-	//Break();
-	SUBF(counterReg, scratchReg, counterReg, 0);
+	// subf => counterReg --;
+	MOVI2R(R5, 1);
+	SUBF(counterReg, R5, counterReg, 0);
 	
-	//Break();
 	// if (counterReg!=0) => loopStart
 	CMPI(counterReg, 0);
 	BNE(loopStart);
-
-	//Break();
 
 	Epilogue();
 
@@ -1221,7 +1213,13 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	/* Todo */
+	/** optimize ! **/
+	MOVI2R(R7, dec_->tcoff + 0);
+	MOVI2R(R8, dec_->tcoff + 2);
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	STH(tempReg1, dstReg, dec_->decFmt.uvoff + 0);
+	STH(tempReg2, dstReg, dec_->decFmt.uvoff + 2);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
@@ -1292,7 +1290,53 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	/** todo **/
+	u32 tmp1, tmp2, tmp3;
+
+
+	MOVI2R((PPCReg)(scratchReg + 0), dec_->posoff + 0);	
+	MOVI2R((PPCReg)(scratchReg + 1), dec_->posoff + 2);	
+	MOVI2R((PPCReg)(scratchReg + 2), dec_->posoff + 4);
+
+	LHBRX(tempReg1, srcReg, (PPCReg)(scratchReg + 0));
+	LHBRX(tempReg2, srcReg, (PPCReg)(scratchReg + 1));
+	LHBRX(tempReg3, srcReg, (PPCReg)(scratchReg + 2));
+
+	EXTSH(tempReg1, tempReg1);
+	EXTSH(tempReg2, tempReg2);
+	EXTSH(tempReg3, tempReg3);
+
+	// Save it in tmp memory 
+	MOVI2R(R7, (u32)&tmp1);
+	MOVI2R(R8, (u32)&tmp2);
+	MOVI2R(R9, (u32)&tmp3);
+
+	STD(tempReg1, R7);
+	STD(tempReg2, R8);
+	STD(tempReg3, R9);
+
+	// Load as float
+	LFD(tempReg1, R7, 0);
+	LFD(tempReg2, R8, 0);
+	LFD(tempReg3, R9, 0);
+
+	// Convert
+	FCFID(tempReg1, tempReg1);
+	FCFID(tempReg2, tempReg2);
+	FCFID(tempReg3, tempReg3);
+
+	// Double to simple
+	FRSP(tempReg1, tempReg1);
+	FRSP(tempReg2, tempReg2);
+	FRSP(tempReg3, tempReg3);
+
+	// Save
+	SFS(tempReg1, dstReg, (dec_->decFmt.posoff + 0));
+	SFS(tempReg2, dstReg, (dec_->decFmt.posoff + 4));
+	SFS(tempReg3, dstReg, (dec_->decFmt.posoff + 8));
+
+	// Finish with 0
+	//MOVI2F(FPR0, 0.f);
+	//SFS(FPR0, dstReg, (dec_->decFmt.posoff + 12));
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
