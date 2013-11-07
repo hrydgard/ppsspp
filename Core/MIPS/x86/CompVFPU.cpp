@@ -1398,9 +1398,9 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 		}
 	}
 
-	XORPS(XMM0, R(XMM0));
 	for (int i = 0; i < n; ++i)
 	{
+		XORPS(XMM0, R(XMM0));
 		CMPEQSS(XMM0, fpr.V(sregs[i]));  // XMM0 = s[i] == 0.0f
 		MOVSS(XMM1, fpr.V(sregs[i]));
 		// Preserve sign bit, replace rest with ones
