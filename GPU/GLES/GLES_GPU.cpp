@@ -606,7 +606,8 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	const u8 *commandFlags = commandFlags_;
 	for (; downcount > 0; --downcount) {
-		const u32 op = Memory::ReadUnchecked_U32(list.pc);
+		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
 		const u8 cmdFlags = commandFlags[cmd];
 		const u32 diff = op ^ gstate.cmdmem[cmd];
@@ -615,9 +616,9 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 			transformDraw_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;
-		if (cmdFlags & FLAG_EXECUTE)
+		if (cmdFlags & FLAG_EXECUTE) {
 			ExecuteOpInternal(op, diff);
-
+		}
 		list.pc += 4;
 	}
 }
