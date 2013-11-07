@@ -1235,6 +1235,7 @@ static const X64Reg srcReg = ESI;
 static const X64Reg dstReg = EDI;
 static const X64Reg counterReg = ECX;
 #endif
+
 // XMM0-XMM5 are volatile on Windows X64
 // XMM0-XMM7 are arguments (and thus volatile) on System V ABI (other x64 platforms)
 static const X64Reg fpUscaleReg = XMM0;
@@ -1243,7 +1244,6 @@ static const X64Reg fpUoffsetReg = XMM2;
 static const X64Reg fpVoffsetReg = XMM3;
 static const X64Reg fpScratchReg = XMM4;
 static const X64Reg fpScratchReg2 = XMM5;
-
 
 // To debug, just comment them out one at a time until it works. We fall back
 // on the interpreter if the compiler fails.
@@ -1282,6 +1282,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
 };
 
+// TODO: This should probably be global...
+#ifdef _M_X64
+#define PTRBITS 64
+#else
+#define PTRBITS 32
+#endif
+
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
 	const u8 *start = this->GetCodePtr();
@@ -1298,8 +1305,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	MOV(32, R(srcReg), MDisp(ESP, 16 + offset + 0));
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
-
 #endif
+
+	// Save XMM4/XMM5 which apparently can be problematic?
+	// Actually, if they are, it must be a compiler bug because they SHOULD be ok.
+	// So I won't bother.
+	// SUB(PTRBITS, R(ESP), Imm8(32));
+	// MOVUPS(MDisp(ESP, 0), XMM4);
+	// MOVUPS(MDisp(ESP, 16), XMM5);
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
@@ -1341,15 +1354,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
-#ifdef _M_X64
-	ADD(64, R(srcReg), Imm32(dec.VertexSize()));
-	ADD(64, R(dstReg), Imm32(dec.decFmt.stride));
-#else
-	ADD(32, R(srcReg), Imm32(dec.VertexSize()));
-	ADD(32, R(dstReg), Imm32(dec.decFmt.stride));
-#endif
+	ADD(PTRBITS, R(srcReg), Imm32(dec.VertexSize()));
+	ADD(PTRBITS, R(dstReg), Imm32(dec.decFmt.stride));
 	SUB(32, R(counterReg), Imm8(1));
 	J_CC(CC_NZ, loopStart, true);
+
+	// MOVUPS(XMM4, MDisp(ESP, 0));
+	// MOVUPS(XMM5, MDisp(ESP, 16));
+	// ADD(PTRBITS, R(ESP), Imm8(32));
 
 #ifdef _M_IX86
 	// Restore register values
