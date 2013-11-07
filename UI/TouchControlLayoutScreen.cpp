@@ -30,12 +30,12 @@
 
 static const int leftMargin = 140; 
 
-// convert from screen coordinates (leftMargin to dp_xres) to actual fullscreen coordinates (0 to dp_xres)
-static inline int toFullscreenCoord(int screenx) {
-	return  ((float)1.0 / (dp_xres - leftMargin)) * (screenx - leftMargin);
+// convert from screen coordinates (leftMargin to dp_xres) to actual fullscreen coordinates (0 to 1.0)
+static inline float toFullscreenCoord(int screenx) {
+	return  (float)(screenx - leftMargin) / (dp_xres - leftMargin);
 }
 
-// convert from external fullscreen  coordinates(0 to dp_xres)  to the current partial coordinates (leftMargin to dp_xres)
+// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftMargin to dp_xres)
 static inline int fromFullscreenCoord(float controllerX) {
 	return leftMargin + (dp_xres - leftMargin) * controllerX;
 };
