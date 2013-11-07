@@ -195,6 +195,9 @@ public:
 	void Jit_TcU16Prescale();
 	void Jit_TcFloatPrescale();
 
+	void Jit_TcU16Double();
+	void Jit_TcU16ThroughDouble();
+
 	void Jit_TcU16Through();
 	void Jit_TcFloatThrough();
 

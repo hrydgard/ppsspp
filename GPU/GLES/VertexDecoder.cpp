@@ -816,6 +816,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
@@ -823,6 +824,7 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
+	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -991,6 +993,24 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	LDR(tempReg2, srcReg, dec_->tcoff + 4);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Double() {
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+	LSL(tempReg1, tempReg1, 1);
+	LSL(tempReg2, tempReg2, 1);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+	LSL(tempReg1, tempReg1, 1);
+	LSL(tempReg2, tempReg2, 1);
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
+	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
@@ -1256,6 +1276,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
@@ -1263,6 +1284,7 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
+	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -1425,6 +1447,15 @@ void VertexDecoderJitCache::Jit_TcU16() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 }
 
+void VertexDecoderJitCache::Jit_TcU16Double() {
+	MOV(16, R(tempReg1), MDisp(srcReg, dec_->tcoff));
+	MOV(16, R(tempReg2), MDisp(srcReg, dec_->tcoff + 2));
+	SHL(16, R(tempReg1), Imm8(1));
+	SHL(32, R(tempReg2), Imm8(17));
+	OR(32, R(tempReg1), R(tempReg2));
+	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
+}
+
 void VertexDecoderJitCache::Jit_TcFloat() {
 #ifdef _M_X64
 	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
@@ -1479,6 +1510,15 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
+	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
+	MOV(16, R(tempReg1), MDisp(srcReg, dec_->tcoff));
+	MOV(16, R(tempReg2), MDisp(srcReg, dec_->tcoff + 2));
+	SHL(16, R(tempReg1), Imm8(1));
+	SHL(32, R(tempReg2), Imm8(17));
+	OR(32, R(tempReg1), R(tempReg2));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 }
 
