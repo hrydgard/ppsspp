@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <xtl.h>
 #include "Compare.h"
 #include "FileUtil.h"
 

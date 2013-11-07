@@ -2,7 +2,9 @@
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 
+#include <xtl.h>
 #include <stdio.h>
+
 
 #include "Core/Config.h"
 #include "Core/Core.h"

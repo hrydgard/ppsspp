@@ -1,4 +1,5 @@
 ﻿#include <xtl.h>
+#include <PPCIntrinsics.h>
 #include <xaudio2.h>
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
