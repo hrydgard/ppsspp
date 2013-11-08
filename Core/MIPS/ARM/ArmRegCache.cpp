@@ -200,6 +200,17 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	ar[r].mipsReg = -1;
 }
 
+void ArmRegCache::DiscardR(MIPSReg r) {
+	if (mr[r].loc == ML_ARMREG) {
+		ARMReg a = mr[r].reg;
+		ar[a].isDirty = false;
+		ar[a].mipsReg = -1;
+		mr[r].reg = INVALID_REG;
+		mr[r].loc = ML_MEM;
+		mr[r].imm = 0;
+	}
+}
+
 void ArmRegCache::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:

@@ -101,6 +101,7 @@ public:
 	void FlushR(MIPSReg r);
 	void FlushBeforeCall();
 	void FlushAll();
+	void DiscardR(MIPSReg r);
 
 	ARMReg R(int preg); // Returns a cached register
 

@@ -315,6 +315,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
 	speedhacks->Get("DisableAlphaTest", &bDisableAlphaTest, false);
 
+	IniFile::Section *jitConfig = iniFile.GetOrCreateSection("JIT");
+	jitConfig->Get("DiscardRegsOnJRRA", &bDiscardRegsOnJRRA, false);
+
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 

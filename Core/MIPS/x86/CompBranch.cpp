@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Reporting.h"
-
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Host.h"
@@ -596,6 +596,18 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	{
 		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), gpr.R(rs));
+
+		if (rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
+			// According to the MIPS ABI, there are some regs we don't need to preserve.
+			// Let's discard them so we don't need to write them back.
+			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
+			// with this enabled.
+			for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; i++)
+				gpr.DiscardRegContentsIfCached((MIPSGPReg)i);
+			gpr.DiscardRegContentsIfCached(MIPS_REG_T8);
+			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
+		}
+
 		FlushAll();
 	}
 	else

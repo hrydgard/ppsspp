@@ -185,6 +185,9 @@ public:
 	bool bDisableAlphaTest;  // Helps PowerVR immensely, breaks some graphics
 	// End GLES hacks.
 
+	// Risky JIT optimizations
+	bool bDiscardRegsOnJRRA;
+
 	// SystemParam
 	std::string sNickName;
 	int iLanguage;
