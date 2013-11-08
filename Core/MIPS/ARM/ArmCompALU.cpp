@@ -284,16 +284,8 @@ namespace MIPSComp
 			
 		case 32: //R(rd) = R(rs) + R(rt);           break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
-			// Some optimized special cases
-			if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
-				gpr.MapDirtyIn(rd, rt);
-				MOV(gpr.R(rd), gpr.R(rt));
-			} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-				gpr.MapDirtyIn(rd, rs);
-				MOV(gpr.R(rd), gpr.R(rs));
-			} else {
-				CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd, true);
-			}
+			// We optimize out 0 as an operand2 ADD.
+			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd, true);
 			break;
 
 		case 34: //R(rd) = R(rs) - R(rt);           break; //sub
