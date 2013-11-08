@@ -323,10 +323,9 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	switch ((op >> 21) & 0x1f)
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		// Let's just go through RAM for now.
-		fpr.FlushR(fs);
+		fpr.MapReg(fs);
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-		LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
+		VMOV(gpr.R(rt), fpr.R(fs));
 		return;
 
 	case 2: //cfc1
@@ -351,10 +350,9 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		// Let's just go through RAM for now.
-		gpr.FlushR(rt);
+		gpr.MapReg(rt);
 		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
-		VLDR(fpr.R(fs), CTXREG, gpr.GetMipsRegOffset(rt));
+		VMOV(fpr.R(fs), gpr.R(rt));
 		return;
 
 	case 6: //ctc1
