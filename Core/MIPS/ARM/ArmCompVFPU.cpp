@@ -1011,9 +1011,9 @@ namespace MIPSComp
 			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
 				if (imm < 128) {  //R(rt) = VI(imm);
-					fpr.FlushV(imm);
+					fpr.MapRegV(imm, 0);
 					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
-					LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffsetV(imm));
+					VMOV(gpr.R(rt), fpr.V(imm));
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 					DISABLE;
 					// In case we have a saved prefix.
@@ -1029,9 +1029,9 @@ namespace MIPSComp
 
 		case 7: // mtv
 			if (imm < 128) {
-				gpr.FlushR(rt);
+				gpr.MapReg(rt);
 				fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
-				VLDR(fpr.V(imm), CTXREG, gpr.GetMipsRegOffset(rt));
+				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				gpr.MapReg(rt);
 				STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
