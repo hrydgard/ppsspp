@@ -97,7 +97,9 @@ static void ShowFPS() {
 
 void XboxHost::SwapBuffers()
 {
-	DX9::pD3Ddevice->Present(NULL, NULL, NULL, NULL);
+
+	DX9::SwapBuffers();
+
 	//DX9::dxstate.Restore();
 #ifdef _DEBUG
 	static int i = 0;
@@ -118,4 +120,11 @@ void XboxHost::InitSound(PMixer *mixer) {
 }
 void XboxHost::ShutdownSound() {
 	XAudioShutdown();
+}
+
+void XboxHost::BeginFrame() {
+	DX9::BeginFrame();
+}
+void XboxHost::EndFrame() {
+	DX9::EndFrame();
 }

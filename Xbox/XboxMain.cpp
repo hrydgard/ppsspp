@@ -204,7 +204,7 @@ int main(int argc, const char* argv[])
 	
 	//bootFilename = "game:\\AI Go.iso";
 	//bootFilename = "game:\\PSP_-_Puzzle_Bobble.ISO";
-	bootFilename = "game:\\cube.elf";
+	//bootFilename = "game:\\cube.elf";
 	//bootFilename = "game:\\string.prx";
 	//bootFilename = "game:\\PSP\\GAME\\PSPRICK\\EBOOT.PBP";
 
@@ -221,7 +221,7 @@ int main(int argc, const char* argv[])
 	// bootFilename = "game:\\tests\\video\\mpeg\\basic.prx"; // FAIL
 
 	//bootFilename = "game:\\psp.iso";
-	//bootFilename = "game:\\[Psp] - Ridge Racer 2.cso";
+	bootFilename = "game:\\[Psp] - Ridge Racer 2.cso";
 	//bootFilename = "game:\\fantasia2.cso";
 	//bootFilename = "game:\\Monster Hunter 3rd Patcher Fr.iso";
 
@@ -376,12 +376,12 @@ int main(int argc, const char* argv[])
 	coreParameter.enableDebugging = false;
 	coreParameter.printfEmuLog = true;
 	coreParameter.headLess = false;
-	coreParameter.renderWidth = 1280;
-	coreParameter.renderHeight = 720;
+	coreParameter.renderWidth = 1920;
+	coreParameter.renderHeight = 1080;
 	coreParameter.outputWidth = 480*2;
 	coreParameter.outputHeight = 272*2;
-	coreParameter.pixelWidth = 1280;
-	coreParameter.pixelHeight = 720;
+	coreParameter.pixelWidth = 1920;
+	coreParameter.pixelHeight = 1080;
 	coreParameter.unthrottle = true;
 
 #ifdef _DEBUG
@@ -417,7 +417,7 @@ int main(int argc, const char* argv[])
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iShowFPSCounter = true;
 
-#if 0
+#if 1
 	g_Config.bSeparateCPUThread = true;
 	g_Config.bSeparateIOThread = true;
 #else
@@ -437,7 +437,7 @@ int main(int argc, const char* argv[])
 	g_Config.iForceMaxEmulatedFPS = 60;
 
 	// Auto frameskip
-	g_Config.iFrameSkip = 1;
+	g_Config.iFrameSkip = 0;
 
 	// Speed Hack ?
 	g_Config.iLockedCPUSpeed = 111;
@@ -470,9 +470,13 @@ int main(int argc, const char* argv[])
 
 	host->BootDone();
 
+	
+	xbhost->BeginFrame();
+
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
+
 		// Run for a frame at a time, just because.
 		u64 nowTicks = CoreTiming::GetTicks();
 		u64 frameTicks = usToCycles(1000000/60);
@@ -485,7 +489,11 @@ int main(int argc, const char* argv[])
 		// If we were rendering, this might be a nice time to do something about it.
 		if (coreState == CORE_NEXTFRAME) {
 			coreState = CORE_RUNNING;
+
+			
+			xbhost->EndFrame();
 			xbhost->SwapBuffers();
+			xbhost->BeginFrame();
 		}
 	}
 

@@ -31,6 +31,8 @@ public:
 	virtual bool InitGL(std::string *error_message);
 	virtual void ShutdownGL();
 
+	void BeginFrame();
+	void EndFrame();
 	virtual void SwapBuffers();
 
 	virtual void SendDebugOutput(const std::string &output);

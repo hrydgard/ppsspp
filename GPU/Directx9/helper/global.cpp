@@ -1,7 +1,145 @@
 #include "global.h"
 #include "fbo.h"
+#include <xgraphics.h>
 
 namespace DX9 {
+
+	
+#define USE_PREDICATED_TILLING 1
+
+#ifdef USE_PREDICATED_TILLING
+
+
+D3DTexture* pFrontBufferTexture;
+D3DTexture* pPostResolveTexture;
+D3DSurface* pTilingRenderTarget;
+D3DSurface* pTilingDepthStencil;
+
+struct XboxTilingSetting
+{
+    const char* name;
+    int screenWidth;
+    int screenHeight;
+    D3DMULTISAMPLE_TYPE MSAAType;
+    int tileCount;
+    D3DRECT tilingRects[15];
+};
+
+static const XboxTilingSetting tilingSettings[] =
+{
+    {
+        "1280x720 No MSAA",
+        1280,
+        720,
+        D3DMULTISAMPLE_NONE,
+        1,
+        {
+            { 0,   0, 1280, 720 },
+        }
+    },
+    {
+        "1280x720 2xMSAA Horizontal Split",
+        1280,
+        720,
+        D3DMULTISAMPLE_2_SAMPLES,
+        2,
+        {
+            { 0,   0, 1280, 384 },
+            { 0, 384, 1280, 720 }
+        }
+    },
+    {
+        "1280x720 2xMSAA Vertical Split",
+        1280,
+        720,
+        D3DMULTISAMPLE_2_SAMPLES,
+        2,
+        {
+            {   0, 0,  640, 720 },
+            { 640, 0, 1280, 720 }
+        }
+    },
+    {
+        "1280x720 4xMSAA Horizontal Split",
+        1280,
+        720,
+        D3DMULTISAMPLE_4_SAMPLES,
+        3,
+        {
+            { 0,   0, 1280, 256 },
+            { 0, 256, 1280, 512 },
+            { 0, 512, 1280, 720 },
+        }
+    },
+    {
+        "1280x720 4xMSAA Vertical Split",
+        1280,
+        720,
+        D3DMULTISAMPLE_4_SAMPLES,
+        4,
+        {
+            {   0,   0,  320, 720 },
+            { 320,   0,  640, 720 },
+            { 640,   0,  960, 720 },
+            { 960,   0, 1280, 720 },
+        }
+    },
+    {
+        "1920x1080 No MSAA Horizontal Split",
+        1920,
+        1080,
+        D3DMULTISAMPLE_NONE,
+        2,
+        {
+            {   0,   0, 1920,  544 },
+            {   0, 544, 1920, 1080 },
+        }
+    },
+    {
+        "1920x1080 No MSAA Vertical Split",
+        1920,
+        1080,
+        D3DMULTISAMPLE_NONE,
+        2,
+        {
+            {   0,   0,  960, 1080 },
+            { 960,   0, 1920, 1080 },
+        }
+    },
+    {
+       "1920x1080 2x MSAA Vertical Split",
+        1920,
+        1080,
+        D3DMULTISAMPLE_2_SAMPLES,
+        4,
+        {
+            {    0,   0,  480, 1080 },
+            {  480,   0,  960, 1080 },
+            {  960,   0, 1440, 1080 },
+            { 1440,   0, 1920, 1080 },
+        }
+    },
+    {
+        "1920x1080 4x MSAA Horizontal Split",
+        1920,
+        1080,
+        D3DMULTISAMPLE_4_SAMPLES,
+        7,
+        {
+            {    0,    0, 1920,  160 },
+            {    0,  160, 1920,  320 },
+            {    0,  320, 1920,  480 },
+            {    0,  480, 1920,  640 },
+            {    0,  640, 1920,  800 },
+            {    0,  800, 1920,  960 },
+            {    0,  960, 1920, 1080 },
+        }
+    },
+    { NULL }
+};
+
+#endif
+
 
 LPDIRECT3DDEVICE9 pD3Ddevice = NULL;
 LPDIRECT3D9 pD3D = NULL;
@@ -212,6 +350,26 @@ void CompileShaders() {
 
 bool useVsync = false;
 
+#ifdef USE_PREDICATED_TILLING
+VOID LargestTileRectSize( const XboxTilingSetting& Scenario, D3DPOINT* pMaxSize )
+{
+    pMaxSize->x = 0;
+    pMaxSize->y = 0;
+    for( DWORD i = 0; i < Scenario.tileCount; i++ )
+    {
+        DWORD dwWidth = Scenario.tilingRects[i].x2 - Scenario.tilingRects[i].x1;
+        DWORD dwHeight = Scenario.tilingRects[i].y2 - Scenario.tilingRects[i].y1;
+        if( dwWidth > ( DWORD )pMaxSize->x )
+            pMaxSize->x = dwWidth;
+        if( dwHeight > ( DWORD )pMaxSize->y )
+            pMaxSize->y = dwHeight;
+    }
+}
+
+const XboxTilingSetting & getCurrentTilingScenario() { return tilingSettings[7]; }
+
+#endif
+
 void DirectxInit(HWND window) {
 
 	pD3D = Direct3DCreate9( D3D_SDK_VERSION );
@@ -239,8 +397,19 @@ void DirectxInit(HWND window) {
     D3DPRESENT_PARAMETERS d3dpp;
     ZeroMemory( &d3dpp, sizeof( d3dpp ) );
 #ifdef _XBOX
+#ifdef USE_PREDICATED_TILLING
+	// Setup the presentation parameters
+	const XboxTilingSetting & CurrentScenario = getCurrentTilingScenario();
+
+    d3dpp.BackBufferWidth = CurrentScenario.screenWidth;
+    d3dpp.BackBufferHeight = CurrentScenario.screenHeight;
+	
+    d3dpp.DisableAutoBackBuffer = TRUE;
+    d3dpp.DisableAutoFrontBuffer = TRUE;
+#else
     d3dpp.BackBufferWidth = 1280;
     d3dpp.BackBufferHeight = 720;
+#endif
     d3dpp.BackBufferFormat =  ( D3DFORMAT )( D3DFMT_A8R8G8B8 );
 
     d3dpp.FrontBufferFormat = ( D3DFORMAT )( D3DFMT_LE_A8R8G8B8 );
@@ -268,11 +437,149 @@ void DirectxInit(HWND window) {
 	
 #ifdef _XBOX
 	pD3Ddevice->SetRingBufferParameters( &d3dr );
+#ifdef USE_PREDICATED_TILLING
+	 pD3Ddevice->CreateTexture( d3dpp.BackBufferWidth,
+		d3dpp.BackBufferHeight,
+		1, 0,
+		( D3DFORMAT )MAKESRGBFMT( D3DFMT_LE_X8R8G8B8 ),
+		D3DPOOL_DEFAULT,
+		&pFrontBufferTexture,
+		NULL );
+
+    pD3Ddevice->CreateTexture( d3dpp.BackBufferWidth,
+		d3dpp.BackBufferHeight,
+		1, 0,
+		( D3DFORMAT )MAKESRGBFMT( D3DFMT_X8R8G8B8 ),
+		D3DPOOL_DEFAULT,
+		&pPostResolveTexture,
+		NULL 
+	);
+
+
+	// Find largest tiling rect size
+    D3DPOINT LargestTileSize;
+    LargestTileRectSize( CurrentScenario, &LargestTileSize );
+
+    // Create color and depth/stencil rendertargets.
+    // These rendertargets are where Predicated Tiling will render each tile.  Therefore,
+    // these rendertargets should be set up with all rendering quality settings you desire,
+    // such as multisample antialiasing.
+    // Note how we use the dimension of the largest tile rectangle to define how big the
+    // rendertargets are.
+    DWORD dwTileWidth = 0;
+    DWORD dwTileHeight = 0;
+    switch( CurrentScenario.MSAAType )
+    {
+        case D3DMULTISAMPLE_NONE:
+            dwTileWidth = XGNextMultiple( LargestTileSize.x, GPU_EDRAM_TILE_WIDTH_1X );
+            dwTileHeight = XGNextMultiple( LargestTileSize.y, GPU_EDRAM_TILE_HEIGHT_1X );
+            break;
+        case D3DMULTISAMPLE_2_SAMPLES:
+            dwTileWidth = XGNextMultiple( LargestTileSize.x, GPU_EDRAM_TILE_WIDTH_2X );
+            dwTileHeight = XGNextMultiple( LargestTileSize.y, GPU_EDRAM_TILE_HEIGHT_2X );
+            break;
+        case D3DMULTISAMPLE_4_SAMPLES:
+            dwTileWidth = XGNextMultiple( LargestTileSize.x, GPU_EDRAM_TILE_WIDTH_4X );
+            dwTileHeight = XGNextMultiple( LargestTileSize.y, GPU_EDRAM_TILE_HEIGHT_4X );
+            break;
+    }
+
+    if( CurrentScenario.tileCount > 1 )
+    {
+        // Expand tile surface dimensions to texture tile size, if it isn't already
+        dwTileWidth = XGNextMultiple( dwTileWidth, GPU_TEXTURE_TILE_DIMENSION );
+        dwTileHeight = XGNextMultiple( dwTileHeight, GPU_TEXTURE_TILE_DIMENSION );
+    }
+
+    // Use custom EDRAM allocation to create the rendertargets.
+    // The color rendertarget is placed at address 0 in EDRAM.
+    D3DSURFACE_PARAMETERS SurfaceParams;
+    memset( &SurfaceParams, 0, sizeof( D3DSURFACE_PARAMETERS ) );
+    SurfaceParams.Base = 0;
+    hr = pD3Ddevice->CreateRenderTarget( dwTileWidth,
+                                           dwTileHeight,
+                                           ( D3DFORMAT )MAKESRGBFMT( D3DFMT_A8R8G8B8 ),
+                                           CurrentScenario.MSAAType,
+                                           0, FALSE,
+                                           &pTilingRenderTarget,
+                                           &SurfaceParams );
+    if( FAILED( hr ) )
+    {
+		OutputDebugString( "Cannot create tiling rendertarget.\n" );
+		DebugBreak();
+    }
+
+    // Record the size of the created rendertarget, and then set up allocation
+    // for the next rendertarget right after the end of the first rendertarget.
+    // Put the hierarchical Z buffer at the start of hierarchical Z memory.
+    DWORD m_dwTileTargetSizeBytes = pTilingRenderTarget->Size;
+    SurfaceParams.Base = m_dwTileTargetSizeBytes / GPU_EDRAM_TILE_SIZE;
+    SurfaceParams.HierarchicalZBase = 0;
+
+    hr = pD3Ddevice->CreateDepthStencilSurface( dwTileWidth,
+                                                  dwTileHeight,
+                                                  D3DFMT_D24S8,
+                                                  CurrentScenario.MSAAType,
+                                                  0, FALSE,
+                                                  &pTilingDepthStencil,
+                                                  &SurfaceParams );
+    if( FAILED( hr ) )
+    {
+        OutputDebugString( "Cannot create tiling depth/stencil.\n" );
+		DebugBreak();
+    }
+
+
+	
+    pD3Ddevice->SetRenderTarget( 0, pTilingRenderTarget );
+    pD3Ddevice->SetDepthStencilSurface( pTilingDepthStencil );
+#endif
 #endif
 
 	CompileShaders();
 
 	fbo_init();
+}
+
+void BeginFrame() {
+#ifdef USE_PREDICATED_TILLING	
+	D3DVECTOR4 ClearColor = { 0, 0, 0, 0 };
+	const XboxTilingSetting & CurrentScenario = getCurrentTilingScenario();
+
+	// Set our tiled render target.
+    pD3Ddevice->SetRenderTarget( 0, pTilingRenderTarget );
+    pD3Ddevice->SetDepthStencilSurface( pTilingDepthStencil );
+
+	pD3Ddevice->BeginTiling(
+            D3DSEQM_PRECLIP,
+            CurrentScenario.tileCount,
+            CurrentScenario.tilingRects,
+            &ClearColor, 1.0f, 0L );
+#endif
+}
+
+void EndFrame() {
+#ifdef USE_PREDICATED_TILLING
+	D3DVECTOR4 ClearColor = { 0, 0, 0, 0 };
+
+    pD3Ddevice->EndTiling( D3DRESOLVE_RENDERTARGET0 |
+                                 D3DRESOLVE_ALLFRAGMENTS |
+                                 D3DRESOLVE_CLEARRENDERTARGET |
+                                 D3DRESOLVE_CLEARDEPTHSTENCIL,
+                                 NULL, pFrontBufferTexture,
+                                 &ClearColor, 1.0f, 0L, NULL );
+#endif
+}
+
+void SwapBuffers() {
+#ifndef USE_PREDICATED_TILLING
+	pD3Ddevice->Present(NULL, NULL, NULL, NULL);
+#else
+
+	pD3Ddevice->SynchronizeToPresentationInterval();
+
+    pD3Ddevice->Swap( pFrontBufferTexture, NULL );
+#endif
 }
 
 };

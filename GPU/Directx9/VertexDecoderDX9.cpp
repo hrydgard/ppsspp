@@ -30,7 +30,7 @@ namespace DX9 {
 // Always use float for decoding data
 #define USE_WEIGHT_HACK
 #define USE_TC_HACK
-#define USE_PPC_VTX_JIT	1
+#define USE_PPC_VTX_JIT 0
 
 
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
