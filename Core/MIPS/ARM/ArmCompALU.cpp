@@ -230,48 +230,54 @@ namespace MIPSComp
 		switch (op & 63) 
 		{
 		case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
-			if (rd == rs)
+			if (rd == rs || (gpr.IsImm(rd) && gpr.IsImm(rs) && gpr.GetImm(rd) == gpr.GetImm(rs)))
 				break;
-			if (!gpr.IsImm(rt))
-			{
-				gpr.MapDirtyInIn(rd, rt, rs, false);
+			if (!gpr.IsImm(rt)) {
+				Operand2 op2;
+				// Avoid flushing the imm if possible.
+				if (gpr.IsImm(rs) && TryMakeOperand2(gpr.GetImm(rs), op2)) {
+					gpr.MapDirtyIn(rd, rt, false);
+				} else {
+					gpr.MapDirtyInIn(rd, rt, rs, false);
+					op2 = gpr.R(rs);
+				}
 				CMP(gpr.R(rt), Operand2(0));
 				SetCC(CC_EQ);
-				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				MOV(gpr.R(rd), op2);
 				SetCC(CC_AL);
-			}
-			else if (gpr.GetImm(rt) == 0)
-			{
+			} else if (gpr.GetImm(rt) == 0) {
 				// Yes, this actually happens.
-				if (gpr.IsImm(rs))
+				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rd, gpr.GetImm(rs));
-				else
-				{
+				} else {
 					gpr.MapDirtyIn(rd, rs);
-					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+					MOV(gpr.R(rd), gpr.R(rs));
 				}
 			}
 			break;
 		case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
-			if (rd == rs)
+			if (rd == rs || (gpr.IsImm(rd) && gpr.IsImm(rs) && gpr.GetImm(rd) == gpr.GetImm(rs)))
 				break;
-			if (!gpr.IsImm(rt))
-			{
-				gpr.MapDirtyInIn(rd, rt, rs, false);
+			if (!gpr.IsImm(rt)) {
+				Operand2 op2;
+				// Avoid flushing the imm if possible.
+				if (gpr.IsImm(rs) && TryMakeOperand2(gpr.GetImm(rs), op2)) {
+					gpr.MapDirtyIn(rd, rt, false);
+				} else {
+					gpr.MapDirtyInIn(rd, rt, rs, false);
+					op2 = gpr.R(rs);
+				}
 				CMP(gpr.R(rt), Operand2(0));
 				SetCC(CC_NEQ);
-				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				MOV(gpr.R(rd), op2);
 				SetCC(CC_AL);
-			}
-			else if (gpr.GetImm(rt) != 0)
-			{
+			} else if (gpr.GetImm(rt) != 0) {
 				// Yes, this actually happens.
-				if (gpr.IsImm(rs))
+				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rd, gpr.GetImm(rs));
-				else
-				{
+				} else {
 					gpr.MapDirtyIn(rd, rs);
-					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+					MOV(gpr.R(rd), gpr.R(rs));
 				}
 			}
 			break;
