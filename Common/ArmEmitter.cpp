@@ -156,8 +156,20 @@ void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		else
 			SUB(rd, rs, op2);
 	} else {
-		MOVI2R(scratch, val);
-		ADD(rd, rs, scratch);
+		// Try 16-bit additions and subtractions - easy to test for.
+		// Should also try other rotations...
+		if ((val & 0xFFFF0000) == 0) {
+			// Decompose into two additions.
+			ADD(rd, rs, Operand2((u8)(val >> 8), 12));   // rotation right by 12*2 == rotation left by 8
+			ADD(rd, rd, Operand2((u8)(val), 0));
+		} else if (((-(u32)(s32)val) & 0xFFFF0000) == 0) {
+			val = -(u32)(s32)val;
+			SUB(rd, rs, Operand2((u8)(val >> 8), 12));
+			SUB(rd, rd, Operand2((u8)(val), 0));
+		} else {
+			MOVI2R(scratch, val);
+			ADD(rd, rs, scratch);
+		}
 	}
 }
 
