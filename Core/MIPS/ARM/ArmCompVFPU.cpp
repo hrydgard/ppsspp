@@ -1016,11 +1016,10 @@ namespace MIPSComp
 					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 					VMOV(gpr.R(rt), fpr.V(imm));
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-					DISABLE;
 					// In case we have a saved prefix.
-					//FlushPrefixV();
-					//gpr.BindToRegister(rt, false, true);
-					//MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+					FlushPrefixV();
+					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+					LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
 					ERROR_LOG(CPU, "mfv - invalid register %i", imm);
@@ -1357,10 +1356,8 @@ namespace MIPSComp
 
 		// Some, we just fall back to the interpreter.
 		switch (cond) {
-		case VC_EN: // c = my_isnan(s[i]); break;
 		case VC_EI: // c = my_isinf(s[i]); break;
 		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
-		case VC_NN: // c = !my_isnan(s[i]); break;
 		case VC_NI: // c = !my_isinf(s[i]); break;
 		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 			DISABLE;
@@ -1385,6 +1382,20 @@ namespace MIPSComp
 
 			case VC_TR: // c = 1
 				ORR(R0, R0, 1 << n);
+				break;
+
+			case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
+				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_VS;  // overflow = unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
+				break;
+
+			case VC_NN: // c = !my_isnan(s[i]); break;
+				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_VC;  // !overflow = !unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
 				break;
 
 			case VC_EQ: // c = s[i] == t[i]

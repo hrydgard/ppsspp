@@ -1560,7 +1560,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 				fpr.StoreFromRegisterV(imm);
 				gpr.BindToRegister(rt, false, true);
 				MOV(32, gpr.R(rt), fpr.V(imm));
-			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
+			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 				// In case we have a saved prefix.
 				FlushPrefixV();
 				gpr.BindToRegister(rt, false, true);

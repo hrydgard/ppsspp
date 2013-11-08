@@ -21,7 +21,6 @@
 
 struct JitBlock;
 
-
 #if defined(PPC) 
 #include "../PPC/PpcJit.h"
 #elif defined(ARM)

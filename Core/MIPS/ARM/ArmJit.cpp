@@ -168,10 +168,8 @@ void Jit::CompileDelaySlot(int flags)
 		_MSR(true, false, R8);  // Restore flags register
 }
 
-void Jit::Compile(u32 em_address)
-{
-	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
-	{
+void Jit::Compile(u32 em_address) {
+	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
 
@@ -182,8 +180,11 @@ void Jit::Compile(u32 em_address)
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "Uneaten prefix at end of block: %08x", js.compilerPC - 4);
+		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", js.compilerPC - 4);
+		js.LogPrefix();
+
 		js.startDefaultPrefix = false;
+
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
 

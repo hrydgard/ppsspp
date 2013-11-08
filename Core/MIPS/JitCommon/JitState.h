@@ -85,11 +85,13 @@ namespace MIPSComp {
 				PrefixUnknown();
 			}
 		}
+
 		void PrefixUnknown() {
 			prefixSFlag = PREFIX_UNKNOWN;
 			prefixTFlag = PREFIX_UNKNOWN;
 			prefixDFlag = PREFIX_UNKNOWN;
 		}
+
 		bool MayHavePrefix() const {
 			if (HasUnknownPrefix()) {
 				return true;
@@ -100,15 +102,18 @@ namespace MIPSComp {
 			}
 			return false;
 		}
+
 		bool HasUnknownPrefix() const {
 			if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
 				return true;
 			}
 			return false;
 		}
+
 		bool HasNoPrefix() const {
 			return (prefixDFlag & PREFIX_KNOWN) && (prefixSFlag & PREFIX_KNOWN) && (prefixTFlag & PREFIX_KNOWN) && (prefixS == 0xE4 && prefixT == 0xE4 && prefixD == 0);
 		}
+
 		void EatPrefix() {
 			if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
 				prefixSFlag = PREFIX_KNOWN_DIRTY;
@@ -123,13 +128,41 @@ namespace MIPSComp {
 				prefixD = 0x0;
 			}
 		}
+
 		u8 VfpuWriteMask() const {
 			_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
 			return (prefixD >> 8) & 0xF;
 		}
+
 		bool VfpuWriteMask(int i) const {
 			_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
 			return (prefixD >> (8 + i)) & 1;
+		}
+
+		void LogPrefix() {
+			LogSTPrefix("S", prefixS, prefixSFlag);
+			LogSTPrefix("T", prefixT, prefixTFlag);
+			LogDPrefix();
+		}
+
+	private:
+		void LogSTPrefix(const char *name, int p, int pflag) {
+			if ((prefixSFlag & PREFIX_KNOWN) == 0) {
+				ERROR_LOG(JIT, "%s: unknown  (%08x %i)", name, p, pflag);
+			} else if (prefixS != 0xE4) {
+				ERROR_LOG(JIT, "%s: %08x flag: %i", name, p, pflag);
+			} else {
+				WARN_LOG(JIT, "%s: %08x flag: %i", name, p, pflag);
+			}
+		}
+		void LogDPrefix() {
+			if ((prefixDFlag & PREFIX_KNOWN) == 0) {
+				ERROR_LOG(JIT, "D: unknown (%08x %i)", prefixD, prefixDFlag);
+			} else if (prefixD != 0) {
+				ERROR_LOG(JIT, "D: (%08x %i)", prefixD, prefixDFlag);
+			} else {
+				WARN_LOG(JIT, "D: %08x flag: %i", prefixD, prefixDFlag);
+			}
 		}
 	};
 }
