@@ -330,23 +330,77 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			gpr.MapDirtyInIn(rd, rs, rt);
-			CMP(gpr.R(rs), gpr.R(rt));
-			SetCC(CC_LT);
-			MOVI2R(gpr.R(rd), 1);
-			SetCC(CC_GE);
-			MOVI2R(gpr.R(rd), 0);
-			SetCC(CC_AL);
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
+			} else {
+				CCFlags caseOne = CC_LT;
+				CCFlags caseZero = CC_GE;
+				Operand2 op2;
+				bool negated;
+				if (gpr.IsImm(rs) && TryMakeOperand2_AllowNegation(gpr.GetImm(rs), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rt);
+					if (!negated)
+						CMP(gpr.R(rt), op2);
+					else
+						CMN(gpr.R(rt), op2);
+
+					// Swap the condition since we swapped the arguments.
+					caseOne = CC_GT;
+					caseZero = CC_LE;
+				} else if (gpr.IsImm(rt) && TryMakeOperand2_AllowNegation(gpr.GetImm(rt), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rs);
+					if (!negated)
+						CMP(gpr.R(rs), op2);
+					else
+						CMN(gpr.R(rs), op2);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					CMP(gpr.R(rs), gpr.R(rt));
+				}
+
+				SetCC(caseOne);
+				MOVI2R(gpr.R(rd), 1);
+				SetCC(caseZero);
+				MOVI2R(gpr.R(rd), 0);
+				SetCC(CC_AL);
+			}
 			break; 
 
 		case 43: //R(rd) = R(rs) < R(rt);           break; //sltu
-			gpr.MapDirtyInIn(rd, rs, rt);
-			CMP(gpr.R(rs), gpr.R(rt));
-			SetCC(CC_LO);
-			MOVI2R(gpr.R(rd), 1);
-			SetCC(CC_HS);
-			MOVI2R(gpr.R(rd), 0);
-			SetCC(CC_AL);
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
+			} else {
+				CCFlags caseOne = CC_LO;
+				CCFlags caseZero = CC_HS;
+				Operand2 op2;
+				bool negated;
+				if (gpr.IsImm(rs) && TryMakeOperand2_AllowNegation(gpr.GetImm(rs), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rt);
+					if (!negated)
+						CMP(gpr.R(rt), op2);
+					else
+						CMN(gpr.R(rt), op2);
+
+					// Swap the condition since we swapped the arguments.
+					caseOne = CC_HI;
+					caseZero = CC_LS;
+				} else if (gpr.IsImm(rt) && TryMakeOperand2_AllowNegation(gpr.GetImm(rt), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rs);
+					if (!negated)
+						CMP(gpr.R(rs), op2);
+					else
+						CMN(gpr.R(rs), op2);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					CMP(gpr.R(rs), gpr.R(rt));
+				}
+
+				SetCC(caseOne);
+				MOVI2R(gpr.R(rd), 1);
+				SetCC(caseZero);
+				MOVI2R(gpr.R(rd), 0);
+				SetCC(CC_AL);
+			}
 			break;
 
 		case 44: //R(rd) = max(R(rs), R(rt);        break; //max
