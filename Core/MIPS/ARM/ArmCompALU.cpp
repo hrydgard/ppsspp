@@ -303,9 +303,25 @@ namespace MIPSComp
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-				gpr.MapDirtyIn(rd, rs);
-				MVN(gpr.R(rd), gpr.R(rs));
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
+			} else if (gpr.IsImm(rs) || gpr.IsImm(rt)) {
+				int lhs = gpr.IsImm(rs) ? rt : rs;
+				int rhs = gpr.IsImm(rs) ? rs : rt;
+				u32 rhsImm = gpr.GetImm(rhs);
+				Operand2 op2;
+				if (TryMakeOperand2(rhsImm, op2)) {
+					gpr.MapDirtyIn(rd, lhs);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					op2 = gpr.R(rhs);
+				}
+				if (rhsImm == 0) {
+					MVN(gpr.R(rd), gpr.R(lhs));
+				} else {
+					ORR(gpr.R(rd), gpr.R(lhs), op2);
+					MVN(gpr.R(rd), gpr.R(rd));
+				}
 			} else {
 				gpr.MapDirtyInIn(rd, rs, rt);
 				ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
