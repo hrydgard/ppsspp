@@ -87,15 +87,15 @@ namespace MIPSComp
 		switch (regnum) {
 		case 0:  // S
 			js.prefixS = data;
-			js.prefixSFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
+			js.prefixSFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		case 1:  // T
 			js.prefixT = data;
-			js.prefixTFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
+			js.prefixTFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		case 2:  // D
 			js.prefixD = data;
-			js.prefixDFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
+			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		default:
 			ERROR_LOG(CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
@@ -104,7 +104,8 @@ namespace MIPSComp
 	}
 
 	void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
-		if (prefix == 0xE4) return;
+		if (prefix == 0xE4)
+			return;
 
 		int n = GetNumVectorElements(sz);
 		u8 origV[4];
@@ -113,8 +114,7 @@ namespace MIPSComp
 		for (int i = 0; i < n; i++)
 			origV[i] = vregs[i];
 
-		for (int i = 0; i < n; i++)
-		{
+		for (int i = 0; i < n; i++) {
 			int regnum = (prefix >> (i*2)) & 3;
 			int abs    = (prefix >> (8+i)) & 1;
 			int negate = (prefix >> (16+i)) & 1;
@@ -156,7 +156,7 @@ namespace MIPSComp
 	}
 
 	void Jit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
-		_assert_(js.prefixDFlag & ArmJitState::PREFIX_KNOWN);
+		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 
 		GetVectorRegs(regs, sz, vectorReg);
 		if (js.prefixD == 0)
@@ -171,8 +171,9 @@ namespace MIPSComp
 	}
 
 	void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
-		_assert_(js.prefixDFlag & ArmJitState::PREFIX_KNOWN);
-		if (!js.prefixD) return;
+		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+		if (!js.prefixD)
+			return;
 
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) 	{
@@ -1041,11 +1042,11 @@ namespace MIPSComp
 				// TODO: Optimization if rt is Imm?
 				// Set these BEFORE disable!
 				if (imm - 128 == VFPU_CTRL_SPREFIX) {
-					js.prefixSFlag = ArmJitState::PREFIX_UNKNOWN;
+					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 				} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
-					js.prefixTFlag = ArmJitState::PREFIX_UNKNOWN;
+					js.prefixTFlag = JitState::PREFIX_UNKNOWN;
 				} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
-					js.prefixDFlag = ArmJitState::PREFIX_UNKNOWN;
+					js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 				}
 			} else {
 				//ERROR
@@ -1072,11 +1073,11 @@ namespace MIPSComp
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
-				js.prefixSFlag = ArmJitState::PREFIX_UNKNOWN;
+				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
-				js.prefixTFlag = ArmJitState::PREFIX_UNKNOWN;
+				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
 			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
-				js.prefixDFlag = ArmJitState::PREFIX_UNKNOWN;
+				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
 		}
 	}

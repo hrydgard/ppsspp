@@ -538,6 +538,7 @@
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
+    <ClInclude Include="MIPS\JitCommon\JitState.h" />
     <ClInclude Include="Mips\MIPS.h" />
     <ClInclude Include="Mips\MIPSAnalyst.h" />
     <ClInclude Include="MIPS\MIPSAsm.h" />

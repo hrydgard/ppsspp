@@ -99,22 +99,22 @@ void Jit::FlushAll()
 
 void Jit::FlushPrefixV()
 {
-	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0) {
+	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixS);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
-		js.prefixSFlag = (ArmJitState::PrefixState) (js.prefixSFlag & ~ArmJitState::PREFIX_DIRTY);
+		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
-	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0) {
+	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixT);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
-		js.prefixTFlag = (ArmJitState::PrefixState) (js.prefixTFlag & ~ArmJitState::PREFIX_DIRTY);
+		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
-	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0) {
+	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixD);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
-		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);
+		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
 
@@ -181,8 +181,8 @@ void Jit::Compile(u32 em_address)
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
-	if (js.startDefaultPrefix && js.MayHavePrefix())
-	{
+	if (js.startDefaultPrefix && js.MayHavePrefix()) {
+		WARN_LOG(JIT, "Uneaten prefix at end of block: %08x", js.compilerPC - 4);
 		js.startDefaultPrefix = false;
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
@@ -212,6 +212,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
+	// Possible idea: Move the MOVI2R and B *before* checkedEntry, and just branch backwards there.
+	// possible drawback is that branch predictors will predict short backward branches as taken.
 	SetCC(CC_LT);
 	MOVI2R(R0, js.blockStart);
 	B((const void *)outerLoopPCInR0);
@@ -228,7 +230,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	int cycles = 0;
 	int partialFlushOffset = 0;
 
-	char temp[256];
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
@@ -250,6 +251,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		}
 	}
 	FlushLitPool();
+
+	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
@@ -263,12 +266,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		INFO_LOG(JIT, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
-	if (logBlocks > 0) logBlocks--;
-	if (dontLogBlocks > 0) dontLogBlocks--;
+	if (logBlocks > 0)
+		logBlocks--;
+	if (dontLogBlocks > 0)
+		dontLogBlocks--;
 
-	AlignCode16();
-
-	// Don't forget to zap the instruction cache!
+	// Don't forget to zap the newly written instructions in the instruction cache!
 	FlushIcache();
 
 	b->originalSize = numInstructions;
@@ -327,8 +330,7 @@ void Jit::WriteDownCount(int offset)
 	if (jo.downcountInRegister) {
 		int theDowncount = js.downcountAmount + offset;
 		Operand2 op2;
-		if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
-		{
+		if (TryMakeOperand2(theDowncount, op2)) {
 			SUBS(R7, R7, op2);
 		} else {
 			// Should be fine to use R2 here, flushed the regcache anyway.
@@ -340,8 +342,7 @@ void Jit::WriteDownCount(int offset)
 		int theDowncount = js.downcountAmount + offset;
 		LDR(R1, CTXREG, offsetof(MIPSState, downcount));
 		Operand2 op2;
-		if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
-		{
+		if (TryMakeOperand2(theDowncount, op2)) {
 			SUBS(R1, R1, op2);
 			STR(R1, CTXREG, offsetof(MIPSState, downcount));
 		} else {

@@ -19,6 +19,9 @@
 
 #include "Common/Common.h"
 
+struct JitBlock;
+
+
 #if defined(PPC) 
 #include "../PPC/PpcJit.h"
 #elif defined(ARM)
@@ -43,5 +46,5 @@
 #define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
 
 namespace MIPSComp {
-extern Jit *jit;
+	extern Jit *jit;
 }

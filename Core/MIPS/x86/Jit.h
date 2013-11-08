@@ -27,6 +27,7 @@
 
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitState.h"
 #include "RegCache.h"
 #include "RegCacheFPU.h"
 
@@ -52,117 +53,6 @@ struct JitOptions
 	bool immBranches;
 	bool continueBranches;
 	int continueMaxInstructions;
-};
-
-struct JitState
-{
-	enum PrefixState
-	{
-		PREFIX_UNKNOWN = 0x00,
-		PREFIX_KNOWN = 0x01,
-		PREFIX_DIRTY = 0x10,
-		PREFIX_KNOWN_DIRTY = 0x11,
-	};
-
-	enum AfterOp
-	{
-		AFTER_NONE = 0x00,
-		AFTER_CORE_STATE = 0x01,
-		AFTER_REWIND_PC_BAD_STATE = 0x02,
-	};
-
-	JitState()
-		: prefixSFlag(PREFIX_UNKNOWN),
-		prefixTFlag(PREFIX_UNKNOWN),
-		prefixDFlag(PREFIX_UNKNOWN) {}
-
-	u32 compilerPC;
-	u32 blockStart;
-	int nextExit;
-	bool cancel;
-	bool inDelaySlot;
-	// See JitState::AfterOp for values.
-	int afterOp;
-	int downcountAmount;
-	int numInstructions;
-	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
-	JitBlock *curBlock;
-
-	// VFPU prefix magic
-	bool startDefaultPrefix;
-	u32 prefixS;
-	u32 prefixT;
-	u32 prefixD;
-	PrefixState prefixSFlag;
-	PrefixState prefixTFlag;
-	PrefixState prefixDFlag;
-
-	void PrefixStart() {
-		if (startDefaultPrefix) {
-			EatPrefix();
-		} else {
-			PrefixUnknown();
-		}
-	}
-	void PrefixUnknown() {
-		prefixSFlag = PREFIX_UNKNOWN;
-		prefixTFlag = PREFIX_UNKNOWN;
-		prefixDFlag = PREFIX_UNKNOWN;
-	}
-	bool MayHavePrefix() const {
-		if (HasUnknownPrefix()) {
-			return true;
-		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
-			return true;
-		} else if (VfpuWriteMask() != 0) {
-			return true;
-		}
-
-		return false;
-	}
-	bool HasUnknownPrefix() const {
-		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
-			return true;
-		}
-		return false;
-	}
-	bool HasNoPrefix() const {
-		return (prefixDFlag & PREFIX_KNOWN) && (prefixSFlag & PREFIX_KNOWN) && (prefixTFlag & PREFIX_KNOWN) && (prefixS == 0xE4 && prefixT == 0xE4 && prefixD == 0);
-	}
-	void EatPrefix() {
-		if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
-			prefixSFlag = PREFIX_KNOWN_DIRTY;
-			prefixS = 0xE4;
-		}
-		if ((prefixTFlag & PREFIX_KNOWN) == 0 || prefixT != 0xE4) {
-			prefixTFlag = PREFIX_KNOWN_DIRTY;
-			prefixT = 0xE4;
-		}
-		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || VfpuWriteMask() != 0) {
-			prefixDFlag = PREFIX_KNOWN_DIRTY;
-			prefixD = 0x0;
-		}
-	}
-	u8 VfpuWriteMask() const {
-		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
-		return (prefixD >> 8) & 0xF;
-	}
-	bool VfpuWriteMask(int i) const {
-		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
-		return (prefixD >> (8 + i)) & 1;
-	}
-};
-
-enum CompileDelaySlotFlags
-{
-	// Easy, nothing extra.
-	DELAYSLOT_NICE = 0,
-	// Flush registers after delay slot.
-	DELAYSLOT_FLUSH = 1,
-	// Preserve flags.
-	DELAYSLOT_SAFE = 2,
-	// Flush registers after and preserve flags.
-	DELAYSLOT_SAFE_FLUSH = DELAYSLOT_FLUSH | DELAYSLOT_SAFE,
 };
 
 // TODO: Hmm, humongous.

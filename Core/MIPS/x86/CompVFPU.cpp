@@ -1556,6 +1556,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
+				// TODO: Avoid goind through memory
 				fpr.StoreFromRegisterV(imm);
 				gpr.BindToRegister(rt, false, true);
 				MOV(32, gpr.R(rt), fpr.V(imm));

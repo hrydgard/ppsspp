@@ -176,8 +176,13 @@ namespace MIPSComp
 			u32 rsImm = gpr.GetImm(rs);
 			gpr.MapDirtyIn(rd, rt);
 			// TODO: Special case when rsImm can be represented as an Operand2
-			MOVI2R(R0, rsImm);
-			(this->*arith)(gpr.R(rd), R0, gpr.R(rt));
+			if (!isSub) {
+				MOVI2R(R0, rsImm);
+				(this->*arith)(gpr.R(rd), gpr.R(rt), R0);
+			} else {
+				MOVI2R(R0, rsImm);
+				(this->*arith)(gpr.R(rd), R0, gpr.R(rt));
+			}
 		} else {
 			// Generic solution
 			gpr.MapDirtyInIn(rd, rs, rt);

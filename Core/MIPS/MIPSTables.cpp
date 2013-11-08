@@ -921,7 +921,7 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op)
 
 void MIPSCompileOp(MIPSOpcode op)
 {
-	if (op==0)
+	if (op == 0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	const MIPSInfo info = MIPSGetInfo(op);

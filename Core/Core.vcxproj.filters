@@ -912,6 +912,9 @@
     <ClInclude Include="Dialog\PSPNetconfDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\JitState.h">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

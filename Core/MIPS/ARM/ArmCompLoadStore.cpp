@@ -153,6 +153,8 @@ namespace MIPSComp
 		case 41: //sh
 		case 43: //sw
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
+				// TODO: Avoid mapping a register for the "zero" register, use R0 instead.
+
 				// We can compute the full address at compile time. Kickass.
 				u32 addr = iaddr & 0x3FFFFFFF;
 				// Must be OK even if rs == rt since we have the value from imm already.

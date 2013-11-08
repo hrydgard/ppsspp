@@ -23,9 +23,9 @@
 #include "MemoryUtil.h"
 
 #include "ArmEmitter.h"
-#include "ArmJit.h"
-#include "../JitCommon/JitCommon.h"
-#include "ArmAsm.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmAsm.h"
 
 using namespace ArmGen;
 
@@ -208,4 +208,4 @@ void Jit::GenerateFixedCode()
 	FlushIcache();
 }
 
-}  // namespace
+}  // namespace MIPSComp
