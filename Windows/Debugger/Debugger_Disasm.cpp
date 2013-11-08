@@ -283,6 +283,7 @@ void CDisasm::stepOut()
 	auto frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
 	if (frames.size() < 2) return;
 	u32 breakpointAddress = frames[1].pc;
+	lastTicks = CoreTiming::GetTicks();
 	
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
