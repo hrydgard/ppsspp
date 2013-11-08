@@ -721,14 +721,14 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
-			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+			void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
-				inds = Memory::GetPointer(gstate_c.indexAddr);
+				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
 #ifndef USING_GLES2
@@ -773,14 +773,14 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				break;
 			}
 
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
+				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
@@ -816,14 +816,14 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				break;
 			}
 
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
+				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {

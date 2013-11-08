@@ -100,6 +100,10 @@ namespace MIPSComp
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 			{
+				if (gpr.IsImm(rs)) {
+					gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm ? 1 : 0);
+					break;
+				}
 				gpr.MapDirtyIn(rt, rs);
 				CMPI2R(gpr.R(rs), simm, R0);
 				SetCC(CC_LT);
@@ -112,6 +116,10 @@ namespace MIPSComp
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			{
+				if (gpr.IsImm(rs)) {
+					gpr.SetImm(rt, gpr.GetImm(rs) < suimm ? 1 : 0);
+					break;
+				}
 				gpr.MapDirtyIn(rt, rs);
 				CMPI2R(gpr.R(rs), suimm, R0);
 				SetCC(CC_LO);
@@ -145,10 +153,32 @@ namespace MIPSComp
 		switch (op & 63)
 		{
 		case 22: //clz
+			if (gpr.IsImm(rs)) {
+				u32 value = gpr.GetImm(rs);
+				int x = 31;
+				int count = 0;
+				while (!(value & (1 << x)) && x >= 0) {
+					count++;
+					x--;
+				}
+				gpr.SetImm(rd, count);
+				break;
+			}
 			gpr.MapDirtyIn(rd, rs);
 			CLZ(gpr.R(rd), gpr.R(rs));
 			break;
 		case 23: //clo
+			if (gpr.IsImm(rs)) {
+				u32 value = gpr.GetImm(rs);
+				int x = 31;
+				int count = 0;
+				while ((value & (1 << x)) && x >= 0) {
+					count++;
+					x--;
+				}
+				gpr.SetImm(rd, count);
+				break;
+			}
 			gpr.MapDirtyIn(rd, rs);
 			MVN(R0, gpr.R(rs));
 			CLZ(gpr.R(rd), R0);
@@ -158,31 +188,31 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompType3(int rd, int rs, int rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool isSub)
+	void Jit::CompType3(int rd, int rs, int rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool symmetric, bool useMOV)
 	{
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
-		} else if (gpr.IsImm(rt)) {
-			u32 rtImm = gpr.GetImm(rt);
-			gpr.MapDirtyIn(rd, rs);
+		} else if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
+			int lhs = gpr.IsImm(rs) ? rt : rs;
+			u32 rhsImm = gpr.IsImm(rs) ? gpr.GetImm(rs) : gpr.GetImm(rt);
+			gpr.MapDirtyIn(rd, lhs);
 			Operand2 op2;
-			if (TryMakeOperand2(rtImm, op2)) {
-				(this->*arith)(gpr.R(rd), gpr.R(rs), op2);
+			if (TryMakeOperand2(rhsImm, op2)) {
+				// MOV can avoid the ALU so might be faster?
+				if (useMOV && rhsImm == 0)
+					MOV(gpr.R(rd), gpr.R(lhs));
+				else
+					(this->*arith)(gpr.R(rd), gpr.R(lhs), op2);
 			} else {
-				MOVI2R(R0, rtImm);
-				(this->*arith)(gpr.R(rd), gpr.R(rs), R0);
+				// TODO: AND could be reversed, OR/EOR could use multiple ops.
+				MOVI2R(R0, rhsImm);
+				(this->*arith)(gpr.R(rd), gpr.R(lhs), R0);
 			}
 		} else if (gpr.IsImm(rs)) {
 			u32 rsImm = gpr.GetImm(rs);
 			gpr.MapDirtyIn(rd, rt);
-			// TODO: Special case when rsImm can be represented as an Operand2
-			if (!isSub) {
-				MOVI2R(R0, rsImm);
-				(this->*arith)(gpr.R(rd), gpr.R(rt), R0);
-			} else {
-				MOVI2R(R0, rsImm);
-				(this->*arith)(gpr.R(rd), R0, gpr.R(rt));
-			}
+			MOVI2R(R0, rsImm);
+			(this->*arith)(gpr.R(rd), R0, gpr.R(rt));
 		} else {
 			// Generic solution
 			gpr.MapDirtyInIn(rd, rs, rt);
@@ -204,84 +234,98 @@ namespace MIPSComp
 		switch (op & 63) 
 		{
 		case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
-			if (rd == rs)
+			if (rd == rs || (gpr.IsImm(rd) && gpr.IsImm(rs) && gpr.GetImm(rd) == gpr.GetImm(rs)))
 				break;
-			if (!gpr.IsImm(rt))
-			{
-				gpr.MapDirtyInIn(rd, rt, rs, false);
+			if (!gpr.IsImm(rt)) {
+				Operand2 op2;
+				// Avoid flushing the imm if possible.
+				if (gpr.IsImm(rs) && TryMakeOperand2(gpr.GetImm(rs), op2)) {
+					gpr.MapDirtyIn(rd, rt, false);
+				} else {
+					gpr.MapDirtyInIn(rd, rt, rs, false);
+					op2 = gpr.R(rs);
+				}
 				CMP(gpr.R(rt), Operand2(0));
 				SetCC(CC_EQ);
-				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				MOV(gpr.R(rd), op2);
 				SetCC(CC_AL);
-			}
-			else if (gpr.GetImm(rt) == 0)
-			{
+			} else if (gpr.GetImm(rt) == 0) {
 				// Yes, this actually happens.
-				if (gpr.IsImm(rs))
+				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rd, gpr.GetImm(rs));
-				else
-				{
+				} else {
 					gpr.MapDirtyIn(rd, rs);
-					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+					MOV(gpr.R(rd), gpr.R(rs));
 				}
 			}
 			break;
 		case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
-			if (rd == rs)
+			if (rd == rs || (gpr.IsImm(rd) && gpr.IsImm(rs) && gpr.GetImm(rd) == gpr.GetImm(rs)))
 				break;
-			if (!gpr.IsImm(rt))
-			{
-				gpr.MapDirtyInIn(rd, rt, rs, false);
+			if (!gpr.IsImm(rt)) {
+				Operand2 op2;
+				// Avoid flushing the imm if possible.
+				if (gpr.IsImm(rs) && TryMakeOperand2(gpr.GetImm(rs), op2)) {
+					gpr.MapDirtyIn(rd, rt, false);
+				} else {
+					gpr.MapDirtyInIn(rd, rt, rs, false);
+					op2 = gpr.R(rs);
+				}
 				CMP(gpr.R(rt), Operand2(0));
 				SetCC(CC_NEQ);
-				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				MOV(gpr.R(rd), op2);
 				SetCC(CC_AL);
-			}
-			else if (gpr.GetImm(rt) != 0)
-			{
+			} else if (gpr.GetImm(rt) != 0) {
 				// Yes, this actually happens.
-				if (gpr.IsImm(rs))
+				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rd, gpr.GetImm(rs));
-				else
-				{
+				} else {
 					gpr.MapDirtyIn(rd, rs);
-					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+					MOV(gpr.R(rd), gpr.R(rs));
 				}
 			}
 			break;
 			
 		case 32: //R(rd) = R(rs) + R(rt);           break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
-			// Some optimized special cases
-			if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
-				gpr.MapDirtyIn(rd, rt);
-				MOV(gpr.R(rd), gpr.R(rt));
-			} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-				gpr.MapDirtyIn(rd, rs);
-				MOV(gpr.R(rd), gpr.R(rs));
-			} else {
-				CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd);
-			}
+			// We optimize out 0 as an operand2 ADD.
+			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd, true, true);
 			break;
 
 		case 34: //R(rd) = R(rs) - R(rt);           break; //sub
 		case 35: //R(rd) = R(rs) - R(rt);           break; //subu
-			CompType3(rd, rs, rt, &ARMXEmitter::SUB, &EvalSub, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::SUB, &EvalSub, false, false);
 			break;
 		case 36: //R(rd) = R(rs) & R(rt);           break; //and
-			CompType3(rd, rs, rt, &ARMXEmitter::AND, &EvalAnd);
+			CompType3(rd, rs, rt, &ARMXEmitter::AND, &EvalAnd, true, false);
 			break;
 		case 37: //R(rd) = R(rs) | R(rt);           break; //or
-			CompType3(rd, rs, rt, &ARMXEmitter::ORR, &EvalOr);
+			CompType3(rd, rs, rt, &ARMXEmitter::ORR, &EvalOr, true, true);
 			break;
 		case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
-			CompType3(rd, rs, rt, &ARMXEmitter::EOR, &EvalEor);
+			CompType3(rd, rs, rt, &ARMXEmitter::EOR, &EvalEor, true, true);
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-				gpr.MapDirtyIn(rd, rs);
-				MVN(gpr.R(rd), gpr.R(rs));
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
+			} else if (gpr.IsImm(rs) || gpr.IsImm(rt)) {
+				int lhs = gpr.IsImm(rs) ? rt : rs;
+				int rhs = gpr.IsImm(rs) ? rs : rt;
+				u32 rhsImm = gpr.GetImm(rhs);
+				Operand2 op2;
+				if (TryMakeOperand2(rhsImm, op2)) {
+					gpr.MapDirtyIn(rd, lhs);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					op2 = gpr.R(rhs);
+				}
+				if (rhsImm == 0) {
+					MVN(gpr.R(rd), gpr.R(lhs));
+				} else {
+					ORR(gpr.R(rd), gpr.R(lhs), op2);
+					MVN(gpr.R(rd), gpr.R(rd));
+				}
 			} else {
 				gpr.MapDirtyInIn(rd, rs, rt);
 				ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
@@ -290,23 +334,77 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			gpr.MapDirtyInIn(rd, rs, rt);
-			CMP(gpr.R(rs), gpr.R(rt));
-			SetCC(CC_LT);
-			MOVI2R(gpr.R(rd), 1);
-			SetCC(CC_GE);
-			MOVI2R(gpr.R(rd), 0);
-			SetCC(CC_AL);
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
+			} else {
+				CCFlags caseOne = CC_LT;
+				CCFlags caseZero = CC_GE;
+				Operand2 op2;
+				bool negated;
+				if (gpr.IsImm(rs) && TryMakeOperand2_AllowNegation(gpr.GetImm(rs), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rt);
+					if (!negated)
+						CMP(gpr.R(rt), op2);
+					else
+						CMN(gpr.R(rt), op2);
+
+					// Swap the condition since we swapped the arguments.
+					caseOne = CC_GT;
+					caseZero = CC_LE;
+				} else if (gpr.IsImm(rt) && TryMakeOperand2_AllowNegation(gpr.GetImm(rt), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rs);
+					if (!negated)
+						CMP(gpr.R(rs), op2);
+					else
+						CMN(gpr.R(rs), op2);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					CMP(gpr.R(rs), gpr.R(rt));
+				}
+
+				SetCC(caseOne);
+				MOVI2R(gpr.R(rd), 1);
+				SetCC(caseZero);
+				MOVI2R(gpr.R(rd), 0);
+				SetCC(CC_AL);
+			}
 			break; 
 
 		case 43: //R(rd) = R(rs) < R(rt);           break; //sltu
-			gpr.MapDirtyInIn(rd, rs, rt);
-			CMP(gpr.R(rs), gpr.R(rt));
-			SetCC(CC_LO);
-			MOVI2R(gpr.R(rd), 1);
-			SetCC(CC_HS);
-			MOVI2R(gpr.R(rd), 0);
-			SetCC(CC_AL);
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
+			} else {
+				CCFlags caseOne = CC_LO;
+				CCFlags caseZero = CC_HS;
+				Operand2 op2;
+				bool negated;
+				if (gpr.IsImm(rs) && TryMakeOperand2_AllowNegation(gpr.GetImm(rs), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rt);
+					if (!negated)
+						CMP(gpr.R(rt), op2);
+					else
+						CMN(gpr.R(rt), op2);
+
+					// Swap the condition since we swapped the arguments.
+					caseOne = CC_HI;
+					caseZero = CC_LS;
+				} else if (gpr.IsImm(rt) && TryMakeOperand2_AllowNegation(gpr.GetImm(rt), op2, &negated)) {
+					gpr.MapDirtyIn(rd, rs);
+					if (!negated)
+						CMP(gpr.R(rs), op2);
+					else
+						CMN(gpr.R(rs), op2);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					CMP(gpr.R(rs), gpr.R(rt));
+				}
+
+				SetCC(caseOne);
+				MOVI2R(gpr.R(rd), 1);
+				SetCC(caseZero);
+				MOVI2R(gpr.R(rd), 0);
+				SetCC(CC_AL);
+			}
 			break;
 
 		case 44: //R(rd) = max(R(rs), R(rt);        break; //max
