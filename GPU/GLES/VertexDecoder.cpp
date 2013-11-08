@@ -901,10 +901,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	FlushIcache();
 
-	DisassembleArm(start, GetCodePtr() - start);
-	char temp[1024] = {0};
-	dec.ToString(temp);
-	INFO_LOG(HLE, "%s", temp);
+	// DisassembleArm(start, GetCodePtr() - start);
+	// char temp[1024] = {0};
+	// dec.ToString(temp);
+	// INFO_LOG(HLE, "%s", temp);
 
 	return (JittedVertexDecoder)start;
 }
