@@ -999,8 +999,7 @@ void VertexDecoderJitCache::Jit_TcU16Double() {
 	LDRH(tempReg1, srcReg, dec_->tcoff);
 	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
 	LSL(tempReg1, tempReg1, 1);
-	LSL(tempReg2, tempReg2, 1);
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 17));
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -1008,8 +1007,7 @@ void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
 	LDRH(tempReg1, srcReg, dec_->tcoff);
 	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
 	LSL(tempReg1, tempReg1, 1);
-	LSL(tempReg2, tempReg2, 1);
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
+	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 17));
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -1514,9 +1512,9 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
-	MOV(16, R(tempReg1), MDisp(srcReg, dec_->tcoff));
-	MOV(16, R(tempReg2), MDisp(srcReg, dec_->tcoff + 2));
-	SHL(16, R(tempReg1), Imm8(1));
+	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
+	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
+	SHL(16, R(tempReg1), Imm8(1));  // 16 to get a wall to shift into
 	SHL(32, R(tempReg2), Imm8(17));
 	OR(32, R(tempReg1), R(tempReg2));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
