@@ -240,7 +240,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	
 		js.compilerPC += 4;
 		numInstructions++;
-		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 4020)
+		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
 			FixupBranch skip = B_CC(CC_AL);
