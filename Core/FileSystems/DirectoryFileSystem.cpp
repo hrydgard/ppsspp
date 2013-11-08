@@ -163,7 +163,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 #endif
 
 	std::string fullName = GetLocalPath(basePath,fileName);
-	INFO_LOG(FILESYS,"Actually opening %s", fullName.c_str());
+	DEBUG_LOG(FILESYS,"Actually opening %s", fullName.c_str());
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
@@ -716,7 +716,7 @@ u32 VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 
 	std::string fullName = GetLocalPath(filename);
 	const char *fullNameC = fullName.c_str();
-	INFO_LOG(FILESYS,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
+	DEBUG_LOG(FILESYS,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
 	u8 *data = VFSReadFile(fullNameC, &size);

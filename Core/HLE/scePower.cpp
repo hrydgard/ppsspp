@@ -233,7 +233,7 @@ int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 
 	switch (error) {
 	case 0:
-		INFO_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
+		DEBUG_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
 	case ERROR_POWER_VMEM_IN_USE:
@@ -275,7 +275,7 @@ int sceKernelVolatileMemUnlock(int type) {
 			INFO_LOG(HLE, "sceKernelVolatileMemUnlock(%i) handed over to another thread", type);
 			hleReSchedule("volatile mem unlocked");
 		} else {
-			INFO_LOG(HLE, "sceKernelVolatileMemUnlock(%i)", type);
+			DEBUG_LOG(HLE, "sceKernelVolatileMemUnlock(%i)", type);
 		}
 	} else {
 		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
@@ -300,7 +300,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 
 	switch (error) {
 	case 0:
-		INFO_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
+		DEBUG_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
 	case ERROR_POWER_VMEM_IN_USE:
@@ -338,7 +338,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 
 
 u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
-	if(g_Config.iLockedCPUSpeed > 0) {
+	if (g_Config.iLockedCPUSpeed > 0) {
 		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, g_Config.iLockedCPUSpeed, g_Config.iLockedCPUSpeed, busFreq);
 	}
 	else {
