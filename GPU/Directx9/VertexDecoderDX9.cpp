@@ -30,7 +30,7 @@ namespace DX9 {
 // Always use float for decoding data
 #define USE_WEIGHT_HACK
 #define USE_TC_HACK
-#define USE_PPC_VTX_JIT	0
+#define USE_PPC_VTX_JIT	1
 
 
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
@@ -1111,7 +1111,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
-		/*
 		if (!CompileStep(dec, i)) {
 			// Reset the code ptr and return zero to indicate that we failed.
 			SetCodePtr(const_cast<u8 *>(start));
@@ -1120,15 +1119,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) 
 			INFO_LOG(HLE, "Could not compile vertex decoder: %s", temp);
 			return 0;
 		}
-		*/
 	}
 
 	ADDI(srcReg, srcReg, dec.VertexSize());
 	ADDI(dstReg, dstReg, dec.decFmt.stride);
 
-	// subf => counterReg --;
-	MOVI2R(R5, 1);
-	SUBF(counterReg, R5, counterReg, 0);
+	// counterReg --;
+	ADDI(counterReg, counterReg, -1); // SUBI
 	
 	// if (counterReg!=0) => loopStart
 	CMPI(counterReg, 0);
@@ -1186,8 +1183,9 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 
 void VertexDecoderJitCache::Jit_WeightsFloat() {
 	int j;
+	MOVI2R(scratchReg, dec_->weightoff);
 	for (j = 0; j < dec_->nweights; j++) {
-		MOVI2R(scratchReg, dec_->weightoff + j * 4);
+		ADDI(scratchReg, scratchReg, 4);
 		LWBRX(tempReg1, srcReg, scratchReg);
 		STW(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
 	}
@@ -1204,15 +1202,25 @@ void VertexDecoderJitCache::Jit_TcU8() {
 
 void VertexDecoderJitCache::Jit_TcU16() {
 	/* Todo */
+	/** optimize ! **/
+	MOVI2R(R7, dec_->tcoff + 0);
+	MOVI2R(R8, dec_->tcoff + 2);
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	STH(tempReg1, dstReg, dec_->decFmt.uvoff + 0);
+	STH(tempReg2, dstReg, dec_->decFmt.uvoff + 2);
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {
+	/** Todo vmx ... **/
+
 	MOVI2R(scratchReg, dec_->tcoff);
 	LWBRX(tempReg1, srcReg, scratchReg);
 
-	MOVI2R(scratchReg, dec_->tcoff + 4);
+	// scratchReg = dec_->tcoff + 4
+	ADDI(scratchReg, scratchReg, 4);
 	LWBRX(tempReg2, srcReg, scratchReg);
-
+	
 	STW(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STW(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
 }
@@ -1240,7 +1248,6 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 
 void VertexDecoderJitCache::Jit_Color8888() {
 	/** Todo optimize ... **/
-
 	LBZ(tempReg1, srcReg, dec_->coloff + 3);
 	LBZ(tempReg2, srcReg, dec_->coloff + 0);
 	STB(tempReg1, dstReg, dec_->decFmt.c0off + 0);
@@ -1250,6 +1257,13 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	LBZ(tempReg2, srcReg, dec_->coloff + 2);
 	STB(tempReg1, dstReg, dec_->decFmt.c0off + 2);
 	STB(tempReg2, dstReg, dec_->decFmt.c0off + 3);
+	/*
+	// Wrong !!! should use rlwim
+	
+	MOVI2R(scratchReg, dec_->coloff);
+	LWBRX(tempReg1, srcReg, scratchReg);	
+	STW(tempReg1, dstReg, dec_->decFmt.c0off);
+	*/
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -1295,21 +1309,20 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	u32 tmp1, tmp2, tmp3;
+	volatile u64 tmp1, tmp2, tmp3;
 
+	MOVI2R(R7, dec_->posoff + 0);	
+	MOVI2R(R8, dec_->posoff + 2);	
+	MOVI2R(R9, dec_->posoff + 4);
 
-	MOVI2R((PPCReg)(scratchReg + 0), dec_->posoff + 0);	
-	MOVI2R((PPCReg)(scratchReg + 1), dec_->posoff + 2);	
-	MOVI2R((PPCReg)(scratchReg + 2), dec_->posoff + 4);
-
-	LHBRX(tempReg1, srcReg, (PPCReg)(scratchReg + 0));
-	LHBRX(tempReg2, srcReg, (PPCReg)(scratchReg + 1));
-	LHBRX(tempReg3, srcReg, (PPCReg)(scratchReg + 2));
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	LHBRX(tempReg3, srcReg, R9);
 
 	EXTSH(tempReg1, tempReg1);
 	EXTSH(tempReg2, tempReg2);
 	EXTSH(tempReg3, tempReg3);
-
+	
 	// Save it in tmp memory 
 	MOVI2R(R7, (u32)&tmp1);
 	MOVI2R(R8, (u32)&tmp2);
@@ -1338,10 +1351,6 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	SFS(tempReg1, dstReg, (dec_->decFmt.posoff + 0));
 	SFS(tempReg2, dstReg, (dec_->decFmt.posoff + 4));
 	SFS(tempReg3, dstReg, (dec_->decFmt.posoff + 8));
-
-	// Finish with 0
-	//MOVI2F(FPR0, 0.f);
-	//SFS(FPR0, dstReg, (dec_->decFmt.posoff + 12));
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
@@ -1356,18 +1365,37 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
+	/** Todo vmx ... **/
+#if 0
 	MOVI2R(scratchReg, dec_->posoff);
 	LWBRX(tempReg1, srcReg, scratchReg);
 
-	MOVI2R(scratchReg, dec_->posoff + 4);
+	// scratchReg = dec_->posoff + 4
+	ADDI(scratchReg, scratchReg, 4);
 	LWBRX(tempReg2, srcReg, scratchReg);
 
-	MOVI2R(scratchReg, dec_->posoff + 8);
+	// scratchReg = dec_->posoff + 4 + 4
+	ADDI(scratchReg, scratchReg, 4);
 	LWBRX(tempReg3, srcReg, scratchReg);
 
-	STW(tempReg1, dstReg, dec_->decFmt.posoff);
+	STW(tempReg1, dstReg, dec_->decFmt.posoff + 0);
 	STW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
 	STW(tempReg2, dstReg, dec_->decFmt.posoff + 8);
+#else
+	LWZ(tempReg1, srcReg, dec_->posoff);
+	LWZ(tempReg2, srcReg, dec_->posoff + 4);
+	LWZ(tempReg3, srcReg, dec_->posoff + 8);
+	
+	MOVI2R(scratchReg, dec_->decFmt.posoff);
+
+	STWBRX(tempReg1, dstReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 4);
+	STWBRX(tempReg2, dstReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 4);
+	STWBRX(tempReg2, dstReg, scratchReg);
+#endif
 }
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoderDX9 &dec, int step) {
