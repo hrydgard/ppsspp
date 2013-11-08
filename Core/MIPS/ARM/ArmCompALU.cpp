@@ -100,6 +100,10 @@ namespace MIPSComp
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 			{
+				if (gpr.IsImm(rs)) {
+					gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm ? 1 : 0);
+					break;
+				}
 				gpr.MapDirtyIn(rt, rs);
 				CMPI2R(gpr.R(rs), simm, R0);
 				SetCC(CC_LT);
@@ -112,6 +116,10 @@ namespace MIPSComp
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			{
+				if (gpr.IsImm(rs)) {
+					gpr.SetImm(rt, gpr.GetImm(rs) < suimm ? 1 : 0);
+					break;
+				}
 				gpr.MapDirtyIn(rt, rs);
 				CMPI2R(gpr.R(rs), suimm, R0);
 				SetCC(CC_LO);
@@ -145,10 +153,32 @@ namespace MIPSComp
 		switch (op & 63)
 		{
 		case 22: //clz
+			if (gpr.IsImm(rs)) {
+				u32 value = gpr.GetImm(rs);
+				int x = 31;
+				int count = 0;
+				while (!(value & (1 << x)) && x >= 0) {
+					count++;
+					x--;
+				}
+				gpr.SetImm(rd, count);
+				break;
+			}
 			gpr.MapDirtyIn(rd, rs);
 			CLZ(gpr.R(rd), gpr.R(rs));
 			break;
 		case 23: //clo
+			if (gpr.IsImm(rs)) {
+				u32 value = gpr.GetImm(rs);
+				int x = 31;
+				int count = 0;
+				while ((value & (1 << x)) && x >= 0) {
+					count++;
+					x--;
+				}
+				gpr.SetImm(rd, count);
+				break;
+			}
 			gpr.MapDirtyIn(rd, rs);
 			MVN(R0, gpr.R(rs));
 			CLZ(gpr.R(rd), R0);
