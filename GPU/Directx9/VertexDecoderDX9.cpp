@@ -30,7 +30,7 @@ namespace DX9 {
 // Always use float for decoding data
 #define USE_WEIGHT_HACK
 #define USE_TC_HACK
-#define USE_PPC_VTX_JIT	1
+#define USE_PPC_VTX_JIT	0
 
 
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
@@ -967,10 +967,13 @@ void VertexDecoderDX9::DecodeVerts(u8 *decodedptr, const void *verts, int indexL
 
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
+#if defined(PPC) && USE_PPC_VTX_JIT
 	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
 		jitted_(ptr_, decoded_, count);
-	} else {
+	} else 
+#endif
+	{
 		// Interpret the decode steps
 		for (; count; count--) {
 			for (int i = 0; i < numSteps_; i++) {
@@ -1377,7 +1380,10 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoderDX9 &dec, int step) {
 	}
 	return false;
 }
-
+#else
+VertexDecoderJitCache::VertexDecoderJitCache() {
+	// link only !!!
+}
 #endif
 
 };
