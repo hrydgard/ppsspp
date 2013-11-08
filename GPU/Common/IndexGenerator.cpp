@@ -101,13 +101,13 @@ void IndexGenerator::AddStrip(int numVerts) {
 	int wind = 1;
 	const int numTris = numVerts - 2;
 	u16 *outInds = inds_;
-	const int startIndex = index_;
-	for (int i = 0; i < numTris; i++) {
-		const int ibase = startIndex + i;
+	int ibase = index_;
+	for (int i = numTris; i; i--) {
 		*outInds++ = ibase;
 		*outInds++ = ibase + wind;
 		wind ^= 3;  // toggle between 1 and 2
 		*outInds++ = ibase + wind;
+		ibase++;
 	}
 	inds_ = outInds;
 	index_ += numVerts;
