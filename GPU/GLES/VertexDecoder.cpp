@@ -1446,9 +1446,9 @@ void VertexDecoderJitCache::Jit_TcU16() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Double() {
-	MOV(16, R(tempReg1), MDisp(srcReg, dec_->tcoff));
-	MOV(16, R(tempReg2), MDisp(srcReg, dec_->tcoff + 2));
-	SHL(16, R(tempReg1), Imm8(1));
+	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
+	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
+	SHL(16, R(tempReg1), Imm8(1));  // 16 to get a wall to shift into
 	SHL(32, R(tempReg2), Imm8(17));
 	OR(32, R(tempReg1), R(tempReg2));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
