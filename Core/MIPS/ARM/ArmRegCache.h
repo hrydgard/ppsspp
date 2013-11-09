@@ -47,6 +47,7 @@ struct RegARM {
 enum RegMIPSLoc {
 	ML_IMM,
 	ML_ARMREG,
+	ML_ARMREG_AS_PTR,
 	ML_MEM,
 };
 
@@ -72,8 +73,7 @@ namespace MIPSComp {
 	struct ArmJitOptions;
 }
 
-class ArmRegCache
-{
+class ArmRegCache {
 public:
 	ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options);
 	~ArmRegCache() {}
@@ -93,6 +93,10 @@ public:
 
 	// Returns an ARM register containing the requested MIPS register.
 	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
+	ARMReg MapRegAsPointer(MIPSReg reg);  // read-only, non-dirty.
+
+	bool IsMappedAsPointer(MIPSReg reg);
+
 	void MapInIn(MIPSReg rd, MIPSReg rs);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
@@ -103,7 +107,8 @@ public:
 	void FlushAll();
 	void DiscardR(MIPSReg r);
 
-	ARMReg R(int preg); // Returns a cached register
+	ARMReg R(int preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	ARMReg RPtr(int preg); // Returns a cached register, while checking that it's mapped as a pointer
 
 	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
 

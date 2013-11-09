@@ -74,6 +74,32 @@ void ArmRegCache::FlushBeforeCall() {
 	FlushArmReg(R12);
 }
 
+ARMReg ArmRegCache::MapRegAsPointer(MIPSReg mipsReg) {  // read-only, non-dirty.
+	// If already mapped as a pointer, bail.
+	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		return mr[mipsReg].reg;
+	}
+	// First, make sure the register is already mapped.
+	MapReg(mipsReg, 0);
+	// If it's dirty, flush it.
+	ARMReg armReg = mr[mipsReg].reg;
+	if (ar[armReg].isDirty) {
+		emit_->STR(armReg, CTXREG, GetMipsRegOffset(ar[armReg].mipsReg));
+	}
+	// Convert to a pointer by adding the base and clearing off the top bits.
+	// If SP, we can probably avoid the top bit clear, let's play with that later.
+	emit_->BIC(armReg, armReg, Operand2(0xC0, 4));    // &= 0x3FFFFFFF
+	emit_->ADD(armReg, R11, armReg);
+	ar[armReg].isDirty = false;
+	ar[armReg].mipsReg = mipsReg;
+	mr[mipsReg].loc = ML_ARMREG_AS_PTR;
+	return armReg;
+}
+
+bool ArmRegCache::IsMappedAsPointer(MIPSReg mipsReg) {
+	return mr[mipsReg].loc == ML_ARMREG_AS_PTR;
+}
+
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
@@ -81,11 +107,23 @@ ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG) {
-		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
+		ARMReg armReg = mr[mipsReg].reg;
+		if (ar[armReg].mipsReg != mipsReg) {
 			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
-			ar[mr[mipsReg].reg].isDirty = true;
+			ar[armReg].isDirty = true;
+		}
+		return (ARMReg)mr[mipsReg].reg;
+	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		// Was mapped as pointer, now we want it mapped as a value, presumably to
+		// add or subtract stuff to it. Later we could allow such things but for now
+		// let's just convert back to a register value by reloading from the backing storage.
+		ARMReg armReg = mr[mipsReg].reg;
+		emit_->LDR(armReg, CTXREG, GetMipsRegOffset(mipsReg));
+		mr[mipsReg].loc = ML_ARMREG;
+		if (mapFlags & MAP_DIRTY) {
+			ar[armReg].isDirty = true;
 		}
 		return (ARMReg)mr[mipsReg].reg;
 	}
@@ -200,14 +238,14 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	ar[r].mipsReg = -1;
 }
 
-void ArmRegCache::DiscardR(MIPSReg r) {
-	if (mr[r].loc == ML_ARMREG) {
-		ARMReg a = mr[r].reg;
-		ar[a].isDirty = false;
-		ar[a].mipsReg = -1;
-		mr[r].reg = INVALID_REG;
-		mr[r].loc = ML_MEM;
-		mr[r].imm = 0;
+void ArmRegCache::DiscardR(MIPSReg mipsReg) {
+	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		ARMReg armReg = mr[mipsReg].reg;
+		ar[armReg].isDirty = false;
+		ar[armReg].mipsReg = -1;
+		mr[mipsReg].reg = INVALID_REG;
+		mr[mipsReg].loc = ML_MEM;
+		mr[mipsReg].imm = 0;
 	}
 }
 
@@ -230,6 +268,14 @@ void ArmRegCache::FlushR(MIPSReg r) {
 				emit_->STR((ARMReg)mr[r].reg, CTXREG, GetMipsRegOffset(r));
 			}
 			ar[mr[r].reg].isDirty = false;
+		}
+		ar[mr[r].reg].mipsReg = -1;
+		break;
+
+	case ML_ARMREG_AS_PTR:
+		// Never dirty.
+		if (ar[mr[r].reg].isDirty) {
+			ERROR_LOG(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
 		}
 		ar[mr[r].reg].mipsReg = -1;
 		break;
@@ -264,7 +310,7 @@ void ArmRegCache::SetImm(MIPSReg r, u32 immVal) {
 		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
 
 	// Zap existing value if cached in a reg
-	if (mr[r].loc == ML_ARMREG) {
+	if (mr[r].loc == ML_ARMREG || mr[r].loc == ML_ARMREG_AS_PTR) {
 		ar[mr[r].reg].mipsReg = -1;
 		ar[mr[r].reg].isDirty = false;
 	}
@@ -324,3 +370,13 @@ ARMReg ArmRegCache::R(int mipsReg) {
 		return INVALID_REG;  // BAAAD
 	}
 }
+
+ARMReg ArmRegCache::RPtr(int mipsReg) {
+	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		return (ARMReg)mr[mipsReg].reg;
+	} else {
+		ERROR_LOG(JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
+		return INVALID_REG;  // BAAAD
+	}
+}
+
