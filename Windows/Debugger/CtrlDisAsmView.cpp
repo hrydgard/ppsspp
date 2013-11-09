@@ -810,11 +810,13 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	{
 		switch (tolower(wParam & 0xFFFF))
 		{
+		case 'f':
 		case 's':
 			search(false);
 			break;
 		case 'c':
-			search(true);
+		case VK_INSERT:
+			copyInstructions(selectRangeStart, selectRangeEnd, true);
 			break;
 		case 'x':
 			disassembleToFile();
@@ -883,6 +885,9 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case VK_SPACE:
 			debugger->toggleBreakpoint(curAddress);
+			break;
+		case VK_F3:
+			search(true);
 			break;
 		default:
 			keyTaken = false;
@@ -981,6 +986,35 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	redraw();
 }
 
+void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm)
+{
+	int count = (endAddr - startAddr) / instructionSize;
+
+	char opcode[64], arguments[256];
+	int space = count * (withDisasm ? 256 : 32);
+	char *temp = new char[space];
+
+	char *p = temp, *end = temp + space;
+	for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+	{
+		if (withDisasm)
+		{
+			const char *dizz = debugger->disasm(pos, instructionSize);
+			parseDisasm(dizz, opcode, arguments);
+			p += snprintf(p, end - p, "%s\t%s", opcode, arguments);
+		}
+		else
+			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
+
+		// Don't leave a trailing newline.
+		if (pos + instructionSize < endAddr)
+			p += snprintf(p, end - p, "\r\n");
+	}
+
+	W32Util::CopyTextToClipboard(wnd, temp);
+	delete [] temp;
+}
+
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button == 1)
@@ -1010,22 +1044,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			assembleOpcode(curAddress,"");
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
-			{
-				int space = 256 * (selectRangeEnd - selectRangeStart) / instructionSize;
-				char opcode[64], arguments[256];
-				char *temp = new char[space];
-
-				char *p = temp, *end = temp + space;
-				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
-				{
-					const char *dizz = debugger->disasm(pos, instructionSize);
-					parseDisasm(dizz, opcode, arguments);
-					p += snprintf(p, end - p, "%s\t%s\r\n", opcode, arguments);
-				}
-
-				W32Util::CopyTextToClipboard(wnd, temp);
-				delete [] temp;
-			}
+			copyInstructions(selectRangeStart, selectRangeEnd, true);
 			break;
 		case ID_DISASM_COPYADDRESS:
 			{
@@ -1042,17 +1061,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			followBranch();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
-			{
-				int space = 24 * (selectRangeEnd - selectRangeStart) / instructionSize;
-				char *temp = new char[space];
-
-				char *p = temp, *end = temp + space;
-				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
-					p += snprintf(p, end - p, "%08X\r\n", debugger->readMemory(pos));
-
-				W32Util::CopyTextToClipboard(wnd, temp);
-				delete [] temp;
-			}
+			copyInstructions(selectRangeStart, selectRangeEnd, false);
 			break;
 		case ID_DISASM_RUNTOHERE:
 			{

@@ -301,7 +301,6 @@ int main(int argc, const char* argv[])
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.enableDebugging = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;

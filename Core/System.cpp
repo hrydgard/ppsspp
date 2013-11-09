@@ -178,10 +178,6 @@ void CPU_Init() {
 		Audio_Init();
 	}
 
-	if (coreParameter.disableG3Dlog) {
-		LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
-	}
-
 	CoreTiming::Init();
 
 	// Init all the HLE modules
