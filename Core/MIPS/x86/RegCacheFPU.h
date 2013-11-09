@@ -88,7 +88,7 @@ public:
 	~FPURegCache() {}
 
 	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
-	void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true);
+	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
 	void StoreFromRegisterV(int preg) {
 		StoreFromRegister(preg + 32);

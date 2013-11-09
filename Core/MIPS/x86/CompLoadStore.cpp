@@ -52,7 +52,7 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		gpr.BindToRegister(rt, rt == rs, true);
+		gpr.MapReg(rt, rt == rs, true);
 
 		JitSafeMem safe(this, rs, offset);
 		OpArg src;
@@ -73,7 +73,7 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		gpr.BindToRegister(rt, true, false);
+		gpr.MapReg(rt, true, false);
 
 #ifdef _M_IX86
 		// We use EDX so we can have DL for 8-bit ops.
@@ -122,7 +122,7 @@ namespace MIPSComp
 #endif
 
 		gpr.Lock(rt);
-		gpr.BindToRegister(rt, true, !isStore);
+		gpr.MapReg(rt, true, !isStore);
 
 		// Grab the offset from alignment for shifting (<< 3 for bytes -> bits.)
 		MOV(32, R(shiftReg), gpr.R(rs));

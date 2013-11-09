@@ -213,7 +213,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	{
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
-			gpr.BindToRegister(rs, true, false);
+			gpr.MapReg(rs, true, false);
 			fpr.MapRegV(vt, MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
@@ -237,7 +237,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 
 	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 		{
-			gpr.BindToRegister(rs, true, true);
+			gpr.MapReg(rs, true, true);
 
 			// Even if we don't use real SIMD there's still 8 or 16 scalar float registers.
 			fpr.MapRegV(vt, 0);
@@ -283,7 +283,7 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			}
 			DISABLE;
 
-			gpr.BindToRegister(rs, true, true);
+			gpr.MapReg(rs, true, true);
 			gpr.FlushLockX(ECX);
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
@@ -345,7 +345,7 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 
 	case 54: //lv.q
 		{
-			gpr.BindToRegister(rs, true, true);
+			gpr.MapReg(rs, true, true);
 	
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
@@ -378,7 +378,7 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 
 	case 62: //sv.q
 		{
-			gpr.BindToRegister(rs, true, true);
+			gpr.MapReg(rs, true, true);
 
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
@@ -1557,12 +1557,12 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
 				fpr.MapRegV(imm, 0);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-				gpr.BindToRegister(rt, false, true);
+				gpr.MapReg(rt, false, true);
 				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 				// In case we have a saved prefix.
 				FlushPrefixV();
-				gpr.BindToRegister(rt, false, true);
+				gpr.MapReg(rt, false, true);
 				MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
 			} else {
 				//ERROR - maybe need to make this value too an "interlock" value?
@@ -1574,10 +1574,10 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 	case 7: //mtv
 		if (imm < 128) { // VI(imm) = R(rt);
 			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-			gpr.BindToRegister(rt, true, false);
+			gpr.MapReg(rt, true, false);
 			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
-			gpr.BindToRegister(rt, true, false);
+			gpr.MapReg(rt, true, false);
 			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
 
 			// TODO: Optimization if rt is Imm?

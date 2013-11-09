@@ -74,7 +74,7 @@ public:
 	int SanityCheck() const;
 	void KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty);
 
-	void BindToRegister(MIPSGPReg preg, bool doLoad = true, bool makeDirty = true);
+	void MapReg(MIPSGPReg preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(MIPSGPReg preg);
 
 	const OpArg &R(MIPSGPReg preg) const {return regs[preg].location;}

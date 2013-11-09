@@ -78,7 +78,7 @@ void FPURegCache::SpillLockV(int vec, VectorSize sz) {
 }
 
 void FPURegCache::MapRegV(int vreg, int flags) {
-	BindToRegister(vreg + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+	MapReg(vreg + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
 }
 
 void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
@@ -86,14 +86,14 @@ void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
 	GetVectorRegs(v, sz, vec);
 	SpillLockV(v, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		BindToRegister(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
 	}
 }
 
 void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
 	SpillLockV(v, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		BindToRegister(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
 	}
 }
 
@@ -109,7 +109,7 @@ void FPURegCache::ReleaseSpillLocks() {
 		DiscardR(i);
 }
 
-void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
+void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - load - imm");
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.

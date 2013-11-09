@@ -621,7 +621,7 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type)
 
 	if (jit_->gpr.R(raddr_).IsSimpleReg() && !needTemp)
 	{
-		jit_->gpr.BindToRegister(raddr_, true, false);
+		jit_->gpr.MapReg(raddr_, true, false);
 		xaddr_ = jit_->gpr.RX(raddr_);
 	}
 	else

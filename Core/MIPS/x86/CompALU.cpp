@@ -49,7 +49,7 @@ namespace MIPSComp
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		gpr.Lock(rt, rs);
-		gpr.BindToRegister(rt, rt == rs, true);
+		gpr.MapReg(rt, rt == rs, true);
 		if (rt != rs)
 			MOV(32, gpr.R(rt), gpr.R(rs));
 		(this->*arith)(32, gpr.R(rt), Imm32(uimm));
@@ -82,7 +82,7 @@ namespace MIPSComp
 				}
 
 				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, rt == rs, true);
+				gpr.MapReg(rt, rt == rs, true);
 				if (rt == rs || gpr.R(rs).IsSimpleReg())
 					LEA(32, gpr.RX(rt), MDisp(gpr.RX(rs), simm));
 				else
@@ -104,8 +104,8 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rs, true, false);
-			gpr.BindToRegister(rt, rt == rs, true);
+			gpr.MapReg(rs, true, false);
+			gpr.MapReg(rt, rt == rs, true);
 			XOR(32, R(EAX), R(EAX));
 			CMP(32, gpr.R(rs), Imm32(simm));
 			SETcc(CC_L, R(EAX));
@@ -121,8 +121,8 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rs, true, false);
-			gpr.BindToRegister(rt, rt == rs, true);
+			gpr.MapReg(rs, true, false);
+			gpr.MapReg(rt, rt == rs, true);
 			XOR(32, R(EAX), R(EAX));
 			CMP(32, gpr.R(rs), Imm32((u32)simm));
 			SETcc(CC_B, R(EAX));
@@ -191,7 +191,7 @@ namespace MIPSComp
 			else
 			{
 				gpr.Lock(rd, rs);
-				gpr.BindToRegister(rd, rd == rs, true);
+				gpr.MapReg(rd, rd == rs, true);
 				BSR(32, EAX, gpr.R(rs));
 				FixupBranch notFound = J_CC(CC_Z);
 
@@ -222,7 +222,7 @@ namespace MIPSComp
 			else
 			{
 				gpr.Lock(rd, rs);
-				gpr.BindToRegister(rd, rd == rs, true);
+				gpr.MapReg(rd, rd == rs, true);
 				MOV(32, R(EAX), gpr.R(rs));
 				NOT(32, R(EAX));
 				BSR(32, EAX, R(EAX));
@@ -300,7 +300,7 @@ namespace MIPSComp
 				MIPSGPReg rsource = rt == MIPS_REG_ZERO ? rs : rt;
 				if (rsource != rd)
 				{
-					gpr.BindToRegister(rd, false, true);
+					gpr.MapReg(rd, false, true);
 					MOV(32, gpr.R(rd), gpr.R(rsource));
 				}
 			}
@@ -309,7 +309,7 @@ namespace MIPSComp
 		{
 			// No temporary needed.
 			u32 rtval = gpr.GetImmediate32(rt);
-			gpr.BindToRegister(rd, rs == rd, true);
+			gpr.MapReg(rd, rs == rd, true);
 			if (rs != rd)
 				MOV(32, gpr.R(rd), gpr.R(rs));
 			(this->*arith)(32, gpr.R(rd), Imm32(rtval));
@@ -319,7 +319,7 @@ namespace MIPSComp
 			// Use EAX as a temporary if we'd overwrite it.
 			if (rd == rt)
 				MOV(32, R(EAX), gpr.R(rt));
-			gpr.BindToRegister(rd, rs == rd, true);
+			gpr.MapReg(rd, rs == rd, true);
 			if (rs != rd)
 				MOV(32, gpr.R(rd), gpr.R(rs));
 			(this->*arith)(32, gpr.R(rd), rd == rt ? R(EAX) : gpr.R(rt));
@@ -349,7 +349,7 @@ namespace MIPSComp
 			{
 				gpr.KillImmediate(rs, true, false);
 				// Need to load rd in case the condition fails.
-				gpr.BindToRegister(rd, true, true);
+				gpr.MapReg(rd, true, true);
 				CMP(32, gpr.R(rt), Imm32(0));
 				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_E);
 			}
@@ -360,7 +360,7 @@ namespace MIPSComp
 					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
 				else if (rd != rs)
 				{
-					gpr.BindToRegister(rd, false, true);
+					gpr.MapReg(rd, false, true);
 					MOV(32, gpr.R(rd), gpr.R(rs));
 				}
 			}
@@ -375,7 +375,7 @@ namespace MIPSComp
 			{
 				gpr.KillImmediate(rs, true, false);
 				// Need to load rd in case the condition fails.
-				gpr.BindToRegister(rd, true, true);
+				gpr.MapReg(rd, true, true);
 				CMP(32, gpr.R(rt), Imm32(0));
 				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_NE);
 			}
@@ -385,7 +385,7 @@ namespace MIPSComp
 					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
 				else if (rd != rs)
 				{
-					gpr.BindToRegister(rd, false, true);
+					gpr.MapReg(rd, false, true);
 					MOV(32, gpr.R(rd), gpr.R(rs));
 				}
 			}
@@ -424,8 +424,8 @@ namespace MIPSComp
 			else
 			{
 				gpr.Lock(rt, rs, rd);
-				gpr.BindToRegister(rs, true, false);
-				gpr.BindToRegister(rd, rd == rt, true);
+				gpr.MapReg(rs, true, false);
+				gpr.MapReg(rd, rd == rt, true);
 				XOR(32, R(EAX), R(EAX));
 				CMP(32, gpr.R(rs), gpr.R(rt));
 				SETcc(CC_L, R(EAX));
@@ -440,8 +440,8 @@ namespace MIPSComp
 			else
 			{
 				gpr.Lock(rd, rs, rt);
-				gpr.BindToRegister(rs, true, false);
-				gpr.BindToRegister(rd, rd == rt, true);
+				gpr.MapReg(rs, true, false);
+				gpr.MapReg(rd, rd == rt, true);
 				XOR(32, R(EAX), R(EAX));
 				CMP(32, gpr.R(rs), gpr.R(rt));
 				SETcc(CC_B, R(EAX));
@@ -458,7 +458,7 @@ namespace MIPSComp
 				MIPSGPReg rsrc = rd == rt ? rs : rt;
 				gpr.Lock(rd, rs, rt);
 				gpr.KillImmediate(rsrc, true, false);
-				gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+				gpr.MapReg(rd, rd == rs || rd == rt, true);
 				if (rd != rt && rd != rs)
 					MOV(32, gpr.R(rd), gpr.R(rs));
 				CMP(32, gpr.R(rd), gpr.R(rsrc));
@@ -475,7 +475,7 @@ namespace MIPSComp
 				MIPSGPReg rsrc = rd == rt ? rs : rt;
 				gpr.Lock(rd, rs, rt);
 				gpr.KillImmediate(rsrc, true, false);
-				gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+				gpr.MapReg(rd, rd == rs || rd == rt, true);
 				if (rd != rt && rd != rs)
 					MOV(32, gpr.R(rd), gpr.R(rs));
 				CMP(32, gpr.R(rd), gpr.R(rsrc));
@@ -524,7 +524,7 @@ namespace MIPSComp
 		}
 
 		gpr.Lock(rd, rt);
-		gpr.BindToRegister(rd, rd == rt, true);
+		gpr.MapReg(rd, rd == rt, true);
 		if (rd != rt)
 			MOV(32, gpr.R(rd), gpr.R(rt));
 		(this->*shift)(32, gpr.R(rd), Imm8(sa));
@@ -548,7 +548,7 @@ namespace MIPSComp
 		if (gpr.IsImmediate(rs))
 		{
 			int sa = gpr.GetImmediate32(rs);
-			gpr.BindToRegister(rd, rd == rt, true);
+			gpr.MapReg(rd, rd == rt, true);
 			if (rd != rt)
 				MOV(32, gpr.R(rd), gpr.R(rt));
 			(this->*shift)(32, gpr.R(rd), Imm8(sa));
@@ -556,7 +556,7 @@ namespace MIPSComp
 		else
 		{
 			gpr.FlushLockX(ECX);
-			gpr.BindToRegister(rd, rd == rt || rd == rs, true);
+			gpr.MapReg(rd, rd == rt || rd == rs, true);
 			MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
 			AND(32, R(ECX), Imm32(0x1f));
 			if (rd != rt)
@@ -619,7 +619,7 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rs, rt);
-			gpr.BindToRegister(rt, rs == rt, true);
+			gpr.MapReg(rt, rs == rt, true);
 			if (rs != rt)
 				MOV(32, gpr.R(rt), gpr.R(rs));
 			SHR(32, gpr.R(rt), Imm8(pos));
@@ -641,7 +641,7 @@ namespace MIPSComp
 					}
 
 					gpr.Lock(rs, rt);
-					gpr.BindToRegister(rt, true, true);
+					gpr.MapReg(rt, true, true);
 					AND(32, gpr.R(rt), Imm32(destmask));
 					OR(32, gpr.R(rt), Imm32(inserted));
 					gpr.UnlockAll();
@@ -649,7 +649,7 @@ namespace MIPSComp
 				else
 				{
 					gpr.Lock(rs, rt);
-					gpr.BindToRegister(rt, true, true);
+					gpr.MapReg(rt, true, true);
 					MOV(32, R(EAX), gpr.R(rs));
 					AND(32, R(EAX), Imm32(sourcemask));
 					SHL(32, R(EAX), Imm8(pos));
@@ -682,7 +682,7 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, rd == rt, true);
+			gpr.MapReg(rd, rd == rt, true);
 #ifdef _M_IX86
 			// work around the byte-register addressing problem
 			if (!gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX))
@@ -719,7 +719,7 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, rd == rt, true);
+			gpr.MapReg(rd, rd == rt, true);
 			if (rd != rt)
 				MOV(32, gpr.R(rd), gpr.R(rt));
 
@@ -762,7 +762,7 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, rd == rt, true);
+			gpr.MapReg(rd, rd == rt, true);
 			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
 			gpr.UnlockAll();
 			break;
@@ -787,13 +787,13 @@ namespace MIPSComp
 		{
 		case 0xA0: //wsbh
 			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, rd == rt, true);
+			gpr.MapReg(rd, rd == rt, true);
 			// Stub
 			gpr.UnlockAll();
 			break;
 		case 0xE0: //wsbw
 			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, rd == rt, true);
+			gpr.MapReg(rd, rd == rt, true);
 			// Stub
 			gpr.UnlockAll();
 			break;
@@ -813,22 +813,22 @@ namespace MIPSComp
 		switch (op & 63) 
 		{
 		case 16: // R(rd) = HI; //mfhi
-			gpr.BindToRegister(rd, false, true);
+			gpr.MapReg(rd, false, true);
 			MOV(32, gpr.R(rd), M((void *)&mips_->hi));
 			break; 
 
 		case 17: // HI = R(rs); //mthi
-			gpr.BindToRegister(rs, true, false);
+			gpr.MapReg(rs, true, false);
 			MOV(32, M((void *)&mips_->hi), gpr.R(rs));
 			break; 
 
 		case 18: // R(rd) = LO; break; //mflo
-			gpr.BindToRegister(rd, false, true);
+			gpr.MapReg(rd, false, true);
 			MOV(32, gpr.R(rd), M((void *)&mips_->lo));
 			break;
 
 		case 19: // LO = R(rs); break; //mtlo
-			gpr.BindToRegister(rs, true, false);
+			gpr.MapReg(rs, true, false);
 			MOV(32, M((void *)&mips_->lo), gpr.R(rs));
 			break; 
 

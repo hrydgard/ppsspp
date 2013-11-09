@@ -219,13 +219,13 @@ OpArg GPRRegCache::GetDefaultLocation(MIPSGPReg reg) const {
 void GPRRegCache::KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty) {
 	if (regs[preg].away) {
 		if (regs[preg].location.IsImm())
-			BindToRegister(preg, doLoad, makeDirty);
+			MapReg(preg, doLoad, makeDirty);
 		else if (regs[preg].location.IsSimpleReg())
 			xregs[RX(preg)].dirty |= makeDirty;
 	}
 }
 
-void GPRRegCache::BindToRegister(MIPSGPReg i, bool doLoad, bool makeDirty) {
+void GPRRegCache::MapReg(MIPSGPReg i, bool doLoad, bool makeDirty) {
 	if (!regs[i].away && regs[i].location.IsImm())
 		PanicAlert("Bad immediate");
 
