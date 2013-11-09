@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM/ArmJit.h"
@@ -408,22 +409,34 @@ namespace MIPSComp
 			break;
 
 		case 44: //R(rd) = max(R(rs), R(rt);        break; //max
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, std::max(gpr.GetImm(rs), gpr.GetImm(rt)));
+				break;
+			}
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_GT);
-			MOV(gpr.R(rd), gpr.R(rs));
+			if (rd != rs)
+				MOV(gpr.R(rd), gpr.R(rs));
 			SetCC(CC_LE);
-			MOV(gpr.R(rd), gpr.R(rt));
+			if (rd != rt)
+				MOV(gpr.R(rd), gpr.R(rt));
 			SetCC(CC_AL);
 			break;
 
 		case 45: //R(rd) = min(R(rs), R(rt));       break; //min
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, std::min(gpr.GetImm(rs), gpr.GetImm(rt)));
+				break;
+			}
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LT);
-			MOV(gpr.R(rd), gpr.R(rs));
+			if (rd != rs)
+				MOV(gpr.R(rd), gpr.R(rs));
 			SetCC(CC_GE);
-			MOV(gpr.R(rd), gpr.R(rt));
+			if (rd != rt)
+				MOV(gpr.R(rd), gpr.R(rt));
 			SetCC(CC_AL);
 			break;
 
