@@ -706,15 +706,53 @@ namespace MIPSComp
 			break;
 
 		case 27: //divu
-			if (cpu_info.bIDIVa)
-			{
+			if (cpu_info.bIDIVa) {
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
 				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
 				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
 			} else {
-				DISABLE;
+				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+				MOV(R0, gpr.R(rt));
+
+				CMP(gpr.R(rt), 0);
+				SetCC(CC_EQ);
+				// Just set to a really high number, can't divide by zero.
+				MVN(R0, 0);
+				SetCC(CC_AL);
+
+				// Double R0 until it would be (but isn't) bigger than the numerator.
+				CMP(R0, Operand2(gpr.R(rs), ST_LSR, 1));
+				const u8 *doubleLoop = GetCodePtr();
+					SetCC(CC_LS);
+					MOV(R0, Operand2(R0, ST_LSL, 1));
+					SetCC(CC_AL);
+					CMP(R0, Operand2(gpr.R(rs), ST_LSR, 1));
+				B_CC(CC_LS, doubleLoop);
+
+				MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
+				MOV(gpr.R(MIPS_REG_LO), 0);
+
+				// Subtract and halve R0 (doubling and adding the result) until it's below the denominator.
+				const u8 *subLoop = GetCodePtr();
+					CMP(gpr.R(MIPS_REG_HI), R0);
+					SetCC(CC_HS);
+					SUB(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), R0);
+					SetCC(CC_AL);
+					// Carry will be set if we subtracted.
+					ADC(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO));
+					MOV(R0, Operand2(R0, ST_LSR, 1));
+					CMP(R0, gpr.R(rt));
+				B_CC(CC_HS, subLoop);
+
+				// We didn't change rt.  If it was 0, then clear HI and LO.
+				// TODO: Is this correct?
+				CMP(gpr.R(rt), 0);
+				SetCC(CC_EQ);
+				MOV(gpr.R(MIPS_REG_LO), 0);
+				MOV(gpr.R(MIPS_REG_HI), 0);
+				SetCC(CC_AL);
 			}
 			break;
 
