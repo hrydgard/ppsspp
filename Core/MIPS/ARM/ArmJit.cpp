@@ -62,6 +62,7 @@ ArmJitOptions::ArmJitOptions()
 	enableBlocklink = true;
 	downcountInRegister = true;
 	useBackJump = false;
+	useForwardJump = false;
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
@@ -219,6 +220,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	// We add a check before the block, used when entering from a linked block.
 
+	FixupBranch bail;
 	if (jo.useBackJump) {
 		// Moves the MOVI2R and B *before* checkedEntry, and just branch backwards there.
 		// Speedup seems to be zero unfortunately but I guess it may vary from device to device.
@@ -231,8 +233,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		SetCC(CC_LT);
 		B(backJump);
 		SetCC(CC_AL);
-	} else {
+	} else if (jo.useForwardJump) {
 		b->checkedEntry = GetCodePtr();
+		SetCC(CC_LT);
+		bail = B();
+		SetCC(CC_AL);
+	} else {
 		// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 		SetCC(CC_LT);
 		MOVI2R(R0, js.blockStart);
@@ -272,6 +278,13 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			partialFlushOffset = GetCodePtr() - b->checkedEntry;
 		}
 	}
+
+	if (jo.useForwardJump) {
+		SetJumpTarget(bail);
+		MOVI2R(R0, js.blockStart);
+		B((const void *)outerLoopPCInR0);
+	}
+
 	FlushLitPool();
 
 	char temp[256];

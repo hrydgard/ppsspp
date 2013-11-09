@@ -39,6 +39,7 @@ struct ArmJitOptions
 	bool enableBlocklink;
 	bool downcountInRegister;
 	bool useBackJump;
+	bool useForwardJump;
 };
 
 class Jit : public ArmGen::ARMXCodeBlock
