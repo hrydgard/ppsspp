@@ -227,6 +227,16 @@ void ArmRegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool av
 	ReleaseSpillLocks();
 }
 
+void ArmRegCache::MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bool avoidLoad) {
+	SpillLock(rd1, rd2, rs);
+	bool load1 = !avoidLoad || rd1 == rs;
+	bool load2 = !avoidLoad || rd2 == rs;
+	MapReg(rd1, MAP_DIRTY | (load1 ? 0 : MAP_NOINIT));
+	MapReg(rd2, MAP_DIRTY | (load2 ? 0 : MAP_NOINIT));
+	MapReg(rs);
+	ReleaseSpillLocks();
+}
+
 void ArmRegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad) {
 	SpillLock(rd1, rd2, rs, rt);
 	bool load1 = !avoidLoad || (rd1 == rs || rd1 == rt);
