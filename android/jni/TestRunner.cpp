@@ -69,7 +69,6 @@ void RunTests()
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.mountIso = "";
 	coreParam.startPaused = false;
-	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = true;
 	coreParam.renderWidth = 480;

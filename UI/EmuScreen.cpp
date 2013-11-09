@@ -75,7 +75,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.fileToStart = fileToStart;
 	coreParam.mountIso = "";
 	coreParam.startPaused = false;
-	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
