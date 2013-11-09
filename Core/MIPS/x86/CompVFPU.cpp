@@ -1556,10 +1556,9 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
-				// TODO: Avoid goind through memory
-				fpr.StoreFromRegisterV(imm);
+				fpr.MapRegV(imm, 0);  // TODO: Seems the V register becomes dirty here? It shouldn't.
 				gpr.BindToRegister(rt, false, true);
-				MOV(32, gpr.R(rt), fpr.V(imm));
+				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 				// In case we have a saved prefix.
 				FlushPrefixV();
@@ -1573,11 +1572,10 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		break;
 
 	case 7: //mtv
-		if (imm < 128) {
-			fpr.StoreFromRegisterV(imm);
+		if (imm < 128) { // VI(imm) = R(rt);
+			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);  // TODO: Seems the V register becomes dirty here? It shouldn't.
 			gpr.BindToRegister(rt, true, false);
-			MOV(32, fpr.V(imm), gpr.R(rt));
-			// VI(imm) = R(rt);
+			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			gpr.BindToRegister(rt, true, false);
 			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));

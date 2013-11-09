@@ -319,28 +319,21 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	switch((op >> 21) & 0x1f) 
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		if (rt != MIPS_REG_ZERO)
-		{
-			// Cross move! slightly tricky
-			fpr.StoreFromRegister(fs);
-			gpr.Lock(rt);
+		if (rt != MIPS_REG_ZERO) {
+			fpr.BindToRegister(fs, true, false);  // TODO: Seems the V register becomes dirty here? It shouldn't.
 			gpr.BindToRegister(rt, false, true);
-			MOV(32, gpr.R(rt), fpr.R(fs));
-			gpr.UnlockAll();
+			MOVD_xmm(gpr.R(rt), fpr.RX(fs));
 		}
-		return;
+		break;
 
 	case 2: // R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
 		Comp_Generic(op);
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		// Cross move! slightly tricky
-		gpr.StoreFromRegister(rt);
-		fpr.SpillLock(fs);
-		fpr.BindToRegister(fs, false, true);
-		MOVSS(fpr.RX(fs), gpr.R(rt));
-		fpr.ReleaseSpillLocks();
+		gpr.BindToRegister(rt, true, false);
+		fpr.BindToRegister(fs, false, true);  // TODO: Seems the V register becomes dirty here? It shouldn't.
+		MOVD_xmm(fpr.RX(fs), gpr.R(rt));
 		return;
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
