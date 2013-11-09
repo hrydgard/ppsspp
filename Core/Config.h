@@ -80,6 +80,7 @@ public:
 	int iWindowHeight;
 
 	bool bVertexCache;
+	bool bVertexDecoderJit;
 	bool bFullScreen;
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso

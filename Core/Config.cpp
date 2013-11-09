@@ -169,6 +169,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iAnisotropyLevel = 4;
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
+	graphics->Get("VertexDecoderJit", &bVertexDecoderJit, true);
+
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
 #endif
@@ -407,6 +409,7 @@ void Config::Save() {
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
+		graphics->Set("VertexDecoderJit", bVertexDecoderJit);
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
 #endif		
