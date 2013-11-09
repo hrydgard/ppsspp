@@ -969,28 +969,37 @@ void TransformDrawEngineDX9::DecodeVerts() {
 u32 TransformDrawEngineDX9::ComputeHash() {
 	u32 fullhash = 0;
 	int vertexSize = dec_->GetDecVtxFmt().stride;
-	int numDrawCalls_ = std::min(20, numDrawCalls);
-	int vertexCount = 0;
-	int indicesCount = 0;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
-		if (!drawCalls[i].inds) {
-			vertexCount = std::min((int)drawCalls[i].vertexCount, 500);
-			fullhash += DoReliableHash((const char *)drawCalls[i].verts, vertexSize * vertexCount, 0x1DE8CAC4);
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
 		} else {
-			
-			vertexCount = std::min((int)drawCalls[i].vertexCount, 500);
-			indicesCount = std::min((drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 500);
-
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			int j = i + 1;
+			int lastMatch = i;
+			while (j < numDrawCalls) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
+				indexLowerBound = std::min(indexLowerBound, (int)dc.indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)dc.indexUpperBound);
+				lastMatch = j;
+				j++;
+			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += DoReliableHash((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
-				vertexSize * indicesCount, 0x029F3EE1);
+			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
+				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += DoReliableHash((const char *)drawCalls[i].inds, indexSize * vertexCount, 0x955FD1CA);
+			// Hm, we will miss some indices when combining above, but meh, it should be fine.
+			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			i = lastMatch;
 		}
+	}
+	if (uvScale) {
+		fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 	}
 
 	return fullhash;
