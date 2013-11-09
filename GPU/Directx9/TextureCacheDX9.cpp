@@ -888,10 +888,10 @@ void TextureCacheDX9::SetTexture() {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
-			SetTextureFramebuffer(entry);
-			lastBoundTexture = INVALID_TEX;
-			entry->lastFrame = gpuStats.numFlips;
-			return;
+				SetTextureFramebuffer(entry);
+				lastBoundTexture = INVALID_TEX;
+				entry->lastFrame = gpuStats.numFlips;
+				return;
 			} else {
 				// Make sure we re-evaluate framebuffers
 				DetachFramebuffer(entry, texaddr, entry->framebuffer);
