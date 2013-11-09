@@ -57,6 +57,13 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
+ArmJitOptions::ArmJitOptions()
+{
+	enableBlocklink = true;
+	downcountInRegister = true;
+	useBackJump = false;
+}
+
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
 { 
 	logBlocks = 0;
@@ -211,14 +218,28 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.PrefixStart();
 
 	// We add a check before the block, used when entering from a linked block.
-	b->checkedEntry = GetCodePtr();
-	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
-	// Possible idea: Move the MOVI2R and B *before* checkedEntry, and just branch backwards there.
-	// possible drawback is that branch predictors will predict short backward branches as taken.
-	SetCC(CC_LT);
-	MOVI2R(R0, js.blockStart);
-	B((const void *)outerLoopPCInR0);
-	SetCC(CC_AL);
+
+	if (jo.useBackJump) {
+		// Moves the MOVI2R and B *before* checkedEntry, and just branch backwards there.
+		// Speedup seems to be zero unfortunately but I guess it may vary from device to device.
+		// Not intrusive so keeping it around here to experiment with, may help on ARMv6 due to
+		// large/slow construction of 32-bit immediates?
+		JumpTarget backJump = GetCodePtr();
+		MOVI2R(R0, js.blockStart);
+		B((const void *)outerLoopPCInR0);
+		b->checkedEntry = GetCodePtr();
+		SetCC(CC_LT);
+		B(backJump);
+		SetCC(CC_AL);
+	} else {
+		b->checkedEntry = GetCodePtr();
+		// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
+		SetCC(CC_LT);
+		MOVI2R(R0, js.blockStart);
+		B((const void *)outerLoopPCInR0);
+		SetCC(CC_AL);
+	}
+
 
 	b->normalEntry = GetCodePtr();
 	// TODO: this needs work

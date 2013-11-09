@@ -34,14 +34,11 @@ namespace MIPSComp
 
 struct ArmJitOptions
 {
-	ArmJitOptions()
-	{
-		enableBlocklink = true;
-		downcountInRegister = true;
-	}
+	ArmJitOptions();
 
 	bool enableBlocklink;
 	bool downcountInRegister;
+	bool useBackJump;
 };
 
 class Jit : public ArmGen::ARMXCodeBlock
