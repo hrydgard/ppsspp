@@ -706,21 +706,44 @@ namespace MIPSComp
 			break;
 
 		case 27: //divu
-			if (cpu_info.bIDIVa) {
+			// Do we have a known power-of-two denominator?  Yes, this happens.
+			if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0) {
+				u32 denominator = gpr.GetImm(rt);
+				if (denominator == 0) {
+					// TODO: Is this correct?
+					gpr.SetImm(MIPS_REG_LO, 0);
+					gpr.SetImm(MIPS_REG_HI, 0);
+				} else {
+					gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
+					// Remainder is just an AND, neat.
+					ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, R0);
+					int shift = 0;
+					while (denominator != 0) {
+						++shift;
+						denominator >>= 1;
+					}
+					// The shift value is one too much for the divide by the same value.
+					LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
+				}
+			} else if (cpu_info.bIDIVa) {
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
 				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
 				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
 			} else {
+				// If rt is 0, we either caught it above, or it's not an imm.
+				bool skipZero = gpr.IsImm(rt);
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				MOV(R0, gpr.R(rt));
 
-				CMP(gpr.R(rt), 0);
-				SetCC(CC_EQ);
-				// Just set to a really high number, can't divide by zero.
-				MVN(R0, 0);
-				SetCC(CC_AL);
+				if (!skipZero) {
+					CMP(gpr.R(rt), 0);
+					SetCC(CC_EQ);
+					// Just set to a really high number, can't divide by zero.
+					MVN(R0, 0);
+					SetCC(CC_AL);
+				}
 
 				// Double R0 until it would be (but isn't) bigger than the numerator.
 				CMP(R0, Operand2(gpr.R(rs), ST_LSR, 1));
@@ -747,12 +770,14 @@ namespace MIPSComp
 				B_CC(CC_HS, subLoop);
 
 				// We didn't change rt.  If it was 0, then clear HI and LO.
-				// TODO: Is this correct?
-				CMP(gpr.R(rt), 0);
-				SetCC(CC_EQ);
-				MOV(gpr.R(MIPS_REG_LO), 0);
-				MOV(gpr.R(MIPS_REG_HI), 0);
-				SetCC(CC_AL);
+				if (!skipZero) {
+					CMP(gpr.R(rt), 0);
+					SetCC(CC_EQ);
+					// TODO: Is this correct?
+					MOV(gpr.R(MIPS_REG_LO), 0);
+					MOV(gpr.R(MIPS_REG_HI), 0);
+					SetCC(CC_AL);
+				}
 			}
 			break;
 
