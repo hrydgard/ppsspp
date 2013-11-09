@@ -235,8 +235,6 @@ namespace MIPSComp
 		void Comp_Viim(MIPSOpcode op);
 		void Comp_Vfim(MIPSOpcode op);
 		void Comp_VCrossQuat(MIPSOpcode op);
-		void Comp_Vsge(MIPSOpcode op);
-		void Comp_Vslt(MIPSOpcode op);
 		void Comp_Vsgn(MIPSOpcode op);
 
 

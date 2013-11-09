@@ -63,7 +63,7 @@ ArmJitOptions::ArmJitOptions()
 	downcountInRegister = true;
 	useBackJump = false;
 	useForwardJump = false;
-	cachePointers = false;
+	cachePointers = true;
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)

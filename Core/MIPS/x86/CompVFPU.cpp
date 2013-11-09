@@ -571,14 +571,6 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vsge(MIPSOpcode op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vslt(MIPSOpcode op) {
-	DISABLE;
-}
-
 void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
