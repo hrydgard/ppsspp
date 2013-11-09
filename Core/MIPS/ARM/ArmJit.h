@@ -167,12 +167,12 @@ private:
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
 	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
-		_assert_(js.prefixSFlag & ArmJitState::PREFIX_KNOWN);
+		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
 		GetVectorRegs(regs, sz, vectorReg);
 		ApplyPrefixST(regs, js.prefixS, sz);
 	}
 	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
-		_assert_(js.prefixTFlag & ArmJitState::PREFIX_KNOWN);
+		_assert_(js.prefixTFlag & JitState::PREFIX_KNOWN);
 		GetVectorRegs(regs, sz, vectorReg);
 		ApplyPrefixST(regs, js.prefixT, sz);
 	}
