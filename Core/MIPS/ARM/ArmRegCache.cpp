@@ -365,6 +365,9 @@ int ArmRegCache::FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm) 
 }
 
 void ArmRegCache::FlushAll() {
+	// ADD + STMIA is probably better than STR + STR, so let's merge 2 into a STMIA.
+	const int minSequential = 2;
+
 	// Let's try to put things in order and use STMIA.
 	// First we have to save imms.  We have to use a separate loop because otherwise
 	// we would overwrite existing regs, and other code assumes FlushAll() won't do that.
@@ -373,7 +376,8 @@ void ArmRegCache::FlushAll() {
 
 		// This happens to also flush imms to regs as much as possible.
 		int c = FlushGetSequential(mipsReg, true);
-		if (c >= 2) {
+		if (c >= minSequential) {
+			// Skip the next c (adjust down 1 because the loop increments.)
 			i += c - 1;
 		}
 	}
@@ -383,8 +387,7 @@ void ArmRegCache::FlushAll() {
 		MIPSGPReg mipsReg = MIPSGPReg(i);
 
 		int c = FlushGetSequential(mipsReg, false);
-		// ADD + STMIA is probably better than STR + STR.
-		if (c >= 2) {
+		if (c >= minSequential) {
 			u16 regs = 0;
 			for (int j = 0; j < c; ++j) {
 				regs |= 1 << mr[i + j].reg;
@@ -397,6 +400,7 @@ void ArmRegCache::FlushAll() {
 			for (int j = 0; j < c; ++j) {
 				DiscardR(MIPSGPReg(i + j));
 			}
+			// Skip the next c (adjust down 1 because the loop increments.)
 			i += c - 1;
 		} else {
 			FlushR(mipsReg);
