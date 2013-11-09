@@ -152,6 +152,33 @@ namespace MIPSComp
 		case 40: //sb
 		case 41: //sh
 		case 43: //sw
+			// Map base register as pointer and go from there - if the displacement isn't too big.
+			// This is faster if there are multiple loads from the same pointer. Need to hook up the MIPS analyzer..
+			if (jo.cachePointers && g_Config.bFastMemory) {
+				// ARM has smaller load/store immediate displacements than MIPS, 12 bits - and some memory ops only have 8 bits.
+				int offsetRange = 0x3ff;
+				if (o == 41 || o == 33 || o == 37 || o == 32)
+					offsetRange = 0xff;  // 8 bit offset only
+				if (!gpr.IsImm(rs) && rs != rt && (offset <= offsetRange) && offset >= -offsetRange) {
+					gpr.SpillLock(rs, rt);
+					gpr.MapRegAsPointer(rs);
+					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
+					switch (o) {
+					case 35: LDR  (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					case 37: LDRH (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					case 33: LDRSH(gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					case 36: LDRB (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					case 32: LDRSB(gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+						// Store
+					case 43: STR  (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					case 41: STRH (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					case 40: STRB (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
+					}
+					gpr.ReleaseSpillLocks();
+					break;
+				}
+			}
+
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
 				// TODO: Avoid mapping a register for the "zero" register, use R0 instead.
 
@@ -171,6 +198,7 @@ namespace MIPSComp
 					SetR0ToEffectiveAddress(rs, offset);
 				}
 			}
+
 			switch (o)
 			{
 			// Load

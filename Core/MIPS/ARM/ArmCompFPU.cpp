@@ -97,6 +97,13 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+			gpr.MapRegAsPointer(rs);
+			fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
+			VLDR(fpr.R(ft), gpr.RPtr(rs), offset);
+			break;
+		}
+
 		fpr.SpillLock(ft);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
@@ -135,6 +142,13 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+			gpr.MapRegAsPointer(rs);
+			fpr.MapReg(ft, 0);
+			VSTR(fpr.R(ft), gpr.RPtr(rs), offset);
+			break;
+		}
+
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;

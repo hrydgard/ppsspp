@@ -63,6 +63,7 @@ ArmJitOptions::ArmJitOptions()
 	downcountInRegister = true;
 	useBackJump = false;
 	useForwardJump = false;
+	cachePointers = false;
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
@@ -218,7 +219,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.inDelaySlot = false;
 	js.PrefixStart();
 
-	// We add a check before the block, used when entering from a linked block.
+	// We add a downcount flag check before the block, used when entering from a linked block.
+	// The last block decremented downcounter, and the flag should still be available.
+	// Got three variants here of where we position the code, needs detailed benchmarking.
 
 	FixupBranch bail;
 	if (jo.useBackJump) {
@@ -239,14 +242,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		bail = B();
 		SetCC(CC_AL);
 	} else {
-		// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 		b->checkedEntry = GetCodePtr();
 		SetCC(CC_LT);
 		MOVI2R(R0, js.blockStart);
 		B((const void *)outerLoopPCInR0);
 		SetCC(CC_AL);
 	}
-
 
 	b->normalEntry = GetCodePtr();
 	// TODO: this needs work
@@ -290,6 +291,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
+		INFO_LOG(JIT, "=============== mips ===============");
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);

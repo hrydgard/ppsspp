@@ -40,6 +40,7 @@ struct ArmJitOptions
 	bool downcountInRegister;
 	bool useBackJump;
 	bool useForwardJump;
+	bool cachePointers;
 };
 
 class Jit : public ArmGen::ARMXCodeBlock
