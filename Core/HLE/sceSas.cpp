@@ -22,6 +22,9 @@
 //
 // JPCSP is, as it often is, a pretty good reference although I didn't actually use it much yet:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
+//
+// This should be multithreaded and improved at some point. Some discussion here:
+// https://github.com/hrydgard/ppsspp/issues/1078
 
 #include <cstdlib>
 #include "base/basictypes.h"
