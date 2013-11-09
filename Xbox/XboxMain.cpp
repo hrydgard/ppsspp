@@ -245,7 +245,7 @@ int main(int argc, const char* argv[])
 	//bootFilename = "game:\\wkco-rant.iso";
 
 	//bootFilename = "game:\\Barykelo-FF3.ISO";
-	//bootFilename = "game:\\[Psp] - Tekken Dark Resurrection.cso";
+	bootFilename = "game:\\[Psp] - Tekken Dark Resurrection.cso";
 	//bootFilename = "game:\\psy-scbd.iso";
 
 	//bootFilename = "game:\\pspking-d012dff.ISO";
@@ -321,7 +321,7 @@ int main(int argc, const char* argv[])
 
 	//bootFilename = "game:\\demos\\reflection.pbp";
 
-	bootFilename = "game:\\demos\\shadowprojection.elf";
+	//bootFilename = "game:\\demos\\shadowprojection.elf";
 
 	//bootFilename = "game:\\demos\\skinning.pbp";
 

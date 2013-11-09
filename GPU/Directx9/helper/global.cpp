@@ -5,7 +5,7 @@
 namespace DX9 {
 
 	
-//#define USE_PREDICATED_TILLING 1
+#define USE_PREDICATED_TILLING 1
 
 #ifdef USE_PREDICATED_TILLING
 
@@ -543,7 +543,7 @@ void DirectxInit(HWND window) {
 
 void BeginFrame() {
 #ifdef USE_PREDICATED_TILLING	
-	D3DVECTOR4 ClearColor = { 0, 0, 0, 0 };
+	D3DVECTOR4 ClearColor = { 0, 0, 0, 0};
 	const XboxTilingSetting & CurrentScenario = getCurrentTilingScenario();
 
 	// Set our tiled render target.
@@ -554,9 +554,9 @@ void BeginFrame() {
             D3DSEQM_PRECLIP,
             CurrentScenario.tileCount,
             CurrentScenario.tilingRects,
-            &ClearColor, 1.0f, 0L );
+            &ClearColor, 0.0f, 0L );
 #else
-	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
+	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0.f, 0);	
 #endif
 }
 
@@ -571,7 +571,7 @@ void EndFrame() {
                                  D3DRESOLVE_CLEARRENDERTARGET |
                                  D3DRESOLVE_CLEARDEPTHSTENCIL,
                                  NULL, pFrontBufferTexture,
-                                 &ClearColor, 1.0f, 0L, NULL );
+                                 &ClearColor, 0.0f, 0L, NULL );
 #endif
 }
 
