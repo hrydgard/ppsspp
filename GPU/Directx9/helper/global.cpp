@@ -366,7 +366,7 @@ VOID LargestTileRectSize( const XboxTilingSetting& Scenario, D3DPOINT* pMaxSize 
     }
 }
 
-const XboxTilingSetting & getCurrentTilingScenario() { return tilingSettings[7]; }
+const XboxTilingSetting & getCurrentTilingScenario() { return tilingSettings[0]; }
 
 #endif
 
@@ -441,7 +441,7 @@ void DirectxInit(HWND window) {
 	 pD3Ddevice->CreateTexture( d3dpp.BackBufferWidth,
 		d3dpp.BackBufferHeight,
 		1, 0,
-		( D3DFORMAT )MAKESRGBFMT( D3DFMT_LE_X8R8G8B8 ),
+		( D3DFORMAT )( D3DFMT_LE_A8R8G8B8 ),
 		D3DPOOL_DEFAULT,
 		&pFrontBufferTexture,
 		NULL );
@@ -449,7 +449,7 @@ void DirectxInit(HWND window) {
     pD3Ddevice->CreateTexture( d3dpp.BackBufferWidth,
 		d3dpp.BackBufferHeight,
 		1, 0,
-		( D3DFORMAT )MAKESRGBFMT( D3DFMT_X8R8G8B8 ),
+		( D3DFORMAT )( D3DFMT_LE_A8R8G8B8 ),
 		D3DPOOL_DEFAULT,
 		&pPostResolveTexture,
 		NULL 
@@ -498,7 +498,7 @@ void DirectxInit(HWND window) {
     SurfaceParams.Base = 0;
     hr = pD3Ddevice->CreateRenderTarget( dwTileWidth,
                                            dwTileHeight,
-                                           ( D3DFORMAT )MAKESRGBFMT( D3DFMT_A8R8G8B8 ),
+                                           ( D3DFORMAT )( D3DFMT_A8R8G8B8 ),
                                            CurrentScenario.MSAAType,
                                            0, FALSE,
                                            &pTilingRenderTarget,
@@ -560,8 +560,10 @@ void BeginFrame() {
 
 void EndFrame() {
 #ifdef USE_PREDICATED_TILLING
+	
 	D3DVECTOR4 ClearColor = { 0, 0, 0, 0 };
 
+	// Resolve the rendered scene back to the front buffer.
     pD3Ddevice->EndTiling( D3DRESOLVE_RENDERTARGET0 |
                                  D3DRESOLVE_ALLFRAGMENTS |
                                  D3DRESOLVE_CLEARRENDERTARGET |
@@ -575,9 +577,7 @@ void SwapBuffers() {
 #ifndef USE_PREDICATED_TILLING
 	pD3Ddevice->Present(NULL, NULL, NULL, NULL);
 #else
-
 	pD3Ddevice->SynchronizeToPresentationInterval();
-
     pD3Ddevice->Swap( pFrontBufferTexture, NULL );
 #endif
 }
