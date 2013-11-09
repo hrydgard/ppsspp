@@ -695,6 +695,7 @@ namespace MIPSComp
 		case 26: //div
 			if (cpu_info.bIDIVa)
 			{
+				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
 				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
@@ -707,6 +708,7 @@ namespace MIPSComp
 		case 27: //divu
 			if (cpu_info.bIDIVa)
 			{
+				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
 				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
@@ -727,13 +729,17 @@ namespace MIPSComp
 			break;
 
 		case 46: // msub
-			DISABLE;
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+			SMULL(R0, R1, gpr.R(rs), gpr.R(rt));
+			SUBS(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), R0);
+			SBC(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), R1);
 			break;
 
 		case 47: // msubu
-			DISABLE;
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+			UMULL(R0, R1, gpr.R(rs), gpr.R(rt));
+			SUBS(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), R0);
+			SBC(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), R1);
 			break;
 
 		default:
