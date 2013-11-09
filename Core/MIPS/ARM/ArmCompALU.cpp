@@ -193,32 +193,36 @@ namespace MIPSComp
 	{
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
-		} else if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
+			return;
+		}
+
+		if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
 			int lhs = gpr.IsImm(rs) ? rt : rs;
 			u32 rhsImm = gpr.IsImm(rs) ? gpr.GetImm(rs) : gpr.GetImm(rt);
-			gpr.MapDirtyIn(rd, lhs);
 			Operand2 op2;
+			// TODO: AND could be reversed, OR/EOR could use multiple ops (maybe still cheaper.)
 			if (TryMakeOperand2(rhsImm, op2)) {
+				gpr.MapDirtyIn(rd, lhs);
 				// MOV can avoid the ALU so might be faster?
-				if (useMOV && rhsImm == 0)
-					MOV(gpr.R(rd), gpr.R(lhs));
-				else
+				if (!useMOV || rhsImm != 0)
 					(this->*arith)(gpr.R(rd), gpr.R(lhs), op2);
-			} else {
-				// TODO: AND could be reversed, OR/EOR could use multiple ops.
-				MOVI2R(R0, rhsImm);
-				(this->*arith)(gpr.R(rd), gpr.R(lhs), R0);
+				else if (rd != lhs)
+					MOV(gpr.R(rd), gpr.R(lhs));
+				return;
 			}
-		} else if (gpr.IsImm(rs)) {
-			u32 rsImm = gpr.GetImm(rs);
-			gpr.MapDirtyIn(rd, rt);
-			MOVI2R(R0, rsImm);
-			(this->*arith)(gpr.R(rd), R0, gpr.R(rt));
-		} else {
-			// Generic solution
-			gpr.MapDirtyInIn(rd, rs, rt);
-			(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+		} else if (gpr.IsImm(rs) && !symmetric) {
+			Operand2 op2;
+			// For SUB, we can use RSB as a reverse operation.
+			if (TryMakeOperand2(gpr.GetImm(rs), op2) && eval == &EvalSub) {
+				gpr.MapDirtyIn(rd, rt);
+				RSB(gpr.R(rd), gpr.R(rt), op2);
+				return;
+			}
 		}
+
+		// Generic solution.  If it's an imm, better to flush at this point.
+		gpr.MapDirtyInIn(rd, rs, rt);
+		(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 	}
 
 	void Jit::Comp_RType3(MIPSOpcode op)
