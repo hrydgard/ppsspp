@@ -922,6 +922,15 @@ void ARMXEmitter::LDM(ARMReg dest, bool Add, bool Before, bool WriteBack, const 
 	WriteRegStoreOp(0x80 | (Before << 4) | (Add << 3) | 1, dest, WriteBack, RegList);
 }
 
+void ARMXEmitter::STMBitmask(ARMReg dest, bool Add, bool Before, bool WriteBack, const u16 RegList)
+{
+	WriteRegStoreOp(0x80 | (Before << 4) | (Add << 3) | 0, dest, WriteBack, RegList);
+}
+void ARMXEmitter::LDMBitmask(ARMReg dest, bool Add, bool Before, bool WriteBack, const u16 RegList)
+{
+	WriteRegStoreOp(0x80 | (Before << 4) | (Add << 3) | 1, dest, WriteBack, RegList);
+}
+
 #undef VA_TO_REGLIST
 
 ARMReg ARMXEmitter::SubBase(ARMReg Reg)

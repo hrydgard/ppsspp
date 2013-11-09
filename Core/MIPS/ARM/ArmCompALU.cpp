@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM/ArmJit.h"
@@ -49,7 +50,7 @@ namespace MIPSComp
 	static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 	static u32 EvalSub(u32 a, u32 b) { return a - b; }
 
-	void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
+	void Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
 	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
@@ -144,7 +145,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rs = _RS;
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 
 		// Don't change $zr.
 		if (rd == 0)
@@ -188,36 +189,40 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompType3(int rd, int rs, int rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool symmetric, bool useMOV)
+	void Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool symmetric, bool useMOV)
 	{
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
-		} else if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
-			int lhs = gpr.IsImm(rs) ? rt : rs;
-			u32 rhsImm = gpr.IsImm(rs) ? gpr.GetImm(rs) : gpr.GetImm(rt);
-			gpr.MapDirtyIn(rd, lhs);
-			Operand2 op2;
-			if (TryMakeOperand2(rhsImm, op2)) {
-				// MOV can avoid the ALU so might be faster?
-				if (useMOV && rhsImm == 0)
-					MOV(gpr.R(rd), gpr.R(lhs));
-				else
-					(this->*arith)(gpr.R(rd), gpr.R(lhs), op2);
-			} else {
-				// TODO: AND could be reversed, OR/EOR could use multiple ops.
-				MOVI2R(R0, rhsImm);
-				(this->*arith)(gpr.R(rd), gpr.R(lhs), R0);
-			}
-		} else if (gpr.IsImm(rs)) {
-			u32 rsImm = gpr.GetImm(rs);
-			gpr.MapDirtyIn(rd, rt);
-			MOVI2R(R0, rsImm);
-			(this->*arith)(gpr.R(rd), R0, gpr.R(rt));
-		} else {
-			// Generic solution
-			gpr.MapDirtyInIn(rd, rs, rt);
-			(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			return;
 		}
+
+		if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
+			MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
+			u32 rhsImm = gpr.IsImm(rs) ? gpr.GetImm(rs) : gpr.GetImm(rt);
+			Operand2 op2;
+			// TODO: AND could be reversed, OR/EOR could use multiple ops (maybe still cheaper.)
+			if (TryMakeOperand2(rhsImm, op2)) {
+				gpr.MapDirtyIn(rd, lhs);
+				// MOV can avoid the ALU so might be faster?
+				if (!useMOV || rhsImm != 0)
+					(this->*arith)(gpr.R(rd), gpr.R(lhs), op2);
+				else if (rd != lhs)
+					MOV(gpr.R(rd), gpr.R(lhs));
+				return;
+			}
+		} else if (gpr.IsImm(rs) && !symmetric) {
+			Operand2 op2;
+			// For SUB, we can use RSB as a reverse operation.
+			if (TryMakeOperand2(gpr.GetImm(rs), op2) && eval == &EvalSub) {
+				gpr.MapDirtyIn(rd, rt);
+				RSB(gpr.R(rd), gpr.R(rt), op2);
+				return;
+			}
+		}
+
+		// Generic solution.  If it's an imm, better to flush at this point.
+		gpr.MapDirtyInIn(rd, rs, rt);
+		(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 	}
 
 	void Jit::Comp_RType3(MIPSOpcode op)
@@ -225,7 +230,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 
 		// noop, won't write to ZERO.
 		if (rd == 0)
@@ -310,8 +315,8 @@ namespace MIPSComp
 			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
 			} else if (gpr.IsImm(rs) || gpr.IsImm(rt)) {
-				int lhs = gpr.IsImm(rs) ? rt : rs;
-				int rhs = gpr.IsImm(rs) ? rs : rt;
+				MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
+				MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
 				u32 rhsImm = gpr.GetImm(rhs);
 				Operand2 op2;
 				if (TryMakeOperand2(rhsImm, op2)) {
@@ -408,22 +413,34 @@ namespace MIPSComp
 			break;
 
 		case 44: //R(rd) = max(R(rs), R(rt);        break; //max
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, std::max(gpr.GetImm(rs), gpr.GetImm(rt)));
+				break;
+			}
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_GT);
-			MOV(gpr.R(rd), gpr.R(rs));
+			if (rd != rs)
+				MOV(gpr.R(rd), gpr.R(rs));
 			SetCC(CC_LE);
-			MOV(gpr.R(rd), gpr.R(rt));
+			if (rd != rt)
+				MOV(gpr.R(rd), gpr.R(rt));
 			SetCC(CC_AL);
 			break;
 
 		case 45: //R(rd) = min(R(rs), R(rt));       break; //min
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, std::min(gpr.GetImm(rs), gpr.GetImm(rt)));
+				break;
+			}
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LT);
-			MOV(gpr.R(rd), gpr.R(rs));
+			if (rd != rs)
+				MOV(gpr.R(rd), gpr.R(rs));
 			SetCC(CC_GE);
-			MOV(gpr.R(rd), gpr.R(rt));
+			if (rd != rt)
+				MOV(gpr.R(rd), gpr.R(rt));
 			SetCC(CC_AL);
 			break;
 
@@ -435,7 +452,7 @@ namespace MIPSComp
 
 	void Jit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 		MIPSGPReg rt = _RT;
 		int sa = _SA;
 		
@@ -445,7 +462,7 @@ namespace MIPSComp
 
 	void Jit::CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		if (gpr.IsImm(rs))
@@ -464,7 +481,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rs = _RS;
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 		int fd = _FD;
 
 		// noop, won't write to ZERO.
@@ -557,7 +574,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 		// Don't change $zr.
 		if (rd == 0)
 			return;
@@ -615,7 +632,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 		// Don't change $zr.
 		if (rd == 0)
 			return;
@@ -641,47 +658,47 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
-		int rd = _RD;
+		MIPSGPReg rd = _RD;
 
 		switch (op & 63) 
 		{
 		case 16: // R(rd) = HI; //mfhi
-			gpr.MapDirtyIn(rd, MIPSREG_HI);
-			MOV(gpr.R(rd), gpr.R(MIPSREG_HI));
+			gpr.MapDirtyIn(rd, MIPS_REG_HI);
+			MOV(gpr.R(rd), gpr.R(MIPS_REG_HI));
 			break; 
 
 		case 17: // HI = R(rs); //mthi
-			gpr.MapDirtyIn(MIPSREG_HI, rs);
-			MOV(gpr.R(MIPSREG_HI), gpr.R(rs));
+			gpr.MapDirtyIn(MIPS_REG_HI, rs);
+			MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
 			break; 
 
 		case 18: // R(rd) = LO; break; //mflo
-			gpr.MapDirtyIn(rd, MIPSREG_LO);
-			MOV(gpr.R(rd), gpr.R(MIPSREG_LO));
+			gpr.MapDirtyIn(rd, MIPS_REG_LO);
+			MOV(gpr.R(rd), gpr.R(MIPS_REG_LO));
 			break;
 
 		case 19: // LO = R(rs); break; //mtlo
-			gpr.MapDirtyIn(MIPSREG_LO, rs);
-			MOV(gpr.R(MIPSREG_LO), gpr.R(rs));
+			gpr.MapDirtyIn(MIPS_REG_LO, rs);
+			MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
 			break; 
 
 		case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
-			SMULL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+			SMULL(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
-			UMULL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+			UMULL(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 26: //div
 			if (cpu_info.bIDIVa)
 			{
-				gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
-				SDIV(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
-				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
-				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
+				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+				SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
+				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
+				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
 			} else {
 				DISABLE;
 			}
@@ -690,33 +707,33 @@ namespace MIPSComp
 		case 27: //divu
 			if (cpu_info.bIDIVa)
 			{
-				gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
-				UDIV(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
-				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
-				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
+				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+				UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
+				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
+				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
 			} else {
 				DISABLE;
 			}
 			break;
 
 		case 28: //madd
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
-			SMLAL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+			SMLAL(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 29: //maddu
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
-			UMLAL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+			UMLAL(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 46: // msub
 			DISABLE;
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
 			break;
 
 		case 47: // msubu
 			DISABLE;
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
 			break;
 
 		default:

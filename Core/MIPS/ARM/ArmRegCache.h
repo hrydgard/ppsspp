@@ -30,17 +30,14 @@ using namespace ArmGen;
 // R10 = MIPS context
 // R11 = base pointer
 
-// Special MIPS registers: 
 enum {
-	MIPSREG_HI = 32,
-	MIPSREG_LO = 33,
 	TOTAL_MAPPABLE_MIPSREGS = 34,
 };
 
 typedef int MIPSReg;
 
 struct RegARM {
-	int mipsReg;  // if -1, no mipsreg attached.
+	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
 };
 
@@ -83,42 +80,44 @@ public:
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
-	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
-	void ReleaseSpillLock(MIPSReg reg);
+	void SpillLock(MIPSGPReg reg, MIPSGPReg reg2 = MIPS_REG_INVALID, MIPSGPReg reg3 = MIPS_REG_INVALID, MIPSGPReg reg4 = MIPS_REG_INVALID);
+	void ReleaseSpillLock(MIPSGPReg reg);
 	void ReleaseSpillLocks();
 
-	void SetImm(MIPSReg reg, u32 immVal);
-	bool IsImm(MIPSReg reg) const;
-	u32 GetImm(MIPSReg reg) const;
+	void SetImm(MIPSGPReg reg, u32 immVal);
+	bool IsImm(MIPSGPReg reg) const;
+	u32 GetImm(MIPSGPReg reg) const;
 
 	// Returns an ARM register containing the requested MIPS register.
-	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
-	ARMReg MapRegAsPointer(MIPSReg reg);  // read-only, non-dirty.
+	ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);
+	ARMReg MapRegAsPointer(MIPSGPReg reg);  // read-only, non-dirty.
 
-	bool IsMappedAsPointer(MIPSReg reg);
+	bool IsMappedAsPointer(MIPSGPReg reg);
 
-	void MapInIn(MIPSReg rd, MIPSReg rs);
-	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
-	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
-	void MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
+	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);
+	void MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad = true);
+	void MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
+	void MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
-	void FlushR(MIPSReg r);
+	void FlushR(MIPSGPReg r);
 	void FlushBeforeCall();
 	void FlushAll();
-	void DiscardR(MIPSReg r);
+	void DiscardR(MIPSGPReg r);
 
-	ARMReg R(int preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
-	ARMReg RPtr(int preg); // Returns a cached register, while checking that it's mapped as a pointer
+	ARMReg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	ARMReg RPtr(MIPSGPReg preg); // Returns a cached register, while checking that it's mapped as a pointer
 
 	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
 
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
 
-	int GetMipsRegOffset(MIPSReg r);
+	int GetMipsRegOffset(MIPSGPReg r);
 
 private:
 	const ARMReg *GetMIPSAllocationOrder(int &count);
+	void MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags);
+	int FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm);
 		
 	MIPSState *mips_;
 	MIPSComp::ArmJitOptions *options_;
