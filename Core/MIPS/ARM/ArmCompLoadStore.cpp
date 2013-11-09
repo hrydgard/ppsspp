@@ -156,17 +156,50 @@ namespace MIPSComp
 			u32 addr = iaddr & 0x3FFFFFFF;
 			// Must be OK even if rs == rt since we have the value from imm already.
 			gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
-			MOVI2R(R0, addr);
-		} else {
-			_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-			load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+			MOVI2R(R0, addr & ~3);
 
-			if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-				SetCCAndR0ForSafeAddress(rs, offset, R1, true);
-				doCheck = true;
-			} else {
-				SetR0ToEffectiveAddress(rs, offset);
+			u8 shift = (addr & 3) * 8;
+
+			switch (o) {
+			case 34: // lwl
+				LDR(R0, R11, R0);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, R1);
+				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
+				break;
+
+			case 38: // lwr
+				LDR(R0, R11, R0);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), R1);
+				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
+				break;
+
+			case 42: // swl
+				LDR(R1, R11, R0);
+				// Don't worry, can't use temporary.
+				ANDI2R(R1, R1, 0xffffff00 << shift, R0);
+				ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
+				STR(R1, R11, R0);
+				break;
+
+			case 46: // swr
+				LDR(R1, R11, R0);
+				// Don't worry, can't use temporary.
+				ANDI2R(R1, R1, 0x00ffffff >> (24 - shift), R0);
+				ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
+				STR(R1, R11, R0);
+				break;
 			}
+			return;
+		}
+
+		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+		load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+
+		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
+			SetCCAndR0ForSafeAddress(rs, offset, R1, true);
+			doCheck = true;
+		} else {
+			SetR0ToEffectiveAddress(rs, offset);
 		}
 		if (doCheck) {
 			skip = B();
