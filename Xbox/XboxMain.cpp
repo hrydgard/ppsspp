@@ -221,7 +221,7 @@ int main(int argc, const char* argv[])
 	// bootFilename = "game:\\tests\\video\\mpeg\\basic.prx"; // FAIL
 
 	//bootFilename = "game:\\psp.iso";
-	bootFilename = "game:\\[Psp] - Ridge Racer 2.cso";
+	//bootFilename = "game:\\[Psp] - Ridge Racer 2.cso";
 	//bootFilename = "game:\\fantasia2.cso";
 	//bootFilename = "game:\\Monster Hunter 3rd Patcher Fr.iso";
 
@@ -321,6 +321,8 @@ int main(int argc, const char* argv[])
 
 	//bootFilename = "game:\\demos\\reflection.pbp";
 
+	bootFilename = "game:\\demos\\shadowprojection.elf";
+
 	//bootFilename = "game:\\demos\\skinning.pbp";
 
 //	bootFilename = "game:\\demos\\3dstudio.prx";
@@ -376,12 +378,12 @@ int main(int argc, const char* argv[])
 	coreParameter.enableDebugging = false;
 	coreParameter.printfEmuLog = true;
 	coreParameter.headLess = false;
-	coreParameter.renderWidth = 1920;
-	coreParameter.renderHeight = 1080;
+	coreParameter.renderWidth = 1280;
+	coreParameter.renderHeight = 720;
 	coreParameter.outputWidth = 480*2;
 	coreParameter.outputHeight = 272*2;
-	coreParameter.pixelWidth = 1920;
-	coreParameter.pixelHeight = 1080;
+	coreParameter.pixelWidth = 1280;
+	coreParameter.pixelHeight = 720;
 	coreParameter.unthrottle = true;
 
 #ifdef _DEBUG

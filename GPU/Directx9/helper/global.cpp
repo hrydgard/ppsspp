@@ -5,7 +5,7 @@
 namespace DX9 {
 
 	
-#define USE_PREDICATED_TILLING 1
+//#define USE_PREDICATED_TILLING 1
 
 #ifdef USE_PREDICATED_TILLING
 
@@ -555,6 +555,8 @@ void BeginFrame() {
             CurrentScenario.tileCount,
             CurrentScenario.tilingRects,
             &ClearColor, 1.0f, 0L );
+#else
+	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 #endif
 }
 
