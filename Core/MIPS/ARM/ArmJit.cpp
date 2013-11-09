@@ -240,6 +240,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		SetCC(CC_AL);
 	} else {
 		// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
+		b->checkedEntry = GetCodePtr();
 		SetCC(CC_LT);
 		MOVI2R(R0, js.blockStart);
 		B((const void *)outerLoopPCInR0);
