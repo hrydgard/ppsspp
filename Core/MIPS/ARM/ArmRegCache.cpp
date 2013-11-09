@@ -100,6 +100,28 @@ bool ArmRegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG_AS_PTR;
 }
 
+void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
+	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
+	if (!(mapFlags & MAP_NOINIT)) {
+		if (mipsReg == 0) {
+			// If we get a request to load the zero register, at least we won't spend
+			// time on a memory access...
+			// TODO: EOR?
+			emit_->MOV(reg, 0);
+		} else {
+			if (mr[mipsReg].loc == ML_MEM) {
+				emit_->LDR(reg, CTXREG, GetMipsRegOffset(mipsReg));
+			} else if (mr[mipsReg].loc == ML_IMM) {
+				emit_->MOVI2R(reg, mr[mipsReg].imm);
+				ar[reg].isDirty = true;  // IMM is always dirty.
+			}
+		}
+	}
+	ar[reg].mipsReg = mipsReg;
+	mr[mipsReg].loc = ML_ARMREG;
+	mr[mipsReg].reg = reg;
+}
+
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
@@ -133,30 +155,27 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	int allocCount;
 	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
 
+	ARMReg desiredReg = INVALID_REG;
+	// Try to "statically" allocate the first 6 regs after v0.
+	int desiredOrder = allocCount - (6 - (mipsReg - (int)MIPS_REG_V0));
+	if (desiredOrder >= 0 && desiredOrder < allocCount)
+		desiredReg = allocOrder[desiredOrder];
+
+	if (desiredReg != INVALID_REG) {
+		if (ar[desiredReg].mipsReg == MIPS_REG_INVALID) {
+			// With this placement, we may be able to optimize flush.
+			MapRegTo(desiredReg, mipsReg, mapFlags);
+			return desiredReg;
+		}
+	}
+
 allocate:
 	for (int i = 0; i < allocCount; i++) {
 		ARMReg reg = allocOrder[i];
 
 		if (ar[reg].mipsReg == MIPS_REG_INVALID) {
 			// That means it's free. Grab it, and load the value into it (if requested).
-			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
-			if (!(mapFlags & MAP_NOINIT)) {
-				if (mipsReg == 0) {
-					// If we get a request to load the zero register, at least we won't spend
-					// time on a memory access...
-					emit_->MOV(reg, 0);
-				} else {
-					if (mr[mipsReg].loc == ML_MEM) {
-						emit_->LDR(reg, CTXREG, GetMipsRegOffset(mipsReg));
-					} else if (mr[mipsReg].loc == ML_IMM) {
-						emit_->MOVI2R(reg, mr[mipsReg].imm);
-						ar[reg].isDirty = true;  // IMM is always dirty.
-					}
-				}
-			}
-			ar[reg].mipsReg = mipsReg;
-			mr[mipsReg].loc = ML_ARMREG;
-			mr[mipsReg].reg = reg;
+			MapRegTo(reg, mipsReg, mapFlags);
 			return reg;
 		}
 	}

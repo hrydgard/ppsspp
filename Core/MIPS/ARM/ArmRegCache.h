@@ -116,6 +116,7 @@ public:
 
 private:
 	const ARMReg *GetMIPSAllocationOrder(int &count);
+	void MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags);
 		
 	MIPSState *mips_;
 	MIPSComp::ArmJitOptions *options_;
