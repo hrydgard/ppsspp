@@ -48,6 +48,14 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
+// TODO: This helps when you have plenty of VRAM, sometimes quite a bit.
+// But on Android, it sometimes causes out of memory that isn't recovered from.
+#if !defined(USING_GLES2) && !defined(_XBOX)
+#define USE_SECONDARY_CACHE 1
+#else
+#define USE_SECONDARY_CACHE 0
+#endif
+
 extern int g_iNumVideos;
 
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
@@ -107,6 +115,7 @@ void TextureCache::Decimate() {
 		else
 			++iter;
 	}
+#if USE_SECONDARY_CACHE
 	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
@@ -115,6 +124,7 @@ void TextureCache::Decimate() {
 		else
 			++iter;
 	}
+#endif
 }
 
 void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
@@ -955,6 +965,7 @@ void TextureCache::SetTexture(bool force) {
 
 				// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 				// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
+#if USE_SECONDARY_CACHE
 				if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 					u64 secondKey = fullhash | (u64)cluthash << 32;
 					TexCache::iterator secondIter = secondCache.find(secondKey);
@@ -974,6 +985,7 @@ void TextureCache::SetTexture(bool force) {
 						doDelete = false;
 					}
 				}
+#endif
 			}
 		}
 
