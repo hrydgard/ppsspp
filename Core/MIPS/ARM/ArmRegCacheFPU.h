@@ -129,12 +129,14 @@ private:
 	ARMXEmitter *emit_;
 	u32 compilerPC_;
 
+	int numARMFpuReg_;
+
 	enum {
-		NUM_ARMFPUREG = 16,  // TODO: Support 32, which you have with NEON
+		MAX_ARMFPUREG = 32,  // TODO: Support 32, which you have with NEON
 		NUM_MIPSFPUREG = TOTAL_MAPPABLE_MIPSFPUREGS,
 	};
 
-	FPURegARM ar[NUM_ARMFPUREG];
+	FPURegARM ar[MAX_ARMFPUREG];
 	FPURegMIPS mr[NUM_MIPSFPUREG];
 	FPURegMIPS *vr;
 };

@@ -25,6 +25,11 @@ using namespace ArmGen;
 
 
 ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
+	if (cpu_info.bNEON) {
+		numARMFpuReg_ = 32;
+	} else {
+		numARMFpuReg_ = 16;
+	}
 }
 
 void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
@@ -32,7 +37,7 @@ void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
 }
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
-	for (int i = 0; i < NUM_ARMFPUREG; i++) {
+	for (int i = 0; i < numARMFpuReg_; i++) {
 		ar[i].mipsReg = -1;
 		ar[i].isDirty = false;
 	}
@@ -49,14 +54,16 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	static const ARMReg allocationOrder[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
 	};
+
 	// With NEON, we have many more.
+	// In the future I plan to use S0-S7 (Q0-Q1) for FPU and S8 forwards (Q2-Q15, yes, 15) for VFPU.
+	// VFPU will use NEON to do SIMD and it will be awkward to mix with FPU.
 	static const ARMReg allocationOrderNEON[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,
 		S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31
 	};
 
-	// Disabled the NEON path due to issues so we limit ourselves to 16.
-	if (false && cpu_info.bNEON) {
+	if (cpu_info.bNEON) {
 		count = sizeof(allocationOrderNEON) / sizeof(const int);
 		return allocationOrderNEON;
 	} else {
@@ -71,7 +78,7 @@ ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
-			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG(JIT, "Reg mapping out of sync! MR %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
@@ -342,7 +349,7 @@ void ArmRegCacheFPU::FlushAll() {
 		FlushR(i);
 	} 
 	// Sanity check
-	for (int i = 0; i < NUM_ARMFPUREG; i++) {
+	for (int i = 0; i < numARMFpuReg_; i++) {
 		if (ar[i].mipsReg != -1) {
 			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
