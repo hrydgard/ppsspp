@@ -98,6 +98,7 @@ class CtrlDisAsmView
 	void parseDisasm(const char* disasm, char* opcode, char* arguments);
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, BranchLine& line);
+	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);
 public:
 	CtrlDisAsmView(HWND _wnd);
 	~CtrlDisAsmView();
