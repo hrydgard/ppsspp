@@ -333,7 +333,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
 		gpr.MapReg(rt, true, false);
-		fpr.MapReg(fs, false, true);  // TODO: Seems the V register becomes dirty here? It shouldn't.
+		fpr.MapReg(fs, false, true);
 		MOVD_xmm(fpr.RX(fs), gpr.R(rt));
 		return;
 
