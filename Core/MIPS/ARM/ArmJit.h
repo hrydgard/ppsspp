@@ -182,7 +182,8 @@ private:
 
 	// Utils
 	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);
-	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg);
+	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse = false);
+	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
 
 	JitBlockCache blocks;
 	ArmJitOptions jo;
