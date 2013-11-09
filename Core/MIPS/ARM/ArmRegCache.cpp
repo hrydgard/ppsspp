@@ -312,9 +312,95 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	mr[r].imm = 0;
 }
 
+// Note: if allowFlushImm is set, this also flushes imms while checking the sequence.
+int ArmRegCache::FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm) {
+	// Only start a sequence on a dirty armreg.
+	// TODO: Could also start with an imm?
+	const auto &startMipsInfo = mr[startMipsReg];
+	if (startMipsInfo.loc != ML_ARMREG || startMipsInfo.reg == INVALID_REG || !ar[startMipsInfo.reg].isDirty) {
+		return 0;
+	}
+
+	int allocCount;
+	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
+
+	int c = 1;
+	// The sequence needs to have ascending arm regs for STMIA.
+	int lastArmReg = startMipsInfo.reg;
+	// Can't use HI/LO, only regs in the main r[] array.
+	for (int r = (int)startMipsReg + 1; r < 32; ++r) {
+		if (mr[r].loc == ML_ARMREG && mr[r].reg != INVALID_REG) {
+			if ((int)mr[r].reg > lastArmReg && ar[mr[r].reg].isDirty) {
+				++c;
+				lastArmReg = mr[r].reg;
+				continue;
+			}
+		// If we're not allowed to flush imms, don't even consider them.
+		} else if (allowFlushImm && mr[r].loc == ML_IMM && MIPSGPReg(r) != MIPS_REG_ZERO) {
+			// Okay, let's search for a free (and later) reg to put this imm into.
+			bool found = false;
+			for (int j = 0; j < allocCount; ++j) {
+				ARMReg immReg = allocOrder[j];
+				if ((int)immReg > lastArmReg && ar[immReg].mipsReg == MIPS_REG_INVALID) {
+					++c;
+					lastArmReg = immReg;
+
+					// Even if the sequence fails, we'll need it in a reg anyway, might as well be this one.
+					MapRegTo(immReg, MIPSGPReg(r), 0);
+					found = true;
+					break;
+				}
+			}
+			if (found) {
+				continue;
+			}
+		}
+
+		// If it didn't hit a continue above, the chain is over.
+		// There's no way to skip a slot with STMIA.
+		break;
+	}
+
+	return c;
+}
+
 void ArmRegCache::FlushAll() {
+	// Let's try to put things in order and use STMIA.
+	// First we have to save imms.  We have to use a separate loop because otherwise
+	// we would overwrite existing regs, and other code assumes FlushAll() won't do that.
 	for (int i = 0; i < NUM_MIPSREG; i++) {
-		FlushR(MIPSGPReg(i));
+		MIPSGPReg mipsReg = MIPSGPReg(i);
+
+		// This happens to also flush imms to regs as much as possible.
+		int c = FlushGetSequential(mipsReg, true);
+		if (c >= 2) {
+			i += c - 1;
+		}
+	}
+
+	// Okay, now the real deal: this time NOT flushing imms.
+	for (int i = 0; i < NUM_MIPSREG; i++) {
+		MIPSGPReg mipsReg = MIPSGPReg(i);
+
+		int c = FlushGetSequential(mipsReg, false);
+		// ADD + STMIA is probably better than STR + STR.
+		if (c >= 2) {
+			u16 regs = 0;
+			for (int j = 0; j < c; ++j) {
+				regs |= 1 << mr[i + j].reg;
+			}
+
+			emit_->ADD(R0, CTXREG, GetMipsRegOffset(mipsReg));
+			emit_->STMBitmask(R0, true, false, false, regs);
+
+			// Okay, those are all done now, discard them.
+			for (int j = 0; j < c; ++j) {
+				DiscardR(MIPSGPReg(i + j));
+			}
+			i += c - 1;
+		} else {
+			FlushR(mipsReg);
+		}
 	}
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {

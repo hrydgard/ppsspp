@@ -528,6 +528,8 @@ public:
 	void LDMIA(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	void STM(ARMReg dest, bool Add, bool Before, bool WriteBack, const int Regnum, ...);
 	void LDM(ARMReg dest, bool Add, bool Before, bool WriteBack, const int Regnum, ...);
+	void STMBitmask(ARMReg dest, bool Add, bool Before, bool WriteBack, const u16 RegList);
+	void LDMBitmask(ARMReg dest, bool Add, bool Before, bool WriteBack, const u16 RegList);
 
 	// Exclusive Access operations
 	void LDREX(ARMReg dest, ARMReg base);
