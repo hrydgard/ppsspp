@@ -100,6 +100,7 @@ void IndexGenerator::AddList(int numVerts) {
 void IndexGenerator::AddStrip(int numVerts) {
 	int wind = 1;
 	const int numTris = numVerts - 2;
+	if (numTris < 0) return;
 	u16 *outInds = inds_;
 	int ibase = index_;
 	for (int i = numTris; i; i--) {
