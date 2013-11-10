@@ -782,19 +782,33 @@ namespace MIPSComp
 		if (rd == MIPS_REG_ZERO)
 			return;
 
-		DISABLE;
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
+			if (gpr.IsImmediate(rt)) {
+				u32 rtImm = gpr.GetImmediate32(rt);
+				gpr.SetImmediate32(rd, ((rtImm & 0xFF00FF00) >> 8) | ((rtImm & 0x00FF00FF) << 8));
+				break;
+			}
 			gpr.Lock(rd, rt);
 			gpr.MapReg(rd, rd == rt, true);
-			// Stub
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+			// Swap both 16-bit halfwords by rotating afterward.
+			BSWAP(32, gpr.RX(rd));
+			ROR(32, gpr.R(rd), Imm8(16));
 			gpr.UnlockAll();
 			break;
 		case 0xE0: //wsbw
+			if (gpr.IsImmediate(rt)) {
+				gpr.SetImmediate32(rd, swap32(gpr.GetImmediate32(rt)));
+				break;
+			}
 			gpr.Lock(rd, rt);
 			gpr.MapReg(rd, rd == rt, true);
-			// Stub
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+			BSWAP(32, gpr.RX(rd));
 			gpr.UnlockAll();
 			break;
 		default:
