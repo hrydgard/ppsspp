@@ -44,7 +44,10 @@ struct RegARM {
 enum RegMIPSLoc {
 	ML_IMM,
 	ML_ARMREG,
+	// In an arm reg, but as a pre-adjusted pointer, not the actual reg.
 	ML_ARMREG_AS_PTR,
+	// In an arm reg, but also has a known immediate value.
+	ML_ARMREG_IMM,
 	ML_MEM,
 };
 
