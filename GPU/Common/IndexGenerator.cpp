@@ -111,7 +111,8 @@ void IndexGenerator::AddStrip(int numVerts) {
 	}
 	inds_ = outInds;
 	index_ += numVerts;
-	count_ += numTris * 3;
+	if (numTris > 0)
+		count_ += numTris * 3;	
 	// This is so we can detect one single strip by just looking at seenPrims_.
 	if (!seenPrims_) {
 		seenPrims_ = 1 << GE_PRIM_TRIANGLE_STRIP;
