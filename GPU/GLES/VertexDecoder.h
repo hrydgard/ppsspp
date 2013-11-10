@@ -199,6 +199,10 @@ public:
 	void Jit_WeightsU16();
 	void Jit_WeightsFloat();
 
+	void Jit_WeightsU8Skin();
+	void Jit_WeightsU16Skin();
+	void Jit_WeightsFloatSkin();
+
 	void Jit_TcU8();
 	void Jit_TcU16();
 	void Jit_TcFloat();
@@ -222,11 +226,19 @@ public:
 	void Jit_NormalS16();
 	void Jit_NormalFloat();
 
+	void Jit_NormalS8Skin();
+	void Jit_NormalS16Skin();
+	void Jit_NormalFloatSkin();
+
 	void Jit_PosS8();
-	void Jit_PosS8Through();
 	void Jit_PosS16();
-	void Jit_PosS16Through();
 	void Jit_PosFloat();
+	void Jit_PosS8Through();
+	void Jit_PosS16Through();
+
+	void Jit_PosS8Skin();
+	void Jit_PosS16Skin();
+	void Jit_PosFloatSkin();
 
 private:
 	bool CompileStep(const VertexDecoder &dec, int i);

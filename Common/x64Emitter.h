@@ -658,6 +658,8 @@ public:
 	void PSLLD(X64Reg reg, int shift);
 	void PSLLQ(X64Reg reg, int shift);
 
+	void PSLLDQ(X64Reg reg, int shift);
+
 	void PSRAW(X64Reg reg, int shift);
 	void PSRAD(X64Reg reg, int shift);
 

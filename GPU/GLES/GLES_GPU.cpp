@@ -1394,7 +1394,6 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 				// Bone matrices should NOT flush when software skinning is enabled!
 				// TODO: Also check for morph...
-				// TODO: Can't turn this optimizatoin on until we decode per drawcall when sw skinning.
 				if (!g_Config.bSoftwareSkinning) {
 					Flush();
 					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
