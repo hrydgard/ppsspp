@@ -507,6 +507,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		vscale /= gstate_c.curTextureHeight;
 	}
 
+	bool scaleUV = !g_Config.bPrescaleUV;
+
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
@@ -648,8 +650,13 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
 			case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
 				// Texture scale/offset is only performed in this mode.
-				uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
-				uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
+				if (scaleUV) {
+					uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
+					uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
+				} else {
+					uv[0] = uscale * ruv[0];
+					uv[1] = vscale * ruv[1];
+				}
 				uv[2] = 1.0f;
 				break;
 
