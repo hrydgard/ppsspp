@@ -410,22 +410,22 @@ static inline bool StencilTestPassed(u8 stencil)
 			return true;
 
 		case GE_COMP_EQUAL:
-			return (stencil == ref);
+			return ref == stencil;
 
 		case GE_COMP_NOTEQUAL:
-			return (stencil != ref);
+			return ref != stencil;
 
 		case GE_COMP_LESS:
-			return (stencil < ref);
+			return ref < stencil;
 
 		case GE_COMP_LEQUAL:
-			return (stencil <= ref);
+			return ref <= stencil;
 
 		case GE_COMP_GREATER:
-			return (stencil > ref);
+			return ref > stencil;
 
 		case GE_COMP_GEQUAL:
-			return (stencil >= ref);
+			return ref >= stencil;
 	}
 	return true;
 }
