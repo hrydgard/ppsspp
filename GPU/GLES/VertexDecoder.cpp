@@ -1403,13 +1403,14 @@ static const X64Reg counterReg = ECX;
 
 // XMM0-XMM5 are volatile on Windows X64
 // XMM0-XMM7 are arguments (and thus volatile) on System V ABI (other x64 platforms)
-static const X64Reg fpScaleReg = XMM0;
-static const X64Reg fpOffsetReg = XMM1;
-static const X64Reg fpScratchReg = XMM2;
-static const X64Reg fpScratchReg2 = XMM3;
-// We're gonna keep the current skinning matrix in 3 or 4 XMM regs. Fortunately we easily
-// have space for that now.
+static const X64Reg fpScaleOffsetReg = XMM0;
 
+static const X64Reg fpScratchReg = XMM1;
+static const X64Reg fpScratchReg2 = XMM2;
+static const X64Reg fpScratchReg3 = XMM3;
+
+// We're gonna keep the current skinning matrix in 4 XMM regs. Fortunately we easily
+// have space for that now.
 
 // To debug, just comment them out one at a time until it works. We fall back
 // on the interpreter if the compiler fails.
@@ -1499,17 +1500,18 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 #else
 		MOV(32, R(tempReg1), Imm32((u32)(&gstate_c.uv)));
 #endif
-		MOVSS(fpScaleReg, MDisp(tempReg1, 0));
+		MOVSS(fpScaleOffsetReg, MDisp(tempReg1, 0));
 		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
-		UNPCKLPS(fpScaleReg, R(fpScratchReg));
-		MOVSS(fpOffsetReg, MDisp(tempReg1, 8));
-		MOVSS(fpScratchReg, MDisp(tempReg1, 12));
-		UNPCKLPS(fpOffsetReg, R(fpScratchReg));
+		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MULPS(fpScaleReg, M((void *)&by128));
+			MULPS(fpScaleOffsetReg, M((void *)&by128));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MULPS(fpScaleReg, M((void *)&by32768));
+			MULPS(fpScaleOffsetReg, M((void *)&by32768));
 		}
+		MOVSS(fpScratchReg, MDisp(tempReg1, 8));
+		MOVSS(fpScratchReg2, MDisp(tempReg1, 12));
+		UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+		UNPCKLPD(fpScaleOffsetReg, R(fpScratchReg));
 	}
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
@@ -1621,8 +1623,10 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
 	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
-	MULPS(fpScratchReg, R(fpScaleReg));
-	ADDPS(fpScratchReg, R(fpOffsetReg));
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
@@ -1633,15 +1637,19 @@ void VertexDecoderJitCache::Jit_TcU16Prescale() {
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
 	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
-	MULPS(fpScratchReg, R(fpScaleReg));
-	ADDPS(fpScratchReg, R(fpOffsetReg));
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 	MOVQ_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
-	MULPS(fpScratchReg, R(fpScaleReg));
-	ADDPS(fpScratchReg, R(fpOffsetReg));
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
