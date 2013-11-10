@@ -124,7 +124,7 @@ struct ThreadEventQueue : public B {
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
 		while (HasEvents() && (eventsRunning_ || !eventsHaveRun_) && (force || coreState == CORE_RUNNING)) {
-			eventsDrain_.wait_for(eventsLock_, 1000);
+			eventsDrain_.wait(eventsLock_);
 		}
 	}
 
