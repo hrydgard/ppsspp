@@ -344,7 +344,7 @@ void PSP_RunLoopUntil(u64 globalticks) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
 			// TODO: Something smarter?  Or force CPU to bail periodically?
 			while (!CPU_IsReady()) {
-				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(100));
+				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 			}
 		} else {
 			ERROR_LOG(CPU, "Unable to execute CPU run loop, unexpected state: %d", cpuThreadState);

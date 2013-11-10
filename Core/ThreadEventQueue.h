@@ -130,7 +130,11 @@ struct ThreadEventQueue : public B {
 
 	void FinishEventLoop() {
 		if (threadEnabled_) {
-			ScheduleEvent(EVENT_FINISH);
+			lock_guard guard(eventsLock_);
+			// Don't schedule a finish if it's not even running.
+			if (eventsRunning_) {
+				ScheduleEvent(EVENT_FINISH);
+			}
 		}
 	}
 
