@@ -61,7 +61,7 @@ namespace MIPSComp
 			if (TryMakeOperand2(uimm, op2)) {
 				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
 			} else {
-				MOVI2R(R0, (u32)uimm);
+				gpr.SetRegImm(R0, (u32)uimm);
 				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
 			}
 		}

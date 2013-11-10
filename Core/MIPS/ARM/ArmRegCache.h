@@ -90,6 +90,8 @@ public:
 	void SetImm(MIPSGPReg reg, u32 immVal);
 	bool IsImm(MIPSGPReg reg) const;
 	u32 GetImm(MIPSGPReg reg) const;
+	// Optimally set a register to an imm value (possibly using another register.)
+	void SetRegImm(ARMReg reg, u32 imm);
 
 	// Returns an ARM register containing the requested MIPS register.
 	ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);

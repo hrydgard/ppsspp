@@ -254,7 +254,7 @@ namespace MIPSComp
 				fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 				if (gpr.IsImm(rs)) {
 					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					MOVI2R(R0, addr + (u32)Memory::base);
+					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
@@ -292,7 +292,7 @@ namespace MIPSComp
 				fpr.MapRegV(vt);
 				if (gpr.IsImm(rs)) {
 					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					MOVI2R(R0, addr + (u32)Memory::base);
+					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
@@ -348,7 +348,7 @@ namespace MIPSComp
 
 				if (gpr.IsImm(rs)) {
 					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					MOVI2R(R0, addr + (u32)Memory::base);
+					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
@@ -397,7 +397,7 @@ namespace MIPSComp
 
 				if (gpr.IsImm(rs)) {
 					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					MOVI2R(R0, addr + (u32)Memory::base);
+					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
@@ -1588,7 +1588,7 @@ namespace MIPSComp
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
-		MOVI2R(R0, (u32)(void *)&cst_constants[conNum]);
+		gpr.SetRegImm(R0, (u32)(void *)&cst_constants[conNum]);
 		VLDR(S0, R0, 0);
 		for (int i = 0; i < n; ++i)
 			VMOV(fpr.V(dregs[i]), S0);
@@ -1652,7 +1652,7 @@ namespace MIPSComp
 		// We should write a custom pure-asm function instead.
 		VMOV(R0, fpr.V(sreg));
 		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
-		MOVI2R(R0, (u32)(&sincostemp[0]));
+		gpr.SetRegImm(R0, (u32)(&sincostemp[0]));
 		VLDR(S0, R0, 0);
 		VLDR(S1, R0, 4);
 

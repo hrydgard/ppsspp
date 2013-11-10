@@ -100,6 +100,10 @@ bool ArmRegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG_AS_PTR;
 }
 
+void ArmRegCache::SetRegImm(ARMReg reg, u32 imm) {
+	emit_->MOVI2R(reg, imm);
+}
+
 void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 	if (!(mapFlags & MAP_NOINIT)) {
@@ -119,7 +123,7 @@ void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
 			case ML_IMM:
-				emit_->MOVI2R(reg, mr[mipsReg].imm);
+				SetRegImm(reg, mr[mipsReg].imm);
 				ar[reg].isDirty = true;  // IMM is always dirty.
 
 				// If we are mapping dirty, it means we're gonna overwrite.
@@ -311,7 +315,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		if (r != MIPS_REG_ZERO) {
-			emit_->MOVI2R(R0, mr[r].imm);
+			SetRegImm(R0, mr[r].imm);
 			emit_->STR(R0, CTXREG, GetMipsRegOffset(r));
 		}
 		break;

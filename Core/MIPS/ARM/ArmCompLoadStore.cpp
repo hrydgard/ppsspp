@@ -78,10 +78,10 @@ namespace MIPSComp
 			} else {
 				// Try to avoid using MOVT
 				if (offset < 0) {
-					MOVI2R(R0, (u32)(-offset));
+					gpr.SetRegImm(R0, (u32)(-offset));
 					SUB(R0, gpr.R(rs), R0);
 				} else {
-					MOVI2R(R0, (u32)offset);
+					gpr.SetRegImm(R0, (u32)offset);
 					ADD(R0, gpr.R(rs), R0);
 				}
 			}
@@ -156,7 +156,7 @@ namespace MIPSComp
 			u32 addr = iaddr & 0x3FFFFFFF;
 			// Must be OK even if rs == rt since we have the value from imm already.
 			gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
-			MOVI2R(R0, addr & ~3);
+			gpr.SetRegImm(R0, addr & ~3);
 
 			u8 shift = (addr & 3) * 8;
 
@@ -329,7 +329,7 @@ namespace MIPSComp
 				u32 addr = iaddr & 0x3FFFFFFF;
 				// Must be OK even if rs == rt since we have the value from imm already.
 				gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
-				MOVI2R(R0, addr);
+				gpr.SetRegImm(R0, addr);
 			} else {
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);

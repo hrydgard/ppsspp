@@ -157,7 +157,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool
 	// Take the branch
 	if (andLink)
 	{
-		MOVI2R(R0, js.compilerPC + 8);
+		gpr.SetRegImm(R0, js.compilerPC + 8);
 		STR(R0, CTXREG, MIPS_REG_RA * 4);
 	}
 
@@ -356,7 +356,7 @@ void Jit::Comp_Jump(MIPSOpcode op)
 
 	case 3: //jal
 		gpr.MapReg(MIPS_REG_RA, MAP_NOINIT | MAP_DIRTY);
-		MOVI2R(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
+		gpr.SetRegImm(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		WriteExit(targetAddr, js.nextExit++);
@@ -419,7 +419,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	case 8: //jr
 		break;
 	case 9: //jalr
-		MOVI2R(R0, js.compilerPC + 8);
+		gpr.SetRegImm(R0, js.compilerPC + 8);
 		STR(R0, CTXREG, (int)rd * 4);
 		break;
 	default:
@@ -446,12 +446,12 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
 	{
-		MOVI2R(R0, (u32)(intptr_t)GetSyscallInfo(op));
+		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallInfo(op));
 		QuickCallFunction(R1, quickFunc);
 	}
 	else
 	{
-		MOVI2R(R0, op.encoding);
+		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&CallSyscall);
 	}
 	RestoreDowncount();

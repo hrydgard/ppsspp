@@ -108,7 +108,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-			MOVI2R(R0, addr + (u32)Memory::base);
+			gpr.SetRegImm(R0, addr + (u32)Memory::base);
 		} else {
 			gpr.MapReg(rs);
 			if (g_Config.bFastMemory) {
@@ -152,7 +152,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-			MOVI2R(R0, addr + (u32)Memory::base);
+			gpr.SetRegImm(R0, addr + (u32)Memory::base);
 		} else {
 			gpr.MapReg(rs);
 			if (g_Config.bFastMemory) {
