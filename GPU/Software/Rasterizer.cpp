@@ -321,8 +321,8 @@ static inline u8 GetPixelStencil(int x, int y)
 		return 0;
 	} else if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
 		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
-	} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
-		return fb.Get16(x, y, gstate.FrameBufStride()) >> 12;
+	} else if (gstate.FrameBufFormat() == GE_FORMAT_4444) {
+		return Convert4To8(fb.Get16(x, y, gstate.FrameBufStride()) >> 12);
 	} else {
 		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
 	}
@@ -338,7 +338,7 @@ static inline void SetPixelStencil(int x, int y, u8 value)
 		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000;
 		pixel |= value != 0 ? 0x8000 : 0;
 		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
-	} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
+	} else if (gstate.FrameBufFormat() == GE_FORMAT_4444) {
 		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0xF000;
 		pixel |= (u16)value << 12;
 		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
@@ -399,17 +399,6 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Ve
 
 static inline bool StencilTestPassed(u8 stencil)
 {
-	switch (gstate.FrameBufFormat()) {
-	case GE_FORMAT_4444:
-		// For comparison purposes, 0x1 is treated as 0x11 (0x10 is less, 0x12 is more.)
-		// This is not true for updates to the value, e.g. GE_STENCILOP_INCR.
-		stencil = Convert4To8(stencil);
-		break;
-	default:
-		// Every other case is already okay (5551 is 0 or 0xff.)
-		break;
-	}
-
 	// TODO: Does the masking logic make any sense?
 	stencil &= gstate.getStencilTestMask();
 	u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
@@ -421,84 +410,78 @@ static inline bool StencilTestPassed(u8 stencil)
 			return true;
 
 		case GE_COMP_EQUAL:
-			return (stencil == ref);
+			return ref == stencil;
 
 		case GE_COMP_NOTEQUAL:
-			return (stencil != ref);
+			return ref != stencil;
 
 		case GE_COMP_LESS:
-			return (stencil < ref);
+			return ref < stencil;
 
 		case GE_COMP_LEQUAL:
-			return (stencil <= ref);
+			return ref <= stencil;
 
 		case GE_COMP_GREATER:
-			return (stencil > ref);
+			return ref > stencil;
 
 		case GE_COMP_GEQUAL:
-			return (stencil >= ref);
+			return ref >= stencil;
 	}
 	return true;
 }
 
-static inline void ApplyStencilOp(int op, int x, int y)
+static inline u8 ApplyStencilOp(int op, int x, int y)
 {
 	u8 old_stencil = GetPixelStencil(x, y); // TODO: Apply mask?
 	u8 reference_stencil = gstate.getStencilTestRef(); // TODO: Apply mask?
 
 	switch (op) {
 		case GE_STENCILOP_KEEP:
-			return;
+			return old_stencil;
 
 		case GE_STENCILOP_ZERO:
-			SetPixelStencil(x, y, 0);
-			return;
+			return 0;
 
 		case GE_STENCILOP_REPLACE:
-			switch (gstate.FrameBufFormat()) {
-			case GE_FORMAT_8888:
-				SetPixelStencil(x, y, reference_stencil);
-				break;
-			case GE_FORMAT_4444:
-				// Replace with the top 4 bits only.
-				SetPixelStencil(x, y, reference_stencil >> 4);
-				break;
-			case GE_FORMAT_5551:
-				// Replace with the value of the top bit only.
-				SetPixelStencil(x, y, reference_stencil >> 7);
-				break;
-			default:
-				break;
-			}
-			break;
+			return reference_stencil;
 
 		case GE_STENCILOP_INVERT:
-			SetPixelStencil(x, y, ~old_stencil);
-			break;
+			return ~old_stencil;
 
 		case GE_STENCILOP_INCR:
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_8888:
-			case GE_FORMAT_5551:
 				if (old_stencil != 0xFF) {
-					SetPixelStencil(x, y, old_stencil + 1);
+					return old_stencil + 1;
 				}
-				break;
+				return old_stencil;
+			case GE_FORMAT_5551:
+				return 0xFF;
 			case GE_FORMAT_4444:
-				if (old_stencil != 0xF) {
-					SetPixelStencil(x, y, old_stencil + 1);
+				if (old_stencil < 0xF0) {
+					return old_stencil + 0x10;
 				}
-				break;
+				return old_stencil;
 			default:
-				break;
+				return old_stencil;
 			}
 			break;
 
 		case GE_STENCILOP_DECR:
-			if (old_stencil != 0)
-				SetPixelStencil(x, y, old_stencil - 1);
+			switch (gstate.FrameBufFormat()) {
+			case GE_FORMAT_4444:
+				if (old_stencil >= 0x10)
+					return old_stencil - 0x10;
+				break;
+			default:
+				if (old_stencil != 0)
+					return old_stencil - 1;
+				return old_stencil;
+			}
 			break;
 	}
+
+	return old_stencil;
 }
 
 static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color)
@@ -569,7 +552,7 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color)
 		break;
 	}
 
-	return op;
+	return new_color;
 }
 
 static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor)
@@ -932,30 +915,32 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					if (!ColorTestPassed(prim_color_rgb))
 						continue;
 
+				// TODO: Does a need to be clamped?
 				if (gstate.isAlphaTestEnabled() && !gstate.isModeClear())
 					if (!AlphaTestPassed(prim_color_a))
 						continue;
 
-				if (gstate.isStencilTestEnabled() && !gstate.isModeClear()) {
-					u8 stencil = GetPixelStencil(p.x, p.y);
-					if (!StencilTestPassed(stencil)) {
-						ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
-						continue;
-					}
-				}
-
+				u8 stencil = GetPixelStencil(p.x, p.y);
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-				// TODO: Verify that through mode does not disable depth testing
-				if (gstate.isDepthTestEnabled() && !gstate.isModeClear()) {
-					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
-					if (!DepthTestPassed(p.x, p.y, z)) {
-						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+				if (!gstate.isModeClear() && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
+					if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
+						stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+						SetPixelStencil(p.x, p.y, stencil);
 						continue;
-					} else {
-						ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
 					}
 
-					if (gstate.isDepthWriteEnabled()) {
+					// Also apply depth at the same time.  If disabled, same as passing.
+					if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
+						if (gstate.isStencilTestEnabled()) {
+							stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+							SetPixelStencil(p.x, p.y, stencil);
+						}
+						continue;
+					} else if (gstate.isStencilTestEnabled()) {
+						stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+					}
+
+					if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
 						SetPixelDepth(p.x, p.y, z);
 					}
 				} else if (gstate.isModeClear() && gstate.isClearModeDepthWriteEnabled()) {
@@ -966,25 +951,19 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
 				}
-				if (prim_color_rgb.r() > 255) prim_color_rgb.r() = 255;
-				if (prim_color_rgb.g() > 255) prim_color_rgb.g() = 255;
-				if (prim_color_rgb.b() > 255) prim_color_rgb.b() = 255;
-				if (prim_color_a > 255) prim_color_a = 255;
-				if (prim_color_rgb.r() < 0) prim_color_rgb.r() = 0;
-				if (prim_color_rgb.g() < 0) prim_color_rgb.g() = 0;
-				if (prim_color_rgb.b() < 0) prim_color_rgb.b() = 0;
-				if (prim_color_a < 0) prim_color_a = 0;
+				prim_color_rgb = prim_color_rgb.Clamp(0, 255);
 
-				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA();
+				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
 				u32 old_color = GetPixelColor(p.x, p.y);
 
 				// TODO: Is alpha blending still performed if logic ops are enabled?
 				if (gstate.isLogicOpEnabled() && !gstate.isModeClear()) {
-					new_color = ApplyLogicOp(gstate.getLogicOp(), old_color, new_color);
+					// Logic ops don't affect stencil.
+					new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
 				}
 
 				if (gstate.isModeClear()) {
-					new_color = (new_color & gstate.getClearModeColorMask()) | (old_color & ~gstate.getClearModeColorMask());
+					new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
 				} else {
 					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 				}
