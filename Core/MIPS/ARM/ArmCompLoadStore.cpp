@@ -204,6 +204,7 @@ namespace MIPSComp
 		if (doCheck) {
 			skip = B();
 		}
+		SetCC(CC_AL);
 
 		// Need temp regs.  TODO: Get from the regcache?
 		if (load) {
