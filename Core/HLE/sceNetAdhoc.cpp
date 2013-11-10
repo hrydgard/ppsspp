@@ -20,43 +20,7 @@
 
 // This is a direct port of colorbird code from http://code.google.com/p/aemu/
 // All credit goes to him!
-
-#include "../Config.h"
-#include "Core/HLE/HLE.h"
-#include "../CoreTiming.h"
-#include "Core/HLE/sceNetAdhoc.h"
-#include "native/base/timeutil.h"
-#include "native/base/mutex.h"
-
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelMutex.h"
-#include "sceUtility.h"
-#include "net/resolve.h"
-
-// Temporary stuff
-#include <thread>
-#ifdef _MSC_VER
-#include <WS2tcpip.h>
-#else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <errno.h>
-#endif
-// End of extra includes
-
-#ifdef _MSC_VER
-#define PACK
-#else
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
-#define closesocket close
-#define PACK __attribute__((packed))
-#endif
+#include "proAdhoc.h"
 
 enum {
   ERROR_NET_ADHOC_INVALID_SOCKET_ID            = 0x80410701,
@@ -114,8 +78,6 @@ enum {
   ERROR_NET_NO_SPACE                           = 0x80410001 
 };
 
-int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown);
-
 enum {
   PSP_ADHOC_POLL_READY_TO_SEND = 1,
   PSP_ADHOC_POLL_DATA_AVAILABLE = 2,
@@ -128,403 +90,6 @@ const size_t MAX_ADHOCCTL_HANDLERS = 32;
 static bool netAdhocInited;
 static bool netAdhocctlInited;
 static bool netAdhocMatchingInited;
-
-// psp strutcs and definitions
-#define ADHOCCTL_MODE_ADHOC 0
-#define ADHOCCTL_MODE_GAMEMODE 1
-
-// Event Types for Event Handler
-#define ADHOCCTL_EVENT_CONNECT 1
-#define ADHOCCTL_EVENT_DISCONNECT 2
-#define ADHOCCTL_EVENT_SCAN 3
-
-// Internal Thread States
-#define ADHOCCTL_STATE_DISCONNECTED 0
-#define ADHOCCTL_STATE_CONNECTED 1
-#define ADHOCCTL_STATE_SCANNING 2
-#define ADHOCCTL_STATE_GAMEMODE 3
-
-// Kernel Utility Netconf Adhoc Types
-#define UTILITY_NETCONF_TYPE_CONNECT_ADHOC 2
-#define UTILITY_NETCONF_TYPE_CREATE_ADHOC 4
-#define UTILITY_NETCONF_TYPE_JOIN_ADHOC 5
-
-// Kernel Utility States
-#define UTILITY_NETCONF_STATUS_NONE 0
-#define UTILITY_NETCONF_STATUS_INITIALIZE 1
-#define UTILITY_NETCONF_STATUS_RUNNING 2
-#define UTILITY_NETCONF_STATUS_FINISHED 3
-#define UTILITY_NETCONF_STATUS_SHUTDOWN 4
-
-// PTP Connection States
-#define PTP_STATE_CLOSED 0
-#define PTP_STATE_LISTEN 1
-#define PTP_STATE_ESTABLISHED 4
-
-#ifdef _MSC_VER 
-#pragma pack(push, 1)
-#endif
-// Ethernet Address
-#define ETHER_ADDR_LEN 6
-typedef struct SceNetEtherAddr {
-  uint8_t data[ETHER_ADDR_LEN];
-} PACK SceNetEtherAddr;
-
-
-// Adhoc Virtual Network Name
-#define ADHOCCTL_GROUPNAME_LEN 8
-typedef struct SceNetAdhocctlGroupName {
-  uint8_t data[ADHOCCTL_GROUPNAME_LEN];
-} PACK SceNetAdhocctlGroupName;
-
-// Virtual Network Host Information
-typedef struct SceNetAdhocctlBSSId {
-  SceNetEtherAddr mac_addr;
-  uint8_t padding[2];
-} PACK SceNetAdhocctlBSSId;
-
-// Virtual Network Information
-typedef struct SceNetAdhocctlScanInfo {
-  struct SceNetAdhocctlScanInfo * next;
-  s32_le channel;
-  SceNetAdhocctlGroupName group_name;
-  SceNetAdhocctlBSSId bssid;
-  s32_le mode;
-} PACK SceNetAdhocctlScanInfo;
-
-// Player Nickname
-#define ADHOCCTL_NICKNAME_LEN 128
-typedef struct SceNetAdhocctlNickname {
-  uint8_t data[ADHOCCTL_NICKNAME_LEN];
-} PACK SceNetAdhocctlNickname;
-
-// Active Virtual Network Information
-typedef struct SceNetAdhocctlParameter {
-  s32_le channel;
-  SceNetAdhocctlGroupName group_name;
-  SceNetAdhocctlBSSId bssid;
-  SceNetAdhocctlNickname nickname;
-} PACK SceNetAdhocctlParameter;
-
-// Peer Information
-typedef struct SceNetAdhocctlPeerInfo {
-  SceNetAdhocctlPeerInfo * next;
-  SceNetAdhocctlNickname nickname;
-  SceNetEtherAddr mac_addr;
-  u32_le ip_addr;
-  uint8_t padding[2];
-  u64_le last_recv;
-} PACK SceNetAdhocctlPeerInfo;
-
-// Peer Information with u32 pointers
-typedef struct SceNetAdhocctlPeerInfoEmu {
-  u32_le next; // Changed the pointer to u32
-  SceNetAdhocctlNickname nickname;
-  SceNetEtherAddr mac_addr;
-  u32_le ip_addr;
-  u32 padding; // Changed the pointer to u32
-  u64_le last_recv;
-} SceNetAdhocctlPeerInfoEmu;
-
-// Game Mode Peer List
-#define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
-typedef struct SceNetAdhocctlGameModeInfo {
-  s32_le num;
-  SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
-} PACK SceNetAdhocctlGameModeInfo;
-#ifdef _MSC_VER 
-#pragma pack(pop)
-#endif
-
-// Adhoc ID (Game Product Key)
-#define ADHOCCTL_ADHOCID_LEN 9
-typedef struct SceNetAdhocctlAdhocId {
-  s32_le type;
-  uint8_t data[ADHOCCTL_ADHOCID_LEN];
-  uint8_t padding[3];
-} SceNetAdhocctlAdhocId;
-
-// Socket Polling Event Listener
-struct SceNetAdhocPollSd {
-  s32_le id;
-  s32_le events;
-  s32_le revents;
-};
-
-// PDP Socket Status
-struct SceNetAdhocPdpStat {
-  struct SceNetAdhocPdpStat * next;
-  s32_le id;
-  SceNetEtherAddr laddr;
-  u16_le lport;
-  u32_le rcv_sb_cc;
-};
-
-// PTP Socket Status
-struct SceNetAdhocPtpStat {
-  u32_le next; // Changed the pointer to u32
-  s32_le id;
-  SceNetEtherAddr laddr;
-  SceNetEtherAddr paddr;
-  u16_le lport;
-  u16_le pport;
-  u32_le snd_sb_cc;
-  u32_le rcv_sb_cc;
-  s32_le state;
-};
-
-// Gamemode Optional Peer Buffer Data
-struct SceNetAdhocGameModeOptData {
-  u32_le size;
-  u32_le flag;
-  u64_le last_recv;
-};
-
-// Gamemode Buffer Status
-struct SceNetAdhocGameModeBufferStat {
-  struct SceNetAdhocGameModeBufferStat * next;
-  s32_le id;
-  void * ptr;
-  u32_le size;
-  u32_le master;
-  SceNetAdhocGameModeOptData opt;
-};
-
-
-// Internal Matching Peer Information
-typedef struct SceNetAdhocMatchingMemberInternal {
-  // Next Peer
-  struct SceNetAdhocMatchingMemberInternal * next;
-
-  // MAC Address
-  SceNetEtherAddr mac;
-
-  // State Variable
-  s32_le state;
-
-  // Send in Progress
-  s32_le sending;
-
-  // Last Heartbeat
-  u64_le lastping;
-} SceNetAdhocMatchingMemberInternal;
-
-
-// Matching handler
-struct SceNetAdhocMatchingHandlerArgs {
-  s32_le id;
-  s32_le event;
-  SceNetEtherAddr * peer;
-  s32_le optlen;
-  void * opt;
-};
-
-struct SceNetAdhocMatchingHandler {
-  u32_le entryPoint;
-};
-
-// Thread Message Stack Item
-typedef struct ThreadMessage
-{
-  // Next Thread Message
-  struct ThreadMessage * next;
-
-  // Stack Event Opcode
-  u32_le opcode;
-
-  // Target MAC Address
-  SceNetEtherAddr mac;
-
-  // Optional Data Length
-  s32_le optlen;
-} ThreadMessage;
-
-// Established Peer
-
-// Context Information
-typedef struct SceNetAdhocMatchingContext {
-  // Next Context
-  struct SceNetAdhocMatchingContext * next;
-
-  // Externally Visible ID
-  s32_le id;
-
-  // Matching Mode (HOST, CLIENT, P2P)
-  s32_le mode;
-
-  // Running Flag (1 = running, 0 = created)
-  s32_le running;
-
-  // Maximum Number of Peers (for HOST, P2P)
-  s32_le maxpeers;
-
-  // Local MAC Address
-  SceNetEtherAddr mac;
-
-  // Peer List for Connectees
-  SceNetAdhocMatchingMemberInternal * peerlist;
-
-  // Local PDP Port
-  u16_le port;
-
-  // Local PDP Socket
-  s32_le socket;
-
-  // Receive Buffer Length
-  s32_le rxbuflen;
-
-  // Receive Buffer
-  uint8_t * rxbuf;
-
-  // Hello Broadcast Interval (Microseconds)
-  u32_le hello_int;
-
-  // Keep-Alive Broadcast Interval (Microseconds)
-  u32_le keepalive_int;
-
-  // Resend Interval (Microseconds)
-  u32_le resend_int;
-
-  // Resend-Counter
-  s32_le resendcounter;
-
-  // Keep-Alive Counter
-  s32_le keepalivecounter;
-
-  // Event Handler
-  SceNetAdhocMatchingHandler handler;
-
-  // Hello Data Length
-  u32_le hellolen;
-
-  // Hello Data
-  void * hello;
-
-  // Event Caller Thread
-  s32_le event_thid;
-
-  // IO Handler Thread
-  s32_le input_thid;
-
-  // Event Caller Thread Message Stack
-  s32_le event_stack_lock;
-  ThreadMessage * event_stack;
-
-  // IO Handler Thread Message Stack
-  s32_le input_stack_lock;
-  ThreadMessage * input_stack;
-} SceNetAdhocMatchingContext;
-
-// End of psp definitions
-
-#define OPCODE_PING 0
-#define OPCODE_LOGIN 1
-#define OPCODE_CONNECT 2
-#define OPCODE_DISCONNECT 3
-#define OPCODE_SCAN 4
-#define OPCODE_SCAN_COMPLETE 5
-#define OPCODE_CONNECT_BSSID 6
-#define OPCODE_CHAT 7
-
-// PSP Product Code
-#define PRODUCT_CODE_LENGTH 9
-
-#ifdef _MSC_VER 
-#pragma pack(push,1) 
-#endif
-
-typedef struct
-{
-  // Game Product Code (ex. ULUS12345)
-  char data[PRODUCT_CODE_LENGTH];
-} PACK SceNetAdhocctlProductCode;
-
-// Basic Packet
-typedef struct
-{
-  uint8_t opcode;
-} PACK SceNetAdhocctlPacketBase;
-
-// C2S Login Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  SceNetEtherAddr mac;
-  SceNetAdhocctlNickname name;
-  SceNetAdhocctlProductCode game;
-} PACK SceNetAdhocctlLoginPacketC2S;
-
-// C2S Connect Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  SceNetAdhocctlGroupName group;
-} PACK SceNetAdhocctlConnectPacketC2S;
-
-// C2S Chat Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  char message[64];
-} PACK SceNetAdhocctlChatPacketC2S;
-
-// S2C Connect Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  SceNetAdhocctlNickname name;
-  SceNetEtherAddr mac;
-  uint32_t ip;
-} PACK SceNetAdhocctlConnectPacketS2C;
-
-// S2C Disconnect Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  uint32_t ip;
-} PACK SceNetAdhocctlDisconnectPacketS2C;
-
-// S2C Scan Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  SceNetAdhocctlGroupName group;
-  SceNetEtherAddr mac;
-} PACK SceNetAdhocctlScanPacketS2C;
-
-// S2C Connect BSSID Packet
-typedef struct
-{
-  SceNetAdhocctlPacketBase base;
-  SceNetEtherAddr mac;
-} PACK SceNetAdhocctlConnectBSSIDPacketS2C;
-
-// S2C Chat Packet
-typedef struct
-{
-  SceNetAdhocctlChatPacketC2S base;
-  SceNetAdhocctlNickname name;
-} PACK SceNetAdhocctlChatPacketS2C;
-#ifdef _MSC_VER 
-#pragma pack(pop)
-#endif
-
-// Aux vars
-static int metasocket;
-static int eventHandlerUpdate = -1;
-static int threadStatus = ADHOCCTL_STATE_DISCONNECTED;
-static SceNetAdhocctlParameter parameter;
-static std::thread friendFinderThread;
-static SceNetAdhocctlPeerInfo * friends = NULL;
-static SceNetAdhocctlScanInfo * networks = NULL;
-static recursive_mutex peerlock;
-static SceNetAdhocPdpStat * pdp[255];
-static SceNetAdhocPtpStat * ptp[255];
-static uint32_t fakePoolSize = 0;
-static SceNetAdhocMatchingContext * contexts = NULL;
-static int one = 1;
-// End of Aux vars
-
 
 struct AdhocctlHandler {
   u32 entryPoint;
@@ -574,792 +139,6 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
   }
 }
 
-#define firstMask 0x00000000FFFFFFFF
-#define secondMask 0xFFFFFFFF00000000
-void split64(u64 num, int buff[]){
-  int num1 = (int)(num&firstMask);
-  int num2 = (int)((num&secondMask)>>32);
-  buff[0] = num1;
-  buff[1] = num2;
-}
-
-void __msleep(int mseconds){
-#ifdef _MSVER
-  Sleep(mseconds);
-#else
-  timespec t_spec;
-  t_spec.tv_sec = 0;
-  t_spec.tv_nsec = 100000*mseconds;
-  nanosleep(&t_spec, NULL);
-#endif
-}
-u64 join32(u32 num1, u32 num2){
-  return (u64)num2 << 32 | num1;
-}
-
-// Gets the local mac TODO: Read from config
-void __getLocalMac(SceNetEtherAddr * addr){
-  uint8_t mac[] = {1, 2, 3, 4, 5, 6};
-  memcpy(addr,mac,ETHER_ADDR_LEN);
-}
-
-// This only usefull if the server is running on the same machine as the client
-int __getLocalIp(sockaddr_in * SocketAddress){
-#ifdef _MSC_VER
-  // Get local host name
-  char szHostName[128] = "";
-
-  if(::gethostname(szHostName, sizeof(szHostName))) {
-    // Error handling 
-  }
-  // Get local IP addresses
-  struct hostent     *pHost        = 0;
-  pHost = ::gethostbyname(szHostName);
-  if(pHost) {
-    memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
-    return 0;
-  }
-  return -1;
-#else
-  char ip[] = "192.168.12.1";
-  SocketAddress->sin_addr.s_addr = inet_addr("192.168.12.1");
-  return 0;
-#endif
-}
-
-/* chages to the blocking mode of the socket
-   1 to set noblocking
-   0 to set blocking
-*/
-void __change_blocking_mode(int fd, int nonblocking) {
-  unsigned long on = 1;
-  unsigned long off = 0;
-#ifdef _MSC_VER
-  if(nonblocking){
-    // Change to Non-Blocking Mode
-    ioctlsocket(fd,FIONBIO,&on);
-  }else { 
-    // Change to Blocking Mode
-    ioctlsocket(fd, FIONBIO, &off);
-  }
-#else
-  if(nonblocking == 1) fcntl(fd, F_SETFL, O_NONBLOCK);
-  else {
-    // Get Flags
-    int flags = fcntl(fd, F_GETFL);
-    // Remove Non-Blocking Flag
-    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-  }
-#endif
-}
-
-// Inits all basic net functionality and logins the user to the main server
-int __init_network(SceNetAdhocctlAdhocId *adhoc_id){
-  int iResult = 0;
-#ifdef _MSC_VER
-  WSADATA data;
-  iResult = WSAStartup(MAKEWORD(2,2),&data);
-  if(iResult != NOERROR){
-    ERROR_LOG(SCENET, "Wsa failed");
-    return iResult;
-  }
-#endif
-  metasocket = INVALID_SOCKET;
-  metasocket = socket(AF_INET,SOCK_STREAM, IPPROTO_TCP);
-  if(metasocket == INVALID_SOCKET){
-    ERROR_LOG(SCENET,"invalid socket");
-    return INVALID_SOCKET;
-  }
-  struct sockaddr_in server_addr;
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(27312); // Maybe read this from config too
-
-  // Resolve dns 
-  addrinfo * resultAddr;
-  iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
-  if(iResult !=  0){
-    printf("Dns error\n");
-    return iResult;
-  }
-  server_addr.sin_addr.s_addr = ((sockaddr_in *)resultAddr->ai_addr)->sin_addr.s_addr;
-  iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
-  if(iResult == SOCKET_ERROR){
-    ERROR_LOG(SCENET,"Socket error");
-    return iResult;
-  }
-  memset(&parameter,0,sizeof(parameter));
-  strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
-  parameter.channel = 1; // Fake Channel 1
-
-  // Prepare Login Packet
-  __getLocalMac(&parameter.bssid.mac_addr);
-  SceNetAdhocctlLoginPacketC2S packet;
-  packet.base.opcode = OPCODE_LOGIN;
-  SceNetEtherAddr addres;
-  __getLocalMac(&addres);
-  packet.mac = addres;
-  strcpy((char *)packet.name.data, g_Config.sNickName.c_str());
-  memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-  int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
-  __change_blocking_mode(metasocket,1); // Change to non-blocking
-  if(sent > 0){
-    return 0;
-  }else{
-    return -1;
-  }
-}
-
-/**
- * Add Friend to Local List
- * @param packet Friend Information
- */
-void __addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
-  // Allocate Structure
-  SceNetAdhocctlPeerInfo * peer = (SceNetAdhocctlPeerInfo *)malloc(sizeof(SceNetAdhocctlPeerInfo));
-  // Allocated Structure
-  if(peer != NULL)
-  {
-    // Clear Memory
-    memset(peer, 0, sizeof(SceNetAdhocctlPeerInfo));
-
-    // Link to existing Peers
-    peer->next = friends;
-
-    // Save Nickname
-    peer->nickname = packet->name;
-
-    // Save MAC Address
-    peer->mac_addr = packet->mac;
-
-    // Save IP Address
-    peer->ip_addr = packet->ip;
-
-    // Multithreading Lock
-    peerlock.lock();
-
-    // Link into Peerlist
-    friends = peer;
-
-    // Multithreading Unlock
-    peerlock.unlock();
-  }
-}
-
-/**
- * Delete Friend from Local List
- * @param ip Friend IP
- */
-void __deleteFriendByIP(uint32_t ip) {
-  // Previous Peer Reference
-  SceNetAdhocctlPeerInfo * prev = NULL;
-
-  // Peer Pointer
-  SceNetAdhocctlPeerInfo * peer = friends;
-
-  // Iterate Peers
-  for(; peer != NULL; peer = peer->next)
-  {
-    // Found Peer
-    if(peer->ip_addr == ip)
-    {
-      // Multithreading Lock
-      peerlock.lock();
-
-      // Unlink Left (Beginning)
-      if(prev == NULL)friends = peer->next;
-
-      // Unlink Left (Other)
-      else prev->next = peer->next;
-
-      // Multithreading Unlock
-      peerlock.unlock();
-
-      // Free Memory
-      free(peer);
-
-      // Stop Search
-      break;
-    }
-
-    // Set Previous Reference
-    prev = peer;
-  }
-}
-
-/**
- * Recursive Memory Freeing-Helper for Friend-Structures
- * @param node Current Node in List
- */
-void __freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
-  // End of List
-  if(node == NULL) return;
-
-  // Increase Recursion Depth
-  __freeFriendsRecursive(node->next);
-
-  // Free Memory
-  free(node);
-}
-
-// Thread that listens to all relevant messages from the server
-int __friendFinder(){
-  // Receive Buffer
-  int rxpos = 0;
-  uint8_t rx[1024];
-
-  // Chat Packet
-  SceNetAdhocctlChatPacketC2S chat;
-  chat.base.opcode = OPCODE_CHAT;
-
-  // Last Ping Time
-  uint64_t lastping = 0;
-
-  // Last Time Reception got updated
-  uint64_t lastreceptionupdate = 0;
-  
-  uint64_t now;
-  // Finder Loop
-  while(netAdhocctlInited) {
-    // Acquire Network Lock
-    //_acquireNetworkLock();
-
-    // Ping Server
-    now = real_time_now()*1000.0;
-    if(now - lastping >= 100) {
-      // Update Ping Time
-      lastping = now;
-
-      // Prepare Packet
-      uint8_t opcode = OPCODE_PING;
-
-      // Send Ping to Server
-      send(metasocket, (const char *)&opcode, 1,0);
-    }
-
-    // Send Chat Messages
-    //while(popFromOutbox(chat.message))
-    //{
-    //  // Send Chat to Server
-    //  sceNetInetSend(metasocket, (const char *)&chat, sizeof(chat), 0);
-    //}
-
-    // Wait for Incoming Data
-    int received = recv(metasocket, (char *)(rx + rxpos), sizeof(rx) - rxpos,0);
-
-    // Free Network Lock
-    //_freeNetworkLock();
-
-    // Received Data
-    if(received > 0) {
-      // Fix Position
-      rxpos += received;
-
-      // Log Incoming Traffic
-      //printf("Received %d Bytes of Data from Server\n", received);
-      INFO_LOG(SCENET, "Received %d Bytes of Data from Adhoc Server", received);
-    }
-
-    // Handle Packets
-    if(rxpos > 0) {
-      // BSSID Packet
-      if(rx[0] == OPCODE_CONNECT_BSSID) {
-        // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
-          // Cast Packet
-          SceNetAdhocctlConnectBSSIDPacketS2C * packet = (SceNetAdhocctlConnectBSSIDPacketS2C *)rx;
-          // Update BSSID
-          parameter.bssid.mac_addr = packet->mac;
-          // Change State
-          threadStatus = ADHOCCTL_STATE_CONNECTED;
-          // Notify Event Handlers
-          CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0));
-
-          // Move RX Buffer
-          memmove(rx, rx + sizeof(SceNetAdhocctlConnectBSSIDPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectBSSIDPacketS2C));
-
-          // Fix RX Buffer Length
-          rxpos -= sizeof(SceNetAdhocctlConnectBSSIDPacketS2C);
-        }
-      }
-
-      // Chat Packet
-      else if(rx[0] == OPCODE_CHAT) {
-        // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlChatPacketS2C)) {
-          // Cast Packet
-          SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
-
-          // Fix for Idiots that try to troll the "ME" Nametag
-#ifdef _MSC_VER 
-          if(stricmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
-#else
-          if(strcasecmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
-#endif
-
-          // Add Incoming Chat to HUD
-          //printf("Receive chat message %s", packet->base.message);
-
-          // Move RX Buffer
-          memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
-
-          // Fix RX Buffer Length
-          rxpos -= sizeof(SceNetAdhocctlChatPacketS2C);
-        }
-      }
-
-      // Connect Packet
-      else if(rx[0] == OPCODE_CONNECT) {
-        // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlConnectPacketS2C)) {
-          // Log Incoming Peer
-          INFO_LOG(SCENET,"Incoming Peer Data...");
-
-          // Cast Packet
-          SceNetAdhocctlConnectPacketS2C * packet = (SceNetAdhocctlConnectPacketS2C *)rx;
-
-          // Add User
-          __addFriend(packet);
-
-          // Update HUD User Count
-#ifdef LOCALHOST_AS_PEER
-          setUserCount(_getActivePeerCount());
-#else
-          //setUserCount(_getActivePeerCount()+1);
-#endif
-
-          // Move RX Buffer
-          memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
-
-          // Fix RX Buffer Length
-          rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
-        }
-      }
-
-      // Disconnect Packet
-      else if(rx[0] == OPCODE_DISCONNECT) {
-        // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
-          // Log Incoming Peer Delete Request
-          INFO_LOG(SCENET,"FriendFinder: Incoming Peer Data Delete Request...");
-
-          // Cast Packet
-          SceNetAdhocctlDisconnectPacketS2C * packet = (SceNetAdhocctlDisconnectPacketS2C *)rx;
-
-          // Delete User by IP
-          __deleteFriendByIP(packet->ip);
-
-          // Update HUD User Count
-#ifdef LOCALHOST_AS_PEER
-          setUserCount(_getActivePeerCount());
-#else
-          //setUserCount(_getActivePeerCount()+1);
-#endif
-
-          // Move RX Buffer
-          memmove(rx, rx + sizeof(SceNetAdhocctlDisconnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlDisconnectPacketS2C));
-
-          // Fix RX Buffer Length
-          rxpos -= sizeof(SceNetAdhocctlDisconnectPacketS2C);
-        }
-      }
-
-      // Scan Packet
-      else if(rx[0] == OPCODE_SCAN) {
-        // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlScanPacketS2C)) {
-          // Log Incoming Network Information
-          INFO_LOG(SCENET,"Incoming Group Information...");
-          // Cast Packet
-          SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
-
-          // Allocate Structure Data
-          SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
-
-          // Allocated Structure Data
-          if(group != NULL)
-          {
-            // Clear Memory
-            memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
-
-            // Link to existing Groups
-            group->next = networks;
-
-            // Copy Group Name
-            group->group_name = packet->group;
-
-            // Set Group Host
-            group->bssid.mac_addr = packet->mac;
-
-            // Link into Group List
-            networks = group;
-          }
-
-          // Move RX Buffer
-          memmove(rx, rx + sizeof(SceNetAdhocctlScanPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlScanPacketS2C));
-
-          // Fix RX Buffer Length
-          rxpos -= sizeof(SceNetAdhocctlScanPacketS2C);
-        }
-      }
-
-      // Scan Complete Packet
-      else if(rx[0] == OPCODE_SCAN_COMPLETE) {
-        // Log Scan Completion
-        INFO_LOG(SCENET,"FriendFinder: Incoming Scan complete response...");
-
-        // Change State
-        threadStatus = ADHOCCTL_STATE_DISCONNECTED;
-
-        // Notify Event Handlers
-        CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventHandlerUpdate,join32(ADHOCCTL_EVENT_SCAN, 0));
-        //int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-        //{
-        //        // Active Handler
-        //        if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_SCAN, 0, _event_args[i]);
-        //}
-
-        // Move RX Buffer
-        memmove(rx, rx + 1, sizeof(rx) - 1);
-
-        // Fix RX Buffer Length
-        rxpos -= 1;
-      }
-    }
-    // Original value was 10 ms, I think 100 is just fine
-    sleep_ms(100);
-  }
-
-  // Log Shutdown
-  INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread");
-
-  // Return Success
-  return 0;
-}
-
-/**
- * Check whether Network Name contains only valid symbols
- * @param group_name To-be-checked Network Name
- * @return 1 if valid or... 0
- */
-int __validNetworkName(const SceNetAdhocctlGroupName * group_name) {
-  // Result
-  int valid = 1;
-
-  // Name given
-  if(group_name != NULL) {
-    // Iterate Name Characters
-    int i = 0; for(; i < ADHOCCTL_GROUPNAME_LEN && valid; i++) {
-      // End of Name
-      if(group_name->data[i] == 0) break;
-
-      // Not a digit
-      if(group_name->data[i] < '0' || group_name->data[i] > '9') {
-        // Not 'A' to 'Z'
-        if(group_name->data[i] < 'A' || group_name->data[i] > 'Z') {
-          // Not 'a' to 'z'
-          if(group_name->data[i] < 'a' || group_name->data[i] > 'z') {
-            // Invalid Name
-            valid = 0;
-          }
-        }
-      }
-    }
-  }
-
-  // Return Result
-  return valid;
-}
-
-/**
- * Local MAC Check
- * @param saddr To-be-checked MAC Address
- * @return 1 if valid or... 0
- */
-int _IsLocalMAC(const SceNetEtherAddr * addr) {
-  // Get Local MAC Address
-  SceNetEtherAddr saddr;
-  __getLocalMac(&saddr);
-  //sceNetGetLocalEtherAddr(&saddr);
-
-  // Compare MAC Addresses
-  int match = memcmp((const void *)addr, (const void *)&saddr, ETHER_ADDR_LEN);
-
-  // Return Result
-  return (match == 0);
-}
-
-/**
- * Resolve IP to MAC
- * @param ip Peer IP Address
- * @param mac OUT: Peer MAC
- * @return 0 on success or... ADHOC_NO_ENTRY
- */
-int __resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
-  sockaddr_in addr;
-  __getLocalIp(&addr);
-  uint32 localIp = addr.sin_addr.s_addr;
-  if(ip == localIp){
-    __getLocalMac(mac);
-    return 0;
-  }
-
-  // Multithreading Lock
-  peerlock.lock();
-
-  // Peer Reference
-  SceNetAdhocctlPeerInfo * peer = friends;
-
-  // Iterate Peers
-  for(; peer != NULL; peer = peer->next) {
-    // Found Matching Peer
-    if(peer->ip_addr == ip) {
-      // Copy Data
-      *mac = peer->mac_addr;
-
-      // Multithreading Unlock
-      peerlock.unlock();
-
-      // Return Success
-      return 0;
-    }
-  }
-
-  // Multithreading Unlock
-  peerlock.unlock();
-
-  // Peer not found
-  return ERROR_NET_ADHOC_NO_ENTRY;
-}
-/**
- * Resolve MAC to IP
- * @param mac Peer MAC Address
- * @param ip OUT: Peer IP
- * @return 0 on success or... ADHOC_NO_ENTRY
- */
-int __resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
-  // Get Local MAC Address
-  SceNetEtherAddr localMac;
-  __getLocalMac(&localMac);
-  // Local MAC Requested
-  if(memcmp(&localMac, mac, sizeof(SceNetEtherAddr)) == 0) {
-    // Get Local IP Address
-    sockaddr_in sockAddr;
-    __getLocalIp(&sockAddr);
-    *ip = sockAddr.sin_addr.s_addr;
-    return 0; // return succes
-  }
-
-  // Multithreading Lock
-  peerlock.lock();
-
-  // Peer Reference
-  SceNetAdhocctlPeerInfo * peer = friends;
-
-  // Iterate Peers
-  for(; peer != NULL; peer = peer->next) {
-    // Found Matching Peer
-    if(memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0) {
-      // Copy Data
-      *ip = peer->ip_addr;
-
-      // Multithreading Unlock
-      peerlock.unlock();
-
-      // Return Success
-      return 0;
-    }
-  }
-
-  // Multithreading Unlock
-  peerlock.unlock();
-
-  // Peer not found
-  return ERROR_NET_ADHOC_NO_ENTRY;
-}
-/**
- * PDP Port Check
- * @param port To-be-checked Port
- * @return 1 if in use or... 0
- */
-int _IsPDPPortInUse(uint16_t port) {
-  // Iterate Elements
-  int i = 0; for(; i < 255; i++) if(pdp[i] != NULL && pdp[i]->lport == port) return 1;
-
-  // Unused Port
-  return 0;
-}
-
-/**
- * Broadcast MAC Check
- * @param addr To-be-checked MAC Address
- * @return 1 if Broadcast MAC or... 0
- */
-int __isBroadcastMAC(const SceNetEtherAddr * addr) {
-  // Broadcast MAC
-  if(memcmp(addr->data, "\xFF\xFF\xFF\xFF\xFF\xFF", ETHER_ADDR_LEN) == 0) return 1;
-  // Normal MAC
-  return 0;
-}
-
-/**
- * Closes & Deletes all PDP Sockets
- */
-void __deleteAllPDP(void) {
-  // Iterate Element
-  int i = 0; for(; i < 255; i++) {
-    // Active Socket
-    if(pdp[i] != NULL) {
-      // Close Socket
-      closesocket(pdp[i]->id);
-
-      // Free Memory
-      free(pdp[i]);
-
-      // Delete Reference
-      pdp[i] = NULL;
-    }
-  }
-}
-
-/**
- * Closes & Deletes all PTP Sockets
- */
-void __deleteAllPTP(void) {
-  // Iterate Element
-  int i = 0; for(; i < 255; i++) {
-    // Active Socket
-    if(ptp[i] != NULL) {
-      // Close Socket
-      closesocket(ptp[i]->id);
-
-      // Free Memory
-      free(ptp[i]);
-
-      // Delete Reference
-      ptp[i] = NULL;
-    }
-  }
-}
-
-
-/**
- * Count Virtual Networks by analyzing the Friend List
- * @return Number of Virtual Networks
- */
-int __countAvailableNetworks(void) {
-  // Network Count
-  int count = 0;
-
-  // Group Reference
-  SceNetAdhocctlScanInfo * group = networks;
-
-  // Count Groups
-  for(; group != NULL; group = group->next) count++;
-
-  // Return Network Count
-  return count;
-}
-
-/**
- * Return Number of active Peers in the same Network as the Local Player
- * @return Number of active Peers
- */
-int __getActivePeerCount(void) {
-  // Counter
-  int count = 0;
-
-  // #ifdef LOCALHOST_AS_PEER
-  // // Increase for Localhost
-  // count++;
-  // #endif
-
-  // Peer Reference
-  SceNetAdhocctlPeerInfo * peer = friends;
-
-  // Iterate Peers
-  for(; peer != NULL; peer = peer->next) {
-    // Increase Counter
-    count++;
-  }
-
-  // Return Result
-  return count;
-}
-
-/**
- * Find Internal Matching Context for Matching ID
- * @param id Matching ID
- * @return Matching Context Pointer or... NULL
- */
-SceNetAdhocMatchingContext * __findMatchingContext(int id) {
-  // Iterate Matching Context List
-  SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
-    // Found Matching ID
-    if(item->id == id) return item;
-  }
-
-  // Context not found
-  return NULL;
-}
-
-/**
- * Find Free Matching ID
- * @return First unoccupied Matching ID
- */
-int __findFreeMatchingID(void) {
-  // Minimum Matching ID
-  int min = 1;
-
-  // Maximum Matching ID
-  int max = 0;
-
-  // Find highest Matching ID
-  SceNetAdhocMatchingContext * item = contexts; for(; item != NULL; item = item->next) {
-    // New Maximum
-    if(max < item->id) max = item->id;
-  }
-
-  // Find unoccupied ID
-  int i = min; for(; i < max; i++) {
-    // Found unoccupied ID
-    if(__findMatchingContext(i) == NULL) return i;
-  }
-
-  // Append at virtual end
-  return max + 1;
-}
-
-
-/**
- * PTP Socket Counter
- * @return Number of internal PTP Sockets
- */
-int __getPTPSocketCount(void) {
-  // Socket Counter
-  int counter = 0;
-
-  // Count Sockets
-  int i = 0; for(; i < 255; i++) if(ptp[i] != NULL) counter++;
-
-  // Return Socket Count
-  return counter;
-}
-
-
-/**
- * Check whether PTP Port is in use or not
- * @param port To-be-checked Port Number
- * @return 1 if in use or... 0
- */
-int __IsPTPPortInUse(uint16_t port) {
-	// Iterate Sockets
-	int i = 0; for(; i < 255; i++) if(ptp[i] != NULL && ptp[i]->lport == port) return 1;
-	
-	// Unused Port
-	return 0;
-}
-
-
 void __handlerUpdateCallback(u64 userdata, int cycleslate){
   int buff[2];
   split64(userdata,buff);
@@ -1389,10 +168,11 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
   if (netAdhocctlInited) {
     return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
   }else{
-    if(__init_network((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) == 0){
+    if(initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) == 0){
       netAdhocctlInited = true;
       eventHandlerUpdate = CoreTiming::RegisterEvent("HandlerUpdateEvent", __handlerUpdateCallback);
-      friendFinderThread = std::thread(__friendFinder);
+      friendFinderRunning = true;
+      friendFinderThread = std::thread(friendFinder);
     }else{
       return -1; // Generic error
     }
@@ -1435,7 +215,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
     // Valid Arguments are supplied
     if(mac != NULL && bufferSize > 0) {
       // Valid MAC supplied
-      if(_IsLocalMAC(saddr)) {
+      if(isLocalMAC(saddr)) {
         //// Unused Port supplied
         //if(!_IsPDPPortInUse(port)) {} 
         //
@@ -1575,7 +355,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
               setsockopt(socket->id, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout, sizeof(timeout));
 
               // Single Target
-              if(!__isBroadcastMAC(daddr))
+              if(!isBroadcastMAC(daddr))
               {
                 // Fill in Target Structure
                 sockaddr_in target;
@@ -1583,14 +363,14 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
                 target.sin_port = htons(dport);
 
                 // Get Peer IP
-                if(__resolveMAC((SceNetEtherAddr *)daddr, &target.sin_addr.s_addr) == 0) {
+                if(resolveMAC((SceNetEtherAddr *)daddr, &target.sin_addr.s_addr) == 0) {
                   // Acquire Network Lock
                   //_acquireNetworkLock();
 
                   // Send Data
-                  __change_blocking_mode(socket->id, flag);
+                  changeBlockingMode(socket->id, flag);
                   int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
-                  __change_blocking_mode(socket->id, 0);
+                  changeBlockingMode(socket->id, 0);
 
                   // Free Network Lock
                   //_freeNetworkLock();
@@ -1643,9 +423,9 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
                   uint8_t * thing = (uint8_t *)&peer->ip_addr;
                   // printf("Attempting PDP Send to %u.%u.%u.%u on Port %u\n", thing[0], thing[1], thing[2], thing[3], dport);
                   // Send Data
-                  __change_blocking_mode(socket->id, flag);
+                  changeBlockingMode(socket->id, flag);
                   sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
-                  __change_blocking_mode(socket->id, 0);
+                  changeBlockingMode(socket->id, 0);
                 }
 
                 // Free Peer Lock
@@ -1743,9 +523,9 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
         //_acquireNetworkLock();
 
         // Receive Data
-        __change_blocking_mode(socket->id,flag);
+        changeBlockingMode(socket->id,flag);
         int received = recvfrom(socket->id, (char *)buf, *len,0,(sockaddr *)&sin, &sinlen);
-        __change_blocking_mode(socket->id,0);
+        changeBlockingMode(socket->id,0);
 
         // Received Data
         if(received > 0) {
@@ -1753,7 +533,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
           SceNetEtherAddr mac;
 
           // Find Peer MAC
-          if(__resolveIP(sin.sin_addr.s_addr, &mac) == 0) {
+          if(resolveIP(sin.sin_addr.s_addr, &mac) == 0) {
             // Provide Sender Information
             *saddr = mac;
             *sport = htons(sin.sin_port);
@@ -1895,7 +675,7 @@ int sceNetAdhocctlGetScanInfo(u32 size, u32 bufAddr) {
       peerlock.lock();
 
       // Length Returner Mode
-      if(buf == NULL) *buflen = __countAvailableNetworks() * sizeof(SceNetAdhocctlScanInfo);
+      if(buf == NULL) *buflen = countAvailableNetworks() * sizeof(SceNetAdhocctlScanInfo);
 
       // Normal Information Mode
       else {
@@ -2028,7 +808,7 @@ u32 sceNetAdhocctlDisconnect() {
       peerlock.lock();
 
       // Clear Peer List
-      __freeFriendsRecursive(friends);
+      freeFriendsRecursive(friends);
 
       // Delete Peer Reference
       friends = NULL;
@@ -2064,6 +844,7 @@ int sceNetAdhocctlTerm() {
   INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
   if(netAdhocctlInited){
     netAdhocctlInited = false;
+    friendFinderRunning = false;
     if(friendFinderThread.joinable()){
       friendFinderThread.join();
     }
@@ -2104,7 +885,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
   // Library initialized
   if(netAdhocctlInited) {
     // Valid Argument
-    if(__validNetworkName(groupNameStruct)) {
+    if(validNetworkName(groupNameStruct)) {
       // Disconnected State
       if(threadStatus == ADHOCCTL_STATE_DISCONNECTED) {
         // Set Network Name
@@ -2174,10 +955,10 @@ int sceNetAdhocTerm() {
   // Library is initialized
   if(netAdhocInited) {
     // Delete PDP Sockets
-    __deleteAllPDP();
+    deleteAllPDP();
 
     // Delete PTP Sockets
-    __deleteAllPTP();
+    deleteAllPTP();
 
     // Delete Gamemode Buffer
     //_deleteAllGMB();
@@ -2217,7 +998,7 @@ int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		// Length Returner Mode
 		if(buflen != NULL && !Memory::IsValidAddress(structAddr)) {
 			// Return Required Size
-			*buflen = sizeof(SceNetAdhocPtpStat) * __getPTPSocketCount();
+			*buflen = sizeof(SceNetAdhocPtpStat) * getPTPSocketCount();
 			
 			// Success
 			return 0;
@@ -2226,7 +1007,7 @@ int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		// Status Returner Mode
 		else if(buflen != NULL && Memory::IsValidAddress(structAddr)) {
 			// Socket Count
-			int socketcount = __getPTPSocketCount();
+			int socketcount = getPTPSocketCount();
       SceNetAdhocPtpStat * buf = (SceNetAdhocPtpStat *)Memory::GetPointer(structAddr);
 			
 			// Figure out how many Sockets we will return
@@ -2294,7 +1075,7 @@ int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dp
 	// Library is initialized
 	if(netAdhocInited) {
 		// Valid Addresses
-		if(saddr != NULL && _IsLocalMAC(saddr) && daddr != NULL && !__isBroadcastMAC(daddr)) {
+		if(saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr)) {
 			// Random Port required
 			if(sport == 0) {
 				// Find unused Port
@@ -2305,7 +1086,7 @@ int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dp
 			}
 			
 			// Valid Ports
-			if(!__IsPTPPortInUse(sport) && dport != 0) {
+			if(!isPTPPortInUse(sport) && dport != 0) {
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 					// Create Infrastructure Socket
@@ -2435,7 +1216,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 					// Switch to Nonblocking Behaviour
 					if(nbio == 0) {
 						// Overwrite Socket Option
-            __change_blocking_mode(socket->id,1);
+            changeBlockingMode(socket->id,1);
 					}
 					
 					// Accept Connection
@@ -2459,7 +1240,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 					// Restore Blocking Behaviour
 					if(nbio == 0) {
 						// Restore Socket Option
-            __change_blocking_mode(socket->id,0);
+            changeBlockingMode(socket->id,0);
 					}
 					
 					// Accepted New Connection
@@ -2473,7 +1254,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 							SceNetEtherAddr mac;
 							
 							// Find Peer MAC
-							if(__resolveIP(peeraddr.sin_addr.s_addr, &mac) == 0) {
+							if(resolveIP(peeraddr.sin_addr.s_addr, &mac) == 0) {
 								// Allocate Memory
 								SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
 								
@@ -2491,7 +1272,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 										internal->id = newsocket;
 										
 										// Copy Local Address Data to Structure
-										__getLocalMac(&internal->laddr);
+										getLocalMac(&internal->laddr);
 										internal->lport = htons(local.sin_port);
 										
 										// Copy Peer Address Data to Structure
@@ -2577,7 +1358,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 				sin.sin_port = htons(socket->pport);
 				
 				// Grab Peer IP
-				if(__resolveMAC(&socket->paddr, &sin.sin_addr.s_addr) == 0) {
+				if(resolveMAC(&socket->paddr, &sin.sin_addr.s_addr) == 0) {
 					// Grab Nonblocking Flag
 					uint32_t nbio = 0;
           int fileflags = fcntl(socket->id,F_GETFL,O_NONBLOCK);
@@ -2585,7 +1366,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					// Switch to Nonblocking Behaviour
 					if(nbio == 0) {
 						// Overwrite Socket Option
-            __change_blocking_mode(socket->id, 1);
+            changeBlockingMode(socket->id, 1);
 					}
 					
 					// Connect Socket to Peer (Nonblocking)
@@ -2597,7 +1378,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					// Restore Blocking Behaviour
 					if(nbio == 0) {
 						// Restore Socket Option
-            __change_blocking_mode(socket->id,0);
+            changeBlockingMode(socket->id,0);
 					}
 					
 					// Instant Connection (Lucky!)
@@ -2720,7 +1501,7 @@ int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_i
   SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
 	if(netAdhocInited) {
 		// Valid Address
-		if(saddr != NULL && _IsLocalMAC(saddr))
+		if(saddr != NULL && isLocalMAC(saddr))
 		{
 			// Random Port required
 			if(sport == 0) {
@@ -2733,7 +1514,7 @@ int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_i
 			}
 			
 			// Valid Ports
-			if(!__IsPTPPortInUse(sport)) {
+			if(!isPTPPortInUse(sport)) {
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
 				{
@@ -2854,10 +1635,10 @@ int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 					// _acquireNetworkLock();
 					
 					// Send Data
-          __change_blocking_mode(socket->id, flag);
+          changeBlockingMode(socket->id, flag);
 					int sent = send(socket->id, data, *len, 0);
           int error = errno;
-          __change_blocking_mode(socket->id, 0);
+          changeBlockingMode(socket->id, 0);
 					
 					// Free Network Lock
 					// _freeNetworkLock();
@@ -2935,10 +1716,10 @@ int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int flag
 				// _acquireNetworkLock();
 				
 				// Receive Data
-        __change_blocking_mode(socket->id, flag);
+        changeBlockingMode(socket->id, flag);
 				int received = recv(socket->id, buf, *len, 0);
         int error = errno;
-        __change_blocking_mode(socket->id, 0);
+        changeBlockingMode(socket->id, 0);
 				
 				// Free Network Lock
 				// _freeNetworkLock();
@@ -3090,7 +1871,7 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int 
           // Allocated Memory
           if(context != NULL) {
             // Create PDP Socket
-            SceNetEtherAddr localmac; __getLocalMac(&localmac);
+            SceNetEtherAddr localmac; getLocalMac(&localmac);
             const char * mac = (const  char *)&localmac.data;
             int socket = sceNetAdhocPdpCreate(mac, (uint32_t)port, rxbuflen, 0);
             // Created PDP Socket
@@ -3107,7 +1888,7 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int 
                 memset(context->rxbuf, 0, rxbuflen);
 
                 // Fill in Context Data
-                context->id = __findFreeMatchingID();
+                context->id = findFreeMatchingID();
                 context->mode = mode;	
                 context->maxpeers = maxnum;
                 context->port = port;
@@ -3301,7 +2082,7 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
       peerlock.lock();
 
       // Length Calculation Mode
-      if(buf == NULL) *buflen = __getActivePeerCount() * sizeof(SceNetAdhocctlPeerInfoEmu);
+      if(buf == NULL) *buflen = getActivePeerCount() * sizeof(SceNetAdhocctlPeerInfoEmu);
 
       // Normal Mode
       else {
