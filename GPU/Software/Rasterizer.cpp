@@ -321,7 +321,7 @@ static inline u8 GetPixelStencil(int x, int y)
 		return 0;
 	} else if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
 		return ((fb.Get16(x, y, gstate.FrameBufStride()) & 0x8000) != 0) ? 0xFF : 0;
-	} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
+	} else if (gstate.FrameBufFormat() == GE_FORMAT_4444) {
 		return fb.Get16(x, y, gstate.FrameBufStride()) >> 12;
 	} else {
 		return fb.Get32(x, y, gstate.FrameBufStride()) >> 24;
@@ -338,7 +338,7 @@ static inline void SetPixelStencil(int x, int y, u8 value)
 		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0x8000;
 		pixel |= value != 0 ? 0x8000 : 0;
 		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
-	} else if (gstate.FrameBufFormat() != GE_FORMAT_4444) {
+	} else if (gstate.FrameBufFormat() == GE_FORMAT_4444) {
 		u16 pixel = fb.Get16(x, y, gstate.FrameBufStride()) & ~0xF000;
 		pixel |= (u16)value << 12;
 		fb.Set16(x, y, gstate.FrameBufStride(), pixel);
