@@ -336,6 +336,9 @@ void PSP_RunLoopUntil(u64 globalticks) {
 	}
 
 	if (cpuThread != NULL) {
+		// Tell the gpu a new frame is about to begin, before we start the CPU.
+		gpu->SyncBeginFrame();
+
 		cpuThreadUntil = globalticks;
 		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
