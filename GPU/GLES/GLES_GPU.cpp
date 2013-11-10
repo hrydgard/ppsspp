@@ -430,10 +430,8 @@ GLES_GPU::GLES_GPU()
 		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
-	// TODO: Can't turn this optimization on until we don't decode everything in one go
-	// but instead decode for every draw call when sw skinning
 	if (g_Config.bSoftwareSkinning) {
-		// commandFlags_[GE_CMD_VERTEXTYPE] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_VERTEXTYPE] &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
 	BuildReportingInfo();
@@ -876,16 +874,16 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VERTEXTYPE:
 		if (diff) {
 			if (!g_Config.bSoftwareSkinning) {
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-			} else if (false) {
-				// TODO: Can't turn this optimization on until we don't decode everything in one go
-				// but instead decode for every draw call when sw skinning
+				if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
+					shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			} else {
 				if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
 					// Restore and flush
 					gstate.vertType ^= diff;
 					Flush();
 					gstate.vertType ^= diff;
-					shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+					if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
+						shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 				}
 			}
 		}
@@ -1392,16 +1390,16 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_BONEMATRIXDATA:
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
-			float newVal = getFloat24(data);
-			if (num < 96 && newVal != gstate.boneMatrix[num]) {
+			u32 newVal = data << 8;
+			if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 				// Bone matrices should NOT flush when software skinning is enabled!
 				// TODO: Also check for morph...
 				// TODO: Can't turn this optimizatoin on until we decode per drawcall when sw skinning.
-				if (true || !g_Config.bSoftwareSkinning) {
+				if (!g_Config.bSoftwareSkinning) {
 					Flush();
 					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 				}
-				gstate.boneMatrix[num] = newVal;
+				((u32 *)gstate.boneMatrix)[num] = newVal;
 			}
 			num++;
 			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
