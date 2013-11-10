@@ -967,12 +967,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
 				}
-				if (prim_color_rgb.r() > 255) prim_color_rgb.r() = 255;
-				if (prim_color_rgb.g() > 255) prim_color_rgb.g() = 255;
-				if (prim_color_rgb.b() > 255) prim_color_rgb.b() = 255;
-				if (prim_color_rgb.r() < 0) prim_color_rgb.r() = 0;
-				if (prim_color_rgb.g() < 0) prim_color_rgb.g() = 0;
-				if (prim_color_rgb.b() < 0) prim_color_rgb.b() = 0;
+				prim_color_rgb = prim_color_rgb.Clamp(0, 255);
 
 				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), GetPixelStencil(p.x, p.y)).ToRGBA();
 				u32 old_color = GetPixelColor(p.x, p.y);
