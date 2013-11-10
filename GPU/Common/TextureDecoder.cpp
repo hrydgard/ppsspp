@@ -64,10 +64,33 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 }
 
 static u32 QuickTexHashBasic(const void *checkp, u32 size) {
-#ifdef __GNUC__
+#if defined(ARM) && defined(__GNUC__)
 	__builtin_prefetch(checkp, 0, 0);
-#endif
 
+	u32 check;
+	asm volatile (
+		// Let's change size to the end address.
+		"add %1, %1, %2\n"
+		"mov r6, #0\n"
+
+		// If we have zero sized input, we'll return garbage.  Oh well, shouldn't happen.
+		"QuickTexHashBasic_next:\n"
+		"ldmia %2!, {r2-r5}\n"
+		"add r6, r6, r2\n"
+		"eor r6, r6, r3\n"
+		"cmp %2, %1\n"
+		"add r6, r6, r4\n"
+		"eor r6, r6, r5\n"
+		"blo QuickTexHashBasic_next\n"
+
+		"QuickTexHashBasic_done:\n"
+		"mov %0, r6\n"
+
+		: "=r"(check)
+		: "r"(size), "r"(checkp)
+		: "r2", "r3", "r4", "r5", "r6"
+	);
+#else
 	u32 check = 0;
 	const u32 size_u32 = size / 4;
 	const u32 *p = (const u32 *)checkp;
@@ -77,6 +100,7 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 		check += p[i + 2];
 		check ^= p[i + 3];
 	}
+#endif
 
 	return check;
 }
