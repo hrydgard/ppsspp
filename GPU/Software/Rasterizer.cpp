@@ -552,7 +552,7 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color)
 		break;
 	}
 
-	return op;
+	return new_color;
 }
 
 static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor)
@@ -958,7 +958,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Is alpha blending still performed if logic ops are enabled?
 				if (gstate.isLogicOpEnabled() && !gstate.isModeClear()) {
-					new_color = ApplyLogicOp(gstate.getLogicOp(), old_color, new_color);
+					// Logic ops don't affect stencil.
+					new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
 				}
 
 				if (gstate.isModeClear()) {
