@@ -506,8 +506,7 @@ namespace MIPSComp
 			return;
 
 		// WARNING : ROTR
-		switch (op & 0x3f)
-		{
+		switch (op & 0x3f) {
 		case 0: CompShiftImm(op, ST_LSL, sa); break; //sll
 		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR, sa); break;	//srl
 		case 3: CompShiftImm(op, ST_ASR, sa); break; //sra
@@ -536,11 +535,9 @@ namespace MIPSComp
 		if (rt == 0)
 			return;
 
-		switch (op & 0x3f)
-		{
+		switch (op & 0x3f) {
 		case 0x0: //ext
-			if (gpr.IsImm(rs))
-			{
+			if (gpr.IsImm(rs)) {
 				gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
 				return;
 			}
@@ -558,11 +555,9 @@ namespace MIPSComp
 			{
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
-				if (gpr.IsImm(rs))
-				{
+				if (gpr.IsImm(rs)) {
 					u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
-					if (gpr.IsImm(rt))
-					{
+					if (gpr.IsImm(rt)) {
 						gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
 						return;
 					}
@@ -570,9 +565,7 @@ namespace MIPSComp
 					gpr.MapReg(rt, MAP_DIRTY);
 					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R0);
 					ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
-				}
-				else
-				{
+				} else {
 					gpr.MapDirtyIn(rt, rs, false);
 					if (cpu_info.bArmV7) {
 						BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
@@ -596,11 +589,9 @@ namespace MIPSComp
 		if (rd == 0)
 			return;
 
-		switch ((op >> 6) & 31)
-		{
+		switch ((op >> 6) & 31) {
 		case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
-			if (gpr.IsImm(rt))
-			{
+			if (gpr.IsImm(rt)) {
 				gpr.SetImm(rd, (s32)(s8)(u8)gpr.GetImm(rt));
 				return;
 			}
@@ -609,8 +600,7 @@ namespace MIPSComp
 			break;
 
 		case 24: // seh
-			if (gpr.IsImm(rt))
-			{
+			if (gpr.IsImm(rt)) {
 				gpr.SetImm(rd, (s32)(s16)(u16)gpr.GetImm(rt));
 				return;
 			}
@@ -619,8 +609,7 @@ namespace MIPSComp
 			break;
 		
 		case 20: //bitrev
-			if (gpr.IsImm(rt))
-			{
+			if (gpr.IsImm(rt)) {
 				// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
 				u32 v = gpr.GetImm(rt);
 				v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) <<  1); //   odd<->even
@@ -654,15 +643,22 @@ namespace MIPSComp
 		if (rd == 0)
 			return;
 
-		switch (op & 0x3ff)
-		{
+		switch (op & 0x3ff) {
 		case 0xA0: //wsbh
+			if (gpr.IsImm(rt)) {
+				gpr.SetImm(rd, ((gpr.GetImm(rt) & 0xFF00FF00) >> 8) | ((gpr.GetImm(rt) & 0x00FF00FF) << 8));
+			} else {
 				gpr.MapDirtyIn(rd, rt);
 				REV16(gpr.R(rd), gpr.R(rt));
+			}
 			break;
 		case 0xE0: //wsbw
+			if (gpr.IsImm(rt)) {
+				gpr.SetImm(rd, swap32(gpr.GetImm(rt)));
+			} else {
 				gpr.MapDirtyIn(rd, rt);
 				REV(gpr.R(rd), gpr.R(rt));
+			}
 			break;
 		default:
 			Comp_Generic(op);
