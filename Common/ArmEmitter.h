@@ -602,7 +602,7 @@ public:
 };  // class ARMXEmitter
 
 
-// Everything that needs to generate X86 code should inherit from this.
+// Everything that needs to generate machine code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
 class ARMXCodeBlock : public ARMXEmitter

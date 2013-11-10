@@ -21,7 +21,6 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
-#include <psapi.h>
 #else
 #include <errno.h>
 #include <stdio.h>
@@ -46,33 +45,33 @@
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
-#define SYMBIAN_CODECHUNK_SIZE 1024*1024*17;
+#define SYMBIAN_CODECHUNK_SIZE 1024*1024*20;
 static RChunk* g_code_chunk = NULL;
 static RHeap* g_code_heap = NULL;
+static void* g_next_ptr = NULL;
 #endif
 
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
-// provides exactly the primitive operations that Dolphin needs.
+// provides exactly the primitive operations that PPSSPP needs.
 
 void* AllocateExecutableMemory(size_t size, bool low)
 {
 #if defined(_WIN32)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #elif defined(__SYMBIAN32__)
-    //This function may be called more than once, and we want to create only one big
-    //memory chunk for all the executable code for the JIT
-	void* ptr;
-    if( g_code_chunk == NULL && g_code_heap == NULL)
-    {
-        TInt minsize = SYMBIAN_CODECHUNK_SIZE;
-        TInt maxsize = SYMBIAN_CODECHUNK_SIZE + 3*GetPageSize(); //some offsets
-        g_code_chunk = new RChunk();
-        g_code_chunk->CreateLocalCode(minsize, maxsize);
-        g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, minsize, 1, maxsize);
-		ptr = (void*) g_code_heap->Alloc( size );
-    }
-	else
-		ptr = g_code_heap->Base();
+	//This function may be called more than once, and we want to create only one big
+	//memory chunk for all the executable code for the JIT
+	if( g_code_chunk == NULL && g_code_heap == NULL)
+	{
+		TInt minsize = SYMBIAN_CODECHUNK_SIZE;
+		TInt maxsize = SYMBIAN_CODECHUNK_SIZE + 3*GetPageSize(); //some offsets
+		g_code_chunk = new RChunk();
+		g_code_chunk->CreateLocalCode(minsize, maxsize);
+		g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, minsize, 1, maxsize);
+		g_next_ptr = (void*) g_code_heap->Alloc( minsize );
+	}
+	void* ptr = g_next_ptr;
+	g_next_ptr += size;
 #else
 	static char *map_hint = 0;
 #if defined(__x86_64__) && !defined(MAP_32BIT)
@@ -107,14 +106,11 @@ void* AllocateExecutableMemory(size_t size, bool low)
 		PanicAlert("Failed to allocate executable memory");
 	}
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)
-	else
+	else if (low)
 	{
-		if (low)
-		{
-			map_hint += size;
-			map_hint = (char*)round_page(map_hint); /* round up to the next page */
-			// printf("Next map will (hopefully) be at %p\n", map_hint);
-		}
+		map_hint += size;
+		map_hint = (char*)round_page(map_hint); /* round up to the next page */
+		// printf("Next map will (hopefully) be at %p\n", map_hint);
 	}
 #endif
 
@@ -149,8 +145,7 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 #ifdef ANDROID
 	ptr = memalign(alignment, size);
 #elif defined(__SYMBIAN32__)
-	// On Symbian, we will want to create an RChunk Allocator.
-	// See: javascriptcore:JavaScriptCore/wtf/symbian/BlockAllocatorSymbian.cpp
+	// On Symbian, alignment won't matter as NEON isn't supported.
 	ptr = malloc(size);
 #else
 	if(posix_memalign(&ptr, alignment, size) != 0)
@@ -219,26 +214,3 @@ void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute)
 #endif
 }
 
-std::string MemUsage()
-{
-#ifdef _WIN32
-#pragma comment(lib, "psapi")
-	DWORD processID = GetCurrentProcessId();
-	HANDLE hProcess;
-	PROCESS_MEMORY_COUNTERS pmc;
-	std::string Ret;
-
-	// Print information about the memory usage of the process.
-
-	hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processID);
-	if (NULL == hProcess) return "MemUsage Error";
-
-	if (GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc)))
-		Ret = StringFromFormat("%s K", ThousandSeparate(pmc.WorkingSetSize / 1024, 7).c_str());
-
-	CloseHandle(hProcess);
-	return Ret;
-#else
-	return "";
-#endif
-}

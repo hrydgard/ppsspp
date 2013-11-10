@@ -30,7 +30,6 @@ void* AllocateAlignedMemory(size_t size,size_t alignment);
 void FreeAlignedMemory(void* ptr);
 void WriteProtectMemory(void* ptr, size_t size, bool executable = false);
 void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute = false);
-std::string MemUsage();
 
 inline int GetPageSize() { return 4096; }
 
