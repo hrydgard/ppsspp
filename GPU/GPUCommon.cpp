@@ -60,10 +60,7 @@ bool GPUCommon::BusyDrawing() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 	if (g_Config.bSeparateCPUThread) {
-		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 		// Sync first, because the CPU is usually faster than the emulated GPU.
 		SyncThread();
 	}
@@ -119,8 +116,6 @@ void GPUCommon::CheckDrawSync() {
 
 int GPUCommon::ListSync(int listid, int mode) {
 	if (g_Config.bSeparateCPUThread) {
-		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 		// Sync first, because the CPU is usually faster than the emulated GPU.
 		SyncThread();
 	}
