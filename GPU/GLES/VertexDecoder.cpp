@@ -927,10 +927,10 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
+#ifdef ARM
+
 static const float by128 = 1.0f / 128.0f;
 static const float by32768 = 1.0f / 32768.0f;
-
-#ifdef ARM
 
 using namespace ArmGen;
 
@@ -1373,6 +1373,9 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 
 using namespace Gen;
 
+static const float MEMORY_ALIGNED16( by128[4] ) = {1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f};
+static const float MEMORY_ALIGNED16( by32768[4] ) = {1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f};
+
 #ifdef _M_X64
 #ifdef _WIN32
 static const X64Reg tempReg1 = RAX;
@@ -1400,12 +1403,13 @@ static const X64Reg counterReg = ECX;
 
 // XMM0-XMM5 are volatile on Windows X64
 // XMM0-XMM7 are arguments (and thus volatile) on System V ABI (other x64 platforms)
-static const X64Reg fpUscaleReg = XMM0;
-static const X64Reg fpVscaleReg = XMM1;
-static const X64Reg fpUoffsetReg = XMM2;
-static const X64Reg fpVoffsetReg = XMM3;
-static const X64Reg fpScratchReg = XMM4;
-static const X64Reg fpScratchReg2 = XMM5;
+static const X64Reg fpScaleReg = XMM0;
+static const X64Reg fpOffsetReg = XMM1;
+static const X64Reg fpScratchReg = XMM2;
+static const X64Reg fpScratchReg2 = XMM3;
+// We're gonna keep the current skinning matrix in 3 or 4 XMM regs. Fortunately we easily
+// have space for that now.
+
 
 // To debug, just comment them out one at a time until it works. We fall back
 // on the interpreter if the compiler fails.
@@ -1495,16 +1499,16 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 #else
 		MOV(32, R(tempReg1), Imm32((u32)(&gstate_c.uv)));
 #endif
-		MOVSS(fpUscaleReg, MDisp(tempReg1, 0));
-		MOVSS(fpVscaleReg, MDisp(tempReg1, 4));
-		MOVSS(fpUoffsetReg, MDisp(tempReg1, 8));
-		MOVSS(fpVoffsetReg, MDisp(tempReg1, 12));
+		MOVSS(fpScaleReg, MDisp(tempReg1, 0));
+		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
+		UNPCKLPS(fpScaleReg, R(fpScratchReg));
+		MOVSS(fpOffsetReg, MDisp(tempReg1, 8));
+		MOVSS(fpScratchReg, MDisp(tempReg1, 12));
+		UNPCKLPS(fpOffsetReg, R(fpScratchReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MULSS(fpUscaleReg, M((void *)&by128));
-			MULSS(fpVscaleReg, M((void *)&by128));
+			MULPS(fpScaleReg, M((void *)&by128));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MULSS(fpUscaleReg, M((void *)&by32768));
-			MULSS(fpVscaleReg, M((void *)&by32768));
+			MULPS(fpScaleReg, M((void *)&by32768));
 		}
 	}
 
@@ -1611,43 +1615,34 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	// TODO: SIMD
+	// TODO: The first five instructions could be done in 1 or 2 in SSE4
 	MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->tcoff + 1));
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
-	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratchReg2, R(fpVscaleReg));
-	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratchReg2, R(fpVoffsetReg));
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	MULPS(fpScratchReg, R(fpScaleReg));
+	ADDPS(fpScratchReg, R(fpOffsetReg));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	// TODO: SIMD
+	// TODO: The first five instructions could be done in 1 or 2 in SSE4 and probably in 3 in SSE2
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
-	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratchReg2, R(fpVscaleReg));
-	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratchReg2, R(fpVoffsetReg));
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	MULPS(fpScratchReg, R(fpScaleReg));
+	ADDPS(fpScratchReg, R(fpOffsetReg));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
-	// TODO: SIMD
-	MOVSS(fpScratchReg, MDisp(srcReg, dec_->tcoff));
-	MOVSS(fpScratchReg2, MDisp(srcReg, dec_->tcoff + 4));
-	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratchReg2, R(fpVscaleReg));
-	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratchReg2, R(fpVoffsetReg));
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+	MOVQ_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	MULPS(fpScratchReg, R(fpScaleReg));
+	ADDPS(fpScratchReg, R(fpOffsetReg));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
