@@ -144,6 +144,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("RenderingMode", &iRenderingMode, renderingModeDefault);
 	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
+	graphics->Get("SoftwareSkinning", &bSoftwareSkinning, false);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	// Auto on Windows, 1x elsewhere. Maybe change to 2x on large screens?
 #ifdef _WIN32
@@ -401,6 +402,7 @@ void Config::Save() {
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("SoftwareRendering", bSoftwareRendering);
 		graphics->Set("HardwareTransform", bHardwareTransform);
+		graphics->Set("SoftwareSkinning", bSoftwareSkinning);
 		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("InternalResolution", iInternalResolution);
 		graphics->Set("FrameSkip", iFrameSkip);

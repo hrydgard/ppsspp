@@ -15,11 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "math/lin/matrix4x4.h"
-
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Math3D.h"
 
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
@@ -35,6 +34,10 @@ static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
 static const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
 static const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
+
+// When software skinning. This should be stored in registers instead of memory
+// when jitting.
+float skinMatrix[12];
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
@@ -110,6 +113,57 @@ void VertexDecoder::Step_WeightsFloat() const
 	}
 	while (j & 3)   // Zero additional weights rounding up to 4.
 		wt[j++] = 0.0f;
+}
+
+void VertexDecoder::Step_WeightsU8Skin() const
+{
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
+	const u8 *wdata = (const u8*)(ptr_);
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (wdata[j] != 0) {
+			float weight = wdata[j] / 128.0f;
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weight * bone[i];
+			}
+		}
+	}
+}
+
+void VertexDecoder::Step_WeightsU16Skin() const
+{
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
+	const u16 *wdata = (const u16*)(ptr_);
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (wdata[j] != 0) {
+			float weight = wdata[j] / 32768.0f;
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weight * bone[i];
+			}
+		}
+	}
+}
+
+// Float weights should be uncommon, we can live with having to multiply these by 2.0
+// to avoid special checks in the vertex shader generator.
+// (PSP uses 0.0-2.0 fixed point numbers for weights)
+void VertexDecoder::Step_WeightsFloatSkin() const
+{
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const float *wdata = (const float*)(ptr_);
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		float weight = wdata[j];
+		if (weight > 0.0) {
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weight * bone[i];
+			}
+		}
+	}
 }
 
 void VertexDecoder::Step_TcU8() const
@@ -318,6 +372,29 @@ void VertexDecoder::Step_NormalFloat() const
 		normal[j] = fv[j];
 }
 
+void VertexDecoder::Step_NormalS8Skin() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const s8 *sv = (const s8*)(ptr_ + nrmoff);
+	const float fn[3] = { sv[0] / 128.0f, sv[1] / 128.0f, sv[2] / 128.0f };
+	Norm3ByMatrix43(normal, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalS16Skin() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const s16 *sv = (const s16*)(ptr_ + nrmoff);
+	const float fn[3] = { sv[0] / 32768.0f, sv[1] / 32768.0f, sv[2] / 32768.0f };
+	Norm3ByMatrix43(normal, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalFloatSkin() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const float *fn = (const float *)(ptr_ + nrmoff);
+	Norm3ByMatrix43(normal, fn, skinMatrix);
+}
+
 void VertexDecoder::Step_NormalS8Morph() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
@@ -380,6 +457,29 @@ void VertexDecoder::Step_PosFloat() const
 	u8 *v = (u8 *)(decoded_ + decFmt.posoff);
 	const u8 *fv = (const u8*)(ptr_ + posoff);
 	memcpy(v, fv, 12);
+}
+
+void VertexDecoder::Step_PosS8Skin() const
+{
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	const s8 *sv = (const s8*)(ptr_ + posoff);
+	const float fn[3] = { sv[0] / 128.0f, sv[1] / 128.0f, sv[2] / 128.0f };
+	Vec3ByMatrix43(pos, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_PosS16Skin() const
+{
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	const s16 *sv = (const s16*)(ptr_ + posoff);
+	const float fn[3] = { sv[0] / 32768.0f, sv[1] / 32768.0f, sv[2] / 32768.0f };
+	Vec3ByMatrix43(pos, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_PosFloatSkin() const
+{
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	const float *fn = (const float *)(ptr_ + posoff);
+	Vec3ByMatrix43(pos, fn, skinMatrix);
 }
 
 void VertexDecoder::Step_PosS8Through() const
@@ -449,6 +549,13 @@ static const StepFunction wtstep[4] = {
 	&VertexDecoder::Step_WeightsFloat,
 };
 
+static const StepFunction wtstep_skin[4] = {
+	0,
+	&VertexDecoder::Step_WeightsU8Skin,
+	&VertexDecoder::Step_WeightsU16Skin,
+	&VertexDecoder::Step_WeightsFloatSkin,
+};
+
 static const StepFunction tcstep[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
@@ -510,6 +617,13 @@ static const StepFunction nrmstep[4] = {
 	&VertexDecoder::Step_NormalFloat,
 };
 
+static const StepFunction nrmstep_skin[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8Skin,
+	&VertexDecoder::Step_NormalS16Skin,
+	&VertexDecoder::Step_NormalFloatSkin,
+};
+
 static const StepFunction nrmstep_morph[4] = {
 	0,
 	&VertexDecoder::Step_NormalS8Morph,
@@ -522,6 +636,13 @@ static const StepFunction posstep[4] = {
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS16,
 	&VertexDecoder::Step_PosFloat,
+};
+
+static const StepFunction posstep_skin[4] = {
+	0,
+	&VertexDecoder::Step_PosS8Skin,
+	&VertexDecoder::Step_PosS16Skin,
+	&VertexDecoder::Step_PosFloatSkin,
 };
 
 static const StepFunction posstep_morph[4] = {
@@ -564,6 +685,8 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
 	}
 
+	bool skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning && morphcount == 1;
+
 	if (weighttype) { // && nweights?
 		weightoff = size;
 		//size = align(size, wtalign[weighttype]);	unnecessary
@@ -571,30 +694,35 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
 
-		steps_[numSteps_++] = wtstep[weighttype];
-
-		int fmtBase = DEC_FLOAT_1;
-		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-			fmtBase = DEC_U8_1;
-		} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-			fmtBase = DEC_U16_1;
-		} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
-			fmtBase = DEC_FLOAT_1;
-		}
-
-		int numWeights = TranslateNumBones(nweights);
-
-		if (numWeights <= 4) {
-			decFmt.w0off = decOff;
-			decFmt.w0fmt = fmtBase + numWeights - 1;
-			decOff += DecFmtSize(decFmt.w0fmt);
+		if (skinInDecode) {
+			steps_[numSteps_++] = wtstep_skin[weighttype];
+			// No visible output
 		} else {
-			decFmt.w0off = decOff;
-			decFmt.w0fmt = fmtBase + 3;
-			decOff += DecFmtSize(decFmt.w0fmt);
-			decFmt.w1off = decOff;
-			decFmt.w1fmt = fmtBase + numWeights - 5;
-			decOff += DecFmtSize(decFmt.w1fmt);
+			steps_[numSteps_++] = wtstep[weighttype];
+
+			int fmtBase = DEC_FLOAT_1;
+			if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+				fmtBase = DEC_U8_1;
+			} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+				fmtBase = DEC_U16_1;
+			} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+				fmtBase = DEC_FLOAT_1;
+			}
+
+			int numWeights = TranslateNumBones(nweights);
+
+			if (numWeights <= 4) {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + numWeights - 1;
+				decOff += DecFmtSize(decFmt.w0fmt);
+			} else {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + 3;
+				decOff += DecFmtSize(decFmt.w0fmt);
+				decFmt.w1off = decOff;
+				decFmt.w1fmt = fmtBase + numWeights - 5;
+				decOff += DecFmtSize(decFmt.w1fmt);
+			}
 		}
 	}
 
@@ -656,26 +784,29 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm]; 
 
-		steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
-
-		if (morphcount == 1) {
-			// The normal formats match the gl formats perfectly, let's use 'em.
-			switch (nrm) {
-			case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
-			case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
-			case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
-			}
-		} else {
+		if (skinInDecode) {
+			steps_[numSteps_++] = nrmstep_skin[nrm];
+			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
-		}
+		} else {
+			steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
 
-		// Actually, temporarily let's not.
+			if (morphcount == 1) {
+				// The normal formats match the gl formats perfectly, let's use 'em.
+				switch (nrm) {
+				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
+				case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
+				case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+				}
+			} else {
+				decFmt.nrmfmt = DEC_FLOAT_3;
+			}
+		}
 		decFmt.nrmoff = decOff;
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
-	if (pos)  // there's always a position
-	{
+	if (pos) { // there's always a position
 		size = align(size, posalign[pos]);
 		posoff = size;
 		size += possize[pos];
@@ -686,18 +817,23 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 			steps_[numSteps_++] = posstep_through[pos];
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
-			steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
-
-			if (morphcount == 1) {
-				// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
-				switch (pos) {
-				case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
-				case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
-				case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
-				}
-			} else {
-				// Actually, temporarily let's not.
+			if (skinInDecode) {
+				steps_[numSteps_++] = posstep_skin[pos];
 				decFmt.posfmt = DEC_FLOAT_3;
+			} else {
+				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
+
+				if (morphcount == 1) {
+					// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
+					switch (pos) {
+					case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+					case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
+					case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
+					}
+				} else {
+					// Actually, temporarily let's not.
+					decFmt.posfmt = DEC_FLOAT_3;
+				}
 			}
 		}
 		decFmt.posoff = decOff;

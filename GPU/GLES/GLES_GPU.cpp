@@ -430,6 +430,12 @@ GLES_GPU::GLES_GPU()
 		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
+	// TODO: Can't turn this optimization on until we don't decode everything in one go
+	// but instead decode for every draw call when sw skinning
+	if (g_Config.bSoftwareSkinning) {
+		// commandFlags_[GE_CMD_VERTEXTYPE] &= ~FLAG_FLUSHBEFOREONCHANGE;
+	}
+
 	BuildReportingInfo();
 }
 
@@ -868,8 +874,21 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff) {
+			if (!g_Config.bSoftwareSkinning) {
+				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			} else if (false) {
+				// TODO: Can't turn this optimization on until we don't decode everything in one go
+				// but instead decode for every draw call when sw skinning
+				if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+					// Restore and flush
+					gstate.vertType ^= diff;
+					Flush();
+					gstate.vertType ^= diff;
+					shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+				}
+			}
+		}
 		break;
 
 	case GE_CMD_REGION1:
@@ -1375,9 +1394,14 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			int num = gstate.boneMatrixNumber & 0x7F;
 			float newVal = getFloat24(data);
 			if (num < 96 && newVal != gstate.boneMatrix[num]) {
-				Flush();
+				// Bone matrices should NOT flush when software skinning is enabled!
+				// TODO: Also check for morph...
+				// TODO: Can't turn this optimizatoin on until we decode per drawcall when sw skinning.
+				if (true || !g_Config.bSoftwareSkinning) {
+					Flush();
+					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+				}
 				gstate.boneMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			}
 			num++;
 			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
