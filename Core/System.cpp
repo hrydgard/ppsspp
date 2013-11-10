@@ -147,6 +147,7 @@ void CPU_WaitStatus(condition_variable &cond, bool (*pred)()) {
 void CPU_Shutdown();
 
 void CPU_Init() {
+	coreState = CORE_POWERUP;
 	currentCPU = &mipsr4k;
 	numCPUs = 1;
 

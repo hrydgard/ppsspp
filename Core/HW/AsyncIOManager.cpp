@@ -41,7 +41,7 @@ bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 bool AsyncIOManager::WaitResult(u32 handle, AsyncIOResult &result) {
 	lock_guard guard(resultsLock_);
 	ScheduleEvent(IO_EVENT_SYNC);
-	while (HasEvents() && resultsPending_.find(handle) != resultsPending_.end()) {
+	while (HasEvents() && ThreadEnabled() && resultsPending_.find(handle) != resultsPending_.end()) {
 		if (PopResult(handle, result)) {
 			return true;
 		}

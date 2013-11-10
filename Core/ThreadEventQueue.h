@@ -31,6 +31,10 @@ struct ThreadEventQueue : public B {
 		threadEnabled_ = threadEnabled;
 	}
 
+	bool ThreadEnabled() {
+		return threadEnabled_;
+	}
+
 	void ScheduleEvent(Event ev) {
 		{
 			lock_guard guard(eventsLock_);

@@ -267,6 +267,7 @@ reswitch:
 #endif
 			break;
 
+		case CORE_POWERUP:
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
 			// Exit loop!!
