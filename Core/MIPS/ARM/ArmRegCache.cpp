@@ -103,7 +103,7 @@ bool ArmRegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 	if (!(mapFlags & MAP_NOINIT)) {
-		if (mipsReg == 0) {
+		if (mipsReg == MIPS_REG_ZERO) {
 			// If we get a request to load the zero register, at least we won't spend
 			// time on a memory access...
 			// TODO: EOR?
@@ -290,7 +290,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "FlushMipsReg: MipsReg had bad ArmReg");
+			ERROR_LOG(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
@@ -314,7 +314,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 		break;
 
 	default:
-		//BAD
+		ERROR_LOG(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
 	mr[r].loc = ML_MEM;
@@ -425,11 +425,11 @@ void ArmRegCache::FlushAll() {
 }
 
 void ArmRegCache::SetImm(MIPSGPReg r, u32 immVal) {
-	if (r == MIPS_REG_ZERO)
+	if (r == MIPS_REG_ZERO && immVal != 0)
 		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
 
 	// Zap existing value if cached in a reg
-	if (mr[r].loc == ML_ARMREG || mr[r].loc == ML_ARMREG_AS_PTR) {
+	if (mr[r].reg != INVALID_REG) {
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		ar[mr[r].reg].isDirty = false;
 	}
