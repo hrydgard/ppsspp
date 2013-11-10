@@ -450,14 +450,32 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType)
+	void Jit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType, int sa)
 	{
 		MIPSGPReg rd = _RD;
 		MIPSGPReg rt = _RT;
-		int sa = _SA;
-		
-		gpr.MapDirtyIn(rd, rt);
-		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
+
+		if (gpr.IsImm(rt)) {
+			switch (shiftType) {
+			case ST_LSL:
+				gpr.SetImm(rd, gpr.GetImm(rt) << sa);
+				break;
+			case ST_LSR:
+				gpr.SetImm(rd, gpr.GetImm(rt) >> sa);
+				break;
+			case ST_ASR:
+				gpr.SetImm(rd, (int)gpr.GetImm(rt) >> sa);
+				break;
+			case ST_ROR:
+				gpr.SetImm(rd, (gpr.GetImm(rt) >> sa) | (gpr.GetImm(rt) << (32 - sa)));
+				break;
+			default:
+				DISABLE;
+			}
+		} else {
+			gpr.MapDirtyIn(rd, rt);
+			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
+		}
 	}
 
 	void Jit::CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType)
@@ -465,11 +483,9 @@ namespace MIPSComp
 		MIPSGPReg rd = _RD;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
-		if (gpr.IsImm(rs))
-		{
+		if (gpr.IsImm(rs)) {
 			int sa = gpr.GetImm(rs) & 0x1F;
-			gpr.MapDirtyIn(rd, rt);
-			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
+			CompShiftImm(op, shiftType, sa);
 			return;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
@@ -483,6 +499,7 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rd = _RD;
 		int fd = _FD;
+		int sa = _SA;
 
 		// noop, won't write to ZERO.
 		if (rd == 0)
@@ -491,9 +508,9 @@ namespace MIPSComp
 		// WARNING : ROTR
 		switch (op & 0x3f)
 		{
-		case 0: CompShiftImm(op, ST_LSL); break; //sll
-		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	//srl
-		case 3: CompShiftImm(op, ST_ASR); break; //sra
+		case 0: CompShiftImm(op, ST_LSL, sa); break; //sll
+		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR, sa); break;	//srl
+		case 3: CompShiftImm(op, ST_ASR, sa); break; //sra
 		case 4: CompShiftVar(op, ST_LSL); break; //sllv
 		case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
 		case 7: CompShiftVar(op, ST_ASR); break; //srav
