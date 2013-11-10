@@ -1187,9 +1187,9 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
 		if (diff)	{
-			float r = (float)(data & 0xff)/255.0f;
-			float g = (float)((data>>8) & 0xff)/255.0f;
-			float b = (float)(data>>16)/255.0f;
+			float r = (float)(data & 0xff) * (1.0f / 255.0f);
+			float g = (float)((data >> 8) & 0xff) * (1.0f / 255.0f);
+			float b = (float)(data >> 16) * (1.0f / 255.0f);
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
@@ -1318,10 +1318,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_WORLDMATRIXDATA:
 		{
 			int num = gstate.worldmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (num < 12 && newVal != gstate.worldMatrix[num]) {
+			u32 newVal = data << 8;
+			if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
 				Flush();
-				gstate.worldMatrix[num] = newVal;
+				((u32 *)gstate.worldMatrix)[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 			}
 			num++;
@@ -1336,10 +1336,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VIEWMATRIXDATA:
 		{
 			int num = gstate.viewmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (num < 12 && newVal != gstate.viewMatrix[num]) {
+			u32 newVal = data << 8;
+			if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
 				Flush();
-				gstate.viewMatrix[num] = newVal;
+				((u32 *)gstate.viewMatrix)[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 			}
 			num++;
@@ -1354,10 +1354,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_PROJMATRIXDATA:
 		{
 			int num = gstate.projmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (newVal != gstate.projMatrix[num]) {
+			u32 newVal = data << 8;
+			if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
 				Flush();
-				gstate.projMatrix[num] = newVal;
+				((u32 *)gstate.projMatrix)[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 			}
 			num++;
@@ -1372,10 +1372,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TGENMATRIXDATA:
 		{
 			int num = gstate.texmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (num < 12 && newVal != gstate.tgenMatrix[num]) {
+			u32 newVal = data << 8;
+			if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
 				Flush();
-				gstate.tgenMatrix[num] = newVal;
+				((u32 *)gstate.tgenMatrix)[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 			}
 			num++;
