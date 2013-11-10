@@ -345,6 +345,9 @@ void PSP_RunLoopUntil(u64 globalticks) {
 			// TODO: Something smarter?  Or force CPU to bail periodically?
 			while (!CPU_IsReady()) {
 				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
+				if (coreState != CORE_RUNNING) {
+					CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
+				}
 			}
 		} else {
 			ERROR_LOG(CPU, "Unable to execute CPU run loop, unexpected state: %d", cpuThreadState);
