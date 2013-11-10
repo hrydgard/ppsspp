@@ -983,7 +983,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				}
 
 				if (gstate.isModeClear()) {
-					new_color = (new_color & gstate.getClearModeColorMask()) | (old_color & ~gstate.getClearModeColorMask());
+					new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
 				} else {
 					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 				}
