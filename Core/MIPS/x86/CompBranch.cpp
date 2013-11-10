@@ -187,7 +187,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	else
 	{
 		gpr.MapReg(rs, true, false);
-		CMP(32, gpr.R(rs), rt == MIPS_REG_ZERO ? Imm32(0) : gpr.R(rt));
+		CMP(32, gpr.R(rs), gpr.R(rt));
 	}
 
 	Gen::FixupBranch ptr;

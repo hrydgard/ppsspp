@@ -71,33 +71,38 @@ void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-	{
+	// We might be able to flip the condition (EQ/NEQ are easy.)
+	const bool canFlip = cc == CC_EQ || cc == CC_NEQ;
+
+	Operand2 op2;
+	bool negated;
+	if (gpr.IsImm(rt) && TryMakeOperand2_AllowNegation(gpr.GetImm(rt), op2, &negated)) {
 		gpr.MapReg(rs);
-		CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
-	}
-	else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
-	{
-		gpr.MapReg(rt);
-		CMP(gpr.R(rt), Operand2(0, TYPE_IMM));
-	}
-	else
-	{
-		gpr.MapInIn(rs, rt);
-		CMP(gpr.R(rs), gpr.R(rt));
+		if (!negated)
+			CMP(gpr.R(rs), op2);
+		else
+			CMN(gpr.R(rs), op2);
+	} else {
+		if (gpr.IsImm(rs) && TryMakeOperand2_AllowNegation(gpr.GetImm(rs), op2, &negated) && canFlip) {
+			gpr.MapReg(rt);
+			if (!negated)
+				CMP(gpr.R(rt), op2);
+			else
+				CMN(gpr.R(rt), op2);
+		} else {
+			gpr.MapInIn(rs, rt);
+			CMP(gpr.R(rs), gpr.R(rt));
+		}
 	}
 
 	ArmGen::FixupBranch ptr;
-	if (!likely)
-	{
+	if (!likely) {
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
 		ptr = B_CC(cc);
-	}
-	else
-	{
+	} else {
 		FlushAll();
 		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
