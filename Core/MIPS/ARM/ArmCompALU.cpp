@@ -673,41 +673,68 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rd = _RD;
 
-		switch (op & 63) 
-		{
+		switch (op & 63) {
 		case 16: // R(rd) = HI; //mfhi
+			if (gpr.IsImm(MIPS_REG_HI)) {
+				gpr.SetImm(rd, gpr.GetImm(MIPS_REG_HI));
+				break;
+			}
 			gpr.MapDirtyIn(rd, MIPS_REG_HI);
 			MOV(gpr.R(rd), gpr.R(MIPS_REG_HI));
 			break; 
 
 		case 17: // HI = R(rs); //mthi
+			if (gpr.IsImm(rs)) {
+				gpr.SetImm(MIPS_REG_HI, gpr.GetImm(rs));
+				break;
+			}
 			gpr.MapDirtyIn(MIPS_REG_HI, rs);
 			MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
 			break; 
 
 		case 18: // R(rd) = LO; break; //mflo
+			if (gpr.IsImm(MIPS_REG_LO)) {
+				gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO));
+				break;
+			}
 			gpr.MapDirtyIn(rd, MIPS_REG_LO);
 			MOV(gpr.R(rd), gpr.R(MIPS_REG_LO));
 			break;
 
 		case 19: // LO = R(rs); break; //mtlo
+			if (gpr.IsImm(rs)) {
+				gpr.SetImm(MIPS_REG_LO, gpr.GetImm(rs));
+				break;
+			}
 			gpr.MapDirtyIn(MIPS_REG_LO, rs);
 			MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
 			break; 
 
 		case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
+			if (gpr.IsImm(rs) && gpr.IsImm(rs)) {
+				s64 result = (s64)(s32)gpr.GetImm(rs) * (s64)(s32)gpr.GetImm(rt);
+				u64 resultBits = (u64)result;
+				gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
+				gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
+				break;
+			}
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 			SMULL(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
+			if (gpr.IsImm(rs) && gpr.IsImm(rs)) {
+				u64 resultBits = (u64)gpr.GetImm(rs) * (u64)gpr.GetImm(rt);
+				gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
+				gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
+				break;
+			}
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 			UMULL(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 26: //div
-			if (cpu_info.bIDIVa)
-			{
+			if (cpu_info.bIDIVa) {
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
