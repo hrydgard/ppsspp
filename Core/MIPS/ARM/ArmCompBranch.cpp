@@ -384,9 +384,10 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 	ARMReg destReg = R8;
 	if (IsSyscall(delaySlotOp)) {
+		_dbg_assert_msg_(JIT, (op & 0x3f) == 8, "jalr followed by syscall not supported.");
+
 		gpr.MapReg(rs);
-		MOV(R8, gpr.R(rs)); 
-		MovToPC(R8);  // For syscall to be able to return.
+		MovToPC(gpr.R(rs));  // For syscall to be able to return.
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
@@ -398,6 +399,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			// Let's discard them so we don't need to write them back.
 			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
 			// with this enabled.
+			gpr.DiscardR(MIPS_REG_COMPILER_SCRATCH);
 			for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; i++)
 				gpr.DiscardR((MIPSGPReg)i);
 			gpr.DiscardR(MIPS_REG_T8);
@@ -405,9 +407,9 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		}
 		FlushAll();
 	} else {
-		// Delay slot
+		// Delay slot - this case is very rare, might be able to free up R8.
 		gpr.MapReg(rs);
-		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
+		MOV(R8, gpr.R(rs));
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 	}

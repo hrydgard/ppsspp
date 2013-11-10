@@ -583,6 +583,8 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 	if (IsSyscall(delaySlotOp))
 	{
+		_dbg_assert_msg_(JIT, (op & 0x3f) == 8, "jalr followed by syscall not supported.");
+
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
