@@ -325,8 +325,14 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	if (uvScale) {
 		uvScale[numDrawCalls] = gstate_c.uv;
 	}
+
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		DecodeVertsStep();
+		decodeCounter_++;
+	}
 }
 
 void TransformDrawEngine::DecodeVerts() {
