@@ -20,6 +20,8 @@
 
 #ifdef __APPLE__
 #include <mach/mach.h>
+#elif defined(ANDROID)
+#include <sys/syscall.h>
 #elif defined BSD4_4
 #include <pthread_np.h>
 #endif
@@ -48,14 +50,14 @@ int CurrentThreadId()
 	
 #ifdef _WIN32
 
-void SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
+bool SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
 {
-	SetThreadAffinityMask(thread, mask);
+	return SetThreadAffinityMask(thread, mask) != 0;
 }
 
-void SetCurrentThreadAffinity(u32 mask)
+bool SetCurrentThreadAffinity(u32 mask)
 {
-	SetThreadAffinityMask(GetCurrentThread(), mask);
+	return SetThreadAffinityMask(GetCurrentThread(), mask) != 0;
 }
 
 // Supporting functions
@@ -127,29 +129,36 @@ void EnableCrashingOnCrashes()
 
 #else // !WIN32, so must be POSIX threads
 
-void SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
+bool SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
 {                
 #ifdef __APPLE__
-	thread_policy_set(pthread_mach_thread_np(thread),
-		THREAD_AFFINITY_POLICY, (integer_t *)&mask, 1);
-#elif (defined __linux__ || defined BSD4_4) && !defined(ANDROID)
+	return thread_policy_set(pthread_mach_thread_np(thread),
+		THREAD_AFFINITY_POLICY, (integer_t *)&mask, 1) == 0;
+#elif defined(ANDROID) || defined(BLACKBERRY)
+	return false;
+#elif (defined __linux__ || defined BSD4_4)
 	cpu_set_t cpu_set;
 	CPU_ZERO(&cpu_set);
                 
-	for (int i = 0; i != sizeof(mask) * 8; ++i)
+	for (int i = 0; i != sizeof(mask) * 8; ++i) {
 		if ((mask >> i) & 1)
 			CPU_SET(i, &cpu_set);
+	}
                 
-	pthread_setaffinity_np(thread, sizeof(cpu_set), &cpu_set);
+	return pthread_setaffinity_np(thread, sizeof(cpu_set), &cpu_set) == 0;
 #endif
+
+	return false;
 }
 
-void SetCurrentThreadAffinity(u32 mask)
+bool SetCurrentThreadAffinity(u32 mask)
 {
 #ifdef BLACKBERRY
-	ThreadCtl(_NTO_TCTL_RUNMASK, &mask);
+	return ThreadCtl(_NTO_TCTL_RUNMASK, &mask) != -1;
+#elif defined(ANDROID)
+	return syscall(__NR_sched_setaffinity, gettid(), sizeof(mask), &mask) == 0;
 #else
-	SetThreadAffinity(pthread_self(), mask);
+	return SetThreadAffinity(pthread_self(), mask);
 #endif
 }
 

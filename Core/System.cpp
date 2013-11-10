@@ -147,6 +147,7 @@ void CPU_WaitStatus(condition_variable &cond, bool (*pred)()) {
 void CPU_Shutdown();
 
 void CPU_Init() {
+	coreState = CORE_POWERUP;
 	currentCPU = &mipsr4k;
 	numCPUs = 1;
 
@@ -335,12 +336,18 @@ void PSP_RunLoopUntil(u64 globalticks) {
 	}
 
 	if (cpuThread != NULL) {
+		// Tell the gpu a new frame is about to begin, before we start the CPU.
+		gpu->SyncBeginFrame();
+
 		cpuThreadUntil = globalticks;
 		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
 			// TODO: Something smarter?  Or force CPU to bail periodically?
 			while (!CPU_IsReady()) {
-				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(100));
+				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
+				if (coreState != CORE_RUNNING) {
+					CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
+				}
 			}
 		} else {
 			ERROR_LOG(CPU, "Unable to execute CPU run loop, unexpected state: %d", cpuThreadState);

@@ -24,11 +24,15 @@
 
 template <typename B, typename Event, typename EventType, EventType EVENT_INVALID, EventType EVENT_SYNC, EventType EVENT_FINISH>
 struct ThreadEventQueue : public B {
-	ThreadEventQueue() : threadEnabled_(false), eventsRunning_(false) {
+	ThreadEventQueue() : threadEnabled_(false), eventsRunning_(false), eventsHaveRun_(false) {
 	}
 
 	void SetThreadEnabled(bool threadEnabled) {
 		threadEnabled_ = threadEnabled;
+	}
+
+	bool ThreadEnabled() {
+		return threadEnabled_;
 	}
 
 	void ScheduleEvent(Event ev) {
@@ -68,6 +72,7 @@ struct ThreadEventQueue : public B {
 	void RunEventsUntil(u64 globalticks) {
 		lock_guard guard(eventsLock_);
 		eventsRunning_ = true;
+		eventsHaveRun_ = true;
 
 		do {
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
@@ -103,6 +108,11 @@ struct ThreadEventQueue : public B {
 		eventsRunning_ = false;
 	}
 
+	void SyncBeginFrame() {
+		lock_guard guard(eventsLock_);
+		eventsHaveRun_ = false;
+	}
+
 	// Force ignores coreState.
 	void SyncThread(bool force = false) {
 		if (!threadEnabled_) {
@@ -113,14 +123,18 @@ struct ThreadEventQueue : public B {
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
-		while (HasEvents() && eventsRunning_ && (force || coreState == CORE_RUNNING)) {
-			eventsDrain_.wait_for(eventsLock_, 1);
+		while (HasEvents() && (eventsRunning_ || !eventsHaveRun_) && (force || coreState == CORE_RUNNING)) {
+			eventsDrain_.wait_for(eventsLock_, 1000);
 		}
 	}
 
 	void FinishEventLoop() {
 		if (threadEnabled_) {
-			ScheduleEvent(EVENT_FINISH);
+			lock_guard guard(eventsLock_);
+			// Don't schedule a finish if it's not even running.
+			if (eventsRunning_) {
+				ScheduleEvent(EVENT_FINISH);
+			}
 		}
 	}
 
@@ -131,6 +145,7 @@ protected:
 private:
 	bool threadEnabled_;
 	bool eventsRunning_;
+	bool eventsHaveRun_;
 	std::deque<Event> events_;
 	recursive_mutex eventsLock_;
 	condition_variable eventsWait_;

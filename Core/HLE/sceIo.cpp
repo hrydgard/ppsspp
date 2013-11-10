@@ -429,7 +429,7 @@ static DirectoryFileSystem *flash0System = NULL;
 
 void __IoManagerThread() {
 	setCurrentThreadName("IOThread");
-	while (ioManagerThreadEnabled) {
+	while (ioManagerThreadEnabled && coreState != CORE_ERROR && coreState != CORE_POWERDOWN) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
 }
