@@ -932,6 +932,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					if (!ColorTestPassed(prim_color_rgb))
 						continue;
 
+				// TODO: Does a need to be clamped?
 				if (gstate.isAlphaTestEnabled() && !gstate.isModeClear())
 					if (!AlphaTestPassed(prim_color_a))
 						continue;
@@ -969,13 +970,11 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				if (prim_color_rgb.r() > 255) prim_color_rgb.r() = 255;
 				if (prim_color_rgb.g() > 255) prim_color_rgb.g() = 255;
 				if (prim_color_rgb.b() > 255) prim_color_rgb.b() = 255;
-				if (prim_color_a > 255) prim_color_a = 255;
 				if (prim_color_rgb.r() < 0) prim_color_rgb.r() = 0;
 				if (prim_color_rgb.g() < 0) prim_color_rgb.g() = 0;
 				if (prim_color_rgb.b() < 0) prim_color_rgb.b() = 0;
-				if (prim_color_a < 0) prim_color_a = 0;
 
-				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA();
+				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), GetPixelStencil(p.x, p.y)).ToRGBA();
 				u32 old_color = GetPixelColor(p.x, p.y);
 
 				// TODO: Is alpha blending still performed if logic ops are enabled?
