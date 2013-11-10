@@ -215,7 +215,7 @@ public:
 		clock_gettime(CLOCK_REALTIME, &timeout);
 #endif
 		timeout.tv_sec += milliseconds / 1000;
-		timeout.tv_nsec += milliseconds * 1000000;
+		timeout.tv_nsec += (milliseconds % 1000) * 1000000;
 		pthread_mutex_lock(&mtx.native_handle());
 		pthread_cond_timedwait(&event_, &mtx.native_handle(), &timeout);
 		pthread_mutex_unlock(&mtx.native_handle());
@@ -321,7 +321,7 @@ public:
 		clock_gettime(CLOCK_REALTIME, &timeout);
 #endif
 		timeout.tv_sec += milliseconds / 1000;
-		timeout.tv_nsec += milliseconds * 1000000;
+		timeout.tv_nsec += (milliseconds % 1000) * 1000000;
 		pthread_cond_timedwait(&event_, &mtx.native_handle(), &timeout);
 #endif
 	}
