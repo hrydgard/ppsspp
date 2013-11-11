@@ -78,10 +78,10 @@ namespace MIPSComp
 			} else {
 				// Try to avoid using MOVT
 				if (offset < 0) {
-					MOVI2R(R0, (u32)(-offset));
+					gpr.SetRegImm(R0, (u32)(-offset));
 					SUB(R0, gpr.R(rs), R0);
 				} else {
-					MOVI2R(R0, (u32)offset);
+					gpr.SetRegImm(R0, (u32)offset);
 					ADD(R0, gpr.R(rs), R0);
 				}
 			}
@@ -156,7 +156,7 @@ namespace MIPSComp
 			u32 addr = iaddr & 0x3FFFFFFF;
 			// Must be OK even if rs == rt since we have the value from imm already.
 			gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
-			MOVI2R(R0, addr & ~3);
+			gpr.SetRegImm(R0, addr & ~3);
 
 			u8 shift = (addr & 3) * 8;
 
@@ -284,6 +284,7 @@ namespace MIPSComp
 
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		bool doCheck = false;
+		ARMReg addrReg = R0;
 
 		switch (o) {
 		case 32: //lb
@@ -327,9 +328,15 @@ namespace MIPSComp
 
 				// We can compute the full address at compile time. Kickass.
 				u32 addr = iaddr & 0x3FFFFFFF;
-				// Must be OK even if rs == rt since we have the value from imm already.
-				gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
-				MOVI2R(R0, addr);
+				// Still flush it, since often these will be in a row.
+				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+				if (addr == iaddr && offset == 0) {
+					// It was already safe.  Let's shove it into a reg and use it directly.
+					addrReg = gpr.R(rs);
+				} else {
+					gpr.SetRegImm(R0, addr);
+					addrReg = R0;
+				}
 			} else {
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
@@ -340,20 +347,21 @@ namespace MIPSComp
 				} else {
 					SetR0ToEffectiveAddress(rs, offset);
 				}
+				addrReg = R0;
 			}
 
 			switch (o)
 			{
 			// Load
-			case 35: LDR  (gpr.R(rt), R11, R0); break;
-			case 37: LDRH (gpr.R(rt), R11, R0); break;
-			case 33: LDRSH(gpr.R(rt), R11, R0); break;
-			case 36: LDRB (gpr.R(rt), R11, R0); break;
-			case 32: LDRSB(gpr.R(rt), R11, R0); break;
+			case 35: LDR  (gpr.R(rt), R11, addrReg); break;
+			case 37: LDRH (gpr.R(rt), R11, addrReg); break;
+			case 33: LDRSH(gpr.R(rt), R11, addrReg); break;
+			case 36: LDRB (gpr.R(rt), R11, addrReg); break;
+			case 32: LDRSB(gpr.R(rt), R11, addrReg); break;
 			// Store
-			case 43: STR  (gpr.R(rt), R11, R0); break;
-			case 41: STRH (gpr.R(rt), R11, R0); break;
-			case 40: STRB (gpr.R(rt), R11, R0); break;
+			case 43: STR  (gpr.R(rt), R11, addrReg); break;
+			case 41: STRH (gpr.R(rt), R11, addrReg); break;
+			case 40: STRB (gpr.R(rt), R11, addrReg); break;
 			}
 			if (doCheck) {
 				if (load) {
@@ -372,8 +380,13 @@ namespace MIPSComp
 			break;
 		default:
 			Comp_Generic(op);
-			return ;
+			return;
 		}
+	}
 
+	void Jit::Comp_Cache(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		// TODO: Could use this as a hint, and technically required to handle icache, etc.
+		// But right now Int_Cache does nothing, so let's not even call it.
 	}
 }

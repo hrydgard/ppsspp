@@ -176,6 +176,7 @@ namespace MIPSComp
 
 		// Ops
 		void Comp_ITypeMem(MIPSOpcode op);
+		void Comp_Cache(MIPSOpcode op);
 
 		void Comp_RelBranch(MIPSOpcode op);
 		void Comp_RelBranchRI(MIPSOpcode op);

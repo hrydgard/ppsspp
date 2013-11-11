@@ -187,7 +187,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	else
 	{
 		gpr.MapReg(rs, true, false);
-		CMP(32, gpr.R(rs), rt == MIPS_REG_ZERO ? Imm32(0) : gpr.R(rt));
+		CMP(32, gpr.R(rs), gpr.R(rt));
 	}
 
 	Gen::FixupBranch ptr;
@@ -583,6 +583,8 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 	if (IsSyscall(delaySlotOp))
 	{
+		_dbg_assert_msg_(JIT, (op & 0x3f) == 8, "jalr followed by syscall not supported.");
+
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));

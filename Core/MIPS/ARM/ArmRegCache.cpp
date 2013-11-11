@@ -100,25 +100,88 @@ bool ArmRegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG_AS_PTR;
 }
 
+void ArmRegCache::SetRegImm(ARMReg reg, u32 imm) {
+	// If we can do it with a simple Operand2, let's do that.
+	Operand2 op2;
+	bool inverse;
+	if (TryMakeOperand2_AllowInverse(imm, op2, &inverse)) {
+		if (!inverse)
+			emit_->MOV(reg, op2);
+		else
+			emit_->MVN(reg, op2);
+		return;
+	}
+
+	// Okay, so it's a bit more complex.  Let's see if we have any useful regs with imm values.
+	for (int i = 0; i < NUM_MIPSREG; i++) {
+		const auto &mreg = mr[i];
+		if (mreg.loc != ML_ARMREG_IMM)
+			continue;
+
+		if (mreg.imm - imm < 256) {
+			emit_->SUB(reg, mreg.reg, mreg.imm - imm);
+			return;
+		}
+		if (imm - mreg.imm < 256) {
+			emit_->ADD(reg, mreg.reg, imm - mreg.imm);
+			return;
+		}
+		// This could be common when using an address.
+		if ((mreg.imm & 0x3FFFFFFF) == imm) {
+			emit_->BIC(reg, mreg.reg, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+			return;
+		}
+		// TODO: All sorts of things are possible here, shifted adds, ands/ors, etc.
+	}
+
+	// No luck.  Let's go with a regular load.
+	emit_->MOVI2R(reg, imm);
+}
+
 void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 	if (!(mapFlags & MAP_NOINIT)) {
-		if (mipsReg == 0) {
+		if (mipsReg == MIPS_REG_ZERO) {
 			// If we get a request to load the zero register, at least we won't spend
 			// time on a memory access...
 			// TODO: EOR?
 			emit_->MOV(reg, 0);
+
+			// This way, if we SetImm() it, we'll keep it.
+			mr[mipsReg].loc = ML_ARMREG_IMM;
+			mr[mipsReg].imm = 0;
 		} else {
-			if (mr[mipsReg].loc == ML_MEM) {
+			switch (mr[mipsReg].loc) {
+			case ML_MEM:
 				emit_->LDR(reg, CTXREG, GetMipsRegOffset(mipsReg));
-			} else if (mr[mipsReg].loc == ML_IMM) {
-				emit_->MOVI2R(reg, mr[mipsReg].imm);
+				mr[mipsReg].loc = ML_ARMREG;
+				break;
+			case ML_IMM:
+				SetRegImm(reg, mr[mipsReg].imm);
 				ar[reg].isDirty = true;  // IMM is always dirty.
+
+				// If we are mapping dirty, it means we're gonna overwrite.
+				// So the imm value is no longer valid.
+				if (mapFlags & MAP_DIRTY)
+					mr[mipsReg].loc = ML_ARMREG;
+				else
+					mr[mipsReg].loc = ML_ARMREG_IMM;
+				break;
+			default:
+				mr[mipsReg].loc = ML_ARMREG;
+				break;
 			}
+		}
+	} else {
+		if (mipsReg == MIPS_REG_ZERO) {
+			// This way, if we SetImm() it, we'll keep it.
+			mr[mipsReg].loc = ML_ARMREG_IMM;
+			mr[mipsReg].imm = 0;
+		} else {
+			mr[mipsReg].loc = ML_ARMREG;
 		}
 	}
 	ar[reg].mipsReg = mipsReg;
-	mr[mipsReg].loc = ML_ARMREG;
 	mr[mipsReg].reg = reg;
 }
 
@@ -128,12 +191,14 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
-	if (mr[mipsReg].loc == ML_ARMREG) {
+	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		ARMReg armReg = mr[mipsReg].reg;
 		if (ar[armReg].mipsReg != mipsReg) {
 			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
+			// Mapping dirty means the old imm value is invalid.
+			mr[mipsReg].loc = ML_ARMREG;
 			ar[armReg].isDirty = true;
 		}
 		return (ARMReg)mr[mipsReg].reg;
@@ -142,7 +207,9 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 		// add or subtract stuff to it. Later we could allow such things but for now
 		// let's just convert back to a register value by reloading from the backing storage.
 		ARMReg armReg = mr[mipsReg].reg;
-		emit_->LDR(armReg, CTXREG, GetMipsRegOffset(mipsReg));
+		if (!(mapFlags & MAP_NOINIT)) {
+			emit_->LDR(armReg, CTXREG, GetMipsRegOffset(mipsReg));
+		}
 		mr[mipsReg].loc = ML_ARMREG;
 		if (mapFlags & MAP_DIRTY) {
 			ar[armReg].isDirty = true;
@@ -254,7 +321,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 		return;
 	}
 	if (ar[r].mipsReg != MIPS_REG_INVALID) {
-		if (ar[r].isDirty && mr[ar[r].mipsReg].loc == ML_ARMREG)
+		if (ar[r].isDirty && (mr[ar[r].mipsReg].loc == ML_ARMREG || mr[ar[r].mipsReg].loc == ML_ARMREG_IMM))
 			emit_->STR(r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
 		// IMMs won't be in an ARM reg.
 		mr[ar[r].mipsReg].loc = ML_MEM;
@@ -268,7 +335,8 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 }
 
 void ArmRegCache::DiscardR(MIPSGPReg mipsReg) {
-	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+	const RegMIPSLoc prevLoc = mr[mipsReg].loc;
+	if (prevLoc == ML_ARMREG || prevLoc == ML_ARMREG_AS_PTR || prevLoc == ML_ARMREG_IMM) {
 		ARMReg armReg = mr[mipsReg].reg;
 		ar[armReg].isDirty = false;
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
@@ -283,14 +351,15 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		if (r != MIPS_REG_ZERO) {
-			emit_->MOVI2R(R0, mr[r].imm);
+			SetRegImm(R0, mr[r].imm);
 			emit_->STR(R0, CTXREG, GetMipsRegOffset(r));
 		}
 		break;
 
 	case ML_ARMREG:
+	case ML_ARMREG_IMM:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "FlushMipsReg: MipsReg had bad ArmReg");
+			ERROR_LOG(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
@@ -314,7 +383,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 		break;
 
 	default:
-		//BAD
+		ERROR_LOG(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
 	mr[r].loc = ML_MEM;
@@ -327,7 +396,7 @@ int ArmRegCache::FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm) 
 	// Only start a sequence on a dirty armreg.
 	// TODO: Could also start with an imm?
 	const auto &startMipsInfo = mr[startMipsReg];
-	if (startMipsInfo.loc != ML_ARMREG || startMipsInfo.reg == INVALID_REG || !ar[startMipsInfo.reg].isDirty) {
+	if ((startMipsInfo.loc != ML_ARMREG && startMipsInfo.loc != ML_ARMREG_IMM) || startMipsInfo.reg == INVALID_REG || !ar[startMipsInfo.reg].isDirty) {
 		return 0;
 	}
 
@@ -339,7 +408,7 @@ int ArmRegCache::FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm) 
 	int lastArmReg = startMipsInfo.reg;
 	// Can't use HI/LO, only regs in the main r[] array.
 	for (int r = (int)startMipsReg + 1; r < 32; ++r) {
-		if (mr[r].loc == ML_ARMREG && mr[r].reg != INVALID_REG) {
+		if ((mr[r].loc == ML_ARMREG || mr[r].loc == ML_ARMREG_IMM) && mr[r].reg != INVALID_REG) {
 			if ((int)mr[r].reg > lastArmReg && ar[mr[r].reg].isDirty) {
 				++c;
 				lastArmReg = mr[r].reg;
@@ -425,11 +494,15 @@ void ArmRegCache::FlushAll() {
 }
 
 void ArmRegCache::SetImm(MIPSGPReg r, u32 immVal) {
-	if (r == MIPS_REG_ZERO)
+	if (r == MIPS_REG_ZERO && immVal != 0)
 		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
 
+	if (mr[r].loc == ML_ARMREG_IMM && mr[r].imm == immVal) {
+		// Already have that value, let's keep it in the reg.
+		return;
+	}
 	// Zap existing value if cached in a reg
-	if (mr[r].loc == ML_ARMREG || mr[r].loc == ML_ARMREG_AS_PTR) {
+	if (mr[r].reg != INVALID_REG) {
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		ar[mr[r].reg].isDirty = false;
 	}
@@ -440,12 +513,12 @@ void ArmRegCache::SetImm(MIPSGPReg r, u32 immVal) {
 
 bool ArmRegCache::IsImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO) return true;
-	return mr[r].loc == ML_IMM;
+	return mr[r].loc == ML_IMM || mr[r].loc == ML_ARMREG_IMM;
 }
 
 u32 ArmRegCache::GetImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO) return 0;
-	if (mr[r].loc != ML_IMM) {
+	if (mr[r].loc != ML_IMM && mr[r].loc != ML_ARMREG_IMM) {
 		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
 	}
 	return mr[r].imm;
@@ -483,7 +556,7 @@ void ArmRegCache::ReleaseSpillLock(MIPSGPReg reg) {
 }
 
 ARMReg ArmRegCache::R(MIPSGPReg mipsReg) {
-	if (mr[mipsReg].loc == ML_ARMREG) {
+	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
 		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);

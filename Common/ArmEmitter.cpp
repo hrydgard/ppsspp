@@ -198,7 +198,7 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		}
 
 		// The worst case is 4 (e.g. 0x55555555.)
-		if (ops <= 3) {
+		if (ops <= 3 || !cpu_info.bArmV7) {
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
 				u8 bits = (val >> i) & 0xFF;
@@ -253,8 +253,41 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 	if (TryMakeOperand2(val, op2)) {
 		ORR(rd, rs, op2);
 	} else {
-		MOVI2R(scratch, val);
-		ORR(rd, rs, scratch);
+		int ops = 0;
+		for (int i = 0; i < 32; i += 2) {
+			u8 bits = (val >> i) & 0xFF;
+			// If either low bit is set, we need to use a ORR for them.
+			if ((bits & 3) != 0) {
+				++ops;
+				i += 8 - 2;
+			}
+		}
+
+		// The worst case is 4 (e.g. 0x55555555.)  But MVN can make it 2.  Not sure if better.
+		bool inversed;
+		if (TryMakeOperand2_AllowInverse(val, op2, &inversed) && ops >= 3) {
+			MVN(scratch, op2);
+			ORR(rd, rs, scratch);
+		} else if (ops <= 3 || !cpu_info.bArmV7) {
+			bool first = true;
+			for (int i = 0; i < 32; i += 2) {
+				u8 bits = (val >> i) & 0xFF;
+				if ((bits & 3) != 0) {
+					u8 rotation = i == 0 ? 0 : 16 - i / 2;
+					if (first) {
+						ORR(rd, rs, Operand2(bits, rotation));
+						first = false;
+					} else {
+						ORR(rd, rd, Operand2(bits, rotation));
+					}
+					// Well, we took care of these other bits while we were at it.
+					i += 8 - 2;
+				}
+			}
+		} else {
+			MOVI2R(scratch, val);
+			ORR(rd, rs, scratch);
+		}
 	}
 }
 

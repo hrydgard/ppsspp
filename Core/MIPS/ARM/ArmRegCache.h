@@ -44,7 +44,10 @@ struct RegARM {
 enum RegMIPSLoc {
 	ML_IMM,
 	ML_ARMREG,
+	// In an arm reg, but as a pre-adjusted pointer, not the actual reg.
 	ML_ARMREG_AS_PTR,
+	// In an arm reg, but also has a known immediate value.
+	ML_ARMREG_IMM,
 	ML_MEM,
 };
 
@@ -87,6 +90,8 @@ public:
 	void SetImm(MIPSGPReg reg, u32 immVal);
 	bool IsImm(MIPSGPReg reg) const;
 	u32 GetImm(MIPSGPReg reg) const;
+	// Optimally set a register to an imm value (possibly using another register.)
+	void SetRegImm(ARMReg reg, u32 imm);
 
 	// Returns an ARM register containing the requested MIPS register.
 	ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);

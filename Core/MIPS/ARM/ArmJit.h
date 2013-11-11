@@ -67,6 +67,7 @@ public:
 
 	// Ops
 	void Comp_ITypeMem(MIPSOpcode op);
+	void Comp_Cache(MIPSOpcode op);
 
 	void Comp_RelBranch(MIPSOpcode op);
 	void Comp_RelBranchRI(MIPSOpcode op);
@@ -161,7 +162,7 @@ private:
 	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
 	void CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arithOp2)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool symmetric = false, bool useMOV = false);
 
-	void CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType);
+	void CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType, int sa);
 	void CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);

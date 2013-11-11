@@ -370,4 +370,8 @@ namespace MIPSComp
 		}
 
 	}
+
+	void Jit::Comp_Cache(MIPSOpcode op) {
+		DISABLE;
+	}
 }

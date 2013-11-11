@@ -71,33 +71,38 @@ void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-	{
+	// We might be able to flip the condition (EQ/NEQ are easy.)
+	const bool canFlip = cc == CC_EQ || cc == CC_NEQ;
+
+	Operand2 op2;
+	bool negated;
+	if (gpr.IsImm(rt) && TryMakeOperand2_AllowNegation(gpr.GetImm(rt), op2, &negated)) {
 		gpr.MapReg(rs);
-		CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
-	}
-	else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
-	{
-		gpr.MapReg(rt);
-		CMP(gpr.R(rt), Operand2(0, TYPE_IMM));
-	}
-	else
-	{
-		gpr.MapInIn(rs, rt);
-		CMP(gpr.R(rs), gpr.R(rt));
+		if (!negated)
+			CMP(gpr.R(rs), op2);
+		else
+			CMN(gpr.R(rs), op2);
+	} else {
+		if (gpr.IsImm(rs) && TryMakeOperand2_AllowNegation(gpr.GetImm(rs), op2, &negated) && canFlip) {
+			gpr.MapReg(rt);
+			if (!negated)
+				CMP(gpr.R(rt), op2);
+			else
+				CMN(gpr.R(rt), op2);
+		} else {
+			gpr.MapInIn(rs, rt);
+			CMP(gpr.R(rs), gpr.R(rt));
+		}
 	}
 
 	ArmGen::FixupBranch ptr;
-	if (!likely)
-	{
+	if (!likely) {
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
 		ptr = B_CC(cc);
-	}
-	else
-	{
+	} else {
 		FlushAll();
 		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -152,7 +157,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool
 	// Take the branch
 	if (andLink)
 	{
-		MOVI2R(R0, js.compilerPC + 8);
+		gpr.SetRegImm(R0, js.compilerPC + 8);
 		STR(R0, CTXREG, MIPS_REG_RA * 4);
 	}
 
@@ -351,7 +356,7 @@ void Jit::Comp_Jump(MIPSOpcode op)
 
 	case 3: //jal
 		gpr.MapReg(MIPS_REG_RA, MAP_NOINIT | MAP_DIRTY);
-		MOVI2R(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
+		gpr.SetRegImm(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		WriteExit(targetAddr, js.nextExit++);
@@ -379,9 +384,10 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 	ARMReg destReg = R8;
 	if (IsSyscall(delaySlotOp)) {
+		_dbg_assert_msg_(JIT, (op & 0x3f) == 8, "jalr followed by syscall not supported.");
+
 		gpr.MapReg(rs);
-		MOV(R8, gpr.R(rs)); 
-		MovToPC(R8);  // For syscall to be able to return.
+		MovToPC(gpr.R(rs));  // For syscall to be able to return.
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
@@ -393,6 +399,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			// Let's discard them so we don't need to write them back.
 			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
 			// with this enabled.
+			gpr.DiscardR(MIPS_REG_COMPILER_SCRATCH);
 			for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; i++)
 				gpr.DiscardR((MIPSGPReg)i);
 			gpr.DiscardR(MIPS_REG_T8);
@@ -400,9 +407,9 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		}
 		FlushAll();
 	} else {
-		// Delay slot
+		// Delay slot - this case is very rare, might be able to free up R8.
 		gpr.MapReg(rs);
-		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
+		MOV(R8, gpr.R(rs));
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 	}
@@ -412,7 +419,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	case 8: //jr
 		break;
 	case 9: //jalr
-		MOVI2R(R0, js.compilerPC + 8);
+		gpr.SetRegImm(R0, js.compilerPC + 8);
 		STR(R0, CTXREG, (int)rd * 4);
 		break;
 	default:
@@ -439,12 +446,12 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
 	{
-		MOVI2R(R0, (u32)(intptr_t)GetSyscallInfo(op));
+		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallInfo(op));
 		QuickCallFunction(R1, quickFunc);
 	}
 	else
 	{
-		MOVI2R(R0, op.encoding);
+		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&CallSyscall);
 	}
 	RestoreDowncount();
