@@ -279,6 +279,14 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			SetJumpTarget(skip);
 			partialFlushOffset = GetCodePtr() - b->checkedEntry;
 		}
+
+		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
+		if (GetSpaceLeft() < 0x800)
+		{
+			FlushAll();
+			WriteExit(js.compilerPC, js.nextExit++);
+			js.compiling = false;
+		}
 	}
 
 	if (jo.useForwardJump) {
