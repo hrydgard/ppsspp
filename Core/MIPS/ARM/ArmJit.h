@@ -43,6 +43,7 @@ struct ArmJitOptions
 	bool cachePointers;
 	bool immBranches;
 	bool continueBranches;
+	bool continueJumps;
 	int continueMaxInstructions;
 };
 
