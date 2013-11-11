@@ -287,8 +287,8 @@ void Jit::BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
-	TST(R0, Operand2(1, TYPE_IMM));
+	gpr.MapReg(MIPS_REG_FPCOND, 0);
+	TST(gpr.R(MIPS_REG_FPCOND), Operand2(1, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
 	if (!likely)
