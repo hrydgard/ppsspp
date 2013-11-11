@@ -64,7 +64,7 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 }
 
 static u32 QuickTexHashBasic(const void *checkp, u32 size) {
-#if defined(ARM) && defined(__GNUC__)
+#if 0 // defined(ARM) && defined(__GNUC__)
 	__builtin_prefetch(checkp, 0, 0);
 
 	u32 check;
