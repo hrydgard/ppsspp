@@ -223,15 +223,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #endif
 	// control->Get("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
-	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
-
 	control->Get("TiltBaseX", &fTiltBaseX, 0);
 	control->Get("TiltBaseY", &fTiltBaseY, 0);
 	control->Get("InvertTiltX", &bInvertTiltX, false);
 	control->Get("InvertTiltY", &bInvertTiltY, true);
 	control->Get("TiltSensitivityX", &iTiltSensitivityX, 100);
 	control->Get("TiltSensitivityY", &iTiltSensitivityY, 100);
-	control->Get("DeadzoneRadius", &fDeadzoneRadius, 0.35);
+	control->Get("DeadzoneRadius", &fDeadzoneRadius, 0.2);
+	control->Get("TiltInputType", &iTiltInputType, 0);
 
 #endif
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
@@ -451,7 +450,6 @@ void Config::Save() {
 
 		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
-		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("TiltBaseX", fTiltBaseX);
 		control->Set("TiltBaseY", fTiltBaseY);
 		control->Set("InvertTiltX", bInvertTiltX);
@@ -459,6 +457,7 @@ void Config::Save() {
 		control->Set("TiltSensitivityX", iTiltSensitivityX);
 		control->Set("TiltSensitivityY", iTiltSensitivityY);
 		control->Set("DeadzoneRadius", fDeadzoneRadius);
+		control->Set("TiltInputType", iTiltInputType);
 #endif
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);

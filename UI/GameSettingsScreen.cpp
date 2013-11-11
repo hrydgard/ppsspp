@@ -229,10 +229,12 @@ void GameSettingsScreen::CreateViews() {
 
 #if defined(USING_GLES2)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
-	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
+	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons"};
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, c->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), c, screenManager()));
+
 	Choice *tiltAnalog = controlsSettings->Add(new Choice(c->T("Customize tilt")));
 	tiltAnalog->OnClick.Handle(this, &GameSettingsScreen::OnTiltAnalogSettings);
-	tiltAnalog->SetEnabledPtr(&g_Config.bAccelerometerToAnalogHoriz);
+	tiltAnalog->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
