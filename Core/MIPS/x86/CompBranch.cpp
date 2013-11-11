@@ -129,6 +129,42 @@ void Jit::BranchLogExit(MIPSOpcode op, u32 dest, bool useEAX)
 	SetJumpTarget(skip);
 }
 
+static CCFlags FlipCCFlag(CCFlags flag)
+{
+	switch (flag)
+	{
+	case CC_O: return CC_NO;
+	case CC_NO: return CC_O;
+	case CC_B: return CC_NB;
+	case CC_NB: return CC_B;
+	case CC_Z: return CC_NZ;
+	case CC_NZ: return CC_Z;
+	case CC_BE: return CC_NBE;
+	case CC_NBE: return CC_BE;
+	case CC_S: return CC_NS;
+	case CC_NS: return CC_S;
+	case CC_P: return CC_NP;
+	case CC_NP: return CC_P;
+	case CC_L: return CC_NL;
+	case CC_NL: return CC_L;
+	case CC_LE: return CC_NLE;
+	case CC_NLE: return CC_LE;
+	}
+	ERROR_LOG_REPORT(JIT, false, "FlipCCFlag: Unexpected CC flag: %d", flag);
+	return CC_O;
+}
+
+bool Jit::PredictTakeBranch(u32 targetAddr, bool likely) {
+	// If it's likely, it's... probably likely, right?
+	if (likely)
+		return true;
+
+	// TODO: Normal branch prediction would be to take branches going upward to lower addresses.
+	// However, this results in worse performance as of this comment's writing.
+	// The reverse check generally gives better or same performance.
+	return targetAddr > js.compilerPC;
+}
+
 void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
@@ -189,6 +225,17 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		CMP(32, gpr.R(rs), gpr.R(rt));
 	}
 
+	// We may want to try to continue along this branch a little while, to reduce reg flushing.
+	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
+	bool continueBranch = false;
+	// Likely delay slots may change regs, can't take those branches inline safely.
+	if (CanContinueBranch() && (!likely || !predictTakeBranch))
+	{
+		continueBranch = true;
+		if (predictTakeBranch)
+			cc = FlipCCFlag(cc);
+	}
+
 	Gen::FixupBranch ptr;
 	RegCacheState state;
 	if (!likely)
@@ -205,15 +252,32 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
+
+	if (continueBranch && predictTakeBranch)
+	{
+		// We flipped the cc, the not taken case is first.
+		CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
+		WriteExit(js.compilerPC + 8, js.nextExit++);
+
+		// Now our taken path.
+		SetJumpTarget(ptr);
+		CONDITIONAL_LOG_EXIT(targetAddr);
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
+		return;
+	}
+
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, js.nextExit++);
 
-	SetJumpTarget(ptr);
 	// Not taken
+	SetJumpTarget(ptr);
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
 
-	if (CanContinueBranch())
+	if (continueBranch && !predictTakeBranch)
 	{
 		// Account for the delay slot.
 		js.compilerPC += 4;
@@ -283,6 +347,17 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	gpr.MapReg(rs, true, false);
 	CMP(32, gpr.R(rs), Imm32(0));
 
+	// We may want to try to continue along this branch a little while, to reduce reg flushing.
+	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
+	bool continueBranch = false;
+	// Likely delay slots may change regs, can't take those branches inline safely.
+	if (CanContinueBranch() && (!likely || !predictTakeBranch))
+	{
+		continueBranch = true;
+		if (predictTakeBranch)
+			cc = FlipCCFlag(cc);
+	}
+
 	Gen::FixupBranch ptr;
 	RegCacheState state;
 	if (!likely)
@@ -300,17 +375,35 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
+	if (continueBranch && predictTakeBranch)
+	{
+		// We flipped the cc, the not taken case is first.
+		CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
+		WriteExit(js.compilerPC + 8, js.nextExit++);
+
+		// Now our taken path.
+		SetJumpTarget(ptr);
+		if (andLink)
+			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		CONDITIONAL_LOG_EXIT(targetAddr);
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
+		return;
+	}
+
 	// Take the branch
 	if (andLink)
 		MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
 	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, js.nextExit++);
 
-	SetJumpTarget(ptr);
 	// Not taken
+	SetJumpTarget(ptr);
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
 
-	if (CanContinueBranch())
+	if (continueBranch && !predictTakeBranch)
 	{
 		// Account for the delay slot.
 		js.compilerPC += 4;
@@ -384,6 +477,17 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
+	// We may want to try to continue along this branch a little while, to reduce reg flushing.
+	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
+	bool continueBranch = false;
+	// Likely delay slots may change regs, can't take those branches inline safely.
+	if (CanContinueBranch() && (!likely || !predictTakeBranch))
+	{
+		continueBranch = true;
+		if (predictTakeBranch)
+			cc = FlipCCFlag(cc);
+	}
+
 	TEST(32, M((void *)&(mips_->fpcond)), Imm32(1));
 	Gen::FixupBranch ptr;
 	RegCacheState state;
@@ -402,15 +506,31 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
+	if (continueBranch && predictTakeBranch)
+	{
+		// We flipped the cc, the not taken case is first.
+		CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
+		WriteExit(js.compilerPC + 8, js.nextExit++);
+
+		// Now our taken path.
+		SetJumpTarget(ptr);
+		CONDITIONAL_LOG_EXIT(targetAddr);
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
+		return;
+	}
+
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, js.nextExit++);
 
-	SetJumpTarget(ptr);
 	// Not taken
+	SetJumpTarget(ptr);
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
 
-	if (CanContinueBranch())
+	if (continueBranch && !predictTakeBranch)
 	{
 		// Account for the delay slot.
 		js.compilerPC += 4;
@@ -464,6 +584,18 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (delaySlotIsBranch && (signed short)(delaySlotOp & 0xFFFF) != (signed short)(op & 0xFFFF) - 1)
 		ERROR_LOG_REPORT(JIT, "VFPU branch in VFPU delay slot at %08x with different target %d / %d", js.compilerPC, (signed short)(delaySlotOp & 0xFFFF), (signed short)(op & 0xFFFF) - 1);
 
+	// We may want to try to continue along this branch a little while, to reduce reg flushing.
+	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
+	bool continueBranch = false;
+	// Likely delay slots may change regs, can't take those branches inline safely.
+	// TODO: Maybe delaySlotIsBranch could work, but let's play it safe.
+	if (CanContinueBranch() && (!likely || !predictTakeBranch) && !delaySlotIsBranch)
+	{
+		continueBranch = true;
+		if (predictTakeBranch)
+			cc = FlipCCFlag(cc);
+	}
+
 	// THE CONDITION
 	int imm3 = (op >> 18) & 7;
 
@@ -487,19 +619,37 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 			CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
+	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
+
+	if (continueBranch && predictTakeBranch)
+	{
+		// We flipped the cc, the not taken case is first.
+		CONDITIONAL_LOG_EXIT(notTakenTarget);
+		WriteExit(notTakenTarget, js.nextExit++);
+
+		// Now our taken path.
+		SetJumpTarget(ptr);
+		CONDITIONAL_LOG_EXIT(targetAddr);
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
+		return;
+	}
+
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, js.nextExit++);
 
-	SetJumpTarget(ptr);
 	// Not taken
-	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
+	SetJumpTarget(ptr);
 	CONDITIONAL_LOG_EXIT(notTakenTarget);
 
-	if (CanContinueBranch() && !delaySlotIsBranch)
+	if (continueBranch && !predictTakeBranch)
 	{
 		// Account for the delay slot.
-		js.compilerPC += 4;
+		if (!delaySlotIsBranch)
+			js.compilerPC += 4;
 		RestoreState(state);
 		// In case the delay slot was a break or something.
 		js.compiling = true;

@@ -205,12 +205,13 @@ private:
 	void CallProtectedFunction(void *func, const u32 arg1, const u32 arg2, const u32 arg3);
 	void CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, const u32 arg3);
 
+	bool PredictTakeBranch(u32 targetAddr, bool likely);
 	bool CanContinueBranch() {
 		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
 		}
 		// Need at least 2 exits left over.
-		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 1) {
+		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 2) {
 			return false;
 		}
 		return true;
