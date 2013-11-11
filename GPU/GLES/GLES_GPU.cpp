@@ -1054,8 +1054,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		if (diff)
-			gstate_c.textureChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_ZBUFPTR:
