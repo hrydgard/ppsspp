@@ -75,9 +75,9 @@ namespace MIPSComp
 		case 8:	// same as addiu?
 		case 9:	// R(rt) = R(rs) + simm; break; //addiu
 			{
-				if (gpr.IsImmediate(rs))
+				if (gpr.IsImm(rs))
 				{
-					gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) + simm);
+					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
 					break;
 				}
 
@@ -97,9 +97,9 @@ namespace MIPSComp
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 			// There's a mips compiler out there asking questions it already knows the answer to...
-			if (gpr.IsImmediate(rs))
+			if (gpr.IsImm(rs))
 			{
-				gpr.SetImmediate32(rt, (s32)gpr.GetImmediate32(rs) < simm);
+				gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
 				break;
 			}
 
@@ -114,9 +114,9 @@ namespace MIPSComp
 			break;
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			if (gpr.IsImmediate(rs))
+			if (gpr.IsImm(rs))
 			{
-				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) < uimm);
+				gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
 				break;
 			}
 
@@ -132,29 +132,29 @@ namespace MIPSComp
 
 		case 12: // R(rt) = R(rs) & uimm; break; //andi
 			if (uimm == 0)
-				gpr.SetImmediate32(rt, 0);
-			else if (gpr.IsImmediate(rs))
-				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) & uimm);
+				gpr.SetImm(rt, 0);
+			else if (gpr.IsImm(rs))
+				gpr.SetImm(rt, gpr.GetImm(rs) & uimm);
 			else
 				CompImmLogic(op, &XEmitter::AND);
 			break;
 
 		case 13: // R(rt) = R(rs) | uimm; break; //ori
-			if (gpr.IsImmediate(rs))
-				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) | uimm);
+			if (gpr.IsImm(rs))
+				gpr.SetImm(rt, gpr.GetImm(rs) | uimm);
 			else
 				CompImmLogic(op, &XEmitter::OR);
 			break;
 
 		case 14: // R(rt) = R(rs) ^ uimm; break; //xori
-			if (gpr.IsImmediate(rs))
-				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) ^ uimm);
+			if (gpr.IsImm(rs))
+				gpr.SetImm(rt, gpr.GetImm(rs) ^ uimm);
 			else
 				CompImmLogic(op, &XEmitter::XOR);
 			break;
 
 		case 15: //R(rt) = uimm << 16;	 break; //lui
-			gpr.SetImmediate32(rt, uimm << 16);
+			gpr.SetImm(rt, uimm << 16);
 			break;
 
 		default:
@@ -176,9 +176,9 @@ namespace MIPSComp
 		switch (op & 63)
 		{
 		case 22: //clz
-			if (gpr.IsImmediate(rs))
+			if (gpr.IsImm(rs))
 			{
-				u32 value = gpr.GetImmediate32(rs);
+				u32 value = gpr.GetImm(rs);
 				int x = 31;
 				int count = 0;
 				while (!(value & (1 << x)) && x >= 0)
@@ -186,7 +186,7 @@ namespace MIPSComp
 					count++;
 					x--;
 				}
-				gpr.SetImmediate32(rd, count);
+				gpr.SetImm(rd, count);
 			}
 			else
 			{
@@ -207,9 +207,9 @@ namespace MIPSComp
 			}
 			break;
 		case 23: //clo
-			if (gpr.IsImmediate(rs))
+			if (gpr.IsImm(rs))
 			{
-				u32 value = gpr.GetImmediate32(rs);
+				u32 value = gpr.GetImm(rs);
 				int x = 31;
 				int count = 0;
 				while ((value & (1 << x)) && x >= 0)
@@ -217,7 +217,7 @@ namespace MIPSComp
 					count++;
 					x--;
 				}
-				gpr.SetImmediate32(rd, count);
+				gpr.SetImm(rd, count);
 			}
 			else
 			{
@@ -277,16 +277,16 @@ namespace MIPSComp
 		MIPSGPReg rd = _RD;
 
 		// Yes, this happens.  Let's make it fast.
-		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+		if (doImm && gpr.IsImm(rs) && gpr.IsImm(rt))
 		{
-			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rs), gpr.GetImmediate32(rt)));
+			gpr.SetImm(rd, doImm(gpr.GetImm(rs), gpr.GetImm(rt)));
 			return;
 		}
 
 		// Act like zero was used if the operand is equivalent.  This happens.
-		if (gpr.IsImmediate(rs) && gpr.GetImmediate32(rs) == 0)
+		if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0)
 			rs = MIPS_REG_ZERO;
-		if (gpr.IsImmediate(rt) && gpr.GetImmediate32(rt) == 0)
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
 			rt = MIPS_REG_ZERO;
 
 		gpr.Lock(rt, rs, rd);
@@ -294,7 +294,7 @@ namespace MIPSComp
 		if (rt == MIPS_REG_ZERO || (rs == MIPS_REG_ZERO && doImm != &RType3_ImmSub))
 		{
 			if (doImm == &RType3_ImmAnd)
-				gpr.SetImmediate32(rd, 0);
+				gpr.SetImm(rd, 0);
 			else
 			{
 				MIPSGPReg rsource = rt == MIPS_REG_ZERO ? rs : rt;
@@ -305,10 +305,10 @@ namespace MIPSComp
 				}
 			}
 		}
-		else if (gpr.IsImmediate(rt))
+		else if (gpr.IsImm(rt))
 		{
 			// No temporary needed.
-			u32 rtval = gpr.GetImmediate32(rt);
+			u32 rtval = gpr.GetImm(rt);
 			gpr.MapReg(rd, rs == rd, true);
 			if (rs != rd)
 				MOV(32, gpr.R(rd), gpr.R(rs));
@@ -345,7 +345,7 @@ namespace MIPSComp
 			if (rd == rs)
 				break;
 			gpr.Lock(rt, rs, rd);
-			if (!gpr.IsImmediate(rt))
+			if (!gpr.IsImm(rt))
 			{
 				gpr.KillImmediate(rs, true, false);
 				// Need to load rd in case the condition fails.
@@ -353,11 +353,11 @@ namespace MIPSComp
 				CMP(32, gpr.R(rt), Imm32(0));
 				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_E);
 			}
-			else if (gpr.GetImmediate32(rt) == 0)
+			else if (gpr.GetImm(rt) == 0)
 			{
 				// Yes, this actually happens.
-				if (gpr.IsImmediate(rs))
-					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
 				else if (rd != rs)
 				{
 					gpr.MapReg(rd, false, true);
@@ -371,7 +371,7 @@ namespace MIPSComp
 			if (rd == rs)
 				break;
 			gpr.Lock(rt, rs, rd);
-			if (!gpr.IsImmediate(rt))
+			if (!gpr.IsImm(rt))
 			{
 				gpr.KillImmediate(rs, true, false);
 				// Need to load rd in case the condition fails.
@@ -379,10 +379,10 @@ namespace MIPSComp
 				CMP(32, gpr.R(rt), Imm32(0));
 				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_NE);
 			}
-			else if (gpr.GetImmediate32(rt) != 0)
+			else if (gpr.GetImm(rt) != 0)
 			{
-				if (gpr.IsImmediate(rs))
-					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
 				else if (rd != rs)
 				{
 					gpr.MapReg(rd, false, true);
@@ -412,15 +412,15 @@ namespace MIPSComp
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
 			CompTriArith(op, &XEmitter::OR, &RType3_ImmOr);
-			if (gpr.IsImmediate(rd))
-				gpr.SetImmediate32(rd, ~gpr.GetImmediate32(rd));
+			if (gpr.IsImm(rd))
+				gpr.SetImm(rd, ~gpr.GetImm(rd));
 			else
 				NOT(32, gpr.R(rd));
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
-				gpr.SetImmediate32(rd, (s32)gpr.GetImmediate32(rs) < (s32)gpr.GetImmediate32(rt));
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+				gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
 			else
 			{
 				gpr.Lock(rt, rs, rd);
@@ -435,8 +435,8 @@ namespace MIPSComp
 			break;
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
-				gpr.SetImmediate32(rd, gpr.GetImmediate32(rs) < gpr.GetImmediate32(rt));
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+				gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
 			else
 			{
 				gpr.Lock(rd, rs, rt);
@@ -451,8 +451,8 @@ namespace MIPSComp
 			break;
 
 		case 44: //R(rd) = (R(rs) > R(rt)) ? R(rs) : R(rt); break; //max
-			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
-				gpr.SetImmediate32(rd, std::max((s32)gpr.GetImmediate32(rs), (s32)gpr.GetImmediate32(rt)));
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+				gpr.SetImm(rd, std::max((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
 			else
 			{
 				MIPSGPReg rsrc = rd == rt ? rs : rt;
@@ -468,8 +468,8 @@ namespace MIPSComp
 			break;
 
 		case 45: //R(rd) = (R(rs) < R(rt)) ? R(rs) : R(rt); break; //min
-			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
-				gpr.SetImmediate32(rd, std::min((s32)gpr.GetImmediate32(rs), (s32)gpr.GetImmediate32(rt)));
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+				gpr.SetImm(rd, std::min((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
 			else
 			{
 				MIPSGPReg rsrc = rd == rt ? rs : rt;
@@ -517,9 +517,9 @@ namespace MIPSComp
 		MIPSGPReg rt = _RT;
 		int sa = _SA;
 
-		if (doImm && gpr.IsImmediate(rt))
+		if (doImm && gpr.IsImm(rt))
 		{
-			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rt), sa));
+			gpr.SetImm(rd, doImm(gpr.GetImm(rt), sa));
 			return;
 		}
 
@@ -538,16 +538,16 @@ namespace MIPSComp
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 
-		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+		if (doImm && gpr.IsImm(rs) && gpr.IsImm(rt))
 		{
-			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rt), gpr.GetImmediate32(rs)));
+			gpr.SetImm(rd, doImm(gpr.GetImm(rt), gpr.GetImm(rs)));
 			return;
 		}
 
 		gpr.Lock(rd, rt, rs);
-		if (gpr.IsImmediate(rs))
+		if (gpr.IsImm(rs))
 		{
-			int sa = gpr.GetImmediate32(rs);
+			int sa = gpr.GetImm(rs);
 			gpr.MapReg(rd, rd == rt, true);
 			if (rd != rt)
 				MOV(32, gpr.R(rd), gpr.R(rt));
@@ -612,9 +612,9 @@ namespace MIPSComp
 		switch (op & 0x3f)
 		{
 		case 0x0: //ext
-			if (gpr.IsImmediate(rs))
+			if (gpr.IsImm(rs))
 			{
-				gpr.SetImmediate32(rt, (gpr.GetImmediate32(rs) >> pos) & mask);
+				gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
 				return;
 			}
 
@@ -631,12 +631,12 @@ namespace MIPSComp
 			{
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
-				if (gpr.IsImmediate(rs))
+				if (gpr.IsImm(rs))
 				{
-					u32 inserted = (gpr.GetImmediate32(rs) & sourcemask) << pos;
-					if (gpr.IsImmediate(rt))
+					u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+					if (gpr.IsImm(rt))
 					{
-						gpr.SetImmediate32(rt, (gpr.GetImmediate32(rt) & destmask) | inserted);
+						gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
 						return;
 					}
 
@@ -675,9 +675,9 @@ namespace MIPSComp
 		switch ((op >> 6) & 31)
 		{
 		case 16: // seb  // R(rd) = (u32)(s32)(s8)(u8)R(rt);
-			if (gpr.IsImmediate(rt))
+			if (gpr.IsImm(rt))
 			{
-				gpr.SetImmediate32(rd, (u32)(s32)(s8)(u8)gpr.GetImmediate32(rt));
+				gpr.SetImm(rd, (u32)(s32)(s8)(u8)gpr.GetImm(rt));
 				break;
 			}
 
@@ -700,10 +700,10 @@ namespace MIPSComp
 			break;
 
 		case 20: //bitrev
-			if (gpr.IsImmediate(rt))
+			if (gpr.IsImm(rt))
 			{
 				// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
-				u32 v = gpr.GetImmediate32(rt);
+				u32 v = gpr.GetImm(rt);
 				// swap odd and even bits
 				v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
 				// swap consecutive pairs
@@ -714,7 +714,7 @@ namespace MIPSComp
 				v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
 				// swap 2-byte long pairs
 				v = ( v >> 16             ) | ( v               << 16);
-				gpr.SetImmediate32(rd, v);
+				gpr.SetImm(rd, v);
 				break;
 			}
 
@@ -755,9 +755,9 @@ namespace MIPSComp
 			break;
 
 		case 24: // seh  // R(rd) = (u32)(s32)(s16)(u16)R(rt);
-			if (gpr.IsImmediate(rt))
+			if (gpr.IsImm(rt))
 			{
-				gpr.SetImmediate32(rd, (u32)(s32)(s16)(u16)gpr.GetImmediate32(rt));
+				gpr.SetImm(rd, (u32)(s32)(s16)(u16)gpr.GetImm(rt));
 				break;
 			}
 
@@ -785,9 +785,9 @@ namespace MIPSComp
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
-			if (gpr.IsImmediate(rt)) {
-				u32 rtImm = gpr.GetImmediate32(rt);
-				gpr.SetImmediate32(rd, ((rtImm & 0xFF00FF00) >> 8) | ((rtImm & 0x00FF00FF) << 8));
+			if (gpr.IsImm(rt)) {
+				u32 rtImm = gpr.GetImm(rt);
+				gpr.SetImm(rd, ((rtImm & 0xFF00FF00) >> 8) | ((rtImm & 0x00FF00FF) << 8));
 				break;
 			}
 			gpr.Lock(rd, rt);
@@ -800,8 +800,8 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 		case 0xE0: //wsbw
-			if (gpr.IsImmediate(rt)) {
-				gpr.SetImmediate32(rd, swap32(gpr.GetImmediate32(rt)));
+			if (gpr.IsImm(rt)) {
+				gpr.SetImm(rd, swap32(gpr.GetImm(rt)));
 				break;
 			}
 			gpr.Lock(rd, rt);
