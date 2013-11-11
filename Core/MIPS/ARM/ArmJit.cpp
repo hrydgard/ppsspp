@@ -64,6 +64,11 @@ ArmJitOptions::ArmJitOptions()
 	useBackJump = false;
 	useForwardJump = false;
 	cachePointers = true;
+	// WARNING: These options don't work properly with cache clearing or jit compare.
+	// Need to find a smart way to handle before enabling.
+	immBranches = false;
+	continueBranches = false;
+	continueMaxInstructions = 300;
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)

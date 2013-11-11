@@ -141,10 +141,6 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
-	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
-	CONDITIONAL_NICE_DELAYSLOT;
-
 	if (jo.immBranches && gpr.IsImmediate(rs) && gpr.IsImmediate(rt) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
@@ -176,6 +172,9 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		return;
 	}
 
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -240,10 +239,6 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
-	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
-	CONDITIONAL_NICE_DELAYSLOT;
-
 	if (jo.immBranches && gpr.IsImmediate(rs) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
@@ -270,10 +265,8 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		// Branch taken.  Always compile the delay slot, and then go to dest.
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (andLink)
-		{
-			gpr.MapReg(MIPS_REG_RA, false, true);
-			MOV(32, gpr.R(MIPS_REG_RA), Imm32(js.compilerPC + 8));
-		}
+			gpr.SetImmediate32(MIPS_REG_RA, js.compilerPC + 8);
+
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
 		// In case the delay slot was a break or something.
@@ -281,6 +274,9 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		return;
 	}
 
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
