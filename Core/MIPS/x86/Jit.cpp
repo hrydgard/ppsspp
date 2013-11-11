@@ -109,6 +109,16 @@ static void JitLogMiss(MIPSOpcode op)
 	func(op);
 }
 
+JitOptions::JitOptions()
+{
+	enableBlocklink = true;
+	// WARNING: These options don't work properly with cache clearing.
+	// Need to find a smart way to handle before enabling.
+	immBranches = false;
+	continueBranches = false;
+	continueMaxInstructions = 300;
+}
+
 #ifdef _MSC_VER
 // JitBlockCache doesn't use this, just stores it.
 #pragma warning(disable:4355)

@@ -65,6 +65,34 @@ void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
+	if (jo.immBranches && gpr.IsImm(rs) && gpr.IsImm(rt) && js.numInstructions < jo.continueMaxInstructions) {
+		// The cc flags are opposites: when NOT to take the branch.
+		bool skipBranch;
+		s32 rsImm = (s32)gpr.GetImm(rs);
+		s32 rtImm = (s32)gpr.GetImm(rt);
+
+		switch (cc) {
+		case CC_EQ: skipBranch = rsImm == rtImm; break;
+		case CC_NEQ: skipBranch = rsImm != rtImm; break;
+		default: skipBranch = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
+		}
+
+		if (skipBranch) {
+			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (likely)
+				js.compilerPC += 4;
+			return;
+		}
+
+		// Branch taken.  Always compile the delay slot, and then go to dest.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
+		return;
+	}
+
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
@@ -128,6 +156,38 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool
 	int offset = _IMM16 << 2;
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
+
+	if (jo.immBranches && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions) {
+		// The cc flags are opposites: when NOT to take the branch.
+		bool skipBranch;
+		s32 imm = (s32)gpr.GetImm(rs);
+
+		switch (cc) {
+		case CC_GT: skipBranch = imm > 0; break;
+		case CC_GE: skipBranch = imm >= 0; break;
+		case CC_LT: skipBranch = imm < 0; break;
+		case CC_LE: skipBranch = imm <= 0; break;
+		default: skipBranch = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
+		}
+
+		if (skipBranch) {
+			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (likely)
+				js.compilerPC += 4;
+			return;
+		}
+
+		// Branch taken.  Always compile the delay slot, and then go to dest.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		if (andLink)
+			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
+		return;
+	}
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
