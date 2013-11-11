@@ -535,8 +535,8 @@ Jit::JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.
 	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::GetMemChecks().empty();
-	if (jit_->gpr.IsImmediate(raddr_))
-		iaddr_ = jit_->gpr.GetImmediate32(raddr_) + offset_;
+	if (jit_->gpr.IsImm(raddr_))
+		iaddr_ = jit_->gpr.GetImm(raddr_) + offset_;
 	else
 		iaddr_ = (u32) -1;
 
@@ -601,9 +601,9 @@ bool Jit::JitSafeMem::PrepareRead(OpArg &src, int size)
 
 OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 {
-	if (jit_->gpr.IsImmediate(raddr_))
+	if (jit_->gpr.IsImm(raddr_))
 	{
-		u32 addr = (jit_->gpr.GetImmediate32(raddr_) + offset_ + suboffset) & alignMask_;
+		u32 addr = (jit_->gpr.GetImm(raddr_) + offset_ + suboffset) & alignMask_;
 
 #ifdef _M_IX86
 		return M(Memory::base + (addr & Memory::MEMVIEW32_MASK));
@@ -758,7 +758,7 @@ void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 	if (suboffset == 0)
 		return;
 
-	if (jit_->gpr.IsImmediate(raddr_))
+	if (jit_->gpr.IsImm(raddr_))
 	{
 		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(iaddr_ + suboffset), "NextSlowRead() for an invalid immediate address?");
 

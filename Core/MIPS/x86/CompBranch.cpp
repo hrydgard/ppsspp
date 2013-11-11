@@ -141,12 +141,12 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	if (jo.immBranches && gpr.IsImmediate(rs) && gpr.IsImmediate(rt) && js.numInstructions < jo.continueMaxInstructions)
+	if (jo.immBranches && gpr.IsImm(rs) && gpr.IsImm(rt) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
 		bool skipBranch;
-		s32 rsImm = (s32)gpr.GetImmediate32(rs);
-		s32 rtImm = (s32)gpr.GetImmediate32(rt);
+		s32 rsImm = (s32)gpr.GetImm(rs);
+		s32 rtImm = (s32)gpr.GetImm(rt);
 
 		switch (cc)
 		{
@@ -178,7 +178,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (gpr.IsImmediate(rt) && gpr.GetImmediate32(rt) == 0)
+	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
 	{
 		gpr.KillImmediate(rs, true, false);
 		CMP(32, gpr.R(rs), Imm32(0));
@@ -239,11 +239,11 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	if (jo.immBranches && gpr.IsImmediate(rs) && js.numInstructions < jo.continueMaxInstructions)
+	if (jo.immBranches && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
 		bool skipBranch;
-		s32 imm = (s32)gpr.GetImmediate32(rs);
+		s32 imm = (s32)gpr.GetImm(rs);
 
 		switch (cc)
 		{
@@ -265,7 +265,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		// Branch taken.  Always compile the delay slot, and then go to dest.
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (andLink)
-			gpr.SetImmediate32(MIPS_REG_RA, js.compilerPC + 8);
+			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
@@ -555,7 +555,7 @@ void Jit::Comp_Jump(MIPSOpcode op)
 
 	case 3: //jal
 		// Save return address - might be overwritten by delay slot.
-		gpr.SetImmediate32(MIPS_REG_RA, js.compilerPC + 8);
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
 		{
@@ -622,12 +622,12 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
 		}
 
-		if (jo.continueJumps && gpr.IsImmediate(rs) && js.numInstructions < jo.continueMaxInstructions)
+		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
 		{
 			// Account for the increment in the loop.
-			js.compilerPC = gpr.GetImmediate32(rs) - 4;
+			js.compilerPC = gpr.GetImm(rs) - 4;
 			if ((op & 0x3f) == 9)
-				gpr.SetImmediate32(rd, js.compilerPC + 8);
+				gpr.SetImm(rd, js.compilerPC + 8);
 			// In case the delay slot was a break or something.
 			js.compiling = true;
 			return;
