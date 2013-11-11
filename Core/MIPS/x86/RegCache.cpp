@@ -180,7 +180,7 @@ void GPRRegCache::DiscardRegContentsIfCached(MIPSGPReg preg) {
 }
 
 
-void GPRRegCache::SetImmediate32(MIPSGPReg preg, u32 immValue) {
+void GPRRegCache::SetImm(MIPSGPReg preg, u32 immValue) {
 	// ZERO is always zero.  Let's just make sure.
 	if (preg == MIPS_REG_ZERO)
 		immValue = 0;
@@ -190,15 +190,15 @@ void GPRRegCache::SetImmediate32(MIPSGPReg preg, u32 immValue) {
 	regs[preg].location = Imm32(immValue);
 }
 
-bool GPRRegCache::IsImmediate(MIPSGPReg preg) const {
+bool GPRRegCache::IsImm(MIPSGPReg preg) const {
 	// Always say yes for ZERO, even if it's in a temp reg.
 	if (preg == MIPS_REG_ZERO)
 		return true;
 	return regs[preg].location.IsImm();
 }
 
-u32 GPRRegCache::GetImmediate32(MIPSGPReg preg) const {
-	_dbg_assert_msg_(JIT, IsImmediate(preg), "Reg %d must be an immediate.", preg);
+u32 GPRRegCache::GetImm(MIPSGPReg preg) const {
+	_dbg_assert_msg_(JIT, IsImm(preg), "Reg %d must be an immediate.", preg);
 	// Always 0 for ZERO.
 	if (preg == MIPS_REG_ZERO)
 		return 0;

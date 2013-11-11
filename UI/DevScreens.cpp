@@ -322,6 +322,7 @@ void JitCompareScreen::UpdateDisasm() {
 
 	// Alright. First generate the MIPS disassembly.
 	
+	// TODO: Need a way to communicate branch continuing.
 	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
 		char temp[256];
 		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);

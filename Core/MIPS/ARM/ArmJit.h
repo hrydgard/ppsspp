@@ -41,6 +41,10 @@ struct ArmJitOptions
 	bool useBackJump;
 	bool useForwardJump;
 	bool cachePointers;
+	bool immBranches;
+	bool continueBranches;
+	bool continueJumps;
+	int continueMaxInstructions;
 };
 
 class Jit : public ArmGen::ARMXCodeBlock
