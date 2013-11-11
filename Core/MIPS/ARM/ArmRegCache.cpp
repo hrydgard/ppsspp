@@ -101,6 +101,35 @@ bool ArmRegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 }
 
 void ArmRegCache::SetRegImm(ARMReg reg, u32 imm) {
+	// If we can do it with a simple Operand2, let's do that.
+	Operand2 op2;
+	bool inverse;
+	if (TryMakeOperand2_AllowInverse(imm, op2, &inverse)) {
+		if (!inverse)
+			emit_->MOV(reg, op2);
+		else
+			emit_->MVN(reg, op2);
+		return;
+	}
+
+	// Okay, so it's a bit more complex.  Let's see if we have any useful regs with imm values.
+	for (int i = 0; i < NUM_MIPSREG; i++) {
+		const auto &mreg = mr[i];
+		if (mreg.loc != ML_ARMREG_IMM)
+			continue;
+
+		if (mreg.imm - imm < 256) {
+			emit_->SUB(reg, mreg.reg, mreg.imm - imm);
+			return;
+		}
+		if (imm - mreg.imm < 256) {
+			emit_->ADD(reg, mreg.reg, imm - mreg.imm);
+			return;
+		}
+		// TODO: All sorts of things are possible here, shifted adds, ands/ors, etc.
+	}
+
+	// No luck.  Let's go with a regular load.
 	emit_->MOVI2R(reg, imm);
 }
 
