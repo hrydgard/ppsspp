@@ -114,7 +114,10 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 			continue; //Line indicates Disc ID, not needed for cheats
 		}
 		if (initialCodesList[i].substr(0,2) == "_G") {
-			continue; //Line indicates game Title, also not needed for cheats.
+			continue; //Line indicates game Title, also not needed for cheats
+		}
+		if (initialCodesList[i].substr(0,2) == "//") {
+			continue; //Line indicates comment, also not needed for cheats.
 		}
 		if (initialCodesList[i].substr(0,3) == "_C1") {
 			cheatEnabled = true;
