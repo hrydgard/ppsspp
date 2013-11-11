@@ -64,6 +64,12 @@ ArmJitOptions::ArmJitOptions()
 	useBackJump = false;
 	useForwardJump = false;
 	cachePointers = true;
+	// WARNING: These options don't work properly with cache clearing or jit compare.
+	// Need to find a smart way to handle before enabling.
+	immBranches = false;
+	continueBranches = false;
+	continueJumps = false;
+	continueMaxInstructions = 300;
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
@@ -154,6 +160,7 @@ void Jit::EatInstruction(MIPSOpcode op) {
 		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.")
 	}
 
+	js.numInstructions++;
 	js.compilerPC += 4;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
@@ -256,10 +263,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	gpr.Start(analysis);
 	fpr.Start(analysis);
 
-	int numInstructions = 0;
-	int cycles = 0;
 	int partialFlushOffset = 0;
 
+	js.numInstructions = 0;
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
@@ -270,7 +276,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		MIPSCompileOp(inst);
 	
 		js.compilerPC += 4;
-		numInstructions++;
+		js.numInstructions++;
 		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
@@ -278,6 +284,14 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			FlushLitPool();
 			SetJumpTarget(skip);
 			partialFlushOffset = GetCodePtr() - b->checkedEntry;
+		}
+
+		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
+		if (GetSpaceLeft() < 0x800)
+		{
+			FlushAll();
+			WriteExit(js.compilerPC, js.nextExit++);
+			js.compiling = false;
 		}
 	}
 
@@ -312,7 +326,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	// Don't forget to zap the newly written instructions in the instruction cache!
 	FlushIcache();
 
-	b->originalSize = numInstructions;
+	b->originalSize = js.numInstructions;
 	return b->normalEntry;
 }
 

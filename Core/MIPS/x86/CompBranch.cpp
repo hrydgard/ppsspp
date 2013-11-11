@@ -141,16 +141,12 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
-	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
-	CONDITIONAL_NICE_DELAYSLOT;
-
-	if (jo.immBranches && gpr.IsImmediate(rs) && gpr.IsImmediate(rt) && js.numInstructions < jo.continueMaxInstructions)
+	if (jo.immBranches && gpr.IsImm(rs) && gpr.IsImm(rt) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
 		bool skipBranch;
-		s32 rsImm = (s32)gpr.GetImmediate32(rs);
-		s32 rtImm = (s32)gpr.GetImmediate32(rt);
+		s32 rsImm = (s32)gpr.GetImm(rs);
+		s32 rtImm = (s32)gpr.GetImm(rt);
 
 		switch (cc)
 		{
@@ -176,10 +172,13 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		return;
 	}
 
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (gpr.IsImmediate(rt) && gpr.GetImmediate32(rt) == 0)
+	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
 	{
 		gpr.KillImmediate(rs, true, false);
 		CMP(32, gpr.R(rs), Imm32(0));
@@ -240,15 +239,11 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
-	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
-	CONDITIONAL_NICE_DELAYSLOT;
-
-	if (jo.immBranches && gpr.IsImmediate(rs) && js.numInstructions < jo.continueMaxInstructions)
+	if (jo.immBranches && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
 		bool skipBranch;
-		s32 imm = (s32)gpr.GetImmediate32(rs);
+		s32 imm = (s32)gpr.GetImm(rs);
 
 		switch (cc)
 		{
@@ -270,10 +265,8 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		// Branch taken.  Always compile the delay slot, and then go to dest.
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (andLink)
-		{
-			gpr.MapReg(MIPS_REG_RA, false, true);
-			MOV(32, gpr.R(MIPS_REG_RA), Imm32(js.compilerPC + 8));
-		}
+			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
 		// In case the delay slot was a break or something.
@@ -281,6 +274,9 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		return;
 	}
 
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -544,15 +540,31 @@ void Jit::Comp_Jump(MIPSOpcode op)
 	{
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		{
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
 		break;
 
 	case 3: //jal
-		gpr.MapReg(MIPS_REG_RA, false, true);
-		MOV(32, gpr.R(MIPS_REG_RA), Imm32(js.compilerPC + 8));	// Save return address
+		// Save return address - might be overwritten by delay slot.
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		{
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
@@ -597,19 +609,31 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	else if (delaySlotIsNice)
 	{
 		CompileDelaySlot(DELAYSLOT_NICE);
-		MOV(32, R(EAX), gpr.R(rs));
 
 		if (rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
 			// According to the MIPS ABI, there are some regs we don't need to preserve.
 			// Let's discard them so we don't need to write them back.
 			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
 			// with this enabled.
+			gpr.DiscardRegContentsIfCached(MIPS_REG_COMPILER_SCRATCH);
 			for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; i++)
 				gpr.DiscardRegContentsIfCached((MIPSGPReg)i);
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T8);
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
 		}
 
+		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
+		{
+			// Account for the increment in the loop.
+			js.compilerPC = gpr.GetImm(rs) - 4;
+			if ((op & 0x3f) == 9)
+				gpr.SetImm(rd, js.compilerPC + 8);
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
+
+		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
 	}
 	else
@@ -641,6 +665,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
+	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
 	FlushAll();
 
 	// If we're in a delay slot, this is off by one.

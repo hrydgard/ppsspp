@@ -93,9 +93,9 @@ public:
 	void UnlockAll();
 	void UnlockAllX();
 
-	void SetImmediate32(MIPSGPReg preg, u32 immValue);
-	bool IsImmediate(MIPSGPReg preg) const;
-	u32 GetImmediate32(MIPSGPReg preg) const;
+	void SetImm(MIPSGPReg preg, u32 immValue);
+	bool IsImm(MIPSGPReg preg) const;
+	u32 GetImm(MIPSGPReg preg) const;
 
 	void GetState(GPRRegCacheState &state) const;
 	void RestoreState(const GPRRegCacheState state);

@@ -39,19 +39,12 @@ u32 JitBreakpoint();
 
 struct JitOptions
 {
-	JitOptions()
-	{
-		enableBlocklink = true;
-		// WARNING: These options don't work properly with cache clearing.
-		// Need to find a smart way to handle before enabling.
-		immBranches = false;
-		continueBranches = false;
-		continueMaxInstructions = 300;
-	}
+	JitOptions();
 
 	bool enableBlocklink;
 	bool immBranches;
 	bool continueBranches;
+	bool continueJumps;
 	int continueMaxInstructions;
 };
 
