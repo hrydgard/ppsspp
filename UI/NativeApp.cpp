@@ -659,12 +659,14 @@ void NativeAxis(const AxisInput &key) {
 
 	//only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL){
-		return;
-	}else{
-		//reset all tilt events every frame.
-		//ResetTiltEvents();
-	}
 
+		//if tilt events are disabled, then run it through the usual way. 
+		if (screenManager) {
+			screenManager->axis(key);
+		}
+
+		return;
+	}
 	//create the base coordinate tilt system from the calibration data. 
 	//This is static for no particular reason, can be un-static'ed
 	static Tilt baseTilt;
@@ -735,12 +737,7 @@ void NativeAxis(const AxisInput &key) {
 			GenerateActionButtonEvent(trueTilt);
 			break;
 	}
-	
-	/*
-	
-	if (screenManager)
-		screenManager->axis(key);
-	*/
+
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
