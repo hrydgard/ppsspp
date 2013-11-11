@@ -207,7 +207,9 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 		// add or subtract stuff to it. Later we could allow such things but for now
 		// let's just convert back to a register value by reloading from the backing storage.
 		ARMReg armReg = mr[mipsReg].reg;
-		emit_->LDR(armReg, CTXREG, GetMipsRegOffset(mipsReg));
+		if (!(mapFlags & MAP_NOINIT)) {
+			emit_->LDR(armReg, CTXREG, GetMipsRegOffset(mipsReg));
+		}
 		mr[mipsReg].loc = ML_ARMREG;
 		if (mapFlags & MAP_DIRTY) {
 			ar[armReg].isDirty = true;
