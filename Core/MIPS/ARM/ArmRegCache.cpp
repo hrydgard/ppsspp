@@ -126,6 +126,11 @@ void ArmRegCache::SetRegImm(ARMReg reg, u32 imm) {
 			emit_->ADD(reg, mreg.reg, imm - mreg.imm);
 			return;
 		}
+		// This could be common when using an address.
+		if ((mreg.imm & 0x3FFFFFFF) == imm) {
+			emit_->BIC(reg, mreg.reg, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+			return;
+		}
 		// TODO: All sorts of things are possible here, shifted adds, ands/ors, etc.
 	}
 
