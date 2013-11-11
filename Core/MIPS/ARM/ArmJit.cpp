@@ -68,6 +68,7 @@ ArmJitOptions::ArmJitOptions()
 	// Need to find a smart way to handle before enabling.
 	immBranches = false;
 	continueBranches = false;
+	continueJumps = false;
 	continueMaxInstructions = 300;
 }
 

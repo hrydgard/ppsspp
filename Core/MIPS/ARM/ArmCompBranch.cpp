@@ -410,14 +410,27 @@ void Jit::Comp_Jump(MIPSOpcode op)
 	{
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
 		FlushAll();
 		WriteExit(targetAddr, js.nextExit++);
 		break;
 
 	case 3: //jal
-		gpr.MapReg(MIPS_REG_RA, MAP_NOINIT | MAP_DIRTY);
-		gpr.SetRegImm(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
 		FlushAll();
 		WriteExit(targetAddr, js.nextExit++);
 		break;
@@ -452,8 +465,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
 		CompileDelaySlot(DELAYSLOT_NICE);
-		gpr.MapReg(rs);
-		destReg = gpr.R(rs);  // Safe because FlushAll doesn't change any regs
+
 		if (rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
 			// According to the MIPS ABI, there are some regs we don't need to preserve.
 			// Let's discard them so we don't need to write them back.
@@ -465,6 +477,20 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.DiscardR(MIPS_REG_T8);
 			gpr.DiscardR(MIPS_REG_T9);
 		}
+
+		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions) {
+			// Account for the increment in the loop.
+			js.compilerPC = gpr.GetImm(rs) - 4;
+			if ((op & 0x3f) == 9) {
+				gpr.SetImm(rd, js.compilerPC + 8);
+			}
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
+
+		gpr.MapReg(rs);
+		destReg = gpr.R(rs);  // Safe because FlushAll doesn't change any regs
 		FlushAll();
 	} else {
 		// Delay slot - this case is very rare, might be able to free up R8.
@@ -494,12 +520,13 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
-	FlushAll();
-
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
 	WriteDownCount(offset);
 	js.downcountAmount = -offset;
+
+	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
+	FlushAll();
 
 	SaveDowncount();
 	// Skip the CallSyscall where possible.

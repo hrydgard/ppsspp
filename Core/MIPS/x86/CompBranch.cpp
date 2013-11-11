@@ -540,15 +540,31 @@ void Jit::Comp_Jump(MIPSOpcode op)
 	{
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		{
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
 		break;
 
 	case 3: //jal
-		gpr.MapReg(MIPS_REG_RA, false, true);
-		MOV(32, gpr.R(MIPS_REG_RA), Imm32(js.compilerPC + 8));	// Save return address
+		// Save return address - might be overwritten by delay slot.
+		gpr.SetImmediate32(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		{
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
@@ -593,19 +609,31 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	else if (delaySlotIsNice)
 	{
 		CompileDelaySlot(DELAYSLOT_NICE);
-		MOV(32, R(EAX), gpr.R(rs));
 
 		if (rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
 			// According to the MIPS ABI, there are some regs we don't need to preserve.
 			// Let's discard them so we don't need to write them back.
 			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
 			// with this enabled.
+			gpr.DiscardRegContentsIfCached(MIPS_REG_COMPILER_SCRATCH);
 			for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; i++)
 				gpr.DiscardRegContentsIfCached((MIPSGPReg)i);
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T8);
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
 		}
 
+		if (jo.continueJumps && gpr.IsImmediate(rs) && js.numInstructions < jo.continueMaxInstructions)
+		{
+			// Account for the increment in the loop.
+			js.compilerPC = gpr.GetImmediate32(rs) - 4;
+			if ((op & 0x3f) == 9)
+				gpr.SetImmediate32(rd, js.compilerPC + 8);
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
+
+		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
 	}
 	else
@@ -637,6 +665,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
+	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
 	FlushAll();
 
 	// If we're in a delay slot, this is off by one.
