@@ -29,7 +29,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#if 0
+#if 1
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint32x4_t cursor2 = vld1q_u32((const u32 *)QuickTexHashInitial);
 		uint32x4_t update = vdupq_n_u32(0x24552455U);
