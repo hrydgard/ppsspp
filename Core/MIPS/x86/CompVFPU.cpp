@@ -64,6 +64,7 @@ static const float zero = 0.0f;
 const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
+const u32 MEMORY_ALIGNED16( solidOnes[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 
 void Jit::Comp_VPFX(MIPSOpcode op)
 {
@@ -881,13 +882,14 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 
 	// Some, we just fall back to the interpreter.
 	switch (cond) {
-	case VC_EN: // c = my_isnan(s[i]); break;
 	case VC_EI: // c = my_isinf(s[i]); break;
 	case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
-	case VC_NN: // c = !my_isnan(s[i]); break;
 	case VC_NI: // c = !my_isinf(s[i]); break;
 	case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 		DISABLE;
+		break;
+	case VC_EN: // c = my_isnan(s[i]); break;
+	case VC_NN: // c = !my_isnan(s[i]); break;
 	default:
 		break;
 	}
@@ -916,7 +918,20 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		bool compareToZero = false;
 		int comparison = -1;
 		bool flip = false;
+		bool inverse = false;
+
 		switch (cond) {
+		case VC_EN:
+			comparison = CMP_UNORD;
+			compareTwo = true;
+			break;
+
+		case VC_NN:
+			comparison = CMP_UNORD;
+			compareTwo = true;
+			inverse = true;
+			break;
+
 		case VC_EQ: // c = s[i] == t[i]; break;
 			comparison = CMP_EQ;
 			compareTwo = true;
@@ -974,6 +989,9 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		} else if (compareToZero) {
 			MOVSS(XMM1, fpr.V(sregs[i]));
 			CMPSS(XMM1, R(XMM0), comparison);
+		}
+		if (inverse) {
+			XORPS(XMM1, M((void *)&solidOnes));
 		}
 
 		MOVSS(M((void *) &ssCompareTemp), XMM1);

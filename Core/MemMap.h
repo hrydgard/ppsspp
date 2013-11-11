@@ -274,6 +274,23 @@ inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
 
+inline bool IsValidAddress(const u32 address) {
+	if ((address & 0x3E000000) == 0x08000000) {
+		return true;
+	}
+	else if ((address & 0x3F800000) == 0x04000000) {
+		return true;
+	}
+	else if ((address & 0xBFFF0000) == 0x00010000) {
+		return true;
+	}
+	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return true;
+	}
+	else
+		return false;
+}
+
 
 template<class T>
 void ReadStruct(u32 address, T *ptr)
