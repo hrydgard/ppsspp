@@ -711,7 +711,7 @@ namespace MIPSComp
 			break; 
 
 		case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
-			if (gpr.IsImm(rs) && gpr.IsImm(rs)) {
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				s64 result = (s64)(s32)gpr.GetImm(rs) * (s64)(s32)gpr.GetImm(rt);
 				u64 resultBits = (u64)result;
 				gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
@@ -723,7 +723,7 @@ namespace MIPSComp
 			break;
 
 		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
-			if (gpr.IsImm(rs) && gpr.IsImm(rs)) {
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				u64 resultBits = (u64)gpr.GetImm(rs) * (u64)gpr.GetImm(rt);
 				gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
 				gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
