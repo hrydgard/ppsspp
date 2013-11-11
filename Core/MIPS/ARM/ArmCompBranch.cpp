@@ -406,6 +406,17 @@ void Jit::Comp_Jump(MIPSOpcode op)
 	u32 off = _IMM26 << 2;
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
 
+	// Might be a stubbed address or something?
+	if (!Memory::IsValidAddress(targetAddr))
+	{
+		if (js.nextExit == 0)
+			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr)
+		else
+			js.compiling = false;
+		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
+		return;
+	}
+
 	switch (op >> 26) 
 	{
 	case 2: //j
