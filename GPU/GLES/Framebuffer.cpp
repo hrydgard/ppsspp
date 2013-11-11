@@ -1533,7 +1533,7 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 #ifndef USING_GLES2

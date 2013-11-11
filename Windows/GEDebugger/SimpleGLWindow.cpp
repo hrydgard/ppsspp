@@ -224,6 +224,13 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_565) {
 			glfmt = GL_UNSIGNED_SHORT_5_6_5;
 			components = GL_RGB;
+		} else if (fmt == FORMAT_4444_REV) {
+			glfmt = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		} else if (fmt == FORMAT_5551_REV) {
+			glfmt = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		} else if (fmt == FORMAT_565_REV) {
+			glfmt = GL_UNSIGNED_SHORT_5_6_5_REV;
+			components = GL_RGB;
 		} else if (fmt == FORMAT_16BIT) {
 			glfmt = GL_UNSIGNED_SHORT;
 			components = GL_RED;
