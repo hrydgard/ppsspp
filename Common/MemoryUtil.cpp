@@ -49,8 +49,9 @@
 static RChunk* g_code_chunk = NULL;
 static RHeap* g_code_heap = NULL;
 static u8* g_next_ptr = NULL;
+static u8* g_orig_ptr = NULL;
 
-void FreeExecutableMemory(void* ptr)
+void ResetExecutableMemory(void* ptr)
 {
 	// Just reset the ptr to the base
 	g_next_ptr = g_orig_ptr;

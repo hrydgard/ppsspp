@@ -636,7 +636,7 @@ public:
 	void FreeCodeSpace()
 	{
 #ifdef __SYMBIAN32__
-		FreeExecutableMemory(region);
+		ResetExecutableMemory(region);
 #else
 		FreeMemoryPages(region, region_size);
 #endif
