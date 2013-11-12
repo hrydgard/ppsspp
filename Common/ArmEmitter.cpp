@@ -189,7 +189,7 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 	} else {
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
-			u8 bits = (val >> i) & 0xFF;
+			u8 bits = RotR(val, i) & 0xFF;
 			// If either low bit is not set, we need to use a BIC for them.
 			if ((bits & 3) != 3) {
 				++ops;
@@ -201,7 +201,7 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		if (ops <= 3 || !cpu_info.bArmV7) {
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
-				u8 bits = (val >> i) & 0xFF;
+				u8 bits = RotR(val, i) & 0xFF;
 				if ((bits & 3) != 3) {
 					u8 rotation = i == 0 ? 0 : 16 - i / 2;
 					if (first) {
@@ -255,7 +255,7 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 	} else {
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
-			u8 bits = (val >> i) & 0xFF;
+			u8 bits = RotR(val, i) & 0xFF;
 			// If either low bit is set, we need to use a ORR for them.
 			if ((bits & 3) != 0) {
 				++ops;
@@ -271,7 +271,7 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		} else if (ops <= 3 || !cpu_info.bArmV7) {
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
-				u8 bits = (val >> i) & 0xFF;
+				u8 bits = RotR(val, i) & 0xFF;
 				if ((bits & 3) != 0) {
 					u8 rotation = i == 0 ? 0 : 16 - i / 2;
 					if (first) {
