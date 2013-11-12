@@ -318,17 +318,24 @@ void ArmRegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, 
 void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
 		// Nothing to do, reg not mapped.
+		if (ar[r].isDirty) {
+			ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		}
 		return;
 	}
 	if (ar[r].mipsReg != MIPS_REG_INVALID) {
-		if (ar[r].isDirty && (mr[ar[r].mipsReg].loc == ML_ARMREG || mr[ar[r].mipsReg].loc == ML_ARMREG_IMM))
-			emit_->STR(r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
-		// IMMs won't be in an ARM reg.
-		mr[ar[r].mipsReg].loc = ML_MEM;
-		mr[ar[r].mipsReg].reg = INVALID_REG;
-		mr[ar[r].mipsReg].imm = 0;
-	} else {
-		ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		auto &mreg = mr[ar[r].mipsReg];
+		if (mreg.loc == ML_ARMREG_IMM) {
+			// We know it's immedate value, no need to STR now.
+			mreg.loc = ML_IMM;
+			mreg.reg = INVALID_REG;
+		} else {
+			if (ar[r].isDirty && mreg.loc == ML_ARMREG)
+				emit_->STR(r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+			mreg.loc = ML_MEM;
+			mreg.reg = INVALID_REG;
+			mreg.imm = 0;
+		}
 	}
 	ar[r].isDirty = false;
 	ar[r].mipsReg = MIPS_REG_INVALID;
