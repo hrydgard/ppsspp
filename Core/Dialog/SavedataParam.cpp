@@ -1542,7 +1542,7 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 	return false;
 }
 
-bool SavedataParam::secureShouldSkip(SceUtilitySavedataParam* param, bool secureMode) {
+bool SavedataParam::secureCanSkip(SceUtilitySavedataParam* param, bool secureMode) {
 	if(!secureMode)       // Only check in secure mode.
 		return false;
 	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);	
@@ -1557,7 +1557,7 @@ bool SavedataParam::secureShouldSkip(SceUtilitySavedataParam* param, bool secure
 	// Get secure file names from PARAM.SFO.
 	secureFileNames = getSecureFileNames(dirPath);
 	// Secure file name should be saved in PARAM.SFO
-	// Cannot find name in PARAM.SFO, skip.
+	// Cannot find name in PARAM.SFO, could skip.
 	if(secureFileNames.find(secureFileName) == secureFileNames.end())
 		return true;
 

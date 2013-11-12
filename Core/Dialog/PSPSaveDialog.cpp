@@ -954,9 +954,9 @@ int PSPSaveDialog::Update(int animSpeed)
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
-					if(param.secureShouldSkip(param.GetPspParam(),param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE))
+					if(param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE))
 						param.GetPspParam()->common.result = 0;
-					else if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE))
+					else if (param.secureCanSkip(param.GetPspParam(),param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE))
 						param.GetPspParam()->common.result = 0;
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA; // not sure if correct code
