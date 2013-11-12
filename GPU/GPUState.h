@@ -298,6 +298,7 @@ struct GPUgstate
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFFF) | ((clutaddrupper << 8) & 0x0F000000); }
 	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
+	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
 	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
