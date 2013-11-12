@@ -30,7 +30,6 @@
 
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
-#include "Common/Thread.h"
 
 #include "Commctrl.h"
 
