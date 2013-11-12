@@ -61,8 +61,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
 	{
 	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
-		// TODO: This should probably force not using the list?
-		currentSelectedSave = 0;
+		currentSelectedSave = param.GetSaveNameIndex(param.GetPspParam());
 		break;
 	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST:
 		currentSelectedSave = param.GetFirstListSave();

@@ -330,6 +330,7 @@ public:
 	int GetLastDataSave();
 	int GetFirstEmptySave();
 	int GetLastEmptySave();
+	int GetSaveNameIndex(SceUtilitySavedataParam* param);
 
 	void DoState(PointerWrap &p);
 
