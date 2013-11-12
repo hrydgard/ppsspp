@@ -24,12 +24,6 @@
 #include <pthread.h>
 #include <errno.h>
 #include <sys/time.h>
-
-#ifdef BLACKBERRY
-#include <atomic.h>
-#elif defined(__SYMBIAN32__)
-#include <glib/gatomic.h>
-#endif
 #endif
 
 #include "base/basictypes.h"
@@ -54,10 +48,6 @@ public:
 #if defined(_WIN32)
 		_WriteBarrier();
 		value = 0;
-#elif defined(BLACKBERRY)
-		atomic_clr(&value, 1);
-#elif defined(__SYMBIAN32__)
-		g_atomic_int_set(&value, 0);
 #else
 		__sync_lock_release(&value);
 #endif
@@ -67,10 +57,6 @@ public:
 	bool test_and_set() {
 #if defined(_WIN32)
 		return InterlockedExchange(&value, 1) != 0;
-#elif defined(BLACKBERRY)
-		return atomic_set_value(&value, 1) != 0;
-#elif defined(__SYMBIAN32__)
-		return !g_atomic_int_compare_and_exchange((volatile int*)&value, 0, 1);
 #else
 		return __sync_lock_test_and_set(&value, 1) != 0;
 #endif
