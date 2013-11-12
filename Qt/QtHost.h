@@ -12,7 +12,6 @@
 #include "gfx/texture.h"
 #include "input/input_state.h"
 #include "math/math_util.h"
-#include "base/mutex.h"
 #include "math/lin/matrix4x4.h"
 #include <QGLWidget>
 

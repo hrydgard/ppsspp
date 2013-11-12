@@ -204,10 +204,12 @@ void MediaEngine::DoState(PointerWrap &p){
 		loadStream(m_mpegheader, 2048, m_ringbuffersize);
 #ifdef USE_FFMPEG
 	u32 hasopencontext = m_pFormatCtx != NULL;
+#else
+	u32 hasopencontext = false;
+#endif
 	p.Do(hasopencontext);
 	if (hasopencontext && p.mode == p.MODE_READ)
 		openContext();
-#endif
 	if (m_pdata)
 		m_pdata->DoState(p);
 	if (m_demux)
@@ -618,6 +620,8 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 u8 *MediaEngine::getFrameImage() {
 #ifdef USE_FFMPEG
 	return m_pFrameRGB->data[0];
+#else
+	return NULL;
 #endif
 }
 
