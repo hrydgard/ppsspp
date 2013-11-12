@@ -27,7 +27,6 @@
 #include "../Config.h"
 #include "ChunkFile.h"
 #include "FixedSizeQueue.h"
-#include "Common/Thread.h"
 #include "Common/Atomics.h"
 #include "../../native/base/mutex.h"
 

@@ -156,9 +156,31 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+void EnableCrashingOnCrashes() 
+{ 
+  typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags); 
+  typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags); 
+  const DWORD EXCEPTION_SWALLOWING = 0x1;
+
+  HMODULE kernel32 = LoadLibraryA("kernel32.dll"); 
+  tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, 
+    "GetProcessUserModeExceptionPolicy"); 
+  tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, 
+    "SetProcessUserModeExceptionPolicy"); 
+  if (pGetPolicy && pSetPolicy) 
+  { 
+    DWORD dwFlags; 
+    if (pGetPolicy(&dwFlags)) 
+    { 
+      // Turn off the filter 
+      pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); 
+    } 
+  } 
+}
+
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
-	Common::EnableCrashingOnCrashes();
+	EnableCrashingOnCrashes();
 
 	wchar_t modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);

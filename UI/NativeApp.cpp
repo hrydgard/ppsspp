@@ -37,6 +37,7 @@
 #include "native/ext/stb_image_write/stb_image_writer.h"
 #include "native/ext/jpge/jpge.h"
 #include "native/util/text/utf8.h"
+#include "native/thread/thread.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_buffer.h"

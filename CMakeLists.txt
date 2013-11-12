@@ -270,8 +270,6 @@ add_library(Common STATIC
 	Common/MsgHandler.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
-	Common/Thread.cpp
-	Common/Thread.h
 	Common/ThreadPools.cpp
 	Common/ThreadPools.h
 	Common/Timer.cpp

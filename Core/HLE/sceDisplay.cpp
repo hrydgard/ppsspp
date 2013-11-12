@@ -29,7 +29,6 @@
 #include "gfx_es2/gl_state.h"
 #endif
 
-#include "Common/Thread.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Reporting.h"
@@ -464,7 +463,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		} else {
 			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
-				Common::SleepCurrentThread(1);
+				sleep_ms(1); // Sleep for 1ms on this thread
 				time_update();
 			}
 		}

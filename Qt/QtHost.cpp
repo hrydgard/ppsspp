@@ -249,7 +249,6 @@ void QtHost::NextGPUStep()
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
-	Common::EnableCrashingOnCrashes();
 	isMessagePending = false;
 
 	std::string user_data_path = savegame_directory;
