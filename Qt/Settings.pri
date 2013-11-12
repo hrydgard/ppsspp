@@ -19,7 +19,9 @@ win32-msvc* {
 } else {
 	DEFINES += __STDC_CONSTANT_MACROS
 	QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
-	QMAKE_CXXFLAGS += -std=c++0x -ffast-math -fno-strict-aliasing
+	QMAKE_CXXFLAGS += -ffast-math -fno-strict-aliasing
+	contains(MEEGO_EDITION,harmattan): QMAKE_CXXFLAGS += -std=gnu++0x
+	else: QMAKE_CXXFLAGS += -std=c++0x
 	QMAKE_CFLAGS_RELEASE -= -O2
 	QMAKE_CFLAGS_RELEASE += -O3
 	QMAKE_CXXFLAGS_RELEASE -= -O2
