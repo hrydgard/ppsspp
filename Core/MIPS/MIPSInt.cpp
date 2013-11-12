@@ -871,7 +871,7 @@ namespace MIPSInt
 		case 13:
 		case 14:
 		case 15:
-			if (my_isinf(F(fs)) || my_isnan(F(fs)))
+			if (my_isnanorinf(F(fs)))
 			{
 				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
@@ -887,7 +887,7 @@ namespace MIPSInt
 		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
 
 		case 36:
-			if (my_isinf(F(fs)) || my_isnan(F(fs)))
+			if (my_isnanorinf(F(fs)))
 			{
 				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
 				break;

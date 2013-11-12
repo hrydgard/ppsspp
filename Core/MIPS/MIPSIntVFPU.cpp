@@ -1515,12 +1515,12 @@ namespace MIPSInt
 			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_EN: c = my_isnan(s[i]); break;
 			case VC_EI: c = my_isinf(s[i]); break;
-			case VC_ES: c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+			case VC_ES: c = my_isnanorinf(s[i]); break;   // Tekken Dark Resurrection
 
 			case VC_NZ: c = s[i] != 0; break;
 			case VC_NN: c = !my_isnan(s[i]); break;
 			case VC_NI: c = !my_isinf(s[i]); break;
-			case VC_NS: c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+			case VC_NS: c = !(my_isnanorinf(s[i])); break;   // How about t[i] ?
 
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code %d", cond);
