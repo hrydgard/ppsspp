@@ -198,6 +198,36 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (-1 != glGetAttribLocation(program, "color0")) attrMask |= 1 << ATTR_COLOR0;
 	if (-1 != glGetAttribLocation(program, "color1")) attrMask |= 1 << ATTR_COLOR1;
 
+	availableUniforms = 0;
+	if (u_proj != -1) availableUniforms |= DIRTY_PROJMATRIX;
+	if (u_proj_through != -1) availableUniforms |= DIRTY_PROJTHROUGHMATRIX;
+	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
+	if (u_alphacolorref != -1) availableUniforms |= DIRTY_ALPHACOLORREF;
+	if (u_colormask != -1) availableUniforms |= DIRTY_COLORMASK;
+	if (u_fogcolor != -1) availableUniforms |= DIRTY_FOGCOLOR;
+	if (u_fogcoef != -1) availableUniforms |= DIRTY_FOGCOEF;
+	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
+	if (u_uvscaleoffset != -1) availableUniforms |= DIRTY_UVSCALEOFFSET;
+	if (u_world != -1) availableUniforms |= DIRTY_WORLDMATRIX;
+	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
+	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
+	// Looping up to numBones lets us avoid checking u_bone[i]
+	for (int i = 0; i < numBones; i++) {
+		if (u_bone[i] != -1)
+			availableUniforms |= DIRTY_BONEMATRIX0 << i;
+	}
+	if (u_ambient != -1) availableUniforms |= DIRTY_AMBIENT;
+	if (u_matambientalpha != -1) availableUniforms |= DIRTY_MATAMBIENTALPHA;
+	if (u_matdiffuse != -1) availableUniforms |= DIRTY_MATDIFFUSE;
+	if (u_matemissive != -1) availableUniforms |= DIRTY_MATEMISSIVE;
+	if (u_matspecular != -1) availableUniforms |= DIRTY_MATSPECULAR;
+	for (int i = 0; i < 4; i++) {
+		if (u_lightdir[i] != -1 || 
+			  u_lightspecular[i] != -1 ||
+				u_lightpos[i] != -1)
+			availableUniforms |= DIRTY_LIGHT0 << i;
+	}
+
 	glUseProgram(program);
 
 	// Default uniform values
@@ -290,7 +320,7 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 
 void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 	glUseProgram(program);
-	updateUniforms(vertType);
+	UpdateUniforms(vertType);
 	int enable, disable;
 	if (previous) {
 		enable = attrMask & ~previous->attrMask;
@@ -314,12 +344,13 @@ void LinkedShader::stop() {
 	}
 }
 
-void LinkedShader::updateUniforms(u32 vertType) {
-	if (!dirtyUniforms)
+void LinkedShader::UpdateUniforms(u32 vertType) {
+	u32 dirty = dirtyUniforms & availableUniforms;
+	if (!dirty)
 		return;
 
 	// Update any dirty uniforms before we draw
-	if (u_proj != -1 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
+	if (dirty & DIRTY_PROJMATRIX) {
 		float flippedMatrix[16];
 		memcpy(flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		if (gstate_c.vpHeight < 0) {
@@ -332,25 +363,25 @@ void LinkedShader::updateUniforms(u32 vertType) {
 		}
 		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
 	}
-	if (u_proj_through != -1 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
+	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
-	if (u_texenv != -1 && (dirtyUniforms & DIRTY_TEXENV)) {
+	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
-	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
+	if (dirty & DIRTY_ALPHACOLORREF) {
 		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
-	if (u_colormask != -1 && (dirtyUniforms & DIRTY_COLORMASK)) {
+	if (dirty & DIRTY_COLORMASK) {
 		SetColorUniform3(u_colormask, gstate.colormask);
 	}
-	if (u_fogcolor != -1 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
+	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);
 	}
-	if (u_fogcoef != -1 && (dirtyUniforms & DIRTY_FOGCOEF)) {
+	if (dirty & DIRTY_FOGCOEF) {
 		const float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
@@ -359,7 +390,7 @@ void LinkedShader::updateUniforms(u32 vertType) {
 	}
 
 	// Texturing
-	if (u_uvscaleoffset != -1 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
+	if (dirty & DIRTY_UVSCALEOFFSET) {
 		float uvscaleoff[4];
 		if (gstate.isModeThrough()) {
 			// We never get here because we don't use HW transform with through mode.
@@ -393,13 +424,13 @@ void LinkedShader::updateUniforms(u32 vertType) {
 	}
 
 	// Transform
-	if (u_world != -1 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
+	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(u_world, gstate.worldMatrix);
 	}
-	if (u_view != -1 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
+	if (dirty & DIRTY_VIEWMATRIX) {
 		SetMatrix4x3(u_view, gstate.viewMatrix);
 	}
-	if (u_texmtx != -1 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
+	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 
@@ -431,7 +462,7 @@ void LinkedShader::updateUniforms(u32 vertType) {
 #else
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
 			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 		}
@@ -439,24 +470,24 @@ void LinkedShader::updateUniforms(u32 vertType) {
 #endif
 
 	// Lighting
-	if (u_ambient != -1 && (dirtyUniforms & DIRTY_AMBIENT)) {
+	if (dirtyUniforms & DIRTY_AMBIENT) {
 		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
-	if (u_matambientalpha != -1 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
+	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
 		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
-	if (u_matdiffuse != -1 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
+	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
 		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
 	}
-	if (u_matemissive != -1 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
+	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		SetColorUniform3(u_matemissive, gstate.materialemissive);
 	}
-	if (u_matspecular != -1 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
+	if (dirtyUniforms & DIRTY_MATSPECULAR) {
 		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {
-		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
+		if (dirty & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
 				float x = gstate_c.lightpos[i][0];
@@ -553,7 +584,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
-		lastShader_->updateUniforms(vertType);
+		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;	// Already all set.
 	}
 
