@@ -1465,6 +1465,21 @@ int SavedataParam::GetLastEmptySave()
 	return idx;
 }
 
+int SavedataParam::GetSaveNameIndex(SceUtilitySavedataParam* param)
+{
+	std::string saveName = GetSaveName(param);
+	for (int i = 0; i < saveNameListDataCount; i++)
+	{
+		// TODO: saveName may contain wildcards
+		if (saveDataList[i].saveName == saveName)
+		{
+			return i;
+		}
+	}
+
+	return 0;
+}
+
 void SavedataParam::DoState(PointerWrap &p)
 {
 	auto s = p.Section("SavedataParam", 1);
