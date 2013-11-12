@@ -105,6 +105,16 @@ inline bool my_isnan(float f) {
 	return ((f2u.u & 0x7F800000) == 0x7F800000) && (f2u.u & 0x7FFFFF);
 }
 
+inline bool my_isnanorinf(float f) {
+	union {
+		float f;
+		uint32_t u;
+	} f2u;
+	f2u.f = f;
+	// NaNs have non-zero mantissa, infs have zero mantissa. That is, we just ignore the mantissa here.
+	return ((f2u.u & 0x7F800000) == 0x7F800000);
+}
+
 inline int is_even(float d) {
 	float int_part;
 	modff(d / 2.0f, &int_part);
