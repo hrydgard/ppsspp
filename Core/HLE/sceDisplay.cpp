@@ -18,6 +18,7 @@
 #include <vector>
 #include <map>
 #include <cmath>
+#include <algorithm>
 
 // TODO: Move the relevant parts into common. Don't want the core
 // to be dependent on "native", I think. Or maybe should get rid of common
