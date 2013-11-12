@@ -65,6 +65,6 @@ symbian {
 	# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see README)
 	DEFINES += "BOOST_COMPILER_CONFIG=\"$$EPOCROOT/epoc32/include/stdapis/boost/mpl/aux_/config/gcc.hpp\""
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
-	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis $$EPOCROOT/epoc32/include/stdapis/glib-2.0
+	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis
 	INCLUDEPATH += ../ffmpeg/symbian/armv6/include
 }

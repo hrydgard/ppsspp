@@ -54,7 +54,7 @@ linux {
 	}
 }
 qnx: LIBS += -lscreen
-symbian: LIBS += -llibglib -lRemConCoreApi -lRemConInterfaceBase
+symbian: LIBS += -lRemConCoreApi -lRemConInterfaceBase
 # Avoids problems with some compilers
 unix:!symbian: LIBS += -lz
 
