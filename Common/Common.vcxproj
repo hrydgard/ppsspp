@@ -192,7 +192,6 @@
     <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
-    <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
@@ -228,7 +227,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="StringUtils.cpp" />
-    <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
