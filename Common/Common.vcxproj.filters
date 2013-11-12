@@ -53,7 +53,6 @@
     <ClCompile Include="Misc.cpp" />
     <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="StringUtils.cpp" />
-    <ClCompile Include="Thread.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
