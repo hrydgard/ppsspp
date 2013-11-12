@@ -1355,12 +1355,20 @@ namespace MIPSComp
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 
 		// Some, we just fall back to the interpreter.
+		// ES is just really equivalent to (value & 0x7F800000) == 0x7F800000.
+
 		switch (cond) {
 		case VC_EI: // c = my_isinf(s[i]); break;
-		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
 		case VC_NI: // c = !my_isinf(s[i]); break;
-		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 			DISABLE;
+		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+		case VC_EN: // c = my_isnan(s[i]); break;
+		case VC_NN: // c = !my_isnan(s[i]); break;
+			if (_VS != _VT)
+				DISABLE;
+			break;
+
 		case VC_EZ:
 		case VC_NZ:
 			MOVI2F(S0, 0.0f, R0);
@@ -1381,13 +1389,37 @@ namespace MIPSComp
 				break;
 
 			case VC_TR: // c = 1
-				ORR(R0, R0, 1 << n);
+				if (i == 0) {
+					if (n == 1) {
+						MOVI2R(R0, 0x31);
+					} else {
+						MOVI2R(R0, 1 << i);
+					}
+				} else {
+					ORR(R0, R0, 1 << i);
+				}
+				break;
+
+			case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+			case VC_NS: // c = !(my_isnan(s[i]) || my_isinf(s[i])); break;
+				// For these, we use the integer ALU as there is no support on ARM for testing for INF.
+				// Testing for nan or inf is the same as testing for &= 0x7F800000 == 0x7F800000.
+				// We need an extra temporary register so we store away R0.
+				STR(R0, CTXREG, offsetof(MIPSState, temp));
+				fpr.MapRegV(sregs[i], 0);
+				MOVI2R(R0, 0x7F800000);
+				VMOV(R1, fpr.V(sregs[i]));
+				AND(R1, R1, R0);
+				CMP(R1, R0);   // (R1 & 0x7F800000) == 0x7F800000
+				flag = cond == VC_ES ? CC_EQ : CC_NEQ;
+				LDR(R0, CTXREG, offsetof(MIPSState, temp));
 				break;
 
 			case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
 				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_VS;  // overflow = unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
 				break;
 
@@ -1395,54 +1427,63 @@ namespace MIPSComp
 				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_VC;  // !overflow = !unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
 				break;
 
 			case VC_EQ: // c = s[i] == t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_EQ;
 				break;
 
 			case VC_LT: // c = s[i] < t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_LT;
 				break;
 
 			case VC_LE: // c = s[i] <= t[i]; 
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_LE;
 				break;
 
 			case VC_NE: // c = s[i] != t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_NEQ;
 				break;
 
 			case VC_GE: // c = s[i] >= t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_GE;
 				break;
 
 			case VC_GT: // c = s[i] > t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_GT;
 				break;
 
 			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
 				fpr.MapRegV(sregs[i]);
 				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR();
 				flag = CC_EQ;
 				break;
 
 			case VC_NZ: // c = s[i] != 0
 				fpr.MapRegV(sregs[i]);
 				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR();
 				flag = CC_NEQ;
 				break;
 
@@ -1450,7 +1491,6 @@ namespace MIPSComp
 				DISABLE;
 			}
 			if (flag != CC_AL) {
-				VMRS_APSR();
 				SetCC(flag);
 				if (i == 0) {
 					if (n == 1) {
