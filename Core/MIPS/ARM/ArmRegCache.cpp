@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ArmRegCache.h"
-#include "ArmEmitter.h"
-#include "ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/Reporting.h"
+#include "Common/ArmEmitter.h"
 
 #if defined(MAEMO)
 #include "stddef.h"
@@ -194,7 +195,7 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		ARMReg armReg = mr[mipsReg].reg;
 		if (ar[armReg].mipsReg != mipsReg) {
-			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG_REPORT(JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			// Mapping dirty means the old imm value is invalid.
@@ -266,7 +267,7 @@ allocate:
 	}
 
 	// Uh oh, we have all them spilllocked....
-	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
 
@@ -319,7 +320,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
 		// Nothing to do, reg not mapped.
 		if (ar[r].isDirty) {
-			ERROR_LOG(JIT, "Dirty but no mipsreg?");
+			ERROR_LOG_REPORT(JIT, "Dirty but no mipsreg?");
 		}
 		return;
 	}
@@ -366,7 +367,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_ARMREG:
 	case ML_ARMREG_IMM:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
+			ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
@@ -380,7 +381,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_ARMREG_AS_PTR:
 		// Never dirty.
 		if (ar[mr[r].reg].isDirty) {
-			ERROR_LOG(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
+			ERROR_LOG_REPORT(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
 		}
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		break;
@@ -390,7 +391,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 		break;
 
 	default:
-		ERROR_LOG(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
 	mr[r].loc = ML_MEM;
@@ -495,7 +496,7 @@ void ArmRegCache::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		if (ar[i].mipsReg != MIPS_REG_INVALID) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+			ERROR_LOG_REPORT(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
 	}
 }
@@ -526,7 +527,7 @@ bool ArmRegCache::IsImm(MIPSGPReg r) const {
 u32 ArmRegCache::GetImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO) return 0;
 	if (mr[r].loc != ML_IMM && mr[r].loc != ML_ARMREG_IMM) {
-		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
+		ERROR_LOG_REPORT(JIT, "Trying to get imm from non-imm register %i", r);
 	}
 	return mr[r].imm;
 }
@@ -540,7 +541,7 @@ int ArmRegCache::GetMipsRegOffset(MIPSGPReg r) {
 	case MIPS_REG_LO:
 		return offsetof(MIPSState, lo);
 	default:
-		ERROR_LOG(JIT, "bad mips register %i", r);
+		ERROR_LOG_REPORT(JIT, "bad mips register %i", r);
 		return 0;  // or what?
 	}
 }
@@ -566,7 +567,7 @@ ARMReg ArmRegCache::R(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
-		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -575,7 +576,7 @@ ARMReg ArmRegCache::RPtr(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
-		ERROR_LOG(JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }
