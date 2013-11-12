@@ -31,7 +31,7 @@ using namespace ArmGen;
 // R11 = base pointer
 
 enum {
-	TOTAL_MAPPABLE_MIPSREGS = 35,
+	TOTAL_MAPPABLE_MIPSREGS = 36,
 };
 
 typedef int MIPSReg;
