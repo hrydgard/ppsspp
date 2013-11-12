@@ -584,6 +584,41 @@ void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string di
 	}
 }
 
+std::set<std::string> SavedataParam::getSecureFileNames(std::string dirPath) {
+		PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
+		std::set<std::string> secureFileNames;
+		if(!sfoFileInfo.exists)
+			return secureFileNames;
+
+		ParamSFOData sfoFile;
+		size_t sfoSize = (size_t)sfoFileInfo.size;
+		u8 *sfoData = new u8[sfoSize];
+		if (ReadPSPFile(dirPath + "/" + SFO_FILENAME, &sfoData, sfoSize, NULL)){
+			sfoFile.ReadSFO(sfoData, sfoSize);
+		}
+		delete[] sfoData;
+
+		u32 sfoFileListSize = 0;
+		char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
+		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
+		const u32 FILE_LIST_COUNT_MAX = 99;
+
+		// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
+		char temp[14];
+		temp[13] = '\0';
+
+		for (u32 i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
+			// Ends at a NULL filename.
+			if (i * FILE_LIST_ITEM_SIZE >= sfoFileListSize || sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
+				break;
+			}
+
+			strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
+			secureFileNames.insert(temp);
+		}
+		return secureFileNames;
+}
+
 void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize = -1;
@@ -959,32 +994,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	std::set<std::string> secureFilenames;
 	// TODO: Error code if not?
 	if (sfoFileInfo.exists) {
-		ParamSFOData sfoFile;
-		size_t sfoSize = (size_t)sfoFileInfo.size;
-		u8 *sfoData = new u8[sfoSize];
-		if (ReadPSPFile(dirPath + "/" + SFO_FILENAME, &sfoData, sfoSize, NULL)){
-			sfoFile.ReadSFO(sfoData, sfoSize);
-		}
-		delete[] sfoData;
-
-		u32 sfoFileListSize = 0;
-		char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
-		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
-		const u32 FILE_LIST_COUNT_MAX = 99;
-
-		// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
-		char temp[14];
-		temp[13] = '\0';
-
-		for (u32 i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
-			// Ends at a NULL filename.
-			if (i * FILE_LIST_ITEM_SIZE >= sfoFileListSize || sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
-				break;
-			}
-
-			strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
-			secureFilenames.insert(temp);
-		}
+		secureFilenames = getSecureFileNames(dirPath);
 	}
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
@@ -1529,5 +1539,25 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 		if(strcmp(saveDataList[i].saveName.c_str(),saveName.c_str()) == 0)
 			return true;
 	}
+	return false;
+}
+
+bool SavedataParam::secureShouldSkip(SceUtilitySavedataParam* param) {
+	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);	
+	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
+	std::string secureFileName = GetFileName(param); 
+	std::set<std::string> secureFileNames;
+	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfoPath);
+	// If sfo doesn't exsit,shouldn't skip.
+	if(!sfoInfo.exists)
+		return false;
+
+	// Get secure file names from PARAM.SFO.
+	secureFileNames = getSecureFileNames(dirPath);
+	// Secure file name should be saved in PARAM.SFO
+	// Cannot find name in PARAM.SFO, skip.
+	if(secureFileNames.find(secureFileName) == secureFileNames.end())
+		return true;
+
 	return false;
 }

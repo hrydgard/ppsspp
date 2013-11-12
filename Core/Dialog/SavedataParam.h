@@ -305,6 +305,7 @@ public:
 	bool GetSize(SceUtilitySavedataParam* param);
 	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
+	bool secureShouldSkip(SceUtilitySavedataParam* param);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
@@ -350,6 +351,8 @@ private:
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
 	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
+
+	std::set<std::string> getSecureFileNames(std::string dirPath);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
