@@ -187,7 +187,9 @@ static void ThreadnameKeyAlloc()
 
 void SetCurrentThreadName(const char* szThreadName)
 {
-#ifdef BLACKBERRY
+#ifdef APPLE
+	pthread_setname_np(szThreadName);
+#elif defined(BLACKBERRY)
 	pthread_setname_np(pthread_self(), szThreadName);
 #else
 	pthread_once(&threadname_key_once, ThreadnameKeyAlloc);

@@ -73,7 +73,7 @@ public:
 	void Wait()
 	{
 		std::unique_lock<std::mutex> lk(m_mutex);
-		m_condvar.wait(lk, IsSet(this));
+		m_condvar.wait(lk, [&]{ return is_set; });
 		is_set = false;
 	}
 
@@ -85,22 +85,6 @@ public:
 	}
 
 private:
-	class IsSet
-	{
-	public:
-		IsSet(const Event* ev)
-			: m_event(ev)
-		{}
-
-		bool operator()()
-		{
-			return m_event->is_set;
-		}
-
-	private:
-		const Event* const m_event;
-	};
-
 	volatile bool is_set;
 	std::condition_variable m_condvar;
 	std::mutex m_mutex;
@@ -130,28 +114,12 @@ public:
 		}
 		else
 		{
-			m_condvar.wait(lk, IsDoneWating(this));
+			m_condvar.wait(lk, [&]{ return (0 == m_waiting); });
 			return false;
 		}
 	}
 
 private:
-	class IsDoneWating
-	{
-	public:
-		IsDoneWating(const Barrier* bar)
-			: m_bar(bar)
-		{}
-
-		bool operator()()
-		{
-			return (0 == m_bar->m_waiting);
-		}
-
-	private:
-		const Barrier* const m_bar;
-	};
-
 	std::condition_variable m_condvar;
 	std::mutex m_mutex;
 	const size_t m_count;
