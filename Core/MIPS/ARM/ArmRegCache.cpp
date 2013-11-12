@@ -91,7 +91,7 @@ ARMReg ArmRegCache::MapRegAsPointer(MIPSGPReg mipsReg) {  // read-only, non-dirt
 	// Convert to a pointer by adding the base and clearing off the top bits.
 	// If SP, we can probably avoid the top bit clear, let's play with that later.
 	emit_->BIC(armReg, armReg, Operand2(0xC0, 4));    // &= 0x3FFFFFFF
-	emit_->ADD(armReg, R11, armReg);
+	emit_->ADD(armReg, MEMBASEREG, armReg);
 	ar[armReg].isDirty = false;
 	ar[armReg].mipsReg = mipsReg;
 	mr[mipsReg].loc = ML_ARMREG_AS_PTR;
@@ -356,7 +356,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg != MIPS_REG_INVALID) {
 		auto &mreg = mr[ar[r].mipsReg];
 		if (mreg.loc == ML_ARMREG_IMM) {
-			// We know it's immedate value, no need to STR now.
+			// We know its immedate value, no need to STR now.
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
 		} else {
