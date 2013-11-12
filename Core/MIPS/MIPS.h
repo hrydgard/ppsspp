@@ -68,6 +68,7 @@ enum MIPSGPReg
 	// Not real regs, just for convenience/jit mapping.
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
+	MIPS_REG_FPCOND = 34,
 };
 
 enum

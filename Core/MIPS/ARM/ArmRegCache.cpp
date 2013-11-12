@@ -569,6 +569,8 @@ int ArmRegCache::GetMipsRegOffset(MIPSGPReg r) {
 		return offsetof(MIPSState, hi);
 	case MIPS_REG_LO:
 		return offsetof(MIPSState, lo);
+	case MIPS_REG_FPCOND:
+		return offsetof(MIPSState, fpcond);
 	default:
 		ERROR_LOG_REPORT(JIT, "bad mips register %i", r);
 		return 0;  // or what?
