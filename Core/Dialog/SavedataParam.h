@@ -305,7 +305,7 @@ public:
 	bool GetSize(SceUtilitySavedataParam* param);
 	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
-	bool secureShouldSkip(SceUtilitySavedataParam* param);
+	bool secureShouldSkip(SceUtilitySavedataParam* param, bool secureMode);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
