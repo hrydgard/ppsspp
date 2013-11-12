@@ -360,7 +360,8 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
 		break;
 	case DEFAULT_MAPPING_BLACKBERRY_QWERTY:
-		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultBlackberryQWERTYKeyMap, ARRAY_SIZE(defaultBlackberryQWERTYKeyMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultBlackberryQWERTYKeyMap, ARRAY_SIZE(defaultBlackberryQWERTYKeyMap), replace);
+		replace = false;
 	case DEFAULT_MAPPING_PAD:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
 		break;
