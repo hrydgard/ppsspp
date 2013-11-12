@@ -87,6 +87,7 @@
 #include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
+#include "GPU/Common/SplineCommon.h"
 
 const GLuint glprim[8] = {
 	GL_POINTS,
@@ -1370,49 +1371,80 @@ rotateVBO:
 #endif
 }
 
+struct Plane {
+	float x, y, z, w;
+	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
+	float Test(float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+};
+
+void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
+	// TODO: Which order is the most optimal?
+	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);// Right clipping plane.
+	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);// Left clipping plane.
+	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);// Bottom clipping plane.
+	planes[3].Set(mtx[3]-mtx[1], mtx[7]-mtx[5], mtx[11]-mtx[9], mtx[15]-mtx[13]);// Top clipping plane.
+	planes[4].Set(mtx[3]+mtx[2], mtx[7]+mtx[6], mtx[11]+mtx[10], mtx[15]+mtx[14]); // Near clipping plane.
+	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]);// Far clipping plane.
+}
+
+// This code is HIGHLY unoptimized!
+//
+// It does the simplest and safest test possible: If all points of a bbox is outside a single of
+// our clipping planes, we reject the box.
 bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
 	// Simplify away bones and morph before proceeding
-
-	/*
+	// Special case for float positions only.
+	// This clip test is not very accurate but does succeed in removing some bboxes at least.
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	u8 *temp_buffer = decoded + 65536 * 24;
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
 
-	for (int cube = 0; cube < vertexCount / 8; cube++) {
-		// For each cube...
-		
-		for (int i = 0; i < 8; i++) {
-			const SimpleVertex &vert = corners[cube * 8 + i];
+	Plane planes[6];
 
-			// To world space...
-			float worldPos[3];
-			Vec3ByMatrix43(worldPos, (float *)&vert.pos.x, gstate.worldMatrix);
+	PlanesFromMatrix(gstate.projMatrix, planes);
 
-			// To view space...
-			float viewPos[3];
-			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
+	for (int plane = 0; plane < 6; plane++) {
+		int inside = 0;
+		int out = 0;
+		for (int box = 0; box < vertexCount / 8; box++) {
+			// For each box...
+			for (int i = 0; i < 8; i++) {
+				const SimpleVertex &vert = corners[box * 8 + i];
 
-			// And finally to screen space.
-			float frustumPos[4];
-			Vec3ByMatrix44(frustumPos, viewPos, gstate.projMatrix);
+				// To world space...
+				float worldPos[3];
+				Vec3ByMatrix43(worldPos, (float *)&vert.pos.x, gstate.worldMatrix);
 
-			// Project to 2D
-			float x = frustumPos[0] / frustumPos[3];
-			float y = frustumPos[1] / frustumPos[3];
+				// To view space...
+				float viewPos[3];
+				Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
 
-			// Rescale 2d position
-			// ...
+				// Here we can test against the frustum planes!
+
+				float value = planes[plane].Test(viewPos);
+				if (value < 0)
+					out++;
+				else
+					inside++;
+
+				// float frustumPos[4];
+				// Vec3ByMatrix44(frustumPos, viewPos, gstate.projMatrix);
+			}
 		}
-	}
-	*/
 
-	
-	// Let's think. A better approach might be to take the edges of the drawing region and the projection
-	// matrix to build a frustum pyramid, and then clip the cube against those planes. If all vertices fail the same test,
-	// the cube is out. Otherwise it's in.
-	// TODO....
-	
+		if (inside == 0) {
+			// All out
+			return false;
+		}
+
+		// Any out. For testing that the planes are in the right locations.
+		//if (out != 0) {
+			// All out
+		//	return false;
+		//}
+	}
+
 	return true;
 }

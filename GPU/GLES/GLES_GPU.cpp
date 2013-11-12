@@ -849,7 +849,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			currentList->bboxResult = true;
 			break;
 		}
-		if ((data % 8 == 0) && data < 64) {  // Sanity check
+		if (((data & 7) == 0) && data <= 64) {  // Sanity check
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
 				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
