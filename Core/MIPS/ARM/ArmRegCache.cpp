@@ -17,6 +17,7 @@
 
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Reporting.h"
 #include "Common/ArmEmitter.h"
 
@@ -186,6 +187,38 @@ void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	mr[mipsReg].reg = reg;
 }
 
+ARMReg ArmRegCache::FindBestToSpill(bool unusedOnly) {
+	int allocCount;
+	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
+
+	static const int UNUSED_LOOKAHEAD_OPS = 3;
+
+	for (int i = 0; i < allocCount; i++) {
+		ARMReg reg = allocOrder[i];
+		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
+			continue;
+
+		if (unusedOnly) {
+			bool unused = true;
+			for (int ahead = 1; ahead <= UNUSED_LOOKAHEAD_OPS; ++ahead) {
+				MIPSOpcode laterOp = Memory::Read_Instruction(compilerPC_ + ahead * sizeof(u32));
+				// If read, it might need to be mapped again.  If output, it might not need to be stored.
+				if (MIPSAnalyst::ReadsFromGPReg(laterOp, ar[reg].mipsReg) || MIPSAnalyst::GetOutGPReg(laterOp) == ar[reg].mipsReg) {
+					unused = false;
+				}
+			}
+
+			if (!unused) {
+				continue;
+			}
+		}
+
+		return reg;
+	}
+
+	return INVALID_REG;
+}
+
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
@@ -251,13 +284,9 @@ allocate:
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
 	// TODO: Spill dirty regs first? or opposite?
-	ARMReg bestToSpill = INVALID_REG;
-	for (int i = 0; i < allocCount; i++) {
-		ARMReg reg = allocOrder[i];
-		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
-			continue;
-		bestToSpill = reg;
-		break;
+	ARMReg bestToSpill = FindBestToSpill(true);
+	if (bestToSpill == INVALID_REG) {
+		bestToSpill = FindBestToSpill(false);
 	}
 
 	if (bestToSpill != INVALID_REG) {
