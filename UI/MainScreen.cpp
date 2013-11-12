@@ -553,7 +553,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
 #ifdef GOLD
-	logos->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+	logos->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 #else
 	logos->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 #endif

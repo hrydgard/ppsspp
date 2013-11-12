@@ -384,7 +384,7 @@ void CreditsScreen::CreateViews() {
 		root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
 #ifdef GOLD
-	root_->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+	root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 #else
 	root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 #endif
