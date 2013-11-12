@@ -722,6 +722,10 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 		// minWritebytes should not be bigger than writeablebytes
 		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
 
+		if (atrac->first.fileoffset <= 2*atrac->atracBufSize){
+			Sampleoffset = atrac->first.fileoffset;
+		}
+
 		// If we've already loaded everything, the answer is 0.
 		if (atrac->first.size >= atrac->first.filesize) {
 			Sampleoffset = 0;
