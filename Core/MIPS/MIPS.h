@@ -69,6 +69,7 @@ enum MIPSGPReg
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
 	MIPS_REG_FPCOND = 34,
+	MIPS_REG_VFPUCC = 35,
 };
 
 enum

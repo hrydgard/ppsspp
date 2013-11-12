@@ -1018,8 +1018,13 @@ namespace MIPSComp
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 					// In case we have a saved prefix.
 					FlushPrefixV();
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
-					LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					if (imm - 128 == VFPU_CTRL_CC) {
+						gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
+						MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+					} else {
+						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+						LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					}
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
 					ERROR_LOG(CPU, "mfv - invalid register %i", imm);
@@ -1033,8 +1038,13 @@ namespace MIPSComp
 				fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
 				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
-				gpr.MapReg(rt);
-				STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+				if (imm - 128 == VFPU_CTRL_CC) {
+					gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
+					MOV(gpr.R(MIPS_REG_VFPUCC), rt);
+				} else {
+					gpr.MapReg(rt);
+					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+				}
 				//gpr.BindToRegister(rt, true, false);
 				//MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
 
@@ -1496,7 +1506,7 @@ namespace MIPSComp
 					if (n == 1) {
 						MOVI2R(R0, 0x31);
 					} else {
-						MOVI2R(R0, 1 << i);
+						MOVI2R(R0, 1);  // 1 << i, but i == 0
 					}
 				} else {
 					ORR(R0, R0, 1 << i);
@@ -1514,17 +1524,16 @@ namespace MIPSComp
 			SetCC(CC_EQ);
 			ORR(R0, R0, 1 << 5);
 			SetCC(CC_AL);
-			
+
 			CMP(R0, 0);
 			SetCC(CC_NEQ);
 			ORR(R0, R0, 1 << 4);
 			SetCC(CC_AL);
 		}
 
-		LDR(R1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
-		BIC(R1, R1, affected_bits);
-		ORR(R1, R1, R0);
-		STR(R1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+		gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY);
+		BIC(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), affected_bits);
+		ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), R0);
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
@@ -1555,8 +1564,8 @@ namespace MIPSComp
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
-			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
-			TST(R0, 1 << imm3);
+			gpr.MapReg(MIPS_REG_VFPUCC);
+			TST(gpr.R(MIPS_REG_VFPUCC), 1 << imm3);
 			SetCC(tf ? CC_EQ : CC_NEQ);
 			for (int i = 0; i < n; i++) {
 				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
@@ -1566,9 +1575,9 @@ namespace MIPSComp
 			// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
-			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+			gpr.MapReg(MIPS_REG_VFPUCC);
 			for (int i = 0; i < n; i++) {
-				TST(R0, 1 << i);
+				TST(gpr.R(MIPS_REG_VFPUCC), 1 << i);
 				SetCC(tf ? CC_EQ : CC_NEQ);
 				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
 				SetCC(CC_AL);
