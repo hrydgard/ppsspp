@@ -196,12 +196,10 @@ void GameSettingsScreen::CreateViews() {
 	if (!PSP_IsInited())
 		dump->SetEnabled(false);
 
-#ifndef __SYMBIAN32__
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)"))); 
 	if (PSP_IsInited())
 		softwareGPU->SetEnabled(false);
-#endif
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

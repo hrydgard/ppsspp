@@ -69,10 +69,8 @@ SOURCES += ../Core/*.cpp \ # Core
 }
 
 # Software GPU
-!symbian {
-	SOURCES += ../GPU/Software/*.cpp
-	HEADERS += ../GPU/Software/*.h
-}
+SOURCES += ../GPU/Software/*.cpp
+HEADERS += ../GPU/Software/*.h
 
 HEADERS += ../Core/*.h \
 	../Core/Debugger/*.h \

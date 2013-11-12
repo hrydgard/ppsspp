@@ -53,7 +53,7 @@ bool GPU_Init() {
 #endif
 		break;
 	case GPU_SOFTWARE:
-#if !(defined(__SYMBIAN32__) || defined(_XBOX))
+#ifndef _XBOX
 		SetGPU(new SoftGPU());
 #endif
 		break;
