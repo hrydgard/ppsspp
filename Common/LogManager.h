@@ -23,7 +23,7 @@
 #include "file/ini_file.h" 
 
 #include <set>
-#include "Common/StdMutex.h"
+#include "StdMutex.h"
 
 #define	MAX_MESSAGES 8000   
 #define MAX_MSGLEN  1024
