@@ -59,6 +59,7 @@ public:
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
+	std::vector<std::string> PrePathList;
 	std::string sLanguageIni;
 
 	// GFX
@@ -92,6 +93,8 @@ public:
 	int iFpsLimit;
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
+	int iMaxPrePath;
+	int iCurrentPrePath;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;
 	bool bEnableAutoLoad;
@@ -244,6 +247,14 @@ public:
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
 	void CleanRecent();
+
+	std::string getCurrentPrePath() {
+		if(PrePathList.size() == 0) 
+			return "";
+		return PrePathList[iCurrentPrePath];
+	}
+	void AddPreferredPath(const std::string filename);
+	void DeletePreferredPath(int index);
 
 private:
 	std::string iniFilename_;
