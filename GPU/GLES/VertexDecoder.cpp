@@ -40,11 +40,11 @@ static const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
 // When software skinning. This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
-static float skinMatrix[12];
+static float MEMORY_ALIGNED16(skinMatrix[12]);
 
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
 // using SSE / NEON and store them here.
-static float bones[16 * 8];
+static float MEMORY_ALIGNED16(bones[16 * 8]);
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
