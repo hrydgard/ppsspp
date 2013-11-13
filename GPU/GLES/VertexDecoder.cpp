@@ -49,37 +49,6 @@ inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
 }
 
-#if 0
-// This is what the software transform spits out, and thus w
-DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
-	DecVtxFormat tfm = {0};
-	int size = 0;
-	int offset = 0;
-	// Weights disappear during transform.
-	if (fmt.uvfmt) {
-		// UV always becomes float2.
-		tfm.uvfmt = DEC_FLOAT_2;
-		tfm.uvoff = offset;
-		offset += DecFmtSize(tfm.uvfmt);
-	}
-	// We always (?) get two colors out, they're floats (although we'd probably be fine with less precision).
-	tfm.c0fmt = DEC_FLOAT_4;
-	tfm.c0off = offset;
-	offset += DecFmtSize(tfm.c0fmt);
-	tfm.c1fmt = DEC_FLOAT_3;  // color1 (specular) doesn't have alpha.
-	tfm.c1off = offset;
-	offset += DecFmtSize(tfm.c1fmt);
-	// We never get a normal, it's gone.
-	// But we do get a position, and it's always float3.
-	tfm.posfmt = DEC_FLOAT_3;
-	tfm.posoff = offset;
-	offset += DecFmtSize(tfm.posfmt);
-	// Update stride.
-	tfm.stride = offset;
-	return tfm;
-}
-#endif
-
 VertexDecoder::VertexDecoder() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {
 	memset(stats_, 0, sizeof(stats_));
 }
