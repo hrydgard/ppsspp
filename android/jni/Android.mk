@@ -122,7 +122,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/ThreadPools.cpp \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/Misc.cpp \
-  $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \

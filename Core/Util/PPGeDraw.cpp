@@ -25,7 +25,6 @@
 #include "Core/MemMap.h"
 #include "image/zim_load.h"
 #include "util/text/utf8.h"
-#include "MathUtil.h"
 #include "Core/System.h"
 
 static u32 atlasPtr;
@@ -744,6 +743,20 @@ void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float
 	Vertex(x, y, u1, v1, tw, th, color);
 	Vertex(x + w, y + h, u2, v2, tw, th, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+}
+
+// Return a value such that (1 << value) >= x
+int GetPow2(int x)
+{
+#ifdef __GNUC__
+	int ret = 31 - __builtin_clz(x|1);
+	if ((1 << ret) < x)
+#else
+	int ret = 0;
+	while ((1 << ret) < x)
+#endif
+		ret++;
+	return ret;
 }
 
 void PPGeSetDefaultTexture()

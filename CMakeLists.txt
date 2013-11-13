@@ -259,8 +259,6 @@ add_library(Common STATIC
 	Common/KeyMap.h
 	Common/LogManager.cpp
 	Common/LogManager.h
-	Common/MathUtil.cpp
-	Common/MathUtil.h
 	Common/MemArena.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
