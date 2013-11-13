@@ -1002,6 +1002,7 @@ add_library(GPU OBJECT
 	GPU/GLES/TextureScaler.h
 	GPU/GLES/TransformPipeline.cpp
 	GPU/GLES/TransformPipeline.h
+	GPU/GLES/SoftwareTransform.cpp
 	GPU/GLES/VertexDecoder.cpp
 	GPU/GLES/VertexDecoder.h
 	GPU/GLES/VertexShaderGenerator.cpp

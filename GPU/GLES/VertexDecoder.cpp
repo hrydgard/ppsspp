@@ -24,6 +24,10 @@
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
 
+#if defined(_M_IX86) || defined(_M_X64)
+#include <emmintrin.h>
+#endif
+
 extern void DisassembleArm(const u8 *data, int size);
 
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
@@ -879,6 +883,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
 		}
 	}
+
+	// NEON skinning register mapping
+	// The matrix will be built in Q12-Q15.
+	// The temporary matrix to be added to the built matrix will be in Q8-Q11.
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {

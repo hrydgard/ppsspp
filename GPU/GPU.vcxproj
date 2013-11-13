@@ -242,6 +242,7 @@
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp" />
+    <ClCompile Include="GLES\SoftwareTransform.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
     <ClCompile Include="GLES\VertexDecoder.cpp" />
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />

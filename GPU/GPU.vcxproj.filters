@@ -200,6 +200,9 @@
     <ClCompile Include="GLES\TransformPipeline.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="GLES\SoftwareTransform.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
     <ClCompile Include="GLES\VertexDecoder.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
