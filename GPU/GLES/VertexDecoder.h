@@ -242,5 +242,6 @@ public:
 
 private:
 	bool CompileStep(const VertexDecoder &dec, int i);
+	void Jit_WriteMatrixMul(int outOff, bool pos);
 	const VertexDecoder *dec_;
 };
