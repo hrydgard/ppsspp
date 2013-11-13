@@ -454,7 +454,7 @@ void CtrlRegisterList::editRegisterValue()
 	}
 
 	char temp[256];
-	sprintf(temp,"%08X",val);
+	sprintf(temp,"0x%08X",val);
 
 	std::string value = temp;
 	if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Set new value",value,value)) {
@@ -521,16 +521,40 @@ void CtrlRegisterList::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
-	if (button==2)
+	int x = LOWORD(lParam);
+	int y = HIWORD(lParam);
+
+	if (button==2 && x>16)
 	{
 		//popup menu?
 		int cat = category;
 		int reg = selection;
-		if (selection >= cpu->GetNumRegsInCategory(cat))
+		u32 val;
+		if (selection < cpu->GetNumRegsInCategory(cat))
+		{
+			val = cpu->GetRegValue(cat, reg);
+		}
+		else if (cat == 0 && selection < REGISTERS_END)
+		{
+			switch (selection)
+			{
+			case REGISTER_PC:
+				val = cpu->GetPC();
+				break;
+			case REGISTER_HI:
+				val = cpu->GetHi();
+				break;
+			case REGISTER_LO:
+				val = cpu->GetLo();
+				break;
+			}
+		}
+		else
+		{
 			return;
+		}
 		POINT pt;
 		GetCursorPos(&pt);
-		u32 val = cpu->GetRegValue(cat,reg);			
 		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,3),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
 		{
 		case ID_REGLIST_GOTOINMEMORYVIEW:
@@ -550,8 +574,6 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		}
 		return;
 	}
-	int x = LOWORD(lParam); 
-	int y = HIWORD(lParam); 
 	if (x>16)
 	{
 		selection=yToIndex(y);
