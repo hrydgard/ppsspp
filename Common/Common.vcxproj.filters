@@ -23,7 +23,6 @@
     <ClInclude Include="StdConditionVariable.h" />
     <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StringUtils.h" />
-    <ClInclude Include="Thread.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="x64Analyzer.h" />
@@ -53,7 +52,6 @@
     <ClCompile Include="Misc.cpp" />
     <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="StringUtils.cpp" />
-    <ClCompile Include="Thread.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
