@@ -21,24 +21,22 @@
 
 #include <string>
 
-enum CPUVendor
-{
+enum CPUVendor {
 	VENDOR_INTEL = 0,
 	VENDOR_AMD = 1,
 	VENDOR_ARM = 2,
 	VENDOR_OTHER = 3,
 };
 
-struct CPUInfo
-{
+struct CPUInfo {
 	CPUVendor vendor;
-	
+
 	char cpu_string[0x21];
 	char brand_string[0x41];
 	bool OS64bit;
 	bool CPU64bit;
 	bool Mode64bit;
-	
+
 	bool HTT;
 	int num_cores;
 	int logical_cpu_count;
@@ -53,10 +51,11 @@ struct CPUInfo
 	bool bLZCNT;
 	bool bSSE4A;
 	bool bAVX;
+	bool bFMA;
 	bool bAES;
 	bool bLAHFSAHF64;
 	bool bLongMode;
-	
+
 	// ARM specific CPUInfo
 	bool bSwp;
 	bool bHalf;
@@ -79,7 +78,7 @@ struct CPUInfo
 
 	// Call Detect()
 	explicit CPUInfo();
-	
+
 	// Turn the cpu info into a string we can show
 	std::string Summarize();
 
