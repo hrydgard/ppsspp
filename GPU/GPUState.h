@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+
 #include "../Globals.h"
 #include "ge_constants.h"
 #include "Common/Common.h"
@@ -406,7 +407,8 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_BAD_FB_TEXTURE = 4,
 };
 
-inline bool vertTypeIsSkinningEnabled(u32 vertType) { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
+bool vertTypeIsSkinningEnabled(u32 vertType);
+
 inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
 inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }

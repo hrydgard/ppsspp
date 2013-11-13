@@ -1371,6 +1371,12 @@ void XEmitter::PSLLQ(X64Reg reg, int shift) {
 	Write8(shift);
 }
 
+void XEmitter::PSLLDQ(X64Reg reg, int shift) {
+	WriteSSEOp(64, 0x73, true, (X64Reg)7, R(reg));
+	Write8(shift);
+}
+
+
 // WARNING not REX compatible
 void XEmitter::PSRAW(X64Reg reg, int shift) {
 	if (reg > 7)

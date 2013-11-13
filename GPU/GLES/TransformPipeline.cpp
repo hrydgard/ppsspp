@@ -119,7 +119,8 @@ TransformDrawEngine::TransformDrawEngine()
 		framebufferManager_(0),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
-		uvScale(0) {
+		uvScale(0),
+		decodeCounter_(0) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
@@ -324,78 +325,25 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	if (uvScale) {
 		uvScale[numDrawCalls] = gstate_c.uv;
 	}
+
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		DecodeVertsStep();
+		decodeCounter_++;
+	}
 }
 
 void TransformDrawEngine::DecodeVerts() {
 	UVScale origUV;
 	if (uvScale)
 		origUV = gstate_c.uv;
-	for (int i = 0; i < numDrawCalls; i++) {
-		const DeferredDrawCall &dc = drawCalls[i];
-
-		indexGen.SetIndex(collectedVerts);
-		int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
-
-		u32 indexType = dc.indexType;
-		void *inds = dc.inds;
-		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-			// Decode the verts and apply morphing. Simple.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += indexUpperBound - indexLowerBound + 1;
-			indexGen.AddPrim(dc.prim, dc.vertexCount);
-		} else {
-			// It's fairly common that games issue long sequences of PRIM calls, with differing
-			// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
-			// these as much as possible, so we make sure here to combine as many as possible
-			// into one nice big drawcall, sharing data.
-
-			// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
-			//    Expand the lower and upper bounds as we go.
-			int j = i + 1;
-			int lastMatch = i;
-			while (j < numDrawCalls) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-					break;
-
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-				j++;
-			}
-			
-			// 2. Loop through the drawcalls, translating indices as we go.
-			for (j = i; j <= lastMatch; j++) {
-				switch (indexType) {
-				case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				}
-			}
-
-			int vertexCount = indexUpperBound - indexLowerBound + 1;
-			// 3. Decode that range of vertex data.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += vertexCount;
-
-			// 4. Advance indexgen vertex counter.
-			indexGen.Advance(vertexCount);
-			i = lastMatch;
-		}
+	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+		if (uvScale)
+			gstate_c.uv = uvScale[decodeCounter_];
+		DecodeVertsStep();
 	}
-
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
@@ -404,6 +352,68 @@ void TransformDrawEngine::DecodeVerts() {
 	}
 	if (uvScale)
 		gstate_c.uv = origUV;
+}
+
+void TransformDrawEngine::DecodeVertsStep() {
+	const int i = decodeCounter_;
+
+	const DeferredDrawCall &dc = drawCalls[i];
+
+	indexGen.SetIndex(collectedVerts);
+	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+
+	u32 indexType = dc.indexType;
+	void *inds = dc.inds;
+	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+		// Decode the verts and apply morphing. Simple.
+		dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		collectedVerts += indexUpperBound - indexLowerBound + 1;
+		indexGen.AddPrim(dc.prim, dc.vertexCount);
+	} else {
+		// It's fairly common that games issue long sequences of PRIM calls, with differing
+		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
+		// these as much as possible, so we make sure here to combine as many as possible
+		// into one nice big drawcall, sharing data.
+
+		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
+		//    Expand the lower and upper bounds as we go.
+		int j = i + 1;
+		int lastMatch = i;
+		while (j < numDrawCalls) {
+			if (drawCalls[j].verts != dc.verts)
+				break;
+			if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+				break;
+
+			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+			lastMatch = j;
+			j++;
+		}
+			
+		// 2. Loop through the drawcalls, translating indices as we go.
+		for (j = i; j <= lastMatch; j++) {
+			switch (indexType) {
+			case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+				break;
+			case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+				break;
+			}
+		}
+
+		int vertexCount = indexUpperBound - indexLowerBound + 1;
+		// 3. Decode that range of vertex data.
+		dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		collectedVerts += vertexCount;
+
+		// 4. Advance indexgen vertex counter.
+		indexGen.Advance(vertexCount);
+		decodeCounter_ = lastMatch;
+	}
 }
 
 u32 TransformDrawEngine::ComputeHash() {
@@ -524,8 +534,14 @@ void TransformDrawEngine::DoFlush() {
 		int vertexCount = 0;
 		int maxIndex = 0;
 		bool useElements = true;
+
 		// Cannot cache vertex data with morph enabled.
-		if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
+		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
+		// Also avoid caching when software skinning.
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+			useCache = false;
+
+		if (useCache) {
 			u32 id = ComputeFastDCID();
 			auto iter = vai_.find(id);
 			VertexArrayInfo *vai;
@@ -714,6 +730,7 @@ rotateVBO:
 	collectedVerts = 0;
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
+	decodeCounter_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 
 #ifndef USING_GLES2

@@ -15,11 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "math/lin/matrix4x4.h"
+#include "base/basictypes.h"
+#include "base/logging.h"
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Math3D.h"
 
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
@@ -36,40 +38,17 @@ static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
 static const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
 static const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
+// When software skinning. This array is only used when non-jitted - when jitted, the matrix
+// is kept in registers.
+static float skinMatrix[12];
+
+// We start out by converting the active matrices into 4x4 which are easier to multiply with
+// using SSE / NEON and store them here.
+static float bones[16 * 8];
+
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
 }
-
-#if 0
-// This is what the software transform spits out, and thus w
-DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
-	DecVtxFormat tfm = {0};
-	int size = 0;
-	int offset = 0;
-	// Weights disappear during transform.
-	if (fmt.uvfmt) {
-		// UV always becomes float2.
-		tfm.uvfmt = DEC_FLOAT_2;
-		tfm.uvoff = offset;
-		offset += DecFmtSize(tfm.uvfmt);
-	}
-	// We always (?) get two colors out, they're floats (although we'd probably be fine with less precision).
-	tfm.c0fmt = DEC_FLOAT_4;
-	tfm.c0off = offset;
-	offset += DecFmtSize(tfm.c0fmt);
-	tfm.c1fmt = DEC_FLOAT_3;  // color1 (specular) doesn't have alpha.
-	tfm.c1off = offset;
-	offset += DecFmtSize(tfm.c1fmt);
-	// We never get a normal, it's gone.
-	// But we do get a position, and it's always float3.
-	tfm.posfmt = DEC_FLOAT_3;
-	tfm.posoff = offset;
-	offset += DecFmtSize(tfm.posfmt);
-	// Update stride.
-	tfm.stride = offset;
-	return tfm;
-}
-#endif
 
 VertexDecoder::VertexDecoder() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {
 	memset(stats_, 0, sizeof(stats_));
@@ -110,6 +89,57 @@ void VertexDecoder::Step_WeightsFloat() const
 	}
 	while (j & 3)   // Zero additional weights rounding up to 4.
 		wt[j++] = 0.0f;
+}
+
+void VertexDecoder::Step_WeightsU8Skin() const
+{
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
+	const u8 *wdata = (const u8*)(ptr_);
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (wdata[j] != 0) {
+			float weight = wdata[j] / 128.0f;
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weight * bone[i];
+			}
+		}
+	}
+}
+
+void VertexDecoder::Step_WeightsU16Skin() const
+{
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
+	const u16 *wdata = (const u16*)(ptr_);
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (wdata[j] != 0) {
+			float weight = wdata[j] / 32768.0f;
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weight * bone[i];
+			}
+		}
+	}
+}
+
+// Float weights should be uncommon, we can live with having to multiply these by 2.0
+// to avoid special checks in the vertex shader generator.
+// (PSP uses 0.0-2.0 fixed point numbers for weights)
+void VertexDecoder::Step_WeightsFloatSkin() const
+{
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const float *wdata = (const float*)(ptr_);
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		float weight = wdata[j];
+		if (weight > 0.0) {
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weight * bone[i];
+			}
+		}
+	}
 }
 
 void VertexDecoder::Step_TcU8() const
@@ -318,6 +348,29 @@ void VertexDecoder::Step_NormalFloat() const
 		normal[j] = fv[j];
 }
 
+void VertexDecoder::Step_NormalS8Skin() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const s8 *sv = (const s8*)(ptr_ + nrmoff);
+	const float fn[3] = { sv[0] / 128.0f, sv[1] / 128.0f, sv[2] / 128.0f };
+	Norm3ByMatrix43(normal, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalS16Skin() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const s16 *sv = (const s16*)(ptr_ + nrmoff);
+	const float fn[3] = { sv[0] / 32768.0f, sv[1] / 32768.0f, sv[2] / 32768.0f };
+	Norm3ByMatrix43(normal, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalFloatSkin() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const float *fn = (const float *)(ptr_ + nrmoff);
+	Norm3ByMatrix43(normal, fn, skinMatrix);
+}
+
 void VertexDecoder::Step_NormalS8Morph() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
@@ -380,6 +433,29 @@ void VertexDecoder::Step_PosFloat() const
 	u8 *v = (u8 *)(decoded_ + decFmt.posoff);
 	const u8 *fv = (const u8*)(ptr_ + posoff);
 	memcpy(v, fv, 12);
+}
+
+void VertexDecoder::Step_PosS8Skin() const
+{
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	const s8 *sv = (const s8*)(ptr_ + posoff);
+	const float fn[3] = { sv[0] / 128.0f, sv[1] / 128.0f, sv[2] / 128.0f };
+	Vec3ByMatrix43(pos, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_PosS16Skin() const
+{
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	const s16 *sv = (const s16*)(ptr_ + posoff);
+	const float fn[3] = { sv[0] / 32768.0f, sv[1] / 32768.0f, sv[2] / 32768.0f };
+	Vec3ByMatrix43(pos, fn, skinMatrix);
+}
+
+void VertexDecoder::Step_PosFloatSkin() const
+{
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	const float *fn = (const float *)(ptr_ + posoff);
+	Vec3ByMatrix43(pos, fn, skinMatrix);
 }
 
 void VertexDecoder::Step_PosS8Through() const
@@ -449,6 +525,13 @@ static const StepFunction wtstep[4] = {
 	&VertexDecoder::Step_WeightsFloat,
 };
 
+static const StepFunction wtstep_skin[4] = {
+	0,
+	&VertexDecoder::Step_WeightsU8Skin,
+	&VertexDecoder::Step_WeightsU16Skin,
+	&VertexDecoder::Step_WeightsFloatSkin,
+};
+
 static const StepFunction tcstep[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
@@ -510,6 +593,13 @@ static const StepFunction nrmstep[4] = {
 	&VertexDecoder::Step_NormalFloat,
 };
 
+static const StepFunction nrmstep_skin[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8Skin,
+	&VertexDecoder::Step_NormalS16Skin,
+	&VertexDecoder::Step_NormalFloatSkin,
+};
+
 static const StepFunction nrmstep_morph[4] = {
 	0,
 	&VertexDecoder::Step_NormalS8Morph,
@@ -522,6 +612,13 @@ static const StepFunction posstep[4] = {
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS16,
 	&VertexDecoder::Step_PosFloat,
+};
+
+static const StepFunction posstep_skin[4] = {
+	0,
+	&VertexDecoder::Step_PosS8Skin,
+	&VertexDecoder::Step_PosS16Skin,
+	&VertexDecoder::Step_PosFloatSkin,
 };
 
 static const StepFunction posstep_morph[4] = {
@@ -564,6 +661,8 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
 	}
 
+	bool skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning && morphcount == 1;
+
 	if (weighttype) { // && nweights?
 		weightoff = size;
 		//size = align(size, wtalign[weighttype]);	unnecessary
@@ -571,30 +670,35 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
 
-		steps_[numSteps_++] = wtstep[weighttype];
-
-		int fmtBase = DEC_FLOAT_1;
-		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-			fmtBase = DEC_U8_1;
-		} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-			fmtBase = DEC_U16_1;
-		} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
-			fmtBase = DEC_FLOAT_1;
-		}
-
-		int numWeights = TranslateNumBones(nweights);
-
-		if (numWeights <= 4) {
-			decFmt.w0off = decOff;
-			decFmt.w0fmt = fmtBase + numWeights - 1;
-			decOff += DecFmtSize(decFmt.w0fmt);
+		if (skinInDecode) {
+			steps_[numSteps_++] = wtstep_skin[weighttype];
+			// No visible output
 		} else {
-			decFmt.w0off = decOff;
-			decFmt.w0fmt = fmtBase + 3;
-			decOff += DecFmtSize(decFmt.w0fmt);
-			decFmt.w1off = decOff;
-			decFmt.w1fmt = fmtBase + numWeights - 5;
-			decOff += DecFmtSize(decFmt.w1fmt);
+			steps_[numSteps_++] = wtstep[weighttype];
+
+			int fmtBase = DEC_FLOAT_1;
+			if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+				fmtBase = DEC_U8_1;
+			} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+				fmtBase = DEC_U16_1;
+			} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+				fmtBase = DEC_FLOAT_1;
+			}
+
+			int numWeights = TranslateNumBones(nweights);
+
+			if (numWeights <= 4) {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + numWeights - 1;
+				decOff += DecFmtSize(decFmt.w0fmt);
+			} else {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + 3;
+				decOff += DecFmtSize(decFmt.w0fmt);
+				decFmt.w1off = decOff;
+				decFmt.w1fmt = fmtBase + numWeights - 5;
+				decOff += DecFmtSize(decFmt.w1fmt);
+			}
 		}
 	}
 
@@ -656,26 +760,29 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm]; 
 
-		steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
-
-		if (morphcount == 1) {
-			// The normal formats match the gl formats perfectly, let's use 'em.
-			switch (nrm) {
-			case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
-			case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
-			case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
-			}
-		} else {
+		if (skinInDecode) {
+			steps_[numSteps_++] = nrmstep_skin[nrm];
+			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
-		}
+		} else {
+			steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
 
-		// Actually, temporarily let's not.
+			if (morphcount == 1) {
+				// The normal formats match the gl formats perfectly, let's use 'em.
+				switch (nrm) {
+				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
+				case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
+				case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+				}
+			} else {
+				decFmt.nrmfmt = DEC_FLOAT_3;
+			}
+		}
 		decFmt.nrmoff = decOff;
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
-	if (pos)  // there's always a position
-	{
+	if (pos) { // there's always a position
 		size = align(size, posalign[pos]);
 		posoff = size;
 		size += possize[pos];
@@ -686,18 +793,23 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 			steps_[numSteps_++] = posstep_through[pos];
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
-			steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
-
-			if (morphcount == 1) {
-				// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
-				switch (pos) {
-				case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
-				case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
-				case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
-				}
-			} else {
-				// Actually, temporarily let's not.
+			if (skinInDecode) {
+				steps_[numSteps_++] = posstep_skin[pos];
 				decFmt.posfmt = DEC_FLOAT_3;
+			} else {
+				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
+
+				if (morphcount == 1) {
+					// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
+					switch (pos) {
+					case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+					case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
+					case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
+					}
+				} else {
+					// Actually, temporarily let's not.
+					decFmt.posfmt = DEC_FLOAT_3;
+				}
 			}
 		}
 		decFmt.posoff = decOff;
@@ -767,7 +879,7 @@ int VertexDecoder::ToString(char *output) const {
 
 VertexDecoderJitCache::VertexDecoderJitCache() {
 	// 64k should be enough.
-	AllocCodeSpace(1024 * 64);
+	AllocCodeSpace(1024 * 64 * 4);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
 #if defined(_WIN32)
@@ -791,10 +903,11 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
-static const float by128 = 1.0f / 128.0f;
-static const float by32768 = 1.0f / 32768.0f;
-
 #ifdef ARM
+
+static const float by128 = 1.0f / 128.0f;
+static const float by256 = 1.0f / 256.0f;
+static const float by32768 = 1.0f / 32768.0f;
 
 using namespace ArmGen;
 
@@ -802,20 +915,31 @@ static const ARMReg tempReg1 = R3;
 static const ARMReg tempReg2 = R4;
 static const ARMReg tempReg3 = R5;
 static const ARMReg scratchReg = R6;
+static const ARMReg scratchReg2 = R7;
+static const ARMReg scratchReg3 = R12;
 static const ARMReg srcReg = R0;
 static const ARMReg dstReg = R1;
 static const ARMReg counterReg = R2;
 static const ARMReg fpScratchReg = S4;
 static const ARMReg fpScratchReg2 = S5;
+static const ARMReg fpScratchReg3 = S6;
+
 static const ARMReg fpUscaleReg = S0;
 static const ARMReg fpVscaleReg = S1;
 static const ARMReg fpUoffsetReg = S2;
 static const ARMReg fpVoffsetReg = S3;
+// Everything above S6 is fair game for skinning
+static const ARMReg src[3] = {S8, S9, S10};  // skin source
+static const ARMReg acc[3] = {S11, S12, S13};  // skin accumulator
 
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+
+	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
+	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
+	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
@@ -834,6 +958,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
+	{&VertexDecoder::Step_NormalS8Skin, &VertexDecoderJitCache::Jit_NormalS8Skin},
+	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
+	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
+
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
@@ -846,6 +974,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
+
+	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
+	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
+	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
 };
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
@@ -853,12 +985,19 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	const u8 *start = this->GetCodePtr();
 
 	bool prescaleStep = false;
+	bool skinning = false;
+
 	// Look for prescaled texcoord steps
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 				dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
 				dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
 			prescaleStep = true;
+		}
+		if (dec.steps_[i] == &VertexDecoder::Step_WeightsU8Skin ||
+				dec.steps_[i] == &VertexDecoder::Step_WeightsU16Skin ||
+				dec.steps_[i] == &VertexDecoder::Step_WeightsFloatSkin) {
+			skinning = true;
 		}
 	}
 
@@ -884,9 +1023,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
-	// NEON skinning register mapping
+	// TODO: NEON skinning register mapping
 	// The matrix will be built in Q12-Q15.
 	// The temporary matrix to be added to the built matrix will be in Q8-Q11.
+
+	if (skinning) {
+		// TODO: Preload scale factors
+	}
 
 	JumpTarget loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -964,6 +1107,91 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 	while (j & 3) {  // Zero additional weights rounding up to 4.
 		STR(scratchReg, dstReg, dec_->decFmt.w0off + j * 4);
 		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8Skin() {
+	// No need to zero skinMatrix, we'll just STR to it in the first lap,
+	// then VLDR/VADD/VSTR in subsequent laps.
+	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
+	for (int j = 0; j < dec_->nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		LDRB(tempReg1, srcReg, dec_->weightoff + j);
+		VMOV(fpScratchReg, tempReg1);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+		MOVI2F(fpScratchReg2, by128, scratchReg);
+		VMUL(fpScratchReg, fpScratchReg, fpScratchReg2);
+		MOVI2R(tempReg1, (u32)bone, scratchReg);
+		// Okay, we have the weight.
+		if (j == 0) {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VMUL(fpScratchReg2, fpScratchReg2, fpScratchReg);
+				VSTR(fpScratchReg2, tempReg2, i * 4);
+			}
+		} else {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VLDR(fpScratchReg3, tempReg2, i * 4);
+				VMLA(fpScratchReg3, fpScratchReg2, fpScratchReg);
+				VSTR(fpScratchReg3, tempReg2, i * 4);
+			}
+		}
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16Skin() {
+	// No need to zero skinMatrix, we'll just STR to it in the first lap,
+	// then VLDR/VADD/VSTR in subsequent laps.
+	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
+	for (int j = 0; j < dec_->nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
+		VMOV(fpScratchReg, tempReg1);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+		MOVI2F(fpScratchReg2, 1.0f / 32768.0f, scratchReg);
+		VMUL(fpScratchReg, fpScratchReg, fpScratchReg2);
+		MOVI2R(tempReg1, (u32)bone, scratchReg);
+		// Okay, we have the weight.
+		if (j == 0) {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VMUL(fpScratchReg2, fpScratchReg2, fpScratchReg);
+				VSTR(fpScratchReg2, tempReg2, i * 4);
+			}
+		} else {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VLDR(fpScratchReg3, tempReg2, i * 4);
+				VMLA(fpScratchReg3, fpScratchReg2, fpScratchReg);
+				VSTR(fpScratchReg3, tempReg2, i * 4);
+			}
+		}
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
+	// No need to zero skinMatrix, we'll just STR to it in the first lap,
+	// then VLDR/VADD/VSTR in subsequent laps.
+	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
+	for (int j = 0; j < dec_->nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		VLDR(fpScratchReg, srcReg, dec_->weightoff + j * 4);
+		MOVI2R(tempReg1, (u32)bone, scratchReg);
+		if (j == 0) {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VMUL(fpScratchReg2, fpScratchReg2, fpScratchReg);
+				VSTR(fpScratchReg2, tempReg2, i * 4);
+			}
+		} else {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VLDR(fpScratchReg3, tempReg2, i * 4);
+				VMLA(fpScratchReg3, fpScratchReg2, fpScratchReg);
+				VSTR(fpScratchReg3, tempReg2, i * 4);
+			}
+		}
 	}
 }
 
@@ -1224,7 +1452,6 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	// Might not be aligned to 4, so we can't use LDMIA.
 	LDR(tempReg1, srcReg, dec_->posoff);
 	LDR(tempReg2, srcReg, dec_->posoff + 4);
 	LDR(tempReg3, srcReg, dec_->posoff + 8);
@@ -1233,9 +1460,129 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 	STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 }
 
+void VertexDecoderJitCache::Jit_NormalS8Skin() {
+	LDRSB(tempReg1, srcReg, dec_->nrmoff);
+	LDRSB(tempReg2, srcReg, dec_->nrmoff + 1);
+	LDRSB(tempReg3, srcReg, dec_->nrmoff + 2);
+	VMOV(src[0], tempReg1);
+	VMOV(src[1], tempReg2);
+	VMOV(src[2], tempReg3);
+	MOVI2F(S15, 1.0f/128.0f, scratchReg);
+	VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
+	VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
+	VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
+	VMUL(src[0], src[0], S15);
+	VMUL(src[1], src[1], S15);
+	VMUL(src[2], src[2], S15);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Skin() {
+	LDRSH(tempReg1,  srcReg, dec_->nrmoff);
+	LDRSH(tempReg2, srcReg, dec_->nrmoff + 2);
+	LDRSH(tempReg3, srcReg, dec_->nrmoff + 4);
+	VMOV(fpScratchReg, tempReg1);
+	VMOV(fpScratchReg2, tempReg2);
+	VMOV(fpScratchReg3, tempReg3);
+	MOVI2F(S15, 1.0f/32768.0f, scratchReg);
+	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT | IS_SIGNED);
+	VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT | IS_SIGNED);
+	VMUL(src[0], fpScratchReg, S15);
+	VMUL(src[1], fpScratchReg2, S15);
+	VMUL(src[2], fpScratchReg3, S15);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatSkin() {
+	VLDR(src[0], srcReg, dec_->nrmoff);
+	VLDR(src[1], srcReg, dec_->nrmoff + 4);
+	VLDR(src[2], srcReg, dec_->nrmoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
+}
+
+void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
+	MOVI2R(tempReg1, (u32)skinMatrix, scratchReg);
+	for (int i = 0; i < 3; i++) {
+		VLDR(fpScratchReg, tempReg1, 4 * i);
+		VMUL(acc[i], fpScratchReg, src[0]);
+	}
+	for (int i = 0; i < 3; i++) {
+		VLDR(fpScratchReg, tempReg1, 12 + 4 * i);
+		VMLA(acc[i], fpScratchReg, src[1]);
+	}
+	for (int i = 0; i < 3; i++) {
+		VLDR(fpScratchReg, tempReg1, 24 + 4 * i);
+		VMLA(acc[i], fpScratchReg, src[2]);
+	}
+	if (pos) {
+		for (int i = 0; i < 3; i++) {
+			VLDR(fpScratchReg, tempReg1, 36 + 4 * i);
+			VADD(acc[i], acc[i], fpScratchReg);
+		}
+	}
+	for (int i = 0; i < 3; i++) {
+		VSTR(acc[i], dstReg, outOff + i * 4);
+	}
+}
+
+void VertexDecoderJitCache::Jit_PosS8Skin() {
+	LDRSB(tempReg1, srcReg, dec_->posoff);
+	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
+	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
+	VMOV(src[0], tempReg1);
+	VMOV(src[1], tempReg2);
+	VMOV(src[2], tempReg3);
+	MOVI2F(S15, 1.0f/128.0f, scratchReg);
+	VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
+	VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
+	VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
+	VMUL(src[0], src[0], S15);
+	VMUL(src[1], src[1], S15);
+	VMUL(src[2], src[2], S15);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Skin() {
+	LDRSH(tempReg1, srcReg, dec_->posoff);
+	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
+	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
+	VMOV(src[0], tempReg1);
+	VMOV(src[1], tempReg2);
+	VMOV(src[2], tempReg3);
+	MOVI2F(S15, 1.0f/32768.0f, scratchReg);
+	VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
+	VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
+	VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
+	VMUL(src[0], src[0], S15);
+	VMUL(src[1], src[1], S15);
+	VMUL(src[2], src[2], S15);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatSkin() {
+	VLDR(src[0], srcReg, dec_->posoff);
+	VLDR(src[1], srcReg, dec_->posoff + 4);
+	VLDR(src[2], srcReg, dec_->posoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
 #elif defined(_M_X64) || defined(_M_IX86)
 
 using namespace Gen;
+
+static const float MEMORY_ALIGNED16( by128[4] ) = {
+	1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f
+};
+static const float MEMORY_ALIGNED16( by256[4] ) = {
+	1.0f / 256, 1.0f / 256, 1.0f / 256, 1.0f / 256
+};
+static const float MEMORY_ALIGNED16( by32768[4] ) = {
+	1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f,
+};
+
+static const u32 MEMORY_ALIGNED16( threeMasks[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0};
+static const u32 MEMORY_ALIGNED16( aOne[4] ) = {0, 0, 0, 0x3F800000};
 
 #ifdef _M_X64
 #ifdef _WIN32
@@ -1264,12 +1611,14 @@ static const X64Reg counterReg = ECX;
 
 // XMM0-XMM5 are volatile on Windows X64
 // XMM0-XMM7 are arguments (and thus volatile) on System V ABI (other x64 platforms)
-static const X64Reg fpUscaleReg = XMM0;
-static const X64Reg fpVscaleReg = XMM1;
-static const X64Reg fpUoffsetReg = XMM2;
-static const X64Reg fpVoffsetReg = XMM3;
-static const X64Reg fpScratchReg = XMM4;
-static const X64Reg fpScratchReg2 = XMM5;
+static const X64Reg fpScaleOffsetReg = XMM0;
+
+static const X64Reg fpScratchReg = XMM1;
+static const X64Reg fpScratchReg2 = XMM2;
+static const X64Reg fpScratchReg3 = XMM3;
+
+// We're gonna keep the current skinning matrix in 4 XMM regs. Fortunately we easily
+// have space for that now.
 
 // To debug, just comment them out one at a time until it works. We fall back
 // on the interpreter if the compiler fails.
@@ -1278,6 +1627,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+
+	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
+	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
+	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
@@ -1296,6 +1649,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
+	{&VertexDecoder::Step_NormalS8Skin, &VertexDecoderJitCache::Jit_NormalS8Skin},
+	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
+	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
+
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
@@ -1308,6 +1665,10 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
+
+	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
+	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
+	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
 };
 
 // TODO: This should probably be global...
@@ -1338,9 +1699,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// Save XMM4/XMM5 which apparently can be problematic?
 	// Actually, if they are, it must be a compiler bug because they SHOULD be ok.
 	// So I won't bother.
-	// SUB(PTRBITS, R(ESP), Imm8(32));
-	// MOVUPS(MDisp(ESP, 0), XMM4);
-	// MOVUPS(MDisp(ESP, 16), XMM5);
+	SUB(PTRBITS, R(ESP), Imm8(64));
+	MOVUPS(MDisp(ESP, 0), XMM4);
+	MOVUPS(MDisp(ESP, 16), XMM5);
+	MOVUPS(MDisp(ESP, 32), XMM6);
+	MOVUPS(MDisp(ESP, 48), XMM7);
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
@@ -1352,6 +1715,28 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
+	// Add code to convert matrices to 4x4.
+	// Later we might want to do this when the matrices are loaded instead.
+	// This is mostly proof of concept.
+	int boneCount = 0;
+	if (dec.weighttype) {
+		for (int i = 0; i < 8; i++) {
+			MOVUPS(XMM0, M((void *)(gstate.boneMatrix + 12 * i)));
+			MOVUPS(XMM1, M((void *)(gstate.boneMatrix + 12 * i + 3)));
+			MOVUPS(XMM2, M((void *)(gstate.boneMatrix + 12 * i + 3 * 2)));
+			MOVUPS(XMM3, M((void *)(gstate.boneMatrix + 12 * i + 3 * 3)));
+			ANDPS(XMM0, M((void *)&threeMasks));
+			ANDPS(XMM1, M((void *)&threeMasks));
+			ANDPS(XMM2, M((void *)&threeMasks));
+			ANDPS(XMM3, M((void *)&threeMasks));
+			ORPS(XMM3, M((void *)&aOne));
+			MOVAPS(M((void *)(bones + 16 * i)), XMM0);
+			MOVAPS(M((void *)(bones + 16 * i + 4)), XMM1);
+			MOVAPS(M((void *)(bones + 16 * i + 8)), XMM2);
+			MOVAPS(M((void *)(bones + 16 * i + 12)), XMM3);
+		}
+	}
+	
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
 #ifdef _M_X64
@@ -1359,17 +1744,18 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 #else
 		MOV(32, R(tempReg1), Imm32((u32)(&gstate_c.uv)));
 #endif
-		MOVSS(fpUscaleReg, MDisp(tempReg1, 0));
-		MOVSS(fpVscaleReg, MDisp(tempReg1, 4));
-		MOVSS(fpUoffsetReg, MDisp(tempReg1, 8));
-		MOVSS(fpVoffsetReg, MDisp(tempReg1, 12));
+		MOVSS(fpScaleOffsetReg, MDisp(tempReg1, 0));
+		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
+		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MULSS(fpUscaleReg, M((void *)&by128));
-			MULSS(fpVscaleReg, M((void *)&by128));
+			MULPS(fpScaleOffsetReg, M((void *)&by128));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MULSS(fpUscaleReg, M((void *)&by32768));
-			MULSS(fpVscaleReg, M((void *)&by32768));
+			MULPS(fpScaleOffsetReg, M((void *)&by32768));
 		}
+		MOVSS(fpScratchReg, MDisp(tempReg1, 8));
+		MOVSS(fpScratchReg2, MDisp(tempReg1, 12));
+		UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+		UNPCKLPD(fpScaleOffsetReg, R(fpScratchReg));
 	}
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
@@ -1387,9 +1773,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUB(32, R(counterReg), Imm8(1));
 	J_CC(CC_NZ, loopStart, true);
 
-	// MOVUPS(XMM4, MDisp(ESP, 0));
-	// MOVUPS(XMM5, MDisp(ESP, 16));
-	// ADD(PTRBITS, R(ESP), Imm8(32));
+	MOVUPS(XMM4, MDisp(ESP, 0));
+	MOVUPS(XMM5, MDisp(ESP, 16));
+	MOVUPS(XMM6, MDisp(ESP, 32));
+	MOVUPS(XMM7, MDisp(ESP, 48));
+	ADD(PTRBITS, R(ESP), Imm8(64));
 
 #ifdef _M_IX86
 	// Restore register values
@@ -1442,6 +1830,118 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 	}
 }
 
+void VertexDecoderJitCache::Jit_WeightsU8Skin() {
+#ifdef _M_X64
+	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
+#else
+	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
+#endif
+	for (int j = 0; j < dec_->nweights; j++) {
+		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
+		CVTSI2SS(XMM1, R(tempReg1));
+		MULSS(XMM1, M((void *)&by128));
+		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+		if (j == 0) {
+			MOVAPS(XMM4, MDisp(tempReg2, 0));
+			MOVAPS(XMM5, MDisp(tempReg2, 16));
+			MULPS(XMM4, R(XMM1));
+			MULPS(XMM5, R(XMM1));
+			MOVAPS(XMM6, MDisp(tempReg2, 32));
+			MOVAPS(XMM7, MDisp(tempReg2, 48));
+			MULPS(XMM6, R(XMM1));
+			MULPS(XMM7, R(XMM1));
+		} else {
+			MOVAPS(XMM2, MDisp(tempReg2, 0));
+			MOVAPS(XMM3, MDisp(tempReg2, 16));
+			MULPS(XMM2, R(XMM1));
+			MULPS(XMM3, R(XMM1));
+			ADDPS(XMM4, R(XMM2));
+			ADDPS(XMM5, R(XMM3));
+			MOVAPS(XMM2, MDisp(tempReg2, 32));
+			MOVAPS(XMM3, MDisp(tempReg2, 48));
+			MULPS(XMM2, R(XMM1));
+			MULPS(XMM3, R(XMM1));
+			ADDPS(XMM6, R(XMM2));
+			ADDPS(XMM7, R(XMM3));
+		}
+		ADD(PTRBITS, R(tempReg2), Imm8(4 * 16));
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16Skin() {
+#ifdef _M_X64
+	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
+#else
+	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
+#endif
+	for (int j = 0; j < dec_->nweights; j++) {
+		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
+		CVTSI2SS(XMM1, R(tempReg1));
+		MULSS(XMM1, M((void *)&by32768));
+		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+		if (j == 0) {
+			MOVAPS(XMM4, MDisp(tempReg2, 0));
+			MOVAPS(XMM5, MDisp(tempReg2, 16));
+			MULPS(XMM4, R(XMM1));
+			MULPS(XMM5, R(XMM1));
+			MOVAPS(XMM6, MDisp(tempReg2, 32));
+			MOVAPS(XMM7, MDisp(tempReg2, 48));
+			MULPS(XMM6, R(XMM1));
+			MULPS(XMM7, R(XMM1));
+		} else {
+			MOVAPS(XMM2, MDisp(tempReg2, 0));
+			MOVAPS(XMM3, MDisp(tempReg2, 16));
+			MULPS(XMM2, R(XMM1));
+			MULPS(XMM3, R(XMM1));
+			ADDPS(XMM4, R(XMM2));
+			ADDPS(XMM5, R(XMM3));
+			MOVAPS(XMM2, MDisp(tempReg2, 32));
+			MOVAPS(XMM3, MDisp(tempReg2, 48));
+			MULPS(XMM2, R(XMM1));
+			MULPS(XMM3, R(XMM1));
+			ADDPS(XMM6, R(XMM2));
+			ADDPS(XMM7, R(XMM3));
+		}
+		ADD(PTRBITS, R(tempReg2), Imm8(4 * 16));
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
+#ifdef _M_X64
+	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
+#else
+	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
+#endif
+	for (int j = 0; j < dec_->nweights; j++) {
+		MOVSS(XMM1, MDisp(srcReg, dec_->weightoff + j * 4));
+		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+		if (j == 0) {
+			MOVAPS(XMM4, MDisp(tempReg2, 0));
+			MOVAPS(XMM5, MDisp(tempReg2, 16));
+			MULPS(XMM4, R(XMM1));
+			MULPS(XMM5, R(XMM1));
+			MOVAPS(XMM6, MDisp(tempReg2, 32));
+			MOVAPS(XMM7, MDisp(tempReg2, 48));
+			MULPS(XMM6, R(XMM1));
+			MULPS(XMM7, R(XMM1));
+		} else {
+			MOVAPS(XMM2, MDisp(tempReg2, 0));
+			MOVAPS(XMM3, MDisp(tempReg2, 16));
+			MULPS(XMM2, R(XMM1));
+			MULPS(XMM3, R(XMM1));
+			ADDPS(XMM4, R(XMM2));
+			ADDPS(XMM5, R(XMM3));
+			MOVAPS(XMM2, MDisp(tempReg2, 32));
+			MOVAPS(XMM3, MDisp(tempReg2, 48));
+			MULPS(XMM2, R(XMM1));
+			MULPS(XMM3, R(XMM1));
+			ADDPS(XMM6, R(XMM2));
+			ADDPS(XMM7, R(XMM3));
+		}
+		ADD(PTRBITS, R(tempReg2), Imm8(4 * 16));
+	}
+}
+
 // Fill last two bytes with zeroes to align to 4 bytes. MOVZX does it for us, handy.
 void VertexDecoderJitCache::Jit_TcU8() {
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
@@ -1475,43 +1975,40 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	// TODO: SIMD
+	// TODO: The first five instructions could be done in 1 or 2 in SSE4
 	MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->tcoff + 1));
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
-	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratchReg2, R(fpVscaleReg));
-	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratchReg2, R(fpVoffsetReg));
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	// TODO: SIMD
+	// TODO: The first five instructions could be done in 1 or 2 in SSE4 and probably in 3 in SSE2
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
-	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratchReg2, R(fpVscaleReg));
-	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratchReg2, R(fpVoffsetReg));
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
-	// TODO: SIMD
-	MOVSS(fpScratchReg, MDisp(srcReg, dec_->tcoff));
-	MOVSS(fpScratchReg2, MDisp(srcReg, dec_->tcoff + 4));
-	MULSS(fpScratchReg, R(fpUscaleReg));
-	MULSS(fpScratchReg2, R(fpVscaleReg));
-	ADDSS(fpScratchReg, R(fpUoffsetReg));
-	ADDSS(fpScratchReg2, R(fpVoffsetReg));
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
-	MOVSS(MDisp(dstReg, dec_->decFmt.uvoff + 4), fpScratchReg2);
+	MOVQ_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
@@ -1677,6 +2174,77 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 8), R(tempReg3));
 }
 
+void VertexDecoderJitCache::Jit_NormalS8Skin() {
+	XORPS(XMM3, R(XMM3));
+	for (int i = 0; i < 3; i++) {
+		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->nrmoff + (2 - i)));
+		CVTSI2SS(XMM3, R(tempReg1));
+		if (i != 2) {
+			PSLLDQ(XMM3, 4);
+		}
+	}
+	MULPS(XMM3, M((void *)&by128));
+
+	MOVAPS(XMM1, R(XMM3));
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(XMM1, R(XMM4));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	MULPS(XMM2, R(XMM5));
+	ADDPS(XMM1, R(XMM2));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM2, R(XMM6));
+	ADDPS(XMM1, R(XMM2));
+	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM1);
+}
+
+// Copy 6 bytes and then 2 zeroes.
+void VertexDecoderJitCache::Jit_NormalS16Skin() {
+	XORPS(XMM3, R(XMM3));
+	for (int i = 0; i < 3; i++) {
+		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->nrmoff + (2 - i) * 2));
+		CVTSI2SS(XMM3, R(tempReg1));
+		if (i != 2) {
+			PSLLDQ(XMM3, 4);
+		}
+	}
+	MULPS(XMM3, M((void *)&by32768));
+
+	MOVAPS(XMM1, R(XMM3));
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(XMM1, R(XMM4));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	MULPS(XMM2, R(XMM5));
+	ADDPS(XMM1, R(XMM2));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM2, R(XMM6));
+	ADDPS(XMM1, R(XMM2));
+	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM1);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatSkin() {
+	MOVUPS(XMM3, MDisp(srcReg, dec_->nrmoff));
+
+	MOVAPS(XMM1, R(XMM3));
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(XMM1, R(XMM4));
+
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	MULPS(XMM2, R(XMM5));
+	ADDPS(XMM1, R(XMM2));
+
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM2, R(XMM6));
+	ADDPS(XMM1, R(XMM2));
+
+	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM1);
+}
+
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	// TODO: SIMD
@@ -1720,6 +2288,77 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
 	MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 4), R(tempReg2));
 	MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
+}
+
+void VertexDecoderJitCache::Jit_PosS8Skin() {
+	XORPS(XMM3, R(XMM3));
+	for (int i = 0; i < 3; i++) {
+		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + (2 - i)));
+		CVTSI2SS(XMM3, R(tempReg1));
+		if (i != 2) {
+			PSLLDQ(XMM3, 4);
+		}
+	}
+	MULPS(XMM3, M((void *)&by128));
+	MOVAPS(XMM1, R(XMM3));
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(XMM1, R(XMM4));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	MULPS(XMM2, R(XMM5));
+	ADDPS(XMM1, R(XMM2));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM2, R(XMM6));
+	ADDPS(XMM1, R(XMM2));
+	ADDPS(XMM1, R(XMM7));
+	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM1);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Skin() {
+	XORPS(XMM3, R(XMM3));
+	for (int i = 0; i < 3; i++) {
+		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff + (2 - i) * 2));
+		CVTSI2SS(XMM3, R(tempReg1));
+		if (i != 2) {
+			PSLLDQ(XMM3, 4);
+		}
+	}
+	MULPS(XMM3, M((void *)&by32768));
+	MOVAPS(XMM1, R(XMM3));
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(XMM1, R(XMM4));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	MULPS(XMM2, R(XMM5));
+	ADDPS(XMM1, R(XMM2));
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM2, R(XMM6));
+	ADDPS(XMM1, R(XMM2));
+	ADDPS(XMM1, R(XMM7));
+	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM1);
+}
+
+// Just copy 12 bytes.
+void VertexDecoderJitCache::Jit_PosFloatSkin() {
+	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
+
+	MOVAPS(XMM1, R(XMM3));
+	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(XMM1, R(XMM4));
+
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	MULPS(XMM2, R(XMM5));
+	ADDPS(XMM1, R(XMM2));
+
+	MOVAPS(XMM2, R(XMM3));
+	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM2, R(XMM6));
+	ADDPS(XMM1, R(XMM2));
+	ADDPS(XMM1, R(XMM7));
+	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM1);
 }
 
 #elif defined(PPC)
