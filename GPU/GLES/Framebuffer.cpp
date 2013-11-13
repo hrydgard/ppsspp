@@ -667,7 +667,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
-			if (v->format != fmt) {
+			if (v->format != fmt || (v->width < drawing_width && v->height < drawing_height)) {
 				v->width = drawing_width;
 				v->height = drawing_height;
 				v->format = fmt;
