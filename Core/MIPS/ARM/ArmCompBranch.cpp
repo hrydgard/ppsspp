@@ -287,7 +287,7 @@ void Jit::BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	gpr.MapReg(MIPS_REG_FPCOND, 0);
+	gpr.MapReg(MIPS_REG_FPCOND);
 	TST(gpr.R(MIPS_REG_FPCOND), Operand2(1, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
@@ -340,7 +340,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
-	
+
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
 	// However, it does consistently try each branch, which these games seem to expect.
@@ -354,8 +354,8 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 
 	int imm3 = (op >> 18) & 7;
 
-	LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
-	TST(R0, Operand2(1 << imm3, TYPE_IMM));
+	gpr.MapReg(MIPS_REG_VFPUCC);
+	TST(gpr.R(MIPS_REG_VFPUCC), Operand2(1 << imm3, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
 	js.inDelaySlot = true;
