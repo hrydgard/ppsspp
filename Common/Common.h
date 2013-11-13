@@ -146,6 +146,8 @@ private:
 #  define _M_SSE 0x301
 # elif defined __SSE3__
 #  define _M_SSE 0x300
+# elif defined __SSE2__
+#  define _M_SSE 0x200
 # endif
 #elif ((_MSC_VER >= 1500) || __INTEL_COMPILER) // Visual Studio 2008
 # define _M_SSE 0x402

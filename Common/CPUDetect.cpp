@@ -36,7 +36,7 @@
 #undef _interlockedbittestandreset64
 #else
 
-#if !defined(_M_GENERIC) && !defined(MIPS)
+#ifdef _M_SSE
 #include <xmmintrin.h>
 #endif
 

@@ -704,7 +704,7 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 void TextureCache::LoadClut() {
 	u32 clutAddr = gstate.getClutAddress();
 	if (Memory::IsValidAddress(clutAddr)) {
-#if defined(_M_IX86) || defined(_M_X64)
+#ifdef _M_SSE
 		int numBlocks = gstate.getClutLoadBlocks(); 
 		clutTotalBytes_ = numBlocks * 32;
 		const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
