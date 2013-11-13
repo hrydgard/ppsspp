@@ -222,8 +222,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_matemissive != -1) availableUniforms |= DIRTY_MATEMISSIVE;
 	if (u_matspecular != -1) availableUniforms |= DIRTY_MATSPECULAR;
 	for (int i = 0; i < 4; i++) {
-		if (u_lightdir[i] != -1 || 
-			  u_lightspecular[i] != -1 ||
+		if (u_lightdir[i] != -1 ||
+				u_lightspecular[i] != -1 ||
 				u_lightpos[i] != -1)
 			availableUniforms |= DIRTY_LIGHT0 << i;
 	}
@@ -346,6 +346,7 @@ void LinkedShader::stop() {
 
 void LinkedShader::UpdateUniforms(u32 vertType) {
 	u32 dirty = dirtyUniforms & availableUniforms;
+	dirtyUniforms = 0;
 	if (!dirty)
 		return;
 
@@ -441,7 +442,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 		bool allDirty = true;
 		for (int i = 0; i < numBones; i++) {
-			if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 				ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, allBones + 16 * i);
 			} else {
 				allDirty = false;
@@ -453,7 +454,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		} else {
 			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
 			for (int i = 0; i < numBones; i++) {
-				if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+				if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 					glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
 				}
 			}
@@ -470,19 +471,19 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 #endif
 
 	// Lighting
-	if (dirtyUniforms & DIRTY_AMBIENT) {
+	if (dirty & DIRTY_AMBIENT) {
 		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
-	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
+	if (dirty & DIRTY_MATAMBIENTALPHA) {
 		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
-	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
+	if (dirty & DIRTY_MATDIFFUSE) {
 		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
 	}
-	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
+	if (dirty & DIRTY_MATEMISSIVE) {
 		SetColorUniform3(u_matemissive, gstate.materialemissive);
 	}
-	if (dirtyUniforms & DIRTY_MATSPECULAR) {
+	if (dirty & DIRTY_MATSPECULAR) {
 		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
@@ -494,7 +495,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 				float y = gstate_c.lightpos[i][1];
 				float z = gstate_c.lightpos[i][2];
 				float len = sqrtf(x*x+y*y+z*z);
-				if (len == 0.0f) 
+				if (len == 0.0f)
 					len = 1.0f;
 				else
 					len = 1.0f / len;
@@ -512,8 +513,6 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
 		}
 	}
-
-	dirtyUniforms = 0;
 }
 
 ShaderManager::ShaderManager() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
