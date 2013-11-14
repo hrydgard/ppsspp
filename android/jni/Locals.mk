@@ -43,7 +43,7 @@ ifeq ($(TARGET_ARCH_ABI),x86)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -D_M_SSE -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3
 endif
 
 # Compile with profiling.
