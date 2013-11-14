@@ -824,7 +824,7 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 		}
 
 		// Any out. For testing that the planes are in the right locations.
-		if (out != 0) return false;
+		// if (out != 0) return false;
 	}
 
 	return true;
