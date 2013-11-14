@@ -668,7 +668,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
 	if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
-#ifdef USING_GLES2
+#if 1  // USING_GLES2
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
 #else
 		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
