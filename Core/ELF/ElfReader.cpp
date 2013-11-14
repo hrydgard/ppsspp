@@ -57,7 +57,7 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 	INFO_LOG(LOADER, "Loading %i relocations...", numRelocs);
 	for (int r = 0; r < numRelocs; r++)
 	{
-		INFO_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
+		// INFO_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
 		u32 info = rels[r].r_info;
 		u32 addr = rels[r].r_offset;
 
@@ -90,7 +90,7 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 
 		u32 op = Memory::Read_Instruction(addr).encoding;
 
-		const bool log = true;
+		const bool log = false;
 		//log=true;
 		if (log)
 		{
