@@ -528,7 +528,7 @@ bool TransformDrawEngineDX9::IsReallyAClear(int numVerts) const {
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
 void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 	int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
-
+		
 		bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 

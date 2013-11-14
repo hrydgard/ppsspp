@@ -29,25 +29,57 @@
 
 namespace DX9 {
 
+
+// Dest factors where it's safe to eliminate the alpha test under certain conditions
+static const bool safeDestFactors[16] = {
+	true, // GE_DSTBLEND_SRCCOLOR,
+	true, // GE_DSTBLEND_INVSRCCOLOR,
+	false, // GE_DSTBLEND_SRCALPHA,
+	true, // GE_DSTBLEND_INVSRCALPHA,
+	true, // GE_DSTBLEND_DSTALPHA,
+	true, // GE_DSTBLEND_INVDSTALPHA,
+	false, // GE_DSTBLEND_DOUBLESRCALPHA,
+	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
+	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
+	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
+	true, //GE_DSTBLEND_FIXB,
+};
+
 static bool IsAlphaTestTriviallyTrue() {
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
 	int alphaTestMask = gstate.getAlphaTestMask();
-	
+
 	switch (alphaTestFunc) {
+	case GE_COMP_NEVER:
+		return false;
+
 	case GE_COMP_ALWAYS:
 		return true;
+
 	case GE_COMP_GEQUAL:
 		return alphaTestRef == 0;
 
-	// This breaks the trees in MotoGP, for example.
-	// case GE_COMP_GREATER:
-	//if (alphaTestRef == 0 && (gstate.isAlphaBlendEnabled() & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
-	//	return true;
+	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
+	// Speeds up Lumines by a LOT on PowerVR.
+	case GE_COMP_NOTEQUAL:
+	case GE_COMP_GREATER:
+		{
+			bool depthTest = gstate.isDepthTestEnabled();
+			bool stencilTest = gstate.isStencilTestEnabled();
+			GEBlendSrcFactor src = gstate.getBlendFuncA();
+			GEBlendDstFactor dst = gstate.getBlendFuncB();
+			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
+				return true;
+			return false;
+		}
 
 	case GE_COMP_LEQUAL:
 		return alphaTestRef == 255;
 
+	case GE_COMP_EQUAL:
+	case GE_COMP_LESS:
+		return false;
 	default:
 		return false;
 	}
@@ -56,8 +88,15 @@ static bool IsAlphaTestTriviallyTrue() {
 static bool IsColorTestTriviallyTrue() {
 	GEComparison colorTestFunc = gstate.getColorTestFunction();
 	switch (colorTestFunc) {
+	case GE_COMP_NEVER:
+		return false;
+
 	case GE_COMP_ALWAYS:
 		return true;
+
+	case GE_COMP_EQUAL:
+	case GE_COMP_NOTEQUAL:
+		return false;
 	default:
 		return false;
 	}
@@ -90,7 +129,6 @@ static bool CanDoubleSrcBlendMode() {
 	}
 }
 
-
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
@@ -119,17 +157,23 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 			id->d[0] |= gstate.getTextureFunction() << 2;
 			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
+
 		id->d[0] |= (lmode & 1) << 7;
-		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
+		id->d[0] |= enableAlphaTest << 8;
 		if (enableAlphaTest)
 			id->d[0] |= gstate.getAlphaTestFunction() << 9;
-		id->d[0] |= gstate.isColorTestEnabled() << 12;
+		id->d[0] |= enableColorTest << 12;
 		if (enableColorTest)
 			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+
+		if (enableAlphaTest)
+			gpuStats.numAlphaTestedDraws++;
+		else
+			gpuStats.numNonAlphaTestedDraws++;
 	}
 }
 
@@ -138,8 +182,8 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 void GenerateFragmentShaderDX9(char *buffer) {
 	char *p = buffer;
 
-	int lmode = lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
-	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
@@ -157,9 +201,8 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "float4 u_alphacolorref;\n");
-		WRITE(p, "float4 u_colormask;\n");
 	}
-	if (gstate.isTextureMapEnabled()) 
+	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
 		WRITE(p, "float3 u_texenv;\n");
 	if (enableFog) {
 		WRITE(p, "float3 u_fogcolor;\n");
@@ -179,14 +222,15 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	WRITE(p, " {                                          \n");
 	if (doTexture)
 	{
-		//if (doTextureProjection)	
-		//	WRITE(p, "float3 v_texcoord: TEXCOORD0;\n");
-		//else
-		//	WRITE(p, "float2 v_texcoord: TEXCOORD0;\n");
+		if (doTextureProjection)
+			WRITE(p, "		float3 v_texcoord: TEXCOORD0;         \n");
+		else
+			WRITE(p, "		float2 v_texcoord: TEXCOORD0;         \n");
 	}
-	WRITE(p, "		float4 v_texcoord: TEXCOORD0;         \n");
 	WRITE(p, "		float4 v_color0: COLOR0;              \n"); 
-	WRITE(p, "		float3 v_color1: COLOR1;              \n");    
+	if (lmode) {
+		WRITE(p, "		float3 v_color1: COLOR1;              \n");    
+	}
 	if (enableFog) {
 		WRITE(p, "float v_fogdepth:FOG;\n");
 	}
@@ -210,7 +254,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 		if (gstate.isTextureMapEnabled()) {
 			if (doTextureProjection) {
-				WRITE(p, "  float4 t = tex2Dproj(tex, In.v_texcoord);\n");
+				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z));\n");
 			} else {
 				WRITE(p, "  float4 t = tex2D(tex, In.v_texcoord.xy);\n");
 			}
@@ -281,12 +325,8 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				//WRITE(p, "clip((roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb)? -1:1);\n", colorTestFuncs[colorTestFunc]);
-				//WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb)  clip(-1);\n", colorTestFuncs[colorTestFunc]);
-
-				// cleanup ?
+				
 				const char * test = colorTestFuncs[colorTestFunc];
-				//WRITE(p, "float3 colortest = roundAndScaleTo255v(v.rgb);\n");
 				WRITE(p, "float3 colortest = roundTo255thv(v.rgb);\n");
 				WRITE(p, "if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b ))  clip(-1);\n", test, test, test);
 
@@ -296,7 +336,6 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  return lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
-			// WRITE(p, "  v.x = v_depth;\n");
 		} else {
 			WRITE(p, "  return v;\n");
 		}
