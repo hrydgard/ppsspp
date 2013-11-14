@@ -929,6 +929,10 @@ static const ARMReg fpVscaleReg = S1;
 static const ARMReg fpUoffsetReg = S2;
 static const ARMReg fpVoffsetReg = S3;
 // Everything above S6 is fair game for skinning
+
+// S8-S15 are used during matrix generation
+
+// These only live through the matrix multiplication
 static const ARMReg src[3] = {S8, S9, S10};  // skin source
 static const ARMReg acc[3] = {S11, S12, S13};  // skin accumulator
 
@@ -1104,95 +1108,86 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		// Create a zero register. Might want to make a fixed one.
 		EOR(scratchReg, scratchReg, scratchReg);
 	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		STR(scratchReg, dstReg, dec_->decFmt.w0off + j * 4);
-		j++;
+}
+
+static const ARMReg weightRegs[8] = { S8, S9, S10, S11, S12, S13, S14, S15 };
+
+void VertexDecoderJitCache::Jit_ApplyWeights() {
+	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
+#if 1
+	// This approach saves a few stores but accesses the matrices in a more
+	// sparse order.
+	const float *bone = &gstate.boneMatrix[0];
+	MOVI2R(tempReg1, (u32)bone, scratchReg);
+	for (int i = 0; i < 12; i++) {
+		VLDR(fpScratchReg3, tempReg1, i * 4);
+		VMUL(fpScratchReg3, fpScratchReg3, weightRegs[0]);
+		for (int j = 1; j < dec_->nweights; j++) {
+			VLDR(fpScratchReg2, tempReg1, i * 4 + j * 4 * 12);
+			VMLA(fpScratchReg3, fpScratchReg2, weightRegs[j]);
+		}
+		VSTR(fpScratchReg3, tempReg2, i * 4);
 	}
+#else
+	// This one does accesses in linear order but wastes time storing, loading, storing.
+	for (int j = 0; j < dec_->nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		MOVI2R(tempReg1, (u32)bone, scratchReg);
+		// Okay, we have the weight.
+		if (j == 0) {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VMUL(fpScratchReg2, fpScratchReg2, weightRegs[j]);
+				VSTR(fpScratchReg2, tempReg2, i * 4);
+			}
+		} else {
+			for (int i = 0; i < 12; i++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4);
+				VLDR(fpScratchReg3, tempReg2, i * 4);
+				VMLA(fpScratchReg3, fpScratchReg2, weightRegs[j]);
+				VSTR(fpScratchReg3, tempReg2, i * 4);
+			}
+		}
+	}
+#endif
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	// No need to zero skinMatrix, we'll just STR to it in the first lap,
 	// then VLDR/VADD/VSTR in subsequent laps.
-	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
 	for (int j = 0; j < dec_->nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
 		LDRB(tempReg1, srcReg, dec_->weightoff + j);
 		VMOV(fpScratchReg, tempReg1);
 		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
 		MOVI2F(fpScratchReg2, by128, scratchReg);
-		VMUL(fpScratchReg, fpScratchReg, fpScratchReg2);
-		MOVI2R(tempReg1, (u32)bone, scratchReg);
-		// Okay, we have the weight.
-		if (j == 0) {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VMUL(fpScratchReg2, fpScratchReg2, fpScratchReg);
-				VSTR(fpScratchReg2, tempReg2, i * 4);
-			}
-		} else {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VLDR(fpScratchReg3, tempReg2, i * 4);
-				VMLA(fpScratchReg3, fpScratchReg2, fpScratchReg);
-				VSTR(fpScratchReg3, tempReg2, i * 4);
-			}
-		}
+		VMUL(weightRegs[j], fpScratchReg, fpScratchReg2);
 	}
+
+	Jit_ApplyWeights();
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	// No need to zero skinMatrix, we'll just STR to it in the first lap,
 	// then VLDR/VADD/VSTR in subsequent laps.
-	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
 	for (int j = 0; j < dec_->nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
 		LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
 		VMOV(fpScratchReg, tempReg1);
 		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
 		MOVI2F(fpScratchReg2, 1.0f / 32768.0f, scratchReg);
-		VMUL(fpScratchReg, fpScratchReg, fpScratchReg2);
-		MOVI2R(tempReg1, (u32)bone, scratchReg);
-		// Okay, we have the weight.
-		if (j == 0) {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VMUL(fpScratchReg2, fpScratchReg2, fpScratchReg);
-				VSTR(fpScratchReg2, tempReg2, i * 4);
-			}
-		} else {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VLDR(fpScratchReg3, tempReg2, i * 4);
-				VMLA(fpScratchReg3, fpScratchReg2, fpScratchReg);
-				VSTR(fpScratchReg3, tempReg2, i * 4);
-			}
-		}
+		VMUL(weightRegs[j], fpScratchReg, fpScratchReg2);
 	}
+
+	Jit_ApplyWeights();
 }
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 	// No need to zero skinMatrix, we'll just STR to it in the first lap,
 	// then VLDR/VADD/VSTR in subsequent laps.
-	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
 	for (int j = 0; j < dec_->nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		VLDR(fpScratchReg, srcReg, dec_->weightoff + j * 4);
-		MOVI2R(tempReg1, (u32)bone, scratchReg);
-		if (j == 0) {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VMUL(fpScratchReg2, fpScratchReg2, fpScratchReg);
-				VSTR(fpScratchReg2, tempReg2, i * 4);
-			}
-		} else {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VLDR(fpScratchReg3, tempReg2, i * 4);
-				VMLA(fpScratchReg3, fpScratchReg2, fpScratchReg);
-				VSTR(fpScratchReg3, tempReg2, i * 4);
-			}
-		}
+		VLDR(weightRegs[j], srcReg, dec_->weightoff + j * 4);
 	}
+
+	Jit_ApplyWeights();
 }
 
 // Fill last two bytes with zeroes to align to 4 bytes. LDRH does it for us, handy.
