@@ -54,7 +54,7 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 {
 	int numErrors = 0;
-	INFO_LOG(LOADER, "Loading %i relocations...", numRelocs);
+	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
 	for (int r = 0; r < numRelocs; r++)
 	{
 		// INFO_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
@@ -80,9 +80,9 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		addr += segmentVAddr[readwrite];
 		if ((addr & 3) || !Memory::IsValidAddress(addr)) {
 			if (numErrors < 10) {
-				ERROR_LOG(LOADER, "Bad relocation address %08x", addr);
-			} else {
-				ERROR_LOG(LOADER, "Too many bad relocations, skipping logging");
+				WARN_LOG(LOADER, "Suspicious address %08x, skipping reloc", addr);
+			} else if (numErrors == 10) {
+				WARN_LOG(LOADER, "Too many bad relocations, skipping logging");
 			}
 			numErrors++;
 			continue;
@@ -92,8 +92,7 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 
 		const bool log = false;
 		//log=true;
-		if (log)
-		{
+		if (log) {
 			DEBUG_LOG(LOADER,"rel at: %08x  info: %08x   type: %i",addr, info, type);
 		}
 		u32 relocateTo = segmentVAddr[relative];
@@ -187,9 +186,7 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		Memory::Write_U32(op, addr);
 	}
 	if (numErrors) {
-		ERROR_LOG(LOADER, "%i bad relocations found!!!", numErrors);
-	} else {
-		INFO_LOG(LOADER, "Successfully loaded relocations");
+		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors);
 	}
 	return numErrors == 0;
 }
@@ -485,9 +482,9 @@ int ElfReader::LoadInto(u32 loadAddress)
 
 				Elf32_Rel *rels = (Elf32_Rel *)GetSectionDataPtr(i);
 
-				INFO_LOG(LOADER,"%s: Performing %i relocations on %s : offset = %08x", name, numRelocs, GetSectionName(sectionToModify), sections[i].sh_offset);
+				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s : offset = %08x", name, numRelocs, GetSectionName(sectionToModify), sections[i].sh_offset);
 				if (!LoadRelocations(rels, numRelocs)) {
-					ERROR_LOG(LOADER, "LoadInto: Relocs failed, trying anyway");
+					WARN_LOG(LOADER, "LoadInto: Relocs failed, trying anyway");
 				}			
 			}
 			else
