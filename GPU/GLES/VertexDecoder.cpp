@@ -1793,6 +1793,32 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8() {
+	switch (dec_->nweights) {
+	case 1:
+		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		return;
+	case 2:
+		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		return;
+	case 3:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		AND(32, R(tempReg1), Imm32(0x00FFFFFF));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		return;
+	case 4:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		return;
+	case 8:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w1off), R(tempReg2));
+		return;
+	}
+
 	// Basic implementation - a byte at a time. TODO: Optimize
 	int j;
 	for (j = 0; j < dec_->nweights; j++) {
@@ -1806,6 +1832,23 @@ void VertexDecoderJitCache::Jit_WeightsU8() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16() {
+	switch (dec_->nweights) {
+	case 1:
+		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		return;
+	case 2:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		return;
+	case 3:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->weightoff));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), R(tempReg2));
+		return;
+	}
+
 	// Basic implementation - a short at a time. TODO: Optimize
 	int j;
 	for (j = 0; j < dec_->nweights; j++) {
@@ -1989,12 +2032,10 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	// TODO: The first five instructions could be done in 1 or 2 in SSE4 and probably in 3 in SSE2
-	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
-	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
-	CVTSI2SS(fpScratchReg, R(tempReg1));
-	CVTSI2SS(fpScratchReg2, R(tempReg2));
-	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	PXOR(fpScratchReg2, R(fpScratchReg2));
+	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
+	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
 	MULPS(fpScratchReg, R(fpScaleOffsetReg));
 	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
 	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
@@ -2042,7 +2083,32 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
 }
 
+static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
+
+
 void VertexDecoderJitCache::Jit_Color4444() {
+	// Needs benchmarking. A bit wasteful by only using 1 SSE lane.
+#if 0
+	// Alternate approach
+	MOVD_xmm(XMM3, MDisp(srcReg, dec_->coloff));
+	MOVAPS(XMM2, R(XMM3));
+	MOVAPS(XMM1, M((void *)nibbles));
+	PSLLD(XMM2, 4);
+	PAND(XMM3, R(XMM1));
+	PAND(XMM2, R(XMM1));
+	PSRLD(XMM2, 4);
+	PXOR(XMM1, R(XMM1));
+	PUNPCKLBW(XMM2, R(XMM1));
+	PUNPCKLBW(XMM3, R(XMM1));
+	PSLLD(XMM2, 4);
+	POR(XMM3, R(XMM2));
+	MOVAPS(XMM2, R(XMM3));
+	PSLLD(XMM2, 4);
+	POR(XMM3, R(XMM2));
+	MOVD_xmm(MDisp(dstReg, dec_->decFmt.c0off), XMM3);
+	return;
+#endif
+
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
 
 	// 0000ABGR, copy R and double forwards.
@@ -2174,17 +2240,8 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 8), R(tempReg3));
 }
 
-void VertexDecoderJitCache::Jit_NormalS8Skin() {
-	XORPS(XMM3, R(XMM3));
-	for (int i = 0; i < 3; i++) {
-		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->nrmoff + (2 - i)));
-		CVTSI2SS(XMM3, R(tempReg1));
-		if (i != 2) {
-			PSLLDQ(XMM3, 4);
-		}
-	}
-	MULPS(XMM3, M((void *)&by128));
-
+// This could be a bit shorter with AVX 3-operand instructions and FMA.
+void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 	MOVAPS(XMM1, R(XMM3));
 	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
 	MULPS(XMM1, R(XMM4));
@@ -2196,53 +2253,39 @@ void VertexDecoderJitCache::Jit_NormalS8Skin() {
 	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
 	MULPS(XMM2, R(XMM6));
 	ADDPS(XMM1, R(XMM2));
-	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM1);
+	if (pos) {
+		ADDPS(XMM1, R(XMM7));
+	}
+	MOVUPS(MDisp(dstReg, outOff), XMM1);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8Skin() {
+	XORPS(XMM3, R(XMM3));
+	MOVD_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
+	PUNPCKLBW(XMM1, R(XMM3));
+	PUNPCKLWD(XMM1, R(XMM3));
+	PSLLD(XMM1, 24);
+	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
+	CVTDQ2PS(XMM3, R(XMM1));
+	MULPS(XMM3, M((void *)&by128));
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
 	XORPS(XMM3, R(XMM3));
-	for (int i = 0; i < 3; i++) {
-		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->nrmoff + (2 - i) * 2));
-		CVTSI2SS(XMM3, R(tempReg1));
-		if (i != 2) {
-			PSLLDQ(XMM3, 4);
-		}
-	}
+	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
+	PUNPCKLWD(XMM1, R(XMM3));
+	PSLLD(XMM1, 16);
+	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M((void *)&by32768));
-
-	MOVAPS(XMM1, R(XMM3));
-	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(XMM1, R(XMM4));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
-	MULPS(XMM2, R(XMM5));
-	ADDPS(XMM1, R(XMM2));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
-	MULPS(XMM2, R(XMM6));
-	ADDPS(XMM1, R(XMM2));
-	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
 void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 	MOVUPS(XMM3, MDisp(srcReg, dec_->nrmoff));
-
-	MOVAPS(XMM1, R(XMM3));
-	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(XMM1, R(XMM4));
-
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
-	MULPS(XMM2, R(XMM5));
-	ADDPS(XMM1, R(XMM2));
-
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
-	MULPS(XMM2, R(XMM6));
-	ADDPS(XMM1, R(XMM2));
-
-	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM1);
+	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
 // Through expands into floats, always. Might want to look at changing this.
@@ -2257,12 +2300,13 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	// TODO: SIMD
-	for (int i = 0; i < 3; i++) {
-		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff + i * 2));
-		CVTSI2SS(fpScratchReg, R(tempReg1));
-		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + i * 4), fpScratchReg);
-	}
+	XORPS(XMM3, R(XMM3));
+	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+	PUNPCKLWD(XMM1, R(XMM3));
+	PSLLD(XMM1, 16);
+	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	CVTDQ2PS(XMM3, R(XMM1));
+	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
@@ -2292,73 +2336,31 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
 	XORPS(XMM3, R(XMM3));
-	for (int i = 0; i < 3; i++) {
-		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + (2 - i)));
-		CVTSI2SS(XMM3, R(tempReg1));
-		if (i != 2) {
-			PSLLDQ(XMM3, 4);
-		}
-	}
+	MOVD_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+	PUNPCKLBW(XMM1, R(XMM3));
+	PUNPCKLWD(XMM1, R(XMM3));
+	PSLLD(XMM1, 24);
+	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
+	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M((void *)&by128));
-	MOVAPS(XMM1, R(XMM3));
-	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(XMM1, R(XMM4));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
-	MULPS(XMM2, R(XMM5));
-	ADDPS(XMM1, R(XMM2));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
-	MULPS(XMM2, R(XMM6));
-	ADDPS(XMM1, R(XMM2));
-	ADDPS(XMM1, R(XMM7));
-	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM1);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosS16Skin() {
 	XORPS(XMM3, R(XMM3));
-	for (int i = 0; i < 3; i++) {
-		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff + (2 - i) * 2));
-		CVTSI2SS(XMM3, R(tempReg1));
-		if (i != 2) {
-			PSLLDQ(XMM3, 4);
-		}
-	}
+	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+	PUNPCKLWD(XMM1, R(XMM3));
+	PSLLD(XMM1, 16);
+	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M((void *)&by32768));
-	MOVAPS(XMM1, R(XMM3));
-	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(XMM1, R(XMM4));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
-	MULPS(XMM2, R(XMM5));
-	ADDPS(XMM1, R(XMM2));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
-	MULPS(XMM2, R(XMM6));
-	ADDPS(XMM1, R(XMM2));
-	ADDPS(XMM1, R(XMM7));
-	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM1);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
 	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
-
-	MOVAPS(XMM1, R(XMM3));
-	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(XMM1, R(XMM4));
-
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
-	MULPS(XMM2, R(XMM5));
-	ADDPS(XMM1, R(XMM2));
-
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
-	MULPS(XMM2, R(XMM6));
-	ADDPS(XMM1, R(XMM2));
-	ADDPS(XMM1, R(XMM7));
-	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM1);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 #elif defined(PPC)
