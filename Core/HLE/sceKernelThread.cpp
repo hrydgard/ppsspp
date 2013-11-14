@@ -520,7 +520,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Thread", 1, 2);
+		auto s = p.Section("Thread", 1, 3);
 		if (!s)
 			return;
 
@@ -531,6 +531,11 @@ public:
 		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
 		p.Do(context);
+		if (s <= 2)
+		{
+			context.other[4] = context.other[5];
+			context.other[3] = context.other[4];
+		}
 
 		p.Do(callbacks);
 
@@ -1928,7 +1933,6 @@ void ThreadContext::reset()
 	vfpuCtrl[VFPU_CTRL_RCX6] = 0x3f800000;
 	vfpuCtrl[VFPU_CTRL_RCX7] = 0x3f800000;
 	fpcond = 0;
-	fcr0 = 0;
 	fcr31 = 0;
 	hi = 0xDEADBEEF;
 	lo = 0xDEADBEEF;

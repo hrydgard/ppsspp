@@ -339,8 +339,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 2: //cfc1
-		if (fs == 31)
-		{
+		if (fs == 31) {
 			gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
 			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 #ifdef HAVE_ARMV7
@@ -350,11 +349,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
 			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
 #endif
-		}
-		else if (fs == 0)
-		{
-			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr0));
+		} else if (fs == 0) {
+			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
 		}
 		return;
 

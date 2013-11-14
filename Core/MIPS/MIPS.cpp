@@ -134,7 +134,6 @@ void MIPSState::Reset()
 	hi = 0;
 	lo = 0;
 	fpcond = 0;
-	fcr0 = 0;
 	fcr31 = 0;
 	debugCount = 0;
 	currentMIPS = this;
@@ -147,7 +146,7 @@ void MIPSState::Reset()
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1);
+	auto s = p.Section("MIPSState", 1, 2);
 	if (!s)
 		return;
 
@@ -169,7 +168,10 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(hi);
 	p.Do(lo);
 	p.Do(fpcond);
-	p.Do(fcr0);
+	if (s <= 1) {
+		u32 fcr0_unusued = 0;
+		p.Do(fcr0_unusued);
+	}
 	p.Do(fcr31);
 	p.Do(rng.m_w);
 	p.Do(rng.m_z);
@@ -225,7 +227,7 @@ u32 MIPSState::ReadFCR(int reg)
 	}
 	else if (reg == 0)
 	{
-		return fcr0;
+		return FCR0_VALUE;
 	}
 	else
 	{

@@ -146,7 +146,6 @@ public:
 			u32 hi;
 			u32 lo;
 
-			u32 fcr0;
 			u32 fcr31; //fpu control register
 			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
 		};
@@ -164,6 +163,8 @@ public:
 
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.
+
+	static const u32 FCR0_VALUE = 0x00003351;
 
 	void WriteFCR(int reg, int value);
 	u32 ReadFCR(int reg);
