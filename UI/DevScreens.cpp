@@ -201,6 +201,20 @@ void SystemInfoScreen::CreateViews() {
 	openGL.resize(30);
 	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
 	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+
+	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
+	cpuExtensions->SetSpacing(0);
+	cpuExtensionsScroll->Add(cpuExtensions);
+
+	tabHolder->AddTab("CPU Extensions", cpuExtensionsScroll);
+
+	cpuExtensions->Add(new ItemHeader("CPU Extensions"));
+	std::vector<std::string> exts;
+	SplitString(cpu_info.Summarize(), ',', exts);
+	for (size_t i = 2; i < exts.size(); i++) {
+		cpuExtensions->Add(new TextView(exts[i]));
+	}
 	
 	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
@@ -218,7 +232,7 @@ void SystemInfoScreen::CreateViews() {
 		oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 #endif
 
-	std::vector<std::string> exts;
+	exts.clear();
 	SplitString(g_all_gl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {

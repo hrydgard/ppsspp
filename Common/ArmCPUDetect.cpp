@@ -289,13 +289,13 @@ std::string CPUInfo::Summarize()
 	if (bHalf) sum += ", Half";
 	if (bThumb) sum += ", Thumb";
 	if (bFastMult) sum += ", FastMult";
-	if (bVFP) sum += ", VFP";
 	if (bEDSP) sum += ", EDSP";
 	if (bThumbEE) sum += ", ThumbEE";
-	if (bNEON) sum += ", NEON";
-	if (bVFPv3) sum += ", VFPv3";
 	if (bTLS) sum += ", TLS";
+	if (bVFP) sum += ", VFP";
+	if (bVFPv3) sum += ", VFPv3";
 	if (bVFPv4) sum += ", VFPv4";
+	if (bNEON) sum += ", NEON";
 	if (bIDIVa) sum += ", IDIVa";
 	if (bIDIVt) sum += ", IDIVt";
 
