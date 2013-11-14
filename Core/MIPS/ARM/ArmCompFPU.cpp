@@ -351,6 +351,9 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 #endif
 		} else if (fs == 0) {
 			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		} else {
+			// Unsupported regs are always 0.
+			gpr.SetImm(rt, 0);
 		}
 		return;
 
