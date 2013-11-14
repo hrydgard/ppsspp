@@ -24,7 +24,7 @@
 #endif
 
 // Only Linux platforms have /proc/cpuinfo
-#if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
+#if defined(__linux__)
 const char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
@@ -200,7 +200,7 @@ void CPUInfo::Detect()
 	vendor = VENDOR_ARM;
 	
 	// Get the information about the CPU 
-#if defined(__SYMBIAN32__) || defined(BLACKBERRY) || defined(IOS)
+#if !defined(__linux__)
 	bool isVFP3 = false;
 	bool isVFP4 = false;
 #ifdef IOS
@@ -209,7 +209,7 @@ void CPUInfo::Detect()
 #ifdef __ARM_ARCH_7S__
 	isVFP4 = true;
 #endif
-	strcpy(brand_string, "Apple");
+	strcpy(brand_string, "Apple A");
 	num_cores = 2;
 #elif defined(BLACKBERRY)
 	isVFP3 = true;
@@ -223,7 +223,11 @@ void CPUInfo::Detect()
 #elif defined(__SYMBIAN32__)
 	strcpy(brand_string, "Samsung ARMv6");
 	num_cores = 1;
+#else
+	strcpy(brand_string, "Unknown");
+	num_cores = 1;
 #endif
+	strncpy(cpu_string, brand_string, sizeof(cpu_string));
 	// Hardcode this for now
 	bSwp = true;
 	bHalf = true;
@@ -240,7 +244,7 @@ void CPUInfo::Detect()
 	bIDIVt = isVFP4;
 	bFP = false;
 	bASIMD = false;
-#else
+#else // __linux__
 	strncpy(cpu_string, GetCPUString(), sizeof(cpu_string));
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
@@ -255,16 +259,17 @@ void CPUInfo::Detect()
 	bVFPv4 = CheckCPUFeature("vfpv4");
 	bIDIVa = CheckCPUFeature("idiva");
 	bIDIVt = CheckCPUFeature("idivt");
-	// Qualcomm Krait supports IDIVA but it doesn't report it. Check for krait.
-	if (GetCPUImplementer() == 0x51 && GetCPUPart() == 0x6F) // Krait(300) is 0x6F, Scorpion is 0x4D
+	// Qualcomm Krait supports IDIVA but it doesn't report it. Check for krait (0x4D = Plus, 0x6F = Pro).
+	unsigned short CPUPart = GetCPUPart();
+	if (GetCPUImplementer() == 0x51 && (CPUPart == 0x4D || CPUPart == 0x6F))
 		bIDIVa = bIDIVt = true;
 	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
 	num_cores = GetCoreCount();
 #endif
-// On android, we build a separate library for ARMv7 so this is fine.
-// TODO: Check for ARMv7 on other platforms.
+// Since we can do this at compile-time (separate libraries) for every platform,
+// maybe we can replace the bArmV7 check with #if like we do for x86 and x86_64
 #if defined(__ARM_ARCH_7A__)
 	bArmV7 = true;
 #else
@@ -276,14 +281,10 @@ void CPUInfo::Detect()
 std::string CPUInfo::Summarize()
 {
 	std::string sum;
-#if defined(BLACKBERRY) || defined(IOS) || defined(__SYMBIAN32__)
-	sum = StringFromFormat("%i cores", num_cores);
-#else
 	if (num_cores == 1)
 		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
-#endif
 	if (bSwp) sum += ", SWP";
 	if (bHalf) sum += ", Half";
 	if (bThumb) sum += ", Thumb";
