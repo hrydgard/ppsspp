@@ -587,18 +587,21 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	}
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
+	bool andLink = (op & 0x3f) == 9;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	if (andLink && rs == rd)
+		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
 	if (IsSyscall(delaySlotOp))
 	{
-		_dbg_assert_msg_(JIT, (op & 0x3f) == 8, "jalr followed by syscall not supported.");
-
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
+		if (andLink)
+			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 
 		// Syscalls write the exit code for us.
@@ -607,9 +610,11 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	}
 	else if (delaySlotIsNice)
 	{
+		if (andLink)
+			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-		if (rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
+		if (!andLink && rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
 			// According to the MIPS ABI, there are some regs we don't need to preserve.
 			// Let's discard them so we don't need to write them back.
 			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
@@ -625,8 +630,6 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		{
 			// Account for the increment in the loop.
 			js.compilerPC = gpr.GetImm(rs) - 4;
-			if ((op & 0x3f) == 9)
-				gpr.SetImm(rd, js.compilerPC + 8);
 			// In case the delay slot was a break or something.
 			js.compiling = true;
 			return;
@@ -640,6 +643,8 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		// Latch destination now - save it in memory.
 		gpr.MapReg(rs, true, false);
 		MOV(32, M(&savedPC), gpr.R(rs));
+		if (andLink)
+			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), M(&savedPC));
 		FlushAll();
@@ -650,7 +655,6 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	case 8: //jr
 		break;
 	case 9: //jalr
-		MOV(32, M(&mips_->r[rd]), Imm32(js.compilerPC + 8));
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
