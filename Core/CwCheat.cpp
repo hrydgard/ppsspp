@@ -114,7 +114,10 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 			continue; //Line indicates Disc ID, not needed for cheats
 		}
 		if (initialCodesList[i].substr(0,2) == "_G") {
-			continue; //Line indicates game Title, also not needed for cheats.
+			continue; //Line indicates game Title, also not needed for cheats
+		}
+		if (initialCodesList[i].substr(0,2) == "//") {
+			continue; //Line indicates comment, also not needed for cheats.
 		}
 		if (initialCodesList[i].substr(0,3) == "_C1") {
 			cheatEnabled = true;
@@ -231,7 +234,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	}
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
-		if (line.length() > 3 && line.substr(0,1) == "_"){
+		if (line.length() > 3 && (line.substr(0,1) == "_"||line.substr(0,2) == "//")){
 			codesList.push_back(line);
 		}
 	}
