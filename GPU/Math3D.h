@@ -612,11 +612,19 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 
 inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 {
-	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[9];
-	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[10];
-	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[11];
-	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
+	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
+	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
 }
+
+inline void Vec4ByMatrix44(float vecOut[4], const float v[4], const float m[16])
+{
+	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
+	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
+	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
+	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
+}
+
 
 inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
@@ -624,6 +632,14 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7];
 	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8];
 }
+
+inline void Matrix4ByMatrix4(float out[16], const float a[16], const float b[16]) {
+	Vec4ByMatrix44(out, a, b);
+	Vec4ByMatrix44(out + 4, a + 4, b);
+	Vec4ByMatrix44(out + 8, a + 8, b);
+	Vec4ByMatrix44(out + 12, a + 12, b);
+}
+
 
 inline float Vec3Dot(const float v1[3], const float v2[3])
 {

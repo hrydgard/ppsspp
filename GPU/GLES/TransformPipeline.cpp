@@ -695,7 +695,7 @@ rotateVBO:
 			prim = indexGen.Prim();
 		}
 		
-		DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 		if (useElements) {
@@ -718,7 +718,7 @@ rotateVBO:
 		// Undo the strip optimization, not supported by the SW code yet.
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
-		DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
+		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
 		SoftwareTransformAndDraw(
 			prim, decoded, program, indexGen.VertexCount(), 
@@ -745,13 +745,31 @@ struct Plane {
 };
 
 void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
-	// TODO: Which order is the most optimal?
-	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);// Right clipping plane.
-	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);// Left clipping plane.
-	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);// Bottom clipping plane.
-	planes[3].Set(mtx[3]-mtx[1], mtx[7]-mtx[5], mtx[11]-mtx[9], mtx[15]-mtx[13]);// Top clipping plane.
-	planes[4].Set(mtx[3]+mtx[2], mtx[7]+mtx[6], mtx[11]+mtx[10], mtx[15]+mtx[14]); // Near clipping plane.
-	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]);// Far clipping plane.
+	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
+	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
+	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom
+	planes[3].Set(mtx[3]-mtx[1], mtx[7]-mtx[5], mtx[11]-mtx[9], mtx[15]-mtx[13]);  // Top
+	planes[4].Set(mtx[3]+mtx[2], mtx[7]+mtx[6], mtx[11]+mtx[10], mtx[15]+mtx[14]); // Near
+	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]); // Far
+}
+
+static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[1];
+	m4x4[2] = m4x3[2];
+	m4x4[3] = 0.0f;
+	m4x4[4] = m4x3[3];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[5];
+	m4x4[7] = 0.0f;
+	m4x4[8] = m4x3[6];
+	m4x4[9] = m4x3[7];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = 0.0f;
+	m4x4[12] = m4x3[9];
+	m4x4[13] = m4x3[10];
+	m4x4[14] = m4x3[11];
+	m4x4[15] = 1.0f;
 }
 
 // This code is HIGHLY unoptimized!
@@ -759,6 +777,8 @@ void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box.
 bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
+	// TODO: Skip NormalizeVertices if vertType = only float
+
 	// Simplify away bones and morph before proceeding
 	// Special case for float positions only.
 	// This clip test is not very accurate but does succeed in removing some bboxes at least.
@@ -770,7 +790,16 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 
 	Plane planes[6];
 
-	PlanesFromMatrix(gstate.projMatrix, planes);
+	// TODO: Multiply the matrices together first, so that we can skip the matrix multiplications later
+	float world[16];
+	float view[16];
+	ConvertMatrix4x3To4x4(gstate.worldMatrix, world);
+	ConvertMatrix4x3To4x4(gstate.viewMatrix, view);
+	float worldview[16];
+	Matrix4ByMatrix4(worldview, world, view);
+	float worldviewproj[16];
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+	PlanesFromMatrix(worldviewproj, planes);
 
 	for (int plane = 0; plane < 6; plane++) {
 		int inside = 0;
@@ -780,24 +809,12 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 			for (int i = 0; i < 8; i++) {
 				const SimpleVertex &vert = corners[box * 8 + i];
 
-				// To world space...
-				float worldPos[3];
-				Vec3ByMatrix43(worldPos, (float *)&vert.pos.x, gstate.worldMatrix);
-
-				// To view space...
-				float viewPos[3];
-				Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
-
 				// Here we can test against the frustum planes!
-
-				float value = planes[plane].Test(viewPos);
+				float value = planes[plane].Test((float *)&vert.pos.x);
 				if (value < 0)
 					out++;
 				else
 					inside++;
-
-				// float frustumPos[4];
-				// Vec3ByMatrix44(frustumPos, viewPos, gstate.projMatrix);
 			}
 		}
 
@@ -807,10 +824,7 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 		}
 
 		// Any out. For testing that the planes are in the right locations.
-		//if (out != 0) {
-			// All out
-		//	return false;
-		//}
+		if (out != 0) return false;
 	}
 
 	return true;
