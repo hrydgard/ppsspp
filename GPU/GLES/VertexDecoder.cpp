@@ -1836,14 +1836,25 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 	case 1:
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), Imm32(0));
 		return;
+
 	case 2:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), Imm32(0));
 		return;
+
 	case 3:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
-		MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->weightoff));
+		MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->weightoff + 4));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), R(tempReg2));
+		return;
+	
+	case 4:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), R(tempReg2));
 		return;
