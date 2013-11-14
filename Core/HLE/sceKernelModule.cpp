@@ -1139,7 +1139,22 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
+
+
+		u8 *temp = 0;
+		if (offsets[5] & 3) {
+			// Our loader does NOT like to load from an unaligned address on ARM!
+			size_t size = offsets[6] - offsets[5];
+			temp = new u8[size];
+			memcpy(temp, fileptr + offsets[5], size);
+			INFO_LOG(LOADER, "Elf unaligned, aligning!")
+		}
+
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
+
+		if (temp) {
+			delete [] temp;
+		}
 	}
 	else
 	{
