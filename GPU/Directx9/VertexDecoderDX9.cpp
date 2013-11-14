@@ -262,10 +262,10 @@ void VertexDecoderDX9::Step_Color5551() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-	c[0] = Convert5To8(cdata & 0x1f);
-	c[1] = Convert5To8((cdata>>5) & 0x1f);
-	c[2] = Convert5To8((cdata>>10) & 0x1f);
-	c[3] = (cdata >> 15) ? 255 : 0;
+	c[0] = (cdata >> 15) ? 255 : 0;
+	c[1] = Convert5To8(cdata & 0x1f);
+	c[2] = Convert5To8((cdata>>5) & 0x1f);
+	c[3] = Convert5To8((cdata>>10) & 0x1f);
 }
 
 void VertexDecoderDX9::Step_Color4444() const

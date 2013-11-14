@@ -167,16 +167,6 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 		u_lightspecular[i] = GetConstantByName(temp);
 	}
 
-	/*
-	a_position = glGetAttribLocation(program, "a_position");
-	a_color0 = glGetAttribLocation(program, "a_color0");
-	a_color1 = glGetAttribLocation(program, "a_color1");
-	a_texcoord = glGetAttribLocation(program, "a_texcoord");
-	a_normal = glGetAttribLocation(program, "a_normal");
-	a_weight0123 = glGetAttribLocation(program, "a_w1");
-	a_weight4567 = glGetAttribLocation(program, "a_w2");
-	*/
-
 	//glUseProgram(program);
 
 	pD3Ddevice->SetPixelShader(fs->shader);
@@ -279,6 +269,10 @@ void LinkedShaderDX9::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
 // Depth in ogl is between -1;1 we need between 0;1
 // Pretty sure this is wrong, our Z buffer is screwed up anyhow..
 void ConvertProjMatrixToD3D(Matrix4x4 & in) {
+	/*
+	in.zz *= 0.5f;
+	in.wz += 1.f;
+	*/
 	Matrix4x4 s;
 	Matrix4x4 t;
 	s.setScaling(Vec3(1, 1, 0.5f));
@@ -538,7 +532,7 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 	VertexShaderIDDX9 VSID;
 	FragmentShaderIDDX9 FSID;
-	ComputeVertexShaderIDDX9(&VSID, prim, useHWTransform);
+	ComputeVertexShaderIDDX9(&VSID, vertType, prim, useHWTransform);
 	ComputeFragmentShaderIDDX9(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.

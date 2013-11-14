@@ -52,7 +52,7 @@ struct VertexShaderIDDX9
 
 bool CanUseHardwareTransformDX9(int prim);
 
-void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransform);
+void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, bool useHWTransform);
 void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform);
 
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.
