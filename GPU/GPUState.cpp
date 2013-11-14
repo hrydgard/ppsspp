@@ -30,6 +30,10 @@
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/MemMap.h"
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
 
 // This must be aligned so that the matrices within are aligned.
 GPUgstate MEMORY_ALIGNED16(gstate);
@@ -173,6 +177,34 @@ void GPUgstate::Save(u32_le *ptr) {
 	memcpy(matrices, viewMatrix, sizeof(viewMatrix)); matrices += sizeof(viewMatrix);
 	memcpy(matrices, projMatrix, sizeof(projMatrix)); matrices += sizeof(projMatrix);
 	memcpy(matrices, tgenMatrix, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
+}
+
+void GPUgstate::FastLoadBoneMatrix(u32 addr) {
+	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(addr);
+	u32 num = boneMatrixNumber;
+	u32 *dst = (u32 *)(boneMatrix + (num & 0x7F));
+
+#ifdef _M_SSE
+	__m128i row1 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8);
+	__m128i row2 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 4)), 8);
+	__m128i row3 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 8)), 8);
+	if ((num & 0x3) == 0) {
+		_mm_store_si128((__m128i *)dst, row1);
+		_mm_store_si128((__m128i *)(dst + 4), row2);
+		_mm_store_si128((__m128i *)(dst + 8), row3);
+	} else {
+		_mm_storeu_si128((__m128i *)dst, row1);
+		_mm_storeu_si128((__m128i *)(dst + 4), row2);
+		_mm_storeu_si128((__m128i *)(dst + 8), row3);
+	}
+#else
+	for (int i = 0; i < 12; i++) {
+		dst[i] = src[i] << 8;
+	}
+#endif
+
+	num += 12;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
 void GPUgstate::Restore(u32_le *ptr) {

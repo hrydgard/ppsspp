@@ -395,7 +395,10 @@ struct GPUgstate
 	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
 	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
-// Real data in the context ends here
+
+	void FastLoadBoneMatrix(u32 addr);
+
+	// Real data in the context ends here
 
 	void Save(u32_le *ptr);
 	void Restore(u32_le *ptr);
