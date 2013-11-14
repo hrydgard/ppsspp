@@ -49,7 +49,7 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 	};
 
 	// Let's have two separate loops, one for non skinning and one for skinning.
-	if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+	if (!g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
 		for (int i = lowerBound; i <= upperBound; i++) {
 			reader.Goto(i);
