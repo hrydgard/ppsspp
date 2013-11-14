@@ -737,7 +737,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 #endif
 
 			int bytesRead;
-			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, -1, &bytesRead);
+			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
 			gpuStats.vertexGPUCycles += vertexCost * count;

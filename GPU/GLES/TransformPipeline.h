@@ -92,7 +92,7 @@ public:
 	TransformDrawEngine();
 	virtual ~TransformDrawEngine();
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);

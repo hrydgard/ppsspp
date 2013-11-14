@@ -736,7 +736,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, -1, 0);
+	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
 	Flush();
 }
 
@@ -811,6 +811,6 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, -1, 0);
+	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
 	Flush();
 }

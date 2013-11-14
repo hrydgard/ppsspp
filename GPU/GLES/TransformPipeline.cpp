@@ -285,7 +285,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
@@ -312,7 +312,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
-	dc.indexType = ((forceIndexType == -1) ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
+	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 	if (inds) {
@@ -777,21 +777,35 @@ static void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box.
 bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
-	// TODO: Skip NormalizeVertices if vertType = only float
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
+	float *verts = (float *)(decoded + 65536 * 18);
+
+	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
+	// and a large vertex format.
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
-		// Special case for float positions only.
-		const float *ctrl = (const float *)control_points;
-		for (int i = 0; i < vertexCount; i++) {
-			corners[i].pos.x = ctrl[i * 3];
-			corners[i].pos.y = ctrl[i * 3 + 1];
-			corners[i].pos.z = ctrl[i * 3 + 2];
+		// memcpy(verts, control_points, 12 * vertexCount);
+		verts = (float *)control_points;
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
+		const s8 *vtx = (const s8 *)control_points;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i] * (1.0f / 128.0f);
+		}
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
+		const s16 *vtx = (const s16*)control_points;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
 	} else {
 		// Simplify away bones and morph before proceeding
 		u8 *temp_buffer = decoded + 65536 * 24;
-		u32 origVertType = vertType;
-		vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
+		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
+		// Special case for float positions only.
+		const float *ctrl = (const float *)control_points;
+		for (int i = 0; i < vertexCount; i++) {
+			verts[i * 3] = corners[i].pos.x;
+			verts[i * 3 + 1] = corners[i].pos.y;
+			verts[i * 3 + 2] = corners[i].pos.z;
+		}
 	}
 
 	Plane planes[6];
@@ -809,9 +823,8 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 		int inside = 0;
 		int out = 0;
 		for (int i = 0; i < vertexCount; i++) {
-			const SimpleVertex &vert = corners[i];
 			// Here we can test against the frustum planes!
-			float value = planes[plane].Test((float *)&vert.pos.x);
+			float value = planes[plane].Test(verts + i * 3);
 			if (value < 0)
 				out++;
 			else
