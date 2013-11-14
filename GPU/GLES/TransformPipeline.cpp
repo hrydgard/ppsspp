@@ -753,7 +753,7 @@ void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
 	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]); // Far
 }
 
-static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
+static void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
 	m4x4[0] = m4x3[0];
 	m4x4[1] = m4x3[1];
 	m4x4[2] = m4x3[2];
@@ -778,44 +778,44 @@ static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
 // our clipping planes, we reject the box.
 bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
 	// TODO: Skip NormalizeVertices if vertType = only float
-
-	// Simplify away bones and morph before proceeding
-	// Special case for float positions only.
-	// This clip test is not very accurate but does succeed in removing some bboxes at least.
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
-
-	u32 origVertType = vertType;
-	vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
+	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
+		// Special case for float positions only.
+		const float *ctrl = (const float *)control_points;
+		for (int i = 0; i < vertexCount; i++) {
+			corners[i].pos.x = ctrl[i * 3];
+			corners[i].pos.y = ctrl[i * 3 + 1];
+			corners[i].pos.z = ctrl[i * 3 + 2];
+		}
+	} else {
+		// Simplify away bones and morph before proceeding
+		u8 *temp_buffer = decoded + 65536 * 24;
+		u32 origVertType = vertType;
+		vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
+	}
 
 	Plane planes[6];
 
-	// TODO: Multiply the matrices together first, so that we can skip the matrix multiplications later
 	float world[16];
 	float view[16];
-	ConvertMatrix4x3To4x4(gstate.worldMatrix, world);
-	ConvertMatrix4x3To4x4(gstate.viewMatrix, view);
 	float worldview[16];
-	Matrix4ByMatrix4(worldview, world, view);
 	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 	PlanesFromMatrix(worldviewproj, planes);
-
 	for (int plane = 0; plane < 6; plane++) {
 		int inside = 0;
 		int out = 0;
-		for (int box = 0; box < vertexCount / 8; box++) {
-			// For each box...
-			for (int i = 0; i < 8; i++) {
-				const SimpleVertex &vert = corners[box * 8 + i];
-
-				// Here we can test against the frustum planes!
-				float value = planes[plane].Test((float *)&vert.pos.x);
-				if (value < 0)
-					out++;
-				else
-					inside++;
-			}
+		for (int i = 0; i < vertexCount; i++) {
+			const SimpleVertex &vert = corners[i];
+			// Here we can test against the frustum planes!
+			float value = planes[plane].Test((float *)&vert.pos.x);
+			if (value < 0)
+				out++;
+			else
+				inside++;
 		}
 
 		if (inside == 0) {
