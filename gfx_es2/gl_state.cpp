@@ -10,7 +10,6 @@
 
 #if defined(USING_GLES2)
 #if defined(ANDROID) || defined(BLACKBERRY)
-PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
@@ -47,17 +46,6 @@ void OpenGLState::Restore() {
 	blendEquation.restore(); count++;
 	blendFuncSeparate.restore(); count++;
 	blendColor.restore(); count++;
-
-#if defined(ANDROID) || defined(BLACKBERRY)
-	if (gl_extensions.QCOM_alpha_test) {
-		alphaTestQCOM.restore();
-	}
-	count++;
-	if (gl_extensions.QCOM_alpha_test) {
-		alphaFuncQCOM.restore();
-	}
-	count++;
-#endif
 
 	scissorTest.restore(); count++;
 	scissorRect.restore(); count++;
@@ -262,12 +250,6 @@ void CheckGLExtensions() {
 #if defined(ANDROID) || defined(BLACKBERRY)
 	if (gl_extensions.OES_mapbuffer) {
 		glMapBuffer = (PFNGLMAPBUFFERPROC)eglGetProcAddress( "glMapBufferOES" );
-	}
-
-	gl_extensions.QCOM_alpha_test = strstr(extString, "GL_QCOM_alpha_test") != 0;
-	// Load extensions that are not auto-loaded by Android.
-	if (gl_extensions.QCOM_alpha_test) {
-		glAlphaFuncQCOM = (PFNGLALPHAFUNCQCOMPROC)eglGetProcAddress("glAlphaFuncQCOM");
 	}
 
 	// Look for EGL extensions

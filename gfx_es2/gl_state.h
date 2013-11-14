@@ -19,14 +19,6 @@
 #if defined(ANDROID) || defined(BLACKBERRY)
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
-/* GL_QCOM_alpha_test */
-#define GL_ALPHA_TEST_QCOM                   0x0BC0
-#define GL_ALPHA_TEST_FUNC_QCOM              0x0BC1
-#define GL_ALPHA_TEST_REF_QCOM               0x0BC2
-
-typedef void (GL_APIENTRYP PFNGLALPHAFUNCQCOMPROC) (GLenum func, GLclampf ref);
-extern PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
-
 typedef uint64_t EGLuint64NV;
 typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) (void);
 typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMENVPROC) (void);
@@ -287,13 +279,6 @@ public:
 	BoolState<GL_STENCIL_TEST, false> stencilTest;
 	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
-
-#if defined(ANDROID) || defined(BLACKBERRY)
-	// QCOM Alpha Test. Old school alpha test but ported to GLES2. Does not seem to benefit
-	// speed very much so probably not worth the trouble.
-	BoolState<GL_ALPHA_TEST_QCOM, false> alphaTestQCOM;
-	STATE2(glAlphaFuncQCOM, GLenum, GLclampf, GL_ALWAYS, 0.0f) alphaFuncQCOM;
-#endif
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)

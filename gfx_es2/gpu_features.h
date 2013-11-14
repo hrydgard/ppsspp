@@ -38,7 +38,6 @@ struct GLExtensions {
 	bool FBO_EXT;
 	bool PBO_ARB;
 	bool EXT_swap_control_tear;
-	bool QCOM_alpha_test;
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	bool EXT_shader_framebuffer_fetch;
