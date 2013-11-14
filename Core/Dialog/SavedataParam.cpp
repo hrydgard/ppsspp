@@ -1543,22 +1543,22 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 }
 
 bool SavedataParam::secureCanSkip(SceUtilitySavedataParam* param, bool secureMode) {
-	if(!secureMode)       // Only check in secure mode.
+	if (!secureMode)       // Only check in secure mode.
 		return false;
 	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);	
 	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
 	std::string secureFileName = GetFileName(param); 
 	std::set<std::string> secureFileNames;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfoPath);
-	// If sfo doesn't exsit,shouldn't skip.
-	if(!sfoInfo.exists)
+	// If sfo doesn't exist,shouldn't skip.
+	if (!sfoInfo.exists)
 		return false;
 
 	// Get secure file names from PARAM.SFO.
 	secureFileNames = getSecureFileNames(dirPath);
 	// Secure file name should be saved in PARAM.SFO
 	// Cannot find name in PARAM.SFO, could skip.
-	if(secureFileNames.find(secureFileName) == secureFileNames.end())
+	if (secureFileNames.find(secureFileName) == secureFileNames.end())
 		return true;
 
 	return false;
