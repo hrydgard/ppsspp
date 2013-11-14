@@ -772,6 +772,8 @@ namespace MIPSComp
 				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
 				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
 			} else {
+				DISABLE;
+
 				// If rt is 0, we either caught it above, or it's not an imm.
 				bool skipZero = gpr.IsImm(rt);
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
