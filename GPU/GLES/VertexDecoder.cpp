@@ -878,7 +878,7 @@ int VertexDecoder::ToString(char *output) const {
 }
 
 VertexDecoderJitCache::VertexDecoderJitCache() {
-	// 64k should be enough.
+	// 256k should be enough.
 	AllocCodeSpace(1024 * 64 * 4);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
@@ -982,7 +982,7 @@ static const JitLookup jitLookup[] = {
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
-	const u8 *start = this->GetCodePtr();
+	const u8 *start = AlignCode16();
 
 	bool prescaleStep = false;
 	bool skinning = false;
