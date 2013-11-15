@@ -1933,7 +1933,7 @@ void ThreadContext::reset()
 	vfpuCtrl[VFPU_CTRL_RCX6] = 0x3f800000;
 	vfpuCtrl[VFPU_CTRL_RCX7] = 0x3f800000;
 	fpcond = 0;
-	fcr31 = 0;
+	fcr31 = 0x00000e00;
 	hi = 0xDEADBEEF;
 	lo = 0xDEADBEEF;
 }
