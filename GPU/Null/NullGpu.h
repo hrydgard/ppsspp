@@ -46,6 +46,10 @@ public:
 		fullInfo = "NULL";
 	}
 
+	virtual bool FramebufferReallyDirty() {
+		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
+	}
+
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 };

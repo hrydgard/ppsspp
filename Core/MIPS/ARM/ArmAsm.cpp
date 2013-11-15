@@ -159,7 +159,7 @@ void Jit::GenerateFixedCode()
 
 			LDR(R0, CTXREG, offsetof(MIPSState, pc));
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
-			LDR(R0, R11, R0);
+			LDR(R0, MEMBASEREG, R0);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));

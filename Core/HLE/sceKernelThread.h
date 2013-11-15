@@ -132,7 +132,6 @@ struct ThreadContext
 			u32 hi;
 			u32 lo;
 
-			u32 fcr0;
 			u32 fcr31;
 			u32 fpcond;
 		};

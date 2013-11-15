@@ -263,7 +263,7 @@ namespace MIPSComp
 						SetCCAndR0ForSafeAddress(rs, imm, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 #ifdef __ARM_ARCH_7S__
 				FixupBranch skip;
@@ -301,7 +301,7 @@ namespace MIPSComp
 						SetCCAndR0ForSafeAddress(rs, imm, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 #ifdef __ARM_ARCH_7S__
 				FixupBranch skip;
@@ -357,7 +357,7 @@ namespace MIPSComp
 						SetCCAndR0ForSafeAddress(rs, imm, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 
 #ifdef __ARM_ARCH_7S__
@@ -406,7 +406,7 @@ namespace MIPSComp
 						SetCCAndR0ForSafeAddress(rs, imm, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 
 #ifdef __ARM_ARCH_7S__
