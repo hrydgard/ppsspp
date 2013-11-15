@@ -206,7 +206,7 @@ void MIPSState::WriteFCR(int reg, int value)
 {
 	if (reg == 31)
 	{
-		fcr31 = value;
+		fcr31 = value & 0x0181FFFF;
 		fpcond = (value >> 23) & 1;
 	}
 	else

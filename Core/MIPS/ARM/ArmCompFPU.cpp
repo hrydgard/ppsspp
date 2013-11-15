@@ -385,6 +385,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			VMSR(R1);
 			*/
 			// Update MIPS state
+			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 #ifdef HAVE_ARMV7
 			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
