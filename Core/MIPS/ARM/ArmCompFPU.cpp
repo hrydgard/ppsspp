@@ -343,13 +343,13 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		{
 			gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
 			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-			if (cpu_info.bArmV7) {
-				BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
-			} else {
-				AND(R0, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
-				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
-				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
-			}
+#ifdef HAVE_ARMV7
+			BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
+#else
+			AND(R0, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
+			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
+			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+#endif
 		}
 		else if (fs == 0)
 		{
@@ -387,12 +387,12 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			*/
 			// Update MIPS state
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-			if (cpu_info.bArmV7) {
-				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
-			} else {
-				MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
-				AND(gpr.R(MIPS_REG_FPCOND), R0, Operand2(1));
-			}
+#ifdef HAVE_ARMV7
+			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+#else
+			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
+			AND(gpr.R(MIPS_REG_FPCOND), R0, Operand2(1));
+#endif
 		}
 		return;
 	}

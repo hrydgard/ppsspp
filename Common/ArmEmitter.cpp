@@ -202,7 +202,7 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		}
 
 		// The worst case is 4 (e.g. 0x55555555.)
-		if (ops <= 3 || !cpu_info.bArmV7) {
+		if (ops <= 3) {
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
 				u8 bits = RotR(val, i) & 0xFF;
@@ -272,7 +272,7 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		if (TryMakeOperand2_AllowInverse(val, op2, &inversed) && ops >= 3) {
 			MVN(scratch, op2);
 			ORR(rd, rs, scratch);
-		} else if (ops <= 3 || !cpu_info.bArmV7) {
+		} else if (ops <= 3) {
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
 				u8 bits = RotR(val, i) & 0xFF;
@@ -333,26 +333,32 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	Operand2 op2;
 	bool inverse;
 
-	if (cpu_info.bArmV7 && !optimize)
+#ifdef HAVE_ARMV7
+	// Unused
+	if (!optimize)
 	{
 		// For backpatching on ARMv7
 		MOVW(reg, val & 0xFFFF);
 		MOVT(reg, val, true);
+		return;
 	}
-	else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
+#endif
+
+	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
 		inverse ? MVN(reg, op2) : MOV(reg, op2);
 	} else {
-		if (cpu_info.bArmV7)
-		{
-			// Use MOVW+MOVT for ARMv7+
-			MOVW(reg, val & 0xFFFF);
-			if(val & 0xFFFF0000)
-				MOVT(reg, val, true);
-		} else if (!TrySetValue_TwoOp(reg,val)) {
+#ifdef HAVE_ARMV7
+		// Use MOVW+MOVT for ARMv7+
+		MOVW(reg, val & 0xFFFF);
+		if(val & 0xFFFF0000)
+			MOVT(reg, val, true);
+#else
+		if (!TrySetValue_TwoOp(reg,val)) {
 			// Use literal pool for ARMv6.
 			AddNewLit(val);
 			LDR(reg, _PC); // To be backpatched later
 		}
+#endif
 	}
 }
 

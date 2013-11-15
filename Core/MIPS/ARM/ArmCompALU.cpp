@@ -543,12 +543,12 @@ namespace MIPSComp
 			}
 
 			gpr.MapDirtyIn(rt, rs);
-			if (cpu_info.bArmV7) {
-				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
-			} else {
-				MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
-				ANDI2R(gpr.R(rt), gpr.R(rt), mask, R0);
-			}
+#ifdef HAVE_ARMV7
+			UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+#else
+			MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
+			ANDI2R(gpr.R(rt), gpr.R(rt), mask, R0);
+#endif
 			break;
 
 		case 0x4: //ins
@@ -567,13 +567,13 @@ namespace MIPSComp
 					ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
 				} else {
 					gpr.MapDirtyIn(rt, rs, false);
-					if (cpu_info.bArmV7) {
-						BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
-					} else {
-						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
-						ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
-						ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, pos));
-					}
+#ifdef HAVE_ARMV7
+					BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
+#else
+					ANDI2R(R0, gpr.R(rs), sourcemask, R1);
+					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, pos));
+#endif
 				}
 			}
 			break;
@@ -621,12 +621,12 @@ namespace MIPSComp
 				return;
 			}
 
-			if (cpu_info.bArmV7) {
-				gpr.MapDirtyIn(rd, rt);
-				RBIT(gpr.R(rd), gpr.R(rt));
-			} else {
-				Comp_Generic(op);
-			}
+#ifdef HAVE_ARMV7
+			gpr.MapDirtyIn(rd, rt);
+			RBIT(gpr.R(rd), gpr.R(rt));
+#else
+			Comp_Generic(op);
+#endif
 			break;
 		default:
 			Comp_Generic(op);

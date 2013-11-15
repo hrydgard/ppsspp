@@ -268,13 +268,6 @@ void CPUInfo::Detect()
 	bASIMD = CheckCPUFeature("asimd");
 	num_cores = GetCoreCount();
 #endif
-// Since we can do this at compile-time (separate libraries) for every platform,
-// maybe we can replace the bArmV7 check with #if like we do for x86 and x86_64
-#if defined(__ARM_ARCH_7A__)
-	bArmV7 = true;
-#else
-	bArmV7 = false;
-#endif
 }
 
 // Turn the cpu info into a string we can show

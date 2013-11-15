@@ -19,6 +19,11 @@
 #ifndef _CPUDETECT_H_
 #define _CPUDETECT_H_
 
+// Every architecture has its own define. This needs to be added to.
+#if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7S__)
+#define HAVE_ARMV7 1
+#endif
+
 #include <string>
 
 enum CPUVendor {
@@ -70,7 +75,6 @@ struct CPUInfo {
 	bool bVFPv4;
 	bool bIDIVa;
 	bool bIDIVt;
-	bool bArmV7;  // enable MOVT, MOVW etc
 
 	// ARMv8 specific
 	bool bFP;

@@ -277,7 +277,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	
 		js.compilerPC += 4;
 		js.numInstructions++;
-		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
+#ifndef HAVE_ARMV7
+		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
 			FixupBranch skip = B_CC(CC_AL);
@@ -285,6 +286,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			SetJumpTarget(skip);
 			partialFlushOffset = GetCodePtr() - b->checkedEntry;
 		}
+#endif
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800)
