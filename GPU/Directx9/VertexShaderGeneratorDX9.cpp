@@ -197,7 +197,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 				GELightType type = gstate.getLightType(i);
 
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
-					WRITE(p, "float3 u_lightdir%i;\n", i);
+					WRITE(p, "float3 u_lightatt%i;\n", i);
 
 				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) { 
 					WRITE(p, "float3 u_lightdir%i;\n", i);

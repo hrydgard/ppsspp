@@ -679,11 +679,11 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, bool sync) {
-#if 0
+
 		if (sync) {
 			PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
 		}
-#endif
+
 
 		if(vfb) {
 			// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
@@ -774,18 +774,8 @@ namespace DX9 {
 			vfb->memoryUpdated = true;
 			BlitFramebuffer_(vfb, nvfb, false);
 
-#if 0
-#ifdef USING_GLES2
-			PackFramebufferSync_(nvfb); // synchronous glReadPixels
-#else
-			if (gl_extensions.PBO_ARB || !gl_extensions.ATIClampBug) {
-				if (!sync) {
-					PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
-				} else {
-					PackFramebufferSync_(nvfb); // synchronous glReadPixels
-				}
-			}
-#endif
+#if 1
+			PackFramebufferSync_(nvfb);
 #endif
 		}
 	}
@@ -884,7 +874,38 @@ namespace DX9 {
 #endif
 	}
 
-	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb) {
+	void FramebufferManagerDX9::PackFramebufferAsync_(VirtualFramebufferDX9 *vfb) {
+
+		return;
+
+		const int MAX_PBO = 2;
+		bool unbind = false;
+		bool useCPU = false;
+
+		// Order packing/readback of the framebuffer
+		if (vfb) {
+			int pixelType, pixelSize, pixelFormat, align;
+
+
+			if (vfb->fbo) {
+				fbo_bind_for_read(vfb->fbo);
+			} else {
+				fbo_unbind();
+				return;
+			}
+
+#ifdef _XBOX
+			D3DTexture * rtt = (D3DTexture*)fbo_get_rtt(vfb->fbo);
+			pD3Ddevice->Resolve(D3DRESOLVE_RENDERTARGET0, NULL, rtt, NULL, 0, 0, NULL, 0.f, 0, NULL);
+#endif
+
+			fbo_unbind();
+			unbind = true;
+		}
+
+	}
+
+	void FramebufferManagerDX9::PackFramebufferSync_(VirtualFramebufferDX9 *vfb) {
 		if (vfb->fbo) {
 			fbo_bind_for_read(vfb->fbo);
 		} else {
@@ -908,7 +929,7 @@ namespace DX9 {
 			DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
 				(u32)bufSize, packed, fb_address);
 
-			// Resolve(packed, vfb);
+			Resolve(packed, vfb);
 
 			if(vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
 				ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
@@ -918,6 +939,7 @@ namespace DX9 {
 
 		fbo_unbind();
 	}
+
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();

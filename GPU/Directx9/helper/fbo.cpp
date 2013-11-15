@@ -101,6 +101,7 @@ LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo) {
 
 void fbo_bind_for_read(FBO *fbo) {
 	//fbo_resolve(fbo);
+	pD3Ddevice->SetRenderTarget(0, fbo->surf);
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
