@@ -1055,7 +1055,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	POP(6, R4, R5, R6, R7, R8, _PC);
 
 	FlushIcache();
-
+	FlushLitPool();
 	// DisassembleArm(start, GetCodePtr() - start);
 	// char temp[1024] = {0};
 	// dec.ToString(temp);
