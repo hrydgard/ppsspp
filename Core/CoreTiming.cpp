@@ -99,22 +99,22 @@ void SetClockFrequencyMHz(int cpuMhz)
 
 int GetClockFrequencyMHz()
 {
-	if (g_Config.bTimerHack) {
-		float vps;
-		__DisplayGetVPS(&vps);
-		if (vps > 5.0f)
-			return (int)((float)(CPU_HZ / 1000000)*(vps / 60.0f));
-	}
 	return CPU_HZ / 1000000;
 }
 
 u64 GetGlobalTimeUs()
 {
 	s64 ticksSinceLast = GetTicks() - lastGlobalTimeTicks;
-	s64 usSinceLast = ticksSinceLast / GetClockFrequencyMHz();
+	int freq = GetClockFrequencyMHz();
+	if (g_Config.bTimerHack) {
+		float vps;
+		__DisplayGetVPS(&vps);
+		if (vps > 5.0f)
+			freq = (int)(((float)CPU_HZ * vps) / (1000000.0f * 60.0f));
+	}
+	s64 usSinceLast = ticksSinceLast / freq;
 	return lastGlobalTimeUs + usSinceLast;
 }
-
 
 Event* GetNewEvent()
 {
