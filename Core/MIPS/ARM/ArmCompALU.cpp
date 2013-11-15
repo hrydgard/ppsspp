@@ -807,15 +807,15 @@ namespace MIPSComp
 					CMP(R0, gpr.R(rt));
 				B_CC(CC_HS, subLoop);
 
-				FixupBranch zeroSkip = B();
 				// We didn't change rt.  If it was 0, then clear HI and LO.
 				if (!skipZero) {
+					FixupBranch zeroSkip = B();
 					SetJumpTarget(skipper);
 					// TODO: Is this correct?
 					MOV(gpr.R(MIPS_REG_LO), 0);
 					MOV(gpr.R(MIPS_REG_HI), 0);
+					SetJumpTarget(zeroSkip);
 				}
-				SetJumpTarget(zeroSkip);
 			}
 			break;
 
