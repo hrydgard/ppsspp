@@ -78,7 +78,11 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		}
 
 		addr += segmentVAddr[readwrite];
-		if ((addr & 3) || !Memory::IsValidAddress(addr)) {
+
+		// It appears that misaligned relocations are allowed.
+		// Will they work correctly on big-endian?
+
+		if (!Memory::IsValidAddress(addr)) {
 			if (numErrors < 10) {
 				WARN_LOG(LOADER, "Suspicious address %08x, skipping reloc", addr);
 			} else if (numErrors == 10) {
