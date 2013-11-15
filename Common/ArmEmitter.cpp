@@ -38,7 +38,9 @@
 
 // __FUNCTION__ is misused a lot below, it's no longer a string literal but a virtual
 // variable so this use fails in some compilers. Just define it away for now.
+#ifndef _MSC_VER
 #define __FUNCTION__ "(n/a)"
+#endif
 
 namespace ArmGen
 {
@@ -166,8 +168,8 @@ void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 			// Decompose into two additions.
 			ADD(rd, rs, Operand2((u8)(val >> 8), 12));   // rotation right by 12*2 == rotation left by 8
 			ADD(rd, rd, Operand2((u8)(val), 0));
-		} else if (((-(u32)(s32)val) & 0xFFFF0000) == 0) {
-			val = -(u32)(s32)val;
+		} else if ((((u32)-(s32)val) & 0xFFFF0000) == 0) {
+			val = (u32)-(s32)val;
 			SUB(rd, rs, Operand2((u8)(val >> 8), 12));
 			SUB(rd, rd, Operand2((u8)(val), 0));
 		} else {
