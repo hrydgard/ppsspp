@@ -202,7 +202,13 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		}
 
 		// The worst case is 4 (e.g. 0x55555555.)
-		if (ops <= 3) {
+#ifdef HAVE_ARMV7
+		if (ops > 3) {
+			MOVI2R(scratch, val);
+			AND(rd, rs, scratch);
+		} else
+#endif
+		{
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
 				u8 bits = RotR(val, i) & 0xFF;
@@ -218,9 +224,6 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 					i += 8 - 2;
 				}
 			}
-		} else {
-			MOVI2R(scratch, val);
-			AND(rd, rs, scratch);
 		}
 	}
 }
@@ -272,7 +275,12 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		if (TryMakeOperand2_AllowInverse(val, op2, &inversed) && ops >= 3) {
 			MVN(scratch, op2);
 			ORR(rd, rs, scratch);
-		} else if (ops <= 3) {
+#ifdef HAVE_ARMV7
+		} else if (ops > 3) {
+			MOVI2R(scratch, val);
+			ORR(rd, rs, scratch);
+#endif
+		} else {
 			bool first = true;
 			for (int i = 0; i < 32; i += 2) {
 				u8 bits = RotR(val, i) & 0xFF;
@@ -288,9 +296,6 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 					i += 8 - 2;
 				}
 			}
-		} else {
-			MOVI2R(scratch, val);
-			ORR(rd, rs, scratch);
 		}
 	}
 }
@@ -354,9 +359,25 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 			MOVT(reg, val, true);
 #else
 		if (!TrySetValue_TwoOp(reg,val)) {
+			bool first = true;
+			for (int i = 0; i < 32; i += 2) {
+				u8 bits = RotR(val, i) & 0xFF;
+				if ((bits & 3) != 0) {
+					u8 rotation = i == 0 ? 0 : 16 - i / 2;
+					if (first) {
+						MOV(reg, Operand2(bits, rotation));
+						first = false;
+					} else {
+						ORR(reg, reg, Operand2(bits, rotation));
+					}
+					// Well, we took care of these other bits while we were at it.
+					i += 8 - 2;
+				}
+			}
 			// Use literal pool for ARMv6.
-			AddNewLit(val);
-			LDR(reg, _PC); // To be backpatched later
+			// Disabled for now as it is crashing since Vertex Decoder JIT
+//			AddNewLit(val);
+//			LDR(reg, _PC); // To be backpatched later
 		}
 #endif
 	}
