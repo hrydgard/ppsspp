@@ -164,7 +164,7 @@ static const char * vscode =
     " VS_OUT main( VS_IN In )                      "
     " {                                            "
     "		VS_OUT Out;                              "
-	"     Out.ProjPos = mul( matWVP, In.ObjPos );  "  // Transform vertex into
+	"		Out.ProjPos = In.ObjPos;  "  // Transform vertex into
 	"		Out.Uv = In.Uv;			"
     "		return Out;                              "  // Transfer color
     " }                                            ";

@@ -98,7 +98,8 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f, float vscale = 1.0f);
+	
+	void DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -108,13 +109,16 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
-	void UpdateFromMemory(u32 addr, int size);
+	void SetRenderFrameBuffer();  // Uses parameters computed from gstate	
+	void UpdateFromMemory(u32 addr, int size, bool safe);
 
 	void ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, bool sync = true);
 
 	// TODO: Break out into some form of FBO manager
-	VirtualFramebufferDX9 *GetDisplayFBO();
+	VirtualFramebufferDX9 *GetVFBAt(u32 addr);
+	VirtualFramebufferDX9 *GetDisplayVFB() {
+		return GetVFBAt(displayFramebufPtr_);
+	}
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -132,10 +136,19 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
+	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+
 	void DestroyFramebuf(VirtualFramebufferDX9 *vfb);
 
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+
 private:
-	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
+	void CompileDraw2DProgram();
+	void DestroyDraw2DProgram();
+
+	void SetNumExtraFBOs(int num);
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
@@ -152,21 +165,34 @@ private:
 	// Used by ReadFramebufferToMemory
 	void BlitFramebuffer_(VirtualFramebufferDX9 *src, VirtualFramebufferDX9 *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
 	void PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb);
-	std::vector<VirtualFramebufferDX9 *> bvfbs_; // blitting FBOs
 	
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
 
 	u8 *convBuf;
-	GLSLProgram *draw2dprogram;
 
+	int plainColorLoc_;
 
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
+	bool usePostShader_;
+	bool postShaderAtOutputResolution_;
+	
+	// Used by post-processing shader
+	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
 	bool useBufferedRendering_;
+
+	std::vector<VirtualFramebufferDX9 *> bvfbs_; // blitting FBOs
+
+	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+
+#if 0
+	AsyncPBO *pixelBufObj_; //this isn't that large
+	u8 currentPBO_;
+#endif
 };
 
 };

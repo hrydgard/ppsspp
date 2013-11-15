@@ -35,6 +35,8 @@ void fbo_destroy(FBO *fbo);
 void fbo_get_dimensions(FBO *fbo, int *w, int *h);
 void fbo_resolve(FBO *fbo);
 
+LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo);
+
 void * fbo_get_rtt(FBO *fbo);
 
 // To get default depth and rt surface
