@@ -7,9 +7,13 @@
 #include "gfx_es2/gl_state.h"
 
 #if defined(USING_GLES2) && !defined(BLACKBERRY)
+#ifndef GL_READ_FRAMEBUFFER
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
+#endif
+#ifndef GL_RGBA8
 #define GL_RGBA8 GL_RGBA
+#endif
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
 #endif
