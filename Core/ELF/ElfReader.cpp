@@ -69,9 +69,9 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		//0 = code
 		//1 = data
 
-		if (readwrite >= ARRAY_SIZE(segmentVAddr)) {
+		if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
 			if (numErrors < 10) {
-				ERROR_LOG(LOADER, "Bad segment number %i", readwrite);
+				ERROR_LOG_REPORT(LOADER, "Bad segment number %i", readwrite);
 			}
 			numErrors++;
 			continue;
@@ -82,9 +82,9 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		// It appears that misaligned relocations are allowed.
 		// Will they work correctly on big-endian?
 
-		if (!Memory::IsValidAddress(addr)) {
+		if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
 			if (numErrors < 10) {
-				WARN_LOG(LOADER, "Suspicious address %08x, skipping reloc", addr);
+				WARN_LOG_REPORT(LOADER, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
 			} else if (numErrors == 10) {
 				WARN_LOG(LOADER, "Too many bad relocations, skipping logging");
 			}

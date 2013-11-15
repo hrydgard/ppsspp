@@ -169,8 +169,8 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(lo);
 	p.Do(fpcond);
 	if (s <= 1) {
-		u32 fcr0_unusued = 0;
-		p.Do(fcr0_unusued);
+		u32 fcr0_unused = 0;
+		p.Do(fcr0_unused);
 	}
 	p.Do(fcr31);
 	p.Do(rng.m_w);
