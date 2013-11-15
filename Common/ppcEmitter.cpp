@@ -488,10 +488,10 @@ namespace PpcGen {
 	// Quick Call
 	// dest = LIS(imm) + ORI(+imm)
 	void PPCXEmitter::MOVI2R(PPCReg dest, unsigned int imm) {
-		/*if (imm == (unsigned short)imm) {
+		if ((s32) (s16) (imm) == (s32) (imm)) {
 			// 16bit
 			LI(dest, imm & 0xFFFF);
-		} else */{	
+		} else {	
 			// HI 16bit
 			LIS(dest, imm>>16);
 			if ((imm & 0xFFFF) != 0) {
