@@ -840,13 +840,16 @@ void ADSREnvelope::KeyOn() {
 
 void ADSREnvelope::KeyOff() {
 	SetState(STATE_RELEASE);
+	// Does this really make sense? I don't think so, the release-decay should happen
+	// from whatever level we are at, although the weirdo exponentials we have start at a fixed state :(
 	height_ = sustainLevel;
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
 	auto s = p.Section("ADSREnvelope", 1);
-	if (!s)
+	if (!s) {
 		return;
+	}
 
 	p.Do(attackRate);
 	p.Do(decayRate);

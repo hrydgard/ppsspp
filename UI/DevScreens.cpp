@@ -32,6 +32,8 @@
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 #include "ext/disarm.h"
 #include "Common/CPUDetect.h"
 
@@ -51,6 +53,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
 	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
 	parent->Add(new Choice("Toggle Freeze"))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
+	parent->Add(new Choice("Dump Frame GPU Commands"))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -74,6 +77,11 @@ UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
 	} else {
 		PSP_CoreParameter().freezeNext = true;
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DevMenu::OnDumpFrame(UI::EventParams &e) {
+	gpu->DumpNextFrame();
 	return UI::EVENT_DONE;
 }
 
