@@ -94,7 +94,7 @@ namespace DX9 {
 	static void ClearBuffer() {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(true, true, true, true);
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1, 0);
 	}
 
 	static void DisableState() {

@@ -554,7 +554,7 @@ void BeginFrame() {
             D3DSEQM_PRECLIP,
             CurrentScenario.tileCount,
             CurrentScenario.tilingRects,
-            &ClearColor, 0.0f, 0L );
+            &ClearColor, 1.0f, 0L );
 #else
 	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0.f, 0);	
 #endif

@@ -384,12 +384,9 @@ void VertexDecoderDX9::Step_NormalS8() const
 	normal[3] = 0;
 #else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	u8 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = (float)(sv[j] ^ xorval) * (1.0f/127.f);
+		normal[j] = (float)(sv[j]) * (1.0f/127.f);
 	normal[3] = 0;
 #endif
 }
@@ -398,11 +395,9 @@ void VertexDecoderDX9::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
 	u16 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFFFF;
 	const s16_le *sv = (const s16_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j];
 	normal[3] = 0;
 }
 
@@ -425,13 +420,6 @@ void VertexDecoderDX9::Step_NormalFloat() const
 
 	for (int j = 0; j < 3; j++) 
 		v[j] = sv[j];
-
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 1) {
-		multiplier = -multiplier;
-		for (int j = 0; j < 3; j++)
-			normal[j] = normal[j] * multiplier;
-	}
 #endif
 }
 
@@ -497,13 +485,10 @@ void VertexDecoderDX9::Step_NormalFloatMorph() const
 		for (int j = 0; j < 3; j++) {
 			v[j] = sv[j];
 		}
-
-		if (gstate.reversenormals & 1) {
-			multiplier = -multiplier;
-			for (int j = 0; j < 3; j++) {
-				normal[j] += normal[j] * multiplier;
-			}
-		}		
+		
+		for (int j = 0; j < 3; j++) {
+			normal[j] += normal[j] * multiplier;
+		}
 	}
 
 #endif
@@ -1060,9 +1045,10 @@ static const PPCReg counterReg = R22;
 static const PPCReg tempReg1 = R23;
 static const PPCReg tempReg2 = R24;
 static const PPCReg tempReg3 = R25;
-static const PPCReg scratchReg = R26;
+static const PPCReg tempReg4 = R26;
+static const PPCReg scratchReg = R27;
 
-static const PPCReg fpScratchReg = FPR26; 
+static const PPCReg fpScratchReg = FPR27; 
 
 static const PPCReg fprU8bitd = FPR18; // 1./255.f
 static const PPCReg fprU16bitd = FPR19; // 1./65535.f
@@ -1355,15 +1341,84 @@ void VertexDecoderJitCache::Jit_Color8888() {
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
-	/** todo **/
+	MOVI2R(scratchReg, dec_->coloff);
+	LHBRX(R10, srcReg, scratchReg);
+
+	RLWINM(R9, R10, 20, 12, 31);	//	srwi         r9,r10,12
+	RLWINM(R8, R10, 28, 28, 31);
+	RLWINM(R7, R10, 24, 28, 31);	
+	RLWINM(R6, R10, 0, 28, 31);		//	clrlwi       r6,r10,28
+
+	RLWINM(R5, R9, 4, 20, 27);	
+	RLWINM(R10, R10, 4, 20, 27);
+	RLWINM(R4, R8, 4, 20, 27);
+	RLWINM(R3, R7, 4, 20, 27);
+
+	OR(R9,R5,R9);
+	OR(R10,R10,R6);
+	OR(R8,R4,R8);
+	OR(R7,R3,R7);
+
+	STB(R9,	 dstReg, dec_->decFmt.c0off + 0);
+	STB(R10, dstReg, dec_->decFmt.c0off + 1);
+	STB(R8,  dstReg, dec_->decFmt.c0off + 2);
+	STB(R7,  dstReg, dec_->decFmt.c0off + 3);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
-	/** todo **/
+	MOVI2R(scratchReg, dec_->coloff);
+	LHBRX(R10, srcReg, scratchReg);
+
+	RLWINM       (R9,R10,27,26,31     );
+	SRWI         (R8,R10,11           );
+	RLWINM       (R7,R10,3,24,28      );
+
+	RLWINM       (R6,R10,30,29,31     );
+	RLWINM       (R5,R10,23,30,31     );
+	RLWINM       (R9,R9,2,24,29       );
+
+	RLWINM       (R8,R8,3,24,28       );
+	SRWI         (R10,R10,13          );
+
+	OR           (R7,R7,R6            );
+	OR           (R9,R9,R5            );
+	OR           (R10,R8,R10          );
+
+	LI(R6, 0xFF);
+	STB(R6,	 dstReg, dec_->decFmt.c0off + 0);
+	STB(R7,  dstReg, dec_->decFmt.c0off + 1);
+	STB(R9,  dstReg, dec_->decFmt.c0off + 2);
+	STB(R10,  dstReg, dec_->decFmt.c0off + 3);
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	/** todo **/
+	MOVI2R(scratchReg, dec_->coloff);
+	LHBRX(R10, srcReg, scratchReg);
+
+	RLWINM(R9,R10, 0, 15,31);
+	SUBFIC(R9,R9,0);
+
+	RLWINM(R8,R10,27,27,31);
+	RLWINM(R7,R10,22,27,31);
+	RLWINM(R5,R10,3,24,28);
+
+	RLWINM(R4,R10,30,29,31);
+	RLWINM(R3,R10,25,29,31);
+	SUBFE (R9,R9,R9 );
+
+	RLWINM(R8,R8,3,24,28);
+	RLWINM(R7,R7,3,24,28);
+	RLWINM(R10,R10,20,29,31);
+
+	AND   (R9,R9,R6);
+	OR    (R6,R5,R4);
+	OR    (R8,R8,R3);
+	OR    (R10,R7,R10);
+
+	STB(R9,	 dstReg, dec_->decFmt.c0off + 0);
+	STB(R6,  dstReg, dec_->decFmt.c0off + 1);
+	STB(R8,  dstReg, dec_->decFmt.c0off + 2);
+	STB(R10,  dstReg, dec_->decFmt.c0off + 3);
 }
 
 void VertexDecoderJitCache::Jit_NormalS8() {
@@ -1411,10 +1466,21 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 	SFS(tempReg2, dstReg, (dec_->decFmt.nrmoff + 4));
 	SFS(tempReg3, dstReg, (dec_->decFmt.nrmoff + 8));
 }
-
+ 
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
-	/** todo **/
+	MOVI2R(scratchReg, dec_->nrmoff);
+	LHBRX(tempReg1, srcReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 2);
+	LHBRX(tempReg2, srcReg, scratchReg);
+	
+	ADDI(scratchReg, scratchReg, 2);
+	LHBRX(tempReg3, srcReg, scratchReg);
+
+	STH(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STH(tempReg2, dstReg, dec_->decFmt.nrmoff + 2);
+	STH(tempReg3, dstReg, dec_->decFmt.nrmoff + 4);
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
