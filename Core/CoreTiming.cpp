@@ -24,8 +24,10 @@
 #include "Atomics.h"
 #include "CoreTiming.h"
 #include "Core.h"
+#include "Config.h"
 #include "HLE/sceKernelThread.h"
 #include "../Common/ChunkFile.h"
+#include "HLE/sceDisplay.h"
 
 int CPU_HZ = 222000000;
 
@@ -97,6 +99,12 @@ void SetClockFrequencyMHz(int cpuMhz)
 
 int GetClockFrequencyMHz()
 {
+	if (g_Config.bTimerHack) {
+		float vps;
+		__DisplayGetVPS(&vps);
+		if (vps > 5.0f)
+			return (int)((float)(CPU_HZ / 1000000)*(vps / 60.0f));
+	}
 	return CPU_HZ / 1000000;
 }
 

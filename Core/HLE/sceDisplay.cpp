@@ -307,6 +307,10 @@ void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
 	*out_actual_fps = actualFps;
 }
 
+void __DisplayGetVPS(float *out_vps) {
+	*out_vps = fps;
+}
+
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 	float avg = 0.0;
 	if (fpsHistoryValid > 0) {

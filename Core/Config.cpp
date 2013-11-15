@@ -187,6 +187,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("VSyncInterval", &bVSync, false);
 	graphics->Get("DisableStencilTest", &bDisableStencilTest, false);
 	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
+// Has been in use on Symbian since v0.7. Preferred option.
+#ifdef __SYMBIAN32__
+	graphics->Get("TimerHack", &bTimerHack, true);
+#else
+	graphics->Get("TimerHack", &bTimerHack, false);
+#endif
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("WipeFramebufferAlpha", &bWipeFramebufferAlpha, false);
 	graphics->Get("PostShader", &sPostShaderName, "Off");
@@ -427,6 +433,7 @@ void Config::Save() {
 		graphics->Set("VSyncInterval", bVSync);
 		graphics->Set("DisableStencilTest", bDisableStencilTest);
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
+		graphics->Set("TimerHack", bTimerHack);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("PostShader", sPostShaderName);
 

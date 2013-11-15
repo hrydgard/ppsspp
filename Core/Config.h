@@ -101,6 +101,7 @@ public:
 	bool bReloadCheats;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
+	bool bTimerHack;
 	bool bLowQualitySplineBezier;
 	bool bWipeFramebufferAlpha;  // this was meant to be CopyStencilToAlpha but not done yet.
 	std::string sPostShaderName;  // Off for off.
