@@ -475,7 +475,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -492,7 +492,7 @@ bool DIRECTX9_GPU::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -514,7 +514,7 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
-	shaderManager_->EndFrame();
+	// shaderManager_->EndFrame();
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
@@ -681,9 +681,9 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 
 			// TODO: Get rid of this old horror...
-			int bz_ucount = data & 0xFF;
-			int bz_vcount = (data >> 8) & 0xFF;
-			transformDraw_.DrawBezier(bz_ucount, bz_vcount);
+			// int bz_ucount = data & 0xFF;
+			// int bz_vcount = (data >> 8) & 0xFF;
+			// transformDraw_.DrawBezier(bz_ucount, bz_vcount);
 
 			// And instead use this.
 			// GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
@@ -1308,7 +1308,7 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 		textureCache_.InvalidateAll(type);
 
 	if (type != GPU_INVALIDATE_ALL)
-		framebufferManager_.UpdateFromMemory(addr, size);
+		framebufferManager_.UpdateFromMemory(addr, size, false);
 }
 
 bool DIRECTX9_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
@@ -1356,6 +1356,14 @@ void DIRECTX9_GPU::DoState(PointerWrap &p) {
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	framebufferManager_.DestroyAllFBOs();
+	shaderManager_->ClearCache(true);
+}
+
+bool DIRECTX9_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer) { return false; }
+bool DIRECTX9_GPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) { return false; }
+bool DIRECTX9_GPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)  { return false; }
+
+void DIRECTX9_GPU::ClearShaderCache() {
 	shaderManager_->ClearCache(true);
 }
 

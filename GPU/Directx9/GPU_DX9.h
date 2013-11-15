@@ -38,7 +38,8 @@ public:
 	DIRECTX9_GPU();
 	~DIRECTX9_GPU();
 	virtual void InitClear();
-	virtual void PreExecuteOp(u32 op, u32 diff);
+	virtual void PreExecuteOp(u32 op, u32 diff);	
+	void ExecuteOpInternal(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
@@ -59,6 +60,7 @@ public:
 	
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized();
+	virtual void ClearShaderCache();
 	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
 		return textureCache_.DecodeTexture(dest, state);
 	}
@@ -71,6 +73,10 @@ public:
 	}
 	std::vector<FramebufferInfo> GetFramebufferList();
 
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentTexture(GPUDebugBuffer &buffer);
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);

@@ -21,56 +21,6 @@
 
 namespace DX9 {
 
-// Just to get something on the screen, we'll just not subdivide correctly.
-void TransformDrawEngineDX9::DrawBezier(int ucount, int vcount) {
-	u16 indices[3 * 3 * 6];
-
-	static bool reported = false;
-	if (!reported) {
-		Reporting::ReportMessage("Unsupported bezier curve");
-		reported = true;
-	}
-
-	// if (gstate.patchprimitive)
-	// Generate indices for a rectangular mesh.
-	int c = 0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 3 + x;
-			indices[c++] = y * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x;
-			indices[c++] = y * 3 + x;
-		}
-	}
-
-	// We are free to use the "decoded" buffer here.
-	// Let's split it into two to get a second buffer, there's enough space.
-	u8 *decoded2 = decoded + 65536 * 24;
-
-	// Alright, now for the vertex data.
-	// For now, we will simply inject UVs.
-
-	float customUV[4 * 4 * 2];
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
-			customUV[(y * 4 + x) * 2 + 1] = (float)y/3.0f;
-		}
-	}
-
-	if (!vertTypeGetTexCoordMask(gstate.vertType)) {
-		VertexDecoderDX9 *dec = GetVertexDecoder(gstate.vertType);
-		dec->SetVertexType(gstate.vertType);
-		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
-		SubmitPrim(decoded2, &indices[0], GE_PRIM_TRIANGLES, c, newVertType, GE_VTYPE_IDX_16BIT, 0);
-	} else {
-		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
-	}
-	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
-}
-
 
 // Spline implementation copied and modified from neobrain's softgpu (orphis code?)
 
