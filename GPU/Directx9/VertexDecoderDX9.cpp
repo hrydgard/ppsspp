@@ -379,12 +379,9 @@ void VertexDecoderDX9::Step_NormalS8() const
 	normal[3] = 0;
 #else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	u8 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = (float)(sv[j] ^ xorval) * (1.0f/127.f);
+		normal[j] = (float)(sv[j]) * (1.0f/127.f);
 	normal[3] = 0;
 #endif
 }
@@ -393,11 +390,9 @@ void VertexDecoderDX9::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
 	u16 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFFFF;
 	const s16_le *sv = (const s16_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j];
 	normal[3] = 0;
 }
 
@@ -420,13 +415,6 @@ void VertexDecoderDX9::Step_NormalFloat() const
 
 	for (int j = 0; j < 3; j++) 
 		v[j] = sv[j];
-
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 1) {
-		multiplier = -multiplier;
-		for (int j = 0; j < 3; j++)
-			normal[j] = normal[j] * multiplier;
-	}
 #endif
 }
 
@@ -492,13 +480,10 @@ void VertexDecoderDX9::Step_NormalFloatMorph() const
 		for (int j = 0; j < 3; j++) {
 			v[j] = sv[j];
 		}
-
-		if (gstate.reversenormals & 1) {
-			multiplier = -multiplier;
-			for (int j = 0; j < 3; j++) {
-				normal[j] += normal[j] * multiplier;
-			}
-		}		
+		
+		for (int j = 0; j < 3; j++) {
+			normal[j] += normal[j] * multiplier;
+		}
 	}
 
 #endif
@@ -1006,4 +991,4 @@ int VertexDecoderDX9::ToString(char *output) const {
 	return output - start;
 }
 
-};
+}  // namespace DX9
