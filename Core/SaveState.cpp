@@ -65,6 +65,19 @@ namespace SaveState
 		void *cbUserData;
 	};
 
+	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
+		SaveStart state;
+		size_t sz = CChunkFileReader::MeasurePtr(state);
+		if (data.size() < sz)
+			data.resize(sz);
+		return CChunkFileReader::SavePtr(&data[0], state);
+	}
+
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data) {
+		SaveStart state;
+		return CChunkFileReader::LoadPtr(&data[0], state);
+	}
+
 	struct StateRingbuffer
 	{
 		StateRingbuffer(int size) : first_(0), next_(0), size_(size)
@@ -78,12 +91,7 @@ namespace SaveState
 			if ((next_ % size_) == first_)
 				++first_;
 
-			SaveStart state;
-			size_t sz = CChunkFileReader::MeasurePtr(state);
-			if (states_[n].size() < sz)
-				states_[n].resize(sz);
-
-			return CChunkFileReader::SavePtr(&states_[n][0], state);
+			return SaveToRam(states_[n]);
 		}
 
 		CChunkFileReader::Error Restore()
@@ -96,8 +104,7 @@ namespace SaveState
 			if (states_[n].empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
 
-			SaveStart state;
-			return CChunkFileReader::LoadPtr(&states_[n][0], state);
+			return LoadFromRam(states_[n]);
 		}
 
 		void Clear()

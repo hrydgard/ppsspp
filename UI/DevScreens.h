@@ -38,6 +38,7 @@ public:
 protected:
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
+	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 };
 

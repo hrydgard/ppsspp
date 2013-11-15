@@ -589,7 +589,7 @@ void NativeRender() {
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// Clearing the screen at the start of the frame is an optimization for tiled mobile GPUs, as it then doesn't need to keep it around between frames.
-	glClearColor(0,0,0,1);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
@@ -601,8 +601,9 @@ void NativeRender() {
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
-	if (screenManager->getUIContext()->Text())
+	if (screenManager->getUIContext()->Text()) {
 		screenManager->getUIContext()->Text()->OncePerFrame();
+	}
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();

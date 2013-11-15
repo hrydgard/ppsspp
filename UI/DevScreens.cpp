@@ -29,6 +29,7 @@
 #include "Common/LogManager.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/disarm.h"
@@ -49,6 +50,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
 	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
 	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
+	parent->Add(new Choice("Toggle Freeze"))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -63,6 +65,15 @@ UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
 
 UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
 	screenManager()->push(new JitCompareScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
+	if (PSP_CoreParameter().frozen) {
+		PSP_CoreParameter().frozen = false;
+	} else {
+		PSP_CoreParameter().freezeNext = true;
+	}
 	return UI::EVENT_DONE;
 }
 

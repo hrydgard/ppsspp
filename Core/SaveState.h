@@ -17,7 +17,7 @@
 
 #include <string>
 
-class PointerWrap;
+#include "ChunkFile.h"
 
 namespace SaveState
 {
@@ -43,6 +43,9 @@ namespace SaveState
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
 	void Save(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+
+	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
