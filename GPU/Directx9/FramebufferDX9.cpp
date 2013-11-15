@@ -639,11 +639,6 @@ void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, 
 		return;
 	}
 
-#if 0
-	if(sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
-	}
-#endif 
 
 	if(vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
@@ -718,7 +713,6 @@ void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, 
 			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
-#if 0
 			fbo_bind_as_render_target(nvfb->fbo);
 
 			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
@@ -728,13 +722,13 @@ void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, 
 			if (nvfb->last_frame_render != gpuStats.numFlips)	{
 				ClearBuffer();
 			}
+#if 1
+			PackFramebufferSync_(nvfb);
 #endif
 		}
 
 		vfb->memoryUpdated = true;
 		BlitFramebuffer_(vfb, nvfb, false);
-
-		PackFramebufferDirectx9_(nvfb);
 	}
 }
 
@@ -828,13 +822,45 @@ static void Resolve(u8* data, VirtualFramebufferDX9 *vfb) {
 #endif
 }
 
-void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb) {
-	if (useBufferedRendering_ && vfb->fbo) {
-		fbo_bind_for_read(vfb->fbo);
-	} else {
-		fbo_unbind();
+	void FramebufferManagerDX9::PackFramebufferAsync_(VirtualFramebufferDX9 *vfb) {
+
 		return;
+
+		const int MAX_PBO = 2;
+		bool unbind = false;
+		bool useCPU = false;
+
+		// Order packing/readback of the framebuffer
+		if (vfb) {
+			int pixelType, pixelSize, pixelFormat, align;
+
+
+			if (vfb->fbo) {
+				fbo_bind_for_read(vfb->fbo);
+			} else {
+				fbo_unbind();
+				return;
+			}
+
+#ifdef _XBOX
+			D3DTexture * rtt = (D3DTexture*)fbo_get_rtt(vfb->fbo);
+			pD3Ddevice->Resolve(D3DRESOLVE_RENDERTARGET0, NULL, rtt, NULL, 0, 0, NULL, 0.f, 0, NULL);
+#endif
+
+			fbo_unbind();
+			unbind = true;
+		}
+
 	}
+
+	void FramebufferManagerDX9::PackFramebufferSync_(VirtualFramebufferDX9 *vfb) {
+		if (vfb->fbo) {
+			fbo_bind_for_read(vfb->fbo);
+		} else {
+			// ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
+			fbo_unbind();
+			return;
+		}
 
 	// Pixel size always 4 here because we always request RGBA8888
 	size_t bufSize = vfb->fb_stride * vfb->height * 4;
@@ -857,6 +883,7 @@ void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb)
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
+
 	}
 
 	fbo_unbind();
@@ -867,6 +894,10 @@ void FramebufferManagerDX9::EndFrame() {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		resized_ = false;
 	}
+#if 0
+		// We flush to memory last requested framebuffer, if any
+		PackFramebufferAsync_(NULL);
+#endif
 }
 
 void FramebufferManagerDX9::DeviceLost() {
@@ -1010,4 +1041,4 @@ void FramebufferManagerDX9::Resized() {
 	resized_ = true;
 }
 
-};
+}  // namespace DX9

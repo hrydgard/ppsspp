@@ -90,7 +90,7 @@ void fbo_bind_as_render_target(FBO *fbo) {
 }
 
 void fbo_bind_for_read(FBO *fbo) {
-	OutputDebugStringA("fbo_bind_for_read: Fix me\r\n");
+	// pD3Ddevice->SetRenderTarget(0, fbo->surf);
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
