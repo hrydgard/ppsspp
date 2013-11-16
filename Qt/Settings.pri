@@ -52,6 +52,12 @@ contains(MEEGO_EDITION,harmattan) {
 	DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 }
 
+macx:!mobile_platform {
+	INCLUDEPATH += ../ffmpeg/macosx/x86_64/include
+	#the qlist headers include <initializer_list> in QT5
+	greaterThan(QT_MAJOR_VERSION,4):CONFIG+=c++11
+}
+
 linux:!mobile_platform {
 	contains(QT_ARCH, x86_64): QMAKE_TARGET.arch = x86_64
 	else: QMAKE_TARGET.arch = x86

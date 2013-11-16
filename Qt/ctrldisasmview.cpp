@@ -8,6 +8,8 @@
 #include <QInputDialog>
 #include <QMessageBox>
 
+#include "math.h"
+
 #include "debugger_disasm.h"
 #include "Core/Debugger/SymbolMap.h"
 
