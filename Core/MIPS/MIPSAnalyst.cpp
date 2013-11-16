@@ -248,7 +248,7 @@ namespace MIPSAnalyst {
 		u32 addr;
 		for (addr = startAddr; addr <= endAddr; addr+=4) {
 			SymbolInfo syminfo;
-			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
+			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION) && syminfo.size >= 4) {
 				addr = syminfo.address + syminfo.size;
 				continue;
 			}
