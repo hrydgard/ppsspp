@@ -529,7 +529,7 @@ int ElfReader::LoadInto(u32 loadAddress)
 		for (int i = 0; i < header->e_phnum; i++)
 		{
 			Elf32_Phdr *p = &segments[i];
-			if (p->p_type == 0x700000A0) 	{
+			if (p->p_type == PT_PSPREL1) {
 				INFO_LOG(LOADER,"Loading segment relocations");
 				int numRelocs = p->p_filesz / sizeof(Elf32_Rel);
 
@@ -537,7 +537,7 @@ int ElfReader::LoadInto(u32 loadAddress)
 				if (!LoadRelocations(rels, numRelocs)) {
 					ERROR_LOG(LOADER, "LoadInto: Relocs failed, trying anyway (2)");
 				}
-			} else if (p->p_type == 0x700000A1) {
+			} else if (p->p_type == PT_PSPREL2) {
 				INFO_LOG(LOADER,"Loading segment relocations2");
 				LoadRelocations2(i);
 			}
