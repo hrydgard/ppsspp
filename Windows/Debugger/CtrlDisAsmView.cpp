@@ -1051,29 +1051,27 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 {
 	int count = (endAddr - startAddr) / instructionSize;
 
-	char opcode[64], arguments[256];
-	int space = count * (withDisasm ? 256 : 32);
-	char *temp = new char[space];
-
-	char *p = temp, *end = temp + space;
-	for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+	if (withDisasm == false)
 	{
-		if (withDisasm)
+		int space = count * 32;
+		char *temp = new char[space];
+
+		char *p = temp, *end = temp + space;
+		for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
 		{
-			const char *dizz = debugger->disasm(pos, instructionSize);
-			parseDisasm(dizz, opcode, arguments);
-			p += snprintf(p, end - p, "%s\t%s", opcode, arguments);
-		}
-		else
 			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
 
-		// Don't leave a trailing newline.
-		if (pos + instructionSize < endAddr)
-			p += snprintf(p, end - p, "\r\n");
+			// Don't leave a trailing newline.
+			if (pos + instructionSize < endAddr)
+				p += snprintf(p, end - p, "\r\n");
+		}
+		W32Util::CopyTextToClipboard(wnd, temp);
+		delete [] temp;
+	} else
+	{
+		std::string disassembly = disassembleRange(startAddr,endAddr-startAddr);
+		W32Util::CopyTextToClipboard(wnd, disassembly.c_str());
 	}
-
-	W32Util::CopyTextToClipboard(wnd, temp);
-	delete [] temp;
 }
 
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
@@ -1373,6 +1371,63 @@ void CtrlDisAsmView::search(bool continueSearch)
 	searching = false;
 }
 
+std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
+{
+	std::string result;
+
+	// gather all branch targets without labels
+	std::set<u32> branchAddresses;
+	for (u32 i = 0; i < size; i += instructionSize)
+	{
+		char opcode[64],arguments[256];
+		const char *dis = debugger->disasm(start+i, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			if (branchAddresses.find(branchTarget) == branchAddresses.end())
+			{
+				branchAddresses.insert(branchTarget);
+			}
+		}
+	}
+
+	bool previousLabel = true;
+	for (u32 i = 0; i < size; i += instructionSize)
+	{
+		u32 disAddress = start+i;
+
+		char addressText[64],opcode[64],arguments[256],buffer[512];
+		const char *dis = debugger->disasm(disAddress, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
+
+		if (isLabel)
+		{
+			if (!previousLabel) result += "\r\n";
+			sprintf(buffer,"%s\r\n\r\n",addressText);
+			result += buffer;
+		} else if (branchAddresses.find(disAddress) != branchAddresses.end())
+		{
+			if (!previousLabel) result += "\r\n";
+			sprintf(buffer,"pos_%08X:\r\n\r\n",disAddress);
+			result += buffer;
+		}
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			char* str = strstr(arguments,"0x");
+			sprintf(str,"pos_%08X",branchTarget);
+		}
+
+		sprintf(buffer,"\t%s\t%s\r\n",opcode,arguments);
+		result += buffer;
+		previousLabel = isLabel;
+	}
+
+	return result;
+}
+
 void CtrlDisAsmView::disassembleToFile()
 {
 	wchar_t fileName[MAX_PATH];
@@ -1403,58 +1458,14 @@ void CtrlDisAsmView::disassembleToFile()
 
 	if (GetSaveFileName(&ofn) == false) return;
 
-	FILE* output = _wfopen(fileName, L"w");
+	FILE* output = _wfopen(fileName, L"wb");
 	if (output == NULL) {
 		MessageBox(wnd,L"Could not open file!",L"Error",MB_OK);
 		return;
 	}
 
-	// gather all branch targets without labels
-	std::set<u32> branchAddresses;
-	for (u32 i = 0; i < size; i += instructionSize)
-	{
-		char opcode[64],arguments[256];
-		const char *dis = debugger->disasm(curAddress+i, instructionSize);
-		parseDisasm(dis,opcode,arguments);
-
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
-		{
-			if (branchAddresses.find(branchTarget) == branchAddresses.end())
-			{
-				branchAddresses.insert(branchTarget);
-			}
-		}
-	}
-
-	bool previousLabel = true;
-	for (u32 i = 0; i < size; i += instructionSize)
-	{
-		u32 disAddress = curAddress+i;
-
-		char addressText[64],opcode[64],arguments[256];
-		const char *dis = debugger->disasm(disAddress, instructionSize);
-		parseDisasm(dis,opcode,arguments);
-		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
-
-		if (isLabel)
-		{
-			if (!previousLabel) fprintf(output,"\n");
-			fprintf(output,"%s\n\n",addressText);
-		} else if (branchAddresses.find(disAddress) != branchAddresses.end())
-		{
-			if (!previousLabel) fprintf(output,"\n");
-			fprintf(output,"pos_%08X:\n\n",disAddress);
-		}
-
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
-		{
-			char* str = strstr(arguments,"0x");
-			sprintf(str,"pos_%08X",branchTarget);
-		}
-
-		fprintf(output,"\t%s\t%s\n",opcode,arguments);
-		previousLabel = isLabel;
-	}
+	std::string disassembly = disassembleRange(curAddress,size);
+	fprintf(output,"%s",disassembly.c_str());
 
 	fclose(output);
 	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
