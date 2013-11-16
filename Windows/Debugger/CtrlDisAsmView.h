@@ -90,6 +90,7 @@ class CtrlDisAsmView
 	bool keyTaken;
 
 	void assembleOpcode(u32 address, std::string defaultText);
+	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
 	void search(bool continueSearch);
 	void followBranch();

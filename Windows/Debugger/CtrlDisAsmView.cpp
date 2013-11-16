@@ -31,22 +31,22 @@ extern HMENU g_hPopupMenus;
 
 void CtrlDisAsmView::init()
 {
-    WNDCLASSEX wc;
-    
-    wc.cbSize         = sizeof(wc);
-    wc.lpszClassName  = szClassName;
-    wc.hInstance      = GetModuleHandle(0);
-    wc.lpfnWndProc    = CtrlDisAsmView::wndProc;
-    wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
-    wc.hIcon          = 0;
-    wc.lpszMenuName   = 0;
-    wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-    wc.style          = 0;
-    wc.cbClsExtra     = 0;
-    wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
-    wc.hIconSm        = 0;
+	WNDCLASSEX wc;
 	
-    RegisterClassEx(&wc);
+	wc.cbSize         = sizeof(wc);
+	wc.lpszClassName  = szClassName;
+	wc.hInstance      = GetModuleHandle(0);
+	wc.lpfnWndProc    = CtrlDisAsmView::wndProc;
+	wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
+	wc.hIcon          = 0;
+	wc.lpszMenuName   = 0;
+	wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+	wc.style          = 0;
+	wc.cbClsExtra     = 0;
+	wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
+	wc.hIconSm        = 0;
+	
+	RegisterClassEx(&wc);
 }
 
 void CtrlDisAsmView::deinit()
@@ -220,19 +220,19 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 {
 	CtrlDisAsmView *ccp = CtrlDisAsmView::getFrom(hwnd);
 	static bool lmbDown=false,rmbDown=false;
-    switch(msg)
-    {
-    case WM_NCCREATE:
-        // Allocate a new CustCtrl structure for this window.
-        ccp = new CtrlDisAsmView(hwnd);
+	switch(msg)
+	{
+	case WM_NCCREATE:
+		// Allocate a new CustCtrl structure for this window.
+		ccp = new CtrlDisAsmView(hwnd);
 		
-        // Continue with window creation.
-        return ccp != NULL;
+		// Continue with window creation.
+		return ccp != NULL;
 		
 		// Clean up when the window is destroyed.
-    case WM_NCDESTROY:
-        delete ccp;
-        break;
+	case WM_NCDESTROY:
+		delete ccp;
+		break;
 	case WM_SETFONT:
 		break;
 	case WM_SIZE:
@@ -293,17 +293,17 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 			}
 		}
 		return DLGC_WANTCHARS|DLGC_WANTARROWS;
-    default:
-        break;
-    }
+	default:
+		break;
+	}
 	
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 
 CtrlDisAsmView *CtrlDisAsmView::getFrom(HWND hwnd)
 {
-    return (CtrlDisAsmView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	return (CtrlDisAsmView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
 
@@ -452,6 +452,24 @@ void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* argumen
 	*arguments = 0;
 }
 
+std::string trimString(std::string input)
+{
+	int pos = input.find_first_not_of(" \t");
+	if (pos != 0 && pos != std::string::npos)
+	{
+		input = input.erase(0,pos);
+	}
+
+	pos = input.find_last_not_of(" \t");
+	if (pos != std::string::npos)
+	{
+		int size = input.length()-pos-1;
+		input = input.erase(pos+1,size);
+	}
+
+	return input;
+}
+
 void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
 	u32 encoded;
@@ -464,6 +482,33 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,L"Assemble opcode",defaultText, op, false);
 	if (!result)
 		return;
+
+	// check if it changes registers first
+	auto seperator = op.find('=');
+	if (seperator != std::string::npos)
+	{
+		std::string registerName = trimString(op.substr(0,seperator));
+		std::string expression = trimString(op.substr(seperator+1));
+
+		u32 value;
+		if (parseExpression(expression.c_str(),debugger,value) == true)
+		{
+			for (int cat = 0; cat < debugger->GetNumCategories(); cat++)
+			{
+				for (int reg = 0; reg < debugger->GetNumRegsInCategory(cat); reg++)
+				{
+					if (strcasecmp(debugger->GetRegName(cat,reg),registerName.c_str()) == 0)
+					{
+						debugger->SetRegValue(cat,reg,value);
+						SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);
+						return;
+					}
+				}
+			}
+		}
+
+		// try to assemble the input if it failed
+	}
 
 	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address,encoded);
 	if (result == true)
@@ -740,6 +785,8 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 	default:
 		return;
 	}
+
+	scanFunctions();
 	redraw();
 }
 
@@ -836,6 +883,20 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case 'd':	// toogle breakpoint enabled
 			toggleBreakpoint(true);
+			break;
+		case VK_UP:
+			windowStart -= instructionSize;
+			scanFunctions();
+			break;
+		case VK_DOWN:
+			windowStart += instructionSize;
+			scanFunctions();
+			break;
+		case VK_NEXT:
+			setCurAddress(windowEnd-instructionSize,KeyDownAsync(VK_SHIFT));
+			break;
+		case VK_PRIOR:
+			setCurAddress(windowStart,KeyDownAsync(VK_SHIFT));
 			break;
 		}
 	} else {
@@ -990,29 +1051,27 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 {
 	int count = (endAddr - startAddr) / instructionSize;
 
-	char opcode[64], arguments[256];
-	int space = count * (withDisasm ? 256 : 32);
-	char *temp = new char[space];
-
-	char *p = temp, *end = temp + space;
-	for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+	if (withDisasm == false)
 	{
-		if (withDisasm)
+		int space = count * 32;
+		char *temp = new char[space];
+
+		char *p = temp, *end = temp + space;
+		for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
 		{
-			const char *dizz = debugger->disasm(pos, instructionSize);
-			parseDisasm(dizz, opcode, arguments);
-			p += snprintf(p, end - p, "%s\t%s", opcode, arguments);
-		}
-		else
 			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
 
-		// Don't leave a trailing newline.
-		if (pos + instructionSize < endAddr)
-			p += snprintf(p, end - p, "\r\n");
+			// Don't leave a trailing newline.
+			if (pos + instructionSize < endAddr)
+				p += snprintf(p, end - p, "\r\n");
+		}
+		W32Util::CopyTextToClipboard(wnd, temp);
+		delete [] temp;
+	} else
+	{
+		std::string disassembly = disassembleRange(startAddr,endAddr-startAddr);
+		W32Util::CopyTextToClipboard(wnd, disassembly.c_str());
 	}
-
-	W32Util::CopyTextToClipboard(wnd, temp);
-	delete [] temp;
 }
 
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
@@ -1312,6 +1371,63 @@ void CtrlDisAsmView::search(bool continueSearch)
 	searching = false;
 }
 
+std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
+{
+	std::string result;
+
+	// gather all branch targets without labels
+	std::set<u32> branchAddresses;
+	for (u32 i = 0; i < size; i += instructionSize)
+	{
+		char opcode[64],arguments[256];
+		const char *dis = debugger->disasm(start+i, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			if (branchAddresses.find(branchTarget) == branchAddresses.end())
+			{
+				branchAddresses.insert(branchTarget);
+			}
+		}
+	}
+
+	bool previousLabel = true;
+	for (u32 i = 0; i < size; i += instructionSize)
+	{
+		u32 disAddress = start+i;
+
+		char addressText[64],opcode[64],arguments[256],buffer[512];
+		const char *dis = debugger->disasm(disAddress, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
+
+		if (isLabel)
+		{
+			if (!previousLabel) result += "\r\n";
+			sprintf(buffer,"%s\r\n\r\n",addressText);
+			result += buffer;
+		} else if (branchAddresses.find(disAddress) != branchAddresses.end())
+		{
+			if (!previousLabel) result += "\r\n";
+			sprintf(buffer,"pos_%08X:\r\n\r\n",disAddress);
+			result += buffer;
+		}
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			char* str = strstr(arguments,"0x");
+			sprintf(str,"pos_%08X",branchTarget);
+		}
+
+		sprintf(buffer,"\t%s\t%s\r\n",opcode,arguments);
+		result += buffer;
+		previousLabel = isLabel;
+	}
+
+	return result;
+}
+
 void CtrlDisAsmView::disassembleToFile()
 {
 	wchar_t fileName[MAX_PATH];
@@ -1342,58 +1458,14 @@ void CtrlDisAsmView::disassembleToFile()
 
 	if (GetSaveFileName(&ofn) == false) return;
 
-	FILE* output = _wfopen(fileName, L"w");
+	FILE* output = _wfopen(fileName, L"wb");
 	if (output == NULL) {
 		MessageBox(wnd,L"Could not open file!",L"Error",MB_OK);
 		return;
 	}
 
-	// gather all branch targets without labels
-	std::set<u32> branchAddresses;
-	for (u32 i = 0; i < size; i += instructionSize)
-	{
-		char opcode[64],arguments[256];
-		const char *dis = debugger->disasm(curAddress+i, instructionSize);
-		parseDisasm(dis,opcode,arguments);
-
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
-		{
-			if (branchAddresses.find(branchTarget) == branchAddresses.end())
-			{
-				branchAddresses.insert(branchTarget);
-			}
-		}
-	}
-
-	bool previousLabel = true;
-	for (u32 i = 0; i < size; i += instructionSize)
-	{
-		u32 disAddress = curAddress+i;
-
-		char addressText[64],opcode[64],arguments[256];
-		const char *dis = debugger->disasm(disAddress, instructionSize);
-		parseDisasm(dis,opcode,arguments);
-		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
-
-		if (isLabel)
-		{
-			if (!previousLabel) fprintf(output,"\n");
-			fprintf(output,"%s\n\n",addressText);
-		} else if (branchAddresses.find(disAddress) != branchAddresses.end())
-		{
-			if (!previousLabel) fprintf(output,"\n");
-			fprintf(output,"pos_%08X:\n\n",disAddress);
-		}
-
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
-		{
-			char* str = strstr(arguments,"0x");
-			sprintf(str,"pos_%08X",branchTarget);
-		}
-
-		fprintf(output,"\t%s\t%s\n",opcode,arguments);
-		previousLabel = isLabel;
-	}
+	std::string disassembly = disassembleRange(curAddress,size);
+	fprintf(output,"%s",disassembly.c_str());
 
 	fclose(output);
 	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
