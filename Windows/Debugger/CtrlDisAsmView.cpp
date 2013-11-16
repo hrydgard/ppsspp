@@ -31,22 +31,22 @@ extern HMENU g_hPopupMenus;
 
 void CtrlDisAsmView::init()
 {
-    WNDCLASSEX wc;
-    
-    wc.cbSize         = sizeof(wc);
-    wc.lpszClassName  = szClassName;
-    wc.hInstance      = GetModuleHandle(0);
-    wc.lpfnWndProc    = CtrlDisAsmView::wndProc;
-    wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
-    wc.hIcon          = 0;
-    wc.lpszMenuName   = 0;
-    wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-    wc.style          = 0;
-    wc.cbClsExtra     = 0;
-    wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
-    wc.hIconSm        = 0;
+	WNDCLASSEX wc;
 	
-    RegisterClassEx(&wc);
+	wc.cbSize         = sizeof(wc);
+	wc.lpszClassName  = szClassName;
+	wc.hInstance      = GetModuleHandle(0);
+	wc.lpfnWndProc    = CtrlDisAsmView::wndProc;
+	wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
+	wc.hIcon          = 0;
+	wc.lpszMenuName   = 0;
+	wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+	wc.style          = 0;
+	wc.cbClsExtra     = 0;
+	wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
+	wc.hIconSm        = 0;
+	
+	RegisterClassEx(&wc);
 }
 
 void CtrlDisAsmView::deinit()
@@ -220,19 +220,19 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 {
 	CtrlDisAsmView *ccp = CtrlDisAsmView::getFrom(hwnd);
 	static bool lmbDown=false,rmbDown=false;
-    switch(msg)
-    {
-    case WM_NCCREATE:
-        // Allocate a new CustCtrl structure for this window.
-        ccp = new CtrlDisAsmView(hwnd);
+	switch(msg)
+	{
+	case WM_NCCREATE:
+		// Allocate a new CustCtrl structure for this window.
+		ccp = new CtrlDisAsmView(hwnd);
 		
-        // Continue with window creation.
-        return ccp != NULL;
+		// Continue with window creation.
+		return ccp != NULL;
 		
 		// Clean up when the window is destroyed.
-    case WM_NCDESTROY:
-        delete ccp;
-        break;
+	case WM_NCDESTROY:
+		delete ccp;
+		break;
 	case WM_SETFONT:
 		break;
 	case WM_SIZE:
@@ -293,17 +293,17 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 			}
 		}
 		return DLGC_WANTCHARS|DLGC_WANTARROWS;
-    default:
-        break;
-    }
+	default:
+		break;
+	}
 	
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 
 CtrlDisAsmView *CtrlDisAsmView::getFrom(HWND hwnd)
 {
-    return (CtrlDisAsmView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	return (CtrlDisAsmView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
 
@@ -740,6 +740,8 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 	default:
 		return;
 	}
+
+	scanFunctions();
 	redraw();
 }
 
@@ -836,6 +838,20 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case 'd':	// toogle breakpoint enabled
 			toggleBreakpoint(true);
+			break;
+		case VK_UP:
+			windowStart -= instructionSize;
+			scanFunctions();
+			break;
+		case VK_DOWN:
+			windowStart += instructionSize;
+			scanFunctions();
+			break;
+		case VK_NEXT:
+			setCurAddress(windowEnd-instructionSize,KeyDownAsync(VK_SHIFT));
+			break;
+		case VK_PRIOR:
+			setCurAddress(windowStart,KeyDownAsync(VK_SHIFT));
 			break;
 		}
 	} else {
