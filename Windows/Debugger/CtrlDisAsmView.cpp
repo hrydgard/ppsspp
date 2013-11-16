@@ -452,6 +452,24 @@ void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* argumen
 	*arguments = 0;
 }
 
+std::string trimString(std::string input)
+{
+	int pos = input.find_first_not_of(" \t");
+	if (pos != 0 && pos != std::string::npos)
+	{
+		input = input.erase(0,pos);
+	}
+
+	pos = input.find_last_not_of(" \t");
+	if (pos != std::string::npos)
+	{
+		int size = input.length()-pos-1;
+		input = input.erase(pos+1,size);
+	}
+
+	return input;
+}
+
 void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
 	u32 encoded;
@@ -464,6 +482,33 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,L"Assemble opcode",defaultText, op, false);
 	if (!result)
 		return;
+
+	// check if it changes registers first
+	auto seperator = op.find('=');
+	if (seperator != std::string::npos)
+	{
+		std::string registerName = trimString(op.substr(0,seperator));
+		std::string expression = trimString(op.substr(seperator+1));
+
+		u32 value;
+		if (parseExpression(expression.c_str(),debugger,value) == true)
+		{
+			for (int cat = 0; cat < debugger->GetNumCategories(); cat++)
+			{
+				for (int reg = 0; reg < debugger->GetNumRegsInCategory(cat); reg++)
+				{
+					if (strcasecmp(debugger->GetRegName(cat,reg),registerName.c_str()) == 0)
+					{
+						debugger->SetRegValue(cat,reg,value);
+						SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);
+						return;
+					}
+				}
+			}
+		}
+
+		// try to assemble the input if it failed
+	}
 
 	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address,encoded);
 	if (result == true)
