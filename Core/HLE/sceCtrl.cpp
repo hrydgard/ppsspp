@@ -114,7 +114,7 @@ void __CtrlUpdateLatch()
 	latch.btnMake |= buttons & changed;
 	latch.btnBreak |= ctrlOldButtons & changed;
 	latch.btnPress |= buttons;
-	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
+	latch.btnRelease |= ~buttons;
 	dialogBtnMake |= buttons & changed;
 	ctrlLatchBufs++;
 		
