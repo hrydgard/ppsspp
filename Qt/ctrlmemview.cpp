@@ -8,6 +8,8 @@
 #include <QClipboard>
 #include <QInputDialog>
 
+#include "math.h"
+
 #include "EmuThread.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
