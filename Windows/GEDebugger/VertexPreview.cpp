@@ -31,7 +31,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 		return;
 	}
 	if (!gpuDebug) {
-		ERROR_LOG(COMMON, "Invalid debugging environment, shutting down?", op);
+		ERROR_LOG(COMMON, "Invalid debugging environment, shutting down?");
 		return;
 	}
 	if (count == 0) {
