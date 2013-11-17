@@ -82,8 +82,47 @@ PGF::~PGF() {
 	}
 }
 
+struct GlyphFromPGF1State {
+	int x;
+	int y;
+	int w;
+	int h;
+	int left;
+	int top;
+	int flags;
+	int shadowID;
+	int advanceH;
+	int advanceV;
+	int dimensionWidth, dimensionHeight;
+	int xAdjustH, xAdjustV;
+	int yAdjustH, yAdjustV;
+	u32 ptr;
+
+	operator Glyph() {
+		Glyph ret;
+		ret.w = w;
+		ret.h = h;
+		ret.left = left;
+		ret.top = top;
+		ret.flags = flags;
+		// Wasn't read before.
+		ret.shadowFlags = 0;
+		ret.shadowID = shadowID;
+		ret.advanceH = advanceH;
+		ret.advanceV = advanceV;
+		ret.dimensionWidth = dimensionWidth;
+		ret.dimensionHeight = dimensionHeight;
+		ret.xAdjustH = xAdjustH;
+		ret.xAdjustV = xAdjustV;
+		ret.yAdjustH = yAdjustH;
+		ret.yAdjustV = yAdjustV;
+		ret.ptr = ptr;
+		return ret;
+	}
+};
+
 void PGF::DoState(PointerWrap &p) {
-	auto s = p.Section("PGF", 1);
+	auto s = p.Section("PGF", 1, 2);
 	if (!s)
 		return;
 
@@ -116,8 +155,22 @@ void PGF::DoState(PointerWrap &p) {
 
 	p.Do(charmap_compr);
 	p.Do(charmap);
-	p.Do(glyphs);
-	p.Do(shadowGlyphs);
+	if (s == 1) {
+		std::vector<GlyphFromPGF1State> oldGlyphs;
+		p.Do(oldGlyphs);
+		glyphs.resize(oldGlyphs.size());
+		for (size_t i = 0; i < oldGlyphs.size(); ++i) {
+			glyphs[i] = oldGlyphs[i];
+		}
+		p.Do(oldGlyphs);
+		shadowGlyphs.resize(oldGlyphs.size());
+		for (size_t i = 0; i < oldGlyphs.size(); ++i) {
+			shadowGlyphs[i] = oldGlyphs[i];
+		}
+	} else {
+		p.Do(glyphs);
+		p.Do(shadowGlyphs);
+	}
 	p.Do(firstGlyph);
 }
 
@@ -289,6 +342,8 @@ bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
 	charInfo->sfp26BearingVY = glyph.yAdjustV;
 	charInfo->sfp26AdvanceH = glyph.advanceH;
 	charInfo->sfp26AdvanceV = glyph.advanceV;
+	charInfo->shadowFlags = glyph.shadowFlags;
+	charInfo->shadowId = glyph.shadowID;
 	return true;
 }
 
@@ -349,8 +404,9 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 	glyph.flags = consumeBits(6, fontdata, charPtr);
 
 	if (glyphType == FONT_PGF_CHARGLYPH) {
-		// Skip magic number (seems to differ, what sort of magic is this?)
-		charPtr += 7;
+		glyph.shadowFlags = consumeBits(2, fontdata, charPtr) << (2 + 3);
+		glyph.shadowFlags |= consumeBits(2, fontdata, charPtr) << 3;
+		glyph.shadowFlags |= consumeBits(3, fontdata, charPtr);
 
 		glyph.shadowID = consumeBits(9, fontdata, charPtr);
 

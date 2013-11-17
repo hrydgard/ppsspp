@@ -94,13 +94,12 @@ struct PGFFontStyle {
 
 
 struct Glyph {
-	int x;
-	int y;
 	int w;
 	int h;
 	int left;
 	int top;
 	int flags;
+	int shadowFlags;
 	int shadowID;
 	int advanceH;
 	int advanceV;
@@ -212,7 +211,8 @@ struct PGFCharInfo {
 	s32_le sfp26BearingVY;
 	s32_le sfp26AdvanceH;
 	s32_le sfp26AdvanceV;
-	u8 pad[4];
+	s16_le shadowFlags;
+	s16_le shadowId;
 };
 
 struct PGFFontInfo {
