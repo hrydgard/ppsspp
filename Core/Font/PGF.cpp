@@ -307,13 +307,18 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 	return -1;
 }
 
-bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
+bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) {
 	Glyph glyph;
 	memset(charInfo, 0, sizeof(*charInfo));
 
 	if (!GetCharGlyph(charCode, FONT_PGF_CHARGLYPH, glyph)) {
-		// Character not in font, return zeroed charInfo as on real PSP.
-		return false;
+		if (charCode < firstGlyph) {
+			// Character not in font, return zeroed charInfo as on real PSP.
+			return false;
+		}
+		if (!GetCharGlyph(altCharCode, FONT_PGF_CHARGLYPH, glyph)) {
+			return false;
+		}
 	}
 
 	charInfo->bitmapWidth = glyph.w;

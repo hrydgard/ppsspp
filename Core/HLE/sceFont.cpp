@@ -338,6 +338,7 @@ public:
 			}
 		}
 		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
+		// TODO: The return value of this is leaking.
 		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
 		handle_ = 0;
 		fonts_.clear();
@@ -825,8 +826,10 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	}
 
 	DEBUG_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
+	auto fontLib = font->GetFontLib();
+	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	auto charInfo = Memory::GetStruct<PGFCharInfo>(charInfoPtr);
-	font->GetPGF()->GetCharInfo(charCode, charInfo);
+	font->GetPGF()->GetCharInfo(charCode, charInfo, altCharCode);
 
 	return 0;
 }
@@ -842,11 +845,13 @@ int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
 	if (!Memory::IsValidAddress(charRectPtr))
 		return -1;
-
+	
 	PGFCharInfo charInfo;
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	auto fontLib = font->GetFontLib();
+	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	if (font) {
-		font->GetPGF()->GetCharInfo(charCode, &charInfo);
+		font->GetPGF()->GetCharInfo(charCode, &charInfo, altCharCode);
 		Memory::Write_U16(charInfo.bitmapWidth, charRectPtr);      // character bitmap width in pixels
 		Memory::Write_U16(charInfo.bitmapHeight, charRectPtr + 2);  // character bitmap height in pixels
 	} else {
