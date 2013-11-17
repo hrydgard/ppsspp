@@ -596,10 +596,11 @@ void EmuScreen::render() {
 		if (statbuf[4095]) {
 			ELOG("Statbuf too small! :(");
 		}
-		ui_draw2d.SetFontScale(.7f, .7f);
-		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-		ui_draw2d.SetFontScale(1.0f, 1.0f);
+		UIContext *ctx = screenManager()->getUIContext();
+		ctx->SetFontScale(0.7f,0.7f);
+		ctx->DrawText(statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
+		ctx->DrawText(statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		ctx->SetFontScale(1.0f,1.0f);
 	}
 
 	if (g_Config.iShowFPSCounter) {
@@ -616,10 +617,11 @@ void EmuScreen::render() {
 		default:
 			return;
 		}
-		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.SetFontScale(1.0f, 1.0f);
+		UIContext *ctx = screenManager()->getUIContext();
+		ctx->SetFontScale(0.7f,0.7f);
+		ctx->DrawText(fpsbuf,dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ctx->DrawText(fpsbuf,dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT| FLAG_DYNAMIC_ASCII );
+		ctx->SetFontScale(1.0f,1.0f);
 	}
 
 	glsl_bind(UIShader_Get());
