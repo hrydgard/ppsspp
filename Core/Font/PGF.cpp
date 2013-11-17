@@ -298,7 +298,7 @@ void PGF::GetFontInfo(PGFFontInfo *fi) {
 
 	fi->maxGlyphWidth = header.maxGlyphWidth;
 	fi->maxGlyphHeight = header.maxGlyphHeight;
-	fi->charMapLength = header.charMapLength;
+	fi->numGlyphs = header.charPointerLength;
 	fi->shadowMapLength = 0;  // header.shadowMapLength; TODO
 
 	fi->BPP = header.bpp;

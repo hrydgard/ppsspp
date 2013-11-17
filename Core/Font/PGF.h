@@ -242,7 +242,7 @@ struct PGFFontInfo {
 	// Bitmap dimensions.
 	s16_le maxGlyphWidth;
 	s16_le maxGlyphHeight;
-	s32_le charMapLength;   // Number of elements in the font's charmap.
+	s32_le numGlyphs;
 	s32_le shadowMapLength; // Number of elements in the font's shadow charmap.
 
 	// Font style (used by font comparison functions).
