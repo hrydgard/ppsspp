@@ -1,6 +1,7 @@
 #include "qtemugl.h"
 
 #include <QMouseEvent>
+#include <QThread>
 
 #include "base/display.h"
 #include "base/timeutil.h"
@@ -36,7 +37,7 @@ void QtEmuGL::paintGL()
 		startTime = time_now_d();
 		int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
 		if (sleepTime > 0)
-			usleep(sleepTime);
+			QThread::usleep(sleepTime);
 	}
 }
 
