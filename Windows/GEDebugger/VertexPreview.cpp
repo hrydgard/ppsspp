@@ -177,12 +177,12 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport(x, -y, fw, fh);
+	glViewport(x, y, fw, fh);
 	glScissor(x, y, fw, fh);
 	BindPreviewProgram(previewProgram);
 
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, fw, fh, 0, -1, 1);
+	ortho.setOrtho(0, frameWindow->TexWidth(), frameWindow->TexHeight(), 0, -1, 1);
 	glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glEnableVertexAttribArray(previewProgram->a_position);
 	glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data() + 2);

@@ -77,6 +77,14 @@ struct SimpleGLWindow {
 		return h_;
 	}
 
+	int TexWidth() {
+		return tw_;
+	}
+
+	int TexHeight() {
+		return th_;
+	}
+
 	void GetContentSize(float &x, float &y, float &fw, float &fh);
 
 	static void RegisterClass();
