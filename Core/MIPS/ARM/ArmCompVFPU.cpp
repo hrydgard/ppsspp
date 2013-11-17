@@ -929,7 +929,52 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vh2f(MIPSOpcode op) {
-		DISABLE;
+		if (!cpu_info.bNEON || !cpu_info.bHalf) {
+			// No hardware support for half-to-float, fallback to interpreter
+			// TODO: Translate the fast SSE solution to NEON.
+			DISABLE;
+		}
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix() || disablePrefixes	)
+			DISABLE;
+
+		u8 sregs[4], dregs[4];
+		VectorSize sz = GetVecSize(op);
+		VectorSize outSz;
+
+		switch (sz) {
+		case V_Single:
+			outSz = V_Pair;
+			break;
+		case V_Pair:
+			outSz = V_Quad;
+			break;
+		default:
+			DISABLE;
+		}
+
+		int n = GetNumVectorElements(sz);
+		int nOut = n * 2;
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outSz, _VD);
+
+		static const ARMReg tmp[4] = { S0, S1, S2, S3 };
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			VMOV(tmp[i], fpr.V(sregs[i]));
+		}
+
+		// Okay, let's convert!
+		VCVTF32F16(Q0, D0);
+		for (int i = 0; i < nOut	; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			VMOV(fpr.V(dregs[i]), tmp[i]);
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vf2i(MIPSOpcode op) {

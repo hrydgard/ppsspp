@@ -20,9 +20,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 
-
 using namespace ArmGen;
-
 
 ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
 	if (cpu_info.bNEON) {
@@ -52,15 +50,26 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
 	static const ARMReg allocationOrder[] = {
-		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
+							S2,  S3,
+		S4,  S5,  S6,  S7,
+		S8,  S9,  S10, S11,
+		S12, S13, S14, S15
 	};
 
 	// With NEON, we have many more.
 	// In the future I plan to use S0-S7 (Q0-Q1) for FPU and S8 forwards (Q2-Q15, yes, 15) for VFPU.
 	// VFPU will use NEON to do SIMD and it will be awkward to mix with FPU.
 	static const ARMReg allocationOrderNEON[] = {
-		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,
-		S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31
+		// Reserve four temp registers. Useful when building quads until we really figure out
+		// how to do that best.
+		S4,  S5,  S6,  S7,   // Q1
+		S8,  S9,  S10, S11,  // Q2
+		S12, S13, S14, S15,  // Q3
+		S16, S17, S18, S19,  // Q4
+		S20, S21, S22, S23,  // Q5
+		S24, S25, S26, S27,  // Q6
+		S28, S29, S30, S31,  // Q7
+		// Q8-Q15 free for NEON tricks
 	};
 
 	if (cpu_info.bNEON) {
