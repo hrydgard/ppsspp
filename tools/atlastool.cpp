@@ -45,6 +45,7 @@
 
 using namespace std;
 static int global_id;
+static bool etc1 = false;
 static bool highcolor = false;
 
 
@@ -768,11 +769,16 @@ int main(int argc, char **argv) {
   // /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
   // /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
 
-  CHECK(argc >= 3);
+	CHECK(argc >= 3);
 	if (argc > 3)
 	{
-		highcolor = true;
-		printf("RGBA8888 enabled!\n");
+		if (!strcmp(argv[3], "etc1")) {
+			printf("ETC1 enabled!\n");
+			etc1 = true;
+		} else if (!strcmp(argv[3], "8888")) {
+			highcolor = true;
+			printf("RGBA8888 enabled!\n");
+		}
 	}
   printf("Reading script %s\n", argv[1]);
   const char *atlas_name = argv[2];
@@ -864,7 +870,10 @@ int main(int argc, char **argv) {
   printf("Resolving...\n");
 
   vector<Data> results = bucket.Resolve(image_width, dest);
-	if (highcolor) {
+	if (etc1) {
+		printf("Writing .ZIM %ix%i ETC1...\n", dest.width(), dest.height());
+		dest.SaveZIM(image_name.c_str(), ZIM_ETC1 | ZIM_ZLIB_COMPRESSED);		
+	} else if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZLIB_COMPRESSED);
 	} else {
