@@ -804,23 +804,26 @@ void ADSREnvelope::SetState(ADSRState state) {
 }
 
 void ADSREnvelope::Step() {
-	WalkCurve(type_);
 	switch (state_) {
 	case STATE_ATTACK:
+		WalkCurve(type_);
 		if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < 0)
 			SetState(STATE_DECAY);
 		break;
 	case STATE_DECAY:
+		WalkCurve(type_);
 		if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < sustainLevel)
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
+		WalkCurve(type_);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
 		}
 		break;
 	case STATE_RELEASE:
+		WalkCurve(type_);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_OFF);
