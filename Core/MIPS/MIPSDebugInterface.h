@@ -103,6 +103,7 @@ public:
 		{
 		case 0:
 			return cpu->r[index];
+
 		case 1:
 			memcpy(&temp, &cpu->f[index], 4);
 			return temp;
