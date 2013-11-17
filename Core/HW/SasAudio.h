@@ -33,7 +33,6 @@ enum {
 	PSP_SAS_PITCH_MIN = 1,
 	PSP_SAS_PITCH_BASE = 0x1000,
 	PSP_SAS_PITCH_MAX = 0x4000,
-	PSP_SAS_PITCH_SHIFT = 12,
 
 	PSP_SAS_VOL_MAX = 0x1000,
 
@@ -173,7 +172,7 @@ private:
 	// No need to save in state
 	int rate_;
 	int type_;
-	float invDuration_;
+	int duration_;
 
 	enum ADSRState {
 		STATE_ATTACK,
