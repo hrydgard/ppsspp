@@ -56,6 +56,12 @@ static int getBits(int numBits, const u8 *buf, size_t pos) {
 	}
 }
 
+static inline int consumeBits(int numBits, const u8 *buf, size_t &pos) {
+	int v = getBits(numBits, buf, pos);
+	pos += numBits;
+	return v;
+}
+
 static std::vector<int> getTable(const u8 *buf, int bpe, size_t length) {
 	std::vector<int> vec;
 	vec.resize(length);
@@ -324,40 +330,33 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		if (charPtr + 96 > fontDataSize * 8)
 			return false;
 	}
+	// Skip size.
 	charPtr += 14;
 
-	glyph.w = getBits(7, fontdata, charPtr);
-	charPtr += 7;
+	glyph.w = consumeBits(7, fontdata, charPtr);
+	glyph.h = consumeBits(7, fontdata, charPtr);
 
-	glyph.h = getBits(7, fontdata, charPtr);
-	charPtr += 7;
-
-	glyph.left = getBits(7, fontdata, charPtr);
-	charPtr += 7;
+	glyph.left = consumeBits(7, fontdata, charPtr);
 	if (glyph.left >= 64) {
 		glyph.left -= 128;
 	}
 
-	glyph.top = getBits(7, fontdata, charPtr);
-	charPtr += 7;
+	glyph.top = consumeBits(7, fontdata, charPtr);
 	if (glyph.top >= 64) {
 		glyph.top -= 128;
 	}
 
-	glyph.flags = getBits(6, fontdata, charPtr);
-	charPtr += 6;
+	glyph.flags = consumeBits(6, fontdata, charPtr);
 
 	if (glyphType == FONT_PGF_CHARGLYPH) {
-		// Skip magic number
+		// Skip magic number (seems to differ, what sort of magic is this?)
 		charPtr += 7;
 
-		glyph.shadowID = getBits(9, fontdata, charPtr);
-		charPtr += 9;
+		glyph.shadowID = consumeBits(9, fontdata, charPtr);
 
 		if ((glyph.flags & FONT_PGF_METRIC_DIMENSION_INDEX) == FONT_PGF_METRIC_DIMENSION_INDEX)
 		{
-			int dimensionIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int dimensionIndex = consumeBits(8, fontdata, charPtr);
 
 			if (dimensionIndex < header.dimTableLength) {
 				glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
@@ -373,16 +372,13 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.dimensionWidth = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.dimensionHeight = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.dimensionWidth = consumeBits(32, fontdata, charPtr);
+			glyph.dimensionHeight = consumeBits(32, fontdata, charPtr);
 		}
 
 		if ((glyph.flags & FONT_PGF_METRIC_BEARING_X_INDEX) == FONT_PGF_METRIC_BEARING_X_INDEX)
 		{
-			int xAdjustIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int xAdjustIndex = consumeBits(8, fontdata, charPtr);
 
 			if (xAdjustIndex < header.xAdjustTableLength) {
 				glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
@@ -399,16 +395,13 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.xAdjustH = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.xAdjustV = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.xAdjustH = consumeBits(32, fontdata, charPtr);
+			glyph.xAdjustV = consumeBits(32, fontdata, charPtr);
 		}
 
 		if ((glyph.flags & FONT_PGF_METRIC_BEARING_Y_INDEX) == FONT_PGF_METRIC_BEARING_Y_INDEX)
 		{
-			int yAdjustIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int yAdjustIndex = consumeBits(8, fontdata, charPtr);
 
 			if (yAdjustIndex < header.xAdjustTableLength) {
 				glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
@@ -425,16 +418,13 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.yAdjustH = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.yAdjustV = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.yAdjustH = consumeBits(32, fontdata, charPtr);
+			glyph.yAdjustV = consumeBits(32, fontdata, charPtr);
 		}
 
 		if ((glyph.flags & FONT_PGF_METRIC_ADVANCE_INDEX) == FONT_PGF_METRIC_ADVANCE_INDEX)
 		{
-			int advanceIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int advanceIndex = consumeBits(8, fontdata, charPtr);
 
 			if (advanceIndex < header.advanceTableLength) {
 				glyph.advanceH = advanceTable[0][advanceIndex];
@@ -443,10 +433,8 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.advanceH = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.advanceV = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.advanceH = consumeBits(32, fontdata, charPtr);
+			glyph.advanceV = consumeBits(32, fontdata, charPtr);
 		}
 	} else {
 		glyph.shadowID = 65535;
@@ -504,14 +492,12 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.
-		int nibble = getBits(4, fontData, bitPtr);
-		bitPtr += 4;
+		int nibble = consumeBits(4, fontData, bitPtr);
 
 		int count;
 		int value = 0;
 		if (nibble < 8) {
-			value = getBits(4, fontData, bitPtr);
-			bitPtr += 4;
+			value = consumeBits(4, fontData, bitPtr);
 			count = nibble + 1;
 		} else {
 			count = 16 - nibble;
@@ -519,8 +505,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 		for (int i = 0; i < count && pixelIndex < numberPixels; i++) {
 			if (nibble >= 8) {
-				value = getBits(4, fontData, bitPtr);
-				bitPtr += 4;
+				value = consumeBits(4, fontData, bitPtr);
 			}
 
 			int xx, yy;
