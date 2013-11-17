@@ -4,6 +4,10 @@
 // For more information Ericsson Texture Compression (ETC/ETC1), see:
 // http://www.khronos.org/registry/gles/extensions/OES/OES_compressed_ETC1_RGB8_texture.txt
 //
+// v1.04 - 5/15/14 - Fix signed vs. unsigned subtraction problem (noticed when compiled with gcc) in pack_etc1_block_init().
+//         This issue would cause an assert when this func. was called in debug. (Note this module was developed/testing with MSVC,
+//         I still need to test it throughly when compiled with gcc.)
+//
 // v1.03 - 5/12/13 - Initial public release
 #include "rg_etc1.h"
 
@@ -1905,7 +1909,7 @@ done:
                   for (uint packed_c = 0; packed_c < limit; packed_c++)
                   {
                      int v = etc1_decode_value(diff, inten, selector, packed_c);
-                     uint err = labs(v - color);
+                     uint err = labs(v - static_cast<int>(color));
                      if (err < best_error)
                      {
                         best_error = err;
