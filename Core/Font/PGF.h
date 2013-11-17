@@ -142,6 +142,7 @@ struct PGFHeader
 	s32_le charMapBpe;
 	s32_le charPointerBpe;
 
+	// TODO: This has values in it (0404)...
 	u8 pad1[2];
 	u8 bpp;
 	u8 pad2[1];
@@ -159,6 +160,7 @@ struct PGFHeader
 	u16_le firstGlyph;
 	u16_le lastGlyph;
 
+	// TODO: This has a few 01s in it in the official fonts.
 	u8 pad5[26];
 
 	s32_le maxAscender;

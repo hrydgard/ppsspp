@@ -220,10 +220,8 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *uptr = (const u8 *)wptr;
 
 	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
-	u8 *shadowCharMap = new u8[shadowCharMapSize];
-	for (int i = 0; i < shadowCharMapSize; i++) {
-		shadowCharMap[i] = *uptr++;
-	}
+	const u8 *shadowCharMap = uptr;
+	uptr += shadowCharMapSize;
 
 	const u16_le *sptr = (const u16_le *)uptr;
 	if (header.revision == 3) {
@@ -245,17 +243,12 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	uptr = (const u8 *)sptr;
 
 	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
-
-	u8 *charMap = new u8[charMapSize];
-	for (int i = 0; i < charMapSize; i++) {
-		charMap[i] = *uptr++;
-	}
+	const u8 *charMap = uptr;
+	uptr += charMapSize;
 
 	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
-	u8 *charPointerTable = new u8[charPointerSize];
-	for (int i = 0; i < charPointerSize; i++) {
-		charPointerTable[i] = *uptr++;
-	}
+	const u8 *charPointerTable = uptr;
+	uptr += charPointerSize;
 
 	// PGF Fontdata.
 	u32 fontDataOffset = (u32)(uptr - startPtr);
@@ -283,10 +276,6 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
 	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, shadowGlyphs.size());
-
-	delete [] charMap;
-	delete [] shadowCharMap;
-	delete [] charPointerTable;
 
 	// Pregenerate glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
