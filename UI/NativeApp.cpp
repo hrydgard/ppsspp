@@ -222,28 +222,6 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
-const std::string NativeProgramPath() {
-#if (defined(__APPLE__) && !defined(IOS)) || defined(__linux__)
-	char program_path[4096];
-	uint32_t program_path_size = sizeof(program_path) - 1;
-#if defined(__linux__)
-	if (readlink("/proc/self/exe", program_path, 4095) > 0) {
-#elif defined(__APPLE__) && !defined(IOS)
-	if (_NSGetExecutablePath(program_path, &program_path_size) == 0) {
-#else
-#error Unmatched ifdef.
-#endif
-		program_path[sizeof(program_path) - 1] = '\0';
-		char *last_slash = strrchr(program_path, '/');
-		if (last_slash != NULL)
-			*(last_slash + 1) = '\0';
-		return program_path;
-	}
-#endif
-
-	return "";
-}
-
 void NativeInit(int argc, const char *argv[],
 								const char *savegame_directory, const char *external_directory, const char *installID) {
 #ifdef ANDROID_NDK_PROFILER
@@ -261,11 +239,11 @@ void NativeInit(int argc, const char *argv[],
 #ifdef IOS
 	user_data_path += "/";
 #elif defined(__APPLE__)
-	if (File::Exists(NativeProgramPath() + "assets"))
-		VFSRegister("", new DirectoryAssetReader((NativeProgramPath() + "assets/").c_str()));
+	if (File::Exists(File::GetExeDirectory() + "assets"))
+		VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	// It's common to be in a build-xyz/ directory.
 	else
-		VFSRegister("", new DirectoryAssetReader((NativeProgramPath() + "../assets/").c_str()));
+		VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "../assets/").c_str()));
 #endif
 
 	// We want this to be FIRST.
@@ -293,7 +271,7 @@ void NativeInit(int argc, const char *argv[],
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
 	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
-	std::string program_path = NativeProgramPath();
+	std::string program_path = File::GetExeDirectory();
 	if (program_path.empty())
 		g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
 	else if (File::Exists(program_path + "flash0"))

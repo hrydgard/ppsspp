@@ -454,7 +454,7 @@ void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* argumen
 
 std::string trimString(std::string input)
 {
-	int pos = input.find_first_not_of(" \t");
+	size_t pos = input.find_first_not_of(" \t");
 	if (pos != 0 && pos != std::string::npos)
 	{
 		input = input.erase(0,pos);
@@ -463,7 +463,7 @@ std::string trimString(std::string input)
 	pos = input.find_last_not_of(" \t");
 	if (pos != std::string::npos)
 	{
-		int size = input.length()-pos-1;
+		size_t size = input.length()-pos-1;
 		input = input.erase(pos+1,size);
 	}
 
