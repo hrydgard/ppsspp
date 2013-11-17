@@ -251,7 +251,8 @@ struct PGFFontInfo {
 	// Font style (used by font comparison functions).
 	PGFFontStyle fontStyle;
 
-	s32_le BPP; // Font's BPP.
+	u8 BPP; // Font's BPP.
+	u8 pad[3];
 };
 
 #pragma pack(pop)
