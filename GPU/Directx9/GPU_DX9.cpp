@@ -529,7 +529,8 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 // Maybe should write this in ASM...
 void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
-		u32 op = Memory::ReadUnchecked_U32(list.pc);
+		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		u32 cmd = op >> 24;
 		u8 cmdFlags = commandFlags_[cmd];
 		u32 diff = op ^ gstate.cmdmem[cmd];
@@ -538,8 +539,10 @@ void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 			transformDraw_.Flush();
 		}		
 		gstate.cmdmem[cmd] = op;
-		if (cmdFlags & FLAG_EXECUTE)
+		if (cmdFlags & FLAG_EXECUTE) {
 		ExecuteOp(op, diff);
+		
+		}
 
 		list.pc += 4;
 	}

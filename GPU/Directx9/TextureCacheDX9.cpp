@@ -137,7 +137,7 @@ void TextureCacheDX9::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 				// Start it over from 0 (unless it's safe.)
 				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
 				iter->second.framesUntilNextFullHash = 0;
-			} else {
+			} else if (!iter->second.framebuffer) {
 				iter->second.invalidHint++;
 			}
 		}
@@ -150,7 +150,9 @@ void TextureCacheDX9::InvalidateAll(GPUInvalidationType /*unused*/) {
 			// Clear status -> STATUS_HASHING.
 			iter->second.status &= ~TexCacheEntry::STATUS_MASK;
 		}
-		iter->second.invalidHint++;
+		if (!iter->second.framebuffer) {
+			iter->second.invalidHint++;
+		}
 	}
 }
 
@@ -884,11 +886,16 @@ void TextureCacheDX9::SetTexture() {
 #endif
 
 		// Check for FBO - slow!
-		if (entry->framebuffer && match) {
-			SetTextureFramebuffer(entry);
-			lastBoundTexture = INVALID_TEX;
-			entry->lastFrame = gpuStats.numFlips;
-			return;
+		if (entry->framebuffer) {
+			if (match) {
+				SetTextureFramebuffer(entry);
+				lastBoundTexture = INVALID_TEX;
+				entry->lastFrame = gpuStats.numFlips;
+				return;
+			} else {
+				// Make sure we re-evaluate framebuffers
+				DetachFramebuffer(entry, texaddr, entry->framebuffer);
+			}
 		}
 
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
@@ -1443,7 +1450,16 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 
 	u32 *pixelData = (u32 *)finalBuf;
 
-	int scaleFactor = g_Config.iTexScalingLevel;
+	int scaleFactor;
+	//Auto-texture scale upto 5x rendering resolution
+	if (g_Config.iTexScalingLevel == 0)
+#ifndef USING_GLES2
+		scaleFactor = std::min(5, g_Config.iInternalResolution);
+#else
+		scaleFactor = std::min(3, g_Config.iInternalResolution);
+#endif
+	else
+		scaleFactor = g_Config.iTexScalingLevel;
 
 	// Don't scale the PPGe texture.
 	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
