@@ -919,10 +919,6 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 	SimpleVertex *simpleVertices = new SimpleVertex[indexUpperBound + 1];
 	NormalizeVertices((u8 *)simpleVertices, temp_buffer, Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
 
-	const Mat3x3<float> world_matrix(gstate.worldMatrix);
-	const Mat3x3<float> view_matrix(gstate.viewMatrix);
-	const Mat4x4<float> projection_matrix(gstate.projMatrix);
-
 	vertices.resize(indexUpperBound + 1);
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
 		const SimpleVertex &vert = simpleVertices[i];
@@ -936,10 +932,12 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 		} else {
 			// TODO: This doesn't work correctly and is inefficient.
 
-			Vec3f modelPos = vert.pos;
-			Vec3f worldPos = (world_matrix * modelPos) + Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
-			Vec3f viewPos = (view_matrix * worldPos) + Vec3<float>(gstate.viewMatrix[9], gstate.viewMatrix[10], gstate.viewMatrix[11]);
-			Vec4f clipPos = projection_matrix * Vec4f(viewPos.x, viewPos.y, viewPos.z, 1.0f);
+			float worldPos[3];
+			Vec3ByMatrix43(worldPos, vert.pos.AsArray(), gstate.worldMatrix);
+			float viewPos[3];
+			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
+			float clipPos[4];
+			Vec3ByMatrix44(clipPos, viewPos, gstate.projMatrix);
 			Vec3f screenPos = ClipToScreenTemp(clipPos);
 			Vec3f drawPos = ScreenToDrawing(screenPos);
 

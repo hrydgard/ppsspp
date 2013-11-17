@@ -40,6 +40,7 @@ public:
 	};
 
 	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
 
 	Vec2() {}
 	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
@@ -173,6 +174,7 @@ public:
 	};
 
 	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
 
 	Vec3() {}
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
@@ -339,6 +341,7 @@ public:
 	};
 
 	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
 
 	Vec4() {}
 	Vec4(const T a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
@@ -615,6 +618,7 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
 	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
 	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
+	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
 }
 
 inline void Vec4ByMatrix44(float vecOut[4], const float v[4], const float m[16])
