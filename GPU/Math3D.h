@@ -156,12 +156,6 @@ public:
 	Vec2 ts() const { return Vec2(y, x); }
 };
 
-template<typename T, typename V>
-Vec2<T> operator * (const V& f, const Vec2<T>& vec)
-{
-	return Vec2<T>(f*vec.x,f*vec.y);
-}
-
 typedef Vec2<float> Vec2f;
 
 template<typename T>
@@ -322,12 +316,6 @@ public:
 #undef DEFINE_SWIZZLER2
 #undef _DEFINE_SWIZZLER2
 };
-
-template<typename T, typename V>
-Vec3<T> operator * (const V& f, const Vec3<T>& vec)
-{
-	return Vec3<T>(f*vec.x,f*vec.y,f*vec.z);
-}
 
 typedef Vec3<float> Vec3f;
 
@@ -496,12 +484,6 @@ public:
 #undef DEFINE_SWIZZLER3
 #undef _DEFINE_SWIZZLER3
 };
-
-template<typename T, typename V>
-Vec4<T> operator * (const V& f, const Vec4<T>& vec)
-{
-	return Vec4<T>(f*vec.x,f*vec.y,f*vec.z,f*vec.w);
-}
 
 typedef Vec4<float> Vec4f;
 

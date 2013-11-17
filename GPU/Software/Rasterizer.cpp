@@ -572,7 +572,7 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	{
 		int t = (rgba) ? texcolor.a() : 255;
 		int invt = (rgba) ? 255 - t : 0;
-		out_rgb = (invt * prim_color_rgb + t * texcolor.rgb()) / 255;
+		out_rgb = (prim_color_rgb * invt + texcolor.rgb() * t) / 255;
 		out_a = prim_color_a;
 		break;
 	}
