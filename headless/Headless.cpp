@@ -336,6 +336,7 @@ int main(int argc, const char* argv[])
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
 	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.bEnableLogging = fullLog;
 
 #ifdef _WIN32
 	InitSysDirectories();
