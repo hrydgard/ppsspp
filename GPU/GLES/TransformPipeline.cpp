@@ -846,7 +846,7 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 
 // TODO: Probably move this to common code (with normalization?)
 
-static inline Vec3f ClipToScreenTemp(const Vec4f& coords)
+static inline Vec3f ClipToScreen(const Vec4f& coords)
 {
 	// TODO: Check for invalid parameters (x2 < x1, etc)
 	float vpx1 = getFloat24(gstate.viewportx1);
@@ -859,11 +859,6 @@ static inline Vec3f ClipToScreenTemp(const Vec4f& coords)
 	float retx = coords.x * vpx1 / coords.w + vpx2;
 	float rety = coords.y * vpy1 / coords.w + vpy2;
 	float retz = coords.z * vpz1 / coords.w + vpz2;
-
-	if (gstate.clipEnable & 0x1) {
-		if (retz < 0.f) retz = 0.f;
-		if (retz > 65535.f) retz = 65535.f;
-	}
 
 	// 16 = 0xFFFF / 4095.9375
 	return Vec3f(retx * 16, rety * 16, retz);
@@ -940,7 +935,7 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
 			float clipPos[4];
 			Vec3ByMatrix44(clipPos, viewPos, gstate.projMatrix);
-			Vec3f screenPos = ClipToScreenTemp(clipPos);
+			Vec3f screenPos = ClipToScreen(clipPos);
 			Vec3f drawPos = ScreenToDrawing(screenPos);
 
 			vertices[i].u = vert.uv[0];
