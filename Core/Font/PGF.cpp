@@ -335,7 +335,7 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 	glyph.flags = getBits(6, fontdata, charPtr);
 	charPtr += 6;
 
-	if (glyph.flags & FONT_PGF_CHARGLYPH) {
+	if (glyphType == FONT_PGF_CHARGLYPH) {
 		// Skip magic number
 		charPtr += 7;
 
@@ -419,12 +419,22 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 			charPtr += 32;
 		}
 
-		int advanceIndex = getBits(8, fontdata, charPtr);
-		charPtr += 8;
+		if ((glyph.flags & FONT_PGF_METRIC_ADVANCE_INDEX) == FONT_PGF_METRIC_ADVANCE_INDEX)
+		{
+			int advanceIndex = getBits(8, fontdata, charPtr);
+			charPtr += 8;
 
-		if (advanceIndex < header.advanceTableLength) {
-			glyph.advanceH = advanceTable[0][advanceIndex];
-			glyph.advanceV = advanceTable[1][advanceIndex];
+			if (advanceIndex < header.advanceTableLength) {
+				glyph.advanceH = advanceTable[0][advanceIndex];
+				glyph.advanceV = advanceTable[1][advanceIndex];
+			}
+		}
+		else
+		{
+			glyph.advanceH = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+			glyph.advanceV = getBits(32, fontdata, charPtr);
+			charPtr += 32;
 		}
 	} else {
 		glyph.shadowID = 65535;
