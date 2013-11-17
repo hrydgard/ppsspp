@@ -34,14 +34,26 @@ static bool isJPCSPFont(const char *fontName) {
 }
 
 // Gets a number of bits from an offset.
-// TODO: Make more efficient.
 static int getBits(int numBits, const u8 *buf, size_t pos) {
-	int v = 0;
-	for (int i = 0; i < numBits; i++) {
-		v = v | (((buf[pos >> 3] >> (pos & 7)) & 1) << i);
-		pos++;
+	_dbg_assert_msg_(SCEFONT, numBits <= 32, "Unable to return more than 32 bits, %d requested", numBits);
+
+	const size_t wordpos = pos >> 5;
+	const u32 *wordbuf = (const u32 *)buf;
+	const u8 bitoff = pos & 31;
+
+	// Might just be in one, has to be within two.
+	if (bitoff + numBits < 32) {
+		const u32 mask = (1 << numBits) - 1;
+		return (wordbuf[wordpos] >> bitoff) & mask;
+	} else {
+		int v = wordbuf[wordpos] >> bitoff;
+
+		const u8 done = 32 - bitoff;
+		const u8 remaining = numBits - done;
+		const u32 mask = (1 << remaining) - 1;
+		v |= (wordbuf[wordpos + 1] & mask) << done;
+		return v;
 	}
-	return v;
 }
 
 static std::vector<int> getTable(const u8 *buf, int bpe, size_t length) {
