@@ -244,7 +244,9 @@ void TextDrawer::SetFont(uint32_t fontHandle) {
 
 void TextDrawer::MeasureString(const char *str, float *w, float *h) {
 #ifdef USING_QT_UI
-	QFontMetrics fm(QFont("default", fontSize_));
+	QFont font("default");
+	font.setPixelSize(fontSize_);
+	QFontMetrics fm(font);
 	QSize size = fm.size(0, str);
 	*w = (float)size.width() * fontScaleX_;
 	*h = (float)size.height() * fontScaleY_;
@@ -269,7 +271,9 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->lastUsedFrame = frameCount_;
 		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
 	} else {
-		QFontMetrics fm(QFont("default", fontSize_));
+		QFont font("default");
+		font.setPixelSize(fontSize_);
+		QFontMetrics fm(font);
 		QSize size = fm.size(0, str);
 		QImage image((size.width() + 3) & ~ 3, (size.height() + 3) & ~ 3, QImage::Format_ARGB32_Premultiplied);
 		if (image.isNull()) {
@@ -279,8 +283,8 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 		QPainter painter;
 		painter.begin(&image);
-		painter.setFont(QFont("default", fontSize_));
-		painter.setPen(Qt::white);
+		painter.setFont(font);
+		painter.setPen(color);
 		painter.drawText(0, fontSize_, QString::fromLocal8Bit(str));
 		painter.end();
 
