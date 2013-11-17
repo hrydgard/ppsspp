@@ -7,9 +7,15 @@
 #include "gfx_es2/gl_state.h"
 
 #if defined(USING_GLES2) && !defined(BLACKBERRY)
+
+#ifndef GL_READ_FRAMEBUFFER
+// Careful - our ES3 header defines these. Means that we must make sure
+// to only use them if ES3 support is detected to be available and otherwise
+// use GL_FRAMEBUFFER only.
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_RGBA8 GL_RGBA
+#endif
+
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
 #endif
@@ -170,10 +176,10 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
 
 		// Bind it all together
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 	} else {
 		ILOG("Creating %i x %i FBO using separate stencil", width, height);
 		// TEGRA
@@ -189,10 +195,10 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
 
 		// Bind it all together
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 	}
 #else
 	fbo->stencil_buffer = 0;
@@ -203,10 +209,10 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 
 	// Bind it all together
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 #endif
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -233,9 +239,9 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 void fbo_unbind() {
 	CheckGLExtensions();
 
-	if(gl_extensions.FBO_ARB){
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	}else{
+	if (gl_extensions.FBO_ARB) {
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	} else {
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 #endif
@@ -246,8 +252,14 @@ void fbo_unbind() {
 }
 
 void fbo_bind_as_render_target(FBO *fbo) {
-	if(gl_extensions.FBO_ARB){
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
+	if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.GLES3) {
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
+		} else {
+			// This will collide with bind_for_read - but there's nothing in ES 2.0
+			// that actually separate them anyway of course, so doesn't matter.
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		}
 	}else{
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
@@ -256,9 +268,15 @@ void fbo_bind_as_render_target(FBO *fbo) {
 }
 
 void fbo_bind_for_read(FBO *fbo) {
-	if(gl_extensions.FBO_ARB){
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
-	}else{
+	if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.GLES3) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
+		} else {
+			// This will collide with bind_as_render_target - but there's nothing in ES 2.0
+			// that actually separate them anyway of course, so doesn't matter.
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		}
+	} else {
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 #endif
@@ -272,14 +290,14 @@ void fbo_bind_color_as_texture(FBO *fbo, int color) {
 }
 
 void fbo_destroy(FBO *fbo) {
-	if(gl_extensions.FBO_ARB){
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	if (gl_extensions.FBO_ARB) {
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDeleteFramebuffers(1, &fbo->handle);
 		glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
-	}else{
+	} else {
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
