@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 
+#include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -346,9 +347,17 @@ int main(int argc, const char* argv[])
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #elif !defined(_WIN32)
 	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
-	// TODO: This isn't a great place.
-	g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
 #endif
+
+	// Try to find the flash0 directory.  Often this is from a subdirectory.
+	for (int i = 0; i < 3; ++i)
+	{
+		if (!File::Exists(g_Config.flash0Directory))
+			g_Config.flash0Directory += "../../flash0/";
+	}
+	// Or else, maybe in the executable's dir.
+	if (!File::Exists(g_Config.flash0Directory))
+		g_Config.flash0Directory = File::GetExeDirectory() + "flash0/";
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
