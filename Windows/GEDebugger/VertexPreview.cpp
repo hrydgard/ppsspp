@@ -86,23 +86,23 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 	static std::vector<GPUDebugVertex> newVerts;
 	static std::vector<u16> newInds;
 
+	bool useInds = true;
+	size_t numInds = indices.size();
 	if (indices.empty()) {
-		// Ugh, let's just go the easy way.
-		indices.resize(count);
-		for (int i = 0; i < count; ++i) {
-			indices[i] = i;
-		}
+		useInds = false;
+		numInds = count;
 	}
 
-	newVerts.resize(indices.size() * 2);
-	newInds.resize(indices.size() * 3);
+	// Will need 4 coords and 6 points per rectangle (currently 2 each.)
+	newVerts.resize(numInds * 2);
+	newInds.resize(numInds * 3);
 
 	u16 v = 0;
 	GPUDebugVertex *vert = &newVerts[0];
 	u16 *ind = &newInds[0];
-	for (size_t i = 0, end = indices.size(); i < end; i += 2) {
-		const auto &orig_tl = vertices[indices[i]];
-		const auto &orig_br = vertices[indices[i + 1]];
+	for (size_t i = 0, end = numInds; i < end; i += 2) {
+		const auto &orig_tl = useInds ? vertices[indices[i]] : vertices[i];
+		const auto &orig_br = useInds ? vertices[indices[i + 1]] : vertices[i + 1];
 
 		vert[0] = orig_br;
 
