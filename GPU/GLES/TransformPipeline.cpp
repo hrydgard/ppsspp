@@ -848,7 +848,6 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 
 static inline Vec3f ClipToScreenTemp(const Vec4f& coords)
 {
-	Vec3f ret;
 	// TODO: Check for invalid parameters (x2 < x1, etc)
 	float vpx1 = getFloat24(gstate.viewportx1);
 	float vpx2 = getFloat24(gstate.viewportx2);
@@ -873,9 +872,12 @@ static inline Vec3f ClipToScreenTemp(const Vec4f& coords)
 static Vec3f ScreenToDrawing(const Vec3f& coords)
 {
 	Vec3f ret;
-	// TODO: What to do when offset > coord?
-	ret.x = (((u32)coords.x - gstate.getOffsetX16())/16) & 0x3ff;
-	ret.y = (((u32)coords.y - gstate.getOffsetY16())/16) & 0x3ff;
+	ret.x = coords.x - gstate.getOffsetX16();
+	ret.y = coords.y - gstate.getOffsetY16();
+
+	// Convert from 16 point to float.
+	ret.x *= 1.0 / 16.0;
+	ret.y *= 1.0 / 16.0;
 	ret.z = coords.z;
 	return ret;
 }
@@ -945,8 +947,7 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 			vertices[i].v = vert.uv[1];
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
-			// TODO: Ought to be the drawPos.z but then things don't draw at all...
-			vertices[i].z = vert.pos.z;
+			vertices[i].z = 1.0;
 		}
 	}
 
