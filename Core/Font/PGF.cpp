@@ -533,7 +533,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 			return;
 	}
 
-	u32 bitPtr = glyph.ptr * 8;
+	size_t bitPtr = glyph.ptr * 8;
 	int numberPixels = glyph.w * glyph.h;
 	int pixelIndex = 0;
 
