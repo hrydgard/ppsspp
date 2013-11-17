@@ -13,14 +13,6 @@
 #include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
 
-#ifdef USING_QT_UI
-#include <QtCore>
-#include <QtGui/QImage>
-#include <QtGui/QPainter>
-#include <QtOpenGL/QGLWidget>
-#include <QtGui/QFontMetrics>
-#endif
-
 struct TextStringEntry {
 	uint32_t textureHandle;
 	int width;

@@ -5,6 +5,13 @@
 #include "util/hash/hash.h"
 #include "util/text/utf8.h"
 
+#ifdef USING_QT_UI
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
+#include <QtGui/QFontMetrics>
+#include <QtOpenGL/QGLWidget>
+#endif
+
 #ifdef _WIN32
 
 #define WIN32_LEAN_AND_MEAN
