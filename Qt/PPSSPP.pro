@@ -122,9 +122,6 @@ symbian {
 	shaders.sources = ../assets/shaders
 	shaders.path = E:/PPSSPP/PSP
 	lang.sources = $$files(../lang/*.ini)
-	# Unsupported languages on Symbian. Slashes differ depending on host.
-	contains(QMAKE_HOST.os, "Windows"): lang.sources -= ..\\lang/ja_JP.ini ..\\lang/ko_KR.ini ..\\lang/zh_CN.ini ..\\lang/zh_TW.ini
-	else: lang.sources -= ../lang/ja_JP.ini ../lang/ko_KR.ini ../lang/zh_CN.ini ../lang/zh_TW.ini
 	lang.path = E:/PPSSPP/lang
 
 	DEPLOYMENT += vendor_deploy assets shaders lang
