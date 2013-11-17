@@ -13,6 +13,14 @@
 #include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
 
+#ifdef USING_QT_UI
+#include <QtCore>
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
+#include <QtOpenGL/QGLWidget>
+#include <QtGui/QFontMetrics>
+#endif
+
 struct TextStringEntry {
 	uint32_t textureHandle;
 	int width;
@@ -58,4 +66,8 @@ private:
 	uint32_t fontHash_;
 	// The key is the CityHash of the string xor the fontHash_.
 	std::map<uint32_t, TextStringEntry *> cache_;
+
+#ifdef USING_QT_UI
+	int fontSize_;
+#endif
 };

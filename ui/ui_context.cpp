@@ -25,7 +25,7 @@ void UIContext::Init(const GLSLProgram *uishader, const GLSLProgram *uishadernot
 	uitexture_ = uitexture;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(USING_QT_UI)
 	textDrawer_ = new TextDrawer();
 #else
 	textDrawer_ = 0;

@@ -193,21 +193,6 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	target.Flush(true);
 }
 
-void TextDrawer::OncePerFrame() {
-	frameCount_++;
-	// Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
-		for (auto iter = cache_.begin(); iter != cache_.end();) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				delete iter->second;
-				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-	}
-}
-
 #else
 
 TextDrawer::TextDrawer() {
@@ -216,12 +201,34 @@ TextDrawer::TextDrawer() {
 }
 
 TextDrawer::~TextDrawer() {
-
+	for (auto iter = cache_.begin(); iter != cache_.end(); ++iter) {
+		glDeleteTextures(1, &iter->second->textureHandle);
+		delete iter->second;
+	}
+	cache_.clear();
 }
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
+#ifdef USING_QT_UI
+	uint32_t fontHash = hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
+	fontHash ^= size;
+	fontHash ^= flags << 10;
+
+	auto iter = fontMap_.find(fontHash);
+	if (iter != fontMap_.end()) {
+		fontHash_ = fontHash;
+		return fontHash;
+	}
+
+	fontSize_ = size;
+
+//	fontMap_[fontHash] = font;
+	fontHash_ = fontHash;
+	return fontHash;
+#else
 	ELOG("System fonts not supported on this platform");
 	return 0;
+#endif
 }
 
 void TextDrawer::SetFont(uint32_t fontHandle) {
@@ -229,16 +236,77 @@ void TextDrawer::SetFont(uint32_t fontHandle) {
 }
 
 void TextDrawer::MeasureString(const char *str, float *w, float *h) {
+#ifdef USING_QT_UI
+	QFontMetrics fm(QFont("default", fontSize_));
+	QSize size = fm.size(0, str);
+	*w = (float)size.width() * fontScaleX_;
+	*h = (float)size.height() * fontScaleY_;
+#else
 	*w = 0;
 	*h = 0;
+#endif
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+#ifdef USING_QT_UI
+	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
+	uint32_t entryHash = stringHash ^ fontHash_;
+	
+	target.Flush(true);
 
-}
+	TextStringEntry *entry;
 
-void TextDrawer::OncePerFrame() {
+	auto iter = cache_.find(entryHash);
+	if (iter != cache_.end()) {
+		entry = iter->second;
+		entry->lastUsedFrame = frameCount_;
+		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
+	} else {
+		QFontMetrics fm(QFont("default", fontSize_));
+		QSize size = fm.size(0, str);
+		QImage image((size.width() + 3) & ~ 3, (size.height() + 3) & ~ 3, QImage::Format_ARGB32_Premultiplied);
+		if (image.isNull()) {
+			return;
+		}
+		image.fill(0);
 
+		QPainter painter;
+		painter.begin(&image);
+		painter.setFont(QFont("default", fontSize_));
+		painter.setPen(Qt::white);
+		painter.drawText(0, fontSize_, QString::fromLocal8Bit(str));
+		painter.end();
+
+		entry = new TextStringEntry();
+		glGenTextures(1, &entry->textureHandle);
+		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
+		entry->bmWidth = entry->width = image.width();
+		entry->bmHeight = entry->height = image.height();
+		entry->lastUsedFrame = frameCount_;
+
+		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
+		for (int x = 0; x < entry->bmWidth; x++) {
+			for (int y = 0; y < entry->bmHeight; y++) {
+				bitmapData[entry->bmWidth * y + x] = 0xfff0 | image.pixel(x, y) >> 28;
+			}
+		}
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, entry->bmWidth, entry->bmHeight, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, bitmapData);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		delete [] bitmapData;
+
+		cache_[entryHash] = entry;
+	}
+	float w = entry->bmWidth * fontScaleX_;
+	float h = entry->bmHeight * fontScaleY_;
+	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
+	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
+	target.Flush(true);
+#endif
 }
 
 #endif
@@ -263,4 +331,19 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 	}
 
 	DrawString(target, str, x, y, color, align);
+}
+
+void TextDrawer::OncePerFrame() {
+	frameCount_++;
+	// Use a prime number to reduce clashing with other rhythms
+	if (frameCount_ % 23 == 0) {
+		for (auto iter = cache_.begin(); iter != cache_.end();) {
+			if (frameCount_ - iter->second->lastUsedFrame > 100) {
+				delete iter->second;
+				cache_.erase(iter++);
+			} else {
+				iter++;
+			}
+		}
+	}
 }
