@@ -101,13 +101,8 @@ INCLUDEPATH += .. ../Common ../native
 	# Desktop handles the Init separately
 	SOURCES += ../UI/NativeApp.cpp
 }
-symbian {
-	RESOURCES += assets_lowmem.qrc
-	SOURCES += ../UI/ui_atlas_lowmem.cpp
-} else {
-	RESOURCES += assets.qrc
-	SOURCES += ../UI/ui_atlas.cpp
-}
+RESOURCES += assets.qrc
+SOURCES += ../UI/ui_atlas_nofont.cpp
 
 # Packaging
 symbian {
