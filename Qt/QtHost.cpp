@@ -18,6 +18,7 @@
 #include "UI/ui_atlas.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "gfx_es2/draw_text.h"
 #include "GPU/ge_constants.h"
 #include "EmuThread.h"
 
@@ -441,6 +442,9 @@ void NativeRender()
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
+	if (screenManager->getUIContext()->Text()) {
+		screenManager->getUIContext()->Text()->OncePerFrame();
+	}
 }
 
 void NativeMessageReceived(const char *message, const char *value)
