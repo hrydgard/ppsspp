@@ -560,26 +560,11 @@ static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 	}
 
 	if (fb_stride > 0 && fb_stride < 512) {
-		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
-		if (fb_stride == scissor_width && region_width != scissor_width) { 
-			drawing_width = scissor_width;
-			drawing_height = scissor_height;
-		} else {
-			drawing_width = viewport_width;
-			drawing_height = viewport_height;
-		}
+		drawing_width = viewport_width;
+		drawing_height = viewport_height;
 	} else {
-		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_stride == region_width && region_width == viewport_width) { 
-			drawing_width = region_width;
-			drawing_height = region_height;
-		} else if (fb_stride == viewport_width) { 
-			drawing_width = viewport_width;
-			drawing_height = viewport_height;
-		} else {
-			drawing_width = default_width;
-			drawing_height = default_height;
-		}
+		drawing_width = region_width;
+		drawing_height = region_height;
 	}
 }
 
@@ -656,9 +641,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(drawing_width, drawing_height);
 
-	int buffer_width = drawing_width;
-	int buffer_height = drawing_height;
-
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -696,8 +678,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->height = drawing_height;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
-		vfb->bufferWidth = buffer_width;
-		vfb->bufferHeight = buffer_height;
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
