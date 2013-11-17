@@ -530,7 +530,7 @@ public:
 	}
 
 	template<typename T>
-	Vec3<T> operator * (const Vec3<T>& vec)
+	Vec3<T> operator * (const Vec3<T>& vec) const
 	{
 		Vec3<T> ret;
 		ret.x = values[0]*vec.x + values[3]*vec.y + values[6]*vec.z;
@@ -539,7 +539,7 @@ public:
 		return ret;
 	}
 
-	Mat3x3 Inverse()
+	Mat3x3 Inverse() const
 	{
 		float a = values[0];
 		float b = values[1];
@@ -555,7 +555,7 @@ public:
 						b*f-c*e, c*d-a*f, a*e-b*d) / Det();
 	}
 
-	BaseType Det()
+	BaseType Det() const
 	{
 		return values[0]*values[4]*values[8] + values[3]*values[7]*values[2] +
 				values[6]*values[1]*values[5] - values[2]*values[4]*values[6] -
@@ -588,7 +588,7 @@ public:
 	}
 
 	template<typename T>
-	Vec4<T> operator * (const Vec4<T>& vec)
+	Vec4<T> operator * (const Vec4<T>& vec) const
 	{
 		Vec4<T> ret;
 		ret.x = values[0]*vec.x + values[4]*vec.y + values[8]*vec.z + values[12]*vec.w;

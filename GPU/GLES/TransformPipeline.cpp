@@ -919,9 +919,9 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 	SimpleVertex *simpleVertices = new SimpleVertex[indexUpperBound + 1];
 	NormalizeVertices((u8 *)simpleVertices, temp_buffer, Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
 
-	Mat3x3<float> world_matrix(gstate.worldMatrix);
-	Mat3x3<float> view_matrix(gstate.viewMatrix);
-	Mat4x4<float> projection_matrix(gstate.projMatrix);
+	const Mat3x3<float> world_matrix(gstate.worldMatrix);
+	const Mat3x3<float> view_matrix(gstate.viewMatrix);
+	const Mat4x4<float> projection_matrix(gstate.projMatrix);
 
 	vertices.resize(indexUpperBound + 1);
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
