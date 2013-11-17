@@ -30,7 +30,7 @@ LIBS += -lCore$${XT} -lCommon$${XT} -lNative$${XT}
 # FFMPEG Path
 win32:  FFMPEG_DIR = ../ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
 linux:  FFMPEG_DIR = ../ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
-macx|!mobile_platform:   FFMPEG_DIR = ../ffmpeg/macosx/x86_64/lib/
+macx:!mobile_platform:   FFMPEG_DIR = ../ffmpeg/macosx/x86_64/lib/
 qnx:    FFMPEG_DIR = ../ffmpeg/blackberry/armv7/lib/
 symbian:FFMPEG_DIR = -l
 
