@@ -353,9 +353,6 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 {
 	u16 reference_z = GetPixelDepth(x, y);
 
-	if (gstate.isModeClear())
-		return true;
-
 	switch (gstate.getDepthTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
