@@ -11,7 +11,7 @@ typedef enum {
 	EXOP_LOGOR, EXOP_TERTIF, EXOP_TERTELSE, EXOP_NUMBER, EXOP_MEM, EXOP_NONE, EXOP_COUNT
 } ExpressionOpcodeType;
 
-typedef enum { EXCOMM_CONST, EXCOMM_REF, EXCOMM_OP } ExpressionCommand;
+typedef enum { EXCOMM_CONST, EXCOMM_CONST_FLOAT, EXCOMM_REF, EXCOMM_OP } ExpressionCommand;
 
 static char expressionError[256];
 
@@ -147,6 +147,28 @@ bool parseNumber(char* str, int defaultrad, int len, uint32& result)
 	return true;
 }
 
+// Parse only a float, and return as float bits.
+static bool parseFloat(const char *str, int len, uint32 &result)
+{
+	bool foundDecimal = false;
+	for (int i = 0; i < len; ++i)
+	{
+		if (str[i] == '.')
+		{
+			if (foundDecimal)
+				return false;
+			foundDecimal = true;
+			continue;
+		}
+		if (str[i] < '0' || str[i] > '9')
+			return false;
+	}
+
+	float f = (float)atof(str);
+	memcpy(&result, &f, sizeof(result));
+	return foundDecimal;
+}
+
 ExpressionOpcodeType getExpressionOpcode(const char* str, int& ReturnLen, ExpressionOpcodeType LastOpcode)
 {
 	int longestlen = 0;
@@ -177,7 +199,7 @@ bool isAlphaNum(char c)
 	if ((c >= '0' && c <= '9') ||
 		(c >= 'A' && c <= 'Z') ||
 		(c >= 'a' && c <= 'z') ||
-		c == '@' || c == '_' || c == '$')
+		c == '@' || c == '_' || c == '$' || c == '.')
 	{
 		return true;
 	} else {
@@ -216,13 +238,16 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 			subStr[subPos] = 0;
 
 			uint32 value;
-			if (parseNumber(subStr,16,subPos,value) == false)
+			bool isFloat = false;
+			if (parseFloat(subStr,subPos,value) == true)
+				isFloat = true;
+			else if (parseNumber(subStr,16,subPos,value) == false)
 			{
 				sprintf(expressionError,"Invalid number \"%s\"",subStr);
 				return false;
 			}
 
-			dest.push_back(ExpressionPair(EXCOMM_CONST,value));
+			dest.push_back(ExpressionPair(isFloat?EXCOMM_CONST_FLOAT:EXCOMM_CONST,value));
 			lastOpcode = EXOP_NUMBER;
 		} else if ((first >= 'a' && first <= 'z') || first == '@')
 		{
@@ -350,6 +375,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 		switch (dest[i].first)
 		{
 		case EXCOMM_CONST:
+		case EXCOMM_CONST_FLOAT:
 			testPos += sprintf(&test[testPos],"0x%04X ",dest[i].second);
 			break;
 		case EXCOMM_REF:
@@ -371,6 +397,8 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 	uint32 opcode;
 	std::vector<uint32> valueStack;
 	unsigned int arg[5];
+	float fArg[5];
+	bool useFloat = false;
 
 	while (num < exp.size())
 	{
@@ -379,7 +407,12 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 		case EXCOMM_CONST:	// konstante zahl
 			valueStack.push_back(exp[num++].second);
 			break;
+		case EXCOMM_CONST_FLOAT:
+			useFloat = true;
+			valueStack.push_back(exp[num++].second);
+			break;
 		case EXCOMM_REF:
+			useFloat = useFloat || funcs->getReferenceType(exp[num].second) == EXPR_TYPE_FLOAT;
 			opcode = funcs->getReferenceValue(exp[num++].second);
 			valueStack.push_back(opcode);
 			break;
@@ -395,6 +428,8 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				arg[l] = valueStack[valueStack.size()-1];
 				valueStack.pop_back();
 			}
+			// In case of float representation.
+			memcpy(fArg, arg, sizeof(fArg));
 
 			switch (opcode)
 			{
@@ -425,7 +460,10 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_SIGNPLUS:		// keine aktion nötig
 				break;
 			case EXOP_SIGNMINUS:	// -0
-				valueStack.push_back(0-arg[0]);
+				if (useFloat)
+					valueStack.push_back(0.0-fArg[0]);
+				else
+					valueStack.push_back(0-arg[0]);
 				break;
 			case EXOP_BITNOT:			// ~b
 				valueStack.push_back(~arg[0]);
@@ -434,7 +472,10 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				valueStack.push_back(!arg[0]);
 				break;
 			case EXOP_MUL:			// a*b
-				valueStack.push_back(arg[1]*arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]*fArg[0]);
+				else
+					valueStack.push_back(arg[1]*arg[0]);
 				break;
 			case EXOP_DIV:			// a/b
 				if (arg[0] == 0)
@@ -442,7 +483,10 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 					sprintf(expressionError,"Division by zero");
 					return false;
 				}
-				valueStack.push_back(arg[1]/arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]/fArg[0]);
+				else
+					valueStack.push_back(arg[1]/arg[0]);
 				break;
 			case EXOP_MOD:			// a%b
 				if (arg[0] == 0)
@@ -453,10 +497,16 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				valueStack.push_back(arg[1]%arg[0]);
 				break;
 			case EXOP_ADD:			// a+b
-				valueStack.push_back(arg[1]+arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]+fArg[0]);
+				else
+					valueStack.push_back(arg[1]+arg[0]);
 				break;
 			case EXOP_SUB:			// a-b
-				valueStack.push_back(arg[1]-arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]-fArg[0]);
+				else
+					valueStack.push_back(arg[1]-arg[0]);
 				break;
 			case EXOP_SHL:			// a<<b
 				valueStack.push_back(arg[1]<<arg[0]);
@@ -465,16 +515,28 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				valueStack.push_back(arg[1]>>arg[0]);
 				break;
 			case EXOP_GREATEREQUAL:		// a >= b
-				valueStack.push_back(arg[1]>=arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]>=fArg[0]);
+				else
+					valueStack.push_back(arg[1]>=arg[0]);
 				break;
 			case EXOP_GREATER:			// a > b
-				valueStack.push_back(arg[1]>arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]>fArg[0]);
+				else
+					valueStack.push_back(arg[1]>arg[0]);
 				break;
 			case EXOP_LOWEREQUAL:		// a <= b
-				valueStack.push_back(arg[1]<=arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]<=fArg[0]);
+				else
+					valueStack.push_back(arg[1]<=arg[0]);
 				break;
 			case EXOP_LOWER:			// a < b
-				valueStack.push_back(arg[1]<arg[0]);
+				if (useFloat)
+					valueStack.push_back(fArg[1]<fArg[0]);
+				else
+					valueStack.push_back(arg[1]<arg[0]);
 				break;
 			case EXOP_EQUAL:		// a == b
 				valueStack.push_back(arg[1]==arg[0]);
@@ -494,7 +556,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_LOGAND:			// a && b
 				valueStack.push_back(arg[1]&&arg[0]);
 				break;
-			case EXOP_LOGOR:			// a && b
+			case EXOP_LOGOR:			// a || b
 				valueStack.push_back(arg[1]||arg[0]);
 				break;
 			case EXOP_TERTIF:			// darf so nicht vorkommen
