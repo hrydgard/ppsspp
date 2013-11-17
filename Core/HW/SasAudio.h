@@ -172,7 +172,7 @@ private:
 	// No need to save in state
 	int rate_;
 	int type_;
-	int duration_;
+	float invDuration_;
 
 	enum ADSRState {
 		STATE_ATTACK,

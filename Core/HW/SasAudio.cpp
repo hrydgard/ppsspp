@@ -387,7 +387,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	case VOICETYPE_PCM:
 		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
 			break;
-	default: 
+	default:
 		// Load resample history (so we can use a wide filter)
 		resampleBuffer[0] = voice.resampleHist[0];
 		resampleBuffer[1] = voice.resampleHist[1];
@@ -685,16 +685,16 @@ static int durationFromRate(int rate) {
 
 const short expCurveReference = 0x7000;
 
+const float expCurveToEnvelopeHeight = (float)PSP_SAS_ENVELOPE_HEIGHT_MAX / (float)expCurveReference;
+
 // This needs a rewrite / rethink. Doing all this per sample is insane.
-static int getExpCurveAt(int index, int duration) {
-	const short curveLength = sizeof(expCurve) / sizeof(short);
+static float computeExpCurveAt(int index, float invDuration) {
+	const int curveLength = ARRAY_SIZE(expCurve);
 
-	if (duration == 0) {
-		// Avoid division by zero, and thus undefined behaviour in conversion to int.
-		return 0;
-	}
+	if (invDuration == 0.0f)
+		return 0.0f;
 
-	float curveIndex = (index * curveLength) / (float) duration;
+	float curveIndex = (index * curveLength) * invDuration;
 	int curveIndex1 = (int) curveIndex;
 	int curveIndex2 = curveIndex1 + 1;
 	float curveIndexFraction = curveIndex - curveIndex1;
@@ -705,8 +705,7 @@ static int getExpCurveAt(int index, int duration) {
 		return expCurve[curveLength - 1];
 	}
 
-	float sample = expCurve[curveIndex1] * (1.f - curveIndexFraction) + expCurve[curveIndex2] * curveIndexFraction;
-	return (short)(sample);
+	return expCurve[curveIndex1] * (1.f - curveIndexFraction) + expCurve[curveIndex2] * curveIndexFraction;
 }
 
 ADSREnvelope::ADSREnvelope()
@@ -721,11 +720,14 @@ ADSREnvelope::ADSREnvelope()
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		state_(STATE_OFF),
 		steps_(0),
-		height_(0) {
+		height_(0),
+		type_(0),
+		rate_(0),
+		invDuration_(0) {
 }
 
 void ADSREnvelope::WalkCurve(int type) {
-	short expFactor;
+	float expFactor;
 	switch (type) {
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE:
 		height_ += rate_;
@@ -744,14 +746,14 @@ void ADSREnvelope::WalkCurve(int type) {
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
-		expFactor = getExpCurveAt(steps_, duration_);
-		height_ = (s64)expFactor * PSP_SAS_ENVELOPE_HEIGHT_MAX / expCurveReference;
+		expFactor = computeExpCurveAt(steps_, invDuration_);
+		height_ = (s64)(expFactor * expCurveToEnvelopeHeight);
 		height_ = PSP_SAS_ENVELOPE_HEIGHT_MAX - height_;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
-		expFactor = getExpCurveAt(steps_, duration_);
-		height_ = (s64)expFactor * PSP_SAS_ENVELOPE_HEIGHT_MAX / expCurveReference;
+		expFactor = computeExpCurveAt(steps_, invDuration_);
+		height_ = (s64)(expFactor * expCurveToEnvelopeHeight);
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_DIRECT:
@@ -787,7 +789,14 @@ void ADSREnvelope::SetState(ADSRState state) {
 	switch (type_) {
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
-		duration_ = durationFromRate(rate_);
+		{
+			int duration = durationFromRate(rate_);
+			if (duration == 0) {
+				invDuration_ = 0.0f;
+			} else {
+				invDuration_ = 1.0f / (float)duration;
+			}
+		}
 		break;
 	default:
 		break;
