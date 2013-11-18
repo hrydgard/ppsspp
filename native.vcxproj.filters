@@ -132,6 +132,9 @@
     <ClInclude Include="file\file_util.h">
       <Filter>file</Filter>
     </ClInclude>
+    <ClInclude Include="file\path.h">
+      <Filter>file</Filter>
+    </ClInclude>
     <ClInclude Include="gfx_es2\vertex_format.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -373,6 +376,9 @@
       <Filter>json</Filter>
     </ClCompile>
     <ClCompile Include="file\file_util.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\path.cpp">
       <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\vertex_format.cpp">

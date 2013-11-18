@@ -217,6 +217,7 @@
     <ClInclude Include="file\easy_file.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
+    <ClInclude Include="file\path.h" />
     <ClInclude Include="file\ini_file.h" />
     <ClInclude Include="file\vfs.h" />
     <ClInclude Include="file\zip_read.h" />
@@ -353,6 +354,7 @@
     <ClCompile Include="file\easy_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />
     <ClCompile Include="file\file_util.cpp" />
+    <ClCompile Include="file\path.cpp" />
     <ClCompile Include="file\ini_file.cpp" />
     <ClCompile Include="file\zip_read.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
