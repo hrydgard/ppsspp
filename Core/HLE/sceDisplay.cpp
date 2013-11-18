@@ -501,9 +501,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 	frameStartTicks = CoreTiming::GetTicks();
 
-	// Fire the vblank listeners before we wake threads.
-	__DisplayFireVblank();
-
 	// Wake up threads waiting for VBlank
 	u32 error;
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
@@ -588,6 +585,9 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
+
+	// Fire the vblank listeners after the vblank completes.
+	__DisplayFireVblank();
 }
 
 u32 sceDisplayIsVblank() {
