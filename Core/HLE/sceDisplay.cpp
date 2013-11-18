@@ -96,7 +96,7 @@ static double nextFrameTime;
 static int numVBlanksSinceFlip;
 
 static u64 frameStartTicks;
-const float hCountPerVblank = 285.72f; // insprired by jpcsp
+const float hCountPerVblank = 286.0f;
 
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
@@ -111,7 +111,7 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
-const double frameMs = 1000.0 / 60.0;
+const double frameMs = 1001.0 / 60.0;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
