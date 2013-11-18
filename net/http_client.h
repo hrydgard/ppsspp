@@ -58,7 +58,7 @@ public:
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const char *resource, Buffer *output);
+	int GET(const char *resource, Buffer *output, float *progress = 0);
 
 	// Return value is the HTTP return code.
 	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output);
@@ -114,6 +114,7 @@ public:
 	~Downloader() {
 		CancelAll();
 	}
+
 	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
 
 	// Drops finished downloads from the list.

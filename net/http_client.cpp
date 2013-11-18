@@ -22,8 +22,6 @@
 #include "net/resolve.h"
 #include "net/url.h"
 
-// #include "strings/strutil.h"
-
 namespace net {
 
 Connection::Connection() 
@@ -54,7 +52,7 @@ bool Connection::Resolve(const char *host, int port) {
 
 	char port_str[10];
 	snprintf(port_str, sizeof(port_str), "%d", port);
-	
+
 	std::string err;
 	if (!net::DNSResolve(host, port_str, &resolved_, err)) {
 		ELOG("Failed to resolve host %s: %s", host, err.c_str());
@@ -144,7 +142,11 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer) {
 	}
 }
 
-int Client::GET(const char *resource, Buffer *output) {
+int Client::GET(const char *resource, Buffer *output, float *progress) {
+	if (progress) {
+		*progress = 0;
+	}
+
 	Buffer buffer;
 	const char *tpl =
 		"GET %s HTTP/1.1\r\n"
@@ -213,29 +215,35 @@ int Client::GET(const char *resource, Buffer *output) {
 		}
 	}
 
+	if (!contentLength && progress) {
+		// Content length is unknown.
+		// Set progress to 1% so it looks like something is happening...
+		*progress = 0.01f;
+	}
+
 	// output now contains the rest of the reply. Dechunk it.
 	if (chunked) {
+		// TODO: Turn this into a loop and update progress
 		DeChunk(&readbuf, output);
 	} else {
+		// TODO: Turn this into a loop and update progress
 		output->Append(readbuf);
 	}
 
 	// If it's gzipped, we decompress it and put it back in the buffer.
 	if (gzip) {
-		std::string compressed;
+		std::string compressed, decompressed;
 		output->TakeAll(&compressed);
-		// What is this garbage?
-		//if (compressed[0] == 0x8e)
-//			compressed = compressed.substr(4);
-		std::string decompressed;
 		bool result = decompress_string(compressed, &decompressed);
 		if (!result) {
 			ELOG("Error decompressing using zlib");
+			*progress = 0.0f;
 			return -1;
 		}
 		output->Append(decompressed);
 	}
 
+	*progress = 1.0f;
 	return code;
 }
 
@@ -293,8 +301,7 @@ Download::~Download() {
 
 }
 
-void Download::Start(std::shared_ptr<Download> self)
-{
+void Download::Start(std::shared_ptr<Download> self) {
 	std::thread th(std::bind(&Download::Do, this, self));
 	th.detach();
 }
@@ -344,9 +351,9 @@ void Download::Do(std::shared_ptr<Download> self) {
 	}
 
 	// TODO: Allow cancelling during a GET somehow...
-	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_);
+	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_, &progress_);
 	if (resultCode == 200) {
-		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
+		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
 			ELOG("Failed writing download to %s", outfile_.c_str());
 		}
