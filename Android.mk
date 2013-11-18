@@ -32,6 +32,7 @@ LOCAL_SRC_FILES :=\
     file/easy_file.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
+    file/path.cpp \
     file/ini_file.cpp \
     file/zip_read.cpp \
     json/json_writer.cpp \
