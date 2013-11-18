@@ -81,7 +81,7 @@ static int afterFlipEvent = -1;
 // hCount is computed now.
 static int vCount;
 // The "AccumulatedHcount" can be adjusted, this is the base.
-static double hCountBase;
+static u32 hCountBase;
 static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
@@ -96,7 +96,7 @@ static double nextFrameTime;
 static int numVBlanksSinceFlip;
 
 static u64 frameStartTicks;
-const float hCountPerVblank = 286.0f;
+const int hCountPerVblank = 286;
 
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
@@ -164,7 +164,7 @@ void __DisplayInit() {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
-	hCountBase = 0.0;
+	hCountBase = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 
@@ -183,7 +183,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 2);
+	auto s = p.Section("sceDisplay", 1, 3);
 	if (!s)
 		return;
 
@@ -192,7 +192,13 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(framebufIsLatched);
 	p.Do(frameStartTicks);
 	p.Do(vCount);
-	p.Do(hCountBase);
+	if (s <= 2) {
+		double oldHCountBase;
+		p.Do(oldHCountBase);
+		hCountBase = (int) oldHCountBase;
+	} else {
+		p.Do(hCountBase);
+	}
 	p.Do(isVblank);
 	p.Do(hasSetMode);
 	p.Do(mode);
