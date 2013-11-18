@@ -1,7 +1,6 @@
 #include "qtemugl.h"
 
 #include <QMouseEvent>
-#include <QThread>
 
 #include "base/display.h"
 #include "base/timeutil.h"
@@ -26,19 +25,10 @@ void QtEmuGL::initializeGL()
 }
 void QtEmuGL::paintGL()
 {
-	static double startTime = 0;
 	NativeUpdate(*input_state);
 	NativeRender();
 	EndInputState(input_state);
-
-	if (globalUIState != UISTATE_INGAME && globalUIState != UISTATE_EXIT) {
-		time_update();
-		double diffTime = time_now_d() - startTime;
-		startTime = time_now_d();
-		int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
-		if (sleepTime > 0)
-			QThread::usleep(sleepTime);
-	}
+	time_update();
 }
 
 void QtEmuGL::mouseDoubleClickEvent(QMouseEvent *)

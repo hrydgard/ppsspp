@@ -56,7 +56,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	SetGameTitle(fileToStart);
 
 	connect(&timer, SIGNAL(timeout()), this, SLOT(Update()));
-	timer.setInterval(0);
+	timer.setInterval(16); // 62.5 refreshes but close enough
 	timer.start();
 
 //	if (!fileToStart.isNull())
