@@ -554,7 +554,7 @@ void Config::Save() {
 
 void Config::AddRecent(const std::string &file) {
 	for (auto str = recentIsos.begin(); str != recentIsos.end(); str++) {
-		if (*str == file) {
+		if (!strcmpIgnore(*str, file, "\\", "/")) {
 			recentIsos.erase(str);
 			recentIsos.insert(recentIsos.begin(), file);
 			if ((int)recentIsos.size() > iMaxRecent)
