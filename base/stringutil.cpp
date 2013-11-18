@@ -234,3 +234,9 @@ std::string ReplaceAll(std::string result, const std::string& src, const std::st
 	}
 	return result;
 }
+
+int strcmpIgnore(std::string str1, std::string str2, std::string ignorestr1, std::string ignorestr2) {
+	str1 = ReplaceAll(str1, ignorestr1, ignorestr2);
+	str2 = ReplaceAll(str2, ignorestr1, ignorestr2);
+	return strcmp(str1.c_str(),str2.c_str());
+}
