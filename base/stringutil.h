@@ -133,6 +133,8 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 
 std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
 
+int strcmpIgnore(std::string str1, std::string str2, std::string ignorestr1, std::string ignorestr2);
+
 template <typename N>
 static std::string ValueToString(const N value)
 {
