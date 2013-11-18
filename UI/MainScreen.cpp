@@ -17,6 +17,7 @@
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
+#include "file/path.h"
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
@@ -200,102 +201,6 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 	dc.RebindTexture();
-}
-
-// Abstraction above path that lets you navigate easily.
-// "/" is a special path that means the root of the file system. On Windows,
-// listing this will yield drives.
-class PathBrowser {
-public:
-	PathBrowser() {}
-	PathBrowser(std::string path) { SetPath(path); }
-
-	void SetPath(const std::string &path);
-	void GetListing(std::vector<FileInfo> &fileInfo, const char *filter = 0);
-	void Navigate(const std::string &path);
-
-	std::string GetPath() {
-		if (path_ != "/")
-			return path_;
-		else
-			return "";
-	}
-	std::string GetFriendlyPath() {
-		std::string str = GetPath();
-		/*
-#ifdef ANDROID
-		if (!memcmp(str.c_str(), g_Config.memCardDirectory.c_str(), g_Config.memCardDirectory.size()))
-		{
-			str = str.substr(g_Config.memCardDirectory.size());
-		}
-#endif*/
-		return str;
-	}
-
-	std::string path_;
-};
-
-// Normalize slashes.
-void PathBrowser::SetPath(const std::string &path) {
-	if (path[0] == '!') {
-		path_ = path;
-		return;
-	}
-	path_ = path;
-	for (size_t i = 0; i < path_.size(); i++) {
-		if (path_[i] == '\\') path_[i] = '/';
-	}
-	if (!path_.size() || (path_[path_.size() - 1] != '/'))
-		path_ += "/";
-}
-
-void PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter) {
-#ifdef _WIN32
-	if (path_ == "/") {
-		// Special path that means root of file system.
-		std::vector<std::string> drives = getWindowsDrives();
-		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
-			FileInfo fake;
-			fake.fullName = *drive;
-			fake.name = *drive;
-			fake.isDirectory = true;
-			fake.exists = true;
-			fake.size = 0;
-			fake.isWritable = false;
-			fileInfo.push_back(fake);
-		}
-	}
-#endif
-
-	getFilesInDir(path_.c_str(), &fileInfo, filter);
-}
-
-// TODO: Support paths like "../../hello"
-void PathBrowser::Navigate(const std::string &path) {
-	if (path[0] == '!')
-		return;
-
-	if (path == ".")
-		return;
-	if (path == "..") {
-		// Upwards.
-		// Check for windows drives.
-		if (path_.size() == 3 && path_[1] == ':') {
-			path_ = "/";
-		} else {
-			size_t slash = path_.rfind('/', path_.size() - 2);
-			if (slash != std::string::npos)
-				path_ = path_.substr(0, slash + 1);
-		}
-	}
-	else {
-		if (path[1] == ':' && path_ == "/")
-			path_ = path;
-		else
-			path_ = path_ + path;
-		if (path_[path_.size() - 1] != '/')
-			path_ += "/";
-	}
 }
 
 class GameBrowser : public UI::LinearLayout {

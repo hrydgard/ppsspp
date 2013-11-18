@@ -525,6 +525,8 @@ add_library(native STATIC
 	native/file/file_util.h
 	native/file/ini_file.cpp
 	native/file/ini_file.h
+	native/file/path.cpp
+	native/file/path.h
 	native/file/vfs.h
 	native/file/zip_read.cpp
 	native/file/zip_read.h
