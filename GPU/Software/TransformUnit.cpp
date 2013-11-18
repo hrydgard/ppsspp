@@ -128,9 +128,9 @@ static VertexData ReadVertex(VertexReader& vreader)
 
 		for (int i = 0; i < vertTypeGetNumBoneWeights(gstate.vertType); ++i) {
 			Mat3x3<float> bone(&gstate.boneMatrix[12*i]);
-			tmppos += W[i] * (bone * ModelCoords(pos[0], pos[1], pos[2]) + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11]));
+			tmppos += (bone * ModelCoords(pos[0], pos[1], pos[2]) * W[i] + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11]));
 			if (vreader.hasNormal())
-				tmpnrm += W[i] * (bone * vertex.normal);
+				tmpnrm += (bone * vertex.normal) * W[i];
 		}
 
 		pos[0] = tmppos.x;

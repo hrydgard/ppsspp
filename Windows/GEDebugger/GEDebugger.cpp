@@ -116,6 +116,7 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 }
 
 CGEDebugger::~CGEDebugger() {
+	CleanupPrimPreview();
 	delete flags;
 	delete lighting;
 	delete textureState;

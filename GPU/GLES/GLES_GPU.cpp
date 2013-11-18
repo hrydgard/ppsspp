@@ -1644,3 +1644,7 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
 	return false;
 #endif
 }
+
+bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
+}
