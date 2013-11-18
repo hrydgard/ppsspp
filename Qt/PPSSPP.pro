@@ -102,7 +102,7 @@ INCLUDEPATH += .. ../Common ../native
 	SOURCES += ../UI/NativeApp.cpp
 }
 RESOURCES += assets.qrc
-SOURCES += ../UI/ui_atlas_nofont.cpp
+SOURCES += ../UI/ui_atlas_lowmem.cpp
 
 # Packaging
 symbian {
