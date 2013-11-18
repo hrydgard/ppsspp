@@ -37,7 +37,10 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFBundle.h>
-#endif
+#if !defined(IOS)
+#include <mach-o/dyld.h>
+#endif  // !defined(IOS)
+#endif  // __APPLE__
 
 #include "util/text/utf8.h"
 
