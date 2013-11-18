@@ -441,7 +441,8 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			}
 			DumpMemoryWindow dump(wnd,debugger);
 			dump.exec();
-			Core_EnableStepping(false);
+			int resume = MessageBox(wnd,L"Do you want to resume emulation",MB_YESNO);
+			if (resume == IDYES) Core_EnableStepping(false);
 			break;
 
 		case ID_MEMVIEW_COPYVALUE_8:
