@@ -217,7 +217,8 @@ TextDrawer::~TextDrawer() {
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 #ifdef USING_QT_UI
-	uint32_t fontHash = hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
+	// We will only use the default font
+	uint32_t fontHash = 0; //hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 
@@ -227,9 +228,9 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 		return fontHash;
 	}
 
-	fontSize_ = size;
-
-//	fontMap_[fontHash] = font;
+	QFont* font = new QFont();
+	font->setPixelSize(size + 4);
+	fontMap_[fontHash] = font;
 	fontHash_ = fontHash;
 	return fontHash;
 #else
@@ -244,9 +245,8 @@ void TextDrawer::SetFont(uint32_t fontHandle) {
 
 void TextDrawer::MeasureString(const char *str, float *w, float *h) {
 #ifdef USING_QT_UI
-	QFont font("default");
-	font.setPixelSize(fontSize_);
-	QFontMetrics fm(font);
+	QFont* font = fontMap_.find(fontHash_)->second;
+	QFontMetrics fm(*font);
 	QSize size = fm.size(0, str);
 	*w = (float)size.width() * fontScaleX_;
 	*h = (float)size.height() * fontScaleY_;
@@ -271,9 +271,8 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->lastUsedFrame = frameCount_;
 		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
 	} else {
-		QFont font("default");
-		font.setPixelSize(fontSize_);
-		QFontMetrics fm(font);
+		QFont *font = fontMap_.find(fontHash_)->second;
+		QFontMetrics fm(*font);
 		QSize size = fm.size(0, str);
 		QImage image((size.width() + 3) & ~ 3, (size.height() + 3) & ~ 3, QImage::Format_ARGB32_Premultiplied);
 		if (image.isNull()) {
@@ -283,9 +282,9 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 		QPainter painter;
 		painter.begin(&image);
-		painter.setFont(font);
+		painter.setFont(*font);
 		painter.setPen(color);
-		painter.drawText(0, fontSize_, QString::fromLocal8Bit(str));
+		painter.drawText(0, font->pixelSize() - 4, QString::fromLocal8Bit(str));
 		painter.end();
 
 		entry = new TextStringEntry();
