@@ -250,6 +250,8 @@ namespace MIPSComp
 		{
 		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 			{
+				// TODO: Fastpath like FPULS.
+
 				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 				if (gpr.IsImm(rs)) {
@@ -1837,4 +1839,50 @@ namespace MIPSComp
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
+
+	void Jit::Comp_Vocp(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix() || disablePrefixes) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		// Actually, not sure that this instruction accepts an S prefix. We don't apply it in the
+		// interpreter. But whatever.
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		MOVI2F(S0, 1.0f, R0);
+		for (int i = 0; i < n; ++i) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			// Let's do it integer registers for now. NEON later.
+			// There's gotta be a shorter way, can't find one though that takes
+			// care of NaNs like the interpreter (ignores them and just operates on the bits).
+			VSUB(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
 }

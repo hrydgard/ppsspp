@@ -126,7 +126,6 @@ enum
 
 class XEmitter;
 
-// RIP addressing does not benefit from micro op fusion on Core arch
 struct OpArg
 {
 	OpArg() {}  // dummy op arg, used for storage

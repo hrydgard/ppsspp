@@ -237,6 +237,7 @@ namespace MIPSComp
 		void Comp_Vfim(MIPSOpcode op);
 		void Comp_VCrossQuat(MIPSOpcode op);
 		void Comp_Vsgn(MIPSOpcode op);
+		void Comp_Vocp(MIPSOpcode op);
 
 
 		// Utility compilation functions

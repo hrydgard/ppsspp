@@ -136,6 +136,7 @@ public:
 	void Comp_Vfim(MIPSOpcode op);
 	void Comp_VCrossQuat(MIPSOpcode op);
 	void Comp_Vsgn(MIPSOpcode op);
+	void Comp_Vocp(MIPSOpcode op);
 
 	void Comp_DoNothing(MIPSOpcode op);
 
