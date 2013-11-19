@@ -262,6 +262,8 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 	if (!folder.size())
 		return UI::EVENT_DONE;
 	path_.SetPath(folder);
+#elif defined(BLACKBERRY)
+	path_.SetPath("/accounts/1000/shared/misc");
 #else
 	path_.SetPath(getenv("HOME"));
 #endif
