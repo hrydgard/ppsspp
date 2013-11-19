@@ -763,7 +763,11 @@ namespace MIPSComp
 						denominator >>= 1;
 					}
 					// The shift value is one too much for the divide by the same value.
-					LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
+					if (shift > 1) {
+						LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
+					} else {
+						MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
+					}
 				}
 			} else if (cpu_info.bIDIVa) {
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
