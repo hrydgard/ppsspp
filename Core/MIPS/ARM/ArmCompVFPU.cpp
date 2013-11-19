@@ -32,8 +32,6 @@
 // Cool NEON references:
 // http://www.delmarnorth.com/microwave/requirements/neon-test-tutorial.pdf
 
-const bool disablePrefixes = false;
-
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
@@ -459,7 +457,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// WARNING: No prefix support!
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -492,9 +490,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VIdt(MIPSOpcode op) {
-		CONDITIONAL_DISABLE
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -532,7 +529,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			// Don't think matrix init ops care about prefixes.
 			// DISABLE;
 		}
@@ -578,10 +575,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VHdp(MIPSOpcode op) {
-		// DISABLE;
-
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -621,7 +616,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VDot(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -657,8 +652,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VecDo3(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -772,8 +766,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -898,9 +891,9 @@ namespace MIPSComp
 
 	void Jit::Comp_Vi2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -945,13 +938,15 @@ namespace MIPSComp
 	void Jit::Comp_Vh2f(MIPSOpcode op) {
 		if (!cpu_info.bNEON || !cpu_info.bHalf) {
 			// No hardware support for half-to-float, fallback to interpreter
-			// TODO: Translate the fast SSE solution to NEON.
+			// TODO: Translate the fast SSE solution to standard integer/VFP stuff
+			// for the weaker CPUs.
 			DISABLE;
 		}
-		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix() || disablePrefixes	)
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		u8 sregs[4], dregs[4];
 		VectorSize sz = GetVecSize(op);
@@ -980,9 +975,13 @@ namespace MIPSComp
 			VMOV(tmp[i], fpr.V(sregs[i]));
 		}
 
-		// Okay, let's convert!
+		// This always converts four 32-bit floats in Q0 to four 16-bit floats
+		// in D0. If we are dealing with a pair here, we just ignore the upper two outputs.
+		// There are also a couple of other instructions that do it one at a time but doesn't
+		// seem worth the trouble.
 		VCVTF32F16(Q0, D0);
-		for (int i = 0; i < nOut	; i++) {
+
+		for (int i = 0; i < nOut; i++) {
 			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			VMOV(fpr.V(dregs[i]), tmp[i]);
 		}
@@ -1059,14 +1058,12 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Mftv(MIPSOpcode op)
-	{
+	void Jit::Comp_Mftv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
-		switch ((op >> 21) & 0x1f)
-		{
+		switch ((op >> 21) & 0x1f) {
 		case 3: //mfv / mfvc
 			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
@@ -1153,14 +1150,11 @@ namespace MIPSComp
 	void Jit::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		// TODO: This probably ignores prefixes?
-		//if (js.MayHavePrefix()) {
-		//	DISABLE;
-		//}
+		// This probably ignores prefixes for all sane intents and purposes.
 
 		if (_VS == _VD) {
-			// A lot of these in Wipeout... Just drop the instruction entirely.
-			return;	
+			// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
+			return;
 		}
 
 		MatrixSize sz = GetMtxSize(op);
@@ -1193,8 +1187,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VScl(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1242,11 +1235,11 @@ namespace MIPSComp
 
 	void Jit::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		// TODO: This probably ignores prefixes?
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// TODO: This probably ignores prefixes?
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1288,12 +1281,12 @@ namespace MIPSComp
 
 	void Jit::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		// TODO: This probably ignores prefixes?  Or maybe uses D?
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
+		// TODO: This probably ignores prefixes?  Or maybe uses D?
+		
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1363,8 +1356,10 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrossQuat(MIPSOpcode op) {
-		// This op does not support prefixes.
-		if (js.HasUnknownPrefix() || disablePrefixes)
+
+		// This op does not support prefixes anyway.
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1410,8 +1405,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Vcmp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		if (js.HasUnknownPrefix())
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1599,9 +1593,9 @@ namespace MIPSComp
 
 	void Jit::Comp_Vcmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1661,10 +1655,10 @@ namespace MIPSComp
 
 	void Jit::Comp_Vfim(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
 
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);
@@ -1681,8 +1675,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Vcst(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1727,13 +1720,13 @@ namespace MIPSComp
 		sincostemp[1] = cosf(angle);
 	}
 
-	// Very heavily used by FF:CC
+	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
+	// calling the math library.
+	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
 	void Jit::Comp_VRot(MIPSOpcode op) {
-		// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
+		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
-
-		// This op doesn't support prefixes anyway..
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1793,6 +1786,7 @@ namespace MIPSComp
 	void Jit::Comp_Vhoriz(MIPSOpcode op) {
 		DISABLE;
 
+		// Do any games use these a noticable amount?
 		switch ((op >> 16) & 31) {
 		case 6:  // vfad
 			break;
@@ -1803,7 +1797,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Vsgn(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1854,7 +1848,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Vocp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 

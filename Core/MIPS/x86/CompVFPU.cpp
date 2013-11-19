@@ -2014,6 +2014,14 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 
 void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	DISABLE;
+
+	// Do any games use these a noticable amount?
+	switch ((op >> 16) & 31) {
+	case 6:  // vfad
+		break;
+	case 7:  // vavg
+		break;
+	}
 }
 
 void Jit::Comp_Viim(MIPSOpcode op) {
