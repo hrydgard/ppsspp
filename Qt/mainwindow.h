@@ -11,7 +11,20 @@
 #include "debugger_displaylist.h"
 
 #include <QtCore>
+#if QT_VERSION >= 0x050000
+#include <QApplication>
+#include <QKeyEvent>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QDesktopWidget>
+#include <QMenuBar>
+#include <QDesktopServices>
+#include <QMainWindow>
+#include <QActionGroup>
+#elif
 #include <QtGui>
+#endif
+
 
 class QtEmuGL;
 
