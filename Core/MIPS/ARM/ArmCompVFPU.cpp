@@ -38,7 +38,7 @@
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-#define NEON_IF_AVAILABLE(func) { if (jo.useNEONVFPU) { func(); return; } }
+#define NEON_IF_AVAILABLE(func) { if (jo.useNEONVFPU) { func(op); return; } }
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
 #define _RD MIPS_GET_RD(op)
@@ -943,7 +943,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vh2f(MIPSOpcode op) {
-		NEON_IF_AVAILABLE(CompNEON_Vh2f(op))
+		NEON_IF_AVAILABLE(CompNEON_Vh2f);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
