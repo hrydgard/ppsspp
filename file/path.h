@@ -33,6 +33,8 @@ public:
 			str = str.substr(strlen(home));
 			str.insert(0, 1, '~');
 		}
+#elif defined(ANDROID)
+		// Do nothing
 #elif defined(__linux)
 		char* home = getenv("HOME");
 		if (!strncmp(str.c_str(), home, strlen(home))) {
