@@ -20,7 +20,6 @@
 #include "ui/ui_context.h"
 #include "gfx_es2/draw_text.h"
 #include "GPU/ge_constants.h"
-#include "EmuThread.h"
 
 static UI::Theme ui_theme;
 
@@ -121,9 +120,9 @@ void QtHost::BootDone()
 }
 
 
-static QString SymbolMapFilename(QString currentFilename)
+static const char* SymbolMapFilename(std::string currentFilename)
 {
-	std::string result = currentFilename.toStdString();
+	std::string result = currentFilename;
 	size_t dot = result.rfind('.');
 	if (dot == result.npos)
 		return (result + ".map").c_str();
@@ -134,12 +133,12 @@ static QString SymbolMapFilename(QString currentFilename)
 
 bool QtHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).toStdString().c_str());
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 }
 
 void QtHost::PrepareShutdown()
 {
-	symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).toStdString().c_str());
+	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 }
 
 void QtHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0)
@@ -179,7 +178,6 @@ void QtHost::GPUNotifyCommand(u32 pc)
 
 void QtHost::SendCoreWait(bool isWaiting)
 {
-	mainWindow->CoreEmitWait(isWaiting);
 }
 
 bool QtHost::GpuStep()
@@ -189,20 +187,14 @@ bool QtHost::GpuStep()
 
 void QtHost::SendGPUStart()
 {
-	EmuThread_LockDraw(false);
-
 	if(m_GPUFlag == -1)
 	{
 		m_GPUFlag = 0;
 	}
-
-	EmuThread_LockDraw(true);
 }
 
 void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 {
-	EmuThread_LockDraw(false);
-
 	if((m_GPUFlag == 1 && (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE)))
 	{
 		// Break after the draw
@@ -231,8 +223,6 @@ void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 			m_hGPUStepEvent.wait(m_hGPUStepMutex);
 		}
 	}
-
-	EmuThread_LockDraw(true);
 }
 
 void QtHost::SetGPUStep(bool value, int flag, u32 data)

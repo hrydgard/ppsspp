@@ -10,7 +10,6 @@
 
 #include "math.h"
 
-#include "EmuThread.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
@@ -123,14 +122,12 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 					const char *m = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 					if (Memory::IsValidAddress(address))
 					{
-						EmuThread_LockDraw(true);
 						u32 memory[4] = {
 							debugger->readMemory(address),
 							debugger->readMemory(address+4),
 							debugger->readMemory(address+8),
 							debugger->readMemory(address+12)
 						};
-						EmuThread_LockDraw(false);
 						m = (const char*)memory;
 						sprintf(temp, "%08x %08x %08x %08x  ................",
 							memory[0],memory[1],memory[2],memory[3]);
@@ -228,9 +225,7 @@ void CtrlMemView::contextMenu(const QPoint &pos)
 
 void CtrlMemView::CopyValue()
 {
-	EmuThread_LockDraw(true);
 	QApplication::clipboard()->setText(QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0')));
-	EmuThread_LockDraw(false);
 }
 
 void CtrlMemView::Dump()
@@ -241,9 +236,7 @@ void CtrlMemView::Dump()
 
 void CtrlMemView::Change()
 {
-	EmuThread_LockDraw(true);
 	QString curVal = QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0'));
-	EmuThread_LockDraw(false);
 
 	bool ok;
 	QString text = QInputDialog::getText(this, tr("Set new value"),
@@ -251,9 +244,7 @@ void CtrlMemView::Change()
 								curVal, &ok);
 	if (ok && !text.isEmpty())
 	{
-		EmuThread_LockDraw(true);
 		Memory::WriteUnchecked_U32(text.toUInt(0,16),selection);
-		EmuThread_LockDraw(false);
 		redraw();
 	}
 }

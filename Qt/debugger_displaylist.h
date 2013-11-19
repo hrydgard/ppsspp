@@ -48,8 +48,6 @@ public:
 	void UpdateRenderBufferList();
 	void UpdateVertexInfo();
 	void UpdateIndexInfo();
-protected:
-	void showEvent(QShowEvent *);
 
 signals:
 	void updateDisplayList_();
@@ -60,7 +58,6 @@ private slots:
 	void UpdateDisplayListGUI();
 	void UpdateRenderBufferListGUI();
 	void UpdateRenderBufferGUI();
-	void releaseLock();
 
 	void on_displayList_itemClicked(QTreeWidgetItem *item, int column);
 	void on_stepBtn_clicked();

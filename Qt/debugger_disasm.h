@@ -39,8 +39,6 @@ public:
 	void UpdateBreakpoints();
 	void UpdateThread();
 	void UpdateDisplayList();
-protected:
-	void showEvent(QShowEvent *);
 
 signals:
 	void updateDisplayList_();
@@ -82,7 +80,6 @@ private slots:
 	void SetThreadStatusWait();
 	void SetThreadStatusSuspend();
 	void on_displayList_customContextMenuRequested(const QPoint &pos);
-	void releaseLock();
 
 private:
 	void SetThreadStatus(ThreadStatus status);

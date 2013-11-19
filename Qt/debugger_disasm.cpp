@@ -20,7 +20,6 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "EmuThread.h"
 #include "Core/Host.h"
 
 Debugger_Disasm::Debugger_Disasm(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :
@@ -54,27 +53,6 @@ Debugger_Disasm::Debugger_Disasm(DebugInterface *_cpu, MainWindow* mainWindow_, 
 
 }
 
-void Debugger_Disasm::showEvent(QShowEvent *)
-{
-
-#ifdef Q_WS_X11
-	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
-	EmuThread_LockDraw(true);
-	QTimer::singleShot(100, this, SLOT(releaseLock()));
-#endif
-
-	if(Core_IsStepping())
-		SetDebugMode(true);
-	else
-		SetDebugMode(false);
-}
-
-void Debugger_Disasm::releaseLock()
-{
-	EmuThread_LockDraw(false);
-}
-
-
 Debugger_Disasm::~Debugger_Disasm()
 {
 	delete ui;
@@ -88,47 +66,39 @@ void Debugger_Disasm::ShowVFPU()
 void Debugger_Disasm::Update()
 {
 	ui->RegList->redraw();
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 	UpdateDialog();
 }
 
 void Debugger_Disasm::Go()
 {
 	SetDebugMode(false);
-	EmuThread_LockDraw(true);
 	Core_EnableStepping(false);
-	EmuThread_LockDraw(false);
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 }
 
 void Debugger_Disasm::Step()
 {
-	EmuThread_LockDraw(true);
 	Core_DoSingleStep();
-	EmuThread_LockDraw(false);
 	_dbg_update_();
 }
 
 void Debugger_Disasm::StepOver()
 {
 	SetDebugMode(false);
-	EmuThread_LockDraw(true);
 	CBreakPoints::AddBreakPoint(cpu->GetPC()+cpu->getInstructionSize(0),true);
 	_dbg_update_();
 	Core_EnableStepping(false);
-	EmuThread_LockDraw(false);
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 }
 
 void Debugger_Disasm::StepHLE()
 {
-	EmuThread_LockDraw(true);
 	hleDebugBreak();
 	SetDebugMode(false);
 	_dbg_update_();
 	Core_EnableStepping(false);
-	EmuThread_LockDraw(false);
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 }
 
 void Debugger_Disasm::UpdateDialog()
@@ -178,11 +148,9 @@ void Debugger_Disasm::UpdateDialog()
 void Debugger_Disasm::Stop()
 {
 	SetDebugMode(true);
-	EmuThread_LockDraw(true);
 	Core_EnableStepping(true);
-	EmuThread_LockDraw(false);
 	_dbg_update_();
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 	UpdateDialog();
 }
 
@@ -190,9 +158,7 @@ void Debugger_Disasm::Skip()
 {
 	CtrlDisAsmView *ptr = ui->DisasmView;
 
-	EmuThread_LockDraw(true);
 	cpu->SetPC(cpu->GetPC() + cpu->getInstructionSize(0));
-	EmuThread_LockDraw(false);
 	ptr->gotoPC();
 	UpdateDialog();
 }
@@ -368,7 +334,6 @@ void Debugger_Disasm::UpdateBreakpointsGUI()
 
 	ui->breakpointsList->clear();
 
-	EmuThread_LockDraw(true);
 	auto breakpoints = CBreakPoints::GetBreakpoints();
 	for(size_t i = 0; i < breakpoints.size(); i++)
 	{
@@ -383,7 +348,6 @@ void Debugger_Disasm::UpdateBreakpointsGUI()
 				ui->breakpointsList->setCurrentItem(item);
 		}
 	}
-	EmuThread_LockDraw(false);
 }
 
 void Debugger_Disasm::on_breakpointsList_itemClicked(QTreeWidgetItem *item, int column)
@@ -429,9 +393,7 @@ void Debugger_Disasm::UpdateThreadGUI()
 {
 	ui->threadList->clear();
 
-	EmuThread_LockDraw(true);
 	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
-	EmuThread_LockDraw(false);
 
 	for(size_t i = 0; i < threads.size(); i++)
 	{
@@ -508,9 +470,7 @@ void Debugger_Disasm::GotoThreadEntryPoint()
 
 void Debugger_Disasm::SetThreadStatus(ThreadStatus status)
 {
-	EmuThread_LockDraw(true);
 	__KernelChangeThreadState(threadRowSelected->data(0,Qt::UserRole).toInt(), status);
-	EmuThread_LockDraw(false);
 
 	UpdateThread();
 }
@@ -544,7 +504,6 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 
 	ui->displayList->clear();
 
-	EmuThread_LockDraw(true);
 	const std::list<int>& dlQueue = gpu->GetDisplayLists();
 
 	DisplayList dlist;
@@ -605,7 +564,6 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 	}
 	for(int i = 0; i < ui->displayList->columnCount(); i++)
 		ui->displayList->resizeColumnToContents(i);
-	EmuThread_LockDraw(false);
 }
 
 void Debugger_Disasm::on_displayList_customContextMenuRequested(const QPoint &pos)

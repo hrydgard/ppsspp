@@ -7,7 +7,6 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QInputDialog>
-#include "EmuThread.h"
 #include "debugger_disasm.h"
 
 CtrlRegisterList::CtrlRegisterList(QWidget *parent) :
@@ -286,9 +285,7 @@ void CtrlRegisterList::GotoMemory()
 	if (selection >= cpu->GetNumRegsInCategory(cat))
 		return;
 
-	EmuThread_LockDraw(true);
 	u32 val = cpu->GetRegValue(cat,reg);
-	EmuThread_LockDraw(false);
 
 	parentWindow->ShowMemory(val);
 }
@@ -300,9 +297,7 @@ void CtrlRegisterList::GotoDisAsm()
 	if (selection >= cpu->GetNumRegsInCategory(cat))
 		return;
 
-	EmuThread_LockDraw(true);
 	u32 val = cpu->GetRegValue(cat,reg);
-	EmuThread_LockDraw(false);
 
 	emit GotoDisasm(val);
 }
@@ -314,9 +309,7 @@ void CtrlRegisterList::CopyValue()
 	if (selection >= cpu->GetNumRegsInCategory(cat))
 		return;
 
-	EmuThread_LockDraw(true);
 	u32 val = cpu->GetRegValue(cat,reg);
-	EmuThread_LockDraw(false);
 
 	QApplication::clipboard()->setText(QString("%1").arg(val,8,16,QChar('0')));
 }
@@ -328,9 +321,7 @@ void CtrlRegisterList::Change()
 	if (selection >= cpu->GetNumRegsInCategory(cat))
 		return;
 
-	EmuThread_LockDraw(true);
 	u32 val = cpu->GetRegValue(cat,reg);
-	EmuThread_LockDraw(false);
 
 	bool ok;
 	QString text = QInputDialog::getText(this, tr("Set new value"),
@@ -338,9 +329,7 @@ void CtrlRegisterList::Change()
 								QString::number(val), &ok);
 	if (ok && !text.isEmpty())
 	{
-		EmuThread_LockDraw(true);
 		cpu->SetRegValue(cat,reg,text.toInt());
-		EmuThread_LockDraw(false);
 		redraw();
 	}
 }

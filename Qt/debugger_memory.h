@@ -22,10 +22,6 @@ public:
 	void Goto(u32 addr);
 
 	void NotifyMapLoaded();
-public slots:
-	void releaseLock();
-protected:
-	void showEvent(QShowEvent *);
 private slots:
 	void on_editAddress_textChanged(const QString &arg1);
 

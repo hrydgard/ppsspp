@@ -33,7 +33,6 @@ public:
 	void showEvent(QShowEvent *);
 	void changeEvent(QEvent *);
 private slots:
-	void releaseLock();
 	void on_buttonBox_accepted();
 
 private:

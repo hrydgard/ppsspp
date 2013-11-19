@@ -17,10 +17,10 @@ class QtEmuGL;
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT
-    
+	Q_OBJECT
+
 public:
-    explicit MainWindow(QWidget *parent = 0);
+	explicit MainWindow(QWidget *parent = 0);
 	~MainWindow() { };
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
@@ -40,7 +40,6 @@ protected:
 
 public slots:
 	void Boot();
-	void CoreEmitWait(bool);
 
 private slots:
 	// File

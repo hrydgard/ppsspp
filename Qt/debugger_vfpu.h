@@ -19,10 +19,6 @@ public:
 
 	void Update();
 	void Goto(u32 addr);
-protected:
-	void showEvent(QShowEvent *);
-public slots:
-	void releaseLock();
 private slots:
 	void on_comboBox_currentIndexChanged(int index);
 

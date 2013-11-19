@@ -1,6 +1,5 @@
 #include "debugger_memory.h"
 #include "ui_debugger_memory.h"
-#include "EmuThread.h"
 #include "Core/Debugger/SymbolMap.h"
 #include <QTimer>
 
@@ -20,22 +19,6 @@ Debugger_Memory::Debugger_Memory(DebugInterface *_cpu, MainWindow* mainWindow_, 
 Debugger_Memory::~Debugger_Memory()
 {
 	delete ui;
-}
-
-
-void Debugger_Memory::showEvent(QShowEvent *)
-{
-
-#ifdef Q_WS_X11
-	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
-	EmuThread_LockDraw(true);
-	QTimer::singleShot(100, this, SLOT(releaseLock()));
-#endif
-}
-
-void Debugger_Memory::releaseLock()
-{
-	EmuThread_LockDraw(false);
 }
 
 void Debugger_Memory::Update()

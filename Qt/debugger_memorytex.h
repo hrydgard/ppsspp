@@ -17,10 +17,7 @@ public:
 	~Debugger_MemoryTex();
 
 	void ShowTex(const GPUgstate& state);
-protected:
-	void showEvent(QShowEvent *);
 private slots:
-	void releaseLock();
 	void on_readBtn_clicked();
 
 private:

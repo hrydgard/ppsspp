@@ -62,9 +62,7 @@ void CtrlDisAsmView::mousePressEvent(QMouseEvent *e)
 	}
 	else
 	{
-		EmuThread_LockDraw(true);
 		debugger->toggleBreakpoint(yToAddress(y));
-		EmuThread_LockDraw(false);
 		parentWindow->Update();
 		redraw();
 	}
@@ -156,40 +154,30 @@ void CtrlDisAsmView::CopyAddress()
 
 void CtrlDisAsmView::CopyInstrDisAsm()
 {
-	EmuThread_LockDraw(true);
 	QApplication::clipboard()->setText(debugger->disasm(selection,align));
-	EmuThread_LockDraw(false);
 }
 
 void CtrlDisAsmView::CopyInstrHex()
 {
-	EmuThread_LockDraw(true);
 	QApplication::clipboard()->setText(QString("%1").arg(debugger->readMemory(selection),8,16,QChar('0')));
-	EmuThread_LockDraw(false);
 }
 
 void CtrlDisAsmView::SetNextStatement()
 {
-	EmuThread_LockDraw(true);
 	debugger->setPC(selection);
-	EmuThread_LockDraw(false);
 	redraw();
 }
 
 void CtrlDisAsmView::ToggleBreakpoint()
 {
-	EmuThread_LockDraw(true);
 	debugger->toggleBreakpoint(selection);
-	EmuThread_LockDraw(false);
 	parentWindow->Update();
 	redraw();
 }
 
 void CtrlDisAsmView::FollowBranch()
 {
-	EmuThread_LockDraw(true);
-	const char *temp = debugger->disasm(selection,align);
-	EmuThread_LockDraw(false);
+	const char *temp = debugger->disasm(selection,align);;
 	const char *mojs=strstr(temp,"->$");
 	if (mojs)
 	{
@@ -205,10 +193,8 @@ void CtrlDisAsmView::FollowBranch()
 
 void CtrlDisAsmView::RunToHere()
 {
-	EmuThread_LockDraw(true);
 	debugger->setBreakpoint(selection);
 	debugger->runToBreakpoint();
-	EmuThread_LockDraw(false);
 	redraw();
 }
 

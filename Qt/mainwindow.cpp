@@ -11,7 +11,6 @@
 
 #include "QtHost.h"
 #include "qtemugl.h"
-#include "EmuThread.h"
 
 // TODO: Make this class thread-aware. Can't send events to a different thread. Currently only works on X11.
 // Needs to use QueuedConnection for signals/slots.
@@ -200,12 +199,6 @@ void MainWindow::Boot()
 	if (nextState == CORE_RUNNING)
 		runAct_triggered();
 	updateMenus();
-}
-
-void MainWindow::CoreEmitWait(bool isWaiting)
-{
-	// Unlock mutex while core is waiting;
-	EmuThread_LockDraw(!isWaiting);
 }
 
 void MainWindow::openAct_triggered()
@@ -618,33 +611,33 @@ void MainWindow::createMenus()
 }
 
 	// File
-    fileMenu = menuBar()->addMenu("");
+	fileMenu = menuBar()->addMenu("");
 	NEW_ACTION_KEY(fileMenu, openAct, QKeySequence::Open);
 	NEW_ACTION_KEY(fileMenu, closeAct, QKeySequence::Close);
-    fileMenu->addSeparator();
+	fileMenu->addSeparator();
 	NEW_ACTION_KEY(fileMenu, qlstateAct, Qt::Key_F4);
 	NEW_ACTION_KEY(fileMenu, qsstateAct,Qt::Key_F2);
 	NEW_ACTION(fileMenu, lstateAct);
 	NEW_ACTION(fileMenu, sstateAct);
-    fileMenu->addSeparator();
+	fileMenu->addSeparator();
 	NEW_ACTION(fileMenu, exitAct);
 
 	// Emulation
-    emuMenu = menuBar()->addMenu("");
+	emuMenu = menuBar()->addMenu("");
 	NEW_ACTION_KEY(emuMenu, runAct, Qt::Key_F7);
 	NEW_ACTION_KEY(emuMenu, pauseAct, Qt::Key_F8);
 	NEW_ACTION(emuMenu, resetAct);
-    emuMenu->addSeparator();
+	emuMenu->addSeparator();
 	NEW_ACTION_CHK(emuMenu, runonloadAct);
 
 	// Debug
-    debugMenu = menuBar()->addMenu("");
+	debugMenu = menuBar()->addMenu("");
 	NEW_ACTION(debugMenu, lmapAct);
 	NEW_ACTION(debugMenu, smapAct);
 	NEW_ACTION(debugMenu, resetTableAct);
-    debugMenu->addSeparator();
+	debugMenu->addSeparator();
 	NEW_ACTION(debugMenu, dumpNextAct);
-    debugMenu->addSeparator();
+	debugMenu->addSeparator();
 	NEW_ACTION_KEY(debugMenu, disasmAct, Qt::CTRL + Qt::Key_D);
 	NEW_ACTION(debugMenu, dpyListAct);
 	NEW_ACTION(debugMenu, consoleAct);
@@ -652,7 +645,7 @@ void MainWindow::createMenus()
 	NEW_ACTION(debugMenu, memviewTexAct);
 
 	// Options
-    optionsMenu = menuBar()->addMenu("");
+	optionsMenu = menuBar()->addMenu("");
 	// - Core
 	coreMenu = optionsMenu->addMenu("");
 	NEW_ACTION_CHK(coreMenu, dynarecAct);
@@ -739,7 +732,7 @@ void MainWindow::createMenus()
 	langMenu->addActions(langGroup->actions());
 	
 	// Help
-    helpMenu = menuBar()->addMenu("");
+	helpMenu = menuBar()->addMenu("");
 	NEW_ACTION(helpMenu, websiteAct);
 	NEW_ACTION(helpMenu, aboutAct);
 

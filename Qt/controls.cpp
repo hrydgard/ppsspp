@@ -1,7 +1,6 @@
 #include "controls.h"
 #include "ui_controls.h"
 #include "Core/Config.h"
-#include "EmuThread.h"
 #include <QTimer>
 
 Controls_ controllist[] = {
@@ -45,11 +44,6 @@ Controls::~Controls()
 
 void Controls::showEvent(QShowEvent*)
 {
-#ifdef Q_WS_X11
-	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
-	EmuThread_LockDraw(true);
-	QTimer::singleShot(100, this, SLOT(releaseLock()));
-#endif
 /*
 	for(int i = 0; i < controllistCount; i++)
 	{
@@ -77,11 +71,6 @@ void Controls::changeEvent(QEvent *event)
 			ui->retranslateUi(this);
 
 	QDialog::changeEvent(event);
-}
-
-void Controls::releaseLock()
-{
-	EmuThread_LockDraw(false);
 }
 
 void Controls::on_buttonBox_accepted()

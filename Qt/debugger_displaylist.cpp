@@ -8,7 +8,6 @@
 #include "ui_debugger_displaylist.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GeDisasm.h"
-#include "EmuThread.h"
 #include "Core/Host.h"
 #include "base/display.h"
 #include "mainwindow.h"
@@ -41,24 +40,6 @@ Debugger_DisplayList::~Debugger_DisplayList()
 	delete ui;
 }
 
-
-void Debugger_DisplayList::showEvent(QShowEvent *)
-{
-
-#ifdef Q_WS_X11
-	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
-	EmuThread_LockDraw(true);
-	QTimer::singleShot(100, this, SLOT(releaseLock()));
-#endif
-
-}
-
-void Debugger_DisplayList::releaseLock()
-{
-	EmuThread_LockDraw(false);
-}
-
-
 void Debugger_DisplayList::UpdateDisplayList()
 {
 	emit updateDisplayList_();
@@ -76,7 +57,6 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 	ui->displayList->clear();
 	ui->displayListData->clear();
 
-	EmuThread_LockDraw(true);
 	const std::list<int>& dlQueue = gpu->GetDisplayLists();
 
 	for(auto listIdIt = dlQueue.begin(); listIdIt != dlQueue.end(); ++listIdIt)
@@ -115,8 +95,6 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 		displayListRowSelected = ui->displayList->topLevelItem(0);
 		ShowDLCode();
 	}
-
-	EmuThread_LockDraw(false);
 }
 
 
@@ -1486,8 +1464,6 @@ void Debugger_DisplayList::UpdateRenderBuffer()
 
 void Debugger_DisplayList::UpdateRenderBufferGUI()
 {
-	EmuThread_LockDraw(true);
-
 	//gpu->Flush();
 
 	int FRAME_WIDTH;
@@ -1534,8 +1510,6 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 	ui->fboImg->setMaximumHeight(pixmap.height() * fboZoomFactor);
 
 	delete[] data;
-
-	EmuThread_LockDraw(false);
 }
 
 void Debugger_DisplayList::on_nextDrawBtn_clicked()
