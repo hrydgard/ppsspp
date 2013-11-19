@@ -440,6 +440,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				Core_EnableStepping(true); //force paused state
 				DumpMemoryWindow dump(wnd,debugger);
 			        dump.exec();
+			        Core_EnableStepping(false); //Resume emulation automatically
 			        break;
 			}
 			else
