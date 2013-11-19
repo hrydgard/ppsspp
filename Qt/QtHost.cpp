@@ -1,4 +1,4 @@
-// This file is Qt's equivalent of NativeApp.cpp
+// This file is Qt Desktop's equivalent of NativeApp.cpp
 
 #include <QFileInfo>
 #include <QDebug>
@@ -67,7 +67,7 @@ void QtHost::SetWindowTitle(const char *message)
 
 void QtHost::UpdateUI()
 {
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 }
 
 
@@ -98,7 +98,6 @@ void QtHost::SetDebugMode(bool mode)
 
 void QtHost::BeginFrame()
 {
-	mainWindow->Update();
 }
 
 void QtHost::EndFrame()
@@ -315,7 +314,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_Config.memCardDirectory = QDir::homePath().toStdString() + "/.ppsspp/";
 
-#if defined(Q_OS_LINUX) && !defined(ARM)
+#if defined(Q_OS_LINUX)
 	std::string program_path = QCoreApplication::applicationDirPath().toStdString();
 	if (File::Exists(program_path + "/flash0"))
 		g_Config.flash0Directory = program_path + "/flash0/";
@@ -333,11 +332,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_gameInfoCache.Init();
 
-#if !defined(ARM)
 	// Start Desktop UI
 	MainWindow* mainWindow = new MainWindow();
 	mainWindow->show();
-#endif
 }
 
 int NativeMix(short *audio, int num_samples)

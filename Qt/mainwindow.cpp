@@ -12,54 +12,42 @@
 #include "QtHost.h"
 #include "qtemugl.h"
 #include "EmuThread.h"
-#include <QDebug>
 
 // TODO: Make this class thread-aware. Can't send events to a different thread. Currently only works on X11.
 // Needs to use QueuedConnection for signals/slots.
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
-	timer(this),
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU),
 	dialogDisasm(0),
 	memoryWindow(0),
 	memoryTexWindow(0),
-	displaylistWindow(0)
+	displaylistWindow(0),
+	currentLanguage("en")
 {
 	host = new QtHost(this);
 	emugl = new QtEmuGL();
 	setCentralWidget(emugl);
 	emugl->init(&input_state);
-	emugl->resize(pixel_xres, pixel_yres);
-	emugl->setMinimumSize(pixel_xres, pixel_yres);
-	emugl->setMaximumSize(pixel_xres, pixel_yres);
-	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscreenAct_triggered()) );
-
-	createMenu();
-	UpdateMenus();
-
 	int zoom = g_Config.iInternalResolution;
 	if (zoom < 1) zoom = 1;
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
 
+	createMenus();
+	updateMenus();
+
 	SetGameTitle(fileToStart);
 
-	connect(&timer, SIGNAL(timeout()), this, SLOT(Update()));
-	timer.setInterval(16); // 62.5 refreshes but close enough
-	timer.start();
+	startTimer(16);
 
 //	if (!fileToStart.isNull())
 //	{
-//		UpdateMenus();
-
 //		if (stateToLoad != NULL)
 //			SaveState::Load(stateToLoad);
 //	}
-}
 
-MainWindow::~MainWindow()
-{
+	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscreenAct_triggered()) );
 }
 
 void MainWindow::ShowMemory(u32 addr)
@@ -74,7 +62,7 @@ inline float clamp1(float x) {
 	return x;
 }
 
-void MainWindow::Update()
+void MainWindow::timerEvent(QTimerEvent *)
 {
 	emugl->updateGL();
 
@@ -85,11 +73,11 @@ void MainWindow::Update()
 		if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 
-		UpdateMenus();
+		updateMenus();
 	}
 }
 
-void MainWindow::UpdateMenus()
+void MainWindow::updateMenus()
 {
 	bool enable = globalUIState == UISTATE_MENU;
 	// File
@@ -130,7 +118,7 @@ void MainWindow::UpdateMenus()
 	}
 
 	bufferRenderAct->setChecked(g_Config.iRenderingMode == 1);
-	linearAct->setChecked(3 == g_Config.iTexFiltering);
+	linearAct->setChecked(g_Config.iTexFiltering > 0);
 
 	foreach(QAction * action, screenGroup->actions()) {
 		if (g_Config.iInternalResolution == action->data().toInt()) {
@@ -142,7 +130,7 @@ void MainWindow::UpdateMenus()
 	stretchAct->setChecked(g_Config.bStretchToDisplay);
 	transformAct->setChecked(g_Config.bHardwareTransform);
 	vertexCacheAct->setChecked(g_Config.bVertexCache);
-	frameskipAct->setChecked(g_Config.iFrameSkip != 0);
+	frameskipAct->setChecked(g_Config.iFrameSkip > 0);
 
 	statsAct->setChecked(g_Config.bShowDebugStats);
 	showFPSAct->setChecked(g_Config.iShowFPSCounter);
@@ -211,7 +199,7 @@ void MainWindow::Boot()
 
 	if (nextState == CORE_RUNNING)
 		runAct_triggered();
-	UpdateMenus();
+	updateMenus();
 }
 
 void MainWindow::CoreEmitWait(bool isWaiting)
@@ -439,7 +427,6 @@ void MainWindow::fullscreenAct_triggered()
 		// Remove constraint
 		emugl->setMinimumSize(0, 0);
 		emugl->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		//centralwidget->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 
 		showFullScreen();
@@ -580,27 +567,27 @@ void MainWindow::retranslateUi() {
 	aboutAct->setText(tr("&About PPSSPP..."));
 }
 
-void MainWindow::createMenu()
+void MainWindow::createMenus()
 {
 // In Qt5 we could just use lambdas here
-#define NEW_ACTION(menu, name, slot) \
+#define NEW_ACTION(menu, name) \
 	name = new QAction(this); \
-	connect(name, SIGNAL(triggered()), this, SLOT(slot())); \
+	connect(name, SIGNAL(triggered()), this, SLOT(name ## _triggered())); \
 	menu->addAction(name);
 
-#define NEW_ACTION_CHK(menu, name, slot) \
-	NEW_ACTION(menu, name, slot) \
+#define NEW_ACTION_CHK(menu, name) \
+	NEW_ACTION(menu, name) \
 	name->setCheckable(true);
 
-#define NEW_ACTION_KEY(menu, name, slot, key) \
-	NEW_ACTION(menu, name, slot) \
+#define NEW_ACTION_KEY(menu, name, key) \
+	NEW_ACTION(menu, name) \
 	name->setShortcut(key);
 
-#define NEW_ACTION_KEY_CHK(menu, name, slot, key) \
-	NEW_ACTION_CHK(menu, name, slot) \
+#define NEW_ACTION_KEY_CHK(menu, name, key) \
+	NEW_ACTION_CHK(menu, name) \
 	name->setShortcut(key);
 
-#define NEW_GROUP(menu, group, stringlist, valuelist, slot) \
+#define NEW_GROUP(menu, group, stringlist, valuelist) \
 { \
 	group = new QActionGroup(this); \
 	QListIterator<int> i(valuelist); \
@@ -610,11 +597,11 @@ void MainWindow::createMenu()
 		action->setData(i.next()); \
 		group->addAction(action); \
 	} \
-	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(slot(QAction *))); \
+	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(group ## _triggered(QAction *))); \
 	menu->addActions(group->actions()); \
 }
 
-#define NEW_GROUP_KEYS(menu, group, stringlist, valuelist, keylist, slot) \
+#define NEW_GROUP_KEYS(menu, group, stringlist, valuelist, keylist) \
 { \
 	group = new QActionGroup(this); \
 	QListIterator<int> i(valuelist); \
@@ -626,87 +613,87 @@ void MainWindow::createMenu()
 		action->setShortcut(k.next()); \
 		group->addAction(action); \
 	} \
-	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(slot(QAction *))); \
+	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(group ## _triggered(QAction *))); \
 	menu->addActions(group->actions()); \
 }
 
 	// File
     fileMenu = menuBar()->addMenu("");
-	NEW_ACTION_KEY(fileMenu, openAct, openAct_triggered, QKeySequence::Open);
-	NEW_ACTION_KEY(fileMenu, closeAct, closeAct_triggered, QKeySequence::Close);
+	NEW_ACTION_KEY(fileMenu, openAct, QKeySequence::Open);
+	NEW_ACTION_KEY(fileMenu, closeAct, QKeySequence::Close);
     fileMenu->addSeparator();
-	NEW_ACTION_KEY(fileMenu, qlstateAct, qlstateAct_triggered, Qt::Key_F4);
-	NEW_ACTION_KEY(fileMenu, qsstateAct, qsstateAct_triggered, Qt::Key_F2);
-	NEW_ACTION(fileMenu, lstateAct, lstateAct_triggered);
-	NEW_ACTION(fileMenu, sstateAct, sstateAct_triggered);
+	NEW_ACTION_KEY(fileMenu, qlstateAct, Qt::Key_F4);
+	NEW_ACTION_KEY(fileMenu, qsstateAct,Qt::Key_F2);
+	NEW_ACTION(fileMenu, lstateAct);
+	NEW_ACTION(fileMenu, sstateAct);
     fileMenu->addSeparator();
-	NEW_ACTION(fileMenu, exitAct, exitAct_triggered);
+	NEW_ACTION(fileMenu, exitAct);
 
 	// Emulation
     emuMenu = menuBar()->addMenu("");
-	NEW_ACTION_KEY(emuMenu, runAct, runAct_triggered, Qt::Key_F7);
-	NEW_ACTION_KEY(emuMenu, pauseAct, pauseAct_triggered, Qt::Key_F8);
-	NEW_ACTION(emuMenu, resetAct, resetAct_triggered);
+	NEW_ACTION_KEY(emuMenu, runAct, Qt::Key_F7);
+	NEW_ACTION_KEY(emuMenu, pauseAct, Qt::Key_F8);
+	NEW_ACTION(emuMenu, resetAct);
     emuMenu->addSeparator();
-	NEW_ACTION_CHK(emuMenu, runonloadAct, runonloadAct_triggered);
+	NEW_ACTION_CHK(emuMenu, runonloadAct);
 
 	// Debug
     debugMenu = menuBar()->addMenu("");
-	NEW_ACTION(debugMenu, lmapAct, lmapAct_triggered);
-	NEW_ACTION(debugMenu, smapAct, smapAct_triggered);
-	NEW_ACTION(debugMenu, resetTableAct, resetTableAct_triggered);
+	NEW_ACTION(debugMenu, lmapAct);
+	NEW_ACTION(debugMenu, smapAct);
+	NEW_ACTION(debugMenu, resetTableAct);
     debugMenu->addSeparator();
-	NEW_ACTION(debugMenu, dumpNextAct, dumpNextAct_triggered);
+	NEW_ACTION(debugMenu, dumpNextAct);
     debugMenu->addSeparator();
-	NEW_ACTION_KEY(debugMenu, disasmAct, disasmAct_triggered, Qt::CTRL + Qt::Key_D);
-	NEW_ACTION(debugMenu, dpyListAct, dpyListAct_triggered);
-	NEW_ACTION(debugMenu, consoleAct, consoleAct_triggered);
-	NEW_ACTION(debugMenu, memviewAct, memviewAct_triggered);
-	NEW_ACTION(debugMenu, memviewTexAct, memviewTexAct_triggered);
+	NEW_ACTION_KEY(debugMenu, disasmAct, Qt::CTRL + Qt::Key_D);
+	NEW_ACTION(debugMenu, dpyListAct);
+	NEW_ACTION(debugMenu, consoleAct);
+	NEW_ACTION(debugMenu, memviewAct);
+	NEW_ACTION(debugMenu, memviewTexAct);
 
 	// Options
     optionsMenu = menuBar()->addMenu("");
 	// - Core
 	coreMenu = optionsMenu->addMenu("");
-	NEW_ACTION_CHK(coreMenu, dynarecAct, dynarecAct_triggered);
-	NEW_ACTION_CHK(coreMenu, vertexDynarecAct, vertexDynarecAct_triggered);
-	NEW_ACTION_CHK(coreMenu, fastmemAct, fastmemAct_triggered);
-	NEW_ACTION_CHK(coreMenu, ignoreIllegalAct, ignoreIllegalAct_triggered);
+	NEW_ACTION_CHK(coreMenu, dynarecAct);
+	NEW_ACTION_CHK(coreMenu, vertexDynarecAct);
+	NEW_ACTION_CHK(coreMenu, fastmemAct);
+	NEW_ACTION_CHK(coreMenu, ignoreIllegalAct);
 	// - Video
 	videoMenu = optionsMenu->addMenu("");
 	// - Anisotropic Filtering
 	anisotropicMenu = videoMenu->addMenu("");
 	NEW_GROUP(anisotropicMenu, anisotropicGroup, QStringList() << "Off" << "2x" << "4x" << "8x" << "16x",
-		QList<int>() << 0 << 1 << 2 << 3 << 4, anisotropic_triggered);
-	NEW_ACTION_KEY(videoMenu, bufferRenderAct, bufferRenderAct_triggered, Qt::Key_F5);
-	NEW_ACTION_CHK(videoMenu, linearAct, linearAct_triggered);
+		QList<int>() << 0 << 1 << 2 << 3 << 4);
+	NEW_ACTION_KEY(videoMenu, bufferRenderAct, Qt::Key_F5);
+	NEW_ACTION_CHK(videoMenu, linearAct);
 	videoMenu->addSeparator();
 	// - Screen Size
 	screenMenu = videoMenu->addMenu("");
 	NEW_GROUP_KEYS(screenMenu, screenGroup, QStringList() << "1x" << "2x" << "3x" << "4x", QList<int>() << 1 << 2 << 3 << 4,
-		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4, screen_triggered);
-	NEW_ACTION_CHK(videoMenu, stretchAct, stretchAct_triggered);
+		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
+	NEW_ACTION_CHK(videoMenu, stretchAct);
 	videoMenu->addSeparator();
-	NEW_ACTION_KEY_CHK(videoMenu, transformAct, transformAct_triggered, Qt::Key_F6);
-	NEW_ACTION_CHK(videoMenu, vertexCacheAct, vertexCacheAct_triggered);
-	NEW_ACTION_CHK(videoMenu, frameskipAct, frameskipAct_triggered);
-	NEW_ACTION_CHK(optionsMenu, audioAct, audioAct_triggered);
+	NEW_ACTION_KEY_CHK(videoMenu, transformAct, Qt::Key_F6);
+	NEW_ACTION_CHK(videoMenu, vertexCacheAct);
+	NEW_ACTION_CHK(videoMenu, frameskipAct);
+	NEW_ACTION_CHK(optionsMenu, audioAct);
 	optionsMenu->addSeparator();
-	NEW_ACTION_KEY_CHK(optionsMenu, fullscreenAct, fullscreenAct_triggered, Qt::Key_F11);
-	NEW_ACTION_CHK(optionsMenu, statsAct, statsAct_triggered);
-	NEW_ACTION_CHK(optionsMenu, showFPSAct, showFPSAct_triggered);
+	NEW_ACTION_KEY_CHK(optionsMenu, fullscreenAct, Qt::Key_F11);
+	NEW_ACTION_CHK(optionsMenu, statsAct);
+	NEW_ACTION_CHK(optionsMenu, showFPSAct);
 	optionsMenu->addSeparator();
 	// - Log Levels
 	levelsMenu = optionsMenu->addMenu("");
 	QMenu* defaultLogMenu = levelsMenu->addMenu("Default");
 	NEW_GROUP(defaultLogMenu, defaultLogGroup, QStringList() << "Debug" << "Warning" << "Info" << "Error",
-		QList<int>() << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR, defaultLog_triggered);
+		QList<int>() << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR);
 	QMenu* g3dLogMenu = levelsMenu->addMenu("G3D");
 	NEW_GROUP(g3dLogMenu, g3dLogGroup, QStringList() << "Debug" << "Warning" << "Info" << "Error",
-		QList<int>() << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR, hleLog_triggered);
+		QList<int>() << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR);
 	QMenu* hleLogMenu = levelsMenu->addMenu("HLE");
 	NEW_GROUP(hleLogMenu, hleLogGroup, QStringList() << "Debug" << "Warning" << "Info" << "Error",
-		QList<int>() << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR, g3dLog_triggered);
+		QList<int>() << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR);
 	optionsMenu->addSeparator();
 	// - Language
 	langMenu = optionsMenu->addMenu("");
@@ -738,16 +725,14 @@ void MainWindow::createMenu()
 			action->setData(locale);
 
 			langGroup->addAction(action);
-qDebug() << thisLocale;
 			if (thisLocale == locale) {
 				action->setChecked(true);
 				currentLanguage = locale;
 				loadLanguage(locale, false);
 			}
-			else if (currentLanguage == "" && locale == "en")
+			else if (currentLanguage == "en" && locale == "en")
 			{
 				action->setChecked(true);
-				currentLanguage = "en";
 			}
 		}
 	}
@@ -755,8 +740,8 @@ qDebug() << thisLocale;
 	
 	// Help
     helpMenu = menuBar()->addMenu("");
-	NEW_ACTION(helpMenu, websiteAct, websiteAct_triggered);
-	NEW_ACTION(helpMenu, aboutAct, aboutAct_triggered);
+	NEW_ACTION(helpMenu, websiteAct);
+	NEW_ACTION(helpMenu, aboutAct);
 
 	retranslateUi();
 }

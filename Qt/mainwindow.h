@@ -21,7 +21,7 @@ class MainWindow : public QMainWindow
     
 public:
     explicit MainWindow(QWidget *parent = 0);
-	~MainWindow();
+	~MainWindow() { };
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
 	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
@@ -30,17 +30,17 @@ public:
 	CoreState GetNextState() { return nextState; }
 
 	void ShowMemory(u32 addr);
-	void UpdateMenus();
+	void updateMenus();
 
 protected:
 	void closeEvent(QCloseEvent *);
 	void keyPressEvent(QKeyEvent *e);
 	void keyReleaseEvent(QKeyEvent *e);
+	void timerEvent(QTimerEvent *);
 
 public slots:
 	void Boot();
 	void CoreEmitWait(bool);
-	void Update();
 
 private slots:
 	// File
@@ -77,12 +77,12 @@ private slots:
 	void ignoreIllegalAct_triggered() { g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess; }
 
 	// Video
-	void anisotropic_triggered(QAction *action) { g_Config.iAnisotropyLevel = action->data().toInt(); }
+	void anisotropicGroup_triggered(QAction *action) { g_Config.iAnisotropyLevel = action->data().toInt(); }
 
 	void bufferRenderAct_triggered() { g_Config.iRenderingMode = !g_Config.iRenderingMode; }
 	void linearAct_triggered() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
-	void screen_triggered(QAction *action) { SetZoom(action->data().toInt()); }
+	void screenGroup_triggered(QAction *action) { SetZoom(action->data().toInt()); }
 
 	void stretchAct_triggered();
 	void transformAct_triggered() { g_Config.bHardwareTransform = !g_Config.bHardwareTransform; }
@@ -97,17 +97,18 @@ private slots:
 	void showFPSAct_triggered() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
 
 	// Logs
-	void defaultLog_triggered(QAction * action) {
+	void defaultLogGroup_triggered(QAction * action) {
 		LogTypes::LOG_LEVELS level = (LogTypes::LOG_LEVELS)action->data().toInt();
 		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 		{
 			LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-			if(type == LogTypes::G3D || type == LogTypes::HLE) continue;
+			if(type == LogTypes::G3D || type == LogTypes::HLE)
+				continue;
 			LogManager::GetInstance()->SetLogLevel(type, level);
 		}
 	 }
-	void g3dLog_triggered(QAction * action) { LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, (LogTypes::LOG_LEVELS)action->data().toInt()); }
-	void hleLog_triggered(QAction * action) { LogManager::GetInstance()->SetLogLevel(LogTypes::HLE, (LogTypes::LOG_LEVELS)action->data().toInt()); }
+	void g3dLogGroup_triggered(QAction * action) { LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, (LogTypes::LOG_LEVELS)action->data().toInt()); }
+	void hleLogGroup_triggered(QAction * action) { LogManager::GetInstance()->SetLogLevel(LogTypes::HLE, (LogTypes::LOG_LEVELS)action->data().toInt()); }
 
 	// Help
 	void websiteAct_triggered();
@@ -121,14 +122,13 @@ private:
 	void SetGameTitle(QString text);
 	void loadLanguage(const QString &language, bool retranslate);
 	void retranslateUi();
-	void createMenu();
+	void createMenus();
 	void notifyMapsLoaded();
 
 	QTranslator translator;
 	QString currentLanguage;
 
 	QtEmuGL *emugl;
-	QTimer timer;
 	CoreState nextState;
 	InputState input_state;
 	GlobalUIState lastUIState;
