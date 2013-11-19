@@ -241,7 +241,7 @@ namespace MIPSComp
 	void Jit::Comp_SV(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		s32 imm = (signed short)(op&0xFFFC);
+		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
 
@@ -250,19 +250,24 @@ namespace MIPSComp
 		{
 		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 			{
-				// TODO: Fastpath like FPULS.
+				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+					gpr.MapRegAsPointer(rs);
+					fpr.MapRegV(vt, MAP_NOINIT | MAP_DIRTY);
+					VLDR(fpr.V(vt), gpr.RPtr(rs), offset);
+					break;
+				}
 
 				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 				if (gpr.IsImm(rs)) {
-					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
-						SetR0ToEffectiveAddress(rs, imm);
+						SetR0ToEffectiveAddress(rs, offset);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						SetCCAndR0ForSafeAddress(rs, offset, R1);
 						doCheck = true;
 					}
 					ADD(R0, R0, MEMBASEREG);
@@ -290,17 +295,24 @@ namespace MIPSComp
 
 		case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 			{
+				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+					gpr.MapRegAsPointer(rs);
+					fpr.MapRegV(vt, 0);
+					VSTR(fpr.V(vt), gpr.RPtr(rs), offset);
+					break;
+				}
+
 				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt);
 				if (gpr.IsImm(rs)) {
-					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
-						SetR0ToEffectiveAddress(rs, imm);
+						SetR0ToEffectiveAddress(rs, offset);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						SetCCAndR0ForSafeAddress(rs, offset, R1);
 						doCheck = true;
 					}
 					ADD(R0, R0, MEMBASEREG);
