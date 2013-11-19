@@ -18,12 +18,12 @@
         <file alias="breakpoint">resources/icon1.ico</file>
     </qresource>
     <qresource prefix="/">
-        <file>languages/ppsspp_cn.qm</file>
+        <file>languages/ppsspp_zh-cn.qm</file>
         <file>languages/ppsspp_en.qm</file>
         <file>languages/ppsspp_fr.qm</file>
         <file>languages/ppsspp_pl.qm</file>
         <file>languages/ppsspp_de.qm</file>
-        <file>languages/ppsspp_tc.qm</file>
+        <file>languages/ppsspp_zh-tw.qm</file>
         <file>languages/ppsspp_pt-br.qm</file>
         <file>languages/ppsspp_id.qm</file>
         <file>languages/ppsspp_ru.qm</file>

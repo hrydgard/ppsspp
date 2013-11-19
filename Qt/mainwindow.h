@@ -33,7 +33,6 @@ public:
 	void UpdateMenus();
 
 protected:
-	void changeEvent(QEvent *e);
 	void closeEvent(QCloseEvent *);
 	void keyPressEvent(QKeyEvent *e);
 	void keyReleaseEvent(QKeyEvent *e);
@@ -73,6 +72,7 @@ private slots:
 	// Options
 	// Core
 	void dynarecAct_triggered() { g_Config.bJit = !g_Config.bJit; }
+	void vertexDynarecAct_triggered() { g_Config.bVertexDecoderJit = !g_Config.bVertexDecoderJit; }
 	void fastmemAct_triggered() { g_Config.bFastMemory = !g_Config.bFastMemory; }
 	void ignoreIllegalAct_triggered() { g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess; }
 
@@ -114,13 +114,14 @@ private slots:
 	void aboutAct_triggered();
 
 	// Others
-	void langChanged(QAction *action) { loadLanguage(action->data().toString()); }
+	void langChanged(QAction *action) { loadLanguage(action->data().toString(), true); }
 
 private:
 	void SetZoom(int zoom);
 	void SetGameTitle(QString text);
-	void loadLanguage(const QString &language);
-	void createLanguageMenu();
+	void loadLanguage(const QString &language, bool retranslate);
+	void retranslateUi();
+	void createMenu();
 	void notifyMapsLoaded();
 
 	QTranslator translator;
@@ -139,23 +140,29 @@ private:
 
 	// Menus
 	// File
+	QMenu *fileMenu;
 	QAction *openAct, *closeAct, *qlstateAct, *qsstateAct,
 	        *lstateAct, *sstateAct, *exitAct;
 	// Emulation
+	QMenu *emuMenu;
 	QAction *runAct, *pauseAct, *resetAct, *runonloadAct;
 	// Debug
+	QMenu *debugMenu;
 	QAction *lmapAct, *smapAct, *resetTableAct, *dumpNextAct,
 	        *disasmAct, *dpyListAct, *consoleAct, *memviewAct,
 	        *memviewTexAct;
 	// Options
-	QAction *dynarecAct, *fastmemAct, *ignoreIllegalAct,
-	        *bufferRenderAct,
+	QMenu *optionsMenu, *coreMenu, *videoMenu, *anisotropicMenu,
+	      *screenMenu, *levelsMenu, *langMenu;
+	QAction *dynarecAct, *vertexDynarecAct, *fastmemAct,
+	        *ignoreIllegalAct, *bufferRenderAct,
 	        *linearAct, *stretchAct, *transformAct, *vertexCacheAct,
 	        *frameskipAct, *audioAct, *fullscreenAct, *statsAct,
 	        *showFPSAct;
 	QActionGroup *anisotropicGroup, *screenGroup, *langGroup,
 	             *defaultLogGroup, *g3dLogGroup, *hleLogGroup;
 	// Help
+	QMenu *helpMenu;
 	QAction *websiteAct, *aboutAct;
 	
 };

@@ -13,67 +13,67 @@
 <context>
     <name>CtrlDisAsmView</name>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="91"/>
+        <location filename="../ctrldisasmview.cpp" line="93"/>
         <source>Copy &amp;address</source>
         <translation>Cím másolása</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="95"/>
+        <location filename="../ctrldisasmview.cpp" line="97"/>
         <source>Copy instruction (&amp;hex)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="99"/>
+        <location filename="../ctrldisasmview.cpp" line="101"/>
         <source>Copy instruction (&amp;disasm)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="105"/>
+        <location filename="../ctrldisasmview.cpp" line="107"/>
         <source>&amp;Run to here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="109"/>
+        <location filename="../ctrldisasmview.cpp" line="111"/>
         <source>&amp;Set Next Statement</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="113"/>
+        <location filename="../ctrldisasmview.cpp" line="115"/>
         <source>&amp;Toggle breakpoint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="117"/>
+        <location filename="../ctrldisasmview.cpp" line="119"/>
         <source>&amp;Follow branch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="127"/>
+        <location filename="../ctrldisasmview.cpp" line="129"/>
         <source>Go to in &amp;Memory View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="137"/>
+        <location filename="../ctrldisasmview.cpp" line="139"/>
         <source>&amp;Rename function...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="220"/>
+        <location filename="../ctrldisasmview.cpp" line="222"/>
         <source>New function name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="221"/>
+        <location filename="../ctrldisasmview.cpp" line="223"/>
         <source>New function name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <location filename="../ctrldisasmview.cpp" line="234"/>
         <source>Warning</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Figyelmeztetés</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <location filename="../ctrldisasmview.cpp" line="234"/>
         <source>No symbol selected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -81,32 +81,32 @@
 <context>
     <name>CtrlMemView</name>
     <message>
-        <location filename="../ctrlmemview.cpp" line="201"/>
+        <location filename="../ctrlmemview.cpp" line="208"/>
         <source>Go to in &amp;disasm</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="207"/>
+        <location filename="../ctrlmemview.cpp" line="214"/>
         <source>&amp;Copy value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="211"/>
+        <location filename="../ctrlmemview.cpp" line="218"/>
         <source>C&amp;hange value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="215"/>
+        <location filename="../ctrlmemview.cpp" line="222"/>
         <source>Dump...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="242"/>
+        <location filename="../ctrlmemview.cpp" line="249"/>
         <source>Set new value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="243"/>
+        <location filename="../ctrlmemview.cpp" line="250"/>
         <source>Set new value:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -285,32 +285,32 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="401"/>
+        <location filename="../debugger_disasm.cpp" line="403"/>
         <source>Remove breakpoint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="479"/>
+        <location filename="../debugger_disasm.cpp" line="481"/>
         <source>Go to entry point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="483"/>
+        <location filename="../debugger_disasm.cpp" line="485"/>
         <source>Change status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="485"/>
+        <location filename="../debugger_disasm.cpp" line="487"/>
         <source>Running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="489"/>
+        <location filename="../debugger_disasm.cpp" line="491"/>
         <source>Wait</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="493"/>
+        <location filename="../debugger_disasm.cpp" line="495"/>
         <source>Suspend</source>
         <translation type="unfinished"></translation>
     </message>
@@ -518,12 +518,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_displaylist.cpp" line="1794"/>
+        <location filename="../debugger_displaylist.cpp" line="1799"/>
         <source>Run to here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_displaylist.cpp" line="1817"/>
+        <location filename="../debugger_displaylist.cpp" line="1823"/>
         <source>Run to draw using this texture</source>
         <translation type="unfinished"></translation>
     </message>
@@ -658,657 +658,401 @@
     </message>
 </context>
 <context>
-    <name>GamePadDialog</name>
-    <message>
-        <location filename="../gamepaddialog.ui" line="14"/>
-        <source>Gamepad Configuration</source>
-        <translation>Játékvezérlő Beállítás</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="22"/>
-        <source>GamePad List</source>
-        <translation>Játékvezérlők listája</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="46"/>
-        <source>Refresh</source>
-        <translation>Frissítés</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="53"/>
-        <source>Select</source>
-        <translation>Kiválasztás</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="62"/>
-        <source>Gamepad Values :</source>
-        <translation>Játékvezérlő Értékei :</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="86"/>
-        <source>TextLabel</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="98"/>
-        <source>Assign Gamepad input</source>
-        <translation>Játékvezérlő Gomb hozzárendelése</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="108"/>
-        <source> to PSP button/axis</source>
-        <translation>PSP gomb/tengelyhez</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="118"/>
-        <source>Assign</source>
-        <translation>Hozzárendelés</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="127"/>
-        <source>Press buttons on your gamePad to verify mapping :</source>
-        <translation>Nyomj meg gombokat a játékvezérlődön a gombok ellenőrzéséhez :</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="129"/>
-        <location filename="../gamepaddialog.cpp" line="361"/>
-        <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Nincs Játékvezérlő&lt;/b&gt;</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="141"/>
-        <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Ismeretlen Játékvezérlő&lt;/b&gt;</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="282"/>
-        <source>Buttons</source>
-        <translation>Gombok</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="296"/>
-        <location filename="../gamepaddialog.cpp" line="339"/>
-        <source>Button %1</source>
-        <translation>Gomb %1</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="299"/>
-        <source>Axes</source>
-        <translation>Tengelyek</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="305"/>
-        <source>%1 Neg</source>
-        <translation>%1 Neg</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="312"/>
-        <source>Axes %1 Neg</source>
-        <translation>Tengely %1 Neg</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="315"/>
-        <source>%1 Pos</source>
-        <translation>%1 Poz</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="322"/>
-        <source>Axes %1 Pos</source>
-        <translation>Tengely %1 Poz</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="326"/>
-        <source>Hats</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="363"/>
-        <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Jelenlegi Játékvezérlő: %1&lt;/b&gt;</translation>
-    </message>
-</context>
-<context>
     <name>MainWindow</name>
     <message>
-        <location filename="../mainwindow.ui" line="20"/>
         <source>PPSSPP</source>
-        <translation>PPSSPP</translation>
+        <translation type="obsolete">PPSSPP</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="52"/>
+        <location filename="../mainwindow.cpp" line="530"/>
         <source>&amp;File</source>
         <translation>Fájl</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="66"/>
+        <location filename="../mainwindow.cpp" line="533"/>
+        <source>Quickload State</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="534"/>
+        <source>Quicksave State</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="539"/>
         <source>&amp;Emulation</source>
         <translation>Emuláció</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="77"/>
-        <source>Debu&amp;g</source>
+        <location filename="../mainwindow.cpp" line="542"/>
+        <source>Re&amp;set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="93"/>
+        <location filename="../mainwindow.cpp" line="543"/>
+        <source>Run on &amp;load</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="546"/>
+        <source>Load Map File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="547"/>
+        <source>Save Map File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="548"/>
+        <source>Reset Symbol Table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="549"/>
+        <source>Dump next frame to log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="550"/>
+        <source>Disassembly</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="551"/>
+        <source>Display List...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="552"/>
+        <source>Log Console</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="553"/>
+        <source>Memory View</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="554"/>
+        <source>Memory View Texture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="556"/>
         <source>&amp;Options</source>
         <translation>Beállítások</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="101"/>
-        <source>G3D</source>
+        <location filename="../mainwindow.cpp" line="558"/>
+        <source>&amp;CPU Dynarec</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="110"/>
-        <source>HLE</source>
+        <location filename="../mainwindow.cpp" line="559"/>
+        <source>&amp;Vertex Decoder Dynarec</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="119"/>
+        <location filename="../mainwindow.cpp" line="560"/>
+        <source>Fast &amp;Memory (unstable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="567"/>
+        <source>&amp;Stretch to Display</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="569"/>
+        <source>&amp;VertexCache</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="570"/>
+        <source>&amp;Frameskip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="571"/>
+        <source>&amp;Audio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="572"/>
+        <source>&amp;Fullscreen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="573"/>
+        <source>&amp;Show debug statistics</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="574"/>
+        <source>&amp;Show FPS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="579"/>
+        <source>&amp;Go to official website</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Default</source>
-        <translation>Alapértelmezett</translation>
+        <translation type="obsolete">Alapértelmezett</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="97"/>
         <source>Lo&amp;g Levels</source>
-        <translation>Log szint</translation>
+        <translation type="obsolete">Log szint</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="133"/>
+        <location filename="../mainwindow.cpp" line="576"/>
         <source>&amp;Language</source>
         <translation>Nyelv</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="138"/>
+        <location filename="../mainwindow.cpp" line="562"/>
         <source>&amp;Video</source>
         <translation>Videó</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="142"/>
         <source>&amp;Anisotropic filtering</source>
-        <translation>Anizotróp szűrés</translation>
+        <translation type="obsolete">Anizotróp szűrés</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="152"/>
         <source>&amp;Zoom</source>
-        <translation>Nagyítás</translation>
+        <translation type="obsolete">Nagyítás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="176"/>
         <source>Co&amp;ntrols</source>
-        <translation>Irányítás</translation>
+        <translation type="obsolete">Irányítás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="183"/>
+        <location filename="../mainwindow.cpp" line="557"/>
         <source>&amp;Core</source>
         <translation>Központi</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="206"/>
+        <location filename="../mainwindow.cpp" line="578"/>
         <source>&amp;Help</source>
         <translation>Segítség</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="221"/>
+        <location filename="../mainwindow.cpp" line="531"/>
         <source>&amp;Open...</source>
-        <translation>Megnyitás...</translation>
+        <translation type="unfinished">Megnyitás...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="226"/>
+        <location filename="../mainwindow.cpp" line="532"/>
         <source>&amp;Close</source>
-        <translation>Bezárás</translation>
+        <translation type="unfinished">Bezárás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="231"/>
         <source>-</source>
-        <translation>-</translation>
+        <translation type="obsolete">-</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="236"/>
         <source>Quickload state</source>
-        <translation>Állás gyorsbetöltése</translation>
+        <translation type="obsolete">Állás gyorsbetöltése</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="239"/>
         <source>F4</source>
-        <translation>F4</translation>
+        <translation type="obsolete">F4</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="244"/>
         <source>Quicksave state</source>
-        <translation>Állás gyorsmentése</translation>
+        <translation type="obsolete">Állás gyorsmentése</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="247"/>
         <source>F2</source>
-        <translation>F2</translation>
+        <translation type="obsolete">F2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="252"/>
+        <location filename="../mainwindow.cpp" line="535"/>
         <source>&amp;Load State File...</source>
-        <translation>Állás betöltése...</translation>
+        <translation type="unfinished">Állás betöltése...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="257"/>
+        <location filename="../mainwindow.cpp" line="536"/>
         <source>&amp;Save State File...</source>
-        <translation>Állás mentése...</translation>
+        <translation type="unfinished">Állás mentése...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="262"/>
+        <location filename="../mainwindow.cpp" line="537"/>
         <source>E&amp;xit</source>
-        <translation>Kilépés</translation>
+        <translation type="unfinished">Kilépés</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="267"/>
+        <location filename="../mainwindow.cpp" line="540"/>
         <source>&amp;Run</source>
-        <translation>Futtatás</translation>
+        <translation type="unfinished">Futtatás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="270"/>
         <source>F7</source>
-        <translation>F7</translation>
+        <translation type="obsolete">F7</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="275"/>
+        <location filename="../mainwindow.cpp" line="541"/>
         <source>&amp;Pause</source>
-        <translation>Szüneteltetés</translation>
+        <translation type="unfinished">Szüneteltetés</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="278"/>
         <source>F8</source>
-        <translation>F8</translation>
+        <translation type="obsolete">F8</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="283"/>
         <source>R&amp;eset</source>
-        <translation>Újraindítás</translation>
+        <translation type="obsolete">Újraindítás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="291"/>
         <source>&amp;Interpreter</source>
-        <translation type="unfinished">Interpreter</translation>
+        <translation type="obsolete">Interpreter</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="299"/>
         <source>&amp;Dynarec</source>
-        <translation type="unfinished">Dynarec</translation>
+        <translation type="obsolete">Dynarec</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="307"/>
         <source>Load &amp;Map File...</source>
-        <translation>Map fájl betöltése...</translation>
+        <translation type="obsolete">Map fájl betöltése...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="315"/>
         <source>&amp;Save Map File...</source>
-        <translation>Map fájl mentése...</translation>
+        <translation type="obsolete">Map fájl mentése...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="323"/>
-        <source>&amp;Reset Symbol Table</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="328"/>
-        <source>&amp;Disassembly</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="331"/>
         <source>Ctrl+D</source>
-        <translation>Ctrl+D</translation>
+        <translation type="obsolete">Ctrl+D</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="339"/>
         <source>&amp;Log Console</source>
-        <translation type="unfinished">Log Konzol</translation>
+        <translation type="obsolete">Log Konzol</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="342"/>
         <source>Ctrl+L</source>
-        <translation>Ctrl+L</translation>
+        <translation type="obsolete">Ctrl+L</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="347"/>
-        <source>Memory &amp;View...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="350"/>
         <source>Ctrl+M</source>
-        <translation>Ctrl+M</translation>
+        <translation type="obsolete">Ctrl+M</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="355"/>
         <source>&amp;Keyboard</source>
-        <translation>Billentyűzet</translation>
+        <translation type="obsolete">Billentyűzet</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="360"/>
         <source>&amp;Toggle fullscreen</source>
-        <translation>Teljesképernyőre váltás</translation>
+        <translation type="obsolete">Teljesképernyőre váltás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="417"/>
-        <source>Show &amp;debug statistics</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="477"/>
         <source>I&amp;gnore illegal reads/writes</source>
-        <translation>Illegális olvasások/írások mellőzése</translation>
+        <translation type="obsolete">Illegális olvasások/írások mellőzése</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="596"/>
         <source>&amp;Gamepad</source>
-        <translation>Játékvezérlő</translation>
+        <translation type="obsolete">Játékvezérlő</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="601"/>
         <source>Run on loa&amp;d</source>
-        <translation>Futtatás betöltéskor</translation>
+        <translation type="obsolete">Futtatás betöltéskor</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="680"/>
         <source>Show &amp;FPS counter</source>
-        <translation>FPS számláló mutatása</translation>
+        <translation type="obsolete">FPS számláló mutatása</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="688"/>
         <source>S&amp;tretch to display</source>
-        <translation>Kép nyújtása</translation>
+        <translation type="obsolete">Kép nyújtása</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="696"/>
         <source>&amp;Sound emulation</source>
-        <translation>Hang emuláció</translation>
+        <translation type="obsolete">Hang emuláció</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="363"/>
-        <source>F11</source>
-        <translation>F11</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="371"/>
+        <location filename="../mainwindow.cpp" line="564"/>
         <source>&amp;Buffered Rendering</source>
-        <translation>Pufferelt Renderelés</translation>
+        <translation type="unfinished">Pufferelt Renderelés</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="374"/>
-        <source>F5</source>
-        <translation>F5</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="382"/>
+        <location filename="../mainwindow.cpp" line="568"/>
         <source>&amp;Hardware Transform</source>
-        <translation>Hardveres Átváltoztatás</translation>
+        <translation type="unfinished">Hardveres Átváltoztatás</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="385"/>
         <source>F6</source>
-        <translation>F6</translation>
+        <translation type="obsolete">F6</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="393"/>
+        <location filename="../mainwindow.cpp" line="565"/>
         <source>&amp;Linear Filtering</source>
-        <translation>Lineáris Szűrés</translation>
+        <translation type="unfinished">Lineáris Szűrés</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="401"/>
-        <source>&amp;Wireframe (experimental)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="409"/>
-        <source>&amp;Display Raw Framebuffer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="425"/>
-        <source>Screen &amp;1x</source>
-        <translation>1x-es méret</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="428"/>
-        <source>Ctrl+1</source>
-        <translation>Ctrl+1</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="436"/>
-        <source>Screen &amp;2x</source>
-        <translation>2x-es méret</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="439"/>
-        <source>Ctrl+2</source>
-        <translation>Ctrl+2</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="447"/>
-        <source>Screen &amp;3x</source>
-        <translation>3x-os méret</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="450"/>
-        <source>Ctrl+3</source>
-        <translation>Ctrl+3</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="458"/>
-        <source>Screen &amp;4x</source>
-        <translation>4x-es méret</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="461"/>
-        <source>Ctrl+4</source>
-        <translation>Ctrl+4</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="469"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>Gyors Memória (dynarec, instabil)</translation>
+        <translation type="obsolete">Gyors Memória (dynarec, instabil)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="482"/>
         <source>&amp;Go to http://www.ppsspp.org/</source>
-        <translation>Ugrás a honlapra http//www.ppsspp.org/ </translation>
+        <translation type="obsolete">Ugrás a honlapra http//www.ppsspp.org/ </translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="487"/>
+        <location filename="../mainwindow.cpp" line="580"/>
         <source>&amp;About PPSSPP...</source>
-        <translation>PPSSPP Névjegye</translation>
+        <translation type="unfinished">PPSSPP Névjegye</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="495"/>
         <source>&amp;Use VBO</source>
-        <translation>VBO Használata</translation>
+        <translation type="obsolete">VBO Használata</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="503"/>
-        <location filename="../mainwindow.ui" line="535"/>
-        <location filename="../mainwindow.ui" line="567"/>
-        <source>Debug</source>
+        <location filename="../mainwindow.cpp" line="545"/>
+        <source>De&amp;bug</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="511"/>
-        <location filename="../mainwindow.ui" line="543"/>
-        <location filename="../mainwindow.ui" line="575"/>
+        <location filename="../mainwindow.cpp" line="561"/>
+        <source>&amp;Ignore Illegal reads/writes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="563"/>
+        <source>&amp;Anisotropic Filtering</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="566"/>
+        <source>&amp;Screen Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="575"/>
+        <source>Lo&amp;g levels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Warning</source>
-        <translation>Figyelmeztetés</translation>
+        <translation type="obsolete">Figyelmeztetés</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="519"/>
-        <location filename="../mainwindow.ui" line="559"/>
-        <location filename="../mainwindow.ui" line="591"/>
         <source>Error</source>
-        <translation>Hiba</translation>
+        <translation type="obsolete">Hiba</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="527"/>
-        <location filename="../mainwindow.ui" line="551"/>
-        <location filename="../mainwindow.ui" line="583"/>
         <source>Info</source>
-        <translation>Infó</translation>
+        <translation type="obsolete">Infó</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="606"/>
-        <source>D&amp;ump next frame to log</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="614"/>
-        <source>&amp;Vertex Cache</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="619"/>
-        <source>Memory View Texture...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="624"/>
-        <source>DisplayList...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="632"/>
-        <source>Simple 2xAA</source>
-        <translation>Egyszerű 2x-es AA</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="640"/>
         <source>Off</source>
-        <translation>Ki</translation>
+        <translation type="obsolete">Ki</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="648"/>
-        <source>2x</source>
-        <translation>2x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="656"/>
-        <source>4x</source>
-        <translation>4x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="664"/>
-        <source>8x</source>
-        <translation>8x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="672"/>
-        <source>16x</source>
-        <translation>16x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="704"/>
         <source>Frameskip</source>
-        <translation type="unfinished">Frameskip</translation>
+        <translation type="obsolete">Frameskip</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="571"/>
-        <source>Gamepad</source>
-        <translation>Játékvezérlő</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="571"/>
         <source>You need to compile with SDL to have Gamepad support.</source>
-        <translation>SDL-t kell használnod fordításnál Játékvezérlő támogatásért.</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="923"/>
-        <source>No translations</source>
-        <translation>Nincs Fordítás</translation>
-    </message>
-</context>
-<context>
-    <name>gamepadMapping</name>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="19"/>
-        <source>Cross</source>
-        <translation>Kereszt</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="20"/>
-        <source>Circle</source>
-        <translation>Kör</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="21"/>
-        <source>Square</source>
-        <translation>Négyzet</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="22"/>
-        <source>Triangle</source>
-        <translation>Háromszög</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="23"/>
-        <source>Left Trigger</source>
-        <translation>Bal Trigger</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="24"/>
-        <source>Right Trigger</source>
-        <translation>Jobb Trigger</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="25"/>
-        <source>Start</source>
-        <translation>Start</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="26"/>
-        <source>Select</source>
-        <translation>Select</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="27"/>
-        <source>Up</source>
-        <translation>Fel</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="28"/>
-        <source>Down</source>
-        <translation>Le</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="29"/>
-        <source>Left</source>
-        <translation>Bal</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="30"/>
-        <source>Right</source>
-        <translation>Jobb</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="32"/>
-        <source>Home</source>
-        <translation>Home</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="35"/>
-        <source>Stick left</source>
-        <translation>Stick balra</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="36"/>
-        <source>Stick right</source>
-        <translation>Stick jobbra</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="37"/>
-        <source>Stick up</source>
-        <translation>Stick fel</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="38"/>
-        <source>Stick bottom</source>
-        <translation>Stick le</translation>
+        <translation type="obsolete">SDL-t kell használnod fordításnál Játékvezérlő támogatásért.</translation>
     </message>
 </context>
 </TS>
