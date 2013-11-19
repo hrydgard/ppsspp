@@ -38,7 +38,7 @@
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
+#define NEON_IF_AVAILABLE(func) { if (jo.useNEONVFPU) { func(); return; } }
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
 #define _RD MIPS_GET_RD(op)
@@ -237,6 +237,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_SV(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_SV);
 		CONDITIONAL_DISABLE;
 
 		s32 offset = (signed short)(op & 0xFFFC);
@@ -343,6 +344,7 @@ namespace MIPSComp
 	void Jit::Comp_SVQ(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
+		NEON_IF_AVAILABLE(CompNEON_SVQ);
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
@@ -454,8 +456,8 @@ namespace MIPSComp
 
 	void Jit::Comp_VVectorInit(MIPSOpcode op)
 	{
+		NEON_IF_AVAILABLE(CompNEON_VVectorInit);
 		CONDITIONAL_DISABLE;
-
 		// WARNING: No prefix support!
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -490,6 +492,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VIdt(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VIdt);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -527,8 +530,8 @@ namespace MIPSComp
 
 	void Jit::Comp_VMatrixInit(MIPSOpcode op)
 	{
+		NEON_IF_AVAILABLE(CompNEON_VMatrixInit);
 		CONDITIONAL_DISABLE;
-
 		if (js.HasUnknownPrefix()) {
 			// Don't think matrix init ops care about prefixes.
 			// DISABLE;
@@ -575,6 +578,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VHdp(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VHdp);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -651,6 +655,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VecDo3(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VecDo3);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -765,6 +770,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VV2Op(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VV2Op);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -890,6 +896,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vi2f(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vi2f);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -936,15 +943,16 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vh2f(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vh2f(op))
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
 		if (!cpu_info.bNEON || !cpu_info.bHalf) {
 			// No hardware support for half-to-float, fallback to interpreter
 			// TODO: Translate the fast SSE solution to standard integer/VFP stuff
 			// for the weaker CPUs.
-			DISABLE;
-		}
-
-		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -991,11 +999,13 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vf2i(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vf2i);
 		CONDITIONAL_DISABLE;
-		DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
+		DISABLE;
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1060,6 +1070,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Mftv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		NEON_IF_AVAILABLE(CompNEON_Mftv);
 
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
@@ -1127,6 +1138,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -1148,10 +1160,10 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmmov(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmmov);
 		CONDITIONAL_DISABLE;
 
 		// This probably ignores prefixes for all sane intents and purposes.
-
 		if (_VS == _VD) {
 			// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
 			return;
@@ -1186,6 +1198,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VScl);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1238,6 +1251,7 @@ namespace MIPSComp
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+		NEON_IF_AVAILABLE(CompNEON_Vmmul);
 
 		// TODO: This probably ignores prefixes?
 
@@ -1276,10 +1290,12 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmscl(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmscl);
 		DISABLE;
 	}
 
 	void Jit::Comp_Vtfm(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vtfm);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1340,23 +1356,27 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrs(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VCrs);
 		DISABLE;
 	}
 
 	void Jit::Comp_VDet(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VDet);
 		DISABLE;
 	}
 
 	void Jit::Comp_Vi2x(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vi2x);
 		DISABLE;
 	}
 
 	void Jit::Comp_Vx2i(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vx2i);
 		DISABLE;
 	}
 
 	void Jit::Comp_VCrossQuat(MIPSOpcode op) {
-
+		NEON_IF_AVAILABLE(CompNEON_VCrossQuat);
 		// This op does not support prefixes anyway.
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
@@ -1404,6 +1424,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmp(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vcmp);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
@@ -1592,6 +1613,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmov(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vcmov);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1640,6 +1662,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Viim(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Viim);
 		CONDITIONAL_DISABLE;
 
 		u8 dreg;
@@ -1654,11 +1677,11 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vfim(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vfim);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
-
 
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);
@@ -1674,6 +1697,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcst(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vcst);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1724,6 +1748,7 @@ namespace MIPSComp
 	// calling the math library.
 	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
 	void Jit::Comp_VRot(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VRot);
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1784,6 +1809,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vhoriz(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
 		DISABLE;
 
 		// Do any games use these a noticable amount?
@@ -1796,6 +1822,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vsgn(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vsgn);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1847,6 +1874,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vocp(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vocp);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;

@@ -915,6 +915,9 @@
     <ClInclude Include="MIPS\JitCommon\JitState.h">
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmCompVFPUNEON.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

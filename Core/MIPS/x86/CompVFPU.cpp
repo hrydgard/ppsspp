@@ -410,8 +410,6 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 		}
 		break;
 
-
-
 	default:
 		DISABLE;
 		break;

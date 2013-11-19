@@ -56,12 +56,12 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
   $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  ArmEmitterTest.cpp \
-
+  ArmEmitterTest.cpp
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi)
@@ -74,12 +74,12 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
   $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  ArmEmitterTest.cpp \
-
+  ArmEmitterTest.cpp
 endif
 
 EXEC_AND_LIB_FILES := \
