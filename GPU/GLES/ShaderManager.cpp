@@ -393,19 +393,36 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	// Texturing
 	if (dirty & DIRTY_UVSCALEOFFSET) {
 		float uvscaleoff[4];
-		if (gstate.isModeThrough()) {
-			// We never get here because we don't use HW transform with through mode.
-			// Although - why don't we?
-			uvscaleoff[0] = gstate_c.uv.uScale / (float)gstate_c.curTextureWidth;
-			uvscaleoff[1] = gstate_c.uv.vScale / (float)gstate_c.curTextureHeight;
-			uvscaleoff[2] = gstate_c.uv.uOff / (float)gstate_c.curTextureWidth;
-			uvscaleoff[3] = gstate_c.uv.vOff / (float)gstate_c.curTextureHeight;
+		float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		float invH = 1.0f / (float)gstate_c.curTextureHeight;
+
+		if (g_Config.bPrescaleUV) {
+			// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
+			// except consider *Scale and *Off to be 1 and 0.
+			int w = gstate.getTextureWidth(0);
+			int h = gstate.getTextureHeight(0);
+			float widthFactor = (float)w * invW;
+			float heightFactor = (float)h * invH;
+			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
+			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
+				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+				float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+				uvscaleoff[0] = factor * widthFactor;
+				uvscaleoff[1] = factor * heightFactor;
+				uvscaleoff[2] = 0;
+				uvscaleoff[3] = 0;
+			} else {
+				uvscaleoff[0] = widthFactor;
+				uvscaleoff[1] = heightFactor;
+				uvscaleoff[2] = 0.0f;
+				uvscaleoff[3] = 0.0f;
+			}
 			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 		} else {
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
+			float widthFactor = (float)w * invW;
+			float heightFactor = (float)h * invH;
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
 				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};

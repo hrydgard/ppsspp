@@ -709,7 +709,8 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		if (tcalign[tc] > biggest)
 			biggest = tcalign[tc];
 
-		if (g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0) {
+		// NOTE: That we check getTextureFunction here means that we must include it in the decoder ID!
+		if (g_Config.bPrescaleUV && !throughmode && (gstate.getTextureFunction() == 0 || gstate.getTextureFunction() == 3)) {
 			steps_[numSteps_++] = tcstep_prescale[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {

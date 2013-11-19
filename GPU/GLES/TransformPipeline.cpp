@@ -250,11 +250,15 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 }
 
 void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
-	if (vertType != lastVType_) {
-		dec_ = GetVertexDecoder(vertType);
-		lastVType_ = vertType;
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
 	}
 }
 

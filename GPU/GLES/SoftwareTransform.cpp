@@ -292,12 +292,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	float uscale = 1.0f;
 	float vscale = 1.0f;
+	bool scaleUV = false;
 	if (throughmode) {
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
+	} else {
+		scaleUV = !g_Config.bPrescaleUV;
 	}
 
-	bool scaleUV = !g_Config.bPrescaleUV;
 
 	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
 
@@ -443,11 +445,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
 				// Texture scale/offset is only performed in this mode.
 				if (scaleUV) {
-					uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
-					uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
+					uv[0] = ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff;
+					uv[1] = ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff;
 				} else {
-					uv[0] = uscale * ruv[0];
-					uv[1] = vscale * ruv[1];
+					uv[0] = ruv[0];
+					uv[1] = ruv[1];
 				}
 				uv[2] = 1.0f;
 				break;
