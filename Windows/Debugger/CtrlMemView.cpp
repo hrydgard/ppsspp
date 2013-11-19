@@ -435,17 +435,18 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		{
 		case ID_MEMVIEW_DUMP:
      
-			if (!Core_IsStepping()) // If emulator isn't paused
+			bool PriorDumpIsPaused=Core_IsStepping();
+			if (!PriorDumpIsPaused) // If emulator isn't paused
 			{
-				MessageBox(wnd,L"You have to pause the emulator first",0,0);
-				break;
+				Core_EnableStepping(true); //force paused state
 			}
-			else
+			DumpMemoryWindow dump(wnd,debugger);
+			dump.exec();
+			if (!PriorDumpIsPaused) // If emulator wasn't paused before dumping
 			{
-				DumpMemoryWindow dump(wnd,debugger);
-				dump.exec();
-				break;
+				Core_EnableStepping(false);//resume emulation
 			}
+			break;
 
 		case ID_MEMVIEW_COPYVALUE_8:
 			{
