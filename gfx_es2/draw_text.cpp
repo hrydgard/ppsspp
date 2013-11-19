@@ -12,7 +12,7 @@
 #include <QtOpenGL/QGLWidget>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
