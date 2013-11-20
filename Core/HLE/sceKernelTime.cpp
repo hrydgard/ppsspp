@@ -71,7 +71,7 @@ u32 sceKernelGetSystemTimeLow()
 
 u64 sceKernelGetSystemTimeWide()
 {
-	u64 t = CoreTiming::GetGlobalTimeUs();
+	u64 t = CoreTiming::GetGlobalTimeUsScaled();
 	DEBUG_LOG(SCEKERNEL,"%i=sceKernelGetSystemTimeWide()",(u32)t);
 	hleEatCycles(250);
 	hleReSchedule("system time");
