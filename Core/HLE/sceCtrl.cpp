@@ -323,7 +323,7 @@ void __CtrlDoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	
-	auto s = p.Section("sceCtrl", 1, 2);
+	auto s = p.Section("sceCtrl", 1, 3);
 	if (!s)
 		return;
 
@@ -332,7 +332,10 @@ void __CtrlDoState(PointerWrap &p)
 	p.Do(ctrlOldButtons);
 
 	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
-	p.Do(ctrlCurrent);
+	if (s <= 2) {
+		_ctrl_data dummy = {0};
+		p.Do(dummy);
+	}
 	p.Do(ctrlBuf);
 	p.Do(ctrlBufRead);
 	p.Do(latch);
