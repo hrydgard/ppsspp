@@ -646,6 +646,7 @@ void ScrollView::Draw(UIContext &dc) {
 		ViewGroup::Draw(dc);
 		return;
 	}
+
 	dc.PushScissor(bounds_);
 	views_[0]->Draw(dc);
 	dc.PopScissor();
@@ -707,8 +708,10 @@ void ScrollView::ScrollRelative(float distance) {
 }
 
 void ScrollView::ClampScrollPos(float &pos) {
-	if (!views_.size())
+	if (!views_.size()) {
 		pos = 0.0f;
+		return;
+	}
 	// Clamp scrollTarget.
 	float childHeight = views_[0]->GetBounds().h;
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
