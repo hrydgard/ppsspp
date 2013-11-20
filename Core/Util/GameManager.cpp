@@ -116,13 +116,34 @@ void GameManager::InstallGame(std::string zipfile) {
 	int numFiles = zip_get_num_files(z);
 
 	// First, find all the directories, and precreate them before we fill in with files.
+	// Also, verify that this is a PSP zip file with the correct layout.
+	bool isPSP = false;
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
-		std::string outFilename = pspGame + fn;
+		std::string zippedName = fn;
+		std::string outFilename = pspGame + zippedName;
 		bool isDir = outFilename.back() == '/';
 		if (isDir) {
 			File::CreateFullPath(outFilename.c_str());
 		}
+
+		if (zippedName.find("EBOOT.PBP") != std::string::npos) {
+			int slashCount = 0;
+			for (size_t i = 0; i < zippedName.size(); i++) {
+				if (zippedName[i] == '/')
+					slashCount++;
+			}
+			if (slashCount == 1) {
+				isPSP = true;
+			} else {
+				INFO_LOG(HLE, "Wrong number of slashes (%i) in %s", slashCount, zippedName.c_str());
+			}
+		}
+	}
+
+	if (!isPSP) {
+		ERROR_LOG(HLE, "File not a PSP game");
+		return;
 	}
 
 	// Now, loop through again, writing files.
