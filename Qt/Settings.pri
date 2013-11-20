@@ -13,6 +13,7 @@ INCLUDEPATH += ../ext/zlib ../native/ext/glew ../Common
 win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast
 	DEFINES += _MBCS GLEW_STATIC _CRT_SECURE_NO_WARNINGS
+	contains(DEFINES,UNICODE): DEFINES+=_UNICODE
 	PRECOMPILED_HEADER = ../Windows/stdafx.h
 	PRECOMPILED_SOURCE = ../Windows/stdafx.cpp
 	INCLUDEPATH += .. ../ffmpeg/Windows/$${QMAKE_TARGET.arch}/include

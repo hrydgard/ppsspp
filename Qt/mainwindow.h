@@ -1,6 +1,11 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <QtCore>
+#include <QMenuBar>
+#include <QMainWindow>
+#include <QActionGroup>
+
 #include "ConsoleListener.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -9,9 +14,6 @@
 #include "debugger_memory.h"
 #include "debugger_memorytex.h"
 #include "debugger_displaylist.h"
-
-#include <QtCore>
-#include <QtGui>
 
 class QtEmuGL;
 

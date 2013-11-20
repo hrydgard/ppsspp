@@ -1,4 +1,12 @@
+// Qt Desktop UI: works on Linux, Windows and Mac OSX
 #include "mainwindow.h"
+
+#include <QApplication>
+#include <QDesktopServices>
+#include <QDesktopWidget>
+#include <QFileDialog>
+#include <QKeyEvent>
+#include <QMessageBox>
 
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -12,8 +20,6 @@
 #include "QtHost.h"
 #include "qtemugl.h"
 
-// TODO: Make this class thread-aware. Can't send events to a different thread. Currently only works on X11.
-// Needs to use QueuedConnection for signals/slots.
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	nextState(CORE_POWERDOWN),
@@ -454,7 +460,7 @@ void MainWindow::websiteAct_triggered()
 
 void MainWindow::aboutAct_triggered()
 {
-	// TODO display about
+	QMessageBox::about(this, "PPSSPP Qt", QString::fromLocal8Bit("Created by Henrik Rydg\xc3\xa5rd"));
 }
 
 /* Private functions */
