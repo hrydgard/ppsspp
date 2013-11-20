@@ -284,7 +284,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		painter.begin(&image);
 		painter.setFont(*font);
 		painter.setPen(color);
-		painter.drawText(0, font->pixelSize() - 4, QString::fromLocal8Bit(str));
+		painter.drawText(0, font->pixelSize() - 4, QString::fromUtf8(str));
 		painter.end();
 
 		entry = new TextStringEntry();
