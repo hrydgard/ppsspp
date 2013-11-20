@@ -126,12 +126,6 @@ void GameManager::InstallGame(std::string zipfile) {
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
-		std::string outFilename = pspGame + zippedName;
-		bool isDir = outFilename.back() == '/';
-		if (isDir) {
-			File::CreateFullPath(outFilename.c_str());
-		}
-
 		if (zippedName.find("EBOOT.PBP") != std::string::npos) {
 			int slashCount = 0;
 			for (size_t i = 0; i < zippedName.size(); i++) {
@@ -154,7 +148,8 @@ void GameManager::InstallGame(std::string zipfile) {
 	// Create all the directories in one pass
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
-		std::string outFilename = pspGame + fn;
+		std::string zippedName = fn;
+		std::string outFilename = pspGame + zippedName;
 		bool isDir = outFilename.back() == '/';
 		if (isDir) {
 			File::CreateFullPath(outFilename.c_str());
