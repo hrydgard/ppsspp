@@ -602,11 +602,11 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "Speed: %0.1f%%", vps / 60.0f * 100.0f); break;
+			sprintf(fpsbuf, "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
 		case 2:
 			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / 60.0f * 100.0f); break;
+			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
 		default:
 			return;
 		}
