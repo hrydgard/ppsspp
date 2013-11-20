@@ -446,8 +446,8 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				{
 					Core_EnableStepping(false); //Resume emulation automatically
 				}
-				break;
 			}
+			break;
 			
 		case ID_MEMVIEW_COPYVALUE_8:
 			{
