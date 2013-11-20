@@ -439,7 +439,7 @@ void GameInfoCache::Add(const std::string &key, GameInfo *info_) {
 // This may run off-main-thread and we thus can't use the global
 // pspFileSystem (well, we could with synchronization but there might not
 // even be a game running).
-GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
+GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG, bool synchronous) {
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
 		GameInfo *info = iter->second;
@@ -500,6 +500,10 @@ again:
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
+
+	if (synchronous) {
+		gameInfoWQ_->Wait(item);
+	}
 
 	info_[gamePath] = info;
 	return info;

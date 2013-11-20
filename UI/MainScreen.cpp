@@ -40,6 +40,7 @@
 #include "UI/CwCheatScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
 #include "GPU/GPUInterface.h"
@@ -501,6 +502,7 @@ void MainScreen::CreateViews() {
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnItems->Add(new Choice(m->T("Homebrew Store")))->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
 #ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #endif
@@ -645,6 +647,11 @@ UI::EventReturn MainScreen::OnRecentChange(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 	screenManager()->push(new CreditsScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnHomebrewStore(UI::EventParams &e) {
+	screenManager()->push(new StoreScreen());
 	return UI::EVENT_DONE;
 }
 

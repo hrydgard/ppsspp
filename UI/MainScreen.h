@@ -51,6 +51,7 @@ private:
 	UI::EventReturn OnExit(UI::EventParams &e);
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
+	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
 
 	UI::LinearLayout *upgradeBar_;
 };

@@ -61,6 +61,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
+#include "Core/Util/GameManager.h"
 #include "Common/MemArena.h"
 
 #include "ui_atlas.h"
@@ -566,6 +567,8 @@ void TakeScreenshot() {
 }
 
 void NativeRender() {
+	g_GameManager.Update();
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
