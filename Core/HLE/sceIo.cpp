@@ -1450,7 +1450,6 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			break;
 		case 0x02425823:  
 			// Check if FAT enabled
-			hleEatCycles(23500);
 			// If the values added together are >= 0x80000000, or less than outPtr, invalid address.
 			if (((int)outPtr + outLen) < (int)outPtr) {
 				ERROR_LOG(SCEIO, "sceIoDevctl: fatms0: 0x02425823 command, bad address");
@@ -1462,7 +1461,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			} else {
 				// Does not care about outLen, even if it's 0.
 				Memory::Write_U32(MemoryStick_FatState(), outPtr);
-				return 0;
+				return hleDelayResult(0, "check fat state", cyclesToUs(23500));
 			}
 			break;
 		case 0x02425824:  
