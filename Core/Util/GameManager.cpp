@@ -56,20 +56,26 @@ bool GameManager::DownloadAndInstall(std::string storeZipUrl) {
 	return true;
 }
 
-void GameManager::Uninstall(std::string name) {
+bool GameManager::Uninstall(std::string name) {
+	if (name.empty()) {
+		ERROR_LOG(HLE, "Cannot remove an empty-named game");
+		return false;
+	}
 	std::string gameDir = GetSysDirectory(DIRECTORY_GAME) + name;
 	INFO_LOG(HLE, "Deleting %s", gameDir.c_str());
 	if (!File::Exists(gameDir)) {
 		ERROR_LOG(HLE, "Game %s not installed, cannot uninstall", name.c_str());
-		return;
+		return false;
 	}
 
 	bool success = File::DeleteDirRecursively(gameDir);
 	if (success) {
 		INFO_LOG(HLE, "Successfully deleted game %s", name.c_str());
 		g_Config.CleanRecent();
+		return true;
 	} else {
 		ERROR_LOG(HLE, "Failed to delete game %s", name.c_str());
+		return false;
 	}
 }
 

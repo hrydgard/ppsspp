@@ -28,7 +28,7 @@ public:
 
 	// This starts off a background process.
 	bool DownloadAndInstall(std::string storeZipUrl);
-	void Uninstall(std::string name);
+	bool Uninstall(std::string name);
 
 	// Call from time to time to check on completed downloads from the
 	// main UI thread.
