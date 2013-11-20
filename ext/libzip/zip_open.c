@@ -43,11 +43,16 @@
 #include "zipint.h"
 
 static void set_error(int *, struct zip_error *, int);
-static struct zip *_zip_allocate_new(const char *, int *);
 static int _zip_checkcons(FILE *, struct zip_cdir *, struct zip_error *);
 static void _zip_check_torrentzip(struct zip *);
 static struct zip_cdir *_zip_find_central_dir(FILE *, int, int *, off_t);
+#ifdef UNICODE
+static struct zip *_zip_allocate_new(const wchar_t *, int *);
+static int _zip_file_exists(const wchar_t *, int, int *);
+#else
+static struct zip *_zip_allocate_new(const char *, int *);
 static int _zip_file_exists(const char *, int, int *);
+#endif
 static int _zip_headercomp(struct zip_dirent *, int,
 			   struct zip_dirent *, int);
 static unsigned char *_zip_memmem(const unsigned char *, int,
@@ -56,9 +61,12 @@ static struct zip_cdir *_zip_readcdir(FILE *, unsigned char *, unsigned char *,
 				 int, int, struct zip_error *);
 
 
-
 ZIP_EXTERN struct zip *
+#ifdef UNICODE
+zip_open(const wchar_t *fn, int flags, int *zep)
+#else
 zip_open(const char *fn, int flags, int *zep)
+#endif
 {
     FILE *fp;
     struct zip *za;
@@ -75,8 +83,12 @@ zip_open(const char *fn, int flags, int *zep)
 	break;
     }
 
-    if ((fp=fopen(fn, "rb")) == NULL) {
-	set_error(zep, NULL, ZIP_ER_OPEN);
+#ifdef UNICODE
+		if ((fp=_wfopen(fn, L"rb")) == NULL) {
+#else
+		if ((fp=fopen(fn, "rb")) == NULL) {
+#endif
+			set_error(zep, NULL, ZIP_ER_OPEN);
 	return NULL;
     }
 
@@ -417,7 +429,11 @@ _zip_headercomp(struct zip_dirent *h1, int local1p, struct zip_dirent *h2,
 
 
 static struct zip *
+#ifdef _UNICODE
+_zip_allocate_new(const wchar_t *fn, int *zep)
+#else
 _zip_allocate_new(const char *fn, int *zep)
+#endif
 {
     struct zip *za;
     struct zip_error error;
@@ -426,8 +442,12 @@ _zip_allocate_new(const char *fn, int *zep)
 	set_error(zep, &error, 0);
 	return NULL;
     }
-	
-    za->zn = strdup(fn);
+
+#ifdef UNICODE
+		za->zn = _wcsdup(fn);
+#else
+		za->zn = strdup(fn);
+#endif
     if (!za->zn) {
 	_zip_free(za);
 	set_error(zep, NULL, ZIP_ER_MEMORY);
@@ -439,16 +459,27 @@ _zip_allocate_new(const char *fn, int *zep)
 
 
 static int
+#ifdef UNICODE
+_zip_file_exists(const wchar_t *fn, int flags, int *zep)
+#else
 _zip_file_exists(const char *fn, int flags, int *zep)
+#endif
 {
-    struct stat st;
-
+#ifdef UNICODE
+	struct _stat st;
+#else
+	struct stat st;
+#endif
     if (fn == NULL) {
 	set_error(zep, NULL, ZIP_ER_INVAL);
 	return -1;
     }
     
-    if (stat(fn, &st) != 0) {
+#ifdef UNICODE
+		if (_wstat(fn, &st) != 0) {
+#else
+		if (stat(fn, &st) != 0) {
+#endif
 	if (flags & ZIP_CREATE)
 	    return 0;
 	else {

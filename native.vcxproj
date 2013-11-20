@@ -171,6 +171,7 @@
     </None>
     <None Include="Android.mk" />
     <None Include="base\CMakeLists.txt" />
+    <None Include="ext\libzip\Android.mk" />
     <None Include="ext\stb_image\CMakeLists.txt" />
     <None Include="file\CMakeLists.txt" />
     <None Include="README.md" />
@@ -206,6 +207,7 @@
     <ClInclude Include="ext\cityhash\citycrc.h" />
     <ClInclude Include="ext\jpge\jpgd.h" />
     <ClInclude Include="ext\jpge\jpge.h" />
+    <ClInclude Include="ext\libzip\config.h" />
     <ClInclude Include="ext\libzip\zip.h" />
     <ClInclude Include="ext\libzip\zipint.h" />
     <ClInclude Include="ext\rg_etc1\rg_etc1.h" />

@@ -19,6 +19,9 @@
       <Filter>ui</Filter>
     </None>
     <None Include="..\ios\main.mm" />
+    <None Include="ext\libzip\Android.mk">
+      <Filter>ext\libzip</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -293,6 +296,9 @@
       <Filter>ext\libzip</Filter>
     </ClInclude>
     <ClInclude Include="ext\libzip\zipint.h">
+      <Filter>ext\libzip</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libzip\config.h">
       <Filter>ext\libzip</Filter>
     </ClInclude>
   </ItemGroup>

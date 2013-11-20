@@ -53,7 +53,12 @@ static int copy_data(FILE *, off_t, FILE *, struct zip_error *);
 static int write_cdir(struct zip *, struct zip_cdir *, FILE *);
 static int _zip_cdir_set_comment(struct zip_cdir *, struct zip *);
 static int _zip_changed(struct zip *, int *);
-static char *_zip_create_temp_output(struct zip *, FILE **);
+#ifdef UNICODE
+static wchar_t *
+#else
+static char *
+#endif
+	_zip_create_temp_output(struct zip *, FILE **);
 static int _zip_torrentzip_cmp(const void *, const void *);
 
 
@@ -70,7 +75,11 @@ zip_close(struct zip *za)
 {
     int survivors;
     int i, j, error;
-    char *temp;
+#ifdef UNICODE
+		wchar_t *temp;
+#else
+		char *temp;
+#endif
     FILE *out;
     mode_t mask;
     struct zip_cdir *cd;
@@ -92,9 +101,13 @@ zip_close(struct zip *za)
     /* don't create zip files with no entries */
     if (survivors == 0) {
 	if (za->zn && za->zp) {
-	    if (remove(za->zn) != 0) {
-		_zip_error_set(&za->error, ZIP_ER_REMOVE, errno);
-		return -1;
+#ifdef UNICODE
+	  if (_wremove(za->zn) != 0) {
+#else
+		if (remove(za->zn) != 0) {
+#endif
+			_zip_error_set(&za->error, ZIP_ER_REMOVE, errno);
+				return -1;
 	    }
 	}
 	_zip_free(za);
@@ -133,7 +146,7 @@ zip_close(struct zip *za)
 	}
     }
 
-    if ((temp=_zip_create_temp_output(za, &out)) == NULL) {
+    if ((temp = _zip_create_temp_output(za, &out)) == NULL) {
 	_zip_cdir_free(cd);
 	free(filelist);
 	return -1;
@@ -280,14 +293,22 @@ zip_close(struct zip *za)
     if (error) {
 	_zip_dirent_finalize(&de);
 	fclose(out);
+#ifdef UNICODE
+	_wremove(temp);
+#else
 	remove(temp);
+#endif
 	free(temp);
 	return -1;
     }
 
     if (fclose(out) != 0) {
 	_zip_error_set(&za->error, ZIP_ER_CLOSE, errno);
+#ifdef UNICODE
+	_wremove(temp);
+#else
 	remove(temp);
+#endif
 	free(temp);
 	return -1;
     }
@@ -297,13 +318,21 @@ zip_close(struct zip *za)
 	za->zp = NULL;
 	reopen_on_error = 1;
     }
-    if (_zip_rename(temp, za->zn) != 0) {
+		if (_zip_rename(temp, za->zn) != 0) {
 	_zip_error_set(&za->error, ZIP_ER_RENAME, errno);
+#ifdef UNICODE
+	_wremove(temp);
+#else
 	remove(temp);
+#endif
 	free(temp);
 	if (reopen_on_error) {
 	    /* ignore errors, since we're already in an error case */
-	    za->zp = fopen(za->zn, "rb");
+#ifdef UNICODE
+	    za->zp = _wfopen(za->zn, L"rb");
+#else
+		za->zp = fopen(za->zn, "rb");
+#endif
 	}
 	return -1;
     }
@@ -636,19 +665,35 @@ _zip_changed(struct zip *za, int *survivorsp)
 }
 
 
+#ifdef UNICODE
+static wchar_t *
+#else
 static char *
+#endif
 _zip_create_temp_output(struct zip *za, FILE **outp)
 {
-    char *temp;
+#ifdef UNICODE
+	wchar_t *temp;
+#else
+	char *temp;
+#endif
     int tfd;
     FILE *tfp;
     
-    if ((temp=(char *)malloc(strlen(za->zn)+8)) == NULL) {
+#ifdef UNICODE
+		if ((temp=(wchar_t *)malloc((wcslen(za->zn)+8)*2)) == NULL) {
+#else
+		if ((temp=(char *)malloc(strlen(za->zn)+8)) == NULL) {
+#endif
 	_zip_error_set(&za->error, ZIP_ER_MEMORY, 0);
 	return NULL;
     }
 
-    sprintf(temp, "%s.XXXXXX", za->zn);
+#ifdef UNICODE
+		swprintf(temp, L"%s.XXXXXX", za->zn);
+#else
+		sprintf(temp, "%s.XXXXXX", za->zn);
+#endif
 
     if ((tfd=mkstemp(temp)) == -1) {
 	_zip_error_set(&za->error, ZIP_ER_TMPOPEN, errno);
@@ -661,7 +706,11 @@ _zip_create_temp_output(struct zip *za, FILE **outp)
 #ifndef _WIN32
 	close(tfd);
 #endif
+#ifdef UNICODE
+	_wremove(temp);
+#else
 	remove(temp);
+#endif
 	free(temp);
 	return NULL;
     }

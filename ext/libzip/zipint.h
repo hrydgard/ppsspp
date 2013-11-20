@@ -54,14 +54,18 @@ typedef int mode_t;
 #include "config.h"
 
 #ifndef HAVE_MKSTEMP
+#ifdef UNICODE
+int _zip_mkstemp(wchar_t *);
+#else
 int _zip_mkstemp(char *);
+#endif
 #define mkstemp _zip_mkstemp
 #endif
 
 #ifdef HAVE_MOVEFILEEXA
 #include <windows.h>
 #define _zip_rename(s, t)						\
-	(!MoveFileExA((s), (t),						\
+	(!MoveFileEx((s), (t),						\
 		     MOVEFILE_COPY_ALLOWED|MOVEFILE_REPLACE_EXISTING))
 #else
 #define _zip_rename	rename
@@ -121,7 +125,11 @@ struct zip_error {
 /* zip archive, part of API */
 
 struct zip {
-    char *zn;			/* file name */
+#ifdef UNICODE
+  wchar_t *zn;			/* file name */
+#else
+	char *zn;			/* file name */
+#endif
     FILE *zp;			/* file */
     struct zip_error error;	/* error information */
 

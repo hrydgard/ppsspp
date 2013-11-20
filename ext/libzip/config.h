@@ -27,7 +27,9 @@
 #endif
 
 /* Define to 1 if you have the `MoveFileExA' function. */
-/* #undef HAVE_MOVEFILEEXA */
+#ifdef _WIN32
+#define HAVE_MOVEFILEEXA 1
+#endif
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
