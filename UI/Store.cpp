@@ -42,7 +42,8 @@ void ProductItemView::Update(const InputState &input_state) {
 // This is a "details" view of a game. Let's you install it.
 class ProductView : public UI::LinearLayout {
 public:
-	ProductView(const StoreEntry &entry) : LinearLayout(UI::ORIENT_VERTICAL), entry_(entry) {
+	ProductView(const StoreEntry &entry)
+		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
 		CreateViews();
 	}
 
@@ -54,6 +55,7 @@ private:
 	UI::EventReturn OnUninstall(UI::EventParams &e);
 
 	StoreEntry entry_;
+	UI::Button *installButton_;
 };
 
 void ProductView::CreateViews() {
@@ -65,7 +67,8 @@ void ProductView::CreateViews() {
 
 	I18NCategory *s = GetI18NCategory("Store");
 	if (!g_GameManager.IsGameInstalled(entry_.file)) {
-		Add(new Button(s->T("Install")))->OnClick.Handle(this, &ProductView::OnInstall);
+		installButton_ = Add(new Button(s->T("Install")));
+		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
 		Add(new TextView(s->T("Already Installed")));
 		Add(new Button(s->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
@@ -88,6 +91,8 @@ void ProductView::Update(const InputState &input_state) {
 
 UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	std::string zipUrl = storeBaseUrl + "files/" + entry_.file + ".zip";
+	if (installButton_)
+		installButton_->SetEnabled(false);
 	INFO_LOG(HLE, "Triggering install of %s", zipUrl.c_str());
 	g_GameManager.DownloadAndInstall(zipUrl);
 	return UI::EVENT_DONE;
