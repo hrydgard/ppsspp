@@ -43,6 +43,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+typedef int pid_t;
+#define getpid rand
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -60,7 +65,8 @@ _zip_mkstemp(char *path)
 	/* To guarantee multiple calls generate unique names even if
 	   the file is not created. 676 different possibilities with 7
 	   or more X's, 26 with 6 or less. */
-	static char xtra[2] = "aa";
+	// Urgh, not threadsafe at all.
+	static char xtra[3] = "aa";
 	int xcnt = 0;
 
 	pid = getpid();
@@ -106,14 +112,21 @@ _zip_mkstemp(char *path)
 			*trv = '\0';
 			if (stat(path, &sbuf))
 				return (0);
+#ifndef _WIN32
 			if (!S_ISDIR(sbuf.st_mode)) {
 				errno = ENOTDIR;
 				return (0);
 			}
+#endif
 			*trv = '/';
 			break;
 		}
 	}
+
+
+#ifdef _WIN32
+	return 0;
+#else
 
 	for (;;) {
 		if ((fd=open(path, O_CREAT|O_EXCL|O_RDWR|O_BINARY, 0600)) >= 0)
@@ -136,5 +149,7 @@ _zip_mkstemp(char *path)
 			}
 		}
 	}
+#endif
+
 	/*NOTREACHED*/
 }

@@ -115,7 +115,7 @@ zip_close(struct zip *za)
 
     /* archive comment is special for torrentzip */
     if (zip_get_archive_flag(za, ZIP_AFL_TORRENT, 0)) {
-	cd->comment = _zip_memdup(TORRENT_SIG "XXXXXXXX",
+	cd->comment = (char *)_zip_memdup(TORRENT_SIG "XXXXXXXX",
 				  TORRENT_SIG_LEN + TORRENT_CRC_LEN,
 				  &za->error);
 	if (cd->comment == NULL) {
@@ -591,14 +591,14 @@ static int
 _zip_cdir_set_comment(struct zip_cdir *dest, struct zip *src)
 {
     if (src->ch_comment_len != -1) {
-	dest->comment = _zip_memdup(src->ch_comment,
+	dest->comment = (char *)_zip_memdup(src->ch_comment,
 				    src->ch_comment_len, &src->error);
 	if (dest->comment == NULL)
 	    return -1;
 	dest->comment_len = src->ch_comment_len;
     } else {
 	if (src->cdir && src->cdir->comment) {
-	    dest->comment = _zip_memdup(src->cdir->comment,
+	    dest->comment = (char *)_zip_memdup(src->cdir->comment,
 					src->cdir->comment_len, &src->error);
 	    if (dest->comment == NULL)
 		return -1;
@@ -636,7 +636,6 @@ _zip_changed(struct zip *za, int *survivorsp)
 }
 
 
-
 static char *
 _zip_create_temp_output(struct zip *za, FILE **outp)
 {
@@ -659,7 +658,9 @@ _zip_create_temp_output(struct zip *za, FILE **outp)
     
     if ((tfp=fdopen(tfd, "r+b")) == NULL) {
 	_zip_error_set(&za->error, ZIP_ER_TMPOPEN, errno);
+#ifndef _WIN32
 	close(tfd);
+#endif
 	remove(temp);
 	free(temp);
 	return NULL;

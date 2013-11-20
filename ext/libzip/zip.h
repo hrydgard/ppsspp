@@ -36,12 +36,18 @@
 
 
 
-#ifndef ZIP_EXTERN
 #ifdef _MSC_VER
-#define ZIP_EXTERN __declspec(dllexport)
+#ifndef ZIP_EXTERN
+#define ZIP_EXTERN
+// __declspec(dllexport)
+#endif
+#ifdef _M_X64
+typedef __int64 ssize_t;
+#else
+typedef __int32 ssize_t;
+#endif
 #else
 #define ZIP_EXTERN
-#endif
 #endif
 
 #ifdef __cplusplus

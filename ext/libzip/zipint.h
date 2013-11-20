@@ -37,7 +37,17 @@
 #include <zlib.h>
 
 #ifdef _MSC_VER
-#define ZIP_EXTERN __declspec(dllimport)
+#define ZIP_EXTERN
+#define fseeko fseek
+#define ftello ftell
+#define snprintf _snprintf
+#ifndef strcasecmp
+#define strcasecmp _stricmp
+#endif
+#define umask(x) 0;
+#define chmod(...) ;
+typedef int mode_t;
+// __declspec(dllimport)
 #endif
 
 #include "zip.h"
