@@ -460,7 +460,7 @@ void MainWindow::websiteAct_triggered()
 
 void MainWindow::aboutAct_triggered()
 {
-	QMessageBox::about(this, "PPSSPP Qt", QString::fromLocal8Bit("Created by Henrik Rydg\xc3\xa5rd"));
+	QMessageBox::about(this, "PPSSPP Qt", QString::fromUtf8("Created by Henrik Rydg\xc3\xa5rd"));
 }
 
 /* Private functions */
