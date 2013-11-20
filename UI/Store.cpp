@@ -42,8 +42,7 @@ void ProductItemView::Update(const InputState &input_state) {
 // This is a "details" view of a game. Let's you install it.
 class ProductView : public UI::LinearLayout {
 public:
-	ProductView(const StoreEntry &entry)
-		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
+	ProductView(const StoreEntry &entry) : LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
 		CreateViews();
 	}
 
@@ -86,13 +85,13 @@ void ProductView::CreateViews() {
 
 void ProductView::Update(const InputState &input_state) {
 	View::Update(input_state);
-	// TODO: Update progress bar etc.
 }
 
 UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	std::string zipUrl = storeBaseUrl + "files/" + entry_.file + ".zip";
-	if (installButton_)
+	if (installButton_) {
 		installButton_->SetEnabled(false);
+	}
 	INFO_LOG(HLE, "Triggering install of %s", zipUrl.c_str());
 	g_GameManager.DownloadAndInstall(zipUrl);
 	return UI::EVENT_DONE;

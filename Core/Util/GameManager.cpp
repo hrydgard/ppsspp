@@ -50,7 +50,6 @@ bool GameManager::DownloadAndInstall(std::string storeZipUrl) {
 		return false;
 	}
 
-	// TODO: Android-compatible temp file names
 	std::string filename = GetTempFilename();
 	curDownload_ = downloader_.StartDownload(storeZipUrl, filename);
 	return true;
@@ -152,7 +151,17 @@ void GameManager::InstallGame(std::string zipfile) {
 		return;
 	}
 
-	// Now, loop through again, writing files.
+	// Create all the directories in one pass
+	for (int i = 0; i < numFiles; i++) {
+		const char *fn = zip_get_name(z, i, 0);
+		std::string outFilename = pspGame + fn;
+		bool isDir = outFilename.back() == '/';
+		if (isDir) {
+			File::CreateFullPath(outFilename.c_str());
+		}
+	}
+
+	// Now, loop through again in a second pass, writing files.
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
