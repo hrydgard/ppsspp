@@ -59,7 +59,11 @@ public:
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
 
+	// This one is icky to use because you can't know what's in it until you know
+	// what screen it is.
 	virtual void *dialogData() { return 0; }
+
+	virtual std::string tag() { return std::string(""); }
 
 	virtual bool isTransparent() const { return false; }
 	virtual bool isTopLevel() const { return false; }
