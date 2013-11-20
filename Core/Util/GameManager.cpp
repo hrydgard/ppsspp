@@ -17,16 +17,31 @@
 
 #include "file/file_util.h"
 #include "native/ext/libzip/zip.h"
+#include "util/text/utf8.h"
 
 #include "Common/Log.h"
 #include "Common/FileUtil.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
 
 GameManager g_GameManager;
 
+std::string GameManager::GetTempFilename() const {
+#ifdef _WIN32
+	wchar_t tempPath[MAX_PATH];
+	GetTempPath(MAX_PATH, tempPath);
+	wchar_t buffer[MAX_PATH];
+	GetTempFileName(tempPath, L"PSP", 1, buffer);
+	return ConvertWStringToUTF8(buffer);
+#else
+	return g_Config.externalDirectory + "/ppsspp.dl";
+#endif
+}
+
 bool GameManager::IsGameInstalled(std::string name) {
-	return false;
+	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
+	return File::Exists(pspGame + name);
 }
 
 bool GameManager::DownloadAndInstall(std::string storeZipUrl) {
@@ -36,23 +51,45 @@ bool GameManager::DownloadAndInstall(std::string storeZipUrl) {
 	}
 
 	// TODO: Android-compatible temp file names
-	curDownload_ = downloader_.StartDownload(storeZipUrl, "/tmp/ppsspp.dl");
+	std::string filename = GetTempFilename();
+	curDownload_ = downloader_.StartDownload(storeZipUrl, filename);
 	return true;
 }
 
 void GameManager::Uninstall(std::string name) {
+	std::string gameDir = GetSysDirectory(DIRECTORY_GAME) + name;
+	INFO_LOG(HLE, "Deleting %s", gameDir.c_str());
+	if (!File::Exists(gameDir)) {
+		ERROR_LOG(HLE, "Game %s not installed, cannot uninstall", name.c_str());
+		return;
+	}
 
+	bool success = File::DeleteDirRecursively(gameDir);
+	if (success) {
+		INFO_LOG(HLE, "Successfully deleted game %s", name.c_str());
+		g_Config.CleanRecent();
+	} else {
+		ERROR_LOG(HLE, "Failed to delete game %s", name.c_str());
+	}
 }
 
 void GameManager::Update() {
 	if (curDownload_.get() && curDownload_->Done()) {
-		// Install the game!
-		std::string zipName = curDownload_->outfile();
-		InstallGame(zipName);
-		// Doesn't matter if the install succeeds or not, we delete the temp file to not squander space.
-		// TODO: Handle disk full?
-		deleteFile(zipName.c_str());
-		curDownload_.reset();
+		INFO_LOG(HLE, "Download completed! Status = %i", curDownload_->ResultCode());
+		if (curDownload_->ResultCode() == 200) {
+			std::string zipName = curDownload_->outfile();
+			if (!File::Exists(zipName)) {
+				ERROR_LOG(HLE, "Downloaded file %s does not exist :(", zipName.c_str());
+				curDownload_.reset();
+				return;
+			}
+			// Install the game!
+			InstallGame(zipName);
+			// Doesn't matter if the install succeeds or not, we delete the temp file to not squander space.
+			// TODO: Handle disk full?
+			deleteFile(zipName.c_str());
+			curDownload_.reset();
+		}
 	}
 }
 
@@ -60,8 +97,17 @@ void GameManager::InstallGame(std::string zipfile) {
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
 	INFO_LOG(HLE, "Installing %s into %s", zipfile.c_str(), pspGame.c_str());
 
+	if (!File::Exists(zipfile)) {
+		ERROR_LOG(HLE, "ZIP file %s doesn't exist", zipfile.c_str());
+		return;
+	}
+
 	int error;
+#ifdef _WIN32
+	struct zip *z = zip_open(ConvertUTF8ToWString(zipfile).c_str(), 0, &error);
+#else
 	struct zip *z = zip_open(zipfile.c_str(), 0, &error);
+#endif
 	if (!z) {
 		ERROR_LOG(HLE, "Failed to open ZIP file %s, error code=%i", zipfile.c_str(), error);
 		return;
@@ -69,8 +115,21 @@ void GameManager::InstallGame(std::string zipfile) {
 
 	int numFiles = zip_get_num_files(z);
 
+	// First, find all the directories, and precreate them before we fill in with files.
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
+		std::string outFilename = pspGame + fn;
+		bool isDir = outFilename.back() == '/';
+		if (isDir) {
+			File::CreateFullPath(outFilename.c_str());
+		}
+	}
+
+	// Now, loop through again, writing files.
+	for (int i = 0; i < numFiles; i++) {
+		const char *fn = zip_get_name(z, i, 0);
+		// Note that we do NOT write files that are not in a directory, to avoid random
+		// README files etc.
 		if (strstr(fn, "/") != 0) {
 			INFO_LOG(HLE, "File: %i: %s", i, fn);
 			struct zip_stat zstat;
@@ -83,9 +142,7 @@ void GameManager::InstallGame(std::string zipfile) {
 
 			std::string outFilename = pspGame + fn;
 			bool isDir = outFilename.back() == '/';
-			if (isDir) {
-				File::CreateFullPath(outFilename.c_str());
-			} else {
+			if (!isDir) {
 				INFO_LOG(HLE, "Writing %i bytes to %s", (int)size, outFilename.c_str());
 				FILE *f = fopen(outFilename.c_str(), "wb");
 				if (f) {

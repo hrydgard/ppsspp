@@ -269,6 +269,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
+  $(SRC)/UI/Store.cpp \
   $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \

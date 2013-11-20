@@ -67,8 +67,10 @@ void ProductView::CreateViews() {
 	if (!g_GameManager.IsGameInstalled(entry_.file)) {
 		Add(new Button(s->T("Install")))->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
+		Add(new TextView(s->T("Already Installed")));
 		Add(new Button(s->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
 	}
+
 	// Add star rating, comments etc?
 	Add(new TextView(entry_.description));
 
@@ -81,7 +83,7 @@ void ProductView::CreateViews() {
 
 void ProductView::Update(const InputState &input_state) {
 	View::Update(input_state);
-	// TODO: Update download progress bar, etc.
+	// TODO: Update progress bar etc.
 }
 
 UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
@@ -93,6 +95,7 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 
 UI::EventReturn ProductView::OnUninstall(UI::EventParams &e) {
 	g_GameManager.Uninstall(entry_.file);
+	CreateViews();
 	return UI::EVENT_DONE;
 }
 
@@ -164,7 +167,6 @@ void StoreScreen::ParseListing(std::string json) {
 			e.file = file;
 			entries_.push_back(e);
 			game = game->next_sibling;
-			ILOG("%s", e.name.c_str());
 		}
 	}
 }
@@ -185,7 +187,6 @@ void StoreScreen::CreateViews() {
 		leftScroll->Add(scrollItemView);
 		std::vector<StoreEntry> entries = FilterEntries();
 		for (size_t i = 0; i < entries.size(); i++) {
-			ILOG("Adding %s", entries[i].name.c_str());
 			scrollItemView->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
 		}
 
@@ -233,7 +234,6 @@ std::string StoreScreen::GetStoreJsonURL(std::string storePath) const {
 }
 
 std::string StoreScreen::GetTranslatedString(const json_value *json, std::string key, const char *fallback) const {
-	ILOG("getTranslatedString %s", key.c_str());
 	const json_value *dict = json->getDict("en_US");
 	if (dict && json->hasChild(lang_.c_str(), JSON_OBJECT)) {
 		if (json->getDict(lang_.c_str())->hasChild(key.c_str(), JSON_STRING)) {

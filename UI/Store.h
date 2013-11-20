@@ -61,6 +61,7 @@ public:
 	~StoreScreen();
 
 	virtual void update(InputState &input);
+	virtual std::string tag() const { return "store"; }
 
 protected:
 	virtual void CreateViews();
