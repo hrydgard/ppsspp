@@ -22,13 +22,13 @@
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
+	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU),
 	dialogDisasm(0),
 	memoryWindow(0),
 	memoryTexWindow(0),
-	displaylistWindow(0),
-	currentLanguage("en")
+	displaylistWindow(0)
 {
 	host = new QtHost(this);
 	emugl = new QtEmuGL();
@@ -417,16 +417,12 @@ void MainWindow::fullscreenAct_triggered()
 		InitPadLayout();
 		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
-
 	}
 	else {
 		g_Config.bFullScreen = true;
 		menuBar()->setVisible(false);
 
-		// Remove constraint
-		emugl->setMinimumSize(0, 0);
-		emugl->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 
 		showFullScreen();
 
@@ -436,8 +432,6 @@ void MainWindow::fullscreenAct_triggered()
 		PSP_CoreParameter().pixelHeight = height;
 		PSP_CoreParameter().outputWidth = width;
 		PSP_CoreParameter().outputHeight = height;
-		PSP_CoreParameter().renderWidth = width;
-		PSP_CoreParameter().renderHeight = height;
 
 		pixel_xres = width;
 		pixel_yres = height;
@@ -472,12 +466,7 @@ void MainWindow::SetZoom(int zoom) {
 	dp_xres = pixel_xres;
 	dp_yres = pixel_yres;
 
-	emugl->resize(pixel_xres, pixel_yres);
-	emugl->setMinimumSize(pixel_xres, pixel_yres);
-	emugl->setMaximumSize(pixel_xres, pixel_yres);
-
-	setFixedSize(sizeHint());
-	resize(sizeHint());
+	emugl->setFixedSize(pixel_xres, pixel_yres);
 
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
