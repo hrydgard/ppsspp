@@ -35,6 +35,9 @@ public:
 	bool Done() { return done_; }
 	void Stop();
 
+	// Try not to use this. It's a hack.
+	void Wait(PrioritizedWorkQueueItem *item);
+
 private:
 	bool done_;
 	recursive_mutex mutex_;

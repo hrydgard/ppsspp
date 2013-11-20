@@ -1,5 +1,6 @@
 #include "base/functional.h"
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "thread/thread.h"
 #include "thread/prioritizedworkqueue.h"
 
@@ -63,6 +64,20 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 	} else {
 		// Not really sure how this can happen, but let's be safe.
 		return 0;
+	}
+}
+
+void PrioritizedWorkQueue::Wait(PrioritizedWorkQueueItem *item) {
+	while (true) {
+		bool stillThere = false;
+		lock_guard guard(mutex_);
+		for (int i = 0; i < queue_.empty(); i++) {
+			if (queue_[i] == item)
+				stillThere = true;
+		}
+		if (!stillThere)
+			break;
+		sleep_ms(100);
 	}
 }
 
