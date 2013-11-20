@@ -14,7 +14,7 @@ int json_value::numChildren() const {
 	const json_value *c = first_child;
 	while (c) {
 		count++;
-    c = c->next_sibling;
+		c = c->next_sibling;
 	}
 	return count;
 }
@@ -25,12 +25,15 @@ int json_value::numSiblings() const {
 	int count = 1;
 	while (s) {
 		count++;
-    s = s->next_sibling;
+		s = s->next_sibling;
 	}
 	return count;
 }
 
 const json_value *json_value::get(const char *child_name) const {
+	if (!this) {
+		FLOG("Cannot get from null node");
+	}
 	const json_value *c = first_child;
 	while (c) {
 		if (!strcmp(c->name, child_name)) {
@@ -54,7 +57,7 @@ const char *json_value::getString(const char *child_name) const {
 	if (val)
 		return val->string_value;
 	else
-		FLOG("String %s missing from node %s", child_name, this->name);
+		FLOG("String '%s' missing from node '%s'", child_name, this->name);
 	return 0;
 }
 

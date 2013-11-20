@@ -56,10 +56,10 @@ struct json_value
 	int getInt(const char *child_name, int default_value) const;
 	bool getBool(const char *child_name) const;
 	bool getBool(const char *child_name, bool default_value) const;
-	
-  bool hasChild(const char *child_name, json_type child_type) const {
-    return get(child_name, child_type) != 0;
-  }
+
+	bool hasChild(const char *child_name, json_type child_type) const {
+		return get(child_name, child_type) != 0;
+	}
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(json_value);
@@ -80,13 +80,12 @@ public:
 		buffer_[size] = 0;
 		parse();
 	}
-	
+
 	~JsonReader() {
 		if (buffer_)
 			free(buffer_);
 	}
-	
-	
+
 	bool ok() const { return root_ != 0; }
 
 	json_value *root() { return root_; }
