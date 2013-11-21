@@ -349,8 +349,19 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			}
 
 			cyclesExecuted += EstimatePerVertexCost() * count;
-			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
-				TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType);
+			int bytesRead;
+			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead);
+
+			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+			// Some games rely on this, they don't bother reloading VADDR and IADDR.
+			// Q: Are these changed reflected in the real registers? Needs testing.
+			if (indices) {
+				int indexSize = 1;
+				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+					indexSize = 2;
+				gstate_c.indexAddr += count * indexSize;
+			} else {
+				gstate_c.vertexAddr += bytesRead;
 			}
 		}
 		break;
