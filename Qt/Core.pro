@@ -4,88 +4,88 @@ TARGET = Core
 TEMPLATE = lib
 CONFIG += staticlib
 
-version.target = ../git-version.cpp
-!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") { version.commands = $$PWD/../Windows/git-version-gen.cmd }
-else { version.commands = $$PWD/git-version-gen.sh }
-version.depends = ../.git
-
-QMAKE_EXTRA_TARGETS += version
-PRE_TARGETDEPS += ../git-version.cpp
-SOURCES += ../git-version.cpp
-
 include(Settings.pri)
 
-INCLUDEPATH += ../native ../Core/MIPS ../ ../ext/xbrz
+version.target = $$P/git-version.cpp
+!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") { version.commands = $$P/../Windows/git-version-gen.cmd }
+else { version.commands = $$P/Qt/git-version-gen.sh }
+version.depends = $$P/.git
+
+QMAKE_EXTRA_TARGETS += version
+PRE_TARGETDEPS += $$P/git-version.cpp
+SOURCES += $$P/git-version.cpp
+
+INCLUDEPATH += $$P/native $$P/Core/MIPS $$P/ $$P/ext/xbrz
 
 arm {
-	SOURCES += ../Core/MIPS/ARM/*.cpp \ #CoreARM
-		../ext/disarm.cpp
-	HEADERS += ../Core/MIPS/ARM/*.h
+	SOURCES += $$P/Core/MIPS/ARM/*.cpp \ #CoreARM
+		$$P/ext/disarm.cpp
+	HEADERS += $$P/Core/MIPS/ARM/*.h
 }
 x86 {
-	SOURCES += ../Core/MIPS/x86/*.cpp
-	HEADERS += ../Core/MIPS/x86/*.h
+	SOURCES += $$P/Core/MIPS/x86/*.cpp
+	HEADERS += $$P/Core/MIPS/x86/*.h
 }
 
 win32 {
-	SOURCES += ../Windows/OpenGLBase.cpp
-	HEADERS += ../Windows/OpenGLBase.h
+	SOURCES += $$P/Windows/OpenGLBase.cpp
+	HEADERS += $$P/Windows/OpenGLBase.h
 
-	SOURCES += ../GPU/Directx9/helper/*.cpp
-	HEADERS += ../GPU/Directx9/helper/*.h
+	SOURCES += $$P/GPU/Directx9/helper/*.cpp
+	HEADERS += $$P/GPU/Directx9/helper/*.h
 
-	SOURCES += ../GPU/Directx9/*.cpp
-	HEADERS += ../GPU/Directx9/*.h
-	INCLUDEPATH += ../dx9sdk/Include
+	SOURCES += $$P/GPU/Directx9/*.cpp
+	HEADERS += $$P/GPU/Directx9/*.h
+	INCLUDEPATH += $$P/dx9sdk/Include
 }
 
-SOURCES += ../Core/*.cpp \ # Core
-	../Core/Debugger/*.cpp \
-	../Core/Dialog/*.cpp \
-	../Core/ELF/*.cpp \
-	../Core/FileSystems/*.cpp \
-	../Core/Font/*.cpp \
-	../Core/HLE/*.cpp \
-	../Core/HW/*.cpp \
-	../Core/MIPS/*.cpp \
-	../Core/MIPS/JitCommon/*.cpp \
-	../Core/Util/*.cpp \
-	../GPU/GeDisasm.cpp \ # GPU
-	../GPU/GPUCommon.cpp \
-	../GPU/GPUState.cpp \
-	../GPU/Math3D.cpp \
-	../GPU/Null/NullGpu.cpp \
-	../GPU/GLES/*.cpp \
-	../GPU/Common/IndexGenerator.cpp \
-	../GPU/Common/TextureDecoder.cpp \
-	../GPU/Common/VertexDecoderCommon.cpp \
-	../GPU/Common/PostShader.cpp \
-	../ext/libkirk/*.c \ # Kirk
-	../ext/xxhash.c \ # xxHash
-	../ext/xbrz/*.cpp # XBRZ
+SOURCES += $$P/Core/*.cpp \ # Core
+	$$P/Core/Debugger/*.cpp \
+	$$P/Core/Dialog/*.cpp \
+	$$P/Core/ELF/*.cpp \
+	$$P/Core/FileSystems/*.cpp \
+	$$P/Core/Font/*.cpp \
+	$$P/Core/HLE/*.cpp \
+	$$P/Core/HW/*.cpp \
+	$$P/Core/MIPS/*.cpp \
+	$$P/Core/MIPS/JitCommon/*.cpp \
+	$$P/Core/Util/*.cpp \
+	$$P/GPU/GeDisasm.cpp \ # GPU
+	$$P/GPU/GPUCommon.cpp \
+	$$P/GPU/GPUState.cpp \
+	$$P/GPU/Math3D.cpp \
+	$$P/GPU/Null/NullGpu.cpp \
+	$$P/GPU/GLES/*.cpp \
+	$$P/GPU/Common/IndexGenerator.cpp \
+	$$P/GPU/Common/TextureDecoder.cpp \
+	$$P/GPU/Common/VertexDecoderCommon.cpp \
+	$$P/GPU/Common/PostShader.cpp \
+	$$P/ext/libkirk/*.c \ # Kirk
+	$$P/ext/xxhash.c \ # xxHash
+	$$P/ext/xbrz/*.cpp # XBRZ
 
 !x86:!symbian {
-	SOURCES += ../GPU/Common/TextureDecoderNEON.cpp
+	SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 }
 
 # Software GPU
-SOURCES += ../GPU/Software/*.cpp
-HEADERS += ../GPU/Software/*.h
+SOURCES += $$P/GPU/Software/*.cpp
+HEADERS += $$P/GPU/Software/*.h
 
-HEADERS += ../Core/*.h \
-	../Core/Debugger/*.h \
-	../Core/Dialog/*.h \
-	../Core/ELF/*.h \
-	../Core/FileSystems/*.h \
-	../Core/Font/*.h \
-	../Core/HLE/*.h \
-	../Core/HW/*.h \
-	../Core/MIPS/*.h \
-	../Core/MIPS/JitCommon/*.h \
-	../Core/Util/*.h \
-	../GPU/GLES/*.h \
-	../GPU/Common/*.h \
-	../GPU/*.h \
-	../ext/libkirk/*.h \
-	../ext/xbrz/*.h
+HEADERS += $$P/Core/*.h \
+	$$P/Core/Debugger/*.h \
+	$$P/Core/Dialog/*.h \
+	$$P/Core/ELF/*.h \
+	$$P/Core/FileSystems/*.h \
+	$$P/Core/Font/*.h \
+	$$P/Core/HLE/*.h \
+	$$P/Core/HW/*.h \
+	$$P/Core/MIPS/*.h \
+	$$P/Core/MIPS/JitCommon/*.h \
+	$$P/Core/Util/*.h \
+	$$P/GPU/GLES/*.h \
+	$$P/GPU/Common/*.h \
+	$$P/GPU/*.h \
+	$$P/ext/libkirk/*.h \
+	$$P/ext/xbrz/*.h
 

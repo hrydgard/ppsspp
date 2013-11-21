@@ -7,122 +7,122 @@ CONFIG += staticlib
 include(Settings.pri)
 
 !mobile_platform: {
-	SOURCES += ../native/ext/glew/glew.c
-	HEADERS += ../native/ext/glew/GL/*.h
+	SOURCES += $$P/native/ext/glew/glew.c
+	HEADERS += $$P/native/ext/glew/GL/*.h
 }
 
 # Backtrace
 x86:!mobile_platform: {
-	SOURCES += ../native/base/backtrace.cpp
-	HEADERS += ../native/base/backtrace.h
+	SOURCES += $$P/native/base/backtrace.cpp
+	HEADERS += $$P/native/base/backtrace.h
 }
 
 # RG_ETC1
 
-SOURCES += ../native/ext/rg_etc1/rg_etc1.cpp
-HEADERS += ../native/ext/rg_etc1/rg_etc1.h
-INCLUDEPATH += ../native/ext/rg_etc1
+SOURCES += $$P/native/ext/rg_etc1/rg_etc1.cpp
+HEADERS += $$P/native/ext/rg_etc1/rg_etc1.h
+INCLUDEPATH += $$P/native/ext/rg_etc1
 
 # JPGE
-SOURCES += ../native/ext/jpge/*.cpp
-HEADERS += ../native/ext/jpge/*.h
-INCLUDEPATH += ../native/ext/jpge
+SOURCES += $$P/native/ext/jpge/*.cpp
+HEADERS += $$P/native/ext/jpge/*.h
+INCLUDEPATH += $$P/native/ext/jpge
 
 # Stb_image
 
-SOURCES += ../native/ext/stb_image/stb_image.c
-HEADERS += ../native/ext/stb_image/stb_image.h
-INCLUDEPATH += ../native/ext/stb_image
+SOURCES += $$P/native/ext/stb_image/stb_image.c
+HEADERS += $$P/native/ext/stb_image/stb_image.h
+INCLUDEPATH += $$P/native/ext/stb_image
 win32 {
-    SOURCES += ../native/ext/stb_image_write/stb_image_write.c
-    HEADERS += ../native/ext/stb_image_write/stb_image_writer.h
-    INCLUDEPATH += ../native/ext/stb_image_write
+    SOURCES += $$P/native/ext/stb_image_write/stb_image_write.c
+    HEADERS += $$P/native/ext/stb_image_write/stb_image_writer.h
+    INCLUDEPATH += $$P/native/ext/stb_image_write
 }
 
 # Stb_vorbis
 
-SOURCES += ../native/ext/stb_vorbis/stb_vorbis.c
-HEADERS += ../native/ext/stb_vorbis/stb_vorbis.h
-INCLUDEPATH += ../native/ext/stb_vorbis
+SOURCES += $$P/native/ext/stb_vorbis/stb_vorbis.c
+HEADERS += $$P/native/ext/stb_vorbis/stb_vorbis.h
+INCLUDEPATH += $$P/native/ext/stb_vorbis
 
 # Snappy
 
-SOURCES += ../ext/snappy/*.cpp
-HEADERS += ../ext/snappy/*.h
-INCLUDEPATH += ../ext/snappy
+SOURCES += $$P/ext/snappy/*.cpp
+HEADERS += $$P/ext/snappy/*.h
+INCLUDEPATH += $$P/ext/snappy
 
 # Zlib
 win32|contains(QT_CONFIG, no-zlib) {
-	SOURCES += ../ext/zlib/*.c
-	HEADERS += ../ext/zlib/*.h
+	SOURCES += $$P/ext/zlib/*.c
+	HEADERS += $$P/ext/zlib/*.h
 }
 
 # Native
 
-SOURCES +=  ../native/audio/*.cpp \
-	../native/base/buffer.cpp \
-	../native/base/colorutil.cpp \
-	../native/base/display.cpp \
-	../native/base/error_context.cpp \
-	../native/base/fastlist_test.cpp \
-	../native/base/stringutil.cpp \
-	../native/base/timeutil.cpp \
-	../native/data/compression.cpp \
-	../native/file/*.cpp \
-	../native/gfx/gl_debug_log.cpp \
-	../native/gfx/gl_lost_manager.cpp \
-	../native/gfx/texture.cpp \
-	../native/gfx/texture_atlas.cpp \
-	../native/gfx/texture_gen.cpp \
-	../native/gfx_es2/*.cpp \
-	../native/gfx_es2/*.c \
-	../native/i18n/*.cpp \
-	../native/image/*.cpp \
-	../native/input/*.cpp \
-	../native/math/curves.cpp \
-	../native/math/expression_parser.cpp \
-	../native/math/math_util.cpp \
-	../native/math/lin/*.cpp \
-	../native/net/*.cpp \
-	../native/profiler/profiler.cpp \
-	../native/thread/*.cpp \
-	../native/ui/*.cpp \
-	../native/util/bits/*.cpp \
-	../native/util/hash/hash.cpp \
-	../native/util/random/perlin.cpp \
-	../native/util/text/utf8.cpp
+SOURCES +=  $$P/native/audio/*.cpp \
+	$$P/native/base/buffer.cpp \
+	$$P/native/base/colorutil.cpp \
+	$$P/native/base/display.cpp \
+	$$P/native/base/error_context.cpp \
+	$$P/native/base/fastlist_test.cpp \
+	$$P/native/base/stringutil.cpp \
+	$$P/native/base/timeutil.cpp \
+	$$P/native/data/compression.cpp \
+	$$P/native/file/*.cpp \
+	$$P/native/gfx/gl_debug_log.cpp \
+	$$P/native/gfx/gl_lost_manager.cpp \
+	$$P/native/gfx/texture.cpp \
+	$$P/native/gfx/texture_atlas.cpp \
+	$$P/native/gfx/texture_gen.cpp \
+	$$P/native/gfx_es2/*.cpp \
+	$$P/native/gfx_es2/*.c \
+	$$P/native/i18n/*.cpp \
+	$$P/native/image/*.cpp \
+	$$P/native/input/*.cpp \
+	$$P/native/math/curves.cpp \
+	$$P/native/math/expression_parser.cpp \
+	$$P/native/math/math_util.cpp \
+	$$P/native/math/lin/*.cpp \
+	$$P/native/net/*.cpp \
+	$$P/native/profiler/profiler.cpp \
+	$$P/native/thread/*.cpp \
+	$$P/native/ui/*.cpp \
+	$$P/native/util/bits/*.cpp \
+	$$P/native/util/hash/hash.cpp \
+	$$P/native/util/random/perlin.cpp \
+	$$P/native/util/text/utf8.cpp
 
-HEADERS +=  ../native/audio/*.h \
-	../native/base/basictypes.h \
-	../native/base/buffer.h \
-	../native/base/color.h \
-	../native/base/colorutil.h \
-	../native/base/display.h \
-	../native/base/error_context.h \
-	../native/base/fastlist.h \
-	../native/base/linked_ptr.h \
-	../native/base/logging.h \
-	../native/base/mutex.h \
-	../native/base/scoped_ptr.h \
-	../native/base/stats.h \
-	../native/base/stringutil.h \
-	../native/base/timeutil.h \
-	../native/data/compression.h \
-	../native/file/*.h \
-	../native/gfx/*.h \
-	../native/gfx_es2/*.h \
-	../native/i18n/*.h \
-	../native/image/*.h \
-	../native/input/*.h \
-	../native/math/*.h \
-	../native/math/lin/*.h \
-	../native/net/*.h \
-	../native/profiler/profiler.h \
-	../native/thread/*.h \
-	../native/ui/*.h \
-	../native/util/bits/*.h \
-	../native/util/hash/hash.h \
-	../native/util/random/*.h \
-	../native/util/text/utf8.h
-INCLUDEPATH += ../native
+HEADERS +=  $$P/native/audio/*.h \
+	$$P/native/base/basictypes.h \
+	$$P/native/base/buffer.h \
+	$$P/native/base/color.h \
+	$$P/native/base/colorutil.h \
+	$$P/native/base/display.h \
+	$$P/native/base/error_context.h \
+	$$P/native/base/fastlist.h \
+	$$P/native/base/linked_ptr.h \
+	$$P/native/base/logging.h \
+	$$P/native/base/mutex.h \
+	$$P/native/base/scoped_ptr.h \
+	$$P/native/base/stats.h \
+	$$P/native/base/stringutil.h \
+	$$P/native/base/timeutil.h \
+	$$P/native/data/compression.h \
+	$$P/native/file/*.h \
+	$$P/native/gfx/*.h \
+	$$P/native/gfx_es2/*.h \
+	$$P/native/i18n/*.h \
+	$$P/native/image/*.h \
+	$$P/native/input/*.h \
+	$$P/native/math/*.h \
+	$$P/native/math/lin/*.h \
+	$$P/native/net/*.h \
+	$$P/native/profiler/profiler.h \
+	$$P/native/thread/*.h \
+	$$P/native/ui/*.h \
+	$$P/native/util/bits/*.h \
+	$$P/native/util/hash/hash.h \
+	$$P/native/util/random/*.h \
+	$$P/native/util/text/utf8.h
+INCLUDEPATH += $$P/native
 

@@ -28,10 +28,10 @@ else: LIBS += -L$$CONFIG_DIR
 LIBS += -lCore$${XT} -lCommon$${XT} -lNative$${XT}
 
 # FFMPEG Path
-win32:  FFMPEG_DIR = ../ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-linux:  FFMPEG_DIR = ../ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
-macx:!mobile_platform:   FFMPEG_DIR = ../ffmpeg/macosx/x86_64/lib/
-qnx:    FFMPEG_DIR = ../ffmpeg/blackberry/armv7/lib/
+win32:  FFMPEG_DIR = $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
+linux:  FFMPEG_DIR = $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
+macx:!mobile_platform:   FFMPEG_DIR = $$P/ffmpeg/macosx/x86_64/lib/
+qnx:    FFMPEG_DIR = $$P/ffmpeg/blackberry/armv7/lib/
 symbian:FFMPEG_DIR = -l
 
 # External (platform-dependant) libs
@@ -43,8 +43,8 @@ win32 {
 	QMAKE_LFLAGS += /FIXED /BASE:"0x00400000"
 	QMAKE_LFLAGS += /DYNAMICBASE:NO
 	LIBS += -lwinmm -lws2_32 -lShell32 -lAdvapi32
-	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files(../dx9sdk/Lib/x64/*.lib)
-	else: LIBS += $$files(../dx9sdk/Lib/x86/*.lib)
+	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files($$P/dx9sdk/Lib/x64/*.lib)
+	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
 }
 linux {
 	LIBS += -ldl
@@ -61,35 +61,35 @@ contains(QT_CONFIG, system-zlib) {
 }
 
 # Main
-SOURCES += ../native/base/QtMain.cpp
-HEADERS += ../native/base/QtMain.h
+SOURCES += $$P/native/base/QtMain.cpp
+HEADERS += $$P/native/base/QtMain.h
 symbian {
-	SOURCES += ../native/base/SymbianMediaKeys.cpp
-	HEADERS += ../native/base/SymbianMediaKeys.h
+	SOURCES += $$P/native/base/SymbianMediaKeys.cpp
+	HEADERS += $$P/native/base/SymbianMediaKeys.h
 }
 
 # UI
-SOURCES += ../UI/*Screen.cpp \
-	../UI/*Screens.cpp \
-	../UI/GamepadEmu.cpp \
-	../UI/GameInfoCache.cpp \
-	../UI/OnScreenDisplay.cpp \
-	../UI/UIShader.cpp \
-	../android/jni/TestRunner.cpp
+SOURCES += $$P/UI/*Screen.cpp \
+	$$P/UI/*Screens.cpp \
+	$$P/UI/GamepadEmu.cpp \
+	$$P/UI/GameInfoCache.cpp \
+	$$P/UI/OnScreenDisplay.cpp \
+	$$P/UI/UIShader.cpp \
+	$$P/android/jni/TestRunner.cpp
 
-HEADERS += ../UI/*.h
-INCLUDEPATH += .. ../Common ../native
+HEADERS += $$P/UI/*.h
+INCLUDEPATH += $$P $$P/Common $$P/native
 
 # Use forms UI for desktop platforms
 !mobile_platform {
-	SOURCES += *.cpp
-	HEADERS += *.h
-	FORMS += *.ui
-	RESOURCES += resources.qrc
-	INCLUDEPATH += ../Qt
+	SOURCES += $$P/Qt/*.cpp
+	HEADERS += $$P/Qt/*.h
+	FORMS += $$P/Qt/*.ui
+	RESOURCES += $$P/Qt/resources.qrc
+	INCLUDEPATH += $$P/Qt
 
 	# Translations
-	TRANSLATIONS = $$files(languages/ppsspp_*.ts)
+	TRANSLATIONS = $$files($$P/Qt/languages/ppsspp_*.ts)
 
 	lang.name = lrelease ${QMAKE_FILE_IN}
 	lang.input = TRANSLATIONS
@@ -100,22 +100,22 @@ INCLUDEPATH += .. ../Common ../native
 	PRE_TARGETDEPS += compiler_lang_make_all
 } else {
 	# Desktop handles the Init separately
-	SOURCES += ../UI/NativeApp.cpp
+	SOURCES += $$P/UI/NativeApp.cpp
 }
 RESOURCES += assets.qrc
-SOURCES += ../UI/ui_atlas_lowmem.cpp
+SOURCES += $$P/UI/ui_atlas_lowmem.cpp
 
 # Packaging
 symbian {
 	TARGET.UID3 = 0xE0095B1D
 	DEPLOYMENT.display_name = PPSSPP
 	vendor_deploy.pkg_prerules = "%{\"Qtness\"}" ":\"Qtness\""
-	ICON = ../assets/icon.svg
+	ICON = $$P/assets/icon.svg
 
 	# Folders:
-	shaders.sources = ../assets/shaders
+	shaders.sources = $$P/assets/shaders
 	shaders.path = E:/PPSSPP/PSP
-	lang.sources = $$files(../lang/*.ini)
+	lang.sources = $$files($$P/lang/*.ini)
 	lang.path = E:/PPSSPP/lang
 
 	DEPLOYMENT += vendor_deploy assets shaders lang
@@ -127,13 +127,13 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	shaders.files = ../assets/shaders
+	shaders.files = $$P/assets/shaders
 	shaders.path = /opt/PPSSPP/PSP
-	lang.files = $$files(../lang/*.ini)
+	lang.files = $$files($$P/lang/*.ini)
 	lang.path = /opt/PPSSPP/lang
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
-	icon.files = ../assets/icon-114.png
+	icon.files = $$P/assets/icon-114.png
 	icon.path = /usr/share/icons/hicolor/114x114/apps
 	INSTALLS += target assets shaders lang desktopfile icon
 	# Booster
