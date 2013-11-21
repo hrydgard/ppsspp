@@ -502,88 +502,28 @@ void MainWindow::loadLanguage(const QString& language, bool retranslate)
 
 void MainWindow::retranslateUi() {
 	fileMenu->setTitle(tr("&File"));
-	openAct->setText(tr("&Open..."));
-	closeAct->setText(tr("&Close"));
-	qlstateAct->setText(tr("Quickload State"));
-	qsstateAct->setText(tr("Quicksave State"));
-	lstateAct->setText(tr("&Load State File..."));
-	sstateAct->setText(tr("&Save State File..."));
-	exitAct->setText(tr("E&xit"));
-
 	emuMenu->setTitle(tr("&Emulation"));
-	runAct->setText(tr("&Run"));
-	pauseAct->setText(tr("&Pause"));
-	resetAct->setText(tr("Re&set"));
-	runonloadAct->setText(tr("Run on &load"));
-
 	debugMenu->setTitle(tr("De&bug"));
-	lmapAct->setText(tr("Load Map File..."));
-	smapAct->setText(tr("Save Map File..."));
-	resetTableAct->setText(tr("Reset Symbol Table"));
-	dumpNextAct->setText(tr("Dump next frame to log"));
-	disasmAct->setText(tr("Disassembly"));
-	dpyListAct->setText(tr("Display List..."));
-	consoleAct->setText(tr("Log Console"));
-	memviewAct->setText(tr("Memory View"));
-	memviewTexAct->setText(tr("Memory View Texture"));
-
 	optionsMenu->setTitle(tr("&Options"));
 	coreMenu->setTitle(tr("&Core"));
-	dynarecAct->setText(tr("&CPU Dynarec"));
-	vertexDynarecAct->setText(tr("&Vertex Decoder Dynarec"));
-	fastmemAct->setText(tr("Fast &Memory (unstable)"));
-	ignoreIllegalAct->setText(tr("&Ignore Illegal reads/writes"));
 	videoMenu->setTitle(tr("&Video"));
 	anisotropicMenu->setTitle(tr("&Anisotropic Filtering"));
-	bufferRenderAct->setText(tr("&Buffered Rendering"));
-	linearAct->setText(tr("&Linear Filtering"));
 	screenMenu->setTitle(tr("&Screen Size"));
-	stretchAct->setText(tr("&Stretch to Display"));
-	transformAct->setText(tr("&Hardware Transform"));
-	vertexCacheAct->setText(tr("&VertexCache"));
-	frameskipAct->setText(tr("&Frameskip"));
-	audioAct->setText(tr("&Audio"));
-	fullscreenAct->setText(tr("&Fullscreen"));
-	statsAct->setText(tr("&Show debug statistics"));
-	showFPSAct->setText(tr("&Show FPS"));
 	levelsMenu->setTitle(tr("Lo&g levels"));
 	langMenu->setTitle(tr("&Language"));
-
 	helpMenu->setTitle(tr("&Help"));
-	websiteAct->setText(tr("&Go to official website"));
-	aboutAct->setText(tr("&About PPSSPP..."));
+	emit retranslate();
 }
 
 void MainWindow::createMenus()
 {
-// In Qt5 we could just use lambdas here
-#define NEW_ACTION(menu, name) \
-	name = new QAction(this); \
-	connect(name, SIGNAL(triggered()), this, SLOT(name ## _triggered())); \
-	menu->addAction(name);
-
-#define NEW_ACTION_CHK(menu, name) \
-	NEW_ACTION(menu, name) \
-	name->setCheckable(true);
-
-#define NEW_ACTION_KEY(menu, name, key) \
-	NEW_ACTION(menu, name) \
-	name->setShortcut(key); \
-	this->addAction(name);
-
-#define NEW_ACTION_KEY_CHK(menu, name, key) \
-	NEW_ACTION_KEY(menu, name, key) \
-	name->setCheckable(true);
 
 #define NEW_GROUP(menu, group, stringlist, valuelist) \
 { \
 	group = new QActionGroup(this); \
 	QListIterator<int> i(valuelist); \
 	foreach(QString name, stringlist) { \
-		QAction *action = new QAction(name, this); \
-		action->setCheckable(true); \
-		action->setData(i.next()); \
-		group->addAction(action); \
+		QAction *action = new MenuAction(this, group, i.next(), name); \
 	} \
 	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(group ## _triggered(QAction *))); \
 	menu->addActions(group->actions()); \
@@ -595,12 +535,7 @@ void MainWindow::createMenus()
 	QListIterator<int> i(valuelist); \
 	QListIterator<int> k(keylist); \
 	foreach(QString name, stringlist) { \
-		QAction *action = new QAction(name, this); \
-		action->setCheckable(true); \
-		action->setData(i.next()); \
-		action->setShortcut(k.next()); \
-		group->addAction(action); \
-		this->addAction(action); \
+		QAction *action = new MenuAction(this, group, i.next(), name, k.next()); \
 	} \
 	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(group ## _triggered(QAction *))); \
 	menu->addActions(group->actions()); \
@@ -608,69 +543,69 @@ void MainWindow::createMenus()
 
 	// File
 	fileMenu = menuBar()->addMenu("");
-	NEW_ACTION_KEY(fileMenu, openAct, QKeySequence::Open);
-	NEW_ACTION_KEY(fileMenu, closeAct, QKeySequence::Close);
+	openAct = new MenuAction(this, fileMenu, SLOT(openAct_triggered()), QT_TR_NOOP("&Open..."), false, QKeySequence::Open);
+	closeAct = new MenuAction(this, fileMenu, SLOT(closeAct_triggered()), QT_TR_NOOP("&Close"), false, QKeySequence::Close);
 	fileMenu->addSeparator();
-	NEW_ACTION_KEY(fileMenu, qlstateAct, Qt::Key_F4);
-	NEW_ACTION_KEY(fileMenu, qsstateAct,Qt::Key_F2);
-	NEW_ACTION(fileMenu, lstateAct);
-	NEW_ACTION(fileMenu, sstateAct);
+	qlstateAct = new MenuAction(this, fileMenu, SLOT(qlstateAct_triggered()), QT_TR_NOOP("Quickload State"), false, Qt::Key_F4);
+	qsstateAct = new MenuAction(this, fileMenu, SLOT(qsstateAct_triggered()), QT_TR_NOOP("Quicksave State"), false, Qt::Key_F2);
+	lstateAct = new MenuAction(this, fileMenu, SLOT(lstateAct_triggered()), QT_TR_NOOP("&Load State File..."), false);
+	sstateAct = new MenuAction(this, fileMenu, SLOT(sstateAct_triggered()), QT_TR_NOOP("&Save State File..."), false);
 	fileMenu->addSeparator();
-	NEW_ACTION(fileMenu, exitAct);
+	exitAct = new MenuAction(this, fileMenu, SLOT(exitAct_triggered()), QT_TR_NOOP("E&xit"), false);
 
 	// Emulation
 	emuMenu = menuBar()->addMenu("");
-	NEW_ACTION_KEY(emuMenu, runAct, Qt::Key_F7);
-	NEW_ACTION_KEY(emuMenu, pauseAct, Qt::Key_F8);
-	NEW_ACTION(emuMenu, resetAct);
+	runAct = new MenuAction(this, emuMenu, SLOT(runAct_triggered()), QT_TR_NOOP("&Run"), false, Qt::Key_F7);
+	pauseAct = new MenuAction(this, emuMenu, SLOT(pauseAct_triggered()), QT_TR_NOOP("&Pause"), false, Qt::Key_F8);
+	resetAct = new MenuAction(this, emuMenu, SLOT(resetAct_triggered()), QT_TR_NOOP("Re&set"), false);
 	emuMenu->addSeparator();
-	NEW_ACTION_CHK(emuMenu, runonloadAct);
+	runonloadAct = new MenuAction(this, emuMenu, SLOT(runonloadAct_triggered()), QT_TR_NOOP("Run on &load"), true);
 
 	// Debug
 	debugMenu = menuBar()->addMenu("");
-	NEW_ACTION(debugMenu, lmapAct);
-	NEW_ACTION(debugMenu, smapAct);
-	NEW_ACTION(debugMenu, resetTableAct);
+	lmapAct = new MenuAction(this, debugMenu, SLOT(lmapAct_triggered()), QT_TR_NOOP("Load Map File..."), false);
+	smapAct = new MenuAction(this, debugMenu, SLOT(smapAct_triggered()), QT_TR_NOOP("Save Map File..."), false);
+	resetTableAct = new MenuAction(this, debugMenu, SLOT(resetTableAct_triggered()), QT_TR_NOOP("Reset Symbol Table"), false);
 	debugMenu->addSeparator();
-	NEW_ACTION(debugMenu, dumpNextAct);
+	dumpNextAct = new MenuAction(this, debugMenu, SLOT(dumpNextAct_triggered()), QT_TR_NOOP("Dump next frame to log"), false);
 	debugMenu->addSeparator();
-	NEW_ACTION_KEY(debugMenu, disasmAct, Qt::CTRL + Qt::Key_D);
-	NEW_ACTION(debugMenu, dpyListAct);
-	NEW_ACTION(debugMenu, consoleAct);
-	NEW_ACTION(debugMenu, memviewAct);
-	NEW_ACTION(debugMenu, memviewTexAct);
+	disasmAct = new MenuAction(this, debugMenu, SLOT(disasmAct_triggered()), QT_TR_NOOP("Disassembly"), false, Qt::CTRL + Qt::Key_D);
+	dpyListAct = new MenuAction(this, debugMenu, SLOT(dpyListAct_triggered()), QT_TR_NOOP("Display List..."), false);
+	consoleAct = new MenuAction(this, debugMenu, SLOT(consoleAct_triggered()), QT_TR_NOOP("Log Console"), false);
+	memviewAct = new MenuAction(this, debugMenu, SLOT(memviewAct_triggered()), QT_TR_NOOP("Memory View"), false);
+	memviewTexAct = new MenuAction(this, debugMenu, SLOT(memviewTexAct_triggered()), QT_TR_NOOP("Memory View Texture"), false);
 
 	// Options
 	optionsMenu = menuBar()->addMenu("");
 	// - Core
 	coreMenu = optionsMenu->addMenu("");
-	NEW_ACTION_CHK(coreMenu, dynarecAct);
-	NEW_ACTION_CHK(coreMenu, vertexDynarecAct);
-	NEW_ACTION_CHK(coreMenu, fastmemAct);
-	NEW_ACTION_CHK(coreMenu, ignoreIllegalAct);
+	dynarecAct = new MenuAction(this, coreMenu, SLOT(dynarecAct_triggered()), QT_TR_NOOP("&CPU Dynarec"), true);
+	vertexDynarecAct = new MenuAction(this, coreMenu, SLOT(vertexDynarecAct_triggered()), QT_TR_NOOP("&Vertex Decoder Dynarec"), true);
+	fastmemAct = new MenuAction(this, coreMenu, SLOT(fastmemAct_triggered()), QT_TR_NOOP("Fast &Memory (unstable)"), true);
+	ignoreIllegalAct = new MenuAction(this, coreMenu, SLOT(ignoreIllegalAct_triggered()), QT_TR_NOOP("&Ignore Illegal reads/writes"), true);
 	// - Video
 	videoMenu = optionsMenu->addMenu("");
 	// - Anisotropic Filtering
 	anisotropicMenu = videoMenu->addMenu("");
 	NEW_GROUP(anisotropicMenu, anisotropicGroup, QStringList() << "Off" << "2x" << "4x" << "8x" << "16x",
 		QList<int>() << 0 << 1 << 2 << 3 << 4);
-	NEW_ACTION_KEY(videoMenu, bufferRenderAct, Qt::Key_F5);
-	NEW_ACTION_CHK(videoMenu, linearAct);
+	bufferRenderAct = new MenuAction(this, videoMenu, SLOT(bufferRenderAct_triggered()), QT_TR_NOOP("&Buffered Rendering"), false, Qt::Key_F5);
+	linearAct = new MenuAction(this, videoMenu, SLOT(linearAct_triggered()), QT_TR_NOOP("&Linear Filtering"), true);
 	videoMenu->addSeparator();
 	// - Screen Size
 	screenMenu = videoMenu->addMenu("");
 	NEW_GROUP_KEYS(screenMenu, screenGroup, QStringList() << "1x" << "2x" << "3x" << "4x", QList<int>() << 1 << 2 << 3 << 4,
 		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
-	NEW_ACTION_CHK(videoMenu, stretchAct);
+	stretchAct = new MenuAction(this, videoMenu, SLOT(stretchAct_triggered()), QT_TR_NOOP("&Stretch to Display"), true);
 	videoMenu->addSeparator();
-	NEW_ACTION_KEY_CHK(videoMenu, transformAct, Qt::Key_F6);
-	NEW_ACTION_CHK(videoMenu, vertexCacheAct);
-	NEW_ACTION_CHK(videoMenu, frameskipAct);
-	NEW_ACTION_CHK(optionsMenu, audioAct);
+	transformAct = new MenuAction(this, videoMenu, SLOT(transformAct_triggered()), QT_TR_NOOP("&Hardware Transform"), true, Qt::Key_F6);
+	vertexCacheAct = new MenuAction(this, videoMenu, SLOT(vertexCacheAct_triggered()), QT_TR_NOOP("&Vertex Cache"), true);
+	frameskipAct = new MenuAction(this, videoMenu, SLOT(frameskipAct_triggered()), QT_TR_NOOP("&Frameskip"), true);
+	audioAct = new MenuAction(this, videoMenu, SLOT(audioAct_triggered()), QT_TR_NOOP("&Audio"), true);
 	optionsMenu->addSeparator();
-	NEW_ACTION_KEY_CHK(optionsMenu, fullscreenAct, Qt::Key_F11);
-	NEW_ACTION_CHK(optionsMenu, statsAct);
-	NEW_ACTION_CHK(optionsMenu, showFPSAct);
+	fullscreenAct = new MenuAction(this, optionsMenu, SLOT(fullscreenAct_triggered()), QT_TR_NOOP("&Fullscreen"), true, Qt::Key_F11);
+	statsAct = new MenuAction(this, optionsMenu, SLOT(statsAct_triggered()), QT_TR_NOOP("&Show debug statistics"), true);
+	showFPSAct = new MenuAction(this, optionsMenu, SLOT(showFPSAct_triggered()), QT_TR_NOOP("&Show FPS"), true);
 	optionsMenu->addSeparator();
 	// - Log Levels
 	levelsMenu = optionsMenu->addMenu("");
@@ -696,8 +631,9 @@ void MainWindow::createMenus()
 		langGroup->addAction(action);
 	} else {
 		connect(langGroup, SIGNAL(triggered(QAction *)), this, SLOT(langChanged(QAction *)));
-		QString thisLocale = QLocale().name();
-		thisLocale.truncate(thisLocale.indexOf('_'));
+		bool found = false;
+		QString currentLocale = g_Config.sLanguageIni.c_str();
+		QString currentLang = currentLocale.split('_').first();
 		for (int i = 0; i < fileNames.size(); ++i)
 		{
 			QString locale = fileNames[i];
@@ -709,18 +645,15 @@ void MainWindow::createMenus()
 #else
 			QString language = QLocale::languageToString(QLocale(locale).language());
 #endif
-			QAction *action = new QAction(language, this);
-			action->setCheckable(true);
-			action->setData(locale);
-
-			langGroup->addAction(action);
-			if (thisLocale == locale) {
+			QAction *action = new MenuAction(this, langGroup, locale, language);
+			std::string testLang = g_Config.sLanguageIni;
+			if (currentLocale == locale || currentLang == locale) {
 				action->setChecked(true);
 				currentLanguage = locale;
-				loadLanguage(locale, false);
+				found = true;
 			}
-			else if (currentLanguage == "en" && locale == "en")
-			{
+
+			if (!found && locale == "en") {
 				action->setChecked(true);
 			}
 		}
@@ -729,8 +662,8 @@ void MainWindow::createMenus()
 	
 	// Help
 	helpMenu = menuBar()->addMenu("");
-	NEW_ACTION(helpMenu, websiteAct);
-	NEW_ACTION(helpMenu, aboutAct);
+	websiteAct = new MenuAction(this, helpMenu, SLOT(websiteAct_triggered()), QT_TR_NOOP("&Go to official website"), false);
+	aboutAct = new MenuAction(this, helpMenu, SLOT(aboutAct_triggered()), QT_TR_NOOP("&About PPSSPP..."), false);
 
 	retranslateUi();
 }

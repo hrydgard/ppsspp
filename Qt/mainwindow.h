@@ -40,6 +40,9 @@ protected:
 	void keyReleaseEvent(QKeyEvent *e);
 	void timerEvent(QTimerEvent *);
 
+signals:
+	void retranslate();
+
 public slots:
 	void Boot();
 
@@ -117,12 +120,12 @@ private slots:
 
 	// Others
 	void langChanged(QAction *action) { loadLanguage(action->data().toString(), true); }
+	void retranslateUi();
 
 private:
 	void SetZoom(int zoom);
 	void SetGameTitle(QString text);
 	void loadLanguage(const QString &language, bool retranslate);
-	void retranslateUi();
 	void createMenus();
 	void notifyMapsLoaded();
 
@@ -166,6 +169,43 @@ private:
 	QMenu *helpMenu;
 	QAction *websiteAct, *aboutAct;
 	
+};
+
+class MenuAction : public QAction
+{
+	Q_OBJECT
+
+public:
+	MenuAction(QWidget* parent, QMenu* menu, const char* callback, char* text, bool isCheckable = false, QKeySequence key = 0) :
+		QAction(parent), _text(text)
+	{
+		this->setCheckable(isCheckable);
+		menu->addAction(this);
+		if (key) {
+			this->setShortcut(key);
+			parent->addAction(this); // So we don't lose the shortcut when menubar is hidden
+		}
+		connect(this, SIGNAL(triggered()), parent, callback);
+		connect(parent, SIGNAL(retranslate()), this, SLOT(retranslate()));
+	}
+	MenuAction(QWidget* parent, QActionGroup* group, QVariant data, QString text, QKeySequence key = 0) :
+		QAction(parent)
+	{
+		this->setCheckable(true);
+		this->setData(data);
+		this->setText(text); // Not translatable, yet
+		if (key) {
+			this->setShortcut(key);
+			parent->addAction(this); // So we don't lose the shortcut when menubar is hidden
+		}
+		group->addAction(this);
+	}
+public slots:
+	void retranslate() {
+		setText(qApp->translate("MainWindow", _text));
+	}
+private:
+	char* _text;
 };
 
 #endif // MAINWINDOW_H
