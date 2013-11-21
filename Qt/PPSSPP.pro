@@ -112,8 +112,6 @@ symbian {
 	ICON = ../assets/icon.svg
 
 	# Folders:
-	assets.sources = ../flash0 ../assets/langregion.ini ../assets/unknown.png
-	assets.path = E:/PPSSPP
 	shaders.sources = ../assets/shaders
 	shaders.path = E:/PPSSPP/PSP
 	lang.sources = $$files(../lang/*.ini)
@@ -128,8 +126,6 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	assets.files = ../flash0 ../assets/langregion.ini ../assets/unknown.png
-	assets.path = /opt/PPSSPP
 	shaders.files = ../assets/shaders
 	shaders.path = /opt/PPSSPP/PSP
 	lang.files = $$files(../lang/*.ini)

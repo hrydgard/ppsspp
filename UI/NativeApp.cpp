@@ -247,7 +247,9 @@ void NativeInit(int argc, const char *argv[],
 #endif
 
 	// We want this to be FIRST.
-#ifndef USING_QT_UI
+#ifdef USING_QT_UI
+	VFSRegister("", new AssetsAssetReader());
+#else
 #if defined(BLACKBERRY) || defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_directory));

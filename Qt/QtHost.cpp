@@ -247,6 +247,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
+	VFSRegister("", new AssetsAssetReader());
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(memcard_path + "PSP/SYSTEM/");
