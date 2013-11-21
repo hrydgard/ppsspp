@@ -32,6 +32,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 	host = new QtHost(this);
 	emugl = new QtEmuGL();
+	showNormal();
 	setCentralWidget(emugl);
 	emugl->init(&input_state);
 	int zoom = g_Config.iInternalResolution;

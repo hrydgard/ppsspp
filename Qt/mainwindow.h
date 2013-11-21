@@ -181,7 +181,7 @@ public:
 	{
 		this->setCheckable(isCheckable);
 		menu->addAction(this);
-		if (key) {
+		if (key != 0) {
 			this->setShortcut(key);
 			parent->addAction(this); // So we don't lose the shortcut when menubar is hidden
 		}
@@ -194,7 +194,7 @@ public:
 		this->setCheckable(true);
 		this->setData(data);
 		this->setText(text); // Not translatable, yet
-		if (key) {
+		if (key != 0) {
 			this->setShortcut(key);
 			parent->addAction(this); // So we don't lose the shortcut when menubar is hidden
 		}
