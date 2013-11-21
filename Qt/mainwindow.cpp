@@ -650,6 +650,7 @@ void MainWindow::createMenus()
 			if (currentLocale == locale || currentLang == locale) {
 				action->setChecked(true);
 				currentLanguage = locale;
+				loadLanguage(locale, false);
 				found = true;
 			}
 
