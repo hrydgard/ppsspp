@@ -77,10 +77,12 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 					break;
 				}
 				
+				bool priorDumpWasStepping = Core_IsStepping();
+				if (!priorDumpWasStepping) Core_EnableStepping(true); // If emulator isn't paused force paused state
 				fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
 				fclose(output);
-
-				MessageBoxA(hwnd,"Done.","Error",MB_OK);
+				if (!priorDumpWasStepping) Core_EnableStepping(false); // If emulator wasn't paused before memory dump resume emulation automatically.
+				MessageBoxA(hwnd,"Done.","Information",MB_OK);
 				EndDialog(hwnd,true);
 			}
 			break;
