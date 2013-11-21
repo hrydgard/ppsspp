@@ -25,6 +25,7 @@
 
 #include "Core/Config.h"
 #include "Core/SaveState.h"
+#include "Core/HLE/sceCtrl.cpp"
 #include "Windows/EmuThread.h"
 #include "ext/disarm.h"
 
@@ -329,6 +330,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	{
 		if (msg.message == WM_KEYDOWN)
 		{
+			//UI dialogs don't send button presses to sceCtrl when they are focused (including key releases.)
+			if (msg.wParam == VK_ESCAPE)
+			{
+				__CtrlButtonUp(ctrlCurrent.buttons);
+				__CtrlSetAnalogX(0,0);
+				__CtrlSetAnalogY(0,0);
+			}	
+			
 			//hack to enable/disable menu command accelerate keys
 			MainWindow::UpdateCommands();
 
