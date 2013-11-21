@@ -247,7 +247,7 @@ void TextDrawer::MeasureString(const char *str, float *w, float *h) {
 #ifdef USING_QT_UI
 	QFont* font = fontMap_.find(fontHash_)->second;
 	QFontMetrics fm(*font);
-	QSize size = fm.size(0, str);
+	QSize size = fm.size(0, QString::fromUtf8(str));
 	*w = (float)size.width() * fontScaleX_;
 	*h = (float)size.height() * fontScaleY_;
 #else
@@ -273,7 +273,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	} else {
 		QFont *font = fontMap_.find(fontHash_)->second;
 		QFontMetrics fm(*font);
-		QSize size = fm.size(0, str);
+		QSize size = fm.size(0, QString::fromUtf8(str));
 		QImage image((size.width() + 3) & ~ 3, (size.height() + 3) & ~ 3, QImage::Format_ARGB32_Premultiplied);
 		if (image.isNull()) {
 			return;
