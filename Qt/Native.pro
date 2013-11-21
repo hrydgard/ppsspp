@@ -52,11 +52,10 @@ HEADERS += ../ext/snappy/*.h
 INCLUDEPATH += ../ext/snappy
 
 # Zlib
-!symbian: {
+win32|contains(QT_CONFIG, no-zlib) {
 	SOURCES += ../ext/zlib/*.c
 	HEADERS += ../ext/zlib/*.h
 }
-
 
 # Native
 

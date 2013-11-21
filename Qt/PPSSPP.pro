@@ -56,8 +56,9 @@ linux {
 }
 qnx: LIBS += -lscreen
 symbian: LIBS += -lRemConCoreApi -lRemConInterfaceBase
-# Avoids problems with some compilers
-unix:!symbian: LIBS += -lz
+contains(QT_CONFIG, system-zlib) {
+	unix: LIBS += -lz
+}
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
