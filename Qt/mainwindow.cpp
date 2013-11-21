@@ -415,6 +415,7 @@ void MainWindow::fullscreenAct_triggered()
 		g_Config.bFullScreen = true;
 
 		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 
 		showFullScreen();
 
@@ -459,6 +460,7 @@ void MainWindow::SetZoom(int zoom) {
 	dp_yres = pixel_yres;
 
 	emugl->setFixedSize(pixel_xres, pixel_yres);
+	setFixedSize(sizeHint());
 
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
