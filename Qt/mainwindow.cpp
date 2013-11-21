@@ -405,6 +405,8 @@ void MainWindow::fullscreenAct_triggered()
 {
 	if(isFullScreen()) {
 		g_Config.bFullScreen = false;
+		menuBar()->show();
+
 		showNormal();
 		SetZoom(g_Config.iInternalResolution);
 		InitPadLayout();
@@ -413,6 +415,7 @@ void MainWindow::fullscreenAct_triggered()
 	}
 	else {
 		g_Config.bFullScreen = true;
+		menuBar()->hide();
 
 		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
@@ -452,6 +455,8 @@ void MainWindow::aboutAct_triggered()
 
 /* Private functions */
 void MainWindow::SetZoom(int zoom) {
+	if (isFullScreen())
+		fullscreenAct_triggered();
 	g_Config.iInternalResolution = zoom;
 
 	pixel_xres = 480 * zoom;
@@ -563,11 +568,12 @@ void MainWindow::createMenus()
 
 #define NEW_ACTION_KEY(menu, name, key) \
 	NEW_ACTION(menu, name) \
-	name->setShortcut(key);
+	name->setShortcut(key); \
+	this->addAction(name);
 
 #define NEW_ACTION_KEY_CHK(menu, name, key) \
-	NEW_ACTION_CHK(menu, name) \
-	name->setShortcut(key);
+	NEW_ACTION_KEY(menu, name, key) \
+	name->setCheckable(true);
 
 #define NEW_GROUP(menu, group, stringlist, valuelist) \
 { \
@@ -594,6 +600,7 @@ void MainWindow::createMenus()
 		action->setData(i.next()); \
 		action->setShortcut(k.next()); \
 		group->addAction(action); \
+		this->addAction(action); \
 	} \
 	connect(group, SIGNAL(triggered(QAction *)), this, SLOT(group ## _triggered(QAction *))); \
 	menu->addActions(group->actions()); \
