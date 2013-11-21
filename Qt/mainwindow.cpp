@@ -172,12 +172,6 @@ void MainWindow::closeEvent(QCloseEvent *)
 
 void MainWindow::keyPressEvent(QKeyEvent *e)
 {
-	if(isFullScreen() && e->key() == Qt::Key_F11)
-	{
-		fullscreenAct_triggered();
-		return;
-	}
-
 	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(e->key())->second, KEY_DOWN));
 }
 
@@ -411,7 +405,6 @@ void MainWindow::fullscreenAct_triggered()
 {
 	if(isFullScreen()) {
 		g_Config.bFullScreen = false;
-		menuBar()->setVisible(true);
 		showNormal();
 		SetZoom(g_Config.iInternalResolution);
 		InitPadLayout();
@@ -420,7 +413,6 @@ void MainWindow::fullscreenAct_triggered()
 	}
 	else {
 		g_Config.bFullScreen = true;
-		menuBar()->setVisible(false);
 
 		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 
