@@ -251,11 +251,10 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #elif defined(USING_QT_UI)
 	I18NCategory *m = GetI18NCategory("MainMenu");
 	QString fileName = QFileDialog::getExistingDirectory(NULL, "Browse for Folder", g_Config.currentDirectory.c_str());
-	if (QDir(fileName).exists()) {
-		g_Config.currentDirectory = fileName.toStdString();
-		g_Config.Save();
+	if (QDir(fileName).exists())
 		path_.SetPath(fileName.toStdString());
-	}
+	else
+		return UI::EVENT_DONE;
 #elif defined(_WIN32)
 	I18NCategory *m = GetI18NCategory("MainMenu");
 	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), m->T("Choose folder"));
@@ -263,7 +262,7 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	path_.SetPath(folder);
 #elif defined(BLACKBERRY)
-	path_.SetPath("/accounts/1000/shared/misc");
+	path_.SetPath(std::string(getenv("PERIMETER_HOME")) + "/shared/misc");
 #else
 	path_.SetPath(getenv("HOME"));
 #endif
@@ -286,7 +285,7 @@ void GameBrowser::Refresh() {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		Margins pathMargins(5, 0);
 		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f, pathMargins)));
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(USING_QT_UI)
 		topBar->Add(new Choice(m->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
 		topBar->Add(new Choice(m->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
@@ -467,7 +466,7 @@ void MainScreen::CreateViews() {
 	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
 	rightColumnItems->Add(logos);
 	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetSmall(true);
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MEEGO_EDITION_HARMATTAN))
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
