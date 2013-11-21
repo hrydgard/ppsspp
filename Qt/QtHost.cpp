@@ -10,6 +10,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Config.h"
 #include "base/NativeApp.h"
+#include "i18n/i18n.h"
 #include "UI/EmuScreen.h"
 #include "UI/UIShader.h"
 #include "UI/MiscScreens.h"
@@ -251,6 +252,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.AddSearchPath(memcard_path + "PSP/SYSTEM/");
 	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
 	g_Config.Load();
+	i18nrepo.LoadIni(g_Config.sLanguageIni);
 
 	const char *fileToLog = 0;
 
