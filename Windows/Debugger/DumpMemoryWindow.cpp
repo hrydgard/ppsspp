@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "Core/MemMap.h"
 #include "Windows/W32Util/ShellUtil.h"
+#include "Core/Core.h"
 
 DumpMemoryWindow* DumpMemoryWindow::bp;
 	
