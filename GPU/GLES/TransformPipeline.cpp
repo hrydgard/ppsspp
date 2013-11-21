@@ -915,10 +915,20 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 		indices.clear();
 	}
 
-	// TODO: Manage better.
-	u8 *temp_buffer = new u8[65536 * 24];
-	SimpleVertex *simpleVertices = new SimpleVertex[indexUpperBound + 1];
-	NormalizeVertices((u8 *)simpleVertices, temp_buffer, Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+	static std::vector<u32> temp_buffer;
+	static std::vector<SimpleVertex> simpleVertices;
+	temp_buffer.resize(65536 * 24 / sizeof(u32));
+	simpleVertices.resize(indexUpperBound + 1);
+	NormalizeVertices((u8 *)simpleVertices.data(), (u8 *)temp_buffer.data(), Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 
 	vertices.resize(indexUpperBound + 1);
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
@@ -931,14 +941,8 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 			vertices[i].y = vert.pos.y;
 			vertices[i].z = vert.pos.z;
 		} else {
-			// TODO: This doesn't work correctly and is inefficient.
-
-			float worldPos[3];
-			Vec3ByMatrix43(worldPos, vert.pos.AsArray(), gstate.worldMatrix);
-			float viewPos[3];
-			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
 			float clipPos[4];
-			Vec3ByMatrix44(clipPos, viewPos, gstate.projMatrix);
+			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
 			Vec3f screenPos = ClipToScreen(clipPos);
 			Vec3f drawPos = ScreenToDrawing(screenPos);
 
@@ -949,9 +953,6 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 			vertices[i].z = 1.0;
 		}
 	}
-
-	delete [] temp_buffer;
-	delete [] simpleVertices;
 
 	return true;
 }
