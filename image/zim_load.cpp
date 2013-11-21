@@ -135,13 +135,6 @@ int LoadZIMPtr(uint8_t *zim, int datasize, int *width, int *height, int *flags, 
 }
 
 int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t **image) {
-#ifdef USING_QT_UI
-	QFile asset(QString(":/assets/") + filename);
-	if (!asset.open(QIODevice::ReadOnly))
-		return 0;
-	int retval = LoadZIMPtr((uint8_t*)asset.readAll().data(), asset.size(), width, height, format, image);
-	asset.close();
-#else
 	size_t size;
 	uint8_t *buffer = VFSReadFile(filename, &size);
 	if (!buffer) {
@@ -152,6 +145,5 @@ int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t 
 		ELOG("Not a valid ZIM file: %s", filename);
 	}
 	delete [] buffer;
-#endif
 	return retval;
 }

@@ -25,10 +25,6 @@
 #define strcasecmp _stricmp
 #endif
 
-#ifdef USING_QT_UI
-#include <QFile>
-#endif
-
 // Ugh, this is ugly.
 static bool ParseLine(const std::string& line, std::string* keyOut, std::string* valueOut, std::string* commentOut)
 {
@@ -432,17 +428,8 @@ bool IniFile::Load(const char* filename)
 bool IniFile::LoadFromVFS(const std::string &filename) {
 	size_t size;
 	uint8_t *data = VFSReadFile(filename.c_str(), &size);
-	if (!data) {
-#ifdef USING_QT_UI
-		QFile asset(QString(":/assets/%1").arg(filename.c_str()));
-		if (asset.open(QIODevice::ReadOnly)) {
-			std::string str = QString(asset.readAll().data()).toStdString();
-			std::stringstream sstream(str);
-			return Load(sstream);
-		} else
-#endif
+	if (!data)
 		return false;
-	}
 	std::string str((const char*)data, size);
 	delete [] data;
 
