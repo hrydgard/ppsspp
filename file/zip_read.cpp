@@ -62,8 +62,9 @@ uint8_t *AssetsAssetReader::ReadAsset(const char *path, size_t *size) {
 	if (!asset.open(QIODevice::ReadOnly))
 		return 0;
 
-	uint8_t *contents = new uint8_t[asset.size()];
+	uint8_t *contents = new uint8_t[asset.size()+1];
 	memcpy(contents, (uint8_t*)asset.readAll().data(), asset.size());
+	contents[asset.size()] = 0;
 	*size = asset.size();
 	asset.close();
 	return contents;
