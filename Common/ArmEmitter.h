@@ -707,6 +707,11 @@ public:
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
+	// Load pointers without casting
+	template <class T> void MOVP2R(ARMReg reg, T *val) {
+		MOVI2R(reg, (u32)(void *)val);
+	}
+
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
