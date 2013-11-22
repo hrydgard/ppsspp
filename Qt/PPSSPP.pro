@@ -75,6 +75,7 @@ SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/GameInfoCache.cpp \
 	$$P/UI/OnScreenDisplay.cpp \
 	$$P/UI/UIShader.cpp \
+	$$P/UI/ui_atlas_lowmem.cpp \
 	$$P/android/jni/TestRunner.cpp
 
 HEADERS += $$P/UI/*.h
@@ -103,7 +104,6 @@ INCLUDEPATH += $$P $$P/Common $$P/native
 	SOURCES += $$P/UI/NativeApp.cpp
 }
 RESOURCES += assets.qrc
-SOURCES += $$P/UI/ui_atlas_lowmem.cpp
 
 # Packaging
 symbian {
@@ -112,13 +112,7 @@ symbian {
 	vendor_deploy.pkg_prerules = "%{\"Qtness\"}" ":\"Qtness\""
 	ICON = $$P/assets/icon.svg
 
-	# Folders:
-	shaders.sources = $$P/assets/shaders
-	shaders.path = E:/PPSSPP/PSP
-	lang.sources = $$files($$P/lang/*.ini)
-	lang.path = E:/PPSSPP/lang
-
-	DEPLOYMENT += vendor_deploy assets shaders lang
+	DEPLOYMENT += vendor_deploy
 
 	# 268 MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
@@ -127,15 +121,11 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	shaders.files = $$P/assets/shaders
-	shaders.path = /opt/PPSSPP/PSP
-	lang.files = $$files($$P/lang/*.ini)
-	lang.path = /opt/PPSSPP/lang
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
 	icon.files = $$P/assets/icon-114.png
 	icon.path = /usr/share/icons/hicolor/114x114/apps
-	INSTALLS += target assets shaders lang desktopfile icon
+	INSTALLS += target desktopfile icon
 	# Booster
 	QMAKE_CXXFLAGS += -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
 	QMAKE_LFLAGS += -pie -rdynamic

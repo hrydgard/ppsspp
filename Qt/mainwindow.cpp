@@ -32,16 +32,16 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 	host = new QtHost(this);
 	emugl = new QtEmuGL();
-	showNormal();
+
 	setCentralWidget(emugl);
 	emugl->init(&input_state);
+	createMenus();
+	updateMenus();
+
 	int zoom = g_Config.iInternalResolution;
 	if (zoom < 1) zoom = 1;
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
-
-	createMenus();
-	updateMenus();
 
 	SetGameTitle(fileToStart);
 
