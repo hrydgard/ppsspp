@@ -51,6 +51,8 @@ linux {
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
+		HEADERS += ../SDL/SDLJoystick.h
+		SOURCES += ../SDL/SDLJoystick.cpp
 		PKGCONFIG += sdl
 	}
 }
