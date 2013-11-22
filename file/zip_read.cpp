@@ -61,6 +61,7 @@ uint8_t *AssetsAssetReader::ReadAsset(const char *path, size_t *size) {
 	QFile asset(QString(":/assets/") + path);
 	if (!asset.open(QIODevice::ReadOnly))
 		return 0;
+
 	uint8_t *contents = new uint8_t[asset.size()];
 	memcpy(contents, (uint8_t*)asset.readAll().data(), asset.size());
 	*size = asset.size();
@@ -71,11 +72,15 @@ uint8_t *AssetsAssetReader::ReadAsset(const char *path, size_t *size) {
 bool AssetsAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
 	QDir assetDir(QString(":/assets/") + path);
-	QFileInfoList infoList = assetDir.entryInfoList(QString(filter).split(':'), QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Files, QDir::Name);
+	QStringList filters = QString(filter).split(':', QString::SkipEmptyParts);
+	for (int i = 0; i < filters.count(); i++)
+		filters[i].prepend("*.");
+
+	QFileInfoList infoList = assetDir.entryInfoList(filters, QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Files, QDir::Name);
 	foreach(QFileInfo qinfo, infoList) {
 		FileInfo info;
 		info.name = qinfo.fileName().toStdString();
-		info.fullName = path + qinfo.fileName().toStdString();
+		info.fullName = qinfo.absoluteFilePath().remove(":/assets/").toStdString();
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = qinfo.isDir();
