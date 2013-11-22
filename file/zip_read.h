@@ -1,4 +1,5 @@
 // TODO: Move much of this code to vfs.cpp
+#pragma once
 
 #ifdef ANDROID
 #include <zip.h>

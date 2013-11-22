@@ -31,6 +31,8 @@
 #include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "math/math_util.h"
+#include "../SDL/SDLJoystick.h"
+
 
 GlobalUIState lastUIState = UISTATE_MENU;
 
@@ -171,7 +173,7 @@ void EGL_Close() {
 SDL_Joystick    *ljoy = NULL;
 SDL_Joystick    *rjoy = NULL;
 #else
-SDL_Joystick *joy = NULL;
+SDLJoystick *joystick;
 #endif
 
 // Simple implementations of System functions
@@ -266,7 +268,6 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
-
 // TODO: Use NativeAxis for joy instead.
 #ifdef PANDORA
 	if ((ljoy)||(rjoy)) {
@@ -424,8 +425,6 @@ int main(int argc, char *argv[]) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 
 	// Audio must be unpaused _after_ NativeInit()
-	SDL_PauseAudio(0);
-	int numjoys = SDL_NumJoysticks();
 #ifdef PANDORA
 	// Joysticks init, we the nubs if setup as Joystick
 	if (numjoys > 0) {
@@ -434,39 +433,11 @@ int main(int argc, char *argv[]) {
 			rjoy = SDL_JoystickOpen(1);
 	}
 #else
-	SDL_JoystickEventState(SDL_ENABLE);
-	if (numjoys > 0) {
-		joy = SDL_JoystickOpen(0);
-	}
+	joystick = new SDLJoystick();
 #endif
+	SDL_PauseAudio(0);
+
 	EnableFZ();
-
-	// This is just a standard mapping that matches the X360 controller on MacOSX. Names will probably be all wrong
-	// on other controllers.
-	std::map<int, int> SDLJoyButtonMap;
-	SDLJoyButtonMap[0] = NKCODE_DPAD_UP;
-	SDLJoyButtonMap[1] = NKCODE_DPAD_DOWN;
-	SDLJoyButtonMap[2] = NKCODE_DPAD_LEFT;
-	SDLJoyButtonMap[3] = NKCODE_DPAD_RIGHT;
-	SDLJoyButtonMap[4] = NKCODE_BUTTON_10;
-	SDLJoyButtonMap[5] = NKCODE_BUTTON_9;
-	SDLJoyButtonMap[6] = NKCODE_BUTTON_5;
-	SDLJoyButtonMap[7] = NKCODE_BUTTON_6;
-	SDLJoyButtonMap[8] = NKCODE_BUTTON_7;
-	SDLJoyButtonMap[9] = NKCODE_BUTTON_8;
-	SDLJoyButtonMap[10] = NKCODE_BUTTON_SELECT;
-	SDLJoyButtonMap[11] = NKCODE_BUTTON_2;
-	SDLJoyButtonMap[12] = NKCODE_BUTTON_3;
-	SDLJoyButtonMap[13] = NKCODE_BUTTON_4;
-	SDLJoyButtonMap[14] = NKCODE_BUTTON_1;
-
-	std::map<int, int> SDLJoyAxisMap;
-	SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
-	SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
-	SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
-	SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
-	SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
-	SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
 
 	int framecount = 0;
 	float t = 0;
@@ -485,60 +456,6 @@ int main(int argc, char *argv[]) {
 			case SDL_QUIT:
 				quitRequested = 1;
 				break;
-
-			case SDL_JOYAXISMOTION:
-				{
-					AxisInput axis;
-					axis.axisId = SDLJoyAxisMap[event.jaxis.axis];
-					// 1.2 to try to approximate the PSP's clamped rectangular range.
-					axis.value = 1.2 * event.jaxis.value / 32767.0f;
-					if (axis.value > 1.0f) axis.value = 1.0f;
-					if (axis.value < -1.0f) axis.value = -1.0f;
-					axis.deviceId = DEVICE_ID_PAD_0;
-					axis.flags = 0;
-					NativeAxis(axis);
-					break;
-				}
-
-			case SDL_JOYBUTTONDOWN:
-				{
-					KeyInput key;
-					key.flags = KEY_DOWN;
-					key.keyCode = SDLJoyButtonMap[event.jbutton.button];
-					key.deviceId = DEVICE_ID_PAD_0;
-					NativeKey(key);
-					break;
-				}
-
-			case SDL_JOYBUTTONUP:
-				{
-					KeyInput key;
-					key.flags = KEY_UP;
-					key.keyCode = SDLJoyButtonMap[event.jbutton.button];
-					key.deviceId = DEVICE_ID_PAD_0;
-					NativeKey(key);
-					break;
-				}
-
-			case SDL_JOYHATMOTION:
-				{
-					AxisInput axisX;
-					AxisInput axisY;
-					axisX.axisId = JOYSTICK_AXIS_HAT_X;
-					axisY.axisId = JOYSTICK_AXIS_HAT_Y;
-					axisX.deviceId = DEVICE_ID_PAD_0;
-					axisY.deviceId = DEVICE_ID_PAD_0;
-					axisX.value = 0.0f;
-					axisY.value = 0.0f;
-					if (event.jhat.value & SDL_HAT_LEFT) axisX.value = -1.0f;
-					if (event.jhat.value & SDL_HAT_RIGHT) axisX.value = 1.0f;
-					if (event.jhat.value & SDL_HAT_DOWN) axisY.value = -1.0f;
-					if (event.jhat.value & SDL_HAT_UP) axisY.value = 1.0f;
-					NativeAxis(axisX);
-					NativeAxis(axisY);
-				}
-				break;
-
 			case SDL_KEYDOWN:
 				{
 					int k = event.key.keysym.sym;
@@ -662,6 +579,8 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 				break;
+			default:
+				joystick->processInput(ev)
 			}
 		}
 
@@ -684,6 +603,11 @@ int main(int argc, char *argv[]) {
 #endif
 
 		EndInputState(&input_state);
+
+#ifndef PANDORA
+		delete joystick;
+		joystick = 0;
+#endif
 
 		if (framecount % 60 == 0) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
