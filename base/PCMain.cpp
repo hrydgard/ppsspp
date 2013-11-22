@@ -580,7 +580,8 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			default:
-				joystick->processInput(ev)
+				joystick->ProcessInput(event);
+				break;
 			}
 		}
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "util/const_map.h"
 #include <map>
 
