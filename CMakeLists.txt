@@ -464,7 +464,10 @@ elseif(SDL_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
 	include_directories(${SDL_INCLUDE_DIR})
-	set(nativeExtra ${nativeExtra} native/base/PCMain.cpp)
+	set(nativeExtra ${nativeExtra} 
+		SDL/SDLJoystick.h
+		SDL/SDLJoystick.cpp
+		native/base/PCMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
