@@ -19,7 +19,12 @@
 #include <QFeedbackHapticsEffect>
 #include "SymbianMediaKeys.h"
 #endif
+#ifdef QT_HAS_SDL
+#include "SDL/SDLJoystick.h"
+#endif
 #include "QtMain.h"
+
+
 
 InputState* input_state;
 
@@ -77,7 +82,10 @@ float CalculateDPIScale()
 #endif
 }
 
-Q_DECL_EXPORT int main(int argc, char *argv[])
+#ifndef QT_HAS_SDL
+Q_DECL_EXPORT
+#endif
+int main(int argc, char *argv[])
 {
 #ifdef Q_OS_LINUX
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
@@ -134,6 +142,10 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 	thread->start();
 
+#ifdef QT_HAS_SDL
+	SDLJoystick joy(true);
+	joy.startEventLoop();
+#endif
 	int ret = a.exec();
 	delete audio;
 	thread->quit();
