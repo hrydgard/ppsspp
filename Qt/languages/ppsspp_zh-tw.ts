@@ -675,22 +675,22 @@
         <translation type="obsolete">PPSSPP</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="504"/>
+        <location filename="../mainwindow.cpp" line="460"/>
         <source>&amp;File</source>
         <translation>(&amp;F)文件</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="549"/>
+        <location filename="../mainwindow.cpp" line="466"/>
         <source>Quickload State</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="550"/>
+        <location filename="../mainwindow.cpp" line="468"/>
         <source>Quicksave State</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="505"/>
+        <location filename="../mainwindow.cpp" line="478"/>
         <source>&amp;Emulation</source>
         <translation>(&amp;E)模擬</translation>
     </message>
@@ -699,7 +699,7 @@
         <translation type="obsolete">(&amp;G)調試</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="507"/>
+        <location filename="../mainwindow.cpp" line="513"/>
         <source>&amp;Options</source>
         <translation>(&amp;O)選項</translation>
     </message>
@@ -712,12 +712,12 @@
         <translation type="obsolete">(&amp;G)日誌級別</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="513"/>
+        <location filename="../mainwindow.cpp" line="579"/>
         <source>&amp;Language</source>
         <translation>(&amp;L)語言選擇</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="509"/>
+        <location filename="../mainwindow.cpp" line="525"/>
         <source>&amp;Video</source>
         <translation>(&amp;V)視頻</translation>
     </message>
@@ -734,27 +734,27 @@
         <translation type="obsolete">(&amp;N)控制</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="508"/>
+        <location filename="../mainwindow.cpp" line="515"/>
         <source>&amp;Core</source>
         <translation>(&amp;C)核心</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="585"/>
+        <location filename="../mainwindow.cpp" line="522"/>
         <source>&amp;Ignore Illegal reads/writes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="514"/>
+        <location filename="../mainwindow.cpp" line="620"/>
         <source>&amp;Help</source>
         <translation>(&amp;H)幫助</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="546"/>
+        <location filename="../mainwindow.cpp" line="461"/>
         <source>&amp;Open...</source>
         <translation type="unfinished">(&amp;O)打開...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="547"/>
+        <location filename="../mainwindow.cpp" line="463"/>
         <source>&amp;Close</source>
         <translation type="unfinished">(&amp;C)關閉</translation>
     </message>
@@ -779,22 +779,22 @@
         <translation type="obsolete">F2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="551"/>
+        <location filename="../mainwindow.cpp" line="470"/>
         <source>&amp;Load State File...</source>
         <translation type="unfinished">(&amp;L)讀取存檔...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="552"/>
+        <location filename="../mainwindow.cpp" line="472"/>
         <source>&amp;Save State File...</source>
         <translation type="unfinished">(&amp;S)保存存檔...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="554"/>
+        <location filename="../mainwindow.cpp" line="475"/>
         <source>E&amp;xit</source>
         <translation type="unfinished">(&amp;X)退出</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="558"/>
+        <location filename="../mainwindow.cpp" line="479"/>
         <source>&amp;Run</source>
         <translation type="unfinished">(&amp;R)運行</translation>
     </message>
@@ -803,7 +803,7 @@
         <translation type="obsolete">F7</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="559"/>
+        <location filename="../mainwindow.cpp" line="481"/>
         <source>&amp;Pause</source>
         <translation type="unfinished">(&amp;P)暫停</translation>
     </message>
@@ -904,7 +904,7 @@
         <translation type="obsolete">F11</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="592"/>
+        <location filename="../mainwindow.cpp" line="532"/>
         <source>&amp;Buffered Rendering</source>
         <translation type="unfinished">(&amp;B)渲染緩衝</translation>
     </message>
@@ -913,7 +913,7 @@
         <translation type="obsolete">F5</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="601"/>
+        <location filename="../mainwindow.cpp" line="547"/>
         <source>&amp;Hardware Transform</source>
         <translation type="unfinished">(&amp;H)硬件加速</translation>
     </message>
@@ -922,7 +922,7 @@
         <translation type="obsolete">F6</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="593"/>
+        <location filename="../mainwindow.cpp" line="534"/>
         <source>&amp;Linear Filtering</source>
         <translation type="unfinished">(&amp;L)線性過濾</translation>
     </message>
@@ -975,7 +975,7 @@
         <translation type="obsolete">(&amp;G)轉到 http://www.ppsspp.org/</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="668"/>
+        <location filename="../mainwindow.cpp" line="622"/>
         <source>&amp;About PPSSPP...</source>
         <translation type="unfinished">(&amp;A)關於 PPSSPP...</translation>
     </message>
@@ -984,127 +984,127 @@
         <translation type="obsolete">(&amp;U)使用 VBO</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="560"/>
+        <location filename="../mainwindow.cpp" line="483"/>
         <source>Re&amp;set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="562"/>
+        <location filename="../mainwindow.cpp" line="486"/>
         <source>Run on &amp;load</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="506"/>
+        <location filename="../mainwindow.cpp" line="490"/>
         <source>De&amp;bug</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="566"/>
+        <location filename="../mainwindow.cpp" line="491"/>
         <source>Load Map File...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="567"/>
+        <location filename="../mainwindow.cpp" line="493"/>
         <source>Save Map File...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="568"/>
+        <location filename="../mainwindow.cpp" line="495"/>
         <source>Reset Symbol Table</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="570"/>
+        <location filename="../mainwindow.cpp" line="498"/>
         <source>Dump next frame to log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="572"/>
+        <location filename="../mainwindow.cpp" line="501"/>
         <source>Disassembly</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="573"/>
+        <location filename="../mainwindow.cpp" line="503"/>
         <source>Display List...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="574"/>
+        <location filename="../mainwindow.cpp" line="505"/>
         <source>Log Console</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="575"/>
+        <location filename="../mainwindow.cpp" line="507"/>
         <source>Memory View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="576"/>
+        <location filename="../mainwindow.cpp" line="509"/>
         <source>Memory View Texture</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="582"/>
+        <location filename="../mainwindow.cpp" line="516"/>
         <source>&amp;CPU Dynarec</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="583"/>
+        <location filename="../mainwindow.cpp" line="518"/>
         <source>&amp;Vertex Decoder Dynarec</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="584"/>
+        <location filename="../mainwindow.cpp" line="520"/>
         <source>Fast &amp;Memory (unstable)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="510"/>
+        <location filename="../mainwindow.cpp" line="527"/>
         <source>&amp;Anisotropic Filtering</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="511"/>
+        <location filename="../mainwindow.cpp" line="538"/>
         <source>&amp;Screen Size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="599"/>
+        <location filename="../mainwindow.cpp" line="544"/>
         <source>&amp;Stretch to Display</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="602"/>
+        <location filename="../mainwindow.cpp" line="549"/>
         <source>&amp;Vertex Cache</source>
         <translation type="unfinished">(&amp;V)頂點緩存</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="603"/>
+        <location filename="../mainwindow.cpp" line="551"/>
         <source>&amp;Frameskip</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="604"/>
+        <location filename="../mainwindow.cpp" line="553"/>
         <source>&amp;Audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="606"/>
+        <location filename="../mainwindow.cpp" line="556"/>
         <source>&amp;Fullscreen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="607"/>
+        <location filename="../mainwindow.cpp" line="558"/>
         <source>&amp;Show debug statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="608"/>
+        <location filename="../mainwindow.cpp" line="560"/>
         <source>&amp;Show FPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="512"/>
+        <location filename="../mainwindow.cpp" line="564"/>
         <source>Lo&amp;g levels</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1125,7 +1125,7 @@
         <translation type="obsolete">信息</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="667"/>
+        <location filename="../mainwindow.cpp" line="621"/>
         <source>&amp;Go to official website</source>
         <translation type="unfinished"></translation>
     </message>
