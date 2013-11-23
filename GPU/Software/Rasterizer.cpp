@@ -206,10 +206,18 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 		{
 			// projection mapping, TODO: Move this code to TransformUnit!
 			Vec3<float> source;
-			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+			switch (gstate.getUVProjMode()) {
+			case GE_PROJMAP_POSITION:
 				source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
-			} else {
+				break;
+
+			case GE_PROJMAP_UV:
+				source = Vec3f((v0.texturecoords * w0 + v1.texturecoords * w1 + v2.texturecoords * w2) / (w0 + w1 + w2), 0.0f);
+				break;
+
+			default:
 				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+				break;
 			}
 
 			Mat3x3<float> tgen(gstate.tgenMatrix);
