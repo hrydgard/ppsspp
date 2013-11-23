@@ -366,15 +366,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
+		renderWidthFactor = (float)renderWidth / 480.f;
+		renderHeightFactor = (float)renderHeight / 272.f;
 	}
-	
-	renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-	renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 
 	bool throughmode = gstate.isModeThrough();
 
