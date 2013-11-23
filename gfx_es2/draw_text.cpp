@@ -229,7 +229,7 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	QFont* font = new QFont();
-	font->setPixelSize(size + 4);
+	font->setPixelSize(size + 6);
 	fontMap_[fontHash] = font;
 	fontHash_ = fontHash;
 	return fontHash;
@@ -284,7 +284,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		painter.begin(&image);
 		painter.setFont(*font);
 		painter.setPen(color);
-		painter.drawText(0, font->pixelSize() - 4, QString::fromUtf8(str));
+		painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft | Qt::TextShowMnemonic /* Workaround for '&&'*/, QString::fromUtf8(str));
 		painter.end();
 
 		entry = new TextStringEntry();
