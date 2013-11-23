@@ -382,10 +382,14 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
-		if (sectorStart >= blockDevice->GetNumBlocks())
+		if (sectorStart > blockDevice->GetNumBlocks())
 		{
-			WARN_LOG(FILESYS, "Unable to open raw sector: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
+			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
 			return 0;
+		}
+		else if (sectorStart == blockDevice->GetNumBlocks())
+		{
+			ERROR_LOG(FILESYS, "Should not be able to open the block after the last on disc! %08x", sectorStart);
 		}
 
 		DEBUG_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
