@@ -776,7 +776,7 @@ public:
 
 	// Load pointers without casting
 	template <class T> void MOVP2R(ARMReg reg, T *val) {
-		MOVI2R(reg, (u32)(void *)val);
+		MOVI2R(reg, (u32)(intptr_t)(void *)val);
 	}
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
