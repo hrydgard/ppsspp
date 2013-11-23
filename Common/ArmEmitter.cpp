@@ -2371,7 +2371,7 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 
 
 
-void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm, NEONAlignment align)
+void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
 	// Gets encoded as a double register
@@ -2382,7 +2382,7 @@ void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm, 
 			| (align << 4) | Rm);
 }
 
-void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm, NEONAlignment align)
+void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
 	// Gets encoded as a double register

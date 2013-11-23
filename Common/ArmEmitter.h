@@ -724,8 +724,8 @@ public:
 
 
 	// Load/store multiple registers full of elements (a register is a D register)
-	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm = _PC, NEONAlignment align = ALIGN_NONE);
-	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm = _PC, NEONAlignment align = ALIGN_NONE);
+	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
 	// Load/store single lanes of D registers
 	// TODO
