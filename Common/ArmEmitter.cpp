@@ -18,6 +18,8 @@
 #include "ArmEmitter.h"
 #include "CPUDetect.h"
 
+#include "base/logging.h"
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -1043,21 +1045,6 @@ void ARMXEmitter::LDMBitmask(ARMReg dest, bool Add, bool Before, bool WriteBack,
 
 #undef VA_TO_REGLIST
 
-ARMReg SubBase(ARMReg Reg)
-{
-	if (Reg >= S0)
-	{
-		if (Reg >= D0)
-		{
-			if (Reg >= Q0)
-				return (ARMReg)((Reg - Q0) * 2); // Always gets encoded as a double register
-			return (ARMReg)(Reg - D0);
-		}
-		return (ARMReg)(Reg - S0);
-	}
-	return Reg;
-}
-
 // NEON Specific
 void ARMXEmitter::VABD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
@@ -1181,13 +1168,36 @@ u32 EncodeVm(ARMReg Vm)
 	ARMReg Reg = SubBase(Vm);
 
 	if (quad_reg)
-		return ((Reg & 0x10) << 2) | (Reg & 0xF);
+		return ((Reg & 0x10) << 1) | (Reg & 0xF);
 	else {
 		if (double_reg)
-			return ((Reg & 0x10) << 2) | (Reg & 0xF);
+			return ((Reg & 0x10) << 1) | (Reg & 0xF);
 		else
 			return ((Reg & 0x1) << 5) | (Reg >> 1);
 	}
+}
+
+ARMReg SubBase(ARMReg Reg)
+{
+	if (Reg >= S0)
+	{
+		if (Reg >= D0)
+		{
+			if (Reg >= Q0)
+				return (ARMReg)((Reg - Q0) * 2); // Always gets encoded as a double register
+			return (ARMReg)(Reg - D0);
+		}
+		return (ARMReg)(Reg - S0);
+	}
+	return Reg;
+}
+
+ARMReg DScalar(ARMReg dreg, int subScalar) {
+	int dr = (int)(SubBase(dreg)) & 0xF;
+	int scalar = ((subScalar << 4) | dr);
+	ARMReg ret =  (ARMReg)(D0 + scalar);
+	// ILOG("Scalar: %i D0: %i AR: %i", scalar, (int)D0, (int)ret);
+	return ret;
 }
 
 void ARMXEmitter::WriteVFPDataOp(u32 Op, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -1928,6 +1938,41 @@ void ARMXEmitter::VMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Write32((0xF2 << 24) | (1 << 23) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | \
 			(0xC0 << 4) | ((Size & I_POLYNOMIAL) ? 1 << 9 : 0) | EncodeVm(Vm));
 }
+void ARMXEmitter::VMLA_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
+
+	// No idea if the Non-Q case here works. Not really that interested.
+	if (Size & F_32)
+		Write32((0xF2 << 24) | (register_quad << 24) | (1 << 23) | (2 << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (0x14 << 4) | EncodeVm(Vm));
+	else
+		_dbg_assert_msg_(JIT, false, "VMLA_scalar only supports float atm");
+	//else
+	//	Write32((0xF2 << 24) | (1 << 23) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (0x90 << 4) | (1 << 6) | EncodeVm(Vm));
+	// Unsigned support missing
+}
+void ARMXEmitter::VMUL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
+
+	int VmEnc = EncodeVm(Vm);
+	// No idea if the Non-Q case here works. Not really that interested.
+	if (Size & F_32)  // Q flag
+		Write32((0xF2 << 24) | (register_quad << 24) | (1 << 23) | (2 << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (0x94 << 4) | VmEnc);
+	else
+		_dbg_assert_msg_(JIT, false, "VMUL_scalar only supports float atm");
+	
+		// Write32((0xF2 << 24) | ((Size & I_POLYNOMIAL) ? (1 << 24) : 0) | (1 << 23) | (encodedSize(Size) << 20) | 
+		// EncodeVn(Vn) | EncodeVd(Vd) | (0x84 << 4) | (register_quad << 6) | EncodeVm(Vm));
+	// Unsigned support missing
+}
+
 void ARMXEmitter::VNEG(u32 Size, ARMReg Vd, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
@@ -2303,9 +2348,32 @@ void ARMXEmitter::VZIP(u32 Size, ARMReg Vd, ARMReg Vm)
 	Write32((0xF3 << 24) | (0xB << 20) | (encodedSize(Size) << 18) | (1 << 17) | EncodeVd(Vd) | \
 			(0x18 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
-void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
+
+
+static int RegCountToType(int nRegs, NEONAlignment align) {
+	switch (nRegs) {
+	case 1:
+		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
+		return 7;
+	case 2:
+		_dbg_assert_msg_(JIT, !((int)align & 3), "align & 3 must be == 0");
+		return 10;
+	case 3:
+		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
+		return 6;
+	case 4:
+		return 4;
+	default:
+		_dbg_assert_msg_(JIT, false, "Invalid number of registers passed to vector load/store");
+		return 0;
+	}
+}
+
+
+
+void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm, NEONAlignment align)
 {
-	u32 spacing = 0x7; // Only support loading to 1 reg
+	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
 	// Gets encoded as a double register
 	Vd = SubBase(Vd);
 
@@ -2313,6 +2381,30 @@ void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMR
 			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
 			| (align << 4) | Rm);
 }
+
+void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm, NEONAlignment align)
+{
+	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
+	// Gets encoded as a double register
+	Vd = SubBase(Vd);
+
+	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (Rn << 16)
+		| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
+		| (align << 4) | Rm);
+}
+
+void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, false, "VLD1_lane not done yet");
+	// TODO
+}
+
+void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, false, "VST1_lane not done yet");
+	// TODO
+}
+
+
+
 void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = 0x8; // Single spaced registers
@@ -2320,16 +2412,6 @@ void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMR
 	Vd = SubBase(Vd);
 
 	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (1 << 21) | (Rn << 16)
-			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
-			| (align << 4) | Rm);
-}
-void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
-{
-	u32 spacing = 0x7; // Single spaced registers
-	// Gets encoded as a double register
-	Vd = SubBase(Vd);
-
-	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (Rn << 16)
 			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
 			| (align << 4) | Rm);
 }

@@ -359,8 +359,13 @@ const u32 I_POLYNOMIAL = (1 << 7); // Only used in VMUL/VMULL
 u32 EncodeVd(ARMReg Vd);
 u32 EncodeVn(ARMReg Vn);
 u32 EncodeVm(ARMReg Vm);
+
 // Subtracts the base from the register to give us the real one
 ARMReg SubBase(ARMReg Reg);
+
+// See A.7.1 in the ARMv7-A
+// VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
+ARMReg DScalar(ARMReg dreg, int subScalar);
 
 enum NEONAlignment {
 	ALIGN_NONE = 0,
@@ -644,12 +649,38 @@ public:
 	void VHSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMAX(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMIN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+
+	// Three registers
 	void VMLA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLS(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLAL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLSL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMUL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLAL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLSL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQRDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+
+	// Two registers and a scalar
+	// These two are super useful for matrix multiplication
+	void VMUL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLA_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	
+	// TODO:
+	/*
+	void VMLS_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLAL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLSL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMULL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLAL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLSL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULH_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQRDMULH_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	*/
+
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VORN(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -660,12 +691,7 @@ public:
 	void VPMIN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQABS(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VQADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMLAL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMLSL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQNEG(u32 Size, ARMReg Vd, ARMReg Vm);
-	void VQRDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQRSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -692,10 +718,28 @@ public:
 	void VREV32(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VREV16(u32 Size, ARMReg Vd, ARMReg Vm);
 
-	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	// Notes:
+	// Rm == _PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
+	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!
+
+
+	// Load/store multiple registers full of elements (a register is a D register)
+	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm = _PC, NEONAlignment align = ALIGN_NONE);
+	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, ARMReg Rm = _PC, NEONAlignment align = ALIGN_NONE);
+
+	// Load/store single lanes of D registers
+	// TODO
+	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+
+	
+	// TODO: Make quad-oriented wrappers for the above.
+
+
+
+	// Deinterleave two loads... or something. TODO
 	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
-	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
 	void VMRS_APSR();
 	void VMRS(ARMReg Rt);
