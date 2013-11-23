@@ -1177,6 +1177,21 @@ u32 EncodeVm(ARMReg Vm)
 	}
 }
 
+u32 encodedSize(u32 value)
+{
+	if (value & I_8)
+		return 0;
+	else if (value & I_16)
+		return 1;
+	else if ((value & I_32) || (value & F_32))
+		return 2;
+	else if (value & I_64)
+		return 3;
+	else
+		_dbg_assert_msg_(JIT, false, "Passed invalid size to integer NEON instruction");
+	return 0;
+}
+
 ARMReg SubBase(ARMReg Reg)
 {
 	if (Reg >= S0)
@@ -2369,43 +2384,72 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 	}
 }
 
-
-
-void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
+void ARMXEmitter::VLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
 	// Gets encoded as a double register
 	Vd = SubBase(Vd);
 
-	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (1 << 21) | (Rn << 16)
+	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (load << 21) | (Rn << 16)
 			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
 			| (align << 4) | Rm);
 }
 
-void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
+void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	VLDST1(true, Size, Vd, Rn, regCount, align, Rm);
+}
+
+void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	VLDST1(false, Size, Vd, Rn, regCount, align, Rm);
+}
+
+void ARMXEmitter::VLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) 
 {
-	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
-	// Gets encoded as a double register
+	bool register_quad = Vd >= Q0;
+
+	Vd = SubBase(Vd);
+	// Support quad lanes by converting to D lanes
+	if (register_quad && lane > 1) {
+		Vd = (ARMReg)((int)Vd + 1);
+		lane -= 2;
+	}
+	int encSize = encodedSize(Size);
+	int index_align = 0;
+	switch (encSize) {
+	case 0: index_align = lane << 1; break;
+	case 1: index_align = lane << 2; if (aligned) index_align |= 1; break;
+	case 2: index_align = lane << 3; if (aligned) index_align |= 3; break;
+	default:
+		break;
+	}
+
+	Write32((0xF4 << 24) | (1 << 23) | ((Vd & 0x10) << 18) | (load << 21) | (Rn << 16)
+		| ((Vd & 0xF) << 12) | (encSize << 10)
+		| (index_align << 4) | Rm);
+}
+
+void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	VLDST1_lane(true, Size, Vd, Rn, lane, aligned, Rm);
+}
+
+void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	VLDST1_lane(false, Size, Vd, Rn, lane, aligned, Rm);
+}
+
+void ARMXEmitter::VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm) {
+	bool register_quad = Vd >= Q0;
+
 	Vd = SubBase(Vd);
 
-	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (Rn << 16)
-		| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
-		| (align << 4) | Rm);
+	int T = register_quad;  // two D registers
+
+	Write32((0xF4 << 24) | (1 << 23) | ((Vd & 0x10) << 18) | (1 << 21) | (Rn << 16)
+		| ((Vd & 0xF) << 12) | (0xC << 8) | (encodedSize(Size) << 6)
+		| (T << 5) | (aligned << 4) | Rm);
 }
 
-void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm) {
-	_dbg_assert_msg_(JIT, false, "VLD1_lane not done yet");
-	// TODO
-}
-
-void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm) {
-	_dbg_assert_msg_(JIT, false, "VST1_lane not done yet");
-	// TODO
-}
-
-
-
-void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
+/*
+void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = 0x8; // Single spaced registers
 	// Gets encoded as a double register
@@ -2415,6 +2459,7 @@ void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMR
 			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
 			| (align << 4) | Rm);
 }
+*/
 
 void ARMXEmitter::VREVX(u32 size, u32 Size, ARMReg Vd, ARMReg Vm)
 {

@@ -70,6 +70,9 @@ enum ARMReg
 	// ASIMD Quad-Word registers
 	Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7,
 	Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15,
+
+	// for NEON VLD/VST instructions
+	REG_UPDATE = R13,
 	INVALID_REG = 0xFFFFFFFF
 };
 
@@ -359,6 +362,8 @@ const u32 I_POLYNOMIAL = (1 << 7); // Only used in VMUL/VMULL
 u32 EncodeVd(ARMReg Vd);
 u32 EncodeVn(ARMReg Vn);
 u32 EncodeVm(ARMReg Vm);
+
+u32 encodedSize(u32 value);
 
 // Subtracts the base from the register to give us the real one
 ARMReg SubBase(ARMReg Reg);
@@ -720,26 +725,44 @@ public:
 
 	// Notes:
 	// Rm == _PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
-	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!
-
+	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!    Added a REG_UPDATE pseudo register.
 
 	// Load/store multiple registers full of elements (a register is a D register)
+	// Specifying alignment when it can be guaranteed is documented to improve load/store performance.
+	// For example, when loading a set of four 64-bit registers that we know is 32-byte aligned, we should specify ALIGN_256.
+	void VLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
 	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
 	// Load/store single lanes of D registers
 	// TODO
-	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
+	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
+	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
 
-	
-	// TODO: Make quad-oriented wrappers for the above.
+	// Load one value into all lanes of a D or a Q register (either supported, all formats should work). 
+	void VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm = _PC);
 
-
-
+	/*
 	// Deinterleave two loads... or something. TODO
-	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
+	void VLD2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+
+	void VLD3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+
+	void VLD3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+
+	void VLD4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+
+	void VLD4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	*/
 
 	void VMRS_APSR();
 	void VMRS(ARMReg Rt);
@@ -761,22 +784,6 @@ public:
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
 	void TSTI2R(ARMReg rs, u32 val, ARMReg scratch);
 	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
-
-	inline u32 encodedSize(u32 value)
-	{
-		if (value & I_8)
-			return 0;
-		else if (value & I_16)
-			return 1;
-		else if ((value & I_32) || (value & F_32))
-			return 2;
-		else if (value & I_64)
-			return 3;
-		else
-			_dbg_assert_msg_(JIT, false, "Passed invalid size to integer NEON instruction");
-		return 0;
-	}
-
 };  // class ARMXEmitter
 
 
