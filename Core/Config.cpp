@@ -553,11 +553,11 @@ void Config::Save() {
 }
 
 void Config::AddRecent(const std::string &file) {
-	for (auto str = recentIsos.begin(); str != recentIsos.end(); str++) {
+	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
 #ifdef _WIN32
-		if (!strcmpIgnore(*str, file, "\\", "/")) {
+		if (!strcmpIgnore((*str).c_str(), file.c_str(), "\\", "/")) {
 #else
-		if (!strcmp(*str, file)) {
+		if (!strcmp((*str).c_str(), file.c_str())) {
 #endif
 			recentIsos.erase(str);
 			recentIsos.insert(recentIsos.begin(), file);

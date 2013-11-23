@@ -212,9 +212,9 @@ UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 bool GameScreen::isRecentGame(std::string gamePath) {
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
 #ifdef _WIN32
-		if (!strcmpIgnore((*it).c_str(), gamePath_.c_str(), "\\","/"))
+		if (!strcmpIgnore((*it).c_str(), gamePath.c_str(), "\\","/"))
 #else
-		if (!strcmp((*it).c_str(), gamePath_))
+		if (!strcmp((*it).c_str(), gamePath.c_str()))
 #endif
 			return true;
 	}
@@ -226,7 +226,7 @@ UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*it).c_str(), gamePath_.c_str(), "\\","/")) {
 #else
-		if (!strcmp((*it).c_str(), gamePath_)) {
+		if (!strcmp((*it).c_str(), gamePath_.c_str())) {
 #endif
 			g_Config.recentIsos.erase(it);
 			screenManager()->switchScreen(new MainScreen());
