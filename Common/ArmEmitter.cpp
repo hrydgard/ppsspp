@@ -2384,7 +2384,7 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 	}
 }
 
-void ARMXEmitter::VLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
+void ARMXEmitter::WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
 	// Gets encoded as a double register
@@ -2396,14 +2396,14 @@ void ARMXEmitter::VLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount
 }
 
 void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
-	VLDST1(true, Size, Vd, Rn, regCount, align, Rm);
+	WriteVLDST1(true, Size, Vd, Rn, regCount, align, Rm);
 }
 
 void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
-	VLDST1(false, Size, Vd, Rn, regCount, align, Rm);
+	WriteVLDST1(false, Size, Vd, Rn, regCount, align, Rm);
 }
 
-void ARMXEmitter::VLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) 
+void ARMXEmitter::WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) 
 {
 	bool register_quad = Vd >= Q0;
 
@@ -2429,11 +2429,11 @@ void ARMXEmitter::VLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lan
 }
 
 void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
-	VLDST1_lane(true, Size, Vd, Rn, lane, aligned, Rm);
+	WriteVLDST1_lane(true, Size, Vd, Rn, lane, aligned, Rm);
 }
 
 void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
-	VLDST1_lane(false, Size, Vd, Rn, lane, aligned, Rm);
+	WriteVLDST1_lane(false, Size, Vd, Rn, lane, aligned, Rm);
 }
 
 void ARMXEmitter::VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm) {

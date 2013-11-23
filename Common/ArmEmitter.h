@@ -405,6 +405,9 @@ private:
 	// New Ops
 	void WriteInstruction(u32 op, ARMReg Rd, ARMReg Rn, Operand2 Rm, bool SetFlags = false);
 
+	void WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
+	void WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
+
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
 
@@ -730,13 +733,10 @@ public:
 	// Load/store multiple registers full of elements (a register is a D register)
 	// Specifying alignment when it can be guaranteed is documented to improve load/store performance.
 	// For example, when loading a set of four 64-bit registers that we know is 32-byte aligned, we should specify ALIGN_256.
-	void VLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
 	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
 	// Load/store single lanes of D registers
-	// TODO
-	void VLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
 	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
 	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
 
