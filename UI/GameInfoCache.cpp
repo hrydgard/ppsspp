@@ -23,7 +23,6 @@
 #include "base/stringutil.h"
 #include "file/file_util.h"
 #include "file/zip_read.h"
-#include "image/png_load.h"
 #include "thread/prioritizedworkqueue.h"
 #include "Common/StringUtils.h"
 #include "GameInfoCache.h"

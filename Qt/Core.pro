@@ -7,8 +7,8 @@ CONFIG += staticlib
 include(Settings.pri)
 
 version.target = $$P/git-version.cpp
-!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") { version.commands = $$P/../Windows/git-version-gen.cmd }
-else { version.commands = $$P/Qt/git-version-gen.sh }
+!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") { version.commands = $$P/Windows/git-version-gen.cmd }
+else { version.commands = $$P/Qt/git-version-gen.sh $$P }
 version.depends = $$P/.git
 
 QMAKE_EXTRA_TARGETS += version
@@ -56,6 +56,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/Math3D.cpp \
 	$$P/GPU/Null/NullGpu.cpp \
 	$$P/GPU/GLES/*.cpp \
+	$$P/GPU/Software/*.cpp \
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
@@ -67,10 +68,6 @@ SOURCES += $$P/Core/*.cpp \ # Core
 !x86:!symbian {
 	SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 }
-
-# Software GPU
-SOURCES += $$P/GPU/Software/*.cpp
-HEADERS += $$P/GPU/Software/*.h
 
 HEADERS += $$P/Core/*.h \
 	$$P/Core/Debugger/*.h \
@@ -84,6 +81,7 @@ HEADERS += $$P/Core/*.h \
 	$$P/Core/MIPS/JitCommon/*.h \
 	$$P/Core/Util/*.h \
 	$$P/GPU/GLES/*.h \
+	$$P/GPU/Software/*.h \
 	$$P/GPU/Common/*.h \
 	$$P/GPU/*.h \
 	$$P/ext/libkirk/*.h \

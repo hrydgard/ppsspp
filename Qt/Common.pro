@@ -6,6 +6,7 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
+# CPU
 arm {
 	SOURCES += $$P/Common/ArmCPUDetect.cpp \
 		$$P/Common/ArmEmitter.cpp \
@@ -19,11 +20,12 @@ x86 {
 		$$P/Common/x64Analyzer.cpp \
 		$$P/Common/x64Emitter.cpp
 	HEADERS +=  $$P/Common/ABI.h \
-		$$P/Common/CPUDetect.h \
 		$$P/Common/Thunk.h \
 		$$P/Common/x64Analyzer.h \
 		$$P/Common/x64Emitter.h
 }
+HEADERS += $$P/Common/CPUDetect.h
+
 win32 {
 	SOURCES += $$P/Common/stdafx.cpp
 	HEADERS += $$P/Common/stdafx.h

@@ -5,17 +5,17 @@ VERSION = 0.9.5
 QT += core gui opengl
 include(Settings.pri)
 
+lessThan(QT_MAJOR_VERSION, 5):(lessThan(QT_MAJOR_VERSION, 4) | lessThan(QT_MINOR_VERSION, 7)) {
+	error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
+}
+
 # Extra Qt modules
 linux: CONFIG += link_pkgconfig
-win32|greaterThan(QT_MAJOR_VERSION,4) {
-	QT += multimedia
-} else {
-	linux:packagesExist(QtMultimedia) {
-		QT += multimedia
-	} else {
-		CONFIG += mobility
-		MOBILITY += multimedia
-	}
+win32|greaterThan(QT_MAJOR_VERSION,4): QT += multimedia
+else:linux:packagesExist(QtMultimedia): QT += multimedia
+else {
+	CONFIG += mobility
+	MOBILITY += multimedia
 }
 greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 
@@ -23,20 +23,19 @@ mobile_platform: MOBILITY += sensors
 symbian: MOBILITY += systeminfo feedback
 
 # PPSSPP Libs
-symbian: XT=".lib"
-else: LIBS += -L$$CONFIG_DIR
-LIBS += -lCore$${XT} -lCommon$${XT} -lNative$${XT}
+QMAKE_LIBDIR += $$CONFIG_DIR
+LIBS += -lCore -lCommon -lNative
 
 # FFMPEG Path
-win32:  FFMPEG_DIR = $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-linux:  FFMPEG_DIR = $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
+win32:  QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
+linux:  QMAKE_LIBDIR += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
 macx:!mobile_platform:   FFMPEG_DIR = $$P/ffmpeg/macosx/x86_64/lib/
-qnx:    FFMPEG_DIR = $$P/ffmpeg/blackberry/armv7/lib/
-symbian:FFMPEG_DIR = -l
+qnx:    QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
+symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
+
+contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 # External (platform-dependant) libs
-win32|symbian: LIBS += $${FFMPEG_DIR}avformat.lib $${FFMPEG_DIR}avcodec.lib $${FFMPEG_DIR}avutil.lib $${FFMPEG_DIR}swresample.lib $${FFMPEG_DIR}swscale.lib
-else:!contains(MEEGO_EDITION,harmattan): LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
 
 win32 {
 	#Use a fixed base-address under windows
@@ -51,8 +50,8 @@ linux {
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
-		HEADERS += ../SDL/SDLJoystick.h
-		SOURCES += ../SDL/SDLJoystick.cpp
+		SOURCES += $$P/SDL/SDLJoystick.cpp
+		HEADERS += $$P/SDL/SDLJoystick.h
 		PKGCONFIG += sdl
 	}
 }

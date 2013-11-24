@@ -16,7 +16,7 @@
 ## Official git repository and contact information can be found at
 ## https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-GIT_VERSION_FILE=$(dirname $0)/../git-version.cpp
+GIT_VERSION_FILE=$1/git-version.cpp
 
 if [ -e "$GIT_VERSION_FILE" ]; then
 	# Skip updating the file if PPSSPP_GIT_VERSION_NO_UPDATE is 1.
