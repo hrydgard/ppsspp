@@ -19,6 +19,8 @@
 //  CtrlDisAsmView::getFrom(GetDlgItem(yourdialog, IDC_yourid)).
 
 #include "../../Core/Debugger/DebugInterface.h"
+#include "../../Core/Debugger/DisassemblyManager.h"
+
 
 #include "Common/CommonWindows.h"
 #include <vector>
@@ -27,23 +29,6 @@
 using std::min;
 using std::max;
 
-
-enum LineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
-
-struct BranchLine
-{
-	u32 first;
-	u32 second;
-	LineType type;
-	int laneIndex;
-};
-
-struct DisassemblyFunction
-{
-	u32 hash;
-	std::vector<BranchLine> lines;
-};
-
 class CtrlDisAsmView
 {
 	HWND wnd;
@@ -51,10 +36,11 @@ class CtrlDisAsmView
 	HFONT boldfont;
 	RECT rect;
 
-	std::map<u32,DisassemblyFunction> functions;
+//	std::map<u32,DisassemblyFunc> functions;
 	std::vector<u32> visibleFunctionAddresses;
 	std::vector<BranchLine> strayLines;
 
+	DisassemblyManager manager;
 	u32 curAddress;
 	u32 selectRangeStart;
 	u32 selectRangeEnd;
@@ -122,7 +108,7 @@ public:
 	void scanFunctions();
 	void clearFunctions()
 	{
-		functions.clear();
+	//	functions.clear();
 		visibleFunctionAddresses.clear();
 		strayLines.clear();
 	};
@@ -137,6 +123,7 @@ public:
 		debugger=deb;
 		curAddress=debugger->getPC();
 		instructionSize=debugger->getInstructionSize(0);
+		manager.setCpu(deb);
 	}
 	DebugInterface *getDebugger()
 	{
@@ -177,14 +164,18 @@ public:
 
 	void scrollWindow(int lines)
 	{
-		windowStart += lines*instructionSize;
+		if (lines < 0)
+			windowStart = manager.getNthPreviousAddress(windowStart,abs(lines));
+		else
+			windowStart = manager.getNthNextAddress(windowStart,lines);
+
 		scanFunctions();
 		redraw();
 	}
 
 	void setCurAddress(u32 newAddress, bool extend = false)
 	{
-		u32 after = newAddress + instructionSize;
+		u32 after = manager.getNthNextAddress(newAddress,1);
 		curAddress = newAddress;
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
