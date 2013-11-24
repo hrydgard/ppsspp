@@ -57,8 +57,6 @@ class CtrlDisAsmView
 	int instructionSize;
 	bool whiteBackground;
 	bool displaySymbols;
-	u32 branchTarget;
-	int branchRegister;
 
 	struct {
 		int addressStart;
@@ -82,7 +80,6 @@ class CtrlDisAsmView
 	void followBranch();
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
-	void parseDisasm(const char* disasm, char* opcode, char* arguments);
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, BranchLine& line);
 	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);

@@ -232,69 +232,6 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 	}
 }
 
-void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* arguments)
-{
-	branchTarget = -1;
-	branchRegister = -1;
-
-	// copy opcode
-	while (*disasm != 0 && *disasm != '\t')
-	{
-		*opcode++ = *disasm++;
-	}
-	*opcode = 0;
-
-	if (*disasm++ == 0)
-	{
-		*arguments = 0;
-		return;
-	}
-
-	const char* jumpAddress = strstr(disasm,"->$");
-	const char* jumpRegister = strstr(disasm,"->");
-	while (*disasm != 0)
-	{
-		// parse symbol
-		if (disasm == jumpAddress)
-		{
-			sscanf(disasm+3,"%08x",&branchTarget);
-
-			const char* addressSymbol = debugger->findSymbolForAddress(branchTarget);
-			if (addressSymbol != NULL && displaySymbols)
-			{
-				arguments += sprintf(arguments,"%s",addressSymbol);
-			} else {
-				arguments += sprintf(arguments,"0x%08X",branchTarget);
-			}
-			
-			disasm += 3+8;
-			continue;
-		}
-
-		if (disasm == jumpRegister)
-		{
-			disasm += 2;
-			for (int i = 0; i < 32; i++)
-			{
-				if (strcasecmp(jumpRegister+2,debugger->GetRegName(0,i)) == 0)
-				{
-					branchRegister = i;
-					break;
-				}
-			}
-		}
-
-		if (*disasm == ' ')
-		{
-			disasm++;
-			continue;
-		}
-		*arguments++ = *disasm++;
-	}
-
-	*arguments = 0;
-}
-
 std::string trimString(std::string input)
 {
 	size_t pos = input.find_first_not_of(" \t");
@@ -1222,27 +1159,24 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	std::set<u32> branchAddresses;
 	for (u32 i = 0; i < size; i += instructionSize)
 	{
-		char opcode[64],arguments[256];
-		const char *dis = debugger->disasm(start+i, instructionSize);
-		parseDisasm(dis,opcode,arguments);
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		if (info.isBranch && debugger->findSymbolForAddress(info.branchTarget) == NULL)
 		{
-			if (branchAddresses.find(branchTarget) == branchAddresses.end())
+			if (branchAddresses.find(info.branchTarget) == branchAddresses.end())
 			{
-				branchAddresses.insert(branchTarget);
+				branchAddresses.insert(info.branchTarget);
 			}
 		}
 	}
 
+	u32 disAddress = start;
 	bool previousLabel = true;
-	for (u32 i = 0; i < size; i += instructionSize)
+	while (disAddress < start+size)
 	{
-		u32 disAddress = start+i;
+		char addressText[64],buffer[512];
 
-		char addressText[64],opcode[64],arguments[256],buffer[512];
-		const char *dis = debugger->disasm(disAddress, instructionSize);
-		parseDisasm(dis,opcode,arguments);
+		DisassemblyLineInfo line = manager.getLine(disAddress,displaySymbols);
 		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
 
 		if (isLabel)
@@ -1257,15 +1191,18 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 			result += buffer;
 		}
 
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		if (line.info.isBranch && !line.info.isBranchToRegister
+			&& debugger->findSymbolForAddress(line.info.branchTarget) == NULL
+			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
 		{
-			char* str = strstr(arguments,"0x");
-			sprintf(str,"pos_%08X",branchTarget);
+			sprintf(buffer,"pos_%08X",line.info.branchTarget);
+			line.params = line.params.substr(0,line.params.find("0x")) + buffer;
 		}
 
-		sprintf(buffer,"\t%s\t%s\r\n",opcode,arguments);
+		sprintf(buffer,"\t%s\t%s\r\n",line.name.c_str(),line.params.c_str());
 		result += buffer;
 		previousLabel = isLabel;
+		disAddress += line.totalSize;
 	}
 
 	return result;
@@ -1316,9 +1253,7 @@ void CtrlDisAsmView::disassembleToFile()
 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
 {
-	char opcode[64];
-	char arguments[256];
-	const char *dis = debugger->disasm(address, instructionSize);
-	parseDisasm(dis,opcode,arguments);
-	sprintf(dest,"%s  %s",opcode,arguments);
+	address = manager.getStartAddress(address);
+	DisassemblyLineInfo line = manager.getLine(address,displaySymbols);
+	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
 }
