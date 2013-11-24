@@ -55,6 +55,7 @@ public:
 	virtual u32 getLineAddress(int line) = 0;
 	virtual u32 getTotalSize() = 0;
 	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) = 0;
+	virtual void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest) { };
 };
 
 class DisassemblyFunction: public DisassemblyEntry
@@ -67,6 +68,7 @@ public:
 	virtual u32 getLineAddress(int line);
 	virtual u32 getTotalSize() { return size; };
 	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
+	virtual void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest);
 private:
 	u32 computeHash();
 	void generateBranchLines();
@@ -134,6 +136,7 @@ public:
 	void setCpu(DebugInterface* _cpu) { cpu = _cpu; };
 	DisassemblyLineInfo getLine(u32 address, bool insertSymbols);
 	void analyze(u32 address, u32 size);
+	std::vector<BranchLine> getBranchLines(u32 start, u32 size);
 
 	u32 getStartAddress(u32 address);
 	u32 getNthPreviousAddress(u32 address, int n = 1);

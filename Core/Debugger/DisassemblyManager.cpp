@@ -145,6 +145,23 @@ std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,Disa
 	return entries.end();
 }
 
+std::vector<BranchLine> DisassemblyManager::getBranchLines(u32 start, u32 size)
+{
+	std::vector<BranchLine> result;
+	
+	auto it = findDisassemblyEntry(entries,start,false);
+	if (it != entries.end())
+	{
+		do 
+		{
+			it->second->getBranchLines(start,size,result);
+			it++;
+		} while (it != entries.end() && start+size > it->second->getLineAddress(0));
+	}
+
+	return result;
+}
+
 DisassemblyLineInfo DisassemblyManager::getLine(u32 address, bool insertSymbols)
 {
 	DisassemblyLineInfo result;
@@ -306,6 +323,13 @@ bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo& dest, bo
 	return it->second->disassemble(address,dest,insertSymbols);
 }
 
+void DisassemblyFunction::getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest)
+{
+	for (int i = 0; i < lines.size(); i++)
+	{
+		dest.push_back(lines[i]);
+	}
+}
 
 #define NUM_LANES 16
 

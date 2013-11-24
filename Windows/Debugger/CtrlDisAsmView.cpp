@@ -300,7 +300,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		scanFunctions();
 
 		if (address == curAddress)
-			gotoAddr(curAddress+4);
+			gotoAddr(manager.getNthNextAddress(curAddress,1));
 
 		redraw();
 	} else {
@@ -310,10 +310,10 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 }
 
 
-void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
+void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line)
 {
 	HPEN pen;
-	u32 windowEnd = windowStart+visibleRows*instructionSize;
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 	
 	int topY;
 	int bottomY;
@@ -324,8 +324,7 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	{
 		topY = rect.bottom+1;
 	} else {
-		int row = (line.first-windowStart)/instructionSize;
-		topY = row*rowHeight + rowHeight/2;
+		topY = addressPositions[line.first] + rowHeight/2;
 	}
 			
 	if (line.second < windowStart)
@@ -335,8 +334,7 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	{
 		bottomY = rect.bottom+1;
 	} else {
-		int row = (line.second-windowStart)/instructionSize;
-		bottomY = row*rowHeight + rowHeight/2;
+		bottomY = addressPositions[line.second] + rowHeight/2;
 	}
 
 	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom))
@@ -429,12 +427,16 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOPDISABLE);
 
 	unsigned int address = windowStart;
+	std::map<u32,int> addressPositions;
+
 	for (int i = 0; i < visibleRows; i++)
 	{
 		DisassemblyLineInfo line = manager.getLine(address,displaySymbols);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
+
+		addressPositions[address] = rowY1;
 
 		// draw background
 		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address);
@@ -504,22 +506,11 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		address += line.totalSize;
 	}
 
-/*	for (size_t i = 0; i < visibleFunctionAddresses.size(); i++)
+	std::vector<BranchLine> branchLines = manager.getBranchLines(windowStart,address-windowStart);
+	for (size_t i = 0; i < branchLines.size(); i++)
 	{
-		auto it = functions.find(visibleFunctionAddresses[i]);
-		if (it == functions.end()) continue;
-		DisassemblyFunc& func = it->second;
-		
-		for (size_t l = 0; l < func.lines.size(); l++)
-		{
-			drawBranchLine(hdc,func.lines[l]);
-		}
+		drawBranchLine(hdc,addressPositions,branchLines[i]);
 	}
-
-	for (size_t i = 0; i < strayLines.size(); i++)
-	{
-		drawBranchLine(hdc,strayLines[i]);
-	}*/
 
 	SelectObject(hdc,oldFont);
 	SelectObject(hdc,oldPen);

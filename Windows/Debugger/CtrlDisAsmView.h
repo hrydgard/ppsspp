@@ -36,10 +36,6 @@ class CtrlDisAsmView
 	HFONT boldfont;
 	RECT rect;
 
-//	std::map<u32,DisassemblyFunc> functions;
-	std::vector<u32> visibleFunctionAddresses;
-	std::vector<BranchLine> strayLines;
-
 	DisassemblyManager manager;
 	u32 curAddress;
 	u32 selectRangeStart;
@@ -81,7 +77,7 @@ class CtrlDisAsmView
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
 	void updateStatusBarText();
-	void drawBranchLine(HDC hdc, BranchLine& line);
+	void drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line);
 	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);
 public:
 	CtrlDisAsmView(HWND _wnd);
@@ -103,12 +99,7 @@ public:
 	bool curAddressIsVisible();
 	void redraw();
 	void scanFunctions();
-	void clearFunctions()
-	{
-	//	functions.clear();
-		visibleFunctionAddresses.clear();
-		strayLines.clear();
-	};
+	void clearFunctions() { };
 
 	void getOpcodeText(u32 address, char* dest);
 	int getRowHeight() { return rowHeight; };
