@@ -689,8 +689,8 @@ if(ARM)
 		Core/MIPS/ARM/ArmRegCache.h
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.h
-		Core/GPU/GLES/VertexDecoderArm.cpp
-		Core/GPU/GLES/VertexDecoderArm.h
+		GPU/GLES/VertexDecoderArm.cpp
+		GPU/GLES/VertexDecoder.h
 		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
@@ -707,8 +707,8 @@ elseif(X86)
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
-		Core/GPU/GLES/VertexDecoderX86.cpp
-		Core/GPU/GLES/VertexDecoderX86.h
+		GPU/GLES/VertexDecoderX86.cpp
+		GPU/GLES/VertexDecoder.h
 		ext/disarm.cpp)
 endif()
 
