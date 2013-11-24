@@ -249,13 +249,11 @@ void NativeInit(int argc, const char *argv[],
 	// We want this to be FIRST.
 #ifdef USING_QT_UI
 	VFSRegister("", new AssetsAssetReader());
-#else
-#if defined(BLACKBERRY) || defined(IOS)
+#elif defined(BLACKBERRY) || defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_directory));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
-#endif
 #endif
 	VFSRegister("", new DirectoryAssetReader(savegame_directory));
 
@@ -272,7 +270,12 @@ void NativeInit(int argc, const char *argv[],
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
-	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	char* config = getenv("XDG_CONFIG_HOME");
+	if (!config) {
+		config = getenv("HOME");
+		strcat(config, "/.config");
+	}
+	g_Config.memCardDirectory = std::string(config) + "/ppsspp/";
 	std::string program_path = File::GetExeDirectory();
 	if (program_path.empty())
 		g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";

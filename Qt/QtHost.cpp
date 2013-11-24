@@ -243,7 +243,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	isMessagePending = false;
 
 	std::string user_data_path = savegame_directory;
+#ifdef Q_OS_LINUX
+	char* config = getenv("XDG_CONFIG_HOME");
+	if (!config) {
+		config = getenv("HOME");
+		strcat(config, "/.config");
+	}
+	std::string memcard_path = std::string(config) + "/ppsspp/";
+#else
 	std::string memcard_path = QDir::homePath().toStdString() + "/.ppsspp/";
+#endif
 
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
@@ -251,7 +260,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(memcard_path + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(memcard_path + "PSP/SYSTEM/");
 	g_Config.Load();
 	i18nrepo.LoadIni(g_Config.sLanguageIni);
 
@@ -305,7 +314,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = QDir::homePath().toStdString();
 	}
 
-	g_Config.memCardDirectory = QDir::homePath().toStdString() + "/.ppsspp/";
+	g_Config.memCardDirectory = memcard_path;
 
 #if defined(Q_OS_LINUX)
 	std::string program_path = QCoreApplication::applicationDirPath().toStdString();
