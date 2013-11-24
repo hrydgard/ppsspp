@@ -6,15 +6,6 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
-version.target = $$P/git-version.cpp
-!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") { version.commands = $$P/Windows/git-version-gen.cmd }
-else { version.commands = $$P/Qt/git-version-gen.sh $$P }
-version.depends = $$P/.git
-
-QMAKE_EXTRA_TARGETS += version
-PRE_TARGETDEPS += $$P/git-version.cpp
-SOURCES += $$P/git-version.cpp
-
 INCLUDEPATH += $$P/native $$P/Core/MIPS $$P/ $$P/ext/xbrz
 
 arm {

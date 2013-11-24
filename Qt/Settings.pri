@@ -1,5 +1,6 @@
+VERSION = 0.9.5
 DEFINES += USING_QT_UI USE_FFMPEG
-unix:!qnx:!symbian:!macx: CONFIG += linux
+unix:!qnx:!symbian:!mac: CONFIG += linux
 
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
@@ -10,6 +11,10 @@ MOC_DIR = $$CONFIG_DIR/.moc/$$TARGET
 UI_DIR = $$CONFIG_DIR/.ui/$$TARGET
 P = $$_PRO_FILE_PWD_/..
 INCLUDEPATH += $$P/ext/zlib $$P/native/ext/glew $$P/Common
+
+exists($$P/.git): GIT_VERSION = $$system(git describe --always)
+!isEmpty(GIT_VERSION): VERSION = $$GIT_VERSION
+DEFINES += PPSSPP_GIT_VERSION=\\\"$$VERSION\\\"
 
 win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast

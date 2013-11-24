@@ -22,7 +22,9 @@
 
 #include "CommonTypes.h"
 
+#if !defined(USING_QT_UI)
 extern const char *PPSSPP_GIT_VERSION;
+#endif
 
 const int MAX_CONFIG_VOLUME = 8;
 

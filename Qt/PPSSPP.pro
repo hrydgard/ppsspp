@@ -1,5 +1,4 @@
 TARGET = PPSSPPQt
-VERSION = 0.9.5
 
 # Main Qt modules
 QT += core gui opengl
