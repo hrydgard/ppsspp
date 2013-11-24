@@ -46,7 +46,18 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/GPUState.cpp \
 	$$P/GPU/Math3D.cpp \
 	$$P/GPU/Null/NullGpu.cpp \
-	$$P/GPU/GLES/*.cpp \
+	$$P/GPU/GLES/FragmentShaderGenerator.cpp \
+	$$P/GPU/GLES/Framebuffer.cpp \
+	$$P/GPU/GLES/GLES_GPU.cpp \
+	$$P/GPU/GLES/ShaderManager.cpp \
+	$$P/GPU/GLES/SoftwareTransform.cpp \
+	$$P/GPU/GLES/Spline.cpp \
+	$$P/GPU/GLES/StateMapping.cpp \
+	$$P/GPU/GLES/TextureCache.cpp \
+	$$P/GPU/GLES/TextureScaler.cpp \
+	$$P/GPU/GLES/TransformPipeline.cpp \
+	$$P/GPU/GLES/VertexDecoder.cpp \
+	$$P/GPU/GLES/VertexShaderGenerator.cpp \
 	$$P/GPU/Software/*.cpp \
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
@@ -56,9 +67,10 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/ext/xxhash.c \ # xxHash
 	$$P/ext/xbrz/*.cpp # XBRZ
 
-!x86:!symbian {
-	SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
-}
+!x86:!symbian: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
+
+arm: SOURCES += $$P/GPU/GLES/VertexDecoderArm.cpp
+else:SOURCES += $$P/GPU/GLES/VertexDecoderX86.cpp
 
 HEADERS += $$P/Core/*.h \
 	$$P/Core/Debugger/*.h \
