@@ -1789,21 +1789,15 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index)
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
-	u32 sizeEncoded = 0, indexEncoded = 0;
+	u32 imm4 = 0;
 	if (Size & I_8)
-		sizeEncoded = 1;
+		imm4 = (index << 1) | 1;
 	else if (Size & I_16)
-		sizeEncoded = 2;
-	else if (Size & I_32)
-		sizeEncoded = 4;
-	if (Size & I_8)
-		indexEncoded <<= 1;
-	else if (Size & I_16)
-		indexEncoded <<= 2;
-	else if (Size & I_32)
-		indexEncoded <<= 3;
-	Write32((0xF3 << 24) | (0xD << 20) | (sizeEncoded << 16) | (indexEncoded << 16) \
-		| EncodeVd(Vd) | (0xC0 << 4) | (register_quad << 6) | EncodeVm(Vm));
+		imm4 = (index << 2) | 2;
+	else if (Size & (I_32 | F_32))
+		imm4 = (index << 3) | 4;
+	Write32((0xF3 << 24) | (0xB << 20) | (imm4 << 16)  \
+		| EncodeVd(Vd) | (0xC << 8) | (register_quad << 6) | EncodeVm(Vm));
 }
 void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 {
