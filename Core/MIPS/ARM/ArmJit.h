@@ -230,6 +230,29 @@ private:
 	}
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 
+
+	// For NEON mappings, it will be easier to deal directly in ARM registers.
+
+	ARMReg NEONMapPrefixST(int vfpuReg, VectorSize sz, u32 prefix, int mapFlags);
+	ARMReg NEONMapPrefixS(int vfpuReg, VectorSize sz, int mapFlags) {
+		return NEONMapPrefixST(vfpuReg, sz, js.prefixS, mapFlags);
+	}
+	ARMReg NEONMapPrefixT(int vfpuReg, VectorSize sz, int mapFlags) {
+		return NEONMapPrefixST(vfpuReg, sz, js.prefixT, mapFlags);
+	}
+
+	struct DestARMReg {
+		ARMReg rd;
+		ARMReg backingRd;
+		VectorSize sz;
+
+		operator ARMReg() const { return rd; }
+	};
+
+	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);
+	void NEONApplyPrefixD(DestARMReg dest);
+
+
 	// Utils
 	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);
 	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse = false);

@@ -124,7 +124,6 @@ allocate:
 		}
 	}
 
-
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
 	// TODO: Spill dirty regs first? or opposite?
@@ -249,25 +248,31 @@ void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 }
 
 void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
-	int reg = r - S0;
-	if (ar[reg].mipsReg == -1) {
-		// Nothing to do, reg not mapped.
-		return;
-	}
-	if (ar[reg].mipsReg != -1) {
-		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
-		{
-			//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
-			emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
+	if (r >= S0 && r <= S31) {
+		int reg = r - S0;
+		if (ar[reg].mipsReg == -1) {
+			// Nothing to do, reg not mapped.
+			return;
 		}
-		// IMMs won't be in an ARM reg.
-		mr[ar[reg].mipsReg].loc = ML_MEM;
-		mr[ar[reg].mipsReg].reg = INVALID_REG;
-	} else {
-		ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		if (ar[reg].mipsReg != -1) {
+			if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
+			{
+				//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
+				emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
+			}
+			// IMMs won't be in an ARM reg.
+			mr[ar[reg].mipsReg].loc = ML_MEM;
+			mr[ar[reg].mipsReg].reg = INVALID_REG;
+		} else {
+			ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		}
+		ar[reg].isDirty = false;
+		ar[reg].mipsReg = -1;
+	} else if (r >= D0 && r <= D31) {
+		// TODO: Convert to S regs and flush them individually.
+	} else if (r >= Q0 && r <= Q15) {
+		// TODO
 	}
-	ar[reg].isDirty = false;
-	ar[reg].mipsReg = -1;
 }
 
 void ArmRegCacheFPU::FlushR(MIPSReg r) {
@@ -411,4 +416,158 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 		}
 		return INVALID_REG;  // BAAAD
 	}
+}
+
+inline ARMReg QuadAsD(int quad) {
+	return (ARMReg)(D0 + quad * 2);
+}
+
+inline ARMReg QuadAsQ(int quad) {
+	return (ARMReg)(Q0 + quad);
+}
+
+bool MappableQ(int quad) {
+	return quad >= 8;
+}
+
+void ArmRegCacheFPU::QFlush(int quad) {
+	// TODO: Add lots of clever logic here.
+	for (int i = quad * 4; i < quad * 4 + 4; i++) {
+		if (ar[i].isDirty) {
+			// TODO
+		}
+	}
+}
+
+ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
+	u8 regs[4];
+	u8 regsQuad[4];
+	GetVectorRegs(regs, sz, vreg);
+	GetVectorRegs(regsQuad, V_Quad, vreg);
+	// Let's check if they are all mapped in a quad somewhere.
+	// Later we can check for possible transposes as well.
+	int n = GetNumVectorElements(sz);
+	for (int q = 0; q < 16; q++) {
+		if (!MappableQ(q))
+			continue;
+		int r = q * 4;
+		bool match = true;
+		for (int j = 0; j < n; j++) {
+			if (ar[r + j].mipsReg != regs[j]) 
+				match = false;
+		}
+
+		if (match) {
+			// Alright we have this already! Just check that it isn't longer
+			// than necessary. We need to wipe stray extra regs.
+			// If we only return a D, might not actually need to wipe the upper two.
+			// But for now, let's keep it simple.
+			for (int j = n; j < 4; j++) {
+				if (ar[r + j].mipsReg == regsQuad[j]) {
+					FlushR(ar[r + j].mipsReg);
+				}
+			}
+			switch (sz) {
+			case V_Single:
+			case V_Pair:
+				return QuadAsD(q);
+			case V_Triple:
+			case V_Quad:
+				return QuadAsQ(q);
+			}
+		}
+	}
+
+
+retry:
+	// No match, not mapped yet.
+	// Search for a free quad. A quad is free if the first register in it is free.
+	int quad = -1;
+	for (int q = 0; q < 16; q++) {
+		if (!MappableQ(q))
+			continue;
+
+		if (ar[q * 4].mipsReg == INVALID_REG) {
+			// Oh yeah!
+			quad = q;
+			break;
+		}
+	}
+
+	if (quad != -1) {
+		goto gotQuad;
+	}
+
+	// Flush something, anything!
+	// TODO
+
+	goto retry;
+
+gotQuad:
+	// If parts of our register are elsewhere, we need to flush them before we reload
+	// in a new location.
+	// This may be problematic if inputs overlap, say:
+	// vdot S700, R000, C000
+	// It might still work by accident...
+	for (int i = 0; i < n; i++) {
+		FlushV(regs[i]);
+	}
+
+	// Flush out anything left behind in our new fresh quad.
+	QFlush(quad);
+
+	if (!(flags & MAP_NOINIT)) {
+		// Okay, now we will try to load the whole thing in one go. This is possible
+		// if it's a column and easy if it's a single.
+		switch (sz) {
+		case V_Single:
+			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+			break;
+		case V_Pair:
+			if (regs[1] == regs[0] + 1) {
+				// Can combine, it's a column!
+				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[1] * 4);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+			}
+			break;
+		case V_Triple:
+			// Let's just do the simple case.
+			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[1] * 4);
+			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[2] * 4);
+			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			break;
+		case V_Quad:
+			if (regs[3] == regs[2] + 1 && regs[2] == regs[1] + 1 && regs[1] == regs[0] + 1) {
+				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+				emit_->VLD1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			}
+			break;
+		}
+	}
+
+	// OK, let's fill out the arrays to confirm that we have grabbed these registers.
+	for (int i = 0; i < n; i++) {
+		int mipsReg = 32 + regs[i];
+		mr[mipsReg].loc = ML_ARMREG;
+		mr[mipsReg].reg = QuadAsQ(quad);
+		mr[mipsReg].lane = i;
+		ar[quad * 4 + i].mipsReg = mipsReg;
+		ar[quad * 4 + i].isDirty = (flags & MAP_DIRTY) != 0;
+	}
+
+	return QuadAsQ(quad);
+}
+
+ARMReg ArmRegCacheFPU::QAllocTemp() {
+	// TODO
+	return Q15;
 }

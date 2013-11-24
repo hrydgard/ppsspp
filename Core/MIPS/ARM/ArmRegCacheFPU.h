@@ -43,6 +43,8 @@ struct FPURegMIPS {
 	RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
 	int reg;
+	int lane;
+
 	bool spillLock;  // if true, this register cannot be spilled.
 	bool tempLock;
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
@@ -84,6 +86,8 @@ public:
 	void FlushArmReg(ARMReg r);
 	void FlushR(MIPSReg r);
 	void DiscardR(MIPSReg r);
+	MIPSReg GetTempR();
+	ARMReg R(int preg); // Returns a cached register
 
 	// VFPU register as single ARM VFP registers. Must not be used in the upcoming NEON mode!
 	void MapRegV(int vreg, int flags = 0);
@@ -91,20 +95,30 @@ public:
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
 	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
-	void FlushV(MIPSReg r) { FlushR(r + 32); }
 	void DiscardV(MIPSReg r) { DiscardR(r + 32);}
 	bool IsTempX(ARMReg r) const;
-
-	MIPSReg GetTempR();
 	MIPSReg GetTempV() { return GetTempR() - 32; }
-	 
-	void FlushAll();
-
-	ARMReg R(int preg); // Returns a cached register
-	
-	// VFPU registers as single VFP registers
+	// VFPU registers as single VFP registers.
 	ARMReg V(int vreg) { return R(vreg + 32); }
 
+
+	// This one is allowed at any point.
+	void FlushV(MIPSReg r) { FlushR(r + 32); }
+
+
+	// VFPU registers mapped to match NEON quads (and doubles, for pairs and singles)
+	// Here we return the ARM register directly instead of providing a "V" accessor
+	// and so on. Might switch to this model for the other regallocs later.
+
+	ARMReg QMapReg(int vreg, VectorSize sz, int flags);
+	ARMReg QAllocTemp();
+
+	void QFlush(int quad);
+
+
+
+	void FlushAll();
+	
 	// NOTE: These require you to release spill locks manually!
 	void MapRegsAndSpillLockV(int vec, VectorSize vsz, int flags);
 	void MapRegsAndSpillLockV(const u8 *v, VectorSize vsz, int flags);
@@ -117,12 +131,12 @@ public:
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
 
+private:
 	int GetMipsRegOffset(MIPSReg r);
 	int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
 	}
 
-private:
 	MIPSState *mips_;
 	ARMXEmitter *emit_;
 	u32 compilerPC_;
@@ -130,7 +144,9 @@ private:
 	int numARMFpuReg_;
 
 	enum {
-		MAX_ARMFPUREG = 32,  // TODO: Support 32, which you have with NEON
+		// With NEON, we have 64 S = 32 D = 16 Q registers. Only the first 32 S registers
+		// are individually mappable though.
+		MAX_ARMFPUREG = 64,
 		NUM_MIPSFPUREG = TOTAL_MAPPABLE_MIPSFPUREGS,
 	};
 

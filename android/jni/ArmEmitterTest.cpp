@@ -69,6 +69,7 @@ void TestCode::Generate()
 	VST1(I_32, D4, R2, 2);
 	VST1(I_32, D6, R3, 2);
 	PLD(R1, 32);
+	VDUP(F_32, Q3, Q8, 1);
 	u32 word = *(u32 *)(GetCodePtr() - 4);
 	ILOG("Instruction Word: %08x", word);
 
@@ -115,7 +116,7 @@ extern void DisassembleArm(const u8 *data, int size);
 void ArmEmitterTest()
 {
 	// Disabled for now.
-	return;
+	//return;
 
 	// If I commit with it enabled by accident, let's not blow up.
 	if (!cpu_info.bNEON)
