@@ -381,10 +381,6 @@ void NativeInit(int argc, const char *argv[],
 		logman->AddListener(type, logger);
 #endif
 	}
-#ifdef __SYMBIAN32__
-	g_Config.bSeparateCPUThread = false;
-	g_Config.bSeparateIOThread = false;
-#endif
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);

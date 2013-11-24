@@ -125,11 +125,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
 	cpu->Get("AtomicAudioLocks", &bAtomicAudioLocks, false);
 
-#ifdef __SYMBIAN32__
-	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
-#else
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
-#endif
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, 0);
 
