@@ -27,10 +27,11 @@ QMAKE_LIBDIR += $$CONFIG_DIR
 LIBS += -lCore -lCommon -lNative
 
 # FFMPEG Path
-win32:  QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-linux:  QMAKE_LIBDIR += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
-macx:!mobile_platform:   FFMPEG_DIR = $$P/ffmpeg/macosx/x86_64/lib/
-qnx:    QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
+win32:	QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
+linux:	QMAKE_LIBDIR += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
+macx:	QMAKE_LIBDIR += $$P/ffmpeg/macosx/x86_64/lib/
+ios:	QMAKE_LIBDIR += $$P/ffmpeg/ios/universal/lib/
+qnx:	QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
 symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
 
 contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
@@ -47,7 +48,7 @@ win32 {
 }
 linux {
 	LIBS += -ldl
-	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
+	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
 		SOURCES += $$P/SDL/SDLJoystick.cpp

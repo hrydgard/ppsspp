@@ -54,10 +54,14 @@ contains(MEEGO_EDITION,harmattan) {
 	DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 }
 
-macx:!mobile_platform {
+macx {
 	INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
 	#the qlist headers include <initializer_list> in QT5
 	greaterThan(QT_MAJOR_VERSION,4):CONFIG+=c++11
+}
+
+ios {
+	INCLUDEPATH += $$P/ffmpeg/ios/universal/include
 }
 
 linux:!mobile_platform {
