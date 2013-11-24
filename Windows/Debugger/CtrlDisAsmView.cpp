@@ -431,7 +431,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	unsigned int address = windowStart;
 	for (int i = 0; i < visibleRows; i++)
 	{
-		DisassemblyLineInfo line = manager.getLine(address,true);
+		DisassemblyLineInfo line = manager.getLine(address,displaySymbols);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
@@ -569,16 +569,16 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::followBranch()
 {
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
+	DisassemblyLineInfo line = manager.getLine(curAddress,true);
 
-	if (info.isBranch)
+	if (line.info.isBranch)
 	{
 		jumpStack.push_back(curAddress);
-		gotoAddr(info.branchTarget);
-	} else if (info.hasRelevantAddress)
+		gotoAddr(line.info.branchTarget);
+	} else if (line.info.hasRelevantAddress)
 	{
 		// well, not  exactly a branch, but we can do something anyway
-		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,info.releventAddress,0);
+		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
 		SetFocus(wnd);
 	}
 }
@@ -1008,33 +1008,33 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 void CtrlDisAsmView::updateStatusBarText()
 {
 	char text[512];
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
+	DisassemblyLineInfo line = manager.getLine(curAddress,true);
 	
 	text[0] = 0;
-	if (info.isDataAccess)
+	if (line.info.isDataAccess)
 	{
-		if (!Memory::IsValidAddress(info.dataAddress))
+		if (!Memory::IsValidAddress(line.info.dataAddress))
 		{
-			sprintf(text,"Invalid address %08X",info.dataAddress);
+			sprintf(text,"Invalid address %08X",line.info.dataAddress);
 		} else {
-			switch (info.dataSize)
+			switch (line.info.dataSize)
 			{
 			case 1:
-				sprintf(text,"[%08X] = %02X",info.dataAddress,Memory::Read_U8(info.dataAddress));
+				sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
 				break;
 			case 2:
-				sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
+				sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
 				break;
 			case 4:
 				// TODO: Could also be a float...
 				{
-					u32 data = Memory::Read_U32(info.dataAddress);
+					u32 data = Memory::Read_U32(line.info.dataAddress);
 					const char* addressSymbol = debugger->findSymbolForAddress(data);
 					if (addressSymbol)
 					{
-						sprintf(text,"[%08X] = %s (%08X)",info.dataAddress,addressSymbol,data);
+						sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
 					} else {
-						sprintf(text,"[%08X] = %08X",info.dataAddress,data);
+						sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
 					}
 					break;
 				}
@@ -1045,14 +1045,14 @@ void CtrlDisAsmView::updateStatusBarText()
 		}
 	}
 
-	if (info.isBranch)
+	if (line.info.isBranch)
 	{
-		const char* addressSymbol = debugger->findSymbolForAddress(info.branchTarget);
+		const char* addressSymbol = debugger->findSymbolForAddress(line.info.branchTarget);
 		if (addressSymbol == NULL)
 		{
-			sprintf(text,"%08X",info.branchTarget);
+			sprintf(text,"%08X",line.info.branchTarget);
 		} else {
-			sprintf(text,"%08X = %s",info.branchTarget,addressSymbol);
+			sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol);
 		}
 	}
 

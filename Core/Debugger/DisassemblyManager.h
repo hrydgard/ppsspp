@@ -54,7 +54,7 @@ public:
 	virtual int getLineNum(u32 address, bool findStart) = 0;
 	virtual u32 getLineAddress(int line) = 0;
 	virtual u32 getTotalSize() = 0;
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest) = 0;
+	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) = 0;
 };
 
 class DisassemblyFunction: public DisassemblyEntry
@@ -66,7 +66,7 @@ public:
 	virtual int getLineNum(u32 address, bool findStart);
 	virtual u32 getLineAddress(int line);
 	virtual u32 getTotalSize() { return size; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest);
+	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
 private:
 	u32 computeHash();
 	void generateBranchLines();
@@ -91,7 +91,7 @@ public:
 	virtual int getLineNum(u32 address, bool findStart) { return 0; };
 	virtual u32 getLineAddress(int line) { return address; };
 	virtual u32 getTotalSize() { return 4; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest);
+	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
 private:
 	u32 address;
 };
@@ -104,14 +104,14 @@ public:
 	virtual ~DisassemblyMacro() { };
 	
 	void setMacroLi(u32 _immediate, u8 _rt);
-	void setMacroMemory(std::string _name, u32 _immediate, u8 _rt);
+	void setMacroMemory(std::string _name, u32 _immediate, u8 _rt, int _dataSize);
 	
 	virtual void recheck() { };
 	virtual int getNumLines() { return 1; };
 	virtual int getLineNum(u32 address, bool findStart) { return 0; };
 	virtual u32 getLineAddress(int line) { return address; };
 	virtual u32 getTotalSize() { return numOpcodes*4; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest) ;
+	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) ;
 private:
 	enum MacroType { MACRO_LI, MACRO_MEMORYIMM };
 
@@ -121,6 +121,7 @@ private:
 	u32 address;
 	u32 numOpcodes;
 	u8 rt;
+	int dataSize;
 };
 
 

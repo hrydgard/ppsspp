@@ -87,6 +87,8 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 void DisassemblyManager::analyze(u32 address, u32 size)
 {
 	u32 end = address+size;
+
+	address &= ~3;
 	u32 start = address;
 
 	while (address < end && start <= address)
@@ -165,7 +167,7 @@ DisassemblyLineInfo DisassemblyManager::getLine(u32 address, bool insertSymbols)
 	DisassemblyEntry* entry = it->second;
 	
 	result.info = MIPSAnalyst::GetOpcodeInfo(cpu,address);
-	if (entry->disassemble(address,result))
+	if (entry->disassemble(address,result,insertSymbols))
 		return result;
 
 	result.totalSize = 4;
@@ -295,13 +297,13 @@ u32 DisassemblyFunction::getLineAddress(int line)
 	return lineAddresses[line];
 }
 
-bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo& dest)
+bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
 	auto it = findDisassemblyEntry(entries,address,true);
 	if (it == entries.end())
 		return false;
 
-	return it->second->disassemble(address,dest);
+	return it->second->disassemble(address,dest,insertSymbols);
 }
 
 
@@ -425,6 +427,7 @@ void DisassemblyFunction::load()
 		if (MIPS_GET_OP(opInfo.encodedOpcode) == 0x0F && funcPos < funcEnd)
 		{
 			MIPSOpcode next = Memory::Read_Instruction(funcPos);
+			MIPSInfo nextInfo = MIPSGetInfo(next);
 
 			u32 immediate = ((opInfo.encodedOpcode & 0xFFFF) << 16) + (s16)(next.encoding & 0xFFFF);
 			int rt = MIPS_GET_RT(opInfo.encodedOpcode);
@@ -454,7 +457,25 @@ void DisassemblyFunction::load()
 				case 0x29:	// sh
 				case 0x2B:	// sw
 					macro = new DisassemblyMacro(opAddress);
-					macro->setMacroMemory(MIPSGetName(next),immediate,rt);
+					
+					int dataSize;
+					switch (nextInfo & MEMTYPE_MASK) {
+					case MEMTYPE_BYTE:
+						dataSize = 1;
+						break;
+					case MEMTYPE_HWORD:
+						dataSize = 2;
+						break;
+					case MEMTYPE_WORD:
+					case MEMTYPE_FLOAT:
+						dataSize = 4;
+						break;
+					case MEMTYPE_VQUAD:
+						dataSize = 16;
+						break;
+					}
+
+					macro->setMacroMemory(MIPSGetName(next),immediate,rt,dataSize);
 					funcPos += 4;
 					break;
 				}
@@ -490,11 +511,11 @@ void DisassemblyFunction::clear()
 	hash = 0;
 }
 
-bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest)
+bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
 	char opcode[64],arguments[256];
 	const char *dizz = DisassemblyManager::getCpu()->disasm(address,4);
-	parseDisasm(dizz,opcode,arguments,true);
+	parseDisasm(dizz,opcode,arguments,insertSymbols);
 	dest.name = opcode;
 	dest.params = arguments;
 	dest.totalSize = 4;
@@ -511,26 +532,58 @@ void DisassemblyMacro::setMacroLi(u32 _immediate, u8 _rt)
 	numOpcodes = 2;
 }
 
-void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt)
+void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt, int _dataSize)
 {
 	type = MACRO_MEMORYIMM;
 	name = _name;
 	immediate = _immediate;
 	rt = _rt;
+	dataSize = _dataSize;
 	numOpcodes = 2;
 }
 
-bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest)
+bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
 	char buffer[64];
 
+	const char* addressSymbol;
 	switch (type)
 	{
 	case MACRO_LI:
+		dest.name = name;
+		
+		addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(immediate);
+		if (addressSymbol != NULL && insertSymbols)
+		{
+			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
+		} else {
+			sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
+		}
+
+		dest.params = buffer;
+		
+		dest.info.hasRelevantAddress = true;
+		dest.info.releventAddress = immediate;
+		break;
 	case MACRO_MEMORYIMM:
 		dest.name = name;
-		sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
+
+		addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(immediate);
+		if (addressSymbol != NULL && insertSymbols)
+		{
+			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
+		} else {
+			sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
+		}
+
 		dest.params = buffer;
+
+		dest.info.isDataAccess = true;
+		dest.info.dataAddress = immediate;
+		dest.info.dataSize = dataSize;
+
+		dest.info.hasRelevantAddress = true;
+		dest.info.releventAddress = immediate;
 		break;
 	default:
 		return false;
