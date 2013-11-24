@@ -80,9 +80,25 @@ private:
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
+	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
+
 	std::string gamePath_;
 
 	UI::ChoiceStrip *saveSlots_;
 	UI::Choice *saveStateButton_;
 	UI::Choice *loadStateButton_;
+};
+
+class UmdReplaceScreen : public UIDialogScreenWithBackground {
+public:
+	UmdReplaceScreen() {}
+
+protected:
+	virtual void CreateViews();
+	virtual void update(InputState &input);
+	//virtual void sendMessage(const char *message, const char *value);
+
+private:
+	UI::EventReturn OnGameSelected(UI::EventParams &e);
+	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
 };
