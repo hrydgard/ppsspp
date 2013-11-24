@@ -770,10 +770,16 @@ void GamePauseScreen::sendMessage(const char *message, const char *value) {
 }
 
 void UmdReplaceScreen::CreateViews() {
+	Margins actionMenuMargins(0, 100, 15, 0);
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
 	leftColumn->SetClip(true);
+
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	rightColumnItems->SetSpacing(0.0f);
+	rightColumn->Add(rightColumnItems);
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -796,6 +802,9 @@ void UmdReplaceScreen::CreateViews() {
 	tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
+	rightColumnItems->Add(new Choice(m->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
+	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
+
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);
 	}else{
@@ -803,8 +812,8 @@ void UmdReplaceScreen::CreateViews() {
 	}
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-	leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 	root_->Add(leftColumn);	
+	root_->Add(rightColumn);	
 }
 
 void UmdReplaceScreen::update(InputState &input) {
@@ -821,5 +830,15 @@ UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 UI::EventReturn UmdReplaceScreen:: OnGameSelectedInstant(UI::EventParams &e) {
 	__UmdReplace(e.s);
 	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UmdReplaceScreen:: OnCancel(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UmdReplaceScreen:: OnGameSettings(UI::EventParams &e) {
+	screenManager()->push(new GameSettingsScreen(""));
 	return UI::EVENT_DONE;
 }
