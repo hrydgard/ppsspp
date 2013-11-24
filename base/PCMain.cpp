@@ -173,7 +173,7 @@ void EGL_Close() {
 SDL_Joystick    *ljoy = NULL;
 SDL_Joystick    *rjoy = NULL;
 #else
-SDLJoystick *joystick;
+SDLJoystick *joystick = NULL;
 #endif
 
 // Simple implementations of System functions
@@ -425,7 +425,9 @@ int main(int argc, char *argv[]) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 
 	// Audio must be unpaused _after_ NativeInit()
+	SDL_PauseAudio(0);
 #ifdef PANDORA
+	int numjoys = SDL_NumJoysticks();
 	// Joysticks init, we the nubs if setup as Joystick
 	if (numjoys > 0) {
 		ljoy = SDL_JoystickOpen(0);
@@ -435,8 +437,6 @@ int main(int argc, char *argv[]) {
 #else
 	joystick = new SDLJoystick();
 #endif
-	SDL_PauseAudio(0);
-
 	EnableFZ();
 
 	int framecount = 0;
@@ -605,11 +605,6 @@ int main(int argc, char *argv[]) {
 
 		EndInputState(&input_state);
 
-#ifndef PANDORA
-		delete joystick;
-		joystick = 0;
-#endif
-
 		if (framecount % 60 == 0) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
@@ -627,6 +622,10 @@ int main(int argc, char *argv[]) {
 		t = time_now();
 		framecount++;
 	}
+#ifndef PANDORA
+	delete joystick;
+	joystick = NULL;
+#endif
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 #ifdef _WIN32
