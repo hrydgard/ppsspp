@@ -327,10 +327,19 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 				VMUL_scalar(F_32, Q7, Q11, QScalar(neonWeightRegs[0], 0));
 				break;
 			case 1:
-				VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegs[0], 1));
-				VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegs[0], 1));
-				VMLA_scalar(F_32, Q6, Q14, QScalar(neonWeightRegs[0], 1));
-				VMLA_scalar(F_32, Q7, Q15, QScalar(neonWeightRegs[0], 1));
+				// Krait likes VDUP + VFMA better than VMLA, and it's easy to do here.
+				if (cpu_info.bVFPv4) {
+					VDUP(F_32, Q1, neonWeightRegs[i >> 2], i & 1);
+					VFMA(Q4, Q12, Q1);
+					VFMA(Q5, Q13, Q1);
+					VFMA(Q6, Q14, Q1);
+					VFMA(Q7, Q15, Q1);
+				} else {
+					VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegs[0], 1));
+					VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegs[0], 1));
+					VMLA_scalar(F_32, Q6, Q14, QScalar(neonWeightRegs[0], 1));
+					VMLA_scalar(F_32, Q7, Q15, QScalar(neonWeightRegs[0], 1));
+				}
 				break;
 			default:
 				// Matrices 2+ need to be loaded from memory.
@@ -751,36 +760,55 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
-	LDRSB(tempReg1, srcReg, dec_->nrmoff);
-	LDRSB(tempReg2, srcReg, dec_->nrmoff + 1);
-	LDRSB(tempReg3, srcReg, dec_->nrmoff + 2);
-	VMOV(src[0], tempReg1);
-	VMOV(src[1], tempReg2);
-	VMOV(src[2], tempReg3);
-	MOVI2F(S15, 1.0f/128.0f, scratchReg);
-	VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
-	VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
-	VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
-	VMUL(src[0], src[0], S15);
-	VMUL(src[1], src[1], S15);
-	VMUL(src[2], src[2], S15);
+	if (NEONSkinning) {
+		ADD(scratchReg, srcReg, dec_->nrmoff);
+		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
+		MOVI2F(S15, 1.0f/128.0f, scratchReg);
+		VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 16-bit
+		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL_scalar(F_32, srcNEON, neonScratchReg, QScalar(Q3, 3));  // S15
+	} else {
+		LDRSB(tempReg1, srcReg, dec_->nrmoff);
+		LDRSB(tempReg2, srcReg, dec_->nrmoff + 1);
+		LDRSB(tempReg3, srcReg, dec_->nrmoff + 2);
+		VMOV(src[0], tempReg1);
+		VMOV(src[1], tempReg2);
+		VMOV(src[2], tempReg3);
+		MOVI2F(S15, 1.0f/128.0f, scratchReg);
+		VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
+		VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
+		VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
+		VMUL(src[0], src[0], S15);
+		VMUL(src[1], src[1], S15);
+		VMUL(src[2], src[2], S15);
+	}
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
-	LDRSH(tempReg1,  srcReg, dec_->nrmoff);
-	LDRSH(tempReg2, srcReg, dec_->nrmoff + 2);
-	LDRSH(tempReg3, srcReg, dec_->nrmoff + 4);
-	VMOV(fpScratchReg, tempReg1);
-	VMOV(fpScratchReg2, tempReg2);
-	VMOV(fpScratchReg3, tempReg3);
-	MOVI2F(S15, 1.0f/32768.0f, scratchReg);
-	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
-	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT | IS_SIGNED);
-	VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT | IS_SIGNED);
-	VMUL(src[0], fpScratchReg, S15);
-	VMUL(src[1], fpScratchReg2, S15);
-	VMUL(src[2], fpScratchReg3, S15);
+	if (NEONSkinning) {
+		ADD(scratchReg, srcReg, dec_->nrmoff);
+		VLD1(I_32, neonScratchReg, scratchReg, 1, ALIGN_NONE);
+		MOVI2F(S15, 1.0f/32768, scratchReg);
+		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL_scalar(F_32, srcNEON, neonScratchReg, QScalar(Q3, 3));  // S15
+	} else {
+		LDRSH(tempReg1,  srcReg, dec_->nrmoff);
+		LDRSH(tempReg2, srcReg, dec_->nrmoff + 2);
+		LDRSH(tempReg3, srcReg, dec_->nrmoff + 4);
+		VMOV(fpScratchReg, tempReg1);
+		VMOV(fpScratchReg2, tempReg2);
+		VMOV(fpScratchReg3, tempReg3);
+		MOVI2F(S15, 1.0f/32768.0f, scratchReg);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT | IS_SIGNED);
+		VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT | IS_SIGNED);
+		VMUL(src[0], fpScratchReg, S15);
+		VMUL(src[1], fpScratchReg2, S15);
+		VMUL(src[2], fpScratchReg3, S15);
+	}
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -829,36 +857,55 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 }
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
-	LDRSB(tempReg1, srcReg, dec_->posoff);
-	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
-	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
-	VMOV(src[0], tempReg1);
-	VMOV(src[1], tempReg2);
-	VMOV(src[2], tempReg3);
-	MOVI2F(S15, 1.0f/128.0f, scratchReg);
-	VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
-	VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
-	VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
-	VMUL(src[0], src[0], S15);
-	VMUL(src[1], src[1], S15);
-	VMUL(src[2], src[2], S15);
+	if (NEONSkinning) {
+		ADD(scratchReg, srcReg, dec_->posoff);
+		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
+		MOVI2F(S15, 1.0f/128.0f, scratchReg);
+		VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 16-bit
+		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL_scalar(F_32, srcNEON, neonScratchReg, QScalar(Q3, 3));  // S15
+	} else {
+		LDRSB(tempReg1, srcReg, dec_->posoff);
+		LDRSB(tempReg2, srcReg, dec_->posoff + 1);
+		LDRSB(tempReg3, srcReg, dec_->posoff + 2);
+		VMOV(src[0], tempReg1);
+		VMOV(src[1], tempReg2);
+		VMOV(src[2], tempReg3);
+		MOVI2F(S15, 1.0f/128.0f, scratchReg);
+		VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
+		VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
+		VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
+		VMUL(src[0], src[0], S15);
+		VMUL(src[1], src[1], S15);
+		VMUL(src[2], src[2], S15);
+	}
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosS16Skin() {
-	LDRSH(tempReg1, srcReg, dec_->posoff);
-	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
-	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
-	VMOV(src[0], tempReg1);
-	VMOV(src[1], tempReg2);
-	VMOV(src[2], tempReg3);
-	MOVI2F(S15, 1.0f/32768.0f, scratchReg);
-	VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
-	VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
-	VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
-	VMUL(src[0], src[0], S15);
-	VMUL(src[1], src[1], S15);
-	VMUL(src[2], src[2], S15);
+	if (NEONSkinning) {
+		ADD(scratchReg, srcReg, dec_->posoff);
+		VLD1(I_32, neonScratchReg, scratchReg, 1, ALIGN_NONE);
+		MOVI2F(S15, 1.0f/32768, scratchReg);
+		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL_scalar(F_32, srcNEON, neonScratchReg, QScalar(Q3, 3));  // S15
+	} else {
+		LDRSH(tempReg1, srcReg, dec_->posoff);
+		LDRSH(tempReg2, srcReg, dec_->posoff + 2);
+		LDRSH(tempReg3, srcReg, dec_->posoff + 4);
+		VMOV(src[0], tempReg1);
+		VMOV(src[1], tempReg2);
+		VMOV(src[2], tempReg3);
+		MOVI2F(S15, 1.0f/32768.0f, scratchReg);
+		VCVT(src[0], src[0], TO_FLOAT | IS_SIGNED);
+		VCVT(src[1], src[1], TO_FLOAT | IS_SIGNED);
+		VCVT(src[2], src[2], TO_FLOAT | IS_SIGNED);
+		VMUL(src[0], src[0], S15);
+		VMUL(src[1], src[1], S15);
+		VMUL(src[2], src[2], S15);
+	}
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
