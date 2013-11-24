@@ -463,10 +463,7 @@ void __UmdReplace(std::string filepath) {
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
 
-		pspFileSystem.Remount("umd0:", currentUMD, umd2);
-		pspFileSystem.Remount("umd1:", currentUMD, umd2);
-		pspFileSystem.Remount("disc0:", currentUMD, umd2);
-		pspFileSystem.Remount("umd:", currentUMD, umd2);
+		pspFileSystem.Remount(currentUMD, umd2);
 	}
 	delete currentUMD;
 
