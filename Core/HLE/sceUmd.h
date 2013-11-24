@@ -41,6 +41,6 @@ enum pspUmdType {
 void __UmdInit();
 void __UmdDoState(PointerWrap &p);
 
-void __UmdReplace(std::string filename);
+void __UmdReplace(std::string filepath);
 
 void Register_sceUmdUser();

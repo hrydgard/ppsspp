@@ -24,9 +24,12 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
+
+#include "file/file_util.h"
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -440,7 +443,7 @@ u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
-void __UmdReplace(std::string filename) {
+void __UmdReplace(std::string filepath) {
 	// Unmount old umd first.
 	pspFileSystem.Unmount("umd0:", currentUMD);
 	pspFileSystem.Unmount("umd1:", currentUMD);
@@ -448,13 +451,13 @@ void __UmdReplace(std::string filename) {
 	pspFileSystem.Unmount("umd:", currentUMD);
 
 	IFileSystem* umd2;
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	if(!info.exists)     // This shouldn't happen, but for safety.
+	FileInfo info;
+	if (!getFileInfo(filepath.c_str(), &info))    // This shouldn't happen, but for safety.
 		return;
-	if (info.type == FILETYPE_DIRECTORY) {
-		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filename);
+	if (info.isDirectory) {
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filepath);
 	} else {
-		auto bd = constructBlockDevice(filename.c_str());
+		auto bd = constructBlockDevice(filepath.c_str());
 		if (!bd)
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
