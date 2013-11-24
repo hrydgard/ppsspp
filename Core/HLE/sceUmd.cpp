@@ -68,7 +68,7 @@ void __UmdInit()
 
 void __UmdDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUmd", 1);
+	auto s = p.Section("sceUmd", 1, 2);
 	if (!s)
 		return;
 
@@ -82,6 +82,9 @@ void __UmdDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
 	p.Do(umdWaitingThreads);
 	p.Do(umdPausedWaits);
+
+	if (s > 1)
+		p.Do(UMDReplacePermit);
 }
 
 u8 __KernelUmdGetState()
