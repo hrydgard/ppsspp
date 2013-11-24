@@ -18,6 +18,7 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 
+#include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
@@ -45,6 +46,19 @@ static float MEMORY_ALIGNED16(skinMatrix[12]);
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
 // using SSE / NEON and store them here.
 static float MEMORY_ALIGNED16(bones[16 * 8]);
+
+// The rest will be dumped to bones as on x86.
+
+// NEON register allocation:
+// Q0: Texture scaling parameters
+// Q1: Temp storage
+// Q2: Vector-by-matrix accumulator
+// Q3: Unused
+//
+// We'll use Q4-Q7 as the "matrix accumulator".
+// First two matrices will be preloaded into Q8-Q11 and Q12-Q15 to reduce
+// memory bandwidth requirements.
+
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
@@ -924,11 +938,18 @@ static const ARMReg counterReg = R2;
 static const ARMReg fpScratchReg = S4;
 static const ARMReg fpScratchReg2 = S5;
 static const ARMReg fpScratchReg3 = S6;
-
+static const ARMReg fpScratchReg4 = S7;
 static const ARMReg fpUscaleReg = S0;
 static const ARMReg fpVscaleReg = S1;
 static const ARMReg fpUoffsetReg = S2;
 static const ARMReg fpVoffsetReg = S3;
+
+// Simpler aliases for NEON. Overlaps with corresponding VFP regs.
+static const ARMReg neonUVScaleReg = D0;
+static const ARMReg neonUVOffsetReg = D1;
+static const ARMReg neonScratchReg = D2;
+static const ARMReg neonScratchRegQ = Q1;  // Overlaps with all the scratch regs
+
 // Everything above S6 is fair game for skinning
 
 // S8-S15 are used during matrix generation
@@ -1244,48 +1265,79 @@ void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	// TODO: SIMD
-	LDRB(tempReg1, srcReg, dec_->tcoff);
-	LDRB(tempReg2, srcReg, dec_->tcoff + 1);
-	VMOV(fpScratchReg, tempReg1);
-	VMOV(fpScratchReg2, tempReg2);
-	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
-	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
-	// Could replace VMUL + VADD with VMLA but would require 2 more regs as we don't want to destroy fp*offsetReg. Later.
-	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
-	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
-	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
-	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
-	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
-	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	if (false && cpu_info.bNEON) {
+		// TODO: Needs testing
+		ADD(scratchReg, srcReg, dec_->tcoff);
+		VLD1_lane(I_16, neonScratchReg, scratchReg, 0, false);
+		VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL(F_32, neonScratchReg, neonScratchReg, neonUVScaleReg);
+		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
+		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
+	} else {
+		// TODO: SIMD
+		LDRB(tempReg1, srcReg, dec_->tcoff);
+		LDRB(tempReg2, srcReg, dec_->tcoff + 1);
+		VMOV(fpScratchReg, tempReg1);
+		VMOV(fpScratchReg2, tempReg2);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+		// Could replace VMUL + VADD with VMLA but would require 2 more regs as we don't want to destroy fp*offsetReg. Later.
+		VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+		VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+		VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+		VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	// TODO: SIMD
-	LDRH(tempReg1, srcReg, dec_->tcoff);
-	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
-	VMOV(fpScratchReg, tempReg1);
-	VMOV(fpScratchReg2, tempReg2);
-	VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
-	VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
-	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
-	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
-	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
-	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
-	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
-	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	if (false && cpu_info.bNEON) {
+		// TODO: Needs testing
+		ADD(scratchReg, srcReg, dec_->tcoff);
+		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
+		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL(F_32, neonScratchReg, neonScratchReg, neonUVScaleReg);
+		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
+		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
+	} else {
+		LDRH(tempReg1, srcReg, dec_->tcoff);
+		LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+		VMOV(fpScratchReg, tempReg1);
+		VMOV(fpScratchReg2, tempReg2);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+		VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+		VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+		VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+		VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
-	// TODO: SIMD
-	VLDR(fpScratchReg, srcReg, dec_->tcoff);
-	VLDR(fpScratchReg2, srcReg, dec_->tcoff + 4);
-	VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
-	VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
-	VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
-	VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
-	VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
-	VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	if (cpu_info.bNEON) {
+		ADD(scratchReg, srcReg, dec_->tcoff);
+		VLD1(F_32, neonScratchReg, scratchReg, 1, ALIGN_NONE);
+		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
+		VMUL(F_32, neonScratchReg, neonScratchReg, neonUVScaleReg);
+		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
+		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
+	} else {
+		// TODO: SIMD
+		VLDR(fpScratchReg, srcReg, dec_->tcoff);
+		VLDR(fpScratchReg2, srcReg, dec_->tcoff + 4);
+		VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
+		VMUL(fpScratchReg2, fpScratchReg2, fpVscaleReg);
+		VADD(fpScratchReg, fpScratchReg, fpUoffsetReg);
+		VADD(fpScratchReg2, fpScratchReg2, fpVoffsetReg);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {

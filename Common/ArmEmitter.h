@@ -726,6 +726,15 @@ public:
 	void VREV32(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VREV16(u32 Size, ARMReg Vd, ARMReg Vm);
 
+
+	// Widening and narrowing moves
+	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+
+	// Vector VCVT
+	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);
+
+
 	// Notes:
 	// Rm == _PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
 	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!    Added a REG_UPDATE pseudo register.

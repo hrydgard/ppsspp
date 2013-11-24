@@ -48,7 +48,6 @@ struct FPURegMIPS {
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
-
 class ArmRegCacheFPU
 {
 public:

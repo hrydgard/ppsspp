@@ -2325,7 +2325,7 @@ void ARMXEmitter::VSWP(ARMReg Vd, ARMReg Vm)
 }
 void ARMXEmitter::VTRN(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2335,7 +2335,7 @@ void ARMXEmitter::VTRN(u32 Size, ARMReg Vd, ARMReg Vm)
 }
 void ARMXEmitter::VTST(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2345,7 +2345,7 @@ void ARMXEmitter::VTST(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 }
 void ARMXEmitter::VUZP(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2355,7 +2355,7 @@ void ARMXEmitter::VUZP(u32 Size, ARMReg Vd, ARMReg Vm)
 }
 void ARMXEmitter::VZIP(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	 _dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2364,6 +2364,45 @@ void ARMXEmitter::VZIP(u32 Size, ARMReg Vd, ARMReg Vm)
 			(0x18 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
 
+void ARMXEmitter::VMOVL(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vm >= D0 && Vm <= D31, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	_dbg_assert_msg_(JIT, (Size & (I_UNSIGNED | I_SIGNED)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VMOVL");
+
+	bool unsign = (Size & I_UNSIGNED) != 0;
+	int imm3 = 0;
+	if (Size & I_8) imm3 = 1;
+	if (Size & I_16) imm3 = 2;
+	if (Size & I_32) imm3 = 4;
+
+	Write32((0xF2 << 24) | (unsign << 24) | (1 << 23) | (imm3 << 19) | EncodeVd(Vd) | \
+		(0xA1 << 4) | EncodeVm(Vm));
+}
+
+void ARMXEmitter::VMOVN(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vm >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0 && Vd <= D31, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
+
+	Write32((0xF3B << 20) | (encodedSize(Size) << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | EncodeVm(Vm));
+}
+
+void ARMXEmitter::VCVT(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, (Size & (I_UNSIGNED | I_SIGNED)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VCVT NEON");
+
+	bool register_quad = Vd >= Q0;
+	bool toInteger = (Size & I_32) != 0;
+	bool isUnsigned = (Size & I_UNSIGNED) != 0;
+	int op = (toInteger << 1) | (int)isUnsigned;
+
+	Write32((0xF3 << 24) | (0xBB << 16) | EncodeVd(Vd) | (0x3 << 9) | (op << 7) | (register_quad << 6) | EncodeVm(Vm));
+}
 
 static int RegCountToType(int nRegs, NEONAlignment align) {
 	switch (nRegs) {

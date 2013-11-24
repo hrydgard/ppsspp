@@ -59,6 +59,10 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// With NEON, we have many more.
 	// In the future I plan to use S0-S7 (Q0-Q1) for FPU and S8 forwards (Q2-Q15, yes, 15) for VFPU.
 	// VFPU will use NEON to do SIMD and it will be awkward to mix with FPU.
+
+	// We should attempt to map scalars to low Q registers and wider things to high registers,
+	// as the NEON instructions are all 2-vector or 4-vector, they don't do scalar, we want to be
+	// able to use regular VFP instructions too.
 	static const ARMReg allocationOrderNEON[] = {
 		// Reserve four temp registers. Useful when building quads until we really figure out
 		// how to do that best.
