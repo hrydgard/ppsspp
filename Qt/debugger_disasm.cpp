@@ -36,7 +36,8 @@ Debugger_Disasm::Debugger_Disasm(DebugInterface *_cpu, MainWindow* mainWindow_, 
 
 	QObject::connect(ui->RegListScroll,SIGNAL(actionTriggered(int)), ui->RegList, SLOT(scrollChanged(int)));
 	QObject::connect(ui->RegList,SIGNAL(GotoDisasm(u32)),this,SLOT(Goto(u32)));
-	QObject::connect(this, SIGNAL(updateDisplayList_()), this, SLOT(UpdateDisplayListGUI()));
+	QObject::connect(this, SIGNAL(UpdateCallstack_()), this, SLOT(UpdateCallstackGUI()));
+	QObject::connect(this, SIGNAL(UpdateDisplayList_()), this, SLOT(UpdateDisplayListGUI()));
 	QObject::connect(this, SIGNAL(UpdateBreakpoints_()), this, SLOT(UpdateBreakpointsGUI()));
 	QObject::connect(this, SIGNAL(UpdateThread_()), this, SLOT(UpdateThreadGUI()));
 
@@ -112,33 +113,11 @@ void Debugger_Disasm::UpdateDialog()
 	UpdateBreakpoints();
 	UpdateThread();
 	UpdateDisplayList();
+	UpdateCallstack();
 
 	char tempTicks[24];
 	sprintf(tempTicks, "%lld", CoreTiming::GetTicks());
 	ui->debugCount->setText(QString("Ctr : ") + tempTicks);
-
-	/*ui->callStack->clear();
-	u32 pc = currentMIPS->pc;
-	u32 ra = currentMIPS->r[MIPS_REG_RA];
-	u32 addr = Memory::ReadUnchecked_U32(pc);
-	int count=1;
-	char addr_[12];
-	sprintf(addr_, "0x%08x",pc);
-	ui->callStack->addItem(new QListWidgetItem(addr_));
-
-	addr = Memory::ReadUnchecked_U32(ra);
-	sprintf(addr_, "0x%08x",ra);
-	ui->callStack->addItem(new QListWidgetItem(addr_));
-	count++;
-
-	while (addr != 0xFFFFFFFF && addr!=0 && Memory::IsValidAddress(addr+4) && count++<20)
-	{
-		u32 fun = Memory::ReadUnchecked_U32(addr+4);
-		sprintf(addr_, "0x%08x",fun);
-		ui->callStack->addItem(new QListWidgetItem(addr_));
-		addr = Memory::ReadUnchecked_U32(addr);
-	}*/
-
 
 	if(mainWindow->GetDialogMemory())
 		mainWindow->GetDialogMemory()->Update();
@@ -320,6 +299,53 @@ void Debugger_Disasm::FillFunctions()
 	}
 }
 
+void Debugger_Disasm::UpdateCallstack()
+{
+	emit UpdateCallstack_();
+}
+
+void Debugger_Disasm::UpdateCallstackGUI()
+{
+
+	auto threads = GetThreadsInfo();
+
+	u32 entry = 0, stackTop = 0;
+	for (size_t i = 0; i < threads.size(); i++)
+	{
+		if (threads[i].isCurrent)
+		{
+			entry = threads[i].entrypoint;
+			stackTop = threads[i].initialStack;
+			break;
+		}
+	}
+	if (entry != 0) {
+		stackTraceModel = MIPSStackWalk::Walk(
+				cpu->GetPC(),
+				cpu->GetRegValue(0,MIPS_REG_RA),
+				cpu->GetRegValue(0,MIPS_REG_SP),
+				entry,
+				stackTop);
+	} else {
+		stackTraceModel.clear();
+	}
+
+	ui->callStack->clear();
+
+	QTreeWidgetItem* item;
+	for(auto it=stackTraceModel.begin();it!=stackTraceModel.end();it++)
+	{
+		item = new QTreeWidgetItem();
+		item->setText(0,QString("%1").arg(it->pc,8,16,QChar('0')).prepend("0x"));
+		item->setData(0,Qt::UserRole,it->pc);
+		item->setText(1,QString("%1").arg(it->entry,8,16,QChar('0')).prepend("0x"));
+		item->setData(1,Qt::UserRole,it->entry);
+		item->setText(2,QString("%1").arg(it->sp,8,16,QChar('0')).prepend("0x"));
+		item->setText(3,QString("%1").arg(it->stackSize,8,16,QChar('0')).prepend("0x"));
+		ui->callStack->addTopLevelItem(item);
+	}
+}
+
 void Debugger_Disasm::UpdateBreakpoints()
 {
 	emit UpdateBreakpoints_();
@@ -492,7 +518,7 @@ void Debugger_Disasm::SetThreadStatusSuspend()
 
 void Debugger_Disasm::UpdateDisplayList()
 {
-	emit updateDisplayList_();
+	emit UpdateDisplayList_();
 }
 
 void Debugger_Disasm::UpdateDisplayListGUI()

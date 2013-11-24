@@ -237,7 +237,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 	int numBranches=0;
 
 	int width = rect().width();
-	int numRows=(rect().height()/rowHeight)/2+1;
+	int numRows=(rect().height()/rowHeight);
 
 	QColor bgColor(0xFFFFFFFF);
 	QPen nullPen(bgColor);
@@ -253,6 +253,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 	QFont normalFont("Arial", 10);
 	QFont boldFont("Arial", 10);
 	QFont alignedFont("Monospace", 10);
+	alignedFont.setStyleHint(QFont::Monospace);
 	boldFont.setBold(true);
 	painter.setFont(normalFont);
 
@@ -262,25 +263,29 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 	curAddress&=~(align-1);
 
 	align=(debugger->getInstructionSize(0));
-	for (i=-numRows; i<=numRows; i++)
+	for (i=0; i<=numRows; i++)
 	{
-		unsigned int address=curAddress + i*align;
+		unsigned int address=curAddress + (i-(numRows/2))*align;
 
-		int rowY1 = rect().bottom()/2 + rowHeight*i - rowHeight/2;
-		int rowY2 = rect().bottom()/2 + rowHeight*i + rowHeight/2 - 1;
+		int rowY1 = rect().top() + rowHeight*i;
+		int rowY2 = rect().top() + rowHeight*i + rowHeight - 1;
 
 		lbr.setColor((unsigned int)marker == address ? QColor(0xFFFFEEE0) : QColor(debugger->getColor(address)));
 		QColor bg = lbr.color();
+		painter.setBrush(currentBrush);
 		painter.setPen(nullPen);
 		painter.drawRect(0,rowY1,16-1,rowY2-rowY1);
 
 		if (selecting && address == (unsigned int)selection)
 			painter.setPen(selPen);
 		else
-			painter.setPen(i==0 ? currentPen : nullPen);
-
-		QBrush mojsBrush(lbr.color());
-		painter.setBrush(mojsBrush);
+		{
+			if(i==numRows/2)
+				painter.setPen(currentPen);
+			else
+				painter.setPen(bg);
+		}
+		painter.setBrush(QBrush(bg));
 
 		if (address == debugger->getPC())
 		{
@@ -410,7 +415,8 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 
 int CtrlDisAsmView::yToAddress(int y)
 {
-	int ydiff=y-rect().bottom()/2-rowHeight/2;
-	ydiff=(int)(floor((float)ydiff / (float)rowHeight))+1;
-	return curAddress + ydiff * align;
+	//int ydiff=y - rect().bottom()/2;//-rowHeight/2;
+	int ydiff=(int)(floor((float)y / (float)rowHeight));
+	ydiff -= (rect().height()/rowHeight)/2;
+	return curAddress + ydiff *align;
 }

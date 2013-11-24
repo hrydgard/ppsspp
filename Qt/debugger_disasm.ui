@@ -175,7 +175,7 @@
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
-                  <width>229</width>
+                  <width>120</width>
                   <height>20</height>
                  </size>
                 </property>
@@ -315,7 +315,7 @@
          <property name="currentIndex">
           <number>0</number>
          </property>
-         <widget class="QWidget" name="tab_3">
+         <widget class="QWidget" name="breakpointsTab">
           <attribute name="title">
            <string>Breakpoints</string>
           </attribute>
@@ -367,17 +367,41 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="tab_6">
+         <widget class="QWidget" name="callstackTab">
           <attribute name="title">
            <string>Callstack</string>
           </attribute>
           <layout class="QVBoxLayout" name="verticalLayout_5">
            <item>
-            <widget class="QListWidget" name="callStack"/>
+            <widget class="QTreeWidget" name="callStack">
+             <property name="columnCount">
+              <number>4</number>
+             </property>
+             <column>
+              <property name="text">
+               <string>Address</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Entry Point</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>SP</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>length</string>
+              </property>
+             </column>
+            </widget>
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="tab_4">
+         <widget class="QWidget" name="displaylistTab">
           <attribute name="title">
            <string>Display Lists</string>
           </attribute>
@@ -428,7 +452,7 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="tab_5">
+         <widget class="QWidget" name="threadsTab">
           <attribute name="title">
            <string>Threads</string>
           </attribute>
