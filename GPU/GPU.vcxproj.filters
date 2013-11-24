@@ -296,6 +296,8 @@
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="GLES\VertexDecoderX86.cpp" />
+    <ClCompile Include="GLES\VertexDecoderArm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
