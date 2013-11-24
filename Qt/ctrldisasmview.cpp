@@ -257,7 +257,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 	painter.setFont(normalFont);
 
 
-	QImage breakPoint(":/images/breakpoint");
+	QImage breakPoint(":/resources/breakpoint.ico");
 	int i;
 	curAddress&=~(align-1);
 

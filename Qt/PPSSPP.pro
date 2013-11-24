@@ -13,16 +13,20 @@ lessThan(QT_MAJOR_VERSION, 5) {
 
 # Extra Qt modules
 linux: CONFIG += link_pkgconfig
-win32|greaterThan(QT_MAJOR_VERSION,4): QT += multimedia
-else:linux:packagesExist(QtMultimedia): QT += multimedia
-else {
+linux:lessThan(QT_MAJOR_VERSION,5):!packagesExist(QtMultimedia) {
+	# Ubuntu et al workaround. They forgot QtMultimedia
 	CONFIG += mobility
 	MOBILITY += multimedia
 }
+else: QT += multimedia
+
 greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 
-mobile_platform: MOBILITY += sensors
-symbian: MOBILITY += systeminfo feedback
+mobile_platform {
+	CONFIG += mobility
+	MOBILITY += sensors
+	symbian: MOBILITY += systeminfo feedback
+}
 
 # PPSSPP Libs
 QMAKE_LIBDIR += $$CONFIG_DIR
@@ -90,7 +94,7 @@ INCLUDEPATH += $$P $$P/Common $$P/native
 	SOURCES += $$P/Qt/*.cpp
 	HEADERS += $$P/Qt/*.h
 	FORMS += $$P/Qt/*.ui
-	RESOURCES += $$P/Qt/resources.qrc
+	RESOURCES += $$P/Qt/desktop_assets.qrc
 	INCLUDEPATH += $$P/Qt
 
 	# Translations
@@ -105,9 +109,9 @@ INCLUDEPATH += $$P $$P/Common $$P/native
 	PRE_TARGETDEPS += compiler_lang_make_all
 } else {
 	# Desktop handles the Init separately
+	RESOURCES += $$P/Qt/assets.qrc
 	SOURCES += $$P/UI/NativeApp.cpp
 }
-RESOURCES += assets.qrc
 
 # Packaging
 symbian {
