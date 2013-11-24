@@ -801,6 +801,17 @@ void ARMXEmitter::CLZ(ARMReg rd, ARMReg rm)
 	Write32(condition | (0x16F << 16) | (rd << 12) | (0xF1 << 4) | rm);
 }
 
+void ARMXEmitter::PLD(ARMReg rn, int offset, bool forWrite) {
+	_dbg_assert_msg_(JIT, offset < 0x3ff && offset > -0x3ff, "PLD: Max 12 bits of offset allowed");
+
+	bool U = offset >= 0;
+	if (offset < 0) offset = -offset;
+	bool R = !forWrite;
+	// Conditions not allowed
+	Write32((0xF5 << 24) | (U << 23) | (R << 22) | (1 << 20) | ((int)rn << 16) | (0xF << 12) | offset);
+}
+
+
 void ARMXEmitter::BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width)
 {
 	u32 msb = (lsb + width - 1);

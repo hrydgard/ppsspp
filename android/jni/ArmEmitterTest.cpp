@@ -52,8 +52,6 @@ void TestCode::Generate()
 	VLD1_all_lanes(F_32, Q2, R1, true);
 	ADD(R0, R0, 12);
 	VLD1_lane(F_32, D4, R0, 1, true);
-	u32 word = *(u32 *)(GetCodePtr() - 4);
-	ILOG("Instruction Word: %08x", word);
 	// VMUL(F_32, Q2, Q0, Q1);
 	VST1(F_32, D4, R2, 2);
 	*/
@@ -70,6 +68,10 @@ void TestCode::Generate()
 	VST1(I_32, D2, R1, 2);
 	VST1(I_32, D4, R2, 2);
 	VST1(I_32, D6, R3, 2);
+	PLD(R1, 32);
+	u32 word = *(u32 *)(GetCodePtr() - 4);
+	ILOG("Instruction Word: %08x", word);
+
 
 	// This works!
 

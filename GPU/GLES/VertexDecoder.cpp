@@ -1058,6 +1058,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	}
 
 	JumpTarget loopStart = GetCodePtr();
+	// Preload data cache ahead of reading. TODO: Experiment with the offset.
+	PLD(srcReg, 64);
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
 			// Reset the code ptr and return zero to indicate that we failed.
@@ -1265,13 +1267,14 @@ void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	if (false && cpu_info.bNEON) {
+	if (cpu_info.bNEON) {
 		// TODO: Needs testing
 		ADD(scratchReg, srcReg, dec_->tcoff);
 		VLD1_lane(I_16, neonScratchReg, scratchReg, 0, false);
-		VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 16-bit
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
 		VMUL(F_32, neonScratchReg, neonScratchReg, neonUVScaleReg);
 		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
 		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
@@ -1294,12 +1297,13 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	if (false && cpu_info.bNEON) {
+	if (cpu_info.bNEON) {
 		// TODO: Needs testing
 		ADD(scratchReg, srcReg, dec_->tcoff);
 		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
 		VMUL(F_32, neonScratchReg, neonScratchReg, neonUVScaleReg);
 		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
 		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);

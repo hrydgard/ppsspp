@@ -541,6 +541,7 @@ public:
 	void BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width);
 	void UBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
 	void CLZ(ARMReg rd, ARMReg rm);
+	void PLD(ARMReg rd, int offset, bool forWrite = false);
 
 	// Using just MSR here messes with our defines on the PPC side of stuff (when this code was in dolphin...)
 	// Just need to put an underscore here, bit annoying.
