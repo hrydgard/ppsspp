@@ -42,6 +42,7 @@
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
 
+IFileSystem* currentUMD;
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
@@ -72,6 +73,8 @@ void InitMemoryForGameISO(std::string fileToStart) {
 	pspFileSystem.Mount("umd1:", umd2);
 	pspFileSystem.Mount("disc0:", umd2);
 	pspFileSystem.Mount("umd:", umd2);
+	currentUMD = umd2;
+
 	std::string gameID;
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
@@ -205,6 +208,7 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 			pspFileSystem.Mount("umd1:", umd2);
 			pspFileSystem.Mount("disc0:", umd2);
 			pspFileSystem.Mount("umd:", umd2);
+			currentUMD = umd2;
 		}
 	}
 

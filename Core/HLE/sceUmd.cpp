@@ -24,6 +24,9 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -35,6 +38,9 @@ static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
+
+extern IFileSystem* currentUMD;
+bool UMDReplacePermit = false;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -266,7 +272,6 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		// There's only ever one.
 		driveCBId = cbId;
 	}
-
 	DEBUG_LOG(SCEIO, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
 	return retVal;
 }
@@ -281,7 +286,6 @@ int sceUmdUnRegisterUMDCallBack(int cbId)
 		retVal = cbId;
 		driveCBId = -1;
 	}
-
 	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
 	return retVal;
 }
@@ -436,14 +440,42 @@ u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
+void __UmdReplace(std::string filename) {
+	pspFileSystem.Unmount("umd0:", currentUMD);
+	pspFileSystem.Unmount("umd1:", currentUMD);
+	pspFileSystem.Unmount("disc0:", currentUMD);
+	pspFileSystem.Unmount("umd:", currentUMD);
+
+	IFileSystem* umd2;
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (info.type == FILETYPE_DIRECTORY) {
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filename);
+	} else {
+		auto bd = constructBlockDevice(filename.c_str());
+		if (!bd)
+			return;
+		umd2 = new ISOFileSystem(&pspFileSystem, bd);
+		pspFileSystem.Mount("umd0:", umd2);
+		pspFileSystem.Mount("umd1:", umd2);
+		pspFileSystem.Mount("disc0:", umd2);
+		pspFileSystem.Mount("umd:", umd2);
+	}
+	currentUMD = umd2;
+	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
+	if (driveCBId != -1)
+		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
 u32 sceUmdReplaceProhibit()
 {
+	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
 	return 0;
 }
 
 u32 sceUmdReplacePermit()
 {
+	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
 	return 0;
 }

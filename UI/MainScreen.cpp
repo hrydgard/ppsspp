@@ -42,6 +42,8 @@
 #include "GPU/GPUInterface.h"
 #include "i18n/i18n.h"
 
+#include "Core/HLE/sceUmd.h"
+
 #ifdef _WIN32
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/WndMainWindow.h"
@@ -483,14 +485,14 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
-		root_->Add(rightColumn);
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));		
+		root_->Add(rightColumn);		
 		root_->Add(leftColumn);
 	} else {
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-		root_->Add(leftColumn);
+		root_->Add(leftColumn);	
 		root_->Add(rightColumn);
 	}
 }
@@ -639,6 +641,8 @@ GamePauseScreen::~GamePauseScreen() {
 	}
 }
 
+extern bool UMDReplacePermit;
+
 void GamePauseScreen::CreateViews() {
 	static const int NUM_SAVESLOTS = 5; 
 
@@ -689,6 +693,9 @@ void GamePauseScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 
 	rightColumnItems->SetSpacing(0.0f);
+	if (UMDReplacePermit) {
+		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
+	}
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
@@ -749,10 +756,70 @@ UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
+	screenManager()->push(new UmdReplaceScreen());
+	return UI::EVENT_DONE;
+}
+
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
 	// Since the language message isn't allowed to be in native, we have to have add this
 	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
 	if (!strcmp(message, "language")) {
 		screenManager()->RecreateAllViews();
 	}
+}
+
+void UmdReplaceScreen::CreateViews() {
+	I18NCategory *m = GetI18NCategory("MainMenu");
+
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
+	leftColumn->SetClip(true);
+
+	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+
+	GameBrowser *tabRecentGames = new GameBrowser(
+		"!RECENT", false, &g_Config.bGridView1, "", "",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2, 
+		m->T("How to get games"), "http://www.ppsspp.org/getgames.html",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
+	scrollRecentGames->Add(tabRecentGames);
+	scrollAllGames->Add(tabAllGames);
+
+	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+	leftColumn->AddTab(m->T("Games"), scrollAllGames);
+
+	tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+	tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+
+	if (g_Config.recentIsos.size() > 0) {
+		leftColumn->SetCurrentTab(0);
+	}else{
+		leftColumn->SetCurrentTab(1);
+	}
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+	root_->Add(leftColumn);	
+}
+
+void UmdReplaceScreen::update(InputState &input) {
+	UpdateUIState(UISTATE_PAUSEMENU);
+	UIScreen::update(input);
+}
+
+UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
+	__UmdReplace(e.s);
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UmdReplaceScreen:: OnGameSelectedInstant(UI::EventParams &e) {
+	__UmdReplace(e.s);
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
 }
