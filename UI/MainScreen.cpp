@@ -492,7 +492,7 @@ void MainScreen::CreateViews() {
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-		root_->Add(leftColumn);	
+		root_->Add(leftColumn);
 		root_->Add(rightColumn);
 	}
 }
@@ -641,8 +641,6 @@ GamePauseScreen::~GamePauseScreen() {
 	}
 }
 
-extern bool UMDReplacePermit;
-
 void GamePauseScreen::CreateViews() {
 	static const int NUM_SAVESLOTS = 5; 
 
@@ -693,7 +691,7 @@ void GamePauseScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 
 	rightColumnItems->SetSpacing(0.0f);
-	if (UMDReplacePermit) {
+	if (getUMDReplacePermit()) {
 		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
 	}
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
