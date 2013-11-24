@@ -10,7 +10,7 @@ extern "C" {
 	}
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ){
+SDLJoystick::SDLJoystick(bool init_SDL ): running(true),joy(NULL),thread(NULL){
 	if (init_SDL)
 	{
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO
@@ -118,7 +118,6 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		}
 	}
 }
-
 
 void SDLJoystick::runLoop(){
 	while (running){

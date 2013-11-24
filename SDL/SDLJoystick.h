@@ -1,19 +1,18 @@
-//#ifdef _WIN32
-//#include "SDL/SDL.h"
-//#include "SDL/SDL_joystick.h"
-//#include "SDL/SDL_thread.h"
-//#else
 #pragma once
 
+#ifdef _WIN32
+#include "SDL/SDL.h"
+#include "SDL/SDL_joystick.h"
+#include "SDL/SDL_thread.h"
+#else
 #include "SDL.h"
 #include "SDL_joystick.h"
 #include "SDL_thread.h"
-//#endif
+#endif
 
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "net/resolve.h"
-#include "base/NKCodeFromSDL.h"
 #include "base/NativeApp.h"
 
 extern "C" {
@@ -90,8 +89,8 @@ private:
 	std::map<int, int> SDLJoyButtonMap;
 	std::map<int, int> SDLJoyAxisMap;
 
-	SDL_Joystick *joy = NULL;
-	SDL_Thread *thread = NULL;
-	bool running = true;
+	SDL_Joystick *joy ;
+	SDL_Thread *thread ;
+	bool running ;
 
 };
