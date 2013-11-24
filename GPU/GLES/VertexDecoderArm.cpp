@@ -28,7 +28,7 @@ bool NEONSkinning = false;
 static float MEMORY_ALIGNED16(skinMatrix[12]);
 
 // Will be used only in NEON mode.
-static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two will be kept in registers later
+static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in registers
 
 // NEON register allocation:
 // Q0: Texture scaling parameters
@@ -315,7 +315,9 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 	if (NEONSkinning) {
 		// We construct a matrix in Q4-Q7
 		// We can use Q1 as temp.
-		MOVP2R(scratchReg, bones);
+		if (dec_->nweights >= 2) {
+			MOVP2R(scratchReg, bones + 16 * 2);
+		}
 		for (int i = 0; i < dec_->nweights; i++) {
 			switch (i) {
 			case 0:
@@ -323,26 +325,36 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 				VMUL_scalar(F_32, Q5, Q9, QScalar(neonWeightRegs[0], 0));
 				VMUL_scalar(F_32, Q6, Q10, QScalar(neonWeightRegs[0], 0));
 				VMUL_scalar(F_32, Q7, Q11, QScalar(neonWeightRegs[0], 0));
-				ADD(scratchReg, scratchReg, 16 * 4);
 				break;
 			case 1:
 				VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegs[0], 1));
 				VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegs[0], 1));
 				VMLA_scalar(F_32, Q6, Q14, QScalar(neonWeightRegs[0], 1));
 				VMLA_scalar(F_32, Q7, Q15, QScalar(neonWeightRegs[0], 1));
-				ADD(scratchReg, scratchReg, 16 * 4);
 				break;
 			default:
 				// Matrices 2+ need to be loaded from memory.
 				// Wonder if we can free up one more register so we could get some parallelism.
-				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-				VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
-				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-				VMLA_scalar(F_32, Q5, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
-				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-				VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
-				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-				VMLA_scalar(F_32, Q7, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+				// Actually Q3 is free if there are fewer than 5 weights...
+				if (dec_->nweights <= 4) {
+					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VLD1(F_32, Q3, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q5, Q3, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VLD1(F_32, Q3, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q7, Q3, QScalar(neonWeightRegs[i >> 2], i & 3));
+				} else {
+					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VMLA_scalar(F_32, Q5, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+					VMLA_scalar(F_32, Q7, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+				}
 				break;
 			}
 		}
