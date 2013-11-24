@@ -28,6 +28,10 @@
 std::map<u32,DisassemblyEntry*> DisassemblyManager::entries;
 DebugInterface* DisassemblyManager::cpu;
 
+bool isInInterval(u32 start, u32 size, u32 value)
+{
+	return start <= value && value < start+size;
+}
 
 void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertSymbols)
 {
@@ -170,6 +174,21 @@ DisassemblyLineInfo DisassemblyManager::getLine(u32 address, bool insertSymbols)
 	return result;
 }
 
+u32 DisassemblyManager::getStartAddress(u32 address)
+{
+	auto it = findDisassemblyEntry(entries,address,false);
+	if (it == entries.end())
+	{
+		analyze(address,1);
+		it = findDisassemblyEntry(entries,address,false);
+		if (it == entries.end())
+			return address;
+	}
+	
+	DisassemblyEntry* entry = it->second;
+	int line = entry->getLineNum(address,true);
+	return entry->getLineAddress(line);
+}
 
 u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 {
@@ -510,7 +529,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest)
 	case MACRO_LI:
 	case MACRO_MEMORYIMM:
 		dest.name = name;
-		sprintf(buffer,"%s,%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
+		sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
 		dest.params = buffer;
 		break;
 	default:

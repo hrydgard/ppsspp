@@ -503,7 +503,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address);
 		COLORREF textColor = 0x000000;
 
-		if (address == debugger->getPC())
+		if (isInInterval(address,line.totalSize,debugger->getPC()))
 		{
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
@@ -545,8 +545,8 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		char addressText[64];
 		getDisasmAddressText(address,addressText,true);
 		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
-
-		if (address == debugger->getPC())
+		
+		if (isInInterval(address,line.totalSize,debugger->getPC()))
 		{
 			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
 		}

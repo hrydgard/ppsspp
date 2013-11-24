@@ -144,3 +144,5 @@ private:
 	static std::map<u32,DisassemblyEntry*> entries;
 	static DebugInterface* cpu;
 };
+
+bool isInInterval(u32 start, u32 size, u32 value);

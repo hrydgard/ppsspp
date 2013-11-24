@@ -133,6 +133,7 @@ public:
 	u32 getWindowEnd() { return windowStart+visibleRows*instructionSize; };
 	void gotoAddr(unsigned int addr)
 	{
+		addr = manager.getStartAddress(addr);
 		u32 windowEnd = windowStart+visibleRows*instructionSize;
 		u32 newAddress = addr&(~(instructionSize-1));
 
@@ -175,6 +176,7 @@ public:
 
 	void setCurAddress(u32 newAddress, bool extend = false)
 	{
+		newAddress = manager.getStartAddress(newAddress);
 		u32 after = manager.getNthNextAddress(newAddress,1);
 		curAddress = newAddress;
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
