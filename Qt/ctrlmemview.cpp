@@ -83,7 +83,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 
 	QFont normalFont("Arial", 10);
 	QFont alignedFont("Monospace", 10);
-    alignedFont.setStyleHint(QFont::Monospace);
+	alignedFont.setStyleHint(QFont::Monospace);
 	painter.setFont(normalFont);
 
 	int i;
