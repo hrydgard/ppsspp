@@ -441,6 +441,7 @@ u32 sceUmdGetErrorStat()
 }
 
 void __UmdReplace(std::string filename) {
+	// Unmount old umd first.
 	pspFileSystem.Unmount("umd0:", currentUMD);
 	pspFileSystem.Unmount("umd1:", currentUMD);
 	pspFileSystem.Unmount("disc0:", currentUMD);
@@ -448,6 +449,8 @@ void __UmdReplace(std::string filename) {
 
 	IFileSystem* umd2;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if(!info.exists)     // This shouldn't happen, but for safety.
+		return;
 	if (info.type == FILETYPE_DIRECTORY) {
 		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filename);
 	} else {
@@ -455,12 +458,13 @@ void __UmdReplace(std::string filename) {
 		if (!bd)
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
+
 		pspFileSystem.Mount("umd0:", umd2);
 		pspFileSystem.Mount("umd1:", umd2);
 		pspFileSystem.Mount("disc0:", umd2);
 		pspFileSystem.Mount("umd:", umd2);
 	}
-	currentUMD = umd2;
+	currentUMD = umd2;    // Change current umd.
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
 		__KernelNotifyCallback(driveCBId, notifyArg);
