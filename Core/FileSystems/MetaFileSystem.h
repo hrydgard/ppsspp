@@ -51,6 +51,9 @@ public:
 
 	void Mount(std::string prefix, IFileSystem *system);
 	void Unmount(std::string prefix, IFileSystem *system);
+	void Remount(std::string prefix, IFileSystem *oldSystem, IFileSystem *newSystem);
+
+	IFileSystem *GetSystem(const std::string &prefix);
 
 	void ThreadEnded(int threadID);
 

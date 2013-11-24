@@ -42,7 +42,6 @@ static int umdStatChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
-extern IFileSystem* currentUMD;
 bool UMDReplacePermit = false;
 
 struct PspUmdInfo {
@@ -444,11 +443,10 @@ u32 sceUmdGetErrorStat()
 }
 
 void __UmdReplace(std::string filepath) {
-	// Unmount old umd first.
-	pspFileSystem.Unmount("umd0:", currentUMD);
-	pspFileSystem.Unmount("umd1:", currentUMD);
-	pspFileSystem.Unmount("disc0:", currentUMD);
-	pspFileSystem.Unmount("umd:", currentUMD);
+	// Only get system from disc0 seems have been enough.
+	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
+	if (!currentUMD)
+		return;
 
 	IFileSystem* umd2;
 	FileInfo info;
@@ -462,15 +460,21 @@ void __UmdReplace(std::string filepath) {
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
 
-		pspFileSystem.Mount("umd0:", umd2);
-		pspFileSystem.Mount("umd1:", umd2);
-		pspFileSystem.Mount("disc0:", umd2);
-		pspFileSystem.Mount("umd:", umd2);
+		pspFileSystem.Remount("umd0:", currentUMD, umd2);
+		pspFileSystem.Remount("umd1:", currentUMD, umd2);
+		pspFileSystem.Remount("disc0:", currentUMD, umd2);
+		pspFileSystem.Remount("umd:", currentUMD, umd2);
 	}
-	currentUMD = umd2;    // Change current umd.
+	delete currentUMD;
+
+	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
 		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
+bool getUMDReplacePermit() {
+	return UMDReplacePermit;
 }
 
 u32 sceUmdReplaceProhibit()
