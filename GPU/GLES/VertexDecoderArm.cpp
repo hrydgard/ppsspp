@@ -15,14 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Core/Config.h"
 #include "GPU/GLES/VertexDecoder.h"
+
+extern void DisassembleArm(const u8 *data, int size);
+
+bool NEONSkinning = false;
 
 // Used only in non-NEON mode.
 static float MEMORY_ALIGNED16(skinMatrix[12]);
 
 // Will be used only in NEON mode.
-static float MEMORY_ALIGNED16(bones[16 * 6]);  // First two are kept in registers.
+static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two will be kept in registers later
 
 // NEON register allocation:
 // Q0: Texture scaling parameters
@@ -73,6 +79,9 @@ static const ARMReg neonScratchRegQ = Q1;  // Overlaps with all the scratch regs
 // These only live through the matrix multiplication
 static const ARMReg src[3] = {S8, S9, S10};  // skin source
 static const ARMReg acc[3] = {S11, S12, S13};  // skin accumulator
+
+static const ARMReg srcNEON = Q2;
+static const ARMReg accNEON = Q3;
 
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
@@ -129,6 +138,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	bool prescaleStep = false;
 	bool skinning = false;
 
+	NEONSkinning = cpu_info.bNEON;
+
 	// Look for prescaled texcoord steps
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
@@ -166,6 +177,49 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
+	// Add code to convert matrices to 4x4.
+	// Later we might want to do this when the matrices are loaded instead.
+	int boneCount = 0;
+	if (NEONSkinning && dec.weighttype && g_Config.bSoftwareSkinning) {
+		// Copying from R3 to R4
+		MOVP2R(R3, gstate.boneMatrix);
+		MOVP2R(R4, bones);
+		MOVI2F(fpScratchReg, 0.0f, scratchReg);
+		for (int i = 0; i < 8; i++) {
+			VLD1(F_32, Q4, R3, 2);  // Load 128 bits even though we just want 96
+			VMOV(S19, fpScratchReg);
+			ADD(R3, R3, 12);
+			VLD1(F_32, Q5, R3, 2);
+			VMOV(S23, fpScratchReg);
+			ADD(R3, R3, 12);
+			VLD1(F_32, Q6, R3, 2);
+			VMOV(S27, fpScratchReg);
+			ADD(R3, R3, 12);
+			VLD1(F_32, Q7, R3, 2);
+			VMOV(S31, fpScratchReg);
+			ADD(R3, R3, 12);
+			// First two matrices are in registers.
+			if (i == 0) {
+				VMOV(Q8, Q4);
+				VMOV(Q9, Q5);
+				VMOV(Q10, Q6);
+				VMOV(Q11, Q7);
+				ADD(R4, R4, 16 * 4);
+			} else if (i == 1) {
+				VMOV(Q12, Q4);
+				VMOV(Q13, Q5);
+				VMOV(Q14, Q6);
+				VMOV(Q15, Q7);
+				ADD(R4, R4, 16 * 4);
+			} else {
+				VST1(F_32, Q4, R4, 2, ALIGN_128, REG_UPDATE);
+				VST1(F_32, Q5, R4, 2, ALIGN_128, REG_UPDATE);
+				VST1(F_32, Q6, R4, 2, ALIGN_128, REG_UPDATE);
+				VST1(F_32, Q7, R4, 2, ALIGN_128, REG_UPDATE);
+			}
+		}
+	}
+
 	// TODO: NEON skinning register mapping
 	// The matrix will be built in Q12-Q15.
 	// The temporary matrix to be added to the built matrix will be in Q8-Q11.
@@ -197,10 +251,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	FlushLitPool();
 	FlushIcache();
-	// DisassembleArm(start, GetCodePtr() - start);
-	// char temp[1024] = {0};
-	// dec.ToString(temp);
-	// INFO_LOG(HLE, "%s", temp);
+
+	/*
+	DisassembleArm(start, GetCodePtr() - start);
+	char temp[1024] = {0};
+	dec.ToString(temp);
+	INFO_LOG(HLE, "%s", temp);
+	*/
 
 	return (JittedVertexDecoder)start;
 }
@@ -252,82 +309,134 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 }
 
 static const ARMReg weightRegs[8] = { S8, S9, S10, S11, S12, S13, S14, S15 };
+static const ARMReg neonWeightRegs[2] = { Q2, Q3 };
 
 void VertexDecoderJitCache::Jit_ApplyWeights() {
-	MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
-#if 1
-	// This approach saves a few stores but accesses the matrices in a more
-	// sparse order.
-	const float *bone = &gstate.boneMatrix[0];
-	MOVI2R(tempReg1, (u32)bone, scratchReg);
-	for (int i = 0; i < 12; i++) {
-		VLDR(fpScratchReg3, tempReg1, i * 4);
-		VMUL(fpScratchReg3, fpScratchReg3, weightRegs[0]);
-		for (int j = 1; j < dec_->nweights; j++) {
-			VLDR(fpScratchReg2, tempReg1, i * 4 + j * 4 * 12);
-			VMLA(fpScratchReg3, fpScratchReg2, weightRegs[j]);
+	if (NEONSkinning) {
+		// We construct a matrix in Q4-Q7
+		// We can use Q1 as temp.
+		MOVP2R(scratchReg, bones);
+		for (int i = 0; i < dec_->nweights; i++) {
+			switch (i) {
+			case 0:
+				VMUL_scalar(F_32, Q4, Q8, QScalar(neonWeightRegs[0], 0));
+				VMUL_scalar(F_32, Q5, Q9, QScalar(neonWeightRegs[0], 0));
+				VMUL_scalar(F_32, Q6, Q10, QScalar(neonWeightRegs[0], 0));
+				VMUL_scalar(F_32, Q7, Q11, QScalar(neonWeightRegs[0], 0));
+				ADD(scratchReg, scratchReg, 16 * 4);
+				break;
+			case 1:
+				VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegs[0], 1));
+				VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegs[0], 1));
+				VMLA_scalar(F_32, Q6, Q14, QScalar(neonWeightRegs[0], 1));
+				VMLA_scalar(F_32, Q7, Q15, QScalar(neonWeightRegs[0], 1));
+				ADD(scratchReg, scratchReg, 16 * 4);
+				break;
+			default:
+				// Matrices 2+ need to be loaded from memory.
+				// Wonder if we can free up one more register so we could get some parallelism.
+				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+				VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+				VMLA_scalar(F_32, Q5, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+				VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+				VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
+				VMLA_scalar(F_32, Q7, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+				break;
+			}
 		}
-		VSTR(fpScratchReg3, tempReg2, i * 4);
-	}
-#else
-	// This one does accesses in linear order but wastes time storing, loading, storing.
-	for (int j = 0; j < dec_->nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
+	} else {
+		MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
+		// This approach saves a few stores but accesses the matrices in a more
+		// sparse order.
+		const float *bone = &gstate.boneMatrix[0];
 		MOVI2R(tempReg1, (u32)bone, scratchReg);
-		// Okay, we have the weight.
-		if (j == 0) {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VMUL(fpScratchReg2, fpScratchReg2, weightRegs[j]);
-				VSTR(fpScratchReg2, tempReg2, i * 4);
-			}
-		} else {
-			for (int i = 0; i < 12; i++) {
-				VLDR(fpScratchReg2, tempReg1, i * 4);
-				VLDR(fpScratchReg3, tempReg2, i * 4);
+		for (int i = 0; i < 12; i++) {
+			VLDR(fpScratchReg3, tempReg1, i * 4);
+			VMUL(fpScratchReg3, fpScratchReg3, weightRegs[0]);
+			for (int j = 1; j < dec_->nweights; j++) {
+				VLDR(fpScratchReg2, tempReg1, i * 4 + j * 4 * 12);
 				VMLA(fpScratchReg3, fpScratchReg2, weightRegs[j]);
-				VSTR(fpScratchReg3, tempReg2, i * 4);
 			}
+			VSTR(fpScratchReg3, tempReg2, i * 4);
 		}
 	}
-#endif
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
-	// No need to zero skinMatrix, we'll just STR to it in the first lap,
-	// then VLDR/VADD/VSTR in subsequent laps.
-	for (int j = 0; j < dec_->nweights; j++) {
-		LDRB(tempReg1, srcReg, dec_->weightoff + j);
-		VMOV(fpScratchReg, tempReg1);
-		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
-		MOVI2F(fpScratchReg2, by128, scratchReg);
-		VMUL(weightRegs[j], fpScratchReg, fpScratchReg2);
+	if (NEONSkinning && dec_->nweights <= 4) {
+		// Most common cases.
+		// Weight is first so srcReg is correct.
+		switch (dec_->nweights) {
+		case 1: LDRB(scratchReg2, srcReg, 0); break;
+		case 2: LDRH(scratchReg2, srcReg, 0); break;
+		case 3:
+			LDR(scratchReg2, srcReg, 0);
+			ANDI2R(scratchReg2, scratchReg2, 0xFFFFFF, scratchReg);
+			break;
+		case 4:
+			LDR(scratchReg2, srcReg, 0);
+			break;
+		}
+		VMOV(fpScratchReg, scratchReg2);
+		MOVI2F(S12, by128, scratchReg);
+		VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL_scalar(F_32, neonWeightRegs[0], neonScratchRegQ, DScalar(D6, 0));
+	} else {
+		// Fallback and non-neon
+		for (int j = 0; j < dec_->nweights; j++) {
+			LDRB(tempReg1, srcReg, dec_->weightoff + j);
+			VMOV(fpScratchReg, tempReg1);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+			MOVI2F(fpScratchReg2, by128, scratchReg);
+			VMUL(weightRegs[j], fpScratchReg, fpScratchReg2);
+		}
 	}
-
 	Jit_ApplyWeights();
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
-	// No need to zero skinMatrix, we'll just STR to it in the first lap,
-	// then VLDR/VADD/VSTR in subsequent laps.
-	for (int j = 0; j < dec_->nweights; j++) {
-		LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
-		VMOV(fpScratchReg, tempReg1);
-		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
-		MOVI2F(fpScratchReg2, 1.0f / 32768.0f, scratchReg);
-		VMUL(weightRegs[j], fpScratchReg, fpScratchReg2);
+	if (NEONSkinning && dec_->nweights <= 4) {
+		// Most common cases.
+		switch (dec_->nweights) {
+		case 1: LDRH(scratchReg, srcReg, 0); break;
+		case 2: LDR(scratchReg, srcReg, 0); break;
+		case 3:
+			LDR(scratchReg, srcReg, 0);
+			LDRH(scratchReg2, srcReg, 4);
+			break;
+		case 4:
+			LDR(scratchReg, srcReg, 0);
+			LDR(scratchReg2, srcReg, 4);
+			break;
+		}
+		VMOV(fpScratchReg, scratchReg);
+		VMOV(fpScratchReg2, scratchReg2);
+		MOVI2F(S12, by32768, scratchReg);
+		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMUL_scalar(F_32, neonWeightRegs[0], neonScratchRegQ, DScalar(D6, 0));
+	} else {
+		// Fallback and non-neon
+		for (int j = 0; j < dec_->nweights; j++) {
+			LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
+			VMOV(fpScratchReg, tempReg1);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+			MOVI2F(fpScratchReg2, 1.0f / 32768.0f, scratchReg);
+			VMUL(weightRegs[j], fpScratchReg, fpScratchReg2);
+		}
 	}
-
 	Jit_ApplyWeights();
 }
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
-	// No need to zero skinMatrix, we'll just STR to it in the first lap,
-	// then VLDR/VADD/VSTR in subsequent laps.
+	// TODO: NEON-ize (barely worth)
 	for (int j = 0; j < dec_->nweights; j++) {
 		VLDR(weightRegs[j], srcReg, dec_->weightoff + j * 4);
 	}
-
 	Jit_ApplyWeights();
 }
 
@@ -671,27 +780,39 @@ void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 }
 
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
-	MOVI2R(tempReg1, (u32)skinMatrix, scratchReg);
-	for (int i = 0; i < 3; i++) {
-		VLDR(fpScratchReg, tempReg1, 4 * i);
-		VMUL(acc[i], fpScratchReg, src[0]);
-	}
-	for (int i = 0; i < 3; i++) {
-		VLDR(fpScratchReg, tempReg1, 12 + 4 * i);
-		VMLA(acc[i], fpScratchReg, src[1]);
-	}
-	for (int i = 0; i < 3; i++) {
-		VLDR(fpScratchReg, tempReg1, 24 + 4 * i);
-		VMLA(acc[i], fpScratchReg, src[2]);
-	}
-	if (pos) {
-		for (int i = 0; i < 3; i++) {
-			VLDR(fpScratchReg, tempReg1, 36 + 4 * i);
-			VADD(acc[i], acc[i], fpScratchReg);
+	if (NEONSkinning) {
+		// Multiply with the matrix sitting in Q4-Q7.
+		ADD(scratchReg, dstReg, outOff);
+		VMUL_scalar(F_32, accNEON, Q4, QScalar(srcNEON, 0));
+		VMLA_scalar(F_32, accNEON, Q5, QScalar(srcNEON, 1));
+		VMLA_scalar(F_32, accNEON, Q6, QScalar(srcNEON, 2));
+		if (pos) {
+			VADD(F_32, accNEON, accNEON, Q7);
 		}
-	}
-	for (int i = 0; i < 3; i++) {
-		VSTR(acc[i], dstReg, outOff + i * 4);
+		VST1(F_32, accNEON, scratchReg, 2);
+	} else {
+		MOVI2R(tempReg1, (u32)skinMatrix, scratchReg);
+		for (int i = 0; i < 3; i++) {
+			VLDR(fpScratchReg, tempReg1, 4 * i);
+			VMUL(acc[i], fpScratchReg, src[0]);
+		}
+		for (int i = 0; i < 3; i++) {
+			VLDR(fpScratchReg, tempReg1, 12 + 4 * i);
+			VMLA(acc[i], fpScratchReg, src[1]);
+		}
+		for (int i = 0; i < 3; i++) {
+			VLDR(fpScratchReg, tempReg1, 24 + 4 * i);
+			VMLA(acc[i], fpScratchReg, src[2]);
+		}
+		if (pos) {
+			for (int i = 0; i < 3; i++) {
+				VLDR(fpScratchReg, tempReg1, 36 + 4 * i);
+				VADD(acc[i], acc[i], fpScratchReg);
+			}
+		}
+		for (int i = 0; i < 3; i++) {
+			VSTR(acc[i], dstReg, outOff + i * 4);
+		}
 	}
 }
 

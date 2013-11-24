@@ -27,8 +27,6 @@
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
 
-extern void DisassembleArm(const u8 *data, int size);
-
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};

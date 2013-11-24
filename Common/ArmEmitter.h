@@ -371,6 +371,7 @@ ARMReg SubBase(ARMReg Reg);
 // See A.7.1 in the ARMv7-A
 // VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
 ARMReg DScalar(ARMReg dreg, int subScalar);
+ARMReg QScalar(ARMReg qreg, int subScalar);
 
 enum NEONAlignment {
 	ALIGN_NONE = 0,

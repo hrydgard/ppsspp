@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
@@ -44,13 +45,13 @@ void DisassembleArm(const u8 *data, int size) {
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
 				sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				INFO_LOG(JIT, "A:   %s", temp);
+				ILOG("A:   %s", temp);
 				i += 4;
 				continue;
 			}
 		}
 		ArmDis((u32)codePtr, inst, temp);
-		INFO_LOG(JIT, "A:   %s", temp);
+		ILOG("A:   %s", temp);
 	}
 }
 

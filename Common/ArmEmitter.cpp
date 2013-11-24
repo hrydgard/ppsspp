@@ -1226,6 +1226,17 @@ ARMReg DScalar(ARMReg dreg, int subScalar) {
 	return ret;
 }
 
+// Convert to a DScalar
+ARMReg QScalar(ARMReg qreg, int subScalar) {
+	int dr = (int)(SubBase(qreg)) & 0xF;
+	if (subScalar & 2) {
+		dr++;
+	}
+	int scalar = (((subScalar & 1) << 4) | dr);
+	ARMReg ret =  (ARMReg)(D0 + scalar);
+	return ret;
+}
+
 void ARMXEmitter::WriteVFPDataOp(u32 Op, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	bool quad_reg = Vd >= Q0;
