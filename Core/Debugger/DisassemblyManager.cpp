@@ -84,7 +84,7 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 	*arguments = 0;
 }
 
-void DisassemblyManager::analyze(u32 address, u32 size)
+void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 {
 	u32 end = address+size;
 
@@ -115,10 +115,14 @@ void DisassemblyManager::analyze(u32 address, u32 size)
 			entries[info.address] = function;
 			address = info.address+info.size;
 		} else {
-			// let's just assume anything otuside a function is a normal opcode
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(address);
-			entries[address] = opcode;
+			u32 startAddress = address;
 			address += 4;
+			while (!symbolMap.GetSymbolInfo(&info,address) && address < end)
+				address += 4;
+
+			// let's just assume anything otuside a function is a normal opcode
+			DisassemblyOpcode* opcode = new DisassemblyOpcode(startAddress,(address-startAddress)/4);
+			entries[startAddress] = opcode;
 		}
 	}
 
@@ -130,18 +134,34 @@ std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,Disa
 	if (exact)
 		return entries.find(address);
 
-	for (auto it = entries.begin(); it != entries.end(); it++)
+	if (entries.size() == 0)
+		return entries.end();
+
+	// find first elem that's >= address
+	auto it = entries.lower_bound(address);
+	if (it != entries.end())
 	{
-		DisassemblyEntry* entry = it->second;
-		u32 entryStart = entry->getLineAddress(0);
-		u32 entryEnd = entryStart+entry->getTotalSize();
-		
-		if (entryStart <= address && entryEnd > address)
-		{
+		// it may be an exact match
+		if (isInInterval(it->second->getLineAddress(0),it->second->getTotalSize(),address))
 			return it;
+
+		// otherwise it may point to the next
+		if (it != entries.begin())
+		{
+			it--;
+			if (isInInterval(it->second->getLineAddress(0),it->second->getTotalSize(),address))
+				return it;
 		}
 	}
 
+	// check last entry manually
+	auto rit = entries.rbegin();
+	if (isInInterval(rit->second->getLineAddress(0),rit->second->getTotalSize(),address))
+	{
+		return (++rit).base();
+	}
+
+	// no match otherwise
 	return entries.end();
 }
 
@@ -169,7 +189,7 @@ DisassemblyLineInfo DisassemblyManager::getLine(u32 address, bool insertSymbols)
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
 	{
-		analyze(address,1);
+		analyze(address);
 		it = findDisassemblyEntry(entries,address,false);
 
 		if (it == entries.end())
@@ -198,7 +218,7 @@ u32 DisassemblyManager::getStartAddress(u32 address)
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
 	{
-		analyze(address,1);
+		analyze(address);
 		it = findDisassemblyEntry(entries,address,false);
 		if (it == entries.end())
 			return address;
@@ -230,7 +250,7 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 			it = findDisassemblyEntry(entries,address,false);
 		}
 	
-		analyze(address,1);
+		analyze(address-127,128);
 	}
 	
 	return address-n*4;
@@ -257,7 +277,7 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 			it = findDisassemblyEntry(entries,address,false);
 		}
 
-		analyze(address,1);
+		analyze(address);
 	}
 
 	return address+n*4;
@@ -316,7 +336,7 @@ u32 DisassemblyFunction::getLineAddress(int line)
 
 bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
-	auto it = findDisassemblyEntry(entries,address,true);
+	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
 		return false;
 
@@ -435,13 +455,10 @@ void DisassemblyFunction::load()
 		// skip branches and their delay slots
 		if (opInfo.isBranch)
 		{
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress);
+			DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress,2);
 			entries[opAddress] = opcode;
 			lineAddresses.push_back(opAddress);
-			
-			DisassemblyOpcode* delaySlot = new DisassemblyOpcode(funcPos);
-			entries[funcPos] = delaySlot;
-			lineAddresses.push_back(funcPos);
+			lineAddresses.push_back(opAddress+4);
 
 			funcPos += 4;
 			continue;
@@ -517,7 +534,7 @@ void DisassemblyFunction::load()
 		}
 
 		// just a normal opcode
-		DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress);
+		DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress,1);
 		entries[opAddress] = opcode;
 		lineAddresses.push_back(opAddress);
 	}

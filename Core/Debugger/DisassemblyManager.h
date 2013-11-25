@@ -86,16 +86,17 @@ private:
 class DisassemblyOpcode: public DisassemblyEntry
 {
 public:
-	DisassemblyOpcode(u32 _address): address(_address) { };
+	DisassemblyOpcode(u32 _address, int _num): address(_address), num(_num) { };
 	virtual ~DisassemblyOpcode() { };
 	virtual void recheck() { };
-	virtual int getNumLines() { return 1; };
-	virtual int getLineNum(u32 address, bool findStart) { return 0; };
-	virtual u32 getLineAddress(int line) { return address; };
-	virtual u32 getTotalSize() { return 4; };
+	virtual int getNumLines() { return num; };
+	virtual int getLineNum(u32 address, bool findStart) { return (address-this->address)/4; };
+	virtual u32 getLineAddress(int line) { return address+line*4; };
+	virtual u32 getTotalSize() { return num*4; };
 	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
 private:
 	u32 address;
+	int num;
 };
 
 
