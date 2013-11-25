@@ -84,50 +84,6 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 	*arguments = 0;
 }
 
-void DisassemblyManager::analyze(u32 address, u32 size = 1024)
-{
-	u32 end = address+size;
-
-	address &= ~3;
-	u32 start = address;
-
-	while (address < end && start <= address)
-	{
-		auto it = entries.lower_bound(address);
-		if (it != entries.end())
-		{
-			DisassemblyEntry* entry = it->second;
-			u32 entryStart = entry->getLineAddress(0);
-			u32 entryEnd = entryStart+entry->getTotalSize();
-
-			if (entryStart <= address && entryEnd > address)
-			{
-				entry->recheck();
-				address = entryEnd;
-				continue;
-			}
-		}
-
-		SymbolInfo info;
-		if (symbolMap.GetSymbolInfo(&info,address))
-		{
-			DisassemblyFunction* function = new DisassemblyFunction(info.address,info.size);
-			entries[info.address] = function;
-			address = info.address+info.size;
-		} else {
-			u32 next = symbolMap.GetNextSymbolAddress(address);
-
-			// let's just assume anything otuside a function is a normal opcode
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
-			entries[address] = opcode;
-			
-			address = next;
-		}
-	}
-
-}
-
-// TODO: use a faster search (and probably a different data structure)
 std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,DisassemblyEntry*>& entries, u32 address, bool exact)
 {
 	if (exact)
@@ -162,6 +118,43 @@ std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,Disa
 
 	// no match otherwise
 	return entries.end();
+}
+
+void DisassemblyManager::analyze(u32 address, u32 size = 1024)
+{
+	u32 end = address+size;
+
+	address &= ~3;
+	u32 start = address;
+
+	while (address < end && start <= address)
+	{
+		auto it = findDisassemblyEntry(entries,address,false);
+		if (it != entries.end())
+		{
+			DisassemblyEntry* entry = it->second;
+			entry->recheck();
+			address = entry->getLineAddress(0)+entry->getTotalSize();
+			continue;
+		}
+
+		SymbolInfo info;
+		if (symbolMap.GetSymbolInfo(&info,address))
+		{
+			DisassemblyFunction* function = new DisassemblyFunction(info.address,info.size);
+			entries[info.address] = function;
+			address = info.address+info.size;
+		} else {
+			u32 next = symbolMap.GetNextSymbolAddress(address);
+
+			// let's just assume anything otuside a function is a normal opcode
+			DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
+			entries[address] = opcode;
+			
+			address = next;
+		}
+	}
+
 }
 
 std::vector<BranchLine> DisassemblyManager::getBranchLines(u32 start, u32 size)
@@ -548,6 +541,7 @@ void DisassemblyFunction::clear()
 
 	entries.clear();
 	lines.clear();
+	lineAddresses.clear();
 	hash = 0;
 }
 

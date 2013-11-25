@@ -56,7 +56,7 @@ void CtrlDisAsmView::deinit()
 
 void CtrlDisAsmView::scanFunctions()
 {
-
+	manager.analyze(windowStart,manager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
 LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
