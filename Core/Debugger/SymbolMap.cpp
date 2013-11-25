@@ -120,6 +120,8 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 		uniqueEntries.insert((const MapEntryUniqueInfo)e);
 		entryRanges[e.vaddress + e.size] = e.vaddress;
 	}
+
+	AddLabel(symbolname,vaddress);
 }
 
 void SymbolMap::RemoveSymbolNum(int symbolnum){
@@ -250,7 +252,13 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 				*seperator = 0;
 				sscanf(seperator+1,"%08X",&size);
 			}
-			AddSymbol(value,address,size,ST_FUNCTION);
+
+			if (size != 1)
+			{
+				AddSymbol(value,address,size,ST_FUNCTION);
+			} else {
+				AddLabel(value,address);
+			}
 		}
 	}
 
@@ -365,6 +373,24 @@ bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
 		}
 	}
 	return false;
+}
+
+void SymbolMap::AddLabel(const char* name, u32 address)
+{
+	Label label;
+	strcpy(label.name,name);
+	label.name[127] = 0;
+
+	labels[address] = label;
+}
+
+const char* SymbolMap::GetLabelName(u32 address)
+{
+	auto it = labels.find(address);
+	if (it == labels.end())
+		return NULL;
+
+	return it->second.name;
 }
 
 static char descriptionTemp[256];

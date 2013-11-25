@@ -206,7 +206,7 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 {
 	if (displaySymbols)
 	{
-		const char* addressSymbol = debugger->findSymbolForAddress(address);
+		const char* addressSymbol = symbolMap.GetLabelName(address);
 		if (addressSymbol != NULL)
 		{
 			for (int k = 0; addressSymbol[k] != 0; k++)
@@ -1023,7 +1023,7 @@ void CtrlDisAsmView::updateStatusBarText()
 				// TODO: Could also be a float...
 				{
 					u32 data = Memory::Read_U32(line.info.dataAddress);
-					const char* addressSymbol = debugger->findSymbolForAddress(data);
+					const char* addressSymbol = symbolMap.GetLabelName(data);
 					if (addressSymbol)
 					{
 						sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
@@ -1041,7 +1041,7 @@ void CtrlDisAsmView::updateStatusBarText()
 
 	if (line.info.isBranch)
 	{
-		const char* addressSymbol = debugger->findSymbolForAddress(line.info.branchTarget);
+		const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
 		if (addressSymbol == NULL)
 		{
 			sprintf(text,"%08X",line.info.branchTarget);
@@ -1157,7 +1157,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 
-		if (info.isBranch && debugger->findSymbolForAddress(info.branchTarget) == NULL)
+		if (info.isBranch && symbolMap.GetLabelName(info.branchTarget) == NULL)
 		{
 			if (branchAddresses.find(info.branchTarget) == branchAddresses.end())
 			{
@@ -1189,7 +1189,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 		}
 
 		if (line.info.isBranch && !line.info.isBranchToRegister
-			&& debugger->findSymbolForAddress(line.info.branchTarget) == NULL
+			&& symbolMap.GetLabelName(line.info.branchTarget) == NULL
 			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
 		{
 			sprintf(buffer,"pos_%08X",line.info.branchTarget);

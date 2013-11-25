@@ -75,6 +75,8 @@ public:
 	void UseFuncSignaturesFile(const char *filename, u32 maxAddress);
 	void CompileFuncSignaturesFile(const char *filename) const;
 
+	void AddLabel(const char* name, u32 address);
+	const char* GetLabelName(u32 address);
 private:
 	struct MapEntryUniqueInfo {
 		u32 address;
@@ -85,6 +87,11 @@ private:
 		bool operator < (const MapEntryUniqueInfo &other) const {
 			return vaddress < other.vaddress;
 		}
+	};
+
+	struct Label
+	{
+		char name[128];
 	};
 
 	struct MapEntry : public MapEntryUniqueInfo {
@@ -99,7 +106,8 @@ private:
 			// TODO
 		}
 	};
-
+	
+	std::map<u32,Label> labels;
 	std::set<MapEntryUniqueInfo> uniqueEntries;
 	std::vector<MapEntry> entries;
 	std::map<u32, u32> entryRanges;

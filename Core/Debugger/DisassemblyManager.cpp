@@ -58,7 +58,7 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 			u32 branchTarget;
 			sscanf(disasm+3,"%08x",&branchTarget);
 
-			const char* addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(branchTarget);
+			const char* addressSymbol = symbolMap.GetLabelName(branchTarget);
 			if (addressSymbol != NULL && insertSymbols)
 			{
 				arguments += sprintf(arguments,"%s",addressSymbol);
@@ -615,7 +615,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_LI:
 		dest.name = name;
 		
-		addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(immediate);
+		addressSymbol = symbolMap.GetLabelName(immediate);
 		if (addressSymbol != NULL && insertSymbols)
 		{
 			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
@@ -631,7 +631,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_MEMORYIMM:
 		dest.name = name;
 
-		addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(immediate);
+		addressSymbol = symbolMap.GetLabelName(immediate);
 		if (addressSymbol != NULL && insertSymbols)
 		{
 			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
