@@ -13,7 +13,12 @@
 #include "sceKernelMutex.h"
 #include "sceUtility.h"
 #include "net/resolve.h"
+
+#ifdef _MSC_VER
+#include <thread.h>
+#else
 #include <thread>
+#endif
 
 // Net stuff
 #ifdef _MSC_VER
@@ -29,6 +34,10 @@
 #endif
 #ifdef _MSC_VER
 #define PACK
+#define errno WSAGetLastError()
+#define EAGAIN WSAEWOULDBLOCK
+#define EINPROGRESS WSAEWOULDBLOCK
+#define EISCONN WSAEISCONN
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1

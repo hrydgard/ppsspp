@@ -184,7 +184,8 @@ public:
 
 	// SystemParam
 	std::string sNickName;
-  std::string proAdhocServer;
+    std::string proAdhocServer;
+    std::string localMacAddress;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;

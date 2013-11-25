@@ -50,7 +50,12 @@ int PSPNetconfDialog::Update(int animSpeed) {
       request.netAction == NETCONF_JOIN_ADHOC){
     if(request.NetconfData != NULL){
       Shutdown(true);
-      return sceNetAdhocctlCreate(request.NetconfData->groupName);
+        if(sceNetAdhocctlCreate(request.NetconfData->groupName) == 0)
+        {
+            status = SCE_UTILITY_STATUS_FINISHED;
+            return 0;
+        }
+        return -1;
     }
   }
 	return 0;

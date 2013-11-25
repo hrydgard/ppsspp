@@ -139,6 +139,15 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
   }
 }
 
+int getBlockingFlag(int id){
+#ifdef _MSC_VER
+    return 0;
+#else
+    int sockflag = fcntl(id, F_GETFL, O_NONBLOCK);
+    return sockflag & O_NONBLOCK;
+#endif
+}
+
 void __handlerUpdateCallback(u64 userdata, int cycleslate){
   int buff[2];
   split64(userdata,buff);
@@ -363,7 +372,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
                 target.sin_port = htons(dport);
 
                 // Get Peer IP
-                if(resolveMAC((SceNetEtherAddr *)daddr, &target.sin_addr.s_addr) == 0) {
+                if(resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr) == 0) {
                   // Acquire Network Lock
                   //_acquireNetworkLock();
 
@@ -1096,7 +1105,7 @@ int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dp
 					// Valid Socket produced
 					if(tcpsocket > 0) {
 						// Enable Port Re-use
-						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 						
 						// Binding Information for local Port
 						sockaddr_in addr;
@@ -1202,17 +1211,22 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 					// Address Information
 					sockaddr_in peeraddr;
 					memset(&peeraddr, 0, sizeof(peeraddr));
+#ifdef _MSC_VER
+					int peeraddrlen = sizeof(peeraddr);
+#else
 					uint32_t peeraddrlen = sizeof(peeraddr);
-					
+#endif
 					// Local Address Information
 					sockaddr_in local;
 					memset(&local, 0, sizeof(local));
+#ifdef _MSC_VER
+					int locallen = sizeof(local);
+#else
 					uint32_t locallen = sizeof(local);
+#endif
 					
 					// Grab Nonblocking Flag
-					uint32_t nbio = 0;
-          int sockflag = fcntl(socket->id, F_GETFL, O_NONBLOCK);
-          nbio = sockflag & O_NONBLOCK;
+					uint32_t nbio = getBlockingFlag(socket->id);
 					// Switch to Nonblocking Behaviour
 					if(nbio == 0) {
 						// Overwrite Socket Option
@@ -1246,7 +1260,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 					// Accepted New Connection
 					if(newsocket > 0) {
 						// Enable Port Re-use
-						setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+						setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 						
 						// Grab Local Address
 						if(getsockname(newsocket, (sockaddr *)&local, &locallen) == 0) {
@@ -1358,11 +1372,9 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 				sin.sin_port = htons(socket->pport);
 				
 				// Grab Peer IP
-				if(resolveMAC(&socket->paddr, &sin.sin_addr.s_addr) == 0) {
+				if(resolveMAC(&socket->paddr, (uint32_t *)&sin.sin_addr.s_addr) == 0) {
 					// Grab Nonblocking Flag
-					uint32_t nbio = 0;
-          int fileflags = fcntl(socket->id,F_GETFL,O_NONBLOCK);
-          nbio = fileflags & O_NONBLOCK;
+					uint32_t nbio = getBlockingFlag(socket->id);
 					// Switch to Nonblocking Behaviour
 					if(nbio == 0) {
 						// Overwrite Socket Option
@@ -1403,8 +1415,11 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 							// Peer Information (for Connection-Polling)
 							sockaddr_in peer;
 							memset(&peer, 0, sizeof(peer));
+#ifdef _MSC_VER
+                            int peerlen = sizeof(peer);
+#else
 							uint32_t peerlen = sizeof(peer);
-							
+#endif
 							// Wait for Connection
 							while((timeout == 0 || ( (uint32_t)(real_time_now()*1000.0) - starttime) < timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
 								// Wait 1ms
@@ -1524,7 +1539,7 @@ int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_i
 					// Valid Socket produced
 					if(tcpsocket > 0) {
 						// Enable Port Re-use
-						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 						
 						// Binding Information for local Port
 						sockaddr_in addr;
@@ -1629,16 +1644,16 @@ int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 					if(flag) timeout = 0;
 					
 					// Apply Send Timeout Settings to Socket
-					setsockopt(socket->id, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+					setsockopt(socket->id, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout, sizeof(timeout));
 					
 					// Acquire Network Lock
 					// _acquireNetworkLock();
 					
 					// Send Data
-          changeBlockingMode(socket->id, flag);
+                    changeBlockingMode(socket->id, flag);
 					int sent = send(socket->id, data, *len, 0);
-          int error = errno;
-          changeBlockingMode(socket->id, 0);
+                    int error = errno;
+                    changeBlockingMode(socket->id, 0);
 					
 					// Free Network Lock
 					// _freeNetworkLock();
@@ -1710,14 +1725,14 @@ int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int flag
 				if(flag) timeout = 0;
 				
 				// Apply Send Timeout Settings to Socket
-				setsockopt(socket->id, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+				setsockopt(socket->id, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));
 				
 				// Acquire Network Lock
 				// _acquireNetworkLock();
 				
 				// Receive Data
         changeBlockingMode(socket->id, flag);
-				int received = recv(socket->id, buf, *len, 0);
+				int received = recv(socket->id, (char *)buf, *len, 0);
         int error = errno;
         changeBlockingMode(socket->id, 0);
 				

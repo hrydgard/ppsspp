@@ -18,6 +18,7 @@
 #include "Common/ChunkFile.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../Config.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -131,7 +132,7 @@ u32 sceNetTerm() {
 
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	// TODO: Read from config
-	static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 6 };
+    static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 5 };
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
 		Memory::Write_U8(fakeEtherAddr[i], addrAddr + i);

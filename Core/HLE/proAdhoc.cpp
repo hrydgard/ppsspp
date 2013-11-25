@@ -497,15 +497,15 @@ int getLocalIp(sockaddr_in * SocketAddress){
   }
   return -1;
 #else
-  char ip[] = "192.168.12.1";
   SocketAddress->sin_addr.s_addr = inet_addr("192.168.12.1");
   return 0;
 #endif
 }
 
 void getLocalMac(SceNetEtherAddr * addr){
-  uint8_t mac[] = {1, 2, 3, 4, 5, 6};
+    uint8_t mac[] = {1, 2, 3, 4, 5, 5};
   memcpy(addr,mac,ETHER_ADDR_LEN);
+    printf("mem copied\n");
 }
 
 int getPTPSocketCount(void) {
@@ -541,13 +541,20 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
   // Resolve dns 
   addrinfo * resultAddr;
+    addrinfo * ptr;
+    in_addr serverIp;
   iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
   if(iResult !=  0){
     ERROR_LOG(SCENET, "Dns error\n");
     return iResult;
   }
-  server_addr.sin_addr.s_addr = ((sockaddr_in *)resultAddr->ai_addr)->sin_addr.s_addr;
-  iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
+    for(ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next){
+        switch(ptr->ai_family){
+            case AF_INET:
+                serverIp = ((sockaddr_in *)ptr->ai_addr)->sin_addr;
+        }
+    }
+    server_addr.sin_addr = serverIp;   iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
   if(iResult == SOCKET_ERROR){
     ERROR_LOG(SCENET,"Socket error");
     return iResult;
