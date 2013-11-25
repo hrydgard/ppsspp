@@ -135,7 +135,7 @@ class DisassemblyManager
 public:
 
 	void setCpu(DebugInterface* _cpu) { cpu = _cpu; };
-	DisassemblyLineInfo getLine(u32 address, bool insertSymbols);
+	void getLine(u32 address, bool insertSymbols, DisassemblyLineInfo& dest);
 	void analyze(u32 address, u32 size);
 	std::vector<BranchLine> getBranchLines(u32 start, u32 size);
 

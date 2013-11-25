@@ -429,9 +429,10 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	unsigned int address = windowStart;
 	std::map<u32,int> addressPositions;
 
+	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows; i++)
 	{
-		DisassemblyLineInfo line = manager.getLine(address,displaySymbols);
+		manager.getLine(address,displaySymbols,line);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
@@ -560,7 +561,8 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::followBranch()
 {
-	DisassemblyLineInfo line = manager.getLine(curAddress,true);
+	DisassemblyLineInfo line;
+	manager.getLine(curAddress,true,line);
 
 	if (line.info.isBranch)
 	{
@@ -999,7 +1001,8 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 void CtrlDisAsmView::updateStatusBarText()
 {
 	char text[512];
-	DisassemblyLineInfo line = manager.getLine(curAddress,true);
+	DisassemblyLineInfo line;
+	manager.getLine(curAddress,true,line);
 	
 	text[0] = 0;
 	if (line.info.isDataAccess)
@@ -1097,9 +1100,11 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 	searching = true;
 	redraw();	// so the cursor is disabled
+
+	DisassemblyLineInfo lineInfo;
 	while (searchAddress < 0x0A000000)
 	{
-		DisassemblyLineInfo lineInfo = manager.getLine(searchAddress,displaySymbols);
+		manager.getLine(searchAddress,displaySymbols,lineInfo);
 
 		char addressText[64];
 		getDisasmAddressText(searchAddress,addressText,true);
@@ -1163,11 +1168,12 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 
 	u32 disAddress = start;
 	bool previousLabel = true;
+	DisassemblyLineInfo line;
 	while (disAddress < start+size)
 	{
 		char addressText[64],buffer[512];
 
-		DisassemblyLineInfo line = manager.getLine(disAddress,displaySymbols);
+		manager.getLine(disAddress,displaySymbols,line);
 		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
 
 		if (isLabel)
@@ -1244,7 +1250,8 @@ void CtrlDisAsmView::disassembleToFile()
 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
 {
+	DisassemblyLineInfo line;
 	address = manager.getStartAddress(address);
-	DisassemblyLineInfo line = manager.getLine(address,displaySymbols);
+	manager.getLine(address,displaySymbols,line);
 	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
 }

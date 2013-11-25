@@ -182,10 +182,8 @@ std::vector<BranchLine> DisassemblyManager::getBranchLines(u32 start, u32 size)
 	return result;
 }
 
-DisassemblyLineInfo DisassemblyManager::getLine(u32 address, bool insertSymbols)
+void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLineInfo& dest)
 {
-	DisassemblyLineInfo result;
-
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
 	{
@@ -194,23 +192,22 @@ DisassemblyLineInfo DisassemblyManager::getLine(u32 address, bool insertSymbols)
 
 		if (it == entries.end())
 		{
-			result.totalSize = 4;
-			result.name = "ERROR";
-			result.params = "Disassembly failure";
-			return result;
+			dest.totalSize = 4;
+			dest.name = "ERROR";
+			dest.params = "Disassembly failure";
+			return;
 		}
 	}
 
 	DisassemblyEntry* entry = it->second;
 	
-	result.info = MIPSAnalyst::GetOpcodeInfo(cpu,address);
-	if (entry->disassemble(address,result,insertSymbols))
-		return result;
+	dest.info = MIPSAnalyst::GetOpcodeInfo(cpu,address);
+	if (entry->disassemble(address,dest,insertSymbols))
+		return;
 
-	result.totalSize = 4;
-	result.name = "ERROR";
-	result.params = "Disassembly failure";
-	return result;
+	dest.totalSize = 4;
+	dest.name = "ERROR";
+	dest.params = "Disassembly failure";
 }
 
 u32 DisassemblyManager::getStartAddress(u32 address)
