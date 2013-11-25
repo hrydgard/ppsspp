@@ -143,7 +143,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("SoftwareSkinning", &bSoftwareSkinning, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	// Auto on Windows, 2x on large screens, 1x elsewhere.
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	graphics->Get("InternalResolution", &iInternalResolution, 0);
 #else
 	graphics->Get("InternalResolution", &iInternalResolution, pixel_xres >= 1024 ? 2 : 1);

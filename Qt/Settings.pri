@@ -13,8 +13,8 @@ P = $$_PRO_FILE_PWD_/..
 INCLUDEPATH += $$P/ext/zlib $$P/native/ext/glew $$P/Common
 
 exists($$P/.git): GIT_VERSION = $$system(git describe --always)
-!isEmpty(GIT_VERSION): VERSION = $$GIT_VERSION
-DEFINES += PPSSPP_GIT_VERSION=\\\"$$VERSION\\\"
+isEmpty(GIT_VERSION): GIT_VERSION = $$VERSION
+DEFINES += PPSSPP_GIT_VERSION=\\\"$$GIT_VERSION\\\"
 
 win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast
