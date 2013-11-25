@@ -424,16 +424,14 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			float widthFactor = (float)w * invW;
 			float heightFactor = (float)h * invH;
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
+			static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+			float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+			uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
 			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-				float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
 				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
 				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			} else {
-				uvscaleoff[0] = widthFactor;
-				uvscaleoff[1] = heightFactor;
 				uvscaleoff[2] = 0.0f;
 				uvscaleoff[3] = 0.0f;
 			}
