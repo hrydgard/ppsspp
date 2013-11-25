@@ -17,7 +17,12 @@ yet. Also, it uses a port < 1000 and thats reserved for admin apps on linux, run
 as sudo "solves" it, but it's far from ideal.
 * Pacman World Rally: Works too.
 
-Oh, and it probably only compiles on linux for now.
+Update (Kyhel) :
+---------------
+* Now compiles on both Mac OSX and Windows. For more details on how to play and build
+go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59241
+* Got it tested windows <-> mac osx <-> psp, it works
+* Monster Hunter 3rd HD works too, as well as God Eater Burst.
 
 PPSSPP - a fast and portable PSP emulator
 =========================================
