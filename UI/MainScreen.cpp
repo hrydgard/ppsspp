@@ -184,19 +184,25 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
+	char discNumInfo[8];
+	if (ginfo->disc_total > 1)
+		sprintf(discNumInfo, "-DISC%d",ginfo->disc_number);
+	else
+		sprintf(discNumInfo, "");
+
 	dc.Draw()->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
 	if (!gridStyle_) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText((ginfo->title + discNumInfo).c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else if (!texture) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText((ginfo->title + discNumInfo).c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else {

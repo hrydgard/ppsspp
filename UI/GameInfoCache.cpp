@@ -210,6 +210,8 @@ public:
 					info_->title = info_->paramSFO.GetValueString("TITLE");
 					info_->id = info_->paramSFO.GetValueString("DISC_ID");
 					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+					info_->disc_total = info_->paramSFO.GetValueInt("DISC_TOTAL");
+					info_->disc_number = info_->paramSFO.GetValueInt("DISC_NUMBER");
 
 					info_->paramSFOLoaded = true;
 				}
@@ -277,6 +279,8 @@ public:
 					info_->title = info_->paramSFO.GetValueString("TITLE");
 					info_->id = info_->paramSFO.GetValueString("DISC_ID");
 					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+					info_->disc_total = info_->paramSFO.GetValueInt("DISC_TOTAL");
+					info_->disc_number = info_->paramSFO.GetValueInt("DISC_NUMBER");
 
 					info_->paramSFOLoaded = true;
 				}
@@ -309,6 +313,8 @@ public:
 					info_->title = info_->paramSFO.GetValueString("TITLE");
 					info_->id = info_->paramSFO.GetValueString("DISC_ID");
 					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+					info_->disc_total = info_->paramSFO.GetValueInt("DISC_TOTAL");
+					info_->disc_number = info_->paramSFO.GetValueInt("DISC_NUMBER");
 
 					info_->paramSFOLoaded = true;
 				} else {
