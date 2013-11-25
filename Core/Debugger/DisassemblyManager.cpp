@@ -305,7 +305,7 @@ void DisassemblyFunction::recheck()
 
 int DisassemblyFunction::getNumLines()
 {
-	return lineAddresses.size();
+	return (int) lineAddresses.size();
 }
 
 int DisassemblyFunction::getLineNum(u32 address, bool findStart)

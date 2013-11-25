@@ -230,11 +230,6 @@ const char *MIPSDebugInterface::getDescription(unsigned int address)
 	return symbolMap.GetDescription(address);
 }
 
-bool MIPSDebugInterface::getSymbolValue(char* symbol, u32& dest)
-{
-	return symbolMap.getSymbolValue(symbol,dest);
-}
-
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)
 {
 	MipsExpressionFunctions funcs(this);

@@ -69,8 +69,6 @@ public:
 	void IncreaseRunCount(int num);
 	unsigned int GetRunCount(int num) const;
 	void SortSymbols();
-	const char* getDirectSymbol(u32 address);
-	bool getSymbolValue(char* symbol, u32& dest);
 
 	void UseFuncSignaturesFile(const char *filename, u32 maxAddress);
 	void CompileFuncSignaturesFile(const char *filename) const;

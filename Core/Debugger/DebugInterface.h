@@ -41,7 +41,6 @@ public:
 	virtual void runToBreakpoint() {}
 	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
 	virtual const char *getDescription(unsigned int address) {return "";}
-	virtual bool getSymbolValue(char* symbol, u32& dest) { return false; };
 	virtual bool initExpression(const char* exp, PostfixExpression& dest) { return false; };
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 

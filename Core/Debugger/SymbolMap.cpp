@@ -338,44 +338,6 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address)
 	return containingEntry->second;
 }
 
-const char* SymbolMap::getDirectSymbol(u32 address)
-{
-	lock_guard guard(lock_);
-	SymbolInfo info;
-	if (GetSymbolInfo(&info,address) == false) return NULL;
-	if (info.address != address) return NULL;	// has to be the START of the function
-
-	// now we need the name... which we can't just get from GetSymbolInfo because of the
-	// unique entries. But, there are so many less instances where there actually IS a
-	// label that the speed up is still massive
-	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
-	{
-		const MapEntry &entry = *it;
-		unsigned int addr = entry.vaddress;
-		if (addr == address) return entry.name;
-	}
-	return NULL;
-}
-
-bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
-{
-	lock_guard guard(lock_);
-	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
-	{
-		const MapEntry &entry = *it;
-#ifdef _WIN32
-		if (_stricmp(entry.name,symbol) == 0)
-#else
-		if (strcasecmp(entry.name,symbol) == 0)
-#endif
-		{
-			dest = entry.vaddress;
-			return true;
-		}
-	}
-	return false;
-}
-
 const char* SymbolMap::AddLabel(const char* name, u32 address)
 {
 	// keep a label if it already exists
