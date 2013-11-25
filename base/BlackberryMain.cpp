@@ -252,6 +252,9 @@ void BlackberryMain::runMain() {
 						}
 					}
 					break;
+				case NAVIGATOR_ORIENTATION:
+					sensor_remap_coordinates(navigator_event_get_orientation_angle(event));
+					break;
 				case NAVIGATOR_BACK:
 				case NAVIGATOR_SWIPE_DOWN:
 					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE, KEY_DOWN));
@@ -261,17 +264,7 @@ void BlackberryMain::runMain() {
 				}
 			} else if (domain == sensor_get_domain()) {
 				if (SENSOR_ACCELEROMETER_READING == bps_event_get_code(event)) {
-					float x, y, z;
-					sensor_event_get_xyz(event, &x, &y, &z);
-					if (pixel_xres == 1024 || pixel_xres == 720) // Q10 has this negative and reversed
-					{
-						input_state.acc.x = -y;
-						input_state.acc.y = -x;
-					} else {
-						input_state.acc.x = x;
-						input_state.acc.y = y;
-					}
-					input_state.acc.z = z;
+					sensor_event_get_xyz(event, &(input_state.acc.y), &(input_state.acc.x), &(input_state.acc.z));
 				}
 			}
 		}
