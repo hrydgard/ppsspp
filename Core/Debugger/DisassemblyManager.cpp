@@ -115,14 +115,13 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 			entries[info.address] = function;
 			address = info.address+info.size;
 		} else {
-			u32 startAddress = address;
-			address += 4;
-			while (!symbolMap.GetSymbolInfo(&info,address) && address < end)
-				address += 4;
+			u32 next = symbolMap.GetNextSymbolAddress(address);
 
 			// let's just assume anything otuside a function is a normal opcode
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(startAddress,(address-startAddress)/4);
-			entries[startAddress] = opcode;
+			DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
+			entries[address] = opcode;
+			
+			address = next;
 		}
 	}
 
@@ -278,6 +277,15 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 	}
 
 	return address+n*4;
+}
+
+void DisassemblyManager::clear()
+{
+	for (auto it = entries.begin(); it != entries.end(); it++)
+	{
+		delete it->second;
+	}
+	entries.clear();
 }
 
 DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_address), size(_size)

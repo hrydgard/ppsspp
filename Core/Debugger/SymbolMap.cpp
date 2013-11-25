@@ -318,6 +318,17 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 	return false;
 }
 
+u32 SymbolMap::GetNextSymbolAddress(u32 address)
+{
+	lock_guard guard(lock_);
+
+	const auto containingEntry = entryRanges.upper_bound(address);
+	if (containingEntry == entryRanges.end())
+		return -1;
+
+	return containingEntry->second;
+}
+
 const char* SymbolMap::getDirectSymbol(u32 address)
 {
 	lock_guard guard(lock_);

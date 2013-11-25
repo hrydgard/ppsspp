@@ -50,6 +50,7 @@ public:
 	void AnalyzeBackwards();
 	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION) const;
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
+	u32 GetNextSymbolAddress(u32 address);
 	const char *GetDescription(unsigned int address) const;
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symmask=ST_FUNCTION) const;

@@ -99,7 +99,7 @@ public:
 	bool curAddressIsVisible();
 	void redraw();
 	void scanFunctions();
-	void clearFunctions() { };
+	void clearFunctions() { manager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest);
 	int getRowHeight() { return rowHeight; };

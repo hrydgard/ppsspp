@@ -133,6 +133,7 @@ class DebugInterface;
 class DisassemblyManager
 {
 public:
+	void clear();
 
 	void setCpu(DebugInterface* _cpu) { cpu = _cpu; };
 	void getLine(u32 address, bool insertSymbols, DisassemblyLineInfo& dest);
