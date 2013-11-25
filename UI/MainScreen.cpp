@@ -186,6 +186,12 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
+	char discNumInfo[8];
+	if (ginfo->disc_total > 1)
+		sprintf(discNumInfo, "-DISC%d",ginfo->disc_number);
+	else
+		sprintf(discNumInfo, "");
+
 	dc.Draw()->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
@@ -193,8 +199,9 @@ void GameButton::Draw(UIContext &dc) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
+		std::string title = ginfo->title + discNumInfo;
 
-		dc.MeasureText(dc.GetFontStyle(), ginfo->title.c_str(), &tw, &th, 0);
+		dc.MeasureText(dc.GetFontStyle(), title.c_str(), &tw, &th, 0);
 
 		int availableWidth = bounds_.w - 150;
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -207,7 +214,7 @@ void GameButton::Draw(UIContext &dc) {
 			tb.w = bounds_.w - 150;
 			dc.PushScissor(tb);
 		}
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText(title.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		if (availableWidth < tw) {
 			dc.PopScissor();
 		}
@@ -216,7 +223,7 @@ void GameButton::Draw(UIContext &dc) {
 	} else if (!texture) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText((ginfo->title + discNumInfo).c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else {
