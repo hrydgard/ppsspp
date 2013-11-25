@@ -131,11 +131,12 @@ u32 sceNetTerm() {
 }
 
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
-	// TODO: Read from config
-    static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 5 };
+    //MAC Adress from config
+    uint8_t mac[6];
+    sscanf(g_Config.localMacAddress.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
-		Memory::Write_U8(fakeEtherAddr[i], addrAddr + i);
+        Memory::Write_U8(mac[i], addrAddr + i);
 
 	return 0;
 }
