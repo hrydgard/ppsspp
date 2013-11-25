@@ -171,6 +171,7 @@
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Cwcheat.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\DisassemblyManager.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
     <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="Dialog\PSPDialog.cpp" />
@@ -423,6 +424,7 @@
     <ClInclude Include="Cwcheat.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\DebugInterface.h" />
+    <ClInclude Include="Debugger\DisassemblyManager.h" />
     <ClInclude Include="Debugger\SymbolMap.h" />
     <ClInclude Include="Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="Dialog\PSPDialog.h" />

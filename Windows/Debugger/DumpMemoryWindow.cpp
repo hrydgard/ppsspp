@@ -100,7 +100,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 	return FALSE;
 }
 
-bool isInInterval(u32 start, u32 end, u32 value)
+static bool isInInterval(u32 start, u32 end, u32 value)
 {
 	return start <= value && value < end;
 }

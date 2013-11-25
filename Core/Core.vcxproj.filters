@@ -496,6 +496,9 @@
     <ClCompile Include="Dialog\PSPNetconfDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\DisassemblyManager.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -917,6 +920,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmCompVFPUNEON.cpp">
       <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\DisassemblyManager.h">
+      <Filter>Debugger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

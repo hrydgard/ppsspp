@@ -164,19 +164,15 @@ void CDisasm::stepInto()
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
 	u32 currentPc = cpu->GetPC();
-	u32 windowEnd = ptr->getWindowEnd();
 
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
-	u32 newAddress = currentPc+cpu->getInstructionSize(0);
+	u32 newAddress = currentPc+ptr->getInstructionSizeAt(currentPc);
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
 	if (info.isBranch)
 	{
-		if (newAddress == windowEnd-4)
-			ptr->scrollWindow(1);
-		else if (newAddress == windowEnd)
-			ptr->scrollWindow(2);
+		ptr->scrollStepping(newAddress);
 	} else {
 		bool scroll = true;
 		if (currentMIPS->inDelaySlot)
@@ -188,15 +184,16 @@ void CDisasm::stepInto()
 
 		if (scroll)
 		{
-			if (newAddress == windowEnd-4)
-				ptr->scrollWindow(1);
-			else if (newAddress == windowEnd)
-				ptr->scrollWindow(2);
+			ptr->scrollStepping(newAddress);
 		}
 	}
 
-	Core_DoSingleStep();		
-	Sleep(1);
+	for (int i = 0; i < (newAddress-currentPc)/4; i++)
+	{
+		Core_DoSingleStep();
+		Sleep(1);
+	}
+
 	_dbg_update_();
 	ptr->gotoPC();
 	UpdateDialog();
@@ -218,11 +215,10 @@ void CDisasm::stepOver()
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
 	u32 currentPc = cpu->GetPC();
-	u32 windowEnd = ptr->getWindowEnd();
 
 	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
-	u32 breakpointAddress = currentPc+cpu->getInstructionSize(0);
+	u32 breakpointAddress = currentPc+ptr->getInstructionSizeAt(currentPc);
 	if (info.isBranch)
 	{
 		if (info.isConditional == false)
@@ -241,19 +237,11 @@ void CDisasm::stepOver()
 				breakpointAddress = info.branchTarget;
 			} else {
 				breakpointAddress = currentPc+2*cpu->getInstructionSize(0);
-				if (breakpointAddress == windowEnd-4)
-					ptr->scrollWindow(1);
-				else if (breakpointAddress == windowEnd)
-					ptr->scrollWindow(2);
-				else if (breakpointAddress == windowEnd+4)
-					ptr->scrollWindow(3);
+				ptr->scrollStepping(breakpointAddress);
 			}
 		}
 	} else {
-		if (breakpointAddress == windowEnd-4)
-			ptr->scrollWindow(1);
-		else if (breakpointAddress == windowEnd)
-			ptr->scrollWindow(2);
+		ptr->scrollStepping(breakpointAddress);
 	}
 
 	SetDebugMode(false, true);
