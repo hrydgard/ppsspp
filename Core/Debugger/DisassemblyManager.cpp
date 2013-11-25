@@ -312,9 +312,11 @@ int DisassemblyFunction::getLineNum(u32 address, bool findStart)
 {
 	for (int i = 0; i < lineAddresses.size(); i++)
 	{
+		u32 next = (i == lineAddresses.size()-1) ? this->address+this->size : lineAddresses[i+1];
+
 		if (lineAddresses[i] == address)
 			return i;
-		if (findStart && lineAddresses[i] <= address && lineAddresses[i]+4 > address)
+		if (findStart && lineAddresses[i] <= address && next > address)
 			return i;
 	}
 

@@ -118,7 +118,9 @@ public:
 		return debugger;
 	}
 
-	u32 getWindowEnd() { return windowStart+visibleRows*instructionSize; };
+	void scrollStepping(u32 newPc);
+	u32 getInstructionSizeAt(u32 address);
+
 	void gotoAddr(unsigned int addr)
 	{
 		addr = manager.getStartAddress(addr);

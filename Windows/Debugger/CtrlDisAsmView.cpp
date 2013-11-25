@@ -1255,3 +1255,21 @@ void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
 	manager.getLine(address,displaySymbols,line);
 	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
 }
+
+void CtrlDisAsmView::scrollStepping(u32 newPc)
+{
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+
+	newPc = manager.getStartAddress(newPc);
+	if (newPc >= windowEnd || newPc >= manager.getNthPreviousAddress(windowEnd,1))
+	{
+		windowStart = manager.getNthPreviousAddress(newPc,visibleRows-2);
+	}
+}
+
+u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
+{
+	u32 start = manager.getStartAddress(address);
+	u32 next  = manager.getNthNextAddress(start,1);
+	return next-address;
+}
