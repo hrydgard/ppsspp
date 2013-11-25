@@ -94,6 +94,7 @@ public:
 	virtual u32 getLineAddress(int line) { return address+line*4; };
 	virtual u32 getTotalSize() { return num*4; };
 	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
+	virtual void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest);
 private:
 	u32 address;
 	int num;

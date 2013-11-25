@@ -139,13 +139,13 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 		}
 
 		SymbolInfo info;
-		if (symbolMap.GetSymbolInfo(&info,address))
+		if (symbolMap.GetSymbolInfo(&info,address) && info.size >= 4)
 		{
 			DisassemblyFunction* function = new DisassemblyFunction(info.address,info.size);
 			entries[info.address] = function;
 			address = info.address+info.size;
 		} else {
-			u32 next = symbolMap.GetNextSymbolAddress(address);
+			u32 next = symbolMap.GetNextSymbolAddress(address+1);
 
 			// let's just assume anything otuside a function is a normal opcode
 			DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
@@ -556,6 +556,33 @@ bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest, bool
 	dest.params = arguments;
 	dest.totalSize = 4;
 	return true;
+}
+
+void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest)
+{
+	int lane = 0;
+	for (u32 pos = start; pos < start+size; pos += 4)
+	{
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),pos);
+		if (info.isBranch && !info.isBranchToRegister && !info.isLinkedBranch)
+		{
+			BranchLine line;
+			line.laneIndex = lane++;
+
+			if (info.branchTarget < pos)
+			{
+				line.first = info.branchTarget;
+				line.second = pos;
+				line.type = LINE_UP;
+			} else {
+				line.first = pos;
+				line.second = info.branchTarget;
+				line.type = LINE_DOWN;
+			}
+
+			dest.push_back(line);
+		}
+	}
 }
 
 
