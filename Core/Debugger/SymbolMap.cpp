@@ -108,6 +108,8 @@ void SymbolMap::Clear() {
 void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType st)
 {
 	lock_guard guard(lock_);
+	symbolname = AddLabel(symbolname,vaddress);
+
 	MapEntry e;
 	strncpy(e.name, symbolname, 127);
 	e.name[127] = '\0';
@@ -121,7 +123,6 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 		entryRanges[e.vaddress + e.size] = e.vaddress;
 	}
 
-	AddLabel(symbolname,vaddress);
 }
 
 void SymbolMap::RemoveSymbolNum(int symbolnum){
@@ -375,13 +376,19 @@ bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
 	return false;
 }
 
-void SymbolMap::AddLabel(const char* name, u32 address)
+const char* SymbolMap::AddLabel(const char* name, u32 address)
 {
+	// keep a label if it already exists
+	auto it = labels.find(address);
+	if (it != labels.end())
+		return it->second.name;
+
 	Label label;
 	strcpy(label.name,name);
 	label.name[127] = 0;
 
 	labels[address] = label;
+	return name;
 }
 
 const char* SymbolMap::GetLabelName(u32 address)
@@ -392,6 +399,21 @@ const char* SymbolMap::GetLabelName(u32 address)
 
 	return it->second.name;
 }
+
+bool SymbolMap::GetLabelValue(const char* name, u32& dest)
+{
+	for (auto it = labels.begin(); it != labels.end(); it++)
+	{
+		if (strcasecmp(name,it->second.name) == 0)
+		{
+			dest = it->first;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 
 static char descriptionTemp[256];
 

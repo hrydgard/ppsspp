@@ -109,7 +109,7 @@ public:
 
 	virtual bool parseSymbol(char* str, uint32& symbolValue)
 	{
-		return cpu->getSymbolValue(str,symbolValue); 
+		return symbolMap.GetLabelValue(str,symbolValue); 
 	}
 
 	virtual uint32 getReferenceValue(uint32 referenceIndex)

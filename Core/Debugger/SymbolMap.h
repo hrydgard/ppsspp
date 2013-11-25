@@ -75,8 +75,9 @@ public:
 	void UseFuncSignaturesFile(const char *filename, u32 maxAddress);
 	void CompileFuncSignaturesFile(const char *filename) const;
 
-	void AddLabel(const char* name, u32 address);
+	const char* AddLabel(const char* name, u32 address);
 	const char* GetLabelName(u32 address);
+	bool GetLabelValue(const char* name, u32& dest);
 private:
 	struct MapEntryUniqueInfo {
 		u32 address;
