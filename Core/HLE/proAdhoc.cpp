@@ -505,7 +505,6 @@ int getLocalIp(sockaddr_in * SocketAddress){
 void getLocalMac(SceNetEtherAddr * addr){
     uint8_t mac[] = {1, 2, 3, 4, 5, 5};
   memcpy(addr,mac,ETHER_ADDR_LEN);
-    printf("mem copied\n");
 }
 
 int getPTPSocketCount(void) {
