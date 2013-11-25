@@ -96,7 +96,7 @@ u8 __KernelUmdGetState()
 	}
 	// TODO: My tests give PSP_UMD_READY but I suppose that's when it's been sitting in the drive?
 	else
-		state |= PSP_UMD_NOT_READY;
+		state |= PSP_UMD_READY;
 	return state;
 }
 
