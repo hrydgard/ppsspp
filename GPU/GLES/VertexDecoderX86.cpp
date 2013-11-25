@@ -354,10 +354,10 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
 			MOVAPS(XMM5, MDisp(tempReg2, 16));
-			MULPS(XMM4, R(XMM1));
-			MULPS(XMM5, R(XMM1));
 			MOVAPS(XMM6, MDisp(tempReg2, 32));
 			MOVAPS(XMM7, MDisp(tempReg2, 48));
+			MULPS(XMM4, R(XMM1));
+			MULPS(XMM5, R(XMM1));
 			MULPS(XMM6, R(XMM1));
 			MULPS(XMM7, R(XMM1));
 		} else {
@@ -392,10 +392,10 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
 			MOVAPS(XMM5, MDisp(tempReg2, 16));
-			MULPS(XMM4, R(XMM1));
-			MULPS(XMM5, R(XMM1));
 			MOVAPS(XMM6, MDisp(tempReg2, 32));
 			MOVAPS(XMM7, MDisp(tempReg2, 48));
+			MULPS(XMM4, R(XMM1));
+			MULPS(XMM5, R(XMM1));
 			MULPS(XMM6, R(XMM1));
 			MULPS(XMM7, R(XMM1));
 		} else {
@@ -428,10 +428,10 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
 			MOVAPS(XMM5, MDisp(tempReg2, 16));
-			MULPS(XMM4, R(XMM1));
-			MULPS(XMM5, R(XMM1));
 			MOVAPS(XMM6, MDisp(tempReg2, 32));
 			MOVAPS(XMM7, MDisp(tempReg2, 48));
+			MULPS(XMM4, R(XMM1));
+			MULPS(XMM5, R(XMM1));
 			MULPS(XMM6, R(XMM1));
 			MULPS(XMM7, R(XMM1));
 		} else {
@@ -709,16 +709,15 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 // This could be a bit shorter with AVX 3-operand instructions and FMA.
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 	MOVAPS(XMM1, R(XMM3));
+	MOVAPS(XMM2, R(XMM3));
 	SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(XMM1, R(XMM4));
-	MOVAPS(XMM2, R(XMM3));
 	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(1, 1, 1, 1));
+	SHUFPS(XMM3, R(XMM3), _MM_SHUFFLE(2, 2, 2, 2));
+	MULPS(XMM1, R(XMM4));
 	MULPS(XMM2, R(XMM5));
+	MULPS(XMM3, R(XMM6));
 	ADDPS(XMM1, R(XMM2));
-	MOVAPS(XMM2, R(XMM3));
-	SHUFPS(XMM2, R(XMM2), _MM_SHUFFLE(2, 2, 2, 2));
-	MULPS(XMM2, R(XMM6));
-	ADDPS(XMM1, R(XMM2));
+	ADDPS(XMM1, R(XMM3));
 	if (pos) {
 		ADDPS(XMM1, R(XMM7));
 	}
