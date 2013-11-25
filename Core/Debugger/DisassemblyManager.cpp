@@ -312,13 +312,7 @@ void DisassemblyFunction::recheck()
 
 int DisassemblyFunction::getNumLines()
 {
-	int lines = 0;
-	for (auto it = entries.begin(); it != entries.end(); it++)
-	{
-		lines += it->second->getNumLines();
-	}
-
-	return lines;
+	return lineAddresses.size();
 }
 
 int DisassemblyFunction::getLineNum(u32 address, bool findStart)
