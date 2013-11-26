@@ -31,7 +31,9 @@
 #include "Config.h"
 #include "HLE/sceUtility.h"
 
+#ifndef USING_QT_UI
 extern const char *PPSSPP_GIT_VERSION; 
+#endif
 
 // TODO: Find a better place for this.
 http::Downloader g_DownloadManager;

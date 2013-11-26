@@ -51,6 +51,14 @@ SOURCES += $$P/ext/snappy/*.cpp
 HEADERS += $$P/ext/snappy/*.h
 INCLUDEPATH += $$P/ext/snappy
 
+# VJSON
+
+SOURCES += $$P/native/ext/vjson/json.cpp \
+	$$P/native/ext/vjson/block_allocator.cpp
+HEADERS += $$P/native/ext/vjson/json.h \
+	$$P/native/ext/vjson/block_allocator.h
+INCLUDEPATH += $$P/native/ext/vjson
+
 # Zlib
 win32|contains(QT_CONFIG, no-zlib) {
 	SOURCES += $$P/ext/zlib/*.c
