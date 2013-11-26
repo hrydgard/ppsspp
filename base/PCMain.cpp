@@ -19,8 +19,6 @@
 #include "SDL_audio.h"
 #include "SDL_video.h"
 #endif
-#include "Core/Core.h"
-#include "Core/Config.h"
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
@@ -32,6 +30,9 @@
 #include "util/const_map.h"
 #include "math/math_util.h"
 #include "../SDL/SDLJoystick.h"
+// Bad: PPSSPP includes from native
+#include "Core/Core.h"
+#include "Core/Config.h"
 
 
 GlobalUIState lastUIState = UISTATE_MENU;

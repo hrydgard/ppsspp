@@ -17,12 +17,17 @@ QTM_USE_NAMESPACE
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/zip_read.h"
+#include "gfx_es2/gl_state.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 #include "display.h"
 #include "base/NKCodeFromQt.h"
+
+// Bad: PPSSPP includes from native
+#include "Core/Core.h"
+#include "Core/Config.h"
 
 // Input
 void SimulateGamepad(InputState *input);
@@ -43,6 +48,9 @@ public:
 		acc = new QAccelerometer(this);
 		acc->start();
 #endif
+		setFocus();
+		setFocusPolicy(Qt::StrongFocus);
+		startTimer(16);
 	}
 	~MainUI() {
 #ifdef USING_GLES2
@@ -51,6 +59,10 @@ public:
 		NativeShutdownGraphics();
 	}
 
+signals:
+	void doubleClick();
+	void newFrame();
+
 protected:
 	void resizeEvent(QResizeEvent * e)
 	{
@@ -58,8 +70,16 @@ protected:
 		pixel_yres = e->size().height();
 		dp_xres = pixel_xres * g_dpi_scale;
 		dp_yres = pixel_yres * g_dpi_scale;
+		PSP_CoreParameter().pixelWidth = pixel_xres;
+		PSP_CoreParameter().pixelHeight = pixel_yres;
+		PSP_CoreParameter().outputWidth = dp_xres;
+		PSP_CoreParameter().outputHeight = dp_yres;
 	}
 
+	void timerEvent(QTimerEvent *) {
+		updateGL();
+		emit newFrame();
+	}
 	bool event(QEvent *e)
 	{
 		TouchInput input;
@@ -100,7 +120,11 @@ protected:
 					break;
 				}
 			}
-		break;
+			break;
+		case QEvent::MouseButtonDblClick:
+			if (!g_Config.bShowTouchControls || globalUIState != UISTATE_INGAME)
+				emit doubleClick();
+			break;
 		case QEvent::MouseButtonPress:
 		case QEvent::MouseButtonRelease:
 			input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
@@ -122,13 +146,16 @@ protected:
 			input.flags = TOUCH_MOVE;
 			input.id = 0;
 			NativeTouch(input);
-		break;
+			break;
+		case QEvent::Wheel:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, ((QWheelEvent*)e)->delta()<0 ? NKCODE_EXT_MOUSEWHEEL_DOWN : NKCODE_EXT_MOUSEWHEEL_UP, KEY_DOWN));
+			break;
 		case QEvent::KeyPress:
 			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_DOWN));
-		break;
+			break;
 		case QEvent::KeyRelease:
 			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_UP));
-		break;
+			break;
 		default:
 			return QWidget::event(e);
 		}
@@ -152,7 +179,6 @@ protected:
 		NativeRender();
 		EndInputState(&input_state);
 		time_update();
-		update();
 	}
 
 	void updateAccelerometer()

@@ -11,9 +11,10 @@
 #include <bps/locale.h>           // Get locale
 #include <bps/navigator_invoke.h> // Receive invocation messages
 #include "BlackberryMain.h"
-#include "Core/Config.h"
 #include "base/NKCodeFromBlackberry.h"
 
+// Bad: PPSSPP includes from native
+#include "Core/Config.h"
 #include "UI/MiscScreens.h"
 
 // Simple implementations of System functions

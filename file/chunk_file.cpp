@@ -2,10 +2,6 @@
 #include "file/chunk_file.h"
 #include "file/zip_read.h"
 
-#ifdef __SYMBIAN32__
-#undef UNICODE
-#endif
-
 //#define CHUNKDEBUG
 
 ChunkFile::ChunkFile(const char *filename, bool _read) {
