@@ -34,7 +34,7 @@ std::string System_GetProperty(SystemProperty prop) {
 #ifdef __SYMBIAN32__
 		return "Qt:Symbian";
 #elif defined(BLACKBERRY)
-		return "Qt:Blackberry10";
+		return "Qt:Blackberry";
 #elif defined(MEEGO_EDITION_HARMATTAN)
 		return "Qt:Meego";
 #elif defined(Q_OS_LINUX)
@@ -120,11 +120,7 @@ int main(int argc, char *argv[])
 #if defined(ARM)
 	MainUI w;
 	w.resize(pixel_xres, pixel_yres);
-#ifdef ARM
 	w.showFullScreen();
-#else
-	w.show();
-#endif
 #endif
 #ifdef __SYMBIAN32__
 	// Set RunFast hardware mode for VFPv2.

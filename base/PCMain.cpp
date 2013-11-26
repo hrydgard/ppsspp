@@ -252,7 +252,15 @@ void LaunchEmail(const char *email_address)
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
+#ifdef _WIN32
+		return "SDL:Windows";
+#elif __linux__
+		return "SDL:Linux";
+#elif __APPLE__
+		return "SDL:OSX";
+#else
 		return "SDL:";
+#endif
 	case SYSPROP_LANGREGION:
 		return "en_US";
 	default:
@@ -320,7 +328,6 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
@@ -357,7 +364,7 @@ int main(int argc, char *argv[]) {
 	EGL_Init();
 #endif
 
-	SDL_WM_SetCaption(app_name_nice.c_str(), NULL);
+	SDL_WM_SetCaption((app_name_nice + " " + PPSSPP_GIT_VERSION).c_str(), NULL);
 #ifdef MAEMO
 	SDL_ShowCursor(SDL_DISABLE);
 #endif
