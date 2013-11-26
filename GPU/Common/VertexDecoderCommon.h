@@ -83,7 +83,6 @@ inline int RoundUp4(int x) {
 }
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
-// Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader
 {
 public:
@@ -94,11 +93,12 @@ public:
 		case DEC_FLOAT_3:
 			{
 				const float *f = (const float *)(data_ + decFmt_.posoff);
+				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
 				if (isThrough()) {
 					// Integer value passed in a float. Wraps and all, required for Monster Hunter.
-					pos[2] = (float)((u16)(s32)pos[2]) * (1.0f / 65535.0f);
-				}
+					pos[2] = u[2] * (1.f / 65535.f);
+				} 
 				// See https://github.com/hrydgard/ppsspp/pull/3419, something is weird.
 			}
 			break;
@@ -110,7 +110,7 @@ public:
 				if (isThrough()) {
 					for (int i = 0; i < 2; i++)
 						pos[i] = s[i];
-					pos[2] = u[2] * (1.0f / 65535.0f);
+					pos[2] = u[2] * (1.f / 65535.f);
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = s[i] * (1.f / 32767.f);
