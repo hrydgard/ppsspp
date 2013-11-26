@@ -75,17 +75,21 @@ void BlackberryMain::startDisplays() {
 		if (displays[i].attached)
 			realiseDisplay(i);
 	}
+#ifdef ARM
 	screen_get_display_property_iv(screen_dpy[0], SCREEN_PROPERTY_DPI, &dpi); // Only internal display has DPI
+#else
+	dpi = 340.0f;
+#endif
 	g_dpi_scale = ((pixel_xres == pixel_yres) ? 300.0f : 213.6f) / dpi;
 	switchDisplay(screen_ui);
 }
 
 void BlackberryMain::realiseDisplay(int idx) {
 	const EGLint egl_surfaceAttr[] = { EGL_RENDER_BUFFER, EGL_BACK_BUFFER, EGL_NONE };
-
 	int size[2] = { atoi(getenv("WIDTH")), atoi(getenv("HEIGHT")) };
 	if (idx != 0)
 		screen_get_display_property_iv(screen_dpy[idx], SCREEN_PROPERTY_SIZE, size);
+
 	displays[idx].width = size[0];
 	displays[idx].height = size[1];
 	screen_set_window_property_iv(screen_win[idx], SCREEN_PROPERTY_BUFFER_SIZE, size);

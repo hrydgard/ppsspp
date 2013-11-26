@@ -21,8 +21,12 @@
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME: {
-		std::string name = "Blackberry10:";
+		std::string name = "Blackberry:";
+#ifdef ARM
 		return name + ((pixel_xres != pixel_yres) ? "Touch" : "QWERTY");
+#else
+		return name + "Simulator";
+#endif
 	}
 	case SYSPROP_LANGREGION: {
 		char *locale = 0;
@@ -96,7 +100,6 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 	int pair[2];
 	screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TYPE, &val);
 	screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_SOURCE_POSITION, pair);
-	screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TOUCH_ID, &pointerId);
 
 	input_state.mouse_valid = true;
 	switch(val)
@@ -104,6 +107,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 	// Touchscreen
 	case SCREEN_EVENT_MTOUCH_TOUCH:
 	case SCREEN_EVENT_MTOUCH_RELEASE: 	// Up, down
+		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TOUCH_ID, &pointerId);
 		input_state.pointer_down[pointerId] = (val == SCREEN_EVENT_MTOUCH_TOUCH);
 		input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
 		input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
@@ -115,6 +119,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		NativeTouch(input);
 		break;
 	case SCREEN_EVENT_MTOUCH_MOVE:
+		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TOUCH_ID, &pointerId);
 		input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
 		input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
 
@@ -126,27 +131,26 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		break;
 	// Mouse, Simulator
     case SCREEN_EVENT_POINTER:
-		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS,
-			&buttons);
-		if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { 			// Down
-			input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
-			input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
-			input_state.pointer_down[pointerId] = true;
+		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &buttons);
+		if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { // Down
+			input_state.pointer_x[0] = pair[0] * g_dpi_scale;
+			input_state.pointer_y[0] = pair[1] * g_dpi_scale;
+			input_state.pointer_down[0] = true;
 
 			input.x = pair[0] * g_dpi_scale;
 			input.y = pair[1] * g_dpi_scale;
 			input.flags = TOUCH_DOWN;
-			input.id = pointerId;
+			input.id = 0;
 			NativeTouch(input);
-		} else if (input_state.pointer_down[pointerId]) {	// Up
-			input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
-			input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
-			input_state.pointer_down[pointerId] = false;
+		} else if (input_state.pointer_down[0]) {	// Up
+			input_state.pointer_x[0] = pair[0] * g_dpi_scale;
+			input_state.pointer_y[0] = pair[1] * g_dpi_scale;
+			input_state.pointer_down[0] = false;
 
 			input.x = pair[0] * g_dpi_scale;
 			input.y = pair[1] * g_dpi_scale;
 			input.flags = TOUCH_UP;
-			input.id = pointerId;
+			input.id = 0;
 			NativeTouch(input);
 		}
 		break;
