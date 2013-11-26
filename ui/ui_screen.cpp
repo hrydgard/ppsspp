@@ -10,6 +10,10 @@ UIScreen::UIScreen()
 	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
 }
 
+UIScreen::~UIScreen() {
+	delete root_;
+}
+
 void UIScreen::DoRecreateViews() {
 	if (recreateViews_) {
 		delete root_;

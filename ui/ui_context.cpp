@@ -175,6 +175,10 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 }
 
 void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
+	// Only draw if alpha is non-zero.
+	if ((drawable.color & 0xFF000000) == 0)
+		return;
+
 	switch (drawable.type) {
 	case UI::DRAW_SOLID_COLOR:
 		uidrawbuffer_->DrawImageStretch(theme->whiteImage, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);

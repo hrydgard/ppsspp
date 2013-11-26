@@ -8,7 +8,7 @@ class I18NCategory;
 class UIScreen : public Screen {
 public:
 	UIScreen();
-	~UIScreen() { delete root_; }
+	~UIScreen();
 
 	virtual void update(InputState &input);
 	virtual void render();
