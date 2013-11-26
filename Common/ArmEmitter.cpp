@@ -2530,6 +2530,133 @@ void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignme
 }
 */
 
+void ARMXEmitter::WriteVimm(ARMReg Vd, int cmode, u8 imm, int op) {
+	bool register_quad = Vd >= Q0;
+	Vd = SubBase(Vd);
+
+	Write32((0xF28 << 20) | ((imm >> 7) << 24) | (((imm >> 4) & 0x7) << 16) | (imm & 0xF) |
+		      EncodeVd(Vd) | (register_quad << 6) | (op << 5) | (1 << 4) | ((cmode & 0xF) << 8));
+}
+
+void ARMXEmitter::VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 0);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 0);
+		break;
+	case VIMMxxxxxxxx:  // replicate the byte
+		if (Size != I_8)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 0);
+		break;
+	case VIMMbits2bytes:
+		if (Size != I_64)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 1);
+		break;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VMOV_imm");
+}
+
+void ARMXEmitter::VMOV_immf(ARMReg Vd, float value) {  // This only works with a select few values. I've hardcoded 1.0f.
+	u8 bits = 0;
+	// TODO: Do something more sophisticated here.
+	if (value == 1.5f) {
+		bits = 0x78;
+	} else if (value == 1.0f) {
+		bits = 0x70;
+	} else if (value == -1.0f) {
+		bits = 0xF0;
+	} else {
+		_dbg_assert_msg_(JIT, false, "Invalid floating point immediate");
+	}
+	WriteVimm(Vd, VIMMf000f000, bits, 0);
+}
+
+void ARMXEmitter::VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 0);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 0);
+		break;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VORR_imm");
+}
+
+void ARMXEmitter::VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 1);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 1);
+		break;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VBIC_imm");
+}
+
+
+void ARMXEmitter::VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 1);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 1);
+		break;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VMVN_imm");
+}
+
+
 void ARMXEmitter::VREVX(u32 size, u32 Size, ARMReg Vd, ARMReg Vm)
 {
 	bool register_quad = Vd >= Q0;
