@@ -42,6 +42,8 @@
 #include "GPU/GPUInterface.h"
 #include "i18n/i18n.h"
 
+#include "Core/HLE/sceUmd.h"
+
 #ifdef _WIN32
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/WndMainWindow.h"
@@ -182,19 +184,25 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
+	char discNumInfo[8];
+	if (ginfo->disc_total > 1)
+		sprintf(discNumInfo, "-DISC%d",ginfo->disc_number);
+	else
+		sprintf(discNumInfo, "");
+
 	dc.Draw()->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
 	if (!gridStyle_) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText((ginfo->title + discNumInfo).c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else if (!texture) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText((ginfo->title + discNumInfo).c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else {
@@ -484,8 +492,8 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
-		root_->Add(rightColumn);
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));		
+		root_->Add(rightColumn);		
 		root_->Add(leftColumn);
 	} else {
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
@@ -733,6 +741,9 @@ void GamePauseScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 
 	rightColumnItems->SetSpacing(0.0f);
+	if (getUMDReplacePermit()) {
+		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
+	}
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
@@ -793,10 +804,89 @@ UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
+	screenManager()->push(new UmdReplaceScreen());
+	return UI::EVENT_DONE;
+}
+
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
 	// Since the language message isn't allowed to be in native, we have to have add this
 	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
 	if (!strcmp(message, "language")) {
 		screenManager()->RecreateAllViews();
 	}
+}
+
+void UmdReplaceScreen::CreateViews() {
+	Margins actionMenuMargins(0, 100, 15, 0);
+	I18NCategory *m = GetI18NCategory("MainMenu");
+
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
+	leftColumn->SetClip(true);
+
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	rightColumnItems->SetSpacing(0.0f);
+	rightColumn->Add(rightColumnItems);
+
+	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+
+	GameBrowser *tabRecentGames = new GameBrowser(
+		"!RECENT", false, &g_Config.bGridView1, "", "",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2, 
+		m->T("How to get games"), "http://www.ppsspp.org/getgames.html",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
+	scrollRecentGames->Add(tabRecentGames);
+	scrollAllGames->Add(tabAllGames);
+
+	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+	leftColumn->AddTab(m->T("Games"), scrollAllGames);
+
+	tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+	tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+
+	rightColumnItems->Add(new Choice(m->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
+	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
+
+	if (g_Config.recentIsos.size() > 0) {
+		leftColumn->SetCurrentTab(0);
+	}else{
+		leftColumn->SetCurrentTab(1);
+	}
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_->Add(leftColumn);	
+	root_->Add(rightColumn);	
+}
+
+void UmdReplaceScreen::update(InputState &input) {
+	UpdateUIState(UISTATE_PAUSEMENU);
+	UIScreen::update(input);
+}
+
+UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
+	__UmdReplace(e.s);
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UmdReplaceScreen:: OnGameSelectedInstant(UI::EventParams &e) {
+	__UmdReplace(e.s);
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UmdReplaceScreen:: OnCancel(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UmdReplaceScreen:: OnGameSettings(UI::EventParams &e) {
+	screenManager()->push(new GameSettingsScreen(""));
+	return UI::EVENT_DONE;
 }

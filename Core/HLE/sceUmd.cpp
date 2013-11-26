@@ -25,6 +25,12 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
+
+#include "file/file_util.h"
+
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
 static u8 umdActivated = 1;
@@ -35,6 +41,8 @@ static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
+
+bool UMDReplacePermit = false;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -60,7 +68,7 @@ void __UmdInit()
 
 void __UmdDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUmd", 1);
+	auto s = p.Section("sceUmd", 1, 2);
 	if (!s)
 		return;
 
@@ -74,6 +82,9 @@ void __UmdDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
 	p.Do(umdWaitingThreads);
 	p.Do(umdPausedWaits);
+
+	if (s > 1)
+		p.Do(UMDReplacePermit);
 }
 
 u8 __KernelUmdGetState()
@@ -85,7 +96,7 @@ u8 __KernelUmdGetState()
 	}
 	// TODO: My tests give PSP_UMD_READY but I suppose that's when it's been sitting in the drive?
 	else
-		state |= PSP_UMD_NOT_READY;
+		state |= PSP_UMD_READY;
 	return state;
 }
 
@@ -266,7 +277,6 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		// There's only ever one.
 		driveCBId = cbId;
 	}
-
 	DEBUG_LOG(SCEIO, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
 	return retVal;
 }
@@ -281,7 +291,6 @@ int sceUmdUnRegisterUMDCallBack(int cbId)
 		retVal = cbId;
 		driveCBId = -1;
 	}
-
 	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
 	return retVal;
 }
@@ -436,14 +445,48 @@ u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
+void __UmdReplace(std::string filepath) {
+	// Only get system from disc0 seems have been enough.
+	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
+	if (!currentUMD)
+		return;
+
+	IFileSystem* umd2;
+	FileInfo info;
+	if (!getFileInfo(filepath.c_str(), &info))    // This shouldn't happen, but for safety.
+		return;
+	if (info.isDirectory) {
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filepath);
+	} else {
+		auto bd = constructBlockDevice(filepath.c_str());
+		if (!bd)
+			return;
+		umd2 = new ISOFileSystem(&pspFileSystem, bd);
+
+		pspFileSystem.Remount(currentUMD, umd2);
+	}
+	delete currentUMD;
+
+	// TODO Is this always correct if UMD was not activated?
+	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
+	if (driveCBId != -1)
+		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
+bool getUMDReplacePermit() {
+	return UMDReplacePermit;
+}
+
 u32 sceUmdReplaceProhibit()
 {
+	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
 	return 0;
 }
 
 u32 sceUmdReplacePermit()
 {
+	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
 	return 0;
 }
