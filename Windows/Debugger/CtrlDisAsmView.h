@@ -50,7 +50,6 @@ class CtrlDisAsmView
 
 	u32 windowStart;
 	int visibleRows;
-	int instructionSize;
 	bool whiteBackground;
 	bool displaySymbols;
 
@@ -110,7 +109,6 @@ public:
 	{
 		debugger=deb;
 		curAddress=debugger->getPC();
-		instructionSize=debugger->getInstructionSize(0);
 		manager.setCpu(deb);
 	}
 	DebugInterface *getDebugger()
@@ -123,13 +121,12 @@ public:
 
 	void gotoAddr(unsigned int addr)
 	{
-		addr = manager.getStartAddress(addr);
-		u32 windowEnd = windowStart+visibleRows*instructionSize;
-		u32 newAddress = addr&(~(instructionSize-1));
+		u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+		u32 newAddress = manager.getStartAddress(addr);
 
 		if (newAddress < windowStart || newAddress >= windowEnd)
 		{
-			windowStart = newAddress-visibleRows/2*instructionSize;
+			windowStart = manager.getNthPreviousAddress(newAddress,visibleRows/2);
 		}
 
 		setCurAddress(newAddress);
@@ -138,7 +135,7 @@ public:
 	}
 	void gotoPC()
 	{
-		gotoAddr(debugger->getPC()&(~(instructionSize-1)));
+		gotoAddr(debugger->getPC());
 	}
 	u32 getSelection()
 	{

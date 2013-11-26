@@ -167,7 +167,6 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");
 	curAddress=0;
-	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
 	dontRedraw = false;
@@ -655,11 +654,11 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			toggleBreakpoint(true);
 			break;
 		case VK_UP:
-			windowStart -= instructionSize;
+			scrollWindow(-1);
 			scanFunctions();
 			break;
 		case VK_DOWN:
-			windowStart += instructionSize;
+			scrollWindow(1);
 			scanFunctions();
 			break;
 		case VK_NEXT:
@@ -819,10 +818,10 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm)
 {
-	int count = (endAddr - startAddr) / instructionSize;
-
 	if (withDisasm == false)
 	{
+		int instructionSize = debugger->getInstructionSize(0);
+		int count = (endAddr - startAddr) / instructionSize;
 		int space = count * 32;
 		char *temp = new char[space];
 
@@ -1153,7 +1152,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 
 	// gather all branch targets without labels
 	std::set<u32> branchAddresses;
-	for (u32 i = 0; i < size; i += instructionSize)
+	for (u32 i = 0; i < size; i += debugger->getInstructionSize(0))
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 

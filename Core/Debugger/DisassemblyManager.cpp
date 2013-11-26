@@ -30,7 +30,7 @@ DebugInterface* DisassemblyManager::cpu;
 
 bool isInInterval(u32 start, u32 size, u32 value)
 {
-	return start <= value && value < start+size;
+	return start <= value && value <= (start+size-1);
 }
 
 void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertSymbols)
