@@ -90,9 +90,19 @@ public:
 
 	// If not downloading to a file, access this to get the result.
 	Buffer &buffer() { return buffer_; }
+	const Buffer &buffer() const { return buffer_; }
 
 	void Cancel() {
 		cancelled_ = true;
+	}
+
+	// NOTE: Callbacks are NOT executed until RunCallback is called. This is so that
+	// the call will end up on the thread that calls g_DownloadManager.Update().
+	void SetCallback(std::function<void(Download &)> callback) {
+		callback_ = callback;
+	}
+	void RunCallback() {
+		callback_(*this);
 	}
 
 private:
@@ -105,6 +115,7 @@ private:
 	int resultCode_;
 	bool failed_;
 	volatile bool cancelled_;
+	std::function<void(Download &)> callback_;
 };
 
 using std::shared_ptr;
@@ -117,10 +128,13 @@ public:
 
 	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
 
+	void StartDownloadWithCallback(
+		const std::string &url,
+		const std::string &outfile,
+		std::function<void(Download &)> callback);
+
 	// Drops finished downloads from the list.
 	void Update();
-
-
 	void CancelAll();
 
 private:

@@ -372,10 +372,21 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 	return dl;
 }
 
+void Downloader::StartDownloadWithCallback(
+	const std::string &url,
+	const std::string &outfile,
+	std::function<void(Download &)> callback) {
+	std::shared_ptr<Download> dl(new Download(url, outfile));
+	dl->SetCallback(callback);
+	downloads_.push_back(dl);
+	dl->Start(dl);
+}
+
 void Downloader::Update() {
 	restart:
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		if (downloads_[i]->Progress() == 1.0f || downloads_[i]->Failed()) {
+			downloads_[i]->RunCallback();
 			downloads_.erase(downloads_.begin() + i);
 			goto restart;
 		}
