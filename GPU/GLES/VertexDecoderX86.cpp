@@ -576,7 +576,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	return;
 #endif
 
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
+	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->coloff));
 
 	// 0000ABGR, copy R and double forwards.
 	MOV(32, R(tempReg3), R(tempReg1));
@@ -612,7 +612,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
+	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->coloff));
 
 	MOV(32, R(tempReg2), R(tempReg1));
 	AND(32, R(tempReg2), Imm32(0x0000001F));
@@ -648,12 +648,11 @@ void VertexDecoderJitCache::Jit_Color565() {
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
+	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->coloff));
 
 	MOV(32, R(tempReg2), R(tempReg1));
-	AND(32, R(tempReg2), Imm32(0x0000001F));
-
 	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
 	AND(32, R(tempReg3), Imm32(0x000003E0));
 	SHL(32, R(tempReg3), Imm8(3));
 	OR(32, R(tempReg2), R(tempReg3));
