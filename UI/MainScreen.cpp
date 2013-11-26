@@ -841,6 +841,7 @@ void GamePauseScreen::sendMessage(const char *message, const char *value) {
 void UmdReplaceScreen::CreateViews() {
 	Margins actionMenuMargins(0, 100, 15, 0);
 	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
 	leftColumn->SetClip(true);
@@ -871,7 +872,7 @@ void UmdReplaceScreen::CreateViews() {
 	tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
-	rightColumnItems->Add(new Choice(m->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
+	rightColumnItems->Add(new Choice(d->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
 	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.recentIsos.size() > 0) {
