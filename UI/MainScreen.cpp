@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cmath>
+
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "file/path.h"
@@ -186,9 +188,27 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
 	if (!gridStyle_) {
+		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText(ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+
+		dc.MeasureText(dc.GetFontStyle(), ginfo->title.c_str(), &tw, &th, 0);
+
+		int availableWidth = bounds_.w - 150;
+		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+
+		float tx = 150;
+		if (availableWidth < tw) {
+			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+			Bounds tb = bounds_;
+			tb.x = bounds_.x + 150;
+			tb.w = bounds_.w - 150;
+			dc.PushScissor(tb);
+		}
+		dc.DrawText(ginfo->title.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		if (availableWidth < tw) {
+			dc.PopScissor();
+		}
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else if (!texture) {
