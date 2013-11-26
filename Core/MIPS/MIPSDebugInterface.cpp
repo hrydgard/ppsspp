@@ -109,7 +109,7 @@ public:
 
 	virtual bool parseSymbol(char* str, uint32& symbolValue)
 	{
-		return cpu->getSymbolValue(str,symbolValue); 
+		return symbolMap.GetLabelValue(str,symbolValue); 
 	}
 
 	virtual uint32 getReferenceValue(uint32 referenceIndex)
@@ -228,16 +228,6 @@ int MIPSDebugInterface::getColor(unsigned int address)
 const char *MIPSDebugInterface::getDescription(unsigned int address) 
 {
 	return symbolMap.GetDescription(address);
-}
-
-const char *MIPSDebugInterface::findSymbolForAddress(unsigned int address)
-{
-	return symbolMap.getDirectSymbol(address);
-}
-
-bool MIPSDebugInterface::getSymbolValue(char* symbol, u32& dest)
-{
-	return symbolMap.getSymbolValue(symbol,dest);
 }
 
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)

@@ -108,6 +108,8 @@ void SymbolMap::Clear() {
 void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType st)
 {
 	lock_guard guard(lock_);
+	symbolname = AddLabel(symbolname,vaddress);
+
 	MapEntry e;
 	strncpy(e.name, symbolname, 127);
 	e.name[127] = '\0';
@@ -120,6 +122,7 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 		uniqueEntries.insert((const MapEntryUniqueInfo)e);
 		entryRanges[e.vaddress + e.size] = e.vaddress;
 	}
+
 }
 
 void SymbolMap::RemoveSymbolNum(int symbolnum){
@@ -250,7 +253,13 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 				*seperator = 0;
 				sscanf(seperator+1,"%08X",&size);
 			}
-			AddSymbol(value,address,size,ST_FUNCTION);
+
+			if (size != 1)
+			{
+				AddSymbol(value,address,size,ST_FUNCTION);
+			} else {
+				AddLabel(value,address);
+			}
 		}
 	}
 
@@ -329,43 +338,44 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address)
 	return containingEntry->second;
 }
 
-const char* SymbolMap::getDirectSymbol(u32 address)
+const char* SymbolMap::AddLabel(const char* name, u32 address)
 {
-	lock_guard guard(lock_);
-	SymbolInfo info;
-	if (GetSymbolInfo(&info,address) == false) return NULL;
-	if (info.address != address) return NULL;	// has to be the START of the function
+	// keep a label if it already exists
+	auto it = labels.find(address);
+	if (it != labels.end())
+		return it->second.name;
 
-	// now we need the name... which we can't just get from GetSymbolInfo because of the
-	// unique entries. But, there are so many less instances where there actually IS a
-	// label that the speed up is still massive
-	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
-	{
-		const MapEntry &entry = *it;
-		unsigned int addr = entry.vaddress;
-		if (addr == address) return entry.name;
-	}
-	return NULL;
+	Label label;
+	strcpy(label.name,name);
+	label.name[127] = 0;
+
+	labels[address] = label;
+	return name;
 }
 
-bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
+const char* SymbolMap::GetLabelName(u32 address)
 {
-	lock_guard guard(lock_);
-	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
+	auto it = labels.find(address);
+	if (it == labels.end())
+		return NULL;
+
+	return it->second.name;
+}
+
+bool SymbolMap::GetLabelValue(const char* name, u32& dest)
+{
+	for (auto it = labels.begin(); it != labels.end(); it++)
 	{
-		const MapEntry &entry = *it;
-#ifdef _WIN32
-		if (_stricmp(entry.name,symbol) == 0)
-#else
-		if (strcasecmp(entry.name,symbol) == 0)
-#endif
+		if (strcasecmp(name,it->second.name) == 0)
 		{
-			dest = entry.vaddress;
+			dest = it->first;
 			return true;
 		}
 	}
+
 	return false;
 }
+
 
 static char descriptionTemp[256];
 

@@ -30,7 +30,7 @@ DebugInterface* DisassemblyManager::cpu;
 
 bool isInInterval(u32 start, u32 size, u32 value)
 {
-	return start <= value && value < start+size;
+	return start <= value && value <= (start+size-1);
 }
 
 void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertSymbols)
@@ -58,7 +58,7 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 			u32 branchTarget;
 			sscanf(disasm+3,"%08x",&branchTarget);
 
-			const char* addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(branchTarget);
+			const char* addressSymbol = symbolMap.GetLabelName(branchTarget);
 			if (addressSymbol != NULL && insertSymbols)
 			{
 				arguments += sprintf(arguments,"%s",addressSymbol);
@@ -305,7 +305,7 @@ void DisassemblyFunction::recheck()
 
 int DisassemblyFunction::getNumLines()
 {
-	return lineAddresses.size();
+	return (int) lineAddresses.size();
 }
 
 int DisassemblyFunction::getLineNum(u32 address, bool findStart)
@@ -416,6 +416,15 @@ void DisassemblyFunction::generateBranchLines()
 	}
 }
 
+void DisassemblyFunction::addOpcodeSequence(u32 start, u32 end)
+{
+	DisassemblyOpcode* opcode = new DisassemblyOpcode(start,(end-start)/4);
+	entries[start] = opcode;
+	for (u32 pos = start; pos < end; pos += 4)
+	{
+		lineAddresses.push_back(pos);
+	}
+}
 
 void DisassemblyFunction::load()
 {
@@ -440,6 +449,7 @@ void DisassemblyFunction::load()
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
 
+	u32 opcodeSequenceStart = funcPos;
 	while (funcPos < funcEnd)
 	{
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu,funcPos);
@@ -449,11 +459,6 @@ void DisassemblyFunction::load()
 		// skip branches and their delay slots
 		if (opInfo.isBranch)
 		{
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress,2);
-			entries[opAddress] = opcode;
-			lineAddresses.push_back(opAddress);
-			lineAddresses.push_back(opAddress+4);
-
 			funcPos += 4;
 			continue;
 		}
@@ -517,21 +522,26 @@ void DisassemblyFunction::load()
 
 				if (macro != NULL)
 				{
+					if (opcodeSequenceStart != opAddress)
+						addOpcodeSequence(opcodeSequenceStart,opAddress);
+
 					entries[opAddress] = macro;
 					for (int i = 0; i < macro->getNumLines(); i++)
 					{
 						lineAddresses.push_back(macro->getLineAddress(i));
 					}
+
+					opcodeSequenceStart = funcPos;
 					continue;
 				}
 			}
 		}
 
 		// just a normal opcode
-		DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress,1);
-		entries[opAddress] = opcode;
-		lineAddresses.push_back(opAddress);
 	}
+
+	if (opcodeSequenceStart != funcPos)
+		addOpcodeSequence(opcodeSequenceStart,funcPos);
 }
 
 void DisassemblyFunction::clear()
@@ -615,7 +625,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_LI:
 		dest.name = name;
 		
-		addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(immediate);
+		addressSymbol = symbolMap.GetLabelName(immediate);
 		if (addressSymbol != NULL && insertSymbols)
 		{
 			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
@@ -631,7 +641,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_MEMORYIMM:
 		dest.name = name;
 
-		addressSymbol = DisassemblyManager::getCpu()->findSymbolForAddress(immediate);
+		addressSymbol = symbolMap.GetLabelName(immediate);
 		if (addressSymbol != NULL && insertSymbols)
 		{
 			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);

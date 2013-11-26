@@ -40,8 +40,6 @@ public:
 	virtual void runToBreakpoint();
 	virtual int getColor(unsigned int address);
 	virtual const char *getDescription(unsigned int address);
-	virtual const char *findSymbolForAddress(unsigned int address);
-	virtual bool getSymbolValue(char* symbol, u32& dest);
 	virtual bool initExpression(const char* exp, PostfixExpression& dest);
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest);
 

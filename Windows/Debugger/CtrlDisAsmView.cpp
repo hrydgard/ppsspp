@@ -167,7 +167,6 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");
 	curAddress=0;
-	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
 	dontRedraw = false;
@@ -206,7 +205,7 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 {
 	if (displaySymbols)
 	{
-		const char* addressSymbol = debugger->findSymbolForAddress(address);
+		const char* addressSymbol = symbolMap.GetLabelName(address);
 		if (addressSymbol != NULL)
 		{
 			for (int k = 0; addressSymbol[k] != 0; k++)
@@ -655,11 +654,11 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			toggleBreakpoint(true);
 			break;
 		case VK_UP:
-			windowStart -= instructionSize;
+			scrollWindow(-1);
 			scanFunctions();
 			break;
 		case VK_DOWN:
-			windowStart += instructionSize;
+			scrollWindow(1);
 			scanFunctions();
 			break;
 		case VK_NEXT:
@@ -819,10 +818,10 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm)
 {
-	int count = (endAddr - startAddr) / instructionSize;
-
 	if (withDisasm == false)
 	{
+		int instructionSize = debugger->getInstructionSize(0);
+		int count = (endAddr - startAddr) / instructionSize;
 		int space = count * 32;
 		char *temp = new char[space];
 
@@ -1023,7 +1022,7 @@ void CtrlDisAsmView::updateStatusBarText()
 				// TODO: Could also be a float...
 				{
 					u32 data = Memory::Read_U32(line.info.dataAddress);
-					const char* addressSymbol = debugger->findSymbolForAddress(data);
+					const char* addressSymbol = symbolMap.GetLabelName(data);
 					if (addressSymbol)
 					{
 						sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
@@ -1041,7 +1040,7 @@ void CtrlDisAsmView::updateStatusBarText()
 
 	if (line.info.isBranch)
 	{
-		const char* addressSymbol = debugger->findSymbolForAddress(line.info.branchTarget);
+		const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
 		if (addressSymbol == NULL)
 		{
 			sprintf(text,"%08X",line.info.branchTarget);
@@ -1153,11 +1152,11 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 
 	// gather all branch targets without labels
 	std::set<u32> branchAddresses;
-	for (u32 i = 0; i < size; i += instructionSize)
+	for (u32 i = 0; i < size; i += debugger->getInstructionSize(0))
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 
-		if (info.isBranch && debugger->findSymbolForAddress(info.branchTarget) == NULL)
+		if (info.isBranch && symbolMap.GetLabelName(info.branchTarget) == NULL)
 		{
 			if (branchAddresses.find(info.branchTarget) == branchAddresses.end())
 			{
@@ -1189,7 +1188,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 		}
 
 		if (line.info.isBranch && !line.info.isBranchToRegister
-			&& debugger->findSymbolForAddress(line.info.branchTarget) == NULL
+			&& symbolMap.GetLabelName(line.info.branchTarget) == NULL
 			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
 		{
 			sprintf(buffer,"pos_%08X",line.info.branchTarget);
