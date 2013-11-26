@@ -28,6 +28,11 @@ extern const char *PPSSPP_GIT_VERSION;
 
 const int MAX_CONFIG_VOLUME = 8;
 
+namespace http {
+	class Download;
+	class Downloader;
+}
+
 struct Config {
 public:
 	Config();
@@ -238,6 +243,11 @@ public:
 	std::string flash0Directory;
 	std::string internalDataDirectory;
 
+	// Data for upgrade prompt
+	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
+	std::string upgradeVersion;
+	std::string dismissedVersion;
+
 	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
 	void Save();
 	void RestoreDefaults();
@@ -252,6 +262,9 @@ public:
 	void AddRecent(const std::string &file);
 	void CleanRecent();
 
+	static void DownloadCompletedCallback(http::Download &download);
+	void DismissUpgrade();
+
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
@@ -259,4 +272,7 @@ private:
 	std::string defaultPath_;
 };
 
+// TODO: Find a better place for this.
+extern http::Downloader g_DownloadManager;
 extern Config g_Config;
+

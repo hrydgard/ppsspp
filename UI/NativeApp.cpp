@@ -34,10 +34,10 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "native/ext/stb_image_write/stb_image_writer.h"
-#include "native/ext/jpge/jpge.h"
-#include "native/util/text/utf8.h"
-#include "native/thread/thread.h"
+#include "ext/stb_image_write/stb_image_writer.h"
+#include "ext/jpge/jpge.h"
+#include "thread/thread.h"
+#include "net/http_client.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_buffer.h"
@@ -51,6 +51,7 @@
 #include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
+#include "util/text/utf8.h"
 
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
@@ -598,6 +599,7 @@ void NativeUpdate(InputState &input) {
 		}
 	}
 
+	g_DownloadManager.Update();
 	screenManager->update(input);
 }
 

@@ -640,6 +640,8 @@ add_library(native STATIC
 	native/util/random/rng.h
 	native/util/text/utf8.h
 	native/util/text/utf8.cpp
+	native/util/text/parsers.h
+	native/util/text/parsers.cpp
 	native/util/const_map.h
 	native/ext/jpge/jpgd.cpp
 	native/ext/jpge/jpgd.h

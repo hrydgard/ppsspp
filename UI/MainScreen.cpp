@@ -480,6 +480,7 @@ void MainScreen::CreateViews() {
 	gold->SetIcon(I_ICONGOLD);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -493,6 +494,49 @@ void MainScreen::CreateViews() {
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
 	}
+
+	I18NCategory *u = GetI18NCategory("Upgrade");
+
+	upgradeBar_ = 0;
+	if (!g_Config.upgradeMessage.empty()) {
+		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+
+		UI::Margins textMargins(10, 5);
+		UI::Margins buttonMargins(0, 0);
+		UI::Drawable solid(0xFFbd9939);
+		upgradeBar_->SetBG(solid);
+		upgradeBar_->Add(new TextView(u->T("New version of PPSSPP available") + std::string(": ") + g_Config.upgradeVersion, new LinearLayoutParams(1.0f, textMargins)));
+		upgradeBar_->Add(new Button(u->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
+		upgradeBar_->Add(new Button(u->T("Dismiss"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDismissUpgrade);
+
+		// Slip in under root_
+		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
+		newRoot->Add(root_);
+		newRoot->Add(upgradeBar_);
+		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		root_ = newRoot;
+	}
+}
+
+UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
+#ifdef ANDROID
+	// Go to app store
+#ifdef GOLD
+	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+#else
+	LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
+#endif
+#else
+	// Go directly to ppsspp.org and let the user sort it out
+	LaunchBrowser("http://www.ppsspp.org/downloads.html");
+#endif
+	return EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnDismissUpgrade(UI::EventParams &e) {
+	g_Config.DismissUpgrade();
+	upgradeBar_->SetVisibility(V_GONE);
+	return EVENT_DONE;
 }
 
 void MainScreen::sendMessage(const char *message, const char *value) {

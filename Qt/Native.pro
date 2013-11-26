@@ -90,7 +90,8 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/bits/*.cpp \
 	$$P/native/util/hash/hash.cpp \
 	$$P/native/util/random/perlin.cpp \
-	$$P/native/util/text/utf8.cpp
+	$$P/native/util/text/utf8.cpp \
+	$$P/native/util/text/parsers.cpp
 
 HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/base/basictypes.h \
@@ -123,6 +124,7 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/bits/*.h \
 	$$P/native/util/hash/hash.h \
 	$$P/native/util/random/*.h \
-	$$P/native/util/text/utf8.h
+	$$P/native/util/text/utf8.h \
+	$$P/native/util/text/parsers.h
 INCLUDEPATH += $$P/native
 
