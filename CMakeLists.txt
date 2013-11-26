@@ -335,6 +335,13 @@ add_library(snappy STATIC
 )
 include_directories(ext/snappy)
 
+add_library(vjson STATIC
+	native/ext/vjson/json.cpp
+	native/ext/vjson/json.h
+	native/ext/vjson/block_allocator.cpp
+	native/ext/vjson/block_allocator.h
+)
+
 add_library(rg_etc1 STATIC
 	native/ext/rg_etc1/rg_etc1.cpp
 	native/ext/rg_etc1/rg_etc1.h)
@@ -648,7 +655,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP} rg_etc1 stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)
