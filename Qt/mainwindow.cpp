@@ -553,7 +553,11 @@ void MainWindow::createMenus()
 	optionsMenu->add(new MenuAction(this, SLOT(audioAct()),   QT_TR_NOOP("&Audio")))
 		->addEventChecked(&g_Config.bEnableSound);
 	optionsMenu->addSeparator();
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 	optionsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("&Fullscreen"), Qt::Key_F11))
+#else
+	optionsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("&Fullscreen"), QKeySequence::FullScreen))
+#endif
 		->addEventChecked(&g_Config.bFullScreen);
 	optionsMenu->add(new MenuAction(this, SLOT(statsAct()),   QT_TR_NOOP("&Show debug statistics")))
 		->addEventChecked(&g_Config.bShowDebugStats);
@@ -596,7 +600,7 @@ void MainWindow::createMenus()
 			locale.truncate(locale.lastIndexOf('.'));
 			locale.remove(0, locale.indexOf('_') + 1);
 
-#if QT_VERSION >= 0x040800
+#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
 			QString language = QLocale(locale).nativeLanguageName();
 #else
 			QString language = QLocale::languageToString(QLocale(locale).language());
@@ -618,8 +622,8 @@ void MainWindow::createMenus()
 	
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
-	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("&Go to official website")));
-	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP...")));
+	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("&Go to official website"), QKeySequence::HelpContents));
+	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();
 }
