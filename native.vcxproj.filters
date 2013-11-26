@@ -301,6 +301,9 @@
     <ClInclude Include="ext\libzip\config.h">
       <Filter>ext\libzip</Filter>
     </ClInclude>
+    <ClInclude Include="util\text\parsers.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -695,6 +698,9 @@
     </ClCompile>
     <ClCompile Include="ext\libzip\mkstemp.c">
       <Filter>ext\libzip</Filter>
+    </ClCompile>
+    <ClCompile Include="util\text\parsers.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
