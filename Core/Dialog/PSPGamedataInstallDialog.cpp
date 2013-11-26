@@ -147,7 +147,10 @@ void PSPGamedataInstallDialog::updateProgress() {
 	// Update progress bar(if there is).
 	// progress value is progress[3] << 24 | progress[2] << 16 | progress[1] << 8 | progress[0].
 	// We only should update progress[0] here as the max progress value is 100.
-	progressValue = (int)(allReadSize / allFilesSize) * 100;
+	if (allFilesSize != 0)
+		progressValue = (int)(allReadSize / allFilesSize) * 100;
+	else 
+		progressValue = 100;
 	request.progress[0] = progressValue;
 	Memory::WriteStruct(paramAddr,&request);
 }
