@@ -52,6 +52,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
 	general->Get("FirstRun", &bFirstRun, true);
+	general->Get("RunCount", &iRunCount, 0);
+	iRunCount++;
 	general->Get("Enable Logging", &bEnableLogging, true);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
@@ -351,6 +353,7 @@ void Config::Save() {
 		// Need to do this somewhere...
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
+		general->Set("RunCount", iRunCount);
 		general->Set("Enable Logging", bEnableLogging);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);

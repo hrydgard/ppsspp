@@ -37,6 +37,8 @@ public:
 	bool bSaveSettings;
 	bool bFirstRun;
 
+	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
+
 	bool bAutoRun;  // start immediately
 	bool bBrowse; // when opening the emulator, immediately show a file browser
 
