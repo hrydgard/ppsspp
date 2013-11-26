@@ -594,9 +594,15 @@ void Config::Save() {
 void Config::DownloadCompletedCallback(http::Download &download) {
 	if (download.ResultCode() != 200) {
 		ERROR_LOG(LOADER, "Failed to download version.json");
+		return;
 	}
 	std::string data;
 	download.buffer().TakeAll(&data);
+	if (data.empty()) {
+		ERROR_LOG(LOADER, "Version check: Empty data from server!");
+		return;
+	}
+
 	JsonReader reader(data.c_str(), data.size());
 	const json_value *root = reader.root();
 	std::string version = root->getString("version", "");
