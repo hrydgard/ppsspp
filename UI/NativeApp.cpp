@@ -79,7 +79,7 @@
 
 static UI::Theme ui_theme;
 
-#ifdef ARM
+#if defined(ARM) || defined(_WIN32)
 #include "../../android/jni/ArmEmitterTest.h"
 #endif
 
@@ -216,7 +216,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 
-#if defined(ARM) && defined(ANDROID)
+	// Also run the emitter test on Win32 - even if it's the wrong arch!
+#if (defined(ARM) && defined(ANDROID)) || defined(_WIN32)
 	ArmEmitterTest();
 #endif
 }

@@ -3,6 +3,9 @@
 
 #include "Common/ArmEmitter.h"
 #include "Common/CPUDetect.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/ARM/ArmJit.h"
 
 static bool functionWasCalled;
 
@@ -113,12 +116,51 @@ u32 CallPtr(const void *ptr)
 extern void DisassembleArm(const u8 *data, int size);
 
 
+bool TestRegCache() {
+	using namespace ArmGen;
+	u32 code[512];
+	ARMXEmitter emitter((u8 *)code);
+	MIPSState mips;
+	MIPSComp::ArmJitOptions jo;
+
+	OutputDebugStringA("======START======");
+
+	ArmRegCacheFPU fpr(&mips);
+	MIPSAnalyst::AnalysisResults stats;
+	memset(&stats, 0, sizeof(stats));
+	fpr.Init(&emitter, &jo);
+	fpr.Start(stats);
+	ARMReg rtriple = fpr.QMapReg(0x20, V_Triple, 0);
+	ARMReg rquad = fpr.QMapReg(0x20, V_Quad, MAP_DIRTY);
+	ARMReg rquad2 = fpr.QMapReg(0x21, V_Quad, MAP_DIRTY);
+	emitter.VADD(F_32, Q0, rquad, rquad2);
+	ARMReg rpair3 = fpr.QMapReg(0x26, V_Pair, MAP_DIRTY);
+	ARMReg rpair4 = fpr.QMapReg(0x24, V_Pair, MAP_DIRTY);
+	emitter.VMUL(F_32, D0, rpair3, rpair4);
+	fpr.FlushAll();
+
+	// OutputDebugString the whole thing.
+	const u8 *ptr = (const u8 *)code;
+	for (; ptr < emitter.GetCodePtr(); ptr += 4) {
+		char temp[128];
+		sprintf(temp, "%08x\n", *(const u32 *)ptr);
+#ifdef _WIN32
+		OutputDebugStringA(temp);
+#endif
+	}
+
+	return true;
+}
+
+
 void ArmEmitterTest()
 {
 	// Disabled for now.
 	//return;
 
 	// If I commit with it enabled by accident, let's not blow up.
+
+#ifdef ARM
 	if (!cpu_info.bNEON)
 		return;
 
@@ -143,5 +185,14 @@ void ArmEmitterTest()
 	for (int i = 0; i < 6; i++) {
 		ILOG("--------------------------");
 	}
+#else
+	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
+	cpu_info.bNEON = true;
+	cpu_info.bVFPv3 = true;
+	cpu_info.bVFPv4 = true;
+#endif
+
+	TestRegCache();
+
 	// DisassembleArm(codeStart, gen.GetCodePtr()-codeStart);
 }

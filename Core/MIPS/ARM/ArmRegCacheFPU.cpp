@@ -18,6 +18,7 @@
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/ARM/ArmJit.h"
 
 using namespace ArmGen;
 
@@ -29,11 +30,13 @@ ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
 	}
 }
 
-void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
+void ArmRegCacheFPU::Init(ARMXEmitter *emitter, MIPSComp::ArmJitOptions *jo) {
 	emit_ = emitter;
+	jo_ = jo;
 }
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+	qTime_ = 0;
 	for (int i = 0; i < numARMFpuReg_; i++) {
 		ar[i].mipsReg = -1;
 		ar[i].isDirty = false;
@@ -44,9 +47,15 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 		mr[i].spillLock = false;
 		mr[i].tempLock = false;
 	}
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		qr[i].isDirty = false;
+		qr[i].mipsVec = -1;
+		qr[i].sz = V_Invalid;
+		memset(qr[i].vregs, 0xff, 4);
+	}
 }
 
-static const ARMReg *GetMIPSAllocationOrder(int &count) {
+const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
 	static const ARMReg allocationOrder[] = {
 							S2,  S3,
@@ -55,10 +64,16 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 		S12, S13, S14, S15
 	};
 
-	// With NEON, we have many more.
-	// In the future I plan to use S0-S7 (Q0-Q1) for FPU and S8 forwards (Q2-Q15, yes, 15) for VFPU.
-	// VFPU will use NEON to do SIMD and it will be awkward to mix with FPU.
+	// VFP mapping
+	// VFPU registers and regular FP registers are mapped interchangably on top of the standard
+	// 16 FPU registers.
 
+	// NEON mapping
+	// We map FPU and VFPU registers entirely separately. FPU is mapped to 12 of the bottom 16 S registers.
+	// VFPU is mapped to the upper 48 regs, 32 of which can only be reached through NEON
+	// (or D16-D31 as doubles, but not relevant).
+	// Might consider shifting the split in the future, giving more regs to NEON allowing it to map more quads.
+	
 	// We should attempt to map scalars to low Q registers and wider things to high registers,
 	// as the NEON instructions are all 2-vector or 4-vector, they don't do scalar, we want to be
 	// able to use regular VFP instructions too.
@@ -68,14 +83,10 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 		S4,  S5,  S6,  S7,   // Q1
 		S8,  S9,  S10, S11,  // Q2
 		S12, S13, S14, S15,  // Q3
-		S16, S17, S18, S19,  // Q4
-		S20, S21, S22, S23,  // Q5
-		S24, S25, S26, S27,  // Q6
-		S28, S29, S30, S31,  // Q7
-		// Q8-Q15 free for NEON tricks
+		// Q4-Q15 free for VFPU
 	};
 
-	if (cpu_info.bNEON) {
+	if (jo_->useNEONVFPU) {
 		count = sizeof(allocationOrderNEON) / sizeof(const int);
 		return allocationOrderNEON;
 	} else {
@@ -287,12 +298,23 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 		if (mr[r].reg == (int)INVALID_REG) {
 			ERROR_LOG(JIT, "FlushR: MipsReg had bad ArmReg");
 		}
-		if (ar[mr[r].reg].isDirty) {
-			//INFO_LOG(JIT, "Flushing dirty reg %i", mr[r].reg);
-			emit_->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
-			ar[mr[r].reg].isDirty = false;
+
+		if (mr[r].reg >= Q0 && mr[r].reg <= Q15) {
+			// This should happen rarely, but occasionally we need to flush a single stray
+			// mipsreg that's been part of a quad.
+			int quad = mr[r].reg - Q0;
+			if (qr[quad].isDirty) {
+				emit_->ADD(R0, CTXREG, GetMipsRegOffset(r));
+				emit_->VST1_lane(F_32, (ARMReg)mr[r].reg, R0, mr[r].lane, true);
+			}
+		} else {
+			if (ar[mr[r].reg].isDirty) {
+				//INFO_LOG(JIT, "Flushing dirty reg %i", mr[r].reg);
+				emit_->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
+				ar[mr[r].reg].isDirty = false;
+			}
+			ar[mr[r].reg].mipsReg = -1;
 		}
-		ar[mr[r].reg].mipsReg = -1;
 		break;
 
 	case ML_MEM:
@@ -362,6 +384,12 @@ void ArmRegCacheFPU::FlushAll() {
 	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
 		DiscardR(i);
 	}
+
+	// Flush quads!
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		QFlush(i);
+	}
+
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		FlushR(i);
 	} 
@@ -427,46 +455,141 @@ inline ARMReg QuadAsQ(int quad) {
 }
 
 bool MappableQ(int quad) {
-	return quad >= 8;
+	return quad >= 4;
 }
 
 void ArmRegCacheFPU::QFlush(int quad) {
-	// TODO: Add lots of clever logic here.
-	for (int i = quad * 4; i < quad * 4 + 4; i++) {
-		if (ar[i].isDirty) {
-			// TODO
+	if (!MappableQ(quad))
+		return;
+
+	ARMReg q = QuadAsQ(quad);
+	if (qr[quad].isDirty) {
+		// Unlike reads, when writing to the register file we need to be careful to write the correct
+		// number of floats.
+
+		// TODO: Optimize to multi-write when possible.
+		switch (qr[quad].sz) {
+		case V_Single:
+			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+			emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+			break;
+		case V_Pair:
+			if (qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
+				// Can combine, it's a column!
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+			}
+			break;
+		case V_Triple:
+			if (qr[quad].vregs[2] == qr[quad].vregs[1] + 1 && qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[2]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			}
+			break;
+		case V_Quad:
+			if (qr[quad].vregs[3] == qr[quad].vregs[2] + 1 && qr[quad].vregs[2] == qr[quad].vregs[1] + 1 && qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[2]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[3]), R1);
+				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 3, true);
+			}
+			break;
+		}
+
+		qr[quad].isDirty = false;
+		qr[quad].mipsVec = -1;
+
+		int n = GetNumVectorElements(qr[quad].sz);
+		for (int i = 0; i < n; i++) {
+			FPURegMIPS &m = mr[32 + qr[quad].vregs[i]];
+			m.loc = ML_MEM;
+			m.lane = -1;
 		}
 	}
 }
 
+
 ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
-	u8 regs[4];
+	qTime_++;
+
+	u8 vregs[4];
 	u8 regsQuad[4];
-	GetVectorRegs(regs, sz, vreg);
-	GetVectorRegs(regsQuad, V_Quad, vreg);
+	GetVectorRegs(vregs, sz, vreg);
+	GetVectorRegs(regsQuad, V_Quad, vreg);   // Same but as quad.
+
 	// Let's check if they are all mapped in a quad somewhere.
 	// Later we can check for possible transposes as well.
 	int n = GetNumVectorElements(sz);
 	for (int q = 0; q < 16; q++) {
 		if (!MappableQ(q))
 			continue;
-		int r = q * 4;
-		bool match = true;
-		for (int j = 0; j < n; j++) {
-			if (ar[r + j].mipsReg != regs[j]) 
-				match = false;
+		
+		// Compare subregs to what's already in this register.
+		int matchCount = 0;
+		for (int i = 0; i < n; i++) {
+			if (qr[q].vregs[i] == vregs[i])
+				matchCount++;
+			else
+				break;
 		}
 
-		if (match) {
-			// Alright we have this already! Just check that it isn't longer
-			// than necessary. We need to wipe stray extra regs.
-			// If we only return a D, might not actually need to wipe the upper two.
-			// But for now, let's keep it simple.
-			for (int j = n; j < 4; j++) {
-				if (ar[r + j].mipsReg == regsQuad[j]) {
-					FlushR(ar[r + j].mipsReg);
+		// Old was shorter!
+		if (matchCount > 0 && matchCount < n) {
+			// OK, let's extend by loading the missing elements.
+			for (int i = matchCount; i < n; i++) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[i]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(q), R0, i, true);
+				qr[q].vregs[i] = vregs[i];
+			}
+			matchCount = n;
+		} else if (matchCount == n) {
+			if (qr[q].sz > sz) {
+				// Discard overshooting elements for now
+				for (int j = n; j < GetNumVectorElements(qr[q].sz); j++) {
+					FlushV(qr[q].vregs[j]);
 				}
 			}
+		}
+
+		// TODO: Check for longer too.
+		// We have this already! Just check that it isn't longer
+		// than necessary. We need to wipe stray extra regs if we intend to write (only! TODO - but must then wipe when changing to dirty)
+		// If we only return a D, might not actually need to wipe the upper two.
+		// But for now, let's keep it simple.
+		/*
+		for (int j = n; j < 4; j++) {
+			if (ar[r + j].mipsReg == regsQuad[j]) {
+				FlushR(ar[r + j].mipsReg);
+			}
+		}*/
+
+		// TODO: Check for other types of overlap and do the clever thing.
+
+		if (matchCount == n) {
+			if (flags & MAP_DIRTY) {
+				qr[q].isDirty = true;
+			}
+			qr[q].sz = sz;
 			switch (sz) {
 			case V_Single:
 			case V_Pair:
@@ -478,7 +601,6 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		}
 	}
 
-
 retry:
 	// No match, not mapped yet.
 	// Search for a free quad. A quad is free if the first register in it is free.
@@ -487,7 +609,7 @@ retry:
 		if (!MappableQ(q))
 			continue;
 
-		if (ar[q * 4].mipsReg == INVALID_REG) {
+		if (qr[q].mipsVec == INVALID_REG) {
 			// Oh yeah!
 			quad = q;
 			break;
@@ -501,6 +623,7 @@ retry:
 	// Flush something, anything!
 	// TODO
 
+	ERROR_LOG(JIT, "Failed finding a free quad. Zapping one and continuing.");
 	goto retry;
 
 gotQuad:
@@ -509,46 +632,65 @@ gotQuad:
 	// This may be problematic if inputs overlap, say:
 	// vdot S700, R000, C000
 	// It might still work by accident...
-	for (int i = 0; i < n; i++) {
-		FlushV(regs[i]);
+	if (flags & MAP_DIRTY) {
+		for (int i = 0; i < n; i++) {
+			FlushV(vregs[i]);
+		}
 	}
 
 	// Flush out anything left behind in our new fresh quad.
 	QFlush(quad);
+
+	qr[quad].sz = sz;
+	qr[quad].mipsVec = vreg;
 
 	if (!(flags & MAP_NOINIT)) {
 		// Okay, now we will try to load the whole thing in one go. This is possible
 		// if it's a column and easy if it's a single.
 		switch (sz) {
 		case V_Single:
-			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 			break;
 		case V_Pair:
-			if (regs[1] == regs[0] + 1) {
+			if (vregs[1] == vregs[0] + 1) {
 				// Can combine, it's a column!
-				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
-				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
-				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[1] * 4);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[1]), R1);
 				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
 			}
 			break;
 		case V_Triple:
-			// Let's just do the simple case.
-			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
-			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
-			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[1] * 4);
-			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
-			emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[2] * 4);
-			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			if (vregs[1] == vregs[0] + 1) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[1]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[2]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			}
 			break;
 		case V_Quad:
-			if (regs[3] == regs[2] + 1 && regs[2] == regs[1] + 1 && regs[1] == regs[0] + 1) {
-				emit_->ADD(R0, CTXREG, offsetof(MIPSState, v[0]) + regs[0] * 4);
+			if (vregs[3] == vregs[2] + 1 && vregs[2] == vregs[1] + 1 && vregs[1] == vregs[0] + 1) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 				emit_->VLD1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[1]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[2]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[3]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 3, true);
 			}
 			break;
 		}
@@ -556,12 +698,12 @@ gotQuad:
 
 	// OK, let's fill out the arrays to confirm that we have grabbed these registers.
 	for (int i = 0; i < n; i++) {
-		int mipsReg = 32 + regs[i];
+		int mipsReg = 32 + vregs[i];
 		mr[mipsReg].loc = ML_ARMREG;
 		mr[mipsReg].reg = QuadAsQ(quad);
 		mr[mipsReg].lane = i;
-		ar[quad * 4 + i].mipsReg = mipsReg;
-		ar[quad * 4 + i].isDirty = (flags & MAP_DIRTY) != 0;
+		qr[quad].vregs[i] = vregs[i];
+		qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
 	}
 
 	return QuadAsQ(quad);

@@ -24,6 +24,12 @@
 // TODO: Make a test of nice unittest asserts and count successes etc.
 // Or just integrate with an existing testing framework.
 
+#ifdef _WIN32
+#include <Windows.h>
+#undef R8
+#undef R12
+#endif
+
 
 #include <cstdio>
 #include <cstdlib>
@@ -32,9 +38,14 @@
 
 #include "base/NativeApp.h"
 #include "Common/ArmEmitter.h"
+#include "Common/CPUDetect.h"
 #include "ext/disarm.h"
 #include "math/math_util.h"
 #include "util/text/parsers.h"
+#include "util/text/utf8.h"
+
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 
 #define EXPECT_TRUE(a) if (!(a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
 #define EXPECT_FALSE(a) if ((a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
@@ -245,10 +256,9 @@ bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	return true;
 }
 
-
 bool TestArmEmitter() {
 	using namespace ArmGen;
-
+	
 	u32 code[512];
 	ARMXEmitter emitter((u8 *)code);
 	emitter.LDR(R3, R7);
@@ -279,7 +289,15 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "eef1fa10 VMRS APSR"));
 	emitter.VCVT(S0, S1, TO_INT | IS_SIGNED);
 	RET(CheckLast(emitter, "eebd0a60 VCVT ..."));
-
+	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
+	emitter.VMOV_immf(Q0, 1.0f);
+	emitter.VMOV_immf(Q0, -1.0f);
+	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VPADD(F_32, D0, D0, D0);
+	emitter.VMOV(Q14, Q2);
+	u32 instr = *(u32 *)(emitter.GetCodePtr() - 4);
 
 	// WTF?
 	//emitter.VSUB(S4, S5, S6);
@@ -314,9 +332,13 @@ bool TestParsers() {
 
 int main(int argc, const char *argv[])
 {
+	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
+	cpu_info.bNEON = true;
+	cpu_info.bVFPv3 = true;
+	cpu_info.bVFPv4 = true;
+
 	TestAsin();
-	//TestSinCos();
-	//TestArmEmitter();
+	TestArmEmitter();
 	TestMathUtil();
 	TestParsers();
 	return 0;

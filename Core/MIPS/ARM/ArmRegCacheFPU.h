@@ -38,6 +38,13 @@ struct FPURegARM {
 	bool isDirty;  // Should the register be written back?
 };
 
+struct FPURegQuad {
+	int mipsVec;
+	VectorSize sz;
+	u8 vregs[4];
+	bool isDirty;
+};
+
 struct FPURegMIPS {
 	// Where is this MIPS register?
 	RegMIPSLoc loc;
@@ -50,13 +57,17 @@ struct FPURegMIPS {
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
+namespace MIPSComp {
+	struct ArmJitOptions;
+}
+
 class ArmRegCacheFPU
 {
 public:
 	ArmRegCacheFPU(MIPSState *mips);
 	~ArmRegCacheFPU() {}
 
-	void Init(ARMXEmitter *emitter);
+	void Init(ARMXEmitter *emitter, MIPSComp::ArmJitOptions *jo);
 	void Start(MIPSAnalyst::AnalysisResults &stats);
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
@@ -110,13 +121,14 @@ public:
 	// Here we return the ARM register directly instead of providing a "V" accessor
 	// and so on. Might switch to this model for the other regallocs later.
 
+	// Quad mapping does NOT look into the ar array. Instead we use the qr array to keep
+	// track of what's in each quad.
+
 	ARMReg QMapReg(int vreg, VectorSize sz, int flags);
 	ARMReg QAllocTemp();
 
 	void QFlush(int quad);
-
-
-
+	
 	void FlushAll();
 	
 	// NOTE: These require you to release spill locks manually!
@@ -132,6 +144,7 @@ public:
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
 
 private:
+	const ARMReg *GetMIPSAllocationOrder(int &count);
 	int GetMipsRegOffset(MIPSReg r);
 	int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
@@ -139,18 +152,22 @@ private:
 
 	MIPSState *mips_;
 	ARMXEmitter *emit_;
+	MIPSComp::ArmJitOptions *jo_;
 	u32 compilerPC_;
 
 	int numARMFpuReg_;
+	int qTime_;
 
 	enum {
 		// With NEON, we have 64 S = 32 D = 16 Q registers. Only the first 32 S registers
 		// are individually mappable though.
-		MAX_ARMFPUREG = 64,
+		MAX_ARMFPUREG = 32,
+		MAX_ARMQUADS = 16,
 		NUM_MIPSFPUREG = TOTAL_MAPPABLE_MIPSFPUREGS,
 	};
 
 	FPURegARM ar[MAX_ARMFPUREG];
 	FPURegMIPS mr[NUM_MIPSFPUREG];
+	FPURegQuad qr[MAX_ARMQUADS];
 	FPURegMIPS *vr;
 };

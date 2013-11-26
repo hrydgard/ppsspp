@@ -38,10 +38,11 @@ inline int Xpose(int v)
 
 enum VectorSize
 {
-	V_Single,
-	V_Pair,
-	V_Triple,
-	V_Quad,
+	V_Single = 1,
+	V_Pair = 2,
+	V_Triple = 3,
+	V_Quad = 4,
+	V_Invalid = -1,
 };
 
 enum MatrixSize
@@ -73,5 +74,7 @@ int GetNumVectorElements(VectorSize sz);
 int GetMatrixSide(MatrixSize sz);
 const char *GetVectorNotation(int reg, VectorSize size);
 const char *GetMatrixNotation(int reg, MatrixSize size);
+
+int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 
 float Float16ToFloat32(unsigned short l);

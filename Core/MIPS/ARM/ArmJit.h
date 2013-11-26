@@ -19,6 +19,8 @@
 
 #include "../../../Globals.h"
 
+#include "Common/CPUDetect.h"
+
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
@@ -34,7 +36,26 @@ namespace MIPSComp
 
 struct ArmJitOptions
 {
-	ArmJitOptions();
+	ArmJitOptions() {
+		enableBlocklink = true;
+		downcountInRegister = true;
+		useBackJump = false;
+		useForwardJump = false;
+		cachePointers = true;
+		// WARNING: These options don't work properly with cache clearing or jit compare.
+		// Need to find a smart way to handle before enabling.
+		immBranches = false;
+		continueBranches = false;
+		continueJumps = false;
+		continueMaxInstructions = 300;
+
+		useNEONVFPU = true;
+		// useNEONVFPU = false;
+
+		if (!cpu_info.bNEON)
+			useNEONVFPU = false;
+	}
+
 
 	bool useNEONVFPU;
 	bool enableBlocklink;
@@ -251,6 +272,11 @@ private:
 
 	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);
 	void NEONApplyPrefixD(DestARMReg dest);
+
+
+	// NEON utils
+	void NEONMaskToSize(ARMReg v, VectorSize sz);
+
 
 
 	// Utils

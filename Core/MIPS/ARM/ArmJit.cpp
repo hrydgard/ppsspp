@@ -59,24 +59,6 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-ArmJitOptions::ArmJitOptions() {
-	enableBlocklink = true;
-	downcountInRegister = true;
-	useBackJump = false;
-	useForwardJump = false;
-	cachePointers = true;
-	// WARNING: These options don't work properly with cache clearing or jit compare.
-	// Need to find a smart way to handle before enabling.
-	immBranches = false;
-	continueBranches = false;
-	continueJumps = false;
-	continueMaxInstructions = 300;
-
-	useNEONVFPU = false;  // true
-	if (!cpu_info.bNEON)
-		useNEONVFPU = false;
-}
-
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
 { 
 	logBlocks = 0;
@@ -289,11 +271,15 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 #endif
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800)
-		{
+		if (GetSpaceLeft() < 0x800) {
 			FlushAll();
 			WriteExit(js.compilerPC, js.nextExit++);
 			js.compiling = false;
+		}
+
+		// TEMPORARY
+		if (GetOpcodeInfo(inst) & IS_VFPU) {
+			logBlocks = 1;
 		}
 	}
 

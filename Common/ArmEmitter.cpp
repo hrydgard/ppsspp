@@ -2465,10 +2465,12 @@ void ARMXEmitter::WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int reg
 }
 
 void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1(true, Size, Vd, Rn, regCount, align, Rm);
 }
 
 void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1(false, Size, Vd, Rn, regCount, align, Rm);
 }
 
@@ -2498,10 +2500,12 @@ void ARMXEmitter::WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, in
 }
 
 void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1_lane(true, Size, Vd, Rn, lane, aligned, Rm);
 }
 
 void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1_lane(false, Size, Vd, Rn, lane, aligned, Rm);
 }
 
@@ -2539,6 +2543,7 @@ void ARMXEmitter::WriteVimm(ARMReg Vd, int cmode, u8 imm, int op) {
 }
 
 void ARMXEmitter::VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	// Only let through the modes that apply.
 	switch (type) {
 	case VIMM___x___x:
@@ -2565,6 +2570,8 @@ void ARMXEmitter::VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
 			goto error;
 		WriteVimm(Vd, (int)type, imm, 1);
 		break;
+	default:
+		goto error;
 	}
 	return;
 error:
@@ -2572,7 +2579,14 @@ error:
 }
 
 void ARMXEmitter::VMOV_immf(ARMReg Vd, float value) {  // This only works with a select few values. I've hardcoded 1.0f.
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	u8 bits = 0;
+
+	if (value == 0.0f) {
+		VEOR(Vd, Vd, Vd);
+		return;
+	}
+
 	// TODO: Do something more sophisticated here.
 	if (value == 1.5f) {
 		bits = 0x78;
@@ -2587,6 +2601,7 @@ void ARMXEmitter::VMOV_immf(ARMReg Vd, float value) {  // This only works with a
 }
 
 void ARMXEmitter::VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	// Only let through the modes that apply.
 	switch (type) {
 	case VIMM___x___x:
@@ -2603,6 +2618,8 @@ void ARMXEmitter::VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
 			goto error;
 		WriteVimm(Vd, (int)type | 1, imm, 0);
 		break;
+	default:
+		goto error;
 	}
 	return;
 error:
@@ -2610,6 +2627,7 @@ error:
 }
 
 void ARMXEmitter::VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	// Only let through the modes that apply.
 	switch (type) {
 	case VIMM___x___x:
@@ -2626,6 +2644,8 @@ void ARMXEmitter::VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
 			goto error;
 		WriteVimm(Vd, (int)type | 1, imm, 1);
 		break;
+	default:
+		goto error;
 	}
 	return;
 error:
@@ -2634,6 +2654,7 @@ error:
 
 
 void ARMXEmitter::VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	// Only let through the modes that apply.
 	switch (type) {
 	case VIMM___x___x:
@@ -2650,6 +2671,8 @@ void ARMXEmitter::VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
 			goto error;
 		WriteVimm(Vd, (int)type, imm, 1);
 		break;
+	default:
+		goto error;
 	}
 	return;
 error:

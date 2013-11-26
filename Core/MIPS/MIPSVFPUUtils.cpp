@@ -77,18 +77,18 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 }
 
 void ReadVector(float *rd, VectorSize size, int reg) {
-	const int mtx = (reg >> 2) & 7;
-	const int col = reg & 3;
 	int row = 0;
 	int length = 0;
-	int transpose = (reg>>5) & 1;
 
 	switch (size) {
-	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: rd[0] = V(reg); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	}
+	int transpose = (reg>>5) & 1;
+	const int mtx = (reg >> 2) & 7;
+	const int col = reg & 3;
 
 	u32 *rdu = (u32 *)rd;
 	if (transpose) {
@@ -103,18 +103,18 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
-	const int mtx = (reg>>2)&7;
-	const int col = reg & 3;
 	int row = 0;
 	int length = 0;
-	int transpose = (reg>>5)&1;
 
 	switch (size) {
-	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	}
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int transpose = (reg>>5)&1;
 
 	u32 *rdu = (u32 *)rd;
 	if (currentMIPS->VfpuWriteMask() == 0) {
@@ -202,6 +202,22 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	}
 }
 
+int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
+	int n1 = GetNumVectorElements(size1);
+	int n2 = GetNumVectorElements(size2);
+	u8 regs1[4];
+	u8 regs2[4];
+	GetVectorRegs(regs1, size1, vec1);
+	GetVectorRegs(regs2, size1, vec2);
+	int count = 0;
+	for (int i = 0; i < n1; i++) {
+		for (int j = 0; j < n2; j++) {
+			if (regs1[i] == regs2[j])
+				count++;
+		}
+	}
+	return count;
+}
 
 int GetNumVectorElements(VectorSize sz)
 {

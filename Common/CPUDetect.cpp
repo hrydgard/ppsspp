@@ -106,7 +106,7 @@ void CPUInfo::Detect() {
 	OS64bit = (f64 == TRUE) ? true : false;
 #endif
 #endif
-
+	
 	// Set obvious defaults, for extra safety
 	if (Mode64bit) {
 		bSSE = true;
