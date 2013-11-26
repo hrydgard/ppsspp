@@ -416,6 +416,15 @@ void DisassemblyFunction::generateBranchLines()
 	}
 }
 
+void DisassemblyFunction::addOpcodeSequence(u32 start, u32 end)
+{
+	DisassemblyOpcode* opcode = new DisassemblyOpcode(start,(end-start)/4);
+	entries[start] = opcode;
+	for (u32 pos = start; pos < end; pos += 4)
+	{
+		lineAddresses.push_back(pos);
+	}
+}
 
 void DisassemblyFunction::load()
 {
@@ -440,6 +449,7 @@ void DisassemblyFunction::load()
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
 
+	u32 opcodeSequenceStart = funcPos;
 	while (funcPos < funcEnd)
 	{
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu,funcPos);
@@ -449,11 +459,6 @@ void DisassemblyFunction::load()
 		// skip branches and their delay slots
 		if (opInfo.isBranch)
 		{
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress,2);
-			entries[opAddress] = opcode;
-			lineAddresses.push_back(opAddress);
-			lineAddresses.push_back(opAddress+4);
-
 			funcPos += 4;
 			continue;
 		}
@@ -517,21 +522,26 @@ void DisassemblyFunction::load()
 
 				if (macro != NULL)
 				{
+					if (opcodeSequenceStart != opAddress)
+						addOpcodeSequence(opcodeSequenceStart,opAddress);
+
 					entries[opAddress] = macro;
 					for (int i = 0; i < macro->getNumLines(); i++)
 					{
 						lineAddresses.push_back(macro->getLineAddress(i));
 					}
+
+					opcodeSequenceStart = funcPos;
 					continue;
 				}
 			}
 		}
 
 		// just a normal opcode
-		DisassemblyOpcode* opcode = new DisassemblyOpcode(opAddress,1);
-		entries[opAddress] = opcode;
-		lineAddresses.push_back(opAddress);
 	}
+
+	if (opcodeSequenceStart != funcPos)
+		addOpcodeSequence(opcodeSequenceStart,funcPos);
 }
 
 void DisassemblyFunction::clear()

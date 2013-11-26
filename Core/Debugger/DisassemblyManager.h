@@ -74,6 +74,7 @@ private:
 	void generateBranchLines();
 	void load();
 	void clear();
+	void addOpcodeSequence(u32 start, u32 end);
 
 	u32 address;
 	u32 size;
