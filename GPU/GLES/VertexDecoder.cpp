@@ -818,7 +818,7 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 
 	// Attempt to JIT as well
-	if (jitCache && g_Config.bVertexDecoderJit && tc != GE_VTYPE_TC_NONE) {
+	if (jitCache && g_Config.bVertexDecoderJit && col != GE_VTYPE_COL_5551) {
 		jitted_ = jitCache->Compile(*this);
 	}
 }
