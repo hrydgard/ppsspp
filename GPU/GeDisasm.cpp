@@ -47,18 +47,24 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		"u16",
 		"float",
 	};
+	static const char *typeNamesS[] = {
+		NULL,
+		"s8",
+		"s16",
+		"float",
+	};
 
 	char *w = buffer, *end = buffer + len;
 	if (through)
 		w += snprintf(w, end - w, "through, ");
 	if (typeNames[tc])
-		w += snprintf(w, end - w, "%s UVs, ", typeNames[tc]);
+		w += snprintf(w, end - w, "%s texcoords, ", typeNames[tc]);
 	if (colorNames[col])
 		w += snprintf(w, end - w, "%s colors, ", colorNames[col]);
 	if (typeNames[nrm])
-		w += snprintf(w, end - w, "%s normals, ", typeNames[nrm]);
+		w += snprintf(w, end - w, "%s normals, ", typeNamesS[nrm]);
 	if (typeNames[pos])
-		w += snprintf(w, end - w, "%s coords, ", typeNames[pos]);
+		w += snprintf(w, end - w, "%s positions, ", typeNamesS[pos]);
 	if (typeNames[weight])
 		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
 	else if (weightCount > 0)
