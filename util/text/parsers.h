@@ -2,12 +2,13 @@
 
 #include <string>
 
-struct Version;
+#undef major
+#undef minor
 
 // Parses version strings of the format "Major.Minor.Sub" and lets you interact with them conveniently.
 struct Version {
 	Version() : major(0), minor(0), sub(0) {}
-	Version(std::string str) {
+	Version(const std::string &str) {
 		if (!ParseVersionString(str)) {
 			major = -1;
 			minor = -1;
