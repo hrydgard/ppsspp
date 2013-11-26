@@ -9,11 +9,11 @@
 #include "ConsoleListener.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "input/input_state.h"
 #include "debugger_disasm.h"
 #include "debugger_memory.h"
 #include "debugger_memorytex.h"
 #include "debugger_displaylist.h"
+#include "base/QtMain.h"
 
 class QtEmuGL;
 class MenuAction;
@@ -35,12 +35,10 @@ public:
 
 	void ShowMemory(u32 addr);
 	void updateMenus();
+	void newFrame();
 
 protected:
-	void closeEvent(QCloseEvent *);
-	void keyPressEvent(QKeyEvent *e);
-	void keyReleaseEvent(QKeyEvent *e);
-	void timerEvent(QTimerEvent *);
+	void closeEvent(QCloseEvent *) { exitAct(); }
 
 signals:
 	void retranslate();
@@ -134,7 +132,7 @@ private:
 	QTranslator translator;
 	QString currentLanguage;
 
-	QtEmuGL *emugl;
+	MainUI *emugl;
 	CoreState nextState;
 	InputState input_state;
 	GlobalUIState lastUIState;

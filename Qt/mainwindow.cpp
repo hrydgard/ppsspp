@@ -5,7 +5,6 @@
 #include <QDesktopServices>
 #include <QDesktopWidget>
 #include <QFileDialog>
-#include <QKeyEvent>
 #include <QMessageBox>
 
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -13,12 +12,10 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "base/display.h"
-#include "base/NKCodeFromQt.h"
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
 #include "QtHost.h"
-#include "qtemugl.h"
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
@@ -31,23 +28,18 @@ MainWindow::MainWindow(QWidget *parent) :
 	displaylistWindow(0)
 {
 	host = new QtHost(this);
-	emugl = new QtEmuGL();
+	emugl = new MainUI(this);
 
 	setCentralWidget(emugl);
-	emugl->init(&input_state);
 	createMenus();
 	updateMenus();
 
-	int zoom = g_Config.iInternalResolution;
-	if (zoom < 1) zoom = 1;
-	if (zoom > 4) zoom = 4;
-	SetZoom(zoom);
+	SetZoom(g_Config.iInternalResolution);
 
 	SetGameTitle(fileToStart);
 
-	startTimer(16);
-
-	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()) );
+	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
+	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
 }
 
 void MainWindow::ShowMemory(u32 addr)
@@ -62,10 +54,8 @@ inline float clamp1(float x) {
 	return x;
 }
 
-void MainWindow::timerEvent(QTimerEvent *)
+void MainWindow::newFrame()
 {
-	emugl->updateGL();
-
 	if (lastUIState != globalUIState) {
 		lastUIState = globalUIState;
 		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !QApplication::overrideCursor() && !g_Config.bShowTouchControls)
@@ -117,21 +107,6 @@ void MainWindow::updateMenus()
 		}
 	}
 	emit updateMenu();
-}
-
-void MainWindow::closeEvent(QCloseEvent *)
-{
-	exitAct();
-}
-
-void MainWindow::keyPressEvent(QKeyEvent *e)
-{
-	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(e->key())->second, KEY_DOWN));
-}
-
-void MainWindow::keyReleaseEvent(QKeyEvent *e)
-{
-	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(e->key())->second, KEY_UP));
 }
 
 /* SLOTS */
@@ -377,17 +352,6 @@ void MainWindow::fullscrAct()
 
 		showFullScreen();
 
-		int width = (int) QApplication::desktop()->screenGeometry().width();
-		int height = (int) QApplication::desktop()->screenGeometry().height();
-		PSP_CoreParameter().pixelWidth = width;
-		PSP_CoreParameter().pixelHeight = height;
-		PSP_CoreParameter().outputWidth = width;
-		PSP_CoreParameter().outputHeight = height;
-
-		pixel_xres = width;
-		pixel_yres = height;
-		dp_xres = pixel_xres;
-		dp_yres = pixel_yres;
 		if (gpu)
 			gpu->Resized();
 		InitPadLayout();
@@ -411,20 +375,12 @@ void MainWindow::aboutAct()
 void MainWindow::SetZoom(int zoom) {
 	if (isFullScreen())
 		fullscrAct();
+	if (zoom < 1) zoom = 1;
+	if (zoom > 4) zoom = 4;
 	g_Config.iInternalResolution = zoom;
 
-	pixel_xres = 480 * zoom;
-	pixel_yres = 272 * zoom;
-	dp_xres = pixel_xres;
-	dp_yres = pixel_yres;
-
-	emugl->setFixedSize(pixel_xres, pixel_yres);
+	emugl->setFixedSize(480 * zoom, 272 * zoom);
 	setFixedSize(sizeHint());
-
-	PSP_CoreParameter().pixelWidth = pixel_xres;
-	PSP_CoreParameter().pixelHeight = pixel_yres;
-	PSP_CoreParameter().outputWidth = pixel_xres;
-	PSP_CoreParameter().outputHeight = pixel_yres;
 
 	if (gpu)
 		gpu->Resized();
