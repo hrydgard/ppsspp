@@ -52,6 +52,7 @@ public:
 	TextDrawer *Text() const { return textDrawer_; }
 
 	void SetFontStyle(const UI::FontStyle &style);
+	const UI::FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
 	void MeasureText(const UI::FontStyle &style, const char *str, float *x, float *y, int align = 0) const;
 	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
