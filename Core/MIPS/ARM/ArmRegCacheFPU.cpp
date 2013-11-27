@@ -43,6 +43,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 		qr[i].mipsVec = -1;
 		qr[i].sz = V_Invalid;
 		qr[i].spillLock = false;
+		qr[i].isTemp = false;
 		memset(qr[i].vregs, 0xff, 4);
 	}
 }
@@ -307,7 +308,7 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 			// mipsreg that's been part of a quad.
 			int quad = mr[r].reg - Q0;
 			if (qr[quad].isDirty) {
-				ERROR_LOG(JIT, "BAD: FlushR found quad register %i - PC=%08x", js_->compilerPC);
+				WARN_LOG(JIT, "BAD: FlushR found quad register %i - PC=%08x", quad, js_->compilerPC);
 				emit_->ADD(R0, CTXREG, GetMipsRegOffset(r));
 				emit_->VST1_lane(F_32, (ARMReg)mr[r].reg, R0, mr[r].lane, true);
 			}
@@ -472,16 +473,20 @@ bool MappableQ(int quad) {
 	return quad >= 4;
 }
 
+void ArmRegCacheFPU::QLoad4x4(MIPSGPReg regPtr, int vquads[4]) {
+	ERROR_LOG(JIT, "QLoad4x4 not implemented");
+	// TODO	
+}
+
 void ArmRegCacheFPU::QFlush(int quad) {
 	if (!MappableQ(quad))
 		return;
 
-	if (qr[quad].isDirty) {
+	if (qr[quad].isDirty && !qr[quad].isTemp) {
 		ARMReg q = QuadAsQ(quad);
 		// Unlike reads, when writing to the register file we need to be careful to write the correct
 		// number of floats.
 
-		// TODO: Optimize to multi-write when possible.
 		switch (qr[quad].sz) {
 		case V_Single:
 			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
@@ -606,6 +611,12 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 	}
 }
 
+ARMReg ArmRegCacheFPU::QAllocTemp() {
+	int q = QGetFreeQuad(false);
+	qr[q].spillLock = true;
+	qr[q].isTemp = true;
+	return ARMReg(Q0 + q);
+}
 
 ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	qTime_++;
@@ -768,10 +779,10 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
 	}
 
-	return QuadAsQ(quad);
-}
-
-ARMReg ArmRegCacheFPU::QAllocTemp() {
-	// TODO
-	return Q15;
+	INFO_LOG(JIT, "Mapped quad %i to vfpu %i, sz=%i", quad, vreg, (int)sz);
+	if (sz == V_Single || sz == V_Pair) {
+		return D_0(QuadAsQ(quad));
+	} else {
+		return QuadAsQ(quad);
+	}
 }

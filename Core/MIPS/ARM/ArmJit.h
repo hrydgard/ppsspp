@@ -274,9 +274,10 @@ private:
 		ARMReg vs;
 		ARMReg vt;
 		DestARMReg vd;
+		bool overlap;
 	};
 
-	MappedRegs NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize);
+	MappedRegs NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize, bool applyPrefixes = true);
 	MappedRegs NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize);
 
 	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);

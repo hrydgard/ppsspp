@@ -133,6 +133,7 @@ public:
 	
 	void QAllowSpill(int quad);
 	void QFlush(int quad);
+	void QLoad4x4(MIPSGPReg regPtr, int vquads[4]);
 
 	void FlushAll();
 	
@@ -146,6 +147,7 @@ public:
 	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
 
 	int GetMipsRegOffset(MIPSReg r);
+
 private:
 	MIPSReg GetTempR();
 	const ARMReg *GetMIPSAllocationOrder(int &count);
@@ -154,7 +156,6 @@ private:
 	}
 	// This one WILL get a free quad as long as you haven't spill-locked them all.
 	int QGetFreeQuad(bool preferLow = false);
-
 
 	MIPSState *mips_;
 	ARMXEmitter *emit_;
