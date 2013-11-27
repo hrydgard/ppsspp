@@ -297,6 +297,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
+    pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
+    pspConfig->Get("MacAddress", &localMacAddress, "01:02:03:04:05:06");
 	pspConfig->Get("Language", &iLanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
@@ -521,6 +523,8 @@ void Config::Save() {
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("NickName", sNickName.c_str());
+        pspConfig->Set("proAdhocServer", proAdhocServer.c_str());
+        pspConfig->Set("MacAddress", localMacAddress.c_str());
 		pspConfig->Set("Language", iLanguage);
 		pspConfig->Set("TimeFormat", iTimeFormat);
 		pspConfig->Set("DateFormat", iDateFormat);

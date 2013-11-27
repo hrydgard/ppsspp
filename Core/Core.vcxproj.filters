@@ -499,6 +499,9 @@
     <ClCompile Include="Debugger\DisassemblyManager.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\proAdhoc.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -923,6 +926,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\DisassemblyManager.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\proAdhoc.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

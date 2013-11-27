@@ -18,6 +18,11 @@
 #include "PSPNetconfDialog.h"
 #include "ChunkFile.h"
 #include "../Core/MemMap.h"
+#include "../Core/HLE/sceNetAdhoc.h"
+
+#define NETCONF_CONNECT_ADHOC 2
+#define NETCONF_CREATE_ADHOC 4
+#define NETCONF_JOIN_ADHOC 5
 
 PSPNetconfDialog::PSPNetconfDialog() {
 }
@@ -40,6 +45,19 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
+  if(request.netAction == NETCONF_CONNECT_ADHOC ||
+      request.netAction == NETCONF_CREATE_ADHOC ||
+      request.netAction == NETCONF_JOIN_ADHOC){
+    if(request.NetconfData != NULL){
+      Shutdown(true);
+        if(sceNetAdhocctlCreate(request.NetconfData->groupName) == 0)
+        {
+            status = SCE_UTILITY_STATUS_FINISHED;
+            return 0;
+        }
+        return -1;
+    }
+  }
 	return 0;
 }
 

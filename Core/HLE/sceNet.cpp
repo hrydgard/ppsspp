@@ -18,6 +18,7 @@
 #include "Common/ChunkFile.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../Config.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -130,22 +131,28 @@ u32 sceNetTerm() {
 }
 
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
-	static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 6 };
+    //MAC Adress from config
+    uint8_t mac[6];
+    sscanf(g_Config.localMacAddress.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
-		Memory::Write_U8(fakeEtherAddr[i], addrAddr + i);
+        Memory::Write_U8(mac[i], addrAddr + i);
 
 	return 0;
+}
+
+u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
+	return sceWlanGetEtherAddr(addrAddr);
 }
 
 u32 sceWlanDevIsPowerOn() {
 	DEBUG_LOG(SCENET, "UNTESTED 0=sceWlanDevIsPowerOn()");
-	return 0;
+	return 1;
 }
 
 u32 sceWlanGetSwitchState() {
 	DEBUG_LOG(SCENET, "UNTESTED sceWlanGetSwitchState()");
-	return 0;
+	return 1;
 }
 
 // Probably a void function, but often returns a useful value.
@@ -348,7 +355,7 @@ const HLEFunction sceNet[] = {
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
 	{0x89360950, WrapI_UU<sceNetEtherNtostr>, "sceNetEtherNtostr"},
 	{0xd27961c9, WrapI_UU<sceNetEtherStrton>, "sceNetEtherStrton"},
-	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"},
+	{0x0bf0a3ae, WrapU_U<sceNetGetLocalEtherAddr>, "sceNetGetLocalEtherAddr"},
 	{0x50647530, 0, "sceNetFreeThreadinfo"},
 	{0xcc393e48, WrapI_U<sceNetGetMallocStat>, "sceNetGetMallocStat"},
 	{0xad6844c6, 0, "sceNetThreadAbort"},

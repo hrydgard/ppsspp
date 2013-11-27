@@ -1,3 +1,29 @@
+ADHOC SUPPORT
+============= 
+This is based on coldbird code: http://code.google.com/p/aemu/ All Credit goes
+to him!
+
+Status
+------
+Code is a complete mess and it's not fully functional yet, I still need to implement
+some functions and add a upnp lib(really important for people with routers).
+
+I did test it with some games(emulator <-> real psp with the server running locally) 
+and it's looking good:
+* Worms Open Warfare: Ran just fine, I was able to play a whole match without problems
+* Monster Hunter Freedom Unite: Runs fine too. Gathering Hall and embarking on quests Works
+* Dissidia Duodecim 012: Doesn't work. It requires some functions that I haven't implemented
+yet. Also, it uses a port < 1000 and thats reserved for admin apps on linux, running the emu
+as sudo "solves" it, but it's far from ideal.
+* Pacman World Rally: Works too.
+
+Update (Kyhel) :
+---------------
+* Now compiles on both Mac OSX and Windows. For more details on how to play and build
+go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59241
+* Got it tested windows <-> mac osx <-> psp, it works
+* Monster Hunter 3rd HD works too, as well as God Eater Burst.
+
 PPSSPP - a fast and portable PSP emulator
 =========================================
 
