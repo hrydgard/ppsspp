@@ -932,6 +932,8 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					}
 					
 					symbolMap.RemoveFunction(funcBegin,true);
+					symbolMap.SortSymbols();
+
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				else
@@ -963,6 +965,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 						newSize = prevSize-newSize;
 						snprintf(symname,128,"u_un_%08X",curAddress);
 						symbolMap.AddFunction(symname,curAddress,newSize);
+						symbolMap.SortSymbols();
 
 						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					}
