@@ -497,10 +497,10 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		}
 
 		if (line.params.size() != 0)
-			TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,line.params.c_str(),line.params.size());
+			TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,line.params.c_str(),(int)line.params.size());
 			
 		SelectObject(hdc,boldfont);
-		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,line.name.c_str(),line.name.size());
+		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,line.name.c_str(),(int)line.name.size());
 		SelectObject(hdc,font);
 
 		address += line.totalSize;
@@ -899,17 +899,17 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_RENAMEFUNCTION:
 			{
-				int sym = symbolMap.GetSymbolNum(curAddress);
-				if (sym != -1)
+				u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+				if (funcBegin != -1)
 				{
 					char name[256];
 					std::string newname;
-					strncpy_s(name, symbolMap.GetSymbolName(sym),_TRUNCATE);
+					strncpy_s(name, symbolMap.GetLabelName(funcBegin),_TRUNCATE);
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname))
 					{
-						symbolMap.SetSymbolName(sym, newname.c_str());
-						redraw();
+						symbolMap.SetLabelName(newname.c_str(),funcBegin);
 						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);
+						redraw();
 					}
 				}
 				else
@@ -921,17 +921,17 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_REMOVEFUNCTION:
 			{
 				char statusBarTextBuff[256];
-				int sym = symbolMap.GetSymbolNum(curAddress);
-				if (sym != -1)
+				u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+				if (funcBegin != -1)
 				{
-					u32 funcBegin = symbolMap.GetAddress(sym);
-					int prev = symbolMap.GetSymbolNum(funcBegin - 1);
-					if (prev != -1)
+					u32 prevBegin = symbolMap.GetFunctionStart(funcBegin-1);
+					if (prevBegin != -1)
 					{
-						int expandedSize = symbolMap.GetSymbolSize(prev) + symbolMap.GetSymbolSize(sym);
-						symbolMap.SetSymbolSize(prev, expandedSize);
+						u32 expandedSize = symbolMap.GetFunctionSize(prevBegin)+symbolMap.GetFunctionSize(funcBegin);
+						symbolMap.SetFunctionSize(prevBegin,expandedSize);
 					}
-					symbolMap.RemoveSymbolNum(sym);
+					
+					symbolMap.RemoveFunction(funcBegin,true);
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				else
@@ -945,10 +945,10 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_ADDFUNCTION:
 			{
 				char statusBarTextBuff[256];
-				int sym = symbolMap.GetSymbolNum(curAddress);
-				if (sym != -1)
+				u32 prevBegin = symbolMap.GetFunctionStart(curAddress);
+				if (prevBegin != -1)
 				{
-					if (symbolMap.GetAddress(sym) == curAddress)
+					if (prevBegin == curAddress)
 					{
 						snprintf(statusBarTextBuff,256, "WARNING: There's already a function entry point at this adress");
 						SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
@@ -956,14 +956,14 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					else
 					{
 						char symname[128];
-						int prevSize = symbolMap.GetSymbolSize(sym);
-						u32 prevAddr = symbolMap.GetSymbolAddr(sym);
-						int newSize = curAddress - prevAddr;
-						symbolMap.SetSymbolSize(sym, newSize);
-						newSize = prevSize - newSize;
+						u32 prevSize = symbolMap.GetFunctionSize(prevBegin);
+						u32 newSize = curAddress-prevBegin;
+						symbolMap.SetFunctionSize(prevBegin,newSize);
+
+						newSize = prevSize-newSize;
 						snprintf(symname,128,"u_un_%08X",curAddress);
-						symbolMap.AddSymbol(symname, curAddress, newSize, ST_FUNCTION);
-						symbolMap.SortSymbols();
+						symbolMap.AddFunction(symname,curAddress,newSize);
+
 						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					}
 				}

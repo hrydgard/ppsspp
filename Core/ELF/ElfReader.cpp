@@ -592,18 +592,18 @@ bool ElfReader::LoadSymbols()
 
 			if (bRelocate)
 				value += sectionAddrs[sectionIndex];
-			SymbolType symtype = ST_DATA;
 
 			switch (type)
 			{
 			case STT_OBJECT:
-				symtype = ST_DATA; break;
+				symbolMap.AddData(value,size,DATATYPE_BYTE);
+				break;
 			case STT_FUNC:
-				symtype = ST_FUNCTION; break;
+				symbolMap.AddFunction(name,value,size);
+				break;
 			default:
 				continue;
 			}
-			symbolMap.AddSymbol(name, value, size, symtype);
 			hasSymbols = true;
 			//...
 		}
