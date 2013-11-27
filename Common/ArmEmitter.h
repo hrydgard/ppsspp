@@ -387,6 +387,14 @@ ARMReg SubBase(ARMReg Reg);
 ARMReg DScalar(ARMReg dreg, int subScalar);
 ARMReg QScalar(ARMReg qreg, int subScalar);
 
+// Get the two halves of a Q register.
+inline ARMReg D_0(ARMReg q) {
+	return ARMReg(D0 + (q - Q0) * 2);
+}
+inline ARMReg D_1(ARMReg q) {
+	return ARMReg(D0 + (q - Q0) * 2 + 1);
+}
+
 enum NEONAlignment {
 	ALIGN_NONE = 0,
 	ALIGN_64 = 1,

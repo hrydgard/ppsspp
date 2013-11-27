@@ -2536,7 +2536,6 @@ void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignme
 
 void ARMXEmitter::WriteVimm(ARMReg Vd, int cmode, u8 imm, int op) {
 	bool register_quad = Vd >= Q0;
-	Vd = SubBase(Vd);
 
 	Write32((0xF28 << 20) | ((imm >> 7) << 24) | (((imm >> 4) & 0x7) << 16) | (imm & 0xF) |
 		      EncodeVd(Vd) | (register_quad << 6) | (op << 5) | (1 << 4) | ((cmode & 0xF) << 8));
