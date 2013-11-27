@@ -919,4 +919,4 @@ extern const char *VFPOpNames[16];
 
 }  // namespace
 
-#endif // _DOLPHIN_INTEL_CODEGEN_
+#endif

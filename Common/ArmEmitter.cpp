@@ -44,6 +44,11 @@
 #define __FUNCTION__ "(n/a)"
 #endif
 
+
+#ifdef ANDROID
+#define _dbg_assert_msg_ _assert_msg_
+#endif
+
 namespace ArmGen
 {
 
@@ -2440,7 +2445,7 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
 		return 7;
 	case 2:
-		_dbg_assert_msg_(JIT, !((int)align & 3), "align & 3 must be == 0");
+		_dbg_assert_msg_(JIT, !((int)align == 3), "align must be != 3");
 		return 10;
 	case 3:
 		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
