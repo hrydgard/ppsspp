@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
+#include <algorithm>
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
