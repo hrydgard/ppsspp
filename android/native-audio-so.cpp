@@ -153,7 +153,9 @@ extern "C" void OpenSLWrap_Shutdown() {
 	SLresult result;
 	ILOG("OpenSLWrap_Shutdown - stopping playback");
 	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
-	assert(SL_RESULT_SUCCESS == result);
+	if (SL_RESULT_SUCCESS != result) {
+		ELOG("SetPlayState failed");
+	}
 
 	ILOG("OpenSLWrap_Shutdown - deleting player object");
 
