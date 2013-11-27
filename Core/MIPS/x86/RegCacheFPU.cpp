@@ -32,8 +32,10 @@ FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
 
-	if (!initialReady)
+	if (!initialReady) {
 		SetupInitialRegs();
+		initialReady = true;
+	}
 
 	memcpy(xregs, xregsInitial, sizeof(xregs));
 	memcpy(regs, regsInitial, sizeof(regs));
@@ -50,12 +52,14 @@ void FPURegCache::SetupInitialRegs() {
 		regsInitial[i].location = base;
 		base.IncreaseOffset(sizeof(float));
 	}
-	base = GetDefaultLocation(32);
-	for (int i = 32; i < NUM_MIPS_FPRS; i++) {
+	for (int i = 32; i < 32 + 128; i++) {
+		regsInitial[i].location = GetDefaultLocation(i);
+	}
+	base = GetDefaultLocation(32 + 128);
+	for (int i = 32 + 128; i < NUM_MIPS_FPRS; i++) {
 		regsInitial[i].location = base;
 		base.IncreaseOffset(sizeof(float));
 	}
-	initialReady = true;
 }
 
 void FPURegCache::SpillLock(int p1, int p2, int p3, int p4) {
@@ -264,9 +268,9 @@ X64Reg FPURegCache::GetFreeXReg() {
 }
 
 void FPURegCache::FlushX(X64Reg reg) {
-	if (reg >= NUM_X_FPREGS)
+	if (reg >= NUM_X_FPREGS) {
 		PanicAlert("Flushing non existent reg");
-	else if (xregs[reg].mipsReg != -1) {
+	} else if (xregs[reg].mipsReg != -1) {
 		StoreFromRegister(xregs[reg].mipsReg);
 	}
 }

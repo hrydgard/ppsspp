@@ -112,6 +112,11 @@ MIPSState::MIPSState()
 	// 0x08 0x09 0x0a 0x0b 
 	// ....
 
+	// This is because the original indices look like this:
+	// 0XXMMMYY where M is the matrix number.
+
+	// We will now map 0YYMMMXX to 0MMMXXYY.
+
 	// Advantages: 
 	// * Columns can be flushed and reloaded faster "at once"
 	// * 4x4 Matrices are contiguous in RAM, making them, too, fast-loadable in NEON
@@ -119,12 +124,12 @@ MIPSState::MIPSState()
 	// Disadvantages:
 	// * Extra indirection, can be confusing and slower (interpreter only)
 	// * Flushing and reloading row registers is now slower
-
+	
 	int i = 0;
 	for (int m = 0; m < 8; m++) {
 		for (int y = 0; y < 4; y++) {
 			for (int x = 0; x < 4; x++) {
-				voffset[i++] = m * 4 + x * 32 + y;
+				voffset[m * 4 + x * 32 + y] = i++;
 			}
 		}
 	}
@@ -134,6 +139,13 @@ MIPSState::MIPSState()
 		fromvoffset[voffset[i]] = i;
 	}
 
+	// Sanity check that things that should be ordered are ordered.
+	const int firstEight[8] = { 0x0, 0x20, 0x40, 0x60, 0x1, 0x21, 0x41, 0x61 };
+	for (int i = 0; i < 8; i++) {
+		if (voffset[firstEight[i]] != i) {
+			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstEight[i], voffset[firstEight[i]], i);
+		}
+	}
 }
 
 MIPSState::~MIPSState()
