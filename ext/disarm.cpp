@@ -1039,12 +1039,15 @@ void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord) {
 		sprintf(output, "%s", instr->text);
 	}
 	if (instr->undefined || instr->badbits || instr->oddbits) {
-		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
-		if (instr->badbits) sprintf(output, " [illegal bits %08x]", w);
+		if (instr->undefined) sprintf(output, "%08x\t[undefined instr]", w);
+		if (instr->badbits) sprintf(output, "%08x\t[illegal bits]", w);
 
 		// HUH? LDR and STR gets this a lot
 		// strcat(output, " ? (extra bits)");  
-		if (instr->oddbits) sprintf(temp, " [unexpected bits %08x]", w), strcat(output, temp);
+		if (instr->oddbits) {
+			sprintf(temp, " [unexpected bits %08x]", w);
+			strcat(output, temp);
+		}
 	}
 	// zap tabs
 	while (*output) {

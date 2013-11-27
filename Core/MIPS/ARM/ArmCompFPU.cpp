@@ -333,9 +333,12 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	switch ((op >> 21) & 0x1f)
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		fpr.MapReg(fs);
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-		VMOV(gpr.R(rt), fpr.R(fs));
+		if (fpr.IsMapped(fs)) {
+			VMOV(gpr.R(rt), fpr.R(fs));
+		} else {
+			LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
+		}
 		return;
 
 	case 2: //cfc1

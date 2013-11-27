@@ -71,7 +71,7 @@ static const float zero = 0.0f;
 
 // On NEON, we map triples to Q registers and singles to D registers.
 // Sometimes, as when doing dot products, it matters what's in that unused reg. This zeroes it.
-void Jit::NEONMaskToSize(vs, sz) {
+void Jit::NEONMaskToSize(ARMReg vs, VectorSize sz) {
 	// TODO
 }
 
@@ -247,14 +247,35 @@ void Jit::NEONApplyPrefixD(DestARMReg dest) {
 		VMAX(F_32, dest.rd, dest.rd, temp);
 	}
 
-	// Check for mask operation
+	// Check for actual mask operation (unrelated to the "masks" above).
 	if (dest.backingRd != dest.rd) {
 		// This means that we need to apply the write mask, from rd to backingRd.
 		// What a pain. We can at least shortcut easy cases like half the register.
+		// And we can generate the masks easily with some of the crazy vector imm modes. (bits2bytes for example).
+		// So no need to load them from RAM.
 
 		// TODO
 		VMOV(dest.backingRd, dest.rd);
 	}
+}
+
+Jit::MappedRegs Jit::NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize) {
+	MappedRegs regs;
+	regs.vs = NEONMapPrefixS(_VS, ssize, 0);
+	regs.vt = NEONMapPrefixT(_VT, tsize, 0);
+
+	bool overlap = GetVectorOverlap(_VD, dsize, _VS, ssize) > 0 || GetVectorOverlap(_VD, dsize, _VT, ssize);
+	regs.vd = NEONMapPrefixD(_VD, dsize, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	return regs;
+}
+
+Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize) {
+	MappedRegs regs;
+	regs.vs = NEONMapPrefixS(_VS, ssize, 0);
+
+	bool overlap = GetVectorOverlap(_VD, dsize, _VS, ssize) > 0;
+	regs.vd = NEONMapPrefixD(_VD, dsize, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	return regs;
 }
 
 void Jit::CompNEON_VecDo3(MIPSOpcode op) {
@@ -266,18 +287,14 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
 
-	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
-	ARMReg vt = NEONMapPrefixT(_VT, sz, 0);
-
-	bool overlap = GetVectorOverlap(_VD, sz, _VS, sz) > 0 || GetVectorOverlap(_VD, sz, _VT, sz);
-	DestARMReg vd = NEONMapPrefixD(_VD, sz, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
-	
+	MappedRegs r = NEONMapDirtyInIn(op, sz, sz, sz);
+	ARMReg temp = MatchSize(Q0, r.vs);
 	// TODO: Special case for scalar
 	switch (op >> 26) {
 	case 24: //VFPU0
 		switch ((op >> 23) & 7) {
-		case 0: VADD(F_32, vd, vs, vt); break; // vadd
-		case 1: VSUB(F_32, vd, vs, vt); break; // vsub
+		case 0: VADD(F_32, r.vd, r.vs, r.vt); break; // vadd
+		case 1: VSUB(F_32, r.vd, r.vs, r.vt); break; // vsub
 		case 7: DISABLE; /* VDIV(F_32, vd, vs, vt); */  break; // vdiv  THERE IS NO NEON SIMD VDIV :(  There's a fast reciprocal iterator thing though.
 		default:
 			DISABLE;
@@ -285,24 +302,24 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 		break;
 	case 25: //VFPU1
 		switch ((op >> 23) & 7) {
-		case 0: VMUL(F_32, vd, vs, vt); break;  // vmul
+		case 0: VMUL(F_32, r.vd, r.vs, r.vt); break;  // vmul
 		default:
 			DISABLE;
 		}
 		break;
 	case 27: //VFPU3
 		switch ((op >> 23) & 7)	{
-		case 2: VMIN(F_32, vd, vs, vt); break;   // vmin
-		case 3: VMAX(F_32, vd, vs, vt); break;   // vmax
+		case 2: VMIN(F_32, r.vd, r.vs, r.vt); break;   // vmin
+		case 3: VMAX(F_32, r.vd, r.vs, r.vt); break;   // vmax
 		case 6:  // vsge
-			VMOV_immf(Q0, 1.0f);
-			VCGE(F_32, vd, vs, vt);
-			VAND(vd, vd, Q0);
+			VMOV_immf(temp, 1.0f);
+			VCGE(F_32, r.vd, r.vs, r.vt);
+			VAND(r.vd, r.vd, temp);
 			break;
 		case 7:  // vslt
-			VMOV_immf(Q0, 1.0f);
-			VCLT(F_32, vd, vs, vt);
-			VAND(vd, vd, Q0);
+			VMOV_immf(temp, 1.0f);
+			VCLT(F_32, r.vd, r.vs, r.vt);
+			VAND(r.vd, r.vd, temp);
 			break;
 		}
 		break;
@@ -311,7 +328,7 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	NEONApplyPrefixD(vd);
+	NEONApplyPrefixD(r.vd);
 
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 	DISABLE;
@@ -326,7 +343,8 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 
 void Jit::CompNEON_SVQ(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-	int imm = (signed short)(op&0xFFFC);
+
+	int offset = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 	MIPSGPReg rs = _RS;
 	bool doCheck = false;
@@ -334,17 +352,29 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 	{
 	case 54: //lv.q
 		{
+			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && offset < 0x400-16 && offset > -0x400-16) {
+				gpr.MapRegAsPointer(rs);
+				ARMReg ar = fpr.QMapReg(vt, V_Quad, MAP_DIRTY | MAP_NOINIT);
+				if (offset) {
+					ADDI2R(R0, gpr.RPtr(rs), offset, R1);
+					VLD1(F_32, ar, R0, 2, ALIGN_128);
+				} else {
+					VLD1(F_32, ar, gpr.RPtr(rs), 2, ALIGN_128);
+				}
+				break;
+			}
+
 			// CC might be set by slow path below, so load regs first.
 			ARMReg ar = fpr.QMapReg(vt, V_Quad, MAP_DIRTY | MAP_NOINIT);
 			if (gpr.IsImm(rs)) {
-				u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 				gpr.SetRegImm(R0, addr + (u32)Memory::base);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
-					SetR0ToEffectiveAddress(rs, imm);
+					SetR0ToEffectiveAddress(rs, offset);
 				} else {
-					SetCCAndR0ForSafeAddress(rs, imm, R1);
+					SetCCAndR0ForSafeAddress(rs, offset, R1);
 					doCheck = true;
 				}
 				ADD(R0, R0, MEMBASEREG);
@@ -371,14 +401,14 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 			ARMReg ar = fpr.QMapReg(vt, V_Quad, 0);
 
 			if (gpr.IsImm(rs)) {
-				u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 				gpr.SetRegImm(R0, addr + (u32)Memory::base);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
-					SetR0ToEffectiveAddress(rs, imm);
+					SetR0ToEffectiveAddress(rs, offset);
 				} else {
-					SetCCAndR0ForSafeAddress(rs, imm, R1);
+					SetCCAndR0ForSafeAddress(rs, offset, R1);
 					doCheck = true;
 				}
 				ADD(R0, R0, MEMBASEREG);
@@ -434,36 +464,48 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_VDot(MIPSOpcode op) {
-	DISABLE;
-
 	CONDITIONAL_DISABLE;
-	// WARNING: No prefix support!
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
 	}
 
 	VectorSize sz = GetVecSize(op);
-	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
-	ARMReg vt = NEONMapPrefixT(_VT, sz, 0);
-	ARMReg vd = NEONMapPrefixD(_VD, V_Single, MAP_DIRTY);  // TODO: NO_INIT when possible
-
-	NEONMaskToSize(vs, sz);
-	NEONMaskToSize(vt, sz);
+	MappedRegs r = NEONMapDirtyInIn(op, V_Single, sz, sz);
 
 	if (sz == V_Triple || sz == V_Quad) {
-		VMUL(F_32, Q0, vs, vt);
+		VMUL(F_32, Q0, r.vs, r.vt);
 		VPADD(F_32, D0, D0, D0);
 		if (sz == V_Quad) {
 			// Only need to do the high add if this is a quad.
-			VPADD(F_32, D2, D2, D2);
+			VPADD(F_32, D1, D1, D1);
 		}
-		VADD(F_32, D0, D0, D2);
-		VMOV(vd, Q0);  // this will copy junk too, we really only care about the bottom reg.
+		VADD(F_32, D0, D0, D1);
+		VMOV(r.vd, Q0);  // this will copy junk too, we really only care about the bottom reg.
 	} else if (sz == V_Pair) {
-		VMUL(F_32, D0, vs, vt);
+		VMUL(F_32, D0, r.vs, r.vt);
 		VPADD(F_32, D0, D0, D0);
-		VMOV(vd, D0);  // this will copy some junk too.
+		VMOV(r.vd, D0);  // this will copy some junk too.
 	}
+
+	NEONApplyPrefixD(r.vd);
+}
+
+void Jit::CompNEON_VScl(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
+	VectorSize sz = GetVecSize(op);
+	MappedRegs r = NEONMapDirtyInIn(op, sz, sz, V_Single);
+
+	ARMReg temp = MatchSize(Q0, r.vt);
+
+	// TODO: VMUL_scalar directly when possible
+	VMOV(temp, r.vt);
+	VMUL_scalar(F_32, r.vd, r.vs, DScalar(Q0, 0));
+
+	NEONApplyPrefixD(r.vd);
 }
 
 void Jit::CompNEON_VV2Op(MIPSOpcode op) {
@@ -476,26 +518,38 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 	if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
 		return;
 	}
+	
+	// Must bail before we start mapping registers.
+	switch ((op >> 16) & 0x1f) {
+	case 0: // d[i] = s[i]; break; //vmov
+	case 1: // d[i] = fabsf(s[i]); break; //vabs
+	case 2: // d[i] = -s[i]; break; //vneg
+		break;
+
+	default:
+		DISABLE;
+		break;
+	}
+
 
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
 
-	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
-	DestARMReg vd = NEONMapPrefixD(_VD, sz, MAP_DIRTY | (vd == vs ? 0 : MAP_NOINIT));
+	MappedRegs r = NEONMapDirtyIn(op, sz, sz);
 
-	ARMReg temp = MatchSize(Q0, vs);
+	ARMReg temp = MatchSize(Q0, r.vs);
 	ARMReg temp2; // there isn't one!
 
 	switch ((op >> 16) & 0x1f) {
 	case 0: // d[i] = s[i]; break; //vmov
 		// Probably for swizzle.
-		VMOV(vd, vs);
+		VMOV(r.vd, r.vs);
 		break;
 	case 1: // d[i] = fabsf(s[i]); break; //vabs
-		VABS(F_32, vd, vs);
+		VABS(F_32, r.vd, r.vs);
 		break;
 	case 2: // d[i] = -s[i]; break; //vneg
-		VNEG(F_32, vd, vs);
+		VNEG(F_32, r.vd, r.vs);
 		break;
 
 	case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
@@ -508,11 +562,11 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 	case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 		DISABLE;
 		// Needs iterations on NEON. And two temps - which is a problem if vs == vd! Argh!
-		VRECPE(F_32, temp, vs);
-		VRECPS(temp2, vs, temp);
-		VMUL(F_32, temp2, temp);
-		VRECPS(temp2, vs, temp);
-		VMUL(F_32, temp2, temp);
+		VRECPE(F_32, temp, r.vs);
+		VRECPS(temp2, r.vs, temp);
+		VMUL(F_32, temp2, temp2, temp);
+		VRECPS(temp2, r.vs, temp);
+		VMUL(F_32, temp2, temp2, temp);
 		// http://stackoverflow.com/questions/6759897/how-to-divide-in-neon-intrinsics-by-a-float-number
 		// reciprocal = vrecpeq_f32(b);
 		// reciprocal = vmulq_f32(vrecpsq_f32(b, reciprocal), reciprocal);
@@ -560,7 +614,7 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 		break;
 	}
 
-	NEONApplyPrefixD(vd);
+	NEONApplyPrefixD(r.vd);
 
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
@@ -577,7 +631,7 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 				ARMReg r = fpr.QMapReg(imm, V_Single, MAP_READ);
 				gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 				// TODO: Gotta be a faster way
-				VMOV(D0, r);
+				VMOV(MatchSize(Q0, r), r);
 				VMOV(gpr.R(rt), S0);
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				// In case we have a saved prefix.
@@ -598,11 +652,14 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 
 	case 7: // mtv
 		if (imm < 128) {
-			gpr.MapReg(rt);
 			ARMReg r = fpr.QMapReg(imm, V_Single, MAP_DIRTY | MAP_NOINIT);
-			// TODO: Gotta be a faster way
-			VMOV(S0, gpr.R(rt));
-			VMOV(r, D0);
+			if (gpr.IsMapped(rt)) {
+				VMOV(S0, gpr.R(rt));
+				VMOV(r, MatchSize(Q0, r));
+			} else {
+				ADDI2R(R0, CTXREG, gpr.GetMipsRegOffset(rt), R1);
+				VLD1_lane(F_32, r, R0, 0, true);
+			}
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			if (imm - 128 == VFPU_CTRL_CC) {
 				gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
@@ -665,10 +722,7 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 		return;
 	}
 
-}
-
-void Jit::CompNEON_VScl(MIPSOpcode op) {
-	DISABLE;
+	// Do we really need to map it all and do VMOVs or can we do more clever things in the regalloc?
 }
 
 void Jit::CompNEON_Vmmul(MIPSOpcode op) {

@@ -43,6 +43,8 @@ struct FPURegQuad {
 	VectorSize sz;
 	u8 vregs[4];
 	bool isDirty;
+	bool spillLock;
+	bool isTemp;
 };
 
 struct FPURegMIPS {
@@ -59,15 +61,15 @@ struct FPURegMIPS {
 
 namespace MIPSComp {
 	struct ArmJitOptions;
+	struct JitState;
 }
 
 class ArmRegCacheFPU
 {
 public:
-	ArmRegCacheFPU(MIPSState *mips);
+	ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo);
 	~ArmRegCacheFPU() {}
 
-	void Init(ARMXEmitter *emitter, MIPSComp::ArmJitOptions *jo);
 	void Start(MIPSAnalyst::AnalysisResults &stats);
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
@@ -94,10 +96,10 @@ public:
 	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
+	bool IsMapped(MIPSReg r);
 	void FlushArmReg(ARMReg r);
 	void FlushR(MIPSReg r);
 	void DiscardR(MIPSReg r);
-	MIPSReg GetTempR();
 	ARMReg R(int preg); // Returns a cached register
 
 	// VFPU register as single ARM VFP registers. Must not be used in the upcoming NEON mode!
@@ -124,11 +126,14 @@ public:
 	// Quad mapping does NOT look into the ar array. Instead we use the qr array to keep
 	// track of what's in each quad.
 
+	// Note that we automatically spill-lock EVERY Q REGISTER we map, unlike other types.
+	// Need to explicitly allow spilling to get spilling.
 	ARMReg QMapReg(int vreg, VectorSize sz, int flags);
 	ARMReg QAllocTemp();
-
-	void QFlush(int quad);
 	
+	void QAllowSpill(int quad);
+	void QFlush(int quad);
+
 	void FlushAll();
 	
 	// NOTE: These require you to release spill locks manually!
@@ -140,20 +145,21 @@ public:
 
 	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
 
-	// For better log output only.
-	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
-
-private:
-	const ARMReg *GetMIPSAllocationOrder(int &count);
 	int GetMipsRegOffset(MIPSReg r);
+private:
+	MIPSReg GetTempR();
+	const ARMReg *GetMIPSAllocationOrder(int &count);
 	int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
 	}
+	// This one WILL get a free quad as long as you haven't spill-locked them all.
+	int QGetFreeQuad(bool preferLow = false);
+
 
 	MIPSState *mips_;
 	ARMXEmitter *emit_;
+	MIPSComp::JitState *js_;
 	MIPSComp::ArmJitOptions *jo_;
-	u32 compilerPC_;
 
 	int numARMFpuReg_;
 	int qTime_;

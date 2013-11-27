@@ -270,12 +270,21 @@ private:
 		operator ARMReg() const { return rd; }
 	};
 
+	struct MappedRegs {
+		ARMReg vs;
+		ARMReg vt;
+		DestARMReg vd;
+	};
+
+	MappedRegs NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize);
+	MappedRegs NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize);
+
 	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);
 	void NEONApplyPrefixD(DestARMReg dest);
 
 
 	// NEON utils
-	void NEONMaskToSize(ARMReg v, VectorSize sz);
+	void NEONMaskToSize(ARMReg vs, VectorSize sz);
 
 
 

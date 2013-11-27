@@ -22,22 +22,13 @@
 
 using namespace ArmGen;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
-	if (cpu_info.bNEON) {
-		numARMFpuReg_ = 32;
-	} else {
-		numARMFpuReg_ = 16;
-	}
-}
-
-void ArmRegCacheFPU::Init(ARMXEmitter *emitter, MIPSComp::ArmJitOptions *jo) {
-	emit_ = emitter;
-	jo_ = jo;
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo) {
+	numARMFpuReg_ = 16;
 }
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 	qTime_ = 0;
-	for (int i = 0; i < numARMFpuReg_; i++) {
+	for (int i = 0; i < MAX_ARMFPUREG; i++) {
 		ar[i].mipsReg = -1;
 		ar[i].isDirty = false;
 	}
@@ -51,6 +42,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 		qr[i].isDirty = false;
 		qr[i].mipsVec = -1;
 		qr[i].sz = V_Invalid;
+		qr[i].spillLock = false;
 		memset(qr[i].vregs, 0xff, 4);
 	}
 }
@@ -95,7 +87,17 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	}
 }
 
+bool ArmRegCacheFPU::IsMapped(MIPSReg r) {
+	return mr[r].loc == ML_ARMREG;
+}
+
 ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
+	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
+	if (jo_->useNEONVFPU && mipsReg >= 32) {
+		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
+		return S0;
+	}
+
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
@@ -153,7 +155,7 @@ allocate:
 	}
 
 	// Uh oh, we have all them spilllocked....
-	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", js_->compilerPC);
 	return INVALID_REG;
 }
 
@@ -282,7 +284,8 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	} else if (r >= D0 && r <= D31) {
 		// TODO: Convert to S regs and flush them individually.
 	} else if (r >= Q0 && r <= Q15) {
-		// TODO
+		int quad = r - Q0;
+		QFlush(r);
 	}
 }
 
@@ -304,6 +307,7 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 			// mipsreg that's been part of a quad.
 			int quad = mr[r].reg - Q0;
 			if (qr[quad].isDirty) {
+				ERROR_LOG(JIT, "BAD: FlushR found quad register %i - PC=%08x", js_->compilerPC);
 				emit_->ADD(R0, CTXREG, GetMipsRegOffset(r));
 				emit_->VST1_lane(F_32, (ARMReg)mr[r].reg, R0, mr[r].lane, true);
 			}
@@ -366,6 +370,10 @@ bool ArmRegCacheFPU::IsTempX(ARMReg r) const {
 }
 
 int ArmRegCacheFPU::GetTempR() {
+	if (jo_->useNEONVFPU) {
+		ERROR_LOG(JIT, "VFP temps not allowed in NEON mode");
+		return 0;
+	}
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {
 			mr[r].tempLock = true;
@@ -393,6 +401,7 @@ void ArmRegCacheFPU::FlushAll() {
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		FlushR(i);
 	} 
+
 	// Sanity check
 	for (int i = 0; i < numARMFpuReg_; i++) {
 		if (ar[i].mipsReg != -1) {
@@ -425,10 +434,15 @@ void ArmRegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 
 // This is actually pretty slow with all the 160 regs...
 void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
-	for (int i = 0; i < NUM_MIPSFPUREG; i++)
+	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		mr[i].spillLock = false;
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
+	}
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
 		DiscardR(i);
+	}
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		qr[i].spillLock = false;
+	}
 }
 
 ARMReg ArmRegCacheFPU::R(int mipsReg) {
@@ -436,11 +450,11 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
 		if (mipsReg < 32) {
-			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, currentMIPS->DisasmAt(js_->compilerPC));
 		} else if (mipsReg < 32 + 128) {
-			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, currentMIPS->DisasmAt(js_->compilerPC));
 		} else {
-			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, currentMIPS->DisasmAt(js_->compilerPC));
 		}
 		return INVALID_REG;  // BAAAD
 	}
@@ -462,8 +476,8 @@ void ArmRegCacheFPU::QFlush(int quad) {
 	if (!MappableQ(quad))
 		return;
 
-	ARMReg q = QuadAsQ(quad);
 	if (qr[quad].isDirty) {
+		ARMReg q = QuadAsQ(quad);
 		// Unlike reads, when writing to the register file we need to be careful to write the correct
 		// number of floats.
 
@@ -472,6 +486,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 		case V_Single:
 			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 			emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+			WARN_LOG(JIT, "S: Falling back to individual flush: pc=%08x", js_->compilerPC);
 			break;
 		case V_Pair:
 			if (qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
@@ -479,6 +494,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
+				WARN_LOG(JIT, "P: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
@@ -491,6 +507,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
 			} else {
+				WARN_LOG(JIT, "T: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
@@ -504,6 +521,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
+				WARN_LOG(JIT, "Q: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
@@ -517,14 +535,74 @@ void ArmRegCacheFPU::QFlush(int quad) {
 		}
 
 		qr[quad].isDirty = false;
-		qr[quad].mipsVec = -1;
 
 		int n = GetNumVectorElements(qr[quad].sz);
 		for (int i = 0; i < n; i++) {
-			FPURegMIPS &m = mr[32 + qr[quad].vregs[i]];
+			int vr = qr[quad].vregs[i];
+			if (vr < 0 || vr > 128) {
+				ERROR_LOG(JIT, "Bad vr %i", vr);
+			}
+			FPURegMIPS &m = mr[32 + vr];
 			m.loc = ML_MEM;
 			m.lane = -1;
+			m.reg = -1;
 		}
+	}
+	qr[quad].mipsVec = -1;
+	qr[quad].sz = V_Invalid;
+}
+
+int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
+	// Search for a free quad. A quad is free if the first register in it is free.
+	int quad = -1;
+
+	int start = 0;
+	int end = 16;
+	int incr = 1;
+
+	if (!preferLow) {
+		start = MAX_ARMQUADS - 1;
+		end = -1;
+		incr = -1;
+	}
+
+	for (int q = start; q != end; q += incr) {
+		if (!MappableQ(q))
+			continue;
+
+		if (qr[q].mipsVec == INVALID_REG) {
+			// Oh yeah! Free quad!
+			return q;
+		}
+	}
+
+	// Okay, find the "best scoring" reg to replace. Scoring algorithm TBD but may include some
+	// sort of age.
+	int bestQuad = -1;
+	int bestScore = -1;
+	for (int q = start; q != end; q += incr) {
+		if (!MappableQ(q))
+			continue;
+		if (qr[q].spillLock)
+			continue;
+		int score = 0;
+		if (!qr[q].isDirty) {
+			score += 5;
+		}
+		// To shake things up, add part of the current address to the score.
+		int noise = 0; //(((u32)(uintptr_t)emit_->GetCodePtr()) >> 2) & 0xF;
+		score += noise;
+		if (score > bestScore) {
+			bestQuad = q;
+			bestScore = score;
+		}
+	}
+
+	if (bestQuad == -1) {
+		ERROR_LOG(JIT, "Failed finding a free quad. Things will now go haywire!");
+		return 0;
+	} else {
+		return bestQuad;
 	}
 }
 
@@ -544,6 +622,10 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		if (!MappableQ(q))
 			continue;
 		
+		// Skip unmapped quads.
+		if (qr[q].sz == V_Invalid)
+			continue;
+
 		// Compare subregs to what's already in this register.
 		int matchCount = 0;
 		for (int i = 0; i < n; i++) {
@@ -597,39 +679,19 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 			case V_Triple:
 			case V_Quad:
 				return QuadAsQ(q);
+			case V_Invalid:
+				ERROR_LOG(JIT, "V_Invalid in QMapReg");
+				break;
 			}
 		}
 	}
 
-retry:
-	// No match, not mapped yet.
-	// Search for a free quad. A quad is free if the first register in it is free.
-	int quad = -1;
-	for (int q = 0; q < 16; q++) {
-		if (!MappableQ(q))
-			continue;
+	// Map singles low, to hopefully end up below the scalar limit.
+	int quad = QGetFreeQuad(sz == V_Single);
 
-		if (qr[q].mipsVec == INVALID_REG) {
-			// Oh yeah!
-			quad = q;
-			break;
-		}
-	}
-
-	if (quad != -1) {
-		goto gotQuad;
-	}
-
-	// Flush something, anything!
-	// TODO
-
-	ERROR_LOG(JIT, "Failed finding a free quad. Zapping one and continuing.");
-	goto retry;
-
-gotQuad:
-	// If parts of our register are elsewhere, we need to flush them before we reload
-	// in a new location.
-	// This may be problematic if inputs overlap, say:
+	// If parts of our register are elsewhere, and we are dirty, we need to flush them
+	// before we reload in a new location.
+	// This may be problematic if inputs overlap irregularly with output, say:
 	// vdot S700, R000, C000
 	// It might still work by accident...
 	if (flags & MAP_DIRTY) {

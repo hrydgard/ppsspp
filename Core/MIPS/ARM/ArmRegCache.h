@@ -100,6 +100,7 @@ public:
 	ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);
 	ARMReg MapRegAsPointer(MIPSGPReg reg);  // read-only, non-dirty.
 
+	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
 
 	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);

@@ -59,8 +59,8 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
-{ 
+Jit::Jit(MIPSState *mips)
+	: blocks(mips, this), gpr(mips, &jo), fpr(mips, &js, &jo), mips_(mips) { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
@@ -250,7 +250,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
-		fpr.SetCompilerPC(js.compilerPC);
+		// fpr takes it from jitstate.
 		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
@@ -278,7 +278,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		}
 
 		// TEMPORARY
-		if (GetOpcodeInfo(inst) & IS_VFPU) {
+		if (MIPSGetInfo(inst) & IS_VFPU) {
 			logBlocks = 1;
 		}
 	}

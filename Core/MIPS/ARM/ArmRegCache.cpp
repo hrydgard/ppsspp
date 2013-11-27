@@ -102,6 +102,10 @@ bool ArmRegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG_AS_PTR;
 }
 
+bool ArmRegCache::IsMapped(MIPSGPReg mipsReg) {
+	return mr[mipsReg].loc == ML_ARMREG;
+}
+
 void ArmRegCache::SetRegImm(ARMReg reg, u32 imm) {
 	// If we can do it with a simple Operand2, let's do that.
 	Operand2 op2;

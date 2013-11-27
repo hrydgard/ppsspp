@@ -115,6 +115,9 @@ u32 CallPtr(const void *ptr)
 
 extern void DisassembleArm(const u8 *data, int size);
 
+#ifndef _WIN32
+#define OutputDebugStringA puts
+#endif
 
 bool TestRegCache() {
 	using namespace ArmGen;
@@ -122,21 +125,28 @@ bool TestRegCache() {
 	ARMXEmitter emitter((u8 *)code);
 	MIPSState mips;
 	MIPSComp::ArmJitOptions jo;
+	MIPSComp::JitState js;
 
-	OutputDebugStringA("======START======");
+	OutputDebugStringA("======START======\n");
 
-	ArmRegCacheFPU fpr(&mips);
+	char temp[256];
+	u8 regs[4];
+	GetVectorRegs(regs, V_Quad, 0x20);
+	sprintf(temp, "Vector notation experiment: %i %i %i %i %s", regs[0], regs[1], regs[2], regs[3], GetVectorNotation(0x20, V_Quad));
+	OutputDebugStringA(temp);
+
+	ArmRegCacheFPU fpr(&mips, &js, &jo);
 	MIPSAnalyst::AnalysisResults stats;
 	memset(&stats, 0, sizeof(stats));
-	fpr.Init(&emitter, &jo);
+	fpr.SetEmitter(&emitter);
 	fpr.Start(stats);
 	ARMReg rtriple = fpr.QMapReg(0x20, V_Triple, 0);
 	ARMReg rquad = fpr.QMapReg(0x20, V_Quad, MAP_DIRTY);
 	ARMReg rquad2 = fpr.QMapReg(0x21, V_Quad, MAP_DIRTY);
 	emitter.VADD(F_32, Q0, rquad, rquad2);
-	ARMReg rpair3 = fpr.QMapReg(0x26, V_Pair, MAP_DIRTY);
-	ARMReg rpair4 = fpr.QMapReg(0x24, V_Pair, MAP_DIRTY);
-	emitter.VMUL(F_32, D0, rpair3, rpair4);
+	ARMReg rpair3 = fpr.QMapReg(0x26, V_Single, MAP_DIRTY);
+	ARMReg rpair4 = fpr.QMapReg(0x24, V_Single, MAP_DIRTY);
+	emitter.VMUL(F_32, rpair3, rpair3, rpair4);
 	fpr.FlushAll();
 
 	// OutputDebugString the whole thing.
@@ -144,10 +154,9 @@ bool TestRegCache() {
 	for (; ptr < emitter.GetCodePtr(); ptr += 4) {
 		char temp[128];
 		sprintf(temp, "%08x\n", *(const u32 *)ptr);
-#ifdef _WIN32
 		OutputDebugStringA(temp);
-#endif
 	}
+	OutputDebugStringA("======END======\n");
 
 	return true;
 }
