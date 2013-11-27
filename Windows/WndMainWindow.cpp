@@ -548,7 +548,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", "Pause");
 		TranslateMenuItem(ID_EMULATION_STOP,  L"\tCtrl+W");
 		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");	
-		
+		TranslateMenuItem(ID_EMULATION_Switch_UMD, L"\tCtrl+U", "Switch UMD");
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE);
@@ -1149,6 +1149,10 @@ namespace MainWindow
 				case ID_EMULATION_RESET:
 					NativeMessageReceived("reset", "");
 					Core_EnableStepping(false);
+					break;
+
+				case ID_EMULATION_Switch_UMD:
+					//Todo:
 					break;
 
 				case ID_EMULATION_CHEATS:
