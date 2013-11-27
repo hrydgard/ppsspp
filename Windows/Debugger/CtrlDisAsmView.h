@@ -74,7 +74,7 @@ class CtrlDisAsmView
 	void search(bool continueSearch);
 	void followBranch();
 	void calculatePixelPositions();
-	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
+	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line);
 	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);

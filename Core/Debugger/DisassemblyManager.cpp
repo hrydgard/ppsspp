@@ -27,6 +27,7 @@
 
 std::map<u32,DisassemblyEntry*> DisassemblyManager::entries;
 DebugInterface* DisassemblyManager::cpu;
+int DisassemblyManager::maxParamChars = 29;
 
 bool isInInterval(u32 start, u32 size, u32 value)
 {
@@ -139,19 +140,56 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 		}
 
 		SymbolInfo info;
-		if (symbolMap.GetSymbolInfo(&info,address) && info.type == ST_FUNCTION)
+		if (!symbolMap.GetSymbolInfo(&info,address,ST_ALL))
 		{
-			DisassemblyFunction* function = new DisassemblyFunction(info.address,info.size);
-			entries[info.address] = function;
-			address = info.address+info.size;
-		} else {
-			u32 next = symbolMap.GetNextSymbolAddress(address+1,ST_FUNCTION);
+			if (address % 4)
+			{
+				u32 next = std::min<u32>((address+3) & ~3,symbolMap.GetNextSymbolAddress(address,ST_ALL));
+				DisassemblyData* data = new DisassemblyData(address,next-address,DATATYPE_BYTE);
+				entries[address] = data;
+				address = next;
+				continue;
+			}
 
-			// let's just assume anything otuside a function is a normal opcode
-			DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
-			entries[address] = opcode;
-			
+			u32 next = symbolMap.GetNextSymbolAddress(address,ST_ALL);
+
+			if (next % 4)
+			{
+				u32 alignedNext = next & ~3;
+
+				if (alignedNext != address)
+				{
+					DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(alignedNext-address)/4);
+					entries[address] = opcode;
+				}
+
+				DisassemblyData* data = new DisassemblyData(address,next-alignedNext,DATATYPE_BYTE);
+				entries[alignedNext] = data;
+			} else {
+				DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
+				entries[address] = opcode;
+			}
+
 			address = next;
+			continue;
+		}
+
+		switch (info.type)
+		{
+		case ST_FUNCTION:
+			{
+				DisassemblyFunction* function = new DisassemblyFunction(info.address,info.size);
+				entries[info.address] = function;
+				address = info.address+info.size;
+			}
+			break;
+		case ST_DATA:
+			{
+				DisassemblyData* data = new DisassemblyData(info.address,info.size,symbolMap.GetDataType(info.address));
+				entries[info.address] = data;
+				address = info.address+info.size;
+			}
+			break;
 		}
 	}
 
@@ -244,7 +282,7 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 	
 	return address-n*4;
 }
-
+// 0x09509780
 u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 {
 	while (Memory::IsValidAddress(address))
@@ -449,9 +487,39 @@ void DisassemblyFunction::load()
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
 
+	u32 nextData = symbolMap.GetNextSymbolAddress(funcPos-1,ST_DATA);
 	u32 opcodeSequenceStart = funcPos;
 	while (funcPos < funcEnd)
 	{
+		if (funcPos == nextData)
+		{
+			if (opcodeSequenceStart != funcPos)
+				addOpcodeSequence(opcodeSequenceStart,funcPos);
+
+			DisassemblyData* data = new DisassemblyData(funcPos,symbolMap.GetDataSize(funcPos),symbolMap.GetDataType(funcPos));
+			entries[funcPos] = data;
+			lineAddresses.push_back(funcPos);
+			funcPos += data->getTotalSize();
+
+			nextData = symbolMap.GetNextSymbolAddress(funcPos-1,ST_DATA);
+			opcodeSequenceStart = funcPos;
+			continue;
+		}
+
+		// force align
+		if (funcPos % 4)
+		{
+			u32 nextPos = (funcPos+3) & ~3;
+
+			DisassemblyComment* comment = new DisassemblyComment(funcPos,nextPos-funcPos,".align","4");
+			entries[funcPos] = comment;
+			lineAddresses.push_back(funcPos);
+			
+			funcPos = nextPos;
+			opcodeSequenceStart = funcPos;
+			continue;
+		}
+
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu,funcPos);
 		u32 opAddress = funcPos;
 		funcPos += 4;
@@ -464,7 +532,7 @@ void DisassemblyFunction::load()
 		}
 
 		// lui
-		if (MIPS_GET_OP(opInfo.encodedOpcode) == 0x0F && funcPos < funcEnd)
+		if (MIPS_GET_OP(opInfo.encodedOpcode) == 0x0F && funcPos < funcEnd && funcPos != nextData)
 		{
 			MIPSOpcode next = Memory::Read_Instruction(funcPos);
 			MIPSInfo nextInfo = MIPSGetInfo(next);
@@ -562,6 +630,7 @@ bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest, bool
 	char opcode[64],arguments[256];
 	const char *dizz = DisassemblyManager::getCpu()->disasm(address,4);
 	parseDisasm(dizz,opcode,arguments,insertSymbols);
+	dest.type = DISTYPE_OPCODE;
 	dest.name = opcode;
 	dest.params = arguments;
 	dest.totalSize = 4;
@@ -570,6 +639,12 @@ bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest, bool
 
 void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest)
 {
+	if (start < address)
+		start = address;
+
+	if (start+size > address+num*4)
+		size = address+num*4-start;
+
 	int lane = 0;
 	for (u32 pos = start; pos < start+size; pos += 4)
 	{
@@ -618,6 +693,7 @@ void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt,
 bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
 	char buffer[64];
+	dest.type = DISTYPE_OTHER;
 
 	const char* addressSymbol;
 	switch (type)
@@ -663,5 +739,206 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	}
 
 	dest.totalSize = getTotalSize();
+	return true;
+}
+
+
+bool DisassemblyData::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+{
+	dest.type = DISTYPE_DATA;
+
+	switch (type)
+	{
+	case DATATYPE_BYTE:
+		dest.name = ".byte";
+		break;
+	case DATATYPE_HALFWORD:
+		dest.name = ".half";
+		break;
+	case DATATYPE_WORD:
+		dest.name = ".word";
+		break;
+	case DATATYPE_ASCII:
+		dest.name = ".ascii";
+		break;
+	default:
+		return false;
+	}
+
+	auto it = lines.find(address);
+	dest.params = it->second.text;
+	dest.totalSize = it->second.size;
+	return true;
+}
+
+int DisassemblyData::getLineNum(u32 address, bool findStart)
+{
+	auto it = lines.upper_bound(address);
+	if (it != lines.end())
+	{
+		if (it == lines.begin())
+			return 0;
+		it--;
+		return it->second.lineNum;
+	}
+
+	return lines.rbegin()->second.lineNum;
+}
+
+void DisassemblyData::createLines()
+{
+	lines.clear();
+	lineAddresses.clear();
+
+	u32 pos = address;
+	u32 end = address+size;
+	u32 maxChars = DisassemblyManager::getMaxParamChars();
+	
+	std::string currentLine;
+	u32 currentLineStart = pos;
+
+	int lineCount = 0;
+	if (type == DATATYPE_ASCII)
+	{
+		bool inString = false;
+		while (pos < end)
+		{
+			u8 b = Memory::Read_U8(pos++);
+			if (b >= 0x20 && b <= 0x7F)
+			{
+				if (currentLine.size()+1 >= maxChars)
+				{
+					if (inString == true)
+						currentLine += "\"";
+
+					DataEntry entry = {currentLine,pos-1-currentLineStart,lineCount++};
+					lines[currentLineStart] = entry;
+					lineAddresses.push_back(currentLineStart);
+					
+					currentLine = "";
+					currentLineStart = pos-1;
+					inString = false;
+				}
+
+				if (inString == false)
+					currentLine += "\"";
+				currentLine += (char)b;
+				inString = true;
+			} else {
+				char buffer[64];
+				if (pos == end && b == 0)
+					strcpy(buffer,"0");
+				else
+					sprintf(buffer,"0x%02X",b);
+
+				if (currentLine.size()+strlen(buffer) >= maxChars)
+				{
+					if (inString == true)
+						currentLine += "\"";
+					
+					DataEntry entry = {currentLine,pos-1-currentLineStart,lineCount++};
+					lines[currentLineStart] = entry;
+					lineAddresses.push_back(currentLineStart);
+					
+					currentLine = "";
+					currentLineStart = pos-1;
+					inString = false;
+				}
+
+				bool comma = false;
+				if (currentLine.size() != 0)
+					comma = true;
+
+				if (inString)
+					currentLine += "\"";
+
+				if (comma)
+					currentLine += ",";
+
+				currentLine += buffer;
+				inString = false;
+			}
+		}
+
+		if (inString == true)
+			currentLine += "\"";
+
+		if (currentLine.size() != 0)
+		{
+			DataEntry entry = {currentLine,pos-currentLineStart,lineCount++};
+			lines[currentLineStart] = entry;
+			lineAddresses.push_back(currentLineStart);
+		}
+	} else {
+		while (pos < end)
+		{
+			char buffer[64];
+			u32 value;
+
+			u32 currentPos = pos;
+
+			switch (type)
+			{
+			case DATATYPE_BYTE:
+				value = Memory::Read_U8(pos);
+				sprintf(buffer,"0x%02X",value);
+				pos++;
+				break;
+			case DATATYPE_HALFWORD:
+				value = Memory::Read_U16(pos);
+				sprintf(buffer,"0x%04X",value);
+				pos += 2;
+				break;
+			case DATATYPE_WORD:
+				{
+					value = Memory::Read_U32(pos);
+					const char* label = symbolMap.GetLabelName(value);
+					if (label != NULL)
+						sprintf(buffer,"%s",label);
+					else
+						sprintf(buffer,"0x%08X",value);
+					pos += 4;
+				}
+				break;
+			}
+
+			int len = strlen(buffer);
+			if (currentLine.size() != 0 && currentLine.size()+len >= maxChars)
+			{
+				DataEntry entry = {currentLine,currentPos-currentLineStart,lineCount++};
+				lines[currentLineStart] = entry;
+				lineAddresses.push_back(currentLineStart);
+
+				currentLine = "";
+				currentLineStart = currentPos;
+			}
+
+			if (currentLine.size() != 0)
+				currentLine += ",";
+			currentLine += buffer;
+		}
+
+		if (currentLine.size() != 0)
+		{
+			DataEntry entry = {currentLine,pos-currentLineStart,lineCount++};
+			lines[currentLineStart] = entry;
+			lineAddresses.push_back(currentLineStart);
+		}
+	}
+}
+
+
+DisassemblyComment::DisassemblyComment(u32 _address, u32 _size, std::string _name, std::string _param)
+	: address(_address), size(_size), name(_name), param(_param)
+{
+
+}
+
+bool DisassemblyComment::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+{
+	dest.type = DISTYPE_OTHER;
+	dest.name = name;
+	dest.params = param;
+	dest.totalSize = size;
 	return true;
 }

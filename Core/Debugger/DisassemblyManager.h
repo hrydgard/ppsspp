@@ -19,7 +19,7 @@
 #include "Globals.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
-enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_DATA };
+enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_DATA, DISTYPE_OTHER };
 
 struct DisassemblyLineInfo
 {
@@ -130,6 +130,54 @@ private:
 };
 
 
+class DisassemblyData: public DisassemblyEntry
+{
+public:
+	DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type) { createLines(); };
+	virtual ~DisassemblyData() { };
+	
+	virtual void recheck() { createLines(); };
+	virtual int getNumLines() { return (int)lines.size(); };
+	virtual int getLineNum(u32 address, bool findStart);
+	virtual u32 getLineAddress(int line) { return lineAddresses[line]; };
+	virtual u32 getTotalSize() { return size; };
+	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
+private:
+	void createLines();
+
+	struct DataEntry
+	{
+		std::string text;
+		u32 size;
+		int lineNum;
+	};
+
+	u32 address;
+	u32 size;
+	DataType type;
+	std::map<u32,DataEntry> lines;
+	std::vector<u32> lineAddresses;
+};
+
+class DisassemblyComment: public DisassemblyEntry
+{
+public:
+	DisassemblyComment(u32 _address, u32 _size, std::string name, std::string param);
+	virtual ~DisassemblyComment() { };
+	
+	virtual void recheck() { };
+	virtual int getNumLines() { return 1; };
+	virtual int getLineNum(u32 address, bool findStart) { return 0; };
+	virtual u32 getLineAddress(int line) { return address; };
+	virtual u32 getTotalSize() { return size; };
+	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
+private:
+	u32 address;
+	u32 size;
+	std::string name;
+	std::string param;
+};
+
 class DebugInterface;
 
 class DisassemblyManager
@@ -138,6 +186,7 @@ public:
 	void clear();
 
 	void setCpu(DebugInterface* _cpu) { cpu = _cpu; };
+	void setMaxParamChars(int num) { maxParamChars = num; clear(); };
 	void getLine(u32 address, bool insertSymbols, DisassemblyLineInfo& dest);
 	void analyze(u32 address, u32 size);
 	std::vector<BranchLine> getBranchLines(u32 start, u32 size);
@@ -147,10 +196,12 @@ public:
 	u32 getNthNextAddress(u32 address, int n = 1);
 
 	static DebugInterface* getCpu() { return cpu; };
+	static int getMaxParamChars() { return maxParamChars; };
 private:
 	DisassemblyEntry* getEntry(u32 address);
 	static std::map<u32,DisassemblyEntry*> entries;
 	static DebugInterface* cpu;
+	static int maxParamChars;
 };
 
 bool isInInterval(u32 start, u32 size, u32 value);

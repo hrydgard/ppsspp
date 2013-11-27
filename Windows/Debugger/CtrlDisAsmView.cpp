@@ -201,7 +201,7 @@ COLORREF scaleColor(COLORREF color, float factor)
 	return (color & 0xFF000000) | (b << 16) | (g << 8) | r;
 }
 
-bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels)
+bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData)
 {
 	if (displaySymbols)
 	{
@@ -226,7 +226,10 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 			return false;
 		}
 	} else {
-		sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
+		if (showData)
+			sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
+		else
+			sprintf(dest,"%08X",address);
 		return false;
 	}
 }
@@ -482,7 +485,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SetTextColor(hdc,textColor);
 
 		char addressText[64];
-		getDisasmAddressText(address,addressText,true);
+		getDisasmAddressText(address,addressText,true,line.type == DISTYPE_OPCODE);
 		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 		
 		if (isInInterval(address,line.totalSize,debugger->getPC()))
@@ -933,6 +936,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					
 					symbolMap.RemoveFunction(funcBegin,true);
 					symbolMap.SortSymbols();
+					manager.clear();
 
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
@@ -966,6 +970,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 						snprintf(symname,128,"u_un_%08X",curAddress);
 						symbolMap.AddFunction(symname,curAddress,newSize);
 						symbolMap.SortSymbols();
+						manager.clear();
 
 						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					}
@@ -1007,48 +1012,72 @@ void CtrlDisAsmView::updateStatusBarText()
 	manager.getLine(curAddress,true,line);
 	
 	text[0] = 0;
-	if (line.info.isDataAccess)
+	if (line.type == DISTYPE_OPCODE)
 	{
-		if (!Memory::IsValidAddress(line.info.dataAddress))
+		if (line.info.isDataAccess)
 		{
-			sprintf(text,"Invalid address %08X",line.info.dataAddress);
-		} else {
-			switch (line.info.dataSize)
+			if (!Memory::IsValidAddress(line.info.dataAddress))
 			{
-			case 1:
-				sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
-				break;
-			case 2:
-				sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
-				break;
-			case 4:
-				// TODO: Could also be a float...
+				sprintf(text,"Invalid address %08X",line.info.dataAddress);
+			} else {
+				switch (line.info.dataSize)
 				{
-					u32 data = Memory::Read_U32(line.info.dataAddress);
-					const char* addressSymbol = symbolMap.GetLabelName(data);
-					if (addressSymbol)
+				case 1:
+					sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
+					break;
+				case 2:
+					sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
+					break;
+				case 4:
+					// TODO: Could also be a float...
 					{
-						sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
-					} else {
-						sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
+						u32 data = Memory::Read_U32(line.info.dataAddress);
+						const char* addressSymbol = symbolMap.GetLabelName(data);
+						if (addressSymbol)
+						{
+							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
+						} else {
+							sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
+						}
+						break;
 					}
+				case 16:
+					// TODO: vector
 					break;
 				}
-			case 16:
-				// TODO: vector
-				break;
 			}
 		}
-	}
 
-	if (line.info.isBranch)
-	{
-		const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
-		if (addressSymbol == NULL)
+		if (line.info.isBranch)
 		{
-			sprintf(text,"%08X",line.info.branchTarget);
+			const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
+			if (addressSymbol == NULL)
+			{
+				sprintf(text,"%08X",line.info.branchTarget);
+			} else {
+				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol);
+			}
+		}
+	} else if (line.type == DISTYPE_DATA)
+	{
+		u32 start = symbolMap.GetDataStart(curAddress);
+		if (start == -1)
+			start = curAddress;
+
+		u32 diff = curAddress-start;
+		const char* label = symbolMap.GetLabelName(start);
+
+		if (label != NULL)
+		{
+			if (diff != 0)
+				sprintf(text,"%08X (%s) + %08X",start,label,diff);
+			else
+				sprintf(text,"%08X (%s)",start,label);
 		} else {
-			sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol);
+			if (diff != 0)
+				sprintf(text,"%08X + %08X",start,diff);
+			else
+				sprintf(text,"%08X",start);
 		}
 	}
 
@@ -1109,7 +1138,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 		manager.getLine(searchAddress,displaySymbols,lineInfo);
 
 		char addressText[64];
-		getDisasmAddressText(searchAddress,addressText,true);
+		getDisasmAddressText(searchAddress,addressText,true,lineInfo.type == DISTYPE_OPCODE);
 
 		const char* opcode = lineInfo.name.c_str();
 		const char* arguments = lineInfo.params.c_str();
@@ -1176,7 +1205,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 		char addressText[64],buffer[512];
 
 		manager.getLine(disAddress,displaySymbols,line);
-		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
+		bool isLabel = getDisasmAddressText(disAddress,addressText,false,line.type == DISTYPE_OPCODE);
 
 		if (isLabel)
 		{
