@@ -282,7 +282,7 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 	
 	return address-n*4;
 }
-// 0x09509780
+
 u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 {
 	while (Memory::IsValidAddress(address))
