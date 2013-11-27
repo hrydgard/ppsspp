@@ -389,6 +389,7 @@ BEGIN
         MENUITEM "Run",                                     ID_TOGGLE_PAUSE
         MENUITEM "Stop",                                    ID_EMULATION_STOP
         MENUITEM "Reset",                                   ID_EMULATION_RESET
+        MENUITEM "Switch UMD",                              ID_EMULATION_SWITCH_UMD
     END
 
     POPUP "Debug"
