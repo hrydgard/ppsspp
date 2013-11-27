@@ -67,4 +67,5 @@ namespace MainWindow
 	void ToggleDebugConsoleVisibility();
 	void TranslateMenus();
 	void setTexScalingMultiplier(int level);
+	void UmdSwitchAction();
 }

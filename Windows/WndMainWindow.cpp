@@ -67,6 +67,8 @@
 #include "Core/HLE/sceUtility.h"
 #include "GPU/Common/PostShader.h"
 
+#include "Core/HLE/sceUmd.h"
+
 #ifdef THEMES
 #include "XPTheme.h"
 #endif
@@ -372,6 +374,7 @@ namespace MainWindow
 
 	void SetIngameMenuItemStates(const GlobalUIState state) {
 		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
+		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit()? MF_ENABLED : MF_GRAYED;
 
 		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, menuEnable);
 		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, menuEnable);
@@ -380,6 +383,7 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
 	}
 
 	// These are used as an offset
@@ -547,7 +551,8 @@ namespace MainWindow
 		// Emulation menu
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", "Pause");
 		TranslateMenuItem(ID_EMULATION_STOP,  L"\tCtrl+W");
-		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");	
+		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");
+		TranslateMenuItem(ID_EMULATION_SWITCH_UMD, L"\tCtrl+U", "Switch UMD");
 		
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
@@ -846,6 +851,21 @@ namespace MainWindow
 		else {
 			if (!isPaused)
 				Core_EnableStepping(false);
+		}
+	}
+
+	void UmdSwitchAction() {
+		std::string fn;
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
+		
+		for (int i=0; i<(int)filter.length(); i++) {
+			if (filter[i] == '|')
+				filter[i] = '\0';
+		}
+
+		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch Umd", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn)) {
+			fn = ReplaceAll(fn, "\\", "/");
+			__UmdReplace(fn);
 		}
 	}
 
@@ -1149,6 +1169,9 @@ namespace MainWindow
 				case ID_EMULATION_RESET:
 					NativeMessageReceived("reset", "");
 					Core_EnableStepping(false);
+					break;
+				case ID_EMULATION_SWITCH_UMD:
+					UmdSwitchAction();
 					break;
 
 				case ID_EMULATION_CHEATS:

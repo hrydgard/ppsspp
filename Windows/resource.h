@@ -299,6 +299,7 @@
 #define ID_OPTIONS_LANGUAGE              40141
 #define ID_MEMVIEW_COPYVALUE_16          40142
 #define ID_MEMVIEW_COPYVALUE_32          40143
+#define ID_EMULATION_SWITCH_UMD          40144
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
