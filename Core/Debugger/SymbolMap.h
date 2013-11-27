@@ -36,6 +36,13 @@ struct SymbolInfo {
 	u32 size;
 };
 
+struct SymbolEntry
+{
+	std::string name;
+	u32 address;
+	u32 size;
+};
+
 enum DataType { DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD };
 
 #ifdef _WIN32
@@ -57,6 +64,7 @@ public:
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
 	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
 	const char *GetDescription(unsigned int address) const;
+	std::vector<SymbolEntry> GetAllSymbols(SymbolType symmask);
 
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symType) const;

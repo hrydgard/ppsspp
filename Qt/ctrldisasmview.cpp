@@ -200,20 +200,20 @@ void CtrlDisAsmView::RunToHere()
 
 void CtrlDisAsmView::RenameFunction()
 {
-	int sym = symbolMap.GetSymbolNum(selection);
-	if (sym != -1)
-	{
-		QString name = symbolMap.GetSymbolName(sym);
-		bool ok;
-		QString newname = QInputDialog::getText(this, tr("New function name"),
-									tr("New function name:"), QLineEdit::Normal,
-									name, &ok);
-		if (ok && !newname.isEmpty())
-		{
-			symbolMap.SetSymbolName(sym,newname.toStdString().c_str());
-			redraw();
-			parentWindow->NotifyMapLoaded();
-		}
+    u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+    if (funcBegin != -1)
+    {
+        QString name = symbolMap.GetLabelName(funcBegin);
+        bool ok;
+        QString newname = QInputDialog::getText(this, tr("New function name"),
+                                    tr("New function name:"), QLineEdit::Normal,
+                                    name, &ok);
+        if (ok && !newname.isEmpty())
+        {
+            symbolMap.SetLabelName(newname.toStdString().c_str(),funcBegin);
+            redraw();
+            parentWindow->NotifyMapLoaded();
+        }
 	}
 	else
 	{

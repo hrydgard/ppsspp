@@ -144,7 +144,7 @@ void QtHost::PrepareShutdown()
 
 void QtHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0)
 {
-	symbolMap.AddSymbol(name.c_str(), addr, size, (SymbolType)type);
+
 }
 
 bool QtHost::IsDebuggingEnabled()

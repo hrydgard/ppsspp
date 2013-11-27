@@ -315,7 +315,40 @@ const char *SymbolMap::GetDescription(unsigned int address) const
 	return descriptionTemp;
 }
 
+std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask)
+{
+	std::vector<SymbolEntry> result;
 
+	if (symmask & ST_FUNCTION)
+	{
+		for (auto it = functions.begin(); it != functions.end(); it++)
+		{
+			SymbolEntry entry;
+			entry.address = it->first;
+			entry.size = GetFunctionSize(entry.address);
+			const char* name = GetLabelName(entry.address);
+			if (name != NULL)
+				entry.name = name;
+			result.push_back(entry);
+		}
+	}
+	
+	if (symmask & ST_DATA)
+	{
+		for (auto it = data.begin(); it != data.end(); it++)
+		{
+			SymbolEntry entry;
+			entry.address = it->first;
+			entry.size = GetDataSize(entry.address);
+			const char* name = GetLabelName(entry.address);
+			if (name != NULL)
+				entry.name = name;
+			result.push_back(entry);
+		}
+	}
+
+	return result;
+}
 
 
 void SymbolMap::AddFunction(const char* name, u32 address, u32 size)
