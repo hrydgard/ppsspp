@@ -513,35 +513,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_MEMCHECK:
 				SendMessage(m_hDlg,WM_COMMAND,ID_DEBUG_ADDBREAKPOINT,0);
 				break;
-			case IDC_UPDATECALLSTACK:
-				{
-					HWND hDlg = m_hDlg;
-					HWND list = GetDlgItem(hDlg,IDC_CALLSTACK);
-					ComboBox_ResetContent(list);
-					
-					u32 pc = currentMIPS->pc;
-					u32 ra = currentMIPS->r[MIPS_REG_RA];
-					DWORD addr = Memory::ReadUnchecked_U32(pc);
-					int count=1;
-					ComboBox_SetItemData(list, ComboBox_AddString(list, ConvertUTF8ToWString(symbolMap.GetDescription(pc)).c_str()), pc);
-					if (symbolMap.GetDescription(pc) != symbolMap.GetDescription(ra))
-					{
-						ComboBox_SetItemData(list, ComboBox_AddString(list, ConvertUTF8ToWString(symbolMap.GetDescription(ra)).c_str()), ra);
-						count++;
-					}
-					//walk the stack chain
-					while (addr != 0xFFFFFFFF && addr!=0 && count++<20)
-					{
-						DWORD fun = Memory::ReadUnchecked_U32(addr+4);
-						const wchar_t *str = ConvertUTF8ToWString(symbolMap.GetDescription(fun)).c_str();
-						if (wcslen(str) == 0)
-							str = L"(unknown)";
-						ComboBox_SetItemData(list, ComboBox_AddString(list,str), fun);
-						addr = Memory::ReadUnchecked_U32(addr);
-					}
-					ComboBox_SetCurSel(list,0);
-				}
-				break;
 
 			case IDC_GOTOPC:
 				{
@@ -557,18 +528,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 
-			case IDC_BACKWARDLINKS:
-				{
-					HWND box = GetDlgItem(m_hDlg, IDC_FUNCTIONLIST); 
-					int funcnum = symbolMap.GetSymbolNum(ListBox_GetItemData(box,ListBox_GetCurSel(box)));
-					if (funcnum!=-1)
-						symbolMap.FillListBoxBLinks(box,funcnum);
-					break;
-				}
-
 			case IDC_ALLFUNCTIONS:
 				{
 					symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
+					symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_GOTOINT),ST_FUNCTION);
 					break;
 				}
 			default:
@@ -817,6 +780,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 void CDisasm::NotifyMapLoaded()
 {
 	symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
+	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_GOTOINT),ST_FUNCTION);
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->clearFunctions();
 	ptr->redraw();

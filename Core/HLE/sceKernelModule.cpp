@@ -257,7 +257,7 @@ public:
 		// Add the symbol to the symbol map for debugging.
 		char temp[256];
 		sprintf(temp,"zz_%s", GetFuncName(func.moduleName, func.nid));
-		symbolMap.AddSymbol(temp, func.stubAddr, 8, ST_FUNCTION);
+		symbolMap.AddFunction(temp,func.stubAddr,8);
 
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);

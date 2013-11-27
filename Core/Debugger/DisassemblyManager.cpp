@@ -139,13 +139,13 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 		}
 
 		SymbolInfo info;
-		if (symbolMap.GetSymbolInfo(&info,address) && info.size >= 4)
+		if (symbolMap.GetSymbolInfo(&info,address) && info.type == ST_FUNCTION)
 		{
 			DisassemblyFunction* function = new DisassemblyFunction(info.address,info.size);
 			entries[info.address] = function;
 			address = info.address+info.size;
 		} else {
-			u32 next = symbolMap.GetNextSymbolAddress(address+1);
+			u32 next = symbolMap.GetNextSymbolAddress(address+1,ST_FUNCTION);
 
 			// let's just assume anything otuside a function is a normal opcode
 			DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);

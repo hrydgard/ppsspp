@@ -248,7 +248,7 @@ namespace MIPSAnalyst {
 		u32 addr;
 		for (addr = startAddr; addr <= endAddr; addr+=4) {
 			SymbolInfo syminfo;
-			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION) && syminfo.size >= 4) {
+			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
 				addr = syminfo.address + syminfo.size;
 				continue;
 			}
@@ -302,7 +302,7 @@ namespace MIPSAnalyst {
 			(*iter).size = ((*iter).end-(*iter).start+4);
 			char temp[256];
 			sprintf(temp,"z_un_%08x",(*iter).start);
-			symbolMap.AddSymbol(std::string(temp).c_str(), (*iter).start,(*iter).end-(*iter).start+4,ST_FUNCTION);
+			symbolMap.AddFunction(temp,(*iter).start,(*iter).end-(*iter).start+4);
 		}
 		HashFunctions();
 	}

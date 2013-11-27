@@ -287,15 +287,13 @@ void Debugger_Disasm::FillFunctions()
 	item->setData(Qt::UserRole, 0x02000000);
 	ui->FuncList->addItem(item);
 
-	for(int i = 0; i < symbolMap.GetNumSymbols(); i++)
-	{
-		if(symbolMap.GetSymbolType(i) & ST_FUNCTION)
-		{
-			QListWidgetItem* item = new QListWidgetItem();
-			item->setText(QString("%1 (%2)").arg(symbolMap.GetSymbolName(i)).arg(symbolMap.GetSymbolSize(i)));
-			item->setData(Qt::UserRole, symbolMap.GetAddress(i));
-			ui->FuncList->addItem(item);
-		}
+    std::vector<SymbolEntry> symbols = symbolMap.GetAllSymbols(ST_FUNCTION);
+    for(int i = 0; i < (int)symbols.size(); i++)
+    {
+        QListWidgetItem* item = new QListWidgetItem();
+        item->setText(QString("%1 (%2)").arg(QString::fromStdString(symbols[i].name)).arg(symbols[i].size));
+        item->setData(Qt::UserRole, symbols[i].address);
+        ui->FuncList->addItem(item);
 	}
 }
 

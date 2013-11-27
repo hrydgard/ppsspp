@@ -145,7 +145,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 
 			case MV_SYMBOLS:
 				{
-					textPen.setColor(0x0000FF);
+/*					textPen.setColor(0x0000FF);
 					painter.setPen(textPen);
 					int fn = symbolMap.GetSymbolNum(address);
 					if (fn==-1)
@@ -174,7 +174,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 							sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(symbolnum));
 					}
 
-					painter.drawText(85,rowY1 - 2 + rowHeight, temp);
+                    painter.drawText(85,rowY1 - 2 + rowHeight, temp);*/
 					break;
 				}
 			case MV_MAX: break;
