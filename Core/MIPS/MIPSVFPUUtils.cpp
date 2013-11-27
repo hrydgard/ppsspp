@@ -22,8 +22,8 @@
 
 #include <limits>
 
-#define V(i)   (currentMIPS->v[i])
-#define VI(i)  (currentMIPS->vi[i])
+#define V(i)   (currentMIPS->v[voffset[i]])
+#define VI(i)  (currentMIPS->vi[voffset[i]])
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int mtx = (vectorReg >> 2) & 7;

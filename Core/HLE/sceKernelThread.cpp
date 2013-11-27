@@ -530,6 +530,8 @@ public:
 		p.Do(isProcessingCallbacks);
 		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
+
+		// TODO: How do I "version" adding a DoState method to ThreadContext?
 		p.Do(context);
 		if (s <= 2)
 		{

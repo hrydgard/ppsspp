@@ -115,6 +115,12 @@ enum VCondition
 	VC_NS
 };
 
+// In memory, we order the VFPU registers differently. 
+// Games use columns a whole lot more than rows, and it would thus be good if columns
+// were contiguous in memory. Also, matrices aren't but should be.
+extern u8 voffset[128];
+extern u8 fromvoffset[128];
+
 class MIPSState
 {
 public:

@@ -154,6 +154,7 @@ public:
 
 	void FlushX(X64Reg reg);
 	X64Reg GetFreeXReg();
+
 private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();
