@@ -83,7 +83,6 @@ inline int RoundUp4(int x) {
 }
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
-// Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader
 {
 public:
