@@ -443,6 +443,10 @@ void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
 	}
 	for (int i = 0; i < MAX_ARMQUADS; i++) {
 		qr[i].spillLock = false;
+		if (qr[i].isTemp) {
+			qr[i].isTemp = false;
+			qr[i].sz = V_Invalid;
+		}
 	}
 }
 
@@ -491,7 +495,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 		case V_Single:
 			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 			emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
-			WARN_LOG(JIT, "S: Falling back to individual flush: pc=%08x", js_->compilerPC);
+			// WARN_LOG(JIT, "S: Falling back to individual flush: pc=%08x", js_->compilerPC);
 			break;
 		case V_Pair:
 			if (qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
@@ -499,7 +503,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
-				WARN_LOG(JIT, "P: Falling back to individual flush: pc=%08x", js_->compilerPC);
+				// WARN_LOG(JIT, "P: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
@@ -512,7 +516,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
 			} else {
-				WARN_LOG(JIT, "T: Falling back to individual flush: pc=%08x", js_->compilerPC);
+				// WARN_LOG(JIT, "T: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
@@ -526,7 +530,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
-				WARN_LOG(JIT, "Q: Falling back to individual flush: pc=%08x", js_->compilerPC);
+				// WARN_LOG(JIT, "Q: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
@@ -605,7 +609,7 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 
 	if (bestQuad == -1) {
 		ERROR_LOG(JIT, "Failed finding a free quad. Things will now go haywire!");
-		return 0;
+		return -1;
 	} else {
 		return bestQuad;
 	}
@@ -613,8 +617,13 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 
 ARMReg ArmRegCacheFPU::QAllocTemp() {
 	int q = QGetFreeQuad(false);
+	if (q < 0) {
+		ERROR_LOG(JIT, "Failed to allocate temp quad");
+		q = 0;
+	}
 	qr[q].spillLock = true;
 	qr[q].isTemp = true;
+	qr[q].sz = V_Quad;
 	return ARMReg(Q0 + q);
 }
 
@@ -719,7 +728,8 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 
 	if (!(flags & MAP_NOINIT)) {
 		// Okay, now we will try to load the whole thing in one go. This is possible
-		// if it's a column and easy if it's a single.
+		// if it's a row and easy if it's a single.
+		// Unfortunately rows are rare, columns are common.
 		switch (sz) {
 		case V_Single:
 			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);

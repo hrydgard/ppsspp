@@ -90,6 +90,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	int abs[4];
 	int negate[4];
 	int constants[4];
+	int constNum[4];
 
 	int abs_mask = (prefix >> 8) & 0xF;
 	int negate_mask = (prefix >> 16) & 0xF;
@@ -105,7 +106,13 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 		abs[i]    = (prefix >> (8+i)) & 1;
 		negate[i] = (prefix >> (16+i)) & 1;
 		constants[i] = (prefix >> (12+i)) & 1;
+
+		if (constants[i]) {
+			constNum[i] = regnum[i] + (abs[i] << 2);
+			abs[i] = 0;
+		}
 	}
+	abs_mask &= ~constants_mask;
 
 	bool anyPermute = (prefix & permuteMask) == (0xE4 & permuteMask);
 	
@@ -115,8 +122,30 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 		// If a single, this can sometimes be done cheaper. But meh.
 		ARMReg ar = fpr.QAllocTemp();
 		for (int i = 0; i < n; i++) {
-			int constNum = regnum[i] + (abs[i] << 2);
-			MOVP2R(R0, (negate[i] ? constantArrayNegated : constantArray) + constNum);
+			if (!(i & 1)) {
+				if (constNum[i] == constNum[i + 1]) {
+					// Replace two loads with a single immediate when easily possible.
+					ARMReg dest = i & 2 ? D_1(ar) : D_0(ar);
+					switch (constNum[i]) {
+					case 0:
+					case 1:
+						{
+							float c = constantArray[constNum[i]];
+							VMOV_immf(dest, negate[i] ? -c : c);
+						}
+						break;
+					// TODO: There are a few more that are doable.
+					default:
+						goto skip;
+					}
+
+					i++;
+					continue;
+skip:
+					;
+				}
+			}
+			MOVP2R(R0, (negate[i] ? constantArrayNegated : constantArray) + constNum[i]);
 			VLD1_lane(F_32, ar, R0, i, true);
 		}
 		return ar;
@@ -130,6 +159,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 
 	ARMReg inputAR = fpr.QMapReg(mipsReg, sz, mapFlags);
 	ARMReg ar = fpr.QAllocTemp();
+
 	if (!anyPermute) {
 		VMOV(ar, inputAR);
 		// No permutations!
@@ -148,6 +178,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 			// Can check for VSWP match?
 
 			// TODO: Cannot do this permutation yet!
+			ERROR_LOG(HLE, "Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
 		}
 	}
 
@@ -158,6 +189,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 		VABS(F_32, ar, ar);
 	} else {
 		// Partial ABS! TODO
+		ERROR_LOG(HLE, "Partial ABS! Cannot do this yet.");
 	}
 	
 	if (negate_mask == full_mask) {
@@ -166,13 +198,13 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	} else {
 		// Partial negate! I guess we build sign bits in another register
 		// and simply XOR.
+		ERROR_LOG(HLE, "Partial Negate! Cannot do this yet.");
 	}
 
 	// Insert constants where requested, and check negate!
 	for (int i = 0; i < n; i++) {
 		if (constants[i]) {
-			int constNum = regnum[i] + (abs[i] << 2);
-			MOVP2R(R0, (negate[i] ? constantArrayNegated : constantArray) + constNum);
+			MOVP2R(R0, (negate[i] ? constantArrayNegated : constantArray) + constNum[i]);
 			VLD1_lane(F_32, ar, R0, i, true);
 		}
 	}
@@ -180,9 +212,23 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	return ar;
 }
 
+inline bool IsQ(ARMReg r) {
+	return r >= Q0 && r <= Q15;
+}
+
+inline bool IsD(ARMReg r) {
+	return r >= D0 && r <= D31;
+}
+
 inline ARMReg MatchSize(ARMReg x, ARMReg target) {
-	// TODO
-	return x;
+	if (IsQ(target) && IsQ(x))
+		return x;
+	if (IsD(target) && IsD(x))
+		return x;
+	if (IsD(target) && IsQ(x))
+		return D_0(x);
+	// if (IsQ(target) && IsD(x))
+	return (ARMReg)(D0 + (x - Q0) * 2);
 }
 
 Jit::DestARMReg Jit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags) {
@@ -345,10 +391,109 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_SV(MIPSOpcode op) {
-	DISABLE;
-
+	CONDITIONAL_DISABLE;
+	
 	// Remember to use single lane stores here and not VLDR/VSTR - switching usage
 	// between NEON and VFPU can be expensive on some chips.
+
+	// Here's a common idiom we should optimize:
+	// lv.s S200, 0(s4)
+	// lv.s S201, 4(s4)
+	// lv.s S202, 8(s4)
+	// vone.s S203
+	// vtfm4.q C000, E600, C200
+	// Would be great if we could somehow combine the lv.s into one vector instead of mapping three
+	// separate quads.
+
+	s32 offset = (signed short)(op & 0xFFFC);
+	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
+	MIPSGPReg rs = _RS;
+
+	bool doCheck = false;
+	switch (op >> 26)
+	{
+	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
+		{
+			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+				gpr.MapRegAsPointer(rs);
+				ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_NOINIT | MAP_DIRTY);
+				if (offset) {
+					ADDI2R(R0, gpr.RPtr(rs), offset, R1);
+					VLD1_lane(F_32, ar, R0, 0, true);
+				} else {
+					VLD1_lane(F_32, ar, gpr.RPtr(rs), 0, true);
+				}
+				break;
+			}
+
+			// CC might be set by slow path below, so load regs first.
+			ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_DIRTY | MAP_NOINIT);
+			if (gpr.IsImm(rs)) {
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+				gpr.SetRegImm(R0, addr + (u32)Memory::base);
+			} else {
+				gpr.MapReg(rs);
+				if (g_Config.bFastMemory) {
+					SetR0ToEffectiveAddress(rs, offset);
+				} else {
+					SetCCAndR0ForSafeAddress(rs, offset, R1);
+					doCheck = true;
+				}
+				ADD(R0, R0, MEMBASEREG);
+			}
+			FixupBranch skip;
+			if (doCheck) {
+				skip = B_CC(CC_EQ);
+			}
+			VLD1_lane(F_32, ar, R0, 0, true);
+			if (doCheck) {
+				SetJumpTarget(skip);
+				SetCC(CC_AL);
+			}
+		}
+		break;
+
+	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
+		{
+			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+				gpr.MapRegAsPointer(rs);
+				ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
+				if (offset) {
+					ADDI2R(R0, gpr.RPtr(rs), offset, R1);
+					VLD1_lane(F_32, ar, R0, 0, true);
+				} else {
+					VLD1_lane(F_32, ar, gpr.RPtr(rs), 0, true);
+				}
+				break;
+			}
+
+			// CC might be set by slow path below, so load regs first.
+			ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
+			if (gpr.IsImm(rs)) {
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+				gpr.SetRegImm(R0, addr + (u32)Memory::base);
+			} else {
+				gpr.MapReg(rs);
+				if (g_Config.bFastMemory) {
+					SetR0ToEffectiveAddress(rs, offset);
+				} else {
+					SetCCAndR0ForSafeAddress(rs, offset, R1);
+					doCheck = true;
+				}
+				ADD(R0, R0, MEMBASEREG);
+			}
+			FixupBranch skip;
+			if (doCheck) {
+				skip = B_CC(CC_EQ);
+			}
+			VST1_lane(F_32, ar, R0, 0, true);
+			if (doCheck) {
+				SetJumpTarget(skip);
+				SetCC(CC_AL);
+			}
+		}
+		break;
+	}
 }
 
 #define MIPS_GET_VQVT(op) (((op >> 16) & 0x1f)) | ((op&1) << 5)
@@ -660,14 +805,18 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 		DISABLE;
 		break;
 	case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
-		// Needs iterations on NEON
-		DISABLE;
+		// Let's just defer to VFP for now. Better than calling the interpreter for sure.
+		VMOV(MatchSize(Q0, r.vs), r.vs);
+		for (int i = 0; i < n; i++) {
+			VSQRT((ARMReg)(S0 + i), (ARMReg)(S0 + i));
+		}
+		VMOV(MatchSize(Q0, r.vd), r.vd);
 		break;
 	case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 		DISABLE;
 		break;
 	case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-		// Needs iterations on NEON
+		// Needs iterations on NEON. Just do the same as vrcp and negate.
 		DISABLE;
 		break;
 	case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
@@ -867,9 +1016,37 @@ void Jit::CompNEON_Vcst(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-
 void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+	VectorSize sz = GetVecSize(op);
+	// Do any games use these a noticable amount?
+	switch ((op >> 16) & 31) {
+	case 6:  // vfad
+		{
+			MappedRegs r = NEONMapDirtyIn(op, V_Single, sz);
+			switch (sz) {
+			case V_Pair:
+				VPADD(F_32, r.vd, r.vs, r.vs);
+				break;
+			case V_Triple:
+				VPADD(F_32, D0, D_0(r.vs), D_0(r.vs));
+				VADD(F_32, r.vd, D0, D_1(r.vs));
+				break;
+			case V_Quad:
+				VADD(F_32, R0, D_0(r.vs), D_1(r.vs));
+				VPADD(F_32, r.vd, R0, R0);
+				break;
+			}
+			break;
+		}
+
+	case 7:  // vavg
+		DISABLE;
+		break;
+	}
 }
 
 void Jit::CompNEON_VRot(MIPSOpcode op) {
