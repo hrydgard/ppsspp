@@ -75,6 +75,7 @@ extern u8 *m_pUncachedVRAM;
 // These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
 extern u32 g_MemorySize;
 extern u32 g_MemoryMask;
+extern u32 g_PSPModel;
 
 enum
 {

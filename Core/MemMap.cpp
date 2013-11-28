@@ -61,6 +61,8 @@ u8 *m_pUncachedVRAM;
 // These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
 u32 g_MemorySize;
 u32 g_MemoryMask;
+// Used to store the PSP model on game startup.
+u32 g_PSPModel;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
@@ -99,18 +101,27 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
-	auto s = p.Section("Memory", 1);
+	auto s = p.Section("Memory", 0, 2);
 	if (!s)
 		return;
 
+	if (s < 2) {
+		g_MemorySize = RAM_NORMAL_SIZE;
+		g_PSPModel = PSP_MODEL_FAT;
+	}
+	else {
+		g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
+		p.Do(g_PSPModel);
+		p.DoMarker("PSPModel");
+	}
+
 	p.DoArray(m_pRAM, g_MemorySize);
 	p.DoMarker("RAM");
+
 	p.DoArray(m_pVRAM, VRAM_SIZE);
 	p.DoMarker("VRAM");
 	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
-	p.Do(g_Config.iPSPModel);
-	p.DoMarker("PSPModel");
 }
 
 void Shutdown()

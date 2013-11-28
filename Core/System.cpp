@@ -160,6 +160,7 @@ void CPU_Init() {
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
+	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
 	IdentifiedFileType type = Identify_File(filename);
