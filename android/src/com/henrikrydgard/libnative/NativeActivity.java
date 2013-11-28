@@ -219,7 +219,7 @@ public class NativeActivity extends Activity {
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		int dpi = metrics.densityDpi;
 		// We only use dpi to calculate the width. Smaller aspect ratios have giant text despite high DPI.
-		dpi = dpi * ((float)srcWidth/(float)srcHeight) / (16.0/9.0); // Adjust to 16:9
+		dpi = (int)((float)dpi * ((float)scrWidth/(float)scrHeight) / (16.0/9.0)); // Adjust to 16:9
 		
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
