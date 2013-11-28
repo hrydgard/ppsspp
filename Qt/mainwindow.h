@@ -35,7 +35,6 @@ public:
 
 	void ShowMemory(u32 addr);
 	void updateMenus();
-	void newFrame();
 
 protected:
 	void closeEvent(QCloseEvent *) { exitAct(); }
@@ -46,6 +45,7 @@ signals:
 
 public slots:
 	void Boot();
+	void newFrame();
 
 private slots:
 	// File

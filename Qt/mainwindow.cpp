@@ -349,6 +349,7 @@ void MainWindow::fullscrAct()
 
 		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 
 		showFullScreen();
 
