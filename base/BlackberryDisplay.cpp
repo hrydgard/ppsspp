@@ -77,10 +77,12 @@ void BlackberryMain::startDisplays() {
 	}
 #ifdef ARM
 	screen_get_display_property_iv(screen_dpy[0], SCREEN_PROPERTY_DPI, &dpi); // Only internal display has DPI
+	// We only use dpi to calculate the width. Smaller aspect ratios have giant text despite high DPI.
+	dpi = dpi * (((float)displays[0].width/(float)displays[0].height) / (16.0/9.0)); // Adjust to 16:9
 #else
 	dpi = 340.0f;
 #endif
-	g_dpi_scale = ((pixel_xres == pixel_yres) ? 300.0f : 213.6f) / dpi;
+	g_dpi_scale = 210.0f / dpi;
 	switchDisplay(screen_ui);
 }
 
