@@ -186,6 +186,9 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 				} else if (strcasecmp(value,".dbl") == 0)
 				{
 					AddData(address,size,DATATYPE_WORD);
+				} else if (strcasecmp(value,".asc") == 0)
+				{
+					AddData(address,size,DATATYPE_ASCII);
 				}
 			}
 		} else {				// labels
@@ -254,7 +257,7 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 			{
 				info->type = ST_DATA;
 				info->address = dataAddress;
-				info->size = GetDataSize(functionAddress);
+				info->size = GetDataSize(dataAddress);
 			}
 
 			return true;
