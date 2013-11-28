@@ -35,7 +35,7 @@ before_install:
       tar -xf libs.tar.gz &&
       wget --timeout=30 ${BB_NDK}tools.10.2.0.15.tar.gz -O tools.tar.gz &&
       tar -xf tools.tar.gz &&
-      export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" MAKEFLAGS="-I$QNX_TARGET/usr/include" LD_LIBRARY_PATH="$QNX_TARGET/armle-v7/lib/:$QNX_HOST/usr/lib/:$LD_LIBRARY_PATH" PATH="$QNX_HOST/usr/bin:$PATH";
+      export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
     fi
 
 script:
