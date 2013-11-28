@@ -700,7 +700,7 @@
     <message>
         <location filename="../mainwindow.cpp" line="493"/>
         <source>Save Map File...</source>
-        <translation>&amp;Speichere Map-Datei...</translation>
+        <translation>Speichere Map-Datei...</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="495"/>
@@ -759,7 +759,7 @@
     </message>
     <message>
         <source>&amp;Ignore illegal reads/writes</source>
-        <translation type="obsolete">&amp;Ignoriere illegales lesen/schreiben</translation>
+        <translation type="obsolete">&amp;Ignoriere illegales lesen/schreiben></translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="544"/>
