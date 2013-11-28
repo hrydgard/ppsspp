@@ -184,6 +184,7 @@ public:
 
 	// Initialization
 	virtual void InitClear() = 0;
+	virtual void Reinitialize() = 0;
 
 	virtual void RunEventsUntil(u64 globalticks) = 0;
 	virtual void FinishEventLoop() = 0;

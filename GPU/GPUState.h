@@ -522,6 +522,7 @@ struct GPUStatistics {
 
 bool GPU_Init();
 void GPU_Shutdown();
+void GPU_Reinitialize();
 
 void InitGfxState();
 void ShutdownGfxState();
