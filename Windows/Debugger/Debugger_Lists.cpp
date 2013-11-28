@@ -129,6 +129,10 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 
 void CtrlThreadList::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (row < 0 || row >= (int)threads.size()) {
+		return;
+	}
+
 	switch (col)
 	{
 	case TL_NAME:
@@ -618,6 +622,10 @@ bool CtrlStackTraceView::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, L
 
 void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (row < 0 || row >= (int)frames.size()) {
+		return;
+	}
+
 	switch (col)
 	{
 	case SF_ENTRY:

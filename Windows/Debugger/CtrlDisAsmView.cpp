@@ -972,8 +972,13 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				}
 				else
 				{
-					snprintf(statusBarTextBuff, 256, "WARNING: unable to add function symbol here");
-					SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
+					char symname[128];
+					int newSize = selectRangeEnd - selectRangeStart;
+					snprintf(symname, 128, "u_un_%08X", selectRangeStart);
+					symbolMap.AddFunction(symname, selectRangeStart, newSize);
+					symbolMap.SortSymbols();
+
+					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				redraw();
 			}

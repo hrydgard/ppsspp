@@ -529,7 +529,7 @@ BEGIN
         MENUITEM "Kill Function",              ID_DISASM_ADDHLE
         MENUITEM "Rename Function...",         ID_DISASM_RENAMEFUNCTION
 		MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
-		MENUITEM "Add Function here",          ID_DISASM_ADDFUNCTION
+		MENUITEM "Add Function Here",          ID_DISASM_ADDFUNCTION
 		END
     POPUP "funclist"
     BEGIN
