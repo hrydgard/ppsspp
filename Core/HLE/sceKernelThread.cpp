@@ -2519,6 +2519,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 		if (thread->isReady())
 			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
 
+		hleEatCycles(450);
 		hleReSchedule("change thread priority");
 		return 0;
 	}
