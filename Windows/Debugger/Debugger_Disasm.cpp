@@ -101,8 +101,6 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->setCPU(cpu);
-
-	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 	
 	leftTabs = new TabControl(GetDlgItem(m_hDlg,IDC_LEFTTABS));
 	leftTabs->SetIgnoreBottomMargin(true);
@@ -531,7 +529,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_ALLFUNCTIONS:
 				{
 					symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-					symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_GOTOINT),ST_FUNCTION);
 					break;
 				}
 			default:
@@ -780,7 +777,6 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 void CDisasm::NotifyMapLoaded()
 {
 	symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_GOTOINT),ST_FUNCTION);
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->clearFunctions();
 	ptr->redraw();

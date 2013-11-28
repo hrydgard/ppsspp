@@ -68,7 +68,6 @@ public:
 
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symType) const;
-	void FillSymbolComboBox(HWND listbox,SymbolType symType) const;
 #endif
 
 	void AddFunction(const char* name, u32 address, u32 size);
