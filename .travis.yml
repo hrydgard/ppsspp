@@ -37,7 +37,7 @@ before_install:
 
 script:
 # Compile PPSSPP
-  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then mkdir build-travis && cd build-travis && cmake -DHEADLESS=ON .. && make && cd ..; fi
+  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then ./b.sh --headless; fi
   - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then pushd android && ./ab.sh && popd; fi
   - if [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then pushd Blackberry && ./build.sh --no-package && popd; fi
 
