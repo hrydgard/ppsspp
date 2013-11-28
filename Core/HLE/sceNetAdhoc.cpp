@@ -852,7 +852,7 @@ int sceNetAdhocctlTerm() {
 		}
 		// Free sttuf here
 		closesocket(metasocket);
-		metasocket = INVALID_SOCKET;
+		metasocket = (int)INVALID_SOCKET;
 #ifdef _MSC_VER
 		WSACleanup();
 #endif
@@ -1091,7 +1091,7 @@ int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dp
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 					// Create Infrastructure Socket
-					int tcpsocket = INVALID_SOCKET;
+					int tcpsocket = (int)INVALID_SOCKET;
 					tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 					
 					// Valid Socket produced

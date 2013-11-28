@@ -228,8 +228,8 @@ SymbolType SymbolMap::GetSymbolType(u32 address) const
 
 bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask) const
 {
-	u32 functionAddress = -1;
-	u32 dataAddress = -1;
+	u32 functionAddress = INVALID_ADDRESS;
+	u32 dataAddress = INVALID_ADDRESS;
 
 	if (symmask & ST_FUNCTION)
 		functionAddress = GetFunctionStart(address);
@@ -237,9 +237,9 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 	if (symmask & ST_DATA)
 		dataAddress = GetDataStart(address);
 
-	if (functionAddress == -1 || dataAddress == -1)
+	if (functionAddress == INVALID_ADDRESS || dataAddress == INVALID_ADDRESS)
 	{
-		if (functionAddress != -1)
+		if (functionAddress != INVALID_ADDRESS)
 		{
 			if (info != NULL)
 			{
@@ -251,7 +251,7 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 			return true;
 		}
 		
-		if (dataAddress != -1)
+		if (dataAddress != INVALID_ADDRESS)
 		{
 			if (info != NULL)
 			{
@@ -283,7 +283,7 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address, SymbolType symmask)
 	const auto dataEntry = symmask & ST_DATA ? data.upper_bound(address) : data.end();
 	
 	if (functionEntry == functions.end() && dataEntry == data.end())
-		return -1;
+		return INVALID_ADDRESS;
 
 	u32 funcAddress = (functionEntry != functions.end()) ? functionEntry->first : 0xFFFFFFFF;
 	u32 dataAddress = (dataEntry != data.end()) ? dataEntry->first : 0xFFFFFFFF;
@@ -302,12 +302,12 @@ const char *SymbolMap::GetDescription(unsigned int address) const
 	const char* labelName = NULL;
 
 	u32 funcStart = GetFunctionStart(address);
-	if (funcStart != -1)
+	if (funcStart != INVALID_ADDRESS)
 	{
 		labelName = GetLabelName(funcStart);
 	} else {
 		u32 dataStart = GetDataStart(address);
-		if (dataStart != -1)
+		if (dataStart != INVALID_ADDRESS)
 			labelName = GetLabelName(dataStart);
 	}
 
@@ -384,7 +384,7 @@ u32 SymbolMap::GetFunctionStart(u32 address) const
 		}
 		
 		// otherwise there's no function that contains this address
-		return -1;
+		return INVALID_ADDRESS;
 	}
 
 	if (it != functions.begin())
@@ -397,14 +397,14 @@ u32 SymbolMap::GetFunctionStart(u32 address) const
 			return start;
 	}
 
-	return -1;
+	return INVALID_ADDRESS;
 }
 
 u32 SymbolMap::GetFunctionSize(u32 startAddress) const
 {
 	auto it = functions.find(startAddress);
 	if (it == functions.end())
-		return -1;
+		return INVALID_ADDRESS;
 
 	return it->second.size;
 }
@@ -412,12 +412,12 @@ u32 SymbolMap::GetFunctionSize(u32 startAddress) const
 int SymbolMap::GetFunctionNum(u32 address) const
 {
 	u32 start = GetFunctionStart(address);
-	if (start == -1)
-		return -1;
+	if (start == INVALID_ADDRESS)
+		return INVALID_ADDRESS;
 
 	auto it = functions.find(start);
 	if (it == functions.end())
-		return -1;
+		return INVALID_ADDRESS;
 
 	return it->second.index;
 }
@@ -548,7 +548,7 @@ u32 SymbolMap::GetDataStart(u32 address) const
 		}
 		
 		// otherwise there's no data that contains this address
-		return -1;
+		return INVALID_ADDRESS;
 	}
 
 	if (it != data.begin())
@@ -561,14 +561,14 @@ u32 SymbolMap::GetDataStart(u32 address) const
 			return start;
 	}
 
-	return -1;
+	return INVALID_ADDRESS;
 }
 
 u32 SymbolMap::GetDataSize(u32 startAddress) const
 {
 	auto it = data.find(startAddress);
 	if (it == data.end())
-		return -1;
+		return INVALID_ADDRESS;
 
 	return it->second.size;
 }
