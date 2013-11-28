@@ -110,9 +110,10 @@ void DoState(PointerWrap &p)
 		g_PSPModel = PSP_MODEL_FAT;
 	}
 	else {
-		g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
 		p.Do(g_PSPModel);
 		p.DoMarker("PSPModel");
+
+		g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
 	}
 
 	p.DoArray(m_pRAM, g_MemorySize);
