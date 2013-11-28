@@ -98,7 +98,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 
 		u32 address,size,vaddress;
 		SymbolType type;
-		char name[128];
+		char name[128] = {0};
 
 		sscanf(line,"%08x %08x %08x %i %127c",&address,&size,&vaddress,(int*)&type,name);
 		
