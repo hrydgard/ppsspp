@@ -133,11 +133,9 @@ void CenterRect(float *x, float *y, float *w, float *h,
 		*x = 0.0f;
 		*w = frameW;
 		*h = frameW / origRatio;
-#ifdef BLACKBERRY
 		// Stretch a little bit
 		if (g_Config.bPartialStretch)
 			*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
-#endif
 		*y = (frameH - *h) / 2.0f;
 	} else {
 		// Image is taller than frame. Center horizontally.
