@@ -47,6 +47,8 @@
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
+#include "GPU/GPUState.h"
+
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
@@ -1223,6 +1225,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		//HLE needs to be reset here
 		HLEShutdown();
 		HLEInit();
+		GPU_Reinitialize();
 	}
 
 	__KernelModuleInit();
