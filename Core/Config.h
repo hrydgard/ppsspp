@@ -213,6 +213,7 @@ public:
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	int iPSPModel;
 	// TODO: Make this work with your platform, too!
 #ifdef _WIN32
 	bool bBypassOSKWithKeyboard;

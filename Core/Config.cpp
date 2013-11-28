@@ -294,6 +294,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 	
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+	// 0 = PSP Fat, 1 = PSP Slim
+	pspConfig->Get("PSPModel", &iPSPModel, 0);
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
 	pspConfig->Get("MacAddress", &localMacAddress, "01:02:03:04:05:06");
@@ -520,6 +522,7 @@ void Config::Save() {
 
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+		pspConfig->Set("PSPModel", iPSPModel);
 		pspConfig->Set("NickName", sNickName.c_str());
         pspConfig->Set("proAdhocServer", proAdhocServer.c_str());
         pspConfig->Set("MacAddress", localMacAddress.c_str());

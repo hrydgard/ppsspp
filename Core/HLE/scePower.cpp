@@ -55,7 +55,7 @@ static bool volatileMemLocked;
 static int powerCbSlots[numberOfCBPowerSlots];
 static std::vector<VolatileWaitingThread> volatileWaitingThreads;
 
-// this should belong here on in CoreTiming?
+// Should this belong here, or in CoreTiming?
 static int pllFreq = 222;
 static int busFreq = 111;
 
@@ -412,7 +412,9 @@ int scePowerTick() {
 
 
 u32 IsPSPNonFat() {
-	return PSP_MODEL_FAT;  
+	DEBUG_LOG(HLE, "%d=scePower_a85880d0_IsPSPNonFat()", g_Config.iPSPModel);
+
+	return g_Config.iPSPModel;  
 }
 
 static const HLEFunction scePower[] = {
