@@ -7,9 +7,15 @@ if [ -z "$BB_OS" ]; then
 fi
 echo "Building for Blackberry ${BB_OS}"
 
-# Set up cmake with GCC 4.6.3 cross-compiler from PATH
-CC=ntoarmv7-gcc CXX=ntoarmv7-g++ cmake -DBLACKBERRY=${BB_OS} ..
+if [[ "$1" == "--simulator" ]]; then
+	SIM="-DSIMULATOR=ON"
+fi
+
+cmake ${SIM} -DCMAKE_TOOLCHAIN_FILE=bb.toolchain.cmake -DBLACKBERRY=${BB_OS} ..
 
 # Compile and create unsigned PPSSPP.bar with debugtoken
-DEBUG="-devMode -debugToken ${HOME}/debugtoken.bar"
-make -j4 && blackberry-nativepackager -package PPSSPP.bar bar-descriptor.xml $DEBUG
+make -j4
+if [[ "$1" != "--no-package" ]]; then
+	DEBUG="-devMode -debugToken ${HOME}/debugtoken.bar"
+	blackberry-nativepackager -package PPSSPP.bar bar-descriptor.xml $DEBUG
+fi

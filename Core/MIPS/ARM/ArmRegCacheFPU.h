@@ -21,9 +21,9 @@
 
 #include "../MIPS.h"
 #include "../MIPSAnalyst.h"
-#include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Common/ArmEmitter.h"
 
 using namespace ArmGen;
 
