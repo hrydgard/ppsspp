@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "base/basictypes.h"
+
 #undef major
 #undef minor
 
@@ -49,3 +51,5 @@ struct Version {
 private:
 	bool ParseVersionString(std::string str);
 };
+
+bool ParseMacAddress(std::string str, uint8_t macAddr[6]);
