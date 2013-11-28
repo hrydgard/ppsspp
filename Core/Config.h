@@ -27,6 +27,8 @@ extern const char *PPSSPP_GIT_VERSION;
 #endif
 
 const int MAX_CONFIG_VOLUME = 8;
+const int PSP_MODEL_FAT = 0;
+const int PSP_MODEL_SLIM = 1;
 
 namespace http {
 	class Download;

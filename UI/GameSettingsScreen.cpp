@@ -295,9 +295,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, s->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
-	static const char *pspModels[] = { "PSP-1000 (Fat)", "PSP-2000 (Slim)" };
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, s->T("PSP Model"), pspModels, 0, 2, s, screenManager()));
-
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {

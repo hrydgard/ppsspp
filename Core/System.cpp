@@ -153,7 +153,11 @@ void CPU_Init() {
 
 	// Default memory settings
 	// Seems to be the safest place currently..
-	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
+	if (g_Config.iPSPModel == PSP_MODEL_FAT)
+		Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
+	else
+		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
 
