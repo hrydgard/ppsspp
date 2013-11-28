@@ -526,11 +526,11 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
     return iResult;
   }
 #endif
-  metasocket = INVALID_SOCKET;
+  metasocket = (int)INVALID_SOCKET;
   metasocket = socket(AF_INET,SOCK_STREAM, IPPROTO_TCP);
   if(metasocket == INVALID_SOCKET){
     ERROR_LOG(SCENET,"invalid socket");
-    return INVALID_SOCKET;
+    return -1;
   }
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;

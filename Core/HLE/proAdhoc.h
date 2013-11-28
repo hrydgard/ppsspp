@@ -37,6 +37,10 @@
 #endif
 #ifdef _MSC_VER
 #define PACK
+#undef errno
+#undef EAGAIN
+#undef EINPROGRESS
+#undef EISCONN
 #define errno WSAGetLastError()
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK

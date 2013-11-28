@@ -229,7 +229,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
 				//return ERROR_NET_ADHOC_PORT_IN_USE;
 
 				// Create Internet UDP Socket
-				int usocket = INVALID_SOCKET;
+				int usocket = (int)INVALID_SOCKET;
 				usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
 				if(usocket != INVALID_SOCKET) {
