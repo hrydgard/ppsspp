@@ -633,6 +633,10 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 }
 
 void CtrlStateValues::GetColumnText(wchar_t *dest, int row, int col) {
+	if (row < 0 || row >= rowCount_) {
+		return;
+	}
+
 	switch (col) {
 	case STATEVALUES_COL_NAME:
 		wcscpy(dest, rows_[row].title);

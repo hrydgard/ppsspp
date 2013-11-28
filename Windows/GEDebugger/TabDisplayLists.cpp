@@ -33,6 +33,9 @@ CtrlDisplayListStack::CtrlDisplayListStack(HWND hwnd): GenericListControl(hwnd,d
 
 void CtrlDisplayListStack::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (row < 0 || row >= (int)ARRAY_SIZE(list.stack)) {
+		return;
+	}
 	DisplayListStackEntry value = list.stack[row];
 
 	switch (col)
@@ -77,6 +80,9 @@ CtrlAllDisplayLists::CtrlAllDisplayLists(HWND hwnd): GenericListControl(hwnd,all
 
 void CtrlAllDisplayLists::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (row < 0 || row >= (int)lists.size()) {
+		return;
+	}
 	DisplayList& list = lists[row];
 
 	switch (col)
