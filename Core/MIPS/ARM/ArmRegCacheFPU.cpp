@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 
@@ -498,7 +499,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 			// WARN_LOG(JIT, "S: Falling back to individual flush: pc=%08x", js_->compilerPC);
 			break;
 		case V_Pair:
-			if (qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
+			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1])) {
 				// Can combine, it's a column!
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
@@ -511,7 +512,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 			}
 			break;
 		case V_Triple:
-			if (qr[quad].vregs[2] == qr[quad].vregs[1] + 1 && qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
+			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1], qr[quad].vregs[2])) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
@@ -526,7 +527,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 			}
 			break;
 		case V_Quad:
-			if (qr[quad].vregs[3] == qr[quad].vregs[2] + 1 && qr[quad].vregs[2] == qr[quad].vregs[1] + 1 && qr[quad].vregs[1] == qr[quad].vregs[0] + 1) {
+			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1], qr[quad].vregs[2], qr[quad].vregs[3])) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
@@ -625,6 +626,18 @@ ARMReg ArmRegCacheFPU::QAllocTemp() {
 	qr[q].isTemp = true;
 	qr[q].sz = V_Quad;
 	return ARMReg(Q0 + q);
+}
+
+bool ArmRegCacheFPU::Consecutive(int v1, int v2) const {
+	return (voffset[v1] + 1) == voffset[v2];
+}
+
+bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3) const {
+	return Consecutive(v1, v2) && Consecutive(v2, v3);
+}
+
+bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3, int v4) const {
+	return Consecutive(v1, v2) && Consecutive(v2, v3) && Consecutive(v3, v4);
 }
 
 ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
@@ -736,7 +749,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
 			break;
 		case V_Pair:
-			if (vregs[1] == vregs[0] + 1) {
+			if (Consecutive(vregs[0], vregs[1])) {
 				// Can combine, it's a column!
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
@@ -748,7 +761,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 			}
 			break;
 		case V_Triple:
-			if (vregs[1] == vregs[0] + 1) {
+			if (Consecutive(vregs[0], vregs[1], vregs[2])) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
 				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
@@ -762,7 +775,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 			}
 			break;
 		case V_Quad:
-			if (vregs[3] == vregs[2] + 1 && vregs[2] == vregs[1] + 1 && vregs[1] == vregs[0] + 1) {
+			if (Consecutive(vregs[0], vregs[1], vregs[2], vregs[3])) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
 				emit_->VLD1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {

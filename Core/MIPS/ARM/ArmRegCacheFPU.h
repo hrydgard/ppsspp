@@ -149,6 +149,10 @@ public:
 	int GetMipsRegOffset(MIPSReg r);
 
 private:
+	bool Consecutive(int v1, int v2) const;
+	bool Consecutive(int v1, int v2, int v3) const;
+	bool Consecutive(int v1, int v2, int v3, int v4) const;
+
 	MIPSReg GetTempR();
 	const ARMReg *GetMIPSAllocationOrder(int &count);
 	int GetMipsRegOffsetV(MIPSReg r) {
