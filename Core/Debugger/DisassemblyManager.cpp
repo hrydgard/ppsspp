@@ -153,7 +153,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 
 			u32 next = symbolMap.GetNextSymbolAddress(address,ST_ALL);
 
-			if (next % 4)
+			if ((next % 4) && next != -1)
 			{
 				u32 alignedNext = next & ~3;
 
