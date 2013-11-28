@@ -101,7 +101,7 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
-	auto s = p.Section("Memory", 0, 2);
+	auto s = p.Section("Memory", 1, 2);
 	if (!s)
 		return;
 
