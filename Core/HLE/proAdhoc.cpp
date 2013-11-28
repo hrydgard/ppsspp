@@ -312,11 +312,7 @@ int friendFinder(){
           SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
 
           // Fix for Idiots that try to troll the "ME" Nametag
-#ifdef _MSC_VER 
-          if(stricmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
-#else
           if(strcasecmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
-#endif
 
           // Add Incoming Chat to HUD
           //printf("Receive chat message %s", packet->base.message);
