@@ -64,6 +64,7 @@ enum CmdFormatType {
 	CMD_FMT_TEXMODE,
 	CMD_FMT_LOGICOP,
 	CMD_FMT_TEXWRAP,
+	CMD_FMT_TEXFILTER,
 };
 
 struct TabStateRow {
@@ -162,8 +163,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_TEXMODE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_TEXFILTER, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_TEXWRAP, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
@@ -608,6 +608,28 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				const bool clampS = (value & 0x0001) != 0;
 				const bool clampT = (value & 0x0100) != 0;
 				swprintf(dest, L"%S s, %S t", clampS ? "clamp" : "wrap", clampT ? "clamp" : "wrap");
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXFILTER:
+		{
+			const char *textureFilters[] = {
+				"nearest",
+				"linear",
+				NULL,
+				NULL,
+				"nearest, mipmap nearest",
+				"linear, mipmap nearest",
+				"nearest, mipmap linear",
+				"linear, mipmap linear",
+			};
+			if ((value & ~0x0107) == 0 && textureFilters[value & 7] != NULL) {
+				const int min = (value & 0x0007) >> 0;
+				const int mag = (value & 0x0100) >> 8;
+				swprintf(dest, L"min: %S, mag: %S", textureFilters[min], textureFilters[mag]);
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
