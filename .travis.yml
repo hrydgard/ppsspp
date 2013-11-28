@@ -13,12 +13,16 @@ compiler:
 
 before_install:
   - git submodule update --init --recursive
-  - sudo add-apt-repository -y ppa:ubuntu-sdk-team/ppa && sudo apt-get update && sudo apt-get install cmake lib32z1-dev lib32stdc++6
+  - sudo apt-get install lib32z1-dev lib32stdc++6 -qq
+# Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
+  - wget http://www.cmake.org/files/v2.8/cmake-2.8.12.1-Linux-i386.sh
+  - chmod a+x cmake-2.8.12.1-Linux-i386.sh
+  - sudo ./cmake-2.8.12.1-Linux-i386.sh --skip-license --prefix=/usr
 # Linux Setup
-  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then sudo apt-get install libsdl1.2-dev; fi
+  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then sudo apt-get install libsdl1.2-dev -qq; fi
 # Android NDK
   - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
-      sudo apt-get install openjdk-7-jdk ant &&
+      sudo apt-get install openjdk-7-jdk ant -qq &&
       wget --timeout=30 http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2 -O ndk.tar.bz2 &&
       tar -xf ndk.tar.bz2 &&
       export ANDROID_HOME=$(pwd)/android-ndk-r9 NDK=$(pwd)/android-ndk-r9;
@@ -31,8 +35,7 @@ before_install:
       tar -xf libs.tar.gz &&
       wget --timeout=30 ${BB_NDK}tools.10.2.0.15.tar.gz -O tools.tar.gz &&
       tar -xf tools.tar.gz &&
-      QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" && QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" && MAKEFLAGS="-I$QNX_TARGET/usr/include" LD_LIBRARY_PATH="$QNX_TARGET/armle-v7/lib/:$QNX_HOST/usr/lib/:$LD_LIBRARY_PATH" && PATH="$QNX_HOST/usr/bin:$PATH" &&
-      export QNX_TARGET QNX_HOST MAKEFLAGS LD_LIBRARY_PATH PATH;
+      export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" MAKEFLAGS="-I$QNX_TARGET/usr/include" LD_LIBRARY_PATH="$QNX_TARGET/armle-v7/lib/:$QNX_HOST/usr/lib/:$LD_LIBRARY_PATH" PATH="$QNX_HOST/usr/bin:$PATH";
     fi
 
 script:

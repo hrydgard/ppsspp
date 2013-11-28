@@ -11,7 +11,7 @@ if [[ "$1" == "--simulator" ]]; then
 	SIM="-DSIMULATOR=ON"
 fi
 
-cmake ${SIM} -DCMAKE_TOOLCHAIN_FILE=bb.toolchain.cmake -DBLACKBERRY=${BB_OS} ..
+cmake ${SIM} -DCMAKE_TOOLCHAIN_FILE=bb.toolchain.cmake -DBLACKBERRY=${BB_OS} .. | grep -v '^-- '
 
 # Compile and create unsigned PPSSPP.bar with debugtoken
 make -j4
