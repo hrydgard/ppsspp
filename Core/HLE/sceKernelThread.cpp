@@ -520,7 +520,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Thread", 1, 3);
+		auto s = p.Section("Thread", 1, 4);
 		if (!s)
 			return;
 
@@ -530,7 +530,21 @@ public:
 		p.Do(isProcessingCallbacks);
 		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
+
+		// TODO: How do I "version" adding a DoState method to ThreadContext?
 		p.Do(context);
+
+		if (s <= 3)
+		{
+			// We must have been loading an old state if we're here.
+			// Reorder VFPU data to new order.
+			float temp[128];
+			memcpy(temp, context.v, 128 * sizeof(float));
+			for (int i = 0; i < 128; i++) {
+				context.v[voffset[i]] = temp[i];
+			}
+		}
+
 		if (s <= 2)
 		{
 			context.other[4] = context.other[5];

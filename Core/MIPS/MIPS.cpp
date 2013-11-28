@@ -44,6 +44,9 @@ MIPSState *currentMIPS = &mipsr4k;
 MIPSDebugInterface debugr4k(&mipsr4k);
 MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 
+u8 voffset[128];
+u8 fromvoffset[128];
+
 
 #ifndef M_LOG2E
 #define M_E        2.71828182845904523536f
@@ -89,6 +92,70 @@ const float cst_constants[32] = {
 MIPSState::MIPSState()
 {
 	MIPSComp::jit = 0;
+
+	// Initialize vorder
+
+	// This reordering of the VFPU registers in RAM means that instead of being like this:
+
+	// 0x00 0x20 0x40 0x60 -> "columns", the most common direction
+	// 0x01 0x21 0x41 0x61
+	// 0x02 0x22 0x42 0x62
+	// 0x03 0x23 0x43 0x63
+	
+	// 0x04 0x24 0x44 0x64
+	// 0x06 0x26 0x45 0x65
+	// ....
+
+	// the VPU registers are effectively organized like this:
+	// 0x00 0x01 0x02 0x03
+	// 0x04 0x05 0x06 0x07
+	// 0x08 0x09 0x0a 0x0b 
+	// ....
+
+	// This is because the original indices look like this:
+	// 0XXMMMYY where M is the matrix number.
+
+	// We will now map 0YYMMMXX to 0MMMXXYY.
+
+	// Advantages: 
+	// * Columns can be flushed and reloaded faster "at once"
+	// * 4x4 Matrices are contiguous in RAM, making them, too, fast-loadable in NEON
+
+	// Disadvantages:
+	// * Extra indirection, can be confusing and slower (interpreter only)
+	// * Flushing and reloading row registers is now slower
+	
+	int i = 0;
+	for (int m = 0; m < 8; m++) {
+		for (int y = 0; y < 4; y++) {
+			for (int x = 0; x < 4; x++) {
+				voffset[m * 4 + x * 32 + y] = i++;
+			}
+		}
+	}
+
+	// And the inverse.
+	for (int i = 0; i < 128; i++) {
+		fromvoffset[voffset[i]] = i;
+	}
+
+	// Sanity check that things that should be ordered are ordered.
+	static const u8 firstThirtyTwo[] = {
+		0x0, 0x20, 0x40, 0x60,
+		0x1, 0x21, 0x41, 0x61,
+		0x2, 0x22, 0x42, 0x62,
+		0x3, 0x23, 0x43, 0x63,
+
+		0x4, 0x24, 0x44, 0x64,
+		0x5, 0x25, 0x45, 0x65,
+		0x6, 0x26, 0x46, 0x66,
+		0x7, 0x27, 0x47, 0x67,
+	};
+	for (int i = 0; i < ARRAY_SIZE(firstThirtyTwo); i++) {
+		if (voffset[firstThirtyTwo[i]] != i) {
+			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
+		}
+	}
 }
 
 MIPSState::~MIPSState()
@@ -146,7 +213,7 @@ void MIPSState::Reset()
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 2);
+	auto s = p.Section("MIPSState", 1, 3);
 	if (!s)
 		return;
 
@@ -160,7 +227,15 @@ void MIPSState::DoState(PointerWrap &p) {
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));
-	p.DoArray(v, sizeof(v) / sizeof(v[0]));
+	if (s <= 2) {
+		float vtemp[128];
+		p.DoArray(vtemp, sizeof(v) / sizeof(v[0]));
+		for (int i = 0; i < 128; i++) {
+			v[voffset[i]] = vtemp[i];
+		}
+	} else {
+		p.DoArray(v, sizeof(v) / sizeof(v[0]));
+	}
 	p.DoArray(vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
 	p.Do(pc);
 	p.Do(nextPC);

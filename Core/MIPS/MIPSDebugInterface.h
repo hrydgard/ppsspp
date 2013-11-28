@@ -107,7 +107,7 @@ public:
 			return temp;
 
 		case 2:
-			memcpy(&temp, &cpu->v[index], 4);
+			memcpy(&temp, &cpu->v[voffset[index]], 4);
 			return temp;
 
 		default:
@@ -129,7 +129,7 @@ public:
 			break;
 
 		case 2:
-			memcpy(&cpu->v[index], &value, 4);
+			memcpy(&cpu->v[voffset[index]], &value, 4);
 			break;
 
 		default:
