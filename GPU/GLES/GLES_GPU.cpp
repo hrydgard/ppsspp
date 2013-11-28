@@ -1445,6 +1445,9 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_MASKALPHA:
 		break;
 
+	case GE_CMD_REVERSENORMAL:
+		break;
+
 	case GE_CMD_UNKNOWN_03: 
 	case GE_CMD_UNKNOWN_0D:
 	case GE_CMD_UNKNOWN_11:
