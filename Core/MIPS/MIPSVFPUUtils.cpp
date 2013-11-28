@@ -283,6 +283,15 @@ MatrixSize GetMtxSize(MIPSOpcode op)
 	}
 }
 
+VectorSize MatrixVectorSize(MatrixSize sz) {
+	switch (sz) {
+	case M_2x2: return V_Pair;
+	case M_3x3: return V_Triple;
+	case M_4x4: return V_Quad;
+	default: return V_Quad;
+	}
+}
+
 int GetMatrixSide(MatrixSize sz)
 {
 	switch (sz)
@@ -291,6 +300,20 @@ int GetMatrixSide(MatrixSize sz)
 	case M_3x3: return 3;
 	case M_4x4: return 4;
 	default: return 0;
+	}
+}
+
+void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+	int n = GetMatrixSide(msize);
+	for (int i = 0; i < n; i++) {
+		// vecs[i] = 
+	}
+}
+
+void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+	int n = GetMatrixSide(msize);
+	for (int i = 0; i < n; i++) {
+		// vecs[i] = 
 	}
 }
 

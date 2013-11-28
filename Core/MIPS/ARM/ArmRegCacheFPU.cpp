@@ -291,6 +291,35 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	}
 }
 
+void ArmRegCacheFPU::FlushV(MIPSReg r) {
+	FlushR(r + 32);
+}
+
+void ArmRegCacheFPU::FlushQWithV(MIPSReg r) {
+	// Look for it in all the quads. If it's in any, flush that quad clean.
+	int flushCount = 0;
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		if (qr[i].sz = V_Invalid)
+			continue;
+
+		int n = qr[i].sz;
+		for (int j = 0; j < n; j++) {
+			if (qr[i].vregs[j] == r) {
+				QFlush(i);
+				flushCount++;
+			}
+		}
+	}
+
+	if (flushCount > 1) {
+		ERROR_LOG(JIT, "ERROR: More than one quad was flushed to flush reg %i", r);
+	}
+
+	if (flushCount == 0) {
+		FlushR(r + 32);
+	}
+}
+
 void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
@@ -309,8 +338,8 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 			// mipsreg that's been part of a quad.
 			int quad = mr[r].reg - Q0;
 			if (qr[quad].isDirty) {
-				WARN_LOG(JIT, "BAD: FlushR found quad register %i - PC=%08x", quad, js_->compilerPC);
-				emit_->ADD(R0, CTXREG, GetMipsRegOffset(r));
+				WARN_LOG(JIT, "FlushR found quad register %i - PC=%08x", quad, js_->compilerPC);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(r), R1);
 				emit_->VST1_lane(F_32, (ARMReg)mr[r].reg, R0, mr[r].lane, true);
 			}
 		} else {
@@ -542,6 +571,8 @@ void ArmRegCacheFPU::QFlush(int quad) {
 				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 3, true);
 			}
 			break;
+		default:
+			;
 		}
 
 		qr[quad].isDirty = false;
@@ -560,6 +591,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 	}
 	qr[quad].mipsVec = -1;
 	qr[quad].sz = V_Invalid;
+	memset(qr[quad].vregs, 0xFF, 4);
 }
 
 int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
@@ -670,6 +702,11 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 
 		// Old was shorter!
 		if (matchCount > 0 && matchCount < n) {
+			// If the missing elements are elsewhere, they NEED to be flushed out.
+			for (int i = matchCount; i < n; i++) {
+				FlushQWithV(vregs[i]);
+			}
+
 			// OK, let's extend by loading the missing elements.
 			for (int i = matchCount; i < n; i++) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[i]), R1);
@@ -789,6 +826,8 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 3, true);
 			}
 			break;
+		default:
+			;
 		}
 	}
 
@@ -809,3 +848,4 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		return QuadAsQ(quad);
 	}
 }
+

@@ -45,9 +45,11 @@
 #include "Core/MIPS/ARM/ArmRegCache.h"
 
 // TODO: Somehow #ifdef away on ARMv5eabi, without breaking the linker.
+// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
@@ -352,7 +354,25 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 		switch ((op >> 23) & 7) {
 		case 0: VADD(F_32, r.vd, r.vs, r.vt); break; // vadd
 		case 1: VSUB(F_32, r.vd, r.vs, r.vt); break; // vsub
-		case 7: DISABLE; /* VDIV(F_32, vd, vs, vt); */  break; // vdiv  THERE IS NO NEON SIMD VDIV :(  There's a fast reciprocal iterator thing though.
+		case 7: // vdiv  // vdiv  THERE IS NO NEON SIMD VDIV :(  There's a fast reciprocal iterator thing though.
+			{
+				// Implement by falling back to VFP
+				VMOV(D0, D_0(r.vs));
+				VMOV(D1, D_0(r.vt));
+				VDIV(S0, S0, S2);
+				if (sz >= V_Pair)
+					VDIV(S1, S1, S3);
+				VMOV(D_0(r.vd), D0);
+				if (sz >= V_Triple) {
+					VMOV(D0, D_1(r.vs));
+					VMOV(D1, D_1(r.vt));
+					VDIV(S0, S0, S2);
+					if (sz == V_Quad)
+						VDIV(S1, S1, S3);
+					VMOV(D_1(r.vd), D0);
+				}
+			}
+			break; 
 		default:
 			DISABLE;
 		}
@@ -390,6 +410,9 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
+
+// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+
 void Jit::CompNEON_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	
@@ -415,6 +438,7 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+				INFO_LOG(HLE, "LV.S fastmode!");
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_NOINIT | MAP_DIRTY);
 				if (offset) {
@@ -425,6 +449,7 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 				}
 				break;
 			}
+			INFO_LOG(HLE, "LV.S slowmode!");
 
 			// CC might be set by slow path below, so load regs first.
 			ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_DIRTY | MAP_NOINIT);
@@ -456,17 +481,19 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+				INFO_LOG(HLE, "SV.S fastmode!");
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
 				if (offset) {
 					ADDI2R(R0, gpr.RPtr(rs), offset, R1);
-					VLD1_lane(F_32, ar, R0, 0, true);
+					VST1_lane(F_32, ar, R0, 0, true);
 				} else {
-					VLD1_lane(F_32, ar, gpr.RPtr(rs), 0, true);
+					VST1_lane(F_32, ar, gpr.RPtr(rs), 0, true);
 				}
 				break;
 			}
 
+			INFO_LOG(HLE, "SV.S slowmode!");
 			// CC might be set by slow path below, so load regs first.
 			ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
 			if (gpr.IsImm(rs)) {
@@ -496,13 +523,15 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 	}
 }
 
-#define MIPS_GET_VQVT(op) (((op >> 16) & 0x1f)) | ((op&1) << 5)
+inline int MIPS_GET_VQVT(u32 op) {
+	return (((op >> 16) & 0x1f)) | ((op & 1) << 5);
+}
 
 void Jit::CompNEON_SVQ(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
-	int offset = (signed short)(op&0xFFFC);
-	int vt = MIPS_GET_VQVT(op);
+	int offset = (signed short)(op & 0xFFFC);
+	int vt = MIPS_GET_VQVT(op.encoding);
 	MIPSGPReg rs = _RS;
 	bool doCheck = false;
 	switch (op >> 26)
@@ -520,7 +549,7 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 				int rss[4] = {MIPS_GET_RS(op), MIPS_GET_RS(ops[1]), MIPS_GET_RS(ops[2]), MIPS_GET_RS(ops[3])};
 				if (offsets[1] == offset + 16 && offsets[2] == offsets[1] + 16 && offsets[3] == offsets[2] + 16 &&
 					  rss[0] == rss[1] && rss[1] == rss[2] && rss[2] == rss[3]) {
-					int vts[4] = {MIPS_GET_VQVT(op), MIPS_GET_VQVT(ops[1]), MIPS_GET_VQVT(ops[2]), MIPS_GET_VQVT(ops[3])};
+					int vts[4] = {MIPS_GET_VQVT(op.encoding), MIPS_GET_VQVT(ops[1]), MIPS_GET_VQVT(ops[2]), MIPS_GET_VQVT(ops[3])};
 					// Detected four consecutive ones!
 					// gpr.MapRegAsPointer(rs);
 					// fpr.QLoad4x4(vts[4], rs, offset);
@@ -671,17 +700,16 @@ void Jit::CompNEON_VDot(MIPSOpcode op) {
 	case V_Triple:
 		VMUL(F_32, Q0, r.vs, r.vt);
 		VPADD(F_32, D0, D0, D0);
-		VADD(F_32, D0, D0, D1);
-		VMOV(r.vd, Q0);  // this will copy junk too, we really only care about the bottom reg.
+		VADD(F_32, r.vd, D0, D1);
 		break;
 	case V_Quad:
-		// TODO: Alternate solution: VMUL d, VMLA, PADD
-		VMUL(F_32, Q0, r.vs, r.vt);
-		VPADD(F_32, D0, D0, D0);
-		VPADD(F_32, D1, D1, D1);
-		VADD(F_32, D0, D0, D1);
-		VMOV(r.vd, MatchSize(Q0, r.vd));  // this will copy junk too, we really only care about the bottom reg.
+		VMUL(F_32, D0, D_0(r.vs), D_0(r.vt));
+		VMLA(F_32, D0, D_1(r.vs), D_1(r.vt));
+		VPADD(F_32, r.vd, D0, D0);
 		break;
+	case V_Single:
+	case V_Invalid:
+		;
 	}
 
 	NEONApplyPrefixD(r.vd);
@@ -868,6 +896,10 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 
 	case 7: // mtv
 		if (imm < 128) {
+			// TODO: It's pretty common that this is preceded by mfc1, that is, a value is being
+			// moved from the regular floating point registers. It would probably be faster to do
+			// the copy directly in the FPRs instead of going through the GPRs.
+
 			ARMReg r = fpr.QMapReg(imm, V_Single, MAP_DIRTY | MAP_NOINIT);
 			if (gpr.IsMapped(rt)) {
 				VMOV(S0, gpr.R(rt));
@@ -1039,6 +1071,8 @@ void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
 				VADD(F_32, R0, D_0(r.vs), D_1(r.vs));
 				VPADD(F_32, r.vd, R0, R0);
 				break;
+			default:
+				;
 			}
 			break;
 		}

@@ -116,7 +116,7 @@ public:
 
 
 	// This one is allowed at any point.
-	void FlushV(MIPSReg r) { FlushR(r + 32); }
+	void FlushV(MIPSReg r);
 
 
 	// VFPU registers mapped to match NEON quads (and doubles, for pairs and singles)
@@ -134,6 +134,7 @@ public:
 	void QAllowSpill(int quad);
 	void QFlush(int quad);
 	void QLoad4x4(MIPSGPReg regPtr, int vquads[4]);
+	void FlushQWithV(MIPSReg r);
 
 	void FlushAll();
 	

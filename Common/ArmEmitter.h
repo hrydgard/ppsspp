@@ -389,7 +389,13 @@ ARMReg QScalar(ARMReg qreg, int subScalar);
 
 // Get the two halves of a Q register.
 inline ARMReg D_0(ARMReg q) {
-	return ARMReg(D0 + (q - Q0) * 2);
+	if (q >= Q0 && q <= Q15) {
+		return ARMReg(D0 + (q - Q0) * 2);
+	} else if (q >= D0 && q <= D31) {
+		return q;
+	} else {
+		return INVALID_REG;
+	}
 }
 inline ARMReg D_1(ARMReg q) {
 	return ARMReg(D0 + (q - Q0) * 2 + 1);
