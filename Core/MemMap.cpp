@@ -27,6 +27,7 @@
 #include "HLE/HLE.h"
 #include "CPU.h"
 #include "Debugger/SymbolMap.h"
+#include "Core/Config.h"
 
 namespace Memory
 {
@@ -108,6 +109,8 @@ void DoState(PointerWrap &p)
 	p.DoMarker("VRAM");
 	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
+	p.Do(g_Config.iPSPModel);
+	p.DoMarker("PSPModel");
 }
 
 void Shutdown()
