@@ -1,27 +1,19 @@
 #pragma once
 
-#include "Common/ChunkFile.h" 
-#include "../Config.h"
-#include "Core/HLE/HLE.h"
-#include "../CoreTiming.h"
-#include "Core/HLE/sceNetAdhoc.h"
-#include "native/base/timeutil.h"
-#include "native/base/mutex.h"
-#include "native/thread/thread.h"
-
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelMutex.h"
-#include "sceUtility.h"
+#include "base/timeutil.h"
+#include "base/mutex.h"
+#include "thread/thread.h"
 #include "net/resolve.h"
 
-/*
-#ifdef _MSC_VER
-#include <thread.h>
-#else
-#include <thread>
-#endif
-*/
+#include "Common/ChunkFile.h" 
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelMutex.h"
+#include "Core/HLE/sceUtility.h"
 
 // Net stuff
 #ifdef _MSC_VER

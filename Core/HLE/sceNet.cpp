@@ -15,17 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "net/resolve.h"
+#include "util/text/parsers.h"
+
 #include "Common/ChunkFile.h"
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../Config.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Config.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelMutex.h"
 #include "sceUtility.h"
-
-#include "net/resolve.h"
 
 static bool netInited;
 static bool netInetInited;
@@ -131,13 +132,14 @@ u32 sceNetTerm() {
 }
 
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
-    //MAC Adress from config
-    uint8_t mac[6];
-    sscanf(g_Config.localMacAddress.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+  // Read MAC Address from config
+	uint8_t mac[6] = {0};
+	if (!ParseMacAddress(g_Config.localMacAddress.c_str(), mac)) {
+		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.localMacAddress.c_str());
+	}
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
-        Memory::Write_U8(mac[i], addrAddr + i);
-
+		Memory::Write_U8(mac[i], addrAddr + i);
 	return 0;
 }
 

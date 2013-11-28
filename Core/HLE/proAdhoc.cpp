@@ -1,3 +1,6 @@
+// TODO: Add license
+
+#include "util/text/parsers.h"
 #include "proAdhoc.h" 
 
 uint32_t fakePoolSize                 = 0;
@@ -478,31 +481,33 @@ int getActivePeerCount(void) {
 
 int getLocalIp(sockaddr_in * SocketAddress){
 #ifdef _MSC_VER
-  // Get local host name
-  char szHostName[128] = "";
+	// Get local host name
+	char szHostName[128] = "";
 
-  if(::gethostname(szHostName, sizeof(szHostName))) {
-    // Error handling 
-  }
-  // Get local IP addresses
-  struct hostent     *pHost        = 0;
-  pHost = ::gethostbyname(szHostName);
-  if(pHost) {
-    memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
-    return 0;
-  }
-  return -1;
+	if(::gethostname(szHostName, sizeof(szHostName))) {
+		// Error handling 
+	}
+	// Get local IP addresses
+	struct hostent     *pHost        = 0;
+	pHost = ::gethostbyname(szHostName);
+	if(pHost) {
+		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+		return 0;
+	}
+	return -1;
 #else
-  SocketAddress->sin_addr.s_addr = inet_addr("192.168.12.1");
-  return 0;
+	SocketAddress->sin_addr.s_addr = inet_addr("192.168.12.1");
+	return 0;
 #endif
 }
 
 void getLocalMac(SceNetEtherAddr * addr){
-    //MAC Adress from config
-    uint8_t mac[ETHER_ADDR_LEN];
-    sscanf(g_Config.localMacAddress.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
-    memcpy(addr,mac,ETHER_ADDR_LEN);
+	// Read MAC Address from config
+	uint8_t mac[ETHER_ADDR_LEN] = {0};
+	if (!ParseMacAddress(g_Config.localMacAddress.c_str(), mac)) {
+		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.localMacAddress.c_str());
+	}
+	memcpy(addr, mac, ETHER_ADDR_LEN);
 }
 
 int getPTPSocketCount(void) {

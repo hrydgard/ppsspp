@@ -34,6 +34,7 @@
 #include "Common/ArmEmitter.h"
 #include "ext/disarm.h"
 #include "math/math_util.h"
+#include "util/text/parsers.h"
 
 #define EXPECT_TRUE(a) if (!(a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
 #define EXPECT_FALSE(a) if ((a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
@@ -107,9 +108,23 @@ bool TestMathUtil() {
 	return true;
 }
 
+bool TestParsers() {
+	const char *macstr = "01:02:03:ff:fe:fd";
+	uint8_t mac[6];
+	ParseMacAddress(macstr, mac);
+	EXPECT_TRUE(mac[0] == 1);
+	EXPECT_TRUE(mac[1] == 2);
+	EXPECT_TRUE(mac[2] == 3);
+	EXPECT_TRUE(mac[3] == 255);
+	EXPECT_TRUE(mac[4] == 254);
+	EXPECT_TRUE(mac[5] == 253);
+	return true;
+}
+
 int main(int argc, const char *argv[])
 {
 	TestArmEmitter();
 	TestMathUtil();
+	TestParsers();
 	return 0;
 }
