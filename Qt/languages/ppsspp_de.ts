@@ -74,7 +74,7 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>No symbol selected</source>
-        <translation type=Kein Symbol gefunden></translation>
+        <translation type=>Kein Symbol gefunden</translation>
     </message>
 </context>
 <context>
@@ -174,7 +174,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="128"/>
         <source>Show VFPU</source>
-        <translation type=Zeige VFPU></translation>
+        <translation type=>Zeige VFPU</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="147"/>
@@ -194,7 +194,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="236"/>
         <source>Stop</source>
-        <translation type=Stopp></translation>
+        <translation type=>Stopp</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="249"/>
@@ -251,7 +251,7 @@
         <location filename="../debugger_disasm.ui" line="413"/>
         <location filename="../debugger_disasm.ui" line="465"/>
         <source>Status</source>
-        <translation type=Status></translation>
+        <translation type=>Status</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="418"/>
@@ -271,7 +271,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="460"/>
         <source>Name</source>
-        <translation type=Name></translation>
+        <translation type=>Name</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="470"/>
@@ -306,7 +306,7 @@
     <message>
         <location filename="../debugger_disasm.cpp" line="453"/>
         <source>Wait</source>
-        <translation type=Warten></translation>
+        <translation type=>Warten</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="457"/>
@@ -319,7 +319,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="14"/>
         <source>Dialog</source>
-        <translation type=Dialog></translation>
+        <translation type=>Dialog</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="28"/>
@@ -364,7 +364,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="116"/>
         <source>Commands</source>
-        <translation type=Kommandos></translation>
+        <translation type=>Kommandos</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="156"/>
@@ -384,7 +384,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="193"/>
         <source>Textures</source>
-        <translation type=Texturen></translation>
+        <translation type=>Texturen</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="203"/>
@@ -413,7 +413,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="227"/>
         <source>Vertex Buffer</source>
-        <translation type=Vertex Buffer></translation>
+        <translation type=>Vertex Buffer</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="242"/>
@@ -479,7 +479,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="363"/>
         <source>Value</source>
-        <translation type="unfinished"></translation>
+        <translation type=>Wert</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="399"/>
@@ -499,7 +499,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="486"/>
         <source>Color</source>
-        <translation type=Farbe></translation>
+        <translation type=>Farbe</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="491"/>
@@ -509,12 +509,12 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="512"/>
         <source>Zoom-</source>
-        <translation type="unfinished"></translation>
+        <translation type=>Zoom-</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="519"/>
         <source>Zoom+</source>
-        <translation type="unfinished"></translation>
+        <translation type=Zoom+></translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.cpp" line="1773"/>
@@ -532,7 +532,7 @@
     <message>
         <location filename="../debugger_memory.ui" line="14"/>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
+        <translation type=>Dialog</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="22"/>
@@ -1064,7 +1064,7 @@
     <message>
         <location filename="../mainwindow.cpp" line="522"/>
         <source>&amp;Ignore Illegal reads/writes</source>
-        <translation type=Ignoriere illegales lesen/schreiben></translation>
+        <translation type=>Ignoriere illegales lesen/schreiben</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="527"/>
