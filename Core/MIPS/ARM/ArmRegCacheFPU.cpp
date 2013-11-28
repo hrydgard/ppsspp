@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
-#include "Common/ArmEmitter.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 

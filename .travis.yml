@@ -5,32 +5,51 @@ language: cpp
 env:
   - PPSSPP_BUILD_TYPE=Linux
   - PPSSPP_BUILD_TYPE=Android
+  - PPSSPP_BUILD_TYPE=Blackberry
 
 compiler:
   - clang
   - gcc
 
 before_install:
-  - sudo add-apt-repository -y ppa:ubuntu-sdk-team/ppa
-  - sudo apt-get update
-  - sudo apt-get install cmake libsdl1.2-dev openjdk-7-jdk ant lib32z1-dev lib32stdc++6
   - git submodule update --init --recursive
-  - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then wget --timeout=30 http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2 -O ndk.tar.bz2 && tar -xf ndk.tar.bz2; fi
+  - sudo apt-get install lib32z1-dev lib32stdc++6 -qq
+# Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
+  - wget http://www.cmake.org/files/v2.8/cmake-2.8.12.1-Linux-i386.sh
+  - chmod a+x cmake-2.8.12.1-Linux-i386.sh
+  - sudo ./cmake-2.8.12.1-Linux-i386.sh --skip-license --prefix=/usr
+# Linux Setup
+  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then sudo apt-get install libsdl1.2-dev -qq; fi
+# Android NDK
+  - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
+      sudo apt-get install openjdk-7-jdk ant -qq &&
+      wget --timeout=30 http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2 -O ndk.tar.bz2 &&
+      tar -xf ndk.tar.bz2 &&
+      export ANDROID_HOME=$(pwd)/android-ndk-r9 NDK=$(pwd)/android-ndk-r9;
+    fi
   - if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi
-  - export ANDROID_HOME=$(pwd)/android-ndk-r9 NDK=$(pwd)/android-ndk-r9
-
-before_script:
-  - mkdir build-travis
-  - cd build-travis
-  - cmake -DHEADLESS=ON ..
-  - cd ..
+# Blackberry NDK
+  - if [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
+      BB_NDK=http://downloads.blackberry.com/upr/developers/update/bbndk/ndktarget_10.2.0.1155/ndktargetrepo_10.2.0.1155/packages/bbndk.linux. &&
+      wget --timeout=30 ${BB_NDK}libraries.10.2.0.1155.tar.gz -O libs.tar.gz &&
+      tar -xf libs.tar.gz &&
+      wget --timeout=30 ${BB_NDK}tools.10.2.0.15.tar.gz -O tools.tar.gz &&
+      tar -xf tools.tar.gz &&
+      export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" MAKEFLAGS="-I$QNX_TARGET/usr/include" LD_LIBRARY_PATH="$QNX_TARGET/armle-v7/lib/:$QNX_HOST/usr/lib/:$LD_LIBRARY_PATH" PATH="$QNX_HOST/usr/bin:$PATH";
+    fi
 
 script:
-  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then cd build-travis && make && cd ..; else cd android && ./ab.sh && cd ..; fi
+# Compile PPSSPP
+  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then ./b.sh --headless; fi
+  - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then pushd android && ./ab.sh && popd; fi
+  - if [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then pushd Blackberry && ./build.sh --no-package && popd; fi
+
+after_success:
   - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then ./test.py; fi
 
-# For now, Android clang seems to be failing to build.
 matrix:
   exclude:
     - compiler: clang
       env: PPSSPP_BUILD_TYPE=Android
+    - compiler: clang
+      env: PPSSPP_BUILD_TYPE=Blackberry
