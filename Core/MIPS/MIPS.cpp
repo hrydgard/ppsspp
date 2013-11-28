@@ -140,10 +140,20 @@ MIPSState::MIPSState()
 	}
 
 	// Sanity check that things that should be ordered are ordered.
-	const int firstEight[8] = { 0x0, 0x20, 0x40, 0x60, 0x1, 0x21, 0x41, 0x61 };
-	for (int i = 0; i < 8; i++) {
-		if (voffset[firstEight[i]] != i) {
-			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstEight[i], voffset[firstEight[i]], i);
+	static const u8 firstThirtyTwo[] = {
+		0x0, 0x20, 0x40, 0x60,
+		0x1, 0x21, 0x41, 0x61,
+		0x2, 0x22, 0x42, 0x62,
+		0x3, 0x23, 0x43, 0x63,
+
+		0x4, 0x24, 0x44, 0x64,
+		0x5, 0x25, 0x45, 0x65,
+		0x6, 0x26, 0x46, 0x66,
+		0x7, 0x27, 0x47, 0x67,
+	};
+	for (int i = 0; i < ARRAY_SIZE(firstThirtyTwo); i++) {
+		if (voffset[firstThirtyTwo[i]] != i) {
+			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
 		}
 	}
 }
