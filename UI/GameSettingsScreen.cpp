@@ -149,7 +149,7 @@ void GameSettingsScreen::CreateViews() {
 
 	if (PSP_IsInited()) {
 		swSkin->SetEnabled(false);
-		vtxJit->SetEnabled(false);
+		// vtxJit->SetEnabled(false);
 	}
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
