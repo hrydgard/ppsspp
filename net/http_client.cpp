@@ -314,7 +314,7 @@ void Download::SetFailed(int code) {
 void Download::Do(std::shared_ptr<Download> self) {
 	// as long as this is in scope, we won't get destructed.
 	// yeah this is ugly, I need to think about how life time should be managed for these...
-	std::shared_ptr<Download> self_ = self;  
+	std::shared_ptr<Download> self_ = self;
 	resultCode_ = 0;
 
 	Url fileUrl(url_);

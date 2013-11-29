@@ -102,7 +102,9 @@ public:
 		callback_ = callback;
 	}
 	void RunCallback() {
-		callback_(*this);
+		if (callback_) {
+			callback_(*this);
+		}
 	}
 
 private:
