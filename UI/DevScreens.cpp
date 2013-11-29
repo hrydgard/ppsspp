@@ -273,7 +273,53 @@ void SystemInfoScreen::CreateViews() {
 	}
 }
 
+void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	addrView_ = new UI::TextView("Enter address", ALIGN_HCENTER, false);
+	parent->Add(addrView_);
+}
 
+void AddressPromptScreen::OnCompleted(DialogResult result) {
+	if (result == DR_OK) {
+		UI::EventParams e;
+		e.v = root_;
+		e.a = addr_;
+		OnChoice.Trigger(e);
+	}
+}
+
+void AddressPromptScreen::key(const KeyInput &key) {
+	int nextDigit = -1;
+	if (key.flags & KEY_DOWN) {
+		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
+			nextDigit = key.keyCode - NKCODE_0;
+		} else if (key.keyCode >= NKCODE_A && key.keyCode <= NKCODE_F) {
+			nextDigit = 10 + key.keyCode - NKCODE_A;
+		// NKCODE_DEL is backspace.
+		} else if (key.keyCode == NKCODE_DEL) {
+			addr_ /= 16;
+		} else if (key.keyCode == NKCODE_ENTER) {
+			OnCompleted(DR_OK);
+			screenManager()->finishDialog(this, DR_OK);
+			return;
+		} else {
+			UIDialogScreen::key(key);
+		}
+	} else {
+		UIDialogScreen::key(key);
+	}
+
+	if (nextDigit != -1 && (addr_ & 0xF0000000) == 0) {
+		addr_ = addr_ * 16 + nextDigit;
+	}
+
+	if (addr_ != 0) {
+		char temp[32];
+		snprintf(temp, 32, "%8X", addr_);
+		addrView_->SetText(temp);
+	} else {
+		addrView_->SetText("Enter address");
+	}
+}
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
 void JitCompareScreen::CreateViews() {
@@ -297,6 +343,7 @@ void JitCompareScreen::CreateViews() {
 	rightDisasm_->SetSpacing(0.0f);
 
 	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
+	leftColumn->Add(new Choice("By Address"))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
 	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
 	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -371,6 +418,24 @@ void JitCompareScreen::UpdateDisasm() {
 #else
 	rightDisasm_->Add(new TextView("No x86 disassembler available"));
 #endif
+}
+
+UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
+	auto addressPrompt = new AddressPromptScreen("Block address");
+	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
+	screenManager()->push(addressPrompt);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	if (Memory::IsValidAddress(e.a)) {
+		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
+	} else {
+		currentBlock_ = -1;
+	}
+	UpdateDisasm();
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {

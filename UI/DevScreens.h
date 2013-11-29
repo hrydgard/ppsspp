@@ -69,6 +69,23 @@ public:
 	virtual void CreateViews();
 };
 
+class AddressPromptScreen : public PopupScreen {
+public:
+	AddressPromptScreen(const std::string &title) : PopupScreen(title, "OK", "Cancel"), addrView_(NULL), addr_(0) {
+	}
+
+	virtual void key(const KeyInput &key);
+
+	UI::Event OnChoice;
+
+protected:
+	void CreatePopupContents(UI::ViewGroup *parent);
+	virtual void OnCompleted(DialogResult result);
+
+	UI::TextView *addrView_;
+	unsigned int addr_;
+};
+
 class JitCompareScreen : public UIDialogScreenWithBackground {
 public:
 	JitCompareScreen() : currentBlock_(-1) {}
@@ -79,6 +96,8 @@ private:
 	UI::EventReturn OnRandomBlock(UI::EventParams &e);
 	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
 	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
+	UI::EventReturn OnSelectBlock(UI::EventParams &e);
+	UI::EventReturn OnBlockAddress(UI::EventParams &e);
 
 	int currentBlock_;
 
