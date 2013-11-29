@@ -179,7 +179,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iAnisotropyLevel = 4;
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
-	graphics->Get("VertexDecoderJit", &bVertexDecoderJit, true);
+	graphics->Get("VertexDecJit", &bVertexDecoderJit, true);
 
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
@@ -409,10 +409,10 @@ void Config::Save() {
 		general->Set("GridView1", bGridView1);
 		general->Set("GridView2", bGridView2);
 		general->Set("GridView3", bGridView3);
-		
+
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
-	
+
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
 			sprintf(keyName,"FileName%d",i);
@@ -420,7 +420,7 @@ void Config::Save() {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
 				recent->Delete(keyName); // delete the nonexisting FileName
-			} 
+			}
 		}
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
@@ -445,10 +445,9 @@ void Config::Save() {
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
-		graphics->Set("VertexDecoderJit", bVertexDecoderJit);
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
-#endif		
+#endif
 #ifdef BLACKBERRY
 		graphics->Set("PartialStretch", bPartialStretch);
 #endif
