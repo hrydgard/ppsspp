@@ -348,14 +348,29 @@ int DisassemblyFunction::getNumLines()
 
 int DisassemblyFunction::getLineNum(u32 address, bool findStart)
 {
-	for (int i = 0; i < lineAddresses.size(); i++)
+	if (findStart)
 	{
-		u32 next = (i == lineAddresses.size()-1) ? this->address+this->size : lineAddresses[i+1];
-
-		if (lineAddresses[i] == address)
-			return i;
-		if (findStart && lineAddresses[i] <= address && next > address)
-			return i;
+		int last = (int)lineAddresses.size() - 1;
+		for (int i = 0; i < last; i++)
+		{
+			u32 next = lineAddresses[i + 1];
+			if (lineAddresses[i] <= address && next > address)
+				return i;
+		}
+		if (lineAddresses[last] <= address && this->address + this->size > address)
+			return last;
+	}
+	else
+	{
+		int last = (int)lineAddresses.size() - 1;
+		for (int i = 0; i < last; i++)
+		{
+			u32 next = lineAddresses[i + 1];
+			if (lineAddresses[i] == address)
+				return i;
+		}
+		if (lineAddresses[last] == address)
+			return last;
 	}
 
 	return 0;
