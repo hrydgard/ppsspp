@@ -71,24 +71,25 @@ option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLES
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
-if(ANDROID)
-	if(NOT ANDROID_ABI)
+if(ANDROID OR BLACKBERRY OR IOS)
+	if (NOT CMAKE_TOOLCHAIN_FILE)
+		if (ANDROID)
+			set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/android/android.toolchain.cmake)
+		elseif(BLACKBERRY)
+			set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/Blackberry/bb.toolchain.cmake)
+		elseif(IOS)
+			set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/ios/ios.toolchain.cmake)
+		endif()
 		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
-			"Delete the CMakeCache.txt file and CMakeFiles directory."
-			"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
-			"=${CMAKE_SOURCE_DIR}/android/android.toolchain.cmake\"")
+			"Delete the CMakeCache.txt file and CMakeFiles directory.\n"
+			"Re-run ${CMAKE_COMMAND} with:\n"
+			"\"-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}\"")
 	endif()
+endif()
+
+if(ANDROID)
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
-elseif(IOS)
-	if (NOT IOS_PLATFORM)
-		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
-			"Delete the CMakeCache.txt file and CMakeFiles directory."
-			"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
-			"=${CMAKE_SOURCE_DIR}/ios/ios.toolchain.cmake\"")
-	endif()
-	set(CoreLibName Core)
-	set(CoreLinkType STATIC)
 else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
