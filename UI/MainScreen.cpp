@@ -234,13 +234,19 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 }
 
+enum GameBrowserFlags {
+	FLAG_HOMEBREWSTOREBUTTON = 1
+};
+
+
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = 0);
+	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
 
+	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
 private:
 	void Refresh();
 
@@ -257,10 +263,12 @@ private:
 	bool allowBrowsing_;
 	std::string lastText_;
 	std::string lastLink_;
+	int flags_;
+	UI::Choice *homebrewStoreButton_;
 };
 
-GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink) {
+GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, int flags, UI::LayoutParams *layoutParams)
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink), flags_(flags) {
 	using namespace UI;
 	Refresh();
 }
@@ -306,6 +314,7 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 void GameBrowser::Refresh() {
 	using namespace UI;
 
+	homebrewStoreButton_ = 0;
 	// Kill all the contents
 	Clear();
 
@@ -392,6 +401,11 @@ void GameBrowser::Refresh() {
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 	}
 
+	if (flags_ & FLAG_HOMEBREWSTOREBUTTON) {
+		Add(new Spacer());
+		homebrewStoreButton_ = Add(new Choice("Download from the PPSSPP Homebrew Store", new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
+	}
+
 	if (!lastText_.empty() && gameButtons.empty()) {
 		Add(new Spacer());
 		Add(new Choice(lastText_, new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::LastClick);
@@ -451,14 +465,17 @@ void MainScreen::CreateViews() {
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, "", "",
+		"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-		m->T("How to get games"), "http://www.ppsspp.org/getgames.html",
+		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
 		m->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
+		FLAG_HOMEBREWSTOREBUTTON,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
+	tabHomebrew->HomebrewStoreButton()->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
 
 	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
@@ -516,7 +533,6 @@ void MainScreen::CreateViews() {
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice(m->T("Homebrew Store")))->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
 #ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #endif
@@ -885,10 +901,10 @@ void UmdReplaceScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, "", "",
+		"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2, 
-		m->T("How to get games"), "http://www.ppsspp.org/getgames.html",
+	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
+		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollRecentGames->Add(tabRecentGames);
@@ -912,8 +928,8 @@ void UmdReplaceScreen::CreateViews() {
 	}
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-	root_->Add(leftColumn);	
-	root_->Add(rightColumn);	
+	root_->Add(leftColumn);
+	root_->Add(rightColumn);
 }
 
 void UmdReplaceScreen::update(InputState &input) {

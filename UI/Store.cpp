@@ -177,16 +177,26 @@ void StoreScreen::ParseListing(std::string json) {
 
 void StoreScreen::CreateViews() {
 	using namespace UI;
+
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+
+	// Top bar
+	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
+	topBar->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topBar->Add(new TextView("PPSSPP Homebrew Store"));
+	UI::Drawable solid(0xFFbd9939);
+	topBar->SetBG(solid);
+
+	LinearLayout *content;
 	if (connectionError_ || loading_) {
-		root_ = new LinearLayout(ORIENT_VERTICAL);
-		root_->Add(new TextView(loading_ ? "Loading.." : "Connection Error"));
-		root_->Add(new Button("Retry"))->OnClick.Handle(this, &StoreScreen::OnRetry);
-		root_->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		content = new LinearLayout(ORIENT_VERTICAL);
+		content->Add(new TextView(loading_ ? "Loading.." : "Connection Error"));
+		content->Add(new Button("Retry"))->OnClick.Handle(this, &StoreScreen::OnRetry);
+		content->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	} else {
-		root_ = new LinearLayout(ORIENT_HORIZONTAL);
+		content = new LinearLayout(ORIENT_HORIZONTAL);
 		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
-		root_->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		root_->Add(leftScroll);
+		content->Add(leftScroll);
 		LinearLayout *scrollItemView = new LinearLayout(ORIENT_VERTICAL);
 		leftScroll->Add(scrollItemView);
 		std::vector<StoreEntry> entries = FilterEntries();
@@ -196,8 +206,9 @@ void StoreScreen::CreateViews() {
 
 		// TODO: Similar apps, etc etc
 		productPanel_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
-		root_->Add(productPanel_);
+		content->Add(productPanel_);
 	}
+	root_->Add(content);
 }
 
 std::vector<StoreEntry> StoreScreen::FilterEntries() {
