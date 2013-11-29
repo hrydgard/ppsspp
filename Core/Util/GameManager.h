@@ -37,8 +37,6 @@ public:
 private:
 	void InstallGame(std::string zipfile);
 	std::string GetTempFilename() const;
-
-	http::Downloader downloader_;
 	std::shared_ptr<http::Download> curDownload_;
 };
 

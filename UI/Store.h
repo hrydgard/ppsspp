@@ -77,8 +77,6 @@ private:
 	std::string GetStoreJsonURL(std::string storePath) const;
 	std::string GetTranslatedString(const json_value *json, std::string key, const char *fallback = 0) const;
 
-	http::Downloader downloader_;
-
 	std::shared_ptr<http::Download> listing_;
 	std::shared_ptr<http::Download> image_;
 

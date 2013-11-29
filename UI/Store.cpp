@@ -112,18 +112,18 @@ StoreScreen::StoreScreen() : loading_(true), connectionError_(false) {
 
 	std::string indexPath = storeBaseUrl + "index.json";
 
-	listing_ = downloader_.StartDownload(indexPath, "");
+	listing_ = g_DownloadManager.StartDownload(indexPath, "");
 }
 
 StoreScreen::~StoreScreen() {
-	downloader_.CancelAll();
+	g_DownloadManager.CancelAll();
 }
 
 // Handle async download tasks
 void StoreScreen::update(InputState &input) {
 	UIDialogScreenWithBackground::update(input);
 
-	downloader_.Update();
+	g_DownloadManager.Update();
 
 	if (listing_.get() != 0 && listing_->Done()) {
 		if (listing_->ResultCode() == 200) {
