@@ -472,7 +472,7 @@ namespace MainWindow
 
 	void CreateShadersSubmenu() {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
-		
+		I18NCategory *shdr = GetI18NCategory("PostShaders");
 		const std::wstring key = ConvertUTF8ToWString(des->T("Postprocessing Shader"));
 
 		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
@@ -488,6 +488,8 @@ namespace MainWindow
 		int item = ID_SHADERS_BASE + 1;
 		int checkedStatus = -1;
 
+		const char *translatedShaderName = nullptr;
+
 		for (auto i = info.begin(); i != info.end(); ++i) {
 			checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
@@ -495,7 +497,9 @@ namespace MainWindow
 				checkedStatus = MF_CHECKED;
 			}
 
-			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(i->name).c_str());
+			translatedShaderName = shdr->T(i->section.c_str());
+
+			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		}
 	}
 

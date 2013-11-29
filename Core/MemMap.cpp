@@ -109,8 +109,7 @@ void DoState(PointerWrap &p)
 		if (!g_RemasterMode)
 			g_MemorySize = RAM_NORMAL_SIZE;
 		g_PSPModel = PSP_MODEL_FAT;
-	}
-	else {
+	} else {
 		p.Do(g_PSPModel);
 		p.DoMarker("PSPModel");
 		if (!g_RemasterMode)
