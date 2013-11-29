@@ -482,6 +482,7 @@ static const GLuint MagFiltGL[2] = {
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
+	bool CanDoFiltering = !gstate.isColorTestEnabled() && (gstate.isDepthWriteEnabled() && gstate.isDitherEnabled() || !gstate.isAlphaTestEnabled());
 	bool sClamp = gstate.isTexCoordClampedS();
 	bool tClamp = gstate.isTexCoordClampedT();
 
@@ -501,7 +502,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if ((g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) && !gstate.isColorTestEnabled() && !gstate.isAlphaTestEnabled()) {
+	if ((g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) && CanDoFiltering) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
