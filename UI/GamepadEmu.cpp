@@ -269,45 +269,47 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
+// Should we really have a specific float for dpad radius? There's no UI to change it.
+void UpdateDpadRadius() {
+	float scale = g_Config.fButtonScale;
+	const int D_pad_Radius = 40 * scale;
+	g_Config.iDpadRadius = D_pad_Radius;
+}
+
 void InitPadLayout() {
 
 	// TODO: See if we can make some kind of global scaling for views instead of this hackery.
 	float scale = g_Config.fButtonScale;
 
-	//PSP buttons (triangle, circle, square, cross)---------------------
-	//space between the PSP buttons (triangle, circle, square and cross)
+	// PSP buttons (triangle, circle, square, cross)---------------------
+	// space between the PSP buttons (triangle, circle, square and cross)
 	const int Action_button_spacing = 50 * scale;
-
 	if (g_Config.iActionButtonSpacing == -1) {
 		g_Config.iActionButtonSpacing = Action_button_spacing;
 	}
 
-	//position of the circle button (the PSP circle button). It is the farthest to the left
+	// Position of the circle button (the PSP circle button). It is the farthest to the left
 	int Action_button_center_X = dp_xres - Action_button_spacing * 2;
 	int Action_button_center_Y = dp_yres - Action_button_spacing * 2;
 
-	if(g_Config.fActionButtonCenterX == -1.0 || g_Config.fActionButtonCenterY == -1.0 ) {
-		//setup defaults
+	if (g_Config.fActionButtonCenterX == -1.0 || g_Config.fActionButtonCenterY == -1.0) {
+		// Setup defaults
 		g_Config.fActionButtonCenterX = (float)Action_button_center_X / dp_xres;
 		g_Config.fActionButtonCenterY = (float)Action_button_center_Y / dp_yres;
 	}
 
-	
-	//D-PAD (up down left right) (aka PSP cross)--------------------------------------------------------------
+	//D-PAD (up down left right) (aka PSP cross)----------------------------
 	//radius to the D-pad
+	UpdateDpadRadius();
+
 	const int D_pad_Radius = 40 * scale;
-
-	if (g_Config.iDpadRadius == -1) {
-		g_Config.iDpadRadius = D_pad_Radius;
-	}
-
 	int D_pad_X = 2.5 * D_pad_Radius;
 	int D_pad_Y = dp_yres - D_pad_Radius;
 	if (g_Config.bShowTouchAnalogStick) {
 		D_pad_Y -= 200 * scale;
 	}
 
-	if(g_Config.fDpadX == -1.0 || g_Config.fDpadY == -1.0 ) {
+	if (g_Config.fDpadX == -1.0 || g_Config.fDpadY == -1.0 ) {
 		//setup defaults
 		g_Config.fDpadX = (float)D_pad_X / dp_xres;
 		g_Config.fDpadY = (float)D_pad_Y / dp_yres;
@@ -326,7 +328,7 @@ void InitPadLayout() {
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
 	const int bottom_key_spacing = 100 * scale;
-	
+
 	int start_key_X = dp_xres / 2 + (bottom_key_spacing) * scale;
 	int start_key_Y = dp_yres - 60 * scale;
 

@@ -92,7 +92,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("RewindFlipFrequency", &iRewindFlipFrequency, 0);
 	general->Get("GridView1", &bGridView1, true);
 	general->Get("GridView2", &bGridView2, true);
-	general->Get("GridView3", &bGridView3, true);
+	general->Get("GridView3", &bGridView3, false);
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");
@@ -184,7 +184,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #else
 	graphics->Get("VertexDecJit", &bVertexDecoderJit, true);
 #endif
-	
+
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
 #endif
@@ -391,7 +391,7 @@ void Config::Save() {
 		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
-		
+
 		// Need to do this somewhere...
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
@@ -439,7 +439,7 @@ void Config::Save() {
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
-		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);	
+		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);
 		cpu->Set("SeparateIOThread", bSeparateIOThread);
 		cpu->Set("FastMemoryAccess", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
@@ -496,7 +496,6 @@ void Config::Save() {
 		control->Set("ShowTouchUnthrottle", bShowTouchUnthrottle);
 		control->Set("ShowTouchDpad", bShowTouchDpad);
 
-		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("TiltBaseX", fTiltBaseX);

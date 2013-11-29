@@ -123,4 +123,5 @@ private:
 //initializes the layout from Config. if a default layout does not exist,
 //it sets up default values
 void InitPadLayout();
+void UpdateDpadRadius();  // TODO: get rid of somehow
 UI::ViewGroup *CreatePadLayout(bool *pause);
