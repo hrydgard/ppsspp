@@ -297,7 +297,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifndef ANDROID
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
 #else
-	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT
+	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT);
 #endif
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
