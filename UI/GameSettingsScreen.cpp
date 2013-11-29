@@ -153,7 +153,8 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
-
+	graphicsSettings->Add(new CheckBox(&g_Config.bWipeFramebufferAlpha, gs->T("WipeFramebufferAlpha", "Copy stencil to alpha")));
+	
 	// This setting is not really useful for anyone atm.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
 
