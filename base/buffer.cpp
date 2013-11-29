@@ -190,7 +190,6 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress) {
 		memcpy(p, buf, retval);
 		total += retval;
 		*progress = (float)total / (float)knownSize;
-		ILOG("Progress: %f", *progress);
 	}
 	return true;
 }
