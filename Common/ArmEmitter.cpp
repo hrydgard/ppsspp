@@ -261,7 +261,12 @@ void ARMXEmitter::TSTI2R(ARMReg rs, u32 val, ARMReg scratch)
 void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
 	Operand2 op2;
-	if (TryMakeOperand2(val, op2)) {
+	if (val == 0) {
+		// Avoid the ALU, may improve pipeline.
+		if (rd != rs) {
+			MOV(rd, rs);
+		}
+	} else if (TryMakeOperand2(val, op2)) {
 		ORR(rd, rs, op2);
 	} else {
 		int ops = 0;

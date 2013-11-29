@@ -564,7 +564,9 @@ namespace MIPSComp
 
 					gpr.MapReg(rt, MAP_DIRTY);
 					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R0);
-					ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
+					if (inserted != 0) {
+						ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
+					}
 				} else {
 					gpr.MapDirtyIn(rt, rs, false);
 #ifdef HAVE_ARMV7
