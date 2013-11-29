@@ -34,6 +34,13 @@ bool isInInterval(u32 start, u32 size, u32 value)
 	return start <= value && value <= (start+size-1);
 }
 
+
+static u32 computeHash(u32 address, u32 size)
+{
+	return XXH32(Memory::GetPointer(address),size,0xBACD7814);
+}
+
+
 void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertSymbols)
 {
 	// copy opcode
@@ -222,7 +229,10 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 
 		if (it == entries.end())
 		{
-			dest.totalSize = 4;
+			if (address % 4)
+				dest.totalSize = ((address+3) & ~3)-address;
+			else
+				dest.totalSize = 4;
 			dest.name = "ERROR";
 			dest.params = "Disassembly failure";
 			return;
@@ -230,12 +240,13 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 	}
 
 	DisassemblyEntry* entry = it->second;
-	
-	dest.info = MIPSAnalyst::GetOpcodeInfo(cpu,address);
 	if (entry->disassemble(address,dest,insertSymbols))
 		return;
-
-	dest.totalSize = 4;
+	
+	if (address % 4)
+		dest.totalSize = ((address+3) & ~3)-address;
+	else
+		dest.totalSize = 4;
 	dest.name = "ERROR";
 	dest.params = "Disassembly failure";
 }
@@ -321,18 +332,13 @@ void DisassemblyManager::clear()
 
 DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_address), size(_size)
 {
-	hash = computeHash();
+	hash = computeHash(address,size);
 	load();
-}
-
-u32 DisassemblyFunction::computeHash()
-{
-	return XXH32(Memory::GetPointer(address),size,0xBACD7814);
 }
 
 void DisassemblyFunction::recheck()
 {
-	u32 newHash = computeHash();
+	u32 newHash = computeHash(address,size);
 	if (hash != newHash)
 	{
 		hash = newHash;
@@ -392,9 +398,21 @@ bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo& dest, bo
 
 void DisassemblyFunction::getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest)
 {
+	u32 end = start+size;
+
 	for (int i = 0; i < lines.size(); i++)
 	{
-		dest.push_back(lines[i]);
+		BranchLine& line = lines[i];
+
+		u32 first = line.first;
+		u32 second = line.second;
+
+		// skip branches that are entirely before or entirely after the window
+		if ((first < start && second < start) ||
+			(first > end && second > end))
+			continue;
+
+		dest.push_back(line);
 	}
 }
 
@@ -649,13 +667,17 @@ bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest, bool
 	dest.name = opcode;
 	dest.params = arguments;
 	dest.totalSize = 4;
+	dest.info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),address);
 	return true;
 }
 
 void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest)
 {
 	if (start < address)
+	{
+		size = start+size-address;
 		start = address;
+	}
 
 	if (start+size > address+num*4)
 		size = address+num*4-start;
@@ -708,7 +730,8 @@ void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt,
 bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
 	char buffer[64];
-	dest.type = DISTYPE_OTHER;
+	dest.type = DISTYPE_MACRO;
+	dest.info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),address);
 
 	const char* addressSymbol;
 	switch (type)
@@ -758,6 +781,22 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 }
 
 
+DisassemblyData::DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type)
+{
+	hash = computeHash(address,size);
+	createLines();
+}
+
+void DisassemblyData::recheck()
+{
+	u32 newHash = computeHash(address,size);
+	if (newHash != hash)
+	{
+		hash = newHash;
+		createLines();
+	}
+}
+
 bool DisassemblyData::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
 {
 	dest.type = DISTYPE_DATA;
@@ -781,6 +820,9 @@ bool DisassemblyData::disassemble(u32 address, DisassemblyLineInfo& dest, bool i
 	}
 
 	auto it = lines.find(address);
+	if (it == lines.end())
+		return false;
+
 	dest.params = it->second.text;
 	dest.totalSize = it->second.size;
 	return true;
