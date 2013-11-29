@@ -81,8 +81,8 @@ bool GameManager::Uninstall(std::string name) {
 void GameManager::Update() {
 	if (curDownload_.get() && curDownload_->Done()) {
 		INFO_LOG(HLE, "Download completed! Status = %i", curDownload_->ResultCode());
+		std::string zipName = curDownload_->outfile();
 		if (curDownload_->ResultCode() == 200) {
-			std::string zipName = curDownload_->outfile();
 			if (!File::Exists(zipName)) {
 				ERROR_LOG(HLE, "Downloaded file %s does not exist :(", zipName.c_str());
 				curDownload_.reset();
@@ -92,6 +92,9 @@ void GameManager::Update() {
 			InstallGame(zipName);
 			// Doesn't matter if the install succeeds or not, we delete the temp file to not squander space.
 			// TODO: Handle disk full?
+			deleteFile(zipName.c_str());
+		} else {
+			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled.", curDownload_->ResultCode());
 			deleteFile(zipName.c_str());
 		}
 		curDownload_.reset();
@@ -123,16 +126,23 @@ void GameManager::InstallGame(std::string zipfile) {
 	// First, find all the directories, and precreate them before we fill in with files.
 	// Also, verify that this is a PSP zip file with the correct layout.
 	bool isPSP = false;
+	int stripChars = 0;
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
 		if (zippedName.find("EBOOT.PBP") != std::string::npos) {
 			int slashCount = 0;
+			int lastSlashLocation = 0;
+			int slashLocation = 0;
 			for (size_t i = 0; i < zippedName.size(); i++) {
-				if (zippedName[i] == '/')
+				if (zippedName[i] == '/') {
 					slashCount++;
+					slashLocation = lastSlashLocation;
+					lastSlashLocation = i;
+				}
 			}
-			if (slashCount == 1) {
+			if (slashCount >= 1 && (!isPSP || slashLocation < stripChars + 1)) {
+				stripChars = slashLocation + 1;
 				isPSP = true;
 			} else {
 				INFO_LOG(HLE, "Wrong number of slashes (%i) in %s", slashCount, zippedName.c_str());
@@ -141,7 +151,7 @@ void GameManager::InstallGame(std::string zipfile) {
 	}
 
 	if (!isPSP) {
-		ERROR_LOG(HLE, "File not a PSP game");
+		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		return;
 	}
 
@@ -149,7 +159,7 @@ void GameManager::InstallGame(std::string zipfile) {
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
-		std::string outFilename = pspGame + zippedName;
+		std::string outFilename = pspGame + zippedName.substr(stripChars);
 		bool isDir = outFilename.back() == '/';
 		if (isDir) {
 			File::CreateFullPath(outFilename.c_str());
@@ -169,6 +179,8 @@ void GameManager::InstallGame(std::string zipfile) {
 			zip_file *zf = zip_fopen_index(z, i, 0);
 			zip_fread(zf, buffer, size);
 			zip_fclose(zf);
+
+			fn += stripChars;
 
 			std::string outFilename = pspGame + fn;
 			bool isDir = outFilename.back() == '/';

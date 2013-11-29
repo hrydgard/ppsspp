@@ -88,7 +88,14 @@ void ProductView::Update(const InputState &input_state) {
 }
 
 UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
-	std::string zipUrl = storeBaseUrl + "files/" + entry_.file + ".zip";
+	std::string zipUrl;
+	if (entry_.downloadURL.empty()) {
+		// Construct the URL, easy to predict from our server
+		zipUrl = storeBaseUrl + "files/" + entry_.file + ".zip";
+	} else {
+		// Use the provided URL, for external hosting.
+		zipUrl = entry_.downloadURL;
+	}
 	if (installButton_) {
 		installButton_->SetEnabled(false);
 	}
@@ -165,6 +172,7 @@ void StoreScreen::ParseListing(std::string json) {
 			e.description = GetTranslatedString(game, "description", "");
 			e.author = game->getString("author", "?");
 			e.size = game->getInt("size");
+			e.downloadURL = game->getString("download-url", "");
 			const char *file = game->getString("file", 0);
 			if (!file)
 				continue;

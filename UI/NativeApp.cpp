@@ -578,7 +578,6 @@ void DrawDownloadsOverlay(UIContext &ctx) {
 	for (int i = 0; i < progress.size(); i++) {
 		float barWidth = 10 + (dp_xres - 10) * progress[i];
 		Bounds bounds(0, h * i, barWidth, h);
-		INFO_LOG(HLE, "Bar");
 		UI::Drawable solid(colors[i & 3]);
 		ctx.FillRect(solid, bounds);
 	}
