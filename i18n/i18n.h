@@ -35,6 +35,7 @@ struct I18NCandidate {
 
 class I18NCategory {
 public:
+	I18NCategory(const char *name) : name_(name) {}
 	const char *T(const char *key, const char *def = 0);
 
 	const std::map<std::string, std::string> &Missed() const {
@@ -46,7 +47,9 @@ public:
 	void ClearMissed() { missedKeyLog_.clear(); }
 
 private:
-	I18NCategory(I18NRepo *repo) {}
+	I18NCategory(I18NRepo *repo, const char *name) : name_(name) {}
+
+	std::string name_;
 
 	std::map<std::string, I18NEntry> map_;
 	std::map<std::string, std::string> missedKeyLog_;
@@ -72,7 +75,7 @@ public:
 private:
 	std::string GetIniPath(const std::string &languageID) const;
 	void Clear();
-	I18NCategory *LoadSection(const IniFile::Section *section);
+	I18NCategory *LoadSection(const IniFile::Section *section, const char *name);
 	void SaveSection(IniFile &ini, IniFile::Section *section, I18NCategory *cat);
 
 	std::map<std::string, I18NCategory *> cats_;

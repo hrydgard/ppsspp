@@ -112,8 +112,10 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
 	: box_(0), title_(title) {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	button1_ = d->T(button1.c_str());
-	button2_ = d->T(button2.c_str());
+	if (!button1.empty())
+		button1_ = d->T(button1.c_str());
+	if (!button2.empty())
+		button2_ = d->T(button2.c_str());
 }
 
 void PopupScreen::touch(const TouchInput &touch) {
@@ -145,7 +147,7 @@ void PopupScreen::CreateViews() {
 
 	CreatePopupContents(box_);
 
-	if (ShowButtons()) {
+	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
 		buttonRow->SetSpacing(0);

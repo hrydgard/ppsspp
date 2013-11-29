@@ -26,12 +26,14 @@ const char *I18NCategory::T(const char *key, const char *def) {
 
 	auto iter = map_.find(modifiedKey);
 	if (iter != map_.end()) {
+//		ILOG("translation key found in %s: %s", name_.c_str(), key);
 		return iter->second.text.c_str();
 	} else {
 		if (def)
 			missedKeyLog_[key] = def;
 		else
 			missedKeyLog_[key] = modifiedKey.c_str();
+//		ILOG("Missed translation key in %s: %s", name_.c_str(), key);
 		return def ? def : key;
 	}
 }
@@ -41,6 +43,7 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 		if (map_.find(iter->first) == map_.end()) {
 			std::string text = ReplaceAll(iter->second, "\\n", "\n");
 			map_[iter->first] = I18NEntry(text);
+//			ILOG("Language entry: %s -> %s", iter->first.c_str(), text.c_str());
 		}
 	}
 }
@@ -50,7 +53,7 @@ I18NCategory *I18NRepo::GetCategory(const char *category) {
 	if (iter != cats_.end()) {
 		return iter->second;
 	} else {
-		I18NCategory *c = new I18NCategory(this);
+		I18NCategory *c = new I18NCategory(this, category);
 		cats_[category] = c;
 		return c;
 	}
@@ -71,6 +74,8 @@ bool I18NRepo::IniExists(const std::string &languageID) const {
 
 bool I18NRepo::LoadIni(const std::string &languageID) {
 	IniFile ini;
+	std::string iniPath = GetIniPath(languageID);
+//	ILOG("Loading lang ini %s", iniPath.c_str());
 	if (!ini.LoadFromVFS(GetIniPath(languageID))) {
 		return false;
 	}
@@ -81,14 +86,14 @@ bool I18NRepo::LoadIni(const std::string &languageID) {
 
 	for (auto iter = sections.begin(); iter != sections.end(); ++iter) {
 		if (iter->name() != "") {
-			cats_[iter->name()] = LoadSection(&(*iter));
+			cats_[iter->name()] = LoadSection(&(*iter), iter->name().c_str());
 		}
 	}
 	return true;
 }
 
-I18NCategory *I18NRepo::LoadSection(const IniFile::Section *section) {
-	I18NCategory *cat = new I18NCategory(this);
+I18NCategory *I18NRepo::LoadSection(const IniFile::Section *section, const char *name) {
+	I18NCategory *cat = new I18NCategory(this, name);
 	std::map<std::string, std::string> sectionMap = section->ToMap();
 	cat->SetMap(sectionMap);
 	return cat;
@@ -109,7 +114,7 @@ void I18NRepo::SaveIni(const std::string &languageID) {
 
 void I18NRepo::SaveSection(IniFile &ini, IniFile::Section *section, I18NCategory *cat) {
 	const std::map<std::string, std::string> &missed = cat->Missed();
-	
+
 	for (auto iter = missed.begin(); iter != missed.end(); ++iter) {
 		if (!section->Exists(iter->first.c_str())) {
 			std::string text = ReplaceAll(iter->second, "\n", "\\n");
