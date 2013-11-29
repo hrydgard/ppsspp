@@ -274,8 +274,22 @@ void SystemInfoScreen::CreateViews() {
 }
 
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
-	addrView_ = new UI::TextView("Enter address", ALIGN_HCENTER, false);
+	using namespace UI;
+
+	addrView_ = new TextView("Enter address", ALIGN_HCENTER, false);
 	parent->Add(addrView_);
+
+	ViewGroup *grid = new GridLayout(GridLayoutSettings(60, 40));
+	parent->Add(grid);
+
+	for (int i = 0; i < 16; ++i) {
+		char temp[16];
+		snprintf(temp, 16, " %X ", i);
+		buttons_[i] = new Button(temp);
+		grid->Add(buttons_[i])->OnClick.Handle(this, &AddressPromptScreen::OnDigitButton);
+	}
+
+	parent->Add(new Button("Backspace"))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
 }
 
 void AddressPromptScreen::OnCompleted(DialogResult result) {
@@ -287,16 +301,52 @@ void AddressPromptScreen::OnCompleted(DialogResult result) {
 	}
 }
 
+UI::EventReturn AddressPromptScreen::OnDigitButton(UI::EventParams &e) {
+	for (int i = 0; i < 16; ++i) {
+		if (buttons_[i] == e.v) {
+			AddDigit(i);
+		}
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn AddressPromptScreen::OnBackspace(UI::EventParams &e) {
+	BackspaceDigit();
+	return UI::EVENT_DONE;
+}
+
+void AddressPromptScreen::AddDigit(int n) {
+	if ((addr_ & 0xF0000000) == 0) {
+		addr_ = addr_ * 16 + n;
+	}
+	UpdatePreviewDigits();
+}
+
+void AddressPromptScreen::BackspaceDigit() {
+	addr_ /= 16;
+	UpdatePreviewDigits();
+}
+
+void AddressPromptScreen::UpdatePreviewDigits() {
+	if (addr_ != 0) {
+		char temp[32];
+		snprintf(temp, 32, "%8X", addr_);
+		addrView_->SetText(temp);
+	} else {
+		addrView_->SetText("Enter address");
+	}
+}
+
 void AddressPromptScreen::key(const KeyInput &key) {
 	int nextDigit = -1;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
-			nextDigit = key.keyCode - NKCODE_0;
+			AddDigit(key.keyCode - NKCODE_0);
 		} else if (key.keyCode >= NKCODE_A && key.keyCode <= NKCODE_F) {
-			nextDigit = 10 + key.keyCode - NKCODE_A;
+			AddDigit(10 + key.keyCode - NKCODE_A);
 		// NKCODE_DEL is backspace.
 		} else if (key.keyCode == NKCODE_DEL) {
-			addr_ /= 16;
+			BackspaceDigit();
 		} else if (key.keyCode == NKCODE_ENTER) {
 			OnCompleted(DR_OK);
 			screenManager()->finishDialog(this, DR_OK);
@@ -306,18 +356,6 @@ void AddressPromptScreen::key(const KeyInput &key) {
 		}
 	} else {
 		UIDialogScreen::key(key);
-	}
-
-	if (nextDigit != -1 && (addr_ & 0xF0000000) == 0) {
-		addr_ = addr_ * 16 + nextDigit;
-	}
-
-	if (addr_ != 0) {
-		char temp[32];
-		snprintf(temp, 32, "%8X", addr_);
-		addrView_->SetText(temp);
-	} else {
-		addrView_->SetText("Enter address");
 	}
 }
 
