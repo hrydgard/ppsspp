@@ -139,6 +139,8 @@ public:
 	void Update();
 	void CancelAll();
 
+	std::vector<float> GetCurrentProgress();
+
 private:
 	std::vector<std::shared_ptr<Download>> downloads_;
 };

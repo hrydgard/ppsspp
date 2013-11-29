@@ -175,11 +175,34 @@ bool Buffer::ReadAll(int fd) {
 	return true;
 }
 
-size_t Buffer::Read(int fd, size_t sz) {
+bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress) {
+	char buf[1024];
+	int total = 0;
+	while (true) {
+		int retval = recv(fd, buf, sizeof(buf), 0);
+		if (retval == 0) {
+			return true;
+		} else if (retval < 0) {
+			ELOG("Error reading from buffer: %i", retval);
+			return false;
+		}
+		char *p = Append((size_t)retval);
+		memcpy(p, buf, retval);
+		total += retval;
+		*progress = (float)total / (float)knownSize;
+		ILOG("Progress: %f", *progress);
+	}
+	return true;
+}
+
+int Buffer::Read(int fd, size_t sz) {
 	char buf[1024];
 	int retval;
 	size_t received = 0;
 	while ((retval = recv(fd, buf, std::min(sz, sizeof(buf)), 0)) > 0) {
+		if (retval < 0) {
+			return retval;
+		}
 		char *p = Append((size_t)retval);
 		memcpy(p, buf, retval);
 		sz -= retval;

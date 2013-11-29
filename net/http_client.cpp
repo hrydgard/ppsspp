@@ -121,7 +121,8 @@ Client::~Client() {
 #define USERAGENT "NATIVEAPP 1.0"
 
 
-void DeChunk(Buffer *inbuffer, Buffer *outbuffer) {
+void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *progress) {
+	int dechunkedBytes = 0;
 	while (true) {
 		std::string line;
 		inbuffer->TakeLineCRLF(&line);
@@ -138,13 +139,17 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer) {
 			inbuffer->clear();
 			return;
 		}
+		dechunkedBytes += chunkSize;
+		if (progress && contentLength) {
+			*progress = (float)dechunkedBytes / contentLength;
+		}
 		inbuffer->Skip(2);
 	}
 }
 
 int Client::GET(const char *resource, Buffer *output, float *progress) {
 	if (progress) {
-		*progress = 0;
+		*progress = 0.01f;
 	}
 
 	Buffer buffer;
@@ -166,8 +171,10 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 	Buffer readbuf;
 
 	// Snarf all the data we can into RAM. A little unsafe but hey.
-	if (!readbuf.ReadAll(sock()))
+	if (readbuf.Read(sock(), 4096) < 0) {
+		ELOG("Failed to read HTTP headers :(");
 		return -1;
+	}
 
 	// Grab the first header line that contains the http code.
 
@@ -218,13 +225,23 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 	if (!contentLength && progress) {
 		// Content length is unknown.
 		// Set progress to 1% so it looks like something is happening...
-		*progress = 0.01f;
+		*progress = 0.1f;
+	}
+
+	if (!contentLength) {
+		// No way to know how far along we are. Let's just not update the progress counter.
+		if (!readbuf.ReadAll(sock()))
+			return -1;
+	} else {
+		// Let's read in chunks, updating progress between each.
+		if (!readbuf.ReadAllWithProgress(sock(), contentLength, progress))
+			return -1;
 	}
 
 	// output now contains the rest of the reply. Dechunk it.
 	if (chunked) {
 		// TODO: Turn this into a loop and update progress
-		DeChunk(&readbuf, output);
+		DeChunk(&readbuf, output, contentLength, progress);
 	} else {
 		// TODO: Turn this into a loop and update progress
 		output->Append(readbuf);
@@ -393,11 +410,18 @@ void Downloader::Update() {
 	}
 }
 
+std::vector<float> Downloader::GetCurrentProgress() {
+	std::vector<float> progress;
+	for (size_t i = 0; i < downloads_.size(); i++) {
+		progress.push_back(downloads_[i]->Progress());
+	}
+	return progress;
+}
+
 void Downloader::CancelAll() {
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		downloads_[i]->Cancel();
 	}
 }
-
 
 }	// http
