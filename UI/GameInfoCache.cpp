@@ -24,15 +24,16 @@
 #include "file/file_util.h"
 #include "file/zip_read.h"
 #include "thread/prioritizedworkqueue.h"
+#include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
-#include "GameInfoCache.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/System.h"
-
+#include "Core/Util/GameManager.h"
 #include "Core/Config.h"
+#include "UI/GameInfoCache.h"
 
 GameInfoCache g_gameInfoCache;
 
@@ -51,8 +52,18 @@ bool GameInfo::DeleteGame() {
 			return true;
 		}
 	case FILETYPE_PSP_PBP_DIRECTORY:
-		// Recursively deleting directories not yet supported
-		return false;
+		{
+			// TODO: This could be handled by Core/Util/GameManager too somehow.
+
+			const char *directoryToRemove = fileInfo.fullName.c_str();
+			INFO_LOG(HLE, "Deleting %s", directoryToRemove);
+			if (!File::DeleteDirRecursively(directoryToRemove)) {
+				ERROR_LOG(HLE, "Failed to delete file");
+				return false;
+			}
+			g_Config.CleanRecent();
+			return true;
+		}
 
 	default:
 		return false;
