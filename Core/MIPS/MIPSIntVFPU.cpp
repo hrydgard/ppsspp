@@ -1193,6 +1193,7 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
+		// TODO: Does t have swizzle?
 		d[0] = s[0] * t[1] - s[1] * t[0];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, V_Single, vd);
