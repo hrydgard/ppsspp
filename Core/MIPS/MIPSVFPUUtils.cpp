@@ -226,6 +226,17 @@ VectorSize GetHalfVectorSize(VectorSize sz)
 	}
 }
 
+VectorSize GetDoubleVectorSize(VectorSize sz)
+{
+	switch (sz)
+	{
+	case V_Single: return V_Pair;
+	case V_Pair: return V_Quad;
+	default:
+		return V_Pair;
+	}
+}
+
 VectorSize GetVecSize(MIPSOpcode op)
 {
 	int a = (op>>7)&1;

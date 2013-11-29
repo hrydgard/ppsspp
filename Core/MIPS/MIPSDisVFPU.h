@@ -24,6 +24,7 @@ extern u32 disPC;
 namespace MIPSDis
 {
 	void Dis_Mftv(MIPSOpcode op, char *out);
+	void Dis_Vmftvc(MIPSOpcode op, char *out);
 
 	void Dis_SV(MIPSOpcode op, char *out);
 	void Dis_SVQ(MIPSOpcode op, char *out);
@@ -33,6 +34,7 @@ namespace MIPSDis
 	void Dis_MatrixSet2(MIPSOpcode op, char *out);
 	void Dis_MatrixSet3(MIPSOpcode op, char *out);
 	void Dis_MatrixMult(MIPSOpcode op, char *out);
+	void Dis_Vmscl(MIPSOpcode op, char *out);
 
 	void Dis_VectorDot(MIPSOpcode op, char *out);
 	void Dis_Vfad(MIPSOpcode op, char *out);
@@ -56,5 +58,12 @@ namespace MIPSDis
 	void Dis_Vf2i(MIPSOpcode op, char *out);
 	void Dis_Vi2x(MIPSOpcode op, char *out);
 	void Dis_Vs2i(MIPSOpcode op, char *out);
+	void Dis_Vwbn(MIPSOpcode op, char *out);
+	void Dis_Vf2h(MIPSOpcode op, char *out);
+	void Dis_Vh2f(MIPSOpcode op, char *out);
+	void Dis_Vrnds(MIPSOpcode op, char *out);
+	void Dis_VrndX(MIPSOpcode op, char *out);
+	void Dis_ColorConv(MIPSOpcode op, char *out);
+
 	void Dis_VBranch(MIPSOpcode op, char *out);
 }
