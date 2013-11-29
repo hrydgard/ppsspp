@@ -188,6 +188,7 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 	if (code_pos != line.npos) {
 		code_pos = line.find_first_not_of(' ', code_pos);
 	}
+
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
@@ -240,10 +241,8 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 
 	// output now contains the rest of the reply. Dechunk it.
 	if (chunked) {
-		// TODO: Turn this into a loop and update progress
 		DeChunk(&readbuf, output, contentLength, progress);
 	} else {
-		// TODO: Turn this into a loop and update progress
 		output->Append(readbuf);
 	}
 
@@ -311,7 +310,7 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 }
 
 Download::Download(const std::string &url, const std::string &outfile)
-	: progress_(0.0f), url_(url), outfile_(outfile), resultCode_(0), failed_(false), cancelled_(false) {
+	: progress_(0.0f), url_(url), outfile_(outfile), resultCode_(0), completed_(false), failed_(false), cancelled_(false) {
 }
 
 Download::~Download() {
@@ -380,6 +379,10 @@ void Download::Do(std::shared_ptr<Download> self) {
 
 	resultCode_ = resultCode;
 	progress_ = 1.0f;
+
+	// Set this last to ensure no race conditions when checking Done. Users must always check
+	// Done before looking at the result code.
+	completed_ = true;
 }
 
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {

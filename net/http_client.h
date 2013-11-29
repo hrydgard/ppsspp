@@ -79,10 +79,11 @@ public:
 
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_; }
-	bool Done() const { return progress_ == 1.0f; }
 
+	bool Done() const { return completed_; }
 	bool Failed() const { return failed_; }
 
+	// NOTE! The value of ResultCode is INVALID until Done() returns true.
 	int ResultCode() const { return resultCode_; }
 
 	std::string url() const { return url_; }
@@ -115,6 +116,7 @@ private:
 	std::string url_;
 	std::string outfile_;
 	int resultCode_;
+	bool completed_;
 	bool failed_;
 	volatile bool cancelled_;
 	std::function<void(Download &)> callback_;
