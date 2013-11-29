@@ -41,6 +41,7 @@
 #include "HLE/sceKernelModule.h"
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
+#include "Core/Config.h"
 
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and

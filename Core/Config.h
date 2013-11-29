@@ -27,6 +27,8 @@ extern const char *PPSSPP_GIT_VERSION;
 #endif
 
 const int MAX_CONFIG_VOLUME = 8;
+const int PSP_MODEL_FAT = 0;
+const int PSP_MODEL_SLIM = 1;
 
 namespace http {
 	class Download;
@@ -213,6 +215,7 @@ public:
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	int iPSPModel;
 	// TODO: Make this work with your platform, too!
 #ifdef _WIN32
 	bool bBypassOSKWithKeyboard;

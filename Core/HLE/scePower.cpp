@@ -45,9 +45,6 @@ const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
 
 const int POWER_CB_AUTO = -1;
 
-const int PSP_MODEL_FAT	= 0;
-const int PSP_MODEL_SLIM = 1;
-
 const int numberOfCBPowerSlots = 16;
 const int numberOfCBPowerSlotsPrivate = 32;
 
@@ -55,7 +52,7 @@ static bool volatileMemLocked;
 static int powerCbSlots[numberOfCBPowerSlots];
 static std::vector<VolatileWaitingThread> volatileWaitingThreads;
 
-// this should belong here on in CoreTiming?
+// Should this belong here, or in CoreTiming?
 static int pllFreq = 222;
 static int busFreq = 111;
 
@@ -412,7 +409,9 @@ int scePowerTick() {
 
 
 u32 IsPSPNonFat() {
-	return PSP_MODEL_FAT;  
+	DEBUG_LOG(HLE, "%d=scePower_a85880d0_IsPSPNonFat()", g_Config.iPSPModel);
+
+	return g_Config.iPSPModel;  
 }
 
 static const HLEFunction scePower[] = {
