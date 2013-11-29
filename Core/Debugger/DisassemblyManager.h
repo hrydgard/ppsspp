@@ -19,7 +19,7 @@
 #include "Globals.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
-enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_DATA, DISTYPE_OTHER };
+enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_MACRO, DISTYPE_DATA, DISTYPE_OTHER };
 
 struct DisassemblyLineInfo
 {
@@ -70,7 +70,6 @@ public:
 	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
 	virtual void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest);
 private:
-	u32 computeHash();
 	void generateBranchLines();
 	void load();
 	void clear();
@@ -133,10 +132,10 @@ private:
 class DisassemblyData: public DisassemblyEntry
 {
 public:
-	DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type) { createLines(); };
+	DisassemblyData(u32 _address, u32 _size, DataType _type);
 	virtual ~DisassemblyData() { };
 	
-	virtual void recheck() { createLines(); };
+	virtual void recheck();
 	virtual int getNumLines() { return (int)lines.size(); };
 	virtual int getLineNum(u32 address, bool findStart);
 	virtual u32 getLineAddress(int line) { return lineAddresses[line]; };
@@ -154,6 +153,7 @@ private:
 
 	u32 address;
 	u32 size;
+	u32 hash;
 	DataType type;
 	std::map<u32,DataEntry> lines;
 	std::vector<u32> lineAddresses;

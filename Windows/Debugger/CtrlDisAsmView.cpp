@@ -566,14 +566,22 @@ void CtrlDisAsmView::followBranch()
 	DisassemblyLineInfo line;
 	manager.getLine(curAddress,true,line);
 
-	if (line.info.isBranch)
+	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
-		jumpStack.push_back(curAddress);
-		gotoAddr(line.info.branchTarget);
-	} else if (line.info.hasRelevantAddress)
+		if (line.info.isBranch)
+		{
+			jumpStack.push_back(curAddress);
+			gotoAddr(line.info.branchTarget);
+		} else if (line.info.hasRelevantAddress)
+		{
+			// well, not  exactly a branch, but we can do something anyway
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+			SetFocus(wnd);
+		}
+	} else if (line.type == DISTYPE_DATA)
 	{
-		// well, not  exactly a branch, but we can do something anyway
-		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+		// jump to the start of the current line
+		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,curAddress,0);
 		SetFocus(wnd);
 	}
 }
@@ -1012,7 +1020,7 @@ void CtrlDisAsmView::updateStatusBarText()
 	manager.getLine(curAddress,true,line);
 	
 	text[0] = 0;
-	if (line.type == DISTYPE_OPCODE)
+	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
 		if (line.info.isDataAccess)
 		{
