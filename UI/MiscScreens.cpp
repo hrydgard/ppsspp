@@ -192,13 +192,14 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {
+	I18NCategory *ps = GetI18NCategory("PostShaders");
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sPostShaderName)
 			selected = i;
-		items.push_back(shaders_[i].name);
+		items.push_back(ps->T(shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 }

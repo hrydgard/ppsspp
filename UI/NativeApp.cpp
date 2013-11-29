@@ -245,6 +245,7 @@ void NativeInit(int argc, const char *argv[],
 	// It's common to be in a build-xyz/ directory.
 	else
 		VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "../assets/").c_str()));
+	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 #endif
 
 	// We want this to be FIRST.
