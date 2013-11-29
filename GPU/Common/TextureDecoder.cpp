@@ -24,12 +24,10 @@
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
-#endif
 
 static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	u32 check = 0;
 
-#ifdef _M_SSE
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
 		__m128i cursor2 = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
@@ -50,9 +48,6 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
 		check = _mm_cvtsi128_si32(cursor);
 	} else {
-#else
-	{
-#endif
 		const u32 *p = (const u32 *)checkp;
 		for (u32 i = 0; i < size / 8; ++i) {
 			check += *p++;
@@ -62,6 +57,7 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 
 	return check;
 }
+#endif
 
 static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 #if defined(ARM) && defined(__GNUC__)
@@ -112,7 +108,7 @@ void SetupQuickTexHash() {
 #ifdef ARMV7
 	if (cpu_info.bNEON)
 		DoQuickTexHash = &QuickTexHashNEON;
-#else
+#elif _M_SSE
 	if (cpu_info.bSSE2)
 		DoQuickTexHash = &QuickTexHashSSE2;
 #endif
