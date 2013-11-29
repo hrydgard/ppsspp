@@ -65,6 +65,7 @@ enum CmdFormatType {
 	CMD_FMT_LOGICOP,
 	CMD_FMT_TEXWRAP,
 	CMD_FMT_TEXFILTER,
+	CMD_FMT_TEXMAPMODE,
 };
 
 struct TabStateRow {
@@ -157,8 +158,7 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex V scale",          GE_CMD_TEXSCALEV,               CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex U offset",         GE_CMD_TEXOFFSETU,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V offset",         GE_CMD_TEXOFFSETV,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_TEXMAPMODE, GE_CMD_TEXTUREMAPENABLE },
 	// TODO: Format.
 	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_TEXMODE, GE_CMD_TEXTUREMAPENABLE },
@@ -630,6 +630,30 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				const int min = (value & 0x0007) >> 0;
 				const int mag = (value & 0x0100) >> 8;
 				swprintf(dest, L"min: %S, mag: %S", textureFilters[min], textureFilters[mag]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXMAPMODE:
+		{
+			const char *uvGenModes[] = {
+				"tex coords",
+				"tex matrix",
+				"tex env map",
+				"unknown (tex coords?)",
+			};
+			const char *uvProjModes[] = {
+				"pos",
+				"uv",
+				"normalized normal",
+				"normal",
+			};
+			if ((value & ~0x0303) == 0) {
+				const int uvGen = (value & 0x0003) >> 0;
+				const int uvProj = (value & 0x0300) >> 8;
+				swprintf(dest, L"gen: %S, proj: %S", uvGenModes[uvGen], uvProjModes[uvProj]);
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
