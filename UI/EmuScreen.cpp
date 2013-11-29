@@ -316,11 +316,11 @@ void EmuScreen::key(const KeyInput &key) {
 		pauseTrigger_ = true;
 	}
 
-	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
-	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
-		return;
-
-	pspKey(result, key.flags);
+	std::vector<int> pspKeys;
+	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+	for (size_t i = 0; i < pspKeys.size(); i++) {
+		pspKey(pspKeys[i], key.flags);
+	}
 }
 
 void EmuScreen::pspKey(int pspKeyCode, int flags) {
@@ -356,51 +356,58 @@ void EmuScreen::axis(const AxisInput &axis) {
 }
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
-	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction);
-	int resultOpposite = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction);
+	std::vector<int> results;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
+	std::vector<int> resultsOpposite;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
 
-	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
-		return;
+	for (size_t i = 0; i < results.size(); i++) {
+		int result = results[i];
+		switch (result) {
+		case VIRTKEY_AXIS_X_MIN:
+			__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_LEFT);
+			break;
+		case VIRTKEY_AXIS_X_MAX:
+			__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_LEFT);
+			break;
+		case VIRTKEY_AXIS_Y_MIN:
+			__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_LEFT);
+			break;
+		case VIRTKEY_AXIS_Y_MAX:
+			__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_LEFT);
+			break;
 
-	switch (result) {
-	case VIRTKEY_AXIS_X_MIN:
-		__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_LEFT);
-		break;
-	case VIRTKEY_AXIS_X_MAX:
-		__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_LEFT);
-		break;
-	case VIRTKEY_AXIS_Y_MIN:
-		__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_LEFT);
-		break;
-	case VIRTKEY_AXIS_Y_MAX:
-		__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_LEFT);
-		break;
+		case VIRTKEY_AXIS_RIGHT_X_MIN:
+			__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
+		case VIRTKEY_AXIS_RIGHT_X_MAX:
+			__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
+		case VIRTKEY_AXIS_RIGHT_Y_MIN:
+			__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
+		case VIRTKEY_AXIS_RIGHT_Y_MAX:
+			__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
 
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-		__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-		__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
+		default:
+			if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
+				pspKey(result, KEY_DOWN);
 
-	default:
-		if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
-			pspKey(result, KEY_DOWN);
-
-			// Also unpress the other direction.
-			result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1);
-			if (result != KEYMAP_ERROR_UNKNOWN_KEY)
+				// Also unpress the other direction.
+				std::vector<int> opposite;
+				KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1, &opposite);
+				for (size_t i = 0; i < opposite.size(); i++) {
+					pspKey(opposite[i], KEY_UP);
+				}
+				// Hm, why do we use a different way below?
+			} else {
+				// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
 				pspKey(result, KEY_UP);
-		} else {
-			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-			pspKey(result, KEY_UP);
-			pspKey(resultOpposite, KEY_UP);
+				for (size_t i = 0; i < resultsOpposite.size(); i++) {
+					pspKey(resultsOpposite[i], KEY_UP);
+				}
+			}
 		}
 	}
 }

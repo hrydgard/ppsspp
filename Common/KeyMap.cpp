@@ -672,27 +672,23 @@ KeyDef AxisDef(int deviceId, int axisId, int direction) {
 	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
 }
 
-static bool FindKeyMapping(int deviceId, int key, int *psp_button) {
+static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) {
 	// Brute force, let's optimize later
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == KeyDef(deviceId, key)) {
-				*psp_button = iter->first;
-				return true;
+				psp_button->push_back(iter->first);
 			}
 		}
 	}
-	return false;
+	return psp_button->size() > 0;
 }
 
-int KeyToPspButton(int deviceId, int key) {
+bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys) {
 	int search_start_layer = 0;
 	int psp_button;
 
-	if (FindKeyMapping(deviceId, key, &psp_button))
-		return psp_button;
-
-	return KEYMAP_ERROR_UNKNOWN_KEY;
+	return FindKeyMapping(deviceId, key, pspKeys);
 }
 
 // TODO: vector output
@@ -709,9 +705,9 @@ bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
 	return false;
 }
 
-int AxisToPspButton(int deviceId, int axisId, int direction) {
+bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
 	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	return KeyToPspButton(deviceId, key);
+	return KeyToPspButton(deviceId, key, pspKeys);
 }
 
 bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
