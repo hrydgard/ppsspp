@@ -2346,10 +2346,9 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		// Yield the next thread of this priority to all other threads of same priority.
 		else
 			threadReadyQueue.rotate(priority);
-
-		hleReSchedule("rotatethreadreadyqueue");
 	}
 
+	hleReSchedule("rotatethreadreadyqueue");
 	hleEatCycles(250);
 	return 0;
 }
