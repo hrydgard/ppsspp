@@ -139,7 +139,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	cpu->Get("AtomicAudioLocks", &bAtomicAudioLocks, false);
 
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
-	cpu->Get("FastMemory", &bFastMemory, false);
+	cpu->Get("FastMemoryAccess", &bFastMemory, true);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, 0);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
@@ -429,7 +429,7 @@ void Config::Save() {
 		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
 		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);	
 		cpu->Set("SeparateIOThread", bSeparateIOThread);
-		cpu->Set("FastMemory", bFastMemory);
+		cpu->Set("FastMemoryAccess", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
