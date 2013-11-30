@@ -303,8 +303,11 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
 	}
 	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
+		EOR(tempReg1, tempReg1, tempReg1);
+	}
+	while (j & 3) {  // Zero additional weights rounding up to 4.
+		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+		j++;
 	}
 }
 
