@@ -95,6 +95,10 @@ Operand2 AssumeMakeOperand2(u32 imm) {
 	Operand2 op2;
 	bool result = TryMakeOperand2(imm, op2);
 	_dbg_assert_msg_(JIT, result, "Could not make assumed Operand2.");
+	if (!result) {
+		// Make double sure that we get it logged.
+		ERROR_LOG(JIT, "Could not make assumed Operand2.");
+	}
 	return op2;
 }
 
@@ -156,6 +160,11 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 
 void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
+	if (val == 0) {
+		if (rd != rs)
+			MOV(rd, rs);
+		return;
+	}
 	Operand2 op2;
 	bool negated;
 	if (TryMakeOperand2_AllowNegation(val, op2, &negated)) {
