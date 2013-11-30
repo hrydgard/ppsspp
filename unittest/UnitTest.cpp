@@ -45,6 +45,146 @@
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 
+
+static const float asinCoef[8] = {
+	0
+};
+
+#define M_PI_2     1.57079632679489661923
+
+// TODO:
+// Fast approximate sincos for NEON
+// http://blog.julien.cayzac.name/2009/12/fast-sinecosine-for-armv7neon.html
+// Fast sincos
+// http://www.dspguru.com/dsp/tricks/parabolic-approximation-of-sin-and-cos
+
+// minimax (surprisingly terrible! something must be wrong)
+// double asin_plus_sqrtthing = .9998421793 + (1.012386649 + (-.6575341673 + .8999841642 + (-1.669668977 + (1.571945105 - .5860008052 * x) * x) * x) * x) * x;
+
+// VERY good. 6 MAD, one division.
+// double asin_plus_sqrtthing = (1.807607311 + (.191900116 + (-2.511278506 + (1.062519236 + (-.3572142480 + .1087063463 * x) * x) * x) * x) * x) / (1.807601897 - 1.615203794 * x);
+// float asin_plus_sqrtthing_correct_ends =
+// 	(1.807607311f + (.191900116f + (-2.511278506f + (1.062519236f + (-.3572142480f + .1087063463f * x) * x) * x) * x) * x) / (1.807607311f - 1.615195094 * x);
+
+// Unfortunately this is very serial.
+// At least there are only 8 constants needed - load them into two low quads and go to town.
+// For every step, VDUP the constant into a new register (out of two alternating), then VMLA or VFMA into it.
+
+
+// http://www.ecse.rpi.edu/~wrf/Research/Short_Notes/arcsin/
+// minimax polynomial rational approx, pretty good, get four digits consistently.
+// unfortunately fastasin(1.0) / M_PI_2  != 1.0f, but it's pretty close.
+float fastasin(double x) {
+	float sign = x >= 0.0f ? 1.0f : -1.0f;
+	x = fabs(x);
+	float sqrtthing = sqrt(1.0f - x * x);
+	float y = -.3572142480f + .1087063463f * x;
+	y = y * x + 1.062519236f;
+	y = y * x + -2.511278506f;
+	y = y * x + .191900116f;
+	y = y * x + 1.807607311f;
+	y /= (1.807607311f - 1.615195094 * x);
+	return sign * (y - sqrtthing);
+}
+
+double atan_66s(double x) { 
+	const double c1=1.6867629106; 
+	const double c2=0.4378497304; 
+	const double c3=1.6867633134; 
+	
+	double x2; // The input argument squared 
+
+	x2=x * x; 
+	return (x*(c1 + x2*c2)/(c3 + x2));
+}
+
+// Terrible.
+double fastasin2(double x) {
+	return atan_66s(x / sqrt(1 - x * x));
+}
+
+// Also terrible.
+float fastasin3(float x) {
+	return x + x * x * x * x * x * 0.4971;
+}
+
+
+
+// This one is unfortunately not very good. But lets us avoid PI entirely
+// thanks to the special arguments of the PSP functions.
+// http://www.dspguru.com/dsp/tricks/parabolic-approximation-of-sin-and-cos
+#define C            0.70710678118654752440f    // 1.0f / sqrt(2.0f)
+// Some useful constants (PI and <math.h> are not part of algo)
+#define BITSPERQUARTER (20)
+void fcs(float angle, float &sinout, float &cosout) {
+	int phasein = angle * (1 << BITSPERQUARTER);
+	// Modulo phase into quarter, convert to float 0..1
+	float modphase = (phasein & ((1<<BITSPERQUARTER)-1)) * (1.0f / (1<<BITSPERQUARTER));
+	// Extract quarter bits 
+	int quarter = phasein >> BITSPERQUARTER;
+	// Recognize quarter
+	if (!quarter) { 
+		// First quarter, angle = 0 .. pi/2
+		float x = modphase - 0.5f;      // 1 sub
+		float temp = (2 - 4*C)*x*x + C; // 2 mul, 1 add
+		sinout = temp + x;              // 1 add
+		cosout = temp - x;              // 1 sub
+	} else if (quarter == 1) {
+		// Second quarter, angle = pi/2 .. pi
+		float x = 0.5f - modphase;      // 1 sub
+		float temp = (2 - 4*C)*x*x + C; // 2 mul, 1 add
+		sinout = x + temp;              // 1 add
+		cosout = x - temp;              // 1 sub
+	} else if (quarter == 2) {
+		// Third quarter, angle = pi .. 1.5pi
+		float x = modphase - 0.5f;      // 1 sub
+		float temp = (4*C - 2)*x*x - C; // 2 mul, 1 sub
+		sinout = temp - x;              // 1 sub
+		cosout = temp + x;              // 1 add
+	} else if (quarter == 3) {
+		// Fourth quarter, angle = 1.5pi..2pi
+		float x = modphase - 0.5f;      // 1 sub
+		float temp = (2 - 4*C)*x*x + C; // 2 mul, 1 add
+		sinout = x - temp;              // 1 sub
+		cosout = x + temp;              // 1 add
+	}
+}
+
+
+void fastsincos(float x, float &sine, float &cosine) {
+	fcs(x, sine, cosine);
+}
+
+bool TestSinCos() {
+	for (int i = -100; i <= 100; i++) {
+		float f = i / 30.0f;
+
+		// The PSP sin/cos take as argument angle * M_PI_2.
+		// We need to match that.
+		float slowsin = sinf(f * M_PI_2), slowcos = cosf(f * M_PI_2);
+		float fastsin, fastcos;
+		fastsincos(f, fastsin, fastcos);
+		printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+	}
+	return true;
+}
+
+
+bool TestAsin() {
+	for (int i = -100; i <= 100; i++) {
+		float f = i / 100.0f;
+		float slowval = asinf(f) / M_PI_2;
+		float fastval = fastasin(f) / M_PI_2;
+		printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		float diff = fabsf(slowval - fastval);
+		EXPECT_TRUE(diff < 0.0001f);
+	}
+	EXPECT_TRUE(fastasin(1.0) / M_PI_2 <= 1.0f);
+	return true;
+}
+
+
+
 bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
 	memcpy(&instr, emit.GetCodePtr() - 4, 4);
@@ -123,6 +263,8 @@ bool TestParsers() {
 
 int main(int argc, const char *argv[])
 {
+	//TestAsin();
+	TestSinCos();
 	TestArmEmitter();
 	TestMathUtil();
 	TestParsers();

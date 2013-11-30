@@ -685,9 +685,6 @@ static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) 
 }
 
 bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys) {
-	int search_start_layer = 0;
-	int psp_button;
-
 	return FindKeyMapping(deviceId, key, pspKeys);
 }
 
