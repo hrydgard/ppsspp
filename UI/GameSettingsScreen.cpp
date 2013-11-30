@@ -145,11 +145,11 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 
 	// Seems solid, so we hide the setting.
-	// CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gs->T("Vertex Decoder JIT")));
+	CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gs->T("Vertex Decoder JIT")));
 
 	if (PSP_IsInited()) {
 		swSkin->SetEnabled(false);
-		// vtxJit->SetEnabled(false);
+		vtxJit->SetEnabled(false);
 	}
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
