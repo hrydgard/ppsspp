@@ -106,12 +106,18 @@ namespace MIPSComp
 					break;
 				}
 				gpr.MapDirtyIn(rt, rs);
+#if 0
 				CMPI2R(gpr.R(rs), simm, R0);
 				SetCC(CC_LT);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_GE);
 				MOVI2R(gpr.R(rt), 0);
 				SetCC(CC_AL);
+#else
+				// Simply subtract, then use a logical shift to grab the sign bit.
+				ADDI2R(R0, gpr.R(rs), -simm, R1);
+				LSR(gpr.R(rt), R0, 31);
+#endif
 			}
 			break;
 
@@ -128,6 +134,9 @@ namespace MIPSComp
 				SetCC(CC_HS);
 				MOVI2R(gpr.R(rt), 0);
 				SetCC(CC_AL);
+
+				// For unsigned, to do the same trick as with signed we need to extract the carry and that 
+				// is probably more expensive than this.
 			}
 			break;
 
@@ -364,7 +373,10 @@ namespace MIPSComp
 						CMN(gpr.R(rs), op2);
 				} else {
 					gpr.MapDirtyInIn(rd, rs, rt);
-					CMP(gpr.R(rs), gpr.R(rt));
+					SUB(R0, gpr.R(rs), gpr.R(rt));
+					LSR(gpr.R(rd), R0, 31);
+					return;
+					// CMP(gpr.R(rs), gpr.R(rt));
 				}
 
 				SetCC(caseOne);
