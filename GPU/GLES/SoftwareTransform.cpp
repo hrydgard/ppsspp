@@ -300,7 +300,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		scaleUV = !g_Config.bPrescaleUV;
 	}
 
-
 	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
 
 	int w = gstate.getTextureWidth(0);

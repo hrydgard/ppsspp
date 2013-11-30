@@ -732,7 +732,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		if (diff)
+		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 

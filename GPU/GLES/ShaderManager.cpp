@@ -391,56 +391,81 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 
 	// Texturing
-	if (dirty & DIRTY_UVSCALEOFFSET) {
-		float uvscaleoff[4];
-		float invW = 1.0f / (float)gstate_c.curTextureWidth;
-		float invH = 1.0f / (float)gstate_c.curTextureHeight;
 
-		if (g_Config.bPrescaleUV) {
-			// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
-			// except consider *Scale and *Off to be 1 and 0.
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w * invW;
-			float heightFactor = (float)h * invH;
+	// If this dirty check is changed to true, Frontier Gate Boost works in texcoord speedhack mode.
+	// This means that it's not a flushing issue.
+	// It uses GE_TEXMAP_TEXTURE_MATRIX with GE_PROJMAP_UV a lot.
+	// Can't figure out why it doesn't dirty at the right points though...
+	if (dirty & DIRTY_UVSCALEOFFSET) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
+		static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+		const float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+
+		float uvscaleoff[4];
+
+		switch (gstate.getUVGenMode()) {
+		case GE_TEXMAP_TEXTURE_COORDS:
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-				float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+		case GE_TEXMAP_UNKNOWN:
+			if (g_Config.bPrescaleUV) {
+				// Shouldn't even get here as we won't use the uniform in the shader.
+				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
+				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = factor * widthFactor;
 				uvscaleoff[1] = factor * heightFactor;
-				uvscaleoff[2] = 0;
-				uvscaleoff[3] = 0;
-			} else {
-				uvscaleoff[0] = widthFactor;
-				uvscaleoff[1] = heightFactor;
 				uvscaleoff[2] = 0.0f;
 				uvscaleoff[3] = 0.0f;
-			}
-			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
-		} else {
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w * invW;
-			float heightFactor = (float)h * invH;
-			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-			static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
+			} else {
 				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
 				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
 				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
 				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			} else {
-				uvscaleoff[0] = factor * widthFactor;
-				uvscaleoff[1] = factor * heightFactor;				
-				uvscaleoff[2] = 0.0f;
-				uvscaleoff[3] = 0.0f;
 			}
-			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
+			break;
+
+		// These two work the same whether or not we prescale UV.
+
+		case GE_TEXMAP_TEXTURE_MATRIX:
+			// UV coords (that need "factor") are only used here if the getUVProjMode == 1.
+			// Otherwise we just use it to scale the coordinates to the texture.
+			// Factor is used even if prescale is enabled, because prescale doesn't apply if the mode
+			// is texture_matrix.
+			if (gstate.getUVProjMode() == GE_PROJMAP_UV) {
+				uvscaleoff[0] = widthFactor * factor;
+				uvscaleoff[1] = heightFactor * factor;
+			} else {
+				// In these other modes we only use uvscaleoff to scale to the texture size.
+				uvscaleoff[0] = widthFactor;
+				uvscaleoff[1] = heightFactor;
+			}
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		case GE_TEXMAP_ENVIRONMENT_MAP:
+			// In this mode we only use uvscaleoff to scale to the texture size.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
+		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
+	// Transform
+	if (dirty & DIRTY_WORLDMATRIX) {
+		SetMatrix4x3(u_world, gstate.worldMatrix);
+	}
 	// Transform
 	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(u_world, gstate.worldMatrix);
@@ -581,8 +606,10 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 
 
 LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
-	if (g_Config.bPrescaleUV)
-		globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
+	// This doesn't work - we miss some events that really do need to dirty the prescale.
+	// like changing the texmapmode.
+	// if (g_Config.bPrescaleUV)
+	//	 globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
 
 	if (globalDirty_) {
 		if (lastShader_)
