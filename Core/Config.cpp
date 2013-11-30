@@ -184,7 +184,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
 #endif
-	graphics->Get("PartialStretch", &bPartialStretch, pixel_xres < 1.3 * pixel_yres);
+	bool partialStretchDefault = false;
+#ifdef BLACKBERRY
+	partialStretchDefault = pixel_xres < 1.3 * pixel_yres;
+#endif
+	graphics->Get("PartialStretch", &bPartialStretch, partialStretchDefault);
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
 	graphics->Get("MipMap", &bMipMap, true);
@@ -453,9 +457,7 @@ void Config::Save() {
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
 #endif
-#ifdef BLACKBERRY
 		graphics->Set("PartialStretch", bPartialStretch);
-#endif
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
