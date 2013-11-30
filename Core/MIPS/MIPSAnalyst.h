@@ -19,6 +19,7 @@
 
 #include "Globals.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/HLE/ReplaceTables.h"
 
 class DebugInterface;
 
@@ -74,12 +75,33 @@ namespace MIPSAnalyst
 
 	AnalysisResults Analyze(u32 address);
 
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr);
+
+	struct AnalyzedFunction {
+		u32 start;
+		u32 end;
+		u64 hash;
+		u32 size;
+		bool isStraightLeaf;
+		bool hasHash;
+		bool usesVFPU;
+		char name[64];
+	};
+
+	void Reset();
 
 	bool IsRegisterUsed(u32 reg, u32 addr);
-	void ScanForFunctions(u32 startAddr, u32 endAddr);
+	// This will not only create a database of "AnalyzedFunction" structs, it also
+	// will insert all the functions it finds into the symbol map, if insertSymbols is true.
+	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols);
+	void ForgetFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
-	void LoadHashMap(const std::string &filename);
-	void StoreHashMap(const std::string &filename);
+	void LoadHashMap(std::string filename);
+	void StoreHashMap(std::string filename = "");
+	void ReplaceFunctions(const ReplacementTableEntry *e, int numEntries);
+
+	void UpdateHashMap();
+	void ApplyHashMap();
 
 	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op);
 	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op);
@@ -93,8 +115,7 @@ namespace MIPSAnalyst
 
 	void Shutdown();
 	
-	typedef struct
-	{
+	typedef struct {
 		DebugInterface* cpu;
 		u32 opcodeAddress;
 		MIPSOpcode encodedOpcode;

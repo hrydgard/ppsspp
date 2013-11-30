@@ -196,6 +196,7 @@
     <ClCompile Include="HLE\HLE.cpp" />
     <ClCompile Include="HLE\HLETables.cpp" />
     <ClCompile Include="HLE\proAdhoc.cpp" />
+    <ClCompile Include="HLE\ReplaceTables.cpp" />
     <ClCompile Include="HLE\sceAtrac.cpp" />
     <ClCompile Include="HLE\sceAudio.cpp" />
     <ClCompile Include="HLE\sceAudiocodec.cpp" />
@@ -454,6 +455,7 @@
     <ClInclude Include="HLE\HLETables.h" />
     <ClInclude Include="HLE\KernelWaitHelpers.h" />
     <ClInclude Include="HLE\proAdhoc.h" />
+    <ClInclude Include="HLE\ReplaceTables.h" />
     <ClInclude Include="HLE\sceAtrac.h" />
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceAudiocodec.h" />

@@ -27,9 +27,33 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
+#include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "ext/xxhash.h"
 
 using namespace MIPSCodeUtils;
-using namespace std;
+
+// Not in a namespace because MSVC's debugger doesn't like it
+static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
+
+// TODO: Try multimap instead
+// One function can appear in multiple copies in memory, and they will all have 
+// the same hash and should all be replaced if possible.
+static std::map<u64, std::vector<MIPSAnalyst::AnalyzedFunction*>> hashToFunction;
+
+struct HashMapFunc {
+  char name[64];
+  u64 hash;
+  u32 size; //number of bytes
+
+  bool operator < (const HashMapFunc &other) const {
+    return hash < other.hash || (hash == other.hash && size < other.size);
+  }
+};
+
+static std::set<HashMapFunc> hashMap;
+
+static std::string hashmapFileName;
 
 namespace MIPSAnalyst {
 	// Only can ever output a single reg.
@@ -132,73 +156,48 @@ namespace MIPSAnalyst {
 				results.r[outReg].MarkWrite(addr);
 			}
 
-			if (info & DELAYSLOT)
-			{
+			if (info & DELAYSLOT) {
 				// Let's just finish the delay slot before bailing.
 				endAddr = addr + 4;
 			}
 		}
 
-		int numUsedRegs=0;
-		static int totalUsedRegs=0;
-		static int numAnalyzings=0;
+		int numUsedRegs = 0;
+		static int totalUsedRegs = 0;
+		static int numAnalyzings = 0;
 		for (int i = 0; i < MIPS_NUM_GPRS; i++) {
 			if (results.r[i].used) {
 				numUsedRegs++;
 			}
 		}
-		totalUsedRegs+=numUsedRegs;
+		totalUsedRegs += numUsedRegs;
 		numAnalyzings++;
-		DEBUG_LOG(CPU,"[ %08x ] Used regs: %i	 Average: %f",address,numUsedRegs,(float)totalUsedRegs/(float)numAnalyzings);
+		VERBOSE_LOG(CPU, "[ %08x ] Used regs: %i Average: %f", address, numUsedRegs, (float)totalUsedRegs / (float)numAnalyzings);
 
 		return results;
 	}
-
-
-	struct Function
-	{
-		u32 start;
-		u32 end;
-		u64 hash;
-		u32 size;
-		bool isStraightLeaf;
-		bool hasHash;
-		bool usesVFPU;
-		char name[64];
-	};
-
-	vector<Function> functions;
-
-	map<u64, Function*> hashToFunction;
-
-	void Shutdown()
-	{
+	
+	void Reset()	{
 		functions.clear();
 		hashToFunction.clear();
 	}
 
-	// hm pointless :P
-	void UpdateHashToFunctionMap()
-	{
+	void UpdateHashToFunctionMap() {
 		hashToFunction.clear();
-		for (vector<Function>::iterator iter = functions.begin(); iter != functions.end(); iter++)
-		{
-			Function &f = *iter;
-			if (f.hasHash)
-			{
-				hashToFunction[f.hash] = &f;
+		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+			AnalyzedFunction &f = *iter;
+			if (f.hasHash) {
+				hashToFunction[f.hash].push_back(&f);
 			}
 		}
 	}
 
-
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr)
-	{
-		while (true)
-		{
+	// Look forwards to find if a register is used again in this block.
+	// Don't think we use this yet.
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr) {
+		while (true) {
 			MIPSOpcode op = Memory::Read_Instruction(addr);
 			MIPSInfo info = MIPSGetInfo(op);
-
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
 			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
@@ -213,7 +212,7 @@ namespace MIPSAnalyst {
 				return false; //the reg got clobbed! yay!
 			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
 				return false; //the reg got clobbed! yay!
-			addr+=4;
+			addr += 4;
 		}
 		return true;
 	}
@@ -222,7 +221,7 @@ namespace MIPSAnalyst {
 		std::vector<u32> buffer;
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
-			Function &f = *iter;
+			AnalyzedFunction &f = *iter;
 
 			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
 			buffer.resize((f.end - f.start + 4) / 4);
@@ -315,15 +314,19 @@ namespace MIPSAnalyst {
 		return furthestJumpbackAddr;
 	}
 
-	void ScanForFunctions(u32 startAddr, u32 endAddr /*, std::vector<u32> knownEntries*/) {
-		Function currentFunction = {startAddr};
+	void ReplaceFunctions();
+
+	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
+		AnalyzedFunction currentFunction = {startAddr};
 
 		u32 furthestBranch = 0;
 		bool looking = false;
 		bool end = false;
 		bool isStraightLeaf = true;
+
 		u32 addr;
-		for (addr = startAddr; addr <= endAddr; addr+=4) {
+		for (addr = startAddr; addr <= endAddr; addr += 4) {
+			// Use pre-existing symbol map info if available. May be more reliable.
 			SymbolInfo syminfo;
 			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
 				addr = syminfo.address + syminfo.size - 4;
@@ -403,6 +406,7 @@ namespace MIPSAnalyst {
 					}
 				}
 			}
+
 			if (end) {
 				currentFunction.end = addr + 4;
 				currentFunction.isStraightLeaf = isStraightLeaf;
@@ -411,17 +415,20 @@ namespace MIPSAnalyst {
 				addr += 4;
 				looking = false;
 				end = false;
-				isStraightLeaf=true;
+				isStraightLeaf = true;
 				currentFunction.start = addr+4;
 			}
 		}
+
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
-			iter->size = iter->end - iter->start + 4;
-			char temp[256];
-			symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
+		if (insertSymbols) {
+			for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+				iter->size = iter->end - iter->start + 4;
+				char temp[256];
+				symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
+			}
 		}
 
 		HashFunctions();
@@ -430,30 +437,42 @@ namespace MIPSAnalyst {
 			LoadHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
 			StoreHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
 		}
+
+		// ReplaceFunctions();
 	}
 
-	struct HashMapFunc {
-		char name[64];
-		u64 hash;
-		u32 size; //number of bytes
+	void ForgetFunctions(u32 startAddr, u32 endAddr) {
+		StoreHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
 
-		bool operator < (const HashMapFunc &other) const {
-			return hash < other.hash || (hash == other.hash && size < other.size);
-		}
-	};
-	std::set<HashMapFunc> hashMap;
+		// It makes sense to forget functions as modules are unloaded but it breaks
+		// the easy way of saving a hashmap by unloading and loading a game. I added
+		// an alternative way.
 
-	void StoreHashMap(const std::string &filename) {
-		HashFunctions();
-
-		FILE *file = File::OpenCFile(filename, "wt");
-		if (!file) {
-			WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
-			return;
+		// TODO: speedup
+		auto iter = functions.begin();
+		while (iter != functions.end()) {
+			if (iter->start >= startAddr && iter->start <= endAddr) {
+				iter = functions.erase(iter);
+			} else {
+				iter++;
+			}
 		}
 
+		// TODO: Also wipe them from hash->function map
+	}
+
+	void ReplaceFunctions() {
+		for (size_t i = 0; i < functions.size(); i++) {
+			int index = GetReplacementFuncIndex(functions[i].hash, functions[i].size);
+			if (index >= 0) {
+				Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)i, functions[i].start);
+			}
+		}
+	}
+
+	void UpdateHashMap() {
 		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
-			const Function &f = *it;
+			const AnalyzedFunction &f = *it;
 			// Small functions aren't very interesting.
 			if (!f.hasHash || f.size < 12) {
 				continue;
@@ -468,6 +487,19 @@ namespace MIPSAnalyst {
 			strncpy(mf.name, name, sizeof(mf.name) - 1);
 			hashMap.insert(mf);
 		}
+	}
+
+	void StoreHashMap(std::string filename) {
+		if (filename.empty())
+			filename = hashmapFileName;
+
+		FILE *file = File::OpenCFile(filename, "wt");
+		if (!file) {
+			WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+			return;
+		}
+
+		UpdateHashMap();
 
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
 			const HashMapFunc &mf = *it;
@@ -480,7 +512,6 @@ namespace MIPSAnalyst {
 	}
 
 	void ApplyHashMap() {
-		HashFunctions();
 		UpdateHashToFunctionMap();
 
 		for (auto mf = hashMap.begin(), end = hashMap.end(); mf != end; ++mf) {
@@ -490,26 +521,30 @@ namespace MIPSAnalyst {
 			}
 
 			// Yay, found a function.
-			Function &f = *(iter->second);
-			if (f.hash == mf->hash && f.size == mf->size) {
-				strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 
-				const char *existingLabel = symbolMap.GetLabelName(f.start);
-				char defaultLabel[256];
-				// If it was renamed, keep it.  Only change the name if it's still the default.
-				if (existingLabel == NULL || !strcmp(existingLabel, DefaultFunctionName(defaultLabel, f.start))) {
-					symbolMap.SetLabelName(mf->name, f.start);
+			for (int i = 0; i < iter->second.size(); i++) {
+				AnalyzedFunction &f = *(iter->second[i]);
+				if (f.hash == mf->hash && f.size == mf->size) {
+					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
+
+					const char *existingLabel = symbolMap.GetLabelName(f.start);
+					char defaultLabel[256];
+					// If it was renamed, keep it.  Only change the name if it's still the default.
+					if (existingLabel == NULL || !strcmp(existingLabel, DefaultFunctionName(defaultLabel, f.start))) {
+						symbolMap.SetLabelName(mf->name, f.start);
+					}
 				}
 			}
 		}
 	}
 
-	void LoadHashMap(const std::string &filename) {
+	void LoadHashMap(std::string filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());
 			return;
 		}
+		hashmapFileName = filename;
 
 		while (!feof(file)) {
 			HashMapFunc mf = { "" };
@@ -561,11 +596,9 @@ namespace MIPSAnalyst {
 
 		// gather relevant address for alu operations
 		// that's usually the value of the dest register
-		switch (MIPS_GET_OP(op))
-		{
+		switch (MIPS_GET_OP(op)) {
 		case 0:		// special
-			switch (MIPS_GET_FUNC(op))
-			{
+			switch (MIPS_GET_FUNC(op)) {
 			case 0x20:	// add
 			case 0x21:	// addu
 				info.hasRelevantAddress = true;

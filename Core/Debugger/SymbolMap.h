@@ -89,6 +89,7 @@ public:
 	DataType GetDataType(u32 startAddress) const;
 
 	static const u32 INVALID_ADDRESS = (u32)-1;
+
 private:
 	void AssignFunctionIndices();
 

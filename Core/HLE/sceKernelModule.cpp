@@ -315,6 +315,11 @@ public:
 	std::vector<VarSymbolImport> importedVars;
 	std::set<std::string> impExpModuleNames;
 
+	// Keep track of the code region so we can throw out analysis results
+	// when unloaded.
+	u32 textStart;
+	u32 textEnd;
+
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
 	bool isFake;
@@ -406,7 +411,7 @@ void __KernelModuleDoState(PointerWrap &p)
 void __KernelModuleShutdown()
 {
 	loadedModules.clear();
-	MIPSAnalyst::Shutdown();
+	MIPSAnalyst::Reset();
 }
 
 // Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
@@ -671,6 +676,8 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 }
 
 void Module::Cleanup() {
+	MIPSAnalyst::ForgetFunctions(textStart, textEnd);
+
 	loadedModules.erase(GetUID());
 
 	for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it) {
@@ -753,8 +760,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
 
-	struct PspModuleInfo
-	{
+	struct PspModuleInfo {
 		// 0, 0, 1, 1 ?
 		u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
 		u16_le moduleVersion;
@@ -816,14 +822,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 #if !defined(USING_GLES2)
 		if (!reader.LoadSymbols())
-			MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
+			MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, true);
+#else
+		// Scan for functions (for the analysis results which can help the JIT).
+		// But don't insert into the symbol map.
+		// MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, false);
 #endif
 	}
 
 	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 
-	struct PspLibStubEntry
-	{
+	struct PspLibStubEntry {
 		u32_le name;
 		u16_le version;
 		u16_le flags;
@@ -973,7 +982,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 textEnd = firstImportStubAddr - 4;
 #if !defined(USING_GLES2)
 		if (!reader.LoadSymbols())
-			MIPSAnalyst::ScanForFunctions(textStart, textEnd);
+			MIPSAnalyst::ScanForFunctions(textStart, textEnd, true);
 #endif
 	}
 

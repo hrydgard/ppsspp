@@ -505,6 +505,9 @@
     <ClCompile Include="Util\GameManager.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\ReplaceTables.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -935,6 +938,9 @@
     </ClInclude>
     <ClInclude Include="Util\GameManager.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\ReplaceTables.h">
+      <Filter>HLE</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

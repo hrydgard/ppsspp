@@ -31,6 +31,7 @@
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/System.h"
 
 #define R(i) (currentMIPS->r[i])
@@ -1010,7 +1011,19 @@ namespace MIPSInt
 
 	void Int_Emuhack(MIPSOpcode op)
 	{
-		_dbg_assert_msg_(CPU,0,"Trying to interpret emuhack instruction that can't be interpreted");
+		if (((op >> 24) & 3) != 1) {
+			_dbg_assert_msg_(CPU,0,"Trying to interpret emuhack instruction that can't be interpreted");
+		}
+		// It's a replacement func!
+		int index = op.encoding & 0xFFFFFF;
+		const ReplacementTableEntry *entry = GetReplacementFunc(index);
+		if (entry) {
+			entry->replaceFunc();
+		} else {
+			ERROR_LOG(CPU, "Bad replacement function index %i", index);
+		}	
+
+		PC = currentMIPS->r[MIPS_REG_RA];
 	}
 
 

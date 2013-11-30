@@ -161,6 +161,17 @@ void Jit::Comp_RunBlock(MIPSOpcode op) {
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
+void Jit::Comp_ReplacementFunc(MIPSOpcode op)
+{
+	// None of the code of this function is relevant so we'll just
+	// call the replacement and move RA to PC.
+	int replacementFunc = op & 0xFFFFFFF;
+
+
+	// We could even do this in the jal that is branching to the function
+	// but having the op is necessary for the interpreter anyway.
+}
+
 void Jit::Comp_DoNothing(MIPSOpcode op) {
 
 }

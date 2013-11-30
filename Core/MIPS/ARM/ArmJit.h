@@ -73,6 +73,7 @@ public:
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
 	void Comp_RunBlock(MIPSOpcode op);
+	void Comp_ReplacementFunc(MIPSOpcode op);
 
 	// Ops
 	void Comp_ITypeMem(MIPSOpcode op);

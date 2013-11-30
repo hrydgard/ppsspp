@@ -47,16 +47,16 @@ struct MIPSInfo {
 #define CONDTYPE_FPUTRUE	CONDTYPE_NE
 
 // as long as the other flags are checked,
-// there is no way to misinterprete these
+// there is no way to misinterpret these
 // as CONDTYPE_X
-#define MEMTYPE_MASK	0x00000007
-#define MEMTYPE_BYTE	0x00000001
-#define MEMTYPE_HWORD	0x00000002
-#define MEMTYPE_WORD	0x00000003
+#define MEMTYPE_MASK    0x00000007
+#define MEMTYPE_BYTE    0x00000001
+#define MEMTYPE_HWORD	  0x00000002
+#define MEMTYPE_WORD	  0x00000003
 #define MEMTYPE_FLOAT   0x00000004
 #define MEMTYPE_VQUAD   0x00000005
 
-#define IS_CONDMOVE		0x00000008
+#define IS_CONDMOVE     0x00000008
 #define DELAYSLOT       0x00000010
 #define BAD_INSTRUCTION 0x00000020
 #define LIKELY          0x00000040

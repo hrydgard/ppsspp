@@ -170,6 +170,7 @@ namespace MIPSComp
 
 		void EatInstruction(MIPSOpcode op);
 		void Comp_RunBlock(MIPSOpcode op);
+		void Comp_ReplacementFunc(MIPSOpcode op);
 
 		// TODO: Eat VFPU prefixes here.
 		void EatPrefix() { js.EatPrefix(); }

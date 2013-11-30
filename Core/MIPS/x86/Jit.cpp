@@ -30,6 +30,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/HLE/ReplaceTables.h"
 
 #include "RegCache.h"
 #include "Jit.h"
@@ -369,6 +370,28 @@ void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock");
+}
+
+void Jit::Comp_ReplacementFunc(MIPSOpcode op)
+{
+	// None of the code of this function is relevant so we'll just
+	// call the replacement and move RA to PC.
+	int index = op.encoding & 0xFFFFFF;
+	const ReplacementTableEntry *entry = GetReplacementFunc(index);
+
+	CALL(entry->replaceFunc);
+	// Alternatively, we could inline it here, instead of calling out, if it's a function
+	// we can emit.
+
+	MOV(32, R(EAX), Imm32(currentMIPS->r[MIPS_REG_RA]));
+	MOV(32, M(&mips_->pc), R(EAX));
+	SUB(32, M(&currentMIPS->downcount), Imm32(entry->cyclesToEat));
+	JMP(asm_.dispatcher, true);
+
+	js.compiling = false;
+	
+	// We could even do this in the jal that is branching to the function
+	// but having the op is necessary for the interpreter anyway.
 }
 
 void Jit::Comp_Generic(MIPSOpcode op)

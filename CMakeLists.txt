@@ -968,6 +968,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/FunctionWrappers.h
 	Core/HLE/HLE.cpp
 	Core/HLE/HLE.h
+	Core/HLE/ReplaceTables.cpp
+	Core/HLE/ReplaceTables.h
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h

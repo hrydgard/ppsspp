@@ -808,11 +808,10 @@ const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 10
 };
 
 
-const MIPSInstruction tableEMU[4] = 
-{
+const MIPSInstruction tableEMU[4] = {
 	INSTR("RUNBLOCK", &Jit::Comp_RunBlock, Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
 	INSTR("RetKrnl", 0, Dis_Emuhack, Int_Emuhack, 0),
-	INVALID,
+	INSTR("CallRepl", &Jit::Comp_ReplacementFunc, Dis_Emuhack, Int_Emuhack, 0),
 	INVALID,
 };
 

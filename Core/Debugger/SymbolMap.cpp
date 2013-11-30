@@ -50,6 +50,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
 		return false;
+
 	//char temp[256];
 	//fgets(temp,255,f); //.text section layout
 	//fgets(temp,255,f); //  Starting        Virtual
@@ -130,14 +131,14 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 	return true;
 }
 
-
-void SymbolMap::SaveSymbolMap(const char *filename) const
-{
+void SymbolMap::SaveSymbolMap(const char *filename) const {
 	lock_guard guard(lock_);
 	FILE *f = File::OpenCFile(filename, "w");
 	if (!f)
 		return;
+
 	fprintf(f,".text\n");
+
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
 		fprintf(f,"%08x %08x %08x %i %s\n",it->first,e.size,it->first,ST_FUNCTION,GetLabelName(it->first));
@@ -150,8 +151,7 @@ void SymbolMap::SaveSymbolMap(const char *filename) const
 	fclose(f);
 }
 
-bool SymbolMap::LoadNocashSym(const char *filename)
-{
+bool SymbolMap::LoadNocashSym(const char *filename) {
 	lock_guard guard(lock_);
 	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
@@ -191,7 +191,7 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 			}
 		} else {				// labels
 			int size = 1;
-			char* seperator = strchr(value,',');
+			char* seperator = strchr(value, ',');
 			if (seperator != NULL) {
 				*seperator = 0;
 				sscanf(seperator+1,"%08X",&size);
@@ -217,8 +217,7 @@ SymbolType SymbolMap::GetSymbolType(u32 address) const {
 	return ST_NONE;
 }
 
-bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask) const
-{
+bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask) const {
 	u32 functionAddress = INVALID_ADDRESS;
 	u32 dataAddress = INVALID_ADDRESS;
 
@@ -228,12 +227,9 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 	if (symmask & ST_DATA)
 		dataAddress = GetDataStart(address);
 
-	if (functionAddress == INVALID_ADDRESS || dataAddress == INVALID_ADDRESS)
-	{
-		if (functionAddress != INVALID_ADDRESS)
-		{
-			if (info != NULL)
-			{
+	if (functionAddress == INVALID_ADDRESS || dataAddress == INVALID_ADDRESS) {
+		if (functionAddress != INVALID_ADDRESS) {
+			if (info != NULL) {
 				info->type = ST_FUNCTION;
 				info->address = functionAddress;
 				info->size = GetFunctionSize(functionAddress);
@@ -242,10 +238,8 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 			return true;
 		}
 		
-		if (dataAddress != INVALID_ADDRESS)
-		{
-			if (info != NULL)
-			{
+		if (dataAddress != INVALID_ADDRESS) {
+			if (info != NULL) {
 				info->type = ST_DATA;
 				info->address = dataAddress;
 				info->size = GetDataSize(dataAddress);
