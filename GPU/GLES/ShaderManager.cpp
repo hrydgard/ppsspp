@@ -466,10 +466,6 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(u_world, gstate.worldMatrix);
 	}
-	// Transform
-	if (dirty & DIRTY_WORLDMATRIX) {
-		SetMatrix4x3(u_world, gstate.worldMatrix);
-	}
 	if (dirty & DIRTY_VIEWMATRIX) {
 		SetMatrix4x3(u_view, gstate.viewMatrix);
 	}
