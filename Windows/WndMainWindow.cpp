@@ -472,7 +472,7 @@ namespace MainWindow
 
 	void CreateShadersSubmenu() {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
-		I18NCategory *shdr = GetI18NCategory("PostShaders");
+		I18NCategory *ps = GetI18NCategory("PostShaders");
 		const std::wstring key = ConvertUTF8ToWString(des->T("Postprocessing Shader"));
 
 		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
@@ -497,7 +497,7 @@ namespace MainWindow
 				checkedStatus = MF_CHECKED;
 			}
 
-			translatedShaderName = shdr->T(i->section.c_str());
+			translatedShaderName = ps->T(i->section.c_str());
 
 			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		}
