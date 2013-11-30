@@ -78,6 +78,9 @@ float fastasin(double x) {
 	float sign = x >= 0.0f ? 1.0f : -1.0f;
 	x = fabs(x);
 	float sqrtthing = sqrt(1.0f - x * x);
+	// note that the sqrt can run parallel while we do the rest
+	// if the hardware supports it
+
 	float y = -.3572142480f + .1087063463f * x;
 	y = y * x + 1.062519236f;
 	y = y * x + -2.511278506f;
@@ -149,10 +152,41 @@ void fcs(float angle, float &sinout, float &cosout) {
 		cosout = x + temp;              // 1 add
 	}
 }
+#undef C
+
+
+const float PI_SQR      = 9.86960440108935861883449099987615114f;
+
+//https://code.google.com/p/math-neon/source/browse/trunk/math_floorf.c?r=18
+// About 2 correct decimals. Not great.
+void fcs2(float theta, float &outsine, float &outcosine) {
+	float gamma = theta + 1;
+	gamma += 2;
+	gamma /= 4;
+	theta += 2;
+	theta /= 4;
+	//theta -= (float)(int)theta;
+	//gamma -= (float)(int)gamma;
+	theta -= floorf(theta);
+	gamma -= floorf(gamma);
+	theta *= 4;
+	theta -= 2;
+	gamma *= 4;
+	gamma -= 2;
+
+	const float B = 2;
+
+	float x = 2 * gamma - gamma * abs(gamma);
+	float y = 2 * theta - theta * abs(theta);
+	const float P = 0.225;
+	outsine = P * (y * abs(y) - y) + y;   // Q * y + P * y * abs(y)
+	outcosine = P * (x * abs(x) - x) + x;   // Q * y + P * y * abs(y)
+}
+
 
 
 void fastsincos(float x, float &sine, float &cosine) {
-	fcs(x, sine, cosine);
+	fcs2(x, sine, cosine);
 }
 
 bool TestSinCos() {
