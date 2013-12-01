@@ -151,7 +151,7 @@ MIPSState::MIPSState()
 		0x6, 0x26, 0x46, 0x66,
 		0x7, 0x27, 0x47, 0x67,
 	};
-	for (int i = 0; i < ARRAY_SIZE(firstThirtyTwo); i++) {
+	for (int i = 0; i < (int)ARRAY_SIZE(firstThirtyTwo); i++) {
 		if (voffset[firstThirtyTwo[i]] != i) {
 			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
 		}

@@ -189,9 +189,9 @@ void GameButton::Draw(UIContext &dc) {
 
 	char discNumInfo[8];
 	if (ginfo->disc_total > 1)
-		sprintf(discNumInfo, "-DISC%d",ginfo->disc_number);
+		sprintf(discNumInfo, "-DISC%d", ginfo->disc_number);
 	else
-		sprintf(discNumInfo, "");
+		strcpy(discNumInfo, "");
 
 	dc.Draw()->Flush();
 	dc.RebindTexture();

@@ -186,7 +186,7 @@ void CDisasm::stepInto()
 		}
 	}
 
-	for (int i = 0; i < (newAddress-currentPc)/4; i++)
+	for (u32 i = 0; i < (newAddress-currentPc)/4; i++)
 	{
 		Core_DoSingleStep();
 		Sleep(1);

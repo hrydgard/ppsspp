@@ -532,7 +532,7 @@ namespace MIPSDis
 		int vs = _VS;
 		int imm = (int)((op >> 16) & 0xFF);
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s%s\t%s, %s", name, VSuff(op), VN(vd, sz), VN(vs, sz), imm);
+		sprintf(out, "%s%s\t%s, %s, %d", name, VSuff(op), VN(vd, sz), VN(vs, sz), imm);
 	}
 
 	void Dis_Vf2h(MIPSOpcode op, char *out)

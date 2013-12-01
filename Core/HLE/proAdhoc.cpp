@@ -289,7 +289,7 @@ int friendFinder(){
       // BSSID Packet
       if(rx[0] == OPCODE_CONNECT_BSSID) {
         // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
+        if(rxpos >= (int)sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
           // Cast Packet
           SceNetAdhocctlConnectBSSIDPacketS2C * packet = (SceNetAdhocctlConnectBSSIDPacketS2C *)rx;
           // Update BSSID
@@ -310,7 +310,7 @@ int friendFinder(){
       // Chat Packet
       else if(rx[0] == OPCODE_CHAT) {
         // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlChatPacketS2C)) {
+        if(rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
           // Cast Packet
           SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
 
@@ -331,7 +331,7 @@ int friendFinder(){
       // Connect Packet
       else if(rx[0] == OPCODE_CONNECT) {
         // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlConnectPacketS2C)) {
+        if(rxpos >= (int)sizeof(SceNetAdhocctlConnectPacketS2C)) {
           // Log Incoming Peer
           INFO_LOG(SCENET,"Incoming Peer Data...");
 
@@ -359,7 +359,7 @@ int friendFinder(){
       // Disconnect Packet
       else if(rx[0] == OPCODE_DISCONNECT) {
         // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
+        if(rxpos >= (int)sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
           // Log Incoming Peer Delete Request
           INFO_LOG(SCENET,"FriendFinder: Incoming Peer Data Delete Request...");
 
@@ -387,7 +387,7 @@ int friendFinder(){
       // Scan Packet
       else if(rx[0] == OPCODE_SCAN) {
         // Enough Data available
-        if(rxpos >= sizeof(SceNetAdhocctlScanPacketS2C)) {
+        if(rxpos >= (int)sizeof(SceNetAdhocctlScanPacketS2C)) {
           // Log Incoming Network Information
           INFO_LOG(SCENET,"Incoming Group Information...");
           // Cast Packet

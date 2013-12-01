@@ -959,7 +959,7 @@ void DisassemblyData::createLines()
 				break;
 			}
 
-			int len = strlen(buffer);
+			size_t len = strlen(buffer);
 			if (currentLine.size() != 0 && currentLine.size()+len >= maxChars)
 			{
 				DataEntry entry = {currentLine,currentPos-currentLineStart,lineCount++};
