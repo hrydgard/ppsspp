@@ -119,6 +119,10 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 				if (name[0] != 0)
 					AddLabel(name,vaddress);
 				break;
+			case ST_NONE:
+			case ST_ALL:
+				// Shouldn't be possible.
+				break;
 			}
 		}
 	}
