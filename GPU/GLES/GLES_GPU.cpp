@@ -1058,6 +1058,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
 			gstate_c.textureChanged = true;
+			gstate_c.blocktransfer = true;
 			break;
 		}
 
