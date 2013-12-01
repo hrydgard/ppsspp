@@ -1,4 +1,5 @@
-#!/bin/bash
+# Strict errors. Any non-zero return exits this script
+set -e
 
 BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
 if [ -z "$BB_OS" ]; then
@@ -11,7 +12,7 @@ if [[ "$1" == "--simulator" ]]; then
 	SIM="-DSIMULATOR=ON"
 fi
 
-cmake ${SIM} -DCMAKE_TOOLCHAIN_FILE=bb.toolchain.cmake -DBLACKBERRY=${BB_OS} .. | grep -v '^-- '
+cmake ${SIM} -DCMAKE_TOOLCHAIN_FILE=bb.toolchain.cmake -DBLACKBERRY=${BB_OS} .. | (grep -v "^-- " || true)
 
 # Compile and create unsigned PPSSPP.bar with debugtoken
 make -j4
