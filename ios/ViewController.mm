@@ -33,7 +33,7 @@ extern ScreenManager *screenManager;
 InputState input_state;
 
 extern std::string ram_temp_file;
-extern bool JitJailed;
+extern bool iosCanUseJit;
 
 ViewController* sharedViewController;
 
@@ -70,7 +70,7 @@ ViewController* sharedViewController;
 
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
 		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
-        JitJailed = false;
+        iosCanUseJit = false;
 
 		NSArray *jailPath = [NSArray arrayWithObjects:
 							@"/Applications/Cydia.app",
@@ -82,7 +82,7 @@ ViewController* sharedViewController;
 		for(NSString *string in jailPath)
 		{
 			if ([[NSFileManager defaultManager] fileExistsAtPath:string])
-                JitJailed = true;
+                iosCanUseJit = true;
 		}
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;

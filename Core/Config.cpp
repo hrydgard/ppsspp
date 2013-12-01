@@ -41,7 +41,7 @@ http::Downloader g_DownloadManager;
 Config g_Config;
 
 #ifdef IOS
-extern bool JitJailed;
+extern bool iosCanUseJit;
 #endif
 
 Config::Config() { }
@@ -131,7 +131,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
-	cpu->Get("Jit", &bJit, JitJailed);
+	cpu->Get("Jit", &bJit, iosCanUseJit);
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
@@ -180,7 +180,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
 #ifdef IOS
-	graphics->Get("VertexDecJit", &bVertexDecoderJit, JitJailed);
+	graphics->Get("VertexDecJit", &bVertexDecoderJit, iosCanUseJit);
 #else
 	graphics->Get("VertexDecJit", &bVertexDecoderJit, true);
 #endif

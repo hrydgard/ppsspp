@@ -100,7 +100,7 @@ std::string config_filename;
 std::string game_title;
 
 #ifdef IOS
-bool JitJailed;
+bool iosCanUseJit;
 #endif
 
 // Really need to clean this mess of globals up... but instead I add more :P
