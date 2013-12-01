@@ -597,7 +597,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
 		TransformedVertex saved;
-		u32 stencilValue;
+		u32 stencilValue = 0;
 		for (int i = 0; i < vertexCount; i += 2) {
 			int index = ((const u16*)inds)[i];
 			saved = transformed[index];
