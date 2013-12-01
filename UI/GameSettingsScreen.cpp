@@ -49,6 +49,7 @@ namespace MainWindow {
 #endif
 #ifdef IOS
 extern bool isJailed;
+extern bool JitJailed;
 #endif
 
 static const int alternateSpeedTable[9] = {
