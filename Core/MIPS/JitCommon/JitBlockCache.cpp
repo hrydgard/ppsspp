@@ -254,6 +254,21 @@ void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> 
 			block_numbers->push_back(i);
 }
 
+u32 JitBlockCache::GetAddressFromBlockPtr(const u8 *ptr) const {
+	if (!codeBlock_->IsInSpace(ptr))
+		return (u32)-1;
+
+	for (int i = 0; i < num_blocks; ++i) {
+		const auto &b = blocks[i];
+		if (!b.invalid && ptr >= b.normalEntry && ptr < b.normalEntry + b.codeSize) {
+			return b.originalAddress;
+		}
+	}
+
+	// It's in jit somewhere, but we must've deleted it.
+	return 0;
+}
+
 MIPSOpcode JitBlockCache::GetOriginalFirstOp(int block_num)
 {
 	if (block_num >= num_blocks || block_num < 0)

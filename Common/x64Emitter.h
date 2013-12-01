@@ -756,7 +756,7 @@ public:
 		region_size = 0;
 	}
 
-	bool IsInSpace(u8 *ptr)
+	bool IsInSpace(const u8 *ptr) const
 	{
 		return ptr >= region && ptr < region + region_size;
 	}
@@ -782,7 +782,7 @@ public:
 		return region;
 	}
 
-	size_t GetOffset(u8 *ptr) {
+	size_t GetOffset(const u8 *ptr) const {
 		return ptr - region;
 	}
 };
