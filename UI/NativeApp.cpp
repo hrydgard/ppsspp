@@ -100,7 +100,6 @@ std::string config_filename;
 std::string game_title;
 
 #ifdef IOS
-bool isJailed;
 bool JitJailed;
 #endif
 

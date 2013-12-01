@@ -48,7 +48,6 @@ namespace MainWindow {
 }
 #endif
 #ifdef IOS
-extern bool isJailed;
 extern bool JitJailed;
 #endif
 
@@ -508,7 +507,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(s->T("General")));
 
 #ifdef IOS
-	if (isJailed) {
+	if ((JitJailed = true)) {
 		list->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
 	} else {
 		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
