@@ -128,6 +128,10 @@ public:
 		DoFlush();
 	}
 
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
+		return decJitCache_->IsInSpace(ptr);
+	}
+
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();

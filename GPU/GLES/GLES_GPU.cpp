@@ -1661,3 +1661,11 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
 bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }
+
+bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
+		name = "VertexDecoderJit";
+		return true;
+	}
+	return false;
+}

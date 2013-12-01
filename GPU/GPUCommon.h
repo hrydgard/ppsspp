@@ -73,6 +73,10 @@ public:
 		FreeAlignedMemory(p);
 	}
 
+	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) {
+		return false;
+	}
+
 protected:
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;

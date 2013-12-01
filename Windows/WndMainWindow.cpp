@@ -1572,6 +1572,13 @@ namespace MainWindow
 							return TRUE;
 						}
 					}
+					if (gpu) {
+						std::string name;
+						if (gpu->DescribeCodePtr(ptr, name)) {
+							swprintf_s(info->name, L"GPU::%S", name.c_str());
+							return TRUE;
+						}
+					}
 				}
 				return FALSE;
 
