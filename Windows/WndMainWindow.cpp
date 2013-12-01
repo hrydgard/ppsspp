@@ -1562,7 +1562,12 @@ namespace MainWindow
 							return TRUE;
 						}
 						if (jitAddr != (u32)-1) {
-							swprintf_s(info->name, L"Jit::%08x", jitAddr);
+							const char *label = symbolMap.GetDescription(jitAddr);
+							if (label != NULL) {
+								swprintf_s(info->name, L"Jit::%08x_%S", jitAddr, label);
+							} else {
+								swprintf_s(info->name, L"Jit::%08x", jitAddr);
+							}
 							return TRUE;
 						}
 
