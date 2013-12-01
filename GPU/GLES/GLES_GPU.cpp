@@ -1058,7 +1058,6 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
 			gstate_c.textureChanged = true;
-			gstate_c.blocktransfer = true;
 			break;
 		}
 
@@ -1542,7 +1541,11 @@ void GLES_GPU::DoBlockTransfer() {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
 		return;
 	}
-	
+
+	// From VRAM to RAM , trigger ReadFramebufferToMemory()
+	if (Memory::IsVRAMAddress(srcBasePtr) && !Memory::IsVRAMAddress(dstBasePtr) )
+		gstate_c.blocktransfer = true;
+		
 	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 	for (int y = 0; y < height; y++) {
 		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
