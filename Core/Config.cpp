@@ -41,7 +41,7 @@ http::Downloader g_DownloadManager;
 Config g_Config;
 
 #ifdef IOS
-extern bool isJailed;
+extern bool iosCanUseJit;
 #endif
 
 Config::Config() { }
@@ -131,7 +131,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
-	cpu->Get("Jit", &bJit, !isJailed);
+	cpu->Get("Jit", &bJit, iosCanUseJit);
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
@@ -179,8 +179,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iAnisotropyLevel = 4;
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
+#ifdef IOS
+	graphics->Get("VertexDecJit", &bVertexDecoderJit, iosCanUseJit);
+#else
 	graphics->Get("VertexDecJit", &bVertexDecoderJit, true);
-
+#endif
+	
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
 #endif
