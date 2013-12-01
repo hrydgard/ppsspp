@@ -13,28 +13,33 @@ compiler:
 
 before_install:
   - git submodule update --init --recursive
-  - sudo apt-get install lib32z1-dev lib32stdc++6 -qq
-# Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
-  - wget http://www.cmake.org/files/v2.8/cmake-2.8.12.1-Linux-i386.sh
-  - chmod a+x cmake-2.8.12.1-Linux-i386.sh
-  - sudo ./cmake-2.8.12.1-Linux-i386.sh --skip-license --prefix=/usr
+  - sudo apt-get install lib32z1-dev lib32stdc++6 aria2 -qq
+# Travis uses CMake 2.8.7. We require 2.8.8 for Linux/Blackberry. Grab latest
+  - if [ "$PPSSPP_BUILD_TYPE" != "Android" ]; then
+      aria2c -x 16 http://www.cmake.org/files/v2.8/cmake-2.8.12.1-Linux-i386.sh &&
+      chmod a+x cmake-2.8.12.1-Linux-i386.sh &&
+      sudo ./cmake-2.8.12.1-Linux-i386.sh --skip-license --prefix=/usr;
+    fi
 # Linux Setup
   - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then sudo apt-get install libsdl1.2-dev -qq; fi
 # Android NDK
   - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
+      NDK_VER=android-ndk-r9b
+      NDK_TAR=${NDK_VER}-linux-x86_64.tar.bz2 &&
       sudo apt-get install openjdk-7-jdk ant -qq &&
-      wget --timeout=30 http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2 -O ndk.tar.bz2 &&
-      tar -xf ndk.tar.bz2 &&
-      export ANDROID_HOME=$(pwd)/android-ndk-r9 NDK=$(pwd)/android-ndk-r9;
+      aria2c -x 16 http://dl.google.com/android/ndk/${NDK_TAR} &&
+      tar -xf ${NDK_TAR} &&
+      export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER};
+      if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi
     fi
-  - if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi
 # Blackberry NDK
   - if [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
-      BB_NDK=http://downloads.blackberry.com/upr/developers/update/bbndk/ndktarget_10.2.0.1155/ndktargetrepo_10.2.0.1155/packages/bbndk.linux. &&
-      wget --timeout=30 ${BB_NDK}libraries.10.2.0.1155.tar.gz -O libs.tar.gz &&
-      tar -xf libs.tar.gz &&
-      wget --timeout=30 ${BB_NDK}tools.10.2.0.15.tar.gz -O tools.tar.gz &&
-      tar -xf tools.tar.gz &&
+      BB_NDK=http://downloads.blackberry.com/upr/developers/update/bbndk/ndktarget_10.2.0.1155/ndktargetrepo_10.2.0.1155/packages/
+      BB_LIBS=bbndk.linux.libraries.10.2.0.1155.tar.gz &&
+      BB_TOOLS=bbndk.linux.tools.10.2.0.15.tar.gz &&
+      aria2c -x 16 ${BB_NDK}${BB_LIBS} https://googledrive.com/host/0B5UBD4wjtpZ-QVdzSElobzNTOU0 -o libs.tar.gz &&
+      aria2c -x 16 ${BB_NDK}${BB_TOOLS} https://googledrive.com/host/0B5UBD4wjtpZ-NV80UzFYMVRkSXM -o tools.tar.gz &&
+      tar -xf libs.tar.gz && tar -xf tools.tar.gz &&
       export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
     fi
 
