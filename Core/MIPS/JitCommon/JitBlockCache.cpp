@@ -223,6 +223,11 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst) const {
 	int off = (inst & MIPS_EMUHACK_VALUE_MASK);
 
 	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
+	if (baseoff < codeBlock_->GetBasePtr() || baseoff >= codeBlock_->GetCodePtr()) {
+		ERROR_LOG(JIT, "JitBlockCache: Invalid Emuhack Op %08x", inst.encoding);
+		return -1;
+	}
+
 	int bl = binary_search(blocks, baseoff, 0, num_blocks-1);
 	if (blocks[bl].invalid)
 		return -1;
