@@ -34,6 +34,7 @@ InputState input_state;
 
 extern std::string ram_temp_file;
 extern bool isJailed;
+extern bool JitJailed;
 
 ViewController* sharedViewController;
 
@@ -72,6 +73,7 @@ ViewController* sharedViewController;
 		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 
 		isJailed = true;
+        JitJailed = false;
 
 		NSArray *jailPath = [NSArray arrayWithObjects:
 							@"/Applications/Cydia.app",
@@ -84,6 +86,7 @@ ViewController* sharedViewController;
 		{
 			if ([[NSFileManager defaultManager] fileExistsAtPath:string])
 				isJailed = false;
+            JitJailed = true;
 		}
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
