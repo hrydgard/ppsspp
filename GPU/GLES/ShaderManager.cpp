@@ -417,8 +417,8 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 				// Shouldn't even get here as we won't use the uniform in the shader.
 				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
 				// except consider *Scale and *Off to be 1 and 0.
-				uvscaleoff[0] = factor * widthFactor;
-				uvscaleoff[1] = factor * heightFactor;
+				uvscaleoff[0] = widthFactor;
+				uvscaleoff[1] = heightFactor;
 				uvscaleoff[2] = 0.0f;
 				uvscaleoff[3] = 0.0f;
 			} else {
