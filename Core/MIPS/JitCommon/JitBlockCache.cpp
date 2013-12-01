@@ -183,7 +183,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 	char buf[100];
 	sprintf(buf, "EmuCode%x", b.originalAddress);
 	const u8* blockStart = blocks[block_num].checkedEntry;
-	op_write_native_code(agent, buf, (uint64_t)blockStart, blockStart, b.codeSize);
+	op_write_native_code(agent, buf, (uint64_t)blockStart, blockStart, b.normalEntry + b.codeSize - b.checkedEntry);
 #endif
 
 #ifdef USE_VTUNE
@@ -194,7 +194,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 	jmethod.class_file_name = "";
 	jmethod.source_file_name = __FILE__;
 	jmethod.method_load_address = (void*)blocks[block_num].checkedEntry;
-	jmethod.method_size = b.codeSize;
+	jmethod.method_size = b.normalEntry + b.codeSize - b.checkedEntry;
 	jmethod.line_number_size = 0;
 	jmethod.method_name = b.blockName;
 	iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, (void*)&jmethod);
@@ -252,6 +252,21 @@ void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> 
 	for (int i = 0; i < num_blocks; i++)
 		if (blocks[i].ContainsAddress(em_address))
 			block_numbers->push_back(i);
+}
+
+u32 JitBlockCache::GetAddressFromBlockPtr(const u8 *ptr) const {
+	if (!codeBlock_->IsInSpace(ptr))
+		return (u32)-1;
+
+	for (int i = 0; i < num_blocks; ++i) {
+		const auto &b = blocks[i];
+		if (!b.invalid && ptr >= b.checkedEntry && ptr < b.normalEntry + b.codeSize) {
+			return b.originalAddress;
+		}
+	}
+
+	// It's in jit somewhere, but we must've deleted it.
+	return 0;
 }
 
 MIPSOpcode JitBlockCache::GetOriginalFirstOp(int block_num)

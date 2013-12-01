@@ -46,6 +46,8 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -74,6 +76,24 @@
 #endif
 
 #define ENABLE_TOUCH 0
+
+int verysleepy__useSendMessage = 1;
+
+const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
+// Respond TRUE to a message with this param value to indicate support.
+const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
+// Respond TRUE to a message wit this param value after filling in the addr name.
+const WPARAM VERYSLEEPY_WPARAM_GETADDRINFO = 1;
+
+struct VerySleepy_AddrInfo
+{
+	// Always zero for now.
+	int flags;
+	// This is the pointer (always passed as 64 bits.)
+	unsigned long long addr;
+	// Write the name here.
+	wchar_t name[256];
+};
 
 extern std::map<int, int> windowsTransTable;
 static RECT g_normalRC = {0};
@@ -1522,6 +1542,55 @@ namespace MainWindow
 				}
 			}
 			return 0;
+
+		case WM_VERYSLEEPY_MSG:
+			switch (wParam) {
+			case VERYSLEEPY_WPARAM_SUPPORTED:
+				return TRUE;
+
+			case VERYSLEEPY_WPARAM_GETADDRINFO:
+				{
+					VerySleepy_AddrInfo *info = (VerySleepy_AddrInfo *)lParam;
+					const u8 *ptr = (const u8 *)info->addr;
+					if (MIPSComp::jit) {
+						JitBlockCache *blocks = MIPSComp::jit->GetBlockCache();
+						u32 jitAddr = blocks->GetAddressFromBlockPtr(ptr);
+
+						// Returns 0 when it's valid, but unknown.
+						if (jitAddr == 0) {
+							wcscpy_s(info->name, L"Jit::UnknownOrDeletedBlock");
+							return TRUE;
+						}
+						if (jitAddr != (u32)-1) {
+							const char *label = symbolMap.GetDescription(jitAddr);
+							if (label != NULL) {
+								swprintf_s(info->name, L"Jit::%08x_%S", jitAddr, label);
+							} else {
+								swprintf_s(info->name, L"Jit::%08x", jitAddr);
+							}
+							return TRUE;
+						}
+
+						// Perhaps it's in jit the dispatch runloop.
+						if (MIPSComp::jit->IsInDispatch(ptr)) {
+							wcscpy_s(info->name, L"Jit::RunLoopUntil");
+							return TRUE;
+						}
+					}
+					if (gpu) {
+						std::string name;
+						if (gpu->DescribeCodePtr(ptr, name)) {
+							swprintf_s(info->name, L"GPU::%S", name.c_str());
+							return TRUE;
+						}
+					}
+				}
+				return FALSE;
+
+			default:
+				return FALSE;
+			}
+			break;
 
 		case WM_DROPFILES:
 			{

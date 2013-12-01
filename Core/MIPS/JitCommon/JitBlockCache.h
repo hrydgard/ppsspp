@@ -109,6 +109,8 @@ public:
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
 	int GetBlockNumberFromEmuHackOp(MIPSOpcode inst) const;
 
+	u32 GetAddressFromBlockPtr(const u8 *ptr) const;
+
 	MIPSOpcode GetOriginalFirstOp(int block_num);
 
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
