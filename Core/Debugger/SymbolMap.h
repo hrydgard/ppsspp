@@ -24,10 +24,10 @@
 #include <map>
 
 enum SymbolType {
-	ST_NONE=0,
-	ST_FUNCTION=1,
-	ST_DATA=2,
-	ST_ALL=3
+	ST_NONE     = 0,
+	ST_FUNCTION = 1,
+	ST_DATA     = 2,
+	ST_ALL      = 3,
 };
 
 struct SymbolInfo {
@@ -36,14 +36,15 @@ struct SymbolInfo {
 	u32 size;
 };
 
-struct SymbolEntry
-{
+struct SymbolEntry {
 	std::string name;
 	u32 address;
 	u32 size;
 };
 
-enum DataType { DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD, DATATYPE_ASCII };
+enum DataType {
+	DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD, DATATYPE_ASCII
+};
 
 #ifdef _WIN32
 struct HWND__;
@@ -59,7 +60,7 @@ public:
 	bool LoadSymbolMap(const char *filename);
 	void SaveSymbolMap(const char *filename) const;
 	bool LoadNocashSym(const char *ilename);
-	
+
 	SymbolType GetSymbolType(u32 address) const;
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
 	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
@@ -91,28 +92,26 @@ public:
 private:
 	void AssignFunctionIndices();
 
-	struct FunctionEntry
-	{
+	struct FunctionEntry {
 		u32 size;
 		int index;
 	};
 
-	struct LabelEntry
-	{
+	struct LabelEntry {
 		char name[128];
 	};
 
-	struct DataEntry
-	{
+	struct DataEntry {
 		DataType type;
 		u32 size;
 	};
 
-	std::map<u32,FunctionEntry> functions;
-	std::map<u32,LabelEntry> labels;
-	std::map<u32,DataEntry> data;
+	std::map<u32, FunctionEntry> functions;
+	std::map<u32, LabelEntry> labels;
+	std::map<u32, DataEntry> data;
 
 	mutable recursive_mutex lock_;
 };
 
 extern SymbolMap symbolMap;
+
