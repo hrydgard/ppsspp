@@ -200,17 +200,18 @@ namespace SaveState
 		return !rewindStates.Empty();
 	}
 
-
+	static const char *STATE_EXTENSION = "ppst";
+	static const char *SCREENSHOT_EXTENSION = "jpg";
 	// Slot utilities
 
-	std::string GenerateSaveSlotFilename(int slot)
+	std::string GenerateSaveSlotFilename(int slot, const char *extension)
 	{
 		char discID[256];
 		char temp[256];
 		sprintf(discID, "%s_%s",
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
 			g_paramSFO.GetValueString("DISC_VERSION").c_str());
-		sprintf(temp, "ms0:/PSP/PPSSPP_STATE/%s_%i.ppst", discID, slot);
+		sprintf(temp, "ms0:/PSP/PPSSPP_STATE/%s_%i.%s", discID, slot, extension);
 		std::string hostPath;
 		if (pspFileSystem.GetHostPath(std::string(temp), hostPath)) {
 			return hostPath;
@@ -221,7 +222,7 @@ namespace SaveState
 
 	void LoadSlot(int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot);
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			Load(fn, callback, cbUserData);
 		} else {
@@ -234,7 +235,7 @@ namespace SaveState
 
 	void SaveSlot(int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot);
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			Save(fn, callback, cbUserData);
 		} else {
@@ -247,7 +248,13 @@ namespace SaveState
 
 	bool HasSaveInSlot(int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot);
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		return File::Exists(fn);
+	}
+
+	bool HasScreenshotInSlot(int slot)
+	{
+		std::string fn = GenerateSaveSlotFilename(slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
 	}
 
@@ -271,7 +278,7 @@ namespace SaveState
 		int newestSlot = -1;
 		tm newestDate = {0};
 		for (int i = 0; i < SAVESTATESLOTS; i++) {
-			std::string fn = GenerateSaveSlotFilename(i);
+			std::string fn = GenerateSaveSlotFilename(i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time = File::GetModifTime(fn);
 				if (newestDate < time) {

@@ -139,6 +139,8 @@ void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
+int __DisplayGetFlipCount() { return actualFlips; }
+int __DisplayGetVCount() { return vCount; }
 
 void __DisplayInit() {
 	gpuStats.Reset();

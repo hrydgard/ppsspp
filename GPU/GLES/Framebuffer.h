@@ -204,6 +204,7 @@ private:
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
 	int plainColorLoc_;
+	int timeLoc_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;

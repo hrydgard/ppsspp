@@ -19,6 +19,7 @@
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
 
+#include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Host.h"
@@ -26,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -234,11 +236,12 @@ void FramebufferManager::CompileDraw2DProgram() {
 				}
 
 				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
-				if (deltaLoc != -1)
-					glUniform2f(deltaLoc, u_delta, v_delta);
+				glUniform2f(deltaLoc, u_delta, v_delta);
 				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
-				if (pixelDeltaLoc != -1)
-					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
+				glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
+
 				usePostShader_ = true;
 			}
 		} else {
@@ -275,8 +278,9 @@ FramebufferManager::FramebufferManager() :
 	convBuf(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
-	postShaderAtOutputResolution_(false),
 	plainColorLoc_(-1),
+	timeLoc_(-1),
+	postShaderAtOutputResolution_(false),
 	resized_(false),
 	textureCache_(0),
 	shaderManager_(0),
@@ -503,6 +507,12 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	glsl_bind(program);
+	if (program == postShaderProgram_ && timeLoc_ != -1) {
+		int flipCount = __DisplayGetFlipCount();
+		int vCount = __DisplayGetVCount();
+		float time[4] = {time_now(), (vCount % 60) * 1.0f/60.0f, (float)vCount, (float)(flipCount % 60)};
+		glUniform4fv(timeLoc_, 1, time);
+	}
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glEnableVertexAttribArray(program->a_position);
