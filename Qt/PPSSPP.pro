@@ -29,7 +29,8 @@ mobile_platform {
 
 # PPSSPP Libs
 QMAKE_LIBDIR += $$CONFIG_DIR
-LIBS += -lCore -lCommon -lNative
+symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
+else: LIBS += -lCore -lCommon -lNative
 
 # FFMPEG Path
 win32:	QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
@@ -62,7 +63,7 @@ linux {
 	}
 }
 qnx: LIBS += -lscreen
-symbian: LIBS += -lRemConCoreApi -lRemConInterfaceBase
+symbian: LIBS += -lremconcoreapi -lremconinterfacebase
 contains(QT_CONFIG, system-zlib) {
 	unix: LIBS += -lz
 }
