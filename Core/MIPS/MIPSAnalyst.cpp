@@ -249,7 +249,16 @@ namespace MIPSAnalyst {
 		for (addr = startAddr; addr <= endAddr; addr+=4) {
 			SymbolInfo syminfo;
 			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
-				addr = syminfo.address + syminfo.size;
+				addr = syminfo.address + syminfo.size - 4;
+
+				// We still need to insert the func for hashing purposes.
+				currentFunction.start = syminfo.address;
+				currentFunction.end = syminfo.address + syminfo.size - 4;
+				functions.push_back(currentFunction);
+				currentFunction.start = addr + 4;
+				furthestBranch = 0;
+				looking = false;
+				end = false;
 				continue;
 			}
 
