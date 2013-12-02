@@ -838,6 +838,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u32_le *entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
 	u32_le *entryEnd = (u32_le *)Memory::GetPointer(modinfo->libstubend);
 
+	u32_le firstImportStubAddr = 0;
+
 	bool needReport = false;
 	while (entryPos < entryEnd) {
 		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
@@ -882,6 +884,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				func.stubAddr = entry->firstSymAddr + i * 8;
 				module->ImportFunc(func);
 			}
+
+			if (firstImportStubAddr == NULL || firstImportStubAddr > entry->firstSymAddr)
+				firstImportStubAddr = entry->firstSymAddr;
 		} else if (entry->numFuncs > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
 			needReport = true;
@@ -943,6 +948,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 
 		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
+	}
+
+	if (textSection == -1) {
+		u32 textStart = reader.GetVaddr();
+		u32 textEnd = firstImportStubAddr - 4;
+#if !defined(USING_GLES2)
+		if (!reader.LoadSymbols())
+			MIPSAnalyst::ScanForFunctions(textStart, textEnd);
+#endif
 	}
 
 	// Look at the exports, too.
