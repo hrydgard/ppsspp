@@ -5,7 +5,7 @@
 //Adds mediakey support for Symbian (volume up/down)
 
 #include <QApplication>
-#include "SymbianMediakeys.h"
+#include "SymbianMediaKeys.h"
 #include "input/keycodes.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
