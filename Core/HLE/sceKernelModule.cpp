@@ -1802,6 +1802,12 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 	return 0;
 }
 
+u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize,u32 idCountAddr)
+{
+	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelGetModuleIdList(%08x, %i,%08x)", resultBuffer, resultBufferSize, idCountAddr);
+	return 0;
+}
+
 u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
 {
 	WARN_LOG(SCEMODULE,"Not support this patcher");
@@ -1837,7 +1843,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
-	{0x644395e2,0,"sceKernelGetModuleIdList"},
+	{0x644395e2,WrapU_UUU<sceKernelGetModuleIdList>,"sceKernelGetModuleIdList"},
 	{0xf2d8d1b4,&WrapU_CUU<sceKernelLoadModuleNpDrm>,"sceKernelLoadModuleNpDrm"},
 	{0xe4c4211c,0,"ModuleMgrForUser_E4C4211C"},
 	{0xfbe27467,0,"ModuleMgrForUser_FBE27467"},
