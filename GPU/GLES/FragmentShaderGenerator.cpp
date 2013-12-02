@@ -163,7 +163,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool stencilToAlpha = 
 			gstate.isStencilTestEnabled() && gstate.getStencilOpZPass() == GE_STENCILOP_REPLACE &&
-			!gstate.isAlphaBlendEnabled() && !enableAlphaTest;
+			!gstate.isAlphaBlendEnabled();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -232,7 +232,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	bool stencilToAlpha =
 		gstate.isStencilTestEnabled() && gstate.getStencilOpZPass() == GE_STENCILOP_REPLACE &&
-		!gstate.isAlphaBlendEnabled() && !enableAlphaTest;
+		!gstate.isAlphaBlendEnabled();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
