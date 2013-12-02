@@ -96,28 +96,30 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 
 		if (!started) continue;
 
-		u32 address,size,vaddress;
+		u32 address, size, vaddress;
 		SymbolType type;
 		char name[128] = {0};
 
-		sscanf(line,"%08x %08x %08x %i %127c",&address,&size,&vaddress,(int*)&type,name);
-		
-		if (type == ST_DATA && size==0)
-			size=4;
+		sscanf(line,"%08x %08x %08x %i %127c", &address, &size, &vaddress, (int*)&type, name);
+		if (!Memory::IsValidAddress(vaddress)) {
+			ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+			continue;
+		}
+		if (type == ST_DATA && size == 0)
+			size = 4;
 
-		//e.vaddress|=0x80000000;
-		if (strcmp(name,".text")==0 || strcmp(name,".init")==0 || strlen(name)<=1) { 
-			;
+		if (!strcmp(name, ".text") || !strcmp(name, ".init") || strlen(name) <= 1) {
+
 		} else {
 			switch (type)
 			{
 			case ST_FUNCTION:
-				AddFunction(name,vaddress,size);
+				AddFunction(name, vaddress, size);
 				break;
 			case ST_DATA:
 				AddData(vaddress,size,DATATYPE_BYTE);
 				if (name[0] != 0)
-					AddLabel(name,vaddress);
+					AddLabel(name, vaddress);
 				break;
 			case ST_NONE:
 			case ST_ALL:
@@ -468,28 +470,20 @@ bool SymbolMap::RemoveFunction(u32 startAddress, bool removeName)
 	return true;
 }
 
-
-
-
-void SymbolMap::AddLabel(const char* name, u32 address)
-{
+void SymbolMap::AddLabel(const char* name, u32 address) {
 	// keep a label if it already exists
 	auto it = labels.find(address);
-	if (it == labels.end())
-	{
+	if (it == labels.end()) {
 		LabelEntry label;
-		strcpy(label.name,name);
+		strncpy(label.name, name, 128);
 		label.name[127] = 0;
-
 		labels[address] = label;
 	}
 }
 
-void SymbolMap::SetLabelName(const char* name, u32 address)
-{
+void SymbolMap::SetLabelName(const char* name, u32 address) {
 	auto it = labels.find(address);
-	if (it == labels.end())
-	{
+	if (it == labels.end()) {
 		LabelEntry label;
 		strcpy(label.name,name);
 		label.name[127] = 0;
