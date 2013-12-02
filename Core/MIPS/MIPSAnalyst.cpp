@@ -262,9 +262,10 @@ namespace MIPSAnalyst {
 				}
 			}
 			if (op == MIPS_MAKE_JR_RA()) {
-				if (furthestBranch >= addr) {
+				// If a branch goes to the jr ra, it's still ending here.
+				if (furthestBranch > addr) {
 					looking = true;
-					addr+=4;
+					addr += 4;
 				} else {
 					end = true;
 				}
