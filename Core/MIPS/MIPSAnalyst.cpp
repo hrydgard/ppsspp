@@ -240,6 +240,12 @@ namespace MIPSAnalyst {
 
 	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
 		static const u32 MAX_AHEAD_SCAN = 0x1000;
+		// Maybe a bit high... just to make sure we don't get confused by recursive tail recursion.
+		static const u32 MAX_FUNC_SIZE = 0x20000;
+
+		if (fromAddr > knownEnd + MAX_FUNC_SIZE) {
+			return INVALIDTARGET;
+		}
 
 		// Code might jump halfway up to before fromAddr, but after knownEnd.
 		// In that area, there could be another jump up to the valid range.
@@ -320,6 +326,31 @@ namespace MIPSAnalyst {
 				if (target > furthestBranch) {
 					furthestBranch = target;
 				}
+			} else if ((op & 0xFC000000) == 0x08000000) {
+				u32 sureTarget = GetJumpTarget(addr);
+				// Check for a tail call.  Might not even have a jr ra.
+				if (sureTarget != INVALIDTARGET && sureTarget < currentFunction.start) {
+					if (furthestBranch > addr) {
+						looking = true;
+						addr += 4;
+					} else {
+						end = true;
+					}
+				} else if (sureTarget != INVALIDTARGET && sureTarget > addr && sureTarget > furthestBranch) {
+					// A jump later.  Probably tail, but let's check if it jumps back.
+					u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+					u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
+					if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
+						furthestBranch = jumpback;
+					} else {
+						if (furthestBranch > addr) {
+							looking = true;
+							addr += 4;
+						} else {
+							end = true;
+						}
+					}
+				}
 			}
 			if (op == MIPS_MAKE_JR_RA()) {
 				// If a branch goes to the jr ra, it's still ending here.
@@ -344,8 +375,9 @@ namespace MIPSAnalyst {
 					} else if (sureTarget != INVALIDTARGET) {
 						// Okay, we have a downward jump.  Might be an else or a tail call...
 						// If there's a jump back upward in spitting distance of it, it's an else.
-						u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, furthestBranch);
-						if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > furthestBranch) {
+						u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+						u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
+						if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
 							furthestBranch = jumpback;
 						}
 					}
