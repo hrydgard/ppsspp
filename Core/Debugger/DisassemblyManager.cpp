@@ -400,7 +400,7 @@ void DisassemblyFunction::getBranchLines(u32 start, u32 size, std::vector<Branch
 {
 	u32 end = start+size;
 
-	for (int i = 0; i < lines.size(); i++)
+	for (size_t i = 0; i < lines.size(); i++)
 	{
 		BranchLine& line = lines[i];
 
