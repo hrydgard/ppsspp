@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "ext/rg_etc1/rg_etc1.h"
+#include "ext/jpge/jpgd.h"
 #include "image/png_load.h"
 #include "image/zim_load.h"
 #include "base/logging.h"
@@ -59,7 +60,7 @@ bool Texture::Load(const char *filename) {
 		int bpp, w, h;
 		bool clamp;
 		uint8_t *data = generateTexture(filename, bpp, w, h, clamp);
-		if (!data) 
+		if (!data)
 			return false;
 		glGenTextures(1, &id_);
 		glBindTexture(GL_TEXTURE_2D, id_);
@@ -107,15 +108,14 @@ bool Texture::Load(const char *filename) {
 	const char *name = fn;
 	if (zim && 0==memcmp(name, "Media/textures/", strlen("Media/textures"))) name += strlen("Media/textures/");
 	len = strlen(name);
-	if (!strcmp("png", &name[len-3]) ||
-		!strcmp("PNG", &name[len-3])) {
-			if (!LoadPNG(fn)) {
-				WLOG("WARNING: Failed to load .png %s, falling back to ugly gray XOR pattern!", fn);
-				LoadXOR();
-				return false;
-			} else {
-				return true;
-			}
+	if (!strcmp("png", &name[len-3]) || !strcmp("PNG", &name[len-3])) {
+		if (!LoadPNG(fn)) {
+			WLOG("WARNING: Failed to load .png %s, falling back to ugly gray XOR pattern!", fn);
+			LoadXOR();
+			return false;
+		} else {
+			return true;
+		}
 	} else if (!strcmp("zim", &name[len-3])) {
 		if (LoadZIM(name)) {
 			return true;
@@ -124,12 +124,23 @@ bool Texture::Load(const char *filename) {
 			LoadXOR();
 			return false;
 		}
+	} else if (!strcmp("jpg", &name[len-3]) || !strcmp("JPG", &name[len-3]) ||
+			!strcmp("jpeg", &name[len-4]) || !strcmp("JPEG", &name[len-4])) {
+		if (!LoadJPEG(fn)) {
+			WLOG("WARNING: Failed to load jpeg %s, falling back to ugly gray XOR pattern!", fn);
+			LoadXOR();
+			return false;
+		} else {
+			return true;
+		}
+	} else {
+		ELOG("Failed to identify image file %s by extension", name);
 	}
 	LoadXOR();
 	return false;
 }
 
-bool Texture::LoadPNG(const char *filename) {
+bool Texture::LoadPNG(const char *filename, bool genMips) {
 	unsigned char *image_data;
 	if (1 != pngLoad(filename, &width_, &height_, &image_data, false)) {
 		return false;
@@ -137,15 +148,48 @@ bool Texture::LoadPNG(const char *filename) {
 	GL_CHECK();
 	glGenTextures(1, &id_);
 	glBindTexture(GL_TEXTURE_2D, id_);
-	SetTextureParameters(ZIM_GEN_MIPS);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
+	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-	if(gl_extensions.FBO_ARB){
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}else{
+	if (genMips) {
+		if (gl_extensions.FBO_ARB) {
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else {
 #ifndef USING_GLES2
-		glGenerateMipmapEXT(GL_TEXTURE_2D);
+			glGenerateMipmapEXT(GL_TEXTURE_2D);
 #endif
+		}
+	}
+	GL_CHECK();
+	free(image_data);
+	return true;
+}
+
+bool Texture::LoadJPEG(const char *filename, bool genMips) {
+	ILOG("Loading jpeg %s", filename);
+	unsigned char *image_data;
+	int actual_comps;
+	image_data = jpgd::decompress_jpeg_image_from_file(filename, &width_, &height_, &actual_comps, 4);
+	if (!image_data) {
+		ELOG("jpeg: image data returned was 0");
+		return false;
+	}
+	ILOG("Jpeg decoder failed to get RGB, got: %i x %i x %i", actual_comps, width_, height_);
+	ILOG("First four bytes: %i %i %i %i", image_data[0], image_data[1], image_data[2], image_data[3]);
+
+	GL_CHECK();
+	glGenTextures(1, &id_);
+	glBindTexture(GL_TEXTURE_2D, id_);
+	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+	if (genMips) {
+		if (gl_extensions.FBO_ARB) {
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else {
+#ifndef USING_GLES2
+			glGenerateMipmapEXT(GL_TEXTURE_2D);
+#endif
+		}
 	}
 	GL_CHECK();
 	free(image_data);
@@ -162,12 +206,11 @@ bool Texture::LoadPNG(const uint8_t *data, size_t size, bool genMips) {
 	glGenTextures(1, &id_);
 	glBindTexture(GL_TEXTURE_2D, id_);
 	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
-		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-	if (genMips) { 
-		if(gl_extensions.FBO_ARB) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+	if (genMips) {
+		if (gl_extensions.FBO_ARB) {
 			glGenerateMipmap(GL_TEXTURE_2D);
-		}else{
+		} else {
 #ifndef USING_GLES2
 			glGenerateMipmapEXT(GL_TEXTURE_2D);
 #endif

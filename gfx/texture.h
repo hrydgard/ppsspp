@@ -25,7 +25,8 @@ public:
 	// PNG from memory buffer
 	bool LoadPNG(const uint8_t *data, size_t size, bool genMips = true);
 	bool LoadZIM(const char *filename);
-	bool LoadPNG(const char *filename);
+	bool LoadPNG(const char *filename, bool genMips = true);
+	bool LoadJPEG(const char *filename, bool genMips = true);
 
 	unsigned int Handle() const {
 		return id_;

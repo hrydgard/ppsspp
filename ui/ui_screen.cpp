@@ -243,13 +243,28 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 	dc.DrawText(valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
+PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams)
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
+	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
+}
+
+PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams)
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
+	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
+}
 
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
-	Screen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_);
+	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_);
+	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
 
+EventReturn PopupSliderChoice::HandleChange(EventParams &e) {
+	e.v = this;
+	OnChange.Trigger(e);
+	return EVENT_DONE;
+}
 
 void PopupSliderChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
@@ -260,8 +275,15 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
-	Screen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_);
+	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_);
+	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	screenManager_->push(popupScreen);
+	return EVENT_DONE;
+}
+
+EventReturn PopupSliderChoiceFloat::HandleChange(EventParams &e) {
+	e.v = this;
+	OnChange.Trigger(e);
 	return EVENT_DONE;
 }
 
@@ -288,13 +310,24 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 void SliderPopupScreen::OnCompleted(DialogResult result) {
-	if (result == DR_OK)
+	if (result == DR_OK) {
 		*value_ = sliderValue_;
+		EventParams e;
+		e.v = 0;
+		e.a = *value_;
+		OnChange.Trigger(e);
+	}
 }
 
 void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
-	if (result == DR_OK)
+	if (result == DR_OK) {
 		*value_ = sliderValue_;
+		EventParams e;
+		e.v = 0;
+		e.a = (int)*value_;
+		e.f = *value_;
+		OnChange.Trigger(e);
+	}
 }
 
 }  // namespace UI

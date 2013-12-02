@@ -217,6 +217,7 @@ class View;
 struct EventParams {
 	View *v;
 	uint32_t a, b, x, y;
+	float f;
 	std::string s;
 };
 
@@ -670,6 +671,8 @@ private:
 	ImageSizeMode sizeMode_;
 };
 
+// TextureView takes a texture that is assumed to be alive during the lifetime
+// of the view.
 class TextureView : public InertView {
 public:
 	TextureView(Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
@@ -687,6 +690,19 @@ private:
 	ImageSizeMode sizeMode_;
 };
 
+// ImageFileView takes a filename and keeps track of the texture by itself.
+class ImageFileView : public InertView {
+public:
+	ImageFileView(std::string filename, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0);
+	~ImageFileView();
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
+
+private:
+	Texture *texture_;
+	uint32_t color_;
+	ImageSizeMode sizeMode_;
+};
 
 class ProgressBar : public InertView {
 public:

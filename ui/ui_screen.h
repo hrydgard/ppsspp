@@ -115,6 +115,8 @@ public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title) : PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
 	void CreatePopupContents(ViewGroup *parent);
 
+	Event OnChange;
+
 private:
 	virtual void OnCompleted(DialogResult result);
 	Slider *slider_;
@@ -128,6 +130,8 @@ class SliderFloatPopupScreen : public PopupScreen {
 public:
 	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) : PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
 	void CreatePopupContents(UI::ViewGroup *parent);
+
+	Event OnChange;
 
 private:
 	virtual void OnCompleted(DialogResult result);
@@ -173,15 +177,15 @@ private:
 
 class PopupSliderChoice : public Choice {
 public:
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0)
-		: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
-			OnClick.Handle(this, &PopupSliderChoice::HandleClick);
-	}
+	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	void Draw(UIContext &dc);
 
+	Event OnChange;
+
 private:
 	EventReturn HandleClick(EventParams &e);
+	EventReturn HandleChange(EventParams &e);
 
 	int *value_;
 	int minValue_;
@@ -191,16 +195,15 @@ private:
 
 class PopupSliderChoiceFloat : public Choice {
 public:
-	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0)
-		: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
-			OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
-	}
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	void Draw(UIContext &dc);
 
+	Event OnChange;
+
 private:
 	EventReturn HandleClick(EventParams &e);
-
+	EventReturn HandleChange(EventParams &e);
 	float *value_;
 	float minValue_;
 	float maxValue_;
