@@ -5,7 +5,7 @@
     android:versionName="0.9.5"
     android:installLocation="auto" >
 
-    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="18"/>
+    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="19"/>
     
     <uses-feature android:glEsVersion="0x00020000"></uses-feature>
 	<uses-feature android:name="android.hardware.screen.landscape" />
