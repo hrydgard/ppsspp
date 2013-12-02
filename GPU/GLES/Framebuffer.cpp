@@ -236,11 +236,14 @@ void FramebufferManager::CompileDraw2DProgram() {
 				}
 
 				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
-				glUniform2f(deltaLoc, u_delta, v_delta);
+				if (deltaLoc != -1)
+					glUniform2f(deltaLoc, u_delta, v_delta);
 				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
-				glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				if (pixelDeltaLoc != -1)
+					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
 				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
-				glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
+				if (timeLoc_ != -1)
+					glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
 
 				usePostShader_ = true;
 			}
