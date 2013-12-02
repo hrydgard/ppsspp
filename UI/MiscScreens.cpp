@@ -231,7 +231,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		if (tempLangs[i].name.find("README") != std::string::npos) {
 			continue;
 		}
-		
+
 #ifndef _WIN32
 		// ar_AE only works on Windows.
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {

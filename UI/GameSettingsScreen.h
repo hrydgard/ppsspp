@@ -69,7 +69,6 @@ private:
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
-	UI::EventReturn OnChangeControlScaling(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
@@ -77,19 +76,6 @@ private:
 	bool enableReports_;
 	bool showDebugStats_;
 };
-
-/*
-class GlobalSettingsScreen : public UIDialogScreenWithBackground {
-public:
-	GlobalSettingsScreen() {}
-
-protected:
-	virtual void CreateViews();
-
-private:
-	// Temporaries to convert bools to other kinds of settings
-};*/
-
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:

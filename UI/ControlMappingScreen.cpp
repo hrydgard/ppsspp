@@ -194,11 +194,7 @@ void ControlMappingScreen::CreateViews() {
 	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	/*
-	ChoiceStrip *mode = leftColumn->Add(new ChoiceStrip(ORIENT_VERTICAL));
-	mode->AddChoice("Replace");
-	mode->AddChoice("Add");
-	*/
+
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
@@ -234,7 +230,6 @@ UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) 
 	RecreateViews();
 	return UI::EVENT_DONE;
 }
-
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

@@ -28,45 +28,53 @@
 #include "GamepadEmu.h"
 #include "i18n/i18n.h"
 
-static const int leftMargin = 140; 
+static const int leftColumnWidth = 140;
 
-// convert from screen coordinates (leftMargin to dp_xres) to actual fullscreen coordinates (0 to 1.0)
+// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
 static inline float toFullscreenCoord(int screenx) {
-	return  (float)(screenx - leftMargin) / (dp_xres - leftMargin);
+	return  (float)(screenx - leftColumnWidth) / (dp_xres - leftColumnWidth);
 }
 
-// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftMargin to dp_xres)
+// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftColumnWidth to dp_xres)
 static inline int fromFullscreenCoord(float controllerX) {
-	return leftMargin + (dp_xres - leftMargin) * controllerX;
+	return leftColumnWidth + (dp_xres - leftColumnWidth) * controllerX;
 };
 
 class DragDropButton : public MultiTouchButton {
 public:
-	DragDropButton(float &x, float &y, int bgImg, int img, float scale) 
+	DragDropButton(float &x, float &y, int bgImg, int img, float &scale)
 	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y*dp_yres, UI::NONE, UI::NONE, true)),
-    x_(x), y_(y) {
-		scale_ = scale;
+		x_(x), y_(y), theScale_(scale) {
+		scale_ = theScale_;
 	}
 
 	virtual bool IsDown() {
-		//don't want the button to enlarge and throw the user's perspective
-		//of button size off whack.
+		// Don't want the button to enlarge and throw the user's perspective
+		// of button size off whack.
 		return false;
 	};
 
-	void SavePosition() {
+	virtual void SavePosition() {
 		x_ = toFullscreenCoord(bounds_.centerX());
 		y_ = bounds_.centerY() / dp_yres;
+		scale_ = theScale_;
 	}
+
+	virtual float GetScale() const { return theScale_; }
+	virtual void SetScale(float s) { theScale_ = s; scale_ = s; }
+
+	virtual float GetSpacing() const { return 1.0f; }
+	virtual void SetSpacing(float s) { }
 
 private:
 	float &x_, &y_;
+	float &theScale_;
 };
 
 class PSPActionButtons : public DragDropButton {
 public:
-	PSPActionButtons(float &x, float &y, int actionButtonSpacing, float scale) 
-	: DragDropButton(x, y, -1, -1, scale), actionButtonSpacing_(actionButtonSpacing) {
+	PSPActionButtons(float &x, float &y, float &scale, float &spacing)
+	: DragDropButton(x, y, -1, -1, scale), spacing_(spacing) {
 		using namespace UI;
 		roundId_ = I_ROUND;
 
@@ -103,50 +111,55 @@ public:
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
 
+		float spacing = spacing_ * baseActionButtonSpacing;
 		if (circleVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX + actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(circleId_,  centerX + actionButtonSpacing_, centerY, scale_, 0, color, false);
+			dc.Draw()->DrawImageRotated(roundId_, centerX + spacing, centerY, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(circleId_,  centerX + spacing, centerY, scale_, 0, color, false);
 		}
 
 		if (crossVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + actionButtonSpacing_, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + actionButtonSpacing_, scale_, 0, color, false);
+			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + spacing, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + spacing, scale_, 0, color, false);
 		}
 
 		if (triangleVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - actionButtonSpacing_, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(triangleId_, centerX, centerY - actionButtonSpacing_, scale_, 0, color, false);
+			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - spacing, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(triangleId_, centerX, centerY - spacing, scale_, 0, color, false);
 		}
-		
-		if (squareVisible_){
-			dc.Draw()->DrawImageRotated(roundId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(squareId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, color, false);
+
+		if (squareVisible_) {
+			dc.Draw()->DrawImageRotated(roundId_, centerX - spacing, centerY, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
 		}
 	};
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
 		const AtlasImage &image = dc.Draw()->GetAtlas()->images[roundId_];
-		w = 2 * actionButtonSpacing_ + image.w * scale_;
-		h = 2 * actionButtonSpacing_ + image.h * scale_;
 
-		//w += 2 * actionButtonSpacing_;
-		//h += 2 * actionButtonSpacing_;
-	};
+		w = (2 * baseActionButtonSpacing * spacing_) + image.w * scale_;
+		h = (2 * baseActionButtonSpacing * spacing_) + image.h * scale_;
+	}
+
+	virtual float GetSpacing() const { return spacing_; }
+	virtual void SetSpacing(float s) { spacing_ = s; }
+	
+	virtual void SavePosition() {
+		DragDropButton::SavePosition();
+	}
 
 private:
-
 	bool circleVisible_, crossVisible_, triangleVisible_, squareVisible_;
 
 	int roundId_;
 	int circleId_, crossId_, triangleId_, squareId_;
 
-	int actionButtonSpacing_;
+	float &spacing_;
 };
 
 class PSPDPadButtons : public DragDropButton {
 public:
-	PSPDPadButtons(float &x, float &y, int DpadRadius, float scale) 
-		: DragDropButton(x, y, -1, -1, scale), DpadRadius_(DpadRadius) {
+	PSPDPadButtons(float &x, float &y, float &scale, float &spacing)
+		: DragDropButton(x, y, -1, -1, scale), spacing_(spacing) {
 	}
 
 	void Draw(UIContext &dc) {
@@ -159,8 +172,8 @@ public:
 		static const float yoff[4] = {0, 1, 0, -1};
 
 		for (int i = 0; i < 4; i++) {
-			float x = bounds_.centerX() + xoff[i] * DpadRadius_;
-			float y  = bounds_.centerY() + yoff[i] * DpadRadius_;
+			float x = bounds_.centerX() + xoff[i] * D_pad_Radius * spacing_;
+			float y = bounds_.centerY() + yoff[i] * D_pad_Radius * spacing_;
 			float angle = i * M_PI / 2;
 
 			dc.Draw()->DrawImageRotated(I_DIR, x, y, scale_, angle + PI, colorBg, false);
@@ -170,16 +183,16 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
 		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_DIR];
-		w =  2 * DpadRadius_ + image.w * scale_;
-		h =  2 * DpadRadius_ + image.h * scale_;
-
-		//w += 2 * DpadRadius_;
-		//h += 2 * DpadRadius_;
+		w = 2 * D_pad_Radius * spacing_ + image.w * scale_;
+		h = 2 * D_pad_Radius * spacing_ + image.h * scale_;
 	};
+	
+	float GetSpacing() const { return spacing_; }
+	virtual void SetSpacing(float s) { spacing_ = s; }
 
 private:
-	int DpadRadius_;
-}; 
+	float &spacing_;
+};
 
 TouchControlLayoutScreen::TouchControlLayoutScreen() {
 	pickedControl_ = 0;
@@ -190,37 +203,58 @@ void TouchControlLayoutScreen::touch(const TouchInput &touch) {
 
 	using namespace UI;
 
+	int mode = mode_->GetSelection();
+
 	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != 0) {
-		const Bounds &bounds = pickedControl_->GetBounds();
-		
-		int mintouchX = leftMargin + bounds.w * 0.5;
-		int maxTouchX = dp_xres - bounds.w * 0.5;
+		if (mode == 0) {
+			const Bounds &bounds = pickedControl_->GetBounds();
 
-		int minTouchY = bounds.h * 0.5;
-		int maxTouchY = dp_yres - bounds.h * 0.5;
+			int mintouchX = leftColumnWidth + bounds.w * 0.5;
+			int maxTouchX = dp_xres - bounds.w * 0.5;
 
-		int newX = bounds.centerX(), newY = bounds.centerY();
+			int minTouchY = bounds.h * 0.5;
+			int maxTouchY = dp_yres - bounds.h * 0.5;
 
-		//we have to handle x and y separately since even if x is blocked, y may not be.
-		if (touch.x > mintouchX && touch.x < maxTouchX) {
-			//if the leftmost point of the control is ahead of the margin,
-			//move it. Otherwise, don't.
-			newX = touch.x;
+			int newX = bounds.centerX(), newY = bounds.centerY();
+
+			// we have to handle x and y separately since even if x is blocked, y may not be.
+			if (touch.x > mintouchX && touch.x < maxTouchX) {
+				// if the leftmost point of the control is ahead of the margin,
+				// move it. Otherwise, don't.
+				newX = touch.x;
+			}
+			if (touch.y > minTouchY && touch.y < maxTouchY) {
+				newY = touch.y;
+			}
+			pickedControl_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
+		} else if (mode == 1) {
+			// Resize. Vertical = scaling, horizontal = spacing;
+			// Up should be bigger so let's negate in that direction
+			float diffX = (touch.x - startX_);
+			float diffY = -(touch.y - startY_);
+
+			float movementScale = 0.02f;
+			float newScale = startScale_ + diffY * movementScale; 
+			float newSpacing = startSpacing_ + diffX * movementScale;
+			if (newScale > 3.0f) newScale = 3.0f;
+			if (newScale < 0.5f) newScale = 0.5f;
+			if (newSpacing > 3.0f) newSpacing = 3.0f;
+			if (newSpacing < 0.5f) newSpacing = 0.5f;
+			pickedControl_->SetSpacing(newSpacing);
+			pickedControl_->SetScale(newScale);
 		}
-		if (touch.y > minTouchY && touch.y < maxTouchY) {
-			newY = touch.y;
-		}
-
-		// ILOG("position: x = %d; y = %d", newX, newY);
-		pickedControl_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
 	}
 	if ((touch.flags & TOUCH_DOWN) && pickedControl_ == 0) {
-		ILOG("->->->picked up")
 		pickedControl_ = getPickedControl(touch.x, touch.y);
+		if (pickedControl_) {
+			startX_ = touch.x;
+			startY_ = touch.y;
+			startSpacing_ = pickedControl_->GetSpacing();
+			startScale_ = pickedControl_->GetScale();
+		}
 	}
 	if ((touch.flags & TOUCH_UP) && pickedControl_ != 0) {
 		pickedControl_->SavePosition();
-		ILOG("->->->dropped down")
 		pickedControl_ = 0;
 	}
 };
@@ -235,24 +269,34 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	g_Config.iActionButtonSpacing = -1;
+	ILOG("Resetting touch control layout");
+	float defaultScale = 1.15;
+	g_Config.fActionButtonScale = defaultScale; 
+	g_Config.fActionButtonSpacing = 1.0f;
 	g_Config.fActionButtonCenterX = -1.0;
 	g_Config.fActionButtonCenterY = -1.0;
-	g_Config.iDpadRadius = -1;
+	g_Config.fDpadScale = defaultScale;
+	g_Config.fDpadSpacing = 1.0f;
 	g_Config.fDpadX = -1.0;
 	g_Config.fDpadY = -1.0;
 	g_Config.fStartKeyX = -1.0;
 	g_Config.fStartKeyY = -1.0;
+	g_Config.fStartKeyScale = defaultScale; 
 	g_Config.fSelectKeyX = -1.0;
 	g_Config.fSelectKeyY = -1.0;
+	g_Config.fSelectKeyScale = defaultScale; 
 	g_Config.fUnthrottleKeyX = -1.0;
 	g_Config.fUnthrottleKeyY = -1.0;
+	g_Config.fUnthrottleKeyScale = defaultScale; 
 	g_Config.fLKeyX = -1.0;
 	g_Config.fLKeyY = -1.0;
+	g_Config.fLKeyScale = defaultScale; 
 	g_Config.fRKeyX = -1.0;
 	g_Config.fRKeyY = -1.0;
+	g_Config.fRKeyScale = defaultScale; 
 	g_Config.fAnalogStickX = -1.0;
 	g_Config.fAnalogStickY = -1.0;
+	g_Config.fAnalogStickScale = defaultScale;
 	InitPadLayout();
 	RecreateViews();
 	return UI::EVENT_DONE;
@@ -273,17 +317,26 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	Choice *reset = new Choice(d->T("Reset"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 84));
-	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 10));
-	Choice *visibility = new Choice(c->T("Visibility"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 158));
+	Choice *reset = new Choice(d->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
+	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *visibility = new Choice(c->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	// controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()))
+	// 	->OnChange.Handle(this, &GameSettingsScreen::OnChangeControlScaling);
+
+	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
+	mode_->AddChoice(d->T("Move"));
+	mode_->AddChoice(d->T("Resize"));
+	mode_->SetSelection(0);
+
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	visibility->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+	root_->Add(mode_);
 	root_->Add(visibility);
 	root_->Add(reset);
 	root_->Add(back);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftMargin, new AnchorLayoutParams(10, 0, 10, 0, false));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 
 	// this is more for show than anything else. It's used to provide a boundary
@@ -295,14 +348,14 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
-	if (!g_Config.bShowTouchControls){
+	if (!g_Config.bShowTouchControls) {
+		// Shouldn't even be able to get here as the way into this dialog should be closed.
 		return;
 	}
 
-	float scale = g_Config.fButtonScale;
 	controls_.clear();
 
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.fActionButtonCenterX, g_Config.fActionButtonCenterY, g_Config.iActionButtonSpacing, scale);
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.fActionButtonCenterX, g_Config.fActionButtonCenterY, g_Config.fActionButtonScale, g_Config.fActionButtonSpacing);
 	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
 	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
 	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
@@ -311,35 +364,35 @@ void TouchControlLayoutScreen::CreateViews() {
 	controls_.push_back(actionButtons);
 
 	if (g_Config.bShowTouchDpad) {
-		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.iDpadRadius, scale));
+		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.fDpadScale, g_Config.fDpadSpacing));
 	}
 
 	if (g_Config.bShowTouchSelect) {
-		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, I_RECT, I_SELECT, scale));
+		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, I_RECT, I_SELECT, g_Config.fSelectKeyScale));
 	}
 
 	if (g_Config.bShowTouchStart) {
-		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, I_RECT, I_START, scale));
+		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, I_RECT, I_START, g_Config.fStartKeyScale));
 	}
 
 	if (g_Config.bShowTouchUnthrottle) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, I_RECT, I_ARROW, scale);
+		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, I_RECT, I_ARROW, g_Config.fUnthrottleKeyScale);
 		unthrottle->SetAngle(180.0f);
 		controls_.push_back(unthrottle);
 	}
 
 	if (g_Config.bShowTouchLTrigger) {
-		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, I_SHOULDER, I_L, scale));
+		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, I_SHOULDER, I_L, g_Config.fLKeyScale));
 	}
 
 	if (g_Config.bShowTouchRTrigger) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, I_SHOULDER, I_R, scale);
+		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, I_SHOULDER, I_R, g_Config.fRKeyScale);
 		rbutton->FlipImageH(true);
 		controls_.push_back(rbutton);
 	}
 
 	if (g_Config.bShowTouchAnalogStick) {
-		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, I_STICKBG, I_STICK, scale));
+		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, I_STICKBG, I_STICK, g_Config.fAnalogStickScale));
 	};
 
 	for (size_t i = 0; i < controls_.size(); i++) {

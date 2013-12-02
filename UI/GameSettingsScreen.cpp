@@ -156,9 +156,6 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
 
-	// This setting is not really useful for anyone atm.
-	// graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
-
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
@@ -246,8 +243,6 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()))
-		->OnChange.Handle(this, &GameSettingsScreen::OnChangeControlScaling);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -302,11 +297,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, s->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
-}
-
-UI::EventReturn GameSettingsScreen::OnChangeControlScaling(UI::EventParams &e) {
-	UpdateDpadRadius();
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
