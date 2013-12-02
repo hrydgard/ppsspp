@@ -1439,6 +1439,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	// Handled in StateMapping.
 	case GE_CMD_STENCILTEST:
+		if (diff) {
+			shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+		}
+		break;
 	case GE_CMD_STENCILOP:
 		break;
 

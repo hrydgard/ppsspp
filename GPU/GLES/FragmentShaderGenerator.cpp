@@ -161,6 +161,9 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool stencilToAlpha = 
+			gstate.isStencilTestEnabled() && gstate.getStencilOpZPass() == GE_STENCILOP_REPLACE &&
+			!gstate.isAlphaBlendEnabled() && !enableAlphaTest;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -184,7 +187,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
-
+		id->d[0] |= stencilToAlpha << 19;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
@@ -227,6 +230,9 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool stencilToAlpha =
+		gstate.isStencilTestEnabled() && gstate.getStencilOpZPass() == GE_STENCILOP_REPLACE &&
+		!gstate.isAlphaBlendEnabled() && !enableAlphaTest;
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -236,6 +242,9 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
+	}
+	if (stencilToAlpha) {
+		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
 		WRITE(p, "uniform lowp vec3 u_texenv;\n");
@@ -373,6 +382,9 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
+	if (stencilToAlpha) {
+		WRITE(p, "  gl_FragColor.a = u_stencilReplaceValue;\n");
+	}
 #ifdef DEBUG_SHADER
 	if (doTexture) {
 		WRITE(p, "  gl_FragColor = texture2D(tex, v_texcoord.xy);\n");

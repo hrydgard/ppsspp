@@ -261,6 +261,10 @@ void FramebufferManager::DestroyDraw2DProgram() {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
 	}
+	if (plainColorProgram_) {
+		glsl_destroy(plainColorProgram_);
+		plainColorProgram_ = 0;
+	}
 	if (postShaderProgram_) {
 		glsl_destroy(postShaderProgram_);
 		postShaderProgram_ = 0;

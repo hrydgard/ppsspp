@@ -141,6 +141,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
 	u_colormask = glGetUniformLocation(program, "u_colormask");
+	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
 
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
@@ -473,6 +474,9 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 
+	if (dirty & DIRTY_STENCILREPLACEVALUE) {
+		glUniform1f(u_stencilReplaceValue, gstate.getStencilTestRef());
+	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
 	if (u_bone != -1) {
