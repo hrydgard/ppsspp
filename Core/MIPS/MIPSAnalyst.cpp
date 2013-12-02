@@ -238,6 +238,57 @@ namespace MIPSAnalyst {
 		}
 	}
 
+	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
+		static const u32 MAX_AHEAD_SCAN = 0x1000;
+
+		// Code might jump halfway up to before fromAddr, but after knownEnd.
+		// In that area, there could be another jump up to the valid range.
+		// So we track that for a second scan.
+		u32 closestJumpbackAddr = INVALIDTARGET;
+		u32 closestJumpbackTarget = fromAddr;
+
+		// We assume the furthest jumpback is within the func.
+		u32 furthestJumpbackAddr = INVALIDTARGET;
+
+		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
+			u32 target = GetBranchTargetNoRA(ahead);
+			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
+				target = GetJumpTarget(ahead);
+			}
+
+			if (target != INVALIDTARGET) {
+				// Only if it comes back up to known code within this func.
+				if (target >= knownStart && target <= knownEnd) {
+					furthestJumpbackAddr = ahead;
+				}
+				// But if it jumps above fromAddr, we should scan that area too...
+				if (target < closestJumpbackTarget && target < fromAddr && target > knownEnd) {
+					closestJumpbackAddr = ahead;
+					closestJumpbackTarget = target;
+				}
+			}
+		}
+
+		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
+			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
+				u32 target = GetBranchTargetNoRA(behind);
+				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
+					target = GetJumpTarget(behind);
+				}
+
+				if (target != INVALIDTARGET) {
+					if (target >= knownStart && target <= knownEnd) {
+						furthestJumpbackAddr = closestJumpbackAddr;
+					}
+				}
+			}
+		}
+
+		return furthestJumpbackAddr;
+	}
+
 	void ScanForFunctions(u32 startAddr, u32 endAddr /*, std::vector<u32> knownEntries*/) {
 		Function currentFunction = {startAddr};
 
@@ -283,14 +334,21 @@ namespace MIPSAnalyst {
 			if (looking) {
 				if (addr >= furthestBranch) {
 					u32 sureTarget = GetSureBranchTarget(addr);
+					// Regular j only, jals are to new funcs.
+					if (sureTarget == INVALIDTARGET && ((op & 0xFC000000) == 0x08000000)) {
+						sureTarget = GetJumpTarget(addr);
+					}
+
 					if (sureTarget != INVALIDTARGET && sureTarget < addr) {
 						end = true;
+					} else if (sureTarget != INVALIDTARGET) {
+						// Okay, we have a downward jump.  Might be an else or a tail call...
+						// If there's a jump back upward in spitting distance of it, it's an else.
+						u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, furthestBranch);
+						if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > furthestBranch) {
+							furthestBranch = jumpback;
+						}
 					}
-					sureTarget = GetJumpTarget(addr);
-					if (sureTarget != INVALIDTARGET && sureTarget < addr && ((op&0xFC000000)==0x08000000)) {
-						end = true;
-					}
-					//end = true;
 				}
 			}
 			if (end) {
