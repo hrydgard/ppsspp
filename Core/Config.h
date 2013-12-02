@@ -145,6 +145,8 @@ public:
 	bool bGridView2;
 	bool bGridView3;
 
+	// Disable diagonals
+	bool bDisableDpadDiagonals;
 	// Control Positions
 	int iTouchButtonOpacity;
 	//space between PSP buttons
@@ -192,10 +194,10 @@ public:
 
 	bool bShowTouchLTrigger;
 	bool bShowTouchRTrigger;
-	
+
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
-	
+
 	bool bHapticFeedback;
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into

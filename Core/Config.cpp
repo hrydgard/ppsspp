@@ -256,6 +256,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("DeadzoneRadius", &fDeadzoneRadius, 0.35);
 
 #endif
+	control->Get("DisableDpadDiagonals", &bDisableDpadDiagonals, false);
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	//set these to -1 if not initialized. initializing these
 	//requires pixel coordinates which is not known right now.
@@ -514,6 +515,8 @@ void Config::Save() {
 		control->Set("TiltSensitivityY", iTiltSensitivityY);
 		control->Set("DeadzoneRadius", fDeadzoneRadius);
 #endif
+		control->Set("DisableDpadDiagonals", bDisableDpadDiagonals);
+
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ActionButtonScale", fActionButtonScale);
 		control->Set("ActionButtonSpacing2", fActionButtonSpacing);

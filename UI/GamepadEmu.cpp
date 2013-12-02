@@ -98,7 +98,6 @@ bool PSPButton::IsDown() {
 	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
 }
 
-
 PSPDpad::PSPDpad(int arrowIndex, int overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
 	: UI::View(layoutParams), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex),
 		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
@@ -145,16 +144,28 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	int ctrlMask = 0;
 	int lastDown = down_;
 	if (down) {
-		int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 8) + 0.5f)) & 7;
-		switch (direction) {
-		case 0: ctrlMask |= CTRL_RIGHT; break;
-		case 1: ctrlMask |= CTRL_RIGHT | CTRL_DOWN; break;
-		case 2: ctrlMask |= CTRL_DOWN; break;
-		case 3: ctrlMask |= CTRL_DOWN | CTRL_LEFT; break;
-		case 4: ctrlMask |= CTRL_LEFT; break;
-		case 5: ctrlMask |= CTRL_UP | CTRL_LEFT; break;
-		case 6: ctrlMask |= CTRL_UP; break;
-		case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
+		if (g_Config.bDisableDpadDiagonals) {
+			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 4) + 0.5f)) & 3;
+			switch (direction) {
+			case 0: ctrlMask |= CTRL_RIGHT; break;
+			case 1: ctrlMask |= CTRL_DOWN; break;
+			case 2: ctrlMask |= CTRL_LEFT; break;
+			case 3: ctrlMask |= CTRL_UP; break;
+			}
+			// 4 way pad
+		} else {
+			// 8 way pad
+			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 8) + 0.5f)) & 7;
+			switch (direction) {
+			case 0: ctrlMask |= CTRL_RIGHT; break;
+			case 1: ctrlMask |= CTRL_RIGHT | CTRL_DOWN; break;
+			case 2: ctrlMask |= CTRL_DOWN; break;
+			case 3: ctrlMask |= CTRL_DOWN | CTRL_LEFT; break;
+			case 4: ctrlMask |= CTRL_LEFT; break;
+			case 5: ctrlMask |= CTRL_UP | CTRL_LEFT; break;
+			case 6: ctrlMask |= CTRL_UP; break;
+			case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
+			}
 		}
 	}
 
