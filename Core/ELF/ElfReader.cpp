@@ -29,7 +29,7 @@ const char *ElfReader::GetSectionName(int section)
 		return 0;
 
 	int nameOffset = sections[section].sh_name;
-	char *ptr = (char*)GetSectionDataPtr(header->e_shstrndx);
+	const char *ptr = (const char *)GetSectionDataPtr(header->e_shstrndx);
 
 	if (ptr)
 		return ptr + nameOffset;
