@@ -2,6 +2,10 @@
 #include "fbo.h"
 #include "thin3d/d3dx9_loader.h"
 
+#ifdef _XBOX
+#include <xgraphics.h>
+#endif
+
 namespace DX9 {
 
 LPDIRECT3DDEVICE9 pD3Ddevice = NULL;

@@ -63,11 +63,11 @@ static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
 	{1, 2}, // 5 = D3DPT_TRIANGLESTRIP,
 	{1, 2}, // 6 = D3DPT_TRIANGLEFAN,
 };
-#endif
 
 int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
 }
+#endif
 
 enum {
 	VERTEX_BUFFER_MAX = 65536,
@@ -103,11 +103,11 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 		transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	
-		if (g_Config.bPrescaleUV) {
-			uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-		}
-		indexGen.Setup(decIndex);
-		InitDeviceObjects();
+	if (g_Config.bPrescaleUV) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
+	indexGen.Setup(decIndex);
+	InitDeviceObjects();
 }
 
 TransformDrawEngineDX9::~TransformDrawEngineDX9() {
@@ -699,12 +699,19 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 
 		/// Debug !!
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-
+#ifdef _XBOX
 		if (drawIndexed) {
 			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 		} else {
 			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 		}
+#else
+		if (drawIndexed) {
+			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+		} else {
+			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+		}
+#endif
 }
 
 VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
@@ -1185,4 +1192,4 @@ rotateVBO:
 #endif
 }
 
-};
+}
