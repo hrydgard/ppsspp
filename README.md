@@ -20,10 +20,12 @@ What's new in 0.9.6
 * Large general speed improvements
 * "Software Skinning" option which speeds up many games with animated 3D characters
 * Various fixes around stencil/alpha, reducing glow problems in Wipeout and Gods Eater Burst
+* Timing improvements making more games run at the correct FPS, also fixing some audio issues
 * More debugger features
 * Option for four-way touch dpad, avoiding diagonal issues
 * Individually resizable touch controls
 * Add ability to switch UMD in multi-disc games (works for most)
+* Very basic ad-hoc online play support, to be improved in future versions
 
 
 What's new in 0.9.5
