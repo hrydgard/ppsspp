@@ -243,14 +243,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 #endif
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		if (!gstate.isStencilTestEnabled() && gstate.isDepthWriteEnabled()) {
-			// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
-			// If this doesn't break anything else, it's likely to be right.
-			// I guess an alternative solution would be to simply disable alpha writes if alpha blending is enabled.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
-		} else {
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
-		}
+
+		// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
+		// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
+		// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
+		// the factors to zero). So let's do that.
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
 
 		// Don't report on Android device (why?)
 #if !defined(USING_GLES2)
