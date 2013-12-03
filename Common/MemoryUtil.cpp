@@ -219,4 +219,3 @@ void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute)
 	mprotect(ptr, size, allowExecute ? (PROT_READ | PROT_WRITE | PROT_EXEC) : PROT_WRITE | PROT_READ);
 #endif
 }
-

@@ -38,7 +38,7 @@ public:
 	void LetterSpace(int Width, int Height);
 	void BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst);
 	void PixelSpace(int Left, int Top, int Width, int Height, bool);
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
 #endif
 	void Log(LogTypes::LOG_LEVELS, const char *Text);
@@ -47,7 +47,7 @@ public:
 	void Show(bool bShow);
 	bool Hidden() const { return bHidden; }
 private:
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	HWND GetHwnd(void);
 	HANDLE hConsole;
 
