@@ -1,3 +1,5 @@
+#include <set>
+
 #include "base/display.h"
 #include "base/functional.h"
 #include "base/logging.h"
@@ -1058,15 +1060,73 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	root->Layout();
 }
 
+// TODO: Figure out where this should really live.
+// Simple simulation of key repeat on platforms and for gamepads where we don't
+// automatically get it.
+
+static int frameCount;
+
+struct HeldKey {
+	int key;
+	int deviceId;
+	int startFrame;
+
+	bool operator <(const HeldKey &other) const {
+		if (deviceId < other.deviceId) return true;
+		if (deviceId > other.deviceId) return false;
+		if (key < other.key) return true;
+		return false;
+	}
+	bool operator ==(const HeldKey &other) const { return key == other.key && deviceId == other.deviceId; }
+};
+
+static std::set<HeldKey> heldKeys;
+
+static const int repeatDelay = 15;  // 250ms
+static const int repeatInterval = 5;  // 66ms
+
 void KeyEvent(const KeyInput &key, ViewGroup *root) {
 	if (key.flags & KEY_DOWN) {
 		// We ignore the device ID here. Anything with a DPAD is OK.
 		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
 			lock_guard lock(focusLock);
 			focusMoves.push_back(key.keyCode);
+
+			// Let's only repeat DPAD initially.
+			HeldKey hk;
+			hk.key = key.keyCode;
+			hk.deviceId = key.deviceId;
+			hk.startFrame = frameCount;
+			heldKeys.insert(hk);
+		}
+	}
+	if (key.flags & KEY_UP) {
+		// We ignore the device ID here. Anything with a DPAD is OK.
+		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
+			HeldKey hk;
+			hk.key = key.keyCode;
+			hk.deviceId = key.deviceId;
+			hk.startFrame = 0; // irrelevant
+			heldKeys.erase(hk);
 		}
 	}
 	root->Key(key);
+}
+
+static void ProcessHeldKeys(ViewGroup *root) {
+	for (auto iter = heldKeys.begin(); iter != heldKeys.end(); ++iter) {
+		if (iter->startFrame < frameCount - repeatDelay) {
+			int frame = frameCount - (iter->startFrame + repeatDelay);
+			if ((frame % repeatInterval) == 0) {
+				printf("Repeat!\n");
+				KeyInput key;
+				key.keyCode = iter->key;
+				key.deviceId = iter->deviceId;
+				key.flags = KEY_DOWN;
+				KeyEvent(key, root);
+			}
+		}
+	}
 }
 
 void TouchEvent(const TouchInput &touch, ViewGroup *root) {
@@ -1080,6 +1140,9 @@ void AxisEvent(const AxisInput &axis, ViewGroup *root) {
 }
 
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
+	ProcessHeldKeys(root);
+	frameCount++;
+
 	if (!root) {
 		ELOG("Tried to update a view hierarchy from a zero pointer root");
 		return;
