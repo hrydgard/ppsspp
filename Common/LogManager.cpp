@@ -94,7 +94,7 @@ LogManager::LogManager() {
 	}
 
 	// Remove file logging on small devices
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !(defined(USING_GLES2) || defined(_XBOX)) || defined(_DEBUG)
 	fileLog_ = new FileLogListener("");
 	consoleLog_ = new ConsoleListener();
 	debuggerLog_ = new DebuggerLogListener();
@@ -106,10 +106,10 @@ LogManager::LogManager() {
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		log_[i]->SetEnable(true);
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !(defined(USING_GLES2) || defined(_XBOX)) || defined(_DEBUG)
 		log_[i]->AddListener(fileLog_);
 		log_[i]->AddListener(consoleLog_);
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_XBOX)
 		if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
 			log_[i]->AddListener(debuggerLog_);
 #endif

@@ -149,7 +149,7 @@ private:
 # elif defined __SSE2__
 #  define _M_SSE 0x200
 # endif
-#elif ((_MSC_VER >= 1500) || __INTEL_COMPILER) // Visual Studio 2008
+#elif ((_MSC_VER >= 1500) || __INTEL_COMPILER) && !defined(_XBOX) // Visual Studio 2008
 # define _M_SSE 0x402
 #endif
 

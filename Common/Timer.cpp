@@ -19,7 +19,9 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#ifndef _XBOX
 #include <mmsystem.h>
+#endif
 #include <sys/timeb.h>
 #else
 #include <sys/time.h>
@@ -33,17 +35,19 @@ namespace Common
 
 u32 Timer::GetTimeMs()
 {
-#ifdef _WIN32
-	return timeGetTime();
+#ifdef _XBOX
+		return GetTickCount();
+#elif defined(_WIN32)
+        return timeGetTime();
 #elif defined(BLACKBERRY)
-	struct timespec time;
-	clock_gettime(CLOCK_MONOTONIC, &time);
-	return (u32)(time.tv_sec * 1000 + time.tv_nsec / 1000000);
+        struct timespec time;
+        clock_gettime(CLOCK_MONOTONIC, &time);
+        return (u32)(time.tv_sec * 1000 + time.tv_nsec / 1000000);
 #else
-	// REALTIME is probably not a good idea for measuring updates.
-	struct timeval t;
-	(void)gettimeofday(&t, NULL);
-	return ((u32)(t.tv_sec * 1000 + t.tv_usec / 1000));
+        // REALTIME is probably not a good idea for measuring updates.
+        struct timeval t;
+        (void)gettimeofday(&t, NULL);
+        return ((u32)(t.tv_sec * 1000 + t.tv_usec / 1000));
 #endif
 }
 
@@ -149,14 +153,14 @@ std::string Timer::GetTimeElapsedFormatted() const
 // Get current time
 void Timer::IncreaseResolution()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	timeBeginPeriod(1);
 #endif
 }
 
 void Timer::RestoreResolution()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	timeEndPeriod(1);
 #endif
 }

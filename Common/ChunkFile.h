@@ -440,7 +440,10 @@ public:
 
 	template<class T>
 	void DoClass(T &x) {
+// disabled on xbox caused by endian struct
+#ifndef _XBOX
 		x.DoState(*this);
+#endif
 	}
 
 	template<class T>
