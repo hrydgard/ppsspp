@@ -64,13 +64,11 @@
     <ClCompile Include="ExtendedTrace.cpp" />
     <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="LogManager.cpp" />
-    <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="MemArena.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="Misc.cpp" />
     <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="StringUtils.cpp" />
-    <ClCompile Include="Thread.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Crypto\md5.cpp">
