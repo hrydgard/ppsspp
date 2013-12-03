@@ -1288,8 +1288,8 @@ const HLEFunction scePsmf[] = {
 	{0x4E624A34, WrapU_UIU<scePsmfGetEPWithId>, "scePsmfGetEPWithId"},
 	{0x7C0E7AC3, WrapU_UUU<scePsmfGetEPWithTimestamp>, "scePsmfGetEPWithTimestamp"},
 	{0x5F457515, WrapU_UU<scePsmfGetEPidWithTimestamp>, "scePsmfGetEPidWithTimestamp"},
-	{0x43ac7dbb, 0, "scePsmf_43AC7DBB"},
-	{0xde78e9fc, 0, "scePsmf_DE78E9FC"},
+	{0x43ac7dbb, 0, "scePsmfGetPsmfMark"},
+	{0xde78e9fc, 0, "scePsmfGetNumberOfPsmfMarks"},
 };
 
 const HLEFunction scePsmfPlayer[] =
