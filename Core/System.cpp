@@ -17,7 +17,9 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#ifndef _XBOX
 #include <ShlObj.h>
+#endif
 #include <string>
 #include <codecvt>
 #endif
