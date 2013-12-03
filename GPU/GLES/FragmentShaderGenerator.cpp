@@ -99,6 +99,63 @@ static bool IsAlphaTestTriviallyTrue() {
 	}
 }
 
+enum StencilValueType {
+	STENCIL_VALUE_UNKNOWN,
+	STENCIL_VALUE_UNIFORM,
+	STENCIL_VALUE_ZERO,
+	STENCIL_VALUE_ONE,
+};
+
+static StencilValueType ReplaceAlphaWithStencilType() {
+	switch (gstate.FrameBufFormat()) {
+	case GE_FORMAT_565:
+		// There's never a stencil value.  Maybe the right alpha is 1?
+		return STENCIL_VALUE_ONE;
+
+	case GE_FORMAT_5551:
+		switch (gstate.getStencilOpZPass()) {
+		// Technically, this should only ever use zero/one.
+		case GE_STENCILOP_REPLACE:
+			return (gstate.getStencilTestRef() & 0x80) != 0 ? STENCIL_VALUE_ONE : STENCIL_VALUE_ZERO;
+
+		// Decrementing always zeros, since there's only one bit.
+		case GE_STENCILOP_DECR:
+		case GE_STENCILOP_ZERO:
+			return STENCIL_VALUE_ZERO;
+
+		// Incrementing always fills, since there's only one bit.
+		case GE_STENCILOP_INCR:
+			return STENCIL_VALUE_ONE;
+
+		case GE_STENCILOP_KEEP:
+		case GE_STENCILOP_INVERT:
+			return STENCIL_VALUE_UNKNOWN;
+		}
+		break;
+
+	case GE_FORMAT_4444:
+	case GE_FORMAT_8888:
+	case GE_FORMAT_INVALID:
+		switch (gstate.getStencilOpZPass()) {
+		case GE_STENCILOP_REPLACE:
+			return STENCIL_VALUE_UNIFORM;
+
+		case GE_STENCILOP_ZERO:
+			return STENCIL_VALUE_ZERO;
+
+		// Decrementing always zeros, since there's only one bit.
+		case GE_STENCILOP_DECR:
+		case GE_STENCILOP_INCR:
+		case GE_STENCILOP_KEEP:
+		case GE_STENCILOP_INVERT:
+			return STENCIL_VALUE_UNKNOWN;
+		}
+		break;
+	}
+
+	return STENCIL_VALUE_UNKNOWN;
+}
+
 static bool IsColorTestTriviallyTrue() {
 	GEComparison colorTestFunc = gstate.getColorTestFunction();
 	switch (colorTestFunc) {
@@ -161,9 +218,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool stencilToAlpha = 
-			gstate.isStencilTestEnabled() && gstate.getStencilOpZPass() == GE_STENCILOP_REPLACE &&
-			!gstate.isAlphaBlendEnabled();
+		bool stencilToAlpha = gstate.isStencilTestEnabled() && !gstate.isAlphaBlendEnabled();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -187,7 +242,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
-		id->d[0] |= stencilToAlpha << 19;
+		if (stencilToAlpha) {
+			// 2 bits
+			id->d[0] |= ReplaceAlphaWithStencilType() << 19;
+		}
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
@@ -230,9 +288,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-	bool stencilToAlpha =
-		gstate.isStencilTestEnabled() && gstate.getStencilOpZPass() == GE_STENCILOP_REPLACE &&
-		!gstate.isAlphaBlendEnabled();
+	bool stencilToAlpha = gstate.isStencilTestEnabled() && !gstate.isAlphaBlendEnabled();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -243,7 +299,7 @@ void GenerateFragmentShader(char *buffer) {
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 	}
-	if (stencilToAlpha) {
+	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
@@ -383,7 +439,23 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	if (stencilToAlpha) {
-		WRITE(p, "  gl_FragColor.a = u_stencilReplaceValue;\n");
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_UNIFORM:
+			WRITE(p, "  gl_FragColor.a = u_stencilReplaceValue;\n");
+			break;
+
+		case STENCIL_VALUE_ZERO:
+			WRITE(p, "  gl_FragColor.a = 0.0;\n");
+			break;
+
+		case STENCIL_VALUE_ONE:
+			WRITE(p, "  gl_FragColor.a = 1.0;\n");
+			break;
+
+		case STENCIL_VALUE_UNKNOWN:
+			// Do nothing.
+			break;
+		}
 	}
 #ifdef DEBUG_SHADER
 	if (doTexture) {

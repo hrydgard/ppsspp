@@ -101,8 +101,8 @@ static const GLushort stencilOps[] = {
 	GL_ZERO,
 	GL_REPLACE,
 	GL_INVERT,
-	GL_INCR_WRAP,
-	GL_DECR_WRAP,  // don't know if these should be wrap or not
+	GL_INCR,
+	GL_DECR,
 	GL_KEEP, // reserved
 	GL_KEEP, // reserved
 };
