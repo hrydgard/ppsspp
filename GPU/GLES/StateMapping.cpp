@@ -338,7 +338,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
 		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-		bool amask = (gstate.pmska & 0xFF) < 128;
+		bool amask = ((gstate.pmska & 0xFF) < 128) && gstate.isStencilTestEnabled() && !gstate.isDepthTestEnabled();
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
 		// Stencil Test
