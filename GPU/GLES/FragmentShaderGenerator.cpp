@@ -288,7 +288,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-	bool stencilToAlpha = gstate.isStencilTestEnabled() && !gstate.isAlphaBlendEnabled();
+	bool stencilToAlpha = !gstate.isModeClear() && gstate.isStencilTestEnabled() && !gstate.isAlphaBlendEnabled();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
