@@ -181,7 +181,8 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	} else {
-		return -1; // Generic error
+		WARN_LOG(SCENET, "sceNetAdhocctlInit: Faking success");
+		return 0; // Generic error, but just return success to make games conform.
 	}
 	return 0;
 }
