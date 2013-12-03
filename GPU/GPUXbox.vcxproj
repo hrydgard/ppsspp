@@ -228,7 +228,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
@@ -237,6 +237,11 @@
       <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>core/x360_compat.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <TrapIntegerDividesOptimization>true</TrapIntegerDividesOptimization>
+      <PreschedulingOptimization>true</PreschedulingOptimization>
+      <InlineAssemblyOptimization>true</InlineAssemblyOptimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -367,7 +372,9 @@
     <ClCompile Include="Directx9\TextureCacheDX9.cpp" />
     <ClCompile Include="Directx9\TextureScalerDX9.cpp" />
     <ClCompile Include="Directx9\TransformPipelineDX9.cpp" />
-    <ClCompile Include="Directx9\VertexDecoderDX9.cpp" />
+    <ClCompile Include="Directx9\VertexDecoderDX9.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Xbox 360'">AssemblyAndSourceCode</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp">
