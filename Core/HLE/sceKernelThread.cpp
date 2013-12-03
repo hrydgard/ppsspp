@@ -68,7 +68,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_GELISTSYNC,      "GeListSync" },
 	{ WAITTYPE_MODULE,          "Module" },
 	{ WAITTYPE_HLEDELAY,        "HleDelay" },
-	{ WAITTYPE_TLS,             "TLS" },
+	{ WAITTYPE_TLSPL,           "TLS" },
 	{ WAITTYPE_VMEM,            "Volatile Mem" },
 	{ WAITTYPE_ASYNCIO,         "AsyncIO" },
 };
