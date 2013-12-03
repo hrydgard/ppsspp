@@ -426,11 +426,11 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 
 			// RT = RT | SREG
 			OR(_rt, _rt, SREG);
-		}
-		else if (fs == 0)
-		{
-			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-			LWZ(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr0));
+		} else if (fs == 0) {
+			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		} else {
+			// Unsupported regs are always 0.
+			gpr.SetImm(rt, 0);
 		}
 		return;
 
