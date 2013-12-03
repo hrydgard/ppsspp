@@ -85,6 +85,7 @@ public:
 		return *this;
 	}
 
+	operator unsigned long() const { return (unsigned long)swap(); }	
 	operator long() const { return (long)swap(); }	
 	operator s8() const { return (s8)swap(); }
 	operator u8() const { return (u8)swap(); }
