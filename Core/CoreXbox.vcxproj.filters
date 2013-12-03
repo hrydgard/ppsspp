@@ -484,6 +484,9 @@
     <ClCompile Include="MIPS\PPC\PpcRegCacheFPU.cpp">
       <Filter>MIPS\PPC</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcRegCacheVPU.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -880,6 +883,9 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\PPC\PpcRegCacheFPU.h">
+      <Filter>MIPS\PPC</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\PPC\PpcRegCacheVPU.h">
       <Filter>MIPS\PPC</Filter>
     </ClInclude>
   </ItemGroup>

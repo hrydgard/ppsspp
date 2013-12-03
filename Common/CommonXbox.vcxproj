@@ -119,7 +119,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PreprocessorDefinitions>_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;_DEBUG;_XBOX;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_XBOX;NO_UNICODE;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;_DEBUG;_XBOX;_LIB</PreprocessorDefinitions>
       <CallAttributedProfiling>Callcap</CallAttributedProfiling>
       <AdditionalIncludeDirectories>../native;../Common</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
@@ -239,7 +239,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PreprocessorDefinitions>_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;_XBOX;LTCG;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_XBOX;NO_UNICODE;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;_XBOX;LTCG;_LIB</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../native;../Common</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>

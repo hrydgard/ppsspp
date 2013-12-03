@@ -120,7 +120,7 @@
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>USE_DIRECTX;_XBOX;PPC;BIG_ENDIAN;_DEBUG;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USE_DIRECTX;NO_UNICODE;_XBOX;PPC;BIG_ENDIAN;_DEBUG;_LIB</PreprocessorDefinitions>
       <CallAttributedProfiling>Callcap</CallAttributedProfiling>
       <ForcedIncludeFiles>Core/x360_compat.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -244,7 +244,7 @@
       <PrecompiledHeaderOutputFile>$(OutDir)$(ProjectName).pch</PrecompiledHeaderOutputFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_XBOX;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;LTCG;_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_XBOX;NO_UNICODE;BIG_ENDIAN;USE_DIRECTX;PPC;WIN32;NDEBUG;LTCG;_LIB</PreprocessorDefinitions>
       <ForcedIncludeFiles>Core/x360_compat.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
@@ -487,6 +487,7 @@
     </ClCompile>
     <ClCompile Include="MIPS\PPC\PpcRegCache.cpp" />
     <ClCompile Include="MIPS\PPC\PpcRegCacheFPU.cpp" />
+    <ClCompile Include="MIPS\PPC\PpcRegCacheVPU.cpp" />
     <ClCompile Include="MIPS\x86\Asm.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Xbox 360'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Xbox 360'">true</ExcludedFromBuild>
@@ -733,6 +734,7 @@
     <ClInclude Include="MIPS\PPC\PpcJit.h" />
     <ClInclude Include="MIPS\PPC\PpcRegCache.h" />
     <ClInclude Include="MIPS\PPC\PpcRegCacheFPU.h" />
+    <ClInclude Include="MIPS\PPC\PpcRegCacheVPU.h" />
     <ClInclude Include="MIPS\x86\Asm.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='CodeAnalysis|Xbox 360'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Xbox 360'">true</ExcludedFromBuild>
