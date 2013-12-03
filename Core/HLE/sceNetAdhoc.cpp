@@ -181,7 +181,7 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	} else {
-		return -1; // Generic error
+		return 0; // Generic error, but just return success to make games comform.
 	}
 	return 0;
 }
