@@ -104,6 +104,23 @@ const D3DPRIMITIVETYPE glprim[8] = {
 #endif
 };
 
+#ifndef _XBOX
+// hrydgard's quick guesses - TODO verify
+static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
+    {0, 0}, // invalid
+    {1, 0}, // 1 = D3DPT_POINTLIST,
+    {2, 0}, // 2 = D3DPT_LINELIST,
+    {2, 1}, // 3 = D3DPT_LINESTRIP,
+    {3, 0}, // 4 = D3DPT_TRIANGLELIST,
+    {1, 2}, // 5 = D3DPT_TRIANGLESTRIP,
+    {1, 2}, // 6 = D3DPT_TRIANGLEFAN,
+};
+
+int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
+    return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
+}
+#endif
+
 enum {
 	VERTEX_BUFFER_MAX = 65536,
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 48,
@@ -161,7 +178,11 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
 	indexGen.Setup(decIndex);
+#ifdef _XBOX
 	decJitCache_ = new VertexDecoderJitCache();
+#else
+	decJitCache_ = NULL;
+#endif
 	InitDeviceObjects();
 }
 
@@ -172,8 +193,9 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	delete [] quadIndices_;
-	
+#ifdef _XBOX	
 	delete decJitCache_;
+#endif
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
@@ -924,12 +946,19 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 
 		/// Debug !!
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-
+#ifdef _XBOX
 		if (drawIndexed) {
 			pD3Ddevice->DrawIndexedVerticesUP(glprim[prim], 0, vertexCount, numTrans, inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 		} else {
 			pD3Ddevice->DrawVerticesUP(glprim[prim], numTrans, drawBuffer, sizeof(TransformedVertex));
 		}
+#else
+		if (drawIndexed) {
+			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+		} else {
+			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+		}
+#endif
 }
 
 VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
@@ -1385,7 +1414,7 @@ rotateVBO:
 
 			SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
 			pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
-
+#ifdef _XBOX
 			if (vb_ == NULL) {
 				if (useElements) {
 					pD3Ddevice->DrawIndexedVerticesUP(glprim[prim], 0, vertexCount, vertexCount, decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
@@ -1403,6 +1432,26 @@ rotateVBO:
 					pD3Ddevice->DrawVertices(glprim[prim], 0, vertexCount);
 				}
 			}
+#else
+			if (vb_ == NULL) {
+                if (useElements) {
+                    pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+                } else {
+                    pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+                }
+            } else {
+                pD3Ddevice->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
+
+                if (useElements) {                                        
+                    pD3Ddevice->SetIndices(ib_);
+
+                    pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], vertexCount));
+                } else {
+                    pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+                }
+            }
+
+#endif
 		} else {
 			DecodeVerts();
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();

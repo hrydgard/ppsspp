@@ -116,7 +116,6 @@ void ConsoleListener::Init(bool AutoOpen, int Width, int Height, const char *Tit
 void ConsoleListener::Open()
 {
 #if defined(_WIN32) && !defined(_XBOX)
-  bHidden = Hidden;
 	if (!GetConsoleWindow())
 	{
 		// Open the console window and create the window handle for GetStdHandle()

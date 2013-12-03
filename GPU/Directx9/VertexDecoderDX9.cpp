@@ -1684,7 +1684,7 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoderDX9 &dec, int step) {
 	}
 	return false;
 }
-#else
+#elif defined(PPC)
 VertexDecoderJitCache::VertexDecoderJitCache() {
 	// link only !!!
 }

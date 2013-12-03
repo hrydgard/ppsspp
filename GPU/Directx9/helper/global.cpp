@@ -1,11 +1,14 @@
 #include "global.h"
 #include "fbo.h"
+#ifdef _XBOX
 #include <xgraphics.h>
+#endif
 
 namespace DX9 {
 
-	
+#ifdef _XBOX	
 #define USE_PREDICATED_TILLING 1
+#endif
 
 #ifdef USE_PREDICATED_TILLING
 

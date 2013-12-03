@@ -44,7 +44,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	fbo->height = height;
 	fbo->colorDepth = colorDepth;
 
-#if 1
+#ifdef _XBOX
 	D3DSURFACE_PARAMETERS SurfaceParams;
     memset( &SurfaceParams, 0, sizeof( D3DSURFACE_PARAMETERS ) );
     SurfaceParams.Base = 0;

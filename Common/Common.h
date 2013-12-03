@@ -155,7 +155,7 @@ private:
 
 
 #ifdef _MSC_VER
-#if 0//ndef _XBOX
+#ifndef _XBOX
 inline unsigned long long bswap64(unsigned long long x) { return _byteswap_uint64(x); }
 inline unsigned int bswap32(unsigned int x) { return _byteswap_ulong(x); }
 inline unsigned short bswap16(unsigned short x) { return _byteswap_ushort(x); }
