@@ -1118,7 +1118,6 @@ static void ProcessHeldKeys(ViewGroup *root) {
 		if (iter->startFrame < frameCount - repeatDelay) {
 			int frame = frameCount - (iter->startFrame + repeatDelay);
 			if ((frame % repeatInterval) == 0) {
-				printf("Repeat!\n");
 				KeyInput key;
 				key.keyCode = iter->key;
 				key.deviceId = iter->deviceId;
