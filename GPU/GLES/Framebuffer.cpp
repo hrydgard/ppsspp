@@ -471,7 +471,7 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	if (texture) {
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY) && !defined(MAEMO)
+#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY) && !defined(MAEMO)
 		if (gl_extensions.NV_draw_texture && !program) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
 			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
@@ -627,12 +627,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		return;
 	}
 
-	if (g_Config.iRenderingMode != 0 && g_Config.bWipeFramebufferAlpha && currentRenderVfb_) {
+	/*
+	if (g_Config.iRenderingMode != 0 && currentRenderVfb_) {
 		// Hack is enabled, and there was a previous framebuffer.
 		// Before we switch, let's do a series of trickery to copy one bit of stencil to
 		// destination alpha. Or actually, this is just a bunch of hackery attempts on Wipeout.
 		// Ignore for now.
-		/*
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		glstate.stencilTest.enable();
@@ -643,13 +643,14 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		//DrawPlainColor(0xFF000000);
 		glstate.stencilTest.disable();
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		*/
 
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		DrawPlainColor(0x00000000);
 		shaderManager_->DirtyLastShader();  // dirty lastShader_
 	}
+	*/
+
 
 	gstate_c.framebufChanged = false;
 

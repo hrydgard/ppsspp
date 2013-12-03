@@ -26,7 +26,9 @@ What's new in 0.9.6
 * Individually resizable touch controls
 * Add ability to switch UMD in multi-disc games (works for most)
 * Very basic ad-hoc online play support, to be improved in future versions
-
+* Support for "Immersive mode" full screen on Android Kitkat on devices that
+  support it (Nexus 4, etc).
+* Emulate PSP-2000 rather than the 1000 model by default. Not much different in practice.
 
 What's new in 0.9.5
 -------------------

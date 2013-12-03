@@ -195,7 +195,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("PartialStretch", &bPartialStretch, partialStretchDefault);
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
-	graphics->Get("MipMap", &bMipMap, true);
+
+	graphics->Get("MipMap", &bMipMap, false);
+
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
@@ -209,7 +211,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("TimerHack", &bTimerHack, false);
 #endif
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
-	graphics->Get("WipeFramebufferAlpha", &bWipeFramebufferAlpha, false);
 	graphics->Get("PostShader", &sPostShaderName, "Off");
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
