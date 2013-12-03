@@ -249,6 +249,7 @@ namespace PpcGen
 		}
 		// if RCFlags update CR0
 		void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
+		void SUBFIC	(PPCReg Rt, PPCReg Ra, short imm);
 		void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 		void SUBFE	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 

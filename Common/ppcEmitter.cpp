@@ -479,6 +479,9 @@ namespace PpcGen {
 	void PPCXEmitter::SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
 		XO_FORM(31, Rd, Ra, Rb, 0, 8, 0);
 	}
+	void PPCXEmitter::SUBFIC(PPCReg Rt, PPCReg Ra, short imm) {
+		D_FORM(8, Rt, Ra, imm);
+	}
 
 	
 	void PPCXEmitter::SUBFE(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
