@@ -507,8 +507,8 @@ const HLEFunction sceUmdUser[] =
 	{0xBD2BDE07,&WrapI_I<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
 	{0x87533940,WrapU_V<sceUmdReplaceProhibit>,"sceUmdReplaceProhibit"},
 	{0xCBE9F02A,WrapU_V<sceUmdReplacePermit>,"sceUmdReplacePermit"},
-	{0x14c6c45c,0,"sceUmdUser_14C6C45C"},
-	{0xb103fa38,0,"sceUmdUser_B103FA38"},
+	{0x14c6c45c,0,"sceUmdUnuseUMDInMsUsbWlan"},
+	{0xb103fa38,0,"sceUmdUseUMDInMsUsbWlan"},
 };
 
 void Register_sceUmdUser()
