@@ -308,16 +308,16 @@ void GameBrowser::Refresh() {
 	// Kill all the contents
 	Clear();
 
-	Add(new Spacer(5.0f));
+	Add(new Spacer(1.0f));
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
 	// No topbar on recent screen
 	if (path_.GetPath() != "!RECENT") {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (allowBrowsing_) {
+			topBar->Add(new Spacer(2.0f));
 			Margins pathMargins(5, 0);
-			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, pathMargins)));
-			topBar->Add(new Spacer(new LinearLayoutParams(1.0f)));
+			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(1.0f)));
 #if defined(_WIN32) || defined(USING_QT_UI)
 			topBar->Add(new Choice(m->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
