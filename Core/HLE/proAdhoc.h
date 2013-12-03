@@ -16,7 +16,10 @@
 #include "Core/HLE/sceUtility.h"
 
 // Net stuff
-#ifdef _MSC_VER
+#ifdef _XBOX
+#include <winsockx.h>
+typedef int socklen_t;
+#elif defined(_MSC_VER)
 #include <WS2tcpip.h>
 #else
 #include <sys/types.h>
