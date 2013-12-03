@@ -45,11 +45,6 @@
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 
-
-static const float asinCoef[8] = {
-	0
-};
-
 #define M_PI_2     1.57079632679489661923
 
 // TODO:
@@ -127,13 +122,9 @@ float fastasin5(float x)
 	float sign = x >= 0.0f ? 1.0f : -1.0f;
 	x = fabs(x);
 	float fRoot = sqrtf(1.0f - x);
-	float fResult = -0.0187293f;
-	fResult *= x;
-	fResult += 0.0742610f;
-	fResult *= x;
-	fResult -= 0.2121144f;
-	fResult *= x;
-	fResult += 1.5707288f;
+	float fResult = 0.0742610f + -0.0187293f  * x;
+	fResult = -0.2121144f + fResult * x;
+	fResult = 1.5707288f + fResult * x;
 	fResult = M_PI/2 - fRoot*fResult;
 	return sign * fResult;
 }
