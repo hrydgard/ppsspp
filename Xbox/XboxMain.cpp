@@ -375,7 +375,7 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = "";
 	coreParameter.startPaused = false;
-	coreParameter.enableDebugging = false;
+//	coreParameter.enableDebugging = false;
 	coreParameter.printfEmuLog = true;
 	coreParameter.headLess = false;
 	coreParameter.renderWidth = 1280;

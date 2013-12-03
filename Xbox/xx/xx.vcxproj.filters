@@ -116,6 +116,27 @@
     <ClCompile Include="..\..\native\ext\sha1\sha1.cpp">
       <Filter>native%28small%29</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\native\net\http_client.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\net\resolve.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\net\url.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\vjson\block_allocator.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\ext\vjson\json.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\data\compression.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\native\util\text\parsers.cpp">
+      <Filter>native%28small%29</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Compare.h">

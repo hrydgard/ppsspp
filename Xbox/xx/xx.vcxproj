@@ -303,11 +303,14 @@
     <ClCompile Include="..\..\native\base\buffer.cpp" />
     <ClCompile Include="..\..\native\base\stringutil.cpp" />
     <ClCompile Include="..\..\native\base\timeutil.cpp" />
+    <ClCompile Include="..\..\native\data\compression.cpp" />
     <ClCompile Include="..\..\native\ext\cityhash\city.cpp" />
     <ClCompile Include="..\..\native\ext\jpge\jpgd.cpp" />
     <ClCompile Include="..\..\native\ext\jpge\jpge.cpp" />
     <ClCompile Include="..\..\native\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\..\native\ext\stb_image\stb_image.c" />
+    <ClCompile Include="..\..\native\ext\vjson\block_allocator.cpp" />
+    <ClCompile Include="..\..\native\ext\vjson\json.cpp" />
     <ClCompile Include="..\..\native\file\fd_util.cpp" />
     <ClCompile Include="..\..\native\file\file_util.cpp" />
     <ClCompile Include="..\..\native\file\ini_file.cpp" />
@@ -320,7 +323,11 @@
     <ClCompile Include="..\..\native\math\expression_parser.cpp" />
     <ClCompile Include="..\..\native\math\lin\matrix4x4.cpp" />
     <ClCompile Include="..\..\native\math\lin\quat.cpp" />
+    <ClCompile Include="..\..\native\net\http_client.cpp" />
+    <ClCompile Include="..\..\native\net\resolve.cpp" />
+    <ClCompile Include="..\..\native\net\url.cpp" />
     <ClCompile Include="..\..\native\thread\threadpool.cpp" />
+    <ClCompile Include="..\..\native\util\text\parsers.cpp" />
     <ClCompile Include="..\..\native\util\text\utf8.cpp" />
     <ClCompile Include="..\Compare.cpp" />
     <ClCompile Include="..\display_xbox.cpp" />
