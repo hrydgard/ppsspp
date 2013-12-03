@@ -197,6 +197,9 @@ void CheckGLExtensions() {
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
 #endif
 
+	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
+	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
+
 #ifdef USING_GLES2
 	gl_extensions.OES_packed_depth_stencil = strstr(extString, "GL_OES_packed_depth_stencil") != 0;
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
@@ -204,7 +207,6 @@ void CheckGLExtensions() {
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 	gl_extensions.EXT_blend_minmax = strstr(extString, "GL_EXT_blend_minmax") != 0;
 	gl_extensions.EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
-	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
 	gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
 #if defined(ANDROID) || defined(BLACKBERRY)
