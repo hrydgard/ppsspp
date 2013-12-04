@@ -245,11 +245,15 @@ void __KernelMemoryDoState(PointerWrap &p)
 
 void __KernelMemoryShutdown()
 {
+#ifdef _DEBUG
 	INFO_LOG(SCEKERNEL,"Shutting down user memory pool: ");
 	userMemory.ListBlocks();
+#endif
 	userMemory.Shutdown();
+#ifdef _DEBUG
 	INFO_LOG(SCEKERNEL,"Shutting down \"kernel\" memory pool: ");
 	kernelMemory.ListBlocks();
+#endif
 	kernelMemory.Shutdown();
 }
 
@@ -704,7 +708,9 @@ public:
 				address = alloc->AllocAligned(size, 0x100, alignment, type == PSP_SMEM_HighAligned, name);
 			else
 				address = alloc->Alloc(size, type == PSP_SMEM_High, name);
+#ifdef _DEBUG
 			alloc->ListBlocks();
+#endif
 		}
 	}
 	~PartitionMemoryBlock()
@@ -1690,7 +1696,9 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 
 	u32 totalSize = blockSize * count;
 	u32 blockPtr = userMemory.Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, name);
+#ifdef _DEBUG
 	userMemory.ListBlocks();
+#endif
 
 	if (blockPtr == (u32) -1)
 	{

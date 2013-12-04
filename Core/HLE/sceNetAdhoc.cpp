@@ -113,9 +113,16 @@ int sceNetAdhocctlTerm();
 int sceNetAdhocMatchingTerm();
 
 void __NetAdhocShutdown() {
-	sceNetAdhocTerm();
-	sceNetAdhocctlTerm();
-	sceNetAdhocMatchingTerm();
+	// Checks to avoid confusing logspam
+	if (netAdhocInited) {
+		sceNetAdhocTerm();
+	}
+	if (netAdhocctlInited) {
+		sceNetAdhocctlTerm();
+	}
+	if (netAdhocMatchingInited) {
+		sceNetAdhocMatchingTerm();
+	}
 }
 
 void __NetAdhocDoState(PointerWrap &p) {

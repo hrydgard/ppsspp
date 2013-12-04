@@ -257,11 +257,11 @@ bool CreateDir(const std::string &path)
 bool CreateFullPath(const std::string &fullPath)
 {
 	int panicCounter = 100;
-	INFO_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
+	DEBUG_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
 		
 	if (File::Exists(fullPath))
 	{
-		INFO_LOG(COMMON, "CreateFullPath: path exists %s", fullPath.c_str());
+		DEBUG_LOG(COMMON, "CreateFullPath: path exists %s", fullPath.c_str());
 		return true;
 	}
 

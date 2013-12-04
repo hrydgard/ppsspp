@@ -55,7 +55,6 @@ public:
 		bRelocate(false),
 		entryPoint(0),
 		vaddr(0) {
-		INFO_LOG(LOADER, "ElfReader: %p", ptr);
 		base = (char*)ptr;
 		base32 = (u32 *)ptr;
 		header = (Elf32_Ehdr*)ptr;

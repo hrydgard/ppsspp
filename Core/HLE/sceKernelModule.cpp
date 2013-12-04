@@ -694,7 +694,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 	*magic = *magicPtr;
 	if (*magic == 0x5053507e) { // "~PSP"
-		INFO_LOG(SCEMODULE, "Decrypting ~PSP file");
+		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
 		const u8 *in = ptr;
 		u32 size = head->elf_size;
@@ -716,9 +716,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 			return module;
-		}
-		else if (ret <= 0)
-		{
+		} else if (ret <= 0) {
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
 			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
@@ -885,7 +883,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				module->ImportFunc(func);
 			}
 
-			if (firstImportStubAddr == NULL || firstImportStubAddr > entry->firstSymAddr)
+			if (!firstImportStubAddr || firstImportStubAddr > entry->firstSymAddr)
 				firstImportStubAddr = entry->firstSymAddr;
 		} else if (entry->numFuncs > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
@@ -1813,7 +1811,7 @@ u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCount
 	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {		
 		Module *module = kernelObjects.Get<Module>(*mod, error);
 		if (!module->isFake) {
-			if (resultBufferOffset < resultBufferSize) {
+			if (resultBufferOffset < (int)resultBufferSize) {
 				Memory::Write_U32(module->GetUID(), resultBuffer + resultBufferOffset);
 				resultBufferOffset += 4;
 			}

@@ -65,8 +65,6 @@ EmuScreen::EmuScreen(const std::string &filename)
 void EmuScreen::bootGame(const std::string &filename) {
 	booted_ = true;
 	std::string fileToStart = filename;
-	// This is probably where we should start up the emulated PSP.
-	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
@@ -100,6 +98,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
+		System_SendMessage("event", "failstartgame");
 		return;
 	}
 
@@ -126,6 +125,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
 
+	System_SendMessage("event", "startgame");
 }
 
 EmuScreen::~EmuScreen() {
@@ -141,6 +141,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());
+		System_SendMessage("event", "exitgame");
 	}
 
 	RecreateViews();
@@ -159,6 +160,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
 			screenManager()->switchScreen(new MainScreen());
+			System_SendMessage("event", "failstartgame");
 			return;
 		}
 		host->BootDone();

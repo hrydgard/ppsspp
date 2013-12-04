@@ -544,7 +544,6 @@ int ElfReader::LoadInto(u32 loadAddress)
 		}
 	}
 
-	NOTICE_LOG(LOADER,"ELF loading completed successfully.");
 	return SCE_KERNEL_ERROR_OK;
 }
 

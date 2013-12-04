@@ -441,8 +441,6 @@ void __IoWakeManager() {
 }
 
 void __IoInit() {
-	INFO_LOG(SCEIO, "Starting up I/O...");
-
 	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
@@ -1932,7 +1930,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			key_ptr = NULL;
 		}
 
-		INFO_LOG(SCEIO, "Decrypting PGD DRM files");
+		DEBUG_LOG(SCEIO, "Decrypting PGD DRM files");
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);

@@ -382,6 +382,7 @@ void BlockAllocator::ListBlocks() const
 		const Block &b = *bp;
 		INFO_LOG(HLE, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
 	}
+	INFO_LOG(HLE,"-----------");
 }
 
 u32 BlockAllocator::GetLargestFreeBlockSize() const

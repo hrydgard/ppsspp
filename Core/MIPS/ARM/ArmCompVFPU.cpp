@@ -785,6 +785,7 @@ namespace MIPSComp
 		// Get some extra temps, used by vasin only. 
 		ARMReg t2 = INVALID_REG, t3 = INVALID_REG, t4 = INVALID_REG;
 		if (((op >> 16) & 0x1f) == 23) {
+			// Only get here on vasin.
 			int t[3] = { fpr.GetTempV(), fpr.GetTempV(), fpr.GetTempV() };
 			fpr.MapRegV(t[0], MAP_NOINIT);
 			fpr.MapRegV(t[1], MAP_NOINIT);
@@ -792,8 +793,6 @@ namespace MIPSComp
 			t2 = fpr.V(t[0]);
 			t3 = fpr.V(t[1]);
 			t4 = fpr.V(t[2]);
-			INFO_LOG(JIT, "t2 %i t3 %i t4 %i", t2, t3, t4);
-			logBlocks = 1;
 		}
 
 		// Warning: sregs[i] and tempxregs[i] may be the same reg.
@@ -863,7 +862,6 @@ namespace MIPSComp
 				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
 				break;
 			case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-				// DISABLE;
 				// Seems to work well enough but can disable if it becomes a problem.
 				// Should be easy enough to translate to NEON. There we can load all the constants
 				// in one go of course.

@@ -70,6 +70,7 @@ void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+void System_SendMessage(const char *command, const char *parameter) {}
 
 #ifndef _WIN32
 InputState input_state;

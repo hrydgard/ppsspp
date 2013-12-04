@@ -155,6 +155,8 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+void System_SendMessage(const char *command, const char *parameter) {}
+
 void EnableCrashingOnCrashes() 
 { 
   typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags); 
