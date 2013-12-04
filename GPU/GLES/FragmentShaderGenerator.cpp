@@ -453,7 +453,9 @@ void GenerateFragmentShader(char *buffer) {
 			break;
 
 		case STENCIL_VALUE_UNKNOWN:
-			// Do nothing.
+			// Maybe we should even mask away alpha using glColorMask and not change it at all? We do get here
+			// if the stencil mode is KEEP for example.
+			WRITE(p, "  gl_FragColor.a = 0.0;\n");
 			break;
 		}
 	}
