@@ -28,9 +28,6 @@
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
-
-// PROBLEM: If we then decode the resulting vertices after tesselation again, that means that texcoord prescale,
-// if any, may get applied twice!
 u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
@@ -739,8 +736,22 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
+	UVScale prevUVScale;
+	if (g_Config.bPrescaleUV) {
+		// We scaled during Normalize already so let's turn it off when drawing.
+		prevUVScale = gstate_c.uv;
+		gstate_c.uv.uScale = 1.0f;
+		gstate_c.uv.vScale = 1.0f;
+		gstate_c.uv.uOff = 0;
+		gstate_c.uv.vOff = 0;
+	}
 	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
+
 	Flush();
+
+	if (g_Config.bPrescaleUV) {
+		gstate_c.uv = prevUVScale;
+	}
 }
 
 void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
@@ -814,6 +825,20 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
+	UVScale prevUVScale;
+	if (g_Config.bPrescaleUV) {
+		// We scaled during Normalize already so let's turn it off when drawing.
+		prevUVScale = gstate_c.uv;
+		gstate_c.uv.uScale = 1.0f;
+		gstate_c.uv.vScale = 1.0f;
+		gstate_c.uv.uOff = 0;
+		gstate_c.uv.vOff = 0;
+	}
+
 	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
 	Flush();
+
+	if (g_Config.bPrescaleUV) {
+		gstate_c.uv = prevUVScale;
+	}
 }
