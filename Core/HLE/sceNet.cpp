@@ -148,13 +148,13 @@ u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 }
 
 u32 sceWlanDevIsPowerOn() {
-	DEBUG_LOG(SCENET, "UNTESTED 0=sceWlanDevIsPowerOn()");
-	return 1;
+	DEBUG_LOG(SCENET, "UNTESTED sceWlanDevIsPowerOn()");
+	return g_Config.bEnableWlan ? 1 : 0;
 }
 
 u32 sceWlanGetSwitchState() {
 	DEBUG_LOG(SCENET, "UNTESTED sceWlanGetSwitchState()");
-	return 1;
+	return g_Config.bEnableWlan ? 1 : 0;
 }
 
 // Probably a void function, but often returns a useful value.

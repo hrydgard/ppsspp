@@ -312,7 +312,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	IniFile::Section *network = iniFile.GetOrCreateSection("Network");
-	network->Get("EnableWlan", &bEnableWlan, true);
+	network->Get("EnableWlan", &bEnableWlan, false);
 	
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 #ifndef ANDROID
@@ -550,7 +550,7 @@ void Config::Save() {
 		control->Set("AnalogStickScale", fAnalogStickScale);
 
 		IniFile::Section *network = iniFile.GetOrCreateSection("Network");
-		network->Set("EnableWlan", &bEnableWlan, true);
+		network->Set("EnableWlan", bEnableWlan);
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("PSPModel", iPSPModel);
