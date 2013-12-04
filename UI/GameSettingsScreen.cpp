@@ -267,7 +267,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
 
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
+	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Networking", "Enable networking/wlan (beta)")));
 
 	enableReports_ = Reporting::IsEnabled();
 //#ifndef ANDROID

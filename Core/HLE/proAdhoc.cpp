@@ -549,16 +549,17 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
   if(iResult !=  0){
     ERROR_LOG(SCENET, "Dns error\n");
     return iResult;
-  }
-    for(ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next){
-        switch(ptr->ai_family){
-            case AF_INET:
-                serverIp = ((sockaddr_in *)ptr->ai_addr)->sin_addr;
-        }
-    }
-    server_addr.sin_addr = serverIp;   iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
-  if(iResult == SOCKET_ERROR){
-    ERROR_LOG(SCENET,"Socket error");
+	}
+	for(ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next){
+		switch(ptr->ai_family){
+		case AF_INET:
+			serverIp = ((sockaddr_in *)ptr->ai_addr)->sin_addr;
+		}
+	}
+	server_addr.sin_addr = serverIp;
+	iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
+	if(iResult == SOCKET_ERROR){
+		ERROR_LOG(SCENET,"Socket error");
     return iResult;
   }
   memset(&parameter,0,sizeof(parameter));

@@ -99,6 +99,8 @@ struct AdhocctlHandler {
 static std::map<int, AdhocctlHandler> adhocctlHandlers;
 
 void __NetAdhocInit() {
+	friendFinderRunning = false;
+	eventHandlerUpdate = -1;
 	netAdhocInited = false;
 	netAdhocctlInited = false;
 	netAdhocMatchingInited = false;
@@ -175,6 +177,11 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	INFO_LOG(SCENET, "sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
 	if (netAdhocctlInited) {
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+	} else if (!g_Config.bEnableWlan) {
+		// Pretend success but don't actually start the friendfinder thread and stuff.
+		// Dunno if this is the way to go...
+		netAdhocctlInited = true;
+		return 0;
 	} else if (initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) == 0) {
 		netAdhocctlInited = true;
 		eventHandlerUpdate = CoreTiming::RegisterEvent("HandlerUpdateEvent", __handlerUpdateCallback);
@@ -193,7 +200,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 		// Valid Arguments
 		if(Memory::IsValidAddress(ptrToStatus)) {
 			// Return Thread Status
-			Memory::Write_U32(threadStatus,ptrToStatus);
+			Memory::Write_U32(threadStatus, ptrToStatus);
 			// Return Success
 			return 0;
 		}
@@ -216,6 +223,10 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
  */
 int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
 	INFO_LOG(SCENET, "sceNetAdhocPdpCreate(%s, %d, %d, %d)", mac, port, bufferSize, unknown);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
 	if(netAdhocInited) {
@@ -305,6 +316,10 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
  */
 int sceNetAdhocctlGetParameter(u32 paramAddr) {
 	INFO_LOG(SCENET, "sceNetAdhocctlGetParameter(%u)",paramAddr);
+	if (!g_Config.bEnableWlan) {
+		return ERROR_NET_ADHOCCTL_DISCONNECTED;
+	}
+
 	// Library initialized
 	if(netAdhocctlInited) {
 		// Valid Arguments
@@ -335,8 +350,15 @@ int sceNetAdhocctlGetParameter(u32 paramAddr) {
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_INVALID_DATALEN, ADHOC_SOCKET_ALERTED, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_WOULD_BLOCK, NET_NO_SPACE, NET_INTERNAL
  */
 int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, int timeout, int flag) {
+	INFO_LOG(SCENET, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i)", id, mac, port, data, len, timeout, flag);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)mac;
-	uint16 dport = (uint16 )port;
+	uint16 dport = (uint16)port;
+
+	// Really should flatten this with early outs, all this indentation is making me dizzy.
+
 	// Library is initialized
 	if(netAdhocInited) {
 		// Valid Port
@@ -481,6 +503,11 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_ENOUGH_SPACE, ADHOC_THREAD_ABORTED, NET_INTERNAL
  */
 int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLength, u32 timeout, int flag) {
+	INFO_LOG(SCENET, "sceNetAdhocPdpRecv(%i, %p, %p, %p, %p, %i, %i)", id, addr, port, buf, dataLength, timeout, flag);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
 	SceNetEtherAddr *saddr = (SceNetEtherAddr *)addr;
 	uint16_t * sport = (uint16_t *)port;
 	int * len = (int *)dataLength;
@@ -598,6 +625,9 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
  */
 int sceNetAdhocPdpDelete(int id, int unknown) {
 	INFO_LOG(SCENET, "sceNetAdhocPdpDelete(%d, %d)", id, unknown);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	// Library is initialized
 	if(netAdhocInited) {
 		// Valid Arguments
@@ -641,6 +671,7 @@ int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 }
 
 int sceNetAdhocctlScan() {
+	INFO_LOG(SCENET, "sceNetAdhocctlScan()");
 
 	// Library initialized
 	if(netAdhocctlInited) {
@@ -667,6 +698,10 @@ int sceNetAdhocctlScan() {
 }
 
 int sceNetAdhocctlGetScanInfo(u32 size, u32 bufAddr) {
+	INFO_LOG(SCENET, "sceNetAdhocctlGetScanInfo(%08x, %08x)", size, bufAddr);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	int * buflen = (int *)Memory::GetPointer(size);
 	SceNetAdhocctlScanInfo * buf = NULL;
 	if(Memory::IsValidAddress(bufAddr)){
@@ -783,6 +818,10 @@ u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 }
 
 u32 sceNetAdhocctlDisconnect() {
+	INFO_LOG(SCENET, "sceNetAdhocctlDisconnect()");
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	// Library initialized
 	if(netAdhocctlInited) {
 		// Connected State (Adhoc Mode)
@@ -845,6 +884,10 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 int sceNetAdhocctlTerm() {
 	INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+
 	if(netAdhocctlInited){
 		netAdhocctlInited = false;
 		friendFinderRunning = false;
@@ -884,6 +927,10 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
  */
 int sceNetAdhocctlCreate(const char *groupName) {
 	INFO_LOG(SCENET, "sceNetAdhocctlCreate(%s)", groupName);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
 	const SceNetAdhocctlGroupName * groupNameStruct = (const SceNetAdhocctlGroupName *)groupName;
 	// Library initialized
 	if(netAdhocctlInited) {
@@ -955,6 +1002,10 @@ int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *macAddr, 
 
 int sceNetAdhocTerm() {
 	INFO_LOG(SCENET, "sceNetAdhocTerm()");
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+
 	// Library is initialized
 	if(netAdhocInited) {
 		// Delete PDP Sockets
@@ -993,8 +1044,13 @@ int sceNetAdhocGetPdpStat(int structSize, u32 structAddr) {
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED
  */
 int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
-	// INFO_LOG(SCENET,"sceNetAdhocGetPtpStat(%u,%u)",structSize,structAddr);
 	// Spams a lot 
+	VERBOSE_LOG(SCENET,"sceNetAdhocGetPtpStat(%u,%u)",structSize,structAddr);
+
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+
 	int * buflen = (int *)Memory::GetPointer(structSize);
 	// Library is initialized
 	if(netAdhocInited) {
@@ -1072,6 +1128,9 @@ int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
  */
 int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int unknown) {
 	INFO_LOG(SCENET, "sceNetAdhocPtpOpen(%s,%d,%s,%d,%d,%d,%d,%d)", srcmac, sport, dstmac,dport,bufsize, rexmt_int, rexmt_cnt, unknown);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)dstmac;
 	// Library is initialized
@@ -1180,15 +1239,20 @@ int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dp
  * @return Socket ID >= 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_LISTENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
  */
 int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeout, int flag) {
+
 	SceNetEtherAddr * addr = NULL;
 	if(Memory::IsValidAddress(peerMacAddrPtr)){
 		addr = Memory::GetStruct<SceNetEtherAddr>(peerMacAddrPtr);
 	}
 	uint16_t * port = NULL;
 	if(Memory::IsValidAddress(peerPortPtr)){
-	port = (uint16_t *)Memory::GetPointer(peerPortPtr);
+		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
 	}
 	INFO_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%s,%d,%u,%d)",id, addr->data,*port,timeout, flag);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+
 	// Library is initialized
 	if(netAdhocInited) {
 		// Valid Socket
@@ -1336,6 +1400,11 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
  * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_CONNECTION_REFUSED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_OPENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
  */
 int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
+	INFO_LOG(SCENET, "sceNetAdhocPtpConnect(%i, %i, %08x)", id, timeout, flag);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+
 	// Library is initialized
 	if(netAdhocInited)
 	{
@@ -1446,6 +1515,9 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
  */
 int sceNetAdhocPtpClose(int id, int unknown) {
 	INFO_LOG(SCENET,"sceNetAdhocPtpClose(%d,%d)",id,unknown);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	// Library is initialized
 	if(netAdhocInited) {
 		// Valid Arguments & Atleast one Socket
@@ -1490,8 +1562,10 @@ int sceNetAdhocPtpClose(int id, int unknown) {
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_PORT_NOT_AVAIL, ADHOC_PORT_IN_USE, NET_NO_SPACE
  */
 int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int unk) {
-	INFO_LOG(SCENET, "sceNetAdhocPtpListen(%s,%d,%d,%d,%d,%d,%d)",
-	srcmac,sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk);
+	INFO_LOG(SCENET, "sceNetAdhocPtpListen(%s,%d,%d,%d,%d,%d,%d)",srcmac,sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
 	if(netAdhocInited) {
@@ -1607,6 +1681,10 @@ int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_i
  * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_CONNECTED, ADHOC_THREAD_ABORTED, ADHOC_INVALID_DATALEN, ADHOC_DISCONNECTED, NET_INTERNAL, NET_NO_SPACE
  */
 int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
+	INFO_LOG(SCENET, "sceNetAdhocPtpSend(%d,%08x,%08x,%d,%d)", id, dataAddr, dataSizeAddr, timeout, flag);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
 	int * len = (int *)Memory::GetPointer(dataSizeAddr);
 	const char * data = Memory::GetCharPointer(dataAddr);
 	// Library is initialized
@@ -1689,8 +1767,12 @@ int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
  * @param flag Nonblocking Flag
  * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_DISCONNECTED, NET_INTERNAL
  */
-int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int flag) {
-	void * buf = (void *)Memory::GetPointer(data);
+int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
+	INFO_LOG(SCENET, "sceNetAdhocPtpRecv(%d,%08x,%08x,%d,%d)", id, dataAddr, dataSizeAddr, timeout, flag);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+	void * buf = (void *)Memory::GetPointer(dataAddr);
 	int * len = (int *)Memory::GetPointer(dataSizeAddr);
 	// Library is initialized
 	if(netAdhocInited) {
@@ -1765,6 +1847,10 @@ int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int flag
  */
 int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 	INFO_LOG(SCENET,"sceNetAdhocPtpFlush(%d,%d,%d)", id, timeout, nonblock);
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+
 	// Library initialized
 	if(netAdhocInited) {
 		// Valid Socket
@@ -1843,6 +1929,10 @@ int sceNetAdhocMatchingTerm() {
 // Presumably returns a "matchingId".
 int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int hello_int, int keepalive_int, int init_count, int rexmt_int, u32 callbackAddr) {
 	INFO_LOG(SCENET, "sceNetAdhocMatchingCreate");
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
 	SceNetAdhocMatchingHandler handler;
 	handler.entryPoint = callbackAddr;
 
@@ -2064,9 +2154,14 @@ int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 
 
 int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
+	INFO_LOG(SCENET, "sceNetAdhocctlGetPeerList(%08x, %08x)", sizeAddr, bufAddr);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
 	int * buflen = (int *)Memory::GetPointer(sizeAddr);
 	SceNetAdhocctlPeerInfoEmu * buf = NULL;
-	if(Memory::IsValidAddress(bufAddr)){
+	if (Memory::IsValidAddress(bufAddr)){
 		buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(bufAddr);
 	}
 	// Initialized Library
