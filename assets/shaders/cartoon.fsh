@@ -47,5 +47,6 @@ void main()
   c11 = 4.0*normalize(c11); 
   vec3 frct = fract(c11); frct*=frct;
   c11 = floor(c11)+ 0.05*dt + frct*frct;
-  gl_FragColor.xyz = 0.25*lc*(1.1-d*sqrt(d))*c11;
+  gl_FragColor.rgb = 0.25*lc*(1.1-d*sqrt(d))*c11;
+  gl_FragColor.a = 1.0;
 }
