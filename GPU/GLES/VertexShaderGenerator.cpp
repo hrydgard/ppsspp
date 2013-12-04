@@ -553,10 +553,10 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
-							// prescale is false here.
-							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-							temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);
+							// As we rescale the texcoord to compensate for texture size anyway,
+							// we bake the UV format scale factor into u_uvscaleoffset. So no need to apply
+							// the factor here too.
+							temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
