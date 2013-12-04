@@ -324,6 +324,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
+#ifdef _XBOX
+		SuspendThread(cpuThread->native_handle());
+		XSetThreadProcessor(cpuThread->native_handle(), 2);
+		ResumeThread(cpuThread->native_handle());
+#endif
 		cpuThread->detach();
 	} else {
 		CPU_Init();
