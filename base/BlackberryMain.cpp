@@ -39,6 +39,8 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+void System_SendMessage(const char *command, const char *parameter) {}
+
 void SystemToast(const char *text) {
 	dialog_instance_t dialog = 0;
 	dialog_create_toast(&dialog);

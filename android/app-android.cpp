@@ -89,6 +89,11 @@ void System_InputBox(const char *title, const char *defaultValue) {
 	frameCommandParam = title;
 }
 
+void System_SendMessage(const char *command, const char *parameter) {
+	frameCommand = command;
+	frameCommandParam = parameter;
+}
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:

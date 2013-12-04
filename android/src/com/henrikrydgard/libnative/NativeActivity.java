@@ -158,6 +158,7 @@ public class NativeActivity extends Activity {
 		w.getDefaultDisplay().getSize(size);
 	}
 
+	@SuppressWarnings("deprecation")
 	void GetScreenSize(Point size) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
 			GetScreenSizeHC(size);
@@ -648,10 +649,11 @@ public class NativeActivity extends Activity {
     	return input.getText().toString();
     }
      
-    public void processCommand(String command, String params) {
+    public boolean processCommand(String command, String params) {
     	if (command.equals("launchBrowser")) {
     		Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
     		startActivity(i);
+    		return true;
     	} else if (command.equals("launchEmail")) {
     		Intent send = new Intent(Intent.ACTION_SENDTO);
     		String uriText;
@@ -662,22 +664,28 @@ public class NativeActivity extends Activity {
     		Uri uri = Uri.parse(uriText);
     		send.setData(uri);
     		startActivity(Intent.createChooser(send, "E-mail the app author!"));
+    		return true;
     	} else if (command.equals("launchMarket")) {
     		// Don't need this, can just use launchBrowser with a market:
     		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
     		// http://developer.android.com/guide/publishing/publishing.html#marketintent
+    		return false;
     	} else if (command.equals("toast"))  {
     		Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
     		toast.show();
+    		return true;
     	} else if (command.equals("showKeyboard")) {
     		InputMethodManager inputMethodManager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
     		// No idea what the point of the ApplicationWindowToken is or if it matters where we get it from...
     	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
+    		return true;
     	} else if (command.equals("hideKeyboard")) {
     		InputMethodManager inputMethodManager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
     	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
+    		return true;
     	} else if (command.equals("inputBox")) {
     		inputBox(params, "", "OK");
+    		return true;
     	} else if (command.equals("vibrate")) {
 			if (vibrator != null) {
 				int milliseconds = -1;
@@ -707,8 +715,8 @@ public class NativeActivity extends Activity {
 					break;
 				}
 			}
-    	} else {
-    		Log.e(TAG, "Unsupported command " + command + " , param: " + params);
+    		return true;
     	}
+    	return false;
     }
 }

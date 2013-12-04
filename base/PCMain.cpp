@@ -188,10 +188,6 @@ void SystemToast(const char *text) {
 #endif
 }
 
-void ShowAd(int x, int y, bool center_x) {
-	// Ignore ads on PC
-}
-
 void ShowKeyboard() {
 	// Irrelevant on PC
 }
@@ -200,13 +196,16 @@ void Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
+void System_SendMessage(const char *command, const char *parameter) {
+	// Log?
+}
+
 void System_InputBox(const char *title, const char *defaultValue) {
 	// Stub
 	NativeMessageReceived((std::string("INPUTBOX:") + title).c_str(), "TestFile");
 }
 
-void LaunchBrowser(const char *url)
-{
+void LaunchBrowser(const char *url) {
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
@@ -220,8 +219,7 @@ void LaunchBrowser(const char *url)
 #endif
 }
 
-void LaunchMarket(const char *url)
-{
+void LaunchMarket(const char *url) {
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
@@ -235,8 +233,7 @@ void LaunchMarket(const char *url)
 #endif
 }
 
-void LaunchEmail(const char *email_address)
-{
+void LaunchEmail(const char *email_address) {
 #ifdef _WIN32
 	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
