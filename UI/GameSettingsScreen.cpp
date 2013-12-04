@@ -269,7 +269,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Networking", "Enable networking/wlan (beta)")));
 
-	enableReports_ = Reporting::IsEnabled();
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
@@ -282,6 +281,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, s->T("Auto Load Newest Savestate")));
+
+	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	systemSettings->Add(enableReportsCheckbox_);

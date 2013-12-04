@@ -114,7 +114,7 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize);
+	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader = false);
 
 	// If texture != 0, will bind it.
 	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);

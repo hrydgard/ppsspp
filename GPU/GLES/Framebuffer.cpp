@@ -323,7 +323,7 @@ FramebufferManager::~FramebufferManager() {
 	delete [] convBuf;
 }
 
-void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
+void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader) {
 	if (drawPixelsTex_ && drawPixelsTexFormat_ != pixelFormat) {
 		glDeleteTextures(1, &drawPixelsTex_);
 		drawPixelsTex_ = 0;
@@ -417,15 +417,14 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
-	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
+	glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : framebuf);
 
-	// This draws directly at the backbuffer so if there's a post shader, we need to apply it here. Should try to unify this path
-	// with the regular path somehow, but this simple solution works for most of the post shaders (it always runs at output resolution so FXAA may look odd).
-	if (usePostShader_) {
+	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
+	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
+	// (it always runs at output resolution so FXAA may look odd).
+	if (applyPostShader && usePostShader_ && g_Config.iRenderingMode != 0) {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 	} else {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
@@ -735,8 +734,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 					vfb->colorDepth = FBO_565;
 					break;
 				case GE_FORMAT_8888:
-					vfb->colorDepth = FBO_8888;
-					break;
 				default:
 					vfb->colorDepth = FBO_8888;
 					break;
@@ -881,8 +878,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 			}
 
 			if (!vfb) {
-				// Just a pointer to plain memory to draw. Draw it.
-				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
+				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
 		} else {
