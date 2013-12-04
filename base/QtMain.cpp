@@ -51,6 +51,10 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+void System_SendMessage(const char *command, const char *parameter) {
+	// Log?
+}
+
 void Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
