@@ -3,6 +3,7 @@ package com.henrikrydgard.libnative;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.util.Log;
 
@@ -10,13 +11,23 @@ import android.util.Log;
 public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static String TAG = "NativeRenderer";
 	NativeActivity mActivity;
-	
+	private boolean isDark = false;
+
 	NativeRenderer(NativeActivity act) {
 		mActivity = act;
 	}
+
+	public void setDark(boolean d) {
+		isDark = d;
+	}
 	
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
-        displayRender();
+		if (isDark) {
+			GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_STENCIL_BUFFER_BIT);
+		} else {
+			displayRender();
+		}
 	}
 
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {

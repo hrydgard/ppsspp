@@ -97,7 +97,7 @@ public class NativeActivity extends Activity {
 	// Graphics and audio interfaces
 	private NativeGLView mGLSurfaceView;
 	private NativeAudioPlayer audioPlayer;
-	private NativeRenderer nativeRenderer;
+	protected NativeRenderer nativeRenderer;
 	
 	boolean useOpenSL = false;
 	
@@ -665,6 +665,11 @@ public class NativeActivity extends Activity {
     		send.setData(uri);
     		startActivity(Intent.createChooser(send, "E-mail the app author!"));
     		return true;
+    	} else if (command.equals("sharejpeg")) {
+    		Intent share = new Intent(Intent.ACTION_SEND);
+    		share.setType("image/jpeg");
+    		share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
+    		startActivity(Intent.createChooser(share, "Share Picture"));
     	} else if (command.equals("launchMarket")) {
     		// Don't need this, can just use launchBrowser with a market:
     		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app

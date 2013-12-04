@@ -23,7 +23,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	
 	// Moga controller
 	private Controller mController = null;
-	boolean isMogaPro = false;
+	private boolean isMogaPro = false;
 	
 	public NativeGLView(NativeActivity activity) {
 		super(activity);
@@ -207,6 +207,5 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		default:
 			break;
 		}
-		
 	}
 }
