@@ -88,6 +88,9 @@ public class NativeActivity extends Activity {
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
    
+	// Easy way to flip it on and off from code.
+	private static final boolean useKitkatImmersiveMode = true;
+
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 	
@@ -218,8 +221,10 @@ public class NativeActivity extends Activity {
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		int dpi = metrics.densityDpi;
+
 		// We only use dpi to calculate the width. Smaller aspect ratios have giant text despite high DPI.
-		dpi = (int)((float)dpi * ((float)scrWidth/(float)scrHeight) / (16.0/9.0)); // Adjust to 16:9
+		// Uh, I mean, this makes no sense. What was I thinking when I wrote this? Let's just use the DPI as it is.
+		// dpi = (int)((float)dpi * ((float)scrWidth/(float)scrHeight) / (16.0/9.0)); // Adjust to 16:9
 		
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
@@ -347,8 +352,10 @@ public class NativeActivity extends Activity {
 	
 	@TargetApi(Build.VERSION_CODES.KITKAT)
 	public void setImmersiveMode() {
-		this.setImmersive(true); // This is an entirely different kind of immersive mode - hides some notification
-		mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+		// this.setImmersive(true); // This is an entirely different kind of immersive mode - hides some notification
+		if (useKitkatImmersiveMode) {
+			mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+		}
 	}
 
     private boolean detectOpenGLES20() {
