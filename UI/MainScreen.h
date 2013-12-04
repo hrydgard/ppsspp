@@ -28,7 +28,7 @@
 
 class MainScreen : public UIScreenWithBackground {
 public:
-	MainScreen() {}
+	MainScreen();
 
 	virtual bool isTopLevel() const { return true; }
 

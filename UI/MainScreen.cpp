@@ -424,7 +424,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void MainScreen() {
+MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
 }
 
