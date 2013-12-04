@@ -245,6 +245,9 @@
     <ClInclude Include="Debugger\DumpMemoryWindow.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="..\ios\ViewController.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -285,6 +288,15 @@
       <Filter>Other Platforms</Filter>
     </None>
     <None Include="..\atlasscript_lowmem.txt">
+      <Filter>Other Platforms</Filter>
+    </None>
+    <None Include="..\ios\AudioEngine.mm">
+      <Filter>Other Platforms</Filter>
+    </None>
+    <None Include="..\ios\main.mm">
+      <Filter>Other Platforms</Filter>
+    </None>
+    <None Include="..\ios\ViewController.mm">
       <Filter>Other Platforms</Filter>
     </None>
   </ItemGroup>

@@ -321,6 +321,7 @@
   <ItemGroup>
     <ClInclude Include="..\android\jni\ARMEmitterTest.h" />
     <ClInclude Include="..\android\jni\TestRunner.h" />
+    <ClInclude Include="..\ios\ViewController.h" />
     <ClInclude Include="ControlMapping.h" />
     <ClInclude Include="Debugger\BreakpointWindow.h" />
     <ClInclude Include="Debugger\CtrlDisAsmView.h" />
@@ -366,6 +367,9 @@
     <None Include="..\atlasscript.txt" />
     <None Include="..\atlasscript_lowmem.txt" />
     <None Include="..\CMakeLists.txt" />
+    <None Include="..\ios\AudioEngine.mm" />
+    <None Include="..\ios\main.mm" />
+    <None Include="..\ios\ViewController.mm" />
     <None Include="..\README.md" />
     <None Include="git-version-gen.cmd" />
     <None Include="ppsspp.ico" />
