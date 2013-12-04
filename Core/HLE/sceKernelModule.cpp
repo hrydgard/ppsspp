@@ -1805,7 +1805,7 @@ u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCount
 	ERROR_LOG(SCEMODULE, "UNTESTED sceKernelGetModuleIdList(%08x, %i, %08x)", resultBuffer, resultBufferSize, idCountAddr);
 	
 	int idCount = 0;
-	int resultBufferOffset = 0;
+	u32 resultBufferOffset = 0;
 
 	u32 error;
 	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {		
