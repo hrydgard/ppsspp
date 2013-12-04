@@ -267,7 +267,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
 
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
-	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Networking", "Enable networking/wlan (beta)")));
+	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
 
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
