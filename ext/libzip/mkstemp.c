@@ -33,6 +33,7 @@
  * SUCH DAMAGE.
  */
 
+#ifndef HAVE_MKSTEMP
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -169,3 +170,5 @@ _zip_mkstemp(char *path)
 
 	/*NOTREACHED*/
 }
+#endif
+
