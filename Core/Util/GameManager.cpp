@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/buffer.h"
 #include "file/file_util.h"
 #include "native/ext/libzip/zip.h"
 #include "util/text/utf8.h"
@@ -149,8 +148,8 @@ bool GameManager::InstallGame(std::string zipfile) {
 		std::string zippedName = fn;
 		if (zippedName.find("EBOOT.PBP") != std::string::npos) {
 			int slashCount = 0;
-			int lastSlashLocation = 0;
-			int slashLocation = 0;
+			int lastSlashLocation = -1;
+			int slashLocation = -1;
 			for (size_t i = 0; i < zippedName.size(); i++) {
 				if (zippedName[i] == '/') {
 					slashCount++;
@@ -167,10 +166,13 @@ bool GameManager::InstallGame(std::string zipfile) {
 		}
 	}
 
+
 	if (!isPSP) {
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		return false;
 	}
+
+	size_t allBytes = 0, bytesCopied = 0;
 
 	// Create all the directories in one pass
 	for (int i = 0; i < numFiles; i++) {
@@ -180,6 +182,11 @@ bool GameManager::InstallGame(std::string zipfile) {
 		bool isDir = outFilename.back() == '/';
 		if (isDir) {
 			File::CreateFullPath(outFilename.c_str());
+		} else {
+			struct zip_stat zstat;
+			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
+				allBytes += zstat.size;
+			}
 		}
 	}
 
@@ -190,42 +197,52 @@ bool GameManager::InstallGame(std::string zipfile) {
 		// README files etc.
 		if (strstr(fn, "/") != 0) {
 			struct zip_stat zstat;
-			int x = zip_stat_index(z, i, 0, &zstat);
+			zip_stat_index(z, i, 0, &zstat);
 			size_t size = zstat.size;
 
 			fn += stripChars;
 
 			std::string outFilename = pspGame + fn;
 			bool isDir = outFilename.back() == '/';
-			if (!isDir) {
-				if (i < 10) {
-					INFO_LOG(HLE, "Writing %i bytes to %s", (int)size, outFilename.c_str());
+			if (isDir)
+				continue;
+
+			if (i < 10) {
+				INFO_LOG(HLE, "Writing %i bytes to %s", (int)size, outFilename.c_str());
+			}
+
+			zip_file *zf = zip_fopen_index(z, i, 0);
+			FILE *f = fopen(outFilename.c_str(), "wb");
+			if (f) {
+				size_t pos = 0;
+				const size_t blockSize = 1024 * 128;
+				u8 *buffer = new u8[blockSize];
+				while (pos < size) {
+					size_t bs = std::min(blockSize, pos - size);
+					zip_fread(zf, buffer, bs);
+					size_t written = fwrite(buffer, 1, bs, f);
+					if (written != bs) {
+						ERROR_LOG(HLE, "Wrote %i bytes out of %i - Disk full?", (int)written, (int)bs);
+						// TODO: What do we do?
+					}
+					pos += bs;
+
+					bytesCopied += bs;
+					installProgress_ = (float)bytesCopied / (float)allBytes;
+					// printf("Progress: %f\n", installProgress_);
 				}
-
-				// TODO: Demos can be huge, it's not great to read the whole thing into memory at once.
-
-				u8 *buffer = new u8[size];
-				zip_file *zf = zip_fopen_index(z, i, 0);
-				zip_fread(zf, buffer, size);
 				zip_fclose(zf);
-
-				FILE *f = fopen(outFilename.c_str(), "wb");
-				if (f) {
-					fwrite(buffer, 1, size, f);
-					fclose(f);
-				} else {
-					ERROR_LOG(HLE, "Failed to open file for writing");
-				}
-
+				fclose(f);
 				delete [] buffer;
+			} else {
+				ERROR_LOG(HLE, "Failed to open file for writing");
 			}
 		}
-		// This doesn't take the size of the files into account at all.
-		installProgress_ = (float)(i + 1) / (float)numFiles;
 	}
-	INFO_LOG(HLE, "Extracted %i files.", numFiles);
+	INFO_LOG(HLE, "Extracted %i files (%i bytes).", numFiles, (int)bytesCopied);
 
 	zip_close(z);
 	installProgress_ = 1.0f;
 	installInProgress_ = false;
+	return true;
 }
