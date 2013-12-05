@@ -261,6 +261,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
 		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
+
+	case VIRTKEY_REWIND:
+		if (SaveState::CanRewind()) {
+			SaveState::Rewind();
+		} else {
+			osm.Show(s->T("norewind", "No rewind save states available"), 2.0);
+		}
+		break;
 	}
 }
 

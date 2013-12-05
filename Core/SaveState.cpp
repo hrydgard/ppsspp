@@ -340,13 +340,16 @@ namespace SaveState
 			return;
 
 		rewindLastTime = time_now();
+		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}
 
 	void Process()
 	{
+#ifndef USING_GLES2
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
+#endif
 
 		if (!needsProcess)
 			return;

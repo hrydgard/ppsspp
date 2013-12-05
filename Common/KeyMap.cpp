@@ -67,6 +67,7 @@ static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
 };
 
 static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
@@ -95,6 +96,7 @@ static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
 };
 
 static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
@@ -123,6 +125,7 @@ static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
 };
 
 static const DefMappingStruct default360KeyMap[] = {
@@ -190,6 +193,7 @@ static const DefMappingStruct defaultBlackberryQWERTYKeyMap[] = {
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
 };
 
 static const DefMappingStruct defaultPadMap[] = {
@@ -279,17 +283,17 @@ void UpdateConfirmCancelKeys() {
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	for(auto i = g_controllerMap[confirmKey].begin(); i != g_controllerMap[confirmKey].end(); ++i) {
+	for (auto i = g_controllerMap[confirmKey].begin(); i != g_controllerMap[confirmKey].end(); ++i) {
 		confirmKeys.push_back((keycode_t)i->keyCode);
 	}
 
-	for(auto i = g_controllerMap[cancelKey].begin(); i != g_controllerMap[cancelKey].end(); ++i) {
+	for (auto i = g_controllerMap[cancelKey].begin(); i != g_controllerMap[cancelKey].end(); ++i) {
 		cancelKeys.push_back((keycode_t)i->keyCode);
 	}
 
 	// Push several hard-coded keys before submitting to native.
-	const keycode_t hardcodedConfirmKeys[] = { 
-		NKCODE_SPACE, 
+	const keycode_t hardcodedConfirmKeys[] = {
+		NKCODE_SPACE,
 		NKCODE_ENTER,
 	};
 
@@ -299,9 +303,9 @@ void UpdateConfirmCancelKeys() {
 			confirmKeys.push_back(hardcodedConfirmKeys[i]);
 	}
 
-	const keycode_t hardcodedCancelKeys[] = { 
-		NKCODE_ESCAPE, 
-		NKCODE_BACK, 
+	const keycode_t hardcodedCancelKeys[] = {
+		NKCODE_ESCAPE,
+		NKCODE_BACK,
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
@@ -329,7 +333,6 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 			bool qwertz = false;
 #ifdef _WIN32
 			HKL localeId = GetKeyboardLayout(0);
-			
 			// TODO: Is this list complete enough?
 			switch ((int)localeId & 0xFFFF) {
 			case 0x407:
@@ -427,7 +430,7 @@ const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_F10, "F10"},
 	{NKCODE_F11, "F11"},
 	{NKCODE_F12, "F12"},
-	
+
 	{NKCODE_GRAVE, "`"},
 	{NKCODE_SLASH, "/"},
 	{NKCODE_BACKSLASH, "\\"},
@@ -454,7 +457,8 @@ const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_ALT_RIGHT, "RAlt"},
 	{NKCODE_SPACE, "Space"},
 	{NKCODE_WINDOW, "Windows"},
-	{NKCODE_DEL, "Del"},
+	{NKCODE_DEL, "Backspace"},
+	{NKCODE_FORWARD_DEL, "Delete"},
 	{NKCODE_MOVE_HOME, "Home"},
 	{NKCODE_MOVE_END, "End"},
 	{NKCODE_ESCAPE, "Esc"},
@@ -602,6 +606,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_PAUSE, "Pause"},
+#ifndef USING_GLES2
+	{VIRTKEY_REWIND, "Rewind"},
+#endif
 
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
