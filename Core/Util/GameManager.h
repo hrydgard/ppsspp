@@ -20,6 +20,8 @@
 //
 // Not concerned with full ISOs.
 
+#pragma once
+
 #include "net/http_client.h"
 
 class GameManager {

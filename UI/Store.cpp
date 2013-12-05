@@ -250,7 +250,7 @@ UI::EventReturn StoreScreen::OnRetry(UI::EventParams &e) {
 
 std::string StoreScreen::GetStoreJsonURL(std::string storePath) const {
 	std::string path = storeBaseUrl + storePath;
-	if (path.back() != '/')
+	if (*path.rbegin() != '/')
 		path += '/';
 	path += "index.json";
 	return path;

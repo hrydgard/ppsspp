@@ -23,7 +23,7 @@
 #include "UI/ui_atlas.h"
 #include "file/file_util.h"
 
-#include "Core/Util/GameManager.cpp"
+#include "Core/Util/GameManager.h"
 #include "UI/InstallZipScreen.h"
 
 void InstallZipScreen::CreateViews() {
