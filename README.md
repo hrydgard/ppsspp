@@ -1,7 +1,8 @@
 PPSSPP - a fast and portable PSP emulator
 =========================================
 
-Written by Henrik Rydgård
+Created by Henrik Rydgård
+Additional code by many contributors, see the Credits screen
 
 Originally released under the GPL 2.0 (and later) in November 2012
 
@@ -25,10 +26,11 @@ What's new in 0.9.6
 * Option for four-way touch dpad, avoiding diagonal issues
 * Individually resizable touch controls
 * Add ability to switch UMD in multi-disc games (works for most)
-* Very basic ad-hoc online play support, to be improved in future versions
 * Support for "Immersive mode" full screen on Android Kitkat on devices that
   support it (Nexus 4, etc).
 * Emulate PSP-2000 rather than the 1000 model by default. Not much different in practice.
+* Automatic install of games from ZIP files, like demos and many homebrew.
+* VERY basic ad-hoc online play support, to be improved in future versions. See below.
 
 What's new in 0.9.5
 -------------------
@@ -53,20 +55,21 @@ What's new in 0.9.5
 * Qt audio has been fixed.
 * Analog controller support for Blackberry.
 
-ADHOC SUPPORT
-============= 
-This is based on coldbird code: http://code.google.com/p/aemu/ All Credit goes
-to him!
+ADHOC SUPPORT (by Igor Calabria)
+================================
+This is based on coldbird's code: http://code.google.com/p/aemu/
+All credit goes to him!
 
 Status
 ------
-Code is a complete mess and it's not fully functional yet, I still need to implement
+Code is a bit of a mess and it's not fully functional yet, I still need to implement
 some functions and add a upnp lib(really important for people with routers).
 
-I did test it with some games(emulator <-> real psp with the server running locally) 
+I did test it with some games(emulator <-> real psp with the server running locally)
 and it's looking good:
+
 * Worms Open Warfare: Ran just fine, I was able to play a whole match without problems
-* Monster Hunter Freedom Unite: Runs fine too. Gathering Hall and embarking on quests Works
+* Monster Hunter Freedom Unite: Runs fine too. Gathering Hall and embarking on quests works
 * Dissidia Duodecim 012: Doesn't work. It requires some functions that I haven't implemented
 yet. Also, it uses a port < 1000 and thats reserved for admin apps on linux, running the emu
 as sudo "solves" it, but it's far from ideal.
