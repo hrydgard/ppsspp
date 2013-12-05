@@ -280,6 +280,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
+  $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/NativeApp.cpp
 
 include $(BUILD_SHARED_LIBRARY)

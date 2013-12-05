@@ -269,7 +269,6 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
 	std::string oldLang = g_Config.sLanguageIni;
-	
 	std::string iniFile = langs_[listView_->GetSelected()].name;
 
 	size_t dot = iniFile.find('.');
@@ -281,7 +280,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		return;
 
 	g_Config.sLanguageIni = code;
-	
+
 	if (i18nrepo.LoadIni(g_Config.sLanguageIni)) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {

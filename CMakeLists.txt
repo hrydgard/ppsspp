@@ -1160,6 +1160,7 @@ set(NativeAppSource
 	UI/ControlMappingScreen.cpp
 	UI/Store.cpp
 	UI/CwCheatScreen.cpp
+	UI/InstallZipScreen.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID AND ARM)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
