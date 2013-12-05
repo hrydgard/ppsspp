@@ -392,6 +392,7 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
+    <ClCompile Include="Util\GameManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="Util\ppge_atlas.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
@@ -585,6 +586,7 @@
     <ClInclude Include="System.h" />
     <ClInclude Include="ThreadEventQueue.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
+    <ClInclude Include="Util\GameManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />
     <ClInclude Include="..\ext\xxhash.h" />

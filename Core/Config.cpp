@@ -71,6 +71,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	general->Get("HomebrewStore", &bHomebrewStore, false);
 
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";
@@ -698,15 +699,15 @@ void Config::AddRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		if (File::Exists(recentIsos[i])){
+		if (File::Exists(recentIsos[i])) {
 			// clean the redundant recent games' list.
-			if (cleanedRecent.size()==0){ // add first one
-					cleanedRecent.push_back(recentIsos[i]);
+			if (cleanedRecent.size()==0) { // add first one
+				cleanedRecent.push_back(recentIsos[i]);
 			}
-			for (size_t j=0; j<cleanedRecent.size();j++){
-				if (cleanedRecent[j]==recentIsos[i])
+			for (size_t j = 0; j < cleanedRecent.size();j++) {
+				if (cleanedRecent[j] == recentIsos[i])
 					break; // skip if found redundant
-				if (j==cleanedRecent.size()-1){ // add if no redundant found
+				if (j == cleanedRecent.size() - 1){ // add if no redundant found
 					cleanedRecent.push_back(recentIsos[i]);
 				}
 			}

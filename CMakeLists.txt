@@ -371,7 +371,7 @@ add_library(stb_vorbis STATIC
 	native/ext/stb_vorbis/stb_vorbis.h)
 include_directories(native/ext/stb_vorbis)
 
-if(ANDROID)
+# if(ANDROID)
 	add_library(libzip STATIC
 		native/ext/libzip/zip.h
 		native/ext/libzip/mkstemp.c
@@ -431,7 +431,7 @@ if(ANDROID)
 	target_link_libraries(libzip zlib)
 	include_directories(native/ext/libzip)
 	set(LIBZIP libzip zlib)
-endif()
+# endif()
 
 set(nativeExtra)
 set(nativeExtraLibs)
@@ -532,6 +532,10 @@ add_library(native STATIC
 	native/base/timeutil.h
 	native/data/compression.cpp
 	native/data/compression.h
+	native/ext/vjson/json.cpp
+	native/ext/vjson/json.h
+	native/ext/vjson/block_allocator.cpp
+	native/ext/vjson/block_allocator.h
 	native/file/chunk_file.cpp
 	native/file/chunk_file.h
 	native/file/dialog.cpp
@@ -655,7 +659,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP} rg_etc1 vjson stb_image stb_vorbis snappy libzip ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)
@@ -972,6 +976,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/SaveState.h
 	Core/System.cpp
 	Core/System.h
+	Core/Util/GameManager.cpp
+	Core/Util/GameManager.h
 	Core/Util/BlockAllocator.cpp
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
@@ -1152,6 +1158,7 @@ set(NativeAppSource
 	UI/UIShader.cpp
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.cpp
+	UI/Store.cpp
 	UI/CwCheatScreen.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID AND ARM)

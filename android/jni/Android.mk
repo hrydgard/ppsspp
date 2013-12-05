@@ -254,6 +254,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileSystems/tlzrc.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitBlockCache.cpp \
+  $(SRC)/Core/Util/GameManager.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \
@@ -268,6 +269,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
+  $(SRC)/UI/Store.cpp \
   $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \

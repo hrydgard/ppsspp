@@ -61,6 +61,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
+#include "Core/Util/GameManager.h"
 #include "Common/MemArena.h"
 
 #include "ui_atlas.h"
@@ -188,28 +189,24 @@ std::string boot_filename = "";
 
 void NativeHost::InitSound(PMixer *mixer) {
 	g_mixer = mixer;
-    
 #ifdef IOS
-    iOSCoreAudioInit();
+	iOSCoreAudioInit();
 #endif
 }
 
 void NativeHost::ShutdownSound() {
 #ifdef IOS
-    iOSCoreAudioShutdown();
+	iOSCoreAudioShutdown();
 #endif
-    
 	g_mixer = 0;
 }
 
 int NativeMix(short *audio, int num_samples) {
-	// ILOG("Entering mixer");
 	if (g_mixer) {
 		num_samples = g_mixer->Mix(audio, num_samples);
 	}	else {
 		memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
-	// ILOG("Leaving mixer");
 	return num_samples;
 }
 
@@ -304,7 +301,7 @@ void NativeInit(int argc, const char *argv[],
 
 #ifdef ANDROID
 	// On Android, create a PSP directory tree in the external_directory,
-	// to hopefully reduce confusion a bit. 
+	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memCardDirectory + "PSP").c_str());
 	mkDir((g_Config.memCardDirectory + "PSP").c_str());
 	mkDir((g_Config.memCardDirectory + "PSP/SAVEDATA").c_str());
@@ -387,12 +384,12 @@ void NativeInit(int argc, const char *argv[],
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
-#endif	
+#endif
 
 	i18nrepo.LoadIni(g_Config.sLanguageIni);
 	I18NCategory *d = GetI18NCategory("DesktopUI");
-	// Note to translators: do not translate this/add this to PPSSPP-lang's files. 
-	// It's intended to be custom for every user. 
+	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
+	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
 #ifdef _WIN32
 	// TODO: Could allow a setting to specify a font file to load?
@@ -406,9 +403,7 @@ void NativeInit(int argc, const char *argv[],
 
 	g_gameInfoCache.Init();
 
-
 	screenManager = new ScreenManager();
-
 	if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
@@ -549,10 +544,9 @@ void TakeScreenshot() {
 		memcpy(flipbuffer + y * pixel_xres * 4, buffer + (pixel_yres - y - 1) * pixel_xres * 4, pixel_xres * 4);
 	}
 
-	if(g_Config.bScreenshotsAsPNG)
+	if (g_Config.bScreenshotsAsPNG) {
 		stbi_write_png(temp, pixel_xres, pixel_yres, 4, flipbuffer, pixel_xres * 4);
-	else
-	{
+	} else {
 		jpge::params params;
 		params.m_quality = 90;
 		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 4, flipbuffer, params);
@@ -565,7 +559,35 @@ void TakeScreenshot() {
 #endif
 }
 
+void DrawDownloadsOverlay(UIContext &ctx) {
+	// Thin bar at the top of the screen like Chrome.
+	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
+	if (progress.empty()) {
+		return;
+	}
+
+	static const uint32_t colors[4] = {
+		0xFFFFFFFF,
+		0xFFCCCCCC,
+		0xFFAAAAAA,
+		0xFF777777,
+	};
+
+	ctx.Begin();
+	int h = 5;
+	for (int i = 0; i < progress.size(); i++) {
+		float barWidth = 10 + (dp_xres - 10) * progress[i];
+		Bounds bounds(0, h * i, barWidth, h);
+		UI::Drawable solid(colors[i & 3]);
+		ctx.FillRect(solid, bounds);
+	}
+	ctx.End();
+	ctx.Flush();
+}
+
 void NativeRender() {
+	g_GameManager.Update();
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -585,6 +607,8 @@ void NativeRender() {
 	if (screenManager->getUIContext()->Text()) {
 		screenManager->getUIContext()->Text()->OncePerFrame();
 	}
+
+	DrawDownloadsOverlay(*screenManager->getUIContext());
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
