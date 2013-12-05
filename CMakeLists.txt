@@ -428,9 +428,9 @@ include_directories(native/ext/stb_vorbis)
 		native/ext/libzip/zip_unchange_all.c
 		native/ext/libzip/zip_unchange_archive.c
 		native/ext/libzip/zip_unchange_data.c)
-	target_link_libraries(libzip zlib)
+	target_link_libraries(libzip ${LIBZIP})
 	include_directories(native/ext/libzip)
-	set(LIBZIP libzip zlib)
+	set(LIBZIP libzip)
 # endif()
 
 set(nativeExtra)
@@ -659,7 +659,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP} rg_etc1 vjson stb_image stb_vorbis snappy libzip ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)

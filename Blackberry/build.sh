@@ -1,11 +1,12 @@
-# Strict errors. Any non-zero return exits this script
-set -e
-
+# Check Blackberry NDK
 BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
 if [ -z "$BB_OS" ]; then
     echo "Could not find your Blackberry NDK. Please source bbndk-env.sh"
     exit 1
 fi
+
+# Strict errors. Any non-zero return exits this script
+set -e
 echo "Building for Blackberry ${BB_OS}"
 
 if [[ "$1" == "--simulator" ]]; then

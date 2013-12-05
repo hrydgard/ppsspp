@@ -179,7 +179,7 @@ bool GameManager::InstallGame(std::string zipfile) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
 		std::string outFilename = pspGame + zippedName.substr(stripChars);
-		bool isDir = outFilename.back() == '/';
+		bool isDir = *outFilename.rbegin() == '/';
 		if (isDir) {
 			File::CreateFullPath(outFilename.c_str());
 		} else {
@@ -203,7 +203,7 @@ bool GameManager::InstallGame(std::string zipfile) {
 			fn += stripChars;
 
 			std::string outFilename = pspGame + fn;
-			bool isDir = outFilename.back() == '/';
+			bool isDir = *outFilename.rbegin() == '/';
 			if (isDir)
 				continue;
 
