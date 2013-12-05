@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/buffer.h"
 #include "file/file_util.h"
 #include "native/ext/libzip/zip.h"
 #include "util/text/utf8.h"
@@ -26,6 +27,10 @@
 #include "Core/Util/GameManager.h"
 
 GameManager g_GameManager;
+
+GameManager::GameManager()
+	: installInProgress_(false), installProgress_(0.0f) {
+}
 
 std::string GameManager::GetTempFilename() const {
 #ifdef _WIN32
@@ -47,6 +52,10 @@ bool GameManager::IsGameInstalled(std::string name) {
 bool GameManager::DownloadAndInstall(std::string storeZipUrl) {
 	if (curDownload_.get() != 0) {
 		ERROR_LOG(HLE, "Can only process one download at a time");
+		return false;
+	}
+	if (installInProgress_) {
+		ERROR_LOG(HLE, "Can't download when an install is in progress (yet)");
 		return false;
 	}
 
@@ -101,13 +110,21 @@ void GameManager::Update() {
 	}
 }
 
-void GameManager::InstallGame(std::string zipfile) {
+// Does NOT delete the zip file, that is done by the function calling this, if applicable.
+bool GameManager::InstallGame(std::string zipfile) {
+	if (installInProgress_) {
+		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
+		return false;
+	}
+
+	installInProgress_ = true;
+
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
 	INFO_LOG(HLE, "Installing %s into %s", zipfile.c_str(), pspGame.c_str());
 
 	if (!File::Exists(zipfile)) {
 		ERROR_LOG(HLE, "ZIP file %s doesn't exist", zipfile.c_str());
-		return;
+		return false;
 	}
 
 	int error;
@@ -118,7 +135,7 @@ void GameManager::InstallGame(std::string zipfile) {
 #endif
 	if (!z) {
 		ERROR_LOG(HLE, "Failed to open ZIP file %s, error code=%i", zipfile.c_str(), error);
-		return;
+		return false;
 	}
 
 	int numFiles = zip_get_num_files(z);
@@ -152,7 +169,7 @@ void GameManager::InstallGame(std::string zipfile) {
 
 	if (!isPSP) {
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
-		return;
+		return false;
 	}
 
 	// Create all the directories in one pass
@@ -175,10 +192,6 @@ void GameManager::InstallGame(std::string zipfile) {
 			struct zip_stat zstat;
 			int x = zip_stat_index(z, i, 0, &zstat);
 			size_t size = zstat.size;
-			u8 *buffer = new u8[size];
-			zip_file *zf = zip_fopen_index(z, i, 0);
-			zip_fread(zf, buffer, size);
-			zip_fclose(zf);
 
 			fn += stripChars;
 
@@ -188,6 +201,14 @@ void GameManager::InstallGame(std::string zipfile) {
 				if (i < 10) {
 					INFO_LOG(HLE, "Writing %i bytes to %s", (int)size, outFilename.c_str());
 				}
+
+				// TODO: Demos can be huge, it's not great to read the whole thing into memory at once.
+
+				u8 *buffer = new u8[size];
+				zip_file *zf = zip_fopen_index(z, i, 0);
+				zip_fread(zf, buffer, size);
+				zip_fclose(zf);
+
 				FILE *f = fopen(outFilename.c_str(), "wb");
 				if (f) {
 					fwrite(buffer, 1, size, f);
@@ -195,11 +216,16 @@ void GameManager::InstallGame(std::string zipfile) {
 				} else {
 					ERROR_LOG(HLE, "Failed to open file for writing");
 				}
+
 				delete [] buffer;
 			}
 		}
+		// This doesn't take the size of the files into account at all.
+		installProgress_ = (float)(i + 1) / (float)numFiles;
 	}
 	INFO_LOG(HLE, "Extracted %i files.", numFiles);
 
 	zip_close(z);
+	installProgress_ = 1.0f;
+	installInProgress_ = false;
 }

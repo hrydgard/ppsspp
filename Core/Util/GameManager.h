@@ -24,6 +24,8 @@
 
 class GameManager {
 public:
+	GameManager();
+
 	bool IsGameInstalled(std::string name);
 
 	// This starts off a background process.
@@ -34,10 +36,21 @@ public:
 	// main UI thread.
 	void Update();
 
+	// Returns false if no install is in progress.
+	bool IsInstallInProgress() const {
+		return installInProgress_;
+	}
+	float GetCurrentInstallProgress() const {
+		return installProgress_;
+	}
+
 private:
-	void InstallGame(std::string zipfile);
+	bool InstallGame(std::string zipfile);
 	std::string GetTempFilename() const;
 	std::shared_ptr<http::Download> curDownload_;
+
+	bool installInProgress_;
+	float installProgress_;
 };
 
 extern GameManager g_GameManager;
