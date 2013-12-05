@@ -49,7 +49,7 @@ void InstallZipScreen::CreateViews() {
 
 	installChoice_ = rightColumnItems->Add(new Choice(di->T("Install")));
 	installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-	rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
 	rightColumnItems->Add(new CheckBox(&deleteZipFile_, di->T("Delete ZIP file")));
 }
 
