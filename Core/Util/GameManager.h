@@ -44,6 +44,9 @@ public:
 		return installProgress_;
 	}
 
+	// Only returns false if there's already an installation in progress.
+	bool InstallGameOnThread(std::string zipFile);
+
 private:
 	bool InstallGame(std::string zipfile);
 	std::string GetTempFilename() const;

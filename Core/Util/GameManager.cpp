@@ -143,6 +143,7 @@ bool GameManager::InstallGame(std::string zipfile) {
 	// Also, verify that this is a PSP zip file with the correct layout.
 	bool isPSP = false;
 	int stripChars = 0;
+
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
@@ -166,7 +167,6 @@ bool GameManager::InstallGame(std::string zipfile) {
 		}
 	}
 
-
 	if (!isPSP) {
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		return false;
@@ -175,14 +175,20 @@ bool GameManager::InstallGame(std::string zipfile) {
 	size_t allBytes = 0, bytesCopied = 0;
 
 	// Create all the directories in one pass
+	std::set<std::string> createdDirs;
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
 		std::string outFilename = pspGame + zippedName.substr(stripChars);
 		bool isDir = *outFilename.rbegin() == '/';
-		if (isDir) {
+		if (!isDir && outFilename.find("/") != std::string::npos) {
+			outFilename = outFilename.substr(0, outFilename.rfind('/'));
+		}
+		if (createdDirs.find(outFilename) == createdDirs.end()) {
 			File::CreateFullPath(outFilename.c_str());
-		} else {
+			createdDirs.insert(outFilename);
+		}
+		if (!isDir) {
 			struct zip_stat zstat;
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
 				allBytes += zstat.size;
@@ -244,5 +250,15 @@ bool GameManager::InstallGame(std::string zipfile) {
 	zip_close(z);
 	installProgress_ = 1.0f;
 	installInProgress_ = false;
+	return true;
+}
+
+bool GameManager::InstallGameOnThread(std::string zipFile) {
+	if (installInProgress_) {
+		return false;
+	}
+
+	// TODO: Actually launch a thread
+	InstallGame(zipFile);
 	return true;
 }
