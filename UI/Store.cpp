@@ -197,16 +197,17 @@ void StoreScreen::CreateViews() {
 
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
-		content = new LinearLayout(ORIENT_VERTICAL);
+		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		content->Add(new TextView(loading_ ? "Loading.." : "Connection Error"));
 		content->Add(new Button("Retry"))->OnClick.Handle(this, &StoreScreen::OnRetry);
 		content->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	} else {
-		content = new LinearLayout(ORIENT_HORIZONTAL);
-		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
+		content = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
 		content->Add(leftScroll);
-		LinearLayout *scrollItemView = new LinearLayout(ORIENT_VERTICAL);
+		LinearLayout *scrollItemView = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftScroll->Add(scrollItemView);
+
 		std::vector<StoreEntry> entries = FilterEntries();
 		for (size_t i = 0; i < entries.size(); i++) {
 			scrollItemView->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
