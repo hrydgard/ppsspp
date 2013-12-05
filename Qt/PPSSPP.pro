@@ -79,6 +79,7 @@ symbian {
 # UI
 SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/*Screens.cpp \
+	$$P/UI/Store.cpp \
 	$$P/UI/GamepadEmu.cpp \
 	$$P/UI/GameInfoCache.cpp \
 	$$P/UI/OnScreenDisplay.cpp \

@@ -39,7 +39,7 @@ install:
   - elif [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
       NDK_VER=android-ndk-r9b
       sudo apt-get install ant -qq &&
-      download_extract http://dl.google.com/android/ndk/${NDK_TAR}-linux-x86_64.tar.bz2 ${NDK_VER}-linux-x86_64.tar.bz2
+      download_extract http://dl.google.com/android/ndk/${NDK_VER}-linux-x86_64.tar.bz2 ${NDK_VER}-linux-x86_64.tar.bz2
       export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER};
       if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi
 # Blackberry NDK: 10.2.0.1155
