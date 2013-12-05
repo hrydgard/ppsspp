@@ -37,7 +37,7 @@ install:
       sudo apt-get install libsdl1.2-dev -qq;
 # Android NDK
   - elif [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
-      NDK_VER=android-ndk-r9b
+      NDK_VER=android-ndk-r9b &&
       sudo apt-get install ant -qq &&
       download_extract http://dl.google.com/android/ndk/${NDK_VER}-linux-x86_64.tar.bz2 ${NDK_VER}-linux-x86_64.tar.bz2
       export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER};
