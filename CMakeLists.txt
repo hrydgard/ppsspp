@@ -288,6 +288,20 @@ if(WIN32)
 	target_link_libraries(Common winmm)
 endif()
 
+if(NOT USING_GLES2)
+	include_directories(${OPENGL_INCLUDE_DIR})
+
+	add_definitions(-DGLEW_STATIC)
+	add_library(glew STATIC
+		native/ext/glew/GL/glew.h
+		native/ext/glew/GL/glxew.h
+		native/ext/glew/GL/wglew.h
+		native/ext/glew/glew.c)
+	target_link_libraries(glew ${OPENGL_LIBRARIES})
+	include_directories(native/ext/glew)
+	set(GLEW_LIBRARIES glew)
+endif()
+
 find_package(ZLIB)
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
@@ -347,20 +361,6 @@ add_library(rg_etc1 STATIC
 	native/ext/rg_etc1/rg_etc1.cpp
 	native/ext/rg_etc1/rg_etc1.h)
 include_directories(native/ext/rg_etc1)
-
-if(NOT USING_GLES2)
-	include_directories(${OPENGL_INCLUDE_DIR})
-
-	add_definitions(-DGLEW_STATIC)
-	add_library(glew STATIC
-		native/ext/glew/GL/glew.h
-		native/ext/glew/GL/glxew.h
-		native/ext/glew/GL/wglew.h
-		native/ext/glew/glew.c)
-	target_link_libraries(glew ${OPENGL_LIBRARIES})
-	include_directories(native/ext/glew)
-	set(GLEW_LIBRARIES glew)
-endif()
 
 add_library(stb_image STATIC
 	native/ext/stb_image/stb_image.c
@@ -1331,7 +1331,9 @@ if(APPLE)
 
 	# These can be fast even for debug.
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT ZLIB_FOUND)
+		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
 endif()
 
 if(APPLE AND NOT IOS)
