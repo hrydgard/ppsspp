@@ -109,6 +109,16 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn UIScreen::OnOK(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
 	: box_(0), title_(title) {
 	I18NCategory *d = GetI18NCategory("Dialog");

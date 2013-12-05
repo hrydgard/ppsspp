@@ -17,6 +17,8 @@ public:
 	virtual void axis(const AxisInput &touch);
 
 	// Some useful default event handlers
+	UI::EventReturn OnOK(UI::EventParams &e);
+	UI::EventReturn OnCancel(UI::EventParams &e);
 	UI::EventReturn OnBack(UI::EventParams &e);
 
 protected:
