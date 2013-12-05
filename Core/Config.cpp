@@ -71,6 +71,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	general->Get("HomebrewStore", &bHomebrewStore, false);
 
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";

@@ -388,9 +388,10 @@ void GameBrowser::Refresh() {
 		}
 	}
 
-	if (allowBrowsing_)
+	if (allowBrowsing_) {
 		gameList_->Add(new UI::Button("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::NavigateClick);
+	}
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
 		gameList_->Add(dirButtons[i])->OnClick.Handle(this, &GameBrowser::NavigateClick);
@@ -402,9 +403,11 @@ void GameBrowser::Refresh() {
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 	}
 
-	if (flags_ & FLAG_HOMEBREWSTOREBUTTON) {
+	if (g_Config.bHomebrewStore && (flags_ & FLAG_HOMEBREWSTOREBUTTON)) {
 		Add(new Spacer());
 		homebrewStoreButton_ = Add(new Choice("Download from the PPSSPP Homebrew Store", new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
+	} else {
+		homebrewStoreButton_ = 0;
 	}
 
 	if (!lastText_.empty() && gameButtons.empty()) {
@@ -476,7 +479,10 @@ void MainScreen::CreateViews() {
 		FLAG_HOMEBREWSTOREBUTTON,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-	tabHomebrew->HomebrewStoreButton()->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
+	Choice *hbStore = tabHomebrew->HomebrewStoreButton();
+	if (hbStore) {
+		hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
+	}
 
 	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
