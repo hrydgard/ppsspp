@@ -136,7 +136,7 @@ void StoreScreen::update(InputState &input) {
 		if (listing_->ResultCode() == 200) {
 			std::string listingJson;
 			listing_->buffer().TakeAll(&listingJson);
-			printf("%s\n", listingJson.c_str());
+			// printf("%s\n", listingJson.c_str());
 			loading_ = false;
 
 			ParseListing(listingJson);
