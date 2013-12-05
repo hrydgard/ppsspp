@@ -18,7 +18,7 @@
 
 // sceNetAdhoc
 
-// This is a direct port of colorbird code from http://code.google.com/p/aemu/
+// This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 #include "proAdhoc.h"
 
