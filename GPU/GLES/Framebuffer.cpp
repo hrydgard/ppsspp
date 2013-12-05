@@ -569,33 +569,24 @@ static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 
 	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
 
-	// Viewport may return 0x0 for example FF Type-0 and we set it to 480x272
+	// Viewport may return 0x0 for example FF Type-0/Sol Trigger and we set it to 480x272
 	if (viewport_width <= 1 && viewport_height <=1) {
 		viewport_width = default_width;
 		viewport_height = default_height;
 	}
 
 	if (fb_stride > 0 && fb_stride < 512) {
-		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
-		if (fb_stride == scissor_width && region_width != scissor_width) { 
-			drawing_width = scissor_width;
-			drawing_height = scissor_height;
-		} else {
-			drawing_width = viewport_width;
-			drawing_height = viewport_height;
-		}
+		drawing_width = viewport_width;
+		drawing_height = viewport_height;
 	} else {
-		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_stride == region_width && region_width == viewport_width) { 
+		// If region width greater than viewport width , take it .for example Midnight Club 3 /GTA
+		if (region_width >= viewport_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
-		} else if (fb_stride == viewport_width) { 
+		} else { 
 			drawing_width = viewport_width;
 			drawing_height = viewport_height;
-		} else {
-			drawing_width = default_width;
-			drawing_height = default_height;
-		}
+		} 
 	}
 }
 
@@ -673,9 +664,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(drawing_width, drawing_height);
 
-	int buffer_width = drawing_width;
-	int buffer_height = drawing_height;
-
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -713,8 +701,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->height = drawing_height;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
-		vfb->bufferWidth = buffer_width;
-		vfb->bufferHeight = buffer_height;
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
