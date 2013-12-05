@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include "thread/thread.h"
 #include "net/http_client.h"
 
 class GameManager {
@@ -47,13 +48,15 @@ public:
 	}
 
 	// Only returns false if there's already an installation in progress.
-	bool InstallGameOnThread(std::string zipFile);
+	bool InstallGameOnThread(std::string zipFile, bool deleteAfter);
 
 private:
-	bool InstallGame(std::string zipfile);
+	bool InstallGame(std::string zipfile, bool deleteAfter = false);
+	void InstallDone();
+
 	std::string GetTempFilename() const;
 	std::shared_ptr<http::Download> curDownload_;
-
+	std::shared_ptr<std::thread> installThread_;
 	bool installInProgress_;
 	float installProgress_;
 };

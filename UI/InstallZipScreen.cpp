@@ -33,6 +33,7 @@ void InstallZipScreen::CreateViews() {
 	bool success = getFileInfo(zipPath_.c_str(), &fileInfo);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *iz = GetI18NCategory("InstallZip");
 
 	Margins actionMenuMargins(0, 100, 15, 0);
 
@@ -41,26 +42,45 @@ void InstallZipScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new TextView(di->T("Install game from ZIP file?"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+	leftColumn->Add(new TextView(iz->T("Install game from ZIP file?"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 	leftColumn->Add(new TextView(zipPath_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
+	progressBar_ = leftColumn->Add(new ProgressBar(new AnchorLayoutParams(10, 200, 200, NONE)));
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumnItems);
 
-	installChoice_ = rightColumnItems->Add(new Choice(di->T("Install")));
+	installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 	installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-	rightColumnItems->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
-	rightColumnItems->Add(new CheckBox(&deleteZipFile_, di->T("Delete ZIP file")));
+	backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
+	backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
+
+	rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
+}
+
+void InstallZipScreen::key(const KeyInput &key) {
+	// Ignore all key presses during installation to avoid user escape
+	if (!g_GameManager.IsInstallInProgress()) {
+		UIScreen::key(key);
+	}
 }
 
 UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
-	installChoice_->SetEnabled(false);
-	if (g_GameManager.InstallGameOnThread(zipPath_)) {
-		screenManager()->finishDialog(this, DR_OK);
+	if (g_GameManager.InstallGameOnThread(zipPath_, deleteZipFile_)) {
+		installStarted_ = true;
+		installChoice_->SetEnabled(false);
 	}
 	return UI::EVENT_DONE;
 }
 
 void InstallZipScreen::update(InputState &input) {
+	using namespace UI;
+	if (g_GameManager.IsInstallInProgress()) {
+		progressBar_->SetVisibility(V_VISIBLE);
+		progressBar_->SetProgress(g_GameManager.GetCurrentInstallProgress());
+		backChoice_->SetEnabled(false);
+	} else {
+		progressBar_->SetVisibility(V_GONE);
+		backChoice_->SetEnabled(true);
+	}
 	UIScreen::update(input);
 }

@@ -16,7 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
-#include "native/ext/libzip/zip.h"
+#include "ext/libzip/zip.h"
+#include "thread/thread.h"
 #include "util/text/utf8.h"
 
 #include "Common/Log.h"
@@ -109,8 +110,7 @@ void GameManager::Update() {
 	}
 }
 
-// Does NOT delete the zip file, that is done by the function calling this, if applicable.
-bool GameManager::InstallGame(std::string zipfile) {
+bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	if (installInProgress_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
@@ -253,15 +253,25 @@ bool GameManager::InstallGame(std::string zipfile) {
 	zip_close(z);
 	installProgress_ = 1.0f;
 	installInProgress_ = false;
+	if (deleteAfter) {
+		deleteFile(zipfile.c_str());
+	}
+	InstallDone();
 	return true;
 }
 
-bool GameManager::InstallGameOnThread(std::string zipFile) {
+bool GameManager::InstallGameOnThread(std::string zipFile, bool deleteAfter) {
 	if (installInProgress_) {
 		return false;
 	}
 
-	// TODO: Actually launch a thread
-	InstallGame(zipFile);
+	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, zipFile, deleteAfter)));
+	installThread_->detach();
 	return true;
+}
+
+void GameManager::InstallDone() {
+	if (installThread_.get() != 0) {
+		installThread_.reset();
+	}
 }
