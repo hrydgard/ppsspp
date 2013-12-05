@@ -65,6 +65,10 @@ win32|contains(QT_CONFIG, no-zlib) {
 	HEADERS += $$P/ext/zlib/*.h
 }
 
+# Libzip
+SOURCES += $$P/native/ext/libzip/*.c
+HEADERS += $$P/native/ext/libzip/*.h
+
 # Native
 
 SOURCES +=  $$P/native/audio/*.cpp \
