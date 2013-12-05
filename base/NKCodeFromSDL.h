@@ -56,6 +56,7 @@ static const std::map<int, int> KeyMapRawSDLtoNative = InitConstMap<int, int>
 	(SDLK_BACKSPACE, NKCODE_ESCAPE)
 #else
 	(SDLK_ESCAPE, NKCODE_ESCAPE)
+	(SDLK_BACKSPACE, NKCODE_DEL)
 #endif
 	(SDLK_DELETE, NKCODE_FORWARD_DEL)
 	(SDLK_LCTRL, NKCODE_CTRL_LEFT)
