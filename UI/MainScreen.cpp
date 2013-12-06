@@ -23,6 +23,7 @@
 #include "file/path.h"
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
+#include "base/stringutil.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -78,12 +79,14 @@ public:
 	}
 
 	const std::string &GamePath() const { return gamePath_; }
+
 	virtual void Touch(const TouchInput &input) {
 		UI::Clickable::Touch(input);
 		if (input.flags & TOUCH_UP) {
 			holdFrameCount_ = 0;
 		}
 	}
+
 	virtual void Update(const InputState &input_state) {
 		if (down_)
 			holdFrameCount_++;
@@ -105,6 +108,7 @@ public:
 private:
 	bool gridStyle_;
 	std::string gamePath_;
+	std::string title_;
 
 	int holdFrameCount_;
 };
@@ -201,9 +205,11 @@ void GameButton::Draw(UIContext &dc) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		std::string title = ginfo->title + discNumInfo;
+		if (title_.empty() && !ginfo->title.empty()) {
+			title_ = ReplaceAll(ginfo->title + discNumInfo, "&", "&&");
+		}
 
-		dc.MeasureText(dc.GetFontStyle(), title.c_str(), &tw, &th, 0);
+		dc.MeasureText(dc.GetFontStyle(), title_.c_str(), &tw, &th, 0);
 
 		int availableWidth = bounds_.w - 150;
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -216,7 +222,7 @@ void GameButton::Draw(UIContext &dc) {
 			tb.w = bounds_.w - 150;
 			dc.PushScissor(tb);
 		}
-		dc.DrawText(title.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		if (availableWidth < tw) {
 			dc.PopScissor();
 		}
@@ -225,7 +231,7 @@ void GameButton::Draw(UIContext &dc) {
 	} else if (!texture) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.DrawText((ginfo->title + discNumInfo).c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText(title_.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else {

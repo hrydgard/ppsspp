@@ -85,7 +85,7 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 
 	std::vector<FileInfo> dirs;
 	getFilesInDir(memc.c_str(), &dirs);
-	
+
 	std::vector<std::string> directories;
 	for (size_t i = 0; i < dirs.size(); i++) {
 		if (startsWith(dirs[i].name, id)) {
@@ -279,8 +279,8 @@ public:
 			{
 				info_->fileType = FILETYPE_PSP_ISO;
 				SequentialHandleAllocator handles;
-				VirtualDiscFileSystem umd(&handles,gamePath_.c_str());
-				
+				VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
+
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
 				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
@@ -339,7 +339,7 @@ public:
 				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				break;
 			}
-		
+
 			case FILETYPE_NORMAL_DIRECTORY:
 				info_->title = gamePath_;
 				break;
@@ -348,7 +348,8 @@ public:
 			{
 				std::string fn, ext;
 				SplitPath(gamePath_, 0, &fn, &ext);
-				info_->title = fn + "." + ext;
+				// ext includes the dot
+				info_->title = fn + ext;
 			}
 			break;
 		}
