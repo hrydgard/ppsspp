@@ -335,6 +335,168 @@ add_library(stb_vorbis STATIC
 	native/ext/stb_vorbis/stb_vorbis.h)
 include_directories(native/ext/stb_vorbis)
 
+if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+	if(BLACKBERRY)
+		set(PLATFORM_ARCH "blackberry/armv7")
+	elseif(IOS)
+		set(PLATFORM_ARCH "ios/universal")
+	elseif(MACOSX)
+		set(PLATFORM_ARCH "macosx/x86_64")
+	elseif(LINUX)
+		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+			set(PLATFORM_ARCH "linux/x86_64")
+		else()
+			set(PLATFORM_ARCH "linux/x86")
+		endif()
+	endif()
+	# Using static libraries
+	if (DEFINED PLATFORM_ARCH)
+		include_directories(ffmpeg/${PLATFORM_ARCH}/include)
+		link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
+		set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
+	else()
+		# Manual definition of system library locations by the user.
+		if (DEFINED FFMPEG_INCLUDE_PATH)
+			include_directories(ffmpeg ${FFMPEG_INCLUDE_PATH})
+		endif()
+		if (DEFINED AVFORMAT_PATH)
+			add_library(libavformat STATIC IMPORTED)
+			set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${AVFORMAT_PATH})
+			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavformat)
+		endif()
+		if (DEFINED AVCODEC_PATH)
+			add_library(libavcodec STATIC IMPORTED)
+			set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${AVCODEC_PATH})
+			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavcodec)
+		endif()
+		if (DEFINED AVUTIL_PATH)
+			add_library(libavutil STATIC IMPORTED)
+			set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${AVUTIL_PATH})
+			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavutil)
+		endif()
+		if (DEFINED SWRESAMPLE_PATH)
+			add_library(libswresample STATIC IMPORTED)
+			set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${SWRESAMPLE_PATH})
+			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswresample)
+		endif()
+		if (DEFINED SWSCALE_PATH)
+			add_library(libswscale STATIC IMPORTED)
+			set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${SWSCALE_PATH})
+			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswscale)
+		endif()
+	endif(DEFINED PLATFORM_ARCH)
+endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+
+if(USE_FFMPEG)
+	# Using shared libraries
+	if(DEFINED FFMPEG_BUILDDIR)
+		include_directories(ffmpeg ${FFMPEG_BUILDDIR})
+
+		add_library(libavformat STATIC IMPORTED)
+		set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
+		add_library(libavcodec STATIC IMPORTED)
+		set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
+		add_library(libavutil STATIC IMPORTED)
+		set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
+		add_library(libswresample STATIC IMPORTED)
+		set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
+		add_library(libswscale STATIC IMPORTED)
+		set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
+
+		SET (FFMPEG_LIBRARIES
+			libavformat
+			libavcodec
+			libavutil
+			libswresample
+			libswscale
+		)
+	endif()
+
+	if(IOS OR BLACKBERRY)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
+	endif()
+
+	if(APPLE)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
+		if (NOT IOS)
+			set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
+		endif()
+	endif(APPLE)
+
+	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
+	add_definitions(-DUSE_FFMPEG)
+endif(USE_FFMPEG)
+
+# Modification to show where we are pulling the ffmpeg libraries from.
+if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
+	target_link_libraries(Common ${FFMPEG_LIBRARIES})
+	message(STATUS "FFMPEG library locations:")
+	if(DEFINED PLATFORM_ARCH)
+		set(TEMP ${CMAKE_SOURCE_DIR}/ffmpeg/${PLATFORM_ARCH}/lib)
+		message(STATUS "libavcodec location: ${TEMP}/libavcodec.a")
+		message(STATUS "libavformat location: ${TEMP}/libavformat.a")
+		message(STATUS "libavutil location: ${TEMP}/libavutil.a")
+		message(STATUS "libswresample location: ${TEMP}/libswresample.a")
+		message(STATUS "libswscale location: ${TEMP}/libswscale.a")
+	else()
+		get_target_property(TEMP libavcodec IMPORTED_LOCATION)
+		message(STATUS "libavcodec location: ${TEMP}")
+		get_target_property(TEMP libavformat IMPORTED_LOCATION)
+		message(STATUS "libavformat location: ${TEMP}")
+		get_target_property(TEMP libavutil IMPORTED_LOCATION)
+		message(STATUS "libavutil location: ${TEMP}")
+		get_target_property(TEMP libswresample IMPORTED_LOCATION)
+		message(STATUS "libswresample location: ${TEMP}")
+		get_target_property(TEMP libswscale IMPORTED_LOCATION)
+		message(STATUS "libswscale location: ${TEMP}")
+	endif(DEFINED PLATFORM_ARCH)
+else()
+	message(STATUS "ERROR: No FFMPEG library locations")
+endif()
+
+if(USE_FFMPEG AND NOT DEFINED FFMPEG_LIBRARIES)
+	message(WARNING "FFMPEG_BUILDDIR variable or manual path definition is required to enable FFmpeg. Disabling it.")
+	unset(USE_FFMPEG)
+endif()
+
+find_package(ZLIB)
+if(ZLIB_FOUND)
+	include_directories(${ZLIB_INCLUDE_DIR})
+else()
+	add_library(zlib STATIC
+		ext/zlib/adler32.c
+		ext/zlib/compress.c
+		ext/zlib/crc32.c
+		ext/zlib/crc32.h
+		ext/zlib/deflate.c
+		ext/zlib/deflate.h
+		ext/zlib/gzclose.c
+		ext/zlib/gzguts.h
+		ext/zlib/gzlib.c
+		ext/zlib/gzread.c
+		ext/zlib/gzwrite.c
+		ext/zlib/infback.c
+		ext/zlib/inffast.c
+		ext/zlib/inffast.h
+		ext/zlib/inffixed.h
+		ext/zlib/inflate.c
+		ext/zlib/inflate.h
+		ext/zlib/inftrees.c
+		ext/zlib/inftrees.h
+		ext/zlib/make_vms.com
+		ext/zlib/trees.c
+		ext/zlib/trees.h
+		ext/zlib/uncompr.c
+		ext/zlib/zconf.h
+		ext/zlib/zlib.h
+		ext/zlib/zutil.c
+		ext/zlib/zutil.h
+	)
+	include_directories(ext/zlib)
+	set(ZLIB_LIBRARY zlib)
+endif()
+
+
 add_library(libzip STATIC
 	native/ext/libzip/zip.h
 	native/ext/libzip/mkstemp.c
@@ -1133,167 +1295,6 @@ set(NativeAssets
 	assets/ppge_atlas.zim
 	assets/langregion.ini)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
-
-if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
-	if(BLACKBERRY)
-		set(PLATFORM_ARCH "blackberry/armv7")
-	elseif(IOS)
-		set(PLATFORM_ARCH "ios/universal")
-	elseif(MACOSX)
-		set(PLATFORM_ARCH "macosx/x86_64")
-	elseif(LINUX)
-		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-			set(PLATFORM_ARCH "linux/x86_64")
-		else()
-			set(PLATFORM_ARCH "linux/x86")
-		endif()
-	endif()
-	# Using static libraries
-	if (DEFINED PLATFORM_ARCH)
-		include_directories(ffmpeg/${PLATFORM_ARCH}/include)
-		link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
-		set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
-	else()
-		# Manual definition of system library locations by the user.
-		if (DEFINED FFMPEG_INCLUDE_PATH)
-			include_directories(ffmpeg ${FFMPEG_INCLUDE_PATH})
-		endif()
-		if (DEFINED AVFORMAT_PATH)
-			add_library(libavformat STATIC IMPORTED)
-			set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${AVFORMAT_PATH})
-			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavformat)
-		endif()
-		if (DEFINED AVCODEC_PATH)
-			add_library(libavcodec STATIC IMPORTED)
-			set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${AVCODEC_PATH})
-			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavcodec)
-		endif()
-		if (DEFINED AVUTIL_PATH)
-			add_library(libavutil STATIC IMPORTED)
-			set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${AVUTIL_PATH})
-			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavutil)
-		endif()
-		if (DEFINED SWRESAMPLE_PATH)
-			add_library(libswresample STATIC IMPORTED)
-			set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${SWRESAMPLE_PATH})
-			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswresample)
-		endif()
-		if (DEFINED SWSCALE_PATH)
-			add_library(libswscale STATIC IMPORTED)
-			set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${SWSCALE_PATH})
-			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswscale)
-		endif()
-	endif(DEFINED PLATFORM_ARCH)
-endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
-
-if(USE_FFMPEG)
-	# Using shared libraries
-	if(DEFINED FFMPEG_BUILDDIR)
-		include_directories(ffmpeg ${FFMPEG_BUILDDIR})
-
-		add_library(libavformat STATIC IMPORTED)
-		set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
-		add_library(libavcodec STATIC IMPORTED)
-		set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
-		add_library(libavutil STATIC IMPORTED)
-		set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
-		add_library(libswresample STATIC IMPORTED)
-		set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
-		add_library(libswscale STATIC IMPORTED)
-		set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
-
-		SET (FFMPEG_LIBRARIES
-			libavformat
-			libavcodec
-			libavutil
-			libswresample
-			libswscale
-		)
-	endif()
-
-	if(IOS OR BLACKBERRY)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
-	endif()
-
-	if(APPLE)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
-		if (NOT IOS)
-			set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
-		endif()
-	endif(APPLE)
-
-	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
-	add_definitions(-DUSE_FFMPEG)
-endif(USE_FFMPEG)
-
-# Modification to show where we are pulling the ffmpeg libraries from.
-if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
-	target_link_libraries(Common ${FFMPEG_LIBRARIES})
-	message(STATUS "FFMPEG library locations:")
-	if(DEFINED PLATFORM_ARCH)
-		set(TEMP ${CMAKE_SOURCE_DIR}/ffmpeg/${PLATFORM_ARCH}/lib)
-		message(STATUS "libavcodec location: ${TEMP}/libavcodec.a")
-		message(STATUS "libavformat location: ${TEMP}/libavformat.a")
-		message(STATUS "libavutil location: ${TEMP}/libavutil.a")
-		message(STATUS "libswresample location: ${TEMP}/libswresample.a")
-		message(STATUS "libswscale location: ${TEMP}/libswscale.a")
-	else()
-		get_target_property(TEMP libavcodec IMPORTED_LOCATION)
-		message(STATUS "libavcodec location: ${TEMP}")
-		get_target_property(TEMP libavformat IMPORTED_LOCATION)
-		message(STATUS "libavformat location: ${TEMP}")
-		get_target_property(TEMP libavutil IMPORTED_LOCATION)
-		message(STATUS "libavutil location: ${TEMP}")
-		get_target_property(TEMP libswresample IMPORTED_LOCATION)
-		message(STATUS "libswresample location: ${TEMP}")
-		get_target_property(TEMP libswscale IMPORTED_LOCATION)
-		message(STATUS "libswscale location: ${TEMP}")
-	endif(DEFINED PLATFORM_ARCH)
-else()
-	message(STATUS "ERROR: No FFMPEG library locations")
-endif()
-
-if(USE_FFMPEG AND NOT DEFINED FFMPEG_LIBRARIES)
-	message(WARNING "FFMPEG_BUILDDIR variable or manual path definition is required to enable FFmpeg. Disabling it.")
-	unset(USE_FFMPEG)
-endif()
-
-find_package(ZLIB)
-if(ZLIB_FOUND)
-	include_directories(${ZLIB_INCLUDE_DIR})
-else()
-	add_library(zlib STATIC
-		ext/zlib/adler32.c
-		ext/zlib/compress.c
-		ext/zlib/crc32.c
-		ext/zlib/crc32.h
-		ext/zlib/deflate.c
-		ext/zlib/deflate.h
-		ext/zlib/gzclose.c
-		ext/zlib/gzguts.h
-		ext/zlib/gzlib.c
-		ext/zlib/gzread.c
-		ext/zlib/gzwrite.c
-		ext/zlib/infback.c
-		ext/zlib/inffast.c
-		ext/zlib/inffast.h
-		ext/zlib/inffixed.h
-		ext/zlib/inflate.c
-		ext/zlib/inflate.h
-		ext/zlib/inftrees.c
-		ext/zlib/inftrees.h
-		ext/zlib/make_vms.com
-		ext/zlib/trees.c
-		ext/zlib/trees.h
-		ext/zlib/uncompr.c
-		ext/zlib/zconf.h
-		ext/zlib/zlib.h
-		ext/zlib/zutil.c
-		ext/zlib/zutil.h
-	)
-	include_directories(ext/zlib)
-	set(ZLIB_LIBRARY zlib)
-endif()
 
 
 if(HEADLESS)
