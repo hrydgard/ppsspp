@@ -302,43 +302,6 @@ if(NOT USING_GLES2)
 	set(GLEW_LIBRARIES glew)
 endif()
 
-find_package(ZLIB)
-if(ZLIB_FOUND)
-	include_directories(${ZLIB_INCLUDE_DIR})
-else()
-	add_library(zlib STATIC
-		ext/zlib/adler32.c
-		ext/zlib/compress.c
-		ext/zlib/crc32.c
-		ext/zlib/crc32.h
-		ext/zlib/deflate.c
-		ext/zlib/deflate.h
-		ext/zlib/gzclose.c
-		ext/zlib/gzguts.h
-		ext/zlib/gzlib.c
-		ext/zlib/gzread.c
-		ext/zlib/gzwrite.c
-		ext/zlib/infback.c
-		ext/zlib/inffast.c
-		ext/zlib/inffast.h
-		ext/zlib/inffixed.h
-		ext/zlib/inflate.c
-		ext/zlib/inflate.h
-		ext/zlib/inftrees.c
-		ext/zlib/inftrees.h
-		ext/zlib/make_vms.com
-		ext/zlib/trees.c
-		ext/zlib/trees.h
-		ext/zlib/uncompr.c
-		ext/zlib/zconf.h
-		ext/zlib/zlib.h
-		ext/zlib/zutil.c
-		ext/zlib/zutil.h
-	)
-	include_directories(ext/zlib)
-	set(ZLIB_LIBRARY zlib)
-endif()
-
 add_library(snappy STATIC
 	ext/snappy/snappy-c.cpp
 	ext/snappy/snappy-internal.h
@@ -1247,7 +1210,7 @@ if(USE_FFMPEG)
 			libswscale
 		)
 	endif()
-	
+
 	if(IOS OR BLACKBERRY)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
 	endif()
@@ -1255,10 +1218,10 @@ if(USE_FFMPEG)
 	if(APPLE)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
 		if (NOT IOS)
-    		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
+			set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
 		endif()
 	endif(APPLE)
-	
+
 	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
 	add_definitions(-DUSE_FFMPEG)
 endif(USE_FFMPEG)
@@ -1286,11 +1249,52 @@ if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
 		get_target_property(TEMP libswscale IMPORTED_LOCATION)
 		message(STATUS "libswscale location: ${TEMP}")
 	endif(DEFINED PLATFORM_ARCH)
+else()
+	message(STATUS "ERROR: No FFMPEG library locations")
 endif()
+
 if(USE_FFMPEG AND NOT DEFINED FFMPEG_LIBRARIES)
 	message(WARNING "FFMPEG_BUILDDIR variable or manual path definition is required to enable FFmpeg. Disabling it.")
 	unset(USE_FFMPEG)
 endif()
+
+find_package(ZLIB)
+if(ZLIB_FOUND)
+	include_directories(${ZLIB_INCLUDE_DIR})
+else()
+	add_library(zlib STATIC
+		ext/zlib/adler32.c
+		ext/zlib/compress.c
+		ext/zlib/crc32.c
+		ext/zlib/crc32.h
+		ext/zlib/deflate.c
+		ext/zlib/deflate.h
+		ext/zlib/gzclose.c
+		ext/zlib/gzguts.h
+		ext/zlib/gzlib.c
+		ext/zlib/gzread.c
+		ext/zlib/gzwrite.c
+		ext/zlib/infback.c
+		ext/zlib/inffast.c
+		ext/zlib/inffast.h
+		ext/zlib/inffixed.h
+		ext/zlib/inflate.c
+		ext/zlib/inflate.h
+		ext/zlib/inftrees.c
+		ext/zlib/inftrees.h
+		ext/zlib/make_vms.com
+		ext/zlib/trees.c
+		ext/zlib/trees.h
+		ext/zlib/uncompr.c
+		ext/zlib/zconf.h
+		ext/zlib/zlib.h
+		ext/zlib/zutil.c
+		ext/zlib/zutil.h
+	)
+	include_directories(ext/zlib)
+	set(ZLIB_LIBRARY zlib)
+endif()
+
 
 if(HEADLESS)
 	add_executable(PPSSPPHeadless
