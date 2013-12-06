@@ -298,6 +298,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	int vcountUnblock = vblankPausedWaits[pauseKey];
+	vblankPausedWaits.erase(pauseKey);
 	if (vcountUnblock <= vCount) {
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
