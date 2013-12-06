@@ -32,6 +32,9 @@ public:
 
 	virtual bool isTopLevel() const { return true; }
 
+	// Horrible hack to show the demos & homebrew tab after having installed a game from a zip file.
+	static bool showHomebrewTab;
+
 protected:
 	virtual void CreateViews();
 	virtual void update(InputState &input);

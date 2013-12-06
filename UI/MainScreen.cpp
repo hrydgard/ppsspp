@@ -62,6 +62,8 @@
 
 #include <sstream>
 
+bool MainScreen::showHomebrewTab = false;
+
 class GameButton : public UI::Clickable {
 public:
 	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0) 
@@ -511,9 +513,10 @@ void MainScreen::CreateViews() {
 		leftColumn->SetCurrentTab(1);
 	}
 
-	if (backFromStore_) {
+	if (backFromStore_ || showHomebrewTab) {
 		leftColumn->SetCurrentTab(2);
 		backFromStore_ = false;
+		showHomebrewTab = false;
 	}
 
 /* if (info) {

@@ -25,6 +25,7 @@
 
 #include "Core/Util/GameManager.h"
 #include "UI/InstallZipScreen.h"
+#include "UI/MainScreen.h"
 
 void InstallZipScreen::CreateViews() {
 	using namespace UI;
@@ -68,6 +69,7 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	if (g_GameManager.InstallGameOnThread(zipPath_, deleteZipFile_)) {
 		installStarted_ = true;
 		installChoice_->SetEnabled(false);
+		MainScreen::showHomebrewTab = true;
 	}
 	return UI::EVENT_DONE;
 }
