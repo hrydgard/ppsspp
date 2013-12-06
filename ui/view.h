@@ -715,7 +715,15 @@ public:
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 
-	void SetProgress(float progress) { progress_ = progress; }
+	void SetProgress(float progress) {
+		if (progress > 1.0f) {
+			progress_ = 1.0f;
+		} else if (progress < 0.0f) {
+			progress_ = 0.0f;
+		} else {
+			progress_ = progress;
+		}
+	}
 	float GetProgress() const { return progress_; }
 
 private:
