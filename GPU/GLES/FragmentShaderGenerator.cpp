@@ -99,14 +99,7 @@ static bool IsAlphaTestTriviallyTrue() {
 	}
 }
 
-enum StencilValueType {
-	STENCIL_VALUE_UNKNOWN,
-	STENCIL_VALUE_UNIFORM,
-	STENCIL_VALUE_ZERO,
-	STENCIL_VALUE_ONE,
-};
-
-static StencilValueType ReplaceAlphaWithStencilType() {
+StencilValueType ReplaceAlphaWithStencilType() {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
 		// There's never a stencil value.  Maybe the right alpha is 1?
@@ -127,9 +120,11 @@ static StencilValueType ReplaceAlphaWithStencilType() {
 		case GE_STENCILOP_INCR:
 			return STENCIL_VALUE_ONE;
 
-		case GE_STENCILOP_KEEP:
 		case GE_STENCILOP_INVERT:
 			return STENCIL_VALUE_UNKNOWN;
+
+		case GE_STENCILOP_KEEP:
+			return STENCIL_VALUE_KEEP;
 		}
 		break;
 
@@ -146,9 +141,10 @@ static StencilValueType ReplaceAlphaWithStencilType() {
 		// Decrementing always zeros, since there's only one bit.
 		case GE_STENCILOP_DECR:
 		case GE_STENCILOP_INCR:
-		case GE_STENCILOP_KEEP:
 		case GE_STENCILOP_INVERT:
 			return STENCIL_VALUE_UNKNOWN;
+		case GE_STENCILOP_KEEP:
+			return STENCIL_VALUE_KEEP;
 		}
 		break;
 	}
@@ -415,7 +411,7 @@ void GenerateFragmentShader(char *buffer) {
 		} else if (enableAlphaDoubling) {
 			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
-		
+
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -456,6 +452,10 @@ void GenerateFragmentShader(char *buffer) {
 			// Maybe we should even mask away alpha using glColorMask and not change it at all? We do get here
 			// if the stencil mode is KEEP for example.
 			WRITE(p, "  gl_FragColor.a = 0.0;\n");
+			break;
+
+		case STENCIL_VALUE_KEEP:
+			// Do nothing. We'll mask out the alpha using color mask.
 			break;
 		}
 	}

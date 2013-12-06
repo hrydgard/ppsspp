@@ -33,6 +33,7 @@
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 
 static const GLushort aLookup[11] = {
 	GL_DST_COLOR,
@@ -275,14 +276,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.dither.disable();
 
 	if (gstate.isModeClear()) {
-
 #if !defined(USING_GLES2)
 		// Logic Ops
 		glstate.colorLogicOp.disable();
 #endif
-		// Culling 
+		// Culling
 		glstate.cullFace.disable();
-		
+
 		// Depth Test
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
@@ -343,6 +343,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Let's not write to alpha if stencil isn't enabled.
 		if (!gstate.isStencilTestEnabled()) {
 			amask = false;
+		} else {
+			// If the stencil value is set to KEEP, we shouldn't write to the stencil/alpha channel.1
+			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+				amask = false;
+			}
 		}
 
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
@@ -356,9 +361,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
-		} else 
+		} else {
 			glstate.stencilTest.disable();
-		
+		}
 	}
 
 	float renderWidthFactor, renderHeightFactor;
@@ -376,7 +381,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
 	}
-	
+
 	renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
 	renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 
