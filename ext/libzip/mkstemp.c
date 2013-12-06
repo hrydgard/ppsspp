@@ -33,6 +33,7 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
 #ifndef HAVE_MKSTEMP
 #include <sys/types.h>
 #include <sys/stat.h>
