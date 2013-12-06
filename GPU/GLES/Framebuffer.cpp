@@ -470,27 +470,31 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 }
 
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
+	float u2 = uscale;
+	// Since we're flipping, 0 is down.  That's where the scale goes.
+	float v1 = flip ? 1.0f : 1.0f - vscale;
+	float v2 = flip ? 1.0f - vscale : 1.0f;
+
+	const float u1 = 0.0f;
+	const float texCoords[8] = {u1,v1, u2,v1, u2,v2, u1,v2};
+	static const GLushort indices[4] = {0,1,3,2};
+
 	if (texture) {
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
 #if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY) && !defined(MAEMO)
-		if (gl_extensions.NV_draw_texture && !program) {
+		if (false && gl_extensions.NV_draw_texture && !program) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
 			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
 			// so that's a little gnarly, will have to modify all callers.
 			glDrawTextureNV(texture, 0,
 				x, y, w, h, 0.0f,
-				0, 0, uscale, vscale);
+				u1, v2, u2, v1);
 			return;
 		}
 #endif
 
 		glBindTexture(GL_TEXTURE_2D, texture);
 	}
-
-	float u2 = uscale;
-	// Since we're flipping, 0 is down.  That's where the scale goes.
-	float v1 = flip ? 1.0f : 1.0f - vscale;
-	float v2 = flip ? 1.0f - vscale : 1.0f;
 
 	float pos[12] = {
 		x,y,0,
@@ -504,8 +508,6 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		pos[i * 3 + 1] = -(pos[i * 3 + 1] / (destH * 0.5) - 1.0f);
 	}
 
-	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
-	static const GLubyte indices[4] = {0,1,3,2};
 	if (!program) {
 		if (!draw2dprogram_) {
 			CompileDraw2DProgram();
@@ -527,7 +529,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 
