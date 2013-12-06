@@ -1184,6 +1184,9 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
+					if (Core_IsStepping())
+						Core_EnableStepping(false);
+
 					Core_Stop();
 					NativeMessageReceived("stop", "");
 					Core_WaitInactive();
