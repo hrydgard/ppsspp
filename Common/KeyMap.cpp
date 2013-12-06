@@ -609,6 +609,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 #ifndef USING_GLES2
 	{VIRTKEY_REWIND, "Rewind"},
 #endif
+	{VIRTKEY_SAVE_STATE, "Save State"},
+	{VIRTKEY_LOAD_STATE, "Load State"},
 
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},

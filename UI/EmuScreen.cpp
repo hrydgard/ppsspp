@@ -269,6 +269,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(s->T("norewind", "No rewind save states available"), 2.0);
 		}
 		break;
+	case VIRTKEY_SAVE_STATE:
+		SaveState::SaveSlot(g_Config.iCurrentStateSlot, 0);
+		break;
+	case VIRTKEY_LOAD_STATE:
+		if (SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)) {
+			SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0);
+		}
+		break;
 	}
 }
 

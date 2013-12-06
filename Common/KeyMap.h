@@ -41,6 +41,8 @@ enum {
 	VIRTKEY_AXIS_RIGHT_X_MAX = 0x1000a,
 	VIRTKEY_AXIS_RIGHT_Y_MAX = 0x1000b,
 	VIRTKEY_REWIND = 0x1000c,
+	VIRTKEY_SAVE_STATE = 0x1000d,
+	VIRTKEY_LOAD_STATE = 0x1000e,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -96,9 +98,9 @@ typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 // KeyMap
 // A translation layer for key assignment. Provides
 // integration with Core's config state.
-// 
+//
 // Does not handle input state managment.
-// 
+//
 // Platform ports should map their platform's keys to KeyMap's keys (NKCODE_*).
 //
 // Then have KeyMap transform those into psp buttons.
@@ -114,7 +116,7 @@ namespace KeyMap {
 		std::string name;
 	};
 
-	// Use if you need to display the textual name 
+	// Use if you need to display the textual name
 	std::string GetKeyName(int keyCode);
 	std::string GetKeyOrAxisName(int keyCode);
 	std::string GetAxisName(int axisId);
