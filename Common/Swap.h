@@ -245,6 +245,14 @@ public:
 	swapped_t operator !() const {
 		return !swap();
 	}
+	
+	bool operator ||(const swapped_t  & b) const {
+		return swap() || b.swap();
+	}
+	template <typename S>
+	bool operator ||(const S & b) const {
+		return swap() || b;
+	}
 
 	// bitmath
 	swapped_t operator ~() const {
