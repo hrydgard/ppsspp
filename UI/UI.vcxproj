@@ -31,9 +31,11 @@
     <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
+    <ClCompile Include="Store.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
+    <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
@@ -49,9 +51,11 @@
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
+    <ClInclude Include="Store.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
+    <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="UIShader.h" />
     <ClInclude Include="ui_atlas.h" />
   </ItemGroup>

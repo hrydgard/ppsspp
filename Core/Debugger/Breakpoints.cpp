@@ -324,13 +324,24 @@ const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
 
 void CBreakPoints::Update(u32 addr)
 {
-	if (MIPSComp::jit && Core_IsInactive())
+	if (MIPSComp::jit)
 	{
+		bool resume = false;
+		if (Core_IsStepping() == false)
+		{
+			Core_EnableStepping(true);
+			Core_WaitInactive();
+			resume = true;
+		}
+		
 		// In case this is a delay slot, clear the previous instruction too.
 		if (addr != 0)
 			MIPSComp::jit->ClearCacheAt(addr - 4, 8);
 		else
 			MIPSComp::jit->ClearCache();
+
+		if (resume)
+			Core_EnableStepping(false);
 	}
 
 	// Redraw in order to show the breakpoint.

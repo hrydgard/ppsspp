@@ -732,7 +732,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		if (diff)
+		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
@@ -1312,11 +1312,11 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
 		return;
 	}
-	
+
 	// Do the copy!
 	for (int y = 0; y < height; y++) {
-		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+		const u8 *src = Memory::GetPointerUnchecked(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+		u8 *dst = Memory::GetPointerUnchecked(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
 		memcpy(dst, src, width * bpp);
 	}
 
@@ -1333,7 +1333,7 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 			dstStride == 512 && height == 272) {
-		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), GE_FORMAT_8888, 512);
+		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 }
 

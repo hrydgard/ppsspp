@@ -44,11 +44,10 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/SaveState.h"
 
-#include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
+#include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
 #include "UI/UIShader.h"
-
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/DevScreens.h"
@@ -56,7 +55,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
-
+#include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
 	: booted_(false), gamePath_(filename), invalid_(true), pauseTrigger_(false) {
@@ -65,8 +64,6 @@ EmuScreen::EmuScreen(const std::string &filename)
 void EmuScreen::bootGame(const std::string &filename) {
 	booted_ = true;
 	std::string fileToStart = filename;
-	// This is probably where we should start up the emulated PSP.
-	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
@@ -100,6 +97,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
+		System_SendMessage("event", "failstartgame");
 		return;
 	}
 
@@ -126,6 +124,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
 
+	System_SendMessage("event", "startgame");
 }
 
 EmuScreen::~EmuScreen() {
@@ -141,6 +140,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());
+		System_SendMessage("event", "exitgame");
 	}
 
 	RecreateViews();
@@ -159,6 +159,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
 			screenManager()->switchScreen(new MainScreen());
+			System_SendMessage("event", "failstartgame");
 			return;
 		}
 		host->BootDone();
@@ -170,29 +171,23 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			Core_EnableStepping(true);
 		}
 #endif
-	}
-	else if (!strcmp(message, "boot")) {
+	} else if (!strcmp(message, "boot")) {
 		PSP_Shutdown();
 		bootGame(value);
-	}
-	else if (!strcmp(message, "control mapping")) {
+	} else if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
-	}
-	else if (!strcmp(message, "settings")) {
+	} else if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(gamePath_));
-	}
-	else if (!strcmp(message, "gpu resized")) {
-		if (gpu) gpu->Resized();
-	}
-	else if (!strcmp(message, "gpu clear cache")) {
-		if (gpu) gpu->ClearCacheNextFrame();
-	}
-	else if (!strcmp(message, "gpu dump next frame")) {
+	} else if (!strcmp(message, "gpu resized") || !strcmp(message, "gpu clear cache")) {
+		if (gpu) {
+			gpu->ClearCacheNextFrame();
+			gpu->Resized();
+		}
+	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
-	}
-	if (!strcmp(message, "clear jit")) {
+	} else if (!strcmp(message, "clear jit")) {
 		if (MIPSComp::jit) {
 			MIPSComp::jit->ClearCache();
 		}
@@ -266,6 +261,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
 		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
+
+	case VIRTKEY_REWIND:
+		if (SaveState::CanRewind()) {
+			SaveState::Rewind();
+		} else {
+			osm.Show(s->T("norewind", "No rewind save states available"), 2.0);
+		}
+		break;
 	}
 }
 
@@ -322,11 +325,11 @@ void EmuScreen::key(const KeyInput &key) {
 		pauseTrigger_ = true;
 	}
 
-	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
-	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
-		return;
-
-	pspKey(result, key.flags);
+	std::vector<int> pspKeys;
+	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+	for (size_t i = 0; i < pspKeys.size(); i++) {
+		pspKey(pspKeys[i], key.flags);
+	}
 }
 
 void EmuScreen::pspKey(int pspKeyCode, int flags) {
@@ -362,51 +365,58 @@ void EmuScreen::axis(const AxisInput &axis) {
 }
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
-	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction);
-	int resultOpposite = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction);
+	std::vector<int> results;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
+	std::vector<int> resultsOpposite;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
 
-	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
-		return;
+	for (size_t i = 0; i < results.size(); i++) {
+		int result = results[i];
+		switch (result) {
+		case VIRTKEY_AXIS_X_MIN:
+			__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_LEFT);
+			break;
+		case VIRTKEY_AXIS_X_MAX:
+			__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_LEFT);
+			break;
+		case VIRTKEY_AXIS_Y_MIN:
+			__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_LEFT);
+			break;
+		case VIRTKEY_AXIS_Y_MAX:
+			__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_LEFT);
+			break;
 
-	switch (result) {
-	case VIRTKEY_AXIS_X_MIN:
-		__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_LEFT);
-		break;
-	case VIRTKEY_AXIS_X_MAX:
-		__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_LEFT);
-		break;
-	case VIRTKEY_AXIS_Y_MIN:
-		__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_LEFT);
-		break;
-	case VIRTKEY_AXIS_Y_MAX:
-		__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_LEFT);
-		break;
+		case VIRTKEY_AXIS_RIGHT_X_MIN:
+			__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
+		case VIRTKEY_AXIS_RIGHT_X_MAX:
+			__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
+		case VIRTKEY_AXIS_RIGHT_Y_MIN:
+			__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
+		case VIRTKEY_AXIS_RIGHT_Y_MAX:
+			__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
+			break;
 
-	case VIRTKEY_AXIS_RIGHT_X_MIN:
-		__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
-	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-		__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
-	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
-		break;
+		default:
+			if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
+				pspKey(result, KEY_DOWN);
 
-	default:
-		if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
-			pspKey(result, KEY_DOWN);
-
-			// Also unpress the other direction.
-			result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1);
-			if (result != KEYMAP_ERROR_UNKNOWN_KEY)
+				// Also unpress the other direction.
+				std::vector<int> opposite;
+				KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1, &opposite);
+				for (size_t i = 0; i < opposite.size(); i++) {
+					pspKey(opposite[i], KEY_UP);
+				}
+				// Hm, why do we use a different way below?
+			} else {
+				// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
 				pspKey(result, KEY_UP);
-		} else {
-			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-			pspKey(result, KEY_UP);
-			pspKey(resultOpposite, KEY_UP);
+				for (size_t i = 0; i < resultsOpposite.size(); i++) {
+					pspKey(resultsOpposite[i], KEY_UP);
+				}
+			}
 		}
 	}
 }
@@ -456,13 +466,20 @@ void EmuScreen::update(InputState &input) {
 	UpdateUIState(UISTATE_INGAME);
 
 	if (errorMessage_.size()) {
+		// Special handling for ZIP files. It's not very robust to check an error message but meh,
+		// at least it's pre-translation.
+		if (errorMessage_.find("ZIP") != std::string::npos) {
+			screenManager()->push(new InstallZipScreen(gamePath_));
+			errorMessage_ = "";
+			return;
+		}
 		I18NCategory *g = GetI18NCategory("Error");
-		std::string errLoadingFile = g->T("Error loading file");
+		std::string errLoadingFile = g->T("Error loading file", "Could not load game");
+
 		errLoadingFile.append(" ");
 		errLoadingFile.append(g->T(errorMessage_.c_str()));
 
-		screenManager()->push(new PromptScreen(
-			errLoadingFile, "OK", ""));
+		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
 		errorMessage_ = "";
 		return;
 	}
@@ -608,11 +625,11 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "Speed: %0.1f%%", vps / 60.0f * 100.0f); break;
+			sprintf(fpsbuf, "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
 		case 2:
 			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / 60.0f * 100.0f); break;
+			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
 		default:
 			return;
 		}

@@ -17,20 +17,31 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
+#include "ext/vjson/json.h"
+#include "file/ini_file.h"
+#include "i18n/i18n.h"
+#include "gfx_es2/gpu_features.h"
+#include "net/http_client.h"
+#include "util/text/parsers.h"
+
+#include "Common/CPUDetect.h"
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Config.h"
-#include "file/ini_file.h"
-#include "i18n/i18n.h"
-#include "gfx_es2/gpu_features.h"
 #include "HLE/sceUtility.h"
-#include "Common/CPUDetect.h"
+
+#ifndef USING_QT_UI
+extern const char *PPSSPP_GIT_VERSION; 
+#endif
+
+// TODO: Find a better place for this.
+http::Downloader g_DownloadManager;
 
 Config g_Config;
 
 #ifdef IOS
-extern bool isJailed;
+extern bool iosCanUseJit;
 #endif
 
 Config::Config() { }
@@ -52,12 +63,15 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
 	general->Get("FirstRun", &bFirstRun, true);
+	general->Get("RunCount", &iRunCount, 0);
+	iRunCount++;
 	general->Get("Enable Logging", &bEnableLogging, true);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	general->Get("HomebrewStore", &bHomebrewStore, false);
 
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";
@@ -79,7 +93,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("RewindFlipFrequency", &iRewindFlipFrequency, 0);
 	general->Get("GridView1", &bGridView1, true);
 	general->Get("GridView2", &bGridView2, true);
-	general->Get("GridView3", &bGridView3, true);
+	general->Get("GridView3", &bGridView3, false);
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");
@@ -118,19 +132,15 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
-	cpu->Get("Jit", &bJit, !isJailed);
+	cpu->Get("Jit", &bJit, iosCanUseJit);
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
 	cpu->Get("AtomicAudioLocks", &bAtomicAudioLocks, false);
 
-#ifdef __SYMBIAN32__
-	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
-#else
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
-#endif
-	cpu->Get("FastMemory", &bFastMemory, false);
+	cpu->Get("FastMemoryAccess", &bFastMemory, true);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, 0);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
@@ -146,11 +156,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("SoftwareSkinning", &bSoftwareSkinning, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
-	// Auto on Windows, 1x elsewhere. Maybe change to 2x on large screens?
-#ifdef _WIN32
+	// Auto on Windows, 2x on large screens, 1x elsewhere.
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	graphics->Get("InternalResolution", &iInternalResolution, 0);
 #else
-	graphics->Get("InternalResolution", &iInternalResolution, 1);
+	graphics->Get("InternalResolution", &iInternalResolution, pixel_xres >= 1024 ? 2 : 1);
 #endif
 
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
@@ -170,17 +180,25 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iAnisotropyLevel = 4;
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
-	graphics->Get("VertexDecoderJit", &bVertexDecoderJit, true);
+#ifdef IOS
+	graphics->Get("VertexDecJit", &bVertexDecoderJit, iosCanUseJit);
+#else
+	graphics->Get("VertexDecJit", &bVertexDecoderJit, true);
+#endif
 
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
 #endif
+	bool partialStretchDefault = false;
 #ifdef BLACKBERRY
-	graphics->Get("PartialStretch", &bPartialStretch, pixel_xres == pixel_yres);
+	partialStretchDefault = pixel_xres < 1.3 * pixel_yres;
 #endif
+	graphics->Get("PartialStretch", &bPartialStretch, partialStretchDefault);
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
-	graphics->Get("MipMap", &bMipMap, true);
+
+	graphics->Get("MipMap", &bMipMap, false);
+
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
@@ -194,7 +212,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("TimerHack", &bTimerHack, false);
 #endif
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
-	graphics->Get("WipeFramebufferAlpha", &bWipeFramebufferAlpha, false);
 	graphics->Get("PostShader", &sPostShaderName, "Off");
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
@@ -241,29 +258,38 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("DeadzoneRadius", &fDeadzoneRadius, 0.35);
 
 #endif
+	control->Get("DisableDpadDiagonals", &bDisableDpadDiagonals, false);
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
-	control->Get("ButtonScale", &fButtonScale, 1.15);
 	//set these to -1 if not initialized. initializing these
 	//requires pixel coordinates which is not known right now.
 	//will be initialized in GamepadEmu::CreatePadLayout
-	control->Get("ActionButtonSpacing", &iActionButtonSpacing, -1);
+	float defaultScale = 1.15f;
+	control->Get("ActionButtonSpacing2", &fActionButtonSpacing, 1.0f);
 	control->Get("ActionButtonCenterX", &fActionButtonCenterX, -1.0);
 	control->Get("ActionButtonCenterY", &fActionButtonCenterY, -1.0);
-	control->Get("DPadRadius", &iDpadRadius, -1);
+	control->Get("ActionButtonScale", &fActionButtonScale, defaultScale);
 	control->Get("DPadX", &fDpadX, -1.0);
 	control->Get("DPadY", &fDpadY, -1.0);
+	control->Get("DPadScale", &fDpadScale, defaultScale);
+	control->Get("DPadSpacing", &fDpadSpacing, 1.0f);
 	control->Get("StartKeyX", &fStartKeyX, -1.0);
 	control->Get("StartKeyY", &fStartKeyY, -1.0);
+	control->Get("StartKeyScale", &fStartKeyScale, defaultScale);
 	control->Get("SelectKeyX", &fSelectKeyX, -1.0);
 	control->Get("SelectKeyY", &fSelectKeyY, -1.0);
+	control->Get("SelectKeyScale", &fSelectKeyScale, defaultScale);
 	control->Get("UnthrottleKeyX", &fUnthrottleKeyX, -1.0);
 	control->Get("UnthrottleKeyY", &fUnthrottleKeyY, -1.0);
+	control->Get("UnthrottleKeyScale", &fUnthrottleKeyScale, defaultScale);
 	control->Get("LKeyX", &fLKeyX, -1.0);
 	control->Get("LKeyY", &fLKeyY, -1.0);
+	control->Get("LKeyScale", &fLKeyScale, defaultScale);
 	control->Get("RKeyX", &fRKeyX, -1.0);
 	control->Get("RKeyY", &fRKeyY, -1.0);
+	control->Get("RKeyScale", &fRKeyScale, defaultScale);
 	control->Get("AnalogStickX", &fAnalogStickX, -1.0);
 	control->Get("AnalogStickY", &fAnalogStickY, -1.0);
+	control->Get("AnalogStickScale", &fAnalogStickScale, defaultScale);
 
 	// MIGRATION: For users who had the old static touch layout, aren't I nice?
 	if (fDpadX > 1.0 || fDpadY > 1.0) // Likely the rest are too!
@@ -285,9 +311,19 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		fAnalogStickX /= dp_xres;
 		fAnalogStickY /= dp_yres;
 	}
+
+	IniFile::Section *network = iniFile.GetOrCreateSection("Network");
+	network->Get("EnableWlan", &bEnableWlan, false);
 	
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+#ifndef ANDROID
+	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
+#else
+	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT);
+#endif
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
+	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
+	pspConfig->Get("MacAddress", &localMacAddress, "01:02:03:04:05:06");
 	pspConfig->Get("Language", &iLanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
@@ -327,6 +363,24 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	IniFile::Section *jitConfig = iniFile.GetOrCreateSection("JIT");
 	jitConfig->Get("DiscardRegsOnJRRA", &bDiscardRegsOnJRRA, false);
 
+	IniFile::Section *upgrade = iniFile.GetOrCreateSection("Upgrade");
+	upgrade->Get("UpgradeMessage", &upgradeMessage, "");
+	upgrade->Get("UpgradeVersion", &upgradeVersion, "");
+	upgrade->Get("DismissedVersion", &dismissedVersion, "");
+	
+	if (dismissedVersion == upgradeVersion) {
+		upgradeMessage = "";
+	}
+
+	// Check for new version on every 5 runs.
+	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
+	// splash screen quickly), but then we'll just show the notification next time instead, we store the
+	// upgrade number in the ini.
+	if (iRunCount % 5 == 0) {
+		g_DownloadManager.StartDownloadWithCallback(
+			"http://www.ppsspp.org/version.json", "", &DownloadCompletedCallback);
+	}
+
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
@@ -351,10 +405,11 @@ void Config::Save() {
 		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
-		
+
 		// Need to do this somewhere...
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
+		general->Set("RunCount", iRunCount);
 		general->Set("Enable Logging", bEnableLogging);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);
@@ -381,10 +436,10 @@ void Config::Save() {
 		general->Set("GridView1", bGridView1);
 		general->Set("GridView2", bGridView2);
 		general->Set("GridView3", bGridView3);
-		
+
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
-	
+
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
 			sprintf(keyName,"FileName%d",i);
@@ -392,15 +447,15 @@ void Config::Save() {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
 				recent->Delete(keyName); // delete the nonexisting FileName
-			} 
+			}
 		}
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
-		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);	
+		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);
 		cpu->Set("SeparateIOThread", bSeparateIOThread);
-		cpu->Set("FastMemory", bFastMemory);
+		cpu->Set("FastMemoryAccess", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
@@ -417,13 +472,10 @@ void Config::Save() {
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
-		graphics->Set("VertexDecoderJit", bVertexDecoderJit);
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
-#endif		
-#ifdef BLACKBERRY
-		graphics->Set("PartialStretch", bPartialStretch);
 #endif
+		graphics->Set("PartialStretch", bPartialStretch);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
@@ -458,7 +510,6 @@ void Config::Save() {
 		control->Set("ShowTouchUnthrottle", bShowTouchUnthrottle);
 		control->Set("ShowTouchDpad", bShowTouchDpad);
 
-		// control->Set("KeyMapping",iMappingMap);
 #ifdef USING_GLES2
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("TiltBaseX", fTiltBaseX);
@@ -469,30 +520,44 @@ void Config::Save() {
 		control->Set("TiltSensitivityY", iTiltSensitivityY);
 		control->Set("DeadzoneRadius", fDeadzoneRadius);
 #endif
+		control->Set("DisableDpadDiagonals", bDisableDpadDiagonals);
+
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
-		control->Set("ButtonScale", fButtonScale);
-		control->Set("ActionButtonSpacing", iActionButtonSpacing);
+		control->Set("ActionButtonScale", fActionButtonScale);
+		control->Set("ActionButtonSpacing2", fActionButtonSpacing);
 		control->Set("ActionButtonCenterX", fActionButtonCenterX);
 		control->Set("ActionButtonCenterY", fActionButtonCenterY);
-		control->Set("DPadRadius", iDpadRadius);
 		control->Set("DPadX", fDpadX);
 		control->Set("DPadY", fDpadY);
+		control->Set("DPadScale", fDpadScale);
+		control->Set("DPadSpacing", fDpadSpacing);
 		control->Set("StartKeyX", fStartKeyX);
 		control->Set("StartKeyY", fStartKeyY);
+		control->Set("StartKeyScale", fStartKeyScale);
 		control->Set("SelectKeyX", fSelectKeyX);
 		control->Set("SelectKeyY", fSelectKeyY);
+		control->Set("SelectKeyScale", fSelectKeyScale);
 		control->Set("UnthrottleKeyX", fUnthrottleKeyX);
 		control->Set("UnthrottleKeyY", fUnthrottleKeyY);
+		control->Set("UnthrottleKeyScale", fUnthrottleKeyScale);
 		control->Set("LKeyX", fLKeyX);
 		control->Set("LKeyY", fLKeyY);
+		control->Set("LKeyScale", fLKeyScale);
 		control->Set("RKeyX", fRKeyX);
 		control->Set("RKeyY", fRKeyY);
+		control->Set("RKeyScale", fRKeyScale);
 		control->Set("AnalogStickX", fAnalogStickX);
 		control->Set("AnalogStickY", fAnalogStickY);
+		control->Set("AnalogStickScale", fAnalogStickScale);
 
+		IniFile::Section *network = iniFile.GetOrCreateSection("Network");
+		network->Set("EnableWlan", bEnableWlan);
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+		pspConfig->Set("PSPModel", iPSPModel);
 		pspConfig->Set("NickName", sNickName.c_str());
+		pspConfig->Set("proAdhocServer", proAdhocServer.c_str());
+		pspConfig->Set("MacAddress", localMacAddress.c_str());
 		pspConfig->Set("Language", iLanguage);
 		pspConfig->Set("TimeFormat", iTimeFormat);
 		pspConfig->Set("DateFormat", iDateFormat);
@@ -529,6 +594,12 @@ void Config::Save() {
 		speedhacks->Set("PrescaleUV", bPrescaleUV);
 		speedhacks->Set("DisableAlphaTest", bDisableAlphaTest);
 
+		// Save upgrade check state
+		IniFile::Section *upgrade = iniFile.GetOrCreateSection("Upgrade");
+		upgrade->Set("UpgradeMessage", upgradeMessage);
+		upgrade->Set("UpgradeVersion", upgradeVersion);
+		upgrade->Set("DismissedVersion", dismissedVersion);
+
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
 			return;
@@ -552,9 +623,67 @@ void Config::Save() {
 	}
 }
 
+// Use for debugging the version check without messing with the server
+#if 0
+#define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
+#endif
+
+void Config::DownloadCompletedCallback(http::Download &download) {
+	if (download.ResultCode() != 200) {
+		ERROR_LOG(LOADER, "Failed to download version.json");
+		return;
+	}
+	std::string data;
+	download.buffer().TakeAll(&data);
+	if (data.empty()) {
+		ERROR_LOG(LOADER, "Version check: Empty data from server!");
+		return;
+	}
+
+	JsonReader reader(data.c_str(), data.size());
+	const json_value *root = reader.root();
+	std::string version = root->getString("version", "");
+
+	const char *gitVer = PPSSPP_GIT_VERSION;
+	Version installed(gitVer);
+	Version upgrade(version);
+	Version dismissed(g_Config.dismissedVersion);
+
+	if (!installed.IsValid()) {
+		ERROR_LOG(LOADER, "Version check: Local version string invalid. Build problems? %s", PPSSPP_GIT_VERSION);
+		return;
+	}
+	if (!upgrade.IsValid()) {
+		ERROR_LOG(LOADER, "Version check: Invalid server version: %s", version.c_str());
+		return;
+	}
+
+	if (installed >= upgrade) {
+		INFO_LOG(LOADER, "Version check: Already up to date, erasing any upgrade message");
+		g_Config.upgradeMessage = "";
+		g_Config.upgradeVersion = upgrade.ToString();
+		g_Config.dismissedVersion = "";
+		return;
+	}
+
+	if (installed < upgrade && dismissed != upgrade) {
+		g_Config.upgradeMessage = "New version of PPSSPP available!";
+		g_Config.upgradeVersion = upgrade.ToString();
+		g_Config.dismissedVersion = "";
+	}
+}
+
+void Config::DismissUpgrade() {
+	g_Config.dismissedVersion = g_Config.upgradeVersion;
+}
+
 void Config::AddRecent(const std::string &file) {
-	for (auto str = recentIsos.begin(); str != recentIsos.end(); str++) {
-		if (*str == file) {
+	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
+#ifdef _WIN32
+		if (!strcmpIgnore((*str).c_str(), file.c_str(), "\\", "/")) {
+#else
+		if (!strcmp((*str).c_str(), file.c_str())) {
+#endif
 			recentIsos.erase(str);
 			recentIsos.insert(recentIsos.begin(), file);
 			if ((int)recentIsos.size() > iMaxRecent)
@@ -570,15 +699,15 @@ void Config::AddRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		if (File::Exists(recentIsos[i])){
+		if (File::Exists(recentIsos[i])) {
 			// clean the redundant recent games' list.
-			if (cleanedRecent.size()==0){ // add first one
-					cleanedRecent.push_back(recentIsos[i]);
+			if (cleanedRecent.size()==0) { // add first one
+				cleanedRecent.push_back(recentIsos[i]);
 			}
-			for (size_t j=0; j<cleanedRecent.size();j++){
-				if (cleanedRecent[j]==recentIsos[i])
+			for (size_t j = 0; j < cleanedRecent.size();j++) {
+				if (cleanedRecent[j] == recentIsos[i])
 					break; // skip if found redundant
-				if (j==cleanedRecent.size()-1){ // add if no redundant found
+				if (j == cleanedRecent.size() - 1){ // add if no redundant found
 					cleanedRecent.push_back(recentIsos[i]);
 				}
 			}

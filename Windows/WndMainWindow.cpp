@@ -46,6 +46,8 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -67,11 +69,31 @@
 #include "Core/HLE/sceUtility.h"
 #include "GPU/Common/PostShader.h"
 
+#include "Core/HLE/sceUmd.h"
+
 #ifdef THEMES
 #include "XPTheme.h"
 #endif
 
 #define ENABLE_TOUCH 0
+
+int verysleepy__useSendMessage = 1;
+
+const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
+// Respond TRUE to a message with this param value to indicate support.
+const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
+// Respond TRUE to a message wit this param value after filling in the addr name.
+const WPARAM VERYSLEEPY_WPARAM_GETADDRINFO = 1;
+
+struct VerySleepy_AddrInfo
+{
+	// Always zero for now.
+	int flags;
+	// This is the pointer (always passed as 64 bits.)
+	unsigned long long addr;
+	// Write the name here.
+	wchar_t name[256];
+};
 
 extern std::map<int, int> windowsTransTable;
 static RECT g_normalRC = {0};
@@ -372,6 +394,7 @@ namespace MainWindow
 
 	void SetIngameMenuItemStates(const GlobalUIState state) {
 		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
+		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit()? MF_ENABLED : MF_GRAYED;
 
 		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, menuEnable);
 		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, menuEnable);
@@ -380,6 +403,7 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
 	}
 
 	// These are used as an offset
@@ -468,7 +492,7 @@ namespace MainWindow
 
 	void CreateShadersSubmenu() {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
-		
+		I18NCategory *ps = GetI18NCategory("PostShaders");
 		const std::wstring key = ConvertUTF8ToWString(des->T("Postprocessing Shader"));
 
 		HMENU optionsMenu = GetSubMenu(menu, MENU_OPTIONS);
@@ -484,6 +508,8 @@ namespace MainWindow
 		int item = ID_SHADERS_BASE + 1;
 		int checkedStatus = -1;
 
+		const char *translatedShaderName = nullptr;
+
 		for (auto i = info.begin(); i != info.end(); ++i) {
 			checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
@@ -491,7 +517,9 @@ namespace MainWindow
 				checkedStatus = MF_CHECKED;
 			}
 
-			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(i->name).c_str());
+			translatedShaderName = ps->T(i->section.c_str());
+
+			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		}
 	}
 
@@ -547,7 +575,8 @@ namespace MainWindow
 		// Emulation menu
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", "Pause");
 		TranslateMenuItem(ID_EMULATION_STOP,  L"\tCtrl+W");
-		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");	
+		TranslateMenuItem(ID_EMULATION_RESET, L"\tCtrl+B");
+		TranslateMenuItem(ID_EMULATION_SWITCH_UMD, L"\tCtrl+U", "Switch UMD");
 		
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
@@ -846,6 +875,21 @@ namespace MainWindow
 		else {
 			if (!isPaused)
 				Core_EnableStepping(false);
+		}
+	}
+
+	void UmdSwitchAction() {
+		std::string fn;
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
+		
+		for (int i=0; i<(int)filter.length(); i++) {
+			if (filter[i] == '|')
+				filter[i] = '\0';
+		}
+
+		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch Umd", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn)) {
+			fn = ReplaceAll(fn, "\\", "/");
+			__UmdReplace(fn);
 		}
 	}
 
@@ -1149,6 +1193,9 @@ namespace MainWindow
 				case ID_EMULATION_RESET:
 					NativeMessageReceived("reset", "");
 					Core_EnableStepping(false);
+					break;
+				case ID_EMULATION_SWITCH_UMD:
+					UmdSwitchAction();
 					break;
 
 				case ID_EMULATION_CHEATS:
@@ -1495,6 +1542,55 @@ namespace MainWindow
 				}
 			}
 			return 0;
+
+		case WM_VERYSLEEPY_MSG:
+			switch (wParam) {
+			case VERYSLEEPY_WPARAM_SUPPORTED:
+				return TRUE;
+
+			case VERYSLEEPY_WPARAM_GETADDRINFO:
+				{
+					VerySleepy_AddrInfo *info = (VerySleepy_AddrInfo *)lParam;
+					const u8 *ptr = (const u8 *)info->addr;
+					if (MIPSComp::jit) {
+						JitBlockCache *blocks = MIPSComp::jit->GetBlockCache();
+						u32 jitAddr = blocks->GetAddressFromBlockPtr(ptr);
+
+						// Returns 0 when it's valid, but unknown.
+						if (jitAddr == 0) {
+							wcscpy_s(info->name, L"Jit::UnknownOrDeletedBlock");
+							return TRUE;
+						}
+						if (jitAddr != (u32)-1) {
+							const char *label = symbolMap.GetDescription(jitAddr);
+							if (label != NULL) {
+								swprintf_s(info->name, L"Jit::%08x_%S", jitAddr, label);
+							} else {
+								swprintf_s(info->name, L"Jit::%08x", jitAddr);
+							}
+							return TRUE;
+						}
+
+						// Perhaps it's in jit the dispatch runloop.
+						if (MIPSComp::jit->IsInDispatch(ptr)) {
+							wcscpy_s(info->name, L"Jit::RunLoopUntil");
+							return TRUE;
+						}
+					}
+					if (gpu) {
+						std::string name;
+						if (gpu->DescribeCodePtr(ptr, name)) {
+							swprintf_s(info->name, L"GPU::%S", name.c_str());
+							return TRUE;
+						}
+					}
+				}
+				return FALSE;
+
+			default:
+				return FALSE;
+			}
+			break;
 
 		case WM_DROPFILES:
 			{

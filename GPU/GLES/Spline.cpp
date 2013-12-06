@@ -736,8 +736,22 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
+	UVScale prevUVScale;
+	if (g_Config.bPrescaleUV) {
+		// We scaled during Normalize already so let's turn it off when drawing.
+		prevUVScale = gstate_c.uv;
+		gstate_c.uv.uScale = 1.0f;
+		gstate_c.uv.vScale = 1.0f;
+		gstate_c.uv.uOff = 0;
+		gstate_c.uv.vOff = 0;
+	}
 	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
+
 	Flush();
+
+	if (g_Config.bPrescaleUV) {
+		gstate_c.uv = prevUVScale;
+	}
 }
 
 void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
@@ -811,6 +825,20 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
+	UVScale prevUVScale;
+	if (g_Config.bPrescaleUV) {
+		// We scaled during Normalize already so let's turn it off when drawing.
+		prevUVScale = gstate_c.uv;
+		gstate_c.uv.uScale = 1.0f;
+		gstate_c.uv.vScale = 1.0f;
+		gstate_c.uv.uOff = 0;
+		gstate_c.uv.vOff = 0;
+	}
+
 	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
 	Flush();
+
+	if (g_Config.bPrescaleUV) {
+		gstate_c.uv = prevUVScale;
+	}
 }

@@ -70,6 +70,9 @@ enum ARMReg
 	// ASIMD Quad-Word registers
 	Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7,
 	Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15,
+
+	// for NEON VLD/VST instructions
+	REG_UPDATE = R13,
 	INVALID_REG = 0xFFFFFFFF
 };
 
@@ -359,8 +362,16 @@ const u32 I_POLYNOMIAL = (1 << 7); // Only used in VMUL/VMULL
 u32 EncodeVd(ARMReg Vd);
 u32 EncodeVn(ARMReg Vn);
 u32 EncodeVm(ARMReg Vm);
+
+u32 encodedSize(u32 value);
+
 // Subtracts the base from the register to give us the real one
 ARMReg SubBase(ARMReg Reg);
+
+// See A.7.1 in the ARMv7-A
+// VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
+ARMReg DScalar(ARMReg dreg, int subScalar);
+ARMReg QScalar(ARMReg qreg, int subScalar);
 
 enum NEONAlignment {
 	ALIGN_NONE = 0,
@@ -394,6 +405,9 @@ private:
 
 	// New Ops
 	void WriteInstruction(u32 op, ARMReg Rd, ARMReg Rn, Operand2 Rm, bool SetFlags = false);
+
+	void WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
+	void WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
 
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
@@ -528,6 +542,7 @@ public:
 	void BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width);
 	void UBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
 	void CLZ(ARMReg rd, ARMReg rm);
+	void PLD(ARMReg rd, int offset, bool forWrite = false);
 
 	// Using just MSR here messes with our defines on the PPC side of stuff (when this code was in dolphin...)
 	// Just need to put an underscore here, bit annoying.
@@ -644,12 +659,38 @@ public:
 	void VHSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMAX(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMIN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+
+	// Three registers
 	void VMLA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLS(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLAL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLSL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMUL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLAL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLSL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQRDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+
+	// Two registers and a scalar
+	// These two are super useful for matrix multiplication
+	void VMUL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLA_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	
+	// TODO:
+	/*
+	void VMLS_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLAL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLSL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMULL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLAL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMLSL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULH_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQDMULL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VQRDMULH_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	*/
+
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VORN(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -660,12 +701,7 @@ public:
 	void VPMIN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQABS(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VQADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMLAL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMLSL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VQDMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQNEG(u32 Size, ARMReg Vd, ARMReg Vm);
-	void VQRDMULH(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQRSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VQSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -692,10 +728,52 @@ public:
 	void VREV32(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VREV16(u32 Size, ARMReg Vd, ARMReg Vm);
 
-	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
 
-	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	// Widening and narrowing moves
+	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+
+	// Vector VCVT
+	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);
+
+
+	// Notes:
+	// Rm == _PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
+	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!    Added a REG_UPDATE pseudo register.
+
+	// Load/store multiple registers full of elements (a register is a D register)
+	// Specifying alignment when it can be guaranteed is documented to improve load/store performance.
+	// For example, when loading a set of four 64-bit registers that we know is 32-byte aligned, we should specify ALIGN_256.
+	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+
+	// Load/store single lanes of D registers
+	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
+	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
+
+	// Load one value into all lanes of a D or a Q register (either supported, all formats should work). 
+	void VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm = _PC);
+
+	/*
+	// Deinterleave two loads... or something. TODO
+	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+
+	void VLD2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+
+	void VLD3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+
+	void VLD3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+
+	void VLD4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VST4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+
+	void VLD4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VST4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	*/
 
 	void VMRS_APSR();
 	void VMRS(ARMReg Rt);
@@ -707,27 +785,16 @@ public:
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
+	// Load pointers without casting
+	template <class T> void MOVP2R(ARMReg reg, T *val) {
+		MOVI2R(reg, (u32)(intptr_t)(void *)val);
+	}
+
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
 	void TSTI2R(ARMReg rs, u32 val, ARMReg scratch);
 	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
-
-	inline u32 encodedSize(u32 value)
-	{
-		if (value & I_8)
-			return 0;
-		else if (value & I_16)
-			return 1;
-		else if ((value & I_32) || (value & F_32))
-			return 2;
-		else if (value & I_64)
-			return 3;
-		else
-			_dbg_assert_msg_(JIT, false, "Passed invalid size to integer NEON instruction");
-		return 0;
-	}
-
 };  // class ARMXEmitter
 
 
@@ -773,7 +840,7 @@ public:
 		region_size = 0;
 	}
 
-	bool IsInSpace(u8 *ptr)
+	bool IsInSpace(const u8 *ptr) const
 	{
 		return ptr >= region && ptr < region + region_size;
 	}
@@ -803,7 +870,7 @@ public:
 		return region;
 	}
 
-	size_t GetOffset(u8 *ptr) {
+	size_t GetOffset(const u8 *ptr) const {
 		return ptr - region;
 	}
 };

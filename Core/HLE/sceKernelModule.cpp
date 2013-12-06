@@ -47,6 +47,8 @@
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
+#include "GPU/GPUState.h"
+
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
@@ -257,7 +259,7 @@ public:
 		// Add the symbol to the symbol map for debugging.
 		char temp[256];
 		sprintf(temp,"zz_%s", GetFuncName(func.moduleName, func.nid));
-		symbolMap.AddSymbol(temp, func.stubAddr, 8, ST_FUNCTION);
+		symbolMap.AddFunction(temp,func.stubAddr,8);
 
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
@@ -692,7 +694,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 	*magic = *magicPtr;
 	if (*magic == 0x5053507e) { // "~PSP"
-		INFO_LOG(SCEMODULE, "Decrypting ~PSP file");
+		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
 		const u8 *in = ptr;
 		u32 size = head->elf_size;
@@ -714,9 +716,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 			return module;
-		}
-		else if (ret <= 0)
-		{
+		} else if (ret <= 0) {
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
 			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
@@ -836,6 +836,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u32_le *entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
 	u32_le *entryEnd = (u32_le *)Memory::GetPointer(modinfo->libstubend);
 
+	u32_le firstImportStubAddr = 0;
+
 	bool needReport = false;
 	while (entryPos < entryEnd) {
 		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
@@ -880,6 +882,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				func.stubAddr = entry->firstSymAddr + i * 8;
 				module->ImportFunc(func);
 			}
+
+			if (!firstImportStubAddr || firstImportStubAddr > entry->firstSymAddr)
+				firstImportStubAddr = entry->firstSymAddr;
 		} else if (entry->numFuncs > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
 			needReport = true;
@@ -941,6 +946,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 
 		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
+	}
+
+	if (textSection == -1) {
+		u32 textStart = reader.GetVaddr();
+		u32 textEnd = firstImportStubAddr - 4;
+#if !defined(USING_GLES2)
+		if (!reader.LoadSymbols())
+			MIPSAnalyst::ScanForFunctions(textStart, textEnd);
+#endif
 	}
 
 	// Look at the exports, too.
@@ -1223,6 +1237,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		//HLE needs to be reset here
 		HLEShutdown();
 		HLEInit();
+		GPU_Reinitialize();
 	}
 
 	__KernelModuleInit();
@@ -1785,6 +1800,30 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 	return 0;
 }
 
+u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
+{
+	ERROR_LOG(SCEMODULE, "UNTESTED sceKernelGetModuleIdList(%08x, %i, %08x)", resultBuffer, resultBufferSize, idCountAddr);
+	
+	int idCount = 0;
+	u32 resultBufferOffset = 0;
+
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {		
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module->isFake) {
+			if (resultBufferOffset < (int)resultBufferSize) {
+				Memory::Write_U32(module->GetUID(), resultBuffer + resultBufferOffset);
+				resultBufferOffset += 4;
+			}
+			idCount++;
+		}
+	}
+
+	Memory::Write_U32(idCount, idCountAddr);
+	
+	return 0;
+}
+
 u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
 {
 	WARN_LOG(SCEMODULE,"Not support this patcher");
@@ -1820,7 +1859,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
-	{0x644395e2,0,"sceKernelGetModuleIdList"},
+	{0x644395e2,WrapU_UUU<sceKernelGetModuleIdList>,"sceKernelGetModuleIdList"},
 	{0xf2d8d1b4,&WrapU_CUU<sceKernelLoadModuleNpDrm>,"sceKernelLoadModuleNpDrm"},
 	{0xe4c4211c,0,"ModuleMgrForUser_E4C4211C"},
 	{0xfbe27467,0,"ModuleMgrForUser_FBE27467"},

@@ -81,6 +81,12 @@ void GPU_Shutdown() {
 	gpuDebug = 0;
 }
 
+void GPU_Reinitialize() {
+	if (gpu) {
+		gpu->Reinitialize();
+	}
+}
+
 void InitGfxState() {
 	memset(&gstate, 0, sizeof(gstate));
 	memset(&gstate_c, 0, sizeof(gstate_c));

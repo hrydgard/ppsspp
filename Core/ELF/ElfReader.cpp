@@ -29,7 +29,7 @@ const char *ElfReader::GetSectionName(int section)
 		return 0;
 
 	int nameOffset = sections[section].sh_name;
-	char *ptr = (char*)GetSectionDataPtr(header->e_shstrndx);
+	const char *ptr = (const char *)GetSectionDataPtr(header->e_shstrndx);
 
 	if (ptr)
 		return ptr + nameOffset;
@@ -544,7 +544,6 @@ int ElfReader::LoadInto(u32 loadAddress)
 		}
 	}
 
-	NOTICE_LOG(LOADER,"ELF loading completed successfully.");
 	return SCE_KERNEL_ERROR_OK;
 }
 
@@ -592,18 +591,18 @@ bool ElfReader::LoadSymbols()
 
 			if (bRelocate)
 				value += sectionAddrs[sectionIndex];
-			SymbolType symtype = ST_DATA;
 
 			switch (type)
 			{
 			case STT_OBJECT:
-				symtype = ST_DATA; break;
+				symbolMap.AddData(value,size,DATATYPE_BYTE);
+				break;
 			case STT_FUNC:
-				symtype = ST_FUNCTION; break;
+				symbolMap.AddFunction(name,value,size);
+				break;
 			default:
 				continue;
 			}
-			symbolMap.AddSymbol(name, value, size, symtype);
 			hasSymbols = true;
 			//...
 		}

@@ -41,6 +41,7 @@
 #include "HLE/sceKernelModule.h"
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
+#include "Core/Config.h"
 
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
@@ -72,6 +73,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 	pspFileSystem.Mount("umd1:", umd2);
 	pspFileSystem.Mount("disc0:", umd2);
 	pspFileSystem.Mount("umd:", umd2);
+
 	std::string gameID;
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");

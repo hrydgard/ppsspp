@@ -238,6 +238,63 @@ namespace MIPSAnalyst {
 		}
 	}
 
+	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
+		static const u32 MAX_AHEAD_SCAN = 0x1000;
+		// Maybe a bit high... just to make sure we don't get confused by recursive tail recursion.
+		static const u32 MAX_FUNC_SIZE = 0x20000;
+
+		if (fromAddr > knownEnd + MAX_FUNC_SIZE) {
+			return INVALIDTARGET;
+		}
+
+		// Code might jump halfway up to before fromAddr, but after knownEnd.
+		// In that area, there could be another jump up to the valid range.
+		// So we track that for a second scan.
+		u32 closestJumpbackAddr = INVALIDTARGET;
+		u32 closestJumpbackTarget = fromAddr;
+
+		// We assume the furthest jumpback is within the func.
+		u32 furthestJumpbackAddr = INVALIDTARGET;
+
+		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
+			u32 target = GetBranchTargetNoRA(ahead);
+			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
+				target = GetJumpTarget(ahead);
+			}
+
+			if (target != INVALIDTARGET) {
+				// Only if it comes back up to known code within this func.
+				if (target >= knownStart && target <= knownEnd) {
+					furthestJumpbackAddr = ahead;
+				}
+				// But if it jumps above fromAddr, we should scan that area too...
+				if (target < closestJumpbackTarget && target < fromAddr && target > knownEnd) {
+					closestJumpbackAddr = ahead;
+					closestJumpbackTarget = target;
+				}
+			}
+		}
+
+		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
+			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
+				u32 target = GetBranchTargetNoRA(behind);
+				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
+					target = GetJumpTarget(behind);
+				}
+
+				if (target != INVALIDTARGET) {
+					if (target >= knownStart && target <= knownEnd) {
+						furthestJumpbackAddr = closestJumpbackAddr;
+					}
+				}
+			}
+		}
+
+		return furthestJumpbackAddr;
+	}
+
 	void ScanForFunctions(u32 startAddr, u32 endAddr /*, std::vector<u32> knownEntries*/) {
 		Function currentFunction = {startAddr};
 
@@ -248,8 +305,17 @@ namespace MIPSAnalyst {
 		u32 addr;
 		for (addr = startAddr; addr <= endAddr; addr+=4) {
 			SymbolInfo syminfo;
-			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION) && syminfo.size >= 4) {
-				addr = syminfo.address + syminfo.size;
+			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
+				addr = syminfo.address + syminfo.size - 4;
+
+				// We still need to insert the func for hashing purposes.
+				currentFunction.start = syminfo.address;
+				currentFunction.end = syminfo.address + syminfo.size - 4;
+				functions.push_back(currentFunction);
+				currentFunction.start = addr + 4;
+				furthestBranch = 0;
+				looking = false;
+				end = false;
 				continue;
 			}
 
@@ -260,11 +326,37 @@ namespace MIPSAnalyst {
 				if (target > furthestBranch) {
 					furthestBranch = target;
 				}
+			} else if ((op & 0xFC000000) == 0x08000000) {
+				u32 sureTarget = GetJumpTarget(addr);
+				// Check for a tail call.  Might not even have a jr ra.
+				if (sureTarget != INVALIDTARGET && sureTarget < currentFunction.start) {
+					if (furthestBranch > addr) {
+						looking = true;
+						addr += 4;
+					} else {
+						end = true;
+					}
+				} else if (sureTarget != INVALIDTARGET && sureTarget > addr && sureTarget > furthestBranch) {
+					// A jump later.  Probably tail, but let's check if it jumps back.
+					u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+					u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
+					if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
+						furthestBranch = jumpback;
+					} else {
+						if (furthestBranch > addr) {
+							looking = true;
+							addr += 4;
+						} else {
+							end = true;
+						}
+					}
+				}
 			}
 			if (op == MIPS_MAKE_JR_RA()) {
-				if (furthestBranch >= addr) {
+				// If a branch goes to the jr ra, it's still ending here.
+				if (furthestBranch > addr) {
 					looking = true;
-					addr+=4;
+					addr += 4;
 				} else {
 					end = true;
 				}
@@ -273,14 +365,22 @@ namespace MIPSAnalyst {
 			if (looking) {
 				if (addr >= furthestBranch) {
 					u32 sureTarget = GetSureBranchTarget(addr);
+					// Regular j only, jals are to new funcs.
+					if (sureTarget == INVALIDTARGET && ((op & 0xFC000000) == 0x08000000)) {
+						sureTarget = GetJumpTarget(addr);
+					}
+
 					if (sureTarget != INVALIDTARGET && sureTarget < addr) {
 						end = true;
+					} else if (sureTarget != INVALIDTARGET) {
+						// Okay, we have a downward jump.  Might be an else or a tail call...
+						// If there's a jump back upward in spitting distance of it, it's an else.
+						u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+						u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
+						if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
+							furthestBranch = jumpback;
+						}
 					}
-					sureTarget = GetJumpTarget(addr);
-					if (sureTarget != INVALIDTARGET && sureTarget < addr && ((op&0xFC000000)==0x08000000)) {
-						end = true;
-					}
-					//end = true;
 				}
 			}
 			if (end) {
@@ -302,7 +402,7 @@ namespace MIPSAnalyst {
 			(*iter).size = ((*iter).end-(*iter).start+4);
 			char temp[256];
 			sprintf(temp,"z_un_%08x",(*iter).start);
-			symbolMap.AddSymbol(std::string(temp).c_str(), (*iter).start,(*iter).end-(*iter).start+4,ST_FUNCTION);
+			symbolMap.AddFunction(temp,(*iter).start,(*iter).end-(*iter).start+4);
 		}
 		HashFunctions();
 	}

@@ -18,6 +18,9 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+void System_SendMessage(const char *command, const char *parameter) {
+}
+
 void Vibrate(int length_ms) {
 	// TODO: Haptic feedback?
 }

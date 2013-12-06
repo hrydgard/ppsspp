@@ -255,6 +255,22 @@ void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system)
 	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
 }
 
+void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
+	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
+		if (it->system == oldSystem) {
+			it->system = newSystem;
+		}
+	}
+}
+
+IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
+	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
+		if (it->prefix == prefix)
+			return it->system;
+	}
+	return NULL;
+}
+
 void MetaFileSystem::Shutdown()
 {
 	lock_guard guard(lock);

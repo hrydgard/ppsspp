@@ -192,13 +192,14 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {
+	I18NCategory *ps = GetI18NCategory("PostShaders");
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sPostShaderName)
 			selected = i;
-		items.push_back(shaders_[i].name);
+		items.push_back(ps->T(shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 }
@@ -230,7 +231,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		if (tempLangs[i].name.find("README") != std::string::npos) {
 			continue;
 		}
-		
+
 #ifndef _WIN32
 		// ar_AE only works on Windows.
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
@@ -268,7 +269,6 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
 	std::string oldLang = g_Config.sLanguageIni;
-	
 	std::string iniFile = langs_[listView_->GetSelected()].name;
 
 	size_t dot = iniFile.find('.');
@@ -280,7 +280,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		return;
 
 	g_Config.sLanguageIni = code;
-	
+
 	if (i18nrepo.LoadIni(g_Config.sLanguageIni)) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {

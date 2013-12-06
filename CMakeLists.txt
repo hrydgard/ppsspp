@@ -10,13 +10,17 @@ if(ANDROID)
 endif()
 
 if(BLACKBERRY)
-	set(CMAKE_SYSTEM_NAME "QNX")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_CONSTANT_MACROS")
 endif()
 
 if (IOS OR BLACKBERRY)
-	set(ARM ON)
-	set(USE_FFMPEG ON)
+	if (SIMULATOR)
+		set(X86 ON)
+	else()
+		set(ARM ON)
+		set(ARMEABI_V7A ON)
+		set(USE_FFMPEG ON)
+	endif()
 endif()
 
 if (MAEMO)
@@ -29,7 +33,7 @@ if(LOONGSON)
 	set(MIPS ON) # MIPS + x86 for now
 endif()
 
-if(ARM)
+if(ARM OR SIMULATOR)
 	set(USING_GLES2 ON)
 else() # Assume x86
 	set(X86 ON)
@@ -64,26 +68,28 @@ option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
-if(ANDROID)
-	if(NOT ANDROID_ABI)
+if(ANDROID OR BLACKBERRY OR IOS)
+	if (NOT CMAKE_TOOLCHAIN_FILE)
+		if (ANDROID)
+			set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/android/android.toolchain.cmake)
+		elseif(BLACKBERRY)
+			set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/Blackberry/bb.toolchain.cmake)
+		elseif(IOS)
+			set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/ios/ios.toolchain.cmake)
+		endif()
 		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
-			"Delete the CMakeCache.txt file and CMakeFiles directory."
-			"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
-			"=${CMAKE_SOURCE_DIR}/android/android.toolchain.cmake\"")
+			"Delete the CMakeCache.txt file and CMakeFiles directory.\n"
+			"Re-run ${CMAKE_COMMAND} with:\n"
+			"\"-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}\"")
 	endif()
+endif()
+
+if(ANDROID)
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
-elseif(IOS)
-	if (NOT IOS_PLATFORM)
-		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
-			"Delete the CMakeCache.txt file and CMakeFiles directory."
-			"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
-			"=${CMAKE_SOURCE_DIR}/ios/ios.toolchain.cmake\"")
-	endif()
-	set(CoreLibName Core)
-	set(CoreLinkType STATIC)
 else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
@@ -149,7 +155,7 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
 	endif()
 	if(NOT APPLE)
-		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel")
+		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
 			add_definitions(-Wno-psabi)
 		endif()
 		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
@@ -160,7 +166,10 @@ if(NOT MSVC)
 	endif()
 
 	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE -DARMV7 -O3 -mfpu=neon -mtune=cortex-a9)
+		add_definitions(-D_QNX_SOURCE)
+		if(ARM)
+			add_definitions(-DARMV7 -O3 -mfpu=neon -mcpu=cortex-a9)
+		endif()
 	endif()
 
 	if(X86 AND NOT MIPS)
@@ -279,8 +288,23 @@ if(WIN32)
 	target_link_libraries(Common winmm)
 endif()
 
-if(BLACKBERRY)
-	set(LIBZIP z)
+if(NOT USING_GLES2)
+	include_directories(${OPENGL_INCLUDE_DIR})
+
+	add_definitions(-DGLEW_STATIC)
+	add_library(glew STATIC
+		native/ext/glew/GL/glew.h
+		native/ext/glew/GL/glxew.h
+		native/ext/glew/GL/wglew.h
+		native/ext/glew/glew.c)
+	target_link_libraries(glew ${OPENGL_LIBRARIES})
+	include_directories(native/ext/glew)
+	set(GLEW_LIBRARIES glew)
+endif()
+
+find_package(ZLIB)
+if(ZLIB_FOUND)
+	include_directories(${ZLIB_INCLUDE_DIR})
 else()
 	add_library(zlib STATIC
 		ext/zlib/adler32.c
@@ -312,7 +336,7 @@ else()
 		ext/zlib/zutil.h
 	)
 	include_directories(ext/zlib)
-	set(LIBZIP zlib)
+	set(ZLIB_LIBRARY zlib)
 endif()
 
 add_library(snappy STATIC
@@ -326,24 +350,17 @@ add_library(snappy STATIC
 )
 include_directories(ext/snappy)
 
+add_library(vjson STATIC
+	native/ext/vjson/json.cpp
+	native/ext/vjson/json.h
+	native/ext/vjson/block_allocator.cpp
+	native/ext/vjson/block_allocator.h
+)
+
 add_library(rg_etc1 STATIC
 	native/ext/rg_etc1/rg_etc1.cpp
 	native/ext/rg_etc1/rg_etc1.h)
 include_directories(native/ext/rg_etc1)
-
-if(NOT USING_GLES2)
-	include_directories(${OPENGL_INCLUDE_DIR})
-
-	add_definitions(-DGLEW_STATIC)
-	add_library(glew STATIC
-		native/ext/glew/GL/glew.h
-		native/ext/glew/GL/glxew.h
-		native/ext/glew/GL/wglew.h
-		native/ext/glew/glew.c)
-	target_link_libraries(glew ${OPENGL_LIBRARIES})
-	include_directories(native/ext/glew)
-	set(GLEW_LIBRARIES glew)
-endif()
 
 add_library(stb_image STATIC
 	native/ext/stb_image/stb_image.c
@@ -355,67 +372,65 @@ add_library(stb_vorbis STATIC
 	native/ext/stb_vorbis/stb_vorbis.h)
 include_directories(native/ext/stb_vorbis)
 
-if(ANDROID)
-	add_library(libzip STATIC
-		native/ext/libzip/zip.h
-		native/ext/libzip/mkstemp.c
-		native/ext/libzip/zip_add.c
-		native/ext/libzip/zip_add_dir.c
-		native/ext/libzip/zip_close.c
-		native/ext/libzip/zip_delete.c
-		native/ext/libzip/zip_dirent.c
-		native/ext/libzip/zip_entry_free.c
-		native/ext/libzip/zip_entry_new.c
-		native/ext/libzip/zip_err_str.c
-		native/ext/libzip/zip_error.c
-		native/ext/libzip/zip_error_clear.c
-		native/ext/libzip/zip_error_get.c
-		native/ext/libzip/zip_error_get_sys_type.c
-		native/ext/libzip/zip_error_strerror.c
-		native/ext/libzip/zip_error_to_str.c
-		native/ext/libzip/zip_fclose.c
-		native/ext/libzip/zip_file_error_clear.c
-		native/ext/libzip/zip_file_error_get.c
-		native/ext/libzip/zip_file_get_offset.c
-		native/ext/libzip/zip_file_strerror.c
-		native/ext/libzip/zip_filerange_crc.c
-		native/ext/libzip/zip_fopen.c
-		native/ext/libzip/zip_fopen_index.c
-		native/ext/libzip/zip_fread.c
-		native/ext/libzip/zip_free.c
-		native/ext/libzip/zip_get_archive_comment.c
-		native/ext/libzip/zip_get_archive_flag.c
-		native/ext/libzip/zip_get_file_comment.c
-		native/ext/libzip/zip_get_name.c
-		native/ext/libzip/zip_get_num_files.c
-		native/ext/libzip/zip_memdup.c
-		native/ext/libzip/zip_name_locate.c
-		native/ext/libzip/zip_new.c
-		native/ext/libzip/zip_open.c
-		native/ext/libzip/zip_rename.c
-		native/ext/libzip/zip_replace.c
-		native/ext/libzip/zip_set_archive_comment.c
-		native/ext/libzip/zip_set_archive_flag.c
-		native/ext/libzip/zip_set_file_comment.c
-		native/ext/libzip/zip_set_name.c
-		native/ext/libzip/zip_source_buffer.c
-		native/ext/libzip/zip_source_file.c
-		native/ext/libzip/zip_source_filep.c
-		native/ext/libzip/zip_source_free.c
-		native/ext/libzip/zip_source_function.c
-		native/ext/libzip/zip_source_zip.c
-		native/ext/libzip/zip_stat.c
-		native/ext/libzip/zip_stat_index.c
-		native/ext/libzip/zip_stat_init.c
-		native/ext/libzip/zip_strerror.c
-		native/ext/libzip/zip_unchange.c
-		native/ext/libzip/zip_unchange_all.c
-		native/ext/libzip/zip_unchange_archive.c
-		native/ext/libzip/zip_unchange_data.c)
-	target_link_libraries(libzip zlib)
-	include_directories(native/ext/libzip)
-	set(LIBZIP libzip zlib)
-endif()
+add_library(libzip STATIC
+	native/ext/libzip/zip.h
+	native/ext/libzip/mkstemp.c
+	native/ext/libzip/zip_add.c
+	native/ext/libzip/zip_add_dir.c
+	native/ext/libzip/zip_close.c
+	native/ext/libzip/zip_delete.c
+	native/ext/libzip/zip_dirent.c
+	native/ext/libzip/zip_entry_free.c
+	native/ext/libzip/zip_entry_new.c
+	native/ext/libzip/zip_err_str.c
+	native/ext/libzip/zip_error.c
+	native/ext/libzip/zip_error_clear.c
+	native/ext/libzip/zip_error_get.c
+	native/ext/libzip/zip_error_get_sys_type.c
+	native/ext/libzip/zip_error_strerror.c
+	native/ext/libzip/zip_error_to_str.c
+	native/ext/libzip/zip_fclose.c
+	native/ext/libzip/zip_file_error_clear.c
+	native/ext/libzip/zip_file_error_get.c
+	native/ext/libzip/zip_file_get_offset.c
+	native/ext/libzip/zip_file_strerror.c
+	native/ext/libzip/zip_filerange_crc.c
+	native/ext/libzip/zip_fopen.c
+	native/ext/libzip/zip_fopen_index.c
+	native/ext/libzip/zip_fread.c
+	native/ext/libzip/zip_free.c
+	native/ext/libzip/zip_get_archive_comment.c
+	native/ext/libzip/zip_get_archive_flag.c
+	native/ext/libzip/zip_get_file_comment.c
+	native/ext/libzip/zip_get_name.c
+	native/ext/libzip/zip_get_num_files.c
+	native/ext/libzip/zip_memdup.c
+	native/ext/libzip/zip_name_locate.c
+	native/ext/libzip/zip_new.c
+	native/ext/libzip/zip_open.c
+	native/ext/libzip/zip_rename.c
+	native/ext/libzip/zip_replace.c
+	native/ext/libzip/zip_set_archive_comment.c
+	native/ext/libzip/zip_set_archive_flag.c
+	native/ext/libzip/zip_set_file_comment.c
+	native/ext/libzip/zip_set_name.c
+	native/ext/libzip/zip_source_buffer.c
+	native/ext/libzip/zip_source_file.c
+	native/ext/libzip/zip_source_filep.c
+	native/ext/libzip/zip_source_free.c
+	native/ext/libzip/zip_source_function.c
+	native/ext/libzip/zip_source_zip.c
+	native/ext/libzip/zip_stat.c
+	native/ext/libzip/zip_stat_index.c
+	native/ext/libzip/zip_stat_init.c
+	native/ext/libzip/zip_strerror.c
+	native/ext/libzip/zip_unchange.c
+	native/ext/libzip/zip_unchange_all.c
+	native/ext/libzip/zip_unchange_archive.c
+	native/ext/libzip/zip_unchange_data.c)
+target_link_libraries(libzip ${ZLIB_LIBRARY})
+include_directories(native/ext/libzip)
+set(LIBZIP_LIBRARY libzip)
 
 set(nativeExtra)
 set(nativeExtraLibs)
@@ -464,7 +479,10 @@ elseif(SDL_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
 	include_directories(${SDL_INCLUDE_DIR})
-	set(nativeExtra ${nativeExtra} native/base/PCMain.cpp)
+	set(nativeExtra ${nativeExtra} 
+		SDL/SDLJoystick.h
+		SDL/SDLJoystick.cpp
+		native/base/PCMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
@@ -513,6 +531,10 @@ add_library(native STATIC
 	native/base/timeutil.h
 	native/data/compression.cpp
 	native/data/compression.h
+	native/ext/vjson/json.cpp
+	native/ext/vjson/json.h
+	native/ext/vjson/block_allocator.cpp
+	native/ext/vjson/block_allocator.h
 	native/file/chunk_file.cpp
 	native/file/chunk_file.h
 	native/file/dialog.cpp
@@ -628,13 +650,15 @@ add_library(native STATIC
 	native/util/random/rng.h
 	native/util/text/utf8.h
 	native/util/text/utf8.cpp
+	native/util/text/parsers.h
+	native/util/text/parsers.cpp
 	native/util/const_map.h
 	native/ext/jpge/jpgd.cpp
 	native/ext/jpge/jpgd.h
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP} rg_etc1 stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)
@@ -686,6 +710,8 @@ if(ARM)
 		Core/MIPS/ARM/ArmRegCache.h
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.h
+		GPU/GLES/VertexDecoderArm.cpp
+		GPU/GLES/VertexDecoder.h
 		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
@@ -702,6 +728,8 @@ elseif(X86)
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
+		GPU/GLES/VertexDecoderX86.cpp
+		GPU/GLES/VertexDecoder.h
 		ext/disarm.cpp)
 endif()
 
@@ -848,6 +876,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNet.h
 	Core/HLE/sceNetAdhoc.cpp
 	Core/HLE/sceNetAdhoc.h
+	Core/HLE/proAdhoc.h
+	Core/HLE/proAdhoc.cpp
 	Core/HLE/sceOpenPSID.cpp
 	Core/HLE/sceOpenPSID.h
 	Core/HLE/sceP3da.cpp
@@ -945,6 +975,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/SaveState.h
 	Core/System.cpp
 	Core/System.h
+	Core/Util/GameManager.cpp
+	Core/Util/GameManager.h
 	Core/Util/BlockAllocator.cpp
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
@@ -969,7 +1001,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
-if(BLACKBERRY OR IOS OR ARMEABI_V7A)
+if(ARMEABI_V7A)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 add_library(GPU OBJECT
@@ -1125,7 +1157,9 @@ set(NativeAppSource
 	UI/UIShader.cpp
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.cpp
+	UI/Store.cpp
 	UI/CwCheatScreen.cpp
+	UI/InstallZipScreen.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID AND ARM)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
@@ -1297,7 +1331,9 @@ if(APPLE)
 
 	# These can be fast even for debug.
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT ZLIB_FOUND)
+		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
 endif()
 
 if(APPLE AND NOT IOS)

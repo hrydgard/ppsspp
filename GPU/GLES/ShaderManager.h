@@ -57,6 +57,7 @@ public:
 	// Present attributes in the shader.
 	int attrMask;  // 1 << ATTR_ ... or-ed together.
 
+	int u_stencilReplaceValue;
 	int u_tex;
 	int u_proj;
 	int u_proj_through;
@@ -105,7 +106,10 @@ enum
 	DIRTY_FOGCOEF    = (1 << 3),
 	DIRTY_TEXENV		 = (1 << 4),
 	DIRTY_ALPHACOLORREF	 = (1 << 5),
-	// 1 << 6 is free!
+
+	// 1 << 6 is free! Wait, not anymore...
+	DIRTY_STENCILREPLACEVALUE = (1 << 6),
+
 	DIRTY_COLORMASK	 = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
@@ -117,7 +121,9 @@ enum
 	DIRTY_MATEMISSIVE = (1 << 14),
 	DIRTY_AMBIENT = (1 << 15),
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
+
 	// 1 << 17 is free!
+
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 
 	DIRTY_WORLDMATRIX = (1 << 21),

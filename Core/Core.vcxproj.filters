@@ -496,6 +496,15 @@
     <ClCompile Include="Dialog\PSPNetconfDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\DisassemblyManager.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\proAdhoc.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\GameManager.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -917,6 +926,15 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmCompVFPUNEON.cpp">
       <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\DisassemblyManager.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\proAdhoc.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\GameManager.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -19,6 +19,7 @@
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
 
+#include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Host.h"
@@ -26,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -133,11 +135,9 @@ void CenterRect(float *x, float *y, float *w, float *h,
 		*x = 0.0f;
 		*w = frameW;
 		*h = frameW / origRatio;
-#ifdef BLACKBERRY
 		// Stretch a little bit
 		if (g_Config.bPartialStretch)
 			*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
-#endif
 		*y = (frameH - *h) / 2.0f;
 	} else {
 		// Image is taller than frame. Center horizontally.
@@ -165,6 +165,7 @@ static void DisableState() {
 #if !defined(USING_GLES2)
 	glstate.colorLogicOp.disable();
 #endif
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
 void FramebufferManager::SetNumExtraFBOs(int num) {
@@ -241,6 +242,10 @@ void FramebufferManager::CompileDraw2DProgram() {
 				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
 				if (pixelDeltaLoc != -1)
 					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
+				if (timeLoc_ != -1)
+					glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
+
 				usePostShader_ = true;
 			}
 		} else {
@@ -256,6 +261,10 @@ void FramebufferManager::DestroyDraw2DProgram() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
+	}
+	if (plainColorProgram_) {
+		glsl_destroy(plainColorProgram_);
+		plainColorProgram_ = 0;
 	}
 	if (postShaderProgram_) {
 		glsl_destroy(postShaderProgram_);
@@ -277,8 +286,9 @@ FramebufferManager::FramebufferManager() :
 	convBuf(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
-	postShaderAtOutputResolution_(false),
 	plainColorLoc_(-1),
+	timeLoc_(-1),
+	postShaderAtOutputResolution_(false),
 	resized_(false),
 	textureCache_(0),
 	shaderManager_(0),
@@ -314,7 +324,7 @@ FramebufferManager::~FramebufferManager() {
 	delete [] convBuf;
 }
 
-void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
+void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader) {
 	if (drawPixelsTex_ && drawPixelsTexFormat_ != pixelFormat) {
 		glDeleteTextures(1, &drawPixelsTex_);
 		drawPixelsTex_ = 0;
@@ -407,16 +417,16 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-
-	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
+	glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : framebuf);
 
-	// This draws directly at the backbuffer so if there's a post shader, we need to apply it here. Should try to unify this path
-	// with the regular path somehow, but this simple solution works for most of the post shaders (it always runs at output resolution so FXAA may look odd).
-	if (usePostShader_) {
+	DisableState();
+
+	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
+	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
+	// (it always runs at output resolution so FXAA may look odd).
+	if (applyPostShader && usePostShader_ && g_Config.iRenderingMode != 0) {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 	} else {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
@@ -462,7 +472,7 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	if (texture) {
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY) && !defined(MAEMO)
+#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY) && !defined(MAEMO)
 		if (gl_extensions.NV_draw_texture && !program) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
 			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
@@ -505,6 +515,12 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	glsl_bind(program);
+	if (program == postShaderProgram_ && timeLoc_ != -1) {
+		int flipCount = __DisplayGetFlipCount();
+		int vCount = __DisplayGetVCount();
+		float time[4] = {time_now(), (vCount % 60) * 1.0f/60.0f, (float)vCount, (float)(flipCount % 60)};
+		glUniform4fv(timeLoc_, 1, time);
+	}
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glEnableVertexAttribArray(program->a_position);
@@ -612,12 +628,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		return;
 	}
 
-	if (g_Config.iRenderingMode != 0 && g_Config.bWipeFramebufferAlpha && currentRenderVfb_) {
+	/*
+	if (g_Config.iRenderingMode != 0 && currentRenderVfb_) {
 		// Hack is enabled, and there was a previous framebuffer.
 		// Before we switch, let's do a series of trickery to copy one bit of stencil to
 		// destination alpha. Or actually, this is just a bunch of hackery attempts on Wipeout.
 		// Ignore for now.
-		/*
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		glstate.stencilTest.enable();
@@ -628,13 +644,14 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		//DrawPlainColor(0xFF000000);
 		glstate.stencilTest.disable();
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		*/
 
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		DrawPlainColor(0x00000000);
 		shaderManager_->DirtyLastShader();  // dirty lastShader_
 	}
+	*/
+
 
 	gstate_c.framebufChanged = false;
 
@@ -719,8 +736,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 					vfb->colorDepth = FBO_565;
 					break;
 				case GE_FORMAT_8888:
-					vfb->colorDepth = FBO_8888;
-					break;
 				default:
 					vfb->colorDepth = FBO_8888;
 					break;
@@ -865,8 +880,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 			}
 
 			if (!vfb) {
-				// Just a pointer to plain memory to draw. Draw it.
-				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
+				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
 		} else {

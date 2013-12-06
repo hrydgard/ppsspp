@@ -6,54 +6,56 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
+# CPU
 arm {
-	SOURCES += ../Common/ArmCPUDetect.cpp \
-		../Common/ArmEmitter.cpp \
-		../Common/ArmThunk.cpp
-	HEADERS += ../Common/ArmEmitter.h
+	SOURCES += $$P/Common/ArmCPUDetect.cpp \
+		$$P/Common/ArmEmitter.cpp \
+		$$P/Common/ArmThunk.cpp
+	HEADERS += $$P/Common/ArmEmitter.h
 }
 x86 {
-	SOURCES += ../Common/ABI.cpp \
-		../Common/CPUDetect.cpp \
-		../Common/Thunk.cpp \
-		../Common/x64Analyzer.cpp \
-		../Common/x64Emitter.cpp
-	HEADERS +=  ../Common/ABI.h \
-		../Common/CPUDetect.h \
-		../Common/Thunk.h \
-		../Common/x64Analyzer.h \
-		../Common/x64Emitter.h
+	SOURCES += $$P/Common/ABI.cpp \
+		$$P/Common/CPUDetect.cpp \
+		$$P/Common/Thunk.cpp \
+		$$P/Common/x64Analyzer.cpp \
+		$$P/Common/x64Emitter.cpp
+	HEADERS +=  $$P/Common/ABI.h \
+		$$P/Common/Thunk.h \
+		$$P/Common/x64Analyzer.h \
+		$$P/Common/x64Emitter.h
 }
+HEADERS += $$P/Common/CPUDetect.h
+
 win32 {
-	SOURCES += ../Common/stdafx.cpp
-	HEADERS += ../Common/stdafx.h
+	SOURCES += $$P/Common/stdafx.cpp
+	HEADERS += $$P/Common/stdafx.h
 }
 
-SOURCES += ../Common/ChunkFile.cpp \
-	../Common/ConsoleListener.cpp \
-	../Common/FileUtil.cpp \
-	../Common/LogManager.cpp \
-	../Common/KeyMap.cpp \
-	../Common/MemArena.cpp \
-	../Common/MemoryUtil.cpp \
-	../Common/Misc.cpp \
-	../Common/MsgHandler.cpp \
-	../Common/StringUtils.cpp \
-	../Common/ThreadPools.cpp \
-	../Common/Timer.cpp \
-	../Common/Crypto/*.cpp
-HEADERS += ../Common/ChunkFile.h \
-	../Common/ConsoleListener.h \
-	../Common/FileUtil.h \
-	../Common/LogManager.h \
-	../Common/KeyMap.h \
-	../Common/MemArena.h \
-	../Common/MemoryUtil.h \
-	../Common/MsgHandler.h \
-	../Common/StringUtils.h \
-	../Common/ThreadPools.h \
-	../Common/Timer.h \
-	../Common/Crypto/*.h
+SOURCES += $$P/Common/ChunkFile.cpp \
+	$$P/Common/ConsoleListener.cpp \
+	$$P/Common/FileUtil.cpp \
+	$$P/Common/LogManager.cpp \
+	$$P/Common/KeyMap.cpp \
+	$$P/Common/MemArena.cpp \
+	$$P/Common/MemoryUtil.cpp \
+	$$P/Common/Misc.cpp \
+	$$P/Common/MsgHandler.cpp \
+	$$P/Common/StringUtils.cpp \
+	$$P/Common/ThreadPools.cpp \
+	$$P/Common/Timer.cpp \
+	$$P/Common/Crypto/*.cpp
+HEADERS += $$P/Common/ChunkFile.h \
+	$$P/Common/ConsoleListener.h \
+	$$P/Common/FileUtil.h \
+	$$P/Common/LogManager.h \
+	$$P/Common/KeyMap.h \
+	$$P/Common/MemArena.h \
+	$$P/Common/MemoryUtil.h \
+	$$P/Common/MsgHandler.h \
+	$$P/Common/StringUtils.h \
+	$$P/Common/ThreadPools.h \
+	$$P/Common/Timer.h \
+	$$P/Common/Crypto/*.h
 
-INCLUDEPATH += ../native
+INCLUDEPATH += $$P/native
 

@@ -328,7 +328,7 @@ enum TMIDPurpose
 	SCE_KERNEL_TMID_SuspendThread = 66,
 	SCE_KERNEL_TMID_DormantThread = 67,
 	// No idea what the correct value is here or how to find out.
-	SCE_KERNEL_TMID_Tls = 0x1001,
+	SCE_KERNEL_TMID_Tlspl = 0x1001,
 
 	// Not official, but need ids for save states.
 	PPSSPP_KERNEL_TMID_Module =  0x100001,
@@ -451,7 +451,8 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			if (handle != 0)
+			// Tekken 6 spams 0x80020001 gets wrong with no ill effects, also on the real PSP
+			if (handle != 0 && handle != 0x80020001)
 			{
 				WARN_LOG(SCEKERNEL, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			}

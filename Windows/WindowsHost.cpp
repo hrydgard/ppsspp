@@ -250,11 +250,6 @@ void WindowsHost::SaveSymbolMap()
 	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
 }
 
-void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 
-{
-	symbolMap.AddSymbol(name.c_str(), addr, size, (SymbolType)type);
-}
-
 bool WindowsHost::IsDebuggingEnabled()
 {
 #ifdef _DEBUG

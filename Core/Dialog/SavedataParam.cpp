@@ -166,10 +166,9 @@ void SavedataParam::Init()
 #ifdef ANDROID
 	int handle = pspFileSystem.OpenFile(savePath + ".nomedia", (FileAccess)(FILEACCESS_CREATE | FILEACCESS_WRITE), 0);
 	if (handle) {
-		ILOG("Created .nomedia file");
 		pspFileSystem.CloseFile(handle);
 	} else {
-		ILOG("Failed to create .nomedia file");
+		ELOG("Failed to create .nomedia file");
 	}
 #endif
 }

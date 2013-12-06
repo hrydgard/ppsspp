@@ -300,24 +300,6 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				SetTextColor(hdc,0x004000);
 			TextOutA(hdc,77,rowY1,temp,(int)strlen(temp));
 		}
-
-		/*
-			}
-			SetTextColor(hdc,0x007000);
-
-			TextOut(hdc,70,rowY1,dis,strlen(dis));
-			if (desc[0]==0)
-				strcpy(desc,debugger->getDescription(address));
-			SetTextColor(hdc,0x0000FF);
-			//char temp[256];
-			//UnDecorateSymbolName(desc,temp,255,UNDNAME_COMPLETE);
-			if (strlen(desc))
-				TextOut(hdc,280,rowY1,desc,strlen(desc));
-			if (debugger->isBreakpoint(address))
-			{
-				DrawIconEx(hdc,2,rowY1,breakPoint,32,32,0,0,DI_NORMAL);
-			}
-		}*/
 	}
 
 	SelectObject(hdc,oldFont);

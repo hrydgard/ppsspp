@@ -149,7 +149,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -1080,8 +1080,9 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		if (diff)
+		if (diff) {
 			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1438,11 +1439,18 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	// Handled in StateMapping.
 	case GE_CMD_STENCILTEST:
+		if (diff) {
+			shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+		}
+		break;
 	case GE_CMD_STENCILOP:
 		break;
 
 	case GE_CMD_MASKRGB:
 	case GE_CMD_MASKALPHA:
+		break;
+
+	case GE_CMD_REVERSENORMAL:
 		break;
 
 	case GE_CMD_UNKNOWN_03: 
@@ -1527,7 +1535,7 @@ void GLES_GPU::DoBlockTransfer() {
 	int bpp = gstate.getTransferBpp();
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-	
+
 	if (!Memory::IsValidAddress(srcBasePtr)) {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
 		return;
@@ -1539,9 +1547,11 @@ void GLES_GPU::DoBlockTransfer() {
 	}
 	
 	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
+	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
+	// entirely by walking a couple of pointers...
 	for (int y = 0; y < height; y++) {
-		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+		const u8 *src = Memory::GetPointerUnchecked(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+		u8 *dst = Memory::GetPointerUnchecked(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
 		memcpy(dst, src, width * bpp);
 	}
 
@@ -1558,7 +1568,7 @@ void GLES_GPU::DoBlockTransfer() {
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 			dstStride == 512 && height == 272) {
-		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), GE_FORMAT_8888, 512);
+		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 }
 
@@ -1656,4 +1666,12 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
 
 bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
+}
+
+bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
+		name = "VertexDecoderJit";
+		return true;
+	}
+	return false;
 }

@@ -109,7 +109,7 @@ public:
 
 	virtual bool parseSymbol(char* str, uint32& symbolValue)
 	{
-		return cpu->getSymbolValue(str,symbolValue); 
+		return symbolMap.GetLabelValue(str,symbolValue); 
 	}
 
 	virtual uint32 getReferenceValue(uint32 referenceIndex)
@@ -221,23 +221,13 @@ void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
 int MIPSDebugInterface::getColor(unsigned int address)
 {
 	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
-	int n=symbolMap.GetSymbolNum(address);
-	if (n==-1 || symbolMap.GetSymbolSize(n) < 4) return 0xFFFFFF;
+	int n=symbolMap.GetFunctionNum(address);
+	if (n==-1) return 0xFFFFFF;
 	return colors[n%6];
 }
 const char *MIPSDebugInterface::getDescription(unsigned int address) 
 {
 	return symbolMap.GetDescription(address);
-}
-
-const char *MIPSDebugInterface::findSymbolForAddress(unsigned int address)
-{
-	return symbolMap.getDirectSymbol(address);
-}
-
-bool MIPSDebugInterface::getSymbolValue(char* symbol, u32& dest)
-{
-	return symbolMap.getSymbolValue(symbol,dest);
 }
 
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)

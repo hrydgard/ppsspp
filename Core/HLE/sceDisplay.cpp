@@ -139,6 +139,8 @@ void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
+int __DisplayGetFlipCount() { return actualFlips; }
+int __DisplayGetVCount() { return vCount; }
 
 void __DisplayInit() {
 	gpuStats.Reset();
@@ -296,6 +298,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	int vcountUnblock = vblankPausedWaits[pauseKey];
+	vblankPausedWaits.erase(pauseKey);
 	if (vcountUnblock <= vCount) {
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
@@ -557,7 +560,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpuStats.numFlips++;
 
 		bool throttle, skipFrame;
-		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.0f / 60.0f));
+		// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
+		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.001f / 60.0f));
 
 		// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
 		// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.

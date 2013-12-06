@@ -145,7 +145,7 @@ void Core_RunLoop() {
 	while (globalUIState != UISTATE_INGAME && globalUIState != UISTATE_EXIT) {
 		time_update();
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 		double startTime = time_now_d();
 		UpdateRunLoop();
 
@@ -164,7 +164,7 @@ void Core_RunLoop() {
 	while (!coreState && globalUIState == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 		if (!Core_IsStepping()) {
 			GL_SwapBuffers();
 		}

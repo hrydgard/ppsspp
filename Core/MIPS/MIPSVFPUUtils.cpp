@@ -22,8 +22,8 @@
 
 #include <limits>
 
-#define V(i)   (currentMIPS->v[i])
-#define VI(i)  (currentMIPS->vi[i])
+#define V(i)   (currentMIPS->v[voffset[i]])
+#define VI(i)  (currentMIPS->vi[voffset[i]])
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int mtx = (vectorReg >> 2) & 7;
@@ -223,6 +223,17 @@ VectorSize GetHalfVectorSize(VectorSize sz)
 	case V_Quad: return V_Pair;
 	default:
 		return V_Single;
+	}
+}
+
+VectorSize GetDoubleVectorSize(VectorSize sz)
+{
+	switch (sz)
+	{
+	case V_Single: return V_Pair;
+	case V_Pair: return V_Quad;
+	default:
+		return V_Pair;
 	}
 }
 

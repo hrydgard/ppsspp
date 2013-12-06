@@ -344,10 +344,17 @@ void PpcRegCacheFPU::FlushAll() {
 
 int PpcRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs", then the VFPU ctrls.
-	if (r < 32 + 128 + NUM_TEMPS)
-		return (r + 32) << 2;
-	ERROR_LOG(JIT, "bad mips register %i, out of range", r);
-	return 0;  // or what?
+	if (r < 0 || r > 32 + 128 + NUM_TEMPS) {
+		ERROR_LOG(JIT, "bad mips register %i, out of range", r);
+		return 0;  // or what?
+	}
+
+	if (r < 32 || r > 32 + 128) {
+		return (32 + r) << 2;
+	} else {
+		// r is between 32 and 128 + 32
+		return (32 + 32 + voffset[r - 32]) << 2;
+	}
 }
 
 void PpcRegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {

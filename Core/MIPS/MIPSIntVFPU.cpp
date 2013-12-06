@@ -52,8 +52,8 @@
 #include <algorithm>
 
 #define R(i)   (currentMIPS->r[i])
-#define V(i)   (currentMIPS->v[i])
-#define VI(i)   (currentMIPS->vi[i])
+#define V(i)   (currentMIPS->v[voffset[i]])
+#define VI(i)  (currentMIPS->vi[voffset[i]])
 #define FI(i)  (currentMIPS->fi[i])
 #define FsI(i) (currentMIPS->fs[i])
 #define PC     (currentMIPS->pc)
@@ -107,7 +107,7 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-void ApplyPrefixST(float *v, u32 data, VectorSize size)
+void ApplyPrefixST(float *r, u32 data, VectorSize size)
 {
 	// Possible optimization shortcut:
 	if (data == 0xe4)
@@ -119,7 +119,7 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 
 	for (int i = 0; i < n; i++)
 	{
-		origV[i] = v[i];
+		origV[i] = r[i];
 	}
 
 	for (int i = 0; i < n; i++)
@@ -141,17 +141,17 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 				regnum = 0;
 			}
 
-			v[i] = origV[regnum];
+			r[i] = origV[regnum];
 			if (abs)
-				v[i] = fabs(v[i]);
+				r[i] = fabs(r[i]);
 		}
 		else
 		{
-			v[i] = constantArray[regnum + (abs<<2)];
+			r[i] = constantArray[regnum + (abs<<2)];
 		}
 
 		if (negate)
-			v[i] = -v[i];
+			r[i] = -r[i];
 	}
 }
 
@@ -1193,6 +1193,7 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
+		// TODO: Does t have swizzle?
 		d[0] = s[0] * t[1] - s[1] * t[0];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, V_Single, vd);

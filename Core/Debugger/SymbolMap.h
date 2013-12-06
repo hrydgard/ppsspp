@@ -24,13 +24,26 @@
 #include <map>
 
 enum SymbolType {
-	ST_FUNCTION=1,
-	ST_DATA=2
+	ST_NONE     = 0,
+	ST_FUNCTION = 1,
+	ST_DATA     = 2,
+	ST_ALL      = 3,
 };
 
 struct SymbolInfo {
+	SymbolType type;
 	u32 address;
 	u32 size;
+};
+
+struct SymbolEntry {
+	std::string name;
+	u32 address;
+	u32 size;
+};
+
+enum DataType {
+	DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD, DATATYPE_ASCII
 };
 
 #ifdef _WIN32
@@ -41,68 +54,64 @@ typedef struct HWND__ *HWND;
 class SymbolMap {
 public:
 	SymbolMap() {}
+	void Clear();
+	void SortSymbols();
+
 	bool LoadSymbolMap(const char *filename);
 	void SaveSymbolMap(const char *filename) const;
 	bool LoadNocashSym(const char *ilename);
-	void AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType symbol);
-	void RemoveSymbolNum(int symbolnum);
-	void Clear();
-	void AnalyzeBackwards();
-	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION) const;
+
+	SymbolType GetSymbolType(u32 address) const;
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
+	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
 	const char *GetDescription(unsigned int address) const;
+	std::vector<SymbolEntry> GetAllSymbols(SymbolType symmask);
+
 #ifdef _WIN32
-	void FillSymbolListBox(HWND listbox, SymbolType symmask=ST_FUNCTION) const;
-	void FillSymbolComboBox(HWND listbox,SymbolType symmask=ST_FUNCTION) const;
-	void FillListBoxBLinks(HWND listbox, int num) const;
+	void FillSymbolListBox(HWND listbox, SymbolType symType) const;
 #endif
-	int GetNumSymbols() const;
-	const char *GetSymbolName(int i) const;
-	void SetSymbolName(int i, const char *newname);
-	void SetSymbolSize(int i, int newSize);
-	u32 GetSymbolSize(int i) const;
-	u32 GetSymbolAddr(int i) const;
-	SymbolType GetSymbolType(int i) const;
-	int FindSymbol(const char *name) const;
-	u32	GetAddress(int num) const;
-	void IncreaseRunCount(int num);
-	unsigned int GetRunCount(int num) const;
-	void SortSymbols();
-	const char* getDirectSymbol(u32 address);
-	bool getSymbolValue(char* symbol, u32& dest);
 
-	void UseFuncSignaturesFile(const char *filename, u32 maxAddress);
-	void CompileFuncSignaturesFile(const char *filename) const;
+	void AddFunction(const char* name, u32 address, u32 size);
+	u32 GetFunctionStart(u32 address) const;
+	int GetFunctionNum(u32 address) const;
+	u32 GetFunctionSize(u32 startAddress) const;
+	bool SetFunctionSize(u32 startAddress, u32 newSize);
+	bool RemoveFunction(u32 startAddress, bool removeName);
 
+	void AddLabel(const char* name, u32 address);
+	void SetLabelName(const char* name, u32 address);
+	const char* GetLabelName(u32 address) const;
+	bool GetLabelValue(const char* name, u32& dest);
+
+	void AddData(u32 address, u32 size, DataType type);
+	u32 GetDataStart(u32 address) const;
+	u32 GetDataSize(u32 startAddress) const;
+	DataType GetDataType(u32 startAddress) const;
+
+	static const u32 INVALID_ADDRESS = (u32)-1;
 private:
-	struct MapEntryUniqueInfo {
-		u32 address;
-		u32 vaddress;
+	void AssignFunctionIndices();
+
+	struct FunctionEntry {
 		u32 size;
-		SymbolType type;
-
-		bool operator < (const MapEntryUniqueInfo &other) const {
-			return vaddress < other.vaddress;
-		}
+		int index;
 	};
 
-	struct MapEntry : public MapEntryUniqueInfo {
+	struct LabelEntry {
 		char name[128];
-		u32 unknown;
-		u32 runCount;
-
-#ifdef BWLINKS
-		std::vector <u32> backwardLinks;
-#endif
-		void UndecorateName() {
-			// TODO
-		}
 	};
 
-	std::set<MapEntryUniqueInfo> uniqueEntries;
-	std::vector<MapEntry> entries;
-	std::map<u32, u32> entryRanges;
+	struct DataEntry {
+		DataType type;
+		u32 size;
+	};
+
+	std::map<u32, FunctionEntry> functions;
+	std::map<u32, LabelEntry> labels;
+	std::map<u32, DataEntry> data;
+
 	mutable recursive_mutex lock_;
 };
 
 extern SymbolMap symbolMap;
+

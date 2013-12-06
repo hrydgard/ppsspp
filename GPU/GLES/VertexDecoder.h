@@ -34,7 +34,12 @@ class VertexDecoder;
 class VertexDecoderJitCache;
 
 typedef void (VertexDecoder::*StepFunction)() const;
+typedef void (VertexDecoderJitCache::*JitStepFunction)();
 
+struct JitLookup {
+	StepFunction func;
+	JitStepFunction jitFunc;
+};
 
 typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 

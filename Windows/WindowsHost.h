@@ -40,8 +40,6 @@ public:
 	virtual void UpdateScreen();
 	void SetDebugMode(bool mode);
 
-	void AddSymbol(std::string name, u32 addr, u32 size, int type);
-
 	bool InitGL(std::string *error_message);
 	void PollControllers(InputState &input_state);
 	void ShutdownGL();

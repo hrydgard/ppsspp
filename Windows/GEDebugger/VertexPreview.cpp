@@ -181,11 +181,17 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glScissor(x, y, fw, fh);
 	BindPreviewProgram(previewProgram);
 
+	float scale[] = {
+		480.0f / (float)PSP_CoreParameter().renderWidth,
+		272.0f / (float)PSP_CoreParameter().renderHeight,
+	};
+
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, frameWindow->TexWidth(), frameWindow->TexHeight(), 0, -1, 1);
+	ortho.setOrtho(0, frameWindow->TexWidth() * scale[0], frameWindow->TexHeight() * scale[1], 0, -1, 1);
 	glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glEnableVertexAttribArray(previewProgram->a_position);
 	glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data() + 2);
+
 	if (indices.empty()) {
 		glDrawArrays(glprim[prim], 0, count);
 	} else {

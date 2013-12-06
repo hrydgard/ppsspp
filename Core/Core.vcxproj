@@ -175,6 +175,7 @@
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Cwcheat.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\DisassemblyManager.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
     <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="Dialog\PSPDialog.cpp" />
@@ -198,6 +199,7 @@
     <ClCompile Include="HDRemaster.cpp" />
     <ClCompile Include="HLE\HLE.cpp" />
     <ClCompile Include="HLE\HLETables.cpp" />
+    <ClCompile Include="HLE\proAdhoc.cpp" />
     <ClCompile Include="HLE\sceAtrac.cpp" />
     <ClCompile Include="HLE\sceAudio.cpp" />
     <ClCompile Include="HLE\sceAudiocodec.cpp" />
@@ -394,6 +396,7 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
+    <ClCompile Include="Util\GameManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="Util\ppge_atlas.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
@@ -427,6 +430,7 @@
     <ClInclude Include="Cwcheat.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\DebugInterface.h" />
+    <ClInclude Include="Debugger\DisassemblyManager.h" />
     <ClInclude Include="Debugger\SymbolMap.h" />
     <ClInclude Include="Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="Dialog\PSPDialog.h" />
@@ -453,6 +457,7 @@
     <ClInclude Include="HLE\HLE.h" />
     <ClInclude Include="HLE\HLETables.h" />
     <ClInclude Include="HLE\KernelWaitHelpers.h" />
+    <ClInclude Include="HLE\proAdhoc.h" />
     <ClInclude Include="HLE\sceAtrac.h" />
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceAudiocodec.h" />
@@ -585,6 +590,7 @@
     <ClInclude Include="System.h" />
     <ClInclude Include="ThreadEventQueue.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
+    <ClInclude Include="Util\GameManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />
     <ClInclude Include="..\ext\xxhash.h" />

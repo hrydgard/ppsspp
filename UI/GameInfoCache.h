@@ -27,15 +27,15 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 
-
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
+// Only cares about games that are installed on the current device.
 
 class GameInfo {
 public:
-	GameInfo() 
+	GameInfo()
 		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
-		  wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0) {}
+			wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0), disc_total(0), disc_number(0) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
@@ -59,10 +59,12 @@ public:
 	std::string title;  // for easy access, also available in paramSFO.
 	std::string id;
 	std::string id_version;
+	int disc_total;
+	int disc_number;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;
-	
+
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
 	Texture *iconTexture;
@@ -100,7 +102,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set wantBG if you really want it because
 	// it's big. bgTextures may be discarded over time as well.
-	GameInfo *GetInfo(const std::string &gamePath, bool wantBG);
+	GameInfo *GetInfo(const std::string &gamePath, bool wantBG, bool synchronous = false);
 	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures.
 

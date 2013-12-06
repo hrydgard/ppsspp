@@ -15,22 +15,28 @@
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
-	nextListID(0),
-	currentList(NULL),
-	isbreak(false),
-	drawCompleteTicks(0),
-	busyTicks(0),
 	dumpNextFrame_(false),
-	dumpThisFrame_(false),
-	interruptsEnabled_(true),
-	curTickEst_(0)
+	dumpThisFrame_(false)
 {
+	Reinitialize();
+	SetThreadEnabled(g_Config.bSeparateCPUThread);
+}
+
+void GPUCommon::Reinitialize() {
+	easy_guard guard(listLock);
 	memset(dls, 0, sizeof(dls));
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
 		dls[i].waitTicks = 0;
 	}
-	SetThreadEnabled(g_Config.bSeparateCPUThread);
+
+	nextListID = 0;
+	currentList = NULL;
+	isbreak = false;
+	drawCompleteTicks = 0;
+	busyTicks = 0;
+	interruptsEnabled_ = true;
+	UpdateTickEstimate(0);
 }
 
 void GPUCommon::PopDLQueue() {

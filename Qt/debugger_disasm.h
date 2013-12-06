@@ -1,12 +1,14 @@
 #ifndef DEBUGGER_DISASM_H
 #define DEBUGGER_DISASM_H
 
+#include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "debugger_vfpu.h"
 #include <QDialog>
 #include <QListWidgetItem>
 #include <QTreeWidgetItem>
+#include <vector>
 
 class MainWindow;
 namespace Ui {
@@ -36,12 +38,14 @@ public:
 	void Update();
 	void ShowMemory(u32 addr);
 	void FillFunctions();
+	void UpdateCallstack();
 	void UpdateBreakpoints();
 	void UpdateThread();
 	void UpdateDisplayList();
 
 signals:
-	void updateDisplayList_();
+	void UpdateCallstack_();
+	void UpdateDisplayList_();
 	void UpdateBreakpoints_();
 	void UpdateThread_();
 
@@ -51,6 +55,7 @@ public slots:
 	void GotoThreadEntryPoint();
 
 private slots:
+	void UpdateCallstackGUI();
 	void UpdateDisplayListGUI();
 	void UpdateBreakpointsGUI();
 	void UpdateThreadGUI();
@@ -91,6 +96,7 @@ private:
 	u32 breakpointAddr;
 	QTreeWidgetItem* threadRowSelected;
 	QTreeWidgetItem* displayListRowSelected;
+	std::vector<MIPSStackWalk::StackFrame> stackTraceModel;
 };
 
 #endif // DEBUGGER_DISASM_H

@@ -34,6 +34,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Core", "..\Core\Core.vcxpro
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "native", "..\native\native.vcxproj", "{C4DF647E-80EA-4111-A0A8-218B1B711E18}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F761046E-6C38-4428-A5F1-38391A37BB34} = {F761046E-6C38-4428-A5F1-38391A37BB34}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPHeadless", "..\headless\Headless.vcxproj", "{EE9BD869-CAA3-447D-8328-294D90DE2C1F}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -48,6 +51,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libkirk", "..\ext\libkirk\l
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "..\unittest\UnitTests.vcxproj", "{37CBC214-7CE7-4655-B619-F7CEE16E3313}"
 	ProjectSection(ProjectDependencies) = postProject
+		{F761046E-6C38-4428-A5F1-38391A37BB34} = {F761046E-6C38-4428-A5F1-38391A37BB34}
 		{C4DF647E-80EA-4111-A0A8-218B1B711E18} = {C4DF647E-80EA-4111-A0A8-218B1B711E18}
 	EndProjectSection
 EndProject

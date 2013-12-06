@@ -24,3 +24,6 @@ void Register_sceNetAdhoc();
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
+
+// I have to call this from netdialog
+int sceNetAdhocctlCreate(const char * groupName);

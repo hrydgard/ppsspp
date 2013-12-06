@@ -19,6 +19,8 @@
 //  CtrlDisAsmView::getFrom(GetDlgItem(yourdialog, IDC_yourid)).
 
 #include "../../Core/Debugger/DebugInterface.h"
+#include "../../Core/Debugger/DisassemblyManager.h"
+
 
 #include "Common/CommonWindows.h"
 #include <vector>
@@ -27,23 +29,6 @@
 using std::min;
 using std::max;
 
-
-enum LineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
-
-struct BranchLine
-{
-	u32 first;
-	u32 second;
-	LineType type;
-	int laneIndex;
-};
-
-struct DisassemblyFunction
-{
-	u32 hash;
-	std::vector<BranchLine> lines;
-};
-
 class CtrlDisAsmView
 {
 	HWND wnd;
@@ -51,10 +36,7 @@ class CtrlDisAsmView
 	HFONT boldfont;
 	RECT rect;
 
-	std::map<u32,DisassemblyFunction> functions;
-	std::vector<u32> visibleFunctionAddresses;
-	std::vector<BranchLine> strayLines;
-
+	DisassemblyManager manager;
 	u32 curAddress;
 	u32 selectRangeStart;
 	u32 selectRangeEnd;
@@ -68,11 +50,8 @@ class CtrlDisAsmView
 
 	u32 windowStart;
 	int visibleRows;
-	int instructionSize;
 	bool whiteBackground;
 	bool displaySymbols;
-	u32 branchTarget;
-	int branchRegister;
 
 	struct {
 		int addressStart;
@@ -95,10 +74,9 @@ class CtrlDisAsmView
 	void search(bool continueSearch);
 	void followBranch();
 	void calculatePixelPositions();
-	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
-	void parseDisasm(const char* disasm, char* opcode, char* arguments);
+	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
-	void drawBranchLine(HDC hdc, BranchLine& line);
+	void drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line);
 	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);
 public:
 	CtrlDisAsmView(HWND _wnd);
@@ -120,12 +98,7 @@ public:
 	bool curAddressIsVisible();
 	void redraw();
 	void scanFunctions();
-	void clearFunctions()
-	{
-		functions.clear();
-		visibleFunctionAddresses.clear();
-		strayLines.clear();
-	};
+	void clearFunctions() { manager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest);
 	int getRowHeight() { return rowHeight; };
@@ -136,22 +109,24 @@ public:
 	{
 		debugger=deb;
 		curAddress=debugger->getPC();
-		instructionSize=debugger->getInstructionSize(0);
+		manager.setCpu(deb);
 	}
 	DebugInterface *getDebugger()
 	{
 		return debugger;
 	}
 
-	u32 getWindowEnd() { return windowStart+visibleRows*instructionSize; };
+	void scrollStepping(u32 newPc);
+	u32 getInstructionSizeAt(u32 address);
+
 	void gotoAddr(unsigned int addr)
 	{
-		u32 windowEnd = windowStart+visibleRows*instructionSize;
-		u32 newAddress = addr&(~(instructionSize-1));
+		u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+		u32 newAddress = manager.getStartAddress(addr);
 
 		if (newAddress < windowStart || newAddress >= windowEnd)
 		{
-			windowStart = newAddress-visibleRows/2*instructionSize;
+			windowStart = manager.getNthPreviousAddress(newAddress,visibleRows/2);
 		}
 
 		setCurAddress(newAddress);
@@ -160,7 +135,7 @@ public:
 	}
 	void gotoPC()
 	{
-		gotoAddr(debugger->getPC()&(~(instructionSize-1)));
+		gotoAddr(debugger->getPC());
 	}
 	u32 getSelection()
 	{
@@ -177,14 +152,19 @@ public:
 
 	void scrollWindow(int lines)
 	{
-		windowStart += lines*instructionSize;
+		if (lines < 0)
+			windowStart = manager.getNthPreviousAddress(windowStart,abs(lines));
+		else
+			windowStart = manager.getNthNextAddress(windowStart,lines);
+
 		scanFunctions();
 		redraw();
 	}
 
 	void setCurAddress(u32 newAddress, bool extend = false)
 	{
-		u32 after = newAddress + instructionSize;
+		newAddress = manager.getStartAddress(newAddress);
+		u32 after = manager.getNthNextAddress(newAddress,1);
 		curAddress = newAddress;
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;

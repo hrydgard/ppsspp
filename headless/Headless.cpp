@@ -70,6 +70,7 @@ void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+void System_SendMessage(const char *command, const char *parameter) {}
 
 #ifndef _WIN32
 InputState input_state;
@@ -143,7 +144,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	time_update();
 	bool passed = true;
-	double deadline = time_now() + timeout;
+	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
+	// This gets trashed if it's not static.
+	static double deadline = time_now() + timeout;
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)

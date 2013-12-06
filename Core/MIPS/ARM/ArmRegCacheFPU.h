@@ -21,9 +21,9 @@
 
 #include "../MIPS.h"
 #include "../MIPSAnalyst.h"
-#include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Common/ArmEmitter.h"
 
 using namespace ArmGen;
 
@@ -47,7 +47,6 @@ struct FPURegMIPS {
 	bool tempLock;
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
-
 
 class ArmRegCacheFPU
 {

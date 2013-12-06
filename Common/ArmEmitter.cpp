@@ -18,6 +18,8 @@
 #include "ArmEmitter.h"
 #include "CPUDetect.h"
 
+#include "base/logging.h"
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -93,6 +95,10 @@ Operand2 AssumeMakeOperand2(u32 imm) {
 	Operand2 op2;
 	bool result = TryMakeOperand2(imm, op2);
 	_dbg_assert_msg_(JIT, result, "Could not make assumed Operand2.");
+	if (!result) {
+		// Make double sure that we get it logged.
+		ERROR_LOG(JIT, "Could not make assumed Operand2.");
+	}
 	return op2;
 }
 
@@ -154,6 +160,11 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 
 void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
+	if (val == 0) {
+		if (rd != rs)
+			MOV(rd, rs);
+		return;
+	}
 	Operand2 op2;
 	bool negated;
 	if (TryMakeOperand2_AllowNegation(val, op2, &negated)) {
@@ -259,7 +270,12 @@ void ARMXEmitter::TSTI2R(ARMReg rs, u32 val, ARMReg scratch)
 void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
 	Operand2 op2;
-	if (TryMakeOperand2(val, op2)) {
+	if (val == 0) {
+		// Avoid the ALU, may improve pipeline.
+		if (rd != rs) {
+			MOV(rd, rs);
+		}
+	} else if (TryMakeOperand2(val, op2)) {
 		ORR(rd, rs, op2);
 	} else {
 		int ops = 0;
@@ -799,6 +815,17 @@ void ARMXEmitter::CLZ(ARMReg rd, ARMReg rm)
 	Write32(condition | (0x16F << 16) | (rd << 12) | (0xF1 << 4) | rm);
 }
 
+void ARMXEmitter::PLD(ARMReg rn, int offset, bool forWrite) {
+	_dbg_assert_msg_(JIT, offset < 0x3ff && offset > -0x3ff, "PLD: Max 12 bits of offset allowed");
+
+	bool U = offset >= 0;
+	if (offset < 0) offset = -offset;
+	bool R = !forWrite;
+	// Conditions not allowed
+	Write32((0xF5 << 24) | (U << 23) | (R << 22) | (1 << 20) | ((int)rn << 16) | (0xF << 12) | offset);
+}
+
+
 void ARMXEmitter::BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width)
 {
 	u32 msb = (lsb + width - 1);
@@ -1043,21 +1070,6 @@ void ARMXEmitter::LDMBitmask(ARMReg dest, bool Add, bool Before, bool WriteBack,
 
 #undef VA_TO_REGLIST
 
-ARMReg SubBase(ARMReg Reg)
-{
-	if (Reg >= S0)
-	{
-		if (Reg >= D0)
-		{
-			if (Reg >= Q0)
-				return (ARMReg)((Reg - Q0) * 2); // Always gets encoded as a double register
-			return (ARMReg)(Reg - D0);
-		}
-		return (ARMReg)(Reg - S0);
-	}
-	return Reg;
-}
-
 // NEON Specific
 void ARMXEmitter::VABD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
@@ -1181,13 +1193,62 @@ u32 EncodeVm(ARMReg Vm)
 	ARMReg Reg = SubBase(Vm);
 
 	if (quad_reg)
-		return ((Reg & 0x10) << 2) | (Reg & 0xF);
+		return ((Reg & 0x10) << 1) | (Reg & 0xF);
 	else {
 		if (double_reg)
-			return ((Reg & 0x10) << 2) | (Reg & 0xF);
+			return ((Reg & 0x10) << 1) | (Reg & 0xF);
 		else
 			return ((Reg & 0x1) << 5) | (Reg >> 1);
 	}
+}
+
+u32 encodedSize(u32 value)
+{
+	if (value & I_8)
+		return 0;
+	else if (value & I_16)
+		return 1;
+	else if ((value & I_32) || (value & F_32))
+		return 2;
+	else if (value & I_64)
+		return 3;
+	else
+		_dbg_assert_msg_(JIT, false, "Passed invalid size to integer NEON instruction");
+	return 0;
+}
+
+ARMReg SubBase(ARMReg Reg)
+{
+	if (Reg >= S0)
+	{
+		if (Reg >= D0)
+		{
+			if (Reg >= Q0)
+				return (ARMReg)((Reg - Q0) * 2); // Always gets encoded as a double register
+			return (ARMReg)(Reg - D0);
+		}
+		return (ARMReg)(Reg - S0);
+	}
+	return Reg;
+}
+
+ARMReg DScalar(ARMReg dreg, int subScalar) {
+	int dr = (int)(SubBase(dreg)) & 0xF;
+	int scalar = ((subScalar << 4) | dr);
+	ARMReg ret =  (ARMReg)(D0 + scalar);
+	// ILOG("Scalar: %i D0: %i AR: %i", scalar, (int)D0, (int)ret);
+	return ret;
+}
+
+// Convert to a DScalar
+ARMReg QScalar(ARMReg qreg, int subScalar) {
+	int dr = (int)(SubBase(qreg)) & 0xF;
+	if (subScalar & 2) {
+		dr++;
+	}
+	int scalar = (((subScalar & 1) << 4) | dr);
+	ARMReg ret =  (ARMReg)(D0 + scalar);
+	return ret;
 }
 
 void ARMXEmitter::WriteVFPDataOp(u32 Op, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -1742,21 +1803,15 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index)
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
-	u32 sizeEncoded = 0, indexEncoded = 0;
+	u32 imm4 = 0;
 	if (Size & I_8)
-		sizeEncoded = 1;
+		imm4 = (index << 1) | 1;
 	else if (Size & I_16)
-		sizeEncoded = 2;
-	else if (Size & I_32)
-		sizeEncoded = 4;
-	if (Size & I_8)
-		indexEncoded <<= 1;
-	else if (Size & I_16)
-		indexEncoded <<= 2;
-	else if (Size & I_32)
-		indexEncoded <<= 3;
-	Write32((0xF3 << 24) | (0xD << 20) | (sizeEncoded << 16) | (indexEncoded << 16) \
-		| EncodeVd(Vd) | (0xC0 << 4) | (register_quad << 6) | EncodeVm(Vm));
+		imm4 = (index << 2) | 2;
+	else if (Size & (I_32 | F_32))
+		imm4 = (index << 3) | 4;
+	Write32((0xF3 << 24) | (0xB << 20) | (imm4 << 16)  \
+		| EncodeVd(Vd) | (0xC << 8) | (register_quad << 6) | EncodeVm(Vm));
 }
 void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 {
@@ -1928,6 +1983,41 @@ void ARMXEmitter::VMULL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Write32((0xF2 << 24) | (1 << 23) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | \
 			(0xC0 << 4) | ((Size & I_POLYNOMIAL) ? 1 << 9 : 0) | EncodeVm(Vm));
 }
+void ARMXEmitter::VMLA_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
+
+	// No idea if the Non-Q case here works. Not really that interested.
+	if (Size & F_32)
+		Write32((0xF2 << 24) | (register_quad << 24) | (1 << 23) | (2 << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (0x14 << 4) | EncodeVm(Vm));
+	else
+		_dbg_assert_msg_(JIT, false, "VMLA_scalar only supports float atm");
+	//else
+	//	Write32((0xF2 << 24) | (1 << 23) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (0x90 << 4) | (1 << 6) | EncodeVm(Vm));
+	// Unsigned support missing
+}
+void ARMXEmitter::VMUL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
+
+	int VmEnc = EncodeVm(Vm);
+	// No idea if the Non-Q case here works. Not really that interested.
+	if (Size & F_32)  // Q flag
+		Write32((0xF2 << 24) | (register_quad << 24) | (1 << 23) | (2 << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (0x94 << 4) | VmEnc);
+	else
+		_dbg_assert_msg_(JIT, false, "VMUL_scalar only supports float atm");
+	
+		// Write32((0xF2 << 24) | ((Size & I_POLYNOMIAL) ? (1 << 24) : 0) | (1 << 23) | (encodedSize(Size) << 20) | 
+		// EncodeVn(Vn) | EncodeVd(Vd) | (0x84 << 4) | (register_quad << 6) | EncodeVm(Vm));
+	// Unsigned support missing
+}
+
 void ARMXEmitter::VNEG(u32 Size, ARMReg Vd, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
@@ -2265,7 +2355,7 @@ void ARMXEmitter::VSWP(ARMReg Vd, ARMReg Vm)
 }
 void ARMXEmitter::VTRN(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2275,7 +2365,7 @@ void ARMXEmitter::VTRN(u32 Size, ARMReg Vd, ARMReg Vm)
 }
 void ARMXEmitter::VTST(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2285,7 +2375,7 @@ void ARMXEmitter::VTST(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 }
 void ARMXEmitter::VUZP(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2295,7 +2385,7 @@ void ARMXEmitter::VUZP(u32 Size, ARMReg Vd, ARMReg Vm)
 }
 void ARMXEmitter::VZIP(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	 _dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -2303,17 +2393,132 @@ void ARMXEmitter::VZIP(u32 Size, ARMReg Vd, ARMReg Vm)
 	Write32((0xF3 << 24) | (0xB << 20) | (encodedSize(Size) << 18) | (1 << 17) | EncodeVd(Vd) | \
 			(0x18 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
-void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
+
+void ARMXEmitter::VMOVL(u32 Size, ARMReg Vd, ARMReg Vm)
 {
-	u32 spacing = 0x7; // Only support loading to 1 reg
+	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vm >= D0 && Vm <= D31, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	_dbg_assert_msg_(JIT, (Size & (I_UNSIGNED | I_SIGNED)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VMOVL");
+
+	bool unsign = (Size & I_UNSIGNED) != 0;
+	int imm3 = 0;
+	if (Size & I_8) imm3 = 1;
+	if (Size & I_16) imm3 = 2;
+	if (Size & I_32) imm3 = 4;
+
+	Write32((0xF2 << 24) | (unsign << 24) | (1 << 23) | (imm3 << 19) | EncodeVd(Vd) | \
+		(0xA1 << 4) | EncodeVm(Vm));
+}
+
+void ARMXEmitter::VMOVN(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vm >= Q0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0 && Vd <= D31, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
+
+	Write32((0xF3B << 20) | (encodedSize(Size) << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | EncodeVm(Vm));
+}
+
+void ARMXEmitter::VCVT(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, (Size & (I_UNSIGNED | I_SIGNED)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VCVT NEON");
+
+	bool register_quad = Vd >= Q0;
+	bool toInteger = (Size & I_32) != 0;
+	bool isUnsigned = (Size & I_UNSIGNED) != 0;
+	int op = (toInteger << 1) | (int)isUnsigned;
+
+	Write32((0xF3 << 24) | (0xBB << 16) | EncodeVd(Vd) | (0x3 << 9) | (op << 7) | (register_quad << 6) | EncodeVm(Vm));
+}
+
+static int RegCountToType(int nRegs, NEONAlignment align) {
+	switch (nRegs) {
+	case 1:
+		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
+		return 7;
+	case 2:
+		_dbg_assert_msg_(JIT, !((int)align & 3), "align & 3 must be == 0");
+		return 10;
+	case 3:
+		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
+		return 6;
+	case 4:
+		return 4;
+	default:
+		_dbg_assert_msg_(JIT, false, "Invalid number of registers passed to vector load/store");
+		return 0;
+	}
+}
+
+void ARMXEmitter::WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
+{
+	u32 spacing = RegCountToType(regCount, align); // Only support loading to 1 reg
 	// Gets encoded as a double register
 	Vd = SubBase(Vd);
 
-	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (1 << 21) | (Rn << 16)
+	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (load << 21) | (Rn << 16)
 			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
 			| (align << 4) | Rm);
 }
-void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
+
+void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	WriteVLDST1(true, Size, Vd, Rn, regCount, align, Rm);
+}
+
+void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	WriteVLDST1(false, Size, Vd, Rn, regCount, align, Rm);
+}
+
+void ARMXEmitter::WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) 
+{
+	bool register_quad = Vd >= Q0;
+
+	Vd = SubBase(Vd);
+	// Support quad lanes by converting to D lanes
+	if (register_quad && lane > 1) {
+		Vd = (ARMReg)((int)Vd + 1);
+		lane -= 2;
+	}
+	int encSize = encodedSize(Size);
+	int index_align = 0;
+	switch (encSize) {
+	case 0: index_align = lane << 1; break;
+	case 1: index_align = lane << 2; if (aligned) index_align |= 1; break;
+	case 2: index_align = lane << 3; if (aligned) index_align |= 3; break;
+	default:
+		break;
+	}
+
+	Write32((0xF4 << 24) | (1 << 23) | ((Vd & 0x10) << 18) | (load << 21) | (Rn << 16)
+		| ((Vd & 0xF) << 12) | (encSize << 10)
+		| (index_align << 4) | Rm);
+}
+
+void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	WriteVLDST1_lane(true, Size, Vd, Rn, lane, aligned, Rm);
+}
+
+void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	WriteVLDST1_lane(false, Size, Vd, Rn, lane, aligned, Rm);
+}
+
+void ARMXEmitter::VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm) {
+	bool register_quad = Vd >= Q0;
+
+	Vd = SubBase(Vd);
+
+	int T = register_quad;  // two D registers
+
+	Write32((0xF4 << 24) | (1 << 23) | ((Vd & 0x10) << 18) | (1 << 21) | (Rn << 16)
+		| ((Vd & 0xF) << 12) | (0xC << 8) | (encodedSize(Size) << 6)
+		| (T << 5) | (aligned << 4) | Rm);
+}
+
+/*
+void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm)
 {
 	u32 spacing = 0x8; // Single spaced registers
 	// Gets encoded as a double register
@@ -2323,16 +2528,7 @@ void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMR
 			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
 			| (align << 4) | Rm);
 }
-void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, NEONAlignment align, ARMReg Rm)
-{
-	u32 spacing = 0x7; // Single spaced registers
-	// Gets encoded as a double register
-	Vd = SubBase(Vd);
-
-	Write32((0xF4 << 24) | ((Vd & 0x10) << 18) | (Rn << 16)
-			| ((Vd & 0xF) << 12) | (spacing << 8) | (encodedSize(Size) << 6)
-			| (align << 4) | Rm);
-}
+*/
 
 void ARMXEmitter::VREVX(u32 size, u32 Size, ARMReg Vd, ARMReg Vm)
 {

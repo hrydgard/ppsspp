@@ -226,19 +226,21 @@ u32 sceRtcGetTickResolution()
 
 u32 sceRtcGetCurrentTick(u32 tickPtr)
 {
-	//Don't spam the log
-	//DEBUG_LOG(SCERTC, "sceRtcGetCurrentTick(%08x)", tickPtr);
+	VERBOSE_LOG(SCERTC, "sceRtcGetCurrentTick(%08x)", tickPtr);
 
 	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
 		Memory::Write_U64(curTick, tickPtr);
 	hleEatCycles(300);
+	hleReSchedule("rtc current tick");
 	return 0;
 }
 
-u64 sceRtcGetAcculumativeTime() 
+u64 sceRtcGetAccumulativeTime()
 {
-	DEBUG_LOG(SCERTC, "sceRtcGetAcculumativeTime()");
+	DEBUG_LOG(SCERTC, "sceRtcGetAccumulativeTime()");
+	hleEatCycles(300);
+	hleReSchedule("rtc accumulative time");
 	return __RtcGetCurrentTick();
 }
 
@@ -268,6 +270,7 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 		Memory::WriteStruct(pspTimePtr, &ret);
 
 	hleEatCycles(1900);
+	hleReSchedule("rtc current clock");
 	return 0;
 }
 
@@ -293,6 +296,7 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 		Memory::WriteStruct(pspTimePtr, &ret);
 
 	hleEatCycles(2000);
+	hleReSchedule("rtc current clock local");
 	return 0;
 }
 
@@ -886,8 +890,8 @@ const HLEFunction sceRtc[] =
 {
 	{0xC41C2853, &WrapU_V<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
 	{0x3f7ad767, &WrapU_U<sceRtcGetCurrentTick>, "sceRtcGetCurrentTick"},
-	{0x011F03C1, &WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumulativeTime"},
-	{0x029CA3B3, &WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumlativeTime"},
+	{0x011F03C1, &WrapU64_V<sceRtcGetAccumulativeTime>, "sceRtcGetAccumulativeTime"},
+	{0x029CA3B3, &WrapU64_V<sceRtcGetAccumulativeTime>, "sceRtcGetAccumlativeTime"},
 	{0x4cfa57b0, &WrapU_UI<sceRtcGetCurrentClock>, "sceRtcGetCurrentClock"},
 	{0xE7C27D1B, &WrapU_U<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime"},
 	{0x34885E0D, &WrapI_UU<sceRtcConvertUtcToLocalTime>, "sceRtcConvertUtcToLocalTime"},
@@ -925,7 +929,7 @@ const HLEFunction sceRtc[] =
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
 	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
 	{0x7d1fbed3, &WrapI_UU<sceRtcSetAlarmTick>, "sceRtcSetAlarmTick"},
-	{0xf5fcc995, 0, "sceRtc_F5FCC995"},
+	{0xf5fcc995, 0, "sceRtcGetCurrentNetworkTick"},
 	{0x81fcda34, 0, "sceRtcIsAlarmed"},
 	{0xfb3b18cd, 0, "sceRtcRegisterCallback"},
 	{0x6a676d2d, 0, "sceRtcUnregisterCallback"},

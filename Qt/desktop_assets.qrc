@@ -1,0 +1,24 @@
+<RCC>
+	<qresource prefix="/">
+		<file alias="assets/ui_atlas.zim">../assets/ui_atlas_lowmem.zim</file>
+		<file alias="assets/ppge_atlas.zim">../assets/ppge_atlas.zim</file>
+		<file alias="assets/lang">../lang</file>
+		<file alias="assets/langregion.ini">../assets/langregion.ini</file>
+		<file alias="assets/unknown.png">../assets/unknown.png</file>
+		<file alias="assets/shaders">../assets/shaders</file>
+		<file alias="assets/flash0/font">../flash0/font</file>
+        <file>languages/ppsspp_de.qm</file>
+        <file>languages/ppsspp_en.qm</file>
+        <file>languages/ppsspp_fr.qm</file>
+        <file>languages/ppsspp_gr.qm</file>
+        <file>languages/ppsspp_hu.qm</file>
+        <file>languages/ppsspp_id.qm</file>
+        <file>languages/ppsspp_pl.qm</file>
+        <file>languages/ppsspp_pt-br.qm</file>
+        <file>languages/ppsspp_ru.qm</file>
+        <file>languages/ppsspp_zh-cn.qm</file>
+        <file>languages/ppsspp_zh-tw.qm</file>
+        <file>resources/breakpointDisable.ico</file>
+        <file>resources/breakpoint.ico</file>
+    </qresource>
+</RCC>

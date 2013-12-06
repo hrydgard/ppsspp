@@ -262,12 +262,20 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 	host->GPUNotifyDraw();
 }
 
-void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type)
+void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type, int *bytesRead)
 {
 	// TODO: Cache VertexDecoder objects
 	VertexDecoder vdecoder;
 	vdecoder.SetVertexType(vertex_type);
 	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
+
+	if (bytesRead)
+		*bytesRead = vertex_count * vdecoder.VertexSize();
+
+	// Frame skipping.
+	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
+		return;
+	}
 
 	static u8 buf[65536 * 48]; // yolo
 	u16 index_lower_bound = 0;

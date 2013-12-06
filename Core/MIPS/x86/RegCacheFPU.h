@@ -22,6 +22,8 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
+#undef MAP_NOINIT
+
 using namespace Gen;
 
 // GPRs are numbered 0 to 31
@@ -152,6 +154,7 @@ public:
 
 	void FlushX(X64Reg reg);
 	X64Reg GetFreeXReg();
+
 private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();

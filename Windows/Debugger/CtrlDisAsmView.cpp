@@ -54,166 +54,9 @@ void CtrlDisAsmView::deinit()
 	//UnregisterClass(szClassName, hInst)
 }
 
-#define NUM_LANES 16
-
-bool compareBranchLines(BranchLine& a,BranchLine& b)
-{
-	return a.first < b.first;
-}
-
 void CtrlDisAsmView::scanFunctions()
 {
-	struct LaneInfo
-	{
-		bool used;
-		u32 end;
-	};
-
-	u32 pos = windowStart;
-	u32 windowEnd = windowStart+visibleRows*instructionSize;
-
-	visibleFunctionAddresses.clear();
-	strayLines.clear();
-
-	while (pos < windowEnd)
-	{
-		SymbolInfo info;
-		if (symbolMap.GetSymbolInfo(&info,pos))
-		{
-			u32 hash = XXH32(Memory::GetPointer(info.address),info.size,0xBACD7814);
-			u32 funcEnd = info.address+info.size;
-
-			visibleFunctionAddresses.push_back(info.address);
-
-			auto it = functions.find(info.address);
-			if (it != functions.end() && it->second.hash == hash)
-			{
-				// function is unchaged
-				pos = funcEnd;
-				continue;
-			}
-
-			DisassemblyFunction func;
-			func.hash = hash;
-
-			LaneInfo lanes[NUM_LANES];
-			for (int i = 0; i < NUM_LANES; i++)
-				lanes[i].used = false;
-
-
-			for (u32 funcPos = info.address; funcPos < funcEnd; funcPos += instructionSize)
-			{
-				MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(debugger,funcPos);
-
-				bool inFunction = (opInfo.branchTarget >= info.address && opInfo.branchTarget < funcEnd);
-				if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch && inFunction)
-				{
-					BranchLine line;
-					if (opInfo.branchTarget < funcPos)
-					{
-						line.first = opInfo.branchTarget;
-						line.second = funcPos;
-						line.type = LINE_UP;
-					} else {
-						line.first = funcPos;
-						line.second = opInfo.branchTarget;
-						line.type = LINE_DOWN;
-					}
-
-					func.lines.push_back(line);
-				}
-			}
-			
-			std::sort(func.lines.begin(),func.lines.end(),compareBranchLines);
-			for (size_t i = 0; i < func.lines.size(); i++)
-			{
-				for (int l = 0; l < NUM_LANES; l++)
-				{
-					if (func.lines[i].first > lanes[l].end)
-						lanes[l].used = false;
-				}
-
-				int lane = -1;
-				for (int l = 0; l < NUM_LANES; l++)
-				{
-					if (lanes[l].used == false)
-					{
-						lane = l;
-						break;
-					}
-				}
-
-				if (lane == -1)
-				{
-					// error
-					continue;
-				}
-
-				lanes[lane].end = func.lines[i].second;
-				lanes[lane].used = true;
-				func.lines[i].laneIndex = lane;
-			}
-
-			functions[info.address] = func;
-			pos = funcEnd;
-		} else {
-			MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(debugger,pos);
-			if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch)
-			{
-				BranchLine line;
-				if (opInfo.branchTarget < pos)
-				{
-					line.first = opInfo.branchTarget;
-					line.second = pos;
-					line.type = LINE_UP;
-				} else {
-					line.first = pos;
-					line.second = opInfo.branchTarget;
-					line.type = LINE_DOWN;
-				}
-
-				strayLines.push_back(line);
-			}
-
-			pos += instructionSize;
-		}
-	}
-
-	// calculate lanes for strayBranches
-	LaneInfo lanes[NUM_LANES];
-	for (int i = 0; i < NUM_LANES; i++)
-		lanes[i].used = false;
-	
-	std::sort(strayLines.begin(),strayLines.end(),compareBranchLines);
-	for (size_t i = 0; i < strayLines.size(); i++)
-	{
-		for (int l = 0; l < NUM_LANES; l++)
-		{
-			if (strayLines[i].first > lanes[l].end)
-				lanes[l].used = false;
-		}
-
-		int lane = -1;
-		for (int l = 0; l < NUM_LANES; l++)
-		{
-			if (lanes[l].used == false)
-			{
-				lane = l;
-				break;
-			}
-		}
-
-		if (lane == -1)
-		{
-			// error
-			continue;
-		}
-
-		lanes[lane].end = strayLines[i].second;
-		lanes[lane].used = true;
-		strayLines[i].laneIndex = lane;
-	}
-
+	manager.analyze(windowStart,manager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
 LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -324,7 +167,6 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");
 	curAddress=0;
-	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
 	dontRedraw = false;
@@ -359,11 +201,11 @@ COLORREF scaleColor(COLORREF color, float factor)
 	return (color & 0xFF000000) | (b << 16) | (g << 8) | r;
 }
 
-bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels)
+bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData)
 {
 	if (displaySymbols)
 	{
-		const char* addressSymbol = debugger->findSymbolForAddress(address);
+		const char* addressSymbol = symbolMap.GetLabelName(address);
 		if (addressSymbol != NULL)
 		{
 			for (int k = 0; addressSymbol[k] != 0; k++)
@@ -384,72 +226,12 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 			return false;
 		}
 	} else {
-		sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
+		if (showData)
+			sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
+		else
+			sprintf(dest,"%08X",address);
 		return false;
 	}
-}
-
-void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* arguments)
-{
-	branchTarget = -1;
-	branchRegister = -1;
-
-	// copy opcode
-	while (*disasm != 0 && *disasm != '\t')
-	{
-		*opcode++ = *disasm++;
-	}
-	*opcode = 0;
-
-	if (*disasm++ == 0)
-	{
-		*arguments = 0;
-		return;
-	}
-
-	const char* jumpAddress = strstr(disasm,"->$");
-	const char* jumpRegister = strstr(disasm,"->");
-	while (*disasm != 0)
-	{
-		// parse symbol
-		if (disasm == jumpAddress)
-		{
-			sscanf(disasm+3,"%08x",&branchTarget);
-
-			const char* addressSymbol = debugger->findSymbolForAddress(branchTarget);
-			if (addressSymbol != NULL && displaySymbols)
-			{
-				arguments += sprintf(arguments,"%s",addressSymbol);
-			} else {
-				arguments += sprintf(arguments,"0x%08X",branchTarget);
-			}
-			
-			disasm += 3+8;
-			continue;
-		}
-
-		if (disasm == jumpRegister)
-		{
-			disasm += 2;
-			for (int i = 0; i < 32; i++)
-			{
-				if (strcasecmp(jumpRegister+2,debugger->GetRegName(0,i)) == 0)
-				{
-					branchRegister = i;
-					break;
-				}
-			}
-		}
-
-		if (*disasm == ' ')
-		{
-			disasm++;
-			continue;
-		}
-		*arguments++ = *disasm++;
-	}
-
-	*arguments = 0;
 }
 
 std::string trimString(std::string input)
@@ -520,7 +302,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		scanFunctions();
 
 		if (address == curAddress)
-			gotoAddr(curAddress+4);
+			gotoAddr(manager.getNthNextAddress(curAddress,1));
 
 		redraw();
 	} else {
@@ -530,10 +312,10 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 }
 
 
-void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
+void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line)
 {
 	HPEN pen;
-	u32 windowEnd = windowStart+visibleRows*instructionSize;
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 	
 	int topY;
 	int bottomY;
@@ -544,8 +326,7 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	{
 		topY = rect.bottom+1;
 	} else {
-		int row = (line.first-windowStart)/instructionSize;
-		topY = row*rowHeight + rowHeight/2;
+		topY = addressPositions[line.first] + rowHeight/2;
 	}
 			
 	if (line.second < windowStart)
@@ -555,8 +336,7 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, BranchLine& line)
 	{
 		bottomY = rect.bottom+1;
 	} else {
-		int row = (line.second-windowStart)/instructionSize;
-		bottomY = row*rowHeight + rowHeight/2;
+		bottomY = addressPositions[line.second] + rowHeight/2;
 	}
 
 	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom))
@@ -648,19 +428,24 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 	HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOPDISABLE);
 
+	unsigned int address = windowStart;
+	std::map<u32,int> addressPositions;
+
+	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows; i++)
 	{
-		unsigned int address=windowStart + i*instructionSize;
-		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,address);
+		manager.getLine(address,displaySymbols,line);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
+
+		addressPositions[address] = rowY1;
 
 		// draw background
 		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address);
 		COLORREF textColor = 0x000000;
 
-		if (address == debugger->getPC())
+		if (isInInterval(address,line.totalSize,debugger->getPC()))
 		{
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
@@ -700,48 +485,34 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SetTextColor(hdc,textColor);
 
 		char addressText[64];
-		getDisasmAddressText(address,addressText,true);
+		getDisasmAddressText(address,addressText,true,line.type == DISTYPE_OPCODE);
 		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
-
-		if (address == debugger->getPC())
+		
+		if (isInInterval(address,line.totalSize,debugger->getPC()))
 		{
 			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
 		}
 
-		// display opcode
-		char opcode[64],arguments[256];
-		const char *dizz = debugger->disasm(address, instructionSize);
-		parseDisasm(dizz,opcode,arguments);
-
 		// display whether the condition of a branch is met
-		if (info.isConditional && address == debugger->getPC())
+		if (line.info.isConditional && address == debugger->getPC())
 		{
-			strcat(arguments,info.conditionMet ? "  ; true" : "  ; false");
+			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		int length = (int) strlen(arguments);
-		if (length != 0) TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,arguments,length);
+		if (line.params.size() != 0)
+			TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,line.params.c_str(),(int)line.params.size());
 			
 		SelectObject(hdc,boldfont);
-		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
+		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,line.name.c_str(),(int)line.name.size());
 		SelectObject(hdc,font);
+
+		address += line.totalSize;
 	}
 
-	for (size_t i = 0; i < visibleFunctionAddresses.size(); i++)
+	std::vector<BranchLine> branchLines = manager.getBranchLines(windowStart,address-windowStart);
+	for (size_t i = 0; i < branchLines.size(); i++)
 	{
-		auto it = functions.find(visibleFunctionAddresses[i]);
-		if (it == functions.end()) continue;
-		DisassemblyFunction& func = it->second;
-		
-		for (size_t l = 0; l < func.lines.size(); l++)
-		{
-			drawBranchLine(hdc,func.lines[l]);
-		}
-	}
-
-	for (size_t i = 0; i < strayLines.size(); i++)
-	{
-		drawBranchLine(hdc,strayLines[i]);
+		drawBranchLine(hdc,addressPositions,branchLines[i]);
 	}
 
 	SelectObject(hdc,oldFont);
@@ -771,16 +542,16 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 	switch (wParam & 0xFFFF)
 	{
 	case SB_LINEDOWN:
-		windowStart += instructionSize;
+		windowStart = manager.getNthNextAddress(windowStart,1);
 		break;
 	case SB_LINEUP:
-		windowStart -= instructionSize;
+		windowStart = manager.getNthPreviousAddress(windowStart,1);
 		break;
 	case SB_PAGEDOWN:
-		windowStart += visibleRows*instructionSize;
+		windowStart = manager.getNthNextAddress(windowStart,visibleRows);
 		break;
 	case SB_PAGEUP:
-		windowStart -= visibleRows*instructionSize;
+		windowStart = manager.getNthPreviousAddress(windowStart,visibleRows);
 		break;
 	default:
 		return;
@@ -792,16 +563,25 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::followBranch()
 {
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
+	DisassemblyLineInfo line;
+	manager.getLine(curAddress,true,line);
 
-	if (info.isBranch)
+	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
-		jumpStack.push_back(curAddress);
-		gotoAddr(info.branchTarget);
-	} else if (info.hasRelevantAddress)
+		if (line.info.isBranch)
+		{
+			jumpStack.push_back(curAddress);
+			gotoAddr(line.info.branchTarget);
+		} else if (line.info.hasRelevantAddress)
+		{
+			// well, not  exactly a branch, but we can do something anyway
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+			SetFocus(wnd);
+		}
+	} else if (line.type == DISTYPE_DATA)
 	{
-		// well, not  exactly a branch, but we can do something anyway
-		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,info.releventAddress,0);
+		// jump to the start of the current line
+		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,curAddress,0);
 		SetFocus(wnd);
 	}
 }
@@ -850,7 +630,7 @@ void CtrlDisAsmView::editBreakpoint()
 void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
 	dontRedraw = false;
-	u32 windowEnd = windowStart+visibleRows*instructionSize;
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 	keyTaken = true;
 
 	if (KeyDownAsync(VK_CONTROL))
@@ -885,15 +665,15 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			toggleBreakpoint(true);
 			break;
 		case VK_UP:
-			windowStart -= instructionSize;
+			scrollWindow(-1);
 			scanFunctions();
 			break;
 		case VK_DOWN:
-			windowStart += instructionSize;
+			scrollWindow(1);
 			scanFunctions();
 			break;
 		case VK_NEXT:
-			setCurAddress(windowEnd-instructionSize,KeyDownAsync(VK_SHIFT));
+			setCurAddress(manager.getNthPreviousAddress(windowEnd,1),KeyDownAsync(VK_SHIFT));
 			break;
 		case VK_PRIOR:
 			setCurAddress(windowStart,KeyDownAsync(VK_SHIFT));
@@ -903,19 +683,19 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		switch (wParam & 0xFFFF)
 		{
 		case VK_DOWN:
-			setCurAddress(curAddress + instructionSize, KeyDownAsync(VK_SHIFT));
+			setCurAddress(manager.getNthNextAddress(curAddress,1), KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 			break;
 		case VK_UP:
-			setCurAddress(curAddress - instructionSize, KeyDownAsync(VK_SHIFT));
+			setCurAddress(manager.getNthPreviousAddress(curAddress,1), KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 			break;
 		case VK_NEXT:
-			if (curAddress != windowEnd - instructionSize && curAddressIsVisible()) {
-				setCurAddress(windowEnd - instructionSize, KeyDownAsync(VK_SHIFT));
+			if (manager.getNthNextAddress(curAddress,1) != windowEnd && curAddressIsVisible()) {
+				setCurAddress(manager.getNthPreviousAddress(windowEnd,1), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(curAddress + visibleRows * instructionSize, KeyDownAsync(VK_SHIFT));
+				setCurAddress(manager.getNthNextAddress(windowEnd,visibleRows-1), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			}
 			break;
@@ -924,7 +704,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 				setCurAddress(windowStart, KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(curAddress - visibleRows * instructionSize, KeyDownAsync(VK_SHIFT));
+				setCurAddress(manager.getNthPreviousAddress(windowStart,visibleRows), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			}
 			break;
@@ -965,19 +745,19 @@ void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::scrollAddressIntoView()
 {
-	u32 windowEnd = windowStart + visibleRows * instructionSize;
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 
 	if (curAddress < windowStart)
 		windowStart = curAddress;
 	else if (curAddress >= windowEnd)
-		windowStart = curAddress - visibleRows * instructionSize + instructionSize;
+		windowStart =  manager.getNthPreviousAddress(curAddress,visibleRows-1);
 
 	scanFunctions();
 }
 
 bool CtrlDisAsmView::curAddressIsVisible()
 {
-	u32 windowEnd = windowStart + visibleRows * instructionSize;
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
 	return curAddress >= windowStart && curAddress < windowEnd;
 }
 
@@ -1049,10 +829,10 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm)
 {
-	int count = (endAddr - startAddr) / instructionSize;
-
 	if (withDisasm == false)
 	{
+		int instructionSize = debugger->getInstructionSize(0);
+		int count = (endAddr - startAddr) / instructionSize;
 		int space = count * 32;
 		char *temp = new char[space];
 
@@ -1130,17 +910,17 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_RENAMEFUNCTION:
 			{
-				int sym = symbolMap.GetSymbolNum(curAddress);
-				if (sym != -1)
+				u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+				if (funcBegin != -1)
 				{
 					char name[256];
 					std::string newname;
-					strncpy_s(name, symbolMap.GetSymbolName(sym),_TRUNCATE);
+					strncpy_s(name, symbolMap.GetLabelName(funcBegin),_TRUNCATE);
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname))
 					{
-						symbolMap.SetSymbolName(sym, newname.c_str());
-						redraw();
+						symbolMap.SetLabelName(newname.c_str(),funcBegin);
 						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);
+						redraw();
 					}
 				}
 				else
@@ -1152,17 +932,20 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_REMOVEFUNCTION:
 			{
 				char statusBarTextBuff[256];
-				int sym = symbolMap.GetSymbolNum(curAddress);
-				if (sym != -1)
+				u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+				if (funcBegin != -1)
 				{
-					u32 funcBegin = symbolMap.GetAddress(sym);
-					int prev = symbolMap.GetSymbolNum(funcBegin - 1);
-					if (prev != -1)
+					u32 prevBegin = symbolMap.GetFunctionStart(funcBegin-1);
+					if (prevBegin != -1)
 					{
-						int expandedSize = symbolMap.GetSymbolSize(prev) + symbolMap.GetSymbolSize(sym);
-						symbolMap.SetSymbolSize(prev, expandedSize);
+						u32 expandedSize = symbolMap.GetFunctionSize(prevBegin)+symbolMap.GetFunctionSize(funcBegin);
+						symbolMap.SetFunctionSize(prevBegin,expandedSize);
 					}
-					symbolMap.RemoveSymbolNum(sym);
+					
+					symbolMap.RemoveFunction(funcBegin,true);
+					symbolMap.SortSymbols();
+					manager.clear();
+
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				else
@@ -1176,10 +959,10 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_ADDFUNCTION:
 			{
 				char statusBarTextBuff[256];
-				int sym = symbolMap.GetSymbolNum(curAddress);
-				if (sym != -1)
+				u32 prevBegin = symbolMap.GetFunctionStart(curAddress);
+				if (prevBegin != -1)
 				{
-					if (symbolMap.GetAddress(sym) == curAddress)
+					if (prevBegin == curAddress)
 					{
 						snprintf(statusBarTextBuff,256, "WARNING: There's already a function entry point at this adress");
 						SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
@@ -1187,21 +970,28 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					else
 					{
 						char symname[128];
-						int prevSize = symbolMap.GetSymbolSize(sym);
-						u32 prevAddr = symbolMap.GetSymbolAddr(sym);
-						int newSize = curAddress - prevAddr;
-						symbolMap.SetSymbolSize(sym, newSize);
-						newSize = prevSize - newSize;
+						u32 prevSize = symbolMap.GetFunctionSize(prevBegin);
+						u32 newSize = curAddress-prevBegin;
+						symbolMap.SetFunctionSize(prevBegin,newSize);
+
+						newSize = prevSize-newSize;
 						snprintf(symname,128,"u_un_%08X",curAddress);
-						symbolMap.AddSymbol(symname, curAddress, newSize, ST_FUNCTION);
+						symbolMap.AddFunction(symname,curAddress,newSize);
 						symbolMap.SortSymbols();
+						manager.clear();
+
 						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					}
 				}
 				else
 				{
-					snprintf(statusBarTextBuff, 256, "WARNING: unable to add function symbol here");
-					SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
+					char symname[128];
+					int newSize = selectRangeEnd - selectRangeStart;
+					snprintf(symname, 128, "u_un_%08X", selectRangeStart);
+					symbolMap.AddFunction(symname, selectRangeStart, newSize);
+					symbolMap.SortSymbols();
+
+					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				redraw();
 			}
@@ -1231,51 +1021,76 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 void CtrlDisAsmView::updateStatusBarText()
 {
 	char text[512];
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
+	DisassemblyLineInfo line;
+	manager.getLine(curAddress,true,line);
 	
 	text[0] = 0;
-	if (info.isDataAccess)
+	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
-		if (!Memory::IsValidAddress(info.dataAddress))
+		if (line.info.isDataAccess)
 		{
-			sprintf(text,"Invalid address %08X",info.dataAddress);
-		} else {
-			switch (info.dataSize)
+			if (!Memory::IsValidAddress(line.info.dataAddress))
 			{
-			case 1:
-				sprintf(text,"[%08X] = %02X",info.dataAddress,Memory::Read_U8(info.dataAddress));
-				break;
-			case 2:
-				sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
-				break;
-			case 4:
-				// TODO: Could also be a float...
+				sprintf(text,"Invalid address %08X",line.info.dataAddress);
+			} else {
+				switch (line.info.dataSize)
 				{
-					u32 data = Memory::Read_U32(info.dataAddress);
-					const char* addressSymbol = debugger->findSymbolForAddress(data);
-					if (addressSymbol)
+				case 1:
+					sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
+					break;
+				case 2:
+					sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
+					break;
+				case 4:
+					// TODO: Could also be a float...
 					{
-						sprintf(text,"[%08X] = %s (%08X)",info.dataAddress,addressSymbol,data);
-					} else {
-						sprintf(text,"[%08X] = %08X",info.dataAddress,data);
+						u32 data = Memory::Read_U32(line.info.dataAddress);
+						const char* addressSymbol = symbolMap.GetLabelName(data);
+						if (addressSymbol)
+						{
+							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
+						} else {
+							sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
+						}
+						break;
 					}
+				case 16:
+					// TODO: vector
 					break;
 				}
-			case 16:
-				// TODO: vector
-				break;
 			}
 		}
-	}
 
-	if (info.isBranch)
-	{
-		const char* addressSymbol = debugger->findSymbolForAddress(info.branchTarget);
-		if (addressSymbol == NULL)
+		if (line.info.isBranch)
 		{
-			sprintf(text,"%08X",info.branchTarget);
+			const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
+			if (addressSymbol == NULL)
+			{
+				sprintf(text,"%08X",line.info.branchTarget);
+			} else {
+				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol);
+			}
+		}
+	} else if (line.type == DISTYPE_DATA)
+	{
+		u32 start = symbolMap.GetDataStart(curAddress);
+		if (start == -1)
+			start = curAddress;
+
+		u32 diff = curAddress-start;
+		const char* label = symbolMap.GetLabelName(start);
+
+		if (label != NULL)
+		{
+			if (diff != 0)
+				sprintf(text,"%08X (%s) + %08X",start,label,diff);
+			else
+				sprintf(text,"%08X (%s)",start,label);
 		} else {
-			sprintf(text,"%08X = %s",info.branchTarget,addressSymbol);
+			if (diff != 0)
+				sprintf(text,"%08X + %08X",start,diff);
+			else
+				sprintf(text,"%08X",start);
 		}
 	}
 
@@ -1285,7 +1100,7 @@ void CtrlDisAsmView::updateStatusBarText()
 u32 CtrlDisAsmView::yToAddress(int y)
 {
 	int line = y/rowHeight;
-	return windowStart + line*instructionSize;
+	return manager.getNthNextAddress(windowStart,line);
 }
 
 void CtrlDisAsmView::calculatePixelPositions()
@@ -1314,9 +1129,9 @@ void CtrlDisAsmView::search(bool continueSearch)
 			searchQuery[i] = tolower(searchQuery[i]);
 		}
 		SetFocus(wnd);
-		searchAddress = curAddress+instructionSize;
+		searchAddress = manager.getNthNextAddress(curAddress,1);
 	} else {
-		searchAddress = matchAddress+instructionSize;
+		searchAddress = manager.getNthNextAddress(matchAddress,1);
 	}
 
 	// limit address to sensible ranges
@@ -1329,12 +1144,17 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 	searching = true;
 	redraw();	// so the cursor is disabled
+
+	DisassemblyLineInfo lineInfo;
 	while (searchAddress < 0x0A000000)
 	{
-		char addressText[64],opcode[64],arguments[256];
-		const char *dis = debugger->disasm(searchAddress, instructionSize);
-		parseDisasm(dis,opcode,arguments);
-		getDisasmAddressText(searchAddress,addressText,true);
+		manager.getLine(searchAddress,displaySymbols,lineInfo);
+
+		char addressText[64];
+		getDisasmAddressText(searchAddress,addressText,true,lineInfo.type == DISTYPE_OPCODE);
+
+		const char* opcode = lineInfo.name.c_str();
+		const char* arguments = lineInfo.params.c_str();
 
 		char merged[512];
 		int mergePos = 0;
@@ -1363,7 +1183,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 			return;
 		}
 
-		searchAddress += instructionSize;
+		searchAddress = manager.getNthNextAddress(searchAddress,1);
 		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
 	
@@ -1377,30 +1197,28 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 
 	// gather all branch targets without labels
 	std::set<u32> branchAddresses;
-	for (u32 i = 0; i < size; i += instructionSize)
+	for (u32 i = 0; i < size; i += debugger->getInstructionSize(0))
 	{
-		char opcode[64],arguments[256];
-		const char *dis = debugger->disasm(start+i, instructionSize);
-		parseDisasm(dis,opcode,arguments);
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		if (info.isBranch && symbolMap.GetLabelName(info.branchTarget) == NULL)
 		{
-			if (branchAddresses.find(branchTarget) == branchAddresses.end())
+			if (branchAddresses.find(info.branchTarget) == branchAddresses.end())
 			{
-				branchAddresses.insert(branchTarget);
+				branchAddresses.insert(info.branchTarget);
 			}
 		}
 	}
 
+	u32 disAddress = start;
 	bool previousLabel = true;
-	for (u32 i = 0; i < size; i += instructionSize)
+	DisassemblyLineInfo line;
+	while (disAddress < start+size)
 	{
-		u32 disAddress = start+i;
+		char addressText[64],buffer[512];
 
-		char addressText[64],opcode[64],arguments[256],buffer[512];
-		const char *dis = debugger->disasm(disAddress, instructionSize);
-		parseDisasm(dis,opcode,arguments);
-		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
+		manager.getLine(disAddress,displaySymbols,line);
+		bool isLabel = getDisasmAddressText(disAddress,addressText,false,line.type == DISTYPE_OPCODE);
 
 		if (isLabel)
 		{
@@ -1414,15 +1232,18 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 			result += buffer;
 		}
 
-		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		if (line.info.isBranch && !line.info.isBranchToRegister
+			&& symbolMap.GetLabelName(line.info.branchTarget) == NULL
+			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
 		{
-			char* str = strstr(arguments,"0x");
-			sprintf(str,"pos_%08X",branchTarget);
+			sprintf(buffer,"pos_%08X",line.info.branchTarget);
+			line.params = line.params.substr(0,line.params.find("0x")) + buffer;
 		}
 
-		sprintf(buffer,"\t%s\t%s\r\n",opcode,arguments);
+		sprintf(buffer,"\t%s\t%s\r\n",line.name.c_str(),line.params.c_str());
 		result += buffer;
 		previousLabel = isLabel;
+		disAddress += line.totalSize;
 	}
 
 	return result;
@@ -1473,9 +1294,26 @@ void CtrlDisAsmView::disassembleToFile()
 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
 {
-	char opcode[64];
-	char arguments[256];
-	const char *dis = debugger->disasm(address, instructionSize);
-	parseDisasm(dis,opcode,arguments);
-	sprintf(dest,"%s  %s",opcode,arguments);
+	DisassemblyLineInfo line;
+	address = manager.getStartAddress(address);
+	manager.getLine(address,displaySymbols,line);
+	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
+}
+
+void CtrlDisAsmView::scrollStepping(u32 newPc)
+{
+	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+
+	newPc = manager.getStartAddress(newPc);
+	if (newPc >= windowEnd || newPc >= manager.getNthPreviousAddress(windowEnd,1))
+	{
+		windowStart = manager.getNthPreviousAddress(newPc,visibleRows-2);
+	}
+}
+
+u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
+{
+	u32 start = manager.getStartAddress(address);
+	u32 next  = manager.getNthNextAddress(start,1);
+	return next-address;
 }

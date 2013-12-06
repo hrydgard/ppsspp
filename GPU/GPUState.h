@@ -384,11 +384,13 @@ struct GPUgstate
 
 	// Transfers
 	u32 getTransferSrcAddress() const { return (transfersrc & 0xFFFFF0) | ((transfersrcw & 0xFF0000) << 8); }
-	u32 getTransferSrcStride() const { return transfersrcw & 0x3F8; }
+	// Bits 0xf800 are ignored, > 0x400 is treated as 0.
+	u32 getTransferSrcStride() const { int stride = transfersrcw & 0x7F8; return stride > 0x400 ? 0 : stride; }
 	int getTransferSrcX() const { return (transfersrcpos >> 0) & 0x3FF; }
 	int getTransferSrcY() const { return (transfersrcpos >> 10) & 0x3FF; }
 	u32 getTransferDstAddress() const { return (transferdst & 0xFFFFF0) | ((transferdstw & 0xFF0000) << 8); }
-	u32 getTransferDstStride() const { return transferdstw & 0x3F8; }
+	// Bits 0xf800 are ignored, > 0x400 is treated as 0.
+	u32 getTransferDstStride() const { int stride = transferdstw & 0x7F8; return stride > 0x400 ? 0 : stride; }
 	int getTransferDstX() const { return (transferdstpos >> 0) & 0x3FF; }
 	int getTransferDstY() const { return (transferdstpos >> 10) & 0x3FF; }
 	int getTransferWidth() const { return ((transfersize >> 0) & 0x3FF) + 1; }
@@ -520,6 +522,7 @@ struct GPUStatistics {
 
 bool GPU_Init();
 void GPU_Shutdown();
+void GPU_Reinitialize();
 
 void InitGfxState();
 void ShutdownGfxState();

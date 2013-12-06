@@ -40,6 +40,10 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="InstallZipScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="Store.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -80,6 +84,10 @@
     <ClInclude Include="TiltAnalogSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="InstallZipScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="Store.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
