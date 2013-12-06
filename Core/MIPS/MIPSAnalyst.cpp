@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <set>
 
 #include "Common/FileUtil.h"
+#include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -238,6 +240,21 @@ namespace MIPSAnalyst {
 		}
 	}
 
+	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
+		sprintf(buffer, "z_un_%08x", startAddr);
+		return buffer;
+	}
+
+	static bool IsDefaultFunction(const char *name) {
+		if (name == NULL) {
+			// Must be I guess?
+			return true;
+		}
+
+		// Assume any z_un, not just the address, is a default func.
+		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
+	}
+
 	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
 		static const u32 MAX_AHEAD_SCAN = 0x1000;
 		// Maybe a bit high... just to make sure we don't get confused by recursive tail recursion.
@@ -398,74 +415,112 @@ namespace MIPSAnalyst {
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
-			(*iter).size = ((*iter).end-(*iter).start+4);
+		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+			iter->size = iter->end - iter->start + 4;
 			char temp[256];
-			sprintf(temp,"z_un_%08x",(*iter).start);
-			symbolMap.AddFunction(temp,(*iter).start,(*iter).end-(*iter).start+4);
+			symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 		}
+
 		HashFunctions();
+
+		if (g_Config.bFuncHashMap) {
+			LoadHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
+			StoreHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
+		}
 	}
 
 	struct HashMapFunc {
 		char name[64];
 		u32 hash;
 		u32 size; //number of bytes
+
+		bool operator < (const HashMapFunc &other) const {
+			return hash < other.hash || size < other.size;
+		}
 	};
+	std::set<HashMapFunc> hashMap;
 
-	void StoreHashMap(const char *filename) {
-		FILE *file = File::OpenCFile(filename,"wb");
-		u32 num = 0;
-		if (fwrite(&num,4,1,file) != 1) //fill in later
-			WARN_LOG(CPU, "Could not store hash map %s", filename);
+	void StoreHashMap(const std::string &filename) {
+		HashFunctions();
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
-			Function &f=*iter;
-			if (f.hasHash && f.size >= 12) {
-				HashMapFunc temp;
-				memset(&temp, 0, sizeof(temp));
-				strcpy(temp.name, f.name);
-				temp.hash=f.hash;
-				temp.size=f.size;
-				if (fwrite((char*)&temp, sizeof(temp), 1, file) != 1) {
-					WARN_LOG(CPU, "Could not store hash map %s", filename);
-					break;
-				}
-				num++;
+		FILE *file = File::OpenCFile(filename, "wt");
+		if (!file) {
+			WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+			return;
+		}
+
+		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
+			const Function &f = *it;
+			// Small functions aren't very interesting.
+			if (!f.hasHash || f.size < 12) {
+				continue;
+			}
+			// Functions with default names aren't very interesting either.
+			const char *name = symbolMap.GetLabelName(f.start);
+			if (IsDefaultFunction(name)) {
+				continue;
+			}
+
+			HashMapFunc mf = { "", f.hash, f.size };
+			strncpy(mf.name, name, sizeof(mf.name) - 1);
+			hashMap.insert(mf);
+		}
+
+		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
+			const HashMapFunc &mf = *it;
+			if (fprintf(file, "%x:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
+				WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+				break;
 			}
 		}
-		fseek(file, 0, SEEK_SET);
-		if (fwrite(&num, 4, 1, file) != 1)  // fill in later
-			WARN_LOG(CPU, "Could not store hash map %s", filename);
 		fclose(file);
 	}
 
-
-	void LoadHashMap(const char *filename)
-	{
+	void ApplyHashMap() {
 		HashFunctions();
 		UpdateHashToFunctionMap();
 
-		FILE *file = File::OpenCFile(filename, "rb");
-		int num;
-		if (fread(&num, 4, 1, file) == 1) {
-			for (int i = 0; i < num; i++) {
-				HashMapFunc temp;
-				if(fread(&temp, sizeof(temp), 1, file) == 1) {
-					map<u32,Function*>::iterator iter = hashToFunction.find(temp.hash);
-					if (iter != hashToFunction.end()) {
-						//yay, found a function!
-						Function &f = *(iter->second);
-						if (f.size == temp.size) {
-							strcpy(f.name, temp.name);
-							f.hash=temp.hash;
-							f.size=temp.size;
-						}
-					}
+		for (auto mf = hashMap.begin(), end = hashMap.end(); mf != end; ++mf) {
+			auto iter = hashToFunction.find(mf->hash);
+			if (iter == hashToFunction.end()) {
+				continue;
+			}
+
+			// Yay, found a function.
+			Function &f = *(iter->second);
+			if (f.hash = mf->hash && f.size == mf->size) {
+				strncpy(f.name, mf->name, sizeof(mf->name) - 1);
+
+				const char *existingLabel = symbolMap.GetLabelName(f.start);
+				char defaultLabel[256];
+				// If it was renamed, keep it.  Only change the name if it's still the default.
+				if (existingLabel == NULL || !strcmp(existingLabel, DefaultFunctionName(defaultLabel, f.start))) {
+					symbolMap.SetLabelName(mf->name, f.start);
 				}
 			}
 		}
+	}
+
+	void LoadHashMap(const std::string &filename) {
+		FILE *file = File::OpenCFile(filename, "rt");
+		if (!file) {
+			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());
+			return;
+		}
+
+		while (!feof(file)) {
+			HashMapFunc mf = { "" };
+			if (fscanf(file, "%x:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
+				char temp[1024];
+				fgets(temp, 1024, file);
+				continue;
+			}
+
+			hashMap.insert(mf);
+		}
 		fclose(file);
+
+		ApplyHashMap();
 	}
 
 	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op) {
