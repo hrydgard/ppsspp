@@ -415,6 +415,9 @@ public class NativeActivity extends Activity {
     public void onConfigurationChanged(Configuration newConfig) {
     	// Ignore orientation change
     	super.onConfigurationChanged(newConfig);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			setImmersiveMode();
+		}
     }
     
     // We simply grab the first input device to produce an event and ignore all others that are connected.
