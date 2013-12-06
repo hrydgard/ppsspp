@@ -305,10 +305,27 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
+EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
+	sliderValue_--;
+	slider_->Clamp();
+	return EVENT_DONE;
+}
+
+EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
+	sliderValue_++;
+	slider_->Clamp();
+	return EVENT_DONE;
+}
+
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	sliderValue_ = *value_;
-	slider_ = parent->Add(new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
+	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 5))));
+	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(1.0f));
+	lin->Add(slider_);
+	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
+	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+
 	UI::SetFocusedView(slider_);
 }
 

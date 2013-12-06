@@ -120,6 +120,8 @@ public:
 	Event OnChange;
 
 private:
+	EventReturn OnDecrease(EventParams &params);
+	EventReturn OnIncrease(EventParams &params);
 	virtual void OnCompleted(DialogResult result);
 	Slider *slider_;
 	int *value_;

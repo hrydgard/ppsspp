@@ -446,8 +446,10 @@ public:
 	virtual void Touch(const TouchInput &input);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	void SetShowPercent(bool s) { showPercent_ = s; }
-private:
+
+	// OK to call this from the outside after having modified *value_
 	void Clamp();
+private:
 	int *value_;
 	bool showPercent_;
 	int minValue_;
@@ -465,8 +467,9 @@ public:
 	virtual void Touch(const TouchInput &input);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
-private:
+	// OK to call this from the outside after having modified *value_
 	void Clamp();
+private:
 	float *value_;
 	float minValue_;
 	float maxValue_;
