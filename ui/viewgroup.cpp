@@ -93,9 +93,9 @@ void ViewGroup::Draw(UIContext &dc) {
 		// Darken things behind.
 		dc.FillRect(UI::Drawable(0x60000000), Bounds(0,0,dp_xres, dp_yres));
 		float dropsize = 30;
-		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, bounds_.x - dropsize, bounds_.y, bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5, 	0xDF000000, 3.0f);
-
-		// dc.Draw()->DrawImage4Grid(dc.theme->dropShadow, )
+		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid,
+			bounds_.x - dropsize, bounds_.y,
+			bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5, 0xDF000000, 3.0f);
 	}
 
 	if (clip_) {
@@ -253,7 +253,6 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 	else
 		return 1.0f / distance + overlap*10 + bonus;
 }
-
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
 	if (!IsEnabled())
@@ -457,7 +456,7 @@ void LinearLayout::Layout() {
 
 	Bounds itemBounds;
 	float pos;
-	
+
 	if (orientation_ == ORIENT_HORIZONTAL) {
 		pos = bounds.x;
 		itemBounds.y = bounds.y;
@@ -476,7 +475,7 @@ void LinearLayout::Layout() {
 		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
 		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
-		Gravity gravity = G_TOPLEFT; 
+		Gravity gravity = G_TOPLEFT;
 		Margins margins = defaultMargins_;
 		if (linLayoutParams) {
 			if (linLayoutParams->HasMargins())
@@ -508,7 +507,7 @@ void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ve
 	if (views_.empty()) {
 		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
-		return; 
+		return;
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -910,8 +909,16 @@ EventReturn TabHolder::OnTabClick(EventParams &e) {
 	return EVENT_DONE;
 }
 
+ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
+		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) {
+	SetSpacing(0.0f);
+}
+
 void ChoiceStrip::AddChoice(const std::string &title) {
-	StickyChoice *c = new StickyChoice(title, "", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	StickyChoice *c = new StickyChoice(title, "",
+			orientation_ == ORIENT_HORIZONTAL ?
+			0 :
+			new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
 	if (selected_ == (int)views_.size() - 1)
@@ -919,7 +926,10 @@ void ChoiceStrip::AddChoice(const std::string &title) {
 }
 
 void ChoiceStrip::AddChoice(ImageID buttonImage) {
-	StickyChoice *c = new StickyChoice(buttonImage, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	StickyChoice *c = new StickyChoice(buttonImage,
+			orientation_ == ORIENT_HORIZONTAL ?
+			0 :
+			new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
 	if (selected_ == (int)views_.size() - 1)
@@ -951,19 +961,16 @@ void ChoiceStrip::SetSelection(int sel) {
 	if (selected_ < (int)views_.size())
 		static_cast<StickyChoice *>(views_[selected_])->Press();
 	if (topTabs_ && prevSelected != selected_) {
-		EventParams e; 
+		EventParams e;
 		e.v = views_[selected_];
 		static_cast<StickyChoice *>(views_[selected_])->OnClick.Trigger(e);
 	}
 }
 
-
-
 void ChoiceStrip::HighlightChoice(unsigned int choice){
 	if (choice < (unsigned int)views_.size()){
 		static_cast<StickyChoice *>(views_[choice])->HighlightChanged(true);
 	}
-	
 };
 
 void ChoiceStrip::Key(const KeyInput &input) {
@@ -986,7 +993,6 @@ void ChoiceStrip::Draw(UIContext &dc) {
 			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
 	}
 }
-
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
 	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {

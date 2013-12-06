@@ -237,7 +237,7 @@ public:
 	EventReturn Dispatch(EventParams &e);
 
 	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
-	template<class T> 
+	template<class T>
 	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
 		Add(std::bind(theCallback, thiz, placeholder::_1));
 		return thiz;
@@ -248,7 +248,6 @@ public:
 
 private:
 	std::vector<HandlerRegistration> handlers_;
-	
 	DISALLOW_COPY_AND_ASSIGN(Event);
 };
 
@@ -541,6 +540,7 @@ protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
 
+	int height_;
 	std::string text_;
 	std::string smallText_;
 	ImageID atlasImage_;
@@ -563,7 +563,7 @@ public:
 	virtual void Key(const KeyInput &key);
 	virtual void Touch(const TouchInput &touch);
 	virtual void FocusChanged(int focusFlags);
-	
+
 	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
 	bool IsDown() { return down_; }

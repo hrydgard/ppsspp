@@ -269,8 +269,10 @@ void StickyChoice::FocusChanged(int focusFlags) {
 }
 
 Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
-	layoutParams_->width = FILL_PARENT;
-	layoutParams_->height = ITEM_HEIGHT;
+	if (!layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
 }
 
 void Item::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -284,9 +286,11 @@ void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
-	if (layoutParams_->width == WRAP_CONTENT)
-		layoutParams_->width = FILL_PARENT;
-	layoutParams_->height = ITEM_HEIGHT;
+	if (!layoutParams) {
+		if (layoutParams_->width == WRAP_CONTENT)
+			layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
 }
 
 void ClickableItem::Draw(UIContext &dc) {
@@ -336,8 +340,9 @@ void Choice::Draw(UIContext &dc) {
 	}
 
 	Style style = dc.theme->itemStyle;
-	if (!IsEnabled())
+	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
+	}
 
 	if (atlasImage_ != -1) {
 		dc.Draw()->DrawImage(atlasImage_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);

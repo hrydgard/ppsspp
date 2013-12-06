@@ -46,7 +46,7 @@ public:
 
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
-	
+
 	virtual bool CanBeFocused() const { return false; }
 	virtual bool IsViewGroup() const { return true; }
 
@@ -77,7 +77,6 @@ public:
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 };
-
 
 enum {
 	NONE = -1,
@@ -159,7 +158,8 @@ private:
 // Initially, only horizontal layout is supported.
 struct GridLayoutSettings {
 	GridLayoutSettings() : orientation(ORIENT_HORIZONTAL), columnWidth(100), rowHeight(50), spacing(5), fillCells(false) {}
-	GridLayoutSettings(int colW, int colH, int spac = 5) : orientation(ORIENT_HORIZONTAL), columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
+	GridLayoutSettings(int colW, int colH, int spac = 5)
+		: orientation(ORIENT_HORIZONTAL), columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
 
 	Orientation orientation;
 	int columnWidth;
@@ -237,8 +237,7 @@ public:
 
 class ChoiceStrip : public LinearLayout {
 public:
-	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0)
-		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) { SetSpacing(0.0f); }
+	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0);
 
 	void AddChoice(const std::string &title);
 	void AddChoice(ImageID buttonImage);
