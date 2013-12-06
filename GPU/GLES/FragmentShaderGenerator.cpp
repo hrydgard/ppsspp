@@ -239,7 +239,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
 		if (stencilToAlpha) {
-			// 2 bits
+			// 3 bits
 			id->d[0] |= ReplaceAlphaWithStencilType() << 19;
 		}
 		if (enableAlphaTest)

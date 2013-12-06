@@ -344,7 +344,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (!gstate.isStencilTestEnabled()) {
 			amask = false;
 		} else {
-			// If the stencil value is set to KEEP, we shouldn't write to the stencil/alpha channel.1
+			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
 				amask = false;
 			}

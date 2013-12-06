@@ -150,9 +150,12 @@ void CenterRect(float *x, float *y, float *w, float *h,
 }
 
 static void ClearBuffer() {
+	glstate.scissorTest.disable();
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glClearColor(0,0,0,1);
+	glstate.stencilFunc.set(GL_ALWAYS, 0xFF, 0xFF);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearStencil(0xFF);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
@@ -763,7 +766,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		ClearBuffer();
-		glEnable(GL_DITHER);
+		glEnable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
