@@ -172,6 +172,10 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 
 	if (!isPSP) {
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
+		installProgress_ = 0.0f;
+		installInProgress_ = false;
+		installError_ = "Not a PSP game";
+		InstallDone();
 		return false;
 	}
 
@@ -191,7 +195,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			File::CreateFullPath(outFilename.c_str());
 			createdDirs.insert(outFilename);
 		}
-		if (!isDir) {
+		if (!isDir && strstr(fn, "/") != 0) {
 			struct zip_stat zstat;
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
 				allBytes += zstat.size;
@@ -256,7 +260,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			}
 		}
 	}
-	INFO_LOG(HLE, "Extracted %i files (%i bytes).", numFiles, (int)bytesCopied);
+	INFO_LOG(HLE, "Extracted %i files (%i bytes / %i).", numFiles, (int)bytesCopied, (int)allBytes);
 
 	zip_close(z);
 	z = 0;

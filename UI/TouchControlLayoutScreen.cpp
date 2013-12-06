@@ -186,7 +186,7 @@ public:
 		w = 2 * D_pad_Radius * spacing_ + image.w * scale_;
 		h = 2 * D_pad_Radius * spacing_ + image.h * scale_;
 	};
-	
+
 	float GetSpacing() const { return spacing_; }
 	virtual void SetSpacing(float s) { spacing_ = s; }
 

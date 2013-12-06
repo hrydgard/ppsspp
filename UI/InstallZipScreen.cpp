@@ -71,7 +71,6 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	if (g_GameManager.InstallGameOnThread(zipPath_, deleteZipFile_)) {
 		installStarted_ = true;
 		installChoice_->SetEnabled(false);
-		MainScreen::showHomebrewTab = true;
 	}
 	return UI::EVENT_DONE;
 }
@@ -90,6 +89,9 @@ void InstallZipScreen::update(InputState &input) {
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
 			doneView_->SetText(iz->T(err.c_str()));
+		} else if (installStarted_) {
+			doneView_->SetText(iz->T("Installed!"));
+			MainScreen::showHomebrewTab = true;
 		}
 	}
 	UIScreen::update(input);
