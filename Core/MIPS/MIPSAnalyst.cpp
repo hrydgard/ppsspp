@@ -415,11 +415,10 @@ namespace MIPSAnalyst {
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
-			(*iter).size = ((*iter).end-(*iter).start+4);
+		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+			iter->size = iter->end - iter->start + 4;
 			char temp[256];
-			sprintf(temp,"z_un_%08x",(*iter).start);
-			symbolMap.AddFunction(temp,(*iter).start,(*iter).end-(*iter).start+4);
+			symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 		}
 
 		HashFunctions();
