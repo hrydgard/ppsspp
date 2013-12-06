@@ -200,6 +200,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	}
 
 	// Now, loop through again in a second pass, writing files.
+	std::vector<std::string> createdFiles;
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
@@ -232,7 +233,13 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 					size_t written = fwrite(buffer, 1, bs, f);
 					if (written != bs) {
 						ERROR_LOG(HLE, "Wrote %i bytes out of %i - Disk full?", (int)written, (int)bs);
-						// TODO: What do we do?
+						delete [] buffer;
+						buffer = 0;
+						fclose(f);
+						zip_fclose(zf);
+						deleteFile(outFilename.c_str());
+						// Yes it's a goto. Sue me. I think it's appropriate here.
+						goto bail;
 					}
 					pos += bs;
 
@@ -242,6 +249,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 				}
 				zip_fclose(zf);
 				fclose(f);
+				createdFiles.push_back(outFilename);
 				delete [] buffer;
 			} else {
 				ERROR_LOG(HLE, "Failed to open file for writing");
@@ -251,13 +259,33 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	INFO_LOG(HLE, "Extracted %i files (%i bytes).", numFiles, (int)bytesCopied);
 
 	zip_close(z);
+	z = 0;
 	installProgress_ = 1.0f;
 	installInProgress_ = false;
+	installError_ = "";
 	if (deleteAfter) {
 		deleteFile(zipfile.c_str());
 	}
 	InstallDone();
 	return true;
+
+bail:
+	zip_close(z);
+	// We end up here if disk is full or couldn't write to storage for some other reason.
+	installProgress_ = 0.0f;
+	installInProgress_ = false;
+	installError_ = "Storage full";
+	if (deleteAfter) {
+		deleteFile(zipfile.c_str());
+	}
+	for (size_t i = 0; i < createdFiles.size(); i++) {
+		deleteFile(createdFiles[i].c_str());
+	}
+	for (auto iter = createdDirs.begin(); iter != createdDirs.end(); ++iter) {
+		deleteDir(iter->c_str());
+	}
+	InstallDone();
+	return false;
 }
 
 bool GameManager::InstallGameOnThread(std::string zipFile, bool deleteAfter) {

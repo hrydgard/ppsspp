@@ -45,6 +45,8 @@ void InstallZipScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(iz->T("Install game from ZIP file?"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 	leftColumn->Add(new TextView(zipPath_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
+
+	doneView_ = leftColumn->Add(new TextView("", new AnchorLayoutParams(10, 120, NONE, NONE)));
 	progressBar_ = leftColumn->Add(new ProgressBar(new AnchorLayoutParams(10, 200, 200, NONE)));
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -75,6 +77,8 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 }
 
 void InstallZipScreen::update(InputState &input) {
+	I18NCategory *iz = GetI18NCategory("InstallZip");
+
 	using namespace UI;
 	if (g_GameManager.IsInstallInProgress()) {
 		progressBar_->SetVisibility(V_VISIBLE);
@@ -83,6 +87,10 @@ void InstallZipScreen::update(InputState &input) {
 	} else {
 		progressBar_->SetVisibility(V_GONE);
 		backChoice_->SetEnabled(true);
+		std::string err = g_GameManager.GetInstallError();
+		if (!err.empty()) {
+			doneView_->SetText(iz->T(err.c_str()));
+		}
 	}
 	UIScreen::update(input);
 }

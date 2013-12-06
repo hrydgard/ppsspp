@@ -25,7 +25,7 @@
 
 class InstallZipScreen : public UIDialogScreenWithBackground {
 public:
-	InstallZipScreen(std::string zipPath) : installChoice_(0), zipPath_(zipPath), installStarted_(false), deleteZipFile_(false) {}
+	InstallZipScreen(std::string zipPath) : installChoice_(0), doneView_(0), zipPath_(zipPath), installStarted_(false), deleteZipFile_(false) {}
 	virtual void update(InputState &input);
 	virtual void key(const KeyInput &key);
 

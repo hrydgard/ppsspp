@@ -46,6 +46,9 @@ public:
 	float GetCurrentInstallProgress() const {
 		return installProgress_;
 	}
+	std::string GetInstallError() const {
+		return installError_;
+	}
 
 	// Only returns false if there's already an installation in progress.
 	bool InstallGameOnThread(std::string zipFile, bool deleteAfter);
@@ -59,6 +62,7 @@ private:
 	std::shared_ptr<std::thread> installThread_;
 	bool installInProgress_;
 	float installProgress_;
+	std::string installError_;
 };
 
 extern GameManager g_GameManager;
