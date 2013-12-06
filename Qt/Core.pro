@@ -90,3 +90,5 @@ HEADERS += $$P/Core/*.h \
 	$$P/ext/libkirk/*.h \
 	$$P/ext/xbrz/*.h
 
+win32: INCLUDEPATH += $$P/ffmpeg/WindowsInclude
+
