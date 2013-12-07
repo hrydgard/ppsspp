@@ -15,11 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(USING_GLES2)
-#define GLSL_ES_1_0
-#else
-#define GLSL_1_3
-
+#if !defined(USING_GLES2)
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
 // special treatment in the shader generator.
 #if defined(__APPLE__)
@@ -295,26 +291,46 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
+	// In GLSL ES 3.0, you use "in" variables instead of varying.
+	bool glslES30 = false;
+	const char *varying = "varying";
 	bool highpFog = false;
-#if defined(GLSL_ES_1_0)
-	WRITE(p, "#version 100\n");  // GLSL ES 1.0
+
+#if defined(USING_GLES2)
+	// Let's wait until we have a real use for this.
+	// ES doesn't support dual source alpha :(
+	if (false && gl_extensions.GLES3) {
+		WRITE(p, "#version 300 es\n");  // GLSL ES 1.0
+		glslES30 = true;
+	} else {
+		WRITE(p, "#version 100\n");  // GLSL ES 1.0
+	}
 	WRITE(p, "precision lowp float;\n");
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
 #elif !defined(FORCE_OPENGL_2_0)
-	WRITE(p, "#version 110\n");
-	// Remove lowp/mediump in non-mobile implementations
-	WRITE(p, "#define lowp\n");
-	WRITE(p, "#define mediump\n");
-	WRITE(p, "#define highp\n");
+	if (gl_extensions.VersionGEThan(3, 3, 0)) {
+		glslES30 = true;
+		WRITE(p, "#version 330\n");
+	} else {
+		WRITE(p, "#version 110\n");
+		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
+	}
 #else
-	// Remove lowp/mediump in non-mobile implementations
+	// Need to remove lowp/mediump for Mac
 	WRITE(p, "#define lowp\n");
 	WRITE(p, "#define mediump\n");
 	WRITE(p, "#define highp\n");
 #endif
+
+	if (glslES30) {
+		varying = "in";
+	}
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -343,19 +359,19 @@ void GenerateFragmentShader(char *buffer) {
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
 		WRITE(p, "uniform lowp vec3 u_texenv;\n");
 
-	WRITE(p, "varying lowp vec4 v_color0;\n");
+	WRITE(p, "%s lowp vec4 v_color0;\n", varying);
 	if (lmode)
-		WRITE(p, "varying lowp vec3 v_color1;\n");
+		WRITE(p, "%s lowp vec3 v_color1;\n", varying);
 	if (enableFog) {
 		WRITE(p, "uniform lowp vec3 u_fogcolor;\n");
-		WRITE(p, "varying %s float v_fogdepth;\n", highpFog ? "highp" : "mediump");
+		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
 	}
 	if (doTexture)
 	{
 		if (doTextureProjection)
-			WRITE(p, "varying mediump vec3 v_texcoord;\n");
+			WRITE(p, "%s mediump vec3 v_texcoord;\n", varying);
 		else
-			WRITE(p, "varying mediump vec2 v_texcoord;\n");
+			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
 	}
 
 	if (enableAlphaTest) {

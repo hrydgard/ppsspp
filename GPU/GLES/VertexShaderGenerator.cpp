@@ -139,22 +139,46 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 // #define USE_FOR_LOOP
 
+	// In GLSL ES 3.0, you use "out" variables instead.
+	bool glslES30 = false;
+	const char *varying = "varying";
+	bool highpFog = false;
+
 #if defined(USING_GLES2)
-	WRITE(p, "#version 100\n");  // GLSL ES 1.0
+	// Let's wait until we have a real use for this.
+	// ES doesn't support dual source alpha :(
+	if (false && gl_extensions.GLES3) {
+		WRITE(p, "version 300 es\n");
+		glslES30 = true;
+	} else {
+		WRITE(p, "#version 100\n");  // GLSL ES 1.0
+	}
 	WRITE(p, "precision highp float;\n");
 
+	// PowerVR needs highp to do the fog in MHU correctly.
+	// Others don't, and some can't handle highp in the fragment shader.
+	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
 #elif !defined(FORCE_OPENGL_2_0)
-	WRITE(p, "#version 110\n");
-	// Remove lowp/mediump in non-mobile implementations
-	WRITE(p, "#define lowp\n");
-	WRITE(p, "#define mediump\n");
-	WRITE(p, "#define highp\n");
+	if (gl_extensions.VersionGEThan(3, 3, 0)) {
+		glslES30 = true;
+		WRITE(p, "#version 330\n");
+	} else {
+		WRITE(p, "#version 110\n");
+		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
+	}
 #else
 	// Need to remove lowp/mediump for Mac
 	WRITE(p, "#define lowp\n");
 	WRITE(p, "#define mediump\n");
 	WRITE(p, "#define highp\n");
 #endif
+
+	if (glslES30) {
+		varying = "out";
+	}
 
 	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -272,22 +296,24 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
-	WRITE(p, "varying lowp vec4 v_color0;\n");
-	if (lmode) WRITE(p, "varying lowp vec3 v_color1;\n");
+	WRITE(p, "%s lowp vec4 v_color0;\n", varying);
+	if (lmode) {
+		WRITE(p, "%s lowp vec3 v_color1;\n", varying);
+	}
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "varying mediump vec3 v_texcoord;\n");
+			WRITE(p, "%s mediump vec3 v_texcoord;\n", varying);
 		else
-			WRITE(p, "varying mediump vec2 v_texcoord;\n");
+			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
 	}
 
 
 	if (enableFog) {
 		// See the fragment shader generator
-		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
-			WRITE(p, "varying highp float v_fogdepth;\n");
+		if (highpFog) {
+			WRITE(p, "%s highp float v_fogdepth;\n", varying);
 		} else {
-			WRITE(p, "varying mediump float v_fogdepth;\n");
+			WRITE(p, "%s mediump float v_fogdepth;\n", varying);
 		}
 	}
 
