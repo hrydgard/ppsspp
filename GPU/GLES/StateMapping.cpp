@@ -264,8 +264,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			case STENCIL_VALUE_ZERO:
 				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
 				break;
-			// For now, let's err at zero.
 			case STENCIL_VALUE_UNIFORM:
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
+				break;
+			// For now, let's err at zero.	
 			case STENCIL_VALUE_UNKNOWN:
 				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
 				break;
