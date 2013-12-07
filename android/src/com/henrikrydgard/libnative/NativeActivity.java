@@ -311,9 +311,9 @@ public class NativeActivity extends Activity {
         // if we specify that we want destination alpha in the config chooser, which we do.
         // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
         
-        mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
+        // mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
         
-        mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+        // mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
         
 		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
