@@ -802,7 +802,7 @@
     </message>
     <message>
         <source>HLE</source>
-        <translation"obsolete">HLE</translation>
+        <translation>HLE</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="621"/>
@@ -811,7 +811,7 @@
     </message>
     <message>
         <source>Default</source>
-        <translation"obsolete">Standard</translation>
+        <translation>Standard</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="579"/>
@@ -869,7 +869,7 @@
     </message>
     <message>
         <source>F2</source>
-        <translation"obsolete">F2</translation>
+        <translation>F2</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="470"/>
