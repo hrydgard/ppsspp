@@ -29,6 +29,7 @@ enum {
 struct GLExtensions {
 	int ver[3];
 	int gpuVendor;
+
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
@@ -55,6 +56,9 @@ struct GLExtensions {
 
 	// Bugs
 	int bugs;
+
+	// greater-or-equal than
+	bool VersionGEThan(int major, int minor, int sub = 0);
 };
 
 extern GLExtensions gl_extensions;
