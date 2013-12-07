@@ -249,7 +249,28 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
 		// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
 		// the factors to zero). So let's do that.
-		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+		if (gstate.isStencilTestEnabled()) {
+			switch (ReplaceAlphaWithStencilType()) {
+			case STENCIL_VALUE_KEEP:
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+				break;
+			case STENCIL_VALUE_ONE:
+				// This won't give one but it's our best shot...
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+				break;
+			case STENCIL_VALUE_ZERO:
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+				break;
+			// For now, let's err at zero.
+			case STENCIL_VALUE_UNIFORM:
+			case STENCIL_VALUE_UNKNOWN:
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+				break;
+			}
+		} else {
+			// Retain the existing value when stencil testing is off.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+		}
 
 		// Don't report on Android device (why?)
 #if !defined(USING_GLES2)
