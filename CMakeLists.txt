@@ -325,11 +325,6 @@ add_library(rg_etc1 STATIC
 	native/ext/rg_etc1/rg_etc1.h)
 include_directories(native/ext/rg_etc1)
 
-add_library(stb_image STATIC
-	native/ext/stb_image/stb_image.c
-	native/ext/stb_image/stb_image.h)
-include_directories(native/ext/stb_image)
-
 add_library(stb_vorbis STATIC
 	native/ext/stb_vorbis/stb_vorbis.c
 	native/ext/stb_vorbis/stb_vorbis.h)
@@ -814,7 +809,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP_LIBRARY} ${LIBPNG_LIBRARY} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${LIBPNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)

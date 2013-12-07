@@ -28,13 +28,13 @@
 // in NativeShutdown.
 
 #include <locale.h>
+#include <png.h>
 
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "ext/stb_image_write/stb_image_writer.h"
 #include "ext/jpge/jpge.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
@@ -532,7 +532,15 @@ void TakeScreenshot() {
 	}
 
 	if (g_Config.bScreenshotsAsPNG) {
-		stbi_write_png(temp, pixel_xres, pixel_yres, 4, flipbuffer, pixel_xres * 4);
+		png_image png;
+		memset(&png, 0, sizeof(png));
+		png.version = PNG_IMAGE_VERSION;
+		png.format = PNG_FORMAT_RGB;
+		png.width = pixel_xres;
+		png.height = pixel_yres;
+		int stride = PNG_IMAGE_ROW_STRIDE(png);
+		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 4, NULL);
+		png_image_free(&png);
 	} else {
 		jpge::params params;
 		params.m_quality = 90;
