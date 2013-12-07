@@ -454,6 +454,8 @@ void MainWindow::createMenus()
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("Dump next frame to log")))
 		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
+		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(disasmAct()),    QT_TR_NOOP("Disassembly"), Qt::CTRL + Qt::Key_D))
 		->addDisableState(UISTATE_MENU);

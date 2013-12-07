@@ -57,6 +57,8 @@ public:
 	void SendGPUStart();
 	void SetGPUStep(bool value, int flag = 0, u32 data = 0);
 	void NextGPUStep();
+	bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength);
+	bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue);
 
 signals:
 	void BootDoneSignal();

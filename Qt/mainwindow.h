@@ -15,6 +15,8 @@
 #include "debugger_displaylist.h"
 #include "base/QtMain.h"
 
+extern bool g_TakeScreenshot;
+
 class QtEmuGL;
 class MenuAction;
 class MenuTree;
@@ -68,6 +70,7 @@ private slots:
 	void smapAct();
 	void resetTableAct();
 	void dumpNextAct();
+	void takeScreen() { g_TakeScreenshot = true; }
 	void disasmAct();
 	void dpyListAct();
 	void consoleAct();

@@ -75,7 +75,7 @@ public:
 	virtual bool CanCreateShortcut() {return false;}
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 
-#ifdef _WIN32
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(USING_GLES2))
 	// Implement this on your platform to grab text input from the user for whatever purpose.
 	virtual bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength) { return false; }
 	virtual bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }

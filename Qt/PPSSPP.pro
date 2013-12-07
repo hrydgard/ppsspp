@@ -88,7 +88,7 @@ SOURCES += $$P/UI/*Screen.cpp \
 	$$P/android/jni/TestRunner.cpp
 
 HEADERS += $$P/UI/*.h
-INCLUDEPATH += $$P $$P/Common $$P/native
+INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext/libpng16
 
 # Use forms UI for desktop platforms
 !mobile_platform {

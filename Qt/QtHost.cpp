@@ -1,9 +1,11 @@
 // This file is Qt Desktop's equivalent of NativeApp.cpp
 
 #include <QFileInfo>
+#include <QInputDialog>
 #include <QDebug>
 #include <QDir>
 #include <QCoreApplication>
+#include <png.h>
 
 #include "QtHost.h"
 #include "LogManager.h"
@@ -21,6 +23,7 @@
 #include "ui/ui_context.h"
 #include "gfx_es2/draw_text.h"
 #include "GPU/ge_constants.h"
+#include "ext/jpge/jpge.h"
 
 static UI::Theme ui_theme;
 
@@ -40,6 +43,8 @@ recursive_mutex pendingMutex;
 static bool isMessagePending;
 static std::string pendingMessage;
 static std::string pendingValue;
+
+bool g_TakeScreenshot;
 
 QtHost::QtHost(MainWindow *mainWindow_)
     : mainWindow(mainWindow_)
@@ -238,6 +243,31 @@ void QtHost::NextGPUStep()
 	m_hGPUStepEvent.notify_one();
 }
 
+bool QtHost::InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
+{
+	bool ok;
+	QString text = QInputDialog::getText(mainWindow, title, title, QLineEdit::Normal, defaultValue, &ok);
+	if (ok && !text.isEmpty()) {
+		strcpy(outValue, text.toStdString().c_str());
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool QtHost::InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue)
+{
+	bool ok;
+	QString text = QInputDialog::getText(mainWindow, QString::fromStdWString(title), QString::fromStdWString(title), QLineEdit::Normal, QString::fromStdWString(defaultValue), &ok);
+	if (ok && !text.isEmpty()) {
+		outValue = text.toStdWString();
+		return true;
+	} else {
+		return false;
+	}
+	
+}
+
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
 	isMessagePending = false;
@@ -347,6 +377,57 @@ int NativeMix(short *audio, int num_samples)
 		return 0;
 }
 
+void TakeScreenshot() {
+	g_TakeScreenshot = false;
+	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
+
+	// First, find a free filename.
+	int i = 0;
+
+	char temp[256];
+	while (i < 10000){
+		if(g_Config.bScreenshotsAsPNG)
+			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.png", g_Config.memCardDirectory.c_str(), i);
+		else
+			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.jpg", g_Config.memCardDirectory.c_str(), i);
+		FileInfo info;
+		if (!getFileInfo(temp, &info))
+			break;
+		i++;
+	}
+
+	// Okay, allocate a buffer.
+	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
+	// Silly openGL reads upside down, we flip to another buffer for simplicity.
+	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
+
+	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+
+	for (int y = 0; y < pixel_yres; y++) {
+		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
+	}
+
+	if (g_Config.bScreenshotsAsPNG) {
+		png_image png;
+		memset(&png, 0, sizeof(png));
+		png.version = PNG_IMAGE_VERSION;
+		png.format = PNG_FORMAT_RGB;
+		png.width = pixel_xres;
+		png.height = pixel_yres;
+		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 3, NULL);
+		png_image_free(&png);
+	} else {
+		jpge::params params;
+		params.m_quality = 90;
+		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 3, flipbuffer, params);
+	}
+
+	delete [] buffer;
+	delete [] flipbuffer;
+
+	osm.Show(temp);
+}
+
 void NativeInitGraphics()
 {
 	gl_lost_manager_init();
@@ -444,6 +525,9 @@ void NativeRender()
 	if (screenManager->getUIContext()->Text()) {
 		screenManager->getUIContext()->Text()->OncePerFrame();
 	}
+
+	if (g_TakeScreenshot)
+		TakeScreenshot();
 }
 
 void NativeMessageReceived(const char *message, const char *value)

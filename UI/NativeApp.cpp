@@ -503,8 +503,8 @@ void NativeShutdownGraphics() {
 }
 
 void TakeScreenshot() {
-#ifdef _WIN32
 	g_TakeScreenshot = false;
+#ifdef _WIN32
 	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
@@ -523,14 +523,14 @@ void TakeScreenshot() {
 	}
 
 	// Okay, allocate a buffer.
-	u8 *buffer = new u8[4 * pixel_xres * pixel_yres];
+	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
 	// Silly openGL reads upside down, we flip to another buffer for simplicity.
-	u8 *flipbuffer = new u8[4 * pixel_xres * pixel_yres];
+	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
 
-	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 
 	for (int y = 0; y < pixel_yres; y++) {
-		memcpy(flipbuffer + y * pixel_xres * 4, buffer + (pixel_yres - y - 1) * pixel_xres * 4, pixel_xres * 4);
+		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
 	}
 
 	if (g_Config.bScreenshotsAsPNG) {
@@ -540,13 +540,12 @@ void TakeScreenshot() {
 		png.format = PNG_FORMAT_RGB;
 		png.width = pixel_xres;
 		png.height = pixel_yres;
-		int stride = PNG_IMAGE_ROW_STRIDE(png);
-		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 4, NULL);
+		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 3, NULL);
 		png_image_free(&png);
 	} else {
 		jpge::params params;
 		params.m_quality = 90;
-		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 4, flipbuffer, params);
+		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
 
 	delete [] buffer;
