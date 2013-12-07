@@ -28,14 +28,16 @@
 // in NativeShutdown.
 
 #include <locale.h>
+#ifdef _WIN32
 #include <png.h>
+#include "ext/jpge/jpge.h"
+#endif
 
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "ext/jpge/jpge.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
 #include "gfx_es2/gl_state.h"
