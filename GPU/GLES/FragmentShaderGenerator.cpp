@@ -99,6 +99,44 @@ static bool IsAlphaTestTriviallyTrue() {
 	}
 }
 
+const bool nonAlphaSrcFactors[16] = {
+	true,  // GE_SRCBLEND_DSTCOLOR,
+	true,  // GE_SRCBLEND_INVDSTCOLOR,
+	false, // GE_SRCBLEND_SRCALPHA,
+	false, // GE_SRCBLEND_INVSRCALPHA,
+	true,  // GE_SRCBLEND_DSTALPHA,
+	true,  // GE_SRCBLEND_INVDSTALPHA,
+	false, // GE_SRCBLEND_DOUBLESRCALPHA,
+	false, // GE_SRCBLEND_DOUBLEINVSRCALPHA,
+	true,  // GE_SRCBLEND_DOUBLEDSTALPHA,
+	true,  // GE_SRCBLEND_DOUBLEINVDSTALPHA,
+	true,  // GE_SRCBLEND_FIXA,
+};
+
+const bool nonAlphaDestFactors[16] = {
+	true,  // GE_DSTBLEND_SRCCOLOR,
+	true,  // GE_DSTBLEND_INVSRCCOLOR,
+	false, // GE_DSTBLEND_SRCALPHA,
+	false, // GE_DSTBLEND_INVSRCALPHA,
+	true,  // GE_DSTBLEND_DSTALPHA,
+	true,  // GE_DSTBLEND_INVDSTALPHA,
+	false, // GE_DSTBLEND_DOUBLESRCALPHA,
+	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
+	true,  // GE_DSTBLEND_DOUBLEDSTALPHA,
+	true,  // GE_DSTBLEND_DOUBLEINVDSTALPHA,
+	true,  // GE_DSTBLEND_FIXB,
+};
+
+bool CanReplaceAlphaWithStencil() {
+	if (!gstate.isStencilTestEnabled()) {
+		return false;
+	}
+	if (gstate.isAlphaBlendEnabled()) {
+		return nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncA()];
+	}
+	return true;
+}
+
 StencilValueType ReplaceAlphaWithStencilType() {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
@@ -214,7 +252,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool stencilToAlpha = gstate.isStencilTestEnabled() && !gstate.isAlphaBlendEnabled();
+		bool stencilToAlpha = CanReplaceAlphaWithStencil();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -284,7 +322,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-	bool stencilToAlpha = !gstate.isModeClear() && gstate.isStencilTestEnabled() && !gstate.isAlphaBlendEnabled();
+	bool stencilToAlpha = !gstate.isModeClear() && CanReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
