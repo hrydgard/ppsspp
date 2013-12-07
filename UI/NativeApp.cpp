@@ -80,12 +80,10 @@ static UI::Theme ui_theme;
 #include "../../android/jni/ArmEmitterTest.h"
 #endif
 
-#if defined(__APPLE__) && !defined(IOS)
-#include <mach-o/dyld.h>
-#endif
-
 #ifdef IOS
 #include "ios/iOSCoreAudio.h"
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
 #endif
 
 // https://github.com/richq/android-ndk-profiler
@@ -236,13 +234,6 @@ void NativeInit(int argc, const char *argv[],
 
 #ifdef IOS
 	user_data_path += "/";
-#elif defined(__APPLE__)
-	if (File::Exists(File::GetExeDirectory() + "assets"))
-		VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
-	// It's common to be in a build-xyz/ directory.
-	else
-		VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "../assets/").c_str()));
-	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 #endif
 
 	// We want this to be FIRST.
@@ -251,6 +242,9 @@ void NativeInit(int argc, const char *argv[],
 #elif defined(BLACKBERRY) || defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_directory));
+#elif defined(__APPLE__) || (defined(__linux__) && !defined(ANDROID))
+	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
+	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
@@ -275,14 +269,7 @@ void NativeInit(int argc, const char *argv[],
 		strcat(config, "/.config");
 	}
 	g_Config.memCardDirectory = std::string(config) + "/ppsspp/";
-	std::string program_path = File::GetExeDirectory();
-	if (program_path.empty())
-		g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
-	else if (File::Exists(program_path + "flash0"))
-		g_Config.flash0Directory = program_path + "flash0/";
-	// It's common to be in a build-xyz/ directory.
-	else
-		g_Config.flash0Directory = program_path + "../flash0/";
+	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
 #ifndef _WIN32
