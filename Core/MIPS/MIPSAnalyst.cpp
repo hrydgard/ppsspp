@@ -435,7 +435,7 @@ namespace MIPSAnalyst {
 		u32 size; //number of bytes
 
 		bool operator < (const HashMapFunc &other) const {
-			return hash < other.hash || size < other.size;
+			return hash < other.hash || (hash == other.hash && size < other.size);
 		}
 	};
 	std::set<HashMapFunc> hashMap;
