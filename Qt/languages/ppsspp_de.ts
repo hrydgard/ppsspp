@@ -74,7 +74,7 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>No symbol selected</source>
-        <translation type="unfinished"></translation>
+        <translation>Kein Symbol gefunden</translation>
     </message>
 </context>
 <context>
@@ -174,7 +174,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="128"/>
         <source>Show VFPU</source>
-        <translation type="unfinished"></translation>
+        <translation>Zeige VFPU</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="147"/>
@@ -194,7 +194,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="236"/>
         <source>Stop</source>
-        <translation type="unfinished">Stop</translation>
+        <translation>Stopp</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="249"/>
@@ -251,7 +251,7 @@
         <location filename="../debugger_disasm.ui" line="413"/>
         <location filename="../debugger_disasm.ui" line="465"/>
         <source>Status</source>
-        <translation type="unfinished"></translation>
+        <translation>Status</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="418"/>
@@ -271,7 +271,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="460"/>
         <source>Name</source>
-        <translation type="unfinished"></translation>
+        <translation>Name</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="470"/>
@@ -306,7 +306,7 @@
     <message>
         <location filename="../debugger_disasm.cpp" line="453"/>
         <source>Wait</source>
-        <translation type="unfinished"></translation>
+        <translation>Warten</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="457"/>
@@ -319,7 +319,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="14"/>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
+        <translation>Dialog</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="28"/>
@@ -354,7 +354,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="82"/>
         <source>Stop</source>
-        <translation>Stop</translation>
+        <translation>Stopp</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="89"/>
@@ -364,7 +364,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="116"/>
         <source>Commands</source>
-        <translation type="unfinished"></translation>
+        <translation>Kommandos</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="156"/>
@@ -384,7 +384,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="193"/>
         <source>Textures</source>
-        <translation type="unfinished"></translation>
+        <translation>Texturen</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="203"/>
@@ -413,7 +413,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="227"/>
         <source>Vertex Buffer</source>
-        <translation type="unfinished"></translation>
+        <translation>Vertex Buffer</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="242"/>
@@ -479,7 +479,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="363"/>
         <source>Value</source>
-        <translation type="unfinished"></translation>
+        <translation>Wert</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="399"/>
@@ -499,7 +499,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="486"/>
         <source>Color</source>
-        <translation type="unfinished"></translation>
+        <translation>Farbe</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="491"/>
@@ -509,12 +509,12 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="512"/>
         <source>Zoom-</source>
-        <translation type="unfinished"></translation>
+        <translation>Zoom-</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="519"/>
         <source>Zoom+</source>
-        <translation type="unfinished"></translation>
+        <translation>Zoom+</translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.cpp" line="1773"/>
@@ -532,7 +532,7 @@
     <message>
         <location filename="../debugger_memory.ui" line="14"/>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
+        <translation>Dialog</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="22"/>
@@ -660,7 +660,7 @@
     <name>MainWindow</name>
     <message>
         <source>PPSSPP</source>
-        <translation type="obsolete">PPSSPP</translation>
+        <translation>PPSSPP</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="460"/>
@@ -695,17 +695,17 @@
     <message>
         <location filename="../mainwindow.cpp" line="491"/>
         <source>Load Map File...</source>
-        <translation>Lade Map Dateien...</translation>
+        <translation>Lade Map-Datei...</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="493"/>
         <source>Save Map File...</source>
-        <translation>&amp;Speichere Map Dateien...</translation>
+        <translation>Speichere Map-Datei...</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="495"/>
         <source>Reset Symbol Table</source>
-        <translation>&amp;Setze Symboltabelle zurück</translation>
+        <translation>Setze Symboltabelle zurück</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="498"/>
@@ -725,17 +725,17 @@
     <message>
         <location filename="../mainwindow.cpp" line="505"/>
         <source>Log Console</source>
-        <translation>&amp;Log Konsole</translation>
+        <translation>Log-Konsole</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="507"/>
         <source>Memory View</source>
-        <translation>Speicher Anzeigen</translation>
+        <translation>Speicher-Anzeige</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="509"/>
         <source>Memory View Texture</source>
-        <translation>Speicher Anzeigen Texture</translation>
+        <translation>Speicher Anzeigen Texturen</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="513"/>
@@ -759,7 +759,7 @@
     </message>
     <message>
         <source>&amp;Ignore illegal reads/writes</source>
-        <translation type="obsolete">&amp;Ignorier Illegal lese/schreibt</translation>
+        <translation>&amp;Ignoriere illegales lesen/schreiben></translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="544"/>
@@ -789,29 +789,29 @@
     <message>
         <location filename="../mainwindow.cpp" line="558"/>
         <source>&amp;Show debug statistics</source>
-        <translation>Zeige &amp;debug statistiken</translation>
+        <translation>Zeige Debug-Statistiken</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="560"/>
         <source>&amp;Show FPS</source>
-        <translation>Zeige &amp;FPS</translation>
+        <translation>Zeige FPS</translation>
     </message>
     <message>
         <source>G3D</source>
-        <translation type="obsolete">G3D</translation>
+        <translation>G3D</translation>
     </message>
     <message>
         <source>HLE</source>
-        <translation type="obsolete">HLE</translation>
+        <translation"obsolete">HLE</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="621"/>
         <source>&amp;Go to official website</source>
-        <translation>&amp;Sehen Sie die offizielle Website</translation>
+        <translation>&amp;Gehe zur offiziellen Website</translation>
     </message>
     <message>
         <source>Default</source>
-        <translation type="obsolete">Standard</translation>
+        <translation"obsolete">Standard</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="579"/>
@@ -825,15 +825,15 @@
     </message>
     <message>
         <source>&amp;Anisotropic filtering</source>
-        <translation type="obsolete">&amp;Anisotrope Filterung</translation>
+        <translation>&amp;Anisotrope Filterung</translation>
     </message>
     <message>
         <source>&amp;Zoom</source>
-        <translation type="obsolete">&amp;Zoom</translation>
+        <translation>&amp;Zoom</translation>
     </message>
     <message>
         <source>Co&amp;ntrols</source>
-        <translation type="obsolete">Ta&amp;stenbelegung</translation>
+        <translation>Ta&amp;stenbelegung</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="515"/>
@@ -857,19 +857,19 @@
     </message>
     <message>
         <source>Quickload state</source>
-        <translation type="obsolete">Schnellladen</translation>
+        <translation>Schnellladen</translation>
     </message>
     <message>
         <source>F4</source>
-        <translation type="obsolete">F4</translation>
+        <translation>F4</translation>
     </message>
     <message>
         <source>Quicksave state</source>
-        <translation type="obsolete">Schnellspeichern</translation>
+        <translation>Schnellspeichern</translation>
     </message>
     <message>
         <source>F2</source>
-        <translation type="obsolete">F2</translation>
+        <translation"obsolete">F2</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="470"/>
@@ -884,7 +884,7 @@
     <message>
         <location filename="../mainwindow.cpp" line="475"/>
         <source>E&amp;xit</source>
-        <translation>B&amp;ende</translation>
+        <translation>Schließen</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="479"/>
@@ -893,7 +893,7 @@
     </message>
     <message>
         <source>F7</source>
-        <translation type="obsolete">F7</translation>
+        <translation>F7</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="481"/>
@@ -902,87 +902,79 @@
     </message>
     <message>
         <source>F8</source>
-        <translation type="obsolete">F8</translation>
-    </message>
-    <message>
-        <source>R&amp;eset</source>
-        <translation type="obsolete">Z&amp;urücksetzen</translation>
-    </message>
-    <message>
-        <source>&amp;Interpreter</source>
-        <translation type="obsolete">&amp;Interpreter</translation>
+        <translation>F8</translation>
     </message>
     <message>
         <source>&amp;Slightly Faster Interpreter</source>
-        <translation type="obsolete">&amp;etwas scnellerer Interpreter</translation>
+        <translation>Etwas schnellerer Interpreter</translation>
     </message>
     <message>
         <source>&amp;Dynarec</source>
-        <translation type="obsolete">&amp;Dynarec</translation>
+        <translation>&amp;Dynarec</translation>
     </message>
     <message>
         <source>Load &amp;Map File...</source>
-        <translation type="obsolete">Lade &amp;Map Dateien...</translation>
+        <translation>Lade &amp;Map Datei...</translation>
     </message>
     <message>
         <source>&amp;Save Map File...</source>
-        <translation type="obsolete">&amp;Speichere Map Dateien...</translation>
+        <translation>&amp;Speichere Map Datei...</translation>
     </message>
     <message>
         <source>&amp;Reset Symbol Table</source>
-        <translation type="obsolete">&amp;Setze Symboltabelle zurück</translation>
+        <translation>&amp;Setze Symboltabelle zurück</translation>
     </message>
     <message>
         <source>Ctrl+D</source>
-        <translation type="obsolete">Strg+D</translation>
+        <translation>Strg+D</translation>
     </message>
     <message>
         <source>&amp;Log Console</source>
-        <translation type="obsolete">&amp;Log Konsole</translation>
+        <translation>&amp;Log-Konsole</translation>
     </message>
     <message>
         <source>Ctrl+L</source>
-        <translation type="obsolete">Strg+L</translation>
+        <translation>Strg+L</translation>
     </message>
     <message>
         <source>Ctrl+M</source>
-        <translation type="obsolete">Strg+M</translation>
+        <translation>Strg+M</translation>
     </message>
     <message>
         <source>&amp;Keyboard</source>
-        <translation type="obsolete">&amp;Tastatur</translation>
+        <translation>&amp;Tastatur</translation>
     </message>
     <message>
         <source>&amp;Toggle fullscreen</source>
-        <translation type="obsolete">&amp;Vollbild</translation>
+        <translation>&amp;Vollbild</translation>
     </message>
     <message>
         <source>Show &amp;debug statistics</source>
-        <translation type="obsolete">Zeige &amp;debug Statistiken</translation>
+        <translation>Zeige Debug-Statistiken</translation>
     </message>
     <message>
         <source>&amp;Gamepad</source>
-        <translation type="obsolete">&amp;Gamepad</translation>
+        <translation>&amp;Gamepad</translation>
     </message>
     <message>
         <source>Run on loa&amp;d</source>
-        <translation type="obsolete">Starte nach dem La&amp;den</translation>
+        <translation>Starte nach dem La&amp;den</translation>
     </message>
     <message>
         <source>Show &amp;FPS counter</source>
-        <translation type="obsolete">Zeige &amp;FPS</translation>
+        <translation>Zeige &amp;FPS</translation>
     </message>
     <message>
         <source>S&amp;tretch to display</source>
-        <translation type="obsolete">S&amp;trecke auf Bildschirm</translation>
+        <translation>S&amp;trecke auf Bildschirm</translation>
     </message>
     <message>
         <source>&amp;Sound emulation</source>
-        <translation type="obsolete">&amp;Ton emulation</translation>
+        <translation>&amp;Ton-Emulation</translation>
     </message>
     <message>
         <source>F11</source>
-        <translation type="obsolete">F11</translation>
+        <translation>F11</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="532"/>
@@ -991,7 +983,7 @@
     </message>
     <message>
         <source>F5</source>
-        <translation type="obsolete">F5</translation>
+        <translation>F5</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="547"/>
@@ -1000,7 +992,7 @@
     </message>
     <message>
         <source>F6</source>
-        <translation type="obsolete">F6</translation>
+        <translation>F6</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="534"/>
@@ -1009,43 +1001,43 @@
     </message>
     <message>
         <source>Screen &amp;1x</source>
-        <translation type="obsolete">Anzeigegröße &amp;1x</translation>
+        <translation>Anzeigegröße &amp;1x</translation>
     </message>
     <message>
         <source>Ctrl+1</source>
-        <translation type="obsolete">Strg+1</translation>
+        <translation>Strg+1</translation>
     </message>
     <message>
         <source>Screen &amp;2x</source>
-        <translation type="obsolete">Anzeigegröße &amp;2x</translation>
+        <translation>Anzeigegröße &amp;2x</translation>
     </message>
     <message>
         <source>Ctrl+2</source>
-        <translation type="obsolete">Strg+2</translation>
+        <translation>Strg+2</translation>
     </message>
     <message>
         <source>Screen &amp;3x</source>
-        <translation type="obsolete">Anzeigegröße &amp;3x</translation>
+        <translation>Anzeigegröße &amp;3x</translation>
     </message>
     <message>
         <source>Ctrl+3</source>
-        <translation type="obsolete">Strg+3</translation>
+        <translation>Strg+3</translation>
     </message>
     <message>
         <source>Screen &amp;4x</source>
-        <translation type="obsolete">Anzeigegröße &amp;4x</translation>
+        <translation>Anzeigegröße &amp;4x</translation>
     </message>
     <message>
         <source>Ctrl+4</source>
-        <translation type="obsolete">Strg+4</translation>
+        <translation>Strg+4</translation>
     </message>
     <message>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation type="obsolete">&amp;Fast Memory (dynarec, unstable)</translation>
+        <translation>Schneller Speicher (instabil)</translation>
     </message>
     <message>
         <source>&amp;Go to http://www.ppsspp.org/</source>
-        <translation type="obsolete">&amp;Besuche http://www.ppsspp.org</translation>
+        <translation>&amp;Besuche http://www.ppsspp.org/</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="622"/>
@@ -1054,17 +1046,17 @@
     </message>
     <message>
         <source>&amp;Use VBO</source>
-        <translation type="obsolete">&amp;Nutze VBO</translation>
+        <translation>&amp;Nutze VBO</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="490"/>
         <source>De&amp;bug</source>
-        <translation>De&amp;bug</translation>
+        <translation>De&amp;buggen</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="522"/>
         <source>&amp;Ignore Illegal reads/writes</source>
-        <translation type="unfinished"></translation>
+        <translation>Ignoriere illegales lesen/schreiben</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="527"/>
