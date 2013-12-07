@@ -210,9 +210,6 @@
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="ext\stb_image\stb_image.h">
-      <Filter>ext</Filter>
-    </ClInclude>
     <ClInclude Include="ui\virtual_input.h">
       <Filter>ui</Filter>
     </ClInclude>
@@ -463,9 +460,6 @@
     <ClCompile Include="util\random\perlin.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="ext\stb_image\stb_image.c">
-      <Filter>ext</Filter>
-    </ClCompile>
     <ClCompile Include="ui\virtual_input.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -536,7 +530,6 @@
       <Filter>input</Filter>
     </ClCompile>
     <ClCompile Include="ext\jpge\jpgd.cpp" />
-    <ClCompile Include="ext\stb_image_write\stb_image_write.c" />
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
