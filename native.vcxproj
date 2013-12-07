@@ -78,7 +78,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext\libpng16;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -121,7 +121,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext\libpng16;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -146,7 +146,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext\libpng16;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
