@@ -53,4 +53,5 @@ enum StencilValueType {
 };
 
 StencilValueType ReplaceAlphaWithStencilType();
+bool CanReplaceAlphaWithStencil();
 
