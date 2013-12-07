@@ -557,6 +557,37 @@ target_link_libraries(libzip ${ZLIB_LIBRARY})
 include_directories(native/ext/libzip)
 set(LIBZIP_LIBRARY libzip)
 
+if (BLACKBERRY)
+	set(LIBPNG_LIBRARY png)
+else()
+	add_library(png16 STATIC
+		native/ext/libpng16/pngconf.h
+		native/ext/libpng16/pngdebug.h
+		native/ext/libpng16/png.c
+		native/ext/libpng16/png.h
+		native/ext/libpng16/pngerror.c
+		native/ext/libpng16/pngget.c
+		native/ext/libpng16/pnginfo.h
+		native/ext/libpng16/pnglibconf.h
+		native/ext/libpng16/pngmem.c
+		native/ext/libpng16/pngpread.c
+		native/ext/libpng16/pngpriv.h
+		native/ext/libpng16/pngread.c
+		native/ext/libpng16/pngrio.c
+		native/ext/libpng16/pngrtran.c
+		native/ext/libpng16/pngrutil.c
+		native/ext/libpng16/pngset.c
+		native/ext/libpng16/pngstruct.h
+		native/ext/libpng16/pngtest.c
+		native/ext/libpng16/pngtrans.c
+		native/ext/libpng16/pngwio.c
+		native/ext/libpng16/pngwrite.c
+		native/ext/libpng16/pngwtran.c
+		native/ext/libpng16/pngwutil.c)
+	set(LIBPNG_LIBRARY png16)
+	include_directories(native/ext/libpng16)
+endif()
+	
 set(nativeExtra)
 set(nativeExtraLibs)
 if(ANDROID)
@@ -598,7 +629,7 @@ elseif(USING_QT_UI)
 	endif()
 elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL png)
+	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
 	set(TargetBin PPSSPPSDL)
@@ -783,7 +814,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP_LIBRARY} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${LIBPNG_LIBRARY} rg_etc1 vjson stb_image stb_vorbis snappy ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)
