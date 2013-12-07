@@ -3,11 +3,8 @@
 #include "png_load.h"
 #include "base/logging.h"
 
-#ifdef BLACKBERRY
-#define PNG_AVAILABLE 1
-#endif
 
-#ifndef PNG_AVAILABLE
+#if 0
 #include "ext/stb_image/stb_image.h"
 // *image_data_ptr should be deleted with free()
 // return value of 1 == success.
@@ -86,12 +83,11 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	}
 	*pwidth = png.width;
 	*pheight = png.height;
+	png.format = PNG_FORMAT_RGBA;
 
 	int stride = PNG_IMAGE_ROW_STRIDE(png);
-	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_BUFFER_SIZE(png, stride));
-
-	png_image_finish_read(&png, NULL, image_data_ptr, stride, NULL);
-	png_image_free(&png);
+	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_SIZE(png));
+	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
 
 	return 1;
 }
@@ -113,15 +109,13 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	}
 	*pwidth = png.width;
 	*pheight = png.height;
+	png.format = PNG_FORMAT_RGBA;
 
 	int stride = PNG_IMAGE_ROW_STRIDE(png);
-	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_BUFFER_SIZE(png, stride));
-
-	png_image_finish_read(&png, NULL, image_data_ptr, stride, NULL);
-	png_image_free(&png);
+	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_SIZE(png));
+	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
 
 	return 1;
 }
-
 
 #endif

@@ -19,6 +19,22 @@ LOCAL_SRC_FILES :=\
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
+    ext/libpng16/png.c \
+    ext/libpng16/pngerror.c \
+    ext/libpng16/pngget.c \
+    ext/libpng16/pngmem.c \
+    ext/libpng16/pngpread.c \
+    ext/libpng16/pngread.c \
+    ext/libpng16/pngrio.c \
+    ext/libpng16/pngrtran.c \
+    ext/libpng16/pngrutil.c \
+    ext/libpng16/pngset.c \
+    ext/libpng16/pngtest.c \
+    ext/libpng16/pngtrans.c \
+    ext/libpng16/pngwio.c \
+    ext/libpng16/pngwrite.c \
+    ext/libpng16/pngwtran.c \
+    ext/libpng16/pngwutil.c \
     ext/jpge/jpgd.cpp \
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
@@ -80,7 +96,7 @@ LOCAL_SRC_FILES :=\
     ui/virtual_input.cpp \
     util/random/perlin.cpp \
     util/text/utf8.cpp \
-	util/text/parsers.cpp \
+    util/text/parsers.cpp \
     util/hash/hash.cpp
 
 LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS
