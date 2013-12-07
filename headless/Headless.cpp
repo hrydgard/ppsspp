@@ -146,7 +146,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
-	static double deadline = time_now() + timeout;
+	static double deadline;
+	deadline = time_now() + timeout;
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
