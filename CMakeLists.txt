@@ -1293,7 +1293,8 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/shaders
 	assets/ppge_atlas.zim
-	assets/langregion.ini)
+	assets/langregion.ini
+	assets/unknown.png)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
 
@@ -1320,7 +1321,7 @@ endif()
 
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
-file(INSTALL flash0 lang DESTINATION .)
+file(INSTALL flash0 lang DESTINATION assets)
 
 # Fix CMake some Xcode settings.
 if(APPLE)
@@ -1351,10 +1352,6 @@ if(IOS)
 
 	file(GLOB IOSAssets ios/assets/*.png)
 	file(INSTALL ${IOSAssets} DESTINATION assets)
-	file(INSTALL assets/langregion.ini DESTINATION assets)
-	file(INSTALL assets/shaders DESTINATION assets)
-	file(INSTALL flash0 DESTINATION assets)
-	file(INSTALL lang DESTINATION assets)
 	if (IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION assets)
 	endif()
