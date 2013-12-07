@@ -289,13 +289,27 @@
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClCompile Include="ext\libpng16\png.h" />
-    <ClCompile Include="ext\libpng16\pngdebug.h" />
-    <ClCompile Include="ext\libpng16\pngconf.h" />
-    <ClCompile Include="ext\libpng16\pnginfo.h" />
-    <ClCompile Include="ext\libpng16\pnglibconf.h" />
-    <ClCompile Include="ext\libpng16\pngpriv.h" />
-    <ClCompile Include="ext\libpng16\pngstruct.h" />
+    <ClInclude Include="ext\libpng16\png.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libpng16\pngdebug.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libpng16\pngconf.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libpng16\pnginfo.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libpng16\pnglibconf.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libpng16\pngpriv.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\libpng16\pngstruct.h">
+      <Filter>ext\libpng16</Filter>
+    </ClInclude>
     <ClInclude Include="ext\libzip\zip.h">
       <Filter>ext\libzip</Filter>
     </ClInclude>
@@ -537,22 +551,54 @@
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="base\QtMain.cpp" />
-    <ClCompile Include="ext\libpng16\png.c" />
-    <ClCompile Include="ext\libpng16\pngerror.c" />
-    <ClCompile Include="ext\libpng16\pngget.c" />
-    <ClCompile Include="ext\libpng16\pngmem.c" />
-    <ClCompile Include="ext\libpng16\pngpread.c" />
-    <ClCompile Include="ext\libpng16\pngread.c" />
-    <ClCompile Include="ext\libpng16\pngrio.c" />
-    <ClCompile Include="ext\libpng16\pngrtran.c" />
-    <ClCompile Include="ext\libpng16\pngrutil.c" />
-    <ClCompile Include="ext\libpng16\pngset.c" />
-    <ClCompile Include="ext\libpng16\pngtest.c" />
-    <ClCompile Include="ext\libpng16\pngtrans.c" />
-    <ClCompile Include="ext\libpng16\pngwio.c" />
-    <ClCompile Include="ext\libpng16\pngwrite.c" />
-    <ClCompile Include="ext\libpng16\pngwtran.c" />
-    <ClCompile Include="ext\libpng16\pngwutil.c" />
+    <ClCompile Include="ext\libpng16\png.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngerror.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngget.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngmem.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngpread.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngread.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngrio.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngrtran.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngrutil.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngset.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngtest.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngtrans.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngwio.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngwrite.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngwtran.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\libpng16\pngwutil.c">
+      <Filter>ext\libpng16</Filter>
+    </ClCompile>
 
     <ClCompile Include="ext\libzip\zip_add.c">
       <Filter>ext\libzip</Filter>
