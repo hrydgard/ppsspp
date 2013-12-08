@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
+    <None Include="..\test.py" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StubHost.h" />
