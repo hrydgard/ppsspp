@@ -17,18 +17,35 @@ public:
 	// wait for a submitted work item to be completed
 	void WaitForCompletion();
 
-private:
+protected:
+	WorkerThread(bool ignored) : active(true), started(false) {}
+	virtual void WorkFunc();
+
 	std::thread *thread; // the worker thread
 	::condition_variable signal; // used to signal new work
 	::condition_variable done; // used to signal work completion
 	::recursive_mutex mutex, doneMutex; // associated with each respective condition variable
 	volatile bool active, started;
-	std::function<void()> work_; // the work to be done by this thread
 
-	void WorkFunc();
+private:
+	std::function<void()> work_; // the work to be done by this thread
 
 	WorkerThread(const WorkerThread& other); // prevent copies
 	void operator =(const WorkerThread &other);
+};
+
+class LoopWorkerThread : public WorkerThread {
+public:
+	LoopWorkerThread();
+	void Process(const std::function<void(int, int)> &work, int start, int end);
+
+protected:
+	virtual void WorkFunc();
+
+private:
+	int start_;
+	int end_;
+	std::function<void(int, int)> work_; // the work to be done by this thread
 };
 
 // A thread pool manages a set of worker threads, and allows the execution of parallel loops on them
@@ -40,17 +57,17 @@ public:
 	// don't need a destructor, "workers" is cleared on delete, 
 	// leading to the stopping and joining of all worker threads (RAII and all that)
 
-	void ParallelLoop(std::function<void(int,int)> loop, int lower, int upper);
+	void ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper);
 
 private:
 	const int numThreads;
-	std::vector<std::shared_ptr<WorkerThread>> workers;
+	std::vector<std::shared_ptr<LoopWorkerThread>> workers;
 	::recursive_mutex mutex; // used to sequentialize loop execution
 
 	bool workersStarted;
 	void StartWorkers();
 	
 	ThreadPool(const ThreadPool& other); // prevent copies
-	void operator =(const WorkerThread &other);
+	void operator =(const ThreadPool &other);
 };
 

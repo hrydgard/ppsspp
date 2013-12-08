@@ -31,10 +31,39 @@ void WorkerThread::WaitForCompletion() {
 void WorkerThread::WorkFunc() {
 	mutex.lock();
 	started = true;
-	while(active) {
+	while (active) {
 		signal.wait(mutex);
-		if(active) { 
+		if (active) {
 			work_();
+			doneMutex.lock();
+			done.notify_one();
+			doneMutex.unlock();
+		}
+	}
+}
+
+LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
+	thread = new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this));
+	doneMutex.lock();
+	while(!started) { };
+}
+
+void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int start, int end) {
+	mutex.lock();
+	work_ = work;
+	start_ = start;
+	end_ = end;
+	signal.notify_one();
+	mutex.unlock();
+}
+
+void LoopWorkerThread::WorkFunc() {
+	mutex.lock();
+	started = true;
+	while (active) {
+		signal.wait(mutex);
+		if (active) {
+			work_(start_, end_);
 			doneMutex.lock();
 			done.notify_one();
 			doneMutex.unlock();
@@ -50,13 +79,13 @@ ThreadPool::ThreadPool(int numThreads) : numThreads(numThreads), workersStarted(
 void ThreadPool::StartWorkers() {
 	if(!workersStarted) {
 		for(int i=0; i<numThreads; ++i) {
-			workers.push_back(std::make_shared<WorkerThread>());
+			workers.push_back(std::make_shared<LoopWorkerThread>());
 		}
 		workersStarted = true;
 	}
 }
 
-void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int upper) {
+void ThreadPool::ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper) {
 	int range = upper - lower;
 	if (range >= numThreads * 2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
 		lock_guard guard(mutex);
@@ -67,7 +96,7 @@ void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int 
 		int chunk = range / numThreads;
 		int s = lower;
 		for (int i = 0; i < numThreads - 1; ++i) {
-			workers[i]->Process(std::bind(loop, s, s+chunk));
+			workers[i]->Process(loop, s, s+chunk);
 			s+=chunk;
 		}
 		// This is the final chunk.

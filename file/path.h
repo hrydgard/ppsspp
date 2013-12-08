@@ -19,7 +19,7 @@ public:
 	void GetListing(std::vector<FileInfo> &fileInfo, const char *filter = 0);
 	void Navigate(const std::string &path);
 
-	std::string GetPath() {
+	std::string GetPath() const {
 		if (path_ != "/")
 			return path_;
 		else
@@ -28,16 +28,16 @@ public:
 	std::string GetFriendlyPath() {
 		std::string str = GetPath();
 #if defined(BLACKBERRY)
-		char* home = getenv("PERIMETER_HOME");
-		if (!strncmp(str.c_str(), home, strlen(home))) {
+		char *home = getenv("PERIMETER_HOME");
+		if (home != NULL && !strncmp(str.c_str(), home, strlen(home))) {
 			str = str.substr(strlen(home));
 			str.insert(0, 1, '~');
 		}
 #elif defined(ANDROID)
 		// Do nothing
 #elif defined(__linux)
-		char* home = getenv("HOME");
-		if (!strncmp(str.c_str(), home, strlen(home))) {
+		char *home = getenv("HOME");
+		if (home != NULL && !strncmp(str.c_str(), home, strlen(home))) {
 			str = str.substr(strlen(home));
 			str.insert(0, 1, '~');
 		}
