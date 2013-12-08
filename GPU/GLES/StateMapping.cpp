@@ -236,7 +236,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 						glstate.blendColor.set(blendColor);
 					}
 				}
+			} else if (constantAlpha < 1.0f) {
+				const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
+				glstate.blendColor.set(blendColor);
 			}
+		} else if (constantAlpha < 1.0f) {
+			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
+			glstate.blendColor.set(blendColor);
 		}
 
 		// Some Android devices (especially Mali, it seems) composite badly if there's alpha in the backbuffer.
