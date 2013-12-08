@@ -105,12 +105,6 @@
     <ClInclude Include="base\error_context.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="ext\vjson\json.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="ext\vjson\block_allocator.h">
-      <Filter>ext</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\texture.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -280,11 +274,9 @@
       <Filter>data</Filter>
     </ClInclude>
     <ClInclude Include="android\app-android.h" />
-    <ClInclude Include="ext\jpge\jpge.h" />
     <ClInclude Include="math\expression_parser.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="ext\jpge\jpgd.h" />
     <ClInclude Include="input\keycodes.h" />
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
@@ -321,6 +313,18 @@
     </ClInclude>
     <ClInclude Include="util\text\parsers.h">
       <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\jpge\jpgd.h">
+      <Filter>ext\jpge</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\jpge\jpge.h">
+      <Filter>ext\jpge</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\vjson\block_allocator.h">
+      <Filter>ext\vjson</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\vjson\json.h">
+      <Filter>ext\vjson</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -383,12 +387,6 @@
     </ClCompile>
     <ClCompile Include="base\error_context.cpp">
       <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\vjson\json.cpp">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\vjson\block_allocator.cpp">
-      <Filter>ext</Filter>
     </ClCompile>
     <ClCompile Include="gfx\texture.cpp">
       <Filter>gfx</Filter>
@@ -536,14 +534,12 @@
     <ClCompile Include="data\compression.cpp">
       <Filter>data</Filter>
     </ClCompile>
-    <ClCompile Include="ext\jpge\jpge.cpp" />
     <ClCompile Include="math\expression_parser.cpp">
       <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="input\input_state.cpp">
       <Filter>input</Filter>
     </ClCompile>
-    <ClCompile Include="ext\jpge\jpgd.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -599,7 +595,6 @@
     <ClCompile Include="ext\libpng16\pngwutil.c">
       <Filter>ext\libpng16</Filter>
     </ClCompile>
-
     <ClCompile Include="ext\libzip\zip_add.c">
       <Filter>ext\libzip</Filter>
     </ClCompile>
@@ -765,6 +760,18 @@
     <ClCompile Include="util\text\parsers.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="ext\jpge\jpgd.cpp">
+      <Filter>ext\jpge</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\jpge\jpge.cpp">
+      <Filter>ext\jpge</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\vjson\block_allocator.cpp">
+      <Filter>ext\vjson</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\vjson\json.cpp">
+      <Filter>ext\vjson</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -832,6 +839,15 @@
     </Filter>
     <Filter Include="ext\libzip">
       <UniqueIdentifier>{aa8b9b49-2ff8-4961-b6cc-9c33ea674130}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\libpng16">
+      <UniqueIdentifier>{6c47ee5b-0375-40f0-ab2a-402d001cc9c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\jpge">
+      <UniqueIdentifier>{3721adbc-1a4a-4017-bc1d-893c7e86bc22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\vjson">
+      <UniqueIdentifier>{c6910d82-73d3-4d97-ac9c-bcc03265b1bc}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
