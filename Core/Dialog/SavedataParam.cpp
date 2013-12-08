@@ -1094,20 +1094,20 @@ void SavedataParam::Clear()
 	{
 		for (int i = 0; i < saveNameListDataCount; i++)
 		{
-			if (saveDataList[i].textureData != 0 && saveDataList[i].size != 0)
-				kernelMemory.Free(saveDataList[i].textureData);
-			saveDataList[i].textureData = 0;
+			if (saveDataList[i].texture != NULL)
+				delete saveDataList[i].texture;
+			saveDataList[i].texture = NULL;
 		}
 
-		delete[] saveDataList;
+		delete [] saveDataList;
 		saveDataList = 0;
 		saveDataListCount = 0;
 	}
 	if (noSaveIcon)
 	{
-		if(noSaveIcon->textureData != 0)
-			kernelMemory.Free(noSaveIcon->textureData);
-		noSaveIcon->textureData = 0;
+		if (noSaveIcon->texture != NULL)
+			delete noSaveIcon->texture;
+		noSaveIcon->texture = NULL;
 		delete noSaveIcon;
 		noSaveIcon = 0;
 	}
@@ -1242,33 +1242,6 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	return 0;
 }
 
-bool SavedataParam::CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info)
-{
-	unsigned char *textureData;
-	int w,h;
-
-	int success = pngLoadPtr(pngData, (int)pngSize, &w, &h, &textureData, false);
-
-	u32 texSize = w*h*4;
-	u32 atlasPtr;
-	if (success)
-		atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-	if (success && atlasPtr != (u32)-1)
-	{
-		info.textureData = atlasPtr;
-		Memory::Memcpy(atlasPtr, textureData, texSize);
-		free(textureData);
-		info.textureWidth = w;
-		info.textureHeight = h;
-	}
-	else
-	{
-		WARN_LOG(SCEUTILITY, "Unable to load PNG data for savedata.");
-		return false;
-	}
-	return true;
-}
-
 void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName)
 {
 	saveInfo.size = info.size;
@@ -1277,7 +1250,12 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	saveInfo.modif_time = info.mtime;
 
 	// Start with a blank slate.
-	saveInfo.textureData = 0;
+	if (saveInfo.texture != NULL) {
+		if (!noSaveIcon || saveInfo.texture != noSaveIcon->texture) {
+			delete saveInfo.texture;
+		}
+		saveInfo.texture = NULL;
+	}
 	saveInfo.title[0] = 0;
 	saveInfo.saveTitle[0] = 0;
 	saveInfo.saveDetail[0] = 0;
@@ -1287,12 +1265,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	std::string fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + ICON0_FILENAME;
 	PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
-	{
-		u8 *textureDataPNG = new u8[(size_t)info2.size];
-		ReadPSPFile(fileDataPath2, &textureDataPNG, info2.size, NULL);
-		CreatePNGIcon(textureDataPNG, (int)info2.size, saveInfo);
-		delete[] textureDataPNG;
-	}
+		saveInfo.texture = new PPGeImage(fileDataPath2);
 
 	// Load info in PARAM.SFO
 	fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + SFO_FILENAME;
@@ -1323,7 +1296,12 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	saveInfo.size = 0;
 	saveInfo.saveName = saveName;
 	saveInfo.idx = 0;
-	saveInfo.textureData = 0;
+	if (saveInfo.texture != NULL) {
+		if (!noSaveIcon || saveInfo.texture != noSaveIcon->texture) {
+			delete saveInfo.texture;
+		}
+		saveInfo.texture = NULL;
+	}
 
 	if (GetPspParam()->newData.IsValid() && GetPspParam()->newData->buf.IsValid())
 	{
@@ -1332,11 +1310,9 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 		{
 			noSaveIcon = new SaveFileInfo();
 			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
-			CreatePNGIcon(newData->buf, (int)newData->size, *noSaveIcon);
+			noSaveIcon->texture = new PPGeImage(newData->buf.ptr, (SceSize)newData->size);
 		}
-		saveInfo.textureData = noSaveIcon->textureData;
-		saveInfo.textureWidth = noSaveIcon->textureWidth;
-		saveInfo.textureHeight = noSaveIcon->textureHeight;
+		saveInfo.texture = noSaveIcon->texture;
 	}
 }
 

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/Util/PPGeDraw.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -24,6 +25,7 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MemMap.h"
 #include "image/zim_load.h"
+#include "image/png_load.h"
 #include "util/text/utf8.h"
 #include "Core/System.h"
 
@@ -800,5 +802,114 @@ void PPGeSetTexture(u32 dataAddr, int width, int height)
 void PPGeDisableTexture()
 {
 	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 0);
+}
+
+std::vector<PPGeImage *> PPGeImage::loadedTextures_;
+
+PPGeImage::PPGeImage(const std::string &pspFilename)
+	: filename_(pspFilename), texture_(0) {
+}
+
+PPGeImage::PPGeImage(u32 pngPointer, size_t pngSize)
+	: filename_(""), png_(pngPointer), size_(pngSize) {
+}
+
+PPGeImage::~PPGeImage() {
+	Free();
+}
+
+bool PPGeImage::Load() {
+	Free();
+
+	// In case it fails to load.
+	width_ = 0;
+	height_ = 0;
+
+	unsigned char *textureData;
+	int success;
+	if (filename_.empty()) {
+		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData, false);
+	} else {
+		std::string pngData;
+		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
+			WARN_LOG(SCEGE, "Bad PPGeImage - cannot load file");
+			return false;
+		}
+
+		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData, false);
+	}
+	if (!success) {
+		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");
+		return false;
+	}
+
+	u32 texSize = width_ * height_ * 4;
+	texture_ = __PPGeDoAlloc(texSize, true, "Savedata Icon");
+	if (texture_ == 0) {
+		WARN_LOG(SCEGE, "Bad PPGeImage - unable to allocate space for texture");
+		return false;
+	}
+
+	Memory::Memcpy(texture_, textureData, texSize);
+	free(textureData);
+
+	lastFrame_ = gpuStats.numFlips;
+	loadedTextures_.push_back(this);
+	return true;
+}
+
+void PPGeImage::Free() {
+	if (texture_ != 0) {
+		kernelMemory.Free(texture_);
+		texture_ = 0;
+		loadedTextures_.erase(std::remove(loadedTextures_.begin(), loadedTextures_.end(), this), loadedTextures_.end());
+	}
+}
+
+void PPGeImage::DoState(PointerWrap &p) {
+	auto s = p.Section("PPGeImage", 1);
+	if (!s)
+		return;
+
+	p.Do(filename_);
+	p.Do(png_);
+	p.Do(size_);
+	p.Do(texture_);
+	p.Do(width_);
+	p.Do(height_);
+	p.Do(lastFrame_);
+}
+
+void PPGeImage::CompatLoad(u32 texture, int width, int height) {
+	// Won't be reloadable, so don't add to loadedTextures_.
+	texture_ = texture;
+	width_ = width;
+	height_ = height;
+}
+
+void PPGeImage::Decimate() {
+	static const int TOO_OLD_AGE = 30;
+	int tooOldFrame = gpuStats.numFlips - TOO_OLD_AGE;
+	for (size_t i = 0; i < loadedTextures_.size(); ++i) {
+		if (loadedTextures_[i]->lastFrame_ < tooOldFrame) {
+			loadedTextures_[i]->Free();
+			// That altered loadedTextures_.
+			--i;
+		}
+	}
+}
+
+void PPGeImage::SetTexture() {
+	if (texture_ == 0) {
+		Decimate();
+		Load();
+	}
+
+	if (texture_ != 0) {
+		lastFrame_ = gpuStats.numFlips;
+		PPGeSetTexture(texture_, width_, height_);
+	} else {
+		PPGeDisableTexture();
+	}
 }
 

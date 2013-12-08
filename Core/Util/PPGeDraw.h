@@ -103,6 +103,48 @@ void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFF
 void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
 
+class PPGeImage {
+public:
+	PPGeImage(const std::string &pspFilename);
+	PPGeImage(u32 pngPointer, size_t pngSize);
+	~PPGeImage();
+
+	void SetTexture();
+
+	// Does not normally need to be called (except to force preloading.)
+	bool Load();
+	void Free();
+
+	void DoState(PointerWrap &p);
+
+	// Do not use, only for savestate upgrading.
+	void CompatLoad(u32 texture, int width, int height);
+
+	int Width() {
+		return width_;
+	}
+
+	int Height() {
+		return height_;
+	}
+
+private:
+	static void Decimate();
+	static std::vector<PPGeImage *> loadedTextures_;
+
+	std::string filename_;
+
+	// Only valid if filename_.empty().
+	u32 png_;
+	size_t size_;
+
+	u32 texture_;
+	int width_;
+	int height_;
+
+	int lastFrame_;
+};
+
 void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color);
 
 void PPGeSetDefaultTexture();
