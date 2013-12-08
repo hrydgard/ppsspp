@@ -786,6 +786,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 	}
 }
 
+template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int minX, int minY, int maxX, int maxY,
@@ -802,7 +803,7 @@ void DrawTriangleSlice(
 	int texlevel = 0;
 	int texbufwidthbits = 0;
 	u8 *texptr = NULL;
-	if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
+	if (gstate.isTextureMapEnabled() && !clearMode) {
 		// TODO: Always using level 0.
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		u32 texaddr = gstate.getTextureAddress(texlevel);
@@ -826,6 +827,7 @@ void DrawTriangleSlice(
 		int w0 = w0_base;
 		int w1 = w1_base;
 		int w2 = w2_base;
+
 		for (pprime.x = minX; pprime.x <= maxX; pprime.x +=16,
 											w0 += orient2dIncX(d12.y)*16,
 											w1 += orient2dIncX(-d02.y)*16,
@@ -844,7 +846,7 @@ void DrawTriangleSlice(
 				Vec3<int> prim_color_rgb(0, 0, 0);
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
-				if (gstate.getShadeMode() == GE_SHADE_GOURAUD) {
+				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
 					// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
 					// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 					// TODO: Is that the correct way to interpolate?
@@ -861,7 +863,7 @@ void DrawTriangleSlice(
 					sec_color = v2.color1;
 				}
 
-				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
+				if (gstate.isTextureMapEnabled() && !clearMode) {
 					unsigned int u = 0, v = 0;
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
@@ -880,13 +882,14 @@ void DrawTriangleSlice(
 					prim_color_a = out.a();
 				}
 
-				if (gstate.isColorDoublingEnabled()) {
+				if (gstate.isColorDoublingEnabled() && !clearMode) {
 					// TODO: Do we need to clamp here?
 					prim_color_rgb *= 2;
 					sec_color *= 2;
 				}
 
-				prim_color_rgb += sec_color;
+				if (!clearMode)
+					prim_color_rgb += sec_color;
 
 				// TODO: Fogging
 
@@ -895,22 +898,24 @@ void DrawTriangleSlice(
 				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
 				// Depth range test
+				// TODO: Clear mode?
 				if (!gstate.isModeThrough())
 					if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
 						continue;
 
-				if (gstate.isColorTestEnabled() && !gstate.isModeClear())
+				if (gstate.isColorTestEnabled() && !clearMode)
 					if (!ColorTestPassed(prim_color_rgb))
 						continue;
 
 				// TODO: Does a need to be clamped?
-				if (gstate.isAlphaTestEnabled() && !gstate.isModeClear())
+				if (gstate.isAlphaTestEnabled() && !clearMode)
 					if (!AlphaTestPassed(prim_color_a))
 						continue;
 
-				u8 stencil = GetPixelStencil(p.x, p.y);
+				// In clear mode, it uses the alpha color as stencil.
+				u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-				if (!gstate.isModeClear() && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
+				if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
 					if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
 						stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
 						SetPixelStencil(p.x, p.y, stencil);
@@ -931,26 +936,27 @@ void DrawTriangleSlice(
 					if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
 						SetPixelDepth(p.x, p.y, z);
 					}
-				} else if (gstate.isModeClear() && gstate.isClearModeDepthWriteEnabled()) {
+				} else if (clearMode && gstate.isClearModeDepthWriteEnabled()) {
 					SetPixelDepth(p.x, p.y, z);
 				}
 
-				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
+				if (gstate.isAlphaBlendEnabled() && !clearMode) {
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
 				}
-				prim_color_rgb = prim_color_rgb.Clamp(0, 255);
+				if (!clearMode)
+					prim_color_rgb = prim_color_rgb.Clamp(0, 255);
 
 				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
 				u32 old_color = GetPixelColor(p.x, p.y);
 
 				// TODO: Is alpha blending still performed if logic ops are enabled?
-				if (gstate.isLogicOpEnabled() && !gstate.isModeClear()) {
+				if (gstate.isLogicOpEnabled() && !clearMode) {
 					// Logic ops don't affect stencil.
 					new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
 				}
 
-				if (gstate.isModeClear()) {
+				if (clearMode) {
 					new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
 				} else {
 					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
@@ -986,7 +992,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
 	int range = (maxY - minY) / 16 + 1;
-	GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+	if (gstate.isModeClear())
+		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+	else
+		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 }
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
