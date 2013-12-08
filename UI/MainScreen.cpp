@@ -534,7 +534,7 @@ void GameBrowser::Refresh() {
 	if (allowBrowsing_) {
 		std::string caption = IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
-			caption = IsCurrentPathPinned() ? "Unpin" : "Pin";
+			caption = IsCurrentPathPinned() ? m->T("UnpinPath", "Unpin") : m->T("PinPath", "Pin");
 		}
 		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::PinToggleClick);
