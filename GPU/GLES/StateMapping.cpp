@@ -236,9 +236,18 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 						glstate.blendColor.set(blendColor);
 					}
 				}
-			} else if (constantAlpha < 1.0f) {
-				const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
-				glstate.blendColor.set(blendColor);
+			} else {
+				// We optimized both, but that's probably not necessary, so let's pick one to be constant.
+				// For now let's just pick whichever was fixed instead of checking error.
+				if (blendFuncA == GE_SRCBLEND_FIXA) {
+					glBlendFuncA = GL_CONSTANT_COLOR;
+					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+					glstate.blendColor.set(blendColor);
+				} else {
+					glBlendFuncB = GL_CONSTANT_COLOR;
+					const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+					glstate.blendColor.set(blendColor);
+				}
 			}
 		} else if (constantAlpha < 1.0f) {
 			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
