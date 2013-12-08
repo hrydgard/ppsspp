@@ -433,18 +433,12 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		// These two work the same whether or not we prescale UV.
 
 		case GE_TEXMAP_TEXTURE_MATRIX:
-			// UV coords (that need "factor") are only used here if the getUVProjMode == 1.
-			// Otherwise we just use it to scale the coordinates to the texture.
-			// Factor is used even if prescale is enabled, because prescale doesn't apply if the mode
-			// is texture_matrix.
-			if (gstate.getUVProjMode() == GE_PROJMAP_UV) {
-				uvscaleoff[0] = widthFactor * factor;
-				uvscaleoff[1] = heightFactor * factor;
-			} else {
-				// In these other modes we only use uvscaleoff to scale to the texture size.
-				uvscaleoff[0] = widthFactor;
-				uvscaleoff[1] = heightFactor;
-			}
+			// We cannot bake the UV coord scale factor in here, as we apply a matrix multiplication
+			// before this is applied, and the matrix multiplication may contain translation. In this case
+			// the translation will be scaled which breaks faces in Hexyz Force for example.
+			// So I've gone back to applying the scale factor in the shader.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
 			uvscaleoff[2] = 0.0f;
 			uvscaleoff[3] = 0.0f;
 			break;
