@@ -1086,7 +1086,7 @@ void SavedataParam::Clear()
 	{
 		for (int i = 0; i < saveNameListDataCount; i++)
 		{
-			if (saveDataList[i].texture != NULL)
+			if (saveDataList[i].texture != NULL && (!noSaveIcon || saveDataList[i].texture != noSaveIcon->texture))
 				delete saveDataList[i].texture;
 			saveDataList[i].texture = NULL;
 		}
