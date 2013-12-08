@@ -186,14 +186,8 @@ StencilValueType ReplaceAlphaWithStencilType() {
 				return STENCIL_VALUE_KEEP;
 			}
 
-		// Decrementing always zeros, since there's only one bit.
 		case GE_STENCILOP_DECR:
-			return STENCIL_VALUE_ZERO;
-
-		// Incrementing always fills, since there's only one bit.
 		case GE_STENCILOP_INCR:
-			return STENCIL_VALUE_ONE;
-
 		case GE_STENCILOP_INVERT:
 			return STENCIL_VALUE_UNKNOWN;
 
