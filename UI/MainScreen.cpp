@@ -263,10 +263,25 @@ enum GameBrowserFlags {
 
 class DirButton : public UI::Button {
 public:
-	DirButton(std::string path, UI::LayoutParams *layoutParams)
-		: UI::Button(path, layoutParams) {}
+	DirButton(const std::string &path, UI::LayoutParams *layoutParams)
+		: UI::Button(path, layoutParams), path_(path), absolute_(false) {}
+	DirButton(const std::string &path, const std::string &text, LayoutParams *layoutParams = 0)
+		: UI::Button(text, layoutParams), path_(path), absolute_(true) {}
 
 	virtual void Draw(UIContext &dc);
+
+	const std::string GetPath() const {
+		return path_;
+	}
+
+	bool PathAbsolute() const {
+		return absolute_;
+	}
+
+private:
+
+	std::string path_;
+	bool absolute_;
 };
 
 void DirButton::Draw(UIContext &dc) {
@@ -325,6 +340,9 @@ public:
 	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
 private:
 	void Refresh();
+	bool IsCurrentPathPinned();
+	const std::vector<std::string> GetPinnedPaths();
+	const std::string GetBaseName(const std::string &path);
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
@@ -332,6 +350,7 @@ private:
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
+	UI::EventReturn PinToggleClick(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_;
 	PathBrowser path_;
@@ -387,6 +406,17 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameBrowser::PinToggleClick(UI::EventParams &e) {
+	auto &pinnedPaths = g_Config.vPinnedPaths;
+	if (IsCurrentPathPinned()) {
+		pinnedPaths.erase(std::remove(pinnedPaths.begin(), pinnedPaths.end(), path_.GetPath()), pinnedPaths.end());
+	} else {
+		pinnedPaths.push_back(path_.GetPath());
+	}
+	Refresh();
+	return UI::EVENT_DONE;
+}
+
 void GameBrowser::Refresh() {
 	using namespace UI;
 
@@ -431,7 +461,7 @@ void GameBrowser::Refresh() {
 	Add(gameList_);
 
 	// Find games in the current directory and create new ones.
-	std::vector<UI::Button *> dirButtons;
+	std::vector<DirButton *> dirButtons;
 	std::vector<GameButton *> gameButtons;
 
 	if (path_.GetPath() == "!RECENT") {
@@ -475,6 +505,13 @@ void GameBrowser::Refresh() {
 	if (allowBrowsing_) {
 		gameList_->Add(new DirButton("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::NavigateClick);
+
+		// Add any pinned paths before other directories.
+		auto pinnedPaths = GetPinnedPaths();
+		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
+			gameList_->Add(new DirButton(*it, GetBaseName(*it), new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+				OnClick.Handle(this, &GameBrowser::NavigateClick);
+		}
 	}
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
@@ -485,6 +522,16 @@ void GameBrowser::Refresh() {
 		GameButton *b = gameList_->Add(gameButtons[i]);
 		b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
+	}
+
+	// Show a button to toggle pinning at the very end.
+	if (allowBrowsing_) {
+		std::string caption = IsCurrentPathPinned() ? "-" : "+";
+		if (!*gridStyle_) {
+			caption = IsCurrentPathPinned() ? "Unpin" : "Pin";
+		}
+		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+			OnClick.Handle(this, &GameBrowser::PinToggleClick);
 	}
 
 	if (g_Config.bHomebrewStore && (flags_ & FLAG_HOMEBREWSTOREBUTTON)) {
@@ -498,6 +545,62 @@ void GameBrowser::Refresh() {
 		Add(new Spacer());
 		Add(new Choice(lastText_, new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
+}
+
+bool GameBrowser::IsCurrentPathPinned() {
+	const auto paths = g_Config.vPinnedPaths;
+	return std::find(paths.begin(), paths.end(), path_.GetPath()) != paths.end();
+}
+
+const std::vector<std::string> GameBrowser::GetPinnedPaths() {
+#ifdef _WIN32
+	static const std::string sepChars = "/";
+#else
+	static const std::string sepChars = "/\\";
+#endif
+
+	const std::string currentPath = path_.GetPath();
+	const std::vector<std::string> paths = g_Config.vPinnedPaths;
+	std::vector<std::string> results;
+	for (size_t i = 0; i < paths.size(); ++i) {
+		// We want to exclude the current path, and its direct children.
+		if (paths[i] == currentPath) {
+			continue;
+		}
+		if (startsWith(paths[i], currentPath)) {
+			std::string descendant = paths[i].substr(currentPath.size());
+			// If there's only one separator (or none), its a direct child.
+			if (descendant.find_last_of(sepChars) == descendant.find_first_of(sepChars)) {
+				continue;
+			}
+		}
+
+		results.push_back(paths[i]);
+	}
+	return results;
+}
+
+const std::string GameBrowser::GetBaseName(const std::string &path) {
+#ifdef _WIN32
+	static const std::string sepChars = "/";
+#else
+	static const std::string sepChars = "/\\";
+#endif
+
+	auto trailing = path.find_last_not_of(sepChars);
+	if (trailing != path.npos) {
+		size_t start = path.find_last_of(sepChars, trailing);
+		if (start != path.npos) {
+			return path.substr(start + 1, trailing - start);
+		}
+		return path.substr(0, trailing);
+	}
+
+	size_t start = path.find_last_of(sepChars);
+	if (start != path.npos) {
+		return path.substr(start + 1);
+	}
+	return path;
 }
 
 UI::EventReturn GameBrowser::GameButtonClick(UI::EventParams &e) {
@@ -519,9 +622,13 @@ UI::EventReturn GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
-	UI::Button *button  = static_cast<UI::Button *>(e.v);
-	std::string text = button->GetText();
-	path_.Navigate(text);
+	DirButton *button  = static_cast<DirButton *>(e.v);
+	std::string text = button->GetPath();
+	if (button->PathAbsolute()) {
+		path_.SetPath(text);
+	} else {
+		path_.Navigate(text);
+	}
 	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 	return UI::EVENT_DONE;

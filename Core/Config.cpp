@@ -131,6 +131,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
+	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
+	vPinnedPaths.clear();
+	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
+		vPinnedPaths.push_back(it->second);
+	}
+
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
 	cpu->Get("Jit", &bJit, iosCanUseJit);
@@ -462,6 +468,14 @@ void Config::Save() {
 			} else {
 				recent->Delete(keyName); // delete the nonexisting FileName
 			}
+		}
+
+		IniFile::Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
+		pinnedPaths->Clear();
+		for (size_t i = 0; i < vPinnedPaths.size(); ++i) {
+			char keyName[64];
+			snprintf(keyName, sizeof(keyName), "Path%d", i);
+			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
