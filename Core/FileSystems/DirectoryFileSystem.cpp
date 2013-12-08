@@ -185,7 +185,11 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		openmode = OPEN_EXISTING;
 	}
 	//Let's do it!
+#ifdef UNICODE
 	hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
+#else
+	hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
+#endif
 	bool success = hFile != INVALID_HANDLE_VALUE;
 #else
 	// Convert flags in access parameter to fopen access mode
@@ -393,7 +397,11 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 	const char * fullToC = fullTo.c_str();
 
 #ifdef _WIN32
+#ifdef UNICODE
 	bool retValue = (MoveFile(ConvertUTF8ToWString(fullFrom).c_str(), ConvertUTF8ToWString(fullToC).c_str()) == TRUE);
+#else	
+	bool retValue = (MoveFile(fullFrom.c_str(), fullToC) == TRUE);
+#endif
 #else
 	bool retValue = (0 == rename(fullFrom.c_str(), fullToC));
 #endif
@@ -592,7 +600,11 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 
 	std::string w32path = GetLocalPath(path) + "\\*.*";
 
+#ifdef UNICODE
 	hFind = FindFirstFile(ConvertUTF8ToWString(w32path).c_str(), &findData);
+#else	
+	hFind = FindFirstFile(w32path.c_str(), &findData);
+#endif
 
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return myVector; //the empty list
@@ -609,11 +621,19 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		entry.access = entry.type == FILETYPE_NORMAL ? 0666 : 0777;
 		// TODO: is this just for .. or all subdirectories? Need to add a directory to the test
 		// to find out. Also why so different than the old test results?
+#ifdef UNICODE
 		if (!wcscmp(findData.cFileName, L"..") )
+#else		
+		if (!strcmp(findData.cFileName, "..") )
+#endif
 			entry.size = 4096;
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
+#ifdef UNICODE
 		entry.name = ConvertWStringToUTF8(findData.cFileName);
+#else
+		entry.name = findData.cFileName;
+#endif
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);

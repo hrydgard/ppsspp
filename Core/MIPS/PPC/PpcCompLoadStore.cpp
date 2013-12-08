@@ -1,4 +1,5 @@
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPS.h"
@@ -42,7 +43,8 @@ void Jit::SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset) {
 		
 }
 void Jit::Comp_ITypeMem(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE;	
+
 		int offset = (signed short)(op&0xFFFF);
 		bool load = false;
 		int rt = _RT;
@@ -51,6 +53,10 @@ void Jit::Comp_ITypeMem(MIPSOpcode op) {
 		if (((op >> 29) & 1) == 0 && rt == 0) {
 			// Don't load anything into $zr
 			return;
+		}
+
+		if (!g_Config.bFastMemory) {
+			DISABLE;
 		}
 
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
@@ -139,10 +145,10 @@ void Jit::Comp_ITypeMem(MIPSOpcode op) {
 			return ;
 		}
 	}
-}
 
-void Jit::Comp_Cache(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
-	// TODO: Could use this as a hint, and technically required to handle icache, etc.
-	// But right now Int_Cache does nothing, so let's not even call it.
+	void Jit::Comp_Cache(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		// TODO: Could use this as a hint, and technically required to handle icache, etc.
+		// But right now Int_Cache does nothing, so let's not even call it.
+	}
 }

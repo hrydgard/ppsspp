@@ -92,7 +92,8 @@ enum
 	SCRATCHPAD_SIZE = 0x4000,
 	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
 
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+
+#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
   // This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif

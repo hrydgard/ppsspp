@@ -28,30 +28,30 @@ void __AtracShutdown();
 
 typedef struct
 {
-    u32 decodePos; // 0
-    u32 endSample; // 4
-    u32 loopStart; // 8
-    u32 loopEnd; // 12
-    int samplesPerChan; // 16
+    u32_le decodePos; // 0
+    u32_le endSample; // 4
+    u32_le loopStart; // 8
+    u32_le loopEnd; // 12
+    s32_le samplesPerChan; // 16
     char numFrame; // 20
     // 2: all the stream data on the buffer
     // 6: looping -> second buffer needed
     char state; // 21
     char unk22;
     char numChan; // 23
-    u16 sampleSize; // 24
-    u16 codec; // 26
-    u32 dataOff; // 28
-    u32 curOff; // 32
-    u32 dataEnd; // 36
-    int loopNum; // 40
-    u32 streamDataByte; // 44
-    u32 unk48;
-    u32 unk52;
-    u32 buffer; // 56
-    u32 secondBuffer; // 60
-    u32 bufferByte; // 64
-    u32 secondBufferByte; // 68
+    u16_le sampleSize; // 24
+    u16_le codec; // 26
+    u32_le dataOff; // 28
+    u32_le curOff; // 32
+    u32_le dataEnd; // 36
+    s32_le loopNum; // 40
+    u32_le streamDataByte; // 44
+    u32_le unk48;
+    u32_le unk52;
+    u32_le buffer; // 56
+    u32_le secondBuffer; // 60
+    u32_le bufferByte; // 64
+    u32_le secondBufferByte; // 68
     // make sure the size is 128
 	u8 unk[56];
 } SceAtracIdInfo;

@@ -604,13 +604,13 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 }
 
 struct SystemStatus {
-	SceSize size;
-	SceUInt status;
-	SceUInt clockPart1;
-	SceUInt clockPart2;
-	SceUInt perfcounter1;
-	SceUInt perfcounter2;
-	SceUInt perfcounter3;
+	SceSize_le size;
+	SceUInt_le status;
+	SceUInt_le clockPart1;
+	SceUInt_le clockPart2;
+	SceUInt_le perfcounter1;
+	SceUInt_le perfcounter2;
+	SceUInt_le perfcounter3;
 };
 
 int sceKernelReferSystemStatus(u32 statusPtr) {

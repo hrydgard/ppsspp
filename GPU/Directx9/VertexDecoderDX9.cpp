@@ -30,7 +30,7 @@ namespace DX9 {
 // Always use float for decoding data
 #define USE_WEIGHT_HACK
 #define USE_TC_HACK
-
+#define USE_PPC_VTX_JIT 1
 
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
@@ -72,6 +72,11 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 	return tfm;
 }
 #endif
+
+
+VertexDecoderDX9::VertexDecoderDX9() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {
+	memset(stats_, 0, sizeof(stats_));
+}
 
 void VertexDecoderDX9::Step_WeightsU8() const
 {
@@ -262,10 +267,10 @@ void VertexDecoderDX9::Step_Color5551() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-	c[0] = Convert5To8(cdata & 0x1f);
-	c[1] = Convert5To8((cdata>>5) & 0x1f);
-	c[2] = Convert5To8((cdata>>10) & 0x1f);
-	c[3] = (cdata >> 15) ? 255 : 0;
+	c[0] = (cdata >> 15) ? 255 : 0;
+	c[1] = Convert5To8(cdata & 0x1f);
+	c[2] = Convert5To8((cdata>>5) & 0x1f);
+	c[3] = Convert5To8((cdata>>10) & 0x1f);
 }
 
 void VertexDecoderDX9::Step_Color4444() const
@@ -379,12 +384,9 @@ void VertexDecoderDX9::Step_NormalS8() const
 	normal[3] = 0;
 #else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	u8 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = (float)(sv[j] ^ xorval) * (1.0f/127.f);
+		normal[j] = (float)(sv[j]) * (1.0f/127.f);
 	normal[3] = 0;
 #endif
 }
@@ -393,11 +395,9 @@ void VertexDecoderDX9::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
 	u16 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFFFF;
 	const s16_le *sv = (const s16_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j];
 	normal[3] = 0;
 }
 
@@ -420,13 +420,6 @@ void VertexDecoderDX9::Step_NormalFloat() const
 
 	for (int j = 0; j < 3; j++) 
 		v[j] = sv[j];
-
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 1) {
-		multiplier = -multiplier;
-		for (int j = 0; j < 3; j++)
-			normal[j] = normal[j] * multiplier;
-	}
 #endif
 }
 
@@ -492,13 +485,10 @@ void VertexDecoderDX9::Step_NormalFloatMorph() const
 		for (int j = 0; j < 3; j++) {
 			v[j] = sv[j];
 		}
-
-		if (gstate.reversenormals & 1) {
-			multiplier = -multiplier;
-			for (int j = 0; j < 3; j++) {
-				normal[j] += normal[j] * multiplier;
-			}
-		}		
+		
+		for (int j = 0; j < 3; j++) {
+			normal[j] += normal[j] * multiplier;
+		}
 	}
 
 #endif
@@ -735,7 +725,7 @@ static const StepFunction posstep_through[4] = {
 };
 
 
-void VertexDecoderDX9::SetVertexType(u32 fmt) {
+void VertexDecoderDX9::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
 	numSteps_ = 0;
@@ -758,6 +748,7 @@ void VertexDecoderDX9::SetVertexType(u32 fmt) {
 	DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
 
 	if (weighttype) { // && nweights?
+		weightoff = size;
 		//size = align(size, wtalign[weighttype]);	unnecessary
 		size += wtsize[weighttype] * nweights;
 		if (wtalign[weighttype] > biggest)
@@ -914,6 +905,13 @@ void VertexDecoderDX9::SetVertexType(u32 fmt) {
 	onesize_ = size;
 	size *= morphcount;
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
+	
+#if defined(PPC) && USE_PPC_VTX_JIT
+	// Attempt to JIT as well
+	if (jitCache) {
+		jitted_ = jitCache->Compile(*this);
+	}
+#endif
 }
 
 void GetIndexBoundsDX9(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
@@ -951,13 +949,24 @@ void VertexDecoderDX9::DecodeVerts(u8 *decodedptr, const void *verts, int indexL
 	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
 	decoded_ = decodedptr;
 	ptr_ = (const u8*)verts + indexLowerBound * size;
+
+	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
-	for (int index = indexLowerBound; index <= indexUpperBound; index++) {
-		for (int i = 0; i < numSteps_; i++) {
-			((*this).*steps_[i])();
+#if defined(PPC) && USE_PPC_VTX_JIT
+	if (jitted_) {
+		// We've compiled the steps into optimized machine code, so just jump!
+		jitted_(ptr_, decoded_, count);
+	} else 
+#endif
+	{
+		// Interpret the decode steps
+		for (; count; count--) {
+			for (int i = 0; i < numSteps_; i++) {
+				((*this).*steps_[i])();
+			}
+			ptr_ += size;
+			decoded_ += stride;
 		}
-		ptr_ += size;
-		decoded_ += stride;
 	}
 }
 
@@ -1004,5 +1013,681 @@ int VertexDecoderDX9::ToString(char *output) const {
 	output += sprintf(output, " (size: %i)", VertexSize());
 	return output - start;
 }
+
+
+
+#if defined(PPC) && USE_PPC_VTX_JIT
+
+VertexDecoderJitCache::VertexDecoderJitCache() {
+	// 64k should be enough.
+	AllocCodeSpace(1024 * 64);
+
+	// Add some random code to "help" MSVC's buggy disassembler :(
+	/* really needed ? */
+	Break();
+	Break();
+}
+
+typedef void (VertexDecoderJitCache::*JitStepFunction)();
+
+struct JitLookup {
+	StepFunction func;
+	JitStepFunction jitFunc;
+};
+
+
+using namespace PpcGen;
+
+static const PPCReg srcReg = R20;
+static const PPCReg dstReg = R21;
+static const PPCReg counterReg = R22;
+
+static const PPCReg tempReg1 = R23;
+static const PPCReg tempReg2 = R24;
+static const PPCReg tempReg3 = R25;
+static const PPCReg tempReg4 = R26;
+static const PPCReg scratchReg = R27;
+
+static const PPCReg fpScratchReg = FPR27; 
+
+static const PPCReg fprU8bitd = FPR18; // 1./255.f
+static const PPCReg fprU16bitd = FPR19; // 1./65535.f
+static const PPCReg fprS8bitd = FPR16; // 1./127.f
+static const PPCReg fprS16bitd = FPR17; // 1./32767.f
+static const PPCReg fprZero = FPR15; 
+
+static const JitLookup jitLookup[] = {
+	{&VertexDecoderDX9::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
+	{&VertexDecoderDX9::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
+	{&VertexDecoderDX9::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
+
+	{&VertexDecoderDX9::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
+	{&VertexDecoderDX9::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
+	{&VertexDecoderDX9::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
+
+	{&VertexDecoderDX9::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
+	{&VertexDecoderDX9::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
+
+	{&VertexDecoderDX9::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
+	{&VertexDecoderDX9::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
+	{&VertexDecoderDX9::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
+
+	{&VertexDecoderDX9::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
+	{&VertexDecoderDX9::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
+	{&VertexDecoderDX9::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
+	{&VertexDecoderDX9::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
+
+	{&VertexDecoderDX9::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
+	{&VertexDecoderDX9::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
+	{&VertexDecoderDX9::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
+
+	{&VertexDecoderDX9::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
+	{&VertexDecoderDX9::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
+	{&VertexDecoderDX9::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
+};
+
+/** Called like this jitted_(r3, r4, r5); **/
+JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoderDX9 &dec) {
+	//return 0;
+
+	dec_ = &dec;
+	const u8 *start = this->GetCodePtr();
+
+	// TODO: Test and make work
+	Prologue();
+
+	// Copy some regs
+	MR(srcReg, R3);
+	MR(dstReg, R4);
+	MR(counterReg, R5);
+
+	// Store some values
+	MOVI2F(fprU8bitd, (1.f/255.f));
+	MOVI2F(fprU16bitd, (1.f/65535.f));	
+	MOVI2F(fprS8bitd, (1.f/127.f));
+	MOVI2F(fprS16bitd, (1.f/32767.f));	
+	MOVI2F(fprZero, 0.f);	
+
+	JumpTarget loopStart = GetCodePtr();
+	for (int i = 0; i < dec.numSteps_; i++) {
+		if (!CompileStep(dec, i)) {
+			// Reset the code ptr and return zero to indicate that we failed.
+			SetCodePtr(const_cast<u8 *>(start));
+			char temp[1024] = {0};
+			dec.ToString(temp);
+			INFO_LOG(HLE, "Could not compile vertex decoder: %s", temp);
+			return 0;
+		}
+	}
+
+	ADDI(srcReg, srcReg, dec.VertexSize());
+	ADDI(dstReg, dstReg, dec.decFmt.stride);
+
+	// counterReg --;
+	ADDI(counterReg, counterReg, -1); // SUBI
+	
+	// if (counterReg!=0) => loopStart
+	CMPI(counterReg, 0);
+	BNE(loopStart);
+
+	Epilogue();
+
+	// Return
+	BLR();
+
+	FlushIcache();
+
+	// DisassembleArm(start, GetCodePtr() - start);
+	// char temp[1024] = {0};
+	// dec.ToString(temp);
+	// INFO_LOG(HLE, "%s", temp);
+
+	return (JittedVertexDecoder)start;
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8() {
+	// Basic implementation - a byte at a time. TODO: Optimize
+	/* TODO */
+#if 0
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDRB(tempReg1, srcReg, dec_->weightoff + j);
+		STRB(tempReg1, dstReg, dec_->decFmt.w0off + j);
+	}
+	while (j & 3) {
+		STf(scratchReg, dstReg, dec_->decFmt.w0off + j);
+		j++;
+	}
+#endif
+	
+	volatile u64 tmp1, tmp2, tmp3, tmp4;
+
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LBZ(tempReg1, srcReg, dec_->weightoff + j);
+		
+		// Save it in tmp memory 
+		MOVI2R(R7, (u32)&tmp1);
+		STD(tempReg1, R7);
+
+		// Load as float
+		LFD(tempReg1, R7, 0);
+
+		// Convert
+		FCFID(tempReg1, tempReg1);
+		
+		// Double to simple
+		FRSP(tempReg1, tempReg1);
+
+		// Mult by (1.0f/255.f)
+		FMULS(tempReg1, tempReg1, fprU8bitd);
+		
+		// Save
+		SFS(tempReg1, dstReg, (dec_->decFmt.w0off + (j * 4)));
+	}
+
+	while (j & 3) {
+		SFS(fprZero, dstReg, dec_->decFmt.w0off + (j*4));
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16() {
+	volatile u64 tmp1, tmp2, tmp3, tmp4;
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		MOVI2R(scratchReg, dec_->weightoff + (j *2));
+		LHBRX(tempReg1, srcReg, scratchReg);
+		
+		// Save it in tmp memory 
+		MOVI2R(R7, (u32)&tmp1);
+		STD(tempReg1, R7);
+
+		// Load as float
+		LFD(tempReg1, R7, 0);
+
+		// Convert
+		FCFID(tempReg1, tempReg1);
+		
+		// Double to simple
+		FRSP(tempReg1, tempReg1);
+
+		// Mult by (1.0f/65335.f)
+		FMULS(tempReg1, tempReg1, fprU16bitd);
+		
+		// Save
+		SFS(tempReg1, dstReg, (dec_->decFmt.w0off + (j * 4)));
+	}
+
+	while (j & 3) {
+		SFS(fprZero, dstReg, dec_->decFmt.w0off + (j*4));
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloat() {
+	int j;
+	MOVI2R(scratchReg, dec_->weightoff);
+	for (j = 0; j < dec_->nweights; j++) {
+		ADDI(scratchReg, scratchReg, 4);
+		LWBRX(tempReg1, srcReg, scratchReg);
+		STW(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+	}
+	while (j & 3) {  // Zero additional weights rounding up to 4.
+		SFS(fprZero, dstReg, dec_->decFmt.w0off + j * 4);
+		j++;
+	}
+}
+
+// Fill last two bytes with zeroes to align to 4 bytes. LDRH does it for us, handy.
+void VertexDecoderJitCache::Jit_TcU8() {
+	volatile u64 tmp1, tmp2, tmp3, tmp4;
+
+	LBZ(tempReg1, srcReg, dec_->tcoff + 0);
+	LBZ(tempReg2, srcReg, dec_->tcoff + 1);
+	
+	// Save it in tmp memory 
+	MOVI2R(R7, (u32)&tmp1);
+	MOVI2R(R8, (u32)&tmp2);
+
+	STD(tempReg1, R7);
+	STD(tempReg2, R8);
+
+	// Load as float
+	LFD(tempReg1, R7, 0);
+	LFD(tempReg2, R8, 0);
+
+	// Convert
+	FCFID(tempReg1, tempReg1);
+	FCFID(tempReg2, tempReg2);
+
+	// Double to simple
+	FRSP(tempReg1, tempReg1);
+	FRSP(tempReg2, tempReg2);
+
+	// Mult by (1.0f/255.f)
+	FMULS(tempReg1, tempReg1, fprU8bitd);
+	FMULS(tempReg2, tempReg2, fprU8bitd);
+
+	// Save
+	SFS(tempReg1, dstReg, (dec_->decFmt.uvoff + 0));
+	SFS(tempReg2, dstReg, (dec_->decFmt.uvoff + 4));
+}
+
+void VertexDecoderJitCache::Jit_TcU16() {
+	/* Todo */
+	/** optimize ! **/
+	MOVI2R(R7, dec_->tcoff + 0);
+	MOVI2R(R8, dec_->tcoff + 2);
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	STH(tempReg1, dstReg, dec_->decFmt.uvoff + 0);
+	STH(tempReg2, dstReg, dec_->decFmt.uvoff + 2);
+}
+
+void VertexDecoderJitCache::Jit_TcFloat() {
+	/** Todo vmx ... **/
+
+	MOVI2R(scratchReg, dec_->tcoff);
+	LWBRX(tempReg1, srcReg, scratchReg);
+
+	// scratchReg = dec_->tcoff + 4
+	ADDI(scratchReg, scratchReg, 4);
+	LWBRX(tempReg2, srcReg, scratchReg);
+	
+	STW(tempReg1, dstReg, dec_->decFmt.uvoff);
+	STW(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Through() {
+	/** optimize ! **/
+	MOVI2R(R7, dec_->tcoff + 0);
+	MOVI2R(R8, dec_->tcoff + 2);
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	STH(tempReg1, dstReg, dec_->decFmt.uvoff + 0);
+	STH(tempReg2, dstReg, dec_->decFmt.uvoff + 2);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatThrough() {
+	MOVI2R(scratchReg, dec_->tcoff + 0);
+	LWBRX(tempReg1, srcReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 4);
+	LWBRX(tempReg2, srcReg, scratchReg);
+
+	STW(tempReg1, dstReg, dec_->decFmt.uvoff + 4);
+	STW(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_Color8888() {
+	/** Todo optimize ... **/
+	LBZ(tempReg1, srcReg, dec_->coloff + 3);
+	LBZ(tempReg2, srcReg, dec_->coloff + 0);
+	STB(tempReg1, dstReg, dec_->decFmt.c0off + 0);
+	STB(tempReg2, dstReg, dec_->decFmt.c0off + 1);
+
+	LBZ(tempReg1, srcReg, dec_->coloff + 1);
+	LBZ(tempReg2, srcReg, dec_->coloff + 2);
+	STB(tempReg1, dstReg, dec_->decFmt.c0off + 2);
+	STB(tempReg2, dstReg, dec_->decFmt.c0off + 3);
+	/*
+	// Wrong !!! should use rlwim
+	
+	MOVI2R(scratchReg, dec_->coloff);
+	LWBRX(tempReg1, srcReg, scratchReg);	
+	STW(tempReg1, dstReg, dec_->decFmt.c0off);
+	*/
+}
+
+void VertexDecoderJitCache::Jit_Color4444() {
+	MOVI2R(scratchReg, dec_->coloff);
+	LHBRX(R10, srcReg, scratchReg);
+
+	RLWINM(R9, R10, 20, 12, 31);	//	srwi         r9,r10,12
+	RLWINM(R8, R10, 28, 28, 31);
+	RLWINM(R7, R10, 24, 28, 31);	
+	RLWINM(R6, R10, 0, 28, 31);		//	clrlwi       r6,r10,28
+
+	RLWINM(R5, R9, 4, 20, 27);	
+	RLWINM(R10, R10, 4, 20, 27);
+	RLWINM(R4, R8, 4, 20, 27);
+	RLWINM(R3, R7, 4, 20, 27);
+
+	OR(R9,R5,R9);
+	OR(R10,R10,R6);
+	OR(R8,R4,R8);
+	OR(R7,R3,R7);
+
+	STB(R9,	 dstReg, dec_->decFmt.c0off + 0);
+	STB(R10, dstReg, dec_->decFmt.c0off + 1);
+	STB(R8,  dstReg, dec_->decFmt.c0off + 2);
+	STB(R7,  dstReg, dec_->decFmt.c0off + 3);
+}
+
+void VertexDecoderJitCache::Jit_Color565() {
+	MOVI2R(scratchReg, dec_->coloff);
+	LHBRX(R10, srcReg, scratchReg);
+
+	RLWINM       (R9,R10,27,26,31     );
+	SRWI         (R8,R10,11           );
+	RLWINM       (R7,R10,3,24,28      );
+
+	RLWINM       (R6,R10,30,29,31     );
+	RLWINM       (R5,R10,23,30,31     );
+	RLWINM       (R9,R9,2,24,29       );
+
+	RLWINM       (R8,R8,3,24,28       );
+	SRWI         (R10,R10,13          );
+
+	OR           (R7,R7,R6            );
+	OR           (R9,R9,R5            );
+	OR           (R10,R8,R10          );
+
+	LI(R6, 0xFF);
+	STB(R6,	 dstReg, dec_->decFmt.c0off + 0);
+	STB(R7,  dstReg, dec_->decFmt.c0off + 1);
+	STB(R9,  dstReg, dec_->decFmt.c0off + 2);
+	STB(R10,  dstReg, dec_->decFmt.c0off + 3);
+}
+
+void VertexDecoderJitCache::Jit_Color5551() {
+	MOVI2R(scratchReg, dec_->coloff);
+	LHBRX(R10, srcReg, scratchReg);
+
+	RLWINM(R9,R10, 0, 15,31);
+	SUBFIC(R9,R9,0);
+
+	RLWINM(R8,R10,27,27,31);
+	RLWINM(R7,R10,22,27,31);
+	RLWINM(R5,R10,3,24,28);
+
+	RLWINM(R4,R10,30,29,31);
+	RLWINM(R3,R10,25,29,31);
+	SUBFE (R9,R9,R9 );
+
+	RLWINM(R8,R8,3,24,28);
+	RLWINM(R7,R7,3,24,28);
+	RLWINM(R10,R10,20,29,31);
+
+	AND   (R9,R9,R6);
+	OR    (R6,R5,R4);
+	OR    (R8,R8,R3);
+	OR    (R10,R7,R10);
+
+	STB(R9,	 dstReg, dec_->decFmt.c0off + 0);
+	STB(R6,  dstReg, dec_->decFmt.c0off + 1);
+	STB(R8,  dstReg, dec_->decFmt.c0off + 2);
+	STB(R10,  dstReg, dec_->decFmt.c0off + 3);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8() {
+	volatile u64 tmp1, tmp2, tmp3, tmp4;
+
+	LBZ(tempReg1, srcReg, dec_->nrmoff + 0);
+	LBZ(tempReg2, srcReg, dec_->nrmoff + 1);
+	LBZ(tempReg3, srcReg, dec_->nrmoff + 2);
+	
+	EXTSB(tempReg1,tempReg1);
+	EXTSB(tempReg2,tempReg2);
+	EXTSB(tempReg3,tempReg3);
+	
+	// Save it in tmp memory 
+	MOVI2R(R7, (u32)&tmp1);
+	MOVI2R(R8, (u32)&tmp2);
+	MOVI2R(R9, (u32)&tmp3);
+
+	STD(tempReg1, R7);
+	STD(tempReg2, R8);
+	STD(tempReg3, R9);
+
+	// Load as float
+	LFD(tempReg1, R7, 0);
+	LFD(tempReg2, R8, 0);
+	LFD(tempReg3, R9, 0);
+
+	// Convert
+	FCFID(tempReg1, tempReg1);
+	FCFID(tempReg2, tempReg2);
+	FCFID(tempReg3, tempReg3);
+
+	// Double to simple
+	FRSP(tempReg1, tempReg1);
+	FRSP(tempReg2, tempReg2);
+	FRSP(tempReg3, tempReg3);
+
+	// Mult by (1.0f/255.f)
+	FMULS(tempReg1, tempReg1, fprS8bitd);
+	FMULS(tempReg2, tempReg2, fprS8bitd);
+	FMULS(tempReg3, tempReg3, fprS8bitd);
+
+	// Save
+	SFS(tempReg1, dstReg, (dec_->decFmt.nrmoff + 0));
+	SFS(tempReg2, dstReg, (dec_->decFmt.nrmoff + 4));
+	SFS(tempReg3, dstReg, (dec_->decFmt.nrmoff + 8));
+}
+ 
+// Copy 6 bytes and then 2 zeroes.
+void VertexDecoderJitCache::Jit_NormalS16() {
+	MOVI2R(scratchReg, dec_->nrmoff);
+	LHBRX(tempReg1, srcReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 2);
+	LHBRX(tempReg2, srcReg, scratchReg);
+	
+	ADDI(scratchReg, scratchReg, 2);
+	LHBRX(tempReg3, srcReg, scratchReg);
+
+	STH(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STH(tempReg2, dstReg, dec_->decFmt.nrmoff + 2);
+	STH(tempReg3, dstReg, dec_->decFmt.nrmoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloat() {
+	MOVI2R(scratchReg, dec_->nrmoff);
+	LWBRX(tempReg1, srcReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 4);
+	LWBRX(tempReg2, srcReg, scratchReg);
+	
+	ADDI(scratchReg, scratchReg, 4);
+	LWBRX(tempReg3, srcReg, scratchReg);
+
+	STW(tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STW(tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
+	STW(tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+}
+
+// Through expands into floats, always. Might want to look at changing this.
+void VertexDecoderJitCache::Jit_PosS8Through() {
+	volatile u64 tmp1, tmp2, tmp3, tmp4;
+
+	LBZ(tempReg1, srcReg, dec_->posoff + 0);
+	LBZ(tempReg2, srcReg, dec_->posoff + 1);
+	LBZ(tempReg3, srcReg, dec_->posoff + 2);
+	
+	EXTSB(tempReg1,tempReg1);
+	EXTSB(tempReg2,tempReg2);
+	EXTSB(tempReg3,tempReg3);
+	
+	// Save it in tmp memory 
+	MOVI2R(R7, (u32)&tmp1);
+	MOVI2R(R8, (u32)&tmp2);
+	MOVI2R(R9, (u32)&tmp3);
+
+	STD(tempReg1, R7);
+	STD(tempReg2, R8);
+	STD(tempReg3, R9);
+
+	// Load as float
+	LFD(tempReg1, R7, 0);
+	LFD(tempReg2, R8, 0);
+	LFD(tempReg3, R9, 0);
+
+	// Convert
+	FCFID(tempReg1, tempReg1);
+	FCFID(tempReg2, tempReg2);
+	FCFID(tempReg3, tempReg3);
+
+	// Double to simple
+	FRSP(tempReg1, tempReg1);
+	FRSP(tempReg2, tempReg2);
+	FRSP(tempReg3, tempReg3);
+
+	// Mult by (1.0f/255.f)
+	FMULS(tempReg1, tempReg1, fprS8bitd);
+	FMULS(tempReg2, tempReg2, fprS8bitd);
+	FMULS(tempReg3, tempReg3, fprS8bitd);
+
+	// Save
+	SFS(tempReg1, dstReg, (dec_->decFmt.posoff + 0));
+	SFS(tempReg2, dstReg, (dec_->decFmt.posoff + 4));
+	SFS(tempReg3, dstReg, (dec_->decFmt.posoff + 8));
+}
+
+// Through expands into floats, always. Might want to look at changing this.
+void VertexDecoderJitCache::Jit_PosS16Through() {
+	volatile u64 tmp1, tmp2, tmp3;
+
+	MOVI2R(R7, dec_->posoff + 0);	
+	MOVI2R(R8, dec_->posoff + 2);	
+	MOVI2R(R9, dec_->posoff + 4);
+
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	LHBRX(tempReg3, srcReg, R9);
+
+	EXTSH(tempReg1, tempReg1);
+	EXTSH(tempReg2, tempReg2);
+	EXTSH(tempReg3, tempReg3);
+	
+	// Save it in tmp memory 
+	MOVI2R(R7, (u32)&tmp1);
+	MOVI2R(R8, (u32)&tmp2);
+	MOVI2R(R9, (u32)&tmp3);
+
+	STD(tempReg1, R7);
+	STD(tempReg2, R8);
+	STD(tempReg3, R9);
+
+	// Load as float
+	LFD(tempReg1, R7, 0);
+	LFD(tempReg2, R8, 0);
+	LFD(tempReg3, R9, 0);
+
+	// Convert
+	FCFID(tempReg1, tempReg1);
+	FCFID(tempReg2, tempReg2);
+	FCFID(tempReg3, tempReg3);
+
+	// Double to simple
+	FRSP(tempReg1, tempReg1);
+	FRSP(tempReg2, tempReg2);
+	FRSP(tempReg3, tempReg3);
+
+	// Save
+	SFS(tempReg1, dstReg, (dec_->decFmt.posoff + 0));
+	SFS(tempReg2, dstReg, (dec_->decFmt.posoff + 4));
+	SFS(tempReg3, dstReg, (dec_->decFmt.posoff + 8));
+}
+
+// Copy 3 bytes and then a zero. Might as well copy four.
+void VertexDecoderJitCache::Jit_PosS8() {
+	volatile u64 tmp1, tmp2, tmp3, tmp4;
+
+	LBZ(tempReg1, srcReg, dec_->posoff + 0);
+	LBZ(tempReg2, srcReg, dec_->posoff + 1);
+	LBZ(tempReg3, srcReg, dec_->posoff + 2);
+	
+	EXTSB(tempReg1,tempReg1);
+	EXTSB(tempReg2,tempReg2);
+	EXTSB(tempReg3,tempReg3);
+	
+	// Save it in tmp memory 
+	MOVI2R(R7, (u32)&tmp1);
+	MOVI2R(R8, (u32)&tmp2);
+	MOVI2R(R9, (u32)&tmp3);
+
+	STD(tempReg1, R7);
+	STD(tempReg2, R8);
+	STD(tempReg3, R9);
+
+	// Load as float
+	LFD(tempReg1, R7, 0);
+	LFD(tempReg2, R8, 0);
+	LFD(tempReg3, R9, 0);
+
+	// Convert
+	FCFID(tempReg1, tempReg1);
+	FCFID(tempReg2, tempReg2);
+	FCFID(tempReg3, tempReg3);
+
+	// Double to simple
+	FRSP(tempReg1, tempReg1);
+	FRSP(tempReg2, tempReg2);
+	FRSP(tempReg3, tempReg3);
+
+	// Mult by (1.0f/255.f)
+	FMULS(tempReg1, tempReg1, fprS8bitd);
+	FMULS(tempReg2, tempReg2, fprS8bitd);
+	FMULS(tempReg3, tempReg3, fprS8bitd);
+
+	// Save
+	SFS(tempReg1, dstReg, (dec_->decFmt.posoff + 0));
+	SFS(tempReg2, dstReg, (dec_->decFmt.posoff + 4));
+	SFS(tempReg3, dstReg, (dec_->decFmt.posoff + 8));
+}
+
+// Copy 6 bytes and then 2 zeroes.
+void VertexDecoderJitCache::Jit_PosS16() {	
+	MOVI2R(R7, dec_->posoff + 0);	
+	MOVI2R(R8, dec_->posoff + 2);	
+	MOVI2R(R9, dec_->posoff + 4);
+
+	LHBRX(tempReg1, srcReg, R7);
+	LHBRX(tempReg2, srcReg, R8);
+	LHBRX(tempReg3, srcReg, R9);
+	
+	STH(tempReg1, dstReg, dec_->decFmt.posoff + 0);
+	STH(tempReg2, dstReg, dec_->decFmt.posoff + 2);
+	STH(tempReg3, dstReg, dec_->decFmt.posoff + 4);
+
+	LI(scratchReg, 0);
+	STH(scratchReg, dstReg, dec_->decFmt.posoff + 6);
+}
+
+// Just copy 12 bytes.
+void VertexDecoderJitCache::Jit_PosFloat() {
+	/** Todo vmx ... **/
+	LWZ(tempReg1, srcReg, dec_->posoff);
+	LWZ(tempReg2, srcReg, dec_->posoff + 4);
+	LWZ(tempReg3, srcReg, dec_->posoff + 8);
+	
+	MOVI2R(scratchReg, dec_->decFmt.posoff);
+
+	STWBRX(tempReg1, dstReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 4);
+	STWBRX(tempReg2, dstReg, scratchReg);
+
+	ADDI(scratchReg, scratchReg, 4);
+	STWBRX(tempReg3, dstReg, scratchReg);
+}
+
+bool VertexDecoderJitCache::CompileStep(const VertexDecoderDX9 &dec, int step) {
+	// See if we find a matching JIT function
+	for (size_t i = 0; i < ARRAY_SIZE(jitLookup); i++) {
+		if (dec.steps_[step] == jitLookup[i].func) {
+			((*this).*jitLookup[i].jitFunc)();
+			return true;
+		}
+	}
+	return false;
+}
+#elif defined(PPC)
+VertexDecoderJitCache::VertexDecoderJitCache() {
+	// link only !!!
+}
+#endif
 
 };

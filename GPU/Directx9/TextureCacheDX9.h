@@ -47,7 +47,7 @@ public:
 	TextureCacheDX9();
 	~TextureCacheDX9();
 
-	void SetTexture();
+	void SetTexture(bool t = false);
 
 	void Clear(bool delete_them);
 	void StartFrame();

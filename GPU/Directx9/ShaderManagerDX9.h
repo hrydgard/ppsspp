@@ -28,6 +28,19 @@ namespace DX9 {
 class PSShader;
 class VSShader;
 
+// Pre-fetched attrs and uniforms
+enum {
+	ATTR_POSITION = 0,
+	ATTR_TEXCOORD = 1,
+	ATTR_NORMAL = 2,
+	ATTR_W1 = 3,
+	ATTR_W2 = 4,
+	ATTR_COLOR0 = 5,
+	ATTR_COLOR1 = 6,
+
+	ATTR_COUNT,
+};
+
 class LinkedShaderDX9
 {
 protected:		
@@ -56,6 +69,9 @@ public:
 	PSShader *m_fs;
 
 	u32 dirtyUniforms;
+
+	// Present attributes in the shader.
+	int attrMask;  // 1 << ATTR_ ... or-ed together.
 
 	// Pre-fetched attrs and uniforms
 	D3DXHANDLE a_position;
@@ -194,7 +210,7 @@ public:
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
 	}
-	void EndFrame();  // disables vertex arrays
+	void DirtyLastShader();  // disables vertex arrays
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }

@@ -203,6 +203,7 @@ namespace PpcGen
 		void BA (const void *fnptr);
 		void BLA(const void *fnptr);
 		void BEQ(const void *fnptr);
+		void BNE(const void *fnptr);
 		void BLE(const void *fnptr);
 		void BLT(const void *fnptr);
 		void BGT(const void *fnptr);
@@ -248,6 +249,7 @@ namespace PpcGen
 		}
 		// if RCFlags update CR0
 		void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
+		void SUBFIC	(PPCReg Rt, PPCReg Ra, short imm);
 		void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 		void SUBFE	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 
@@ -293,9 +295,12 @@ namespace PpcGen
 		// sign
 		void EXTSB	(PPCReg dest, PPCReg src);
 		void EXTSH	(PPCReg dest, PPCReg src);
+		void EXTSW	(PPCReg dest, PPCReg src);
 
 		// 
 		void RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end);
+
+		void RLDICL (PPCReg Rt,	PPCReg Rs, int sh, int mb);
 
 		// Shift Instructions
 		void SRAW	(PPCReg dest, PPCReg src, PPCReg shift);
@@ -359,6 +364,16 @@ namespace PpcGen
 
 		// Fpu move instruction
 		void FMR	(PPCReg FRt, PPCReg FRb);
+
+		// fpu
+		void MTFSB0	(int bt);
+		void FCFID	(PPCReg FRt, PPCReg FRb);
+		void FCTID	(PPCReg FRt, PPCReg FRb);
+		void FRSP	(PPCReg FRt, PPCReg FRb);
+		void FCTIW	(PPCReg FRt, PPCReg FRb);
+		void STFIWX	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+
+		// Fpu
 		void FNEG	(PPCReg FRt, PPCReg FRb);
 		void FABS	(PPCReg FRt, PPCReg FRb);
 		void FNABS	(PPCReg FRt, PPCReg FRb);
@@ -394,6 +409,12 @@ namespace PpcGen
 		// Fpu compare
 		void FCMPU	(int Bf, PPCReg FRa, PPCReg FRb); // unordered
 		void FCMPO	(int Bf, PPCReg FRa, PPCReg FRb); // ordered
+
+		// Fpu convert
+		void FRIN	(PPCReg FRt, PPCReg FRb);	// round
+		void FRIZ	(PPCReg FRt, PPCReg FRb);	// trunc
+		void FRIP	(PPCReg FRt, PPCReg FRb);	// ceil
+		void FRIM	(PPCReg FRt, PPCReg FRb);	// floor
 
 
 		// VPU - lvx128

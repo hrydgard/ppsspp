@@ -17,7 +17,9 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#ifndef _XBOX
 #include <WindowsX.h>
+#endif
 #else
 #include <unistd.h>
 #endif
@@ -523,7 +525,7 @@ DataType SymbolMap::GetDataType(u32 startAddress) const {
 	return it->second.type;
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 
 struct DefaultSymbol {
 	u32 address;

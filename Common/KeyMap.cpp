@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 #include <windows.h>
 #endif
 
@@ -331,7 +331,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		{
 			bool azerty = false;
 			bool qwertz = false;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
 			switch ((int)localeId & 0xFFFF) {

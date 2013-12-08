@@ -20,9 +20,11 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#ifndef _XBOX
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
+#endif
 #include <io.h>
 #include <direct.h>		// getcwd
 #else
@@ -200,7 +202,11 @@ bool Delete(const std::string &filename)
 	}
 
 #ifdef _WIN32
+#ifdef UNICODE
 	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str()))
+#else
+	if (!DeleteFile(filename.c_str()))
+#endif
 	{
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
@@ -221,8 +227,12 @@ bool Delete(const std::string &filename)
 bool CreateDir(const std::string &path)
 {
 	INFO_LOG(COMMON, "CreateDir: directory %s", path.c_str());
-#ifdef _WIN32
+#ifdef _WIN32	
+#ifdef UNICODE
 	if (::CreateDirectory(ConvertUTF8ToWString(path).c_str(), NULL))
+#else
+	if (::CreateDirectory(path.c_str(), NULL))
+#endif
 		return true;
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS)
@@ -313,7 +323,11 @@ bool DeleteDir(const std::string &filename)
 	}
 
 #ifdef _WIN32
+#ifdef UNICODE
 	if (::RemoveDirectory(ConvertUTF8ToWString(filename).c_str()))
+#else	
+	if (::RemoveDirectory(filename.c_str()))
+#endif
 		return true;
 #else
 	if (rmdir(filename.c_str()) == 0)
@@ -342,7 +356,11 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	INFO_LOG(COMMON, "Copy: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
+#ifdef UNICODE
 	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
+#else	
+	if (CopyFile(srcFilename.c_str(), destFilename.c_str(), FALSE))
+#endif
 		return true;
 
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
@@ -517,7 +535,11 @@ bool DeleteDirRecursively(const std::string &directory)
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
+#ifdef UNICODE
 	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
+#else	
+	HANDLE hFind = FindFirstFile((directory + "\\*").c_str(), &ffd);
+#endif
 
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
@@ -528,7 +550,12 @@ bool DeleteDirRecursively(const std::string &directory)
 	// windows loop
 	do
 	{
+
+#ifdef UNICODE
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
+#else
+		const std::string virtualName = (ffd.cFileName);
+#endif
 #else
 	struct dirent dirent, *result = NULL;
 	DIR *dirp = opendir(directory.c_str());
@@ -626,6 +653,7 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 std::string GetCurrentDir()
 {
 	char *dir;
+#ifndef _XBOX
 	// Get the current working directory (getcwd uses malloc) 
 	if (!(dir = __getcwd(NULL, 0))) {
 
@@ -636,12 +664,19 @@ std::string GetCurrentDir()
 	std::string strDir = dir;
 	free(dir);
 	return strDir;
+#else
+	return "game:\\";
+#endif
 }
 
 // Sets the current directory to the given directory
 bool SetCurrentDir(const std::string &directory)
 {
+#ifndef _XBOX
 	return __chdir(directory.c_str()) == 0;
+#else
+	return false;
+#endif
 }
 
 const std::string &GetExeDirectory()
@@ -649,6 +684,7 @@ const std::string &GetExeDirectory()
 	static std::string ExePath;
 
 	if (ExePath.empty())
+#ifndef _XBOX
 	{
 #ifdef _WIN32
 		TCHAR program_path[4096] = {0};
@@ -685,6 +721,10 @@ const std::string &GetExeDirectory()
 	}
 
 	return ExePath;
+#else
+	static std::wstring ExePath = L"game:\\";
+	return ExePath;
+#endif
 }
 
 
@@ -777,6 +817,7 @@ bool IOFile::Flush()
 
 bool IOFile::Resize(u64 size)
 {
+#ifndef _XBOX
 	if (!IsOpen() || 0 !=
 #ifdef _WIN32
 		// ector: _chsize sucks, not 64-bit safe
@@ -790,6 +831,9 @@ bool IOFile::Resize(u64 size)
 		m_good = false;
 
 	return m_good;
+#else
+	return false;
+#endif
 }
 
 } // namespace

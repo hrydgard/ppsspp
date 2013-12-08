@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Headless.cpp" />
+    <ClCompile Include="..\native\ext\glew\glew.c" />
+    <ClCompile Include="WindowsHeadlessHost.cpp" />
+    <ClCompile Include="Compare.cpp" />
+    <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="headless.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="StubHost.h" />
+    <ClInclude Include="WindowsHeadlessHost.h" />
+    <ClInclude Include="Compare.h" />
+    <ClInclude Include="..\UI\OnScreenDisplay.h" />
+  </ItemGroup>
+</Project>

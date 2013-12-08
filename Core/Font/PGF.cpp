@@ -329,7 +329,7 @@ bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) {
 	charInfo->sfp26Height = glyph.dimensionHeight;
 	charInfo->sfp26Ascender = glyph.yAdjustH;
 	// Font y goes upwards.  If top is 10 and height is 11, the descender is approx. -1 (below 0.)
-	charInfo->sfp26Descender = charInfo->sfp26Ascender - charInfo->sfp26Height;
+	charInfo->sfp26Descender = charInfo->sfp26Ascender - (s32_le)charInfo->sfp26Height;
 	charInfo->sfp26BearingHX = glyph.xAdjustH;
 	charInfo->sfp26BearingHY = glyph.yAdjustH;
 	charInfo->sfp26BearingVX = glyph.xAdjustV;

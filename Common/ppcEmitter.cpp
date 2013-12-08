@@ -44,6 +44,13 @@
     X_FORM(OPCD, crbD, crbA, crbB, XO, LK); \
 }
 
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       S      |       A      |      SH      |      MB      |      ME      |Rc|
+#define M_FORM(OPCD, RS, RA, SH, MB, ME, Rc) { \
+        int rs = (RS), ra = (RA), sh = (SH); \
+        Write32((OPCD << 26) | (rs << 21) | (ra << 16) | (sh << 11) | ((MB) << 6) | ((ME) << 1) | (Rc)); \
+}
+
 namespace PpcGen {
 
 	// Mul stuff
@@ -216,11 +223,18 @@ namespace PpcGen {
 	void PPCXEmitter::BEQ (const void *fnptr) {
 		CHECK_SMALL_JUMP
 
-			s32 func =  (s32)fnptr - s32(code);
+		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41820000 | ( func & 0xfffc));
 		Write32(instr);
 	}
 
+	void PPCXEmitter::BNE (const void *fnptr) {
+		CHECK_SMALL_JUMP
+
+		s32 func =  (s32)fnptr - s32(code);
+		u32 instr = (0x40820000 | ( func & 0xfffc));
+		Write32(instr);
+	}
 
 	void PPCXEmitter::BGT(const void *fnptr) {
 		CHECK_SMALL_JUMP
@@ -465,6 +479,9 @@ namespace PpcGen {
 	void PPCXEmitter::SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
 		XO_FORM(31, Rd, Ra, Rb, 0, 8, 0);
 	}
+	void PPCXEmitter::SUBFIC(PPCReg Rt, PPCReg Ra, short imm) {
+		D_FORM(8, Rt, Ra, imm);
+	}
 
 	
 	void PPCXEmitter::SUBFE(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
@@ -474,10 +491,10 @@ namespace PpcGen {
 	// Quick Call
 	// dest = LIS(imm) + ORI(+imm)
 	void PPCXEmitter::MOVI2R(PPCReg dest, unsigned int imm) {
-		/*if (imm == (unsigned short)imm) {
+		if ((s32) (s16) (imm) == (s32) (imm)) {
 			// 16bit
 			LI(dest, imm & 0xFFFF);
-		} else */{	
+		} else {	
 			// HI 16bit
 			LIS(dest, imm>>16);
 			if ((imm & 0xFFFF) != 0) {
@@ -507,6 +524,10 @@ namespace PpcGen {
 	void PPCXEmitter::EXTSH	(PPCReg dest, PPCReg src) {
 		Write32(0x7C000734 | (src << 21) | (dest << 16));
 	}
+	
+	void PPCXEmitter::EXTSW	(PPCReg Rt, PPCReg Ra) {
+		X_FORM(31, Rt, Ra, 0, 986, 0);
+	}
 
 	void PPCXEmitter::EQV	(PPCReg Ra, PPCReg Rs, PPCReg Rb) {
 		X_FORM(31, Rs, Ra, Rb, 284, 0);
@@ -514,6 +535,10 @@ namespace PpcGen {
 
 	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {
 		Write32((21<<26) | (src << 21) | (dest << 16) | (shift << 11) | (start << 6) | (end << 1));
+	}
+
+	void PPCXEmitter::RLDICL (PPCReg Rs,	PPCReg Ra, int sh, int mb) {
+		Write32((30 << 26) | (Rs << 21) | (Ra << 16) | (sh << 11) | ((mb) << 6) | ((sh) << 1) | (0));		
 	}
 
 	// Shift Instructions
@@ -559,14 +584,12 @@ namespace PpcGen {
 		D_FORM(48, FRt, Ra, offset);
 	}
 	void PPCXEmitter::LFD	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
-		Break();
 		D_FORM(50, FRt, Ra, offset);
 	}
 	void PPCXEmitter::SFS	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
 		D_FORM(52, FRt, Ra, offset);
 	}
 	void PPCXEmitter::SFD	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
-		Break();
 		D_FORM(54, FRt, Ra, offset);
 	}
 
@@ -623,6 +646,24 @@ namespace PpcGen {
 
 		// Load the final value
 		LFS(FRt, R7, 0);
+	}
+	void PPCXEmitter::MTFSB0(int bt) {
+		X_FORM(63, bt, 0, 0, 70, 0);
+	}
+	void PPCXEmitter::FCTID	(PPCReg FRt, PPCReg FRb) {
+		X_FORM(63, FRt, 0, FRb, 846, 0);
+	}
+	void PPCXEmitter::FCFID	(PPCReg FRt, PPCReg FRb) {
+		X_FORM(63, FRt, 0, FRb, 846, 0);
+	}
+	void PPCXEmitter::FRSP	(PPCReg FRt, PPCReg FRb) {
+		X_FORM(63, FRt, 0, FRb, 12, 0);
+	}
+	void PPCXEmitter::FCTIW	(PPCReg FRt, PPCReg FRb) {		
+		X_FORM(63, FRt, 0, FRb, 14, 0);
+	}
+	void PPCXEmitter::STFIWX(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		X_FORM(31, FRt, FRa, FRb, 983, 0);
 	}
 
 	// Fpu move instruction
@@ -731,46 +772,101 @@ namespace PpcGen {
 		X_FORM(63, Bf, FRa, FRb, 32, 0);
 	}
 
+	// fpu convert
+	void PPCXEmitter::FRIN	(PPCReg FRt, PPCReg FRb) {	// round
+		X_FORM(63, FRt, 0, FRb, 392, 0);
+	}
+	void PPCXEmitter::FRIZ	(PPCReg FRt, PPCReg FRb) {	// trunc
+		X_FORM(63, FRt, 0, FRb, 456, 0);
+	}
+	void PPCXEmitter::FRIP	(PPCReg FRt, PPCReg FRb) {	// ceil
+		X_FORM(63, FRt, 0, FRb, 424, 0);
+	}
+	void PPCXEmitter::FRIM	(PPCReg FRt, PPCReg FRb) {	// floor
+		X_FORM(63, FRt, 0, FRb, 488, 0);
+	}
+
 	// Prologue / epilogue
+
+	/** save/load fpr in a static buffer ... **/
+	static double _fprTmp[32];
 
 	void PPCXEmitter::Prologue() {
 		// Save regs
 		u32 regSize = 8; // 4 in 32bit system
-		u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
+		u32 stackFrameSize = 0x1F0;
 
 		// Write Prologue (setup stack frame etc ...)
 		// Save Lr
 		MFLR(R12);
 
+		// Save gpr
 		for(int i = 14; i < 32; i ++) {
 			STD((PPCReg)i, R1, -((33 - i) * regSize));
 		}
 
 		// Save r12
 		STW(R12, R1, -0x8);
-
+#if 0
+		// add fpr frame
+		ADDI(R12, R1, -0x98);
+		
+		// Load fpr
+		for(int i = 14; i < 32; i ++) {
+			SFD((PPCReg)i, R1, -((32 - i) * regSize));
+		}
+#endif
 		// allocate stack
-		STWU(R1, R1, -stackFrameSize);
+		STWU(R1, R1, -stackFrameSize);		
+
+#if 1
+		// load fpr buff
+		MOVI2R(R10, (u32)&_fprTmp);
+		
+		// Save fpr
+		for(int i = 14; i < 32; i ++) {
+			SFD((PPCReg)i, R10, i * regSize);
+		}
+#endif
 	}
 
 	void PPCXEmitter::Epilogue() {		
 		u32 regSize = 8; // 4 in 32bit system
-		u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
+		u32 stackFrameSize = 0x1F0;
+
+		//Break();
 
 		// Write Epilogue (restore stack frame, return)
 		// free stack
 		ADDI(R1, R1, stackFrameSize);	
+#if 0
+		ADDI(R12, R1, -0x98);	
 
-		// Restore regs
+		// Restore fpr
+		for(int i = 14; i < 32; i ++) {
+			LFD((PPCReg)i, R1, -((32 - i) * regSize));
+		}
+#endif
+		// Restore gpr
 		for(int i = 14; i < 32; i ++) {
 			LD((PPCReg)i, R1, -((33 - i) * regSize));
-		}
+		}		
 
 		// recover r12 (LR saved register)
 		LWZ (R12, R1, -0x8);
 
 		// Restore Lr
 		MTLR(R12);
+		
+#if 1
+		// load fpr buff
+		MOVI2R(R5, (u32)&_fprTmp);
+		
+		// Load fpr
+		for(int i = 14; i < 32; i ++) {
+			LFD((PPCReg)i, R5, i * regSize);
+		}
+#endif
 	}
 
 	// Others ...

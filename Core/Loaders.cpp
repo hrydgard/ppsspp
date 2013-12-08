@@ -109,7 +109,8 @@ IdentifiedFileType Identify_File(std::string &filename)
 	}
 
 	u32 psar_offset = 0, psar_id = 0;
-	switch (id) {
+	u32 _id = id;
+	switch (_id) {
 	case 'PBP\x00':
 		fseek(f, 0x24, SEEK_SET);
 		fread(&psar_offset, 4, 1, f);
