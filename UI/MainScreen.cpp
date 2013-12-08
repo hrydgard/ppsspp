@@ -472,8 +472,14 @@ void GameBrowser::Refresh() {
 		std::vector<FileInfo> fileInfo;
 		path_.GetListing(fileInfo, "iso:cso:pbp:elf:prx:");
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			if (fileInfo[i].isDirectory && (path_.GetPath().size() < 4 || !File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))) {
-				// Check if eboot directory
+			bool isGame = !fileInfo[i].isDirectory;
+			// Check if eboot directory
+			if (!isGame && path_.GetPath().size() >= 4 && File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))
+				isGame = true;
+			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR"))
+				isGame = true;
+
+			if (!isGame) {
 				if (allowBrowsing_) {
 					dirButtons.push_back(new DirButton(fileInfo[i].name, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 				}
