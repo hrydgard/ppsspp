@@ -556,7 +556,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 							// As we rescale the texcoord to compensate for texture size anyway,
 							// we bake the UV format scale factor into u_uvscaleoffset. So no need to apply
 							// the factor here too.
-							temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
+							temp_tc = "vec4(texcoord.xy * 2.0, 0.0, 1.0)";
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
@@ -573,7 +573,11 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					// Not scale into u_uvscaleoffset when in GE_PROJMAP_UV mode
+					if (gstate.getUVProjMode() == GE_PROJMAP_UV)
+						WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz;\n", temp_tc.c_str());
+					else
+						WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				break;
 
