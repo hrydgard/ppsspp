@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ThreadPools.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -785,28 +786,14 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 	}
 }
 
-// Draws triangle, vertices specified in counter-clockwise direction
-void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
+void DrawTriangleSlice(
+	const VertexData& v0, const VertexData& v1, const VertexData& v2,
+	int minX, int minY, int maxX, int maxY,
+	int y1, int y2)
 {
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
-
-	// Drop primitives which are not in CCW order by checking the cross product
-	if (d01.x * d02.y - d01.y * d02.x < 0)
-		return;
-
-	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
-	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
-	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
-	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
-
-	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
-	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
-	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
-	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x);
-	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
-	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
 	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
 	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
@@ -828,7 +815,11 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
 	int w2_base = orient2d(v0.screenpos, v1.screenpos, pprime);
 
-	for (pprime.y = minY; pprime.y <= maxY; pprime.y +=16,
+	w0_base += orient2dIncY(d12.x) * 16 * y1;
+	w1_base += orient2dIncY(-d02.x) * 16 * y1;
+	w2_base += orient2dIncY(d01.x) * 16 * y1;
+
+	for (pprime.y = minY + y1 * 16; pprime.y < minY + y2 * 16; pprime.y += 16,
 										w0_base += orient2dIncY(d12.x)*16,
 										w1_base += orient2dIncY(-d02.x)*16,
 										w2_base += orient2dIncY(d01.x)*16) {
@@ -969,6 +960,33 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 			}
 		}
 	}
+}
+
+// Draws triangle, vertices specified in counter-clockwise direction
+void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
+{
+	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
+	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
+	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
+
+	// Drop primitives which are not in CCW order by checking the cross product
+	if (d01.x * d02.y - d01.y * d02.x < 0)
+		return;
+
+	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
+	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
+	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
+	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
+
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
+	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
+	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
+	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x);
+	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
+	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
+
+	int range = (maxY - minY) / 16 + 1;
+	GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 }
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
