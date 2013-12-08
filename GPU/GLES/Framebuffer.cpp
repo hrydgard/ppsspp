@@ -775,12 +775,23 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
 			if (MaskedEqual(fb_address, vfbs_[i]->z_address)) {
-				WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				// If it's clearing it, most likely it just needs more video memory.
+				// Technically it could write something interesting and the other might not clear, but that's not likely.
+				if (!gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask()) {
+					WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				}
 			} else if (MaskedEqual(z_address, vfbs_[i]->fb_address)) {
-				WARN_LOG_REPORT(SCEGE, "FBO using other buffer as depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				// If it's clearing it, then it's probably just the reverse of the above case.
+				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				}
 			} else if (MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
-				WARN_LOG_REPORT(SCEGE, "FBO sharing existing depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
-				sharingReported = true;
+				// This happens a lot, but virtually always it's cleared.
+				// It's possible the other might not clear, but when every game is reported it's not useful.
+				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+					WARN_LOG_REPORT(SCEGE, "FBO reusing depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+					sharingReported = true;
+				}
 			}
 		}
 
