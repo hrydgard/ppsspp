@@ -105,6 +105,9 @@ public:
 
 	// TODO: void IoCtl(...)
 
+	// Convenience helper - returns < 0 on failure.
+	u32 ReadEntireFile(const std::string &filename, std::string &data);
+
 	void SetStartingDirectory(const std::string &dir) {
 		lock_guard guard(lock);
 		startingDirectory = dir;
