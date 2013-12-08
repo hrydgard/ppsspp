@@ -580,19 +580,15 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
 		param = g_Config.iDateFormat;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Date Format")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
 		param = g_Config.iTimeFormat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Time Format")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = g_Config.iTimeZone;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Timezone")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
 		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Daylight Savings");
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
 		param = g_Config.iLanguage;
@@ -602,7 +598,6 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
 		param = g_Config.iLockParentalLevel;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Lock Parental Level");
 		break;
 	default:
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;
