@@ -52,8 +52,7 @@ void PathBrowser::Navigate(const std::string &path) {
 			if (slash != std::string::npos)
 				path_ = path_.substr(0, slash + 1);
 		}
-	}
-	else {
+	} else {
 		if (path[1] == ':' && path_ == "/")
 			path_ = path;
 		else
