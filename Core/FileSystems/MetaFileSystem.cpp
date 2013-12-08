@@ -517,7 +517,7 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 		return 0;
 }
 
-u32 MetaFileSystem::ReadEntireFile(const std::string &filename, std::string &data) {
+u32 MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data) {
 	int error = 0;
 	u32 handle = pspFileSystem.OpenWithError(error, filename, FILEACCESS_READ);
 	if (handle == 0)

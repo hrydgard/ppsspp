@@ -37,6 +37,10 @@ public:
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);
 
+	bool ReadSFO(const std::vector<u8> &paramsfo) {
+		return ReadSFO(&paramsfo[0], paramsfo.size());
+	}
+
 	int GetDataOffset(const u8 *paramsfo, std::string dataName);
 
 private:

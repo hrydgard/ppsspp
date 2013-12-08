@@ -81,11 +81,9 @@ void InitMemoryForGameISO(std::string fileToStart) {
 
 	if (fileInfo.exists)
 	{
-		u8 *paramsfo = new u8[(size_t)fileInfo.size];
-		u32 fd = pspFileSystem.OpenFile(sfoPath, FILEACCESS_READ);
-		pspFileSystem.ReadFile(fd, paramsfo, fileInfo.size);
-		pspFileSystem.CloseFile(fd);
-		if (g_paramSFO.ReadSFO(paramsfo, (size_t)fileInfo.size))
+		std::vector<u8> paramsfo;
+		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
+		if (g_paramSFO.ReadSFO(paramsfo))
 		{
 			gameID = g_paramSFO.GetValueString("DISC_ID");
 
@@ -100,7 +98,6 @@ void InitMemoryForGameISO(std::string fileToStart) {
 			}
 			DEBUG_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
 		}
-		delete [] paramsfo;
 	}
 }
 
@@ -112,18 +109,15 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
 	if (fileInfo.exists)
 	{
-		u8 *paramsfo = new u8[(size_t)fileInfo.size];
-		u32 fd = pspFileSystem.OpenFile(sfoPath, FILEACCESS_READ);
-		pspFileSystem.ReadFile(fd, paramsfo, fileInfo.size);
-		pspFileSystem.CloseFile(fd);
-		if (g_paramSFO.ReadSFO(paramsfo, (size_t)fileInfo.size))
+		std::vector<u8> paramsfo;
+		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
+		if (g_paramSFO.ReadSFO(paramsfo))
 		{
 			char title[1024];
 			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
 			INFO_LOG(LOADER, "%s", title);
 			host->SetWindowTitle(title);
 		}
-		delete [] paramsfo;
 	}
 
 

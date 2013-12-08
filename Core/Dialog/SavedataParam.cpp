@@ -323,15 +323,11 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	ParamSFOData sfoFile;
 	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if(sfoInfo.exists) // Read old sfo if exist
+	if (sfoInfo.exists) // Read old sfo if exist
 	{
-		u8 *sfoData = new u8[(size_t)sfoInfo.size];
-		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL))
-		{
-			sfoFile.ReadSFO(sfoData,sfoSize);
-			delete[] sfoData;
-		}
+		std::vector<u8> sfoData;
+		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0)
+			sfoFile.ReadSFO(sfoData);
 	}
 
 	// Update values
@@ -566,12 +562,11 @@ void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string di
 	ParamSFOData sfoFile;
 	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
-	if(sfoInfo.exists) {  
-		// Read sfo 
-		u8 *sfoData = new u8[(size_t)sfoInfo.size];
-		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL)) {
-			sfoFile.ReadSFO(sfoData,sfoSize);
+	if (sfoInfo.exists) {
+		// Read sfo
+		std::vector<u8> sfoData;
+		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
+			sfoFile.ReadSFO(sfoData);
 
 			// copy back info in request
 			strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
@@ -579,43 +574,40 @@ void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string di
 			strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
 			param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
 		}
-		delete[] sfoData;
 	}
 }
 
 std::set<std::string> SavedataParam::getSecureFileNames(std::string dirPath) {
-		PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
-		std::set<std::string> secureFileNames;
-		if(!sfoFileInfo.exists)
-			return secureFileNames;
-
-		ParamSFOData sfoFile;
-		size_t sfoSize = (size_t)sfoFileInfo.size;
-		u8 *sfoData = new u8[sfoSize];
-		if (ReadPSPFile(dirPath + "/" + SFO_FILENAME, &sfoData, sfoSize, NULL)){
-			sfoFile.ReadSFO(sfoData, sfoSize);
-		}
-		delete[] sfoData;
-
-		u32 sfoFileListSize = 0;
-		char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
-		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
-		const u32 FILE_LIST_COUNT_MAX = 99;
-
-		// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
-		char temp[14];
-		temp[13] = '\0';
-
-		for (u32 i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
-			// Ends at a NULL filename.
-			if (i * FILE_LIST_ITEM_SIZE >= sfoFileListSize || sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
-				break;
-			}
-
-			strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
-			secureFileNames.insert(temp);
-		}
+	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
+	std::set<std::string> secureFileNames;
+	if (!sfoFileInfo.exists)
 		return secureFileNames;
+
+	ParamSFOData sfoFile;
+	std::vector<u8> sfoData;
+	if (pspFileSystem.ReadEntireFile(dirPath + "/" + SFO_FILENAME, sfoData) >= 0) {
+		sfoFile.ReadSFO(sfoData);
+	}
+
+	u32 sfoFileListSize = 0;
+	char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
+	const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
+	const u32 FILE_LIST_COUNT_MAX = 99;
+
+	// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
+	char temp[14];
+	temp[13] = '\0';
+
+	for (u32 i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
+		// Ends at a NULL filename.
+		if (i * FILE_LIST_ITEM_SIZE >= sfoFileListSize || sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
+			break;
+		}
+
+		strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
+		secureFileNames.insert(temp);
+	}
+	return secureFileNames;
 }
 
 void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
@@ -1272,16 +1264,15 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
 	{
-		u8 *sfoParam = new u8[(size_t)info2.size];
-		ReadPSPFile(fileDataPath2, &sfoParam, info2.size, NULL);
+		std::vector<u8> sfoData;
+		pspFileSystem.ReadEntireFile(fileDataPath2, sfoData);
 		ParamSFOData sfoFile;
-		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
+		if (sfoFile.ReadSFO(sfoData))
 		{
 			SetStringFromSFO(sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
 			SetStringFromSFO(sfoFile, "SAVEDATA_TITLE", saveInfo.saveTitle, sizeof(saveInfo.saveTitle));
 			SetStringFromSFO(sfoFile, "SAVEDATA_DETAIL", saveInfo.saveDetail, sizeof(saveInfo.saveDetail));
 		}
-		delete [] sfoParam;
 	}
 }
 
@@ -1501,11 +1492,10 @@ bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, const std::s
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
 	if(sfoInfo.exists) // Read sfo
 	{
-		u8 *sfoData = new u8[(size_t)sfoInfo.size];
-		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL))
+		std::vector<u8> sfoData;
+		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0)
 		{
-			sfoFile.ReadSFO(sfoData,sfoSize);
+			sfoFile.ReadSFO(sfoData);
 
 			// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
 			u32 tmpDataSize = 0;
@@ -1519,7 +1509,6 @@ bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, const std::s
 				}
 			}
 		}
-		delete[] sfoData;
 	}
 	return isCrypted;
 }

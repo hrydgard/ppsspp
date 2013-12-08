@@ -158,7 +158,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 				if (zippedName[i] == '/') {
 					slashCount++;
 					slashLocation = lastSlashLocation;
-					lastSlashLocation = i;
+					lastSlashLocation = (int)i;
 				}
 			}
 			if (slashCount >= 1 && (!isPSP || slashLocation < stripChars + 1)) {

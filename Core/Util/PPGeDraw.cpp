@@ -830,7 +830,7 @@ bool PPGeImage::Load() {
 	if (filename_.empty()) {
 		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData, false);
 	} else {
-		std::string pngData;
+		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
 			WARN_LOG(SCEGE, "Bad PPGeImage - cannot load file");
 			return false;

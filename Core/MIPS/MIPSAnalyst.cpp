@@ -488,7 +488,7 @@ namespace MIPSAnalyst {
 
 			// Yay, found a function.
 			Function &f = *(iter->second);
-			if (f.hash = mf->hash && f.size == mf->size) {
+			if (f.hash == mf->hash && f.size == mf->size) {
 				strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 
 				const char *existingLabel = symbolMap.GetLabelName(f.start);
