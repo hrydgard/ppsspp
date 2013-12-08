@@ -64,15 +64,6 @@ bool System_InputBoxGetString(char *title, const char *defaultValue, char *outVa
 	return true;
 }
 
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue)
-{
-	QString text = emugl->InputBoxGetQString(QString::fromStdWString(title), QString::fromStdWString(defaultValue));
-	if (text.isEmpty())
-		return false;
-	outValue = text.toStdWString();
-	return true;
-}
-
 void Vibrate(int length_ms) {
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
@@ -129,9 +120,6 @@ int main(int argc, char *argv[])
 	const char *assets_dir = "app/native/assets/";
 #elif defined(MEEGO_EDITION_HARMATTAN)
 	const char *savegame_dir = "/home/user/MyDocs/PPSSPP/";
-	QDir myDocs("/home/user/MyDocs/");
-	if (!myDocs.exists("PPSSPP"))
-		myDocs.mkdir("PPSSPP");
 	const char *assets_dir = "/opt/PPSSPP/";
 #else
 	const char *savegame_dir = "./";
@@ -139,7 +127,7 @@ int main(int argc, char *argv[])
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
 #ifdef USING_GLES2
-	emugl = new MainUI(this);
+	emugl = new MainUI();
 	emugl->resize(pixel_xres, pixel_yres);
 	emugl->showFullScreen();
 #endif
@@ -147,16 +135,15 @@ int main(int argc, char *argv[])
 	// Set RunFast hardware mode for VFPv2.
 	User::SetFloatingPointMode(EFpModeRunFast);
 	// Disable screensaver
-	QSystemScreenSaver *ssObject = new QSystemScreenSaver(emugl);
+	QScopedPointer<QSystemScreenSaver> ssObject(new QSystemScreenSaver(emugl));
 	ssObject->setScreenSaverInhibit();
-	SymbianMediaKeys* mediakeys = new SymbianMediaKeys();
+	QScopedPointer<SymbianMediaKeys> mediakeys(new SymbianMediaKeys());
 #endif
 
-	QThread* thread = new QThread;
-	MainAudio *audio = new MainAudio();
-	audio->moveToThread(thread);
-	QObject::connect(thread, SIGNAL(started()), audio, SLOT(run()));
-	QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+	QScopedPointer<QThread> thread(new QThread);
+	QScopedPointer<MainAudio> audio(new MainAudio());
+	audio->moveToThread(thread.data());
+	QObject::connect(thread.data(), SIGNAL(started()), audio.data(), SLOT(run()));
 	thread->start();
 
 #ifdef QT_HAS_SDL
@@ -164,7 +151,6 @@ int main(int argc, char *argv[])
 	joy.startEventLoop();
 #endif
 	int ret = a.exec();
-	delete audio;
 	thread->quit();
 	NativeShutdown();
 	net::Shutdown();
