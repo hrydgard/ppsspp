@@ -149,9 +149,15 @@ StencilValueType ReplaceAlphaWithStencilType() {
 		case GE_STENCILOP_REPLACE:
 			return (gstate.getStencilTestRef() & 0x80) != 0 ? STENCIL_VALUE_ONE : STENCIL_VALUE_ZERO;
 
+		case GE_STENCILOP_ZERO:
+			if (gstate.getStencilOpZFail() == GE_STENCILOP_ZERO) {
+				return STENCIL_VALUE_ZERO;
+			} else {
+				return STENCIL_VALUE_KEEP;
+			}
+
 		// Decrementing always zeros, since there's only one bit.
 		case GE_STENCILOP_DECR:
-		case GE_STENCILOP_ZERO:
 			return STENCIL_VALUE_ZERO;
 
 		// Incrementing always fills, since there's only one bit.
@@ -182,9 +188,15 @@ StencilValueType ReplaceAlphaWithStencilType() {
 
 		// Decrementing always zeros, since there's only one bit.
 		case GE_STENCILOP_DECR:
+			return STENCIL_VALUE_ZERO;
+
+		// Incrementing always fills, since there's only one bit.
 		case GE_STENCILOP_INCR:
+			return STENCIL_VALUE_ONE;
+
 		case GE_STENCILOP_INVERT:
 			return STENCIL_VALUE_UNKNOWN;
+
 		case GE_STENCILOP_KEEP:
 			return STENCIL_VALUE_KEEP;
 		}
