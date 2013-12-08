@@ -3,7 +3,7 @@
  *
  */
 // Qt 4.7+ / 5.0+ implementation of the framework.
-// Currently supports: Symbian, Blackberry, Meego, Linux, Windows
+// Currently supports: Symbian, Blackberry, Meego, Linux, Windows, Mac OSX
 
 #include <QApplication>
 #include <QUrl>
@@ -24,8 +24,6 @@
 #endif
 #include "QtMain.h"
 
-
-
 InputState* input_state;
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -41,6 +39,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "Qt:Linux";
 #elif defined(_WIN32)
 		return "Qt:Windows";
+#elif defined(Q_OS_MAC)
+		return "Qt:Mac";
 #else
 		return "Qt";
 #endif
@@ -53,6 +53,24 @@ std::string System_GetProperty(SystemProperty prop) {
 
 void System_SendMessage(const char *command, const char *parameter) {
 	// Log?
+}
+
+bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
+{
+	QString text = emugl->InputBoxGetQString(QString(title), QString(defaultValue));
+	if (text.isEmpty())
+		return false;
+	strcpy(outValue, text.toStdString().c_str());
+	return true;
+}
+
+bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue)
+{
+	QString text = emugl->InputBoxGetQString(QString::fromStdWString(title), QString::fromStdWString(defaultValue));
+	if (text.isEmpty())
+		return false;
+	outValue = text.toStdWString();
+	return true;
 }
 
 void Vibrate(int length_ms) {
@@ -79,7 +97,7 @@ float CalculateDPIScale()
 	// Sane default rather than check DPI
 #ifdef __SYMBIAN32__
 	return 1.4f;
-#elif defined(ARM)
+#elif defined(USING_GLES2)
 	return 1.2f;
 #else
 	return 1.0f;
@@ -120,17 +138,16 @@ int main(int argc, char *argv[])
 	const char *assets_dir = "./";
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
-
-#if defined(ARM)
-	MainUI w;
-	w.resize(pixel_xres, pixel_yres);
-	w.showFullScreen();
+#ifdef USING_GLES2
+	emugl = new MainUI(this);
+	emugl->resize(pixel_xres, pixel_yres);
+	emugl->showFullScreen();
 #endif
 #ifdef __SYMBIAN32__
 	// Set RunFast hardware mode for VFPv2.
 	User::SetFloatingPointMode(EFpModeRunFast);
 	// Disable screensaver
-	QSystemScreenSaver *ssObject = new QSystemScreenSaver(&w);
+	QSystemScreenSaver *ssObject = new QSystemScreenSaver(emugl);
 	ssObject->setScreenSaverInhibit();
 	SymbianMediaKeys* mediakeys = new SymbianMediaKeys();
 #endif

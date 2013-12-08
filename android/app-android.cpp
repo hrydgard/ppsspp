@@ -84,11 +84,6 @@ void LaunchEmail(const char *email_address) {
 	frameCommandParam = email_address;
 }
 
-void System_InputBox(const char *title, const char *defaultValue) {
-	frameCommand = "inputBox";
-	frameCommandParam = title;
-}
-
 void System_SendMessage(const char *command, const char *parameter) {
 	frameCommand = command;
 	frameCommandParam = parameter;

@@ -3,6 +3,7 @@
 
 #include <QTouchEvent>
 #include <QMouseEvent>
+#include <QInputDialog>
 #include "gfx_es2/glsl_program.h"
 #include <QGLWidget>
 
@@ -57,6 +58,15 @@ public:
 		delete acc;
 #endif
 		NativeShutdownGraphics();
+	}
+
+public slots:
+	QString InputBoxGetQString(QString title, QString defaultValue) {
+		bool ok;
+		QString text = QInputDialog::getText(this, title, title, QLineEdit::Normal, defaultValue, &ok);
+		if (!ok)
+			text = QString();
+		return text;
 	}
 
 signals:
@@ -200,6 +210,8 @@ private:
 	QAccelerometer* acc;
 #endif
 };
+
+static MainUI* emugl = NULL;
 
 // Audio
 #define AUDIO_FREQ 44100

@@ -200,11 +200,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 	// Log?
 }
 
-void System_InputBox(const char *title, const char *defaultValue) {
-	// Stub
-	NativeMessageReceived((std::string("INPUTBOX:") + title).c_str(), "TestFile");
-}
-
 void LaunchBrowser(const char *url) {
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
