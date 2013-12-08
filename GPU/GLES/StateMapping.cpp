@@ -229,6 +229,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 						glstate.blendColor.set(blendColor);
 					}
 				}
+			} else {
+				// Default case : Let's go with A as the fixed color 
+				glBlendFuncA = GL_CONSTANT_COLOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				glstate.blendColor.set(blendColor);
 			}
 		}
 
