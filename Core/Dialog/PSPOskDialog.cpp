@@ -28,7 +28,7 @@
 #include "GPU/GPUState.h"
 
 #ifdef _WIN32
-#include "Core/Host.h"
+#include "base/NativeApp.h"
 #endif
 
 #ifndef _WIN32
@@ -803,7 +803,7 @@ int PSPOskDialog::NativeKeyboard()
 			if(defaultText.empty())
 				defaultText.assign(L"VALUE");
 
-			if(host->InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) 
+			if(System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) 
 			{
 				u32 maxLength = FieldMaxLength();
 				if (inputChars.length() > maxLength)
@@ -851,8 +851,8 @@ int PSPOskDialog::Update(int animSpeed)
 	// TODO: Add your platforms here when you have a NativeKeyboard func.
 
 #ifdef _WIN32
-	// Fall back to the OSK/continue normally if we're in fullscreen. The dialog box
-	// doesn't work right if in fullscreen.
+	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
+	// The dialog box doesn't work right if in fullscreen.
 	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
 		return NativeKeyboard();
 #endif

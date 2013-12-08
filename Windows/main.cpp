@@ -46,6 +46,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
+#include "Windows/InputBox.h"
 
 #include "Windows/WindowsHost.h"
 #include "Windows/main.h"
@@ -178,6 +179,27 @@ void EnableCrashingOnCrashes()
     } 
   } 
 }
+
+bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
+{
+	std::string out;
+	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
+		strcpy(outValue, out.c_str());
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue)
+{
+	if (InputBox_GetWString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultvalue, outvalue)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {

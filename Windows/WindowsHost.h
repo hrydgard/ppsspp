@@ -67,8 +67,6 @@ public:
 
 	virtual void GoFullscreen(bool);
 
-	bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength);
-	bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue);
 	std::shared_ptr<KeyboardDevice> keyboard;
 
 private:

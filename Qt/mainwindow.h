@@ -17,7 +17,6 @@
 
 extern bool g_TakeScreenshot;
 
-class QtEmuGL;
 class MenuAction;
 class MenuTree;
 
@@ -135,7 +134,6 @@ private:
 	QTranslator translator;
 	QString currentLanguage;
 
-	MainUI *emugl;
 	CoreState nextState;
 	InputState input_state;
 	GlobalUIState lastUIState;

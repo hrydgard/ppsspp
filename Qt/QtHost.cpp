@@ -1,7 +1,6 @@
 // This file is Qt Desktop's equivalent of NativeApp.cpp
 
 #include <QFileInfo>
-#include <QInputDialog>
 #include <QDebug>
 #include <QDir>
 #include <QCoreApplication>
@@ -241,31 +240,6 @@ void QtHost::SetGPUStep(bool value, int flag, u32 data)
 void QtHost::NextGPUStep()
 {
 	m_hGPUStepEvent.notify_one();
-}
-
-bool QtHost::InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
-{
-	bool ok;
-	QString text = QInputDialog::getText(mainWindow, title, title, QLineEdit::Normal, defaultValue, &ok);
-	if (ok && !text.isEmpty()) {
-		strcpy(outValue, text.toStdString().c_str());
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool QtHost::InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue)
-{
-	bool ok;
-	QString text = QInputDialog::getText(mainWindow, QString::fromStdWString(title), QString::fromStdWString(title), QLineEdit::Normal, QString::fromStdWString(defaultValue), &ok);
-	if (ok && !text.isEmpty()) {
-		outValue = text.toStdWString();
-		return true;
-	} else {
-		return false;
-	}
-	
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
