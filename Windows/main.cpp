@@ -200,7 +200,6 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 	}
 }
 
-
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
 	EnableCrashingOnCrashes();
