@@ -64,7 +64,7 @@ script:
   - elif [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
       pushd android && ./ab.sh && popd;
   - elif [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
-      pushd Blackberry && ./build.sh --no-package && popd;
+      ./b.sh --no-package;
   - elif [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
       pushd Qt && qmake -spec symbian-sbsv2 PPSSPPQt.pro && make release-gcce -j4 && make sis && popd;
     fi
