@@ -9,6 +9,8 @@ Originally released under the GPL 2.0 (and later) in November 2012
 Official website:
 http://www.ppsspp.org/
 
+No BIOS file required to play, PPSSPP is in many ways a "HLE" emulator.
+
 To contribute, see [the development page](http://www.ppsspp.org/development.html).
 
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
@@ -23,7 +25,7 @@ What's new in 0.9.6
 * Various fixes around stencil/alpha, reducing glow problems in Wipeout and Gods Eater Burst
 * Timing improvements making more games run at the correct FPS, also fixing some audio issues
 * More debugger features
-* Option for four-way touch dpad, avoiding diagonal issues
+* Option for four-way touch dpad, avoiding diagonal dpad issues
 * Individually resizable touch controls
 * Add ability to switch UMD in multi-disc games (works for most)
 * Support for "Immersive mode" full screen on Android Kitkat on devices that
@@ -31,6 +33,7 @@ What's new in 0.9.6
 * Emulate PSP-2000 rather than the 1000 model by default. Not much different in practice.
 * Automatic install of games from ZIP files, like demos and many homebrew.
 * VERY basic ad-hoc online play support, to be improved in future versions. See below.
+* Software renderer improvements
 
 What's new in 0.9.5
 -------------------
