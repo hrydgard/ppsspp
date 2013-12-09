@@ -96,52 +96,97 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 	}
 }
 
-static inline void GetTexelCoordinates(int level, float s, float t, unsigned int& u, unsigned int& v)
+static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
 {
-	s *= getFloat24(gstate.texscaleu);
-	t *= getFloat24(gstate.texscalev);
+	s = s * getFloat24(gstate.texscaleu) + getFloat24(gstate.texoffsetu);
+	t = t * getFloat24(gstate.texscalev) + getFloat24(gstate.texoffsetv);
 
-	s += getFloat24(gstate.texoffsetu);
-	t += getFloat24(gstate.texoffsetv);
+	int width = 1 << (gstate.texsize[level] & 0xf);
+	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
-	// TODO: Is this really only necessary for UV mapping?
+	int u = (int)(s * width);
+	int v = (int)(t * height);
+
 	if (gstate.isTexCoordClampedS()) {
-		if (s > 1.0) s = 1.0;
-		if (s < 0) s = 0;
+		if (u >= width - 1)
+			u = width - 1;
+		else if (u < 0)
+			u = 0;
 	} else {
-		// Subtracting floor works for negative and positive to discard the non-fractional part.
-		s -= floor(s);
+		u &= width - 1;
 	}
 	if (gstate.isTexCoordClampedT()) {
-		if (t > 1.0) t = 1.0;
-		if (t < 0.0) t = 0.0;
+		if (v >= height - 1)
+			v = height - 1;
+		else if (v < 0)
+			v = 0;
 	} else {
-		// Subtracting floor works for negative and positive to discard the non-fractional part.
-		t -= floor(t);
+		v &= height - 1;
 	}
 
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
-
-	// TODO: These should really be multiplied by 256 to get fixed point coordinates
-	// so we can do texture filtering later.
-
-	u = (unsigned int)(s * width); // TODO: width-1 instead?
-	v = (unsigned int)(t * height); // TODO: width-1 instead?
+	out_u = u;
+	out_v = v;
 }
 
-static inline void GetTexelCoordinatesThrough(int level, float s, float t, unsigned int& u, unsigned int& v)
+static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
 {
-	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	in_s = in_s * getFloat24(gstate.texscaleu) + getFloat24(gstate.texoffsetu);
+	in_t = in_t * getFloat24(gstate.texscalev) + getFloat24(gstate.texoffsetv);
+
+	// 8 bits of fractional UV
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
-	// TODO: These should really be multiplied by 256 to get fixed point coordinates
-	// so we can do texture filtering later.
+	int base_u = in_s * width * 256;
+	int base_v = in_t * height * 256;
+
+	frac_u = (int)(base_u) & 0xff;
+	frac_v = (int)(base_v) & 0xff;
+
+	base_u >>= 8;
+	base_v >>= 8;
+
+	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
+
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < 4; i++) {
+			int temp_u = base_u + (i & 1);
+			if (temp_u > width - 1)
+				temp_u = width - 1;
+			else if (temp_u < 0)
+				temp_u = 0;
+			u[i] = temp_u;
+		}
+	} else {
+		for (int i = 0; i < 4; i++) {
+			u[i] = (base_u + (i & 1)) & (width - 1);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < 4; i++) {
+			int temp_v = base_v + ((i & 2) >> 1);
+			if (temp_v > height - 1)
+				temp_v = height - 1;
+			else if (temp_v < 0)
+				temp_v = 0;
+			v[i] = temp_v;
+		}
+	} else {
+		for (int i = 0; i < 4; i++) {
+			v[i] = (base_v + ((i & 2) >> 1)) & (height - 1);
+		}
+	}
+}
+
+static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, int& v)
+{
+	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	int width = (1 << 8) << (gstate.texsize[level] & 0xf);
+	int height = (1 << 8) << ((gstate.texsize[level]>>8) & 0xf);
 
 	// Wrap!
-	u = (unsigned int)(s) & (width - 1);
-	v = (unsigned int)(t) & (height - 1);
+	u = ((unsigned int)(s) & (width - 1)) >> 8;
+	v = ((unsigned int)(t) & (height - 1)) >> 8;
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
@@ -166,9 +211,9 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			// projection mapping, TODO: Move this code to TransformUnit!
 			Vec3<float> source;
 			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
-			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+				source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
 			} else {
-			ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
 			}
 
 			Mat3x3<float> tgen(gstate.tgenMatrix);
@@ -187,6 +232,7 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *s
 {
 	if (!srcptr)
 		return 0;
+
 	GETextureFormat texfmt = gstate.getTextureFormat();
 
 	// TODO: Should probably check if textures are aligned properly...
@@ -864,19 +910,52 @@ void DrawTriangleSlice(
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
-					unsigned int u = 0, v = 0;
+					int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
+					int frac_u, frac_v;
+
+					int magFilt = (gstate.texfilter>>8) & 1;
+
+					bool bilinear = magFilt != 0;
+					// bilinear = false;
+
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
 						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) * wsum);
 						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) * wsum);
-						GetTexelCoordinatesThrough(0, s, t, u, v);
+
+						int u_texel = s * 256;
+						int v_texel = t * 256;
+						frac_u = u_texel & 0xff;
+						frac_v = v_texel & 0xff;
+						GetTexelCoordinatesThrough(0, u_texel, v_texel, u[0], v[0]);
+						if (bilinear) {
+							GetTexelCoordinatesThrough(0, u_texel + 256, v_texel, u[1], v[1]);
+							GetTexelCoordinatesThrough(0, u_texel, v_texel + 256, u[2], v[2]);
+							GetTexelCoordinatesThrough(0, u_texel + 256, v_texel + 256, u[3], v[3]);
+						}
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
-						GetTexelCoordinates(0, s, t, u, v);
+						if (bilinear) {
+							GetTexelCoordinatesQuad(0, s, t, u, v, frac_u, frac_v);
+						} else {
+							GetTexelCoordinates(0, s, t, u[0], v[0]);
+						}
 					}
 
-					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u, v, texptr, texbufwidthbits));
+					Vec4<int> texcolor;
+					if (!bilinear) {
+						// Nearest filtering only. Round texcoords or just chop bits?
+						texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], texptr, texbufwidthbits));
+					} else {
+						Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], texptr, texbufwidthbits));
+						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], texptr, texbufwidthbits));
+						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], texptr, texbufwidthbits));
+						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], texptr, texbufwidthbits));
+						Vec4<int> t = texcolor_tl * (0xff - frac_u) + texcolor_tr * frac_u;
+						Vec4<int> b = texcolor_bl * (0xff - frac_u) + texcolor_br * frac_u;
+						texcolor = (t * (0xff - frac_v) + b * frac_v) / (256 * 256);
+					}
 					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
 					prim_color_rgb = out.rgb();
 					prim_color_a = out.a();
