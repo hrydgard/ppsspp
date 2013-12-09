@@ -25,7 +25,10 @@ do
 			BB_PACKAGE=0
 			;;
 		--release-package) echo "Blackberry release package enabled"
-			DEBUG_ARGS=""
+			if [ ! -f "Blackberry/build.txt" ]; then
+				echo "1" > "Blackberry/build.txt"
+			fi
+			DEBUG_ARGS="-buildId ../Blackberry/build.txt"
 			;;
 		--simulator) echo "Simulator mode enabled"
 			CMAKE_ARGS="-DSIMULATOR=ON ${CMAKE_ARGS}"
@@ -56,7 +59,8 @@ mkdir -p build${BUILD_EXT}
 pushd build${BUILD_EXT}
 cmake $HEADLESS $CMAKE_ARGS .. | (grep -v "^-- " || true)
 make -j4 $MAKE_OPT
-if [ $BB_PACKAGE -eq 1 ]; then
-	blackberry-nativepackager -package PPSSPP.bar ../Blackberry/bar-descriptor.xml $DEBUG_ARGS
+if [ "$BB_PACKAGE" == "1" ]; then
+	cp ../Blackberry/bar-descriptor.xml .
+	blackberry-nativepackager -package PPSSPP.bar bar-descriptor.xml $DEBUG_ARGS
 fi
 popd

@@ -78,7 +78,7 @@ void ProductView::CreateViews() {
 
 	float size = entry_.size / (1024.f * 1024.f);
 	char temp[256];
-	sprintf(temp, "%s: %f %s", s->T("Size"), size, s->T("MB"));
+	sprintf(temp, "%s: %.2f %s", s->T("Size"), size, s->T("MB"));
 
 	Add(new TextView(temp));
 }
