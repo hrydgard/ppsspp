@@ -8,8 +8,8 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
   $(LOCAL_PATH)/$(NATIVE)/base \
+  $(LOCAL_PATH)/$(NATIVE)/ext \
   $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
-  $(LOCAL_PATH)/$(NATIVE)/ext/libpng16 \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)
 

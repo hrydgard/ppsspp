@@ -29,7 +29,7 @@
 
 #include <locale.h>
 #ifdef _WIN32
-#include <png.h>
+#include <libpng16/png.h>
 #include "ext/jpge/jpge.h"
 #endif
 

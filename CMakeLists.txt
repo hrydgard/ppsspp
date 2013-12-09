@@ -552,8 +552,14 @@ target_link_libraries(libzip ${ZLIB_LIBRARY})
 include_directories(native/ext/libzip)
 set(LIBZIP_LIBRARY libzip)
 
-if (BLACKBERRY)
-	set(LIBPNG_LIBRARY png)
+# FindPNG does a few things we don't want. So do it ourselves.
+# Fixed to libpng16, otherwise it can pick up earlier even if newer exists.
+find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng16/png.h")
+find_library(PNG_LIBRARY NAMES png16 libpng16 )
+find_package(PackageHandleStandardArgs)
+find_package_handle_standard_args(PNG REQUIRED_VARS PNG_LIBRARY PNG_PNG_INCLUDE_DIR)
+if (PNG_FOUND)
+	include_directories(${PNG_PNG_INCLUDE_DIR})
 else()
 	add_library(png16 STATIC
 		native/ext/libpng16/pngconf.h
@@ -579,8 +585,8 @@ else()
 		native/ext/libpng16/pngwrite.c
 		native/ext/libpng16/pngwtran.c
 		native/ext/libpng16/pngwutil.c)
-	set(LIBPNG_LIBRARY png16)
-	include_directories(native/ext/libpng16)
+	set(PNG_LIBRARY png16)
+	include_directories(native/ext)
 endif()
 	
 set(nativeExtra)
@@ -809,7 +815,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP_LIBRARY} ${LIBPNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)

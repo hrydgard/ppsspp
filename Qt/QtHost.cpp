@@ -4,7 +4,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QCoreApplication>
-#include <png.h>
+#include <libpng16/png.h>
 
 #include "QtHost.h"
 #include "LogManager.h"
