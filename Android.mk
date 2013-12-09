@@ -100,7 +100,7 @@ LOCAL_SRC_FILES :=\
 LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder -Wno-literal-suffix
 LOCAL_LDLIBS := -lz
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip $(LOCAL_PATH)/ext/libpng16
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip
 
 #Portable native and separate code on android in future is easy you needs add files 
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)

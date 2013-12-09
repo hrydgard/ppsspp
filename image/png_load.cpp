@@ -2,11 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __APPLE__
-#include "ext/libpng16/png.h"
-#else
-#include <png.h>
-#endif
+#include <libpng16/png.h>
 
 #include "png_load.h"
 #include "base/logging.h"
