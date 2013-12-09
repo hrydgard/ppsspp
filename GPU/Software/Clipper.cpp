@@ -99,7 +99,7 @@ static inline int CalcClipMask(const ClipCoords& v)
 
 #define CLIP_LINE(PLANE_BIT, A, B, C, D)						\
 {																\
-if (mask & PLANE_BIT) {											\
+	if (mask & PLANE_BIT) {											\
 		float dp0 = CLIP_DOTPROD(0, A, B, C, D );				\
 		float dp1 = CLIP_DOTPROD(1, A, B, C, D );				\
 		int i = 0;												\
@@ -158,6 +158,7 @@ void ProcessQuad(const VertexData& v0, const VertexData& v1)
 				bottomright = &buf[i];
 		}
 
+		// Four triangles to do backfaces as well. Two of them will get backface culled.
 		ProcessTriangle(*topleft, *topright, *bottomright);
 		ProcessTriangle(*bottomright, *topright, *topleft);
 		ProcessTriangle(*bottomright, *bottomleft, *topleft);
@@ -197,11 +198,29 @@ void ProcessQuad(const VertexData& v0, const VertexData& v1)
 				bottomright = &buf[i];
 		}
 
+		// Four triangles to do backfaces as well. Two of them will get backface culled.
 		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
 		Rasterizer::DrawTriangle(*bottomright, *topright, *topleft);
 		Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
 		Rasterizer::DrawTriangle(*topleft, *bottomleft, *bottomright);
 	}
+}
+
+void ProcessPoint(VertexData& v0)
+{
+	// Points need no clipping.
+	Rasterizer::DrawPoint(v0);
+}
+
+void ProcessLine(VertexData& v0, VertexData& v1)
+{
+	if (gstate.isModeThrough()) {
+		// Actually, should clip this one too so we don't need to do bounds checks in the rasterizer.
+		Rasterizer::DrawLine(v0, v1);
+		return;
+	}
+
+	// TODO: 3D lines
 }
 
 void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
@@ -238,7 +257,7 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 		if (mask & CLIP_NEG_Z_BIT)
 			return;
 
-		for(int i = 0; i < 3; i += 3) {
+		for (int i = 0; i < 3; i += 3) {
 			int vlist[2][2*6+1];
 			int *inlist = vlist[0], *outlist = vlist[1];
 			int n = 3;
@@ -276,7 +295,7 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 		return;
 	}
 
-	for(int i = 0; i+3 <= numIndices; i+=3)
+	for (int i = 0; i+3 <= numIndices; i+=3)
 	{
 		if(indices[i] != SKIP_FLAG)
 		{

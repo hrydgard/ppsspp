@@ -54,7 +54,7 @@ template <unsigned int texel_size_bits>
 static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
 	if (!gstate.isTextureSwizzled())
-		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
+		return (v * (row_pitch_bits * texel_size_bits >> 6)) + (u * texel_size_bits >> 3);
 
 	const int tile_size_bits = 32;
 	const int tiles_in_block_horizontal = 4;
@@ -64,7 +64,7 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u
 	int tile_u = u / texels_per_tile;
 	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
 	// TODO: not sure if the *texel_size_bits/8 factor is correct
-					(v / tiles_in_block_vertical) * ((row_pitch_bits*texel_size_bits/8/tile_size_bits)*tiles_in_block_vertical) +
+					(v / tiles_in_block_vertical) * ((row_pitch_bits*texel_size_bits/(8*tile_size_bits))*tiles_in_block_vertical) +
 					(tile_u % tiles_in_block_horizontal) +
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 
@@ -77,7 +77,6 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
-	 // TODO: No idea if these bswaps are correct
 	switch (gstate.getClutPaletteFormat()) {
 	case GE_TFMT_5650:
 		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
@@ -99,9 +98,6 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 
 static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
 {
-	s = s * getFloat24(gstate.texscaleu) + getFloat24(gstate.texoffsetu);
-	t = t * getFloat24(gstate.texscalev) + getFloat24(gstate.texoffsetv);
-
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
@@ -131,9 +127,6 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 
 static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
 {
-	in_s = in_s * getFloat24(gstate.texscaleu) + getFloat24(gstate.texoffsetu);
-	in_t = in_t * getFloat24(gstate.texscalev) + getFloat24(gstate.texoffsetv);
-
 	// 8 bits of fractional UV
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
@@ -182,12 +175,12 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, int& v)
 {
 	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
-	int width = (1 << 8) << (gstate.texsize[level] & 0xf);
-	int height = (1 << 8) << ((gstate.texsize[level]>>8) & 0xf);
+	int width = 1 << (gstate.texsize[level] & 0xf);
+	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
 	// Wrap!
-	u = ((unsigned int)(s) & (width - 1)) >> 8;
-	v = ((unsigned int)(t) & (height - 1)) >> 8;
+	u = ((unsigned int)(s) & (width - 1));
+	v = ((unsigned int)(t) & (height - 1));
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
@@ -842,6 +835,10 @@ void DrawTriangleSlice(
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
+	float texScaleU = getFloat24(gstate.texscaleu);
+	float texScaleV = getFloat24(gstate.texscalev);
+	float texOffsetU = getFloat24(gstate.texoffsetu);
+	float texOffsetV = getFloat24(gstate.texoffsetv);
 
 	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
 	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
@@ -931,15 +928,19 @@ void DrawTriangleSlice(
 						int v_texel = t * 256;
 						frac_u = u_texel & 0xff;
 						frac_v = v_texel & 0xff;
+						u_texel >>= 8;
+						v_texel >>= 8;
 						GetTexelCoordinatesThrough(0, u_texel, v_texel, u[0], v[0]);
 						if (bilinear) {
-							GetTexelCoordinatesThrough(0, u_texel + 256, v_texel, u[1], v[1]);
-							GetTexelCoordinatesThrough(0, u_texel, v_texel + 256, u[2], v[2]);
-							GetTexelCoordinatesThrough(0, u_texel + 256, v_texel + 256, u[3], v[3]);
+							GetTexelCoordinatesThrough(0, u_texel + 1, v_texel, u[1], v[1]);
+							GetTexelCoordinatesThrough(0, u_texel, v_texel + 1, u[2], v[2]);
+							GetTexelCoordinatesThrough(0, u_texel + 1, v_texel + 1, u[3], v[3]);
 						}
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
+						s = s * texScaleU + texOffsetU;
+						t = t * texScaleV + texOffsetV;
 						if (bilinear) {
 							GetTexelCoordinatesQuad(0, s, t, u, v, frac_u, frac_v);
 						} else {
@@ -1062,6 +1063,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 
+	// Is the division and multiplication just &= ~0xF ?
 	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
 	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
 	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
@@ -1079,6 +1081,137 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 	else
 		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+}
+
+void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec3<int> sec_color) {
+	// TODO: Texturing, blending etc.
+	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
+	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+
+	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x >= scissorBR.x || pos.y >= scissorBR.y)
+		return;
+
+	bool clearMode = gstate.isModeClear();
+
+	// TODO: Abstract out texture mapping so we can insert it here. Too big to duplicate.
+	if (gstate.isColorDoublingEnabled() && !clearMode) {
+		// TODO: Do we need to clamp here?
+		prim_color_rgb *= 2;
+		sec_color *= 2;
+	}
+
+	if (!clearMode)
+		prim_color_rgb += sec_color;
+
+	ScreenCoords pprime = pos;
+
+	// TODO: Fogging
+	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+	u16 z = pos.z;
+
+	// Depth range test
+	// TODO: Clear mode?
+	if (!gstate.isModeThrough())
+		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
+			return;
+
+	if (gstate.isColorTestEnabled() && !clearMode)
+		if (!ColorTestPassed(prim_color_rgb))
+			return;
+
+	// TODO: Does a need to be clamped?
+	if (gstate.isAlphaTestEnabled() && !clearMode)
+		if (!AlphaTestPassed(prim_color_a))
+			return;
+
+	// In clear mode, it uses the alpha color as stencil.
+	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
+	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
+	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
+		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
+			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+			SetPixelStencil(p.x, p.y, stencil);
+			return;
+		}
+
+		// Also apply depth at the same time.  If disabled, same as passing.
+		if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
+			if (gstate.isStencilTestEnabled()) {
+				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+				SetPixelStencil(p.x, p.y, stencil);
+			}
+			return;
+		} else if (gstate.isStencilTestEnabled()) {
+			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+		}
+
+		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
+			SetPixelDepth(p.x, p.y, z);
+		}
+	} else if (clearMode && gstate.isClearModeDepthWriteEnabled()) {
+		SetPixelDepth(p.x, p.y, z);
+	}
+
+	if (gstate.isAlphaBlendEnabled() && !clearMode) {
+		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
+		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
+	}
+	if (!clearMode)
+		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
+
+	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
+	u32 old_color = GetPixelColor(p.x, p.y);
+
+	// TODO: Is alpha blending still performed if logic ops are enabled?
+	if (gstate.isLogicOpEnabled() && !clearMode) {
+		// Logic ops don't affect stencil.
+		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
+	}
+
+	if (clearMode) {
+		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+	} else {
+		new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+	}
+
+	SetPixelColor(p.x, p.y, new_color);
+}
+
+void DrawPoint(const VertexData &v0)
+{
+	DrawPixel(v0.screenpos, v0.color0.rgb(), v0.color0.a(), v0.color1);
+}
+
+void DrawLine(const VertexData &v0, const VertexData &v1)
+{
+	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
+	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
+	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
+
+	int dx = b.x - a.x;
+	int dy = b.y - a.y;
+	int dz = b.z - a.z;
+
+	int steps;
+	if (abs(dx) < abs(dy))
+		steps = dy;
+	else
+		steps = dx;
+
+	float xinc = (float)dx / steps;
+	float yinc = (float)dy / steps;
+	float zinc = (float)dz / steps;
+
+	float x = a.x;
+	float y = a.y;
+	float z = a.z;
+	for (; steps >= 0; steps--) {
+		// TODO: interpolate color and UV over line
+		DrawPixel(ScreenCoords(x, y, z), v0.color0.rgb(), v0.color0.a(), v0.color1);
+		x = x + xinc;
+		y = y + yinc;
+		z = z + zinc;
+	}
 }
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
