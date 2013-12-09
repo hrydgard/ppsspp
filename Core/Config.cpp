@@ -316,7 +316,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	network->Get("EnableWlan", &bEnableWlan, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-#if defined(ARM)
+#if !defined(ARM)
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
 #else
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT);
