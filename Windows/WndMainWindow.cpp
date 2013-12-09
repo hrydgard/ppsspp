@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -824,7 +824,7 @@ namespace MainWindow
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		std::string fn;
-		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf *zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|All files (*.*)|*.*||";
 		
 		for (int i=0; i<(int)filter.length(); i++) {
 			if (filter[i] == '|')
@@ -854,7 +854,7 @@ namespace MainWindow
 				NativeMessageReceived("boot", dir.c_str());
 			}
 		}
-		else if (W32Util::BrowseForFileName(true, GetHWND(), L"Load File", defaultPath.size() ? ConvertUTF8ToWString(defaultPath).c_str() : 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn))
+		else if (W32Util::BrowseForFileName(true, GetHWND(), L"Load File", defaultPath.size() ? ConvertUTF8ToWString(defaultPath).c_str() : 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;*.zip;", fn))
 		{
 			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
@@ -880,14 +880,14 @@ namespace MainWindow
 
 	void UmdSwitchAction() {
 		std::string fn;
-		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|All files (*.*)|*.*||";
 		
 		for (int i=0; i<(int)filter.length(); i++) {
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
-		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch Umd", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn)) {
+		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch Umd", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;*.zip",fn)) {
 			fn = ReplaceAll(fn, "\\", "/");
 			__UmdReplace(fn);
 		}
