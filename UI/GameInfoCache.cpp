@@ -421,6 +421,13 @@ void GameInfoCache::Clear() {
 			delete iter->second->pic1Texture;
 			iter->second->pic1Texture = 0;
 		}
+		if (!iter->second->iconTextureData.empty()) {
+			iter->second->iconTextureData.clear();
+		}
+		if (iter->second->iconTexture) {
+			delete iter->second->iconTexture;
+			iter->second->iconTexture = 0;
+		}
 	}
 	info_.clear();
 }

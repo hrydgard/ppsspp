@@ -20,16 +20,14 @@ For build instructions and other development tutorials, see the [wiki](https://g
 
 What's new in 0.9.6
 -------------------
-* Large general speed improvements
+* Large general speed improvements and assorted bug fixes
 * "Software Skinning" option which speeds up many games with animated 3D characters
-* Various fixes around stencil/alpha, reducing glow problems in Wipeout and Gods Eater Burst
+* Various fixes around stencil/alpha, reducing glow problems in Wipeout and Gods Eater Burst.
 * Timing improvements making more games run at the correct FPS, also fixing some audio issues
 * More debugger features
 * Option for four-way touch dpad, avoiding diagonal dpad issues
 * Individually resizable touch controls
 * Add ability to switch UMD in multi-disc games (works for most)
-* Support for "Immersive mode" full screen on Android Kitkat on devices that
-  support it (Nexus 4, etc).
 * Emulate PSP-2000 rather than the 1000 model by default. Not much different in practice.
 * Automatic install of games from ZIP files, like demos and many homebrew.
 * VERY basic ad-hoc online play support, to be improved in future versions. See below.

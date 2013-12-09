@@ -31,12 +31,7 @@ using namespace ArmGen;
 
 //static int temp32; // unused?
 
-//TODO - make an option
-//#if _DEBUG
-static bool enableDebug = false; 
-//#else
-//		bool enableDebug = false; 
-//#endif
+static const bool enableDebug = false;
 
 //static bool enableStatistics = false; //unused?
 
@@ -49,13 +44,13 @@ static bool enableDebug = false;
 // r4 to r11: used to hold local variables.
 // r0 to r3: used to hold argument values passed to a subroutine, and also hold results returned from a subroutine.
 
-//	 R2, R3, R4, R5, R6, R7, R8, R10, R11	 // omitting R9?
-
+// Mappable registers:
+//	 R2, R3, R4, R5, R6, R8, R11
 
 // STATIC ALLOCATION ARM:
-// R11 : Memory base pointer.
 // R10 : MIPS state
-// R9 : 
+// R11 : Memory base pointer.
+// R7 :  Down counter
 extern volatile CoreState coreState;
 
 void JitAt()
@@ -63,14 +58,6 @@ void JitAt()
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
 
-/*
-double testD;
-
-u32 DoubleTest(u32 sp) {
-	volatile double local = 1.0;
-	testD += local;
-	return (u32)(&local);
-}
 
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
@@ -78,7 +65,7 @@ void ShowPC(u32 sp) {
 	} else {
 		ERROR_LOG(JIT, "Universe corrupt?");
 	}
-}*/
+}
 
 void DisassembleArm(const u8 *data, int size);
 
@@ -155,8 +142,10 @@ void Jit::GenerateFixedCode()
 			dispatcherNoCheck = GetCodePtr();
 
 			// Debug
-			// MOV(R0, R13);
-			// QuickCallFunction(R1, (void *)&ShowPC);
+			if (enableDebug) {
+				MOV(R0, R13);
+				QuickCallFunction(R1, (void *)&ShowPC);
+			}
 
 			LDR(R0, CTXREG, offsetof(MIPSState, pc));
 			// TODO: In practice, do we ever run code from uncached space (| 0x40000000)? If not, we can remove this BIC.
