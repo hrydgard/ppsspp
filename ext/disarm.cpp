@@ -60,6 +60,12 @@
  *                    (Thanks to Vincent Zweije for reporting this.)
  */
 
+#ifdef clang-3.4
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtautological-compare" //used to avoid warning, force compiler to accept it.
+#endif clang-3.4
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1047,3 +1053,8 @@ void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord) {
 		output++;
 	}
 }
+
+#ifdef clang-3.4
+#pragma GCC diagnostic pop
+#endif clang-3.4
+
