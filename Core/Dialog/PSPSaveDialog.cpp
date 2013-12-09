@@ -269,6 +269,9 @@ void PSPSaveDialog::DisplayBanner(int which)
 void PSPSaveDialog::DisplaySaveList(bool canMove)
 {
 	int displayCount = 0;
+	static int upFramesHeld = 0;
+	static int downFramesHeld = 0;
+
 	for (int i = 0; i < param.GetFilenameCount(); i++)
 	{
 		int textureColor = 0xFFFFFFFF;
@@ -312,9 +315,10 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 	}
 
 	if (canMove) {
-		if (IsButtonPressed(CTRL_UP) && currentSelectedSave > 0)
+		if ( (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upFramesHeld)) && currentSelectedSave > 0)
 			currentSelectedSave--;
-		else if (IsButtonPressed(CTRL_DOWN) && currentSelectedSave < (param.GetFilenameCount()-1))
+
+		else if ( (IsButtonPressed(CTRL_DOWN) || IsButtonHeld(CTRL_DOWN, downFramesHeld)) && currentSelectedSave < (param.GetFilenameCount() - 1))
 			currentSelectedSave++;
 	}
 }
