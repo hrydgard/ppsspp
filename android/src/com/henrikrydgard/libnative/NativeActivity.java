@@ -89,7 +89,7 @@ public class NativeActivity extends Activity {
 	private static String TAG = "NativeActivity";
    
 	// Easy way to flip it on and off from code.
-	private static final boolean useKitkatImmersiveMode = true;
+	private static final boolean useKitkatImmersiveMode = false;
 
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
@@ -355,7 +355,7 @@ public class NativeActivity extends Activity {
 	public void setImmersiveMode() {
 		// this.setImmersive(true); // This is an entirely different kind of immersive mode - hides some notification
 		if (useKitkatImmersiveMode) {
-			mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+			mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 		}
 	}
 
