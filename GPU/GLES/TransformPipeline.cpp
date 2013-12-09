@@ -95,7 +95,10 @@ extern const GLuint glprim[8] = {
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
-	GL_TRIANGLES,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
+	GL_TRIANGLES,
+	// With OpenGL ES we have to expand sprites (rects) into triangles, tripling the data instead of doubling.
+	// Sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
+	// We can use it on the desktop though, but we don't yet. There we could also use geometry shaders anyway.
 };
 
 enum {
@@ -396,7 +399,7 @@ void TransformDrawEngine::DecodeVertsStep() {
 			lastMatch = j;
 			j++;
 		}
-			
+
 		// 2. Loop through the drawcalls, translating indices as we go.
 		for (j = i; j <= lastMatch; j++) {
 			switch (indexType) {
@@ -497,21 +500,10 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 		if (iter->second->lastFrame < threshold) {
 			delete iter->second;
 			vai_.erase(iter++);
-		}
-		else
+		} else {
 			++iter;
+		}
 	}
-
-	// Enable if you want to see vertex decoders in the log output. Need a better way.
-#if 0
-	char buffer[16384];
-	for (std::map<u32, VertexDecoder*>::iterator dec = decoderMap_.begin(); dec != decoderMap_.end(); ++dec) {
-		char *ptr = buffer;
-		ptr += dec->second->ToString(ptr);
-//		*ptr++ = '\n';
-		NOTICE_LOG(G3D, buffer);
-	}
-#endif
 }
 
 VertexArrayInfo::~VertexArrayInfo() {
@@ -523,7 +515,6 @@ VertexArrayInfo::~VertexArrayInfo() {
 
 void TransformDrawEngine::DoFlush() {
 	gpuStats.numFlushes++;
-	
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	// This is not done on every drawcall, we should collect vertex data
@@ -534,10 +525,12 @@ void TransformDrawEngine::DoFlush() {
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim, lastVType_);
 
+	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
+	int maxIndex = 0;
+
 	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
-		int maxIndex = 0;
 		bool useElements = true;
 
 		// Cannot cache vertex data with morph enabled.
@@ -621,7 +614,7 @@ void TransformDrawEngine::DoFlush() {
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
-						
+
 						glGenBuffers(1, &vai->vbo);
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
@@ -686,6 +679,7 @@ void TransformDrawEngine::DoFlush() {
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
 			DecodeVerts();
+
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
@@ -699,7 +693,7 @@ rotateVBO:
 
 			prim = indexGen.Prim();
 		}
-		
+
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
@@ -723,10 +717,9 @@ rotateVBO:
 		// Undo the strip optimization, not supported by the SW code yet.
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
-		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
 		SoftwareTransformAndDraw(
-			prim, decoded, program, indexGen.VertexCount(), 
+			prim, decoded, program, indexGen.VertexCount(),
 			dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			indexGen.MaxIndex());
 	}
@@ -874,7 +867,7 @@ static Vec3f ScreenToDrawing(const Vec3f& coords)
 	ret.x = coords.x - gstate.getOffsetX16();
 	ret.y = coords.y - gstate.getOffsetY16();
 
-	// Convert from 16 point to float.
+	// Convert from 16-bit fixed point to float.
 	ret.x *= 1.0 / 16.0;
 	ret.y *= 1.0 / 16.0;
 	ret.z = coords.z;

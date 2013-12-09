@@ -92,7 +92,7 @@ void Jit::GenerateFixedCode()
 {
 	enterCode = AlignCode16();
 
-	INFO_LOG(JIT, "Base: %08x", (u32)Memory::base);
+	DEBUG_LOG(JIT, "Base: %08x", (u32)Memory::base);
 
 	SetCC(CC_AL);
 
@@ -139,6 +139,7 @@ void Jit::GenerateFixedCode()
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
 
 		dispatcherPCInR0 = GetCodePtr();
+		// TODO: Do we always need to write PC to RAM here?
 		MovToPC(R0);
 
 		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
@@ -158,6 +159,7 @@ void Jit::GenerateFixedCode()
 			// QuickCallFunction(R1, (void *)&ShowPC);
 
 			LDR(R0, CTXREG, offsetof(MIPSState, pc));
+			// TODO: In practice, do we ever run code from uncached space (| 0x40000000)? If not, we can remove this BIC.
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 			LDR(R0, MEMBASEREG, R0);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
@@ -175,7 +177,7 @@ void Jit::GenerateFixedCode()
 				B(R0);
 			SetCC(CC_AL);
 
-			//Ok, no block, let's jit
+			// No block found, let's jit
 			SaveDowncount();
 			QuickCallFunction(R2, (void *)&JitAt);
 			RestoreDowncount();

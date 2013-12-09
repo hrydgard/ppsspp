@@ -131,7 +131,7 @@ void Shutdown()
 	MemoryMap_Shutdown(views, num_views, flags, &g_arena);
 	g_arena.ReleaseSpace();
 	base = NULL;
-	INFO_LOG(MEMMAP, "Memory system shut down.");
+	DEBUG_LOG(MEMMAP, "Memory system shut down.");
 }
 
 void Clear()

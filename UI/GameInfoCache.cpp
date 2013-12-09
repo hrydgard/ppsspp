@@ -19,6 +19,7 @@
 #include <map>
 #include <algorithm>
 
+#include "base/logging.h"
 #include "base/timeutil.h"
 #include "base/stringutil.h"
 #include "file/file_util.h"
@@ -401,6 +402,7 @@ void GameInfoCache::Decimate() {
 }
 
 void GameInfoCache::Clear() {
+	ILOG("Wiping GameInfoCache: %i items", info_.size());
 	if (gameInfoWQ_)
 		gameInfoWQ_->Flush();
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {

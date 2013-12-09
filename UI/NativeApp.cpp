@@ -279,7 +279,6 @@ void NativeInit(int argc, const char *argv[],
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
-	ILOG("Logman: %p", logman);
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
@@ -372,7 +371,6 @@ void NativeInit(int argc, const char *argv[],
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-	INFO_LOG(BOOT, "Logger inited.");
 #endif
 
 	i18nrepo.LoadIni(g_Config.sLanguageIni);
