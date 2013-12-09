@@ -74,7 +74,7 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u
 
 static inline u32 LookupColor(unsigned int index, unsigned int level)
 {
-	const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 	 // TODO: No idea if these bswaps are correct

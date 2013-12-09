@@ -1092,7 +1092,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		{
 		dstFmt = getClutDestFormat(clutformat);
 
-		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		switch (clutformat) {
