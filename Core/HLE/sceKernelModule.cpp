@@ -177,6 +177,7 @@ struct NativeModule {
 
 // by QueryModuleInfo
 struct ModuleInfo {
+	SceSize_le size;
 	u32_le nsegment;
 	u32_le segmentaddr[4];
 	u32_le segmentsize[4];
@@ -720,6 +721,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
 			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
+		} else {
+			// TODO: Is this right?
+			module->nm.bss_size = head->bss_size;
 		}
 	}
 
@@ -769,6 +773,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	else
 		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSegmentVaddr(0) + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0));
 
+	module->nm.nsegment = reader.GetNumSegments();
+	module->nm.attribute = modinfo->moduleAttrs;
+	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
+	module->nm.version[1] = modinfo->moduleVersion >> 8;
+	module->nm.data_size = 0;
+	// TODO: Is summing them up correct?  Must not be since the numbers aren't exactly right.
+	for (int i = 0; i < reader.GetNumSegments(); ++i) {
+		module->nm.data_size += reader.GetSegmentDataSize(i);
+	}
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, 28);
 
@@ -793,6 +806,12 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (textSection != -1) {
 		u32 textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
+
+		module->nm.text_addr = textStart;
+		// TODO: This value appears to be wrong.  In one example, the PSP has a value > 0x1000 bigger.
+		module->nm.text_size = textSize;
+		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
+		module->nm.data_size -= textSize;
 
 #if !defined(USING_GLES2)
 		if (!reader.LoadSymbols())
@@ -1782,21 +1801,29 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 		ERROR_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x) - bad infoAddr", uid, infoAddr);
 		return -1;
 	}
-	ModuleInfo info;
-	memcpy(info.segmentaddr, module->nm.segmentaddr, sizeof(info.segmentaddr));
-	memcpy(info.segmentsize, module->nm.segmentsize, sizeof(info.segmentsize));
-	info.nsegment = module->nm.nsegment;
-	info.entry_addr = module->nm.entry_addr;
-	info.gp_value = module->nm.gp_value;
-	info.text_addr = module->nm.text_addr;
-	info.text_size = module->nm.text_size;
-	info.data_size = module->nm.data_size;
-	info.bss_size = module->nm.bss_size;
-	info.attribute = module->nm.attribute;
-	info.version[0] = module->nm.version[0];
-	info.version[1] = module->nm.version[1];
-	memcpy(info.name, module->nm.name, 28);
-	Memory::WriteStruct(infoAddr, &info);
+
+	PSPPointer<ModuleInfo> info;
+	info = infoAddr;
+
+	memcpy(info->segmentaddr, module->nm.segmentaddr, sizeof(info->segmentaddr));
+	memcpy(info->segmentsize, module->nm.segmentsize, sizeof(info->segmentsize));
+	info->nsegment = module->nm.nsegment;
+	info->entry_addr = module->nm.entry_addr;
+	info->gp_value = module->nm.gp_value;
+	info->text_addr = module->nm.text_addr;
+	info->text_size = module->nm.text_size;
+	info->data_size = module->nm.data_size;
+	info->bss_size = module->nm.bss_size;
+
+	// Even if it's bigger, if it's not exactly 96, skip this extra data.
+	// Even if it's 0, the above are all written though.
+	if (info->size == 96) {
+		info->attribute = module->nm.attribute;
+		info->version[0] = module->nm.version[0];
+		info->version[1] = module->nm.version[1];
+		memcpy(info->name, module->nm.name, 28);
+	}
+
 	return 0;
 }
 

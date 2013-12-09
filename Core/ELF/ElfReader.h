@@ -116,6 +116,10 @@ public:
 	{
 		return segmentVAddr[segment];
 	}
+	u32 GetSegmentDataSize(int segment)
+	{
+		return segments[segment].p_filesz;
+	}
 
 	bool DidRelocate() {
 		return bRelocate;
