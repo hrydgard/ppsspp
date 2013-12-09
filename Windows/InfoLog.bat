@@ -1,5 +1,5 @@
 @echo off
-set LOGFILE=ppsspp.log
+set LOGFILE=ppsspplog.txt
 
 del "%LOGFILE%" 2> NUL
 if exist PPSSPPWindows64.exe (
