@@ -875,11 +875,14 @@ void DrawTriangleSlice(
 		int w1 = w1_base;
 		int w2 = w2_base;
 
-		for (pprime.x = minX; pprime.x <= maxX; pprime.x +=16,
+		pprime.x = minX;
+		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+
+		for (; pprime.x <= maxX; pprime.x +=16,
 											w0 += orient2dIncX(d12.y)*16,
 											w1 += orient2dIncX(-d02.y)*16,
-											w2 += orient2dIncX(d01.y)*16) {
-			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+											w2 += orient2dIncX(d01.y)*16,
+											p.x = (p.x + 1) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
