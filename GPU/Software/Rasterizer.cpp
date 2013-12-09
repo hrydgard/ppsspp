@@ -15,10 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// std::bind fix for VS2012
-#if defined(_WIN32) && _MSC_VER == 1700
-#include "../native/base/basictypes.h"
-#endif
+#include "base/basictypes.h"
 
 #include "Common/ThreadPools.h"
 #include "Core/MemMap.h"
