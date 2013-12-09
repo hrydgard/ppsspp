@@ -19,6 +19,11 @@ Texture::Texture() : id_(0) {
 	register_gl_resource_holder(this);
 }
 
+Texture::~Texture() {
+	unregister_gl_resource_holder(this);
+	Destroy();
+}
+
 void Texture::Destroy() {
 	if (id_) {
 		glDeleteTextures(1, &id_);
@@ -27,14 +32,13 @@ void Texture::Destroy() {
 }
 
 void Texture::GLLost() {
-	ILOG("Reloading lost texture %s", filename_.c_str());
-	Load(filename_.c_str());
-	ILOG("Reloaded lost texture %s", filename_.c_str());
-}
-
-Texture::~Texture() {
-	unregister_gl_resource_holder(this);
-	Destroy();
+	if (!filename_.empty()) {
+		Load(filename_.c_str());
+		ILOG("Reloaded lost texture %s", filename_.c_str());
+	} else {
+		WLOG("Texture cannot be restored - has no filename");
+		Destroy();
+	}
 }
 
 static void SetTextureParameters(int zim_flags) {
@@ -133,8 +137,10 @@ bool Texture::Load(const char *filename) {
 		} else {
 			return true;
 		}
-	} else {
+	} else if (!name || !strlen(name)) {
 		ELOG("Failed to identify image file %s by extension", name);
+	} else {
+		ELOG("Cannot load a texture with an empty filename");
 	}
 	LoadXOR();
 	return false;

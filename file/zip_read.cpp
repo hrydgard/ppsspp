@@ -121,9 +121,9 @@ ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
 	GetFileListing("assets", &info, 0);
 	for (int i = 0; i < info.size(); i++) {
 		if (info[i].isDirectory) {
-			ILOG("Directory: %s", info[i].name.c_str());
+			DLOG("Directory: %s", info[i].name.c_str());
 		} else {
-			ILOG("File: %s", info[i].name.c_str());
+			DLOG("File: %s", info[i].name.c_str());
 		}
 	}
 }
@@ -141,9 +141,9 @@ uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
 
 bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
-	ILOG("Zip path: %s", path);
+	DLOG("Zip path: %s", path);
 	std::set<std::string> filters;
- 	std::string tmp;
+	std::string tmp;
 	if (filter) {
 		while (*filter) {
 			if (*filter == ':') {
@@ -212,7 +212,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		}
 		listing->push_back(info);
 	}
-	
+
 	std::sort(listing->begin(), listing->end());
 	return true;
 }
@@ -301,7 +301,7 @@ static int num_entries = 0;
 void VFSRegister(const char *prefix, AssetReader *reader) {
 	entries[num_entries].prefix = prefix;
 	entries[num_entries].reader = reader;
-	ILOG("Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
+	DLOG("Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
 	num_entries++;
 }
 

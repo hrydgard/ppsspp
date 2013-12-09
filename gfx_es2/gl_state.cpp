@@ -124,13 +124,11 @@ void CheckGLExtensions() {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	ILOG("GPU Vendor : %s", cvendor);
+	ILOG("GPU Vendor : %s ; GL version str: %s", cvendor, versionStr ? versionStr : "N/A");
 
 #ifndef USING_GLES2
-
 	char buffer[64] = {0};
 	if (versionStr) {
-		ILOG("GL version str: %s", versionStr);
 		strncpy(buffer, versionStr, 63);
 	}
 	const char *lastNumStart = buffer;
@@ -212,9 +210,12 @@ void CheckGLExtensions() {
 #if defined(ANDROID) || defined(BLACKBERRY)
 	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
+#ifdef _DEBUG
 	void *invalidAddress = (void *)eglGetProcAddress("InvalidGlCall1");
 	void *invalidAddress2 = (void *)eglGetProcAddress("AnotherInvalidGlCall2");
-	ILOG("Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
+	DLOG("Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
+#endif
+
 	if (gl_extensions.NV_draw_texture) {
 		glDrawTextureNV = (PFNGLDRAWTEXTURENVPROC)eglGetProcAddress("glDrawTextureNV");
 	}
@@ -271,7 +272,6 @@ void CheckGLExtensions() {
 	} else {
 		g_all_egl_extensions = "";
 	}
-
 #endif
 
 #ifdef USING_GLES2

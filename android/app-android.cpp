@@ -146,7 +146,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
-	 jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
+		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
 
 	ILOG("NativeApp.init() -- begin");
@@ -165,7 +165,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	hat_joystick_y_async = 0;
 
 	std::string apkPath = GetJavaString(env, japkpath);
-	ILOG("NativeApp::Init: APK path: %s", apkPath.c_str());
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
 	systemName = GetJavaString(env, jdevicetype);
@@ -197,14 +196,14 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, jclass) {
-	ILOG("NativeApp.audioInit() -- begin");
 	if (use_opensl_audio) {
 		// TODO: PPSSPP doesn't support 48khz yet so let's not use that yet.
-		ILOG("Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
+		ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
 		optimalSampleRate = 44100;
 		AndroidAudio_Init(&NativeMix, library_path, optimalFramesPerBuffer, optimalSampleRate);
+	} else {
+		ILOG("NativeApp.audioInit() -- Using Java audio :(");
 	}
-	ILOG("NativeApp.audioInit() -- end");
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioShutdown(JNIEnv *, jclass) {
@@ -233,7 +232,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclas
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	NativeShutdown();
-	ILOG("VFSShutdown.");
 	VFSShutdown();
 	net::Shutdown();
 	ILOG("NativeApp.shutdown() -- end");
@@ -250,22 +248,19 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 		dp_xres = pixel_xres * g_dpi_scale;
 		dp_yres = pixel_yres * g_dpi_scale;
 
-		ILOG("Calling NativeInitGraphics(): dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
 		NativeInitGraphics();
-		ILOG("NativeInitGraphics() completed");
+		ILOG("NativeInitGraphics() completed: dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
 
 		dp_xscale = (float)dp_xres / pixel_xres;
 		dp_yscale = (float)dp_yres / pixel_yres;
 		renderer_inited = true;
 	} else {
-		ILOG("Calling NativeDeviceLost();");
 		NativeDeviceLost();
-		ILOG("NativeDeviceLost completed.;");
+		ILOG("NativeDeviceLost completed.");
 	}
-	ILOG("(Re)-fetching method ID to postCommand...");
+	DLOG("(Re)-fetching method ID to postCommand...");
 	jclass cls = env->GetObjectClass(obj);
 	postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
-	ILOG("MethodID: %i", (int)postCommand);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
@@ -311,14 +306,14 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		glClearColor(1.0, 0.0, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
-	
+
 	if (!frameCommand.empty()) {
-		ILOG("frameCommand %s %s", frameCommand.c_str(), frameCommandParam.c_str());
+		DLOG("frameCommand %s %s", frameCommand.c_str(), frameCommandParam.c_str());
 
 		jstring cmd = env->NewStringUTF(frameCommand.c_str());
 		jstring param = env->NewStringUTF(frameCommandParam.c_str());
 		env->CallVoidMethod(obj, postCommand, cmd, param);
-		
+
 		frameCommand = "";
 		frameCommandParam = "";
 	}
@@ -326,9 +321,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
 	if (renderer_inited) {
-		ILOG("Calling NativeDeviceLost();");
 		NativeDeviceLost();
-		ILOG("NativeDeviceLost completed.;");
+		ILOG("NativeDeviceLost completed.");
 		NativeShutdownGraphics();
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");
@@ -441,8 +435,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
 		break;
 	}
 
-	// Hat is just stupid. Force translate it to dpad events.  TODO
-	
 	AxisInput axis;
 	axis.axisId = axisId;
 	axis.deviceId = deviceId;
@@ -473,7 +465,7 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
 	axis.flags = 0;
-	
+
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
 	NativeAxis(axis);

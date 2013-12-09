@@ -218,7 +218,6 @@ public class NativeActivity extends Activity {
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
-		NativeApp.sendMessage("Message from Java", "Hot Coffee");
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		int dpi = metrics.densityDpi;
@@ -230,7 +229,6 @@ public class NativeActivity extends Activity {
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
 				
-		// INIT!
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
 	    Log.i(TAG, "Device: " + deviceType);     
