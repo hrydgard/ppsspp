@@ -50,6 +50,7 @@ public:
 		status = VAI_NEW;
 		vbo = 0;
 		ebo = 0;
+		vao = 0;
 		numDCs = 0;
 		prim = GE_PRIM_INVALID;
 		numDraws = 0;
@@ -73,6 +74,7 @@ public:
 
 	u32 vbo;
 	u32 ebo;
+	u32 vao;
 
 	// Precalculated parameter for drawRangeElements
 	u16 numVerts;
@@ -175,7 +177,7 @@ private:
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
-	
+
 	// Vertex collector buffers
 	u8 *decoded;
 	u16 *decIndex;

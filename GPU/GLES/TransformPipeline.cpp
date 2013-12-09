@@ -88,6 +88,8 @@
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/Common/SplineCommon.h"
 
+static bool useVAO = false;
+
 extern const GLuint glprim[8] = {
 	GL_POINTS,
 	GL_LINES,
@@ -154,6 +156,8 @@ TransformDrawEngine::TransformDrawEngine()
 
 	InitDeviceObjects();
 	register_gl_resource_holder(this);
+
+	useVAO = gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA;
 }
 
 TransformDrawEngine::~TransformDrawEngine() {
@@ -507,6 +511,8 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 }
 
 VertexArrayInfo::~VertexArrayInfo() {
+	if (vao)
+		glDeleteVertexArrays(1, &vao);
 	if (vbo)
 		glDeleteBuffers(1, &vbo);
 	if (ebo)
@@ -539,10 +545,10 @@ void TransformDrawEngine::DoFlush() {
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
 
+		VertexArrayInfo *vai = 0;
 		if (useCache) {
 			u32 id = ComputeFastDCID();
 			auto iter = vai_.find(id);
-			VertexArrayInfo *vai;
 			if (iter != vai_.end()) {
 				// We've seen this before. Could have been a cached draw.
 				vai = iter->second;
@@ -606,6 +612,17 @@ void TransformDrawEngine::DoFlush() {
 					}
 
 					if (vai->vbo == 0) {
+						gpuStats.numCachedDrawCalls++;
+						if (vai->vao) {
+							glBindVertexArray(vai->vao);
+						} else {
+							glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+						}
+						if (vai->ebo)
+							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+						useElements = vai->ebo ? true : false;
+						gpuStats.numCachedVertsDrawn += vai->numVerts;
+					} else {
 						DecodeVerts();
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
@@ -613,6 +630,13 @@ void TransformDrawEngine::DoFlush() {
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
+						}
+
+						if (useVAO) {
+							if (!vai->vao) {
+								glGenVertexArrays(1, &vai->vao);
+							}
+							glBindVertexArray(vai->vao);
 						}
 
 						glGenBuffers(1, &vai->vbo);
@@ -629,13 +653,10 @@ void TransformDrawEngine::DoFlush() {
 							vai->ebo = 0;
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 						}
-					} else {
-						gpuStats.numCachedDrawCalls++;
-						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
-						if (vai->ebo)
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
-						useElements = vai->ebo ? true : false;
-						gpuStats.numCachedVertsDrawn += vai->numVerts;
+
+						if (useVAO) {
+							SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), 0);
+						}
 					}
 					vbo = vai->vbo;
 					ebo = vai->ebo;
@@ -656,9 +677,14 @@ void TransformDrawEngine::DoFlush() {
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
 					vbo = vai->vbo;
 					ebo = vai->ebo;
-					glBindBuffer(GL_ARRAY_BUFFER, vbo);
-					if (ebo)
+					if (vai->vao) {
+						glBindVertexArray(vai->vao);
+					} else {
+						glBindBuffer(GL_ARRAY_BUFFER, vbo);
+					}
+					if (ebo) {
 						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+					}
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
@@ -667,6 +693,19 @@ void TransformDrawEngine::DoFlush() {
 
 			case VertexArrayInfo::VAI_UNRELIABLE:
 				{
+					// In this case, we should drop any buffers.
+					if (vai->vao) {
+						glDeleteVertexArrays(1, &vai->vao);
+						vai->vao = 0;
+					}
+					if (vai->vbo) {
+						glDeleteBuffers(1, &vai->vbo);
+						vai->vbo = 0;
+					}
+					if (vai->ebo) {
+						glDeleteBuffers(1, &vai->ebo);
+						vai->ebo = 0;
+					}
 					vai->numDraws++;
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
@@ -694,9 +733,10 @@ rotateVBO:
 			prim = indexGen.Prim();
 		}
 
-		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+		if (!vai->vao) {
+			SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
+		}
 
-		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 		if (useElements) {
 #if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
@@ -710,6 +750,10 @@ rotateVBO:
 		}
 		if (vbo)
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		if (vai && vai->vao && useVAO) {
+			glBindVertexArray(0);
+		}
 	} else {
 		DecodeVerts();
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
