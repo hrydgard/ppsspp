@@ -150,7 +150,7 @@ static CCFlags FlipCCFlag(CCFlags flag)
 	case CC_LE: return CC_NLE;
 	case CC_NLE: return CC_LE;
 	}
-	ERROR_LOG_REPORT(JIT, false, "FlipCCFlag: Unexpected CC flag: %d", flag);
+	ERROR_LOG_REPORT(JIT, 0, "FlipCCFlag: Unexpected CC flag: %d", flag);
 	return CC_O;
 }
 
