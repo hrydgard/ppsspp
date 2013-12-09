@@ -1138,7 +1138,7 @@ namespace MIPSComp
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
 					gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
-					MOV(gpr.R(MIPS_REG_VFPUCC), rt);
+					MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
 				} else {
 					gpr.MapReg(rt);
 					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
