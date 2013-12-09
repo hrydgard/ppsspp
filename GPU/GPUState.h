@@ -307,7 +307,7 @@ struct GPUgstate
 	int transformClutIndex(int index) const { return ((index >> getClutIndexShift()) & getClutIndexMask()) | getClutIndexStartPos(); }
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
-	bool isClutSharedForMipmaps() const { return (texmode & 0x100) != 0; }
+	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
