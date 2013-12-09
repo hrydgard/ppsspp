@@ -26,6 +26,7 @@
 #include <map>
 
 #include "base/logging.h"
+#include "math/math_util.h"
 #include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
 
@@ -384,10 +385,14 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);
 	}
 	if (dirty & DIRTY_FOGCOEF) {
-		const float fogcoef[2] = {
+		float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
+		if (my_isinf(fogcoef[1])) {
+			// not really sure what a sensible value might be.
+			fogcoef[1] = 10000.0f;
+		}
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
