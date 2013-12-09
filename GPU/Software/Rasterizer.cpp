@@ -50,14 +50,15 @@ static inline int orient2dIncY(int dX01)
 	return -dX01;
 }
 
-static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
+template <unsigned int texel_size_bits>
+static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
 	if (!gstate.isTextureSwizzled())
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
 
-	int tile_size_bits = 32;
-	int tiles_in_block_horizontal = 4;
-	int tiles_in_block_vertical = 8;
+	const int tile_size_bits = 32;
+	const int tiles_in_block_horizontal = 4;
+	const int tiles_in_block_vertical = 8;
 
 	int texels_per_tile = tile_size_bits / texel_size_bits;
 	int tile_u = u / texels_per_tile;
@@ -239,42 +240,42 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *s
 
 	switch (texfmt) {
 	case GE_TFMT_4444:
-		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 		return DecodeRGBA4444(*(u16*)srcptr);
 	
 	case GE_TFMT_5551:
-		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 		return DecodeRGBA5551(*(u16*)srcptr);
 
 	case GE_TFMT_5650:
-		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 		return DecodeRGB565(*(u16*)srcptr);
 
 	case GE_TFMT_8888:
-		srcptr += GetPixelDataOffset(32, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
 		return DecodeRGBA8888(*(u32*)srcptr);
 
 	case GE_TFMT_CLUT32:
 		{
-			srcptr += GetPixelDataOffset(32, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
 			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT16:
 		{
-			srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 			u16 val = srcptr[0] + (srcptr[1] << 8);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT8:
 		{
-			srcptr += GetPixelDataOffset(8, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<8>(texbufwidthbits, u, v);
 			u8 val = *srcptr;
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT4:
 		{
-			srcptr += GetPixelDataOffset(4, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<4>(texbufwidthbits, u, v);
 			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
