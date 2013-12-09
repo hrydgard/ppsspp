@@ -29,13 +29,13 @@ inline void Crash() { __asm { int 3 }; }
 
 #if defined(ARM) || defined(MIPS)
 inline void Crash() {
-  char *p = (char *)1337;
-  *p = 1;
+	char *p = (char *)1337;
+	*p = 1;
 }
 #else
 // TODO: 64-bit version
 inline void Crash() {
-  asm("int $0x3");
+	asm("int $0x3");
 }
 #endif
 
@@ -50,6 +50,12 @@ inline void Crash() {
 #define APP_NAME "NativeApp"
 #endif
 
+#ifdef _DEBUG
+#define DLOG(...)    __android_log_print(ANDROID_LOG_INFO, APP_NAME, __VA_ARGS__);
+#else
+#define DLOG(...)
+#endif
+
 #define ILOG(...)    __android_log_print(ANDROID_LOG_INFO, APP_NAME, __VA_ARGS__);
 #define WLOG(...)    __android_log_print(ANDROID_LOG_WARN, APP_NAME, __VA_ARGS__);
 #define ELOG(...)    __android_log_print(ANDROID_LOG_ERROR, APP_NAME, __VA_ARGS__);
@@ -59,6 +65,11 @@ inline void Crash() {
 
 #elif defined(__SYMBIAN32__)
 #include <QDebug>
+#ifdef _DEBUG
+#define DLOG(...) { qDebug(__VA_ARGS__);}
+#else
+#define DLOG(...)
+#endif
 #define ILOG(...) { qDebug(__VA_ARGS__);}
 #define WLOG(...) { qDebug(__VA_ARGS__);}
 #define ELOG(...) { qDebug(__VA_ARGS__);}
@@ -70,6 +81,12 @@ inline void Crash() {
 
 void OutputDebugStringUTF8(const char *p);
 
+#ifdef _DEBUG
+#define DLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "D: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "D: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#else
+#define DLOG(...)
+#endif
+
 #define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "I: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
 #define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "W: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
 #define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "E: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
@@ -80,6 +97,11 @@ void OutputDebugStringUTF8(const char *p);
 
 #include <stdio.h>
 
+#ifdef _DEBUG
+#define DLOG(...) {printf("D: %s:%i: ", __FILE__, __LINE__); printf("D: " __VA_ARGS__); printf("\n");}
+#else
+#define DLOG(...)
+#endif
 #define ILOG(...) {printf("I: %s:%i: ", __FILE__, __LINE__); printf("I: " __VA_ARGS__); printf("\n");}
 #define WLOG(...) {printf("W: %s:%i: ", __FILE__, __LINE__); printf("W: " __VA_ARGS__); printf("\n");}
 #define ELOG(...) {printf("E: %s:%i: ", __FILE__, __LINE__); printf("E: " __VA_ARGS__); printf("\n");}
