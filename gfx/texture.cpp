@@ -36,14 +36,15 @@ void Texture::GLLost() {
 		Load(filename_.c_str());
 		ILOG("Reloaded lost texture %s", filename_.c_str());
 	} else {
-		WLOG("Texture cannot be restored - has no filename");
+		WLOG("Texture %p cannot be restored - has no filename", this);
 		Destroy();
 	}
 }
 
 static void SetTextureParameters(int zim_flags) {
 	GLenum wrap = GL_REPEAT;
-	if (zim_flags & ZIM_CLAMP) wrap = GL_CLAMP_TO_EDGE;
+	if (zim_flags & ZIM_CLAMP)
+		wrap = GL_CLAMP_TO_EDGE;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 	GL_CHECK();
@@ -59,8 +60,6 @@ static void SetTextureParameters(int zim_flags) {
 bool Texture::Load(const char *filename) {
 	// hook for generated textures
 	if (!memcmp(filename, "gen:", 4)) {
-		// TODO
-		// return false;
 		int bpp, w, h;
 		bool clamp;
 		uint8_t *data = generateTexture(filename, bpp, w, h, clamp);
