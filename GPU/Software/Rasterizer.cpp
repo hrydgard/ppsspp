@@ -50,14 +50,15 @@ static inline int orient2dIncY(int dX01)
 	return -dX01;
 }
 
-static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
+template <unsigned int texel_size_bits>
+static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
 	if (!gstate.isTextureSwizzled())
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
 
-	int tile_size_bits = 32;
-	int tiles_in_block_horizontal = 4;
-	int tiles_in_block_vertical = 8;
+	const int tile_size_bits = 32;
+	const int tiles_in_block_horizontal = 4;
+	const int tiles_in_block_vertical = 8;
 
 	int texels_per_tile = tile_size_bits / texel_size_bits;
 	int tile_u = u / texels_per_tile;
@@ -73,7 +74,7 @@ static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int 
 
 static inline u32 LookupColor(unsigned int index, unsigned int level)
 {
-	const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 	 // TODO: No idea if these bswaps are correct
@@ -239,42 +240,42 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *s
 
 	switch (texfmt) {
 	case GE_TFMT_4444:
-		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 		return DecodeRGBA4444(*(u16*)srcptr);
 	
 	case GE_TFMT_5551:
-		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 		return DecodeRGBA5551(*(u16*)srcptr);
 
 	case GE_TFMT_5650:
-		srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 		return DecodeRGB565(*(u16*)srcptr);
 
 	case GE_TFMT_8888:
-		srcptr += GetPixelDataOffset(32, texbufwidthbits, u, v);
+		srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
 		return DecodeRGBA8888(*(u32*)srcptr);
 
 	case GE_TFMT_CLUT32:
 		{
-			srcptr += GetPixelDataOffset(32, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
 			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT16:
 		{
-			srcptr += GetPixelDataOffset(16, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
 			u16 val = srcptr[0] + (srcptr[1] << 8);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT8:
 		{
-			srcptr += GetPixelDataOffset(8, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<8>(texbufwidthbits, u, v);
 			u8 val = *srcptr;
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	case GE_TFMT_CLUT4:
 		{
-			srcptr += GetPixelDataOffset(4, texbufwidthbits, u, v);
+			srcptr += GetPixelDataOffset<4>(texbufwidthbits, u, v);
 			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
@@ -874,11 +875,14 @@ void DrawTriangleSlice(
 		int w1 = w1_base;
 		int w2 = w2_base;
 
-		for (pprime.x = minX; pprime.x <= maxX; pprime.x +=16,
+		pprime.x = minX;
+		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+
+		for (; pprime.x <= maxX; pprime.x +=16,
 											w0 += orient2dIncX(d12.y)*16,
 											w1 += orient2dIncX(-d02.y)*16,
-											w2 += orient2dIncX(d01.y)*16) {
-			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+											w2 += orient2dIncX(d01.y)*16,
+											p.x = (p.x + 1) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)

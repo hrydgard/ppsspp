@@ -1221,7 +1221,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	switch (format) {
 	case GE_TFMT_CLUT4:
 		{
-		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		switch (clutformat) {
