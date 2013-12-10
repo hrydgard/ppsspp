@@ -175,6 +175,12 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 	return ptr;
 #else
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
+// Do not sync memory to underlying file. Linux has this by default.
+#ifdef BLACKBERRY
+		MAP_NOSYNCFILE |
+#elif defined(__FreeBSD__)
+		MAP_NOSYNC |
+#endif
 		((base == 0) ? 0 : MAP_FIXED), fd, offset);
 
 	if (retval == MAP_FAILED)
