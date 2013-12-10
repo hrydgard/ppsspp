@@ -313,6 +313,12 @@ void VFSShutdown() {
 }
 
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
+	if (filename[0] == '/') {
+		// This is an absolute path, not a VFS file. Return 0.
+		ILOG("Not a VFS path: %s", filename);
+		return 0;
+	}
+
 	int fn_len = (int)strlen(filename);
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
@@ -327,7 +333,6 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 			// Else try the other registered file systems.
 		}
 	}
-	ELOG("Missing filesystem for %s", filename);
 	return 0;
 }
 
