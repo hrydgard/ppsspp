@@ -34,6 +34,7 @@ namespace MIPSDis
 	void Dis_RelBranch2(MIPSOpcode op, char *out);
 	void Dis_RelBranch(MIPSOpcode op, char *out);
 	void Dis_Generic(MIPSOpcode op, char *out);
+	void Dis_Cache(MIPSOpcode op, char *out);
 	void Dis_IType(MIPSOpcode op, char *out);
 	void Dis_IType1(MIPSOpcode op, char *out);
 	void Dis_ITypeMem(MIPSOpcode op, char *out);

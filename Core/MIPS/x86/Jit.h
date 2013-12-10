@@ -58,7 +58,8 @@ class Jit : public Gen::XCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
-	~Jit();
+	virtual ~Jit();
+
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
@@ -76,7 +77,6 @@ public:
 		return asm_.IsInSpace(p);
 	}
 
-	void CompileAt(u32 addr);
 	void Comp_RunBlock(MIPSOpcode op);
 
 	// Ops

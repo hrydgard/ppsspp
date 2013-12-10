@@ -147,7 +147,7 @@ const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ...............
 	INVALID,
 	INVALID,
 	INSTR("swr", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
-	INSTR("cache", &Jit::Comp_Cache, Dis_Generic, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_OTHER),
+	INSTR("cache", &Jit::Comp_Cache, Dis_Cache, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_OTHER),
 	//48
 	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|OUT_OTHER|MEMTYPE_WORD),
 	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|MEMTYPE_FLOAT),

@@ -58,4 +58,5 @@ namespace MIPSCodeUtils
 	u32 GetJumpTarget(u32 addr);
 	u32 GetSureBranchTarget(u32 addr);
 	bool IsVFPUBranch(MIPSOpcode op);
+	bool IsBranch(MIPSOpcode op);
 }

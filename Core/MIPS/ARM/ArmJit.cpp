@@ -149,12 +149,6 @@ void Jit::ClearCacheAt(u32 em_address, int length)
 	blocks.InvalidateICache(em_address, length);
 }
 
-void Jit::CompileAt(u32 addr)
-{
-	MIPSOpcode op = Memory::Read_Instruction(addr);
-	MIPSCompileOp(op);
-}
-
 void Jit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
@@ -187,6 +181,7 @@ void Jit::CompileDelaySlot(int flags)
 	if (flags & DELAYSLOT_SAFE)
 		_MSR(true, false, R8);  // Restore flags register
 }
+
 
 void Jit::Compile(u32 em_address) {
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {

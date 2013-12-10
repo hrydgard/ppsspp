@@ -52,6 +52,7 @@ class Jit : public ArmGen::ARMXCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
+
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
@@ -70,7 +71,6 @@ public:
 	}
 
 	void CompileDelaySlot(int flags);
-	void CompileAt(u32 addr);
 	void EatInstruction(MIPSOpcode op);
 	void Comp_RunBlock(MIPSOpcode op);
 

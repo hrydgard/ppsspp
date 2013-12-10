@@ -217,14 +217,16 @@ int binary_search(JitBlock blocks[], const u8 *baseoff, int imin, int imax)
 		return -1;
 }
 
-int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst) const {
+int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad) const {
 	if (!num_blocks || !MIPS_IS_EMUHACK(inst)) // definitely not a JIT block
 		return -1;
 	int off = (inst & MIPS_EMUHACK_VALUE_MASK);
 
 	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
 	if (baseoff < codeBlock_->GetBasePtr() || baseoff >= codeBlock_->GetCodePtr()) {
-		ERROR_LOG(JIT, "JitBlockCache: Invalid Emuhack Op %08x", inst.encoding);
+		if (!ignoreBad) {
+			ERROR_LOG(JIT, "JitBlockCache: Invalid Emuhack Op %08x", inst.encoding);
+		}
 		return -1;
 	}
 

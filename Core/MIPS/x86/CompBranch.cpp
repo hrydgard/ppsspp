@@ -492,7 +492,6 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	// THE CONDITION
 	int imm3 = (op >> 18) & 7;
 
-	//int val = (mips_->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
 	TEST(32, M((void *)&(mips_->vfpuCtrl[VFPU_CTRL_CC])), Imm32(1 << imm3));
 
 	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);

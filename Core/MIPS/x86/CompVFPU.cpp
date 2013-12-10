@@ -722,6 +722,9 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 			SetJumpTarget(skip);
 		}
 	}
+
+	ApplyPrefixD(dregs, sz);
+
 	fpr.ReleaseSpillLocks();
 }
 
@@ -1142,6 +1145,10 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
 #define SSE_CONST4(name, val) static const u32 MEMORY_ALIGNED16(name[4]) = { (val), (val), (val), (val) }
 
 	SSE_CONST4(mask_nosign,         0x7fff);
@@ -1150,11 +1157,6 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	SSE_CONST4(exp_infnan,          255 << 23);
 	
 #undef SSE_CONST4
-
-	CONDITIONAL_DISABLE;
-	if (js.HasUnknownPrefix())
-		DISABLE;
-
 	VectorSize sz = GetVecSize(op);
 	VectorSize outsize;
 	switch (sz) {

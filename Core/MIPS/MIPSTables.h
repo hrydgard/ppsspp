@@ -86,6 +86,7 @@ struct MIPSInfo {
 
 #define VFPU_NO_PREFIX  0x10000000
 #define IS_VFPU         0x20000000
+#define IS_FPU          0x40000000
 
 #ifndef CDECL
 #define CDECL
