@@ -224,7 +224,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	}	
 }
 
-static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *srcptr, int texbufwidthbits)
+static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, const u8 *srcptr, int texbufwidthbits)
 {
 	if (!srcptr)
 		return 0;
@@ -236,19 +236,19 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *s
 	switch (texfmt) {
 	case GE_TFMT_4444:
 		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGBA4444(*(u16*)srcptr);
+		return DecodeRGBA4444(*(const u16*)srcptr);
 	
 	case GE_TFMT_5551:
 		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGBA5551(*(u16*)srcptr);
+		return DecodeRGBA5551(*(const u16*)srcptr);
 
 	case GE_TFMT_5650:
 		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGB565(*(u16*)srcptr);
+		return DecodeRGB565(*(const u16*)srcptr);
 
 	case GE_TFMT_8888:
 		srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
-		return DecodeRGBA8888(*(u32*)srcptr);
+		return DecodeRGBA8888(*(const u32 *)srcptr);
 
 	case GE_TFMT_CLUT32:
 		{
@@ -276,21 +276,21 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, u8 *s
 		}
 	case GE_TFMT_DXT1:
 		{
-			DXT1Block *block = (DXT1Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+			const DXT1Block *block = (const DXT1Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4);
 			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
 		}
 	case GE_TFMT_DXT3:
 		{
-			DXT3Block *block = (DXT3Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+			const DXT3Block *block = (const DXT3Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4);
 			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
 		}
 	case GE_TFMT_DXT5:
 		{
-			DXT5Block *block = (DXT5Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+			const DXT5Block *block = (const DXT5Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4);
 			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
@@ -846,15 +846,24 @@ void DrawTriangleSlice(
 	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
 	int bias2 = IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0;
 
-	int texlevel = 0;
-	int texbufwidthbits = 0;
-	u8 *texptr = NULL;
+	int texbufwidthbits[8] = {0};
+
+	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	u8 *texptr[8] = {NULL};
+
+	if ((gstate.texfilter & 4) == 0) {
+		// No mipmapping enabled
+		maxTexLevel = 0;
+	}
+
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		// TODO: Always using level 0.
 		GETextureFormat texfmt = gstate.getTextureFormat();
-		u32 texaddr = gstate.getTextureAddress(texlevel);
-		texbufwidthbits = GetTextureBufw(texlevel, texaddr, texfmt) * 8;
-		texptr = Memory::GetPointer(texaddr);
+		for (int i = 0; i <= maxTexLevel; i++) {
+			u32 texaddr = gstate.getTextureAddress(i);
+			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+			texptr[i] = Memory::GetPointer(texaddr);
+		}
 	}
 
 	ScreenCoords pprime(minX, minY, 0);
@@ -878,14 +887,14 @@ void DrawTriangleSlice(
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
 		for (; pprime.x <= maxX; pprime.x +=16,
-											w0 += orient2dIncX(d12.y)*16,
-											w1 += orient2dIncX(-d02.y)*16,
-											w2 += orient2dIncX(d01.y)*16,
-											p.x = (p.x + 1) & 0x3FF) {
+			w0 += orient2dIncX(d12.y)*16,
+			w1 += orient2dIncX(-d02.y)*16,
+			w2 += orient2dIncX(d01.y)*16,
+			p.x = (p.x + 1) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
-			if (w0 + bias0 >=0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
+			if (w0 + bias0 >= 0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
 				// TODO: Check if this check is still necessary
 				if (w0 == 0 && w1 == 0 && w2 == 0)
 					continue;
@@ -916,6 +925,8 @@ void DrawTriangleSlice(
 					int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
 					int frac_u, frac_v;
 
+					int texlevel = 0;
+					
 					int magFilt = (gstate.texfilter>>8) & 1;
 
 					bool bilinear = magFilt != 0;
@@ -932,33 +943,49 @@ void DrawTriangleSlice(
 						frac_v = v_texel & 0xff;
 						u_texel >>= 8;
 						v_texel >>= 8;
-						GetTexelCoordinatesThrough(0, u_texel, v_texel, u[0], v[0]);
+
+						// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
+						// texlevel = x     
+
+						if (texlevel > maxTexLevel)
+							texlevel = maxTexLevel;
+
+						GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
 						if (bilinear) {
-							GetTexelCoordinatesThrough(0, u_texel + 1, v_texel, u[1], v[1]);
-							GetTexelCoordinatesThrough(0, u_texel, v_texel + 1, u[2], v[2]);
-							GetTexelCoordinatesThrough(0, u_texel + 1, v_texel + 1, u[3], v[3]);
+							GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
+							GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
+							GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
 						}
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
 						t = t * texScaleV + texOffsetV;
+
+						// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
+						// texlevel = x
+
+						if (texlevel > maxTexLevel)
+							texlevel = maxTexLevel;
+
 						if (bilinear) {
-							GetTexelCoordinatesQuad(0, s, t, u, v, frac_u, frac_v);
+							GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u, frac_v);
 						} else {
-							GetTexelCoordinates(0, s, t, u[0], v[0]);
+							GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
 						}
 					}
 
 					Vec4<int> texcolor;
+					int bufwbits = texbufwidthbits[texlevel];
+					const u8 *tptr = texptr[texlevel];
 					if (!bilinear) {
 						// Nearest filtering only. Round texcoords or just chop bits?
-						texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], texptr, texbufwidthbits));
+						texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
 					} else {
-						Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], texptr, texbufwidthbits));
-						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], texptr, texbufwidthbits));
-						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], texptr, texbufwidthbits));
-						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], texptr, texbufwidthbits));
+						Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
+						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
+						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
 						Vec4<int> t = texcolor_tl * (0xff - frac_u) + texcolor_tr * frac_u;
 						Vec4<int> b = texcolor_bl * (0xff - frac_u) + texcolor_br * frac_u;
 						texcolor = (t * (0xff - frac_v) + b * frac_v) / (256 * 256);
@@ -1048,6 +1075,7 @@ void DrawTriangleSlice(
 					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 				}
 
+				// TODO: Dither before or inside SetPixelColor
 				SetPixelColor(p.x, p.y, new_color);
 			}
 		}

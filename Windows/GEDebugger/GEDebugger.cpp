@@ -153,7 +153,7 @@ void CGEDebugger::UpdatePreviews() {
 	case PRIMARY_FRAMEBUF:
 		bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer);
 		if (bufferResult) {
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d) fmt %i", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), state.FrameBufFormat());
 		}
 		break;
 
