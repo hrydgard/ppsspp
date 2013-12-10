@@ -31,11 +31,22 @@
 // does on the PSP, namely checking for and deleting savedata, and similar things.
 // Only cares about games that are installed on the current device.
 
+// Guessed from GameID, not necessarily accurate
+enum GameRegion {
+	GAMEREGION_JAPAN,
+	GAMEREGION_USA,
+	GAMEREGION_EUROPE,
+	GAMEREGION_HONGKONG,
+	GAMEREGION_ASIA,
+	GAMEREGION_OTHER,
+	GAMEREGION_MAX,
+};
+
 class GameInfo {
 public:
 	GameInfo()
 		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
-			wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0), disc_total(0), disc_number(0) {}
+			wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0), disc_total(0), disc_number(0), region(-1) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
@@ -44,7 +55,7 @@ public:
 	u64 GetSaveDataSizeInBytes();
 	u64 GetInstallDataSizeInBytes();
 
-	void LoadParamSFO();
+	void ParseParamSFO();
 
 	std::vector<std::string> GetSaveDataDirectories();
 
@@ -61,6 +72,7 @@ public:
 	std::string id_version;
 	int disc_total;
 	int disc_number;
+	int region;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;
