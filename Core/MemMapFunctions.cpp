@@ -40,7 +40,7 @@ namespace Memory
 u8 *GetPointer(const u32 address)
 {
 	if ((address & 0x3E000000) == 0x08000000) {
-		return m_pRAM + (address & RAM_NORMAL_MASK);
+		return GetPointerUnchecked(address);
 	}
 	else if ((address & 0x3F800000) == 0x04000000) {
 		return m_pVRAM + (address & VRAM_MASK);
@@ -49,7 +49,7 @@ u8 *GetPointer(const u32 address)
 		return m_pScratchPad + (address & SCRATCHPAD_MASK);
 	}
 	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		return m_pRAM + (address & g_MemoryMask);
+		return GetPointerUnchecked(address);
 	}
 	else {
 		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
@@ -75,7 +75,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 	// Could just do a base-relative read, too.... TODO
 
 	if ((address & 0x3E000000) == 0x08000000) {
-		var = *((const T*)&m_pRAM[address & RAM_NORMAL_MASK]);
+		var = *((const T*)GetPointerUnchecked(address));
 	}
 	else if ((address & 0x3F800000) == 0x04000000) {
 		var = *((const T*)&m_pVRAM[address & VRAM_MASK]);
@@ -85,7 +85,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 		var = *((const T*)&m_pScratchPad[address & SCRATCHPAD_MASK]);
 	}
 	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		var = *((const T*)&m_pRAM[address & g_MemoryMask]);
+		var = *((const T*)GetPointerUnchecked(address));
 	}
 	else
 	{
@@ -113,7 +113,7 @@ inline void WriteToHardware(u32 address, const T data)
 	// Could just do a base-relative write, too.... TODO
 
 	if ((address & 0x3E000000) == 0x08000000) {
-		*(T*)&m_pRAM[address & RAM_NORMAL_MASK] = data;
+		*(T*)GetPointerUnchecked(address) = data;
 	}
 	else if ((address & 0x3F800000) == 0x04000000) {
 		*(T*)&m_pVRAM[address & VRAM_MASK] = data;
@@ -122,7 +122,7 @@ inline void WriteToHardware(u32 address, const T data)
 		*(T*)&m_pScratchPad[address & SCRATCHPAD_MASK] = data;
 	}
 	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		*(T*)&m_pRAM[address & g_MemoryMask] = data;
+		*(T*)GetPointerUnchecked(address) = data;
 	}
 	else
 	{

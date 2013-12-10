@@ -60,7 +60,10 @@ extern u8 *base;
 // These are guaranteed to point to "low memory" addresses (sub-32-bit).
 // 64-bit: Pointers to low-mem (sub-0x10000000) mirror
 // 32-bit: Same as the corresponding physical/virtual pointers.
+// Broken into three chunks to workaround 32-bit mmap() limits.
 extern u8 *m_pRAM;
+extern u8 *m_pRAM2;
+extern u8 *m_pRAM3;
 extern u8 *m_pScratchPad;
 extern u8 *m_pVRAM;
 
