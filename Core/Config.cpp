@@ -99,7 +99,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("ReportingHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	general->Get("TopMost", &bTopMost);
 	general->Get("WindowX", &iWindowX, -1); // -1 tells us to center the window.
 	general->Get("WindowY", &iWindowY, -1);
@@ -316,7 +316,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	network->Get("EnableWlan", &bEnableWlan, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-#if !defined(ARM)
+#if !defined(ARM) || defined(__SYMBIAN32__)
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
 #else
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT);
@@ -332,7 +332,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	pspConfig->Get("ButtonPreference", &iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS);
 	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	pspConfig->Get("BypassOSKWithKeyboard", &bBypassOSKWithKeyboard, false);
 #endif
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
@@ -419,7 +419,7 @@ void Config::Save() {
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportingHost", sReportHost);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 		general->Set("TopMost", bTopMost);
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
@@ -569,7 +569,7 @@ void Config::Save() {
 		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
 		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 		pspConfig->Set("BypassOSKWithKeyboard", bBypassOSKWithKeyboard);
 #endif
 

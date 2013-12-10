@@ -27,7 +27,7 @@
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 #include "base/NativeApp.h"
 #endif
 
@@ -781,7 +781,7 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
 int PSPOskDialog::NativeKeyboard()
@@ -850,7 +850,7 @@ int PSPOskDialog::Update(int animSpeed)
 
 	// TODO: Add your platforms here when you have a NativeKeyboard func.
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
 	// The dialog box doesn't work right if in fullscreen.
 	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
