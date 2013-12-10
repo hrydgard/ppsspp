@@ -213,6 +213,7 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
+	// Framebuffer
 	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF) | ((fbwidth & 0xFF0000) << 8); }
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
@@ -229,7 +230,8 @@ struct GPUgstate
 	// Cull 
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
-	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
+
+	// Color Mask
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
 	bool isClearModeDepthMask() const { return (clearmode&0x400) != 0; }
@@ -237,9 +239,9 @@ struct GPUgstate
 	
 	// Blend
 	GEBlendSrcFactor getBlendFuncA() const { return (GEBlendSrcFactor)(blend & 0xF); }
+	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
-	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
 	GEBlendMode getBlendEq() const { return static_cast<GEBlendMode>((blend >> 8) & 0x7); }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 
