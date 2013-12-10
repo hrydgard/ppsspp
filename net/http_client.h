@@ -108,6 +108,11 @@ public:
 		}
 	}
 
+	// Just metadata. Convenient for download managers, for example, if set,
+	// Downloader::GetCurrentProgress won't return it in the results.
+	bool IsHidden() const { return hidden_; }
+	void SetHidden(bool hidden) { hidden_ = hidden; }
+
 private:
 	void Do(std::shared_ptr<Download> self);  // Actually does the download. Runs on thread.
 	void SetFailed(int code);
@@ -119,6 +124,7 @@ private:
 	bool completed_;
 	bool failed_;
 	volatile bool cancelled_;
+	bool hidden_;
 	std::function<void(Download &)> callback_;
 };
 
@@ -132,7 +138,7 @@ public:
 
 	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
 
-	void StartDownloadWithCallback(
+	std::shared_ptr<Download> StartDownloadWithCallback(
 		const std::string &url,
 		const std::string &outfile,
 		std::function<void(Download &)> callback);

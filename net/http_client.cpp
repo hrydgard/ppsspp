@@ -310,7 +310,7 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 }
 
 Download::Download(const std::string &url, const std::string &outfile)
-	: progress_(0.0f), url_(url), outfile_(outfile), resultCode_(0), completed_(false), failed_(false), cancelled_(false) {
+	: progress_(0.0f), url_(url), outfile_(outfile), resultCode_(0), completed_(false), failed_(false), cancelled_(false), hidden_(false) {
 }
 
 Download::~Download() {
@@ -392,7 +392,7 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 	return dl;
 }
 
-void Downloader::StartDownloadWithCallback(
+std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const std::string &url,
 	const std::string &outfile,
 	std::function<void(Download &)> callback) {
@@ -400,6 +400,7 @@ void Downloader::StartDownloadWithCallback(
 	dl->SetCallback(callback);
 	downloads_.push_back(dl);
 	dl->Start(dl);
+	return dl;
 }
 
 void Downloader::Update() {
@@ -416,7 +417,8 @@ void Downloader::Update() {
 std::vector<float> Downloader::GetCurrentProgress() {
 	std::vector<float> progress;
 	for (size_t i = 0; i < downloads_.size(); i++) {
-		progress.push_back(downloads_[i]->Progress());
+		if (!downloads_[i]->IsHidden())
+			progress.push_back(downloads_[i]->Progress());
 	}
 	return progress;
 }
