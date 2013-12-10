@@ -129,7 +129,9 @@ namespace MIPSInt
 		// Icache
 		case 8:
 			// Invalidate the instruction cache at this address
-			MIPSComp::jit->ClearCacheAt(addr, 0x40);
+			if (MIPSComp::jit) {
+				MIPSComp::jit->ClearCacheAt(addr, 0x40);
+			}
 			break;
 
 		// Dcache
