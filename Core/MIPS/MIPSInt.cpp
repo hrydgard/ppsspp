@@ -26,6 +26,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
@@ -98,8 +99,6 @@ int MIPS_SingleStep()
 	return 1;
 }
 
-
-
 u32 MIPS_GetNextPC()
 {
 	if (mipsr4k.inDelaySlot)
@@ -108,12 +107,10 @@ u32 MIPS_GetNextPC()
 		return mipsr4k.pc + 4;
 }
 
-
 void MIPS_ClearDelaySlot()
 {
 	mipsr4k.inDelaySlot = false;
 }
-
 
 namespace MIPSInt
 {
@@ -124,8 +121,18 @@ namespace MIPSInt
 		int addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;
 
-		// It appears that a cache line is 0x40 (64) bytes.
+		// It appears that a cache line is 0x40 (64) bytes, loops in games
+		// issue the cache instruction at that interval.
+
+		// These codes might be PSP-specific, they don't match regular MIPS cache codes very well
 		switch (func) {
+		// Icache
+		case 8:
+			// Invalidate the instruction cache at this address
+			MIPSComp::jit->ClearCacheAt(addr, 0x40);
+			break;
+
+		// Dcache
 		case 24:
 			// "Create Dirty Exclusive" - for avoiding a cacheline fill before writing to it.
 			// Will cause garbage on the real machine so we just ignore it, the app will overwrite the cacheline.
@@ -133,13 +140,13 @@ namespace MIPSInt
 		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
 			// No need to do anything.
 			break;
-		case 27:  // D-cube. Hit Writeback Invalidate.
+		case 27:  // D-cube. Hit Writeback Invalidate.  Tony Hawk Underground 2
 			break;
-		case 30:  // GTA LCS, a lot. Fill (prefetch).
+		case 30:  // GTA LCS, a lot. Fill (prefetch).   Tony Hawk Underground 2
 			break;
 
 		default:
-			DEBUG_LOG(CPU,"cache instruction affecting %08x : function %i", addr, func);
+			DEBUG_LOG(CPU, "cache instruction affecting %08x : function %i", addr, func);
 		}
 
 		PC += 4;
