@@ -330,8 +330,8 @@ public:
 			{
 				// Read a generic icon
 				size_t sz;
-				uint8_t *contents = VFSReadFile("rar.png", &sz);
-				DEBUG_LOG(LOADER, "Loading a RAR compressed hombrew/demo icon because there was a RAR file");
+				uint8_t *contents = VFSReadFile("unsupported.png", &sz);
+				DEBUG_LOG(LOADER, "Loading unsupported.png because RAR compressed hombrews/demos aren't supported");
 				if (contents) {
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
