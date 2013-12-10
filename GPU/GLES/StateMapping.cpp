@@ -335,7 +335,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Depth Test
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+		glstate.depthWrite.set(gstate.isClearModeDepthMask() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();

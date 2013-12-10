@@ -1022,7 +1022,7 @@ void DrawTriangleSlice(
 					if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
 						SetPixelDepth(p.x, p.y, z);
 					}
-				} else if (clearMode && gstate.isClearModeDepthWriteEnabled()) {
+				} else if (clearMode && gstate.isClearModeDepthMask()) {
 					SetPixelDepth(p.x, p.y, z);
 				}
 
@@ -1150,7 +1150,7 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
 			SetPixelDepth(p.x, p.y, z);
 		}
-	} else if (clearMode && gstate.isClearModeDepthWriteEnabled()) {
+	} else if (clearMode && gstate.isClearModeDepthMask()) {
 		SetPixelDepth(p.x, p.y, z);
 	}
 
