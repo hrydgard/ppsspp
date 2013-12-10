@@ -378,8 +378,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
 	if (iRunCount % 5 == 0) {
-		g_DownloadManager.StartDownloadWithCallback(
+		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
 			"http://www.ppsspp.org/version.json", "", &DownloadCompletedCallback);
+		dl->SetHidden(true);
 	}
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
