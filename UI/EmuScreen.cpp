@@ -142,7 +142,6 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		screenManager()->switchScreen(new MainScreen());
 		System_SendMessage("event", "exitgame");
 	}
-
 	RecreateViews();
 }
 
@@ -185,6 +184,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
 		}
+		RecreateViews();
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
 	} else if (!strcmp(message, "clear jit")) {
@@ -665,6 +665,8 @@ void EmuScreen::deviceLost() {
 	ILOG("EmuScreen::deviceLost()");
 	if (gpu)
 		gpu->DeviceLost();
+
+	RecreateViews();
 }
 
 void EmuScreen::autoLoad() {
