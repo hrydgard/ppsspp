@@ -57,4 +57,5 @@ private:
 	UI::TextView *tvGameSize_;
 	UI::TextView *tvSaveDataSize_;
 	UI::TextView *tvInstallDataSize_;
+	UI::TextView *tvRegion_;
 };

@@ -162,6 +162,44 @@ bool GameInfo::DeleteAllSaveData() {
 	return true;
 }
 
+void GameInfo::ParseParamSFO() {
+	title = paramSFO.GetValueString("TITLE");
+	id = paramSFO.GetValueString("DISC_ID");
+	id_version = paramSFO.GetValueString("DISC_ID") + "_" + paramSFO.GetValueString("DISC_VERSION");
+	disc_total = paramSFO.GetValueInt("DISC_TOTAL");
+	disc_number = paramSFO.GetValueInt("DISC_NUMBER");
+	// region = paramSFO.GetValueInt("REGION");  // Always seems to be 32768?
+
+	region = GAMEREGION_OTHER;
+	if (id_version.size() >= 4) {
+		std::string regStr = id_version.substr(0, 4);
+
+		// Guesswork
+		switch (regStr[2]) {
+		case 'E': region = GAMEREGION_EUROPE; break;
+		case 'U': region = GAMEREGION_USA; break;
+		case 'J': region = GAMEREGION_JAPAN; break;
+		case 'H': region = GAMEREGION_HONGKONG; break;
+		case 'A': region = GAMEREGION_ASIA; break;
+		}
+		/*
+		if (regStr == "NPEZ" || regStr == "NPEG" || regStr == "ULES" || regStr == "UCES" ||
+			  regStr == "NPEX") {
+			region = GAMEREGION_EUROPE;
+		} else if (regStr == "NPUG" || regStr == "NPUZ" || regStr == "ULUS" || regStr == "UCUS") {
+			region = GAMEREGION_USA;
+		} else if (regStr == "NPJH" || regStr == "NPJG" || regStr == "ULJM"|| regStr == "ULJS") {
+			region = GAMEREGION_JAPAN;
+		} else if (regStr == "NPHG") {
+			region = GAMEREGION_HONGKONG;
+		} else if (regStr == "UCAS") {
+			region = GAMEREGION_CHINA;
+		}*/
+	}
+
+	paramSFOLoaded = true;
+}
+
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
@@ -218,13 +256,7 @@ public:
 				{
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO(sfoData, sfoSize);
-					info_->title = info_->paramSFO.GetValueString("TITLE");
-					info_->id = info_->paramSFO.GetValueString("DISC_ID");
-					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
-					info_->disc_total = info_->paramSFO.GetValueInt("DISC_TOTAL");
-					info_->disc_number = info_->paramSFO.GetValueInt("DISC_NUMBER");
-
-					info_->paramSFOLoaded = true;
+					info_->ParseParamSFO();
 				}
 				delete [] sfoData;
 
@@ -287,13 +319,7 @@ public:
 				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-					info_->title = info_->paramSFO.GetValueString("TITLE");
-					info_->id = info_->paramSFO.GetValueString("DISC_ID");
-					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
-					info_->disc_total = info_->paramSFO.GetValueInt("DISC_TOTAL");
-					info_->disc_number = info_->paramSFO.GetValueInt("DISC_NUMBER");
-
-					info_->paramSFOLoaded = true;
+					info_->ParseParamSFO();
 				}
 
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
@@ -321,13 +347,7 @@ public:
 				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-					info_->title = info_->paramSFO.GetValueString("TITLE");
-					info_->id = info_->paramSFO.GetValueString("DISC_ID");
-					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
-					info_->disc_total = info_->paramSFO.GetValueInt("DISC_TOTAL");
-					info_->disc_number = info_->paramSFO.GetValueInt("DISC_NUMBER");
-
-					info_->paramSFOLoaded = true;
+					info_->ParseParamSFO();
 				} else {
 					// Fall back to the filename for title if ISO is broken
 					info_->title = gamePath_;

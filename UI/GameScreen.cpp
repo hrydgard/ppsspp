@@ -57,6 +57,7 @@ void GameScreen::CreateViews() {
 		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 250, NONE, NONE)));
 		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 290, NONE, NONE)));
 		tvInstallDataSize_ = leftColumn->Add(new TextView("", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 330, NONE, NONE)));
+		tvRegion_ = leftColumn->Add(new TextView("", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 370, NONE, NONE)));
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -134,6 +135,17 @@ void GameScreen::update(InputState &input) {
 			sprintf(temp, "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvInstallDataSize_->SetText(temp);
 		}
+	}
+
+	if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
+		static const char *regionNames[GAMEREGION_MAX] = {
+			"Japan",
+			"USA",
+			"Europe",
+			"Hong Kong",
+			"Asia"
+		};
+		tvRegion_->SetText(ga->T(regionNames[info->region]));
 	}
 }
 
