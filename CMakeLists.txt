@@ -1326,6 +1326,8 @@ set(NativeAssets
 	assets/shaders
 	assets/ppge_atlas.zim
 	assets/langregion.ini
+	assets/rar.png
+	assets/install-demo.png
 	assets/unknown.png)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 

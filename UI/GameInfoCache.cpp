@@ -261,17 +261,50 @@ public:
 			info_->id = "ELF000000";
 			info_->id_version = "ELF000000_1.00";
 			info_->paramSFOLoaded = true;
-
 			{
-				// Read standard icon
+				
 				size_t sz;
 				uint8_t *contents = VFSReadFile("unknown.png", &sz);
-				DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
+				DEBUG_LOG(LOADER, "Loading unknown.png icon because there was an ELF");
 				if (contents) {
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
 				}
-				delete [] contents;
+				delete[] contents;
+			}
+
+			break;
+
+		case FILETYPE_ARCHIVE_ZIP:
+			// A homebrew/demo installer on its own has no usable information, no icons, no nothing.
+			info_->title = getFilename(filename);
+			{
+				// Read a generic icon
+				size_t sz;
+				uint8_t *contents = VFSReadFile("install-demo.png", &sz);
+				DEBUG_LOG(LOADER, "Loading demo installer icon because there was a .ZIP file");
+				if (contents) {
+					lock_guard lock(info_->lock);
+					info_->iconTextureData = std::string((const char *)contents, sz);
+				}
+				delete[] contents;
+			}
+
+			break;
+
+		case FILETYPE_ARCHIVE_RAR:
+			// A homebrew/demo compressed with RAR, on its own has no usable information, no icons, no nothing.
+			info_->title = getFilename(filename);
+			{
+				// Read a generic icon
+				size_t sz;
+				uint8_t *contents = VFSReadFile("rar.png", &sz);
+				DEBUG_LOG(LOADER, "Loading a RAR compressed hombrew/demo icon because there was a RAR file");
+				if (contents) {
+					lock_guard lock(info_->lock);
+					info_->iconTextureData = std::string((const char *)contents, sz);
+				}
+				delete[] contents;
 			}
 
 			break;
@@ -329,8 +362,16 @@ public:
 
 					info_->paramSFOLoaded = true;
 				} else {
-					// Fall back to the filename for title if ISO is broken
+					// Fall back to unknown icon if ISO is broken, override is allowed though
 					info_->title = gamePath_;
+					size_t sz;
+					uint8_t *contents = VFSReadFile("unknown.png", &sz);
+					DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
+					}
+					delete[] contents;
 				}
 
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
