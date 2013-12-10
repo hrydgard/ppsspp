@@ -148,7 +148,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	int ctrlMask = 0;
 	int lastDown = down_;
 
-	bool fourWay = g_Config.bDisableDpadDiagonals || rad < 1.25f;
+	bool fourWay = g_Config.bDisableDpadDiagonals || rad < 0.7f;
 	if (down) {
 		if (fourWay) {
 			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 4) + 0.5f)) & 3;
