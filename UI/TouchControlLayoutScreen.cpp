@@ -30,6 +30,10 @@
 
 static const int leftColumnWidth = 140;
 
+static u32 GetButtonColor() {
+	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
+}
+
 // convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
 static inline float toFullscreenCoord(int screenx) {
 	return  (float)(screenx - leftColumnWidth) / (dp_xres - leftColumnWidth);
@@ -76,7 +80,7 @@ public:
 	PSPActionButtons(float &x, float &y, float &scale, float &spacing)
 	: DragDropButton(x, y, -1, -1, scale), spacing_(spacing) {
 		using namespace UI;
-		roundId_ = I_ROUND;
+		roundId_ = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
 
 		circleId_ = I_CIRCLE;
 		crossId_ = I_CROSS;
@@ -105,7 +109,7 @@ public:
 	void Draw(UIContext &dc) {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-		uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		int centerX = bounds_.centerX();
@@ -165,18 +169,20 @@ public:
 	void Draw(UIContext &dc) {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-		uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		static const float xoff[4] = {1, 0, -1, 0};
 		static const float yoff[4] = {0, 1, 0, -1};
+
+		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
 
 		for (int i = 0; i < 4; i++) {
 			float x = bounds_.centerX() + xoff[i] * D_pad_Radius * spacing_;
 			float y = bounds_.centerY() + yoff[i] * D_pad_Radius * spacing_;
 			float angle = i * M_PI / 2;
 
-			dc.Draw()->DrawImageRotated(I_DIR, x, y, scale_, angle + PI, colorBg, false);
+			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
 			dc.Draw()->DrawImageRotated(I_ARROW, x, y, scale_, angle + PI, color);
 		}
 	}
@@ -363,36 +369,42 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	controls_.push_back(actionButtons);
 
+	int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
+	int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
+	int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
+	int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
+	int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
+
 	if (g_Config.bShowTouchDpad) {
 		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.fDpadScale, g_Config.fDpadSpacing));
 	}
 
 	if (g_Config.bShowTouchSelect) {
-		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, I_RECT, I_SELECT, g_Config.fSelectKeyScale));
+		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, rectImage, I_SELECT, g_Config.fSelectKeyScale));
 	}
 
 	if (g_Config.bShowTouchStart) {
-		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, I_RECT, I_START, g_Config.fStartKeyScale));
+		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, rectImage, I_START, g_Config.fStartKeyScale));
 	}
 
 	if (g_Config.bShowTouchUnthrottle) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, I_RECT, I_ARROW, g_Config.fUnthrottleKeyScale);
+		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, rectImage, I_ARROW, g_Config.fUnthrottleKeyScale);
 		unthrottle->SetAngle(180.0f);
 		controls_.push_back(unthrottle);
 	}
 
 	if (g_Config.bShowTouchLTrigger) {
-		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, I_SHOULDER, I_L, g_Config.fLKeyScale));
+		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, shoulderImage, I_L, g_Config.fLKeyScale));
 	}
 
 	if (g_Config.bShowTouchRTrigger) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, I_SHOULDER, I_R, g_Config.fRKeyScale);
+		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, shoulderImage, I_R, g_Config.fRKeyScale);
 		rbutton->FlipImageH(true);
 		controls_.push_back(rbutton);
 	}
 
 	if (g_Config.bShowTouchAnalogStick) {
-		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, I_STICKBG, I_STICK, g_Config.fAnalogStickScale));
+		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, stickBg, stickImage, g_Config.fAnalogStickScale));
 	};
 
 	for (size_t i = 0; i < controls_.size(); i++) {

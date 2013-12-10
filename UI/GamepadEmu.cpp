@@ -34,6 +34,10 @@
 #define USE_PAUSE_BUTTON 0
 #endif
 
+static u32 GetButtonColor() {
+	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
+}
+
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	const AtlasImage &image = dc.Draw()->GetAtlas()->images[bgImg_];
 	w = image.w * scale_;
@@ -63,7 +67,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		scale *= 2.0f;
 		opacity *= 1.15f;
 	}
-	uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, angle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
@@ -191,7 +195,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 void PSPDpad::Draw(UIContext &dc) {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-	uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 	static const float xoff[4] = {1, 0, -1, 0};
@@ -223,7 +227,7 @@ void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 void PSPStick::Draw(UIContext &dc) {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-	uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0x808080, opacity);
 
 	float stickX = bounds_.centerX();
@@ -447,41 +451,48 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	const int halfW = dp_xres / 2;
 
 	if (g_Config.bShowTouchControls) {
+		int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
+		int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
+		int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
+		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
+		int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
+		int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
+
 #if USE_PAUSE_BUTTON
-		root->Add(new BoolButton(pause, I_ROUND, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+		root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 #endif
 		if (g_Config.bShowTouchCircle)
-		root->Add(new PSPButton(CTRL_CIRCLE, I_ROUND, I_CIRCLE, Action_button_scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
+		root->Add(new PSPButton(CTRL_CIRCLE, roundImage, I_CIRCLE, Action_button_scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchCross)
-			root->Add(new PSPButton(CTRL_CROSS, I_ROUND, I_CROSS, Action_button_scale, new AnchorLayoutParams(Action_cross_button_X, Action_cross_button_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_CROSS, roundImage, I_CROSS, Action_button_scale, new AnchorLayoutParams(Action_cross_button_X, Action_cross_button_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchTriangle)
-			root->Add(new PSPButton(CTRL_TRIANGLE, I_ROUND, I_TRIANGLE, Action_button_scale, new AnchorLayoutParams(Action_triangle_button_X, Action_triangle_button_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_TRIANGLE, roundImage, I_TRIANGLE, Action_button_scale, new AnchorLayoutParams(Action_triangle_button_X, Action_triangle_button_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchSquare)
-			root->Add(new PSPButton(CTRL_SQUARE, I_ROUND, I_SQUARE, Action_button_scale, new AnchorLayoutParams(Action_square_button_X, Action_square_button_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_SQUARE, roundImage, I_SQUARE, Action_button_scale, new AnchorLayoutParams(Action_square_button_X, Action_square_button_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchStart)
-			root->Add(new PSPButton(CTRL_START, I_RECT, I_START, start_key_scale, new AnchorLayoutParams(start_key_X, start_key_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_START, rectImage, I_START, start_key_scale, new AnchorLayoutParams(start_key_X, start_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchSelect)
-			root->Add(new PSPButton(CTRL_SELECT, I_RECT, I_SELECT, select_key_scale, new AnchorLayoutParams(select_key_X, select_key_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_SELECT, rectImage, I_SELECT, select_key_scale, new AnchorLayoutParams(select_key_X, select_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchUnthrottle)
-			root->Add(new BoolButton(&PSP_CoreParameter().unthrottle, I_RECT, I_ARROW, unthrottle_key_scale, new AnchorLayoutParams(unthrottle_key_X, unthrottle_key_Y, NONE, NONE, true)))->SetAngle(180);
+			root->Add(new BoolButton(&PSP_CoreParameter().unthrottle, rectImage, I_ARROW, unthrottle_key_scale, new AnchorLayoutParams(unthrottle_key_X, unthrottle_key_Y, NONE, NONE, true)))->SetAngle(180);
 
 		if (g_Config.bShowTouchLTrigger)
-			root->Add(new PSPButton(CTRL_LTRIGGER, I_SHOULDER, I_L, l_key_scale, new AnchorLayoutParams(l_key_X, l_key_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_LTRIGGER, shoulderImage, I_L, l_key_scale, new AnchorLayoutParams(l_key_X, l_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchRTrigger)
-			root->Add(new PSPButton(CTRL_RTRIGGER, I_SHOULDER, I_R, r_key_scale, new AnchorLayoutParams(r_key_X,r_key_Y, NONE, NONE, true)))->FlipImageH(true);
+			root->Add(new PSPButton(CTRL_RTRIGGER, shoulderImage, I_R, r_key_scale, new AnchorLayoutParams(r_key_X,r_key_Y, NONE, NONE, true)))->FlipImageH(true);
 
 		if (g_Config.bShowTouchDpad)
-			root->Add(new PSPDpad(I_DIR, I_ARROW, D_pad_scale, D_pad_spacing, new AnchorLayoutParams(D_pad_X, D_pad_Y, NONE, NONE, true)));
+			root->Add(new PSPDpad(dirImage, I_ARROW, D_pad_scale, D_pad_spacing, new AnchorLayoutParams(D_pad_X, D_pad_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchAnalogStick)
-			root->Add(new PSPStick(I_STICKBG, I_STICK, 0, analog_stick_scale, new AnchorLayoutParams(analog_stick_X, analog_stick_Y, NONE, NONE, true)));
+			root->Add(new PSPStick(stickBg, stickImage, 0, analog_stick_scale, new AnchorLayoutParams(analog_stick_X, analog_stick_Y, NONE, NONE, true)));
 	}
 
 	return root;

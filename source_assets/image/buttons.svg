@@ -358,7 +358,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="2.8"
-     inkscape:cx="198.95268"
+     inkscape:cx="143.23839"
      inkscape:cy="892.72876"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -376,7 +376,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -387,8 +387,8 @@
     <rect
        style="fill:#000000;fill-opacity:1;stroke:none"
        id="rect5044"
-       width="186.1122"
-       height="240.11224"
+       width="399.68362"
+       height="362.96939"
        x="1.3355882"
        y="-8.7092419" />
     <g
@@ -699,12 +699,12 @@
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <path
-       style="fill:#809eb0;fill-opacity:1;stroke:#ffffff;stroke-width:1.68099999;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:0.64893613"
+       style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.50000000000000000;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;color:#000000;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
        d="m 148.92858,176.6479 3.57142,0 1.96429,-3.21429 7.85714,0 2.14285,3.21429 15.89287,0 0,25 -31.42857,0 z"
        id="rect4715"
        inkscape:connector-curvature="0"
        sodipodi:nodetypes="ccccccccc"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\folder.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <g
@@ -732,18 +732,81 @@
            x="208.57143"
            sodipodi:role="line">PSP</tspan></text>
     </g>
-    <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       id="rect3093"
-       width="10.678391"
-       height="16.017588"
-       x="121.0386"
-       y="196.85159" />
     <path
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       d="m 126.3778,188.23298 15.10154,15.10153 -30.20307,0 z"
-       id="rect3097"
-       inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cccc" />
+       style="fill:none;fill-opacity:1;stroke:#ffffff;color:#000000;stroke-width:1.57648360999999990;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+       d="M 126.375 188.21875 L 111.28125 203.34375 L 121.03125 203.34375 L 121.03125 212.875 L 131.71875 212.875 L 131.71875 203.34375 L 141.46875 203.34375 L 126.375 188.21875 z "
+       id="rect3093"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\up_line.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135" />
+    <g
+       transform="translate(-30.410433,-27.908275)"
+       id="g3918-1"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135"
+       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\round_line.png">
+      <path
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\round.png"
+         transform="matrix(0.12501803,0,0,0.12501803,39.336944,18.00774)"
+         d="m 257.14286,175.21933 a 142.85715,140 0 1 1 -285.714294,0 142.85715,140 0 1 1 285.714294,0 z"
+         sodipodi:ry="140"
+         sodipodi:rx="142.85715"
+         sodipodi:cy="175.21933"
+         sodipodi:cx="114.28571"
+         id="path4099-7"
+         style="fill:none;stroke:#ffffff;stroke-width:11.99826937;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+         sodipodi:type="arc" />
+    </g>
+    <g
+       transform="translate(-36.677673,-20.090557)"
+       id="g3922-0"
+       style="color:#000000;fill:none;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\dir_line.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135">
+      <path
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\dir.png"
+         sodipodi:nodetypes="cccccc"
+         inkscape:connector-curvature="0"
+         id="rect4891-9"
+         d="m 40.960556,72.970184 26.951938,0 12.339439,14.148651 -12.339439,14.102175 -26.951938,0 z"
+         style="fill:none;fill-opacity:0.67021275000000002;stroke:#ffffff;color:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
+    </g>
+    <g
+       transform="translate(-29.645712,31.056656)"
+       id="g3914-2"
+       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\rect_line.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135"
+       style="color:#000000;fill:none;stroke:#ffffff;stroke-width:1.50000000000000000;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate">
+      <rect
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\rect.png"
+         y="114.53461"
+         x="34.285713"
+         height="19.970411"
+         width="52.862854"
+         id="rect4948-4"
+         style="fill:none;fill-opacity:0.67021275000000002;stroke:#ffffff;color:#000000;fill-rule:nonzero;stroke-width:1.50000000000000000;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0" />
+    </g>
+    <g
+       transform="translate(-49.660865,31.263025)"
+       id="g3910-2"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\shoulder_line.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135">
+      <path
+         sodipodi:nodetypes="ccccc"
+         inkscape:connector-curvature="0"
+         id="rect4948-1-7"
+         d="m -209.01624,172.9664 c 0,0 56.95966,-1.22843 62.44214,5.17045 3.64304,10.55266 3.3703,20.66414 3.3703,20.66414 l -76.38753,0 z"
+         style="color:#000000;fill:none;stroke:#ffffff;stroke-width:1.57648361;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+         transform="matrix(-1,0,-0.4247234,0.90532316,0,0)" />
+    </g>
   </g>
 </svg>

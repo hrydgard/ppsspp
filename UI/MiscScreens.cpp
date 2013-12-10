@@ -83,7 +83,11 @@ void DrawBackground(float alpha) {
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0.1f,0.2f,0.43f,1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	ui_draw2d.DrawImageStretch(I_BG, 0, 0, dp_xres, dp_yres);
+	int img = I_BG;
+#ifdef GOLD
+	img = I_BG_GOLD;
+#endif
+	ui_draw2d.DrawImageStretch(img, 0, 0, dp_xres, dp_yres);
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i];

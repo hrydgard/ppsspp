@@ -456,6 +456,16 @@ void NativeInitGraphics() {
 	ui_theme.buttonHighlightedStyle = ui_theme.itemHighlightedStyle;
 
 	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
+
+#ifdef GOLD
+	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFF4cc2ed);
+	ui_theme.itemDownStyle.background = UI::Drawable(0xFF39a9ee);
+	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55AFD4E0);
+	ui_theme.itemHighlightedStyle.background = UI::Drawable(0x5539BBbd);
+
+	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
+#endif
+
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
 

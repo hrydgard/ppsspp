@@ -148,6 +148,8 @@ public:
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
+	// Control Style
+	int iTouchButtonStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
 	//space between PSP buttons
