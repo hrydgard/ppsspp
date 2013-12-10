@@ -316,10 +316,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	network->Get("EnableWlan", &bEnableWlan, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-#if !defined(ARM) || defined(__SYMBIAN32__)
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
-#else
-	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT);
+#if !defined(_M_X64) && !defined(_WIN32) && !defined(__SYMBIAN32__)
+	// 32-bit mmap cannot map more than 32MB contiguous
+	iPSPModel = PSP_MODEL_FAT;
 #endif
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
