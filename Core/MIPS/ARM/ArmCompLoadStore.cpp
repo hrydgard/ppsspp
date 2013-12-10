@@ -385,8 +385,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Cache(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
-		// TODO: Could use this as a hint, and technically required to handle icache, etc.
-		// But right now Int_Cache does nothing, so let's not even call it.
+		DISABLE;
 	}
 }
