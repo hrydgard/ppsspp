@@ -262,15 +262,15 @@ public:
 			info_->id_version = "ELF000000_1.00";
 			info_->paramSFOLoaded = true;
 			{
-				
+				// Read standard icon
 				size_t sz;
 				uint8_t *contents = VFSReadFile("unknown.png", &sz);
-				DEBUG_LOG(LOADER, "Loading unknown.png icon because there was an ELF");
+				DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
 				if (contents) {
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
 				}
-				delete[] contents;
+				delete [] contents;
 			}
 
 			break;
@@ -287,7 +287,7 @@ public:
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
 				}
-				delete[] contents;
+				delete [] contents;
 			}
 
 			break;
@@ -304,7 +304,7 @@ public:
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
 				}
-				delete[] contents;
+				delete [] contents;
 			}
 
 			break;
@@ -366,12 +366,12 @@ public:
 					info_->title = gamePath_;
 					size_t sz;
 					uint8_t *contents = VFSReadFile("unknown.png", &sz);
-					DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
+					DEBUG_LOG(LOADER, "Loading unknown.png");
 					if (contents) {
 						lock_guard lock(info_->lock);
 						info_->iconTextureData = std::string((const char *)contents, sz);
 					}
-					delete[] contents;
+					delete [] contents;
 				}
 
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
