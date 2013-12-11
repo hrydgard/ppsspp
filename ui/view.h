@@ -425,7 +425,11 @@ protected:
 class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), text_(text) {}
+		: Clickable(layoutParams), text_(text), imageID_(-1) {}
+	Button(ImageID imageID, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), imageID_(imageID) {}
+	Button(const std::string &text, ImageID imageID, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
@@ -434,6 +438,7 @@ public:
 private:
 	Style style_;
 	std::string text_;
+	ImageID imageID_;
 };
 
 class Slider : public Clickable {

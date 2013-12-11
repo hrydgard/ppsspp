@@ -995,7 +995,8 @@ void ChoiceStrip::Draw(UIContext &dc) {
 }
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
-	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
+	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0) {
+
 	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
 	linLayout_->SetSpacing(0.0f);
 	Add(linLayout_);
@@ -1008,6 +1009,13 @@ void ListView::CreateAllItems() {
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
 		View * v = linLayout_->Add(adaptor_->CreateItemView(i));
 		adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
+	}
+}
+
+void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	ScrollView::Measure(dc, horiz, vert);
+	if (maxHeight_ > 0 && measuredHeight_ > maxHeight_) {
+		measuredHeight_ = maxHeight_;
 	}
 }
 

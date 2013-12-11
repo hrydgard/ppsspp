@@ -197,7 +197,8 @@ UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	listView_ = parent->Add(new ListView(&adaptor_, new LinearLayoutParams(1.0)));
+	listView_ = parent->Add(new ListView(&adaptor_)); //, new LinearLayoutParams(1.0)));
+	listView_->SetMaxHeight(dp_yres - 140);
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }
 

@@ -80,7 +80,7 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	virtual bool FillVertical() const { return true; }
+	virtual bool FillVertical() const { return false; }
 	virtual bool ShowButtons() const { return showButtons_; }
 	void CreatePopupContents(UI::ViewGroup *parent);
 	UI::StringVectorListAdaptor adaptor_;

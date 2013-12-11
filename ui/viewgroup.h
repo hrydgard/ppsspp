@@ -355,7 +355,8 @@ public:
 	ListView(ListAdaptor *a, LayoutParams *layoutParams = 0);
 
 	int GetSelected() { return adaptor_->GetSelected(); }
-
+	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
 
 private:
@@ -363,6 +364,7 @@ private:
 	EventReturn OnItemCallback(int num, EventParams &e);
 	ListAdaptor *adaptor_;
 	LinearLayout *linLayout_;
+	float maxHeight_;
 };
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);

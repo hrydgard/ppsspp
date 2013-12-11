@@ -418,7 +418,13 @@ void CheckBox::Draw(UIContext &dc) {
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+	if (imageID_ != -1) {
+		const AtlasImage *img = &dc.Draw()->GetAtlas()->images[imageID_];
+		w = img->w;
+		h = img->h;
+	} else {
+		dc.MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+	}
 	// Add some internal padding to not look totally ugly
 	w += 16;
 	h += 8;
@@ -435,12 +441,20 @@ void Button::Draw(UIContext &dc) {
 	dc.FillRect(style.background, bounds_);
 	float tw, th;
 	dc.MeasureText(dc.theme->uiFont, text_.c_str(), &tw, &th);
-	if (tw > bounds_.w) {
+	if (tw > bounds_.w || imageID_ != -1) {
 		dc.PushScissor(bounds_);
 	}
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
-	if (tw > bounds_.w) {
+	if (imageID_ != -1 && text_.empty()) {
+		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	} else if (!text_.empty()) {
+		dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+		if (imageID_ != -1) {
+			const AtlasImage &img = dc.Draw()->GetAtlas()->images[imageID_];
+			dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5 - img.w/2, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+		}
+	}
+	if (tw > bounds_.w || imageID_ != -1) {
 		dc.PopScissor();
 	}
 }
