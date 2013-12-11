@@ -1465,7 +1465,7 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated && vfb == displayFramebuf_) 
+		if (updateVram && age == 0 && !vfb->memoryUpdated) 
 				ReadFramebufferToMemory(vfb);
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
