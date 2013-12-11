@@ -391,7 +391,21 @@ handleELF:
 				break;
 
 			case FILETYPE_ARCHIVE_RAR:
-				// TODO: Set archive icon
+				info_->title = getFilename(filename);
+				info_->paramSFOLoaded = true;
+				info_->wantBG = false;
+				{
+					// Read standard icon
+					size_t sz;
+					uint8_t *contents = VFSReadFile("rargray.png", &sz);
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
+					}
+					delete [] contents;
+				}
+				break;
+
 			case FILETYPE_NORMAL_DIRECTORY:
 			default:
 				info_->title = getFilename(gamePath_);
