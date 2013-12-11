@@ -123,8 +123,6 @@ public:
 	void Save();
 	void Load();
 
-	void Add(const std::string &key, GameInfo *info_);
-
 private:
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;

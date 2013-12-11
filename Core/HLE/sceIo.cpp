@@ -360,7 +360,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	if (ioManager.WaitResult(f->handle, managerResult)) {
 		result = managerResult;
 	} else {
-		ERROR_LOG(SCEIO, "Unable to complete IO operation.");
+		ERROR_LOG(SCEIO, "Unable to complete IO operation on %s", f->GetName());
 	}
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);

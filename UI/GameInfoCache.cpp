@@ -65,6 +65,12 @@ bool GameInfo::DeleteGame() {
 			g_Config.CleanRecent();
 			return true;
 		}
+	case FILETYPE_PSP_ELF:
+		{
+			const char *fileToRemove = fileInfo.fullName.c_str();
+			deleteFile(fileToRemove);
+			return true;
+		}
 
 	default:
 		return false;
@@ -273,9 +279,7 @@ public:
 					lock_guard lock(info_->lock);
 					if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
 						pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
-						printf("a %s\n", info_->path.c_str());
 					} else {
-						printf("b %s\n", info_->path.c_str());
 						// Read standard icon
 						size_t sz;
 						DEBUG_LOG(LOADER, "Loading unknown.png because a PBP was missing an icon");
@@ -370,18 +374,30 @@ handleELF:
 				break;
 			}
 
-			case FILETYPE_NORMAL_DIRECTORY:
-				info_->title = gamePath_;
+			case FILETYPE_ARCHIVE_ZIP:
+				info_->title = getFilename(filename);
+				info_->paramSFOLoaded = true;
+				info_->wantBG = false;
+				{
+					// Read standard icon
+					size_t sz;
+					uint8_t *contents = VFSReadFile("zip.png", &sz);
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
+					}
+					delete [] contents;
+				}
 				break;
 
+			case FILETYPE_ARCHIVE_RAR:
+				// TODO: Set archive icon
+			case FILETYPE_NORMAL_DIRECTORY:
 			default:
-			{
-				std::string fn, ext;
-				SplitPath(gamePath_, 0, &fn, &ext);
-				// ext includes the dot
-				info_->title = fn + ext;
-			}
-			break;
+				info_->title = getFilename(gamePath_);
+				info_->paramSFOLoaded = true;
+				info_->wantBG = false;
+				break;
 		}
 		// probably only want these when we ask for the background image...
 		// should maybe flip the flag to "onlyIcon"
@@ -481,10 +497,6 @@ void GameInfoCache::FlushBGs() {
 	}
 }
 
-void GameInfoCache::Add(const std::string &key, GameInfo *info_) {
-
-}
-
 // This may run off-main-thread and we thus can't use the global
 // pspFileSystem (well, we could with synchronization but there might not
 // even be a game running).
@@ -500,9 +512,8 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG, bool 
 		{
 			lock_guard lock(info->lock);
 			if (info->iconTextureData.size()) {
-				info->iconTexture = new Texture();
-				// TODO: We could actually do the PNG decoding as well on the async thread.
 				// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
+				info->iconTexture = new Texture();
 				if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
 					info->timeIconWasLoaded = time_now_d();
 				} else {
