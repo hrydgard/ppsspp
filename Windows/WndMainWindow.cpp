@@ -1437,7 +1437,7 @@ namespace MainWindow
 
 				case ID_EMULATION_SOUND:
 					g_Config.bEnableSound = !g_Config.bEnableSound;
-					if(g_Config.bEnableSound) {
+					if (g_Config.bEnableSound) {
 						if (PSP_IsInited() && !IsAudioInitialised())
 							Audio_Init();
 					}
