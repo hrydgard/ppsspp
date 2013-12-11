@@ -244,10 +244,11 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 	CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
 	disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
+	View *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
+	opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
 	static const char *touchControlStyles[] = {"Classic", "Thin borders"};
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
-	disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
+	style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

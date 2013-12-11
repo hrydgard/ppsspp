@@ -445,10 +445,11 @@ void GameBrowser::Refresh() {
 			path_.GetListing(fileInfo, "zip:rar:r01:");
 			if (!fileInfo.empty()) {
 				UI::LinearLayout *zl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+				zl->SetSpacing(4.0f);
 				Add(zl);
 				for (size_t i = 0; i < fileInfo.size(); i++) {
 					if (!fileInfo[i].isDirectory) {
-						zl->Add(new GameButton(fileInfo[i].fullName, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
+						zl->Add(new GameButton(fileInfo[i].fullName, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::GameButtonClick);
 					}
 				}
 			}
