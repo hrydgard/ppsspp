@@ -207,7 +207,6 @@ inline float tiltInputCurve(float x) {
 	} else {
 		return 0.0f;
 	}
-
 }
 
 inline float clamp1(float x) {

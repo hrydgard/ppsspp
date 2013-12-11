@@ -377,7 +377,7 @@ void GameBrowser::Refresh() {
 			if (fileInfo[i].isDirectory && (path_.GetPath().size() < 4 || !File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))) {
 				// Check if eboot directory
 				if (allowBrowsing_)
-					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), I_FOLDER, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			} else {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
@@ -397,7 +397,7 @@ void GameBrowser::Refresh() {
 	}
 
 	if (allowBrowsing_) {
-		gameList_->Add(new UI::Button("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+		gameList_->Add(new UI::Button(I_UP_DIRECTORY, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::NavigateClick);
 	}
 

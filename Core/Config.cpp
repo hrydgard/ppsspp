@@ -259,7 +259,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 #endif
 	control->Get("DisableDpadDiagonals", &bDisableDpadDiagonals, false);
-	control->Get("TouchButtonStyle", &iTouchButtonStyle, 0);
+	control->Get("TouchButtonStyle", &iTouchButtonStyle, 1);
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	//set these to -1 if not initialized. initializing these
 	//requires pixel coordinates which is not known right now.

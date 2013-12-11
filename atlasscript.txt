@@ -32,3 +32,5 @@ image I_GRID source_assets/image/grid.png copy
 image I_LOGO source_assets/image/logo.png copy
 image I_ICON source_assets/image/icon_regular_72.png copy
 image I_ICONGOLD source_assets/image/icon_gold_72.png copy
+image I_FOLDER source_assets/image/folder_line.png copy
+image I_UP_DIRECTORY source_assets/image/up_line.png copy

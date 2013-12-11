@@ -39,7 +39,9 @@
 #define I_LOGO 28
 #define I_ICON 29
 #define I_ICONGOLD 30
+#define I_FOLDER 31
+#define I_UP_DIRECTORY 32
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[31];
+extern const AtlasImage ui_images[33];
