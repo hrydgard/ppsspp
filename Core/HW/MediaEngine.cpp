@@ -495,7 +495,15 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	}
 }
 
-int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
+int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode) {
+	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
+		// Clearly invalid values.  Let's just not.
+		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		return false;
+	}
+
+	u8 *buffer = Memory::GetPointer(bufferPtr);
+
 #ifdef USE_FFMPEG
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
@@ -544,7 +552,7 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 		break;
 
 	default:
-		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 	return videoImageSize;
@@ -552,8 +560,16 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 	return 0;
 }
 
-int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height) {
+	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
+		// Clearly invalid values.  Let's just not.
+		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		return false;
+	}
+
+	u8 *buffer = Memory::GetPointer(bufferPtr);
+
 #ifdef USE_FFMPEG
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
@@ -631,7 +647,12 @@ int MediaEngine::getRemainSize() {
 	return std::max(m_pdata->getRemainSize() - m_decodingsize - 2048, 0);
 }
 
-int MediaEngine::getAudioSamples(u8* buffer) {
+int MediaEngine::getAudioSamples(u32 bufferPtr) {
+	if (!Memory::IsValidAddress(bufferPtr)) {
+		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
+	}
+
+	u8 *buffer = Memory::GetPointer(bufferPtr);
 	if (!m_demux) {
 		return 0;
 	}

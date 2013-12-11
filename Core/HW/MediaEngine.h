@@ -71,10 +71,10 @@ public:
 	int getRemainSize();
 
 	bool stepVideo(int videoPixelMode);
-	int writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
-	int writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode,
+	int writeVideoImage(u32 bufferPtr, int frameWidth = 512, int videoPixelMode = 3);
+	int writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height);
-	int getAudioSamples(u8* buffer);
+	int getAudioSamples(u32 bufferPtr);
 
 	bool setVideoDim(int width = 0, int height = 0);
 	s64 getVideoTimeStamp();
