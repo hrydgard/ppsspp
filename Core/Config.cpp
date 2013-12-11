@@ -359,7 +359,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	debugConfig->Get("FuncHashMap", &bFuncHashMap, false);
 
 	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
-	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
+	speedhacks->Get("PrescaleUV", &bPrescaleUV, true);
 	speedhacks->Get("DisableAlphaTest", &bDisableAlphaTest, false);
 
 	IniFile::Section *jitConfig = iniFile.GetOrCreateSection("JIT");
