@@ -361,16 +361,25 @@ handleELF:
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
+
+					ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
+					if (info_->wantBG) {
+						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+					}
+					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				} else {
 					// Fall back to the filename for title if ISO is broken
 					info_->title = gamePath_;
+					// Fall back to unknown icon if ISO is broken, override is allowed though
+					size_t sz;
+					uint8_t *contents = VFSReadFile("unknown.png", &sz);
+					DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
+					}
+					delete [] contents;
 				}
-
-				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
-				if (info_->wantBG) {
-					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
-				}
-				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				break;
 			}
 
