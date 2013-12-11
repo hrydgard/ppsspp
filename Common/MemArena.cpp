@@ -268,6 +268,8 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 	for (i = 0; i < num_views; i++)
 	{
 		const MemoryView &view = views[i];
+		if (view.size == 0)
+			continue;
 		SKIP(flags, view.flags);
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -308,6 +310,8 @@ bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++)
 	{
+		if (views[i].size == 0)
+			continue;
 		SKIP(flags, views[i].flags);
 		if (views[j].out_ptr_low && *views[j].out_ptr_low)
 		{
@@ -337,6 +341,8 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 
 	for (int i = 0; i < num_views; i++)
 	{
+		if (views[i].size == 0)
+			continue;
 		SKIP(flags, views[i].flags);
 		if ((views[i].flags & MV_MIRROR_PREVIOUS) == 0)
 			total_mem += roundup(views[i].size);
@@ -403,6 +409,8 @@ void MemoryMap_Shutdown(const MemoryView *views, int num_views, u32 flags, MemAr
 {
 	for (int i = 0; i < num_views; i++)
 	{
+		if (views[i].size == 0)
+			continue;
 		SKIP(flags, views[i].flags);
 		if (views[i].out_ptr_low && *views[i].out_ptr_low)
 			arena->ReleaseView(*views[i].out_ptr_low, views[i].size);
