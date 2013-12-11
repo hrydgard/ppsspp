@@ -208,14 +208,17 @@ void PSPDpad::Draw(UIContext &dc) {
 	static const float yoff[4] = {0, 1, 0, -1};
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
 	int buttons = __CtrlPeekButtons();
+	float r = D_pad_Radius * spacing_;
 	for (int i = 0; i < 4; i++) {
-		float x = bounds_.centerX() + xoff[i] * D_pad_Radius * spacing_;
-		float y = bounds_.centerY() + yoff[i] * D_pad_Radius * spacing_;
+		float x = bounds_.centerX() + xoff[i] * r;
+		float y = bounds_.centerY() + yoff[i] * r;
+		float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
+		float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
 		float angle = i * M_PI / 2;
 		float imgScale = (buttons & dir[i]) ? scale_ * 2 : scale_;
 		dc.Draw()->DrawImageRotated(arrowIndex_, x, y, imgScale, angle + PI, colorBg, false);
 		if (overlayIndex_ != -1)
-			dc.Draw()->DrawImageRotated(overlayIndex_, x, y, imgScale, angle + PI, color);
+			dc.Draw()->DrawImageRotated(overlayIndex_, x2, y2, imgScale, angle + PI, color);
 	}
 }
 

@@ -127,8 +127,10 @@ public:
 		}
 
 		if (triangleVisible_) {
+			float y = centerY - spacing;
+			y -= 2.8f * scale_;
 			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - spacing, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(triangleId_, centerX, centerY - spacing, scale_, 0, color, false);
+			dc.Draw()->DrawImageRotated(triangleId_, centerX, y, scale_, 0, color, false);
 		}
 
 		if (squareVisible_) {
@@ -178,12 +180,15 @@ public:
 		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
 
 		for (int i = 0; i < 4; i++) {
-			float x = bounds_.centerX() + xoff[i] * D_pad_Radius * spacing_;
-			float y = bounds_.centerY() + yoff[i] * D_pad_Radius * spacing_;
+			float r = D_pad_Radius * spacing_;
+			float x = bounds_.centerX() + xoff[i] * r;
+			float y = bounds_.centerY() + yoff[i] * r;
+			float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
+			float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
 			float angle = i * M_PI / 2;
 
 			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
-			dc.Draw()->DrawImageRotated(I_ARROW, x, y, scale_, angle + PI, color);
+			dc.Draw()->DrawImageRotated(I_ARROW, x2, y2, scale_, angle + PI, color);
 		}
 	}
 
