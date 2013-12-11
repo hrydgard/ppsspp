@@ -674,6 +674,12 @@ public class NativeActivity extends Activity {
     		share.setType("image/jpeg");
     		share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
     		startActivity(Intent.createChooser(share, "Share Picture"));
+    	} else if (command.equals("sharetext")) {
+    		Intent sendIntent = new Intent();
+    		sendIntent.setType("text/plain");
+    		sendIntent.putExtra(Intent.EXTRA_TEXT, params);
+    		sendIntent.setAction(Intent.ACTION_SEND);
+    		startActivity(sendIntent);    		
     	} else if (command.equals("launchMarket")) {
     		// Don't need this, can just use launchBrowser with a market:
     		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
