@@ -71,7 +71,13 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, angle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
-	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), bounds_.centerY(), scale, angle_ * (M_PI * 2 / 360.0f), color);
+
+	int y = bounds_.centerY();
+	// Hack round the fact that the center of the rectangular picture the triangle is contained in
+	// is not at the "weight center" of the triangle.
+	if (img_ == I_TRIANGLE)
+		y -= 2.8f * scale;
+	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), y, scale, angle_ * (M_PI * 2 / 360.0f), color);
 }
 
 void BoolButton::Touch(const TouchInput &input) {
