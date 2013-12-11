@@ -67,7 +67,7 @@ bool MainScreen::showHomebrewTab = false;
 class GameButton : public UI::Clickable {
 public:
 	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0) 
-		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdFrameCount_(0) {}
+		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdFrameCount_(0), holdEnabled_(true) {}
 
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -82,6 +82,9 @@ public:
 
 	const std::string &GamePath() const { return gamePath_; }
 
+	void SetHoldEnabled(bool hold) {
+		holdEnabled_ = hold;
+	}
 	virtual void Touch(const TouchInput &input) {
 		UI::Clickable::Touch(input);
 		if (input.flags & TOUCH_UP) {
@@ -90,7 +93,7 @@ public:
 	}
 
 	virtual void Update(const InputState &input_state) {
-		if (down_)
+		if (down_ && holdEnabled_)
 			holdFrameCount_++;
 		else
 			holdFrameCount_ = 0;
@@ -113,6 +116,7 @@ private:
 	std::string title_;
 
 	int holdFrameCount_;
+	bool holdEnabled_;
 };
 
 void GameButton::Draw(UIContext &dc) {
@@ -138,16 +142,17 @@ void GameButton::Draw(UIContext &dc) {
 		if (HasFocus())
 			style = down_ ? dc.theme->itemDownStyle : dc.theme->itemFocusedStyle;
 
+		Drawable bg = style.background;
+
 		dc.Draw()->Flush();
 		dc.RebindTexture();
-		dc.FillRect(style.background, bounds_);
+		dc.FillRect(bg, bounds_);
 		dc.Draw()->Flush();
 	}
 
 	if (texture) {
 		color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
 		shadowColor = blackAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
-
 		float tw = texture->Width();
 		float th = texture->Height();
 
@@ -161,17 +166,23 @@ void GameButton::Draw(UIContext &dc) {
 	int txOffset = down_ ? 4 : 0;
 	if (!gridStyle_) txOffset = 0;
 
+	Bounds overlayBounds = bounds_;
+	u32 overlayColor = 0;
+	if (holdEnabled_)
+		overlayColor = whiteAlpha((holdFrameCount_ - 15) * 0.01f);
+
 	// Render button
 	int dropsize = 10;
 	if (texture) {
 		if (txOffset) {
 			dropsize = 3;
 			y += txOffset * 2;
+			overlayBounds.y += txOffset * 2;
 		}
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize*1.5f, y - dropsize*1.5f, x+w + dropsize*1.5f, y+h+dropsize*1.5f, alphaMul(color, 1.0f), 1.0f);
+			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x+w + dropsize*1.5f, y+h+dropsize*1.5f, alphaMul(color, 1.0f), 1.0f);
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
@@ -238,6 +249,9 @@ void GameButton::Draw(UIContext &dc) {
 		dc.PopScissor();
 	} else {
 		dc.Draw()->Flush();
+	}
+	if (overlayColor) {
+		dc.FillRect(Drawable(overlayColor), overlayBounds);
 	}
 	dc.RebindTexture();
 }
@@ -449,7 +463,9 @@ void GameBrowser::Refresh() {
 				Add(zl);
 				for (size_t i = 0; i < fileInfo.size(); i++) {
 					if (!fileInfo[i].isDirectory) {
-						zl->Add(new GameButton(fileInfo[i].fullName, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::GameButtonClick);
+						GameButton *b = zl->Add(new GameButton(fileInfo[i].fullName, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
+						b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
+						b->SetHoldEnabled(false);
 					}
 				}
 			}
