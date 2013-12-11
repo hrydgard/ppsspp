@@ -30,7 +30,7 @@
 
 // These fonts, created by ttf2pgf, don't have complete glyph info and need to be identified.
 static bool isJPCSPFont(const char *fontName) {
-	return !strcmp(fontName, "Liberation") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum");
+	return !strcmp(fontName, "Liberation Sans") || !strcmp(fontName, "Liberation Serif") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum") || !strcmp(fontName, "Microsoft YaHei");
 }
 
 // Gets a number of bits from an offset.
@@ -180,6 +180,8 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	INFO_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
+
+	fileName = header.fontName;
 
 	if (header.revision == 3) {
 		memcpy(&rev3extra, ptr, sizeof(rev3extra));
