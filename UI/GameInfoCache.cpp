@@ -236,7 +236,10 @@ public:
 			return;
 
 		std::string filename = gamePath_;
+		info_->path = gamePath_;
 		info_->fileType = Identify_File(filename);
+		// Fallback title
+		info_->title = getFilename(info_->path);
 
 		switch (info_->fileType) {
 		case FILETYPE_PSP_PBP:
@@ -247,8 +250,13 @@ public:
 					pbpFile += "/EBOOT.PBP";
 
 				PBPReader pbp(pbpFile.c_str());
-				if (!pbp.IsValid())
+				if (!pbp.IsValid()) {
+					if (pbp.IsELF()) {
+						goto handleELF;
+					}
+					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpFile.c_str());
 					return;
+				}
 
 				// First, PARAM.SFO.
 				size_t sfoSize;
@@ -265,7 +273,9 @@ public:
 					lock_guard lock(info_->lock);
 					if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
 						pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
+						printf("a %s\n", info_->path.c_str());
 					} else {
+						printf("b %s\n", info_->path.c_str());
 						// Read standard icon
 						size_t sz;
 						DEBUG_LOG(LOADER, "Loading unknown.png because a PBP was missing an icon");
@@ -288,12 +298,12 @@ public:
 			break;
 
 		case FILETYPE_PSP_ELF:
+handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			info_->title = getFilename(filename);
 			info_->id = "ELF000000";
 			info_->id_version = "ELF000000_1.00";
 			info_->paramSFOLoaded = true;
-
 			{
 				// Read standard icon
 				size_t sz;
@@ -305,7 +315,6 @@ public:
 				}
 				delete [] contents;
 			}
-
 			break;
 
 		case FILETYPE_PSP_DISC_DIRECTORY:
@@ -422,7 +431,6 @@ void GameInfoCache::Decimate() {
 }
 
 void GameInfoCache::Clear() {
-	ILOG("Wiping GameInfoCache: %i items", info_.size());
 	if (gameInfoWQ_)
 		gameInfoWQ_->Flush();
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {

@@ -134,7 +134,6 @@ void GameButton::Draw(UIContext &dc) {
 		style = dc.theme->itemDownStyle;
 
 	if (!gridStyle_ || !texture) {
-		// w = 144 * 80 / 50;
 		h = 50;
 		if (HasFocus())
 			style = down_ ? dc.theme->itemDownStyle : dc.theme->itemFocusedStyle;

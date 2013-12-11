@@ -67,6 +67,7 @@ public:
 	recursive_mutex lock;
 
 	FileInfo fileInfo;
+	std::string path;
 	std::string title;  // for easy access, also available in paramSFO.
 	std::string id;
 	std::string id_version;
