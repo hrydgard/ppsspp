@@ -387,6 +387,9 @@ void CreditsScreen::CreateViews() {
 		root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 		root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
+#ifdef ANDROID
+	root_->Add(new Button(c->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
+#endif
 #ifdef GOLD
 	root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 #else
@@ -415,6 +418,12 @@ UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn CreditsScreen::OnChineseForum(UI::EventParams &e) {
 	LaunchBrowser("http://tieba.baidu.com/f?ie=utf-8&kw=ppsspp");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+	System_SendMessage("sharetext", c->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: http://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 
