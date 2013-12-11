@@ -248,6 +248,60 @@ enum GameBrowserFlags {
 };
 
 
+class DirButton : public UI::Button {
+public:
+	DirButton(std::string path, UI::LayoutParams *layoutParams)
+		: UI::Button(path, layoutParams) {}
+
+	virtual void Draw(UIContext &dc);
+};
+
+void DirButton::Draw(UIContext &dc) {
+	Style style = dc.theme->buttonStyle;
+
+	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
+	if (down_) style = dc.theme->buttonDownStyle;
+	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
+
+	dc.FillRect(style.background, bounds_);
+
+	const std::string text = GetText();
+
+	int image = I_FOLDER;
+	if (text == "..") {
+		image = I_UP_DIRECTORY;
+	}
+	
+	float tw, th;
+	dc.MeasureText(dc.GetFontStyle(), text.c_str(), &tw, &th, 0);
+
+	bool compact = bounds_.w < 180;
+
+	if (compact) {
+		// No icon, except "up"
+		dc.PushScissor(bounds_);
+		if (image == I_FOLDER) {
+			dc.DrawText(text.c_str(), bounds_.x + 5, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		} else {
+			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+		}
+		dc.PopScissor();
+	} else {
+		bool scissor = false;
+		if (tw + 150 > bounds_.w) {
+			dc.PushScissor(bounds_);
+			scissor = true;
+		}
+
+		dc.Draw()->DrawImage(image, bounds_.x + 72, bounds_.centerY(), .88f, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.DrawText(text.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+
+		if (scissor) {
+			dc.PopScissor();
+		}
+	}
+}
+
 class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
@@ -262,7 +316,6 @@ private:
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
-	UI::EventReturn NavigateUpClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
@@ -379,7 +432,7 @@ void GameBrowser::Refresh() {
 			if (fileInfo[i].isDirectory && (path_.GetPath().size() < 4 || !File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))) {
 				// Check if eboot directory
 				if (allowBrowsing_) {
-					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), I_FOLDER, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+					dirButtons.push_back(new DirButton(fileInfo[i].name, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 				}
 			} else {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
@@ -400,8 +453,8 @@ void GameBrowser::Refresh() {
 	}
 
 	if (allowBrowsing_) {
-		gameList_->Add(new UI::Button(I_UP_DIRECTORY, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-			OnClick.Handle(this, &GameBrowser::NavigateUpClick);
+		gameList_->Add(new DirButton("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+			OnClick.Handle(this, &GameBrowser::NavigateClick);
 	}
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
@@ -449,14 +502,6 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	UI::Button *button  = static_cast<UI::Button *>(e.v);
 	std::string text = button->GetText();
 	path_.Navigate(text);
-	g_Config.currentDirectory = path_.GetPath();
-	Refresh();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameBrowser::NavigateUpClick(UI::EventParams &e) {
-	UI::Button *button  = static_cast<UI::Button *>(e.v);
-	path_.Navigate("..");
 	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 	return UI::EVENT_DONE;
