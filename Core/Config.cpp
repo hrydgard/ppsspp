@@ -358,7 +358,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	debugConfig->Get("FuncHashMap", &bFuncHashMap, false);
 
 	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
-	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
+	speedhacks->Get("PrescaleTexcoord", &bPrescaleUV, true);
 	speedhacks->Get("DisableAlphaTest", &bDisableAlphaTest, false);
 
 	IniFile::Section *jitConfig = iniFile.GetOrCreateSection("JIT");
@@ -594,7 +594,7 @@ void Config::Save() {
 		debugConfig->Set("FuncHashMap", bFuncHashMap);
 
 		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
-		speedhacks->Set("PrescaleUV", bPrescaleUV);
+		speedhacks->Set("PrescaleTexcoord", bPrescaleUV);
 		speedhacks->Set("DisableAlphaTest", bDisableAlphaTest);
 
 		// Save upgrade check state
