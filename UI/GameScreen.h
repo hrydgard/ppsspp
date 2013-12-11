@@ -48,6 +48,7 @@ private:
 	UI::EventReturn OnSwitchBack(UI::EventParams &e);
 	UI::EventReturn OnCreateShortcut(UI::EventParams &e);
 	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
+	UI::EventReturn OnShowInFolder(UI::EventParams &e);
 
 	std::string gamePath_;
 

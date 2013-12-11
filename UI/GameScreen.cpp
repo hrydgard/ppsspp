@@ -20,6 +20,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"
+#include "util/text/utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -77,6 +78,9 @@ void GameScreen::CreateViews() {
 	if (isRecentGame(gamePath_)) {
 		rightColumnItems->Add(new Choice(ga->T("Remove From Recent")))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
+#ifdef _WIN32
+	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
+#endif
 
 	UI::SetFocusedView(play);
 }
@@ -147,6 +151,14 @@ void GameScreen::update(InputState &input) {
 		};
 		tvRegion_->SetText(ga->T(regionNames[info->region]));
 	}
+}
+
+UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
+#ifdef _WIN32
+	std::string str = std::string("explorer.exe /select,\"") + ReplaceAll(gamePath_, "/", "\\") + "\"";
+	_wsystem(ConvertUTF8ToWString(str).c_str());
+#endif
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
