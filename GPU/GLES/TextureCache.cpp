@@ -196,10 +196,6 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
-		// Apply to non-buffered and buffered mode only.
-		if (!(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE))
-			return;
-
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
