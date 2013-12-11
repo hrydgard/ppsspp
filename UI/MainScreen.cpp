@@ -261,6 +261,7 @@ private:
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
+	UI::EventReturn NavigateUpClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
@@ -376,8 +377,9 @@ void GameBrowser::Refresh() {
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			if (fileInfo[i].isDirectory && (path_.GetPath().size() < 4 || !File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))) {
 				// Check if eboot directory
-				if (allowBrowsing_)
+				if (allowBrowsing_) {
 					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), I_FOLDER, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+				}
 			} else {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
@@ -398,7 +400,7 @@ void GameBrowser::Refresh() {
 
 	if (allowBrowsing_) {
 		gameList_->Add(new UI::Button(I_UP_DIRECTORY, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-			OnClick.Handle(this, &GameBrowser::NavigateClick);
+			OnClick.Handle(this, &GameBrowser::NavigateUpClick);
 	}
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
@@ -446,6 +448,14 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	UI::Button *button  = static_cast<UI::Button *>(e.v);
 	std::string text = button->GetText();
 	path_.Navigate(text);
+	g_Config.currentDirectory = path_.GetPath();
+	Refresh();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::NavigateUpClick(UI::EventParams &e) {
+	UI::Button *button  = static_cast<UI::Button *>(e.v);
+	path_.Navigate("..");
 	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 	return UI::EVENT_DONE;
