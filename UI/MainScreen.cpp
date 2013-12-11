@@ -209,6 +209,7 @@ void GameButton::Draw(UIContext &dc) {
 		dc.PushScissor(bounds_);
 		if (title_.empty() && !ginfo->title.empty()) {
 			title_ = ReplaceAll(ginfo->title + discNumInfo, "&", "&&");
+			title_ = ReplaceAll(title_, "\n", " ");
 		}
 
 		dc.MeasureText(dc.GetFontStyle(), title_.c_str(), &tw, &th, 0);
