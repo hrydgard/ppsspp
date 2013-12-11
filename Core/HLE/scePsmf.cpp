@@ -1019,7 +1019,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
         u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
         int displaypts = Memory::Read_U32(videoDataAddr + 8);
 		if (psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
-			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(Memory::GetPointer(displaybuf), frameWidth, videoPixelMode);
+			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(displaybuf, frameWidth, videoPixelMode);
 			gpu->InvalidateCache(displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		}
 		psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
@@ -1050,7 +1050,7 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	DEBUG_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
 	if (Memory::IsValidAddress(audioDataAddr)) {
 		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
-		psmfplayer->mediaengine->getAudioSamples(Memory::GetPointer(audioDataAddr));
+		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
 	}
 	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
