@@ -19,16 +19,14 @@
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
 	struct zip_stat zstat;
-	zip_stat(archive, filename, ZIP_FL_NOCASE, &zstat);
-
-	uint8_t *contents = new uint8_t[zstat.size + 1];
-
 	zip_file *file = zip_fopen(archive, filename, 0);
 	if (!file) {
 		ELOG("Error opening %s from ZIP", filename);
-		delete [] contents;
 		return 0;
 	}
+	zip_stat(archive, filename, ZIP_FL_NOCASE, &zstat);
+
+	uint8_t *contents = new uint8_t[zstat.size + 1];
 	zip_fread(file, contents, zstat.size);
 	zip_fclose(file);
 	contents[zstat.size] = 0;
