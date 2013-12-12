@@ -17,6 +17,7 @@
 
 #include "i18n/i18n.h"
 #include "math/math_util.h"
+#include <algorithm>
 
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
