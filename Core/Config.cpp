@@ -271,26 +271,34 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("ActionButtonScale", &fActionButtonScale, defaultScale);
 	control->Get("DPadX", &fDpadX, -1.0);
 	control->Get("DPadY", &fDpadY, -1.0);
-	control->Get("DPadScale", &fDpadScale, defaultScale);
-	control->Get("DPadSpacing", &fDpadSpacing, 1.0f);
-	control->Get("StartKeyX", &fStartKeyX, -1.0);
-	control->Get("StartKeyY", &fStartKeyY, -1.0);
-	control->Get("StartKeyScale", &fStartKeyScale, defaultScale);
-	control->Get("SelectKeyX", &fSelectKeyX, -1.0);
-	control->Get("SelectKeyY", &fSelectKeyY, -1.0);
-	control->Get("SelectKeyScale", &fSelectKeyScale, defaultScale);
-	control->Get("UnthrottleKeyX", &fUnthrottleKeyX, -1.0);
-	control->Get("UnthrottleKeyY", &fUnthrottleKeyY, -1.0);
-	control->Get("UnthrottleKeyScale", &fUnthrottleKeyScale, defaultScale);
-	control->Get("LKeyX", &fLKeyX, -1.0);
-	control->Get("LKeyY", &fLKeyY, -1.0);
-	control->Get("LKeyScale", &fLKeyScale, defaultScale);
-	control->Get("RKeyX", &fRKeyX, -1.0);
-	control->Get("RKeyY", &fRKeyY, -1.0);
-	control->Get("RKeyScale", &fRKeyScale, defaultScale);
-	control->Get("AnalogStickX", &fAnalogStickX, -1.0);
-	control->Get("AnalogStickY", &fAnalogStickY, -1.0);
-	control->Get("AnalogStickScale", &fAnalogStickScale, defaultScale);
+
+	// Check for an old dpad setting
+	float f;
+	control->Get("DPadRadius", &f, 0.0f);
+	if (f > 0.0f) {
+		ResetControlLayout();
+	} else {
+		control->Get("DPadScale", &fDpadScale, defaultScale);
+		control->Get("DPadSpacing", &fDpadSpacing, 1.0f);
+		control->Get("StartKeyX", &fStartKeyX, -1.0);
+		control->Get("StartKeyY", &fStartKeyY, -1.0);
+		control->Get("StartKeyScale", &fStartKeyScale, defaultScale);
+		control->Get("SelectKeyX", &fSelectKeyX, -1.0);
+		control->Get("SelectKeyY", &fSelectKeyY, -1.0);
+		control->Get("SelectKeyScale", &fSelectKeyScale, defaultScale);
+		control->Get("UnthrottleKeyX", &fUnthrottleKeyX, -1.0);
+		control->Get("UnthrottleKeyY", &fUnthrottleKeyY, -1.0);
+		control->Get("UnthrottleKeyScale", &fUnthrottleKeyScale, defaultScale);
+		control->Get("LKeyX", &fLKeyX, -1.0);
+		control->Get("LKeyY", &fLKeyY, -1.0);
+		control->Get("LKeyScale", &fLKeyScale, defaultScale);
+		control->Get("RKeyX", &fRKeyX, -1.0);
+		control->Get("RKeyY", &fRKeyY, -1.0);
+		control->Get("RKeyScale", &fRKeyScale, defaultScale);
+		control->Get("AnalogStickX", &fAnalogStickX, -1.0);
+		control->Get("AnalogStickY", &fAnalogStickY, -1.0);
+		control->Get("AnalogStickScale", &fAnalogStickScale, defaultScale);
+	}
 
 	// MIGRATION: For users who had the old static touch layout, aren't I nice?
 	if (fDpadX > 1.0 || fDpadY > 1.0) // Likely the rest are too!
@@ -552,6 +560,7 @@ void Config::Save() {
 		control->Set("AnalogStickX", fAnalogStickX);
 		control->Set("AnalogStickY", fAnalogStickY);
 		control->Set("AnalogStickScale", fAnalogStickScale);
+		control->Delete("DPadRadius");
 
 		IniFile::Section *network = iniFile.GetOrCreateSection("Network");
 		network->Set("EnableWlan", bEnableWlan);
@@ -761,4 +770,34 @@ void Config::RestoreDefaults() {
 	recentIsos.clear();
 	currentDirectory = "";
 	Load();
+}
+
+void Config::ResetControlLayout() {
+	float defaultScale = 1.15f;
+	g_Config.fActionButtonScale = defaultScale;
+	g_Config.fActionButtonSpacing = 1.0f;
+	g_Config.fActionButtonCenterX = -1.0;
+	g_Config.fActionButtonCenterY = -1.0;
+	g_Config.fDpadScale = defaultScale;
+	g_Config.fDpadSpacing = 1.0f;
+	g_Config.fDpadX = -1.0;
+	g_Config.fDpadY = -1.0;
+	g_Config.fStartKeyX = -1.0;
+	g_Config.fStartKeyY = -1.0;
+	g_Config.fStartKeyScale = defaultScale; 
+	g_Config.fSelectKeyX = -1.0;
+	g_Config.fSelectKeyY = -1.0;
+	g_Config.fSelectKeyScale = defaultScale; 
+	g_Config.fUnthrottleKeyX = -1.0;
+	g_Config.fUnthrottleKeyY = -1.0;
+	g_Config.fUnthrottleKeyScale = defaultScale; 
+	g_Config.fLKeyX = -1.0;
+	g_Config.fLKeyY = -1.0;
+	g_Config.fLKeyScale = defaultScale; 
+	g_Config.fRKeyX = -1.0;
+	g_Config.fRKeyY = -1.0;
+	g_Config.fRKeyScale = defaultScale; 
+	g_Config.fAnalogStickX = -1.0;
+	g_Config.fAnalogStickY = -1.0;
+	g_Config.fAnalogStickScale = defaultScale;
 }

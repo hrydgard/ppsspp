@@ -290,6 +290,8 @@ public:
 	static void DownloadCompletedCallback(http::Download &download);
 	void DismissUpgrade();
 
+	void ResetControlLayout();
+
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
