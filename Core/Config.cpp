@@ -72,6 +72,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	general->Get("HomebrewStore", &bHomebrewStore, false);
+	general->Get("CheckForNewVersion", &bCheckForNewVersion, true);
 
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";
@@ -386,7 +387,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
-	if (iRunCount % 5 == 0) {
+	if (iRunCount % 5 == 0 && bCheckForNewVersion) {
 		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
 			"http://www.ppsspp.org/version.json", "", &DownloadCompletedCallback);
 		dl->SetHidden(true);
@@ -447,6 +448,7 @@ void Config::Save() {
 		general->Set("GridView1", bGridView1);
 		general->Set("GridView2", bGridView2);
 		general->Set("GridView3", bGridView3);
+		general->Set("CheckForNewVersion", bCheckForNewVersion);
 
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);

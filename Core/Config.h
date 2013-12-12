@@ -63,6 +63,8 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	bool bCheckForNewVersion;
+
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
 	bool bSeparateIOThread;
