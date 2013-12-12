@@ -705,12 +705,14 @@ void PSPOskDialog::RenderKeyboard()
 
 	std::string buffer;
 
+	u32 FIELDDRAWMAX = 15;
 	u32 limit = FieldMaxLength();
+	u32 drawLimit = std::min(FIELDDRAWMAX, limit);   // Field drew length limit.
 
 	const float keyboardLeftSide = (480.0f - (24.0f * numKeyCols[currentKeyboard])) / 2.0f;
 	const float characterWidth = 12.0f;
-	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
-	float title = (480.0f - (0.5f * limit)) / 2.0f;
+	float previewLeftSide = (480.0f - (12.0f * drawLimit)) / 2.0f;
+	float title = (480.0f - (0.5f * drawLimit)) / 2.0f;
 
 
 	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
@@ -719,20 +721,22 @@ void PSPOskDialog::RenderKeyboard()
 
 	result = CombinationString(false);
 
-	for (u32 i = 0; i < limit; ++i)
+	u32 drawIndex = result.size() > drawLimit ? result.size() - drawLimit : 0;
+	drawIndex = result.size() == limit + 1 ? drawIndex - 1 : drawIndex;  // When the length reached limit, the last character don't fade in and out.
+	for (u32 i = 0; i < drawLimit; ++i, ++drawIndex)
 	{
 		u32 color = CalcFadedColor(0xFFFFFFFF);
-		if (i + 1 < result.size())
+		if (drawIndex + 1 < result.size())
 		{
-			temp[0] = result[i];
+			temp[0] = result[drawIndex];
 			ConvertUCS2ToUTF8(buffer, temp);
 			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 		}
 		else
 		{
-			if (i + 1 == result.size())
+			if (drawIndex + 1 == result.size())
 			{
-				temp[0] = result[i];
+				temp[0] = result[drawIndex];
 
 				if(isCombinated == true)
 				{
