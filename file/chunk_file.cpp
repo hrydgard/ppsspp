@@ -24,7 +24,7 @@ ChunkFile::ChunkFile(const char *filename, bool _read) {
 			didFail = true;
 			return;
 		}
-		eof = size;
+		eof = (int)size;
 		return;
 	}
 
@@ -213,7 +213,7 @@ void ChunkFile::writeWString(String str) {
 // Takes utf-8
 void ChunkFile::writeWString(const std::string &str) {
 	unsigned short *text;
-	size_t len = str.length();
+	int len = (int)str.length();
 	text = new unsigned short[len+1];
 	for (size_t i=0; i<len; i++)
 		text[i]=str[i];
@@ -251,7 +251,7 @@ std::string ChunkFile::readWString() {
 
 void ChunkFile::writeString(const std::string &str) {
 	uint16_t *text;
-	int len = str.size();
+	int len = (int)str.size();
 	text=new uint16_t[len+1];
 	toUnicode(str, text);
 	writeInt(len);

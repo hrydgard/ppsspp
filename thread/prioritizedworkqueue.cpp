@@ -67,20 +67,6 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 	}
 }
 
-void PrioritizedWorkQueue::Wait(PrioritizedWorkQueueItem *item) {
-	while (true) {
-		bool stillThere = false;
-		lock_guard guard(mutex_);
-		for (int i = 0; i < queue_.empty(); i++) {
-			if (queue_[i] == item)
-				stillThere = true;
-		}
-		if (!stillThere)
-			break;
-		sleep_ms(100);
-	}
-}
-
 // TODO: This feels ugly. Revisit later.
 
 static std::thread *workThread;

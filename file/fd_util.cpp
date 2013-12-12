@@ -57,7 +57,7 @@ ssize_t WriteLine(int fd, const char *vptr, size_t n) {
 
   while (nleft > 0) {
     ssize_t nwritten;
-    if ((nwritten = write(fd, buffer, nleft)) <= 0) {
+    if ((nwritten = (ssize_t)write(fd, buffer, nleft)) <= 0) {
       if (errno == EINTR)
         nwritten = 0;
       else
