@@ -29,7 +29,7 @@ public:
 	// Inits the sockaddr_in.
 	bool Resolve(const char *host, int port);
 
-	bool Connect();
+	bool Connect(int maxTries = 2);
 	void Disconnect();
 
 	// Only to be used for bring-up and debugging.

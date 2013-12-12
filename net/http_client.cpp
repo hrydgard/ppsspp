@@ -64,7 +64,7 @@ bool Connection::Resolve(const char *host, int port) {
 	return true;
 }
 
-bool Connection::Connect() {
+bool Connection::Connect(int maxTries) {
 	if (port_ <= 0) {
 		ELOG("Bad port");
 		return false;
@@ -75,7 +75,7 @@ bool Connection::Connect() {
 		return false;
 	}
 
-	for (int tries = 100; tries > 0; --tries) {
+	for (int tries = maxTries; tries > 0; --tries) {
 		for (addrinfo *possible = resolved_; possible != NULL; possible = possible->ai_next) {
 			// TODO: Could support ipv6 without huge difficulty...
 			if (possible->ai_family != AF_INET)
