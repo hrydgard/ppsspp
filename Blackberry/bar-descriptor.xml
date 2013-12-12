@@ -3,9 +3,9 @@
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
     <filename>PPSSPPBlackberry</filename>
-    <versionNumber>0.9.5</versionNumber>
+    <versionNumber>0.9.6</versionNumber>
     <buildId>1</buildId>
-    <description>Playstation portable emulator.</description>
+    <description>Playstation Portable emulator.</description>
 
     <author>Qtness</author>
     <authorId>gYAAgGE4qaHzBnzEAu8JKe4G1OI</authorId>
