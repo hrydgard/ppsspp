@@ -1166,6 +1166,69 @@
          operator="over"
          result="composite2" />
     </filter>
+    <filter
+       color-interpolation-filters="sRGB"
+       id="filter5216-2"
+       inkscape:label="Drop Shadow">
+      <feFlood
+         id="feFlood5218-0"
+         flood-opacity="0.2"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite5220-7"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur5222-0"
+         stdDeviation="0.5"
+         result="blur" />
+      <feOffset
+         id="feOffset5224-6"
+         dx="0"
+         dy="0"
+         result="offset" />
+      <feComposite
+         id="feComposite5226-0"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
+    <filter
+       id="filter5328"
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Drop Shadow">
+      <feFlood
+         id="feFlood5330"
+         flood-opacity="0.2"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite5332"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur5334"
+         in="composite"
+         stdDeviation="0.5"
+         result="blur" />
+      <feOffset
+         id="feOffset5336"
+         dx="0"
+         dy="0"
+         result="offset" />
+      <feComposite
+         id="feComposite5338"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
   </defs>
   <sodipodi:namedview
      id="base"
@@ -1174,16 +1237,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2.8"
-     inkscape:cx="143.23839"
-     inkscape:cy="892.72876"
+     inkscape:zoom="3.959798"
+     inkscape:cx="176.69166"
+     inkscape:cy="991.50356"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      inkscape:window-width="2325"
-     inkscape:window-height="1459"
+     inkscape:window-height="1422"
      inkscape:window-x="28"
-     inkscape:window-y="0"
+     inkscape:window-y="37"
      inkscape:window-maximized="0" />
   <metadata
      id="metadata7">
@@ -1292,15 +1355,15 @@
        d="m 107.20702,8.5620214 -8.258373,8.2583646 -8.25575,-8.2557466 -1.91343,1.9134266 8.25575,8.255749 -8.25575,8.255748 1.91605,1.916045 8.25575,-8.255748 8.255753,8.255748 1.91342,-1.913427 -8.25575,-8.255748 8.25837,-8.258367 -1.91604,-1.9160446 z"
        id="rect4968"
        inkscape:connector-curvature="0"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\cross.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\cross.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <path
        style="fill:#ffffff;fill-opacity:1;stroke:none;filter:url(#filter5228)"
-       d="m 122.58184,8.5799891 -5.63101,9.7516119 -5.63101,9.751609 11.26202,0 11.25922,0 -5.63102,-9.751609 z m 0,4.3709279 3.70151,6.472008 3.7015,6.443254 -7.40301,0 -7.40301,0 3.70151,-6.443254 z"
+       d="m 132.17829,6.3071459 -5.63101,9.7516121 -5.63101,9.751609 11.26202,0 11.25922,0 -5.63102,-9.751609 z m 0,4.3709281 3.70151,6.472008 3.7015,6.443254 -7.40301,0 -7.40301,0 3.70151,-6.443254 z"
        id="path4991"
        inkscape:connector-curvature="0"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\circle.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\triangle.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135"
        sodipodi:nodetypes="cccccccccccccc" />
@@ -1309,7 +1372,7 @@
        d="m 98.629957,31.849006 c -5.92963,0 -10.73686,4.807225 -10.73686,10.736856 0,5.929635 4.80723,10.736852 10.73686,10.736852 5.929633,0 10.734713,-4.807217 10.734713,-10.736852 0,-5.929631 -4.80508,-10.736856 -10.734713,-10.736856 z m 0,2.41326 c 4.596833,0 8.321443,3.72677 8.321443,8.323596 0,4.596824 -3.72461,8.323598 -8.321443,8.323598 -4.59682,0 -8.3236,-3.726774 -8.3236,-8.323598 0,-4.596826 3.72678,-8.323596 8.3236,-8.323596 z"
        id="path5012"
        inkscape:connector-curvature="0"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\circle.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\circle.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <path
@@ -1317,7 +1380,7 @@
        d="m 112.83794,32.491906 0,19.545807 19.28584,0 0,-19.545807 -19.28584,0 z m 2.49666,2.529991 14.295,0 0,14.485834 -14.295,0 0,-14.485834 z"
        id="rect5039"
        inkscape:connector-curvature="0"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\square.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\square.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <path
@@ -1325,7 +1388,7 @@
        d="m 147.13435,34.280283 -8.40102,8.317997 8.40102,8.284791 c -0.0767,-5.350821 -0.0448,-11.205426 0,-16.602788 z m -1.7433,4.499356 c -0.0216,2.4745 -0.0369,5.150912 0,7.604076 l -4.03447,-3.785435 4.03447,-3.818641 z"
        id="rect4891-0-5-5"
        inkscape:connector-curvature="0"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\gfx\arrow.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\arrow.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <g
@@ -1396,7 +1459,7 @@
     <g
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Sans;filter:url(#filter5180)"
        id="text3903"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\select.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\select.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135">
       <path
@@ -1426,7 +1489,10 @@
     </g>
     <g
        id="g3128"
-       style="filter:url(#filter5168)">
+       style="filter:url(#filter5168)"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\start.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135">
       <path
          d="m 89.273987,80.321037 1.072265,-0.09375 c 0.05078,0.42969 0.168944,0.782229 0.354493,1.057617 0.185544,0.275393 0.47363,0.498049 0.864257,0.667969 0.390622,0.169923 0.830075,0.254884 1.31836,0.254883 0.433589,10e-7 0.816401,-0.06445 1.148437,-0.193359 0.332026,-0.128905 0.579096,-0.305663 0.741211,-0.530274 0.162103,-0.224607 0.243158,-0.469724 0.243164,-0.735351 -6e-6,-0.269529 -0.07813,-0.50488 -0.234375,-0.706055 -0.156256,-0.201169 -0.414068,-0.370114 -0.773437,-0.506836 -0.230474,-0.08984 -0.740239,-0.229488 -1.529297,-0.418945 -0.789066,-0.189449 -1.341799,-0.36816 -1.658203,-0.536133 -0.410158,-0.214839 -0.715822,-0.48144 -0.916992,-0.799805 -0.201173,-0.318354 -0.301759,-0.674798 -0.301758,-1.069336 -1e-6,-0.433587 0.123046,-0.83886 0.36914,-1.21582 0.246093,-0.376945 0.605467,-0.663078 1.078125,-0.858398 0.472654,-0.195304 0.998044,-0.29296 1.576172,-0.292969 0.636715,9e-6 1.198237,0.102547 1.684571,0.307617 0.486322,0.205086 0.860345,0.506844 1.12207,0.905273 0.261712,0.398445 0.402337,0.849616 0.421875,1.353516 l -1.089844,0.08203 c -0.0586,-0.542962 -0.256842,-0.953118 -0.594726,-1.230468 -0.337896,-0.277337 -0.836919,-0.416008 -1.497071,-0.416016 -0.687503,8e-6 -1.188479,0.125984 -1.502929,0.37793 -0.314456,0.25196 -0.471682,0.55567 -0.47168,0.911132 -2e-6,0.3086 0.111326,0.562506 0.333984,0.761719 0.218748,0.199224 0.790036,0.403326 1.713868,0.612305 0.923823,0.208989 1.557611,0.391606 1.901367,0.547851 0.499993,0.230473 0.869134,0.522465 1.107422,0.875977 0.238274,0.353519 0.357414,0.760745 0.357421,1.22168 -7e-6,0.457033 -0.130866,0.887697 -0.392578,1.291992 -0.261725,0.404297 -0.637701,0.71875 -1.127929,0.943359 -0.49024,0.22461 -1.041997,0.336914 -1.655274,0.336914 -0.777347,0 -1.428714,-0.113281 -1.954101,-0.339843 -0.525393,-0.226563 -0.937502,-0.567383 -1.236328,-1.022461 -0.298829,-0.455077 -0.456056,-0.969725 -0.47168,-1.543946 z"
          style="font-size:12px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Sans"
@@ -1458,7 +1524,7 @@
        id="path3136"
        style="font-size:14px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Sans;filter:url(#filter5156)"
        d="m 159.23966,75.933617 0,-10.021485 1.32617,0 0,8.838867 4.93555,0 0,1.182618 z"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\L.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\L.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <path
@@ -1466,7 +1532,7 @@
        id="path3138"
        style="font-size:14px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Sans;filter:url(#filter5144)"
        d="m 173.53639,75.933617 0,-10.021485 4.44336,0 c 0.89322,1e-5 1.57226,0.09002 2.03711,0.27002 0.46484,0.180022 0.83626,0.497893 1.11426,0.953613 0.27798,0.455738 0.41698,0.959318 0.41699,1.510742 -1e-5,0.710944 -0.23015,1.310228 -0.69043,1.797852 -0.46029,0.487635 -1.17123,0.797531 -2.13281,0.929687 0.3509,0.168625 0.6175,0.334965 0.7998,0.499024 0.38737,0.355472 0.75423,0.799808 1.10059,1.333008 l 1.74316,2.727539 -1.66797,0 -1.32617,-2.084961 c -0.38737,-0.60156 -0.70638,-1.061846 -0.95703,-1.38086 -0.25066,-0.319006 -0.4751,-0.542313 -0.67334,-0.669922 -0.19825,-0.127599 -0.39991,-0.216467 -0.60498,-0.266601 -0.15039,-0.0319 -0.39649,-0.04785 -0.73828,-0.04785 l -1.53809,0 0,4.450196 z m 1.32617,-5.598633 2.85059,0 c 0.60611,5e-6 1.08007,-0.06266 1.42188,-0.187988 0.34178,-0.12532 0.60155,-0.325841 0.77929,-0.601563 0.17773,-0.275709 0.2666,-0.575351 0.2666,-0.898926 0,-0.47395 -0.17204,-0.863598 -0.51611,-1.168945 -0.34408,-0.30533 -0.88754,-0.457999 -1.63037,-0.458008 l -3.17188,0 z"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\R.png"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\R.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
     <g
@@ -1680,6 +1746,25 @@
            inkscape:export-xdpi="135"
            inkscape:export-ydpi="135" />
       </g>
+    </g>
+    <g
+       id="g5340"
+       inkscape:export-filename="C:\dev\ppsspp\source_assets\image\checkedbox.png"
+       inkscape:export-xdpi="135"
+       inkscape:export-ydpi="135">
+      <path
+         inkscape:export-ydpi="135"
+         inkscape:export-xdpi="135"
+         inkscape:export-filename="C:\dev\ppsspp\source_assets\image\square.png"
+         inkscape:connector-curvature="0"
+         id="rect5039-7"
+         d="m -23.732181,30.229779 0,19.545807 19.2858399,0 0,-19.545807 -19.2858399,0 z m 2.49666,2.529991 14.2949999,0 0,14.485834 -14.2949999,0 0,-14.485834 z"
+         style="fill:#ffffff;fill-opacity:1;stroke:none;filter:url(#filter5216-2)" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path5326"
+         d="m -18.561551,39.179179 3.59867,4.545687 5.3664299,-9.154508"
+         style="fill:none;stroke:#ffffff;stroke-width:3;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;filter:url(#filter5328)" />
     </g>
   </g>
 </svg>

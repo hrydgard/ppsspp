@@ -721,7 +721,7 @@ void PSPOskDialog::RenderKeyboard()
 
 	result = CombinationString(false);
 
-	u32 drawIndex = result.size() > drawLimit ? result.size() - drawLimit : 0;
+	u32 drawIndex = (u32)(result.size() > drawLimit ? result.size() - drawLimit : 0);
 	drawIndex = result.size() == limit + 1 ? drawIndex - 1 : drawIndex;  // When the length reached limit, the last character don't fade in and out.
 	for (u32 i = 0; i < drawLimit; ++i, ++drawIndex)
 	{

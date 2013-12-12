@@ -115,7 +115,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set wantBG if you really want it because
 	// it's big. bgTextures may be discarded over time as well.
-	GameInfo *GetInfo(const std::string &gamePath, bool wantBG, bool synchronous = false);
+	GameInfo *GetInfo(const std::string &gamePath, bool wantBG);
 	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures.
 

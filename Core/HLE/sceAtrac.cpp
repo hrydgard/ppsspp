@@ -1875,7 +1875,6 @@ const HLEFunction sceAtrac3plus[] = {
 	{0x0C116E1B,WrapI_IUUUU<sceAtracLowLevelDecode>,"sceAtracLowLevelDecode"},
 };
 
-
 void Register_sceAtrac3plus() {
 	// Two names
 	RegisterModule("sceATRAC3plus_Library", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
