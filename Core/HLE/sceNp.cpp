@@ -55,7 +55,7 @@ int sceNpAuth_4EC1F667()
 
 int sceNpAuth_A1DE86F8(u32 poolSize, u32 stackSize, u32 threadPrio) 
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpAuth_4EC1F667(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
+	ERROR_LOG(HLE, "UNIMPL sceNpAuth_A1DE86F8(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
 	return 0;
 }
 
@@ -78,7 +78,7 @@ int sceNpService_00ACFAC3()
 
 int sceNpService_0F8F5821(u32 poolSize, u32 stackSize, u32 threadPrio) 
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpAuth_4EC1F667(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
+	ERROR_LOG(HLE, "UNIMPL sceNpService_0F8F5821(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
 	return 0;
 }
 
