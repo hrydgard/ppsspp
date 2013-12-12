@@ -22,7 +22,7 @@ What's new in 0.9.6
 -------------------
 * Large general speed improvements and assorted bug fixes
 * "Software Skinning" option which speeds up many games with animated 3D characters
-  (but may slow down a few, like Monster Hunter - experiment with turning it off)
+  (but may slow down a few, like Monster Hunter games - experiment with turning it off)
 * Various fixes around stencil/alpha, reducing glow problems in Wipeout and Gods Eater Burst.
 * Timing improvements making more games run at the correct FPS, also fixing some audio issues
 * More debugger features
