@@ -22,11 +22,12 @@ What's new in 0.9.6
 -------------------
 * Large general speed improvements and assorted bug fixes
 * "Software Skinning" option which speeds up many games with animated 3D characters
+  (but may slow down a few, like Monster Hunter - experiment with turning it off)
 * Various fixes around stencil/alpha, reducing glow problems in Wipeout and Gods Eater Burst.
 * Timing improvements making more games run at the correct FPS, also fixing some audio issues
 * More debugger features
 * Option for four-way touch dpad, avoiding diagonal dpad issues
-* Individually resizable touch controls
+* Better looking and individually resizable touch controls
 * Add ability to switch UMD in multi-disc games (works for most)
 * Emulate PSP-2000 rather than the 1000 model by default. Not much different in practice.
 * Automatic install of games from ZIP files, like demos and many homebrew.
