@@ -312,9 +312,9 @@ void VFSShutdown() {
 
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	if (filename[0] == '/') {
-		// This is an absolute path, not a VFS file. Return 0.
-		ILOG("Not a VFS path: %s", filename);
-		return 0;
+		// Local path, not VFS.
+		ILOG("Not a VFS path: %s . Reading local file.", filename);
+		return ReadLocalFile(filename, size);
 	}
 
 	int fn_len = (int)strlen(filename);
@@ -336,6 +336,12 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 
 bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter)
 {
+	if (path[0] == '/') {
+		// Local path, not VFS.
+		ILOG("Not a VFS path: %s . Reading local directory.", path);
+		return getFilesInDir(path, listing, filter);
+	}
+
 	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
@@ -353,6 +359,12 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 
 bool VFSGetFileInfo(const char *path, FileInfo *info)
 {
+	if (path[0] == '/') {
+		// Local path, not VFS.
+		ILOG("Not a VFS path: %s . Getting local file info.", path);
+		return getFileInfo(path, info);
+	}
+
 	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
