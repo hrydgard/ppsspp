@@ -29,6 +29,7 @@ extern const char *PPSSPP_GIT_VERSION;
 const int MAX_CONFIG_VOLUME = 8;
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
+const int PSP_DEFAULT_FIRMWARE = 150;
 
 namespace http {
 	class Download;
@@ -239,6 +240,7 @@ public:
 	bool bWlanPowerSave;
 
 	int iPSPModel;
+	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!
 #if defined(_WIN32) && !defined(USING_QT_UI)
 	bool bBypassOSKWithKeyboard;

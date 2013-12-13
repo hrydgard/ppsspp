@@ -287,7 +287,7 @@ void sceKernelExitGameWithStatus()
 
 u32 sceKernelDevkitVersion()
 {
-	int firmwareVersion = 150;
+	int firmwareVersion = g_Config.iFirmwareVersion;
 	int major = firmwareVersion / 100;
 	int minor = (firmwareVersion / 10) % 10;
 	int revision = firmwareVersion % 10;
