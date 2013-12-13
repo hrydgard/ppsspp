@@ -489,7 +489,7 @@ void GameBrowser::Refresh() {
 
 	if (g_Config.bHomebrewStore && (flags_ & FLAG_HOMEBREWSTOREBUTTON)) {
 		Add(new Spacer());
-		homebrewStoreButton_ = Add(new Choice("Download from the PPSSPP Homebrew Store", new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
+		homebrewStoreButton_ = Add(new Choice(m->T("Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
 	} else {
 		homebrewStoreButton_ = 0;
 	}
