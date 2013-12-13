@@ -13,6 +13,7 @@
 #include "SDL/SDL_audio.h"
 #include "SDL/SDL_video.h"
 #else
+#include <unistd.h>
 #include <pwd.h>
 #include "SDL.h"
 #include "SDL_timer.h"
@@ -29,13 +30,15 @@
 #include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "math/math_util.h"
-#include "../SDL/SDLJoystick.h"
+#include "SDL/SDLJoystick.h"
+
+#ifdef PPSSPP
 // Bad: PPSSPP includes from native
 #include "Core/Core.h"
 #include "Core/Config.h"
 
-
 GlobalUIState lastUIState = UISTATE_MENU;
+#endif
 
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
@@ -338,12 +341,16 @@ int main(int argc, char *argv[]) {
 		const SDL_VideoInfo* info = SDL_GetVideoInfo();
 		pixel_xres = info->current_w;
 		pixel_yres = info->current_h;
+#ifdef PPSSPP
 		g_Config.bFullScreen = true;
+#endif
 	} else {
 		// set a sensible default resolution (2x)
 		pixel_xres = 480 * 2;
 		pixel_yres = 272 * 2;
+#ifdef PPSSPP
 		g_Config.bFullScreen = false;
+#endif
 	}
 	dp_xres = (float)pixel_xres;
 	dp_yres = (float)pixel_yres;
@@ -357,7 +364,10 @@ int main(int argc, char *argv[]) {
 	EGL_Init();
 #endif
 
+#ifdef PPSSPP
 	SDL_WM_SetCaption((app_name_nice + " " + PPSSPP_GIT_VERSION).c_str(), NULL);
+#endif
+
 #ifdef MAEMO
 	SDL_ShowCursor(SDL_DISABLE);
 #endif
@@ -593,7 +603,7 @@ int main(int argc, char *argv[]) {
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		NativeRender();
-#ifndef MAEMO
+#if defined(PPSSPP) && !defined(MAEMO)
 		if (lastUIState != globalUIState) {
 			lastUIState = globalUIState;
 			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
