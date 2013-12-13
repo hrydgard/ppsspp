@@ -792,43 +792,7 @@ int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 	{
 		u64 srcTick = Memory::Read_U64(srcTickPtr);
 
-		ScePspDateTime pt;
-		memset(&pt, 0, sizeof(pt));
-
-		__RtcTicksToPspTime(pt,srcTick);
-		if(((pt.year-1)*12+pt.month) + numMonths < 1 || ((pt.year-1)*12+pt.month) + numMonths > 9999*12)
-		{
-			srcTick = 0;
-		}
-		else
-		{
-			if(numMonths < 0)
-			{
-				pt.year += numMonths/12;
-				int restMonth = pt.month + numMonths%12;
-				if(restMonth < 1)
-				{
-					pt.month = 12+restMonth;
-					pt.year--;
-				}
-				else
-				{
-					pt.month = restMonth;
-				}
-			}
-			else
-			{
-				pt.year += numMonths/12;
-				pt.month += numMonths%12;
-				if(pt.month > 12)
-				{
-					pt.month -= 12;
-					pt.year++;
-				}
-			}
-			u64 yearTicks = __RtcPspTimeToTicks(pt);
-			srcTick =yearTicks;
-		}
+		srcTick += numMonths * 2629743000000UL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 
@@ -842,21 +806,7 @@ int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 	{
 		u64 srcTick = Memory::Read_U64(srcTickPtr);
 
-		ScePspDateTime pt;
-		memset(&pt, 0, sizeof(pt));
-
-		__RtcTicksToPspTime(pt,srcTick);
-		if(pt.year + numYears <= 0 || pt.year + numYears > 9999)
-		{
-			srcTick = 0;
-		}
-		else
-		{
-			pt.year += numYears;
-			u64 yearTicks = __RtcPspTimeToTicks(pt);
-			srcTick =yearTicks;
-		}
-
+		srcTick += numYears * 31556926000000UL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 
