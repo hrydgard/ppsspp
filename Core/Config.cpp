@@ -327,6 +327,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
+	pspConfig->Get("PSPFirmwareVersion", &iFirmwareVersion, PSP_DEFAULT_FIRMWARE);
 #if !defined(_M_X64) && !defined(_WIN32) && !defined(__SYMBIAN32__)
 	// 32-bit mmap cannot map more than 32MB contiguous
 	iPSPModel = PSP_MODEL_FAT;
@@ -569,6 +570,7 @@ void Config::Save() {
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("PSPModel", iPSPModel);
+		pspConfig->Set("PSPFirmwareVersion", iFirmwareVersion);
 		pspConfig->Set("NickName", sNickName.c_str());
 		pspConfig->Set("proAdhocServer", proAdhocServer.c_str());
 		pspConfig->Set("MacAddress", localMacAddress.c_str());
