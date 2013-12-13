@@ -44,6 +44,10 @@ const u64 rtcMagicOffset = 62135596800000000ULL;
 // This is the # of microseconds between January 1, 0001 and January 1, 1601 (for Win32 FILETIME.)
 const u64 rtcFiletimeOffset = 50491123200000000ULL;
 
+// 400 years is a convenient number, since leap days and everything cycle every 400 years.
+// 400 years is in other words 20871 full weeks.
+const u64 rtc400YearTicks = (u64)20871 * 7 * 24 * 3600 * 1000000ULL;
+
 const int PSP_TIME_INVALID_YEAR = -1;
 const int PSP_TIME_INVALID_MONTH = -2;
 const int PSP_TIME_INVALID_DAY = -3;
@@ -153,7 +157,7 @@ void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
 void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 {
 	int numYearAdd = 0;
-	if(ticks < 1000000ULL)
+	if (ticks < 1000000ULL)
 	{
 		t.year = 1;
 		t.month = 1;
@@ -164,16 +168,18 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 		t.microsecond = ticks % 1000000ULL;
 		return;
 	}
-	else if(ticks < rtcMagicOffset )
+	else if (ticks < rtcMagicOffset)
 	{
 		// Need to get a year past 1970 for gmtime
 		// Add enough 400 year to pass over 1970.
-		// Each 400 year are equal
-		// 400 year is 20871 weeks
-		u64 ticks400Y = (u64)20871 * 7 * 24 * 3600 * 1000000ULL;
-		numYearAdd = (int) ((rtcMagicOffset - ticks) / ticks400Y + 1);
-		ticks += ticks400Y * numYearAdd;
+		numYearAdd = (int) ((rtcMagicOffset - ticks) / rtc400YearTicks + 1);
+		ticks += rtc400YearTicks * numYearAdd;
+	}
 
+	while (ticks >= rtcMagicOffset + rtc400YearTicks)
+	{
+		ticks -= rtc400YearTicks;
+		--numYearAdd;
 	}
 
 	time_t time = (ticks - rtcMagicOffset) / 1000000ULL;
@@ -207,10 +213,22 @@ u64 __RtcPspTimeToTicks(ScePspDateTime &pt)
 	local.tm_sec = pt.second;
 	local.tm_isdst = 0;
 
+	s64 tickOffset = 0;
+	while (local.tm_year < 70)
+	{
+		tickOffset -= rtc400YearTicks;
+		local.tm_year += 400;
+	}
+	while (local.tm_year >= 470)
+	{
+		tickOffset += rtc400YearTicks;
+		local.tm_year -= 400;
+	}
+
 	time_t seconds = rtc_timegm(&local);
 	u64 result = rtcMagicOffset + (u64) seconds * 1000000ULL;
 	result += pt.microsecond;
-	return result;
+	return result + tickOffset;
 }
 
 bool __RtcValidatePspTime(ScePspDateTime &t)
