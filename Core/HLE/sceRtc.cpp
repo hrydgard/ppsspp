@@ -827,7 +827,7 @@ int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 				}
 			}
 			u64 yearTicks = __RtcPspTimeToTicks(pt);
-			srcTick =yearTicks;
+			srcTick += yearTicks;
 		}
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
@@ -854,7 +854,7 @@ int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 		{
 			pt.year += numYears;
 			u64 yearTicks = __RtcPspTimeToTicks(pt);
-			srcTick =yearTicks;
+			srcTick += yearTicks;
 		}
 
 		Memory::Write_U64(srcTick, destTickPtr);
