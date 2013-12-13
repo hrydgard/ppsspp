@@ -20,6 +20,9 @@
 #include "SDL_audio.h"
 #include "SDL_video.h"
 #endif
+
+#include <algorithm>
+
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
@@ -374,6 +377,11 @@ int main(int argc, char *argv[]) {
 		g_Config.bFullScreen = false;
 #endif
 	}
+
+	if (!landscape) {
+		std::swap(pixel_xres, pixel_yres);
+	}
+
 	dp_xres = (float)pixel_xres;
 	dp_yres = (float)pixel_yres;
 
