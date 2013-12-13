@@ -316,7 +316,8 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 			}
 		}
 
-		files->push_back(info);
+		if (files)
+			files->push_back(info);
 #ifdef _WIN32
 	} while (FindNextFile(hFind, &ffd) != 0);
 	FindClose(hFind);
@@ -324,7 +325,8 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	}
 	closedir(dirp);
 #endif
-	std::sort(files->begin(), files->end());
+	if (files)
+		std::sort(files->begin(), files->end());
 	return foundEntries;
 }
 
