@@ -1535,7 +1535,11 @@ void GLES_GPU::DoBlockTransfer() {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
 		return;
 	}
-	
+
+	// From VRAM to RAM , trigger ReadFramebufferToMemory()
+	if (Memory::IsVRAMAddress(srcBasePtr) && !Memory::IsVRAMAddress(dstBasePtr) )
+		gstate_c.blocktransfer = true;
+		
 	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 	// entirely by walking a couple of pointers...

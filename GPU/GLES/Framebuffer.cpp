@@ -800,9 +800,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	} else if (vfb != currentRenderVfb_) {
 		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
-		if (updateVRAM && !vfb->memoryUpdated) {
+		if ((updateVRAM && !vfb->memoryUpdated) || gstate_c.blocktransfer) {
 			ReadFramebufferToMemory(vfb, true);
+			gstate_c.blocktransfer = false;
 		}
+		
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
