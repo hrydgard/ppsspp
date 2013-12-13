@@ -266,13 +266,35 @@ std::string System_GetProperty(SystemProperty prop) {
 
 InputState input_state;
 
+static const int legacyKeyMap[] {
+	NKCODE_X,          //A
+	NKCODE_S,          //B
+	NKCODE_Z,          //X
+	NKCODE_A,          //Y
+	NKCODE_W,          //LBUMPER
+	NKCODE_Q,          //RBUMPER
+	NKCODE_1,        //START
+	NKCODE_2,        //SELECT
+	NKCODE_DPAD_UP,         //UP
+	NKCODE_DPAD_DOWN,       //DOWN
+	NKCODE_DPAD_LEFT,       //LEFT
+	NKCODE_DPAD_RIGHT,      //RIGHT
+	0,                  //MENU (SwipeDown)
+	NKCODE_ESCAPE,  //BACK
+	NKCODE_I,          //JOY UP
+	NKCODE_K,          //JOY DOWN
+	NKCODE_J,          //JOY LEFT
+	NKCODE_L,          //JOY RIGHT
+};
+
 void SimulateGamepad(const uint8 *keys, InputState *input) {
+	// Legacy key mapping.
 	input->pad_buttons = 0;
 	input->pad_lstick_x = 0;
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
-// TODO: Use NativeAxis for joy instead.
+
 #ifdef PANDORA
 	if ((ljoy)||(rjoy)) {
 		SDL_JoystickUpdate();
@@ -452,6 +474,7 @@ int main(int argc, char *argv[]) {
 	int framecount = 0;
 	float t = 0;
 	float lastT = 0;
+	uint32_t pad_buttons = 0;  // legacy pad buttons
 	while (true) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
@@ -474,6 +497,11 @@ int main(int argc, char *argv[]) {
 					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+
+					for (int i = 0; i < ARRAY_SIZE(legacyKeyMap); i++) {
+						if (legacyKeyMap[i] == key.keyCode)
+							pad_buttons |= 1 << i;
+					}
 					break;
 				}
 			case SDL_KEYUP:
@@ -484,6 +512,10 @@ int main(int argc, char *argv[]) {
 					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+					for (int i = 0; i < ARRAY_SIZE(legacyKeyMap); i++) {
+						if (legacyKeyMap[i] == key.keyCode)
+							pad_buttons &= ~(1 << i);
+					}
 					break;
 				}
 			case SDL_MOUSEBUTTONDOWN:
@@ -600,7 +632,8 @@ int main(int argc, char *argv[]) {
 
 		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
 		SimulateGamepad(keys, &input_state);
-		UpdateInputState(&input_state);
+		input_state.pad_buttons = pad_buttons;
+		UpdateInputState(&input_state, true);
 		NativeUpdate(input_state);
 		NativeRender();
 #if defined(PPSSPP) && !defined(MAEMO)

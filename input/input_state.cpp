@@ -28,7 +28,7 @@ int MapPadButtonFixed(int keycode) {
 		return PAD_BUTTON_A;
 
 	case NKCODE_ESCAPE:
-	case NKCODE_BUTTON_2:   
+	case NKCODE_BUTTON_2:
 	case NKCODE_BUTTON_B: // same as NKCODE_OUYA_BUTTON_A and NKCODE_BUTTON_CIRCLE_PS3:
 		return PAD_BUTTON_B;
 
