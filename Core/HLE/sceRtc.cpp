@@ -860,29 +860,29 @@ int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 
 int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 {
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr))
 	{
-		u64 srcTick = Memory::Read_U64(srcTickPtr);
-
-		ScePspDateTime pt;
-		memset(&pt, 0, sizeof(pt));
-
-		__RtcTicksToPspTime(pt,srcTick);
-		if(pt.year + numYears <= 0 || pt.year + numYears > 9999)
-		{
-			srcTick = 0;
-		}
-		else
-		{
-			pt.year += numYears;
-			u64 yearTicks = __RtcPspTimeToTicks(pt);
-			srcTick =yearTicks;
-		}
-
-		Memory::Write_U64(srcTick, destTickPtr);
+		WARN_LOG(SCERTC, "sceRtcTickAddYears(%08x, %08x, %d): invalid address", destTickPtr, srcTickPtr, numYears);
+		return -1;
 	}
 
-	DEBUG_LOG(SCERTC, "sceRtcTickAddYears(%d,%d,%d)", destTickPtr, srcTickPtr, numYears);
+	u64 srcTick = Memory::Read_U64(srcTickPtr);
+
+	ScePspDateTime pt;
+	memset(&pt, 0, sizeof(pt));
+
+	__RtcTicksToPspTime(pt, srcTick);
+	pt.year += numYears;
+
+	if (__RtcValidatePspTime(pt))
+	{
+		// Did we land on a year that isn't a leap year?
+		if (pt.month == 2 && pt.day == 29 && !__RtcIsLeapYear((s16)pt.year))
+			pt.day = 28;
+		Memory::Write_U64(__RtcPspTimeToTicks(pt), destTickPtr);
+	}
+
+	DEBUG_LOG(SCERTC, "sceRtcTickAddYears(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numYears);
 	return 0;
 }
 
