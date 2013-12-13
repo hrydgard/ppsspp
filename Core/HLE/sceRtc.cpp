@@ -387,41 +387,45 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 	return local.tm_wday;
 }
 
-u32 sceRtcGetDaysInMonth(u32 year, u32 month)
+bool __RtcIsLeapYear(u32 year)
 {
-	DEBUG_LOG(SCERTC, "sceRtcGetDaysInMonth(%d, %d)", year, month);
-	u32 numberOfDays;
+	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+}
 
-	if (year == 0 || month == 0 || month > 12)
-		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
-
+int __RtcDaysInMonth(u32 year, u32 month)
+{
 	switch (month)
 	{
 	case 4:
 	case 6:
 	case 9:
 	case 11:
-		numberOfDays = 30;
-		break;
+		return 30;
+
 	case 2:
-		if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
-			numberOfDays = 29;
-		else
-			numberOfDays = 28;
-		break;
+		if (__RtcIsLeapYear(year))
+			return 29;
+		return 28;
 
 	default:
-		numberOfDays = 31;
-		break;
+		return 31;
 	}
+}
 
-	return numberOfDays;
+u32 sceRtcGetDaysInMonth(u32 year, u32 month)
+{
+	DEBUG_LOG(SCERTC, "sceRtcGetDaysInMonth(%d, %d)", year, month);
+
+	if (year == 0 || month == 0 || month > 12)
+		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
+
+	return __RtcDaysInMonth(year, month);
 }
 
 u32 sceRtcIsLeapYear(u32 year)
 {
 	DEBUG_LOG(SCERTC, "sceRtcIsLeapYear(%d)", year);
-	return (year % 4 == 0) && (!(year % 100 == 0) || (year % 400 == 0));
+	return __RtcIsLeapYear(year) ? 1 : 0;
 }
 
 int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)	
@@ -490,7 +494,7 @@ int sceRtcCheckValid(u32 datePtr)
 		{
 			return PSP_TIME_INVALID_DAY;
 		}
-		else if (pt.day > 31) // TODO: Needs to check actual days in month, including leaps
+		else if (pt.day > __RtcDaysInMonth((s16)pt.year, (s16)pt.month))
 		{
 			return PSP_TIME_INVALID_DAY;
 		}
