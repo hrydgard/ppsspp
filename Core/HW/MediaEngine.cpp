@@ -340,6 +340,9 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 			openContext();
 		}
 #endif // USE_FFMPEG
+
+		// We added data, so... not the end anymore?
+		m_isVideoEnd = false;
 	}
 	return size;
 }
