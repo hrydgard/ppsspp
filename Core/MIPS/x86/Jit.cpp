@@ -243,13 +243,6 @@ void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 		LOAD_FLAGS; // restore flag!
 }
 
-void Jit::CompileAt(u32 addr)
-{
-	CheckJitBreakpoint(addr, 0);
-	MIPSOpcode op = Memory::Read_Instruction(addr);
-	MIPSCompileOp(op);
-}
-
 void Jit::EatInstruction(MIPSOpcode op)
 {
 	MIPSInfo info = MIPSGetInfo(op);

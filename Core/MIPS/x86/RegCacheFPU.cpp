@@ -32,8 +32,10 @@ FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
 
-	if (!initialReady)
+	if (!initialReady) {
 		SetupInitialRegs();
+		initialReady = true;
+	}
 
 	memcpy(xregs, xregsInitial, sizeof(xregs));
 	memcpy(regs, regsInitial, sizeof(regs));
@@ -50,12 +52,14 @@ void FPURegCache::SetupInitialRegs() {
 		regsInitial[i].location = base;
 		base.IncreaseOffset(sizeof(float));
 	}
-	base = GetDefaultLocation(32);
-	for (int i = 32; i < NUM_MIPS_FPRS; i++) {
+	for (int i = 32; i < 32 + 128; i++) {
+		regsInitial[i].location = GetDefaultLocation(i);
+	}
+	base = GetDefaultLocation(32 + 128);
+	for (int i = 32 + 128; i < NUM_MIPS_FPRS; i++) {
 		regsInitial[i].location = base;
 		base.IncreaseOffset(sizeof(float));
 	}
-	initialReady = true;
 }
 
 void FPURegCache::SpillLock(int p1, int p2, int p3, int p4) {
@@ -65,16 +69,16 @@ void FPURegCache::SpillLock(int p1, int p2, int p3, int p4) {
 	if (p4 != 0xFF) regs[p4].locked = true;
 }
 
-void FPURegCache::SpillLockV(const u8 *v, VectorSize sz) {
+void FPURegCache::SpillLockV(const u8 *vec, VectorSize sz) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		vregs[v[i]].locked = true;
+		vregs[vec[i]].locked = true;
 	}
 }
 
 void FPURegCache::SpillLockV(int vec, VectorSize sz) {
-	u8 v[4];
-	GetVectorRegs(v, sz, vec);
-	SpillLockV(v, sz);
+	u8 r[4];
+	GetVectorRegs(r, sz, vec);
+	SpillLockV(r, sz);
 }
 
 void FPURegCache::MapRegV(int vreg, int flags) {
@@ -82,18 +86,18 @@ void FPURegCache::MapRegV(int vreg, int flags) {
 }
 
 void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
-	u8 v[4];
-	GetVectorRegs(v, sz, vec);
-	SpillLockV(v, sz);
+	u8 r[4];
+	GetVectorRegs(r, sz, vec);
+	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		MapReg(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(r[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
 	}
 }
 
-void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
-	SpillLockV(v, sz);
+void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
+	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		MapReg(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(r[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
 	}
 }
 
@@ -205,7 +209,7 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	if (reg < 32) {
 		return M(&mips->f[reg]);
 	} else if (reg < 32 + 128) {
-		return M(&mips->v[reg - 32]);
+		return M(&mips->v[voffset[reg - 32]]);
 	} else {
 		return M(&tempValues[reg - 32 - 128]);
 	}
@@ -264,9 +268,9 @@ X64Reg FPURegCache::GetFreeXReg() {
 }
 
 void FPURegCache::FlushX(X64Reg reg) {
-	if (reg >= NUM_X_FPREGS)
+	if (reg >= NUM_X_FPREGS) {
 		PanicAlert("Flushing non existent reg");
-	else if (xregs[reg].mipsReg != -1) {
+	} else if (xregs[reg].mipsReg != -1) {
 		StoreFromRegister(xregs[reg].mipsReg);
 	}
 }

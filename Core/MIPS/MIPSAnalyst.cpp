@@ -16,8 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <set>
 
+#include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
+#include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -156,7 +159,7 @@ namespace MIPSAnalyst {
 	{
 		u32 start;
 		u32 end;
-		u32 hash;
+		u64 hash;
 		u32 size;
 		bool isStraightLeaf;
 		bool hasHash;
@@ -166,7 +169,7 @@ namespace MIPSAnalyst {
 
 	vector<Function> functions;
 
-	map<u32, Function*> hashToFunction;
+	map<u64, Function*> hashToFunction;
 
 	void Shutdown()
 	{
@@ -215,27 +218,101 @@ namespace MIPSAnalyst {
 		return true;
 	}
 
-	void HashFunctions()
-	{
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++)
-		{
-			Function &f=*iter;
-			u32 hash = 0x1337babe;
-			for (u32 addr = f.start; addr <= f.end; addr += 4)
-			{
+	void HashFunctions() {
+		std::vector<u32> buffer;
+
+		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
+			Function &f = *iter;
+
+			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
+			buffer.resize((f.end - f.start + 4) / 4);
+			size_t pos = 0;
+			for (u32 addr = f.start; addr <= f.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
 				MIPSOpcode instr = Memory::Read_Instruction(addr);
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
-					validbits&=~0xFFFF;
+					validbits &= ~0xFFFF;
 				if (flags & IN_IMM26)
-					validbits&=~0x03FFFFFF;
-				hash = __rotl(hash,13);
-				hash ^= (instr&validbits);
+					validbits &= ~0x03FFFFFF;
+				buffer[pos++] = instr & validbits;
 			}
-			f.hash=hash;
-			f.hasHash=true;
+
+			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
+			f.hasHash = true;
 		}
+	}
+
+	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
+		sprintf(buffer, "z_un_%08x", startAddr);
+		return buffer;
+	}
+
+	static bool IsDefaultFunction(const char *name) {
+		if (name == NULL) {
+			// Must be I guess?
+			return true;
+		}
+
+		// Assume any z_un, not just the address, is a default func.
+		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
+	}
+
+	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
+		static const u32 MAX_AHEAD_SCAN = 0x1000;
+		// Maybe a bit high... just to make sure we don't get confused by recursive tail recursion.
+		static const u32 MAX_FUNC_SIZE = 0x20000;
+
+		if (fromAddr > knownEnd + MAX_FUNC_SIZE) {
+			return INVALIDTARGET;
+		}
+
+		// Code might jump halfway up to before fromAddr, but after knownEnd.
+		// In that area, there could be another jump up to the valid range.
+		// So we track that for a second scan.
+		u32 closestJumpbackAddr = INVALIDTARGET;
+		u32 closestJumpbackTarget = fromAddr;
+
+		// We assume the furthest jumpback is within the func.
+		u32 furthestJumpbackAddr = INVALIDTARGET;
+
+		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
+			u32 target = GetBranchTargetNoRA(ahead);
+			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
+				target = GetJumpTarget(ahead);
+			}
+
+			if (target != INVALIDTARGET) {
+				// Only if it comes back up to known code within this func.
+				if (target >= knownStart && target <= knownEnd) {
+					furthestJumpbackAddr = ahead;
+				}
+				// But if it jumps above fromAddr, we should scan that area too...
+				if (target < closestJumpbackTarget && target < fromAddr && target > knownEnd) {
+					closestJumpbackAddr = ahead;
+					closestJumpbackTarget = target;
+				}
+			}
+		}
+
+		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
+			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
+				u32 target = GetBranchTargetNoRA(behind);
+				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
+					target = GetJumpTarget(behind);
+				}
+
+				if (target != INVALIDTARGET) {
+					if (target >= knownStart && target <= knownEnd) {
+						furthestJumpbackAddr = closestJumpbackAddr;
+					}
+				}
+			}
+		}
+
+		return furthestJumpbackAddr;
 	}
 
 	void ScanForFunctions(u32 startAddr, u32 endAddr /*, std::vector<u32> knownEntries*/) {
@@ -249,7 +326,16 @@ namespace MIPSAnalyst {
 		for (addr = startAddr; addr <= endAddr; addr+=4) {
 			SymbolInfo syminfo;
 			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
-				addr = syminfo.address + syminfo.size;
+				addr = syminfo.address + syminfo.size - 4;
+
+				// We still need to insert the func for hashing purposes.
+				currentFunction.start = syminfo.address;
+				currentFunction.end = syminfo.address + syminfo.size - 4;
+				functions.push_back(currentFunction);
+				currentFunction.start = addr + 4;
+				furthestBranch = 0;
+				looking = false;
+				end = false;
 				continue;
 			}
 
@@ -260,11 +346,37 @@ namespace MIPSAnalyst {
 				if (target > furthestBranch) {
 					furthestBranch = target;
 				}
+			} else if ((op & 0xFC000000) == 0x08000000) {
+				u32 sureTarget = GetJumpTarget(addr);
+				// Check for a tail call.  Might not even have a jr ra.
+				if (sureTarget != INVALIDTARGET && sureTarget < currentFunction.start) {
+					if (furthestBranch > addr) {
+						looking = true;
+						addr += 4;
+					} else {
+						end = true;
+					}
+				} else if (sureTarget != INVALIDTARGET && sureTarget > addr && sureTarget > furthestBranch) {
+					// A jump later.  Probably tail, but let's check if it jumps back.
+					u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+					u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
+					if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
+						furthestBranch = jumpback;
+					} else {
+						if (furthestBranch > addr) {
+							looking = true;
+							addr += 4;
+						} else {
+							end = true;
+						}
+					}
+				}
 			}
 			if (op == MIPS_MAKE_JR_RA()) {
-				if (furthestBranch >= addr) {
+				// If a branch goes to the jr ra, it's still ending here.
+				if (furthestBranch > addr) {
 					looking = true;
-					addr+=4;
+					addr += 4;
 				} else {
 					end = true;
 				}
@@ -273,14 +385,22 @@ namespace MIPSAnalyst {
 			if (looking) {
 				if (addr >= furthestBranch) {
 					u32 sureTarget = GetSureBranchTarget(addr);
+					// Regular j only, jals are to new funcs.
+					if (sureTarget == INVALIDTARGET && ((op & 0xFC000000) == 0x08000000)) {
+						sureTarget = GetJumpTarget(addr);
+					}
+
 					if (sureTarget != INVALIDTARGET && sureTarget < addr) {
 						end = true;
+					} else if (sureTarget != INVALIDTARGET) {
+						// Okay, we have a downward jump.  Might be an else or a tail call...
+						// If there's a jump back upward in spitting distance of it, it's an else.
+						u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+						u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
+						if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
+							furthestBranch = jumpback;
+						}
 					}
-					sureTarget = GetJumpTarget(addr);
-					if (sureTarget != INVALIDTARGET && sureTarget < addr && ((op&0xFC000000)==0x08000000)) {
-						end = true;
-					}
-					//end = true;
 				}
 			}
 			if (end) {
@@ -298,74 +418,112 @@ namespace MIPSAnalyst {
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
-			(*iter).size = ((*iter).end-(*iter).start+4);
+		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+			iter->size = iter->end - iter->start + 4;
 			char temp[256];
-			sprintf(temp,"z_un_%08x",(*iter).start);
-			symbolMap.AddSymbol(std::string(temp).c_str(), (*iter).start,(*iter).end-(*iter).start+4,ST_FUNCTION);
+			symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 		}
+
 		HashFunctions();
+
+		if (g_Config.bFuncHashMap) {
+			LoadHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
+			StoreHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
+		}
 	}
 
 	struct HashMapFunc {
 		char name[64];
-		u32 hash;
+		u64 hash;
 		u32 size; //number of bytes
+
+		bool operator < (const HashMapFunc &other) const {
+			return hash < other.hash || (hash == other.hash && size < other.size);
+		}
 	};
+	std::set<HashMapFunc> hashMap;
 
-	void StoreHashMap(const char *filename) {
-		FILE *file = File::OpenCFile(filename,"wb");
-		u32 num = 0;
-		if (fwrite(&num,4,1,file) != 1) //fill in later
-			WARN_LOG(CPU, "Could not store hash map %s", filename);
+	void StoreHashMap(const std::string &filename) {
+		HashFunctions();
 
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++) {
-			Function &f=*iter;
-			if (f.hasHash && f.size >= 12) {
-				HashMapFunc temp;
-				memset(&temp, 0, sizeof(temp));
-				strcpy(temp.name, f.name);
-				temp.hash=f.hash;
-				temp.size=f.size;
-				if (fwrite((char*)&temp, sizeof(temp), 1, file) != 1) {
-					WARN_LOG(CPU, "Could not store hash map %s", filename);
-					break;
-				}
-				num++;
+		FILE *file = File::OpenCFile(filename, "wt");
+		if (!file) {
+			WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+			return;
+		}
+
+		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
+			const Function &f = *it;
+			// Small functions aren't very interesting.
+			if (!f.hasHash || f.size < 12) {
+				continue;
+			}
+			// Functions with default names aren't very interesting either.
+			const char *name = symbolMap.GetLabelName(f.start);
+			if (IsDefaultFunction(name)) {
+				continue;
+			}
+
+			HashMapFunc mf = { "", f.hash, f.size };
+			strncpy(mf.name, name, sizeof(mf.name) - 1);
+			hashMap.insert(mf);
+		}
+
+		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
+			const HashMapFunc &mf = *it;
+			if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
+				WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+				break;
 			}
 		}
-		fseek(file, 0, SEEK_SET);
-		if (fwrite(&num, 4, 1, file) != 1)  // fill in later
-			WARN_LOG(CPU, "Could not store hash map %s", filename);
 		fclose(file);
 	}
 
-
-	void LoadHashMap(const char *filename)
-	{
+	void ApplyHashMap() {
 		HashFunctions();
 		UpdateHashToFunctionMap();
 
-		FILE *file = File::OpenCFile(filename, "rb");
-		int num;
-		if (fread(&num, 4, 1, file) == 1) {
-			for (int i = 0; i < num; i++) {
-				HashMapFunc temp;
-				if(fread(&temp, sizeof(temp), 1, file) == 1) {
-					map<u32,Function*>::iterator iter = hashToFunction.find(temp.hash);
-					if (iter != hashToFunction.end()) {
-						//yay, found a function!
-						Function &f = *(iter->second);
-						if (f.size == temp.size) {
-							strcpy(f.name, temp.name);
-							f.hash=temp.hash;
-							f.size=temp.size;
-						}
-					}
+		for (auto mf = hashMap.begin(), end = hashMap.end(); mf != end; ++mf) {
+			auto iter = hashToFunction.find(mf->hash);
+			if (iter == hashToFunction.end()) {
+				continue;
+			}
+
+			// Yay, found a function.
+			Function &f = *(iter->second);
+			if (f.hash == mf->hash && f.size == mf->size) {
+				strncpy(f.name, mf->name, sizeof(mf->name) - 1);
+
+				const char *existingLabel = symbolMap.GetLabelName(f.start);
+				char defaultLabel[256];
+				// If it was renamed, keep it.  Only change the name if it's still the default.
+				if (existingLabel == NULL || !strcmp(existingLabel, DefaultFunctionName(defaultLabel, f.start))) {
+					symbolMap.SetLabelName(mf->name, f.start);
 				}
 			}
 		}
+	}
+
+	void LoadHashMap(const std::string &filename) {
+		FILE *file = File::OpenCFile(filename, "rt");
+		if (!file) {
+			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());
+			return;
+		}
+
+		while (!feof(file)) {
+			HashMapFunc mf = { "" };
+			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
+				char temp[1024];
+				fgets(temp, 1024, file);
+				continue;
+			}
+
+			hashMap.insert(mf);
+		}
 		fclose(file);
+
+		ApplyHashMap();
 	}
 
 	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op) {

@@ -71,7 +71,6 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 
 	// it's ugly, but .rc coordinates don't match actual pixels and it screws
 	// up both the size and the aspect ratio
-	// TODO: Could be scrollable in case the framebuf is larger?  Also should be better positioned.
 	RECT frameRect;
 	HWND frameWnd = GetDlgItem(m_hDlg,IDC_GEDBG_FRAME);
 
@@ -117,6 +116,7 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 }
 
 CGEDebugger::~CGEDebugger() {
+	CleanupPrimPreview();
 	delete flags;
 	delete lighting;
 	delete textureState;
@@ -140,8 +140,6 @@ void CGEDebugger::SetupPreviews() {
 }
 
 void CGEDebugger::UpdatePreviews() {
-	// TODO: Do something different if not paused?
-
 	wchar_t desc[256];
 	const GPUDebugBuffer *primaryBuffer = NULL;
 	bool bufferResult = false;
@@ -155,7 +153,7 @@ void CGEDebugger::UpdatePreviews() {
 	case PRIMARY_FRAMEBUF:
 		bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer);
 		if (bufferResult) {
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d) fmt %i", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), state.FrameBufFormat());
 		}
 		break;
 
@@ -288,6 +286,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		return TRUE;
 
 	case WM_CLOSE:
+		attached = false;
+		ResumeFromStepping();
+		breakNext = BREAK_NONE;
+
 		Show(false);
 		return TRUE;
 
@@ -309,7 +311,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
-			// TODO: Move this somewhere...
 			if (attached && gpuDebug != NULL) {
 				UpdatePreviews();
 			}
@@ -345,6 +346,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTEX:
 			{
+				attached = true;
 				if (!gpuDebug) {
 					break;
 				}
@@ -367,7 +369,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 
-			// TODO: detach?  Should probably have separate UI, or just on activate?
 			ResumeFromStepping();
 			breakNext = BREAK_NONE;
 			break;
@@ -397,6 +398,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
+			attached = true;
 			u32 pc = (u32)wParam;
 			bool temp;
 			bool isBreak = IsAddressBreakpoint(pc, temp);
@@ -410,6 +412,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_RUNTOWPARAM:
 		{
+			attached = true;
 			u32 pc = (u32)wParam;
 			AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);

@@ -4,10 +4,9 @@
 <context>
     <name>Controls</name>
     <message>
-        <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
         <comment>Controls window title</comment>
-        <translation>Управление</translation>
+        <translation type="obsolete">Управление</translation>
     </message>
 </context>
 <context>
@@ -58,22 +57,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="220"/>
+        <location filename="../ctrldisasmview.cpp" line="208"/>
         <source>New function name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="221"/>
+        <location filename="../ctrldisasmview.cpp" line="209"/>
         <source>New function name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>Warning</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Предупреждение</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>No symbol selected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -81,22 +80,22 @@
 <context>
     <name>CtrlMemView</name>
     <message>
-        <location filename="../ctrlmemview.cpp" line="201"/>
+        <location filename="../ctrlmemview.cpp" line="205"/>
         <source>Go to in &amp;disasm</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="207"/>
+        <location filename="../ctrlmemview.cpp" line="211"/>
         <source>&amp;Copy value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="211"/>
+        <location filename="../ctrlmemview.cpp" line="215"/>
         <source>C&amp;hange value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="215"/>
+        <location filename="../ctrlmemview.cpp" line="219"/>
         <source>Dump...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -114,32 +113,32 @@
 <context>
     <name>CtrlRegisterList</name>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="261"/>
+        <location filename="../ctrlregisterlist.cpp" line="260"/>
         <source>Go to in &amp;memory view</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="265"/>
+        <location filename="../ctrlregisterlist.cpp" line="264"/>
         <source>Go to in &amp;disasm</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="271"/>
+        <location filename="../ctrlregisterlist.cpp" line="270"/>
         <source>&amp;Copy value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="275"/>
+        <location filename="../ctrlregisterlist.cpp" line="274"/>
         <source>C&amp;hange...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="336"/>
+        <location filename="../ctrlregisterlist.cpp" line="327"/>
         <source>Set new value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="337"/>
+        <location filename="../ctrlregisterlist.cpp" line="328"/>
         <source>Set new value:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -285,32 +284,32 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="401"/>
+        <location filename="../debugger_disasm.cpp" line="367"/>
         <source>Remove breakpoint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="479"/>
+        <location filename="../debugger_disasm.cpp" line="443"/>
         <source>Go to entry point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="483"/>
+        <location filename="../debugger_disasm.cpp" line="447"/>
         <source>Change status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="485"/>
+        <location filename="../debugger_disasm.cpp" line="449"/>
         <source>Running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="489"/>
+        <location filename="../debugger_disasm.cpp" line="453"/>
         <source>Wait</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="493"/>
+        <location filename="../debugger_disasm.cpp" line="457"/>
         <source>Suspend</source>
         <translation type="unfinished"></translation>
     </message>
@@ -518,12 +517,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_displaylist.cpp" line="1794"/>
+        <location filename="../debugger_displaylist.cpp" line="1773"/>
         <source>Run to here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_displaylist.cpp" line="1817"/>
+        <location filename="../debugger_displaylist.cpp" line="1797"/>
         <source>Run to draw using this texture</source>
         <translation type="unfinished"></translation>
     </message>
@@ -556,7 +555,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_memory.cpp" line="15"/>
+        <location filename="../debugger_memory.cpp" line="14"/>
         <source>Memory Viewer - %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -658,661 +657,433 @@
     </message>
 </context>
 <context>
-    <name>GamePadDialog</name>
-    <message>
-        <location filename="../gamepaddialog.ui" line="14"/>
-        <source>Gamepad Configuration</source>
-        <translation>Настройка геймпада</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="22"/>
-        <source>GamePad List</source>
-        <translation>Список геймпадов</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="46"/>
-        <source>Refresh</source>
-        <translation>Обновить</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="53"/>
-        <source>Select</source>
-        <translation>Выбрать</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="62"/>
-        <source>Gamepad Values :</source>
-        <translation>Значения геймпадов :</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="86"/>
-        <source>TextLabel</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="98"/>
-        <source>Assign Gamepad input</source>
-        <translation>Выбрать ввод геймпада</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="108"/>
-        <source> to PSP button/axis</source>
-        <translation>для кнопок PSP</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="118"/>
-        <source>Assign</source>
-        <translation>Выбрать</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="127"/>
-        <source>Press buttons on your gamePad to verify mapping :</source>
-        <translation>Нажмите кнопки для проверки геймпада :</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="129"/>
-        <location filename="../gamepaddialog.cpp" line="361"/>
-        <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Геймпад не найден&lt;/b&gt;</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="141"/>
-        <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Неизвестный геймпад&lt;/b&gt;</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="282"/>
-        <source>Buttons</source>
-        <translation>Кнопки</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="296"/>
-        <location filename="../gamepaddialog.cpp" line="339"/>
-        <source>Button %1</source>
-        <translation>Кнопка %1</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="299"/>
-        <source>Axes</source>
-        <translation>Оси</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="305"/>
-        <source>%1 Neg</source>
-        <translation>%1 отрицательно</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="312"/>
-        <source>Axes %1 Neg</source>
-        <translation>Ось %1 отрицательна</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="315"/>
-        <source>%1 Pos</source>
-        <translation>%1 положительно</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="322"/>
-        <source>Axes %1 Pos</source>
-        <translation>Ось %1 положительна</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="326"/>
-        <source>Hats</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="363"/>
-        <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Текущий геймпад: %1&lt;/b&gt;</translation>
-    </message>
-</context>
-<context>
     <name>MainWindow</name>
     <message>
-        <location filename="../mainwindow.ui" line="20"/>
         <source>PPSSPP</source>
-        <translation>PPSSPP</translation>
+        <translation type="obsolete">PPSSPP</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="52"/>
+        <location filename="../mainwindow.cpp" line="460"/>
         <source>&amp;File</source>
         <translation>&amp;Файл</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="66"/>
+        <location filename="../mainwindow.cpp" line="466"/>
+        <source>Quickload State</source>
+        <translation>Быстро загрузить состояние</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="468"/>
+        <source>Quicksave State</source>
+        <translation>Быстро сохранить состояние</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="478"/>
         <source>&amp;Emulation</source>
         <translation>&amp;Эмуляция</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="77"/>
         <source>Debu&amp;g</source>
-        <translation>&amp;Отладка</translation>
+        <translation type="obsolete">&amp;Отладка</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="93"/>
+        <location filename="../mainwindow.cpp" line="513"/>
         <source>&amp;Options</source>
         <translation>&amp;Настройки</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="101"/>
         <source>G3D</source>
-        <translation>G3D</translation>
+        <translation type="obsolete">G3D</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="110"/>
         <source>HLE</source>
-        <translation>HLE</translation>
+        <translation type="obsolete">HLE</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="119"/>
         <source>Default</source>
-        <translation>По умолчанию</translation>
+        <translation type="obsolete">По умолчанию</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="97"/>
         <source>Lo&amp;g Levels</source>
-        <translation>Уровень ло&amp;гирования</translation>
+        <translation type="obsolete">Уровень ло&amp;гирования</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="133"/>
+        <location filename="../mainwindow.cpp" line="579"/>
         <source>&amp;Language</source>
         <translation>&amp;Язык</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="138"/>
+        <location filename="../mainwindow.cpp" line="525"/>
         <source>&amp;Video</source>
         <translation>&amp;Видео</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="142"/>
         <source>&amp;Anisotropic filtering</source>
-        <translation>&amp;Анизотропная фильтрация</translation>
+        <translation type="obsolete">&amp;Анизотропная фильтрация</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="152"/>
         <source>&amp;Zoom</source>
-        <translation>&amp;Экран</translation>
+        <translation type="obsolete">&amp;Экран</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="176"/>
         <source>Co&amp;ntrols</source>
-        <translation>У&amp;правление</translation>
+        <translation type="obsolete">У&amp;правление</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="183"/>
+        <location filename="../mainwindow.cpp" line="515"/>
         <source>&amp;Core</source>
         <translation>&amp;Ядро</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="206"/>
+        <location filename="../mainwindow.cpp" line="522"/>
+        <source>&amp;Ignore Illegal reads/writes</source>
+        <translation>&amp;Игнорировать неправильные чтения/запись </translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="620"/>
         <source>&amp;Help</source>
         <translation>&amp;Помощь</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="221"/>
+        <location filename="../mainwindow.cpp" line="461"/>
         <source>&amp;Open...</source>
         <translation>&amp;Открыть...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="226"/>
+        <location filename="../mainwindow.cpp" line="463"/>
         <source>&amp;Close</source>
         <translation>&amp;Закрыть</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="231"/>
         <source>-</source>
-        <translation>-</translation>
+        <translation type="obsolete">-</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="236"/>
         <source>Quickload state</source>
-        <translation>Быстро загрузить состояние</translation>
+        <translation type="obsolete">Быстро загрузить состояние</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="239"/>
-        <source>F4</source>
-        <translation>F4</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="244"/>
         <source>Quicksave state</source>
-        <translation>Быстро сохранить состояние</translation>
+        <translation type="obsolete">Быстро сохранить состояние</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="247"/>
         <source>F2</source>
-        <translation>F2</translation>
+        <translation type="obsolete">F2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="252"/>
+        <location filename="../mainwindow.cpp" line="470"/>
         <source>&amp;Load State File...</source>
         <translation>&amp;Открыть файл состояния...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="257"/>
+        <location filename="../mainwindow.cpp" line="472"/>
         <source>&amp;Save State File...</source>
         <translation>&amp;Сохранить файл состояния...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="262"/>
+        <location filename="../mainwindow.cpp" line="475"/>
         <source>E&amp;xit</source>
         <translation>В&amp;ыход</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="267"/>
+        <location filename="../mainwindow.cpp" line="479"/>
         <source>&amp;Run</source>
         <translation>&amp;Запустить</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="270"/>
-        <source>F7</source>
-        <translation>F7</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="275"/>
+        <location filename="../mainwindow.cpp" line="481"/>
         <source>&amp;Pause</source>
         <translation>&amp;Пауза</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="278"/>
-        <source>F8</source>
-        <translation>F8</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="283"/>
         <source>R&amp;eset</source>
-        <translation>Пере&amp;загрузить</translation>
+        <translation type="obsolete">Пере&amp;загрузить</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="291"/>
-        <source>&amp;Interpreter</source>
-        <translation>&amp;Интерпретатор</translation>
-    </message>
-    <message>
-        <source>&amp;Slightly Faster Interpreter</source>
-        <translation type="obsolete">&amp;etwas scnellerer Interpreter</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="299"/>
         <source>&amp;Dynarec</source>
-        <translation>&amp;Dynarec</translation>
+        <translation type="obsolete">&amp;Dynarec</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="307"/>
         <source>Load &amp;Map File...</source>
-        <translation>Загрузить файл &amp;карты...</translation>
+        <translation type="obsolete">Загрузить файл &amp;карты...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="315"/>
         <source>&amp;Save Map File...</source>
-        <translation>&amp;Сохранить файл карты...</translation>
+        <translation type="obsolete">&amp;Сохранить файл карты...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="323"/>
         <source>&amp;Reset Symbol Table</source>
-        <translation>&amp;Сбросить таблицу символов</translation>
+        <translation type="obsolete">&amp;Сбросить таблицу символов</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="328"/>
         <source>&amp;Disassembly</source>
-        <translation>&amp;Деасэмблинг</translation>
+        <translation type="obsolete">&amp;Деасэмблинг</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="331"/>
-        <source>Ctrl+D</source>
-        <translation>Ctrl+D</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="339"/>
         <source>&amp;Log Console</source>
-        <translation>&amp;Консоль логов</translation>
+        <translation type="obsolete">&amp;Консоль логов</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="342"/>
-        <source>Ctrl+L</source>
-        <translation>Ctrl+L</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="347"/>
         <source>Memory &amp;View...</source>
-        <translation>&amp;Отображение памяти...</translation>
+        <translation type="obsolete">&amp;Отображение памяти...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="350"/>
-        <source>Ctrl+M</source>
-        <translation>Ctrl+M</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="355"/>
         <source>&amp;Keyboard</source>
-        <translation>&amp;Клавиатура</translation>
+        <translation type="obsolete">&amp;Клавиатура</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="360"/>
         <source>&amp;Toggle fullscreen</source>
-        <translation>&amp;Полный экран</translation>
+        <translation type="obsolete">&amp;Полный экран</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="417"/>
         <source>Show &amp;debug statistics</source>
-        <translation>Показывать &amp;отладочную информацию</translation>
+        <translation type="obsolete">Показывать &amp;отладочную информацию</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="477"/>
         <source>I&amp;gnore illegal reads/writes</source>
-        <translation>&amp;Игнорировать неправильные чтения/запись </translation>
+        <translation type="obsolete">&amp;Игнорировать неправильные чтения/запись </translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="596"/>
         <source>&amp;Gamepad</source>
-        <translation>&amp;Геймпад</translation>
+        <translation type="obsolete">&amp;Геймпад</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="601"/>
         <source>Run on loa&amp;d</source>
-        <translation>Запускать при &amp;загрузке</translation>
+        <translation type="obsolete">Запускать при &amp;загрузке</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="680"/>
         <source>Show &amp;FPS counter</source>
-        <translation>Показывать &amp;FPS</translation>
+        <translation type="obsolete">Показывать &amp;FPS</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="688"/>
         <source>S&amp;tretch to display</source>
-        <translation>За&amp;стягивать под экран</translation>
+        <translation type="obsolete">За&amp;стягивать под экран</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="696"/>
         <source>&amp;Sound emulation</source>
-        <translation>Эмуляция &amp;звука</translation>
+        <translation type="obsolete">Эмуляция &amp;звука</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="363"/>
-        <source>F11</source>
-        <translation>F11</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="371"/>
+        <location filename="../mainwindow.cpp" line="532"/>
         <source>&amp;Buffered Rendering</source>
         <translation>&amp;Буферированный рендеринг</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="374"/>
         <source>F5</source>
-        <translation>F5</translation>
+        <translation type="obsolete">F5</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="382"/>
+        <location filename="../mainwindow.cpp" line="547"/>
         <source>&amp;Hardware Transform</source>
         <translation>&amp;Аппаратное преобразование</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="385"/>
         <source>F6</source>
-        <translation>F6</translation>
+        <translation type="obsolete">F6</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="393"/>
+        <location filename="../mainwindow.cpp" line="534"/>
         <source>&amp;Linear Filtering</source>
         <translation>&amp;Линейная фильтрация</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="401"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>&amp;Отображать каркас (экспериментально)</translation>
+        <translation type="obsolete">&amp;Отображать каркас (экспериментально)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="409"/>
         <source>&amp;Display Raw Framebuffer</source>
-        <translation>&amp;Отображать буфер кадров</translation>
+        <translation type="obsolete">&amp;Отображать буфер кадров</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="425"/>
         <source>Screen &amp;1x</source>
-        <translation>Увеличить &amp;1x</translation>
+        <translation type="obsolete">Увеличить &amp;1x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="428"/>
-        <source>Ctrl+1</source>
-        <translation>Ctrl+1</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="436"/>
-        <source>Screen &amp;2x</source>
-        <translation>Увеличить &amp;2x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="439"/>
-        <source>Ctrl+2</source>
-        <translation>Ctrl+2</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="447"/>
-        <source>Screen &amp;3x</source>
-        <translation>Увеличить &amp;3x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="450"/>
-        <source>Ctrl+3</source>
-        <translation>Ctrl+3</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="458"/>
-        <source>Screen &amp;4x</source>
-        <translation>Увеличить &amp;4x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="461"/>
-        <source>Ctrl+4</source>
-        <translation>Ctrl+4</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="469"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>&amp;Быстрая память (dynarec, нестабильно)</translation>
+        <translation type="obsolete">&amp;Быстрая память (dynarec, нестабильно)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="482"/>
-        <source>&amp;Go to http://www.ppsspp.org/</source>
-        <translation>&amp;Веб сайт http://www.ppsspp.org</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="487"/>
+        <location filename="../mainwindow.cpp" line="622"/>
         <source>&amp;About PPSSPP...</source>
         <translation>&amp;О PPSSPP...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="495"/>
         <source>&amp;Use VBO</source>
-        <translation>&amp;Использовать VBO</translation>
+        <translation type="obsolete">&amp;Использовать VBO</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="503"/>
-        <location filename="../mainwindow.ui" line="535"/>
-        <location filename="../mainwindow.ui" line="567"/>
-        <source>Debug</source>
-        <translation>Отладка</translation>
+        <location filename="../mainwindow.cpp" line="483"/>
+        <source>Re&amp;set</source>
+        <translation>Пере&amp;загрузить</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="511"/>
-        <location filename="../mainwindow.ui" line="543"/>
-        <location filename="../mainwindow.ui" line="575"/>
-        <source>Warning</source>
-        <translation>Предупреждение</translation>
+        <location filename="../mainwindow.cpp" line="486"/>
+        <source>Run on &amp;load</source>
+        <translation>Запускать при &amp;загрузке</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="519"/>
-        <location filename="../mainwindow.ui" line="559"/>
-        <location filename="../mainwindow.ui" line="591"/>
-        <source>Error</source>
-        <translation>Ошибка</translation>
+        <location filename="../mainwindow.cpp" line="490"/>
+        <source>De&amp;bug</source>
+        <translation>&amp;Отладка</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="527"/>
-        <location filename="../mainwindow.ui" line="551"/>
-        <location filename="../mainwindow.ui" line="583"/>
-        <source>Info</source>
-        <translation>Информация</translation>
+        <location filename="../mainwindow.cpp" line="491"/>
+        <source>Load Map File...</source>
+        <translation>Загрузить файл &amp;карты...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="606"/>
-        <source>D&amp;ump next frame to log</source>
+        <location filename="../mainwindow.cpp" line="493"/>
+        <source>Save Map File...</source>
+        <translation>&amp;Сохранить файл карты...</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="495"/>
+        <source>Reset Symbol Table</source>
+        <translation>&amp;Сбросить таблицу символов</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="498"/>
+        <source>Dump next frame to log</source>
         <translation>С&amp;бросить следующий кадр в лог</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="614"/>
+        <location filename="../mainwindow.cpp" line="501"/>
+        <source>Disassembly</source>
+        <translation>&amp;Деасэмблинг</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="503"/>
+        <source>Display List...</source>
+        <translation>Список экранов...</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="505"/>
+        <source>Log Console</source>
+        <translation>&amp;Консоль логов</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="507"/>
+        <source>Memory View</source>
+        <translation>&amp;Отображение памяти</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="509"/>
+        <source>Memory View Texture</source>
+        <translation>Память отображаемых текстур</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="516"/>
+        <source>&amp;CPU Dynarec</source>
+        <translation>&amp;Dynarec</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="518"/>
+        <source>&amp;Vertex Decoder Dynarec</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="520"/>
+        <source>Fast &amp;Memory (unstable)</source>
+        <translation>&amp;Быстрая память (нестабильно)</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="527"/>
+        <source>&amp;Anisotropic Filtering</source>
+        <translation>&amp;Анизотропная фильтрация</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="538"/>
+        <source>&amp;Screen Size</source>
+        <translation>(&amp;S)Размер экрана</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="544"/>
+        <source>&amp;Stretch to Display</source>
+        <translation>За&amp;стягивать под экран</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="549"/>
         <source>&amp;Vertex Cache</source>
         <translation>&amp;Vertex кэш</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="619"/>
-        <source>Memory View Texture...</source>
-        <translation>Память отображаемых текстур...</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="624"/>
-        <source>DisplayList...</source>
-        <translation>Список экранов...</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="632"/>
-        <source>Simple 2xAA</source>
-        <translation>Простое 2x сглаживание</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="640"/>
-        <source>Off</source>
-        <translation>Выключено</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="648"/>
-        <source>2x</source>
-        <translation>2x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="656"/>
-        <source>4x</source>
-        <translation>4x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="664"/>
-        <source>8x</source>
-        <translation>8x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="672"/>
-        <source>16x</source>
-        <translation>16x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="704"/>
-        <source>Frameskip</source>
+        <location filename="../mainwindow.cpp" line="551"/>
+        <source>&amp;Frameskip</source>
         <translation>Пропуск кадров</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="571"/>
-        <source>Gamepad</source>
-        <translation>Геймпад</translation>
+        <location filename="../mainwindow.cpp" line="553"/>
+        <source>&amp;Audio</source>
+        <translation>&amp;Aудио</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="571"/>
+        <location filename="../mainwindow.cpp" line="556"/>
+        <source>&amp;Fullscreen</source>
+        <translation>&amp;Полный экран</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="558"/>
+        <source>&amp;Show debug statistics</source>
+        <translation>Показывать &amp;отладочную информацию</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="560"/>
+        <source>&amp;Show FPS</source>
+        <translation>Показывать &amp;FPS</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="564"/>
+        <source>Lo&amp;g levels</source>
+        <translation>Уровень ло&amp;гирования</translation>
+    </message>
+    <message>
+        <source>Debug</source>
+        <translation type="obsolete">Отладка</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation type="obsolete">Предупреждение</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="obsolete">Ошибка</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation type="obsolete">Информация</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="621"/>
+        <source>&amp;Go to official website</source>
+        <translation>(&amp;G)Зайдите на официальный сайт</translation>
+    </message>
+    <message>
+        <source>D&amp;ump next frame to log</source>
+        <translation type="obsolete">С&amp;бросить следующий кадр в лог</translation>
+    </message>
+    <message>
+        <source>Memory View Texture...</source>
+        <translation type="obsolete">Память отображаемых текстур...</translation>
+    </message>
+    <message>
+        <source>DisplayList...</source>
+        <translation type="obsolete">Список экранов...</translation>
+    </message>
+    <message>
+        <source>Simple 2xAA</source>
+        <translation type="obsolete">Простое 2x сглаживание</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation type="obsolete">Выключено</translation>
+    </message>
+    <message>
+        <source>Frameskip</source>
+        <translation type="obsolete">Пропуск кадров</translation>
+    </message>
+    <message>
         <source>You need to compile with SDL to have Gamepad support.</source>
-        <translation>Вам нужно скомпилировать с SDL чтобы иметь поддержку геймпада.</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="923"/>
-        <source>No translations</source>
-        <translation>Нет перевода</translation>
-    </message>
-</context>
-<context>
-    <name>gamepadMapping</name>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="19"/>
-        <source>Cross</source>
-        <translation>Крест</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="20"/>
-        <source>Circle</source>
-        <translation>Круг</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="21"/>
-        <source>Square</source>
-        <translation>Квадрат</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="22"/>
-        <source>Triangle</source>
-        <translation>Треугольник</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="23"/>
-        <source>Left Trigger</source>
-        <translation>Левый курок</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="24"/>
-        <source>Right Trigger</source>
-        <translation>Правый курок</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="25"/>
-        <source>Start</source>
-        <translation>Старт</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="26"/>
-        <source>Select</source>
-        <translation>Выбор</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="27"/>
-        <source>Up</source>
-        <translation>Вверх</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="28"/>
-        <source>Down</source>
-        <translation>Вниз</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="29"/>
-        <source>Left</source>
-        <translation>Влево</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="30"/>
-        <source>Right</source>
-        <translation>Вправо</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="32"/>
-        <source>Home</source>
-        <translation>Домой</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="35"/>
-        <source>Stick left</source>
-        <translation>Стик влево</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="36"/>
-        <source>Stick right</source>
-        <translation>Стик вправо</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="37"/>
-        <source>Stick up</source>
-        <translation>Стик вверх</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="38"/>
-        <source>Stick bottom</source>
-        <translation>Стик вниз</translation>
+        <translation type="obsolete">Вам нужно скомпилировать с SDL чтобы иметь поддержку геймпада.</translation>
     </message>
 </context>
 </TS>

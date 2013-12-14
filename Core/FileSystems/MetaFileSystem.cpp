@@ -255,6 +255,22 @@ void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system)
 	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
 }
 
+void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
+	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
+		if (it->system == oldSystem) {
+			it->system = newSystem;
+		}
+	}
+}
+
+IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
+	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
+		if (it->prefix == prefix)
+			return it->system;
+	}
+	return NULL;
+}
+
 void MetaFileSystem::Shutdown()
 {
 	lock_guard guard(lock);
@@ -499,6 +515,23 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 		return sys->SeekFile(handle,position,type);
 	else
 		return 0;
+}
+
+int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data) {
+	int error = 0;
+	u32 handle = pspFileSystem.OpenWithError(error, filename, FILEACCESS_READ);
+	if (handle == 0)
+		return error;
+
+	size_t dataSize = (size_t)pspFileSystem.GetFileInfo(filename).size;
+	data.resize(dataSize);
+
+	size_t result = pspFileSystem.ReadFile(handle, (u8 *)&data[0], dataSize);
+	pspFileSystem.CloseFile(handle);
+
+	if (result != dataSize)
+		return SCE_KERNEL_ERROR_ERROR;
+	return 0;
 }
 
 void MetaFileSystem::DoState(PointerWrap &p)

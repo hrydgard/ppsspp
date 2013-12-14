@@ -18,6 +18,7 @@
 #include <vector>
 #include <map>
 #include <cmath>
+#include <algorithm>
 
 // TODO: Move the relevant parts into common. Don't want the core
 // to be dependent on "native", I think. Or maybe should get rid of common
@@ -29,7 +30,6 @@
 #include "gfx_es2/gl_state.h"
 #endif
 
-#include "Common/Thread.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Reporting.h"
@@ -81,7 +81,7 @@ static int afterFlipEvent = -1;
 // hCount is computed now.
 static int vCount;
 // The "AccumulatedHcount" can be adjusted, this is the base.
-static double hCountBase;
+static u32 hCountBase;
 static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
@@ -96,7 +96,7 @@ static double nextFrameTime;
 static int numVBlanksSinceFlip;
 
 static u64 frameStartTicks;
-const float hCountPerVblank = 285.72f; // insprired by jpcsp
+const int hCountPerVblank = 286;
 
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
@@ -111,7 +111,7 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
-const double frameMs = 1000.0 / 60.0;
+const double frameMs = 1001.0 / 60.0;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -139,6 +139,8 @@ void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
+int __DisplayGetFlipCount() { return actualFlips; }
+int __DisplayGetVCount() { return vCount; }
 
 void __DisplayInit() {
 	gpuStats.Reset();
@@ -164,7 +166,7 @@ void __DisplayInit() {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
-	hCountBase = 0.0;
+	hCountBase = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 
@@ -183,7 +185,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 2);
+	auto s = p.Section("sceDisplay", 1, 3);
 	if (!s)
 		return;
 
@@ -192,7 +194,13 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(framebufIsLatched);
 	p.Do(frameStartTicks);
 	p.Do(vCount);
-	p.Do(hCountBase);
+	if (s <= 2) {
+		double oldHCountBase;
+		p.Do(oldHCountBase);
+		hCountBase = (int) oldHCountBase;
+	} else {
+		p.Do(hCountBase);
+	}
 	p.Do(isVblank);
 	p.Do(hasSetMode);
 	p.Do(mode);
@@ -290,6 +298,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	int vcountUnblock = vblankPausedWaits[pauseKey];
+	vblankPausedWaits.erase(pauseKey);
 	if (vcountUnblock <= vCount) {
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
@@ -305,6 +314,10 @@ void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
 	*out_vps = fps;
 	*out_fps = flips;
 	*out_actual_fps = actualFps;
+}
+
+void __DisplayGetVPS(float *out_vps) {
+	*out_vps = fps;
 }
 
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
@@ -464,7 +477,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		} else {
 			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
-				Common::SleepCurrentThread(1);
+				sleep_ms(1); // Sleep for 1ms on this thread
 				time_update();
 			}
 		}
@@ -496,9 +509,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		hCountBase -= 0x80000000;
 	}
 	frameStartTicks = CoreTiming::GetTicks();
-
-	// Fire the vblank listeners before we wake threads.
-	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
 	u32 error;
@@ -550,7 +560,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpuStats.numFlips++;
 
 		bool throttle, skipFrame;
-		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.0f / 60.0f));
+		// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
+		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.001f / 60.0f));
 
 		// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
 		// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
@@ -584,6 +595,9 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
+
+	// Fire the vblank listeners after the vblank completes.
+	__DisplayFireVblank();
 }
 
 u32 sceDisplayIsVblank() {

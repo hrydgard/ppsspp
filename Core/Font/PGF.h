@@ -39,6 +39,7 @@ enum {
 	FONT_PGF_METRIC_DIMENSION_INDEX = 0x04,
 	FONT_PGF_METRIC_BEARING_X_INDEX = 0x08,
 	FONT_PGF_METRIC_BEARING_Y_INDEX = 0x10,
+	FONT_PGF_METRIC_ADVANCE_INDEX = 0x20,
 	FONT_PGF_CHARGLYPH = 0x20,
 	FONT_PGF_SHADOWGLYPH = 0x40,
 };
@@ -93,13 +94,12 @@ struct PGFFontStyle {
 
 
 struct Glyph {
-	int x;
-	int y;
 	int w;
 	int h;
 	int left;
 	int top;
 	int flags;
+	int shadowFlags;
 	int shadowID;
 	int advanceH;
 	int advanceV;
@@ -142,6 +142,7 @@ struct PGFHeader
 	s32_le charMapBpe;
 	s32_le charPointerBpe;
 
+	// TODO: This has values in it (0404)...
 	u8 pad1[2];
 	u8 bpp;
 	u8 pad2[1];
@@ -159,6 +160,7 @@ struct PGFHeader
 	u16_le firstGlyph;
 	u16_le lastGlyph;
 
+	// TODO: This has a few 01s in it in the official fonts.
 	u8 pad5[26];
 
 	s32_le maxAscender;
@@ -211,7 +213,8 @@ struct PGFCharInfo {
 	s32_le sfp26BearingVY;
 	s32_le sfp26AdvanceH;
 	s32_le sfp26AdvanceV;
-	u8 pad[4];
+	s16_le shadowFlags;
+	s16_le shadowId;
 };
 
 struct PGFFontInfo {
@@ -242,13 +245,14 @@ struct PGFFontInfo {
 	// Bitmap dimensions.
 	s16_le maxGlyphWidth;
 	s16_le maxGlyphHeight;
-	s32_le charMapLength;   // Number of elements in the font's charmap.
+	s32_le numGlyphs;
 	s32_le shadowMapLength; // Number of elements in the font's shadow charmap.
 
 	// Font style (used by font comparison functions).
 	PGFFontStyle fontStyle;
 
-	s32_le BPP; // Font's BPP.
+	u8 BPP; // Font's BPP.
+	u8 pad[3];
 };
 
 #pragma pack(pop)
@@ -260,9 +264,9 @@ public:
 
 	void ReadPtr(const u8 *ptr, size_t dataSize);
 
-	bool GetCharInfo(int charCode, PGFCharInfo *ci);
+	bool GetCharInfo(int charCode, PGFCharInfo *ci, int altCharCode);
 	void GetFontInfo(PGFFontInfo *fi);
-	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType, bool packagedFont);
+	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType);
 
 	void DoState(PointerWrap &p);
 

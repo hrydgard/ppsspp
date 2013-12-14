@@ -37,7 +37,10 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFBundle.h>
-#endif
+#if !defined(IOS)
+#include <mach-o/dyld.h>
+#endif  // !defined(IOS)
+#endif  // __APPLE__
 
 #include "util/text/utf8.h"
 
@@ -254,11 +257,11 @@ bool CreateDir(const std::string &path)
 bool CreateFullPath(const std::string &fullPath)
 {
 	int panicCounter = 100;
-	INFO_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
+	DEBUG_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
 		
 	if (File::Exists(fullPath))
 	{
-		INFO_LOG(COMMON, "CreateFullPath: path exists %s", fullPath.c_str());
+		DEBUG_LOG(COMMON, "CreateFullPath: path exists %s", fullPath.c_str());
 		return true;
 	}
 
@@ -641,20 +644,49 @@ bool SetCurrentDir(const std::string &directory)
 	return __chdir(directory.c_str()) == 0;
 }
 
-#ifdef _WIN32
-std::wstring &GetExeDirectory()
+const std::string &GetExeDirectory()
 {
-	static std::wstring DolphinPath;
-	if (DolphinPath.empty())
+	static std::string ExePath;
+
+	if (ExePath.empty())
 	{
-		wchar_t Dolphin_exe_Path[2048];
-		GetModuleFileName(NULL, Dolphin_exe_Path, 2048);
-		DolphinPath = Dolphin_exe_Path;
-		DolphinPath = DolphinPath.substr(0, DolphinPath.find_last_of('\\'));
-	}
-	return DolphinPath;
-}
+#ifdef _WIN32
+		TCHAR program_path[4096] = {0};
+		GetModuleFileName(NULL, program_path, ARRAY_SIZE(program_path) - 1);
+		program_path[ARRAY_SIZE(program_path) - 1] = '\0';
+		TCHAR *last_slash = _tcsrchr(program_path, '\\');
+		if (last_slash != NULL)
+			*(last_slash + 1) = '\0';
+#ifdef UNICODE
+		ExePath = ConvertWStringToUTF8(program_path);
+#else
+		ExePath = program_path;
 #endif
+
+#elif (defined(__APPLE__) && !defined(IOS)) || defined(__linux__)
+		char program_path[4096];
+		uint32_t program_path_size = sizeof(program_path) - 1;
+
+#if defined(__linux__)
+		if (readlink("/proc/self/exe", program_path, 4095) > 0)
+#elif defined(__APPLE__) && !defined(IOS)
+		if (_NSGetExecutablePath(program_path, &program_path_size) == 0)
+#else
+#error Unmatched ifdef.
+#endif
+		{
+			program_path[sizeof(program_path) - 1] = '\0';
+			char *last_slash = strrchr(program_path, '/');
+			if (last_slash != NULL)
+				*(last_slash + 1) = '\0';
+			ExePath = program_path;
+		}
+#endif
+	}
+
+	return ExePath;
+}
+
 
 IOFile::IOFile()
 	: m_file(NULL), m_good(true)

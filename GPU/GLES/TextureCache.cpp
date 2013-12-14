@@ -501,7 +501,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if ((g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) && !gstate.isColorTestEnabled() && !gstate.isAlphaTestEnabled()) {
+	if ((g_Config.iTexFiltering == LINEAR && !gstate.isColorTestEnabled() && !gstate.isAlphaTestEnabled()) || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
@@ -703,10 +703,24 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 
 void TextureCache::LoadClut() {
 	u32 clutAddr = gstate.getClutAddress();
-	clutTotalBytes_ = gstate.getClutLoadBytes();
 	if (Memory::IsValidAddress(clutAddr)) {
+#ifdef _M_SSE
+		int numBlocks = gstate.getClutLoadBlocks(); 
+		clutTotalBytes_ = numBlocks * 32;
+		const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
+		__m128i *dest = (__m128i *)clutBufRaw_;
+		for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
+			__m128i data1 = _mm_loadu_si128(source);
+			__m128i data2 = _mm_loadu_si128(source + 1);
+			_mm_store_si128(dest, data1);
+			_mm_store_si128(dest + 1, data2);
+		}
+#else
+		clutTotalBytes_ = gstate.getClutLoadBytes();
 		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, clutTotalBytes_);
+#endif
 	} else {
+		clutTotalBytes_ = gstate.getClutLoadBytes();
 		memset(clutBufRaw_, 0xFF, clutTotalBytes_);
 	}
 	// Reload the clut next time.
@@ -1207,7 +1221,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	switch (format) {
 	case GE_TFMT_CLUT4:
 		{
-		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		switch (clutformat) {

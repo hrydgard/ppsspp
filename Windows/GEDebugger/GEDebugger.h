@@ -64,6 +64,7 @@ private:
 	void SetupPreviews();
 	void UpdatePreviews();
 	void UpdatePrimPreview(u32 op);
+	void CleanupPrimPreview();
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void SetBreakNext(BreakNextType type);

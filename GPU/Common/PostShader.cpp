@@ -22,7 +22,6 @@
 #include <vector>
 #include <algorithm>
 
-#include "base/logging.h"
 #include "file/ini_file.h"
 #include "file/file_util.h"
 #include "file/vfs.h"
@@ -46,6 +45,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<FileInfo> fileInfo;
 		getFilesInDir(directories[d].c_str(), &fileInfo, "ini:");
+
 		if (fileInfo.size() == 0) {
 			// TODO: Really gotta fix the filter, now it's gonna open shaders as ini files..
 			VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
@@ -61,10 +61,10 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 				name = name.substr(7);
 			if (path.substr(0, 7) == "assets/")
 				path = path.substr(7);
-			if (!ini.LoadFromVFS(name) && !ini.Load(fileInfo[f].fullName)) {
-				// vsh load. meh.
-			} else {
+
+			if (ini.LoadFromVFS(name) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
+				// vsh load. meh.
 			}
 			if (!success)
 				continue;
@@ -91,7 +91,10 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					if (requiresIntegerSupport)
 						continue;
 #endif
-					shaderInfo.erase(std::find(shaderInfo.begin(), shaderInfo.end(), info.name), shaderInfo.end());
+					auto beginErase = std::find(shaderInfo.begin(), shaderInfo.end(), info.name);
+					if (beginErase != shaderInfo.end()) {
+						shaderInfo.erase(beginErase, shaderInfo.end());
+					}
 					shaderInfo.push_back(info);
 				}
 			}

@@ -75,9 +75,9 @@ private:
 	int pspButtonBit_;
 };
 
-class PSPCross : public UI::View {
+class PSPDpad : public UI::View {
 public:
-	PSPCross(int arrowIndex, int overlayIndex, float scale, float radius, UI::LayoutParams *layoutParams);
+	PSPDpad(int arrowIndex, int overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams);
 
 	virtual void Key(const KeyInput &input) {}
 	virtual void Update(const InputState &input) {}
@@ -91,7 +91,7 @@ private:
 	int overlayIndex_;
 
 	float scale_;
-	float radius_;
+	float spacing_;
 
 	int dragPointerId_;
 	int down_;
@@ -122,5 +122,9 @@ private:
 
 //initializes the layout from Config. if a default layout does not exist,
 //it sets up default values
-void InitPadLayout();
+void InitPadLayout(float globalScale = 1.15f);
 UI::ViewGroup *CreatePadLayout(bool *pause);
+
+const int D_pad_Radius = 50;
+const int baseActionButtonSpacing = 60;
+

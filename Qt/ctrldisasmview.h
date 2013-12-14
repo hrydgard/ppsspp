@@ -3,7 +3,6 @@
 
 #include <QWidget>
 #include "Core/Debugger/DebugInterface.h"
-#include "EmuThread.h"
 
 class Debugger_Disasm;
 
@@ -26,11 +25,9 @@ public:
 
 	void setDebugger(DebugInterface *deb)
 	{
-		EmuThread_LockDraw(true);
 		debugger=deb;
 		curAddress=debugger->getPC();
 		align=debugger->getInstructionSize(0);
-		EmuThread_LockDraw(false);
 	}
 	DebugInterface *getDebugger()
 	{
@@ -43,9 +40,7 @@ public:
 	}
 	void gotoPC()
 	{
-		EmuThread_LockDraw(true);
 		curAddress=debugger->getPC()&(~(align-1));
-		EmuThread_LockDraw(false);
 		redraw();
 	}
 	unsigned int getSelection()
@@ -60,9 +55,7 @@ public:
 
 	void toggleBreakpoint()
 	{
-		EmuThread_LockDraw(true);
 		debugger->toggleBreakpoint(curAddress);
-		EmuThread_LockDraw(false);
 		redraw();
 	}
 

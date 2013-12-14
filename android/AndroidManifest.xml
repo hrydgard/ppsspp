@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
-    android:versionCode="95"
-    android:versionName="0.9.5"
+    android:versionCode="97"
+    android:versionName="0.9.6"
     android:installLocation="auto" >
 
-    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="18"/>
+    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="19"/>
     
     <uses-feature android:glEsVersion="0x00020000"></uses-feature>
 	<uses-feature android:name="android.hardware.screen.landscape" />

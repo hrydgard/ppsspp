@@ -108,6 +108,7 @@ public:
 	CreditsScreen() : frames_(0) {}
 	void update(InputState &input);
 	void render();
+
 	virtual void CreateViews();
 
 private:
@@ -117,6 +118,7 @@ private:
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
 	UI::EventReturn OnChineseForum(UI::EventParams &e);
+	UI::EventReturn OnShare(UI::EventParams &e);
 
 	int frames_;
 };

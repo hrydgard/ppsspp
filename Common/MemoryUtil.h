@@ -30,6 +30,9 @@ void* AllocateAlignedMemory(size_t size,size_t alignment);
 void FreeAlignedMemory(void* ptr);
 void WriteProtectMemory(void* ptr, size_t size, bool executable = false);
 void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute = false);
+#ifdef __SYMBIAN32__
+void ResetExecutableMemory(void* ptr);
+#endif
 
 inline int GetPageSize() { return 4096; }
 

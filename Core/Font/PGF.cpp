@@ -30,17 +30,35 @@
 
 // These fonts, created by ttf2pgf, don't have complete glyph info and need to be identified.
 static bool isJPCSPFont(const char *fontName) {
-	return !strcmp(fontName, "Liberation") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum");
+	return !strcmp(fontName, "Liberation Sans") || !strcmp(fontName, "Liberation Serif") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum") || !strcmp(fontName, "Microsoft YaHei");
 }
 
 // Gets a number of bits from an offset.
-// TODO: Make more efficient.
 static int getBits(int numBits, const u8 *buf, size_t pos) {
-	int v = 0;
-	for (int i = 0; i < numBits; i++) {
-		v = v | (((buf[pos >> 3] >> (pos & 7)) & 1) << i);
-		pos++;
+	_dbg_assert_msg_(SCEFONT, numBits <= 32, "Unable to return more than 32 bits, %d requested", numBits);
+
+	const size_t wordpos = pos >> 5;
+	const u32 *wordbuf = (const u32 *)buf;
+	const u8 bitoff = pos & 31;
+
+	// Might just be in one, has to be within two.
+	if (bitoff + numBits < 32) {
+		const u32 mask = (1 << numBits) - 1;
+		return (wordbuf[wordpos] >> bitoff) & mask;
+	} else {
+		int v = wordbuf[wordpos] >> bitoff;
+
+		const u8 done = 32 - bitoff;
+		const u8 remaining = numBits - done;
+		const u32 mask = (1 << remaining) - 1;
+		v |= (wordbuf[wordpos + 1] & mask) << done;
+		return v;
 	}
+}
+
+static inline int consumeBits(int numBits, const u8 *buf, size_t &pos) {
+	int v = getBits(numBits, buf, pos);
+	pos += numBits;
 	return v;
 }
 
@@ -64,8 +82,47 @@ PGF::~PGF() {
 	}
 }
 
+struct GlyphFromPGF1State {
+	int x;
+	int y;
+	int w;
+	int h;
+	int left;
+	int top;
+	int flags;
+	int shadowID;
+	int advanceH;
+	int advanceV;
+	int dimensionWidth, dimensionHeight;
+	int xAdjustH, xAdjustV;
+	int yAdjustH, yAdjustV;
+	u32 ptr;
+
+	operator Glyph() {
+		Glyph ret;
+		ret.w = w;
+		ret.h = h;
+		ret.left = left;
+		ret.top = top;
+		ret.flags = flags;
+		// Wasn't read before.
+		ret.shadowFlags = 0;
+		ret.shadowID = shadowID;
+		ret.advanceH = advanceH;
+		ret.advanceV = advanceV;
+		ret.dimensionWidth = dimensionWidth;
+		ret.dimensionHeight = dimensionHeight;
+		ret.xAdjustH = xAdjustH;
+		ret.xAdjustV = xAdjustV;
+		ret.yAdjustH = yAdjustH;
+		ret.yAdjustV = yAdjustV;
+		ret.ptr = ptr;
+		return ret;
+	}
+};
+
 void PGF::DoState(PointerWrap &p) {
-	auto s = p.Section("PGF", 1);
+	auto s = p.Section("PGF", 1, 2);
 	if (!s)
 		return;
 
@@ -98,8 +155,22 @@ void PGF::DoState(PointerWrap &p) {
 
 	p.Do(charmap_compr);
 	p.Do(charmap);
-	p.Do(glyphs);
-	p.Do(shadowGlyphs);
+	if (s == 1) {
+		std::vector<GlyphFromPGF1State> oldGlyphs;
+		p.Do(oldGlyphs);
+		glyphs.resize(oldGlyphs.size());
+		for (size_t i = 0; i < oldGlyphs.size(); ++i) {
+			glyphs[i] = oldGlyphs[i];
+		}
+		p.Do(oldGlyphs);
+		shadowGlyphs.resize(oldGlyphs.size());
+		for (size_t i = 0; i < oldGlyphs.size(); ++i) {
+			shadowGlyphs[i] = oldGlyphs[i];
+		}
+	} else {
+		p.Do(glyphs);
+		p.Do(shadowGlyphs);
+	}
 	p.Do(firstGlyph);
 }
 
@@ -109,6 +180,8 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	INFO_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
+
+	fileName = header.fontName;
 
 	if (header.revision == 3) {
 		memcpy(&rev3extra, ptr, sizeof(rev3extra));
@@ -149,10 +222,8 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *uptr = (const u8 *)wptr;
 
 	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
-	u8 *shadowCharMap = new u8[shadowCharMapSize];
-	for (int i = 0; i < shadowCharMapSize; i++) {
-		shadowCharMap[i] = *uptr++;
-	}
+	const u8 *shadowCharMap = uptr;
+	uptr += shadowCharMapSize;
 
 	const u16_le *sptr = (const u16_le *)uptr;
 	if (header.revision == 3) {
@@ -174,17 +245,12 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	uptr = (const u8 *)sptr;
 
 	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
-
-	u8 *charMap = new u8[charMapSize];
-	for (int i = 0; i < charMapSize; i++) {
-		charMap[i] = *uptr++;
-	}
+	const u8 *charMap = uptr;
+	uptr += charMapSize;
 
 	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
-	u8 *charPointerTable = new u8[charPointerSize];
-	for (int i = 0; i < charPointerSize; i++) {
-		charPointerTable[i] = *uptr++;
-	}
+	const u8 *charPointerTable = uptr;
+	uptr += charPointerSize;
 
 	// PGF Fontdata.
 	u32 fontDataOffset = (u32)(uptr - startPtr);
@@ -212,10 +278,6 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
 	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, shadowGlyphs.size());
-
-	delete [] charMap;
-	delete [] shadowCharMap;
-	delete [] charPointerTable;
 
 	// Pregenerate glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
@@ -247,13 +309,18 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 	return -1;
 }
 
-bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
+bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) {
 	Glyph glyph;
 	memset(charInfo, 0, sizeof(*charInfo));
 
 	if (!GetCharGlyph(charCode, FONT_PGF_CHARGLYPH, glyph)) {
-		// Character not in font, return zeroed charInfo as on real PSP.
-		return false;
+		if (charCode < firstGlyph) {
+			// Character not in font, return zeroed charInfo as on real PSP.
+			return false;
+		}
+		if (!GetCharGlyph(altCharCode, FONT_PGF_CHARGLYPH, glyph)) {
+			return false;
+		}
 	}
 
 	charInfo->bitmapWidth = glyph.w;
@@ -262,14 +329,17 @@ bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
 	charInfo->bitmapTop = glyph.top;
 	charInfo->sfp26Width = glyph.dimensionWidth;
 	charInfo->sfp26Height = glyph.dimensionHeight;
-	charInfo->sfp26Ascender = glyph.top << 6;
-	charInfo->sfp26Descender = (glyph.h - glyph.top) << 6;
+	charInfo->sfp26Ascender = glyph.yAdjustH;
+	// Font y goes upwards.  If top is 10 and height is 11, the descender is approx. -1 (below 0.)
+	charInfo->sfp26Descender = charInfo->sfp26Ascender - charInfo->sfp26Height;
 	charInfo->sfp26BearingHX = glyph.xAdjustH;
 	charInfo->sfp26BearingHY = glyph.yAdjustH;
 	charInfo->sfp26BearingVX = glyph.xAdjustV;
 	charInfo->sfp26BearingVY = glyph.yAdjustV;
 	charInfo->sfp26AdvanceH = glyph.advanceH;
 	charInfo->sfp26AdvanceV = glyph.advanceV;
+	charInfo->shadowFlags = glyph.shadowFlags;
+	charInfo->shadowId = glyph.shadowID;
 	return true;
 }
 
@@ -297,7 +367,7 @@ void PGF::GetFontInfo(PGFFontInfo *fi) {
 
 	fi->maxGlyphWidth = header.maxGlyphWidth;
 	fi->maxGlyphHeight = header.maxGlyphHeight;
-	fi->charMapLength = header.charMapLength;
+	fi->numGlyphs = header.charPointerLength;
 	fi->shadowMapLength = 0;  // header.shadowMapLength; TODO
 
 	fi->BPP = header.bpp;
@@ -311,40 +381,34 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		if (charPtr + 96 > fontDataSize * 8)
 			return false;
 	}
+	// Skip size.
 	charPtr += 14;
 
-	glyph.w = getBits(7, fontdata, charPtr);
-	charPtr += 7;
+	glyph.w = consumeBits(7, fontdata, charPtr);
+	glyph.h = consumeBits(7, fontdata, charPtr);
 
-	glyph.h = getBits(7, fontdata, charPtr);
-	charPtr += 7;
-
-	glyph.left = getBits(7, fontdata, charPtr);
-	charPtr += 7;
+	glyph.left = consumeBits(7, fontdata, charPtr);
 	if (glyph.left >= 64) {
 		glyph.left -= 128;
 	}
 
-	glyph.top = getBits(7, fontdata, charPtr);
-	charPtr += 7;
+	glyph.top = consumeBits(7, fontdata, charPtr);
 	if (glyph.top >= 64) {
 		glyph.top -= 128;
 	}
 
-	glyph.flags = getBits(6, fontdata, charPtr);
-	charPtr += 6;
+	glyph.flags = consumeBits(6, fontdata, charPtr);
 
-	if (glyph.flags & FONT_PGF_CHARGLYPH) {
-		// Skip magic number
-		charPtr += 7;
+	if (glyphType == FONT_PGF_CHARGLYPH) {
+		glyph.shadowFlags = consumeBits(2, fontdata, charPtr) << (2 + 3);
+		glyph.shadowFlags |= consumeBits(2, fontdata, charPtr) << 3;
+		glyph.shadowFlags |= consumeBits(3, fontdata, charPtr);
 
-		glyph.shadowID = getBits(9, fontdata, charPtr);
-		charPtr += 9;
+		glyph.shadowID = consumeBits(9, fontdata, charPtr);
 
 		if ((glyph.flags & FONT_PGF_METRIC_DIMENSION_INDEX) == FONT_PGF_METRIC_DIMENSION_INDEX)
 		{
-			int dimensionIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int dimensionIndex = consumeBits(8, fontdata, charPtr);
 
 			if (dimensionIndex < header.dimTableLength) {
 				glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
@@ -360,16 +424,13 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.dimensionWidth = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.dimensionHeight = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.dimensionWidth = consumeBits(32, fontdata, charPtr);
+			glyph.dimensionHeight = consumeBits(32, fontdata, charPtr);
 		}
 
 		if ((glyph.flags & FONT_PGF_METRIC_BEARING_X_INDEX) == FONT_PGF_METRIC_BEARING_X_INDEX)
 		{
-			int xAdjustIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int xAdjustIndex = consumeBits(8, fontdata, charPtr);
 
 			if (xAdjustIndex < header.xAdjustTableLength) {
 				glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
@@ -386,16 +447,13 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.xAdjustH = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.xAdjustV = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.xAdjustH = consumeBits(32, fontdata, charPtr);
+			glyph.xAdjustV = consumeBits(32, fontdata, charPtr);
 		}
 
 		if ((glyph.flags & FONT_PGF_METRIC_BEARING_Y_INDEX) == FONT_PGF_METRIC_BEARING_Y_INDEX)
 		{
-			int yAdjustIndex = getBits(8, fontdata, charPtr);
-			charPtr += 8;
+			int yAdjustIndex = consumeBits(8, fontdata, charPtr);
 
 			if (yAdjustIndex < header.xAdjustTableLength) {
 				glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
@@ -412,18 +470,23 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		}
 		else
 		{
-			glyph.yAdjustH = getBits(32, fontdata, charPtr);
-			charPtr += 32;
-			glyph.yAdjustV = getBits(32, fontdata, charPtr);
-			charPtr += 32;
+			glyph.yAdjustH = consumeBits(32, fontdata, charPtr);
+			glyph.yAdjustV = consumeBits(32, fontdata, charPtr);
 		}
 
-		int advanceIndex = getBits(8, fontdata, charPtr);
-		charPtr += 8;
+		if ((glyph.flags & FONT_PGF_METRIC_ADVANCE_INDEX) == FONT_PGF_METRIC_ADVANCE_INDEX)
+		{
+			int advanceIndex = consumeBits(8, fontdata, charPtr);
 
-		if (advanceIndex < header.advanceTableLength) {
-			glyph.advanceH = advanceTable[0][advanceIndex];
-			glyph.advanceV = advanceTable[1][advanceIndex];
+			if (advanceIndex < header.advanceTableLength) {
+				glyph.advanceH = advanceTable[0][advanceIndex];
+				glyph.advanceV = advanceTable[1][advanceIndex];
+			}
+		}
+		else
+		{
+			glyph.advanceH = consumeBits(32, fontdata, charPtr);
+			glyph.advanceV = consumeBits(32, fontdata, charPtr);
 		}
 	} else {
 		glyph.shadowID = 65535;
@@ -453,7 +516,7 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) {
 	return true;
 }
 
-void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType, bool packagedFont) {
+void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
 		// No Glyph available for this charCode, try to use the alternate char.
@@ -472,7 +535,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 			return;
 	}
 
-	u32 bitPtr = glyph.ptr * 8;
+	size_t bitPtr = glyph.ptr * 8;
 	int numberPixels = glyph.w * glyph.h;
 	int pixelIndex = 0;
 
@@ -481,14 +544,12 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.
-		int nibble = getBits(4, fontData, bitPtr);
-		bitPtr += 4;
+		int nibble = consumeBits(4, fontData, bitPtr);
 
 		int count;
 		int value = 0;
 		if (nibble < 8) {
-			value = getBits(4, fontData, bitPtr);
-			bitPtr += 4;
+			value = consumeBits(4, fontData, bitPtr);
 			count = nibble + 1;
 		} else {
 			count = 16 - nibble;
@@ -496,8 +557,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 		for (int i = 0; i < count && pixelIndex < numberPixels; i++) {
 			if (nibble >= 8) {
-				value = getBits(4, fontData, bitPtr);
-				bitPtr += 4;
+				value = consumeBits(4, fontData, bitPtr);
 			}
 
 			int xx, yy;
@@ -511,10 +571,6 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 			int pixelX = x + xx;
 			int pixelY = y + yy;
-
-			// Apply offset by 1px for our packaged PSP fonts
-			if (packagedFont) 
-				pixelX += 1;
 
 			if (pixelX >= clipX && pixelX < clipX + clipWidth && pixelY >= clipY && pixelY < clipY + clipHeight) {
 				// 4-bit color value

@@ -123,7 +123,7 @@ namespace MIPSComp {
 				prefixTFlag = PREFIX_KNOWN_DIRTY;
 				prefixT = 0xE4;
 			}
-			if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || VfpuWriteMask() != 0) {
+			if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0) {
 				prefixDFlag = PREFIX_KNOWN_DIRTY;
 				prefixD = 0x0;
 			}

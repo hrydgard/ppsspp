@@ -21,9 +21,9 @@
 
 #include "../MIPS.h"
 #include "../MIPSAnalyst.h"
-#include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Common/ArmEmitter.h"
 
 using namespace ArmGen;
 
@@ -47,7 +47,6 @@ struct FPURegMIPS {
 	bool tempLock;
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
-
 
 class ArmRegCacheFPU
 {
@@ -79,16 +78,20 @@ public:
 	// Returns an ARM register containing the requested MIPS register.
 	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
 	void MapInIn(MIPSReg rd, MIPSReg rs);
-	void MapInInV(int rt, int rs);
-	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
-	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
 	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
 	void FlushR(MIPSReg r);
-	void FlushV(MIPSReg r) { FlushR(r + 32); }
 	void DiscardR(MIPSReg r);
+
+	// VFPU register as single ARM VFP registers. Must not be used in the upcoming NEON mode!
+	void MapRegV(int vreg, int flags = 0);
+	void LoadToRegV(ARMReg armReg, int vreg);
+	void MapInInV(int rt, int rs);
+	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
+	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
+	void FlushV(MIPSReg r) { FlushR(r + 32); }
 	void DiscardV(MIPSReg r) { DiscardR(r + 32);}
 	bool IsTempX(ARMReg r) const;
 
@@ -99,13 +102,8 @@ public:
 
 	ARMReg R(int preg); // Returns a cached register
 	
-	// VFPU registers
-	
+	// VFPU registers as single VFP registers
 	ARMReg V(int vreg) { return R(vreg + 32); }
-
-	void MapRegV(int vreg, int flags = 0);
-
-	void LoadToRegV(ARMReg armReg, int vreg);
 
 	// NOTE: These require you to release spill locks manually!
 	void MapRegsAndSpillLockV(int vec, VectorSize vsz, int flags);

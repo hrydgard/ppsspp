@@ -45,10 +45,17 @@
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
-#define SYMBIAN_CODECHUNK_SIZE 1024*1024*20;
+#define CODECHUNK_SIZE 1024*1024*20
 static RChunk* g_code_chunk = NULL;
 static RHeap* g_code_heap = NULL;
-static void* g_next_ptr = NULL;
+static u8* g_next_ptr = NULL;
+static u8* g_orig_ptr = NULL;
+
+void ResetExecutableMemory(void* ptr)
+{
+	// Just reset the ptr to the base
+	g_next_ptr = g_orig_ptr;
+}
 #endif
 
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
@@ -63,14 +70,13 @@ void* AllocateExecutableMemory(size_t size, bool low)
 	//memory chunk for all the executable code for the JIT
 	if( g_code_chunk == NULL && g_code_heap == NULL)
 	{
-		TInt minsize = SYMBIAN_CODECHUNK_SIZE;
-		TInt maxsize = SYMBIAN_CODECHUNK_SIZE + 3*GetPageSize(); //some offsets
 		g_code_chunk = new RChunk();
-		g_code_chunk->CreateLocalCode(minsize, maxsize);
-		g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, minsize, 1, maxsize);
-		g_next_ptr = (void*) g_code_heap->Alloc( minsize );
+		g_code_chunk->CreateLocalCode(CODECHUNK_SIZE, CODECHUNK_SIZE + 3*GetPageSize());
+		g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, CODECHUNK_SIZE, 1, CODECHUNK_SIZE + 3*GetPageSize());
+		g_next_ptr = reinterpret_cast<u8*>(g_code_heap->AllocZ(CODECHUNK_SIZE));
+		g_orig_ptr = g_next_ptr;
 	}
-	void* ptr = g_next_ptr;
+	void* ptr = (void*)g_next_ptr;
 	g_next_ptr += size;
 #else
 	static char *map_hint = 0;
@@ -123,7 +129,7 @@ void* AllocateMemoryPages(size_t size)
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
 #elif defined(__SYMBIAN32__)
-	void* ptr = new u8[size];
+	void* ptr = malloc(size);
 #else
 	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 #endif
@@ -173,7 +179,7 @@ void FreeMemoryPages(void* ptr, size_t size)
 			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
 		ptr = NULL; // Is this our responsibility?
 #elif defined(__SYMBIAN32__)
-		delete [] ptr;
+		free(ptr);
 #else
 		munmap(ptr, size);
 #endif

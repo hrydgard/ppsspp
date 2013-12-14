@@ -26,6 +26,17 @@
 #include "../MIPS/MIPS.h"
 #include "../System.h"
 
+enum ReferenceIndexType {
+	REF_INDEX_PC = 32,
+	REF_INDEX_HI = 33,
+	REF_INDEX_LO = 34,
+	REF_INDEX_FPU = 0x1000,
+	REF_INDEX_FPU_INT = 0x2000,
+	REF_INDEX_VFPU = 0x4000,
+	REF_INDEX_VFPU_INT = 0x8000,
+	REF_INDEX_IS_FLOAT = REF_INDEX_FPU | REF_INDEX_VFPU,
+};
+
 
 class MipsExpressionFunctions: public IExpressionFunctions
 {
@@ -37,34 +48,92 @@ public:
 		for (int i = 0; i < 32; i++)
 		{
 			char reg[8];
-			sprintf(reg,"r%d",i);
+			sprintf(reg, "r%d", i);
 
-			if (strcasecmp(str,reg) == 0 || strcasecmp(str,cpu->GetRegName(0,i)) == 0)
+			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i)) == 0)
 			{
 				referenceIndex = i;
 				return true;
 			}
+			else if (strcasecmp(str, cpu->GetRegName(1, i)) == 0)
+			{
+				referenceIndex = REF_INDEX_FPU | i;
+				return true;
+			}
+
+			sprintf(reg, "fi%d", i);
+			if (strcasecmp(str, reg) == 0)
+			{
+				referenceIndex = REF_INDEX_FPU_INT | i;
+				return true;
+			}
 		}
 
-		if (strcasecmp(str,"pc") == 0)
+		for (int i = 0; i < 128; i++)
 		{
-			referenceIndex = 32;
+			if (strcasecmp(str, cpu->GetRegName(2, i)) == 0)
+			{
+				referenceIndex = REF_INDEX_VFPU | i;
+				return true;
+			}
+
+			char reg[8];
+			sprintf(reg, "vi%d", i);
+			if (strcasecmp(str, reg) == 0)
+			{
+				referenceIndex = REF_INDEX_VFPU_INT | i;
+				return true;
+			}
+		}
+
+		if (strcasecmp(str, "pc") == 0)
+		{
+			referenceIndex = REF_INDEX_PC;
 			return true;
-		} 
+		}
+
+		if (strcasecmp(str, "hi") == 0)
+		{
+			referenceIndex = REF_INDEX_HI;
+			return true;
+		}
+
+		if (strcasecmp(str, "lo") == 0)
+		{
+			referenceIndex = REF_INDEX_LO;
+			return true;
+		}
 
 		return false;
 	}
 
 	virtual bool parseSymbol(char* str, uint32& symbolValue)
 	{
-		return cpu->getSymbolValue(str,symbolValue); 
+		return symbolMap.GetLabelValue(str,symbolValue); 
 	}
 
 	virtual uint32 getReferenceValue(uint32 referenceIndex)
 	{
-		if (referenceIndex < 32) return cpu->GetRegValue(0,referenceIndex);
-		if (referenceIndex == 32) return cpu->GetPC();
+		if (referenceIndex < 32)
+			return cpu->GetRegValue(0, referenceIndex);
+		if (referenceIndex == REF_INDEX_PC)
+			return cpu->GetPC();
+		if (referenceIndex == REF_INDEX_HI)
+			return cpu->GetHi();
+		if (referenceIndex == REF_INDEX_LO)
+			return cpu->GetLo();
+		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
+			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
+		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
+			return cpu->GetRegValue(2, referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT));
 		return -1;
+	}
+
+	virtual ExpressionType getReferenceType(uint32 referenceIndex) {
+		if (referenceIndex & REF_INDEX_IS_FLOAT) {
+			return EXPR_TYPE_FLOAT;
+		}
+		return EXPR_TYPE_UINT;
 	}
 	
 	virtual bool getMemoryValue(uint32 address, int size, uint32& dest, char* error)
@@ -152,23 +221,13 @@ void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
 int MIPSDebugInterface::getColor(unsigned int address)
 {
 	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
-	int n=symbolMap.GetSymbolNum(address);
-	if (n==-1 || symbolMap.GetSymbolSize(n) < 4) return 0xFFFFFF;
+	int n=symbolMap.GetFunctionNum(address);
+	if (n==-1) return 0xFFFFFF;
 	return colors[n%6];
 }
 const char *MIPSDebugInterface::getDescription(unsigned int address) 
 {
 	return symbolMap.GetDescription(address);
-}
-
-const char *MIPSDebugInterface::findSymbolForAddress(unsigned int address)
-{
-	return symbolMap.getDirectSymbol(address);
-}
-
-bool MIPSDebugInterface::getSymbolValue(char* symbol, u32& dest)
-{
-	return symbolMap.getSymbolValue(symbol,dest);
 }
 
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)

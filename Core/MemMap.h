@@ -60,7 +60,10 @@ extern u8 *base;
 // These are guaranteed to point to "low memory" addresses (sub-32-bit).
 // 64-bit: Pointers to low-mem (sub-0x10000000) mirror
 // 32-bit: Same as the corresponding physical/virtual pointers.
+// Broken into three chunks to workaround 32-bit mmap() limits.
 extern u8 *m_pRAM;
+extern u8 *m_pRAM2;
+extern u8 *m_pRAM3;
 extern u8 *m_pScratchPad;
 extern u8 *m_pVRAM;
 
@@ -75,12 +78,16 @@ extern u8 *m_pUncachedVRAM;
 // These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
 extern u32 g_MemorySize;
 extern u32 g_MemoryMask;
+extern u32 g_PSPModel;
 
 enum
 {
 	// This may be adjusted by remaster games.
 	RAM_NORMAL_SIZE = 0x02000000,
 	RAM_NORMAL_MASK = RAM_NORMAL_SIZE - 1,
+
+	// Used if the PSP model is PSP-2000 (Slim).
+	RAM_DOUBLE_SIZE = RAM_NORMAL_SIZE * 2,
 
 	VRAM_SIZE       = 0x200000,
 	VRAM_MASK       = VRAM_SIZE - 1,
@@ -241,7 +248,6 @@ inline void Write_Float(float f, u32 address)
 // Reads a zero-terminated string from memory at the address.
 void GetString(std::string& _string, const u32 _Address);
 u8* GetPointer(const u32 address);
-bool IsValidAddress(const u32 address);
 bool IsRAMAddress(const u32 address);
 bool IsVRAMAddress(const u32 address);
 
@@ -272,6 +278,23 @@ inline void Memcpy(void *to_data, const u32 from_address, const u32 len)
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len)
 {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
+}
+
+inline bool IsValidAddress(const u32 address) {
+	if ((address & 0x3E000000) == 0x08000000) {
+		return true;
+	}
+	else if ((address & 0x3F800000) == 0x04000000) {
+		return true;
+	}
+	else if ((address & 0xBFFF0000) == 0x00010000) {
+		return true;
+	}
+	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return true;
+	}
+	else
+		return false;
 }
 
 

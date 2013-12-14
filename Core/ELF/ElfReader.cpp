@@ -29,7 +29,7 @@ const char *ElfReader::GetSectionName(int section)
 		return 0;
 
 	int nameOffset = sections[section].sh_name;
-	char *ptr = (char*)GetSectionDataPtr(header->e_shstrndx);
+	const char *ptr = (const char *)GetSectionDataPtr(header->e_shstrndx);
 
 	if (ptr)
 		return ptr + nameOffset;
@@ -51,10 +51,13 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	}
 }
 
-void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
+bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 {
+	int numErrors = 0;
+	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
 	for (int r = 0; r < numRelocs; r++)
 	{
+		// INFO_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
 		u32 info = rels[r].r_info;
 		u32 addr = rels[r].r_offset;
 
@@ -66,15 +69,35 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		//0 = code
 		//1 = data
 
+		if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
+			if (numErrors < 10) {
+				ERROR_LOG_REPORT(LOADER, "Bad segment number %i", readwrite);
+			}
+			numErrors++;
+			continue;
+		}
+
 		addr += segmentVAddr[readwrite];
+
+		// It appears that misaligned relocations are allowed.
+		// Will they work correctly on big-endian?
+
+		if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
+			if (numErrors < 10) {
+				WARN_LOG_REPORT(LOADER, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
+			} else if (numErrors == 10) {
+				WARN_LOG(LOADER, "Too many bad relocations, skipping logging");
+			}
+			numErrors++;
+			continue;
+		}
 
 		u32 op = Memory::Read_Instruction(addr).encoding;
 
 		const bool log = false;
 		//log=true;
-		if (log)
-		{
-			DEBUG_LOG(LOADER,"rel at: %08x  type: %08x",addr,info);
+		if (log) {
+			DEBUG_LOG(LOADER,"rel at: %08x  info: %08x   type: %i",addr, info, type);
 		}
 		u32 relocateTo = segmentVAddr[relative];
 
@@ -107,22 +130,24 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) 
 					{
 						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
-						if (log)
-						{
+						if (log) {
 							DEBUG_LOG(LOADER,"Corresponding lo found at %08x", corrLoAddr);
 						}
-
-						s16 lo = (s32)(s16)(u16)(Memory::ReadUnchecked_U32(corrLoAddr) & 0xFFFF); //signed??
-						cur += lo;
-						cur += relocateTo;
-						addrToHiLo(cur, hi, lo);
-						found = true;
-						break;
+						if (Memory::IsValidAddress(corrLoAddr)) {
+							s16 lo = (s32)(s16)(u16)(Memory::ReadUnchecked_U32(corrLoAddr) & 0xFFFF); //signed??
+							cur += lo;
+							cur += relocateTo;
+							addrToHiLo(cur, hi, lo);
+							found = true;
+							break;
+						} else {
+							ERROR_LOG(LOADER, "Bad corrLoAddr %08x", corrLoAddr);
+						}
 					}
 				}
-				if (!found)
+				if (!found) {
 					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16");
-
+				}
 				op = (op & 0xFFFF0000) | (hi);
 			}
 			break;
@@ -164,6 +189,10 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		}
 		Memory::Write_U32(op, addr);
 	}
+	if (numErrors) {
+		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors);
+	}
+	return numErrors == 0;
 }
 
 
@@ -276,8 +305,8 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				ERROR_LOG_REPORT(LOADER, "Rel2: invalid lo16 type! %x", flag);
 			}
 
-			op = Memory::ReadUnchecked_U32(rel_offset);
-			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, type, off_seg, rel_base, addr_seg, op);
+			op = Memory::Read_Instruction(rel_offset).encoding;
+			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
 
 			switch(type){
 			case 0:
@@ -289,6 +318,11 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			case 6: // R_MIPS_J26
 			case 7: // R_MIPS_JAL26
 				op = (op&0xFC000000) | (((op&0x03FFFFFF)+(relocate_to>>2))&0x03FFFFFF);
+				// To be safe, let's force it to the specified jump.
+				if (type == 6)
+					op = (op & ~0xFC000000) | 0x08000000;
+				else if (type == 7)
+					op = (op & ~0xFC000000) | 0x0C000000;
 				break;
 			case 4: // R_MIPS_HI16
 				addr = ((op<<16)+lo16)+relocate_to;
@@ -301,6 +335,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				op = (op&0xffff0000) | (((op&0xffff)+relocate_to)&0xffff);
 				break;
 			default:
+				ERROR_LOG_REPORT(LOADER, "Rel2: unexpected relocation type! %x", type);
 				break;
 			}
 
@@ -436,7 +471,7 @@ int ElfReader::LoadInto(u32 loadAddress)
 	DEBUG_LOG(LOADER,"Relocations:");
 
 	// Second pass: Do necessary relocations
-	for (int i=0; i<GetNumSections(); i++)
+	for (int i = 0; i < GetNumSections(); i++)
 	{
 		Elf32_Shdr *s = &sections[i];
 		const char *name = GetSectionName(i);
@@ -445,7 +480,6 @@ int ElfReader::LoadInto(u32 loadAddress)
 		{
 			//We have a relocation table!
 			int sectionToModify = s->sh_info;
-
 			if (sectionToModify >= 0)
 			{
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
@@ -458,8 +492,10 @@ int ElfReader::LoadInto(u32 loadAddress)
 
 				Elf32_Rel *rels = (Elf32_Rel *)GetSectionDataPtr(i);
 
-				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s",name,numRelocs,GetSectionName(sectionToModify));
-				LoadRelocations(rels, numRelocs);
+				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s : offset = %08x", name, numRelocs, GetSectionName(sectionToModify), sections[i].sh_offset);
+				if (!LoadRelocations(rels, numRelocs)) {
+					WARN_LOG(LOADER, "LoadInto: Relocs failed, trying anyway");
+				}			
 			}
 			else
 			{
@@ -495,28 +531,25 @@ int ElfReader::LoadInto(u32 loadAddress)
 	}
 
 	// Segment relocations (a few games use them)
-	if (GetNumSections() == 0)
-	{
-		for (int i=0; i<header->e_phnum; i++)
+	if (GetNumSections() == 0) {
+		for (int i = 0; i < header->e_phnum; i++)
 		{
 			Elf32_Phdr *p = &segments[i];
-			if (p->p_type == 0x700000A0)
-			{
+			if (p->p_type == PT_PSPREL1) {
 				INFO_LOG(LOADER,"Loading segment relocations");
-
 				int numRelocs = p->p_filesz / sizeof(Elf32_Rel);
 
 				Elf32_Rel *rels = (Elf32_Rel *)GetSegmentPtr(i);
-				LoadRelocations(rels, numRelocs);
-			} else if (p->p_type == 0x700000A1)
-			{
+				if (!LoadRelocations(rels, numRelocs)) {
+					ERROR_LOG(LOADER, "LoadInto: Relocs failed, trying anyway (2)");
+				}
+			} else if (p->p_type == PT_PSPREL2) {
 				INFO_LOG(LOADER,"Loading segment relocations2");
 				LoadRelocations2(i);
 			}
 		}
 	}
 
-	NOTICE_LOG(LOADER,"ELF loading completed successfully.");
 	return SCE_KERNEL_ERROR_OK;
 }
 
@@ -564,18 +597,18 @@ bool ElfReader::LoadSymbols()
 
 			if (bRelocate)
 				value += sectionAddrs[sectionIndex];
-			SymbolType symtype = ST_DATA;
 
 			switch (type)
 			{
 			case STT_OBJECT:
-				symtype = ST_DATA; break;
+				symbolMap.AddData(value,size,DATATYPE_BYTE);
+				break;
 			case STT_FUNC:
-				symtype = ST_FUNCTION; break;
+				symbolMap.AddFunction(name,value,size);
+				break;
 			default:
 				continue;
 			}
-			symbolMap.AddSymbol(name, value, size, symtype);
 			hasSymbols = true;
 			//...
 		}

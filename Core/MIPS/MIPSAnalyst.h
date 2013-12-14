@@ -78,6 +78,8 @@ namespace MIPSAnalyst
 	bool IsRegisterUsed(u32 reg, u32 addr);
 	void ScanForFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
+	void LoadHashMap(const std::string &filename);
+	void StoreHashMap(const std::string &filename);
 
 	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op);
 	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op);

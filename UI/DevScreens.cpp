@@ -29,8 +29,11 @@
 #include "Common/LogManager.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 #include "ext/disarm.h"
 #include "Common/CPUDetect.h"
 
@@ -49,6 +52,8 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
 	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
 	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
+	parent->Add(new Choice("Toggle Freeze"))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
+	parent->Add(new Choice("Dump Frame GPU Commands"))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -63,6 +68,20 @@ UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
 
 UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
 	screenManager()->push(new JitCompareScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
+	if (PSP_CoreParameter().frozen) {
+		PSP_CoreParameter().frozen = false;
+	} else {
+		PSP_CoreParameter().freezeNext = true;
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DevMenu::OnDumpFrame(UI::EventParams &e) {
+	gpu->DumpNextFrame();
 	return UI::EVENT_DONE;
 }
 
@@ -170,7 +189,7 @@ void SystemInfoScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(225, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(225, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
 
@@ -201,6 +220,20 @@ void SystemInfoScreen::CreateViews() {
 	openGL.resize(30);
 	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
 	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+
+	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
+	cpuExtensions->SetSpacing(0);
+	cpuExtensionsScroll->Add(cpuExtensions);
+
+	tabHolder->AddTab("CPU Extensions", cpuExtensionsScroll);
+
+	cpuExtensions->Add(new ItemHeader("CPU Extensions"));
+	std::vector<std::string> exts;
+	SplitString(cpu_info.Summarize(), ',', exts);
+	for (size_t i = 2; i < exts.size(); i++) {
+		cpuExtensions->Add(new TextView(exts[i]));
+	}
 	
 	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
@@ -218,7 +251,7 @@ void SystemInfoScreen::CreateViews() {
 		oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 #endif
 
-	std::vector<std::string> exts;
+	exts.clear();
 	SplitString(g_all_gl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {
@@ -240,7 +273,91 @@ void SystemInfoScreen::CreateViews() {
 	}
 }
 
+void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
 
+	addrView_ = new TextView("Enter address", ALIGN_HCENTER, false);
+	parent->Add(addrView_);
+
+	ViewGroup *grid = new GridLayout(GridLayoutSettings(60, 40));
+	parent->Add(grid);
+
+	for (int i = 0; i < 16; ++i) {
+		char temp[16];
+		snprintf(temp, 16, " %X ", i);
+		buttons_[i] = new Button(temp);
+		grid->Add(buttons_[i])->OnClick.Handle(this, &AddressPromptScreen::OnDigitButton);
+	}
+
+	parent->Add(new Button("Backspace"))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
+}
+
+void AddressPromptScreen::OnCompleted(DialogResult result) {
+	if (result == DR_OK) {
+		UI::EventParams e;
+		e.v = root_;
+		e.a = addr_;
+		OnChoice.Trigger(e);
+	}
+}
+
+UI::EventReturn AddressPromptScreen::OnDigitButton(UI::EventParams &e) {
+	for (int i = 0; i < 16; ++i) {
+		if (buttons_[i] == e.v) {
+			AddDigit(i);
+		}
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn AddressPromptScreen::OnBackspace(UI::EventParams &e) {
+	BackspaceDigit();
+	return UI::EVENT_DONE;
+}
+
+void AddressPromptScreen::AddDigit(int n) {
+	if ((addr_ & 0xF0000000) == 0) {
+		addr_ = addr_ * 16 + n;
+	}
+	UpdatePreviewDigits();
+}
+
+void AddressPromptScreen::BackspaceDigit() {
+	addr_ /= 16;
+	UpdatePreviewDigits();
+}
+
+void AddressPromptScreen::UpdatePreviewDigits() {
+	if (addr_ != 0) {
+		char temp[32];
+		snprintf(temp, 32, "%8X", addr_);
+		addrView_->SetText(temp);
+	} else {
+		addrView_->SetText("Enter address");
+	}
+}
+
+void AddressPromptScreen::key(const KeyInput &key) {
+	int nextDigit = -1;
+	if (key.flags & KEY_DOWN) {
+		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
+			AddDigit(key.keyCode - NKCODE_0);
+		} else if (key.keyCode >= NKCODE_A && key.keyCode <= NKCODE_F) {
+			AddDigit(10 + key.keyCode - NKCODE_A);
+		// NKCODE_DEL is backspace.
+		} else if (key.keyCode == NKCODE_DEL) {
+			BackspaceDigit();
+		} else if (key.keyCode == NKCODE_ENTER) {
+			OnCompleted(DR_OK);
+			screenManager()->finishDialog(this, DR_OK);
+			return;
+		} else {
+			UIDialogScreen::key(key);
+		}
+	} else {
+		UIDialogScreen::key(key);
+	}
+}
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
 void JitCompareScreen::CreateViews() {
@@ -264,6 +381,7 @@ void JitCompareScreen::CreateViews() {
 	rightDisasm_->SetSpacing(0.0f);
 
 	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
+	leftColumn->Add(new Choice("By Address"))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
 	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
 	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -338,6 +456,24 @@ void JitCompareScreen::UpdateDisasm() {
 #else
 	rightDisasm_->Add(new TextView("No x86 disassembler available"));
 #endif
+}
+
+UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
+	auto addressPrompt = new AddressPromptScreen("Block address");
+	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
+	screenManager()->push(addressPrompt);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	if (Memory::IsValidAddress(e.a)) {
+		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
+	} else {
+		currentBlock_ = -1;
+	}
+	UpdateDisasm();
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {

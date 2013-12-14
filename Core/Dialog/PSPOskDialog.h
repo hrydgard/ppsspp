@@ -215,7 +215,7 @@ private:
 	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	int NativeKeyboard();
 #endif
 

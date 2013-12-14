@@ -237,6 +237,7 @@ namespace MIPSComp
 		void Comp_Vfim(MIPSOpcode op);
 		void Comp_VCrossQuat(MIPSOpcode op);
 		void Comp_Vsgn(MIPSOpcode op);
+		void Comp_Vocp(MIPSOpcode op);
 
 
 		// Utility compilation functions
@@ -292,6 +293,10 @@ namespace MIPSComp
 		void CompileDelaySlot(int flags);
 		void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 		const u8 *DoJit(u32 em_address, JitBlock *b);
+
+		bool IsInDispatch(const u8 *p) {
+			return IsInSpace(p);
+		}
 
 		PpcJitOptions jo;
 		PpcJitState js;

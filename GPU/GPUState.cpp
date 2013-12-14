@@ -28,10 +28,18 @@
 #include "GPU/Directx9/GPU_DX9.h"
 #endif
 #include "Core/CoreParameter.h"
+#include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/MemMap.h"
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
 
-GPUgstate gstate;
-GPUStateCache gstate_c;
+// This must be aligned so that the matrices within are aligned.
+GPUgstate MEMORY_ALIGNED16(gstate);
+// Let's align this one too for good measure.
+GPUStateCache MEMORY_ALIGNED16(gstate_c);
+
 GPUInterface *gpu;
 GPUDebugInterface *gpuDebug;
 GPUStatistics gpuStats;
@@ -53,7 +61,7 @@ bool GPU_Init() {
 #endif
 		break;
 	case GPU_SOFTWARE:
-#if !(defined(__SYMBIAN32__) || defined(_XBOX))
+#ifndef _XBOX
 		SetGPU(new SoftGPU());
 #endif
 		break;
@@ -71,6 +79,12 @@ void GPU_Shutdown() {
 	delete gpu;
 	gpu = 0;
 	gpuDebug = 0;
+}
+
+void GPU_Reinitialize() {
+	if (gpu) {
+		gpu->Reinitialize();
+	}
 }
 
 void InitGfxState() {
@@ -171,6 +185,34 @@ void GPUgstate::Save(u32_le *ptr) {
 	memcpy(matrices, tgenMatrix, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
 }
 
+void GPUgstate::FastLoadBoneMatrix(u32 addr) {
+	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(addr);
+	u32 num = boneMatrixNumber;
+	u32 *dst = (u32 *)(boneMatrix + (num & 0x7F));
+
+#ifdef _M_SSE
+	__m128i row1 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8);
+	__m128i row2 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 4)), 8);
+	__m128i row3 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 8)), 8);
+	if ((num & 0x3) == 0) {
+		_mm_store_si128((__m128i *)dst, row1);
+		_mm_store_si128((__m128i *)(dst + 4), row2);
+		_mm_store_si128((__m128i *)(dst + 8), row3);
+	} else {
+		_mm_storeu_si128((__m128i *)dst, row1);
+		_mm_storeu_si128((__m128i *)(dst + 4), row2);
+		_mm_storeu_si128((__m128i *)(dst + 8), row3);
+	}
+#else
+	for (int i = 0; i < 12; i++) {
+		dst[i] = src[i] << 8;
+	}
+#endif
+
+	num += 12;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+}
+
 void GPUgstate::Restore(u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
@@ -199,4 +241,11 @@ void GPUgstate::Restore(u32_le *ptr) {
 	memcpy(viewMatrix, matrices, sizeof(viewMatrix)); matrices += sizeof(viewMatrix);
 	memcpy(projMatrix, matrices, sizeof(projMatrix)); matrices += sizeof(projMatrix);
 	memcpy(tgenMatrix, matrices, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
+}
+
+bool vertTypeIsSkinningEnabled(u32 vertType) {
+	if (g_Config.bSoftwareSkinning && ((vertType & GE_VTYPE_MORPHCOUNT_MASK) == 0))
+		return false;
+	else
+		return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE);
 }

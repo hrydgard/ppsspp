@@ -46,9 +46,22 @@ void Register_sceNp()
 	RegisterModule("sceNp", ARRAY_SIZE(sceNp), sceNp);
 }
 
+int sceNpAuth_4EC1F667() 
+{
+	// No parameters
+	ERROR_LOG(HLE, "UNIMPL sceNpAuth_4EC1F667()");
+	return 0;
+}
+
+int sceNpAuth_A1DE86F8(u32 poolSize, u32 stackSize, u32 threadPrio) 
+{
+	ERROR_LOG(HLE, "UNIMPL sceNpAuth_A1DE86F8(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
+	return 0;
+}
+
 const HLEFunction sceNpAuth[] = {
-	{0x4EC1F667, 0, "sceNpAuth_4EC1F667"},
-	{0xA1DE86F8, 0, "sceNpAuth_A1DE86F8"},
+	{0x4EC1F667, &WrapI_V<sceNpAuth_4EC1F667>, "sceNpAuth_4EC1F667"},
+	{0xA1DE86F8, &WrapI_UUU<sceNpAuth_A1DE86F8>, "sceNpAuth_A1DE86F8"},
 };
 
 void Register_sceNpAuth()
@@ -56,9 +69,22 @@ void Register_sceNpAuth()
 	RegisterModule("sceNpAuth", ARRAY_SIZE(sceNpAuth), sceNpAuth);
 }
 
+int sceNpService_00ACFAC3() 
+{
+	// No parameters
+	ERROR_LOG(HLE, "UNIMPL sceNpService_00ACFAC3()");
+	return 0;
+}
+
+int sceNpService_0F8F5821(u32 poolSize, u32 stackSize, u32 threadPrio) 
+{
+	ERROR_LOG(HLE, "UNIMPL sceNpService_0F8F5821(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
+	return 0;
+}
+
 const HLEFunction sceNpService[] = {
-	{0x00ACFAC3, 0, "sceNpService_00ACFAC3"},
-	{0x0F8F5821, 0, "sceNpService_0F8F5821"},
+	{0x00ACFAC3, &WrapI_V<sceNpService_00ACFAC3>, "sceNpService_00ACFAC3"},
+	{0x0F8F5821, &WrapI_UUU<sceNpService_0F8F5821>, "sceNpService_0F8F5821"},
 };
 
 void Register_sceNpService()

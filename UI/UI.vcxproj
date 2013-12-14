@@ -31,9 +31,11 @@
     <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
+    <ClCompile Include="Store.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
+    <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
@@ -49,9 +51,11 @@
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
+    <ClInclude Include="Store.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
+    <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="UIShader.h" />
     <ClInclude Include="ui_atlas.h" />
   </ItemGroup>
@@ -111,7 +115,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib;../native/ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -128,7 +132,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib;../native/ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -147,7 +151,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib;../native/ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -169,7 +173,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib;../native/ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>

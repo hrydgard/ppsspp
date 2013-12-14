@@ -21,7 +21,7 @@
 #ifdef BLACKBERRY
 #include <atomic.h>
 #elif defined(__SYMBIAN32__)
-#include <glib/gatomic.h>
+#include <e32atomics.h>
 #endif
 
 #include "Common.h"
@@ -63,12 +63,16 @@ inline u32 AtomicLoad(volatile u32& src) {
 	return src; // 32-bit reads are always atomic.
 }
 inline u32 AtomicLoadAcquire(volatile u32& src) {
+#ifdef __SYMBIAN32__
+	return __e32_atomic_load_acq32(&src);
+#else
 	//keep the compiler from caching any memory references
 	u32 result = src; // 32-bit reads are always atomic.
 	//__sync_synchronize(); // TODO: May not be necessary.
 	// Compiler instruction only. x86 loads always have acquire semantics.
 	__asm__ __volatile__ ( "":::"memory" );
 	return result;
+#endif
 }
 
 inline void AtomicOr(volatile u32& target, u32 value) {
@@ -82,57 +86,12 @@ inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
 #ifdef BLACKBERRY
 	atomic_set(&dest, value);
 #elif defined(__SYMBIAN32__)
-    g_atomic_int_set(&dest, value);
+    __e32_atomic_store_rel32(&dest, value);
 #else
-	__sync_lock_test_and_set(&dest, value); // TODO: Wrong! This function is has acquire semantics.
+	__sync_lock_test_and_set(&dest, value); // TODO: Wrong! This function has acquire semantics.
 #endif
 }
 
 }
-
-// Old code kept here for reference in case we need the parts with __asm__ __volatile__.
-#if 0
-LONG SyncInterlockedIncrement(LONG *Dest)
-{
-#if defined(__GNUC__) && defined (__GNUC_MINOR__) && ((4 < __GNUC__) || (4 == __GNUC__ && 1 <= __GNUC_MINOR__))
-  return  __sync_add_and_fetch(Dest, 1);
-#else
-  register int result;
-  __asm__ __volatile__("lock; xadd %0,%1"
-                       : "=r" (result), "=m" (*Dest)
-                       : "0" (1), "m" (*Dest)
-                       : "memory");
-  return result;
-#endif
-}
-
-LONG SyncInterlockedExchangeAdd(LONG *Dest, LONG Val)
-{
-#if defined(__GNUC__) && defined (__GNUC_MINOR__) && ((4 < __GNUC__) || (4 == __GNUC__ && 1 <= __GNUC_MINOR__))
-  return  __sync_add_and_fetch(Dest, Val);
-#else
-  register int result;
-  __asm__ __volatile__("lock; xadd %0,%1"
-                       : "=r" (result), "=m" (*Dest)
-                       : "0" (Val), "m" (*Dest)
-                       : "memory");
-  return result;
-#endif
-}
-
-LONG SyncInterlockedExchange(LONG *Dest, LONG Val)
-{
-#if defined(__GNUC__) && defined (__GNUC_MINOR__) && ((4 < __GNUC__) || (4 == __GNUC__ && 1 <= __GNUC_MINOR__))
-  return  __sync_lock_test_and_set(Dest, Val);
-#else
-  register int result;
-  __asm__ __volatile__("lock; xchg %0,%1"
-                       : "=r" (result), "=m" (*Dest)
-                       : "0" (Val), "m" (*Dest)
-                       : "memory");
-  return result;
-#endif
-}
-#endif
 
 #endif

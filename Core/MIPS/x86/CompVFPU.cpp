@@ -64,6 +64,8 @@ static const float zero = 0.0f;
 const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
+const u32 MEMORY_ALIGNED16( solidOnes[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+const u32 MEMORY_ALIGNED16( fourinfnan[4] ) = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
 
 void Jit::Comp_VPFX(MIPSOpcode op)
 {
@@ -408,8 +410,6 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 		}
 		break;
 
-
-
 	default:
 		DISABLE;
 		break;
@@ -722,6 +722,9 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 			SetJumpTarget(skip);
 		}
 	}
+
+	ApplyPrefixD(dregs, sz);
+
 	fpr.ReleaseSpillLocks();
 }
 
@@ -881,13 +884,17 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 
 	// Some, we just fall back to the interpreter.
 	switch (cond) {
-	case VC_EN: // c = my_isnan(s[i]); break;
 	case VC_EI: // c = my_isinf(s[i]); break;
-	case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
-	case VC_NN: // c = !my_isnan(s[i]); break;
 	case VC_NI: // c = !my_isinf(s[i]); break;
-	case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 		DISABLE;
+		break;
+	case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+	case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+	case VC_EN: // c = my_isnan(s[i]); break;
+	case VC_NN: // c = !my_isnan(s[i]); break;
+		if (_VS != _VT)
+			DISABLE;
+		break;
 	default:
 		break;
 	}
@@ -916,7 +923,35 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		bool compareToZero = false;
 		int comparison = -1;
 		bool flip = false;
+		bool inverse = false;
+
 		switch (cond) {
+		case VC_ES:
+			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
+			MOVSS(XMM1, fpr.V(sregs[i]));
+			ANDPS(XMM1, M((void *)&fourinfnan));
+			PCMPEQD(XMM1, M((void *)&fourinfnan));  // Integer comparison
+			break;
+
+		case VC_NS:
+			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
+			MOVSS(XMM1, fpr.V(sregs[i]));
+			ANDPS(XMM1, M((void *)&fourinfnan));
+			PCMPEQD(XMM1, M((void *)&fourinfnan));  // Integer comparison
+			XORPS(XMM1, M((void *)&solidOnes));
+			break;
+
+		case VC_EN:
+			comparison = CMP_UNORD;
+			compareTwo = true;
+			break;
+
+		case VC_NN:
+			comparison = CMP_UNORD;
+			compareTwo = true;
+			inverse = true;
+			break;
+
 		case VC_EQ: // c = s[i] == t[i]; break;
 			comparison = CMP_EQ;
 			compareTwo = true;
@@ -963,17 +998,22 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 			DISABLE;
 		}
 
-		if (compareTwo) {
-			if (!flip) {
+		if (comparison != -1) {
+			if (compareTwo) {
+				if (!flip) {
+					MOVSS(XMM1, fpr.V(sregs[i]));
+					CMPSS(XMM1, fpr.V(tregs[i]), comparison);
+				} else {
+					MOVSS(XMM1, fpr.V(tregs[i]));
+					CMPSS(XMM1, fpr.V(sregs[i]), comparison);
+				}
+			} else if (compareToZero) {
 				MOVSS(XMM1, fpr.V(sregs[i]));
-				CMPSS(XMM1, fpr.V(tregs[i]), comparison);
-			} else {
-				MOVSS(XMM1, fpr.V(tregs[i]));
-				CMPSS(XMM1, fpr.V(sregs[i]), comparison);
+				CMPSS(XMM1, R(XMM0), comparison);
 			}
-		} else if (compareToZero) {
-			MOVSS(XMM1, fpr.V(sregs[i]));
-			CMPSS(XMM1, R(XMM0), comparison);
+			if (inverse) {
+				XORPS(XMM1, M((void *)&solidOnes));
+			}
 		}
 
 		MOVSS(M((void *) &ssCompareTemp), XMM1);
@@ -1105,6 +1145,10 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
 #define SSE_CONST4(name, val) static const u32 MEMORY_ALIGNED16(name[4]) = { (val), (val), (val), (val) }
 
 	SSE_CONST4(mask_nosign,         0x7fff);
@@ -1113,11 +1157,6 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	SSE_CONST4(exp_infnan,          255 << 23);
 	
 #undef SSE_CONST4
-
-	CONDITIONAL_DISABLE;
-	if (js.HasUnknownPrefix())
-		DISABLE;
-
 	VectorSize sz = GetVecSize(op);
 	VectorSize outsize;
 	switch (sz) {
@@ -1139,7 +1178,7 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	X64Reg tempR = fpr.GetFreeXReg();
 	
 	MOVSS(XMM0, fpr.V(sregs[0]));
-	if (sz != V_Single) {
+ 	if (sz != V_Single) {
 		MOVSS(XMM1, fpr.V(sregs[1]));
 		PUNPCKLDQ(XMM0, R(XMM1));
 	}
@@ -1401,6 +1440,55 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 		// If really was equal to zero, zap. Note that ANDN negates the destination.
 		ANDNPS(XMM0, R(XMM1));
 		MOVAPS(tempxregs[i], R(XMM0));
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
+			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
+	}
+
+	ApplyPrefixD(dregs, sz);
+
+	fpr.ReleaseSpillLocks();
+}
+
+void Jit::Comp_Vocp(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	X64Reg tempxregs[4];
+	for (int i = 0; i < n; ++i)
+	{
+		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs))
+		{
+			int reg = fpr.GetTempV();
+			fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
+			fpr.SpillLockV(reg);
+			tempxregs[i] = fpr.VX(reg);
+		}
+		else
+		{
+			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.SpillLockV(dregs[i]);
+			tempxregs[i] = fpr.VX(dregs[i]);
+		}
+	}
+
+	MOVSS(XMM1, M((void *)&one));
+	for (int i = 0; i < n; ++i)
+	{
+		MOVSS(XMM0, R(XMM1));
+		SUBSS(XMM0, fpr.V(sregs[i]));
+		MOVSS(tempxregs[i], R(XMM0));
 	}
 
 	for (int i = 0; i < n; ++i) {
@@ -1926,6 +2014,14 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 
 void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	DISABLE;
+
+	// Do any games use these a noticable amount?
+	switch ((op >> 16) & 31) {
+	case 6:  // vfad
+		break;
+	case 7:  // vavg
+		break;
+	}
 }
 
 void Jit::Comp_Viim(MIPSOpcode op) {
@@ -2061,6 +2157,5 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 	fpr.ReleaseSpillLocks();
 }
-
 
 }

@@ -58,7 +58,8 @@ class Jit : public Gen::XCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
-	~Jit();
+	virtual ~Jit();
+
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
@@ -72,7 +73,10 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
-	void CompileAt(u32 addr);
+	bool IsInDispatch(const u8 *p) {
+		return asm_.IsInSpace(p);
+	}
+
 	void Comp_RunBlock(MIPSOpcode op);
 
 	// Ops
@@ -136,6 +140,7 @@ public:
 	void Comp_Vfim(MIPSOpcode op);
 	void Comp_VCrossQuat(MIPSOpcode op);
 	void Comp_Vsgn(MIPSOpcode op);
+	void Comp_Vocp(MIPSOpcode op);
 
 	void Comp_DoNothing(MIPSOpcode op);
 
@@ -196,6 +201,7 @@ private:
 	void CompITypeMemWrite(MIPSOpcode op, u32 bits, void *safeFunc);
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
+	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
 
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);

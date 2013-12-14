@@ -19,7 +19,6 @@
 
 // Simulation of the hardware video/audio decoders.
 // The idea is high level emulation where we simply use FFMPEG.
-// TODO: Actually hook up to ffmpeg.
 
 #pragma once
 
@@ -32,18 +31,22 @@
 
 struct SimpleAT3;
 
+#ifdef USE_FFMPEG
 struct SwsContext;
 struct AVFrame;
 struct AVIOContext;
 struct AVFormatContext;
 struct AVCodecContext;
+#endif
 
 inline s64 getMpegTimeStamp(u8* buf) {
 	return (s64)buf[5] | ((s64)buf[4] << 8) | ((s64)buf[3] << 16) | ((s64)buf[2] << 24) 
 		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
 }
 
+#ifdef USE_FFMPEG
 bool InitFFmpeg();
+#endif
 
 void __AdjustBGMVolume(s16 *samples, u32 count);
 
@@ -68,10 +71,10 @@ public:
 	int getRemainSize();
 
 	bool stepVideo(int videoPixelMode);
-	int writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
-	int writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode,
+	int writeVideoImage(u32 bufferPtr, int frameWidth = 512, int videoPixelMode = 3);
+	int writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height);
-	int getAudioSamples(u8* buffer);
+	int getAudioSamples(u32 bufferPtr);
 
 	bool setVideoDim(int width = 0, int height = 0);
 	s64 getVideoTimeStamp();
@@ -89,12 +92,15 @@ private:
 public:  // TODO: Very little of this below should be public.
 
 	// Video ffmpeg context - not used for audio
+#ifdef USE_FFMPEG
 	AVFormatContext *m_pFormatCtx;
 	AVCodecContext *m_pCodecCtx;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
 	AVIOContext *m_pIOContext;
 	SwsContext *m_sws_ctx;
+#endif
+
 	int m_sws_fmt;
 	u8 *m_buffer;
 	int m_videoStream;

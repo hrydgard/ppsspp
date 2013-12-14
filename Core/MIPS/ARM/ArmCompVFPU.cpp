@@ -32,15 +32,14 @@
 // Cool NEON references:
 // http://www.delmarnorth.com/microwave/requirements/neon-test-tutorial.pdf
 
-const bool disablePrefixes = false;
-
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
+#define NEON_IF_AVAILABLE(func) { if (jo.useNEONVFPU) { func(op); return; } }
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
 #define _RD MIPS_GET_RD(op)
@@ -202,13 +201,6 @@ namespace MIPSComp
 				SetCC(CC_GT);
 				VMOV(fpr.V(vregs[i]), S1);
 				SetCC(CC_AL);
-
-				/*
-				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
-				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
-				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
-				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2 + 0.5f
-				VADD(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);*/
 			} else if (sat == 3) {
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 
@@ -224,24 +216,15 @@ namespace MIPSComp
 				SetCC(CC_GT);
 				VMOV(fpr.V(vregs[i]), S1);
 				SetCC(CC_AL);
-
-				// clamped = fabs(x) - fabs(x-1.0f);        // [-1, 1]
-				/*
-				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				MOVI2F(S0, 1.0f, R0);
-				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
-				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
-				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
-				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2
-				*/
 			}
 		}
 	}
 
 	void Jit::Comp_SV(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_SV);
 		CONDITIONAL_DISABLE;
 
-		s32 imm = (signed short)(op&0xFFFC);
+		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
 
@@ -250,20 +233,27 @@ namespace MIPSComp
 		{
 		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 			{
+				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+					gpr.MapRegAsPointer(rs);
+					fpr.MapRegV(vt, MAP_NOINIT | MAP_DIRTY);
+					VLDR(fpr.V(vt), gpr.RPtr(rs), offset);
+					break;
+				}
+
 				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 				if (gpr.IsImm(rs)) {
-					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
-						SetR0ToEffectiveAddress(rs, imm);
+						SetR0ToEffectiveAddress(rs, offset);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						SetCCAndR0ForSafeAddress(rs, offset, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 #ifdef __ARM_ARCH_7S__
 				FixupBranch skip;
@@ -288,20 +278,27 @@ namespace MIPSComp
 
 		case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 			{
+				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
+					gpr.MapRegAsPointer(rs);
+					fpr.MapRegV(vt, 0);
+					VSTR(fpr.V(vt), gpr.RPtr(rs), offset);
+					break;
+				}
+
 				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt);
 				if (gpr.IsImm(rs)) {
-					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.SetRegImm(R0, addr + (u32)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
-						SetR0ToEffectiveAddress(rs, imm);
+						SetR0ToEffectiveAddress(rs, offset);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						SetCCAndR0ForSafeAddress(rs, offset, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 #ifdef __ARM_ARCH_7S__
 				FixupBranch skip;
@@ -331,6 +328,7 @@ namespace MIPSComp
 	void Jit::Comp_SVQ(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
+		NEON_IF_AVAILABLE(CompNEON_SVQ);
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
@@ -357,7 +355,7 @@ namespace MIPSComp
 						SetCCAndR0ForSafeAddress(rs, imm, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 
 #ifdef __ARM_ARCH_7S__
@@ -406,7 +404,7 @@ namespace MIPSComp
 						SetCCAndR0ForSafeAddress(rs, imm, R1);
 						doCheck = true;
 					}
-					ADD(R0, R0, R11);
+					ADD(R0, R0, MEMBASEREG);
 				}
 
 #ifdef __ARM_ARCH_7S__
@@ -442,10 +440,10 @@ namespace MIPSComp
 
 	void Jit::Comp_VVectorInit(MIPSOpcode op)
 	{
+		NEON_IF_AVAILABLE(CompNEON_VVectorInit);
 		CONDITIONAL_DISABLE;
-
 		// WARNING: No prefix support!
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -478,9 +476,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VIdt(MIPSOpcode op) {
-		CONDITIONAL_DISABLE
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		NEON_IF_AVAILABLE(CompNEON_VIdt);
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -516,9 +514,9 @@ namespace MIPSComp
 
 	void Jit::Comp_VMatrixInit(MIPSOpcode op)
 	{
+		NEON_IF_AVAILABLE(CompNEON_VMatrixInit);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			// Don't think matrix init ops care about prefixes.
 			// DISABLE;
 		}
@@ -564,10 +562,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VHdp(MIPSOpcode op) {
-		// DISABLE;
-
+		NEON_IF_AVAILABLE(CompNEON_VHdp);
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -606,8 +603,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VDot(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VDot);
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -642,9 +640,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VecDo3(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VecDo3);
 		CONDITIONAL_DISABLE;
-		
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -757,9 +755,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VV2Op(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VV2Op);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -782,6 +780,19 @@ namespace MIPSComp
 			} else {
 				tempregs[i] = dregs[i];
 			}
+		}
+
+		// Get some extra temps, used by vasin only. 
+		ARMReg t2 = INVALID_REG, t3 = INVALID_REG, t4 = INVALID_REG;
+		if (((op >> 16) & 0x1f) == 23) {
+			// Only get here on vasin.
+			int t[3] = { fpr.GetTempV(), fpr.GetTempV(), fpr.GetTempV() };
+			fpr.MapRegV(t[0], MAP_NOINIT);
+			fpr.MapRegV(t[1], MAP_NOINIT);
+			fpr.MapRegV(t[2], MAP_NOINIT);
+			t2 = fpr.V(t[0]);
+			t3 = fpr.V(t[1]);
+			t4 = fpr.V(t[2]);
 		}
 
 		// Warning: sregs[i] and tempxregs[i] may be the same reg.
@@ -851,7 +862,34 @@ namespace MIPSComp
 				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
 				break;
 			case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-				DISABLE;
+				// Seems to work well enough but can disable if it becomes a problem.
+				// Should be easy enough to translate to NEON. There we can load all the constants
+				// in one go of course.
+				fpr.MapDirtyInV(tempregs[i], sregs[i]);
+				MOVI2F(S0, 0.0f, R0);
+				VCMP(fpr.V(sregs[i]), S0);       // flags = sign(sregs[i])
+				VMRS_APSR();
+				MOVI2F(S0, 1.0f, R0);
+				VABS(t4, fpr.V(sregs[i]));   // t4 = |sregs[i]|
+				VSUB(t3, S0, t4);
+				VSQRT(t3, t3);               // t3 = sqrt(1 - |sregs[i]|)
+				MOVI2F(S1, -0.0187293f, R0);
+				MOVI2F(t2, 0.0742610f, R0);
+				VMLA(t2, t4, S1);
+				MOVI2F(S1, -0.2121144f, R0);
+				VMLA(S1, t4, t2);
+				MOVI2F(t2, 1.5707288f, R0);
+				VMLA(t2, t4, S1);
+				MOVI2F(fpr.V(tempregs[i]), M_PI / 2, R0);
+				VMLS(fpr.V(tempregs[i]), t2, t3);    // tr[i] = M_PI / 2 - t2 * t3
+				{
+					FixupBranch br = B_CC(CC_GE);
+					VNEG(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
+					SetJumpTarget(br);
+				}
+				// Correction factor for PSP range. Could be baked into the calculation above?
+				MOVI2F(S1, 1.0f / (M_PI / 2), R0);
+				VMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
 				fpr.MapDirtyInV(tempregs[i], sregs[i]);
@@ -883,10 +921,11 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vi2f(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vi2f);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -929,15 +968,75 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vh2f(MIPSOpcode op) {
-		DISABLE;
+		NEON_IF_AVAILABLE(CompNEON_Vh2f);
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		if (!cpu_info.bNEON) {
+			DISABLE;
+		}
+
+		// This multi-VCVT.F32.F16 is only available in the VFPv4 extension.
+		// The VFPv3 one is VCVTB, VCVTT which we don't yet have support for.
+		if (!(cpu_info.bHalf && cpu_info.bVFPv4)) {
+			// No hardware support for half-to-float, fallback to interpreter
+			// TODO: Translate the fast SSE solution to standard integer/VFP stuff
+			// for the weaker CPUs.
+			DISABLE;
+		}
+
+		u8 sregs[4], dregs[4];
+		VectorSize sz = GetVecSize(op);
+		VectorSize outSz;
+
+		switch (sz) {
+		case V_Single:
+			outSz = V_Pair;
+			break;
+		case V_Pair:
+			outSz = V_Quad;
+			break;
+		default:
+			DISABLE;
+		}
+
+		int n = GetNumVectorElements(sz);
+		int nOut = n * 2;
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outSz, _VD);
+
+		static const ARMReg tmp[4] = { S0, S1, S2, S3 };
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			VMOV(tmp[i], fpr.V(sregs[i]));
+		}
+
+		// This always converts four 32-bit floats in Q0 to four 16-bit floats
+		// in D0. If we are dealing with a pair here, we just ignore the upper two outputs.
+		// There are also a couple of other instructions that do it one at a time but doesn't
+		// seem worth the trouble.
+		VCVTF32F16(Q0, D0);
+
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			VMOV(fpr.V(dregs[i]), tmp[i]);
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vf2i(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vf2i);
 		CONDITIONAL_DISABLE;
-		DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
+		DISABLE;
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1000,14 +1099,13 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Mftv(MIPSOpcode op)
-	{
+	void Jit::Comp_Mftv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		NEON_IF_AVAILABLE(CompNEON_Mftv);
 
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
-		switch ((op >> 21) & 0x1f)
-		{
+		switch ((op >> 21) & 0x1f) {
 		case 3: //mfv / mfvc
 			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
@@ -1018,8 +1116,13 @@ namespace MIPSComp
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 					// In case we have a saved prefix.
 					FlushPrefixV();
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
-					LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					if (imm - 128 == VFPU_CTRL_CC) {
+						gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
+						MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+					} else {
+						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+						LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					}
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
 					ERROR_LOG(CPU, "mfv - invalid register %i", imm);
@@ -1033,8 +1136,13 @@ namespace MIPSComp
 				fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
 				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
-				gpr.MapReg(rt);
-				STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+				if (imm - 128 == VFPU_CTRL_CC) {
+					gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
+					MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+				} else {
+					gpr.MapReg(rt);
+					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+				}
 				//gpr.BindToRegister(rt, true, false);
 				//MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
 
@@ -1061,6 +1169,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -1082,16 +1191,13 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmmov(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmmov);
 		CONDITIONAL_DISABLE;
 
-		// TODO: This probably ignores prefixes?
-		//if (js.MayHavePrefix()) {
-		//	DISABLE;
-		//}
-
+		// This probably ignores prefixes for all sane intents and purposes.
 		if (_VS == _VD) {
-			// A lot of these in Wipeout... Just drop the instruction entirely.
-			return;	
+			// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
+			return;
 		}
 
 		MatrixSize sz = GetMtxSize(op);
@@ -1123,9 +1229,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VScl);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1173,11 +1279,12 @@ namespace MIPSComp
 
 	void Jit::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		// TODO: This probably ignores prefixes?
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+		NEON_IF_AVAILABLE(CompNEON_Vmmul);
+
+		// TODO: This probably ignores prefixes?
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1214,17 +1321,19 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmscl(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmscl);
 		DISABLE;
 	}
 
 	void Jit::Comp_Vtfm(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vtfm);
 		CONDITIONAL_DISABLE;
-
-		// TODO: This probably ignores prefixes?  Or maybe uses D?
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
+		// TODO: This probably ignores prefixes?  Or maybe uses D?
+		
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1278,24 +1387,30 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrs(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VCrs);
 		DISABLE;
 	}
 
 	void Jit::Comp_VDet(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_VDet);
 		DISABLE;
 	}
 
 	void Jit::Comp_Vi2x(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vi2x);
 		DISABLE;
 	}
 
 	void Jit::Comp_Vx2i(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vx2i);
 		DISABLE;
 	}
 
 	void Jit::Comp_VCrossQuat(MIPSOpcode op) {
-		// This op does not support prefixes.
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		NEON_IF_AVAILABLE(CompNEON_VCrossQuat);
+		// This op does not support prefixes anyway.
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1340,9 +1455,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmp(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vcmp);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		if (js.HasUnknownPrefix())
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1355,12 +1470,20 @@ namespace MIPSComp
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 
 		// Some, we just fall back to the interpreter.
+		// ES is just really equivalent to (value & 0x7F800000) == 0x7F800000.
+
 		switch (cond) {
 		case VC_EI: // c = my_isinf(s[i]); break;
-		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
 		case VC_NI: // c = !my_isinf(s[i]); break;
-		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 			DISABLE;
+		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+		case VC_EN: // c = my_isnan(s[i]); break;
+		case VC_NN: // c = !my_isnan(s[i]); break;
+			if (_VS != _VT)
+				DISABLE;
+			break;
+
 		case VC_EZ:
 		case VC_NZ:
 			MOVI2F(S0, 0.0f, R0);
@@ -1381,13 +1504,37 @@ namespace MIPSComp
 				break;
 
 			case VC_TR: // c = 1
-				ORR(R0, R0, 1 << n);
+				if (i == 0) {
+					if (n == 1) {
+						MOVI2R(R0, 0x31);
+					} else {
+						MOVI2R(R0, 1 << i);
+					}
+				} else {
+					ORR(R0, R0, 1 << i);
+				}
+				break;
+
+			case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+			case VC_NS: // c = !(my_isnan(s[i]) || my_isinf(s[i])); break;
+				// For these, we use the integer ALU as there is no support on ARM for testing for INF.
+				// Testing for nan or inf is the same as testing for &= 0x7F800000 == 0x7F800000.
+				// We need an extra temporary register so we store away R0.
+				STR(R0, CTXREG, offsetof(MIPSState, temp));
+				fpr.MapRegV(sregs[i], 0);
+				MOVI2R(R0, 0x7F800000);
+				VMOV(R1, fpr.V(sregs[i]));
+				AND(R1, R1, R0);
+				CMP(R1, R0);   // (R1 & 0x7F800000) == 0x7F800000
+				flag = cond == VC_ES ? CC_EQ : CC_NEQ;
+				LDR(R0, CTXREG, offsetof(MIPSState, temp));
 				break;
 
 			case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
 				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_VS;  // overflow = unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
 				break;
 
@@ -1395,54 +1542,63 @@ namespace MIPSComp
 				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_VC;  // !overflow = !unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
 				break;
 
 			case VC_EQ: // c = s[i] == t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_EQ;
 				break;
 
 			case VC_LT: // c = s[i] < t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_LT;
 				break;
 
 			case VC_LE: // c = s[i] <= t[i]; 
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_LE;
 				break;
 
 			case VC_NE: // c = s[i] != t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_NEQ;
 				break;
 
 			case VC_GE: // c = s[i] >= t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_GE;
 				break;
 
 			case VC_GT: // c = s[i] > t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				VMRS_APSR();
 				flag = CC_GT;
 				break;
 
 			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
 				fpr.MapRegV(sregs[i]);
 				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR();
 				flag = CC_EQ;
 				break;
 
 			case VC_NZ: // c = s[i] != 0
 				fpr.MapRegV(sregs[i]);
 				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR();
 				flag = CC_NEQ;
 				break;
 
@@ -1450,13 +1606,12 @@ namespace MIPSComp
 				DISABLE;
 			}
 			if (flag != CC_AL) {
-				VMRS_APSR();
 				SetCC(flag);
 				if (i == 0) {
 					if (n == 1) {
 						MOVI2R(R0, 0x31);
 					} else {
-						MOVI2R(R0, 1 << i);
+						MOVI2R(R0, 1);  // 1 << i, but i == 0
 					}
 				} else {
 					ORR(R0, R0, 1 << i);
@@ -1474,26 +1629,26 @@ namespace MIPSComp
 			SetCC(CC_EQ);
 			ORR(R0, R0, 1 << 5);
 			SetCC(CC_AL);
-			
+
 			CMP(R0, 0);
 			SetCC(CC_NEQ);
 			ORR(R0, R0, 1 << 4);
 			SetCC(CC_AL);
 		}
 
-		LDR(R1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
-		BIC(R1, R1, affected_bits);
-		ORR(R1, R1, R0);
-		STR(R1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+		gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY);
+		BIC(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), affected_bits);
+		ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), R0);
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vcmov(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vcmov);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes)
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1515,8 +1670,8 @@ namespace MIPSComp
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
-			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
-			TST(R0, 1 << imm3);
+			gpr.MapReg(MIPS_REG_VFPUCC);
+			TST(gpr.R(MIPS_REG_VFPUCC), 1 << imm3);
 			SetCC(tf ? CC_EQ : CC_NEQ);
 			for (int i = 0; i < n; i++) {
 				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
@@ -1526,18 +1681,21 @@ namespace MIPSComp
 			// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
-			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+			gpr.MapReg(MIPS_REG_VFPUCC);
 			for (int i = 0; i < n; i++) {
-				TST(R0, 1 << i);
+				TST(gpr.R(MIPS_REG_VFPUCC), 1 << i);
 				SetCC(tf ? CC_EQ : CC_NEQ);
 				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
 				SetCC(CC_AL);
 			}
 		}
+
+		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Viim(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Viim);
 		CONDITIONAL_DISABLE;
 
 		u8 dreg;
@@ -1552,9 +1710,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vfim(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vfim);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1572,9 +1730,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcst(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vcst);
 		CONDITIONAL_DISABLE;
-
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1619,13 +1777,14 @@ namespace MIPSComp
 		sincostemp[1] = cosf(angle);
 	}
 
-	// Very heavily used by FF:CC
+	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
+	// calling the math library.
+	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
 	void Jit::Comp_VRot(MIPSOpcode op) {
-		// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
+		NEON_IF_AVAILABLE(CompNEON_VRot);
+		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
-
-		// This op doesn't support prefixes anyway..
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1683,8 +1842,10 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vhoriz(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
 		DISABLE;
 
+		// Do any games use these a noticable amount?
 		switch ((op >> 16) & 31) {
 		case 6:  // vfad
 			break;
@@ -1694,8 +1855,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vsgn(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vsgn);
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix() || disablePrefixes) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -1722,12 +1884,13 @@ namespace MIPSComp
 			// care of NaNs like the interpreter (ignores them and just operates on the bits).
 			MOVI2F(S0, 0.0f, R0);
 			VCMP(fpr.V(sregs[i]), S0);
-			VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 			VMOV(R0, fpr.V(sregs[i]));
+			VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+			SetCC(CC_NEQ);
 			AND(R0, R0, AssumeMakeOperand2(0x80000000));
 			ORR(R0, R0, AssumeMakeOperand2(0x3F800000));
 			SetCC(CC_EQ);
-			MOV(R1, AssumeMakeOperand2(0x0));
+			MOV(R0, AssumeMakeOperand2(0x0));
 			SetCC(CC_AL);
 			VMOV(fpr.V(tempregs[i]), R0);
 		}
@@ -1743,4 +1906,51 @@ namespace MIPSComp
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
+
+	void Jit::Comp_Vocp(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vocp);
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		// Actually, not sure that this instruction accepts an S prefix. We don't apply it in the
+		// interpreter. But whatever.
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		MOVI2F(S0, 1.0f, R0);
+		for (int i = 0; i < n; ++i) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			// Let's do it integer registers for now. NEON later.
+			// There's gotta be a shorter way, can't find one though that takes
+			// care of NaNs like the interpreter (ignores them and just operates on the bits).
+			VSUB(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
 }

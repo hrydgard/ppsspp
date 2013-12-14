@@ -8,7 +8,6 @@
 #include <QTimer>
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/GPUInterface.h"
-#include "EmuThread.h"
 #include "base/display.h"
 
 Debugger_MemoryTex::Debugger_MemoryTex(QWidget *parent) :
@@ -22,23 +21,6 @@ Debugger_MemoryTex::~Debugger_MemoryTex()
 {
 	delete ui;
 }
-
-
-void Debugger_MemoryTex::showEvent(QShowEvent *)
-{
-
-#ifdef Q_WS_X11
-	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
-	EmuThread_LockDraw(true);
-	QTimer::singleShot(100, this, SLOT(releaseLock()));
-#endif
-}
-
-void Debugger_MemoryTex::releaseLock()
-{
-	EmuThread_LockDraw(false);
-}
-
 
 void Debugger_MemoryTex::ShowTex(const GPUgstate &state)
 {
@@ -58,8 +40,6 @@ void Debugger_MemoryTex::ShowTex(const GPUgstate &state)
 
 void Debugger_MemoryTex::on_readBtn_clicked()
 {
-	EmuThread_LockDraw(true);
-
 	GPUgstate state;
 	state.texaddr[0] = ui->texaddr->text().toUInt(0,16);
 	state.texbufwidth[0] = ui->texbufwidth0->text().toUInt(0,16);
@@ -89,7 +69,4 @@ void Debugger_MemoryTex::on_readBtn_clicked()
 	}
 
 	delete[] newData;
-	EmuThread_LockDraw(false);
-
-
 }

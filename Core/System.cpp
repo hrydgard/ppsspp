@@ -153,9 +153,14 @@ void CPU_Init() {
 
 	// Default memory settings
 	// Seems to be the safest place currently..
-	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
+	if (g_Config.iPSPModel == PSP_MODEL_FAT)
+		Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
+	else
+		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
+	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
 	IdentifiedFileType type = Identify_File(filename);
@@ -392,17 +397,17 @@ void InitSysDirectories() {
 	if (!g_Config.memCardDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
-	const std::string path = ConvertWStringToUTF8(File::GetExeDirectory());
+	const std::string path = File::GetExeDirectory();
 
 	// Mount a filesystem
-	g_Config.flash0Directory = path + "/flash0/";
+	g_Config.flash0Directory = path + "flash0/";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 	wchar_t myDocumentsPath[MAX_PATH];
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 	const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 
-	const std::string installedFile = path + "/installed.txt";
+	const std::string installedFile = path + "installed.txt";
 	const bool installed = File::Exists(installedFile);
 
 	// If installed.txt exists(and we can determine the Documents directory)
@@ -430,7 +435,7 @@ void InitSysDirectories() {
 		if (lastSlash != (g_Config.memCardDirectory.length() - 1))
 			g_Config.memCardDirectory.append("/");
 	} else {
-		g_Config.memCardDirectory = path + "/memstick/";
+		g_Config.memCardDirectory = path + "memstick/";
 	}
 
 	// Create the memstickpath before trying to write to it, and fall back on Documents yet again

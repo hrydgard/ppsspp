@@ -22,9 +22,19 @@
 
 #include "CommonTypes.h"
 
+#if !defined(USING_QT_UI)
 extern const char *PPSSPP_GIT_VERSION;
+#endif
 
 const int MAX_CONFIG_VOLUME = 8;
+const int PSP_MODEL_FAT = 0;
+const int PSP_MODEL_SLIM = 1;
+const int PSP_DEFAULT_FIRMWARE = 150;
+
+namespace http {
+	class Download;
+	class Downloader;
+}
 
 struct Config {
 public:
@@ -35,14 +45,17 @@ public:
 	bool bSaveSettings;
 	bool bFirstRun;
 
+	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
+
 	bool bAutoRun;  // start immediately
 	bool bBrowse; // when opening the emulator, immediately show a file browser
+	bool bHomebrewStore;
 
 	// General
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
@@ -51,6 +64,8 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	bool bCheckForNewVersion;
+
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
 	bool bSeparateIOThread;
@@ -61,14 +76,15 @@ public:
 	std::vector<std::string> recentIsos;
 	std::string sLanguageIni;
 
+
 	// GFX
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
+	bool bSoftwareSkinning;  // may speed up some games
+
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
-#ifdef BLACKBERRY
 	bool bPartialStretch;
-#endif
 	bool bStretchToDisplay;
 	bool bVSync;
 	int iFrameSkip;
@@ -99,8 +115,8 @@ public:
 	bool bReloadCheats;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
+	bool bTimerHack;
 	bool bLowQualitySplineBezier;
-	bool bWipeFramebufferAlpha;  // this was meant to be CopyStencilToAlpha but not done yet.
 	std::string sPostShaderName;  // Off for off.
 
 	// Sound
@@ -135,26 +151,42 @@ public:
 	bool bGridView2;
 	bool bGridView3;
 
+	// Disable diagonals
+	bool bDisableDpadDiagonals;
+	// Control Style
+	int iTouchButtonStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
-	float fButtonScale;
 	//space between PSP buttons
-	int iActionButtonSpacing;
 	//the PSP button's center (triangle, circle, square, cross)
 	float fActionButtonCenterX, fActionButtonCenterY;
+	float fActionButtonScale;
+	float fActionButtonSpacing;
 	//radius of the D-pad (PSP cross)
-	int iDpadRadius;
+	// int iDpadRadius;
 	//the D-pad (PSP cross) position
 	float fDpadX, fDpadY;
+	float fDpadScale;
+	float fDpadSpacing;
 	//the start key position
 	float fStartKeyX, fStartKeyY;
-	//the select key position; 
+	float fStartKeyScale;
+	//the select key position;
 	float fSelectKeyX, fSelectKeyY;
+	float fSelectKeyScale;
+
 	float fUnthrottleKeyX, fUnthrottleKeyY;
+	float fUnthrottleKeyScale;
+
 	float fLKeyX, fLKeyY;
+	float fLKeyScale;
+
 	float fRKeyX, fRKeyY;
+	float fRKeyScale;
+
 	//position of the analog stick
 	float fAnalogStickX, fAnalogStickY;
+	float fAnalogStickScale;
 
 	// Controls Visibility
 	bool bShowTouchControls;
@@ -170,10 +202,10 @@ public:
 
 	bool bShowTouchLTrigger;
 	bool bShowTouchRTrigger;
-	
+
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
-	
+
 	bool bHapticFeedback;
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
@@ -193,6 +225,8 @@ public:
 
 	// SystemParam
 	std::string sNickName;
+	std::string proAdhocServer;
+	std::string localMacAddress;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
@@ -201,10 +235,16 @@ public:
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
+
+	// Networking
+	bool bEnableWlan;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+
+	int iPSPModel;
+	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USING_QT_UI)
 	bool bBypassOSKWithKeyboard;
 #endif
 
@@ -226,12 +266,18 @@ public:
 	bool bShowDeveloperMenu;
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
+	bool bFuncHashMap;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
 	std::string memCardDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
+
+	// Data for upgrade prompt
+	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
+	std::string upgradeVersion;
+	std::string dismissedVersion;
 
 	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
 	void Save();
@@ -247,6 +293,11 @@ public:
 	void AddRecent(const std::string &file);
 	void CleanRecent();
 
+	static void DownloadCompletedCallback(http::Download &download);
+	void DismissUpgrade();
+
+	void ResetControlLayout();
+
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
@@ -254,4 +305,7 @@ private:
 	std::string defaultPath_;
 };
 
+// TODO: Find a better place for this.
+extern http::Downloader g_DownloadManager;
 extern Config g_Config;
+

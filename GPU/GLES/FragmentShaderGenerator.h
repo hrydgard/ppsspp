@@ -44,3 +44,14 @@ struct FragmentShaderID {
 void ComputeFragmentShaderID(FragmentShaderID *id);
 void GenerateFragmentShader(char *buffer);
 
+enum StencilValueType {
+	STENCIL_VALUE_UNKNOWN,
+	STENCIL_VALUE_UNIFORM,
+	STENCIL_VALUE_ZERO,
+	STENCIL_VALUE_ONE,
+	STENCIL_VALUE_KEEP,
+};
+
+StencilValueType ReplaceAlphaWithStencilType();
+bool CanReplaceAlphaWithStencil();
+

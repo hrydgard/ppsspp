@@ -21,7 +21,7 @@
 #include "sceCtrl.h"
 
 u32 sceHprmPeekCurrentKey(u32 keyAddress) {
-	INFO_LOG(HLE,"0=sceHprmPeekCurrentKey(ptr)");
+	DEBUG_LOG(HLE,"0=sceHprmPeekCurrentKey(ptr)");
 	Memory::Write_U32(0, keyAddress);
 	return 0;
 }

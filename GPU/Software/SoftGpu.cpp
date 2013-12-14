@@ -19,6 +19,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -60,9 +61,9 @@ GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShade
 	GLsizei stringBufferUsage = 0;
 	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &Result);
 	glGetShaderInfoLog(vertexShaderID, 1024, &stringBufferUsage, stringBuffer);
-	if(Result && stringBufferUsage) {
+	if (Result && stringBufferUsage) {
 		// not nice
-	} else if(!Result) {
+	} else if (!Result) {
 		// not nice
 	} else {
 		// not nice
@@ -77,9 +78,9 @@ GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShade
 #if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
 	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &Result);
 	glGetShaderInfoLog(fragmentShaderID, 1024, &stringBufferUsage, stringBuffer);
-	if(Result && stringBufferUsage) {
+	if (Result && stringBufferUsage) {
 		// not nice
-	} else if(!Result) {
+	} else if (!Result) {
 		// not nice
 	} else {
 		// not nice
@@ -95,9 +96,9 @@ GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShade
 #if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
 	glGetProgramiv(programID, GL_LINK_STATUS, &Result);
 	glGetProgramInfoLog(programID, 1024, &stringBufferUsage, stringBuffer);
-	if(Result && stringBufferUsage) {
+	if (Result && stringBufferUsage) {
 		// not nice
-	} else if(!Result && !shader_errors) {
+	} else if (!Result && !shader_errors) {
 		// not nice
 	}
 #endif
@@ -327,11 +328,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				"RECTANGLES=6,",
 			};
 
-			if (type != GE_PRIM_TRIANGLES && type != GE_PRIM_TRIANGLE_STRIP && type != GE_PRIM_TRIANGLE_FAN && type != GE_PRIM_RECTANGLES) {
+			/*
+			if (type == GE_PRIM_POINTS || type == GE_PRIM_LINES || type == GE_PRIM_LINE_STRIP) {
 				ERROR_LOG_REPORT(G3D, "Software: DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 				cyclesExecuted += EstimatePerVertexCost() * count;
 				break;
 			}
+			*/
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -349,8 +352,19 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			}
 
 			cyclesExecuted += EstimatePerVertexCost() * count;
-			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
-				TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType);
+			int bytesRead;
+			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead);
+
+			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+			// Some games rely on this, they don't bother reloading VADDR and IADDR.
+			// Q: Are these changed reflected in the real registers? Needs testing.
+			if (indices) {
+				int indexSize = 1;
+				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+					indexSize = 2;
+				gstate_c.indexAddr += count * indexSize;
+			} else {
+				gstate_c.vertexAddr += bytesRead;
 			}
 		}
 		break;
@@ -550,6 +564,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
 				memcpy(dst, src, width * bpp);
 			}
+
+#ifndef USING_GLES2
+			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+#endif
 
 			break;
 		}

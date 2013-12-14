@@ -37,6 +37,12 @@
         <isset property="env.ANDROID_HOME" />
     </condition>
 
+    <!-- this property is needed to run the script via ANT. It requires the NDK
+        environment variable which is accessed by ant during the build process -->
+    <condition property="ndk.dir" value="${env.NDK}">
+        <isset property="env.NDK" />
+    </condition>
+    
     <!-- The project.properties file is created and updated by the 'android'
          tool, as well as ADT.
 

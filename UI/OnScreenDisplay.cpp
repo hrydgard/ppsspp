@@ -46,14 +46,19 @@ restart:
 }
 
 void OnScreenMessages::Show(const std::string &message, float duration_s, uint32_t color, int icon, bool checkUnique) {
+	double now = time_now_d();
 	std::lock_guard<std::recursive_mutex> guard(mutex_);
 	if (checkUnique) {
 		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
-			if (iter->text == message)
+			if (iter->text == message) {
+				Message msg = *iter;
+				msg.endTime = now + duration_s;
+				messages_.erase(iter);
+				messages_.insert(messages_.begin(), msg);
 				return;
+			}
 		}
 	}
-	double now = time_now_d();
 	Message msg;
 	msg.text = message;
 	msg.color = color;

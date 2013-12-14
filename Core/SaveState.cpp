@@ -65,6 +65,19 @@ namespace SaveState
 		void *cbUserData;
 	};
 
+	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
+		SaveStart state;
+		size_t sz = CChunkFileReader::MeasurePtr(state);
+		if (data.size() < sz)
+			data.resize(sz);
+		return CChunkFileReader::SavePtr(&data[0], state);
+	}
+
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data) {
+		SaveStart state;
+		return CChunkFileReader::LoadPtr(&data[0], state);
+	}
+
 	struct StateRingbuffer
 	{
 		StateRingbuffer(int size) : first_(0), next_(0), size_(size)
@@ -78,12 +91,7 @@ namespace SaveState
 			if ((next_ % size_) == first_)
 				++first_;
 
-			SaveStart state;
-			size_t sz = CChunkFileReader::MeasurePtr(state);
-			if (states_[n].size() < sz)
-				states_[n].resize(sz);
-
-			return CChunkFileReader::SavePtr(&states_[n][0], state);
+			return SaveToRam(states_[n]);
 		}
 
 		CChunkFileReader::Error Restore()
@@ -96,8 +104,7 @@ namespace SaveState
 			if (states_[n].empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
 
-			SaveStart state;
-			return CChunkFileReader::LoadPtr(&states_[n][0], state);
+			return LoadFromRam(states_[n]);
 		}
 
 		void Clear()
@@ -193,17 +200,18 @@ namespace SaveState
 		return !rewindStates.Empty();
 	}
 
-
+	static const char *STATE_EXTENSION = "ppst";
+	static const char *SCREENSHOT_EXTENSION = "jpg";
 	// Slot utilities
 
-	std::string GenerateSaveSlotFilename(int slot)
+	std::string GenerateSaveSlotFilename(int slot, const char *extension)
 	{
 		char discID[256];
 		char temp[256];
 		sprintf(discID, "%s_%s",
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
 			g_paramSFO.GetValueString("DISC_VERSION").c_str());
-		sprintf(temp, "ms0:/PSP/PPSSPP_STATE/%s_%i.ppst", discID, slot);
+		sprintf(temp, "ms0:/PSP/PPSSPP_STATE/%s_%i.%s", discID, slot, extension);
 		std::string hostPath;
 		if (pspFileSystem.GetHostPath(std::string(temp), hostPath)) {
 			return hostPath;
@@ -214,7 +222,7 @@ namespace SaveState
 
 	void LoadSlot(int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot);
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			Load(fn, callback, cbUserData);
 		} else {
@@ -227,7 +235,7 @@ namespace SaveState
 
 	void SaveSlot(int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot);
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			Save(fn, callback, cbUserData);
 		} else {
@@ -240,7 +248,13 @@ namespace SaveState
 
 	bool HasSaveInSlot(int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot);
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		return File::Exists(fn);
+	}
+
+	bool HasScreenshotInSlot(int slot)
+	{
+		std::string fn = GenerateSaveSlotFilename(slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
 	}
 
@@ -264,7 +278,7 @@ namespace SaveState
 		int newestSlot = -1;
 		tm newestDate = {0};
 		for (int i = 0; i < SAVESTATESLOTS; i++) {
-			std::string fn = GenerateSaveSlotFilename(i);
+			std::string fn = GenerateSaveSlotFilename(i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time = File::GetModifTime(fn);
 				if (newestDate < time) {
@@ -326,13 +340,16 @@ namespace SaveState
 			return;
 
 		rewindLastTime = time_now();
+		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}
 
 	void Process()
 	{
+#ifndef USING_GLES2
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
+#endif
 
 		if (!needsProcess)
 			return;

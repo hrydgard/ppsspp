@@ -61,8 +61,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
 	{
 	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
-		// TODO: This should probably force not using the list?
-		currentSelectedSave = 0;
+		currentSelectedSave = param.GetSaveNameIndex(param.GetPspParam());
 		break;
 	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST:
 		currentSelectedSave = param.GetFirstListSave();
@@ -270,11 +269,15 @@ void PSPSaveDialog::DisplayBanner(int which)
 void PSPSaveDialog::DisplaySaveList(bool canMove)
 {
 	int displayCount = 0;
+	static int upFramesHeld = 0;
+	static int downFramesHeld = 0;
+
 	for (int i = 0; i < param.GetFilenameCount(); i++)
 	{
 		int textureColor = 0xFFFFFFFF;
+		auto fileInfo = param.GetFileInfo(i);
 
-		if (param.GetFileInfo(i).size == 0 && param.GetFileInfo(i).textureData == 0) 
+		if (fileInfo.size == 0 && fileInfo.texture != NULL)
 			textureColor = 0xFF777777;
 
 		// Calc save image position on screen
@@ -301,21 +304,21 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 
 		int tw = 256;
 		int th = 256;
-		if (param.GetFileInfo(i).textureData != 0) {
-			tw = param.GetFileInfo(i).textureWidth;
-			th = param.GetFileInfo(i).textureHeight;
-			PPGeSetTexture(param.GetFileInfo(i).textureData, param.GetFileInfo(i).textureWidth, param.GetFileInfo(i).textureHeight);
+		if (fileInfo.texture != NULL) {
+			fileInfo.texture->SetTexture();
+			tw = fileInfo.texture->Width();
+			th = fileInfo.texture->Height();
 			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
-		} else
-			PPGeDisableTexture();
+		}
 		PPGeSetDefaultTexture();
 		displayCount++;
 	}
 
 	if (canMove) {
-		if (IsButtonPressed(CTRL_UP) && currentSelectedSave > 0)
+		if ( (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upFramesHeld)) && currentSelectedSave > 0)
 			currentSelectedSave--;
-		else if (IsButtonPressed(CTRL_DOWN) && currentSelectedSave < (param.GetFilenameCount()-1))
+
+		else if ( (IsButtonPressed(CTRL_DOWN) || IsButtonHeld(CTRL_DOWN, downFramesHeld)) && currentSelectedSave < (param.GetFilenameCount() - 1))
 			currentSelectedSave++;
 	}
 }
@@ -323,8 +326,9 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 void PSPSaveDialog::DisplaySaveIcon()
 {
 	int textureColor = CalcFadedColor(0xFFFFFFFF);
+	auto curSave = param.GetFileInfo(currentSelectedSave);
 
-	if (param.GetFileInfo(currentSelectedSave).size == 0)
+	if (curSave.size == 0)
 		textureColor = CalcFadedColor(0xFF777777);
 
 	// Calc save image position on screen
@@ -335,14 +339,15 @@ void PSPSaveDialog::DisplaySaveIcon()
 
 	int tw = 256;
 	int th = 256;
-	if (param.GetFileInfo(currentSelectedSave).textureData != 0) {
-		tw = param.GetFileInfo(currentSelectedSave).textureWidth;
-		th = param.GetFileInfo(currentSelectedSave).textureHeight;
-		PPGeSetTexture(param.GetFileInfo(currentSelectedSave).textureData, param.GetFileInfo(currentSelectedSave).textureWidth, param.GetFileInfo(currentSelectedSave).textureHeight);
-	} else
+	if (curSave.texture != NULL) {
+		curSave.texture->SetTexture();
+		tw = curSave.texture->Width();
+		th = curSave.texture->Height();
+	} else {
 		PPGeDisableTexture();
-	PPGeDrawImage(x, y, w, h, 0, 0 ,1 ,1 ,tw, th, textureColor);
-	if (param.GetFileInfo(currentSelectedSave).textureData != 0)
+	}
+	PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
+	if (curSave.texture != NULL)
 		PPGeSetDefaultTexture();
 }
 
@@ -956,6 +961,10 @@ int PSPSaveDialog::Update(int animSpeed)
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 					if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE))
 						param.GetPspParam()->common.result = 0;
+					else if (param.secureCanSkip(param.GetPspParam(),param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE)) {
+						INFO_LOG(SCEUTILITY,"Has not been saved yet, just skip.");
+						param.GetPspParam()->common.result = 0;
+					}
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA; // not sure if correct code
 					status = SCE_UTILITY_STATUS_FINISHED;

@@ -77,19 +77,6 @@ private:
 	bool showDebugStats_;
 };
 
-/*
-class GlobalSettingsScreen : public UIDialogScreenWithBackground {
-public:
-	GlobalSettingsScreen() {}
-
-protected:
-	virtual void CreateViews();
-
-private:
-	// Temporaries to convert bools to other kinds of settings
-};*/
-
-
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:
 	DeveloperToolsScreen() {}

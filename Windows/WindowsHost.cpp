@@ -46,7 +46,6 @@
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
-#include "Windows/InputBox.h"
 
 #include "Windows/DinputDevice.h"
 #include "Windows/XinputDevice.h"
@@ -250,11 +249,6 @@ void WindowsHost::SaveSymbolMap()
 	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
 }
 
-void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 
-{
-	symbolMap.AddSymbol(name.c_str(), addr, size, (SymbolType)type);
-}
-
 bool WindowsHost::IsDebuggingEnabled()
 {
 #ifdef _DEBUG
@@ -281,27 +275,6 @@ void WindowsHost::UpdateConsolePosition()
 		g_Config.iConsoleWindowY = rc.top;
 	}
 }
-
-bool WindowsHost::InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
-{
-	std::string out;
-	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-		strcpy(outValue, out.c_str());
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool WindowsHost::InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue)
-{
-	if (InputBox_GetWString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultvalue, outvalue)) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 

@@ -175,6 +175,12 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 	return ptr;
 #else
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
+// Do not sync memory to underlying file. Linux has this by default.
+#ifdef BLACKBERRY
+		MAP_NOSYNCFILE |
+#elif defined(__FreeBSD__)
+		MAP_NOSYNC |
+#endif
 		((base == 0) ? 0 : MAP_FIXED), fd, offset);
 
 	if (retval == MAP_FAILED)
@@ -216,7 +222,6 @@ u8* MemArena::Find4GBBase()
 #else // 32 bit
 
 #ifdef _WIN32
-	// The highest thing in any 1GB section of memory space is the locked cache. We only need to fit it.
 	u8* base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
 	if (base) {
 		VirtualFree(base, 0, MEM_RELEASE);
@@ -244,8 +249,6 @@ u8* MemArena::Find4GBBase()
 //	if (!(a_flags & MV_FAKE_VMEM) && (b_flags & MV_FAKE_VMEM)) 
 //		continue; 
 
-
-
 static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32 flags, MemArena *arena) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
@@ -265,6 +268,8 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 	for (i = 0; i < num_views; i++)
 	{
 		const MemoryView &view = views[i];
+		if (view.size == 0)
+			continue;
 		SKIP(flags, view.flags);
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -305,6 +310,8 @@ bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++)
 	{
+		if (views[i].size == 0)
+			continue;
 		SKIP(flags, views[i].flags);
 		if (views[j].out_ptr_low && *views[j].out_ptr_low)
 		{
@@ -334,6 +341,8 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 
 	for (int i = 0; i < num_views; i++)
 	{
+		if (views[i].size == 0)
+			continue;
 		SKIP(flags, views[i].flags);
 		if ((views[i].flags & MV_MIRROR_PREVIOUS) == 0)
 			total_mem += roundup(views[i].size);
@@ -384,6 +393,7 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 	u8 *base = MemArena::Find4GBBase();
 	if (!Memory_TryBase(base, views, num_views, flags, arena))
 	{
+		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
 		return 0;
 	}
@@ -399,6 +409,8 @@ void MemoryMap_Shutdown(const MemoryView *views, int num_views, u32 flags, MemAr
 {
 	for (int i = 0; i < num_views; i++)
 	{
+		if (views[i].size == 0)
+			continue;
 		SKIP(flags, views[i].flags);
 		if (views[i].out_ptr_low && *views[i].out_ptr_low)
 			arena->ReleaseView(*views[i].out_ptr_low, views[i].size);

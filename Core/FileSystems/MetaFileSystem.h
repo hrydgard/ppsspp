@@ -51,6 +51,9 @@ public:
 
 	void Mount(std::string prefix, IFileSystem *system);
 	void Unmount(std::string prefix, IFileSystem *system);
+	void Remount(IFileSystem *oldSystem, IFileSystem *newSystem);
+
+	IFileSystem *GetSystem(const std::string &prefix);
 
 	void ThreadEnded(int threadID);
 
@@ -101,6 +104,9 @@ public:
 	virtual bool RemoveFile(const std::string &filename);
 
 	// TODO: void IoCtl(...)
+
+	// Convenience helper - returns < 0 on failure.
+	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);
 
 	void SetStartingDirectory(const std::string &dir) {
 		lock_guard guard(lock);

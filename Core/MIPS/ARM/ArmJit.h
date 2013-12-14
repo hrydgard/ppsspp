@@ -36,6 +36,7 @@ struct ArmJitOptions
 {
 	ArmJitOptions();
 
+	bool useNEONVFPU;
 	bool enableBlocklink;
 	bool downcountInRegister;
 	bool useBackJump;
@@ -51,6 +52,7 @@ class Jit : public ArmGen::ARMXCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
+
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
@@ -64,8 +66,11 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
+	bool IsInDispatch(const u8 *p) {
+		return IsInSpace(p);
+	}
+
 	void CompileDelaySlot(int flags);
-	void CompileAt(u32 addr);
 	void EatInstruction(MIPSOpcode op);
 	void Comp_RunBlock(MIPSOpcode op);
 
@@ -132,6 +137,45 @@ public:
 	void Comp_Vfim(MIPSOpcode op);
 	void Comp_VCrossQuat(MIPSOpcode op);
 	void Comp_Vsgn(MIPSOpcode op);
+	void Comp_Vocp(MIPSOpcode op);
+
+	// Non-NEON: VPFX
+
+	// NEON implementations of the VFPU ops.
+	void CompNEON_SV(MIPSOpcode op);
+	void CompNEON_SVQ(MIPSOpcode op);
+	void CompNEON_VVectorInit(MIPSOpcode op);
+	void CompNEON_VMatrixInit(MIPSOpcode op);
+	void CompNEON_VDot(MIPSOpcode op);
+	void CompNEON_VecDo3(MIPSOpcode op);
+	void CompNEON_VV2Op(MIPSOpcode op);
+	void CompNEON_Mftv(MIPSOpcode op);
+	void CompNEON_Vmtvc(MIPSOpcode op);
+	void CompNEON_Vmmov(MIPSOpcode op);
+	void CompNEON_VScl(MIPSOpcode op);
+	void CompNEON_Vmmul(MIPSOpcode op);
+	void CompNEON_Vmscl(MIPSOpcode op);
+	void CompNEON_Vtfm(MIPSOpcode op);
+	void CompNEON_VHdp(MIPSOpcode op);
+	void CompNEON_VCrs(MIPSOpcode op);
+	void CompNEON_VDet(MIPSOpcode op);
+	void CompNEON_Vi2x(MIPSOpcode op);
+	void CompNEON_Vx2i(MIPSOpcode op);
+	void CompNEON_Vf2i(MIPSOpcode op);
+	void CompNEON_Vi2f(MIPSOpcode op);
+	void CompNEON_Vh2f(MIPSOpcode op);
+	void CompNEON_Vcst(MIPSOpcode op);
+	void CompNEON_Vhoriz(MIPSOpcode op);
+	void CompNEON_VRot(MIPSOpcode op);
+	void CompNEON_VIdt(MIPSOpcode op);
+	void CompNEON_Vcmp(MIPSOpcode op);
+	void CompNEON_Vcmov(MIPSOpcode op);
+	void CompNEON_Viim(MIPSOpcode op);
+	void CompNEON_Vfim(MIPSOpcode op);
+	void CompNEON_VCrossQuat(MIPSOpcode op);
+	void CompNEON_Vsgn(MIPSOpcode op);
+	void CompNEON_Vocp(MIPSOpcode op);
+
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 

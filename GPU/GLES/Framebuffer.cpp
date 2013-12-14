@@ -19,6 +19,7 @@
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
 
+#include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Host.h"
@@ -26,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -133,11 +135,9 @@ void CenterRect(float *x, float *y, float *w, float *h,
 		*x = 0.0f;
 		*w = frameW;
 		*h = frameW / origRatio;
-#ifdef BLACKBERRY
 		// Stretch a little bit
 		if (g_Config.bPartialStretch)
 			*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
-#endif
 		*y = (frameH - *h) / 2.0f;
 	} else {
 		// Image is taller than frame. Center horizontally.
@@ -150,9 +150,12 @@ void CenterRect(float *x, float *y, float *w, float *h,
 }
 
 static void ClearBuffer() {
+	glstate.scissorTest.disable();
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glClearColor(0,0,0,1);
+	glstate.stencilFunc.set(GL_ALWAYS, 0xFF, 0xFF);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearStencil(0xFF);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
@@ -165,6 +168,7 @@ static void DisableState() {
 #if !defined(USING_GLES2)
 	glstate.colorLogicOp.disable();
 #endif
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
 void FramebufferManager::SetNumExtraFBOs(int num) {
@@ -241,6 +245,10 @@ void FramebufferManager::CompileDraw2DProgram() {
 				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
 				if (pixelDeltaLoc != -1)
 					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
+				if (timeLoc_ != -1)
+					glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
+
 				usePostShader_ = true;
 			}
 		} else {
@@ -256,6 +264,10 @@ void FramebufferManager::DestroyDraw2DProgram() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = 0;
+	}
+	if (plainColorProgram_) {
+		glsl_destroy(plainColorProgram_);
+		plainColorProgram_ = 0;
 	}
 	if (postShaderProgram_) {
 		glsl_destroy(postShaderProgram_);
@@ -277,8 +289,9 @@ FramebufferManager::FramebufferManager() :
 	convBuf(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
-	postShaderAtOutputResolution_(false),
 	plainColorLoc_(-1),
+	timeLoc_(-1),
+	postShaderAtOutputResolution_(false),
 	resized_(false),
 	textureCache_(0),
 	shaderManager_(0),
@@ -314,7 +327,7 @@ FramebufferManager::~FramebufferManager() {
 	delete [] convBuf;
 }
 
-void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
+void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader) {
 	if (drawPixelsTex_ && drawPixelsTexFormat_ != pixelFormat) {
 		glDeleteTextures(1, &drawPixelsTex_);
 		drawPixelsTex_ = 0;
@@ -407,16 +420,16 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-
-	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
+	glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : framebuf);
 
-	// This draws directly at the backbuffer so if there's a post shader, we need to apply it here. Should try to unify this path
-	// with the regular path somehow, but this simple solution works for most of the post shaders (it always runs at output resolution so FXAA may look odd).
-	if (usePostShader_) {
+	DisableState();
+
+	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
+	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
+	// (it always runs at output resolution so FXAA may look odd).
+	if (applyPostShader && usePostShader_ && g_Config.iRenderingMode != 0) {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 	} else {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / 512.0f);
@@ -460,27 +473,31 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 }
 
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
+	float u2 = uscale;
+	// Since we're flipping, 0 is down.  That's where the scale goes.
+	float v1 = flip ? 1.0f : 1.0f - vscale;
+	float v2 = flip ? 1.0f - vscale : 1.0f;
+
+	const float u1 = 0.0f;
+	const float texCoords[8] = {u1,v1, u2,v1, u2,v2, u1,v2};
+	static const GLushort indices[4] = {0,1,3,2};
+
 	if (texture) {
 		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(USING_GLES2) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY)
-		if (gl_extensions.NV_draw_texture && !program) {
+#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(IOS) && !defined(BLACKBERRY) && !defined(MAEMO)
+		if (false && gl_extensions.NV_draw_texture && !program) {
 			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
 			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
 			// so that's a little gnarly, will have to modify all callers.
 			glDrawTextureNV(texture, 0,
 				x, y, w, h, 0.0f,
-				0, 0, uscale, vscale);
+				u1, v2, u2, v1);
 			return;
 		}
 #endif
 
 		glBindTexture(GL_TEXTURE_2D, texture);
 	}
-
-	float u2 = uscale;
-	// Since we're flipping, 0 is down.  That's where the scale goes.
-	float v1 = flip ? 1.0f : 1.0f - vscale;
-	float v2 = flip ? 1.0f - vscale : 1.0f;
 
 	float pos[12] = {
 		x,y,0,
@@ -494,8 +511,6 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		pos[i * 3 + 1] = -(pos[i * 3 + 1] / (destH * 0.5) - 1.0f);
 	}
 
-	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
-	static const GLubyte indices[4] = {0,1,3,2};
 	if (!program) {
 		if (!draw2dprogram_) {
 			CompileDraw2DProgram();
@@ -505,13 +520,19 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	glsl_bind(program);
+	if (program == postShaderProgram_ && timeLoc_ != -1) {
+		int flipCount = __DisplayGetFlipCount();
+		int vCount = __DisplayGetVCount();
+		float time[4] = {time_now(), (vCount % 60) * 1.0f/60.0f, (float)vCount, (float)(flipCount % 60)};
+		glUniform4fv(timeLoc_, 1, time);
+	}
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 
@@ -612,12 +633,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		return;
 	}
 
-	if (g_Config.iRenderingMode != 0 && g_Config.bWipeFramebufferAlpha && currentRenderVfb_) {
+	/*
+	if (g_Config.iRenderingMode != 0 && currentRenderVfb_) {
 		// Hack is enabled, and there was a previous framebuffer.
 		// Before we switch, let's do a series of trickery to copy one bit of stencil to
 		// destination alpha. Or actually, this is just a bunch of hackery attempts on Wipeout.
 		// Ignore for now.
-		/*
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		glstate.stencilTest.enable();
@@ -628,13 +649,14 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		//DrawPlainColor(0xFF000000);
 		glstate.stencilTest.disable();
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		*/
 
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		DrawPlainColor(0x00000000);
 		shaderManager_->DirtyLastShader();  // dirty lastShader_
 	}
+	*/
+
 
 	gstate_c.framebufChanged = false;
 
@@ -667,6 +689,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
+			if (v->width < drawing_width && v->height < drawing_height) {
+				v->width = drawing_width;
+				v->height = drawing_height;
+			}
 			if (v->format != fmt) {
 				v->width = drawing_width;
 				v->height = drawing_height;
@@ -715,8 +741,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 					vfb->colorDepth = FBO_565;
 					break;
 				case GE_FORMAT_8888:
-					vfb->colorDepth = FBO_8888;
-					break;
 				default:
 					vfb->colorDepth = FBO_8888;
 					break;
@@ -727,6 +751,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
+				glstate.viewport.restore();
 			} else {
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 			}
@@ -742,7 +767,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		ClearBuffer();
-		glEnable(GL_DITHER);
+		glEnable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -751,12 +776,23 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
 			if (MaskedEqual(fb_address, vfbs_[i]->z_address)) {
-				WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				// If it's clearing it, most likely it just needs more video memory.
+				// Technically it could write something interesting and the other might not clear, but that's not likely.
+				if (!gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask()) {
+					WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				}
 			} else if (MaskedEqual(z_address, vfbs_[i]->fb_address)) {
-				WARN_LOG_REPORT(SCEGE, "FBO using other buffer as depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				// If it's clearing it, then it's probably just the reverse of the above case.
+				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				}
 			} else if (MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
-				WARN_LOG_REPORT(SCEGE, "FBO sharing existing depthbuffer (unsupported), %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
-				sharingReported = true;
+				// This happens a lot, but virtually always it's cleared.
+				// It's possible the other might not clear, but when every game is reported it's not useful.
+				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+					WARN_LOG_REPORT(SCEGE, "FBO reusing depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+					sharingReported = true;
+				}
 			}
 		}
 
@@ -861,8 +897,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 			}
 
 			if (!vfb) {
-				// Just a pointer to plain memory to draw. Draw it.
-				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
+				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
 		} else {
@@ -911,6 +947,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
+			glstate.viewport.restore();
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
@@ -1010,6 +1047,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			fbo_bind_as_render_target(nvfb->fbo);
+			glstate.viewport.restore();
 			ClearBuffer();
 			glEnable(GL_DITHER);
 		} else {
@@ -1021,6 +1059,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 			if (nvfb->fbo) {
 				fbo_bind_as_render_target(nvfb->fbo);
+				glstate.viewport.restore();
 			}
 
 			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
@@ -1053,6 +1092,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
 	if (dst->fbo) {
 		fbo_bind_as_render_target(dst->fbo);
+		glstate.viewport.restore();
 	} else {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
 		fbo_unbind();
@@ -1430,7 +1470,7 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated && vfb == displayFramebuf_) 
+		if (updateVram && age == 0 && !vfb->memoryUpdated) 
 				ReadFramebufferToMemory(vfb);
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
@@ -1495,6 +1535,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 					DisableState();
 					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					fbo_bind_as_render_target(vfb->fbo);
+					glstate.viewport.restore();
 					needUnbind = true;
 					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
 				} else {
@@ -1529,7 +1570,7 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 #ifndef USING_GLES2

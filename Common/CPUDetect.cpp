@@ -36,7 +36,7 @@
 #undef _interlockedbittestandreset64
 #else
 
-#if !defined(_M_GENERIC) && !defined(MIPS)
+#ifdef _M_SSE
 #include <xmmintrin.h>
 #endif
 
@@ -45,8 +45,7 @@
 #include <machine/cpufunc.h>
 #elif !defined(MIPS)
 
-void __cpuidex(int regs[4], int cpuid_leaf, int ecxval)
-{
+void __cpuidex(int regs[4], int cpuid_leaf, int ecxval) {
 #ifdef ANDROID
 	// Use the /dev/cpu/%i/cpuid interface
 	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
@@ -90,8 +89,7 @@ CPUInfo::CPUInfo() {
 }
 
 // Detects the various cpu features
-void CPUInfo::Detect()
-{
+void CPUInfo::Detect() {
 	memset(this, 0, sizeof(*this));
 #ifdef _M_IX86
 	Mode64bit = false;
@@ -154,7 +152,11 @@ void CPUInfo::Detect()
 		if ((cpu_id[2] >> 9)  & 1) bSSSE3 = true;
 		if ((cpu_id[2] >> 19) & 1) bSSE4_1 = true;
 		if ((cpu_id[2] >> 20) & 1) bSSE4_2 = true;
-		if ((cpu_id[2] >> 28) & 1) bAVX = true;
+		if ((cpu_id[2] >> 28) & 1) {
+			bAVX = true;
+			if ((cpu_id[2] >> 12) & 1)
+				bFMA = true;
+		}
 		if ((cpu_id[2] >> 25) & 1) bAES = true;
 	}
 	if (max_ex_fn >= 0x80000004) {
@@ -231,6 +233,7 @@ std::string CPUInfo::Summarize()
 	if (bSSE4_2) sum += ", SSE4.2";
 	if (HTT) sum += ", HTT";
 	if (bAVX) sum += ", AVX";
+	if (bAVX) sum += ", FMA";
 	if (bAES) sum += ", AES";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;

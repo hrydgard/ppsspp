@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <list>
 
 #include "ui/screen.h"
@@ -56,7 +57,7 @@ private:
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
 	void autoLoad();
-	
+
 	bool booted_;
 	std::string gamePath_;
 
@@ -69,4 +70,7 @@ private:
 
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys[VIRTKEY_COUNT];
+
+	// In-memory save state used for freezeFrame, which is useful for debugging.
+	std::vector<u8> freezeState_;
 };

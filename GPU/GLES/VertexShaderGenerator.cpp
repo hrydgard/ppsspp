@@ -110,6 +110,9 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 		id->d[1] |= gstate.isLightingEnabled() << 24;
 		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 		id->d[1] |= gstate.areNormalsReversed() << 26;
+		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
+			id->d[1] |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 27;  // two bits
+		}
 	}
 }
 
@@ -162,7 +165,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	bool flipV = gstate_c.flipTexture;
+	bool flipV = gstate_c.flipTexture;  // This also means that we are texturing from a render target
 	bool flipNormal = gstate.areNormalsReversed();
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
@@ -208,7 +211,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		// Add all the uniforms we'll need to transform properly.
 	}
 
-	bool prescale = g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0;
+	bool prescale = g_Config.bPrescaleUV && !throughmode && (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN);
 
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
@@ -226,7 +229,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			}
 #endif
 		}
-		if (doTexture && (!prescale || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX)) {
+		if (doTexture && (flipV || !prescale || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX)) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		}
 		for (int i = 0; i < 4; i++) {
@@ -537,7 +540,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			switch (gstate.getUVGenMode()) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
-				if (prescale) {
+				if (prescale && !flipV) {
 					WRITE(p, "  v_texcoord = texcoord;\n");
 				} else {
 					WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
@@ -553,6 +556,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
+							// prescale is false here.
 							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
 							temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);

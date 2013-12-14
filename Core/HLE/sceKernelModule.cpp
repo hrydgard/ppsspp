@@ -47,6 +47,8 @@
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
+#include "GPU/GPUState.h"
+
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
@@ -175,6 +177,7 @@ struct NativeModule {
 
 // by QueryModuleInfo
 struct ModuleInfo {
+	SceSize_le size;
 	u32_le nsegment;
 	u32_le segmentaddr[4];
 	u32_le segmentsize[4];
@@ -257,7 +260,7 @@ public:
 		// Add the symbol to the symbol map for debugging.
 		char temp[256];
 		sprintf(temp,"zz_%s", GetFuncName(func.moduleName, func.nid));
-		symbolMap.AddSymbol(temp, func.stubAddr, 8, ST_FUNCTION);
+		symbolMap.AddFunction(temp,func.stubAddr,8);
 
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
@@ -496,6 +499,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 					// We add 1 in that case so that it ends up the right value.
 					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
 					Memory::Write_U32((it->data & ~0xFFFF) | high, it->addr);
+					currentMIPS->InvalidateICache(it->addr, 4);
 				}
 				lastHI16Processed = true;
 			}
@@ -692,7 +696,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 	*magic = *magicPtr;
 	if (*magic == 0x5053507e) { // "~PSP"
-		INFO_LOG(SCEMODULE, "Decrypting ~PSP file");
+		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
 		const u8 *in = ptr;
 		u32 size = head->elf_size;
@@ -714,12 +718,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 			return module;
-		}
-		else if (ret <= 0)
-		{
+		} else if (ret <= 0) {
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
 			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
+		} else {
+			// TODO: Is this right?
+			module->nm.bss_size = head->bss_size;
 		}
 	}
 
@@ -769,6 +774,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	else
 		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSegmentVaddr(0) + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0));
 
+	module->nm.nsegment = reader.GetNumSegments();
+	module->nm.attribute = modinfo->moduleAttrs;
+	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
+	module->nm.version[1] = modinfo->moduleVersion >> 8;
+	module->nm.data_size = 0;
+	// TODO: Is summing them up correct?  Must not be since the numbers aren't exactly right.
+	for (int i = 0; i < reader.GetNumSegments(); ++i) {
+		module->nm.data_size += reader.GetSegmentDataSize(i);
+	}
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, 28);
 
@@ -793,6 +807,12 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (textSection != -1) {
 		u32 textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
+
+		module->nm.text_addr = textStart;
+		// TODO: This value appears to be wrong.  In one example, the PSP has a value > 0x1000 bigger.
+		module->nm.text_size = textSize;
+		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
+		module->nm.data_size -= textSize;
 
 #if !defined(USING_GLES2)
 		if (!reader.LoadSymbols())
@@ -835,6 +855,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	u32_le *entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
 	u32_le *entryEnd = (u32_le *)Memory::GetPointer(modinfo->libstubend);
+
+	u32_le firstImportStubAddr = 0;
 
 	bool needReport = false;
 	while (entryPos < entryEnd) {
@@ -880,6 +902,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				func.stubAddr = entry->firstSymAddr + i * 8;
 				module->ImportFunc(func);
 			}
+
+			if (!firstImportStubAddr || firstImportStubAddr > entry->firstSymAddr)
+				firstImportStubAddr = entry->firstSymAddr;
 		} else if (entry->numFuncs > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
 			needReport = true;
@@ -941,6 +966,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 
 		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
+	}
+
+	if (textSection == -1) {
+		u32 textStart = reader.GetVaddr();
+		u32 textEnd = firstImportStubAddr - 4;
+#if !defined(USING_GLES2)
+		if (!reader.LoadSymbols())
+			MIPSAnalyst::ScanForFunctions(textStart, textEnd);
+#endif
 	}
 
 	// Look at the exports, too.
@@ -1139,7 +1173,22 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
+
+
+		u8 *temp = 0;
+		if (offsets[5] & 3) {
+			// Our loader does NOT like to load from an unaligned address on ARM!
+			size_t size = offsets[6] - offsets[5];
+			temp = new u8[size];
+			memcpy(temp, fileptr + offsets[5], size);
+			INFO_LOG(LOADER, "Elf unaligned, aligning!")
+		}
+
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
+
+		if (temp) {
+			delete [] temp;
+		}
 	}
 	else
 	{
@@ -1208,6 +1257,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		//HLE needs to be reset here
 		HLEShutdown();
 		HLEInit();
+		GPU_Reinitialize();
 	}
 
 	__KernelModuleInit();
@@ -1752,21 +1802,53 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 		ERROR_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x) - bad infoAddr", uid, infoAddr);
 		return -1;
 	}
-	ModuleInfo info;
-	memcpy(info.segmentaddr, module->nm.segmentaddr, sizeof(info.segmentaddr));
-	memcpy(info.segmentsize, module->nm.segmentsize, sizeof(info.segmentsize));
-	info.nsegment = module->nm.nsegment;
-	info.entry_addr = module->nm.entry_addr;
-	info.gp_value = module->nm.gp_value;
-	info.text_addr = module->nm.text_addr;
-	info.text_size = module->nm.text_size;
-	info.data_size = module->nm.data_size;
-	info.bss_size = module->nm.bss_size;
-	info.attribute = module->nm.attribute;
-	info.version[0] = module->nm.version[0];
-	info.version[1] = module->nm.version[1];
-	memcpy(info.name, module->nm.name, 28);
-	Memory::WriteStruct(infoAddr, &info);
+
+	PSPPointer<ModuleInfo> info;
+	info = infoAddr;
+
+	memcpy(info->segmentaddr, module->nm.segmentaddr, sizeof(info->segmentaddr));
+	memcpy(info->segmentsize, module->nm.segmentsize, sizeof(info->segmentsize));
+	info->nsegment = module->nm.nsegment;
+	info->entry_addr = module->nm.entry_addr;
+	info->gp_value = module->nm.gp_value;
+	info->text_addr = module->nm.text_addr;
+	info->text_size = module->nm.text_size;
+	info->data_size = module->nm.data_size;
+	info->bss_size = module->nm.bss_size;
+
+	// Even if it's bigger, if it's not exactly 96, skip this extra data.
+	// Even if it's 0, the above are all written though.
+	if (info->size == 96) {
+		info->attribute = module->nm.attribute;
+		info->version[0] = module->nm.version[0];
+		info->version[1] = module->nm.version[1];
+		memcpy(info->name, module->nm.name, 28);
+	}
+
+	return 0;
+}
+
+u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
+{
+	ERROR_LOG(SCEMODULE, "UNTESTED sceKernelGetModuleIdList(%08x, %i, %08x)", resultBuffer, resultBufferSize, idCountAddr);
+	
+	int idCount = 0;
+	u32 resultBufferOffset = 0;
+
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {		
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module->isFake) {
+			if (resultBufferOffset < (int)resultBufferSize) {
+				Memory::Write_U32(module->GetUID(), resultBuffer + resultBufferOffset);
+				resultBufferOffset += 4;
+			}
+			idCount++;
+		}
+	}
+
+	Memory::Write_U32(idCount, idCountAddr);
+	
 	return 0;
 }
 
@@ -1805,7 +1887,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
-	{0x644395e2,0,"sceKernelGetModuleIdList"},
+	{0x644395e2,WrapU_UUU<sceKernelGetModuleIdList>,"sceKernelGetModuleIdList"},
 	{0xf2d8d1b4,&WrapU_CUU<sceKernelLoadModuleNpDrm>,"sceKernelLoadModuleNpDrm"},
 	{0xe4c4211c,0,"ModuleMgrForUser_E4C4211C"},
 	{0xfbe27467,0,"ModuleMgrForUser_FBE27467"},

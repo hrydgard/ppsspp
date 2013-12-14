@@ -722,6 +722,10 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 		// minWritebytes should not be bigger than writeablebytes
 		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
 
+		if (atrac->first.fileoffset <= 2*atrac->atracBufSize){
+			Sampleoffset = atrac->first.fileoffset;
+		}
+
 		// If we've already loaded everything, the answer is 0.
 		if (atrac->first.size >= atrac->first.filesize) {
 			Sampleoffset = 0;
@@ -1870,7 +1874,6 @@ const HLEFunction sceAtrac3plus[] = {
 	{0x1575D64B,WrapI_IU<sceAtracLowLevelInitDecoder>,"sceAtracLowLevelInitDecoder"},
 	{0x0C116E1B,WrapI_IUUUU<sceAtracLowLevelDecode>,"sceAtracLowLevelDecode"},
 };
-
 
 void Register_sceAtrac3plus() {
 	// Two names

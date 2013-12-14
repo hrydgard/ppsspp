@@ -88,13 +88,16 @@ tests_good = [
   "hash/hash",
   "hle/check_not_used_uids",
   "intr/intr",
+  "intr/suspended",
   "intr/vblank/vblank",
   "io/cwd/cwd",
   "loader/bss/bss",
   "malloc/malloc",
   "misc/testgp",
   "misc/libc",
+  "misc/deadbeef",
   "misc/dcache",
+  "misc/timeconv",
   "mstick/mstick",
   "rtc/rtc",
   "string/string",
@@ -217,13 +220,17 @@ tests_good = [
 
 tests_next = [
 # These are the next tests up for fixing. These run by default.
+  "cpu/cpu_alu/cpu_branch",
+  "cpu/fpu/fcr",
   "audio/atrac/atractest",
   "audio/atrac/decode",
   "audio/atrac/resetting",
   "audio/sceaudio/datalen",
   "audio/sceaudio/output",
   "audio/sceaudio/reserve",
+  "ctrl/vblank",
   "display/hcount",
+  "intr/waits",
   "threads/callbacks/cancel",
   "threads/callbacks/count",
   "threads/callbacks/notify",
@@ -330,7 +337,7 @@ def run_tests(test_list, args):
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
     cmdline = [PPSSPP_EXE, '--compare', '--timeout=' + str(TIMEOUT), '@-']
-    cmdline.extend([i for i in args if i not in ['-g']])
+    cmdline.extend([i for i in args if i not in ['-g', '-m']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
     c.run(TIMEOUT * len(test_filenames))
@@ -357,6 +364,8 @@ def main():
       tests = tests_good
     else:
       tests = tests_next + tests_good
+  elif '-m' in args:
+    tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 
   run_tests(tests, args)
 

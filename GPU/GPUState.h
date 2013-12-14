@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+
 #include "../Globals.h"
 #include "ge_constants.h"
 #include "Common/Common.h"
@@ -212,6 +213,7 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
+	// Framebuffer
 	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF) | ((fbwidth & 0xFF0000) << 8); }
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
@@ -228,7 +230,8 @@ struct GPUgstate
 	// Cull 
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
-	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
+
+	// Color Mask
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
 	bool isClearModeDepthMask() const { return (clearmode&0x400) != 0; }
@@ -236,9 +239,9 @@ struct GPUgstate
 	
 	// Blend
 	GEBlendSrcFactor getBlendFuncA() const { return (GEBlendSrcFactor)(blend & 0xF); }
+	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
-	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
 	GEBlendMode getBlendEq() const { return static_cast<GEBlendMode>((blend >> 8) & 0x7); }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 
@@ -298,6 +301,7 @@ struct GPUgstate
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFFF) | ((clutaddrupper << 8) & 0x0F000000); }
 	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
+	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
 	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
@@ -305,6 +309,7 @@ struct GPUgstate
 	int transformClutIndex(int index) const { return ((index >> getClutIndexShift()) & getClutIndexMask()) | getClutIndexStartPos(); }
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
+	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
@@ -382,18 +387,23 @@ struct GPUgstate
 
 	// Transfers
 	u32 getTransferSrcAddress() const { return (transfersrc & 0xFFFFF0) | ((transfersrcw & 0xFF0000) << 8); }
-	u32 getTransferSrcStride() const { return transfersrcw & 0x3F8; }
+	// Bits 0xf800 are ignored, > 0x400 is treated as 0.
+	u32 getTransferSrcStride() const { int stride = transfersrcw & 0x7F8; return stride > 0x400 ? 0 : stride; }
 	int getTransferSrcX() const { return (transfersrcpos >> 0) & 0x3FF; }
 	int getTransferSrcY() const { return (transfersrcpos >> 10) & 0x3FF; }
 	u32 getTransferDstAddress() const { return (transferdst & 0xFFFFF0) | ((transferdstw & 0xFF0000) << 8); }
-	u32 getTransferDstStride() const { return transferdstw & 0x3F8; }
+	// Bits 0xf800 are ignored, > 0x400 is treated as 0.
+	u32 getTransferDstStride() const { int stride = transferdstw & 0x7F8; return stride > 0x400 ? 0 : stride; }
 	int getTransferDstX() const { return (transferdstpos >> 0) & 0x3FF; }
 	int getTransferDstY() const { return (transferdstpos >> 10) & 0x3FF; }
 	int getTransferWidth() const { return ((transfersize >> 0) & 0x3FF) + 1; }
 	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
 	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
-// Real data in the context ends here
+
+	void FastLoadBoneMatrix(u32 addr);
+
+	// Real data in the context ends here
 
 	void Save(u32_le *ptr);
 	void Restore(u32_le *ptr);
@@ -405,7 +415,8 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_BAD_FB_TEXTURE = 4,
 };
 
-inline bool vertTypeIsSkinningEnabled(u32 vertType) { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
+bool vertTypeIsSkinningEnabled(u32 vertType);
+
 inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
 inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }
@@ -514,6 +525,7 @@ struct GPUStatistics {
 
 bool GPU_Init();
 void GPU_Shutdown();
+void GPU_Reinitialize();
 
 void InitGfxState();
 void ShutdownGfxState();

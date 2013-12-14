@@ -212,7 +212,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		// Depth Test
 		dxstate.depthTest.enable();
 		dxstate.depthFunc.set(D3DCMP_ALWAYS);
-		dxstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled());
+		dxstate.depthWrite.set(gstate.isClearModeDepthMask());
 
 		// Color Test
 		bool colorMask = (gstate.clearmode >> 8) & 1;

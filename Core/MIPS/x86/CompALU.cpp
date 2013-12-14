@@ -643,7 +643,8 @@ namespace MIPSComp
 					gpr.Lock(rs, rt);
 					gpr.MapReg(rt, true, true);
 					AND(32, gpr.R(rt), Imm32(destmask));
-					OR(32, gpr.R(rt), Imm32(inserted));
+					if (inserted != 0)
+						OR(32, gpr.R(rt), Imm32(inserted));
 					gpr.UnlockAll();
 				}
 				else

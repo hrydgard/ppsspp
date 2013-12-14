@@ -126,7 +126,6 @@ enum
 
 class XEmitter;
 
-// RIP addressing does not benefit from micro op fusion on Core arch
 struct OpArg
 {
 	OpArg() {}  // dummy op arg, used for storage
@@ -658,6 +657,8 @@ public:
 	void PSLLD(X64Reg reg, int shift);
 	void PSLLQ(X64Reg reg, int shift);
 
+	void PSLLDQ(X64Reg reg, int shift);
+
 	void PSRAW(X64Reg reg, int shift);
 	void PSRAD(X64Reg reg, int shift);
 
@@ -755,7 +756,7 @@ public:
 		region_size = 0;
 	}
 
-	bool IsInSpace(u8 *ptr)
+	bool IsInSpace(const u8 *ptr) const
 	{
 		return ptr >= region && ptr < region + region_size;
 	}
@@ -781,7 +782,7 @@ public:
 		return region;
 	}
 
-	size_t GetOffset(u8 *ptr) {
+	size_t GetOffset(const u8 *ptr) const {
 		return ptr - region;
 	}
 };

@@ -92,7 +92,7 @@ enum WaitType
 	WAITTYPE_GELISTSYNC = 18,
 	WAITTYPE_MODULE = 19,
 	WAITTYPE_HLEDELAY = 20,
-	WAITTYPE_TLS = 21,
+	WAITTYPE_TLSPL = 21,
 	WAITTYPE_VMEM = 22,
 	WAITTYPE_ASYNCIO = 23,
 
@@ -132,7 +132,6 @@ struct ThreadContext
 			u32 hi;
 			u32 lo;
 
-			u32 fcr0;
 			u32 fcr31;
 			u32 fpcond;
 		};

@@ -224,6 +224,13 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_565) {
 			glfmt = GL_UNSIGNED_SHORT_5_6_5;
 			components = GL_RGB;
+		} else if (fmt == FORMAT_4444_REV) {
+			glfmt = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		} else if (fmt == FORMAT_5551_REV) {
+			glfmt = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		} else if (fmt == FORMAT_565_REV) {
+			glfmt = GL_UNSIGNED_SHORT_5_6_5_REV;
+			components = GL_RGB;
 		} else if (fmt == FORMAT_16BIT) {
 			glfmt = GL_UNSIGNED_SHORT;
 			components = GL_RED;
@@ -254,6 +261,33 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	Redraw();
 }
 
+void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
+	fw = (float)tw_;
+	fh = (float)th_;
+	x = 0.0f;
+	y = 0.0f;
+
+	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
+		float wscale = fw / w_, hscale = fh / h_;
+
+		// Too wide, and width is the biggest problem, so scale based on that.
+		if (wscale > 1.0f && wscale > hscale) {
+			fw = (float)w_;
+			fh /= wscale;
+		} else if (hscale > 1.0f) {
+			fw /= hscale;
+			fh = (float)h_;
+		}
+	}
+	if (flags_ & RESIZE_CENTER) {
+		x = ((float)w_ - fw) / 2;
+		y = ((float)h_ - fh) / 2;
+	}
+
+	x += offsetX_;
+	y += offsetY_;
+}
+
 void SimpleGLWindow::Redraw(bool andSwap) {
 	DrawChecker();
 
@@ -277,27 +311,9 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	glBindTexture(GL_TEXTURE_2D, tex_);
 	glsl_bind(drawProgram_);
 
-	float fw = (float)tw_, fh = (float)th_;
-	float x = 0.0f, y = 0.0f;
-	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
-		float wscale = fw / w_, hscale = fh / h_;
-
-		// Too wide, and width is the biggest problem, so scale based on that.
-		if (wscale > 1.0f && wscale > hscale) {
-			fw = (float)w_;
-			fh /= wscale;
-		} else if (hscale > 1.0f) {
-			fw /= hscale;
-			fh = (float)h_;
-		}
-	}
-	if (flags_ & RESIZE_CENTER) {
-		x = ((float)w_ - fw) / 2;
-		y = ((float)h_ - fh) / 2;
-	}
-
-	x += offsetX_;
-	y += offsetY_;
+	float fw, fh;
+	float x, y;
+	GetContentSize(x, y, fw, fh);
 
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
 	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
@@ -325,9 +341,15 @@ void SimpleGLWindow::Clear() {
 
 void SimpleGLWindow::Begin() {
 	Redraw(false);
+
+	glDisableVertexAttribArray(drawProgram_->a_position);
+	glDisableVertexAttribArray(drawProgram_->a_texcoord0);
 }
 
 void SimpleGLWindow::End() {
+	glEnableVertexAttribArray(drawProgram_->a_position);
+	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+
 	Swap();
 }
 

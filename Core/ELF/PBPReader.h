@@ -43,6 +43,7 @@ public:
 	~PBPReader();
 
 	bool IsValid() const { return file_ != 0; }
+	bool IsELF() const { return file_ == 0 && isELF_; }
 
 	// Delete the returned buffer with delete [].
 	u8 *GetSubFile(PBPSubFile file, size_t *outSize);
@@ -61,4 +62,5 @@ private:
 	FILE *file_;
 	size_t fileSize_;
 	const PBPHeader header_;
+	bool isELF_;
 };

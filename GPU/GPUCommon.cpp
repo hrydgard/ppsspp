@@ -15,22 +15,28 @@
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
-	nextListID(0),
-	currentList(NULL),
-	isbreak(false),
-	drawCompleteTicks(0),
-	busyTicks(0),
 	dumpNextFrame_(false),
-	dumpThisFrame_(false),
-	interruptsEnabled_(true),
-	curTickEst_(0)
+	dumpThisFrame_(false)
 {
+	Reinitialize();
+	SetThreadEnabled(g_Config.bSeparateCPUThread);
+}
+
+void GPUCommon::Reinitialize() {
+	easy_guard guard(listLock);
 	memset(dls, 0, sizeof(dls));
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
 		dls[i].waitTicks = 0;
 	}
-	SetThreadEnabled(g_Config.bSeparateCPUThread);
+
+	nextListID = 0;
+	currentList = NULL;
+	isbreak = false;
+	drawCompleteTicks = 0;
+	busyTicks = 0;
+	interruptsEnabled_ = true;
+	UpdateTickEstimate(0);
 }
 
 void GPUCommon::PopDLQueue() {
@@ -725,9 +731,22 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_CALL:
 		{
 			easy_guard guard(listLock);
+
 			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
+
+			// Bone matrix optimization - many games will CALL a bone matrix (!).
+			if (g_Config.bSoftwareSkinning && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+				// Check for the end
+				if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
+					  (Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET) {
+					// Yep, pretty sure this is a bone matrix call.
+					gstate.FastLoadBoneMatrix(target);
+					break;
+				}
+			}
+
 			if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 				ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {

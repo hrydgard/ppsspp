@@ -21,6 +21,7 @@
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/Util/PPGeDraw.h"
 #include "Common/CommonTypes.h"
 
 #undef st_ctime
@@ -250,12 +251,9 @@ struct SaveFileInfo
 
 	tm modif_time;
 
-	u32 textureData;
-	int textureWidth;
-	int textureHeight;
+	PPGeImage *texture;
 
-	SaveFileInfo() : size(0), saveName(""), idx(0),
-	                 textureData(0), textureWidth(0), textureHeight(0)
+	SaveFileInfo() : size(0), saveName(""), idx(0), texture(NULL)
 	{
 		memset(title, 0, 128);
 		memset(saveTitle, 0, 128);
@@ -265,7 +263,7 @@ struct SaveFileInfo
 
 	void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("SaveFileInfo", 1);
+		auto s = p.Section("SaveFileInfo", 1, 2);
 		if (!s)
 			return;
 
@@ -278,9 +276,30 @@ struct SaveFileInfo
 		p.DoArray(saveDetail, sizeof(saveDetail));
 
 		p.Do(modif_time);
-		p.Do(textureData);
-		p.Do(textureWidth);
-		p.Do(textureHeight);
+
+		if (s <= 1) {
+			u32 textureData;
+			int textureWidth;
+			int textureHeight;
+			p.Do(textureData);
+			p.Do(textureWidth);
+			p.Do(textureHeight);
+
+			if (textureData != 0) {
+				// Must be MODE_READ.
+				texture = new PPGeImage("");
+				texture->CompatLoad(textureData, textureWidth, textureHeight);
+			}
+		} else {
+			bool hasTexture = texture != NULL;
+			p.Do(hasTexture);
+			if (hasTexture) {
+				if (p.mode == p.MODE_READ) {
+					texture = new PPGeImage("");
+				}
+				texture->DoState(p);
+			}
+		}
 	}
 };
 	
@@ -305,6 +324,7 @@ public:
 	bool GetSize(SceUtilitySavedataParam* param);
 	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
+	bool secureCanSkip(SceUtilitySavedataParam* param, bool secureMode);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
@@ -330,12 +350,12 @@ public:
 	int GetLastDataSave();
 	int GetFirstEmptySave();
 	int GetLastEmptySave();
+	int GetSaveNameIndex(SceUtilitySavedataParam* param);
 
 	void DoState(PointerWrap &p);
 
 private:
 	void Clear();
-	bool CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info);
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
 	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
 	void ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName);
@@ -350,6 +370,8 @@ private:
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
 	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
+
+	std::set<std::string> getSecureFileNames(std::string dirPath);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;

@@ -19,6 +19,7 @@ class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface
 public:
 	GPUCommon();
 	virtual ~GPUCommon() {}
+	virtual void Reinitialize();
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);
@@ -70,6 +71,10 @@ public:
 	}
 	void operator delete(void *p) {
 		FreeAlignedMemory(p);
+	}
+
+	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) {
+		return false;
 	}
 
 protected:

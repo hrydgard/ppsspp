@@ -114,7 +114,7 @@ void __CtrlUpdateLatch()
 	latch.btnMake |= buttons & changed;
 	latch.btnBreak |= ctrlOldButtons & changed;
 	latch.btnPress |= buttons;
-	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
+	latch.btnRelease |= ~buttons;
 	dialogBtnMake |= buttons & changed;
 	ctrlLatchBufs++;
 		
@@ -195,10 +195,8 @@ void __CtrlSetRapidFire(bool state)
 	emuRapidFire = state;
 }
 
-int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
+int __CtrlReadSingleBuffer(PSPPointer<_ctrl_data> data, bool negative)
 {
-	PSPPointer<_ctrl_data> data;
-	data = ctrlDataPtr;
 	if (data.IsValid())
 	{
 		*data = ctrlBufs[ctrlBufRead];
@@ -238,11 +236,10 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	ctrlBufRead = (ctrlBuf - availBufs + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
 
 	int done = 0;
+	PSPPointer<_ctrl_data> data;
+	data = ctrlDataPtr;
 	for (u32 i = 0; i < availBufs; ++i)
-	{
-		done += __CtrlReadSingleBuffer(ctrlDataPtr, negative);
-		ctrlDataPtr += sizeof(_ctrl_data);
-	}
+		done += __CtrlReadSingleBuffer(data++, negative);
 
 	if (peek)
 		ctrlBufRead = resetRead;
@@ -268,7 +265,8 @@ retry:
 		if (wVal == 0)
 			goto retry;
 
-		u32 ctrlDataPtr = __KernelGetWaitValue(threadID, error);
+		PSPPointer<_ctrl_data> ctrlDataPtr;
+		ctrlDataPtr = __KernelGetWaitValue(threadID, error);
 		int retVal = __CtrlReadSingleBuffer(ctrlDataPtr, wVal == CTRL_WAIT_NEGATIVE);
 		__KernelResumeThreadFromWait(threadID, retVal);
 	}
@@ -325,7 +323,7 @@ void __CtrlDoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	
-	auto s = p.Section("sceCtrl", 1, 2);
+	auto s = p.Section("sceCtrl", 1, 3);
 	if (!s)
 		return;
 
@@ -334,7 +332,10 @@ void __CtrlDoState(PointerWrap &p)
 	p.Do(ctrlOldButtons);
 
 	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
-	p.Do(ctrlCurrent);
+	if (s <= 2) {
+		_ctrl_data dummy = {0};
+		p.Do(dummy);
+	}
 	p.Do(ctrlBuf);
 	p.Do(ctrlBufRead);
 	p.Do(latch);

@@ -141,7 +141,7 @@ u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
 
 u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
-		ERROR_LOG(SCEAUDIO, "sceAudioOutputPannedBlocking() - invalid volume");
+		ERROR_LOG(SCEAUDIO, "sceAudioOutputPanned() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputPanned() - bad channel");
@@ -167,8 +167,9 @@ int sceAudioGetChannelRestLen(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLen(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioGetChannelRestLen(%08x)", chan);
-	return (int)chans[chan].sampleQueue.size() / 2;
+	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
+	DEBUG_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLen(%08x)", remainingSamples, chan);
+	return remainingSamples;
 }
 
 int sceAudioGetChannelRestLength(u32 chan) {
@@ -176,8 +177,9 @@ int sceAudioGetChannelRestLength(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLength(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioGetChannelRestLength(%08x)", chan);
-	return (int)chans[chan].sampleQueue.size() / 2;
+	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
+	DEBUG_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLength(%08x)", remainingSamples, chan);
+	return remainingSamples;
 }
 
 static u32 GetFreeChannel() {
@@ -438,7 +440,7 @@ const HLEFunction sceAudio[] =
 	{0x5EC81C55, WrapU_IUU<sceAudioChReserve>, "sceAudioChReserve"},
 	{0x6FC46853, WrapU_U<sceAudioChRelease>, "sceAudioChRelease"},
 	{0xE9D97901, WrapI_U<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLen"},
-	{0xB011922F, WrapI_U<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLength"},
+	{0xB011922F, WrapI_U<sceAudioGetChannelRestLength>, "sceAudioGetChannelRestLength"},
 	{0xCB2E439E, WrapU_UU<sceAudioSetChannelDataLen>, "sceAudioSetChannelDataLen"},
 	{0x95FD0C2D, WrapU_UU<sceAudioChangeChannelConfig>, "sceAudioChangeChannelConfig"},
 	{0xB7E1D8E7, WrapU_UUU<sceAudioChangeChannelVolume>, "sceAudioChangeChannelVolume"},

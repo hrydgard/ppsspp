@@ -26,6 +26,7 @@
 #include <map>
 
 #include "base/logging.h"
+#include "math/math_util.h"
 #include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
 
@@ -141,6 +142,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
 	u_colormask = glGetUniformLocation(program, "u_colormask");
+	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
 
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
@@ -197,6 +199,36 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (-1 != glGetAttribLocation(program, "w2")) attrMask |= 1 << ATTR_W2;
 	if (-1 != glGetAttribLocation(program, "color0")) attrMask |= 1 << ATTR_COLOR0;
 	if (-1 != glGetAttribLocation(program, "color1")) attrMask |= 1 << ATTR_COLOR1;
+
+	availableUniforms = 0;
+	if (u_proj != -1) availableUniforms |= DIRTY_PROJMATRIX;
+	if (u_proj_through != -1) availableUniforms |= DIRTY_PROJTHROUGHMATRIX;
+	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
+	if (u_alphacolorref != -1) availableUniforms |= DIRTY_ALPHACOLORREF;
+	if (u_colormask != -1) availableUniforms |= DIRTY_COLORMASK;
+	if (u_fogcolor != -1) availableUniforms |= DIRTY_FOGCOLOR;
+	if (u_fogcoef != -1) availableUniforms |= DIRTY_FOGCOEF;
+	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
+	if (u_uvscaleoffset != -1) availableUniforms |= DIRTY_UVSCALEOFFSET;
+	if (u_world != -1) availableUniforms |= DIRTY_WORLDMATRIX;
+	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
+	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
+	// Looping up to numBones lets us avoid checking u_bone[i]
+	for (int i = 0; i < numBones; i++) {
+		if (u_bone[i] != -1)
+			availableUniforms |= DIRTY_BONEMATRIX0 << i;
+	}
+	if (u_ambient != -1) availableUniforms |= DIRTY_AMBIENT;
+	if (u_matambientalpha != -1) availableUniforms |= DIRTY_MATAMBIENTALPHA;
+	if (u_matdiffuse != -1) availableUniforms |= DIRTY_MATDIFFUSE;
+	if (u_matemissive != -1) availableUniforms |= DIRTY_MATEMISSIVE;
+	if (u_matspecular != -1) availableUniforms |= DIRTY_MATSPECULAR;
+	for (int i = 0; i < 4; i++) {
+		if (u_lightdir[i] != -1 ||
+				u_lightspecular[i] != -1 ||
+				u_lightpos[i] != -1)
+			availableUniforms |= DIRTY_LIGHT0 << i;
+	}
 
 	glUseProgram(program);
 
@@ -290,7 +322,7 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 
 void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 	glUseProgram(program);
-	updateUniforms(vertType);
+	UpdateUniforms(vertType);
 	int enable, disable;
 	if (previous) {
 		enable = attrMask & ~previous->attrMask;
@@ -314,12 +346,14 @@ void LinkedShader::stop() {
 	}
 }
 
-void LinkedShader::updateUniforms(u32 vertType) {
-	if (!dirtyUniforms)
+void LinkedShader::UpdateUniforms(u32 vertType) {
+	u32 dirty = dirtyUniforms & availableUniforms;
+	dirtyUniforms = 0;
+	if (!dirty)
 		return;
 
 	// Update any dirty uniforms before we draw
-	if (u_proj != -1 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
+	if (dirty & DIRTY_PROJMATRIX) {
 		float flippedMatrix[16];
 		memcpy(flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		if (gstate_c.vpHeight < 0) {
@@ -332,77 +366,116 @@ void LinkedShader::updateUniforms(u32 vertType) {
 		}
 		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
 	}
-	if (u_proj_through != -1 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
+	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
-	if (u_texenv != -1 && (dirtyUniforms & DIRTY_TEXENV)) {
+	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
-	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
+	if (dirty & DIRTY_ALPHACOLORREF) {
 		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
-	if (u_colormask != -1 && (dirtyUniforms & DIRTY_COLORMASK)) {
+	if (dirty & DIRTY_COLORMASK) {
 		SetColorUniform3(u_colormask, gstate.colormask);
 	}
-	if (u_fogcolor != -1 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
+	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);
 	}
-	if (u_fogcoef != -1 && (dirtyUniforms & DIRTY_FOGCOEF)) {
-		const float fogcoef[2] = {
+	if (dirty & DIRTY_FOGCOEF) {
+		float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
+		if (my_isinf(fogcoef[1])) {
+			// not really sure what a sensible value might be.
+			fogcoef[1] = 10000.0f;
+		}
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
 	// Texturing
-	if (u_uvscaleoffset != -1 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
+
+	// If this dirty check is changed to true, Frontier Gate Boost works in texcoord speedhack mode.
+	// This means that it's not a flushing issue.
+	// It uses GE_TEXMAP_TEXTURE_MATRIX with GE_PROJMAP_UV a lot.
+	// Can't figure out why it doesn't dirty at the right points though...
+	if (dirty & DIRTY_UVSCALEOFFSET) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
+		static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+		const float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+
 		float uvscaleoff[4];
-		if (gstate.isModeThrough()) {
-			// We never get here because we don't use HW transform with through mode.
-			// Although - why don't we?
-			uvscaleoff[0] = gstate_c.uv.uScale / (float)gstate_c.curTextureWidth;
-			uvscaleoff[1] = gstate_c.uv.vScale / (float)gstate_c.curTextureHeight;
-			uvscaleoff[2] = gstate_c.uv.uOff / (float)gstate_c.curTextureWidth;
-			uvscaleoff[3] = gstate_c.uv.vOff / (float)gstate_c.curTextureHeight;
-			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
-		} else {
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
+
+		switch (gstate.getUVGenMode()) {
+		case GE_TEXMAP_TEXTURE_COORDS:
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-				float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
-				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			} else {
+		case GE_TEXMAP_UNKNOWN:
+			if (g_Config.bPrescaleUV) {
+				// Shouldn't even get here as we won't use the uniform in the shader.
+				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
+				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = widthFactor;
 				uvscaleoff[1] = heightFactor;
 				uvscaleoff[2] = 0.0f;
 				uvscaleoff[3] = 0.0f;
+			} else {
+				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
+				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
+				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			}
-			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
+			break;
+
+		// These two work the same whether or not we prescale UV.
+
+		case GE_TEXMAP_TEXTURE_MATRIX:
+			// We cannot bake the UV coord scale factor in here, as we apply a matrix multiplication
+			// before this is applied, and the matrix multiplication may contain translation. In this case
+			// the translation will be scaled which breaks faces in Hexyz Force for example.
+			// So I've gone back to applying the scale factor in the shader.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		case GE_TEXMAP_ENVIRONMENT_MAP:
+			// In this mode we only use uvscaleoff to scale to the texture size.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
+		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
 	// Transform
-	if (u_world != -1 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
+	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(u_world, gstate.worldMatrix);
 	}
-	if (u_view != -1 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
+	if (dirty & DIRTY_VIEWMATRIX) {
 		SetMatrix4x3(u_view, gstate.viewMatrix);
 	}
-	if (u_texmtx != -1 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
+	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 
+	if (dirty & DIRTY_STENCILREPLACEVALUE) {
+		glUniform1f(u_stencilReplaceValue, gstate.getStencilTestRef());
+	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
 	if (u_bone != -1) {
@@ -410,7 +483,7 @@ void LinkedShader::updateUniforms(u32 vertType) {
 
 		bool allDirty = true;
 		for (int i = 0; i < numBones; i++) {
-			if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 				ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, allBones + 16 * i);
 			} else {
 				allDirty = false;
@@ -422,7 +495,7 @@ void LinkedShader::updateUniforms(u32 vertType) {
 		} else {
 			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
 			for (int i = 0; i < numBones; i++) {
-				if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+				if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 					glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
 				}
 			}
@@ -431,7 +504,7 @@ void LinkedShader::updateUniforms(u32 vertType) {
 #else
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
 			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 		}
@@ -439,31 +512,31 @@ void LinkedShader::updateUniforms(u32 vertType) {
 #endif
 
 	// Lighting
-	if (u_ambient != -1 && (dirtyUniforms & DIRTY_AMBIENT)) {
+	if (dirty & DIRTY_AMBIENT) {
 		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
-	if (u_matambientalpha != -1 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
+	if (dirty & DIRTY_MATAMBIENTALPHA) {
 		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
-	if (u_matdiffuse != -1 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
+	if (dirty & DIRTY_MATDIFFUSE) {
 		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
 	}
-	if (u_matemissive != -1 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
+	if (dirty & DIRTY_MATEMISSIVE) {
 		SetColorUniform3(u_matemissive, gstate.materialemissive);
 	}
-	if (u_matspecular != -1 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
+	if (dirty & DIRTY_MATSPECULAR) {
 		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {
-		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
+		if (dirty & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
 				float x = gstate_c.lightpos[i][0];
 				float y = gstate_c.lightpos[i][1];
 				float z = gstate_c.lightpos[i][2];
 				float len = sqrtf(x*x+y*y+z*z);
-				if (len == 0.0f) 
+				if (len == 0.0f)
 					len = 1.0f;
 				else
 					len = 1.0f / len;
@@ -481,8 +554,6 @@ void LinkedShader::updateUniforms(u32 vertType) {
 			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
 		}
 	}
-
-	dirtyUniforms = 0;
 }
 
 ShaderManager::ShaderManager() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
@@ -534,8 +605,10 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 
 
 LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
-	if (g_Config.bPrescaleUV)
-		globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
+	// This doesn't work - we miss some events that really do need to dirty the prescale.
+	// like changing the texmapmode.
+	// if (g_Config.bPrescaleUV)
+	//	 globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
 
 	if (globalDirty_) {
 		if (lastShader_)
@@ -553,7 +626,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
-		lastShader_->updateUniforms(vertType);
+		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;	// Already all set.
 	}
 

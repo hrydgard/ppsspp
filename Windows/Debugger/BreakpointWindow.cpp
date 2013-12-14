@@ -148,7 +148,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 
 		if (cpu->parseExpression(exp,size) == false)
 		{
-			sprintf(errorMessage,"Invalid expression \"%s\".",str);
+			sprintf(errorMessage,"Invalid expression \"%s\".",exp);
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}

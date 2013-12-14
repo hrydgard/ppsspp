@@ -129,6 +129,10 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 
 void CtrlThreadList::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (row < 0 || row >= (int)threads.size()) {
+		return;
+	}
+
 	switch (col)
 	{
 	case TL_NAME:
@@ -457,7 +461,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 				else
 					wsprintf(dest,L"0x%08X",mc.end-mc.start);
 			} else {
-				const char* sym = cpu->findSymbolForAddress(displayedBreakPoints_[index].addr);
+				const char* sym = symbolMap.GetLabelName(displayedBreakPoints_[index].addr);
 				if (sym != NULL)
 				{
 					std::wstring s = ConvertUTF8ToWString(sym);
@@ -618,6 +622,10 @@ bool CtrlStackTraceView::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, L
 
 void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (row < 0 || row >= (int)frames.size()) {
+		return;
+	}
+
 	switch (col)
 	{
 	case SF_ENTRY:
@@ -625,7 +633,7 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 		break;
 	case SF_ENTRYNAME:
 		{
-			const char* sym = cpu->findSymbolForAddress(frames[row].entry);
+			const char* sym = symbolMap.GetLabelName(frames[row].entry);
 			if (sym != NULL) {
 				wcscpy(dest, ConvertUTF8ToWString(sym).c_str());
 			} else {

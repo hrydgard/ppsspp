@@ -1,6 +1,5 @@
 #include "debugger_vfpu.h"
 #include "ui_debugger_vfpu.h"
-#include "EmuThread.h"
 #include "mainwindow.h"
 #include <QTimer>
 
@@ -20,22 +19,6 @@ Debugger_VFPU::Debugger_VFPU(DebugInterface *_cpu, MainWindow* mainWindow_, QWid
 Debugger_VFPU::~Debugger_VFPU()
 {
 	delete ui;
-}
-
-
-void Debugger_VFPU::showEvent(QShowEvent *)
-{
-
-#ifdef Q_WS_X11
-	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
-	EmuThread_LockDraw(true);
-	QTimer::singleShot(100, this, SLOT(releaseLock()));
-#endif
-}
-
-void Debugger_VFPU::releaseLock()
-{
-	EmuThread_LockDraw(false);
 }
 
 void Debugger_VFPU::Update()

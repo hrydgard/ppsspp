@@ -40,6 +40,7 @@ public:
 	};
 
 	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
 
 	Vec2() {}
 	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
@@ -155,12 +156,6 @@ public:
 	Vec2 ts() const { return Vec2(y, x); }
 };
 
-template<typename T, typename V>
-Vec2<T> operator * (const V& f, const Vec2<T>& vec)
-{
-	return Vec2<T>(f*vec.x,f*vec.y);
-}
-
 typedef Vec2<float> Vec2f;
 
 template<typename T>
@@ -173,6 +168,7 @@ public:
 	};
 
 	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
 
 	Vec3() {}
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
@@ -321,12 +317,6 @@ public:
 #undef _DEFINE_SWIZZLER2
 };
 
-template<typename T, typename V>
-Vec3<T> operator * (const V& f, const Vec3<T>& vec)
-{
-	return Vec3<T>(f*vec.x,f*vec.y,f*vec.z);
-}
-
 typedef Vec3<float> Vec3f;
 
 template<typename T>
@@ -339,6 +329,7 @@ public:
 	};
 
 	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
 
 	Vec4() {}
 	Vec4(const T a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
@@ -494,12 +485,6 @@ public:
 #undef _DEFINE_SWIZZLER3
 };
 
-template<typename T, typename V>
-Vec4<T> operator * (const V& f, const Vec4<T>& vec)
-{
-	return Vec4<T>(f*vec.x,f*vec.y,f*vec.z,f*vec.w);
-}
-
 typedef Vec4<float> Vec4f;
 
 
@@ -530,7 +515,7 @@ public:
 	}
 
 	template<typename T>
-	Vec3<T> operator * (const Vec3<T>& vec)
+	Vec3<T> operator * (const Vec3<T>& vec) const
 	{
 		Vec3<T> ret;
 		ret.x = values[0]*vec.x + values[3]*vec.y + values[6]*vec.z;
@@ -539,7 +524,7 @@ public:
 		return ret;
 	}
 
-	Mat3x3 Inverse()
+	Mat3x3 Inverse() const
 	{
 		float a = values[0];
 		float b = values[1];
@@ -555,7 +540,7 @@ public:
 						b*f-c*e, c*d-a*f, a*e-b*d) / Det();
 	}
 
-	BaseType Det()
+	BaseType Det() const
 	{
 		return values[0]*values[4]*values[8] + values[3]*values[7]*values[2] +
 				values[6]*values[1]*values[5] - values[2]*values[4]*values[6] -
@@ -588,7 +573,7 @@ public:
 	}
 
 	template<typename T>
-	Vec4<T> operator * (const Vec4<T>& vec)
+	Vec4<T> operator * (const Vec4<T>& vec) const
 	{
 		Vec4<T> ret;
 		ret.x = values[0]*vec.x + values[4]*vec.y + values[8]*vec.z + values[12]*vec.w;
@@ -612,11 +597,20 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 
 inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 {
-	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[9];
-	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[10];
-	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[11];
+	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
+	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
+	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
 	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
 }
+
+inline void Vec4ByMatrix44(float vecOut[4], const float v[4], const float m[16])
+{
+	vecOut[0] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
+	vecOut[1] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
+	vecOut[2] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
+	vecOut[3] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
+}
+
 
 inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
@@ -624,6 +618,14 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7];
 	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8];
 }
+
+inline void Matrix4ByMatrix4(float out[16], const float a[16], const float b[16]) {
+	Vec4ByMatrix44(out, a, b);
+	Vec4ByMatrix44(out + 4, a + 4, b);
+	Vec4ByMatrix44(out + 8, a + 8, b);
+	Vec4ByMatrix44(out + 12, a + 12, b);
+}
+
 
 inline float Vec3Dot(const float v1[3], const float v2[3])
 {

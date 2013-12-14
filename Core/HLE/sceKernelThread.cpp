@@ -68,7 +68,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_GELISTSYNC,      "GeListSync" },
 	{ WAITTYPE_MODULE,          "Module" },
 	{ WAITTYPE_HLEDELAY,        "HleDelay" },
-	{ WAITTYPE_TLS,             "TLS" },
+	{ WAITTYPE_TLSPL,           "TLS" },
 	{ WAITTYPE_VMEM,            "Volatile Mem" },
 	{ WAITTYPE_ASYNCIO,         "AsyncIO" },
 };
@@ -520,7 +520,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Thread", 1, 2);
+		auto s = p.Section("Thread", 1, 4);
 		if (!s)
 			return;
 
@@ -530,7 +530,26 @@ public:
 		p.Do(isProcessingCallbacks);
 		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
+
+		// TODO: How do I "version" adding a DoState method to ThreadContext?
 		p.Do(context);
+
+		if (s <= 3)
+		{
+			// We must have been loading an old state if we're here.
+			// Reorder VFPU data to new order.
+			float temp[128];
+			memcpy(temp, context.v, 128 * sizeof(float));
+			for (int i = 0; i < 128; i++) {
+				context.v[voffset[i]] = temp[i];
+			}
+		}
+
+		if (s <= 2)
+		{
+			context.other[4] = context.other[5];
+			context.other[3] = context.other[4];
+		}
 
 		p.Do(callbacks);
 
@@ -1928,8 +1947,7 @@ void ThreadContext::reset()
 	vfpuCtrl[VFPU_CTRL_RCX6] = 0x3f800000;
 	vfpuCtrl[VFPU_CTRL_RCX7] = 0x3f800000;
 	fpcond = 0;
-	fcr0 = 0;
-	fcr31 = 0;
+	fcr31 = 0x00000e00;
 	hi = 0xDEADBEEF;
 	lo = 0xDEADBEEF;
 }
@@ -2328,10 +2346,9 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		// Yield the next thread of this priority to all other threads of same priority.
 		else
 			threadReadyQueue.rotate(priority);
-
-		hleReSchedule("rotatethreadreadyqueue");
 	}
 
+	hleReSchedule("rotatethreadreadyqueue");
 	hleEatCycles(250);
 	return 0;
 }
@@ -2515,6 +2532,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 		if (thread->isReady())
 			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
 
+		hleEatCycles(450);
 		hleReSchedule("change thread priority");
 		return 0;
 	}

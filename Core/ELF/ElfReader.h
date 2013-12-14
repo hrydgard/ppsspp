@@ -55,7 +55,6 @@ public:
 		bRelocate(false),
 		entryPoint(0),
 		vaddr(0) {
-		INFO_LOG(LOADER, "ElfReader: %p", ptr);
 		base = (char*)ptr;
 		base32 = (u32 *)ptr;
 		header = (Elf32_Ehdr*)ptr;
@@ -117,6 +116,10 @@ public:
 	{
 		return segmentVAddr[segment];
 	}
+	u32 GetSegmentDataSize(int segment)
+	{
+		return segments[segment].p_filesz;
+	}
 
 	bool DidRelocate() {
 		return bRelocate;
@@ -135,7 +138,7 @@ public:
 	// More indepth stuff:)
 	int LoadInto(u32 vaddr);
 	bool LoadSymbols();
-	void LoadRelocations(Elf32_Rel *rels, int numRelocs);
+	bool LoadRelocations(Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);
 
 

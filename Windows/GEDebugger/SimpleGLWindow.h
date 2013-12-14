@@ -25,10 +25,13 @@ struct SimpleGLWindow {
 	static const PTCHAR windowClass;
 
 	enum Format {
-		FORMAT_565 = 0,
-		FORMAT_5551 = 1,
-		FORMAT_4444 = 2,
+		FORMAT_565_REV = 0,
+		FORMAT_5551_REV = 1,
+		FORMAT_4444_REV = 2,
 		FORMAT_8888 = 3,
+		FORMAT_565 = 4,
+		FORMAT_5551 = 5,
+		FORMAT_4444 = 6,
 
 		FORMAT_FLOAT = 0x10,
 		FORMAT_16BIT = 0x11,
@@ -65,6 +68,24 @@ struct SimpleGLWindow {
 	void Swap() {
 		SwapBuffers(hDC_);
 	}
+
+	int Width() {
+		return w_;
+	}
+
+	int Height() {
+		return h_;
+	}
+
+	int TexWidth() {
+		return tw_;
+	}
+
+	int TexHeight() {
+		return th_;
+	}
+
+	void GetContentSize(float &x, float &y, float &fw, float &fh);
 
 	static void RegisterClass();
 protected:

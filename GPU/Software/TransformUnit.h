@@ -108,6 +108,7 @@ struct VertexData
 class TransformUnit
 {
 public:
+	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);
 	static ClipCoords ViewToClip(const ViewCoords& coords);
@@ -116,5 +117,5 @@ public:
 	static ScreenCoords DrawingToScreen(const DrawingCoords& coords);
 
 	static void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type);
-	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type);
+	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type, int *bytesRead);
 };

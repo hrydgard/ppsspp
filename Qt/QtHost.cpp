@@ -1,15 +1,17 @@
-// This file is Qt's equivalent of NativeApp.cpp
+// This file is Qt Desktop's equivalent of NativeApp.cpp
 
 #include <QFileInfo>
 #include <QDebug>
 #include <QDir>
 #include <QCoreApplication>
+#include <libpng16/png.h>
 
 #include "QtHost.h"
 #include "LogManager.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Config.h"
 #include "base/NativeApp.h"
+#include "i18n/i18n.h"
 #include "UI/EmuScreen.h"
 #include "UI/UIShader.h"
 #include "UI/MiscScreens.h"
@@ -18,8 +20,9 @@
 #include "UI/ui_atlas.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "gfx_es2/draw_text.h"
 #include "GPU/ge_constants.h"
-#include "EmuThread.h"
+#include "ext/jpge/jpge.h"
 
 static UI::Theme ui_theme;
 
@@ -39,6 +42,8 @@ recursive_mutex pendingMutex;
 static bool isMessagePending;
 static std::string pendingMessage;
 static std::string pendingValue;
+
+bool g_TakeScreenshot;
 
 QtHost::QtHost(MainWindow *mainWindow_)
     : mainWindow(mainWindow_)
@@ -66,7 +71,7 @@ void QtHost::SetWindowTitle(const char *message)
 
 void QtHost::UpdateUI()
 {
-	mainWindow->UpdateMenus();
+	mainWindow->updateMenus();
 }
 
 
@@ -97,7 +102,6 @@ void QtHost::SetDebugMode(bool mode)
 
 void QtHost::BeginFrame()
 {
-	mainWindow->Update();
 }
 
 void QtHost::EndFrame()
@@ -121,9 +125,9 @@ void QtHost::BootDone()
 }
 
 
-static QString SymbolMapFilename(QString currentFilename)
+static const char* SymbolMapFilename(std::string currentFilename)
 {
-	std::string result = currentFilename.toStdString();
+	std::string result = currentFilename;
 	size_t dot = result.rfind('.');
 	if (dot == result.npos)
 		return (result + ".map").c_str();
@@ -134,17 +138,17 @@ static QString SymbolMapFilename(QString currentFilename)
 
 bool QtHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).toStdString().c_str());
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 }
 
 void QtHost::PrepareShutdown()
 {
-	symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).toStdString().c_str());
+	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 }
 
 void QtHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0)
 {
-	symbolMap.AddSymbol(name.c_str(), addr, size, (SymbolType)type);
+
 }
 
 bool QtHost::IsDebuggingEnabled()
@@ -179,7 +183,6 @@ void QtHost::GPUNotifyCommand(u32 pc)
 
 void QtHost::SendCoreWait(bool isWaiting)
 {
-	mainWindow->CoreEmitWait(isWaiting);
 }
 
 bool QtHost::GpuStep()
@@ -189,20 +192,14 @@ bool QtHost::GpuStep()
 
 void QtHost::SendGPUStart()
 {
-	EmuThread_LockDraw(false);
-
 	if(m_GPUFlag == -1)
 	{
 		m_GPUFlag = 0;
 	}
-
-	EmuThread_LockDraw(true);
 }
 
 void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 {
-	EmuThread_LockDraw(false);
-
 	if((m_GPUFlag == 1 && (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE)))
 	{
 		// Break after the draw
@@ -231,8 +228,6 @@ void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 			m_hGPUStepEvent.wait(m_hGPUStepMutex);
 		}
 	}
-
-	EmuThread_LockDraw(true);
 }
 
 void QtHost::SetGPUStep(bool value, int flag, u32 data)
@@ -249,19 +244,29 @@ void QtHost::NextGPUStep()
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
-	Common::EnableCrashingOnCrashes();
 	isMessagePending = false;
 
 	std::string user_data_path = savegame_directory;
+#ifdef Q_OS_LINUX
+	char* config = getenv("XDG_CONFIG_HOME");
+	if (!config) {
+		config = getenv("HOME");
+		strcat(config, "/.config");
+	}
+	std::string memcard_path = std::string(config) + "/ppsspp/";
+#else
 	std::string memcard_path = QDir::homePath().toStdString() + "/.ppsspp/";
+#endif
 
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
+	VFSRegister("", new AssetsAssetReader());
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(memcard_path + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(memcard_path + "PSP/SYSTEM/");
 	g_Config.Load();
+	i18nrepo.LoadIni(g_Config.sLanguageIni);
 
 	const char *fileToLog = 0;
 
@@ -313,9 +318,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = QDir::homePath().toStdString();
 	}
 
-	g_Config.memCardDirectory = QDir::homePath().toStdString() + "/.ppsspp/";
+	g_Config.memCardDirectory = memcard_path;
 
-#if defined(Q_OS_LINUX) && !defined(ARM)
+#if defined(Q_OS_LINUX)
 	std::string program_path = QCoreApplication::applicationDirPath().toStdString();
 	if (File::Exists(program_path + "/flash0"))
 		g_Config.flash0Directory = program_path + "/flash0/";
@@ -333,11 +338,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_gameInfoCache.Init();
 
-#if !defined(ARM)
 	// Start Desktop UI
 	MainWindow* mainWindow = new MainWindow();
 	mainWindow->show();
-#endif
 }
 
 int NativeMix(short *audio, int num_samples)
@@ -346,6 +349,57 @@ int NativeMix(short *audio, int num_samples)
 		return g_mixer->Mix(audio, num_samples);
 	else
 		return 0;
+}
+
+void TakeScreenshot() {
+	g_TakeScreenshot = false;
+	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
+
+	// First, find a free filename.
+	int i = 0;
+
+	char temp[256];
+	while (i < 10000){
+		if(g_Config.bScreenshotsAsPNG)
+			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.png", g_Config.memCardDirectory.c_str(), i);
+		else
+			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.jpg", g_Config.memCardDirectory.c_str(), i);
+		FileInfo info;
+		if (!getFileInfo(temp, &info))
+			break;
+		i++;
+	}
+
+	// Okay, allocate a buffer.
+	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
+	// Silly openGL reads upside down, we flip to another buffer for simplicity.
+	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
+
+	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+
+	for (int y = 0; y < pixel_yres; y++) {
+		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
+	}
+
+	if (g_Config.bScreenshotsAsPNG) {
+		png_image png;
+		memset(&png, 0, sizeof(png));
+		png.version = PNG_IMAGE_VERSION;
+		png.format = PNG_FORMAT_RGB;
+		png.width = pixel_xres;
+		png.height = pixel_yres;
+		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 3, NULL);
+		png_image_free(&png);
+	} else {
+		jpge::params params;
+		params.m_quality = 90;
+		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 3, flipbuffer, params);
+	}
+
+	delete [] buffer;
+	delete [] flipbuffer;
+
+	osm.Show(temp);
 }
 
 void NativeInitGraphics()
@@ -442,6 +496,12 @@ void NativeRender()
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
+	if (screenManager->getUIContext()->Text()) {
+		screenManager->getUIContext()->Text()->OncePerFrame();
+	}
+
+	if (g_TakeScreenshot)
+		TakeScreenshot();
 }
 
 void NativeMessageReceived(const char *message, const char *value)

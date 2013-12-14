@@ -38,22 +38,39 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_8888 = 3,
 	GPU_DBG_FORMAT_INVALID = 0xFF,
 
+	// These are reversed versions.
+	GPU_DBG_FORMAT_REVERSE_FLAG = 4,
+	GPU_DBG_FORMAT_565_REV = 4,
+	GPU_DBG_FORMAT_5551_REV = 5,
+	GPU_DBG_FORMAT_4444_REV = 6,
+
 	// These don't, they're for depth/stencil buffers.
 	GPU_DBG_FORMAT_FLOAT = 0x10,
 	GPU_DBG_FORMAT_16BIT = 0x11,
 	GPU_DBG_FORMAT_8BIT = 0x12,
 };
 
+inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDebugBufferFormat &rhs) {
+	lhs = GPUDebugBufferFormat((int)lhs | (int)rhs);
+	return lhs;
+}
+
 struct GPUDebugBuffer {
 	GPUDebugBuffer() : alloc_(false), data_(NULL) {
 	}
 
-	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt)
+	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt, bool reversed = false)
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(GPUDebugBufferFormat(fmt)), flipped_(false) {
+		if (reversed && fmt_ < GPU_DBG_FORMAT_8888) {
+			fmt_ |= GPU_DBG_FORMAT_REVERSE_FLAG;
+		}
 	}
 
-	GPUDebugBuffer(void *data, u32 stride, u32 height, GETextureFormat fmt)
+	GPUDebugBuffer(void *data, u32 stride, u32 height, GETextureFormat fmt, bool reversed = false)
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(GPUDebugBufferFormat(fmt)), flipped_(false) {
+		if (reversed && fmt_ < GPU_DBG_FORMAT_8888) {
+			fmt_ |= GPU_DBG_FORMAT_REVERSE_FLAG;
+		}
 	}
 
 	GPUDebugBuffer(void *data, u32 stride, u32 height, GPUDebugBufferFormat fmt)
@@ -91,8 +108,12 @@ struct GPUDebugBuffer {
 		return *this;
 	}
 
-	void Allocate(u32 stride, u32 height, GEBufferFormat fmt, bool flipped = false) {
-		Allocate(stride, height, GPUDebugBufferFormat(fmt), flipped);
+	void Allocate(u32 stride, u32 height, GEBufferFormat fmt, bool flipped = false, bool reversed = false) {
+		GPUDebugBufferFormat actualFmt = GPUDebugBufferFormat(fmt);
+		if (reversed && actualFmt < GPU_DBG_FORMAT_8888) {
+			actualFmt |= GPU_DBG_FORMAT_REVERSE_FLAG;
+		}
+		Allocate(stride, height, actualFmt, flipped);
 	}
 
 	void Allocate(u32 stride, u32 height, GPUDebugBufferFormat fmt, bool flipped = false) {
@@ -155,6 +176,14 @@ private:
 	bool flipped_;
 };
 
+struct GPUDebugVertex {
+	float u;
+	float v;
+	float x;
+	float y;
+	float z;
+};
+
 class GPUDebugInterface {
 public:
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
@@ -176,6 +205,10 @@ public:
 	// Needs to be called from the GPU thread.
 	// Calling from a separate thread (e.g. UI) may fail.
 	virtual void SetCmdValue(u32 op) = 0;
+
+	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+		return false;
+	}
 
 	// Needs to be called from the GPU thread, so on the same thread as a notification is fine.
 	// Calling from a separate thread (e.g. UI) may fail.

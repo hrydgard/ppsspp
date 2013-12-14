@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 
+#include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -69,6 +70,8 @@ void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+void System_SendMessage(const char *command, const char *parameter) {}
+bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 
 #ifndef _WIN32
 InputState input_state;
@@ -142,7 +145,10 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	time_update();
 	bool passed = true;
-	double deadline = time_now() + timeout;
+	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
+	// This gets trashed if it's not static.
+	static double deadline;
+	deadline = time_now() + timeout;
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -336,6 +342,7 @@ int main(int argc, const char* argv[])
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
 	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.bEnableLogging = fullLog;
 
 #ifdef _WIN32
 	InitSysDirectories();
@@ -345,9 +352,17 @@ int main(int argc, const char* argv[])
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #elif !defined(_WIN32)
 	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
-	// TODO: This isn't a great place.
-	g_Config.flash0Directory = g_Config.memCardDirectory + "/flash0/";
 #endif
+
+	// Try to find the flash0 directory.  Often this is from a subdirectory.
+	for (int i = 0; i < 3; ++i)
+	{
+		if (!File::Exists(g_Config.flash0Directory))
+			g_Config.flash0Directory += "../../flash0/";
+	}
+	// Or else, maybe in the executable's dir.
+	if (!File::Exists(g_Config.flash0Directory))
+		g_Config.flash0Directory = File::GetExeDirectory() + "flash0/";
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);

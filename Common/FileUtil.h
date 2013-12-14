@@ -102,9 +102,7 @@ void CopyDir(const std::string &source_path, const std::string &dest_path);
 // Set the current directory to given directory
 bool SetCurrentDir(const std::string &directory);
 
-#ifdef _WIN32
-std::wstring &GetExeDirectory();
-#endif
+const std::string &GetExeDirectory();
 
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier

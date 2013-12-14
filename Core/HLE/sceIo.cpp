@@ -360,7 +360,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	if (ioManager.WaitResult(f->handle, managerResult)) {
 		result = managerResult;
 	} else {
-		ERROR_LOG(SCEIO, "Unable to complete IO operation.");
+		ERROR_LOG(SCEIO, "Unable to complete IO operation on %s", f->GetName());
 	}
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
@@ -441,8 +441,6 @@ void __IoWakeManager() {
 }
 
 void __IoInit() {
-	INFO_LOG(SCEIO, "Starting up I/O...");
-
 	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
@@ -552,16 +550,22 @@ u32 sceIoUnassign(const char *alias)
 }
 
 u32 sceKernelStdin() {
+	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
+	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "3=sceKernelStdin()");
 	return 3;
 }
 
 u32 sceKernelStdout() {
+	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
+	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "1=sceKernelStdout()");
 	return 1;
 }
 
 u32 sceKernelStderr() {
+	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
+	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "2=sceKernelStderr()");
 	return 2;
 }
@@ -1444,7 +1448,6 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			break;
 		case 0x02425823:  
 			// Check if FAT enabled
-			hleEatCycles(23500);
 			// If the values added together are >= 0x80000000, or less than outPtr, invalid address.
 			if (((int)outPtr + outLen) < (int)outPtr) {
 				ERROR_LOG(SCEIO, "sceIoDevctl: fatms0: 0x02425823 command, bad address");
@@ -1456,7 +1459,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			} else {
 				// Does not care about outLen, even if it's 0.
 				Memory::Write_U32(MemoryStick_FatState(), outPtr);
-				return 0;
+				return hleDelayResult(0, "check fat state", cyclesToUs(23500));
 			}
 			break;
 		case 0x02425824:  
@@ -1927,7 +1930,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			key_ptr = NULL;
 		}
 
-		INFO_LOG(SCEIO, "Decrypting PGD DRM files");
+		DEBUG_LOG(SCEIO, "Decrypting PGD DRM files");
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);

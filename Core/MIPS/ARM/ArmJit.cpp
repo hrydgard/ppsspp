@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
@@ -44,21 +45,20 @@ void DisassembleArm(const u8 *data, int size) {
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
 				sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				INFO_LOG(JIT, "A:   %s", temp);
+				ILOG("A:   %s", temp);
 				i += 4;
 				continue;
 			}
 		}
 		ArmDis((u32)codePtr, inst, temp);
-		INFO_LOG(JIT, "A:   %s", temp);
+		ILOG("A:   %s", temp);
 	}
 }
 
 namespace MIPSComp
 {
 
-ArmJitOptions::ArmJitOptions()
-{
+ArmJitOptions::ArmJitOptions() {
 	enableBlocklink = true;
 	downcountInRegister = true;
 	useBackJump = false;
@@ -70,6 +70,10 @@ ArmJitOptions::ArmJitOptions()
 	continueBranches = false;
 	continueJumps = false;
 	continueMaxInstructions = 300;
+
+	useNEONVFPU = false;  // true
+	if (!cpu_info.bNEON)
+		useNEONVFPU = false;
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
@@ -145,12 +149,6 @@ void Jit::ClearCacheAt(u32 em_address, int length)
 	blocks.InvalidateICache(em_address, length);
 }
 
-void Jit::CompileAt(u32 addr)
-{
-	MIPSOpcode op = Memory::Read_Instruction(addr);
-	MIPSCompileOp(op);
-}
-
 void Jit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
@@ -183,6 +181,7 @@ void Jit::CompileDelaySlot(int flags)
 	if (flags & DELAYSLOT_SAFE)
 		_MSR(true, false, R8);  // Restore flags register
 }
+
 
 void Jit::Compile(u32 em_address) {
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
@@ -277,7 +276,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	
 		js.compilerPC += 4;
 		js.numInstructions++;
-		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
+#ifndef HAVE_ARMV7
+		// Disabled for now as it is crashing since Vertex Decoder JIT
+		if (false && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
 			FixupBranch skip = B_CC(CC_AL);
@@ -285,6 +286,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			SetJumpTarget(skip);
 			partialFlushOffset = GetCodePtr() - b->checkedEntry;
 		}
+#endif
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800)
@@ -369,12 +371,12 @@ void Jit::MovToPC(ARMReg r) {
 
 void Jit::SaveDowncount() {
 	if (jo.downcountInRegister)
-		STR(R7, CTXREG, offsetof(MIPSState, downcount));
+		STR(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 }
 
 void Jit::RestoreDowncount() {
 	if (jo.downcountInRegister)
-		LDR(R7, CTXREG, offsetof(MIPSState, downcount));
+		LDR(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 }
 
 void Jit::WriteDownCount(int offset)
@@ -383,12 +385,12 @@ void Jit::WriteDownCount(int offset)
 		int theDowncount = js.downcountAmount + offset;
 		Operand2 op2;
 		if (TryMakeOperand2(theDowncount, op2)) {
-			SUBS(R7, R7, op2);
+			SUBS(DOWNCOUNTREG, DOWNCOUNTREG, op2);
 		} else {
 			// Should be fine to use R2 here, flushed the regcache anyway.
 			// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
 			gpr.SetRegImm(R2, theDowncount);
-			SUBS(R7, R7, R2);
+			SUBS(DOWNCOUNTREG, DOWNCOUNTREG, R2);
 		}
 	} else {
 		int theDowncount = js.downcountAmount + offset;
@@ -396,14 +398,13 @@ void Jit::WriteDownCount(int offset)
 		Operand2 op2;
 		if (TryMakeOperand2(theDowncount, op2)) {
 			SUBS(R1, R1, op2);
-			STR(R1, CTXREG, offsetof(MIPSState, downcount));
 		} else {
 			// Should be fine to use R2 here, flushed the regcache anyway.
 			// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
 			gpr.SetRegImm(R2, theDowncount);
 			SUBS(R1, R1, R2);
-			STR(R1, CTXREG, offsetof(MIPSState, downcount));
 		}
+		STR(R1, CTXREG, offsetof(MIPSState, downcount));
 	}
 }
 

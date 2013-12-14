@@ -68,6 +68,8 @@ enum MIPSGPReg
 	// Not real regs, just for convenience/jit mapping.
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
+	MIPS_REG_FPCOND = 34,
+	MIPS_REG_VFPUCC = 35,
 };
 
 enum
@@ -113,6 +115,12 @@ enum VCondition
 	VC_NS
 };
 
+// In memory, we order the VFPU registers differently. 
+// Games use columns a whole lot more than rows, and it would thus be good if columns
+// were contiguous in memory. Also, matrices aren't but should be.
+extern u8 voffset[128];
+extern u8 fromvoffset[128];
+
 class MIPSState
 {
 public:
@@ -144,7 +152,6 @@ public:
 			u32 hi;
 			u32 lo;
 
-			u32 fcr0;
 			u32 fcr31; //fpu control register
 			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
 		};
@@ -156,12 +163,14 @@ public:
 
 	bool inDelaySlot;
 	int llBit;  // ll/sc
-
-
+	u32 temp;  // can be used to save temporaries during calculations when we need more than R0 and R1
+	
 	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.
+
+	static const u32 FCR0_VALUE = 0x00003351;
 
 	void WriteFCR(int reg, int value);
 	u32 ReadFCR(int reg);

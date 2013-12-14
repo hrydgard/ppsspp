@@ -580,19 +580,15 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
 		param = g_Config.iDateFormat;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Date Format")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
 		param = g_Config.iTimeFormat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Time Format")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = g_Config.iTimeZone;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Timezone")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
 		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Daylight Savings");
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
 		param = g_Config.iLanguage;
@@ -602,7 +598,6 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
 		param = g_Config.iLockParentalLevel;
-		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Lock Parental Level");
 		break;
 	default:
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;
@@ -807,15 +802,16 @@ const HLEFunction sceUtility[] =
 	{0xdb4149ee, 0, "sceUtility_DB4149EE"},
 	{0xcfe7c460, 0, "sceUtility_CFE7C460"},
 
-	{0xc130d441, 0, "sceUtility_C130D441"},
-	{0x0940a1b9, 0, "sceUtility_0940A1B9"},
-	{0x094198b8, 0, "sceUtility_094198B8"},
-	{0xa7bb7c67, 0, "sceUtility_A7BB7C67"},
+	{0xc130d441, 0, "sceUtilityPsnShutdownStart"},
+	{0xa7bb7c67, 0, "sceUtilityPsnInitStart"},
+	{0x0940a1b9, 0, "sceUtilityPsnUpdate"},
+	{0x094198b8, 0, "sceUtilityPsnGetStatus"},
 
-	{0x3a15cd0a, 0, "sceUtility_3A15CD0A"},
-	{0x9f313d14, 0, "sceUtility_9F313D14"},
-	{0xd23665f4, 0, "sceUtility_D23665F4"},
-	{0xd4c2bd73, 0, "sceUtility_D4C2BD73"},
+	{0x9f313d14, 0, "sceUtilityAutoConnectShutdownStart"},
+	{0x3a15cd0a, 0, "sceUtilityAutoConnectInitStart"},
+	{0xd23665f4, 0, "sceUtilityAutoConnectUpdate"},
+	{0xd4c2bd73, 0, "sceUtilityAutoConnectGetStatus"},
+	{0x0e0c27af, 0, "sceUtilityAutoConnectAbort"},
 
 	{0x06A48659, 0, "sceUtilityRssSubscriberShutdownStart"},
 	{0x4B0A8FE5, 0, "sceUtilityRssSubscriberInitStart"},
@@ -842,8 +838,6 @@ const HLEFunction sceUtility[] =
 	{0x70267adf, 0, "sceUtility_70267ADF"},
 	{0xece1d3e5, 0, "sceUtility_ECE1D3E5"},
 	{0xef3582b2, 0, "sceUtility_EF3582B2"},
-
-	{0x0e0c27af, 0, "sceUtility_0E0C27AF"},
 };
 
 void Register_sceUtility()

@@ -19,6 +19,7 @@
 
 #include "base/functional.h"
 #include "ui/view.h"
+#include "ui/viewgroup.h"
 #include "MiscScreens.h"
 #include <vector>
 
@@ -40,5 +41,12 @@ protected:
 private:
 	DragDropButton *pickedControl_;
 	std::vector<DragDropButton *> controls_;
+	UI::ChoiceStrip *mode_;
 	DragDropButton *getPickedControl(const int x, const int y);
+
+	// Touch down state for drag to resize etc
+	float startX_;
+	float startY_;
+	float startScale_;
+	float startSpacing_;
 };

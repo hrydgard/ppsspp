@@ -19,15 +19,16 @@
 #include <list>
 #include <map>
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Common/ChunkFile.h"
 
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelInterrupt.h"
-#include "sceKernelMemory.h"
-#include "sceKernelMutex.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelMutex.h"
 #include "GPU/GPUCommon.h"
 
 void __DisableInterrupts();
@@ -580,6 +581,10 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 				*dstp++ = *srcp++;
 		}
 	}
+#ifndef USING_GLES2
+	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
+#endif
 	return dst;
 }
 
@@ -600,8 +605,7 @@ const HLEFunction Kernel_Library[] =
 	{0x293b45b8,WrapI_V<sceKernelGetThreadId>, "sceKernelGetThreadId"},
 	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
 	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sceKernelMemcpy"},
-	// Name is only a guess.
-	{0xfa835cde,WrapI_I<sceKernelAllocateTls>, "sceKernelAllocateTls"},
+	{0xfa835cde,WrapI_I<sceKernelGetTlsAddr>, "sceKernelGetTlsAddr"},
 };
 
 void Register_Kernel_Library()

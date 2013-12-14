@@ -20,6 +20,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"
+#include "util/text/utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -57,6 +58,7 @@ void GameScreen::CreateViews() {
 		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 250, NONE, NONE)));
 		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 290, NONE, NONE)));
 		tvInstallDataSize_ = leftColumn->Add(new TextView("", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 330, NONE, NONE)));
+		tvRegion_ = leftColumn->Add(new TextView("", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 370, NONE, NONE)));
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -76,6 +78,9 @@ void GameScreen::CreateViews() {
 	if (isRecentGame(gamePath_)) {
 		rightColumnItems->Add(new Choice(ga->T("Remove From Recent")))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
+#ifdef _WIN32
+	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
+#endif
 
 	UI::SetFocusedView(play);
 }
@@ -135,6 +140,25 @@ void GameScreen::update(InputState &input) {
 			tvInstallDataSize_->SetText(temp);
 		}
 	}
+
+	if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
+		static const char *regionNames[GAMEREGION_MAX] = {
+			"Japan",
+			"USA",
+			"Europe",
+			"Hong Kong",
+			"Asia"
+		};
+		tvRegion_->SetText(ga->T(regionNames[info->region]));
+	}
+}
+
+UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
+#ifdef _WIN32
+	std::string str = std::string("explorer.exe /select,\"") + ReplaceAll(gamePath_, "/", "\\") + "\"";
+	_wsystem(ConvertUTF8ToWString(str).c_str());
+#endif
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
@@ -211,7 +235,11 @@ UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 
 bool GameScreen::isRecentGame(std::string gamePath) {
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
-		if (!strcmp((*it).c_str(),gamePath.c_str()))
+#ifdef _WIN32
+		if (!strcmpIgnore((*it).c_str(), gamePath.c_str(), "\\","/"))
+#else
+		if (!strcmp((*it).c_str(), gamePath.c_str()))
+#endif
 			return true;
 	}
 	return false;
@@ -219,7 +247,11 @@ bool GameScreen::isRecentGame(std::string gamePath) {
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
-		if (!strcmp((*it).c_str(),gamePath_.c_str())) {
+#ifdef _WIN32
+		if (!strcmpIgnore((*it).c_str(), gamePath_.c_str(), "\\","/")) {
+#else
+		if (!strcmp((*it).c_str(), gamePath_.c_str())) {
+#endif
 			g_Config.recentIsos.erase(it);
 			screenManager()->switchScreen(new MainScreen());
 			return UI::EVENT_DONE;

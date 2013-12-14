@@ -287,7 +287,7 @@ void sceKernelExitGameWithStatus()
 
 u32 sceKernelDevkitVersion()
 {
-	int firmwareVersion = 150;
+	int firmwareVersion = g_Config.iFirmwareVersion;
 	int major = firmwareVersion / 100;
 	int minor = (firmwareVersion / 10) % 10;
 	int revision = firmwareVersion % 10;
@@ -590,8 +590,8 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 		return __KernelThreadObject();
 	case SCE_KERNEL_TMID_VTimer:
 		return __KernelVTimerObject();
-	case SCE_KERNEL_TMID_Tls:
-		return __KernelTlsObject();
+	case SCE_KERNEL_TMID_Tlspl:
+		return __KernelTlsplObject();
 	case PPSSPP_KERNEL_TMID_File:
 		return __KernelFileNodeObject();
 	case PPSSPP_KERNEL_TMID_DirList:
@@ -851,15 +851,14 @@ const HLEFunction ThreadManForUser[] =
 	{0xd8b299ae,WrapU_IUUU<sceKernelSetVTimerHandler>,         "sceKernelSetVTimerHandler"},
 	{0x53B00E9A,WrapU_IU64UU<sceKernelSetVTimerHandlerWide>,   "sceKernelSetVTimerHandlerWide"},
 
-	// Names are just guesses, not correct.
-	{0x8daff657,WrapI_CUUUUU<sceKernelCreateTls>,              "sceKernelCreateTls"},
-	{0x32bf938e,WrapI_I<sceKernelDeleteTls>,                   "sceKernelDeleteTls"},
-	{0x721067F3,WrapI_IU<sceKernelReferTlsStatus>,             "sceKernelReferTlsStatus"},
+	{0x8daff657,WrapI_CUUUUU<sceKernelCreateTlspl>,            "sceKernelCreateTlspl"},
+	{0x32bf938e,WrapI_I<sceKernelDeleteTlspl>,                 "sceKernelDeleteTlspl"},
+	{0x721067F3,WrapI_IU<sceKernelReferTlsplStatus>,           "sceKernelReferTlsplStatus"},
 	// Not completely certain about args.
-	{0x4A719FB2,WrapI_I<sceKernelFreeTls>,                     "sceKernelFreeTls"},
-	// Probably internal, not sure.  Takes (uid, &addr) as parameters... probably.
-	//{0x65F54FFB,0,                                             "_sceKernelAllocateTls"},
-	// NOTE: sceKernelAllocateTls is in Kernel_Library, see sceKernelInterrupt.cpp.
+	{0x4A719FB2,WrapI_I<sceKernelFreeTlspl>,                   "sceKernelFreeTlspl"},
+	// Internal.  Takes (uid, &addr) as parameters... probably.
+	//{0x65F54FFB,0,                                             "_sceKernelAllocateTlspl"},
+	// NOTE: sceKernelGetTlsAddr is in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},

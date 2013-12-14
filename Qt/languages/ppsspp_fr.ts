@@ -4,10 +4,9 @@
 <context>
     <name>Controls</name>
     <message>
-        <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
         <comment>Controls window title</comment>
-        <translation>Contrôles</translation>
+        <translation type="obsolete">Contrôles</translation>
     </message>
 </context>
 <context>
@@ -58,22 +57,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="220"/>
+        <location filename="../ctrldisasmview.cpp" line="208"/>
         <source>New function name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="221"/>
+        <location filename="../ctrldisasmview.cpp" line="209"/>
         <source>New function name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>Warning</source>
         <translation type="unfinished">Avertissement</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>No symbol selected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -81,22 +80,22 @@
 <context>
     <name>CtrlMemView</name>
     <message>
-        <location filename="../ctrlmemview.cpp" line="201"/>
+        <location filename="../ctrlmemview.cpp" line="205"/>
         <source>Go to in &amp;disasm</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="207"/>
+        <location filename="../ctrlmemview.cpp" line="211"/>
         <source>&amp;Copy value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="211"/>
+        <location filename="../ctrlmemview.cpp" line="215"/>
         <source>C&amp;hange value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="215"/>
+        <location filename="../ctrlmemview.cpp" line="219"/>
         <source>Dump...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -114,32 +113,32 @@
 <context>
     <name>CtrlRegisterList</name>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="261"/>
+        <location filename="../ctrlregisterlist.cpp" line="260"/>
         <source>Go to in &amp;memory view</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="265"/>
+        <location filename="../ctrlregisterlist.cpp" line="264"/>
         <source>Go to in &amp;disasm</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="271"/>
+        <location filename="../ctrlregisterlist.cpp" line="270"/>
         <source>&amp;Copy value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="275"/>
+        <location filename="../ctrlregisterlist.cpp" line="274"/>
         <source>C&amp;hange...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="336"/>
+        <location filename="../ctrlregisterlist.cpp" line="327"/>
         <source>Set new value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="337"/>
+        <location filename="../ctrlregisterlist.cpp" line="328"/>
         <source>Set new value:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -285,32 +284,32 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="401"/>
+        <location filename="../debugger_disasm.cpp" line="367"/>
         <source>Remove breakpoint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="479"/>
+        <location filename="../debugger_disasm.cpp" line="443"/>
         <source>Go to entry point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="483"/>
+        <location filename="../debugger_disasm.cpp" line="447"/>
         <source>Change status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="485"/>
+        <location filename="../debugger_disasm.cpp" line="449"/>
         <source>Running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="489"/>
+        <location filename="../debugger_disasm.cpp" line="453"/>
         <source>Wait</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="493"/>
+        <location filename="../debugger_disasm.cpp" line="457"/>
         <source>Suspend</source>
         <translation type="unfinished"></translation>
     </message>
@@ -518,12 +517,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_displaylist.cpp" line="1794"/>
+        <location filename="../debugger_displaylist.cpp" line="1773"/>
         <source>Run to here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_displaylist.cpp" line="1817"/>
+        <location filename="../debugger_displaylist.cpp" line="1797"/>
         <source>Run to draw using this texture</source>
         <translation type="unfinished"></translation>
     </message>
@@ -556,7 +555,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../debugger_memory.cpp" line="15"/>
+        <location filename="../debugger_memory.cpp" line="14"/>
         <source>Memory Viewer - %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -658,276 +657,163 @@
     </message>
 </context>
 <context>
-    <name>GamePadDialog</name>
-    <message>
-        <location filename="../gamepaddialog.ui" line="14"/>
-        <source>Gamepad Configuration</source>
-        <translation>Configuration du pad</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="22"/>
-        <source>GamePad List</source>
-        <translation>Liste des controlleurs de jeu</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="46"/>
-        <source>Refresh</source>
-        <translation>Rafraîchir</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="53"/>
-        <source>Select</source>
-        <translation>Sélectionner</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="62"/>
-        <source>Gamepad Values :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="86"/>
-        <source>TextLabel</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="98"/>
-        <source>Assign Gamepad input</source>
-        <translation>Assigner la touche du pad</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="108"/>
-        <source> to PSP button/axis</source>
-        <translation>    au boutton PSP</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="118"/>
-        <source>Assign</source>
-        <translation>Assigner</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.ui" line="127"/>
-        <source>Press buttons on your gamePad to verify mapping :</source>
-        <translation>Vérifier les contrôles en appuyant sur les bouttons du pad :</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="129"/>
-        <location filename="../gamepaddialog.cpp" line="361"/>
-        <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="141"/>
-        <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="282"/>
-        <source>Buttons</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="296"/>
-        <location filename="../gamepaddialog.cpp" line="339"/>
-        <source>Button %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="299"/>
-        <source>Axes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="305"/>
-        <source>%1 Neg</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="312"/>
-        <source>Axes %1 Neg</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="315"/>
-        <source>%1 Pos</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="322"/>
-        <source>Axes %1 Pos</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="326"/>
-        <source>Hats</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="363"/>
-        <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>MainWindow</name>
     <message>
-        <location filename="../mainwindow.ui" line="20"/>
         <source>PPSSPP</source>
-        <translation>PPSSPP</translation>
+        <translation type="obsolete">PPSSPP</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="52"/>
+        <location filename="../mainwindow.cpp" line="460"/>
         <source>&amp;File</source>
         <translation>&amp;Fichier</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="66"/>
+        <location filename="../mainwindow.cpp" line="466"/>
+        <source>Quickload State</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="468"/>
+        <source>Quicksave State</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="478"/>
         <source>&amp;Emulation</source>
         <translation>&amp;Emulation</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="77"/>
         <source>Debu&amp;g</source>
-        <translation>Debu&amp;g</translation>
+        <translation type="obsolete">Debu&amp;g</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="93"/>
+        <location filename="../mainwindow.cpp" line="513"/>
         <source>&amp;Options</source>
         <translation>&amp;Options</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="101"/>
         <source>G3D</source>
-        <translation>G3D</translation>
+        <translation type="obsolete">G3D</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="110"/>
         <source>HLE</source>
-        <translation>HLE</translation>
+        <translation type="obsolete">HLE</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="119"/>
         <source>Default</source>
-        <translation>Défaut</translation>
+        <translation type="obsolete">Défaut</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="97"/>
         <source>Lo&amp;g Levels</source>
-        <translation>Op&amp;tions du journal</translation>
+        <translation type="obsolete">Op&amp;tions du journal</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="133"/>
+        <location filename="../mainwindow.cpp" line="579"/>
         <source>&amp;Language</source>
         <translation>&amp;Langue</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="138"/>
+        <location filename="../mainwindow.cpp" line="525"/>
         <source>&amp;Video</source>
         <translation>&amp;Video</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="142"/>
         <source>&amp;Anisotropic filtering</source>
-        <translation>&amp;Filtrage anisotrope</translation>
+        <translation type="obsolete">&amp;Filtrage anisotrope</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="152"/>
         <source>&amp;Zoom</source>
-        <translation>&amp;Zoom</translation>
+        <translation type="obsolete">&amp;Zoom</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="176"/>
         <source>Co&amp;ntrols</source>
-        <translation>Co&amp;ntrôles</translation>
+        <translation type="obsolete">Co&amp;ntrôles</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="183"/>
+        <location filename="../mainwindow.cpp" line="515"/>
         <source>&amp;Core</source>
         <translation>&amp;Emulation</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="206"/>
+        <location filename="../mainwindow.cpp" line="522"/>
+        <source>&amp;Ignore Illegal reads/writes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="620"/>
         <source>&amp;Help</source>
         <translation>&amp;Aide</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="221"/>
+        <location filename="../mainwindow.cpp" line="461"/>
         <source>&amp;Open...</source>
-        <translation>&amp;Ouvrir...</translation>
+        <translation type="unfinished">&amp;Ouvrir...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="226"/>
+        <location filename="../mainwindow.cpp" line="463"/>
         <source>&amp;Close</source>
-        <translation>&amp;Fermer</translation>
+        <translation type="unfinished">&amp;Fermer</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="231"/>
         <source>-</source>
-        <translation>-</translation>
+        <translation type="obsolete">-</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="236"/>
         <source>Quickload state</source>
-        <translation>Chargement rapide</translation>
+        <translation type="obsolete">Chargement rapide</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="239"/>
         <source>F4</source>
-        <translation>F4</translation>
+        <translation type="obsolete">F4</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="244"/>
         <source>Quicksave state</source>
-        <translation>Sauvegarde rapide</translation>
+        <translation type="obsolete">Sauvegarde rapide</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="247"/>
         <source>F2</source>
-        <translation>F2</translation>
+        <translation type="obsolete">F2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="252"/>
+        <location filename="../mainwindow.cpp" line="470"/>
         <source>&amp;Load State File...</source>
-        <translation>&amp;Charger...</translation>
+        <translation type="unfinished">&amp;Charger...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="257"/>
+        <location filename="../mainwindow.cpp" line="472"/>
         <source>&amp;Save State File...</source>
-        <translation>&amp;Sauvegarder...</translation>
+        <translation type="unfinished">&amp;Sauvegarder...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="262"/>
+        <location filename="../mainwindow.cpp" line="475"/>
         <source>E&amp;xit</source>
-        <translation>&amp;Quitter</translation>
+        <translation type="unfinished">&amp;Quitter</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="267"/>
+        <location filename="../mainwindow.cpp" line="479"/>
         <source>&amp;Run</source>
-        <translation>&amp;Démarrer</translation>
+        <translation type="unfinished">&amp;Démarrer</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="270"/>
         <source>F7</source>
-        <translation>F7</translation>
+        <translation type="obsolete">F7</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="275"/>
+        <location filename="../mainwindow.cpp" line="481"/>
         <source>&amp;Pause</source>
-        <translation>&amp;Pause</translation>
+        <translation type="unfinished">&amp;Pause</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="278"/>
         <source>F8</source>
-        <translation>F8</translation>
+        <translation type="obsolete">F8</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="283"/>
         <source>R&amp;eset</source>
-        <translation>R&amp;eset</translation>
+        <translation type="obsolete">R&amp;eset</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="291"/>
         <source>&amp;Interpreter</source>
-        <translation>&amp;Interpreteur</translation>
+        <translation type="obsolete">&amp;Interpreteur</translation>
     </message>
     <message>
         <source>&amp;Slightly Faster Interpreter</source>
@@ -935,385 +821,310 @@
         <translation type="obsolete">&amp;Interpreteur un peu plus rapide</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="299"/>
         <source>&amp;Dynarec</source>
-        <translation>&amp;DRC</translation>
+        <translation type="obsolete">&amp;DRC</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="307"/>
-        <source>Load &amp;Map File...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="315"/>
-        <source>&amp;Save Map File...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="323"/>
-        <source>&amp;Reset Symbol Table</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="328"/>
-        <source>&amp;Disassembly</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="331"/>
         <source>Ctrl+D</source>
-        <translation>Ctrl+D</translation>
+        <translation type="obsolete">Ctrl+D</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="339"/>
         <source>&amp;Log Console</source>
-        <translation>&amp;Journal d&apos;événements</translation>
+        <translation type="obsolete">&amp;Journal d&apos;événements</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="342"/>
         <source>Ctrl+L</source>
-        <translation>Ctrl+L</translation>
+        <translation type="obsolete">Ctrl+L</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="347"/>
-        <source>Memory &amp;View...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="350"/>
         <source>Ctrl+M</source>
-        <translation>Ctrl+M</translation>
+        <translation type="obsolete">Ctrl+M</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="355"/>
         <source>&amp;Keyboard</source>
-        <translation>&amp;Clavier</translation>
+        <translation type="obsolete">&amp;Clavier</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="360"/>
         <source>&amp;Toggle fullscreen</source>
-        <translation>&amp;Plein écran</translation>
+        <translation type="obsolete">&amp;Plein écran</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="417"/>
         <source>Show &amp;debug statistics</source>
-        <translation>Afficher &amp;les statistiques de débogage</translation>
+        <translation type="obsolete">Afficher &amp;les statistiques de débogage</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="477"/>
         <source>I&amp;gnore illegal reads/writes</source>
-        <translation>I&amp;gnorer les écritures/lectures illégales</translation>
+        <translation type="obsolete">I&amp;gnorer les écritures/lectures illégales</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="596"/>
         <source>&amp;Gamepad</source>
-        <translation>&amp;Pad</translation>
+        <translation type="obsolete">&amp;Pad</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="601"/>
         <source>Run on loa&amp;d</source>
-        <translation>Lancer au cha&amp;rgement</translation>
+        <translation type="obsolete">Lancer au cha&amp;rgement</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="680"/>
         <source>Show &amp;FPS counter</source>
-        <translation>Afficher &amp;les FPS</translation>
+        <translation type="obsolete">Afficher &amp;les FPS</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="688"/>
         <source>S&amp;tretch to display</source>
-        <translation>A&amp;dapter à l&apos;écran</translation>
+        <translation type="obsolete">A&amp;dapter à l&apos;écran</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="696"/>
         <source>&amp;Sound emulation</source>
-        <translation>&amp;Son</translation>
+        <translation type="obsolete">&amp;Son</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="363"/>
         <source>F11</source>
-        <translation>F11</translation>
+        <translation type="obsolete">F11</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="371"/>
+        <location filename="../mainwindow.cpp" line="532"/>
         <source>&amp;Buffered Rendering</source>
-        <translation>&amp;Rendu Tampon</translation>
+        <translation type="unfinished">&amp;Rendu Tampon</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="374"/>
         <source>F5</source>
-        <translation>F5</translation>
+        <translation type="obsolete">F5</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="382"/>
+        <location filename="../mainwindow.cpp" line="547"/>
         <source>&amp;Hardware Transform</source>
-        <translation>&amp;Hardware Transform</translation>
+        <translation type="unfinished">&amp;Hardware Transform</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="385"/>
         <source>F6</source>
-        <translation>F6</translation>
+        <translation type="obsolete">F6</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="393"/>
+        <location filename="../mainwindow.cpp" line="534"/>
         <source>&amp;Linear Filtering</source>
-        <translation>&amp;Filtrage Linéaire</translation>
+        <translation type="unfinished">&amp;Filtrage Linéaire</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="401"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>&amp;Rendu en fil de fer (expérimental)</translation>
+        <translation type="obsolete">&amp;Rendu en fil de fer (expérimental)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="409"/>
-        <source>&amp;Display Raw Framebuffer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="425"/>
         <source>Screen &amp;1x</source>
-        <translation>&amp;1x</translation>
+        <translation type="obsolete">&amp;1x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="428"/>
         <source>Ctrl+1</source>
-        <translation>Ctrl+1</translation>
+        <translation type="obsolete">Ctrl+1</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="436"/>
         <source>Screen &amp;2x</source>
-        <translation>&amp;2x</translation>
+        <translation type="obsolete">&amp;2x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="439"/>
         <source>Ctrl+2</source>
-        <translation>Ctrl+2</translation>
+        <translation type="obsolete">Ctrl+2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="447"/>
         <source>Screen &amp;3x</source>
-        <translation>&amp;3x</translation>
+        <translation type="obsolete">&amp;3x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="450"/>
         <source>Ctrl+3</source>
-        <translation>Ctrl+3</translation>
+        <translation type="obsolete">Ctrl+3</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="458"/>
         <source>Screen &amp;4x</source>
-        <translation>&amp;4x</translation>
+        <translation type="obsolete">&amp;4x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="461"/>
         <source>Ctrl+4</source>
-        <translation>Ctrl+4</translation>
+        <translation type="obsolete">Ctrl+4</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="469"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>&amp;Mémoire Rapide (DRC, instable)</translation>
+        <translation type="obsolete">&amp;Mémoire Rapide (DRC, instable)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="482"/>
         <source>&amp;Go to http://www.ppsspp.org/</source>
-        <translation>&amp;Aller à http://www.ppsspp.org/</translation>
+        <translation type="obsolete">&amp;Aller à http://www.ppsspp.org/</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="487"/>
+        <location filename="../mainwindow.cpp" line="622"/>
         <source>&amp;About PPSSPP...</source>
-        <translation>&amp;A propos de PPSSPP...</translation>
+        <translation type="unfinished">&amp;A propos de PPSSPP...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="495"/>
         <source>&amp;Use VBO</source>
-        <translation>&amp;Utiliser les VBO</translation>
+        <translation type="obsolete">&amp;Utiliser les VBO</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="503"/>
-        <location filename="../mainwindow.ui" line="535"/>
-        <location filename="../mainwindow.ui" line="567"/>
-        <source>Debug</source>
-        <translation>Débogage</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="511"/>
-        <location filename="../mainwindow.ui" line="543"/>
-        <location filename="../mainwindow.ui" line="575"/>
-        <source>Warning</source>
-        <translation>Avertissement</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="519"/>
-        <location filename="../mainwindow.ui" line="559"/>
-        <location filename="../mainwindow.ui" line="591"/>
-        <source>Error</source>
-        <translation>Erreur</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="527"/>
-        <location filename="../mainwindow.ui" line="551"/>
-        <location filename="../mainwindow.ui" line="583"/>
-        <source>Info</source>
-        <translation>Informations</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="606"/>
-        <source>D&amp;ump next frame to log</source>
+        <location filename="../mainwindow.cpp" line="483"/>
+        <source>Re&amp;set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="614"/>
+        <location filename="../mainwindow.cpp" line="486"/>
+        <source>Run on &amp;load</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="490"/>
+        <source>De&amp;bug</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="491"/>
+        <source>Load Map File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="493"/>
+        <source>Save Map File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="495"/>
+        <source>Reset Symbol Table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="498"/>
+        <source>Dump next frame to log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="501"/>
+        <source>Disassembly</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="503"/>
+        <source>Display List...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="505"/>
+        <source>Log Console</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="507"/>
+        <source>Memory View</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="509"/>
+        <source>Memory View Texture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="516"/>
+        <source>&amp;CPU Dynarec</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="518"/>
+        <source>&amp;Vertex Decoder Dynarec</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="520"/>
+        <source>Fast &amp;Memory (unstable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="527"/>
+        <source>&amp;Anisotropic Filtering</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="538"/>
+        <source>&amp;Screen Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="544"/>
+        <source>&amp;Stretch to Display</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="549"/>
         <source>&amp;Vertex Cache</source>
-        <translation>&amp;Cache du Vertex</translation>
+        <translation type="unfinished">&amp;Cache du Vertex</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="619"/>
-        <source>Memory View Texture...</source>
+        <location filename="../mainwindow.cpp" line="551"/>
+        <source>&amp;Frameskip</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="624"/>
-        <source>DisplayList...</source>
+        <location filename="../mainwindow.cpp" line="553"/>
+        <source>&amp;Audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="632"/>
+        <location filename="../mainwindow.cpp" line="556"/>
+        <source>&amp;Fullscreen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="558"/>
+        <source>&amp;Show debug statistics</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="560"/>
+        <source>&amp;Show FPS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="564"/>
+        <source>Lo&amp;g levels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Debug</source>
+        <translation type="obsolete">Débogage</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation type="obsolete">Avertissement</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="obsolete">Erreur</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation type="obsolete">Informations</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="621"/>
+        <source>&amp;Go to official website</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Simple 2xAA</source>
-        <translation>2x AA</translation>
+        <translation type="obsolete">2x AA</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="640"/>
         <source>Off</source>
-        <translation>Off</translation>
+        <translation type="obsolete">Off</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="648"/>
         <source>2x</source>
-        <translation>2x</translation>
+        <translation type="obsolete">2x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="656"/>
         <source>4x</source>
-        <translation>4x</translation>
+        <translation type="obsolete">4x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="664"/>
         <source>8x</source>
-        <translation>8x</translation>
+        <translation type="obsolete">8x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="672"/>
         <source>16x</source>
-        <translation>16x</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="704"/>
-        <source>Frameskip</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="571"/>
-        <source>Gamepad</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="571"/>
-        <source>You need to compile with SDL to have Gamepad support.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="923"/>
-        <source>No translations</source>
-        <translation>Pas de traductions</translation>
-    </message>
-</context>
-<context>
-    <name>gamepadMapping</name>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="19"/>
-        <source>Cross</source>
-        <translation>Croix</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="20"/>
-        <source>Circle</source>
-        <translation>Rond</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="21"/>
-        <source>Square</source>
-        <translation>Carré</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="22"/>
-        <source>Triangle</source>
-        <translation>Triangle</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="23"/>
-        <source>Left Trigger</source>
-        <translation>Boutton L</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="24"/>
-        <source>Right Trigger</source>
-        <translation>Boutton R</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="25"/>
-        <source>Start</source>
-        <translation>Start</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="26"/>
-        <source>Select</source>
-        <translation>Select</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="27"/>
-        <source>Up</source>
-        <translation>Haut</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="28"/>
-        <source>Down</source>
-        <translation>Bas</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="29"/>
-        <source>Left</source>
-        <translation>Gauche</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="30"/>
-        <source>Right</source>
-        <translation>Droite</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="32"/>
-        <source>Home</source>
-        <translation>Accueil</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="35"/>
-        <source>Stick left</source>
-        <translation>Stick : Gauche</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="36"/>
-        <source>Stick right</source>
-        <translation>Stick : Droite</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="37"/>
-        <source>Stick up</source>
-        <translation>Stick : Haut</translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="38"/>
-        <source>Stick bottom</source>
-        <translation>Stick : Bas</translation>
+        <translation type="obsolete">16x</translation>
     </message>
 </context>
 </TS>

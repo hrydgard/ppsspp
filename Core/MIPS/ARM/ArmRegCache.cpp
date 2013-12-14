@@ -15,9 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ArmRegCache.h"
-#include "ArmEmitter.h"
-#include "ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/Reporting.h"
+#include "Common/ArmEmitter.h"
 
 #if defined(MAEMO)
 #include "stddef.h"
@@ -89,7 +91,7 @@ ARMReg ArmRegCache::MapRegAsPointer(MIPSGPReg mipsReg) {  // read-only, non-dirt
 	// Convert to a pointer by adding the base and clearing off the top bits.
 	// If SP, we can probably avoid the top bit clear, let's play with that later.
 	emit_->BIC(armReg, armReg, Operand2(0xC0, 4));    // &= 0x3FFFFFFF
-	emit_->ADD(armReg, R11, armReg);
+	emit_->ADD(armReg, MEMBASEREG, armReg);
 	ar[armReg].isDirty = false;
 	ar[armReg].mipsReg = mipsReg;
 	mr[mipsReg].loc = ML_ARMREG_AS_PTR;
@@ -185,6 +187,38 @@ void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	mr[mipsReg].reg = reg;
 }
 
+ARMReg ArmRegCache::FindBestToSpill(bool unusedOnly) {
+	int allocCount;
+	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
+
+	static const int UNUSED_LOOKAHEAD_OPS = 3;
+
+	for (int i = 0; i < allocCount; i++) {
+		ARMReg reg = allocOrder[i];
+		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
+			continue;
+
+		if (unusedOnly) {
+			bool unused = true;
+			for (int ahead = 1; ahead <= UNUSED_LOOKAHEAD_OPS; ++ahead) {
+				MIPSOpcode laterOp = Memory::Read_Instruction(compilerPC_ + ahead * sizeof(u32));
+				// If read, it might need to be mapped again.  If output, it might not need to be stored.
+				if (MIPSAnalyst::ReadsFromGPReg(laterOp, ar[reg].mipsReg) || MIPSAnalyst::GetOutGPReg(laterOp) == ar[reg].mipsReg) {
+					unused = false;
+				}
+			}
+
+			if (!unused) {
+				continue;
+			}
+		}
+
+		return reg;
+	}
+
+	return INVALID_REG;
+}
+
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
@@ -194,7 +228,7 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		ARMReg armReg = mr[mipsReg].reg;
 		if (ar[armReg].mipsReg != mipsReg) {
-			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG_REPORT(JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			// Mapping dirty means the old imm value is invalid.
@@ -250,13 +284,9 @@ allocate:
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
 	// TODO: Spill dirty regs first? or opposite?
-	ARMReg bestToSpill = INVALID_REG;
-	for (int i = 0; i < allocCount; i++) {
-		ARMReg reg = allocOrder[i];
-		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
-			continue;
-		bestToSpill = reg;
-		break;
+	ARMReg bestToSpill = FindBestToSpill(true);
+	if (bestToSpill == INVALID_REG) {
+		bestToSpill = FindBestToSpill(false);
 	}
 
 	if (bestToSpill != INVALID_REG) {
@@ -266,7 +296,7 @@ allocate:
 	}
 
 	// Uh oh, we have all them spilllocked....
-	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
 
@@ -318,17 +348,24 @@ void ArmRegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, 
 void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
 		// Nothing to do, reg not mapped.
+		if (ar[r].isDirty) {
+			ERROR_LOG_REPORT(JIT, "Dirty but no mipsreg?");
+		}
 		return;
 	}
 	if (ar[r].mipsReg != MIPS_REG_INVALID) {
-		if (ar[r].isDirty && (mr[ar[r].mipsReg].loc == ML_ARMREG || mr[ar[r].mipsReg].loc == ML_ARMREG_IMM))
-			emit_->STR(r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
-		// IMMs won't be in an ARM reg.
-		mr[ar[r].mipsReg].loc = ML_MEM;
-		mr[ar[r].mipsReg].reg = INVALID_REG;
-		mr[ar[r].mipsReg].imm = 0;
-	} else {
-		ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		auto &mreg = mr[ar[r].mipsReg];
+		if (mreg.loc == ML_ARMREG_IMM) {
+			// We know its immedate value, no need to STR now.
+			mreg.loc = ML_IMM;
+			mreg.reg = INVALID_REG;
+		} else {
+			if (ar[r].isDirty && mreg.loc == ML_ARMREG)
+				emit_->STR(r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+			mreg.loc = ML_MEM;
+			mreg.reg = INVALID_REG;
+			mreg.imm = 0;
+		}
 	}
 	ar[r].isDirty = false;
 	ar[r].mipsReg = MIPS_REG_INVALID;
@@ -359,7 +396,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_ARMREG:
 	case ML_ARMREG_IMM:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
+			ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
@@ -373,7 +410,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_ARMREG_AS_PTR:
 		// Never dirty.
 		if (ar[mr[r].reg].isDirty) {
-			ERROR_LOG(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
+			ERROR_LOG_REPORT(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
 		}
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		break;
@@ -383,7 +420,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 		break;
 
 	default:
-		ERROR_LOG(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
 	mr[r].loc = ML_MEM;
@@ -488,7 +525,7 @@ void ArmRegCache::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		if (ar[i].mipsReg != MIPS_REG_INVALID) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+			ERROR_LOG_REPORT(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
 	}
 }
@@ -519,7 +556,7 @@ bool ArmRegCache::IsImm(MIPSGPReg r) const {
 u32 ArmRegCache::GetImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO) return 0;
 	if (mr[r].loc != ML_IMM && mr[r].loc != ML_ARMREG_IMM) {
-		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
+		ERROR_LOG_REPORT(JIT, "Trying to get imm from non-imm register %i", r);
 	}
 	return mr[r].imm;
 }
@@ -532,8 +569,12 @@ int ArmRegCache::GetMipsRegOffset(MIPSGPReg r) {
 		return offsetof(MIPSState, hi);
 	case MIPS_REG_LO:
 		return offsetof(MIPSState, lo);
+	case MIPS_REG_FPCOND:
+		return offsetof(MIPSState, fpcond);
+	case MIPS_REG_VFPUCC:
+		return offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]);
 	default:
-		ERROR_LOG(JIT, "bad mips register %i", r);
+		ERROR_LOG_REPORT(JIT, "bad mips register %i", r);
 		return 0;  // or what?
 	}
 }
@@ -559,7 +600,7 @@ ARMReg ArmRegCache::R(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
-		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -568,7 +609,7 @@ ARMReg ArmRegCache::RPtr(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
-		ERROR_LOG(JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }

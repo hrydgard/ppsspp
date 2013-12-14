@@ -21,6 +21,10 @@
 
 struct JitBlock;
 
+#ifdef USING_QT_UI
+#undef emit
+#endif
+
 #if defined(PPC) 
 #include "../PPC/PpcJit.h"
 #elif defined(ARM)

@@ -1117,4 +1117,8 @@ namespace MIPSComp
 	void Jit::Comp_Vsgn(MIPSOpcode op) {
 		DISABLE;
 	}
+	void Jit::Comp_Vocp(MIPSOpcode op) {
+		DISABLE;
+	}
 }
+

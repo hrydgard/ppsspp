@@ -40,8 +40,6 @@ public:
 	virtual void UpdateScreen();
 	void SetDebugMode(bool mode);
 
-	void AddSymbol(std::string name, u32 addr, u32 size, int type);
-
 	bool InitGL(std::string *error_message);
 	void PollControllers(InputState &input_state);
 	void ShutdownGL();
@@ -69,8 +67,6 @@ public:
 
 	virtual void GoFullscreen(bool);
 
-	bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength);
-	bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue);
 	std::shared_ptr<KeyboardDevice> keyboard;
 
 private:

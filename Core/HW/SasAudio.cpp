@@ -387,7 +387,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	case VOICETYPE_PCM:
 		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
 			break;
-	default: 
+	default:
 		// Load resample history (so we can use a wide filter)
 		resampleBuffer[0] = voice.resampleHist[0];
 		resampleBuffer[1] = voice.resampleHist[1];
@@ -664,8 +664,7 @@ static const short expCurve[] = {
 	0x7000
 };
 
-static int durationFromRate(int rate)
-{
+static int durationFromRate(int rate) {
 	if (rate == 0) {
 		return PSP_SAS_ENVELOPE_FREQ_MAX;
 	} else {
@@ -686,16 +685,16 @@ static int durationFromRate(int rate)
 
 const short expCurveReference = 0x7000;
 
+const float expCurveToEnvelopeHeight = (float)PSP_SAS_ENVELOPE_HEIGHT_MAX / (float)expCurveReference;
+
 // This needs a rewrite / rethink. Doing all this per sample is insane.
-static int getExpCurveAt(int index, int duration) {
-	const short curveLength = sizeof(expCurve) / sizeof(short);
+static float computeExpCurveAt(int index, float invDuration) {
+	const int curveLength = ARRAY_SIZE(expCurve);
 
-	if (duration == 0) {
-		// Avoid division by zero, and thus undefined behaviour in conversion to int.
-		return 0;
-	}
+	if (invDuration == 0.0f)
+		return 0.0f;
 
-	float curveIndex = (index * curveLength) / (float) duration;
+	float curveIndex = (index * curveLength) * invDuration;
 	int curveIndex1 = (int) curveIndex;
 	int curveIndex2 = curveIndex1 + 1;
 	float curveIndexFraction = curveIndex - curveIndex1;
@@ -706,12 +705,11 @@ static int getExpCurveAt(int index, int duration) {
 		return expCurve[curveLength - 1];
 	}
 
-	float sample = expCurve[curveIndex1] * (1.f - curveIndexFraction) + expCurve[curveIndex2] * curveIndexFraction;
-	return (short)(sample);
+	return expCurve[curveIndex1] * (1.f - curveIndexFraction) + expCurve[curveIndex2] * curveIndexFraction;
 }
 
 ADSREnvelope::ADSREnvelope()
-	: 	attackRate(0),
+	: attackRate(0),
 		decayRate(0),
 		sustainRate(0),
 		releaseRate(0),
@@ -722,45 +720,44 @@ ADSREnvelope::ADSREnvelope()
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		state_(STATE_OFF),
 		steps_(0),
-		height_(0) {
+		height_(0),
+		type_(0),
+		rate_(0),
+		invDuration_(0) {
 }
 
-void ADSREnvelope::WalkCurve(int rate, int type) {
-	short expFactor;
-	int duration;
+void ADSREnvelope::WalkCurve(int type) {
+	float expFactor;
 	switch (type) {
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE:
-		height_ += rate;
+		height_ += rate_;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE:
-		height_ -= rate;
+		height_ -= rate_;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT:
 		if (height_ < (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX * 3 / 4) {
-			height_ += rate;
+			height_ += rate_;
 		} else {
-			height_ += rate / 4;
+			height_ += rate_ / 4;
 		}
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
-		// NOTICE_LOG(SAS, "UNIMPL EXP DECR");
-		duration = durationFromRate(rate);
-		expFactor = getExpCurveAt(steps_, duration);
-		height_ = (s64)expFactor * PSP_SAS_ENVELOPE_HEIGHT_MAX / expCurveReference;
+		expFactor = computeExpCurveAt(steps_, invDuration_);
+		height_ = (s64)(expFactor * expCurveToEnvelopeHeight);
 		height_ = PSP_SAS_ENVELOPE_HEIGHT_MAX - height_;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
-		duration = durationFromRate(rate);
-		expFactor = getExpCurveAt(steps_, duration);
-		height_ = (s64)expFactor * PSP_SAS_ENVELOPE_HEIGHT_MAX / expCurveReference;
+		expFactor = computeExpCurveAt(steps_, invDuration_);
+		height_ = (s64)(expFactor * expCurveToEnvelopeHeight);
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_DIRECT:
-		height_ = rate;  // Simple :)
+		height_ = rate_;  // Simple :)
 		break;
 	}
 }
@@ -768,29 +765,65 @@ void ADSREnvelope::WalkCurve(int rate, int type) {
 void ADSREnvelope::SetState(ADSRState state) {
 	steps_ = 0;
 	state_ = state;
+	switch (state) {
+	case STATE_ATTACK:
+		rate_ = attackRate;
+		type_ = attackType;
+		break;
+	case STATE_DECAY:
+		rate_ = decayRate;
+		type_ = decayType;
+		break;
+	case STATE_SUSTAIN:
+		rate_ = sustainRate;
+		type_ = sustainType;
+		break;
+	case STATE_RELEASE:
+		rate_ = releaseRate;
+		type_ = releaseType;
+		break;
+	case STATE_OFF:
+		return;
+	}
+
+	switch (type_) {
+	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
+	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
+		{
+			int duration = durationFromRate(rate_);
+			if (duration == 0) {
+				invDuration_ = 0.0f;
+			} else {
+				invDuration_ = 1.0f / (float)duration;
+			}
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 void ADSREnvelope::Step() {
 	switch (state_) {
 	case STATE_ATTACK:
-		WalkCurve(attackRate, attackType);
+		WalkCurve(type_);
 		if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < 0)
 			SetState(STATE_DECAY);
 		break;
 	case STATE_DECAY:
-		WalkCurve(decayRate, decayType);
+		WalkCurve(type_);
 		if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < sustainLevel)
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
-		WalkCurve(sustainRate, sustainType);
+		WalkCurve(type_);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
 		}
 		break;
 	case STATE_RELEASE:
-		WalkCurve(releaseRate, releaseType);
+		WalkCurve(type_);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_OFF);
@@ -810,13 +843,16 @@ void ADSREnvelope::KeyOn() {
 
 void ADSREnvelope::KeyOff() {
 	SetState(STATE_RELEASE);
+	// Does this really make sense? I don't think so, the release-decay should happen
+	// from whatever level we are at, although the weirdo exponentials we have start at a fixed state :(
 	height_ = sustainLevel;
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
 	auto s = p.Section("ADSREnvelope", 1);
-	if (!s)
+	if (!s) {
 		return;
+	}
 
 	p.Do(attackRate);
 	p.Do(decayRate);
@@ -830,4 +866,9 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 	p.Do(state_);
 	p.Do(steps_);
 	p.Do(height_);
+
+	// If loading, recompute the per-state variables
+	if (p.GetMode() == PointerWrap::MODE_READ) {
+		SetState(state_);
+	}
 }

@@ -40,6 +40,9 @@ enum {
 	VIRTKEY_AXIS_RIGHT_Y_MIN = 0x10009,
 	VIRTKEY_AXIS_RIGHT_X_MAX = 0x1000a,
 	VIRTKEY_AXIS_RIGHT_Y_MAX = 0x1000b,
+	VIRTKEY_REWIND = 0x1000c,
+	VIRTKEY_SAVE_STATE = 0x1000d,
+	VIRTKEY_LOAD_STATE = 0x1000e,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -95,9 +98,9 @@ typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 // KeyMap
 // A translation layer for key assignment. Provides
 // integration with Core's config state.
-// 
+//
 // Does not handle input state managment.
-// 
+//
 // Platform ports should map their platform's keys to KeyMap's keys (NKCODE_*).
 //
 // Then have KeyMap transform those into psp buttons.
@@ -113,7 +116,7 @@ namespace KeyMap {
 		std::string name;
 	};
 
-	// Use if you need to display the textual name 
+	// Use if you need to display the textual name
 	std::string GetKeyName(int keyCode);
 	std::string GetKeyOrAxisName(int keyCode);
 	std::string GetAxisName(int axisId);
@@ -124,10 +127,7 @@ namespace KeyMap {
 	// Use if to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
 	// your platform's keys to KeyMap keys.
-	//
-	// Returns KEYMAP_ERROR_UNKNOWN_KEY
-	// for any unmapped key
-	int KeyToPspButton(int deviceId, int key);
+	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
 	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys);
 
 	int TranslateKeyCodeToAxis(int keyCode, int &direction);
@@ -141,7 +141,7 @@ namespace KeyMap {
 	// Direction is negative or positive.
 	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
 
-	int AxisToPspButton(int deviceId, int axisId, int direction);
+	bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
 

@@ -45,17 +45,19 @@ public:
 
 	void use(u32 vertType, LinkedShader *previous);
 	void stop();
-	void updateUniforms(u32 vertType);
+	void UpdateUniforms(u32 vertType);
 
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
 
 	uint32_t program;
+	u32 availableUniforms;
 	u32 dirtyUniforms;
 
 	// Present attributes in the shader.
 	int attrMask;  // 1 << ATTR_ ... or-ed together.
 
+	int u_stencilReplaceValue;
 	int u_tex;
 	int u_proj;
 	int u_proj_through;
@@ -104,7 +106,10 @@ enum
 	DIRTY_FOGCOEF    = (1 << 3),
 	DIRTY_TEXENV		 = (1 << 4),
 	DIRTY_ALPHACOLORREF	 = (1 << 5),
-	DIRTY_COLORREF	 = (1 << 6),
+
+	// 1 << 6 is free! Wait, not anymore...
+	DIRTY_STENCILREPLACEVALUE = (1 << 6),
+
 	DIRTY_COLORMASK	 = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
@@ -116,7 +121,9 @@ enum
 	DIRTY_MATEMISSIVE = (1 << 14),
 	DIRTY_AMBIENT = (1 << 15),
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
-	DIRTY_MATERIAL = (1 << 17),  // let's set all 4 together (emissive ambient diffuse specular). We hide specular coef in specular.a
+
+	// 1 << 17 is free!
+
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 
 	DIRTY_WORLDMATRIX = (1 << 21),

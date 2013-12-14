@@ -35,4 +35,7 @@ void __DisplayListenVblank(VblankCallback callback);
 
 void __DisplayGetDebugStats(char stats[2048]);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
+void __DisplayGetVPS(float *out_vps);
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
+int __DisplayGetVCount();
+int __DisplayGetFlipCount();

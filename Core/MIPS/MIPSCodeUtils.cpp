@@ -136,4 +136,8 @@ namespace MIPSCodeUtils
 	bool IsVFPUBranch(MIPSOpcode op) {
 		return (MIPSGetInfo(op) & (IS_VFPU | IS_CONDBRANCH)) == (IS_VFPU | IS_CONDBRANCH);
 	}
+
+	bool IsBranch(MIPSOpcode op) {
+		return (MIPSGetInfo(op) & IS_CONDBRANCH) == IS_CONDBRANCH;
+	}
 }

@@ -83,7 +83,11 @@ void DrawBackground(float alpha) {
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0.1f,0.2f,0.43f,1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	ui_draw2d.DrawImageStretch(I_BG, 0, 0, dp_xres, dp_yres);
+	int img = I_BG;
+#ifdef GOLD
+	img = I_BG_GOLD;
+#endif
+	ui_draw2d.DrawImageStretch(img, 0, 0, dp_xres, dp_yres);
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i];
@@ -192,13 +196,14 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {
+	I18NCategory *ps = GetI18NCategory("PostShaders");
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sPostShaderName)
 			selected = i;
-		items.push_back(shaders_[i].name);
+		items.push_back(ps->T(shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 }
@@ -230,7 +235,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		if (tempLangs[i].name.find("README") != std::string::npos) {
 			continue;
 		}
-		
+
 #ifndef _WIN32
 		// ar_AE only works on Windows.
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
@@ -268,7 +273,6 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
 	std::string oldLang = g_Config.sLanguageIni;
-	
 	std::string iniFile = langs_[listView_->GetSelected()].name;
 
 	size_t dot = iniFile.find('.');
@@ -280,7 +284,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		return;
 
 	g_Config.sLanguageIni = code;
-	
+
 	if (i18nrepo.LoadIni(g_Config.sLanguageIni)) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {
@@ -383,8 +387,11 @@ void CreditsScreen::CreateViews() {
 		root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 		root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
+#ifdef ANDROID
+	root_->Add(new Button(c->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
+#endif
 #ifdef GOLD
-	root_->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+	root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 #else
 	root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 #endif
@@ -411,6 +418,12 @@ UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn CreditsScreen::OnChineseForum(UI::EventParams &e) {
 	LaunchBrowser("http://tieba.baidu.com/f?ie=utf-8&kw=ppsspp");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+	System_SendMessage("sharetext", c->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: http://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 
@@ -478,6 +491,9 @@ void CreditsScreen::render() {
 		"kaienfr",
 		"shenweip",
 		"Danyal Zia",
+		"Igor Calabria",
+		"Coldbird",
+		"Kyhel",
 		"",
 		"",
 		c->T("specialthanks", "Special thanks to:"),

@@ -68,6 +68,7 @@ inline int GetMtx(int matrixReg) {
 VectorSize GetVecSize(MIPSOpcode op);
 MatrixSize GetMtxSize(MIPSOpcode op);
 VectorSize GetHalfVectorSize(VectorSize sz);
+VectorSize GetDoubleVectorSize(VectorSize sz);
 int GetNumVectorElements(VectorSize sz);
 int GetMatrixSide(MatrixSize sz);
 const char *GetVectorNotation(int reg, VectorSize size);

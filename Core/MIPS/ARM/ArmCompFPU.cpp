@@ -117,7 +117,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 				SetCCAndR0ForSafeAddress(rs, offset, R1);
 				doCheck = true;
 			}
-			ADD(R0, R0, R11);
+			ADD(R0, R0, MEMBASEREG);
 		}
 #ifdef __ARM_ARCH_7S__
 		FixupBranch skip;
@@ -161,7 +161,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 				SetCCAndR0ForSafeAddress(rs, offset, R1);
 				doCheck = true;
 			}
-			ADD(R0, R0, R11);
+			ADD(R0, R0, MEMBASEREG);
 		}
 #ifdef __ARM_ARCH_7S__
 		FixupBranch skip2;
@@ -192,13 +192,13 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0) {  // f, sf (signalling false)
-		MOVI2R(R0, 0);
-		STR(R0, CTXREG, offsetof(MIPSState, fpcond));
+		gpr.SetImm(MIPS_REG_FPCOND, 0);
 		return;
 	}
 
 	int fs = _FS;
 	int ft = _FT;
+	gpr.MapReg(MIPS_REG_FPCOND, MAP_DIRTY | MAP_NOINIT);
 	fpr.MapInIn(fs, ft);
 	VCMP(fpr.R(fs), fpr.R(ft));
 	VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
@@ -206,62 +206,58 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	{
 	case 1:      // un,  ngle (unordered)
 		SetCC(CC_VS);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_VC);
 		break;
 	case 2:      // eq,  seq (equal, ordered)
 		SetCC(CC_EQ);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_NEQ);
 		break;
 	case 3:      // ueq, ngl (equal, unordered)
 		SetCC(CC_EQ);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_NEQ);
-		MOVI2R(R0, 0);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 0);
 		SetCC(CC_VS);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_AL);
-		STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 		return;
 	case 4:      // olt, lt (less than, ordered)
 		SetCC(CC_LO);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_HS);
 		break;
 	case 5:      // ult, nge (less than, unordered)
 		SetCC(CC_LT);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_GE);
 		break;
 	case 6:      // ole, le (less equal, ordered)
 		SetCC(CC_LS);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_HI);
 		break;
 	case 7:      // ule, ngt (less equal, unordered)
 		SetCC(CC_LE);
-		MOVI2R(R0, 1);
+		MOVI2R(gpr.R(MIPS_REG_FPCOND), 1);
 		SetCC(CC_GT);
 		break;
 	default:
 		Comp_Generic(op);
 		return;
 	}
-	MOVI2R(R0, 0);
+	MOVI2R(gpr.R(MIPS_REG_FPCOND), 0);
 	SetCC(CC_AL);
-	STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 }
 
-void Jit::Comp_FPU2op(MIPSOpcode op)
-{
+void Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
 	int fd = _FD;
 
-	switch (op & 0x3f) 
-	{
+	switch (op & 0x3f) {
 	case 4:	//F(fd)	   = sqrtf(F(fs));            break; //sqrt
 		fpr.MapDirtyIn(fd, fs);
 		VSQRT(fpr.R(fd), fpr.R(fs));
@@ -343,23 +339,21 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 2: //cfc1
-		if (fs == 31)
-		{
-			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-			LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
+		if (fs == 31) {
+			gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
 			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-			if (cpu_info.bArmV7) {
-				BFI(gpr.R(rt), R0, 23, 1);
-			} else {
-				AND(R0, R0, Operand2(1)); // Just in case
-				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
-				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
-			}
-		}
-		else if (fs == 0)
-		{
-			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr0));
+#ifdef HAVE_ARMV7
+			BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
+#else
+			AND(R0, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
+			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
+			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+#endif
+		} else if (fs == 0) {
+			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		} else {
+			// Unsupported regs are always 0.
+			gpr.SetImm(rt, 0);
 		}
 		return;
 
@@ -372,7 +366,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	case 6: //ctc1
 		if (fs == 31)
 		{
-			gpr.MapReg(rt, 0);
+			gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
 			// Hardware rounding method.
 			// Left here in case it is faster than conditional method.
 			/*
@@ -391,14 +385,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			VMSR(R1);
 			*/
 			// Update MIPS state
+			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-			if (cpu_info.bArmV7) {
-				UBFX(R0, gpr.R(rt), 23, 1);
-			} else {
-				MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
-				AND(R0, R0, Operand2(1));
-			}
-			STR(R0, CTXREG, offsetof(MIPSState, fpcond));
+#ifdef HAVE_ARMV7
+			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+#else
+			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
+			AND(gpr.R(MIPS_REG_FPCOND), R0, Operand2(1));
+#endif
 		}
 		return;
 	}

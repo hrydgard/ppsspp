@@ -34,7 +34,12 @@ class VertexDecoder;
 class VertexDecoderJitCache;
 
 typedef void (VertexDecoder::*StepFunction)() const;
+typedef void (VertexDecoderJitCache::*JitStepFunction)();
 
+struct JitLookup {
+	StepFunction func;
+	JitStepFunction jitFunc;
+};
 
 typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
@@ -64,6 +69,10 @@ public:
 	void Step_WeightsU16() const;
 	void Step_WeightsFloat() const;
 
+	void Step_WeightsU8Skin() const;
+	void Step_WeightsU16Skin() const;
+	void Step_WeightsFloatSkin() const;
+
 	void Step_TcU8() const;
 	void Step_TcU16() const;
 	void Step_TcFloat() const;
@@ -91,6 +100,10 @@ public:
 	void Step_NormalS16() const;
 	void Step_NormalFloat() const;
 
+	void Step_NormalS8Skin() const;
+	void Step_NormalS16Skin() const;
+	void Step_NormalFloatSkin() const;
+
 	void Step_NormalS8Morph() const;
 	void Step_NormalS16Morph() const;
 	void Step_NormalFloatMorph() const;
@@ -98,6 +111,10 @@ public:
 	void Step_PosS8() const;
 	void Step_PosS16() const;
 	void Step_PosFloat() const;
+
+	void Step_PosS8Skin() const;
+	void Step_PosS16Skin() const;
+	void Step_PosFloatSkin() const;
 
 	void Step_PosS8Morph() const;
 	void Step_PosS16Morph() const;
@@ -187,6 +204,10 @@ public:
 	void Jit_WeightsU16();
 	void Jit_WeightsFloat();
 
+	void Jit_WeightsU8Skin();
+	void Jit_WeightsU16Skin();
+	void Jit_WeightsFloatSkin();
+
 	void Jit_TcU8();
 	void Jit_TcU16();
 	void Jit_TcFloat();
@@ -210,13 +231,23 @@ public:
 	void Jit_NormalS16();
 	void Jit_NormalFloat();
 
+	void Jit_NormalS8Skin();
+	void Jit_NormalS16Skin();
+	void Jit_NormalFloatSkin();
+
 	void Jit_PosS8();
-	void Jit_PosS8Through();
 	void Jit_PosS16();
-	void Jit_PosS16Through();
 	void Jit_PosFloat();
+	void Jit_PosS8Through();
+	void Jit_PosS16Through();
+
+	void Jit_PosS8Skin();
+	void Jit_PosS16Skin();
+	void Jit_PosFloatSkin();
 
 private:
 	bool CompileStep(const VertexDecoder &dec, int i);
+	void Jit_ApplyWeights();
+	void Jit_WriteMatrixMul(int outOff, bool pos);
 	const VertexDecoder *dec_;
 };

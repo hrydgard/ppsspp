@@ -22,8 +22,8 @@
 
 #include <limits>
 
-#define V(i)   (currentMIPS->v[i])
-#define VI(i)  (currentMIPS->vi[i])
+#define V(i)   (currentMIPS->v[voffset[i]])
+#define VI(i)  (currentMIPS->vi[voffset[i]])
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int mtx = (vectorReg >> 2) & 7;
@@ -226,6 +226,17 @@ VectorSize GetHalfVectorSize(VectorSize sz)
 	}
 }
 
+VectorSize GetDoubleVectorSize(VectorSize sz)
+{
+	switch (sz)
+	{
+	case V_Single: return V_Pair;
+	case V_Pair: return V_Quad;
+	default:
+		return V_Pair;
+	}
+}
+
 VectorSize GetVecSize(MIPSOpcode op)
 {
 	int a = (op>>7)&1;
@@ -248,7 +259,7 @@ MatrixSize GetMtxSize(MIPSOpcode op)
 	a += (b<<1);
 	switch (a)
 	{
-	case 0: ERROR_LOG_REPORT(CPU, "Unexpected matrix size 1x1."); return M_2x2;
+	case 0: return M_4x4;  // This error pretty much only happens in disassembly of junk: // ERROR_LOG_REPORT(CPU, "Unexpected matrix size 1x1."); return M_2x2;
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;

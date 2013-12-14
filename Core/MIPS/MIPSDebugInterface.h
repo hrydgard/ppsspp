@@ -40,8 +40,6 @@ public:
 	virtual void runToBreakpoint();
 	virtual int getColor(unsigned int address);
 	virtual const char *getDescription(unsigned int address);
-	virtual const char *findSymbolForAddress(unsigned int address);
-	virtual bool getSymbolValue(char* symbol, u32& dest);
 	virtual bool initExpression(const char* exp, PostfixExpression& dest);
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest);
 
@@ -103,12 +101,13 @@ public:
 		{
 		case 0:
 			return cpu->r[index];
+
 		case 1:
 			memcpy(&temp, &cpu->f[index], 4);
 			return temp;
 
 		case 2:
-			memcpy(&temp, &cpu->v[index], 4);
+			memcpy(&temp, &cpu->v[voffset[index]], 4);
 			return temp;
 
 		default:
@@ -121,7 +120,8 @@ public:
 		switch (cat)
 		{
 		case 0:
-			cpu->r[index] = value;
+			if (index != 0)
+				cpu->r[index] = value;
 			break;
 
 		case 1:
@@ -129,7 +129,7 @@ public:
 			break;
 
 		case 2:
-			memcpy(&cpu->v[index], &value, 4);
+			memcpy(&cpu->v[voffset[index]], &value, 4);
 			break;
 
 		default:

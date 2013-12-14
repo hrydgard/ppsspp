@@ -12,14 +12,12 @@
 #include "gfx/texture.h"
 #include "input/input_state.h"
 #include "math/math_util.h"
-#include "base/mutex.h"
 #include "math/lin/matrix4x4.h"
 #include <QGLWidget>
 
 // Globals
 static PMixer *g_mixer;
 static QString fileToStart;
-static QtEmuGL* glWindow;
 
 class QtHost : public QObject, public Host
 {

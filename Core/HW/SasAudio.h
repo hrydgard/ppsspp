@@ -140,7 +140,7 @@ public:
 	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 
-	void WalkCurve(int rate, int type);
+	void WalkCurve(int type);
 
 	void KeyOn();
 	void KeyOff();
@@ -166,6 +166,14 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
+	void ComputeDuration();
+
+	// Internal variables that are recomputed on state changes
+	// No need to save in state
+	int rate_;
+	int type_;
+	float invDuration_;
+
 	enum ADSRState {
 		STATE_ATTACK,
 		STATE_DECAY,

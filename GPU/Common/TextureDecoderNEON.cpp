@@ -29,7 +29,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#if 0
+#ifdef IOS
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint32x4_t cursor2 = vld1q_u32((const u32 *)QuickTexHashInitial);
 		uint32x4_t update = vdupq_n_u32(0x24552455U);
@@ -48,10 +48,13 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 		cursor = vaddq_u32(cursor, cursor2);
 		check = vgetq_lane_u32(cursor, 0) + vgetq_lane_u32(cursor, 1) + vgetq_lane_u32(cursor, 2) + vgetq_lane_u32(cursor, 3);
 #else
+		// TODO: Why does this crash on iOS, but only certain devices?
+		// It's faster than the above, but I guess it sucks to be using an iPhone.
+
 		// d0/d1 (q0) - cursor
 		// d2/d3 (q1) - cursor2
 		// d4/d5 (q2) - update
-		// d6-d13 (q3-q6) - memory transfer
+		// d16-d23 (q8-q11) - memory transfer
 		asm volatile (
 			// Initialize cursor.
 			"vmov.i32 q0, #0\n"
@@ -66,7 +69,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 			"movt r0, 0x4b73\n"
 			"movw r1, 0x9bd9\n"
 			"movt r1, 0xc00b\n"
-			"vmov d2, r0, r1\n"
+			"vmov d3, r0, r1\n"
 
 			// Initialize update.
 			"movw r0, 0x2455\n"
@@ -81,14 +84,14 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 			// Okay, do the memory hashing.
 			"QuickTexHashNEON_next:\n"
 			"pld [%2, #0xc0]\n"
-			"vldmia %2!, {d6-d13}\n"
-			"vmla.i32 q0, q1, q3\n"
-			"veor.i32 q0, q0, q4\n"
-			"vmul.i32 q6, q6, q1\n"
+			"vldmia %2!, {d16-d23}\n"
+			"vmla.i32 q0, q1, q8\n"
+			"vmul.i32 q11, q11, q1\n"
+			"veor.i32 q0, q0, q9\n"
 			"cmp %2, r0\n"
-			"vadd.i32 q0, q0, q5\n"
-			"veor.i32 q0, q0, q6\n"
+			"vadd.i32 q0, q0, q10\n"
 			"vadd.i32 q1, q1, q2\n"
+			"veor.i32 q0, q0, q11\n"
 			"blo QuickTexHashNEON_next\n"
 
 			// Now let's get the result.
@@ -99,7 +102,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 
 			: "=r"(check)
 			: "r"(size), "r"(checkp)
-			: "r0", "r1", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12", "d13"
+			: "r0", "r1", "d0", "d1", "d2", "d3", "d4", "d5", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "cc"
 		);
 #endif
 	} else {

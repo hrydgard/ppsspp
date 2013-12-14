@@ -23,9 +23,10 @@
 #include "Common/FileUtil.h"
 #include "Core/ELF/PBPReader.h"
 
-PBPReader::PBPReader(const char *filename) : header_() {
+PBPReader::PBPReader(const char *filename) : header_(), isELF_(false) {
 	file_ = File::OpenCFile(filename, "rb");
 	if (!file_) {
+		ERROR_LOG(LOADER, "Failed to open PBP file %s", filename);
 		return;
 	}
 
@@ -34,6 +35,12 @@ PBPReader::PBPReader(const char *filename) : header_() {
 	fseek(file_, 0, SEEK_SET);
 	fread((char *)&header_, 1, sizeof(header_), file_);
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
+		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
+			DEBUG_LOG(LOADER, "%s: File actually an ELF, not a PBP", filename);
+			isELF_ = true;
+		} else {
+			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", filename, header_.magic);
+		}
 		fclose(file_);
 		file_ = 0;
 		return;

@@ -287,8 +287,8 @@ void Jit::BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
-	TST(R0, Operand2(1, TYPE_IMM));
+	gpr.MapReg(MIPS_REG_FPCOND);
+	TST(gpr.R(MIPS_REG_FPCOND), Operand2(1, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
 	if (!likely)
@@ -340,7 +340,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
-	
+
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
 	// However, it does consistently try each branch, which these games seem to expect.
@@ -354,8 +354,8 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 
 	int imm3 = (op >> 18) & 7;
 
-	LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
-	TST(R0, Operand2(1 << imm3, TYPE_IMM));
+	gpr.MapReg(MIPS_REG_VFPUCC);
+	TST(gpr.R(MIPS_REG_VFPUCC), Operand2(1 << imm3, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
 	js.inDelaySlot = true;
@@ -461,23 +461,28 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	}
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
+	bool andLink = (op & 0x3f) == 9;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	if (andLink && rs == rd)
+		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
 	ARMReg destReg = R8;
 	if (IsSyscall(delaySlotOp)) {
-		_dbg_assert_msg_(JIT, (op & 0x3f) == 8, "jalr followed by syscall not supported.");
-
 		gpr.MapReg(rs);
 		MovToPC(gpr.R(rs));  // For syscall to be able to return.
+		if (andLink)
+			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
+		if (andLink)
+			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-		if (rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
+		if (!andLink && rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
 			// According to the MIPS ABI, there are some regs we don't need to preserve.
 			// Let's discard them so we don't need to write them back.
 			// NOTE: Not all games follow the MIPS ABI! Tekken 6, for example, will crash
@@ -492,9 +497,6 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions) {
 			// Account for the increment in the loop.
 			js.compilerPC = gpr.GetImm(rs) - 4;
-			if ((op & 0x3f) == 9) {
-				gpr.SetImm(rd, js.compilerPC + 8);
-			}
 			// In case the delay slot was a break or something.
 			js.compiling = true;
 			return;
@@ -507,6 +509,8 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		// Delay slot - this case is very rare, might be able to free up R8.
 		gpr.MapReg(rs);
 		MOV(R8, gpr.R(rs));
+		if (andLink)
+			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 	}
@@ -516,8 +520,6 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	case 8: //jr
 		break;
 	case 9: //jalr
-		gpr.SetRegImm(R0, js.compilerPC + 8);
-		STR(R0, CTXREG, (int)rd * 4);
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");

@@ -104,7 +104,6 @@ class LoadedFont;
 class FontLib;
 class Font;
 int GetInternalFontIndex(Font *font);
-bool packagedFont;
 
 // These should not need to be state saved.
 static std::vector<Font *> internalFonts;
@@ -130,30 +129,19 @@ public:
 	}
 
 	Font(const u8 *data, size_t dataSize) {
-		pgf_.ReadPtr(data, dataSize);
-		style_.fontH = (float)pgf_.header.hSize / 64.0f;
-		style_.fontV = (float)pgf_.header.vSize / 64.0f;
-		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
-		style_.fontVRes = (float)pgf_.header.vResolution / 64.0f;
+		Init(data, dataSize);
 	}
 
 	Font(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {
-		pgf_.ReadPtr(data, dataSize);
-		style_.fontH = entry.hSize / 64.f;
-		style_.fontV = entry.vSize / 64.f;
-		style_.fontHRes = entry.hResolution / 64.f;
-		style_.fontVRes = entry.vResolution / 64.f;
-		style_.fontWeight = (float)entry.weight;
-		style_.fontFamily = (u16)entry.familyCode;
-		style_.fontStyle = (u16)entry.style;
-		style_.fontStyleSub = (u16)entry.styleSub;
-		style_.fontLanguage = (u16)entry.languageCode;
-		style_.fontRegion = (u16)entry.regionCode;
-		style_.fontCountry = (u16)entry.countryCode;
-		strncpy(style_.fontName, entry.fontName, sizeof(style_.fontName));
-		strncpy(style_.fontFileName, entry.fileName, sizeof(style_.fontFileName));
-		style_.fontAttributes = entry.extraAttributes;
-		style_.fontExpire = entry.expireDate;
+		Init(data, dataSize, entry);
+	}
+
+	Font (const std::vector<u8> &data) {
+		Init(&data[0], data.size());
+	}
+
+	Font (const std::vector<u8> &data, const FontRegistryEntry &entry) {
+		Init(&data[0], data.size(), entry);
 	}
 
 	const PGFFontStyle &GetFontStyle() const { return style_; }
@@ -210,6 +198,33 @@ public:
 	}
 
 private:
+	void Init(const u8 *data, size_t dataSize) {
+		pgf_.ReadPtr(data, dataSize);
+		style_.fontH = (float)pgf_.header.hSize / 64.0f;
+		style_.fontV = (float)pgf_.header.vSize / 64.0f;
+		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
+		style_.fontVRes = (float)pgf_.header.vResolution / 64.0f;
+	}
+
+	void Init(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {
+		pgf_.ReadPtr(data, dataSize);
+		style_.fontH = entry.hSize / 64.f;
+		style_.fontV = entry.vSize / 64.f;
+		style_.fontHRes = entry.hResolution / 64.f;
+		style_.fontVRes = entry.vResolution / 64.f;
+		style_.fontWeight = (float)entry.weight;
+		style_.fontFamily = (u16)entry.familyCode;
+		style_.fontStyle = (u16)entry.style;
+		style_.fontStyleSub = (u16)entry.styleSub;
+		style_.fontLanguage = (u16)entry.languageCode;
+		style_.fontRegion = (u16)entry.regionCode;
+		style_.fontCountry = (u16)entry.countryCode;
+		strncpy(style_.fontName, entry.fontName, sizeof(style_.fontName));
+		strncpy(style_.fontFileName, entry.fileName, sizeof(style_.fontFileName));
+		style_.fontAttributes = entry.extraAttributes;
+		style_.fontExpire = entry.expireDate;
+	}
+
 	PGF pgf_;
 	PGFFontStyle style_;
 	DISALLOW_COPY_AND_ASSIGN(Font);
@@ -338,6 +353,7 @@ public:
 			}
 		}
 		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
+		// TODO: The return value of this is leaking.
 		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
 		handle_ = 0;
 		fonts_.clear();
@@ -498,28 +514,17 @@ void __LoadInternalFonts() {
 
 		if (info.exists) {
 			INFO_LOG(SCEFONT, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
-			u8 *buffer = new u8[(size_t)info.size];
-			u32 handle = pspFileSystem.OpenFile(fontFilename, FILEACCESS_READ);
-			if (!handle) {
+			std::vector<u8> buffer;
+			if (pspFileSystem.ReadEntireFile(fontFilename, buffer) < 0) {
 				ERROR_LOG(SCEFONT, "Failed opening font");
-				delete [] buffer;
 				continue;
-			} 
-			// Our provided font of jpn0.pgf has size 4367080 bytes 
-			// This is an ugly hack to workaround incorrect metrics in it.
-			if (std::string(entry.fileName) == "jpn0.pgf" && (int)info.size == 4367080) {
-				packagedFont = true;
 			}
-
-			pspFileSystem.ReadFile(handle, buffer, info.size);
-			pspFileSystem.CloseFile(handle);
 			
-			internalFonts.push_back(new Font(buffer, (size_t)info.size, entry));
+			internalFonts.push_back(new Font(buffer, entry));
 
-			delete [] buffer;
-			INFO_LOG(SCEFONT, "Loaded font %s", fontFilename.c_str());
+			DEBUG_LOG(SCEFONT, "Loaded font %s", fontFilename.c_str());
 		} else {
-			INFO_LOG(SCEFONT, "Font file not found: %s", fontFilename.c_str());
+			WARN_LOG(SCEFONT, "Font file not found: %s", fontFilename.c_str());
 		}
 	}
 }
@@ -706,13 +711,9 @@ u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 error
 		return 0;
 	}
 
-	u8 *buffer = new u8[(size_t)info.size];
-
-	u32 fileHandle = pspFileSystem.OpenFile(fileName, FILEACCESS_READ);
-	pspFileSystem.ReadFile(fileHandle, buffer, info.size);
-	pspFileSystem.CloseFile(fileHandle);
-
-	LoadedFont *font = fontLib->OpenFont(new Font(buffer, (size_t)info.size));
+	std::vector<u8> buffer;
+	pspFileSystem.ReadEntireFile(fileName, buffer);
+	LoadedFont *font = fontLib->OpenFont(new Font(buffer));
 	if (font) {
 		fontMap[font->Handle()] = font;
 		Memory::Write_U32(0, errorCodePtr);
@@ -825,8 +826,10 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	}
 
 	DEBUG_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
+	auto fontLib = font->GetFontLib();
+	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	auto charInfo = Memory::GetStruct<PGFCharInfo>(charInfoPtr);
-	font->GetPGF()->GetCharInfo(charCode, charInfo);
+	font->GetPGF()->GetCharInfo(charCode, charInfo, altCharCode);
 
 	return 0;
 }
@@ -842,11 +845,13 @@ int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
 	if (!Memory::IsValidAddress(charRectPtr))
 		return -1;
-
+	
 	PGFCharInfo charInfo;
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	auto fontLib = font->GetFontLib();
+	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	if (font) {
-		font->GetPGF()->GetCharInfo(charCode, &charInfo);
+		font->GetPGF()->GetCharInfo(charCode, &charInfo, altCharCode);
 		Memory::Write_U16(charInfo.bitmapWidth, charRectPtr);      // character bitmap width in pixels
 		Memory::Write_U16(charInfo.bitmapHeight, charRectPtr + 2);  // character bitmap height in pixels
 	} else {
@@ -874,7 +879,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH, packagedFont);
+	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
@@ -892,7 +897,7 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 	INFO_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH, packagedFont);
+	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 

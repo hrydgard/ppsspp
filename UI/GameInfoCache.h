@@ -27,15 +27,26 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 
-
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
+// Only cares about games that are installed on the current device.
+
+// Guessed from GameID, not necessarily accurate
+enum GameRegion {
+	GAMEREGION_JAPAN,
+	GAMEREGION_USA,
+	GAMEREGION_EUROPE,
+	GAMEREGION_HONGKONG,
+	GAMEREGION_ASIA,
+	GAMEREGION_OTHER,
+	GAMEREGION_MAX,
+};
 
 class GameInfo {
 public:
-	GameInfo() 
+	GameInfo()
 		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
-		  wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0) {}
+			wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0), disc_total(0), disc_number(0), region(-1) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
@@ -44,7 +55,7 @@ public:
 	u64 GetSaveDataSizeInBytes();
 	u64 GetInstallDataSizeInBytes();
 
-	void LoadParamSFO();
+	void ParseParamSFO();
 
 	std::vector<std::string> GetSaveDataDirectories();
 
@@ -56,13 +67,17 @@ public:
 	recursive_mutex lock;
 
 	FileInfo fileInfo;
+	std::string path;
 	std::string title;  // for easy access, also available in paramSFO.
 	std::string id;
 	std::string id_version;
+	int disc_total;
+	int disc_number;
+	int region;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;
-	
+
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
 	Texture *iconTexture;
@@ -107,8 +122,6 @@ public:
 	// TODO - save cache between sessions
 	void Save();
 	void Load();
-
-	void Add(const std::string &key, GameInfo *info_);
 
 private:
 	// Maps ISO path to info.

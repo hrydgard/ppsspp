@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-
 // Ideas for speeding things up on mobile OpenGL ES implementations
 //
 // Use superbuffers! Yes I just invented that name.
@@ -81,21 +79,26 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/Common/SplineCommon.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
+#include "GPU/Common/SplineCommon.h"
 
-const GLuint glprim[8] = {
+extern const GLuint glprim[8] = {
 	GL_POINTS,
 	GL_LINES,
 	GL_LINE_STRIP,
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
-	GL_TRIANGLES,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
+	GL_TRIANGLES,
+	// With OpenGL ES we have to expand sprites (rects) into triangles, tripling the data instead of doubling.
+	// Sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
+	// We can use it on the desktop though, but we don't yet. There we could also use geometry shaders anyway.
 };
 
 enum {
@@ -109,11 +112,6 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
-// Check for max first as clamping to max is more common than min when lighting.
-inline float clamp(float in, float min, float max) {
-	return in > max ? max : (in < min ? min : in);
-}
-
 TransformDrawEngine::TransformDrawEngine()
 	: collectedVerts(0),
 		prevPrim_(GE_PRIM_INVALID),
@@ -125,7 +123,8 @@ TransformDrawEngine::TransformDrawEngine()
 		framebufferManager_(0),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
-		uvScale(0) {
+		uvScale(0),
+		decodeCounter_(0) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
@@ -199,156 +198,6 @@ void TransformDrawEngine::GLLost() {
 	InitDeviceObjects();
 }
 
-// Convenient way to do precomputation to save the parts of the lighting calculation
-// that's common between the many vertices of a draw call.
-class Lighter {
-public:
-	Lighter();
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
-
-private:
-	Color4 globalAmbient;
-	Color4 materialEmissive;
-	Color4 materialAmbient;
-	Color4 materialDiffuse;
-	Color4 materialSpecular;
-	float specCoef_;
-	// Vec3f viewer_;
-	bool doShadeMapping_;
-	int materialUpdate_;
-};
-
-Lighter::Lighter() {
-	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
-	materialEmissive.GetFromRGB(gstate.materialemissive);
-	materialEmissive.a = 0.0f;
-	globalAmbient.GetFromRGB(gstate.ambientcolor);
-	globalAmbient.GetFromA(gstate.ambientalpha);
-	materialAmbient.GetFromRGB(gstate.materialambient);
-	materialAmbient.GetFromA(gstate.materialalpha);
-	materialDiffuse.GetFromRGB(gstate.materialdiffuse);
-	materialDiffuse.a = 1.0f;
-	materialSpecular.GetFromRGB(gstate.materialspecular);
-	materialSpecular.a = 1.0f;
-	specCoef_ = getFloat24(gstate.materialspecularcoef);
-	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
-	materialUpdate_ = gstate.materialupdate & 7;
-}
-
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm)
-{
-	Color4 in(colorIn);
-
-	const Color4 *ambient;
-	if (materialUpdate_ & 1)
-		ambient = &in;
-	else
-		ambient = &materialAmbient;
-
-	const Color4 *diffuse;
-	if (materialUpdate_ & 2)
-		diffuse = &in;
-	else
-		diffuse = &materialDiffuse;
-
-	const Color4 *specular;
-	if (materialUpdate_ & 4)
-		specular = &in;
-	else
-		specular = &materialSpecular;
-
-	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
-	Color4 lightSum1(0, 0, 0, 0);
-
-	for (int l = 0; l < 4; l++)
-	{
-		// can we skip this light?
-		if (!gstate.isLightChanEnabled(l))
-			continue;
-
-		GELightType type = gstate.getLightType(l);
-		
-		Vec3f toLight(0,0,0);
-		Vec3f lightDir(0,0,0);
-		
-		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3f(gstate_c.lightpos[l]);  // lightdir is for spotlights
-		else
-			toLight = Vec3f(gstate_c.lightpos[l]) - pos;
-
-		bool doSpecular = gstate.isUsingSpecularLight(l);
-		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
-		
-		float distanceToLight = toLight.Length();
-		float dot = 0.0f;
-		float angle = 0.0f;
-		float lightScale = 0.0f;
-		
-		if (distanceToLight > 0.0f) {
-			toLight /= distanceToLight;
-			dot = Dot(toLight, norm);
-		}
-		// Clamp dot to zero.
-		if (dot < 0.0f) dot = 0.0f;
-
-		if (poweredDiffuse)
-			dot = powf(dot, specCoef_);
-
-		// Attenuation
-		switch (type) {
-		case GE_LIGHTTYPE_DIRECTIONAL:
-			lightScale = 1.0f;
-			break;
-		case GE_LIGHTTYPE_POINT:
-			lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f);
-			break;
-		case GE_LIGHTTYPE_SPOT:
-		case GE_LIGHTTYPE_UNKNOWN:
-			lightDir = gstate_c.lightdir[l];
-			angle = Dot(toLight.Normalized(), lightDir.Normalized());
-			if (angle >= gstate_c.lightangle[l])
-				lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, gstate_c.lightspotCoef[l]);
-			break;
-		default:
-			// ILLEGAL
-			break;
-		}
-
-		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * dot;
-
-		// Real PSP specular
-		Vec3f toViewer(0,0,1);
-		// Better specular
-		// Vec3f toViewer = (viewer - pos).Normalized();
-
-		if (doSpecular)
-		{
-			Vec3f halfVec = (toLight + toViewer);
-			halfVec.Normalize();
-
-			dot = Dot(halfVec, norm);
-			if (dot > 0.0f)
-			{
-				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
-			}
-		}
-
-		if (gstate.isLightChanEnabled(l))
-		{
-			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
-			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
-		}
-	}
-
-	// 4?
-	for (int i = 0; i < 4; i++) {
-		colorOut0[i] = lightSum0[i] > 1.0f ? 1.0f : lightSum0[i];
-		colorOut1[i] = lightSum1[i] > 1.0f ? 1.0f : lightSum1[i];
-	}
-}
-
 struct GlTypeInfo {
 	u16 type;
 	u8 count;
@@ -393,499 +242,6 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
 }
 
-// The verts are in the order:  BR BL TL TR
-static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
-	float tempu = a.u;
-	float tempv = a.v;
-	a.u = b.u;
-	a.v = b.v;
-	b.u = tempu;
-	b.v = tempv;
-}
-
-// 2   3       3   2        0   3          2   1
-//        to           to            or
-// 1   0       0   1        1   2          3   0
-
-
-// See comment below where this was called before.
-/*
-static void RotateUV(TransformedVertex v[4]) {
-	float x1 = v[2].x;
-	float x2 = v[0].x;
-	float y1 = v[2].y;
-	float y2 = v[0].y;
-
-	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
-		SwapUVs(v[1], v[3]);
-}*/
-
-static void RotateUVThrough(TransformedVertex v[4]) {
-	float x1 = v[2].x;
-	float x2 = v[0].x;
-	float y1 = v[2].y;
-	float y2 = v[0].y;
-
-	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2))
-		SwapUVs(v[1], v[3]);
-}
-
-// Clears on the PSP are best done by drawing a series of vertical strips
-// in clear mode. This tries to detect that.
-bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
-	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
-		return false;
-
-	u32 matchcolor;
-	memcpy(&matchcolor, transformed[0].color0, 4);
-	float matchz = transformed[0].z;
-
-	int bufW = gstate_c.curRTWidth;
-	int bufH = gstate_c.curRTHeight;
-
-	float prevX = 0.0f;
-	for (int i = 1; i < numVerts; i++) {
-		u32 vcolor;
-		memcpy(&vcolor, transformed[i].color0, 4);
-		if (vcolor != matchcolor || transformed[i].z != matchz)
-			return false;
-
-		if ((i & 1) == 0) {
-			// Top left of a rectangle
-			if (transformed[i].y != 0)
-				return false;
-			if (i > 0 && transformed[i].x != transformed[i - 1].x)
-				return false;
-		} else {
-			// Bottom right
-			if (transformed[i].y != bufH)
-				return false;
-			if (transformed[i].x <= transformed[i - 1].x)
-				return false;
-		}
-	}
-
-	// The last vertical strip often extends outside the drawing area.
-	if (transformed[numVerts - 1].x < bufW)
-		return false;
-
-	return true;
-}
-
-// This is the software transform pipeline, which is necessary for supporting RECT
-// primitives correctly, and may be easier to use for debugging than the hardware
-// transform pipeline.
-
-// There's code here that simply expands transformed RECTANGLES into plain triangles.
-
-// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
-// Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
-// this code.
-
-// Actually, if we find the camera-relative right and down vectors, it might even be possible to add the extra points in pre-transformed
-// space and thus make decent use of hardware transform.
-
-// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
-// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-void TransformDrawEngine::SoftwareTransformAndDraw(
-		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
-
-	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
-
-	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
-
-#if defined(USING_GLES2)
-	if (vertexCount > 0x10000/3)
-		vertexCount = 0x10000/3;
-#endif
-
-	float uscale = 1.0f;
-	float vscale = 1.0f;
-	if (throughmode) {
-		uscale /= gstate_c.curTextureWidth;
-		vscale /= gstate_c.curTextureHeight;
-	}
-
-	bool scaleUV = !g_Config.bPrescaleUV;
-
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
-	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
-
-	Lighter lighter;
-	float fog_end = getFloat24(gstate.fog1);
-	float fog_slope = getFloat24(gstate.fog2);
-
-	VertexReader reader(decoded, decVtxFormat, vertType);
-	for (int index = 0; index < maxIndex; index++) {
-		reader.Goto(index);
-
-		float v[3] = {0, 0, 0};
-		float c0[4] = {1, 1, 1, 1};
-		float c1[4] = {0, 0, 0, 0};
-		float uv[3] = {0, 0, 1};
-		float fogCoef = 1.0f;
-
-		if (throughmode) {
-			// Do not touch the coordinates or the colors. No lighting.
-			reader.ReadPos(v);
-			if (reader.hasColor0()) {
-				reader.ReadColor0(c0);
-				for (int j = 0; j < 4; j++) {
-					c1[j] = 0.0f;
-				}
-			} else {
-				c0[0] = gstate.getMaterialAmbientR() / 255.f;
-				c0[1] = gstate.getMaterialAmbientG() / 255.f;
-				c0[2] = gstate.getMaterialAmbientB() / 255.f;
-				c0[3] = gstate.getMaterialAmbientA() / 255.f;
-			}
-
-			if (reader.hasUV()) {
-				reader.ReadUV(uv);
-
-				uv[0] *= uscale;
-				uv[1] *= vscale;
-			}
-			fogCoef = 1.0f;
-			// Scale UV?
-		} else {
-			// We do software T&L for now
-			float out[3], norm[3];
-			float pos[3], nrm[3];
-			Vec3f normal(0, 0, 1);
-			reader.ReadPos(pos);
-			if (reader.hasNormal())
-				reader.ReadNrm(nrm);
-
-			if (!vertTypeIsSkinningEnabled(vertType)) {
-				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
-					normal = Vec3f(norm).Normalized();
-				}
-			} else {
-				float weights[8];
-				reader.ReadWeights(weights);
-				// Skinning
-				Vec3f psum(0,0,0);
-				Vec3f nsum(0,0,0);
-				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-					if (weights[i] != 0.0f) {
-						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
-						Vec3f tpos(out);
-						psum += tpos * weights[i];
-						if (reader.hasNormal()) {
-							Norm3ByMatrix43(norm, nrm, gstate.boneMatrix+i*12);
-							Vec3f tnorm(norm);
-							nsum += tnorm * weights[i];
-						}
-					}
-				}
-
-				// Yes, we really must multiply by the world matrix too.
-				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nsum.AsArray(), gstate.worldMatrix);
-					normal = Vec3f(norm).Normalized();
-				}
-			}
-
-			// Perform lighting here if enabled. don't need to check through, it's checked above.
-			float unlitColor[4] = {1, 1, 1, 1};
-			if (reader.hasColor0()) {
-				reader.ReadColor0(unlitColor);
-			} else {
-				unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
-				unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
-				unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
-				unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
-			}
-			float litColor0[4];
-			float litColor1[4];
-			lighter.Light(litColor0, litColor1, unlitColor, out, normal);
-
-			if (gstate.isLightingEnabled()) {
-				// Don't ignore gstate.lmode - we should send two colors in that case
-				for (int j = 0; j < 4; j++) {
-					c0[j] = litColor0[j];
-				}
-				if (lmode) {
-					// Separate colors
-					for (int j = 0; j < 4; j++) {
-						c1[j] = litColor1[j];
-					}
-				} else {
-					// Summed color into c0
-					for (int j = 0; j < 4; j++) {
-						c0[j] = ((c0[j] + litColor1[j]) > 1.0f) ? 1.0f : (c0[j] + litColor1[j]);
-					}
-				}
-			} else {
-				if (reader.hasColor0()) {
-					for (int j = 0; j < 4; j++) {
-						c0[j] = unlitColor[j];
-					}
-				} else {
-					c0[0] = gstate.getMaterialAmbientR() / 255.f;
-					c0[1] = gstate.getMaterialAmbientG() / 255.f;
-					c0[2] = gstate.getMaterialAmbientB() / 255.f;
-					c0[3] = gstate.getMaterialAmbientA() / 255.f;
-				}
-				if (lmode) {
-					for (int j = 0; j < 4; j++) {
-						c1[j] = 0.0f;
-					}
-				}
-			}
-
-			float ruv[2] = {0.0f, 0.0f};
-			if (reader.hasUV())
-				reader.ReadUV(ruv);
-
-			// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
-			switch (gstate.getUVGenMode()) {
-			case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
-			case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
-				// Texture scale/offset is only performed in this mode.
-				if (scaleUV) {
-					uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
-					uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
-				} else {
-					uv[0] = uscale * ruv[0];
-					uv[1] = vscale * ruv[1];
-				}
-				uv[2] = 1.0f;
-				break;
-
-			case GE_TEXMAP_TEXTURE_MATRIX:
-				{
-					// Projection mapping
-					Vec3f source;
-					switch (gstate.getUVProjMode())	{
-					case GE_PROJMAP_POSITION: // Use model space XYZ as source
-						source = pos;
-						break;
-
-					case GE_PROJMAP_UV: // Use unscaled UV as source
-						source = Vec3f(ruv[0], ruv[1], 0.0f);
-						break;
-
-					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						if (reader.hasNormal()) {
-							source = Vec3f(norm).Normalized();
-						} else {
-							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f(0.0f, 0.0f, 1.0f);
-						}
-						break;
-
-					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
-						if (reader.hasNormal()) {
-							source = Vec3f(norm);
-						} else {
-							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f(0.0f, 0.0f, 1.0f);
-						}
-						break;
-					}
-
-					float uvw[3];
-					Vec3ByMatrix43(uvw, &source.x, gstate.tgenMatrix);
-					uv[0] = uvw[0];
-					uv[1] = uvw[1];
-					uv[2] = uvw[2];
-				}
-				break;
-
-			case GE_TEXMAP_ENVIRONMENT_MAP:
-				// Shade mapping - use two light sources to generate U and V.
-				{
-					Vec3f lightpos0 = Vec3f(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
-					Vec3f lightpos1 = Vec3f(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
-
-					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
-					uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;
-					uv[2] = 1.0f;
-				}
-				break;
-
-			default:
-				// Illegal
-				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
-				break;
-			}
-
-			uv[0] = uv[0] * widthFactor;
-			uv[1] = uv[1] * heightFactor;
-
-			// Transform the coord by the view matrix.
-			Vec3ByMatrix43(v, out, gstate.viewMatrix);
-			fogCoef = (v[2] + fog_end) * fog_slope;
-		}
-
-		// TODO: Write to a flexible buffer, we don't always need all four components.
-		memcpy(&transformed[index].x, v, 3 * sizeof(float));
-		transformed[index].fog = fogCoef;
-		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-		if (gstate_c.flipTexture) {
-			transformed[index].v = 1.0f - transformed[index].v;
-		}
-		for (int i = 0; i < 4; i++) {
-			transformed[index].color0[i] = c0[i] * 255.0f;
-		}
-		for (int i = 0; i < 3; i++) {
-			transformed[index].color1[i] = c1[i] * 255.0f;
-		}
-	}
-
-	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
-	// replace them with real OpenGL clears. This can provide a speedup on certain mobile chips.
-	// Disabled for now - depth does not come out exactly the same.
-	//
-	// An alternative option is to simply ditch all the verts except the first and last to create a single
-	// rectangle out of many. Quite a small optimization though.
-	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
-		u32 clearColor;
-		memcpy(&clearColor, transformed[0].color0, 4);
-		float clearDepth = transformed[0].z;
-		const float col[4] = {
-			((clearColor & 0xFF)) / 255.0f,
-			((clearColor & 0xFF00) >> 8) / 255.0f,
-			((clearColor & 0xFF0000) >> 16) / 255.0f,
-			((clearColor & 0xFF000000) >> 24) / 255.0f,
-		};
-
-		bool colorMask = gstate.isClearModeColorMask();
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-		if (alphaMask) {
-			glstate.stencilTest.set(true);
-			// Clear stencil
-			// TODO: extract the stencilValue properly, see below
-			int stencilValue = 0;
-			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
-		} else {
-			// Don't touch stencil
-			glstate.stencilTest.set(false);
-		}
-		glstate.scissorTest.set(false);
-		bool depthMask = gstate.isClearModeDepthMask();
-
-		int target = 0;
-		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
-
-		glClearColor(col[0], col[1], col[2], col[3]);
-#ifdef USING_GLES2
-		glClearDepthf(clearDepth);
-#else
-		glClearDepth(clearDepth);
-#endif
-		glClearStencil(0);  // TODO - take from alpha?
-		glClear(target);
-		return;
-	}
-
-	// Step 2: expand rectangles.
-	const TransformedVertex *drawBuffer = transformed;
-	int numTrans = 0;
-
-	bool drawIndexed = false;
-
-	if (prim != GE_PRIM_RECTANGLES) {
-		// We can simply draw the unexpanded buffer.
-		numTrans = vertexCount;
-		drawIndexed = true;
-	} else {
-		numTrans = 0;
-		drawBuffer = transformedExpanded;
-		TransformedVertex *trans = &transformedExpanded[0];
-		TransformedVertex saved;
-		u32 stencilValue;
-		for (int i = 0; i < vertexCount; i += 2) {
-			int index = ((const u16*)inds)[i];
-			saved = transformed[index];
-			int index2 = ((const u16*)inds)[i + 1];
-			TransformedVertex &transVtx = transformed[index2];
-			if (i == 0)
-				stencilValue = transVtx.color0[3];
-			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
-
-			// bottom right
-			trans[0] = transVtx;
-
-			// bottom left
-			trans[1] = transVtx;
-			trans[1].y = saved.y;
-			trans[1].v = saved.v;
-
-			// top left
-			trans[2] = transVtx;
-			trans[2].x = saved.x;
-			trans[2].y = saved.y;
-			trans[2].u = saved.u;
-			trans[2].v = saved.v;
-
-			// top right
-			trans[3] = transVtx;
-			trans[3].x = saved.x;
-			trans[3].u = saved.u;
-
-			// That's the four corners. Now process UV rotation.
-			if (throughmode)
-				RotateUVThrough(trans);
-
-			// Apparently, non-through RotateUV just breaks things.
-			// If we find a game where it helps, we'll just have to figure out how they differ.
-			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
-			// One game might be one of the Metal Gear ones, can't find the issue right now though.
-			// else
-			//	RotateUV(trans);
-
-			// bottom right
-			trans[4] = trans[0];
-
-			// top left
-			trans[5] = trans[2];
-			trans += 6;
-
-			numTrans += 6;
-		}
-
-		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
-		// Might want to reconsider the order of things later...
-		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
-			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
-		}
-	}
-
-	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
-	// Might help for text drawing.
-
-	// these spam the gDebugger log.
-	const int vertexSize = sizeof(transformed[0]);
-
-	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	int attrMask = program->attrMask;
-	if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
-	if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
-	if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
-	if (drawIndexed) {
-#ifdef USING_GLES2
-		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-#else
-		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
-#endif
-	} else {
-		glDrawArrays(glprim[prim], 0, numTrans);
-	}
-}
-
 VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
@@ -897,11 +253,15 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 }
 
 void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
-	if (vertType != lastVType_) {
-		dec_ = GetVertexDecoder(vertType);
-		lastVType_ = vertType;
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
 	}
 }
 
@@ -933,7 +293,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
@@ -960,7 +320,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
-	dc.indexType = ((forceIndexType == -1) ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
+	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 	if (inds) {
@@ -973,78 +333,25 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	if (uvScale) {
 		uvScale[numDrawCalls] = gstate_c.uv;
 	}
+
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		DecodeVertsStep();
+		decodeCounter_++;
+	}
 }
 
 void TransformDrawEngine::DecodeVerts() {
 	UVScale origUV;
 	if (uvScale)
 		origUV = gstate_c.uv;
-	for (int i = 0; i < numDrawCalls; i++) {
-		const DeferredDrawCall &dc = drawCalls[i];
-
-		indexGen.SetIndex(collectedVerts);
-		int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
-
-		u32 indexType = dc.indexType;
-		void *inds = dc.inds;
-		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-			// Decode the verts and apply morphing. Simple.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += indexUpperBound - indexLowerBound + 1;
-			indexGen.AddPrim(dc.prim, dc.vertexCount);
-		} else {
-			// It's fairly common that games issue long sequences of PRIM calls, with differing
-			// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
-			// these as much as possible, so we make sure here to combine as many as possible
-			// into one nice big drawcall, sharing data.
-
-			// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
-			//    Expand the lower and upper bounds as we go.
-			int j = i + 1;
-			int lastMatch = i;
-			while (j < numDrawCalls) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-					break;
-
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-				j++;
-			}
-			
-			// 2. Loop through the drawcalls, translating indices as we go.
-			for (j = i; j <= lastMatch; j++) {
-				switch (indexType) {
-				case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				}
-			}
-
-			int vertexCount = indexUpperBound - indexLowerBound + 1;
-			// 3. Decode that range of vertex data.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += vertexCount;
-
-			// 4. Advance indexgen vertex counter.
-			indexGen.Advance(vertexCount);
-			i = lastMatch;
-		}
+	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+		if (uvScale)
+			gstate_c.uv = uvScale[decodeCounter_];
+		DecodeVertsStep();
 	}
-
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
@@ -1053,6 +360,68 @@ void TransformDrawEngine::DecodeVerts() {
 	}
 	if (uvScale)
 		gstate_c.uv = origUV;
+}
+
+void TransformDrawEngine::DecodeVertsStep() {
+	const int i = decodeCounter_;
+
+	const DeferredDrawCall &dc = drawCalls[i];
+
+	indexGen.SetIndex(collectedVerts);
+	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+
+	u32 indexType = dc.indexType;
+	void *inds = dc.inds;
+	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+		// Decode the verts and apply morphing. Simple.
+		dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		collectedVerts += indexUpperBound - indexLowerBound + 1;
+		indexGen.AddPrim(dc.prim, dc.vertexCount);
+	} else {
+		// It's fairly common that games issue long sequences of PRIM calls, with differing
+		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
+		// these as much as possible, so we make sure here to combine as many as possible
+		// into one nice big drawcall, sharing data.
+
+		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
+		//    Expand the lower and upper bounds as we go.
+		int j = i + 1;
+		int lastMatch = i;
+		while (j < numDrawCalls) {
+			if (drawCalls[j].verts != dc.verts)
+				break;
+			if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+				break;
+
+			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+			lastMatch = j;
+			j++;
+		}
+
+		// 2. Loop through the drawcalls, translating indices as we go.
+		for (j = i; j <= lastMatch; j++) {
+			switch (indexType) {
+			case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+				break;
+			case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+				break;
+			}
+		}
+
+		int vertexCount = indexUpperBound - indexLowerBound + 1;
+		// 3. Decode that range of vertex data.
+		dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		collectedVerts += vertexCount;
+
+		// 4. Advance indexgen vertex counter.
+		indexGen.Advance(vertexCount);
+		decodeCounter_ = lastMatch;
+	}
 }
 
 u32 TransformDrawEngine::ComputeHash() {
@@ -1131,21 +500,10 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 		if (iter->second->lastFrame < threshold) {
 			delete iter->second;
 			vai_.erase(iter++);
-		}
-		else
+		} else {
 			++iter;
+		}
 	}
-
-	// Enable if you want to see vertex decoders in the log output. Need a better way.
-#if 0
-	char buffer[16384];
-	for (std::map<u32, VertexDecoder*>::iterator dec = decoderMap_.begin(); dec != decoderMap_.end(); ++dec) {
-		char *ptr = buffer;
-		ptr += dec->second->ToString(ptr);
-//		*ptr++ = '\n';
-		NOTICE_LOG(G3D, buffer);
-	}
-#endif
 }
 
 VertexArrayInfo::~VertexArrayInfo() {
@@ -1157,7 +515,6 @@ VertexArrayInfo::~VertexArrayInfo() {
 
 void TransformDrawEngine::DoFlush() {
 	gpuStats.numFlushes++;
-	
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	// This is not done on every drawcall, we should collect vertex data
@@ -1168,13 +525,21 @@ void TransformDrawEngine::DoFlush() {
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim, lastVType_);
 
+	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
+	int maxIndex = 0;
+
 	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
-		int maxIndex = 0;
 		bool useElements = true;
+
 		// Cannot cache vertex data with morph enabled.
-		if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
+		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
+		// Also avoid caching when software skinning.
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+			useCache = false;
+
+		if (useCache) {
 			u32 id = ComputeFastDCID();
 			auto iter = vai_.find(id);
 			VertexArrayInfo *vai;
@@ -1249,7 +614,7 @@ void TransformDrawEngine::DoFlush() {
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
-						
+
 						glGenBuffers(1, &vai->vbo);
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
@@ -1314,6 +679,7 @@ void TransformDrawEngine::DoFlush() {
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
 			DecodeVerts();
+
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
@@ -1327,12 +693,12 @@ rotateVBO:
 
 			prim = indexGen.Prim();
 		}
-		
-		DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+
+		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 		if (useElements) {
-#ifdef USING_GLES2
+#if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
 #else
 			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
@@ -1351,10 +717,9 @@ rotateVBO:
 		// Undo the strip optimization, not supported by the SW code yet.
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
-		DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
 		SoftwareTransformAndDraw(
-			prim, decoded, program, indexGen.VertexCount(), 
+			prim, decoded, program, indexGen.VertexCount(),
 			dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			indexGen.MaxIndex());
 	}
@@ -1363,6 +728,7 @@ rotateVBO:
 	collectedVerts = 0;
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
+	decodeCounter_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 
 #ifndef USING_GLES2
@@ -1370,49 +736,216 @@ rotateVBO:
 #endif
 }
 
+struct Plane {
+	float x, y, z, w;
+	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
+	float Test(float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+};
+
+void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
+	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
+	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
+	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom
+	planes[3].Set(mtx[3]-mtx[1], mtx[7]-mtx[5], mtx[11]-mtx[9], mtx[15]-mtx[13]);  // Top
+	planes[4].Set(mtx[3]+mtx[2], mtx[7]+mtx[6], mtx[11]+mtx[10], mtx[15]+mtx[14]); // Near
+	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]); // Far
+}
+
+static void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[1];
+	m4x4[2] = m4x3[2];
+	m4x4[3] = 0.0f;
+	m4x4[4] = m4x3[3];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[5];
+	m4x4[7] = 0.0f;
+	m4x4[8] = m4x3[6];
+	m4x4[9] = m4x3[7];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = 0.0f;
+	m4x4[12] = m4x3[9];
+	m4x4[13] = m4x3[10];
+	m4x4[14] = m4x3[11];
+	m4x4[15] = 1.0f;
+}
+
+// This code is HIGHLY unoptimized!
+//
+// It does the simplest and safest test possible: If all points of a bbox is outside a single of
+// our clipping planes, we reject the box.
 bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
-	// Simplify away bones and morph before proceeding
-
-	/*
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
+	float *verts = (float *)(decoded + 65536 * 18);
 
-	u32 origVertType = vertType;
-	vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
-
-	for (int cube = 0; cube < vertexCount / 8; cube++) {
-		// For each cube...
-		
-		for (int i = 0; i < 8; i++) {
-			const SimpleVertex &vert = corners[cube * 8 + i];
-
-			// To world space...
-			float worldPos[3];
-			Vec3ByMatrix43(worldPos, (float *)&vert.pos.x, gstate.worldMatrix);
-
-			// To view space...
-			float viewPos[3];
-			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
-
-			// And finally to screen space.
-			float frustumPos[4];
-			Vec3ByMatrix44(frustumPos, viewPos, gstate.projMatrix);
-
-			// Project to 2D
-			float x = frustumPos[0] / frustumPos[3];
-			float y = frustumPos[1] / frustumPos[3];
-
-			// Rescale 2d position
-			// ...
+	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
+	// and a large vertex format.
+	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
+		// memcpy(verts, control_points, 12 * vertexCount);
+		verts = (float *)control_points;
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
+		const s8 *vtx = (const s8 *)control_points;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i] * (1.0f / 128.0f);
+		}
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
+		const s16 *vtx = (const s16*)control_points;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i] * (1.0f / 32768.0f);
+		}
+	} else {
+		// Simplify away bones and morph before proceeding
+		u8 *temp_buffer = decoded + 65536 * 24;
+		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
+		// Special case for float positions only.
+		const float *ctrl = (const float *)control_points;
+		for (int i = 0; i < vertexCount; i++) {
+			verts[i * 3] = corners[i].pos.x;
+			verts[i * 3 + 1] = corners[i].pos.y;
+			verts[i * 3 + 2] = corners[i].pos.z;
 		}
 	}
-	*/
 
-	
-	// Let's think. A better approach might be to take the edges of the drawing region and the projection
-	// matrix to build a frustum pyramid, and then clip the cube against those planes. If all vertices fail the same test,
-	// the cube is out. Otherwise it's in.
-	// TODO....
-	
+	Plane planes[6];
+
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+	PlanesFromMatrix(worldviewproj, planes);
+	for (int plane = 0; plane < 6; plane++) {
+		int inside = 0;
+		int out = 0;
+		for (int i = 0; i < vertexCount; i++) {
+			// Here we can test against the frustum planes!
+			float value = planes[plane].Test(verts + i * 3);
+			if (value < 0)
+				out++;
+			else
+				inside++;
+		}
+
+		if (inside == 0) {
+			// All out
+			return false;
+		}
+
+		// Any out. For testing that the planes are in the right locations.
+		// if (out != 0) return false;
+	}
+
+	return true;
+}
+
+// TODO: Probably move this to common code (with normalization?)
+
+static inline Vec3f ClipToScreen(const Vec4f& coords)
+{
+	// TODO: Check for invalid parameters (x2 < x1, etc)
+	float vpx1 = getFloat24(gstate.viewportx1);
+	float vpx2 = getFloat24(gstate.viewportx2);
+	float vpy1 = getFloat24(gstate.viewporty1);
+	float vpy2 = getFloat24(gstate.viewporty2);
+	float vpz1 = getFloat24(gstate.viewportz1);
+	float vpz2 = getFloat24(gstate.viewportz2);
+
+	float retx = coords.x * vpx1 / coords.w + vpx2;
+	float rety = coords.y * vpy1 / coords.w + vpy2;
+	float retz = coords.z * vpz1 / coords.w + vpz2;
+
+	// 16 = 0xFFFF / 4095.9375
+	return Vec3f(retx * 16, rety * 16, retz);
+}
+
+static Vec3f ScreenToDrawing(const Vec3f& coords)
+{
+	Vec3f ret;
+	ret.x = coords.x - gstate.getOffsetX16();
+	ret.y = coords.y - gstate.getOffsetY16();
+
+	// Convert from 16-bit fixed point to float.
+	ret.x *= 1.0 / 16.0;
+	ret.y *= 1.0 / 16.0;
+	ret.z = coords.z;
+	return ret;
+}
+
+// TODO: This probably is not the best interface.
+bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	// This is always for the current vertices.
+	u16 indexLowerBound = 0;
+	u16 indexUpperBound = count - 1;
+
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
+		const u16 *inds16 = (const u16 *)inds;
+
+		if (inds) {
+			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
+			indices.resize(count);
+			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			case GE_VTYPE_IDX_16BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds16[i];
+				}
+				break;
+			case GE_VTYPE_IDX_8BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds[i];
+				}
+				break;
+			default:
+				return false;
+			}
+		} else {
+			indices.clear();
+		}
+	} else {
+		indices.clear();
+	}
+
+	static std::vector<u32> temp_buffer;
+	static std::vector<SimpleVertex> simpleVertices;
+	temp_buffer.resize(65536 * 24 / sizeof(u32));
+	simpleVertices.resize(indexUpperBound + 1);
+	NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
+	vertices.resize(indexUpperBound + 1);
+	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
+		const SimpleVertex &vert = simpleVertices[i];
+
+		if (gstate.isModeThrough()) {
+			vertices[i].u = vert.uv[0];
+			vertices[i].v = vert.uv[1];
+			vertices[i].x = vert.pos.x;
+			vertices[i].y = vert.pos.y;
+			vertices[i].z = vert.pos.z;
+		} else {
+			float clipPos[4];
+			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
+			Vec3f screenPos = ClipToScreen(clipPos);
+			Vec3f drawPos = ScreenToDrawing(screenPos);
+
+			vertices[i].u = vert.uv[0];
+			vertices[i].v = vert.uv[1];
+			vertices[i].x = drawPos.x;
+			vertices[i].y = drawPos.y;
+			vertices[i].z = 1.0;
+		}
+	}
+
 	return true;
 }

@@ -33,7 +33,7 @@ enum GPUCore {
 
 // PSP_CoreParameter()
 struct CoreParameter {
-	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true) {}
+	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true), freezeNext(false), frozen(false) {}
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 	bool enableSound;  // there aren't multiple sound cores.
@@ -64,4 +64,8 @@ struct CoreParameter {
 	int fpsLimit;
 
 	bool updateRecent;
+
+	// Freeze-frame. For nvidia perfhud profiling. Developers only.
+	bool freezeNext;
+	bool frozen;
 };

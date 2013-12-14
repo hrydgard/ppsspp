@@ -668,7 +668,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	DEBUG_LOG(ME, "*buffer = %08x, *init = %08x", buffer, init);
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
-		int bufferSize = ctx->mediaengine->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
 		gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
@@ -915,7 +915,13 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	}
 
 	hleEatCycles(2020);
-	DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+	static int lastFree = 0;
+	if (lastFree != ringbuffer->packetsFree) {
+		DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+		lastFree = ringbuffer->packetsFree;
+	} else {
+		VERBOSE_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+	}
 	return ringbuffer->packetsFree;
 }
 
@@ -1256,7 +1262,7 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 	avcAu.read(auAddr);
 
 	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
-	ctx->mediaengine->getAudioSamples(Memory::GetPointer(bufferAddr));
+	ctx->mediaengine->getAudioSamples(bufferAddr);
 	avcAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 
 	avcAu.write(auAddr);
@@ -1280,7 +1286,7 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int y = Memory::Read_U32(rangeAddr + 4);
 	int width    = Memory::Read_U32(rangeAddr + 8);
 	int height   = Memory::Read_U32(rangeAddr + 12);
-	int destSize = ctx->mediaengine->writeVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
+	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode,
 		x, y, width, height);
 
 	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);

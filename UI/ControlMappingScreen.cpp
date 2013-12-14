@@ -80,7 +80,7 @@ void ControlMapper::Update(const InputState &input) {
 
 void ControlMapper::Refresh() {
 	Clear();
-	I18NCategory *c = GetI18NCategory("MappableControls");
+	I18NCategory *mc = GetI18NCategory("MappableControls");
 
 	std::map<std::string, int> keyImages;
 	keyImages["Circle"] = I_CIRCLE;
@@ -94,20 +94,26 @@ void ControlMapper::Refresh() {
 
 	using namespace UI;
 
+	float itemH = 45;
+
 	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	root->SetSpacing(3.0f);
+
+	const int padding = 4;
 
 	auto iter = keyImages.find(keyName_);
 	// First, look among images.
 	if (iter != keyImages.end()) {
-		root->Add(new Choice(iter->second, new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		Choice *c = root->Add(new Choice(iter->second, new LinearLayoutParams(200, itemH)));
+		c->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	} else {
 		// No image? Let's translate.
-		Choice *choice = new Choice(c->T(keyName_.c_str()), new LinearLayoutParams(200, WRAP_CONTENT));
-		choice->SetCentered(true);
-		root->Add(choice)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		Choice *c = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(200, itemH));
+		c->SetCentered(true);
+		root->Add(c)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	}
 
-	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	rightColumn->SetSpacing(2.0f);
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings);
@@ -118,23 +124,26 @@ void ControlMapper::Refresh() {
 		int image = -1;
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		row->SetSpacing(1.0f);
 
-		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(1.0f)));
+		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(FILL_PARENT, itemH, 1.0f)));
 		char tagbuf[16];
 		sprintf(tagbuf, "%i", (int)i);
 		c->SetTag(tagbuf);
 		c->OnClick.Handle(this, &ControlMapper::OnReplace);
 
-		Choice *d = row->Add(new Choice("X"));
+		Choice *d = row->Add(new Choice(" X ", new LayoutParams(FILL_PARENT, itemH)));
 		d->SetTag(tagbuf);
 		d->OnClick.Handle(this, &ControlMapper::OnDelete);
 
-		row->Add(new Choice("+"))->OnClick.Handle(this, &ControlMapper::OnAdd);
+		Choice *p = row->Add(new Choice(" + ", new LayoutParams(FILL_PARENT, itemH)));
+		p->OnClick.Handle(this, &ControlMapper::OnAdd);
 	}
 
 	if (mappings.size() == 0) {
 		// look like an empty line
-		rightColumn->Add(new Choice("", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnAdd);
+		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
+		c->OnClick.Handle(this, &ControlMapper::OnAdd);
 	}
 }
 
@@ -194,11 +203,7 @@ void ControlMappingScreen::CreateViews() {
 	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	/*
-	ChoiceStrip *mode = leftColumn->Add(new ChoiceStrip(ORIENT_VERTICAL));
-	mode->AddChoice("Replace");
-	mode->AddChoice("Add");
-	*/
+
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
@@ -234,7 +239,6 @@ UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) 
 	RecreateViews();
 	return UI::EVENT_DONE;
 }
-
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

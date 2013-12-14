@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Common.h"
 #include "MemoryUtil.h"
 #include "MemArena.h"
@@ -26,7 +28,9 @@
 #include "MIPS/JitCommon/JitCommon.h"
 #include "HLE/HLE.h"
 #include "CPU.h"
-#include "Debugger/SymbolMap.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Config.h"
 
 namespace Memory
 {
@@ -41,6 +45,8 @@ MemArena g_arena;
 // 64-bit: Pointers to low-mem (sub-0x10000000) mirror
 // 32-bit: Same as the corresponding physical/virtual pointers.
 u8 *m_pRAM;
+u8 *m_pRAM2;
+u8 *m_pRAM3;
 u8 *m_pScratchPad;
 u8 *m_pVRAM;
 
@@ -51,6 +57,12 @@ u8 *m_pUncachedScratchPad;
 u8 *m_pPhysicalRAM;
 u8 *m_pUncachedRAM;
 u8 *m_pKernelRAM;	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
+u8 *m_pPhysicalRAM2;
+u8 *m_pUncachedRAM2;
+u8 *m_pKernelRAM2;
+u8 *m_pPhysicalRAM3;
+u8 *m_pUncachedRAM3;
+u8 *m_pKernelRAM3;
 
 u8 *m_pPhysicalVRAM;
 u8 *m_pUncachedVRAM;
@@ -60,6 +72,8 @@ u8 *m_pUncachedVRAM;
 // These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
 u32 g_MemorySize;
 u32 g_MemoryMask;
+// Used to store the PSP model on game startup.
+u32 g_PSPModel;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
@@ -71,6 +85,14 @@ static MemoryView views[] =
 	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	// Starts at memory + 31 MB.
+	{&m_pRAM2,       &m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
+	{NULL,           &m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{NULL,           &m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	// Starts at memory + 31 * 2 MB.
+	{&m_pRAM3,       &m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
+	{NULL,           &m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{NULL,           &m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -86,9 +108,16 @@ void Init()
 	// Using (Memory::g_MemorySize - 1) won't work for e.g. 0x04C00000.
 	Memory::g_MemoryMask = 0x07FFFFFF;
 
+	// On some 32 bit platforms, you can only map < 32 megs at a time.
+	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
+	_dbg_assert_msg_(MEMMAP, g_MemorySize < MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].flags & MV_IS_PRIMARY_RAM)
-			views[i].size = g_MemorySize;
+			views[i].size = std::min((int)g_MemorySize, MAX_MMAP_SIZE);
+		if (views[i].flags & MV_IS_EXTRA1_RAM)
+			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE, 0), MAX_MMAP_SIZE);
+		if (views[i].flags & MV_IS_EXTRA2_RAM)
+			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
 	base = MemoryMap_Setup(views, num_views, flags, &g_arena);
 
@@ -98,12 +127,24 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
-	auto s = p.Section("Memory", 1);
+	auto s = p.Section("Memory", 1, 2);
 	if (!s)
 		return;
 
-	p.DoArray(m_pRAM, g_MemorySize);
+	if (s < 2) {
+		if (!g_RemasterMode)
+			g_MemorySize = RAM_NORMAL_SIZE;
+		g_PSPModel = PSP_MODEL_FAT;
+	} else {
+		p.Do(g_PSPModel);
+		p.DoMarker("PSPModel");
+		if (!g_RemasterMode)
+			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
+	}
+
+	p.DoArray(GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
 	p.DoMarker("RAM");
+
 	p.DoArray(m_pVRAM, VRAM_SIZE);
 	p.DoMarker("VRAM");
 	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
@@ -116,13 +157,13 @@ void Shutdown()
 	MemoryMap_Shutdown(views, num_views, flags, &g_arena);
 	g_arena.ReleaseSpace();
 	base = NULL;
-	INFO_LOG(MEMMAP, "Memory system shut down.");
+	DEBUG_LOG(MEMMAP, "Memory system shut down.");
 }
 
 void Clear()
 {
 	if (m_pRAM)
-		memset(m_pRAM, 0, g_MemorySize);
+		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
 	if (m_pScratchPad)
 		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
 	if (m_pVRAM)
@@ -135,7 +176,7 @@ Opcode Read_Instruction(u32 address)
 	if (MIPS_IS_EMUHACK(inst) && MIPSComp::jit)
 	{
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-		int block_num = bc->GetBlockNumberFromEmuHackOp(inst);
+		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
 		if (block_num >= 0) {
 			return bc->GetOriginalFirstOp(block_num);
 		} else {
@@ -170,6 +211,9 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
+#ifndef USING_GLES2
+	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
+#endif
 }
 
 void GetString(std::string& _string, const u32 em_address)

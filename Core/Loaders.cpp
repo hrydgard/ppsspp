@@ -129,7 +129,7 @@ IdentifiedFileType Identify_File(std::string &filename)
 	if (id == 'FLE\x7F') {
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that.
 		if (!strcasecmp(extension.c_str(), ".plf") || strstr(filename.c_str(),"BOOT.BIN") ||
-			  !strcasecmp(extension.c_str(), ".elf") || !strcasecmp(extension.c_str(), ".prx") ||
+				!strcasecmp(extension.c_str(), ".elf") || !strcasecmp(extension.c_str(), ".prx") ||
 				!strcasecmp(extension.c_str(), ".pbp")) {
 			return FILETYPE_PSP_ELF;
 		}
@@ -173,7 +173,6 @@ IdentifiedFileType Identify_File(std::string &filename)
 }
 
 bool LoadFile(std::string &filename, std::string *error_string) {
-	INFO_LOG(LOADER,"Identifying file...");
 	// Note that this can modify filename!
 	switch (Identify_File(filename)) {
 	case FILETYPE_PSP_PBP_DIRECTORY:

@@ -12,7 +12,6 @@
 #define IDC_STEPOVER                    108
 #define IDC_TABDATATYPE                 109
 #define IDC_CALLSTACK                   110
-#define IDC_UPDATECALLSTACK             111
 #define ID_MEMVIEW_GOTOINDISASM         112
 #define ID_DISASM_DYNARECRESULTS        113
 #define IDI_PPSSPP                      115
@@ -105,7 +104,6 @@
 #define IDC_GOTOLR                      1070
 #define IDC_GOTOINT                     1071
 #define IDC_MEMSORT                     1073
-#define IDC_BACKWARDLINKS               1074
 #define IDC_ALLFUNCTIONS                1075
 #define IDC_RESULTS                     1093
 #define IDC_SYMBOLS                     1097
@@ -299,6 +297,7 @@
 #define ID_OPTIONS_LANGUAGE              40141
 #define ID_MEMVIEW_COPYVALUE_16          40142
 #define ID_MEMVIEW_COPYVALUE_32          40143
+#define ID_EMULATION_SWITCH_UMD          40144
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

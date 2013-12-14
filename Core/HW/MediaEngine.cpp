@@ -60,24 +60,6 @@ static AVPixelFormat getSwsFormat(int pspFormat)
 		return (AVPixelFormat)0;
 	}
 }
-#endif
-
-static int getPixelFormatBytes(int pspFormat)
-{
-	switch (pspFormat)
-	{
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
-		return 2;
-	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
-		return 4;
-
-	default:
-		ERROR_LOG(ME, "Unknown pixel format");
-		return 4;
-	}
-}
 
 void ffmpeg_logger(void *, int level, const char *format, va_list va_args) {
 	// We're still called even if the level doesn't match.
@@ -113,6 +95,24 @@ bool InitFFmpeg() {
 
 	return true;
 }
+#endif
+
+static int getPixelFormatBytes(int pspFormat)
+{
+	switch (pspFormat)
+	{
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+		return 2;
+	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+		return 4;
+
+	default:
+		ERROR_LOG(ME, "Unknown pixel format");
+		return 4;
+	}
+}
 
 void __AdjustBGMVolume(s16 *samples, u32 count) {
 	if (g_Config.iBGMVolume < 0 || g_Config.iBGMVolume >= MAX_CONFIG_VOLUME) {
@@ -126,11 +126,13 @@ void __AdjustBGMVolume(s16 *samples, u32 count) {
 }
 
 MediaEngine::MediaEngine(): m_pdata(0) {
+#ifdef USE_FFMPEG
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
+#endif
 	m_videoStream = -1;
 	m_audioStream = -1;
 	m_buffer = 0;
@@ -170,11 +172,13 @@ void MediaEngine::closeMedia() {
 	if (m_demux)
 		delete m_demux;
 	m_buffer = 0;
+#ifdef USE_FFMPEG
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
 	m_pCodecCtx = 0;
 	m_pFormatCtx = 0;
+#endif
 	m_pdata = 0;
 	m_demux = 0;
 	AT3Close(&m_audioContext);
@@ -198,7 +202,11 @@ void MediaEngine::DoState(PointerWrap &p){
 	p.Do(hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)
 		loadStream(m_mpegheader, 2048, m_ringbuffersize);
+#ifdef USE_FFMPEG
 	u32 hasopencontext = m_pFormatCtx != NULL;
+#else
+	u32 hasopencontext = false;
+#endif
 	p.Do(hasopencontext);
 	if (hasopencontext && p.mode == p.MODE_READ)
 		openContext();
@@ -325,22 +333,25 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 			m_demux->demux(m_audioStream);
 		}
 #ifdef USE_FFMPEG
-		if (!m_pFormatCtx) {
+		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048 * 6) {
 			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
 			int mpegoffset = bswap32(*(int*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
 			openContext();
 		}
 #endif // USE_FFMPEG
+
+		// We added data, so... not the end anymore?
+		m_isVideoEnd = false;
 	}
 	return size;
 }
 
 bool MediaEngine::setVideoDim(int width, int height)
 {
+#ifdef USE_FFMPEG
 	if (!m_pCodecCtx)
 		return false;
-#ifdef USE_FFMPEG
 	if (width == 0 && height == 0)
 	{
 		// use the orignal video size
@@ -487,10 +498,18 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	}
 }
 
-int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
+int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode) {
+	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
+		// Clearly invalid values.  Let's just not.
+		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		return false;
+	}
+
+	u8 *buffer = Memory::GetPointer(bufferPtr);
+
+#ifdef USE_FFMPEG
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
-#ifdef USE_FFMPEG
 	int videoImageSize = 0;
 	// lock the image size
 	int height = m_desHeight;
@@ -536,7 +555,7 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 		break;
 
 	default:
-		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 	return videoImageSize;
@@ -544,11 +563,19 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 	return 0;
 }
 
-int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height) {
+	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
+		// Clearly invalid values.  Let's just not.
+		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		return false;
+	}
+
+	u8 *buffer = Memory::GetPointer(bufferPtr);
+
+#ifdef USE_FFMPEG
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
-#ifdef USE_FFMPEG
 	int videoImageSize = 0;
 	// lock the image size
 	u8 *imgbuf = buffer;
@@ -610,7 +637,11 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 }
 
 u8 *MediaEngine::getFrameImage() {
+#ifdef USE_FFMPEG
 	return m_pFrameRGB->data[0];
+#else
+	return NULL;
+#endif
 }
 
 int MediaEngine::getRemainSize() {
@@ -619,7 +650,12 @@ int MediaEngine::getRemainSize() {
 	return std::max(m_pdata->getRemainSize() - m_decodingsize - 2048, 0);
 }
 
-int MediaEngine::getAudioSamples(u8* buffer) {
+int MediaEngine::getAudioSamples(u32 bufferPtr) {
+	if (!Memory::IsValidAddress(bufferPtr)) {
+		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
+	}
+
+	u8 *buffer = Memory::GetPointer(bufferPtr);
 	if (!m_demux) {
 		return 0;
 	}
