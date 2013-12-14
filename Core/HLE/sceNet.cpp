@@ -394,7 +394,7 @@ const HLEFunction sceNetInet[] = {
 	{0xcda85c99, WrapI_IUUU<sceNetInetRecv>, "sceNetInetRecv"},
 	{0xc91142e4, 0, "sceNetInetRecvfrom"},
 	{0xeece61d2, 0, "sceNetInetRecvmsg"},
-	{0x7aa671bc, WrapI_IUUU<sceNetInetRecv>, "sceNetInetSend"},
+	{0x7aa671bc, WrapI_IUUU<sceNetInetSend>, "sceNetInetSend"},
 	{0x05038fc7, 0, "sceNetInetSendto"},
 	{0x774e36f4, 0, "sceNetInetSendmsg"},
 	{0xfbabe411, WrapI_V<sceNetInetGetErrno>, "sceNetInetGetErrno"},
