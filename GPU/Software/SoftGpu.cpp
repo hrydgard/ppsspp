@@ -19,6 +19,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -563,6 +564,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
 				memcpy(dst, src, width * bpp);
 			}
+
+#ifndef USING_GLES2
+			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+#endif
 
 			break;
 		}
