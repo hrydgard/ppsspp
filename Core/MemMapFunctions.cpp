@@ -89,10 +89,17 @@ inline void ReadFromHardware(T &var, const u32 address)
 	}
 	else
 	{
+		static int attempt = 0;
 		if (g_Config.bJit) {
-			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
+			if (attempt < 10) {
+				WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
+				attempt++;
+			}
 		} else {
-			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+			if (attempt < 10) {
+				WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+				attempt++;
+			}
 		}
 		static bool reported = false;
 		if (!reported) {
