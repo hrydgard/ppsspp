@@ -810,51 +810,41 @@ int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
 
 int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 {
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr))
 	{
-		u64 srcTick = Memory::Read_U64(srcTickPtr);
-
-		ScePspDateTime pt;
-		memset(&pt, 0, sizeof(pt));
-
-		__RtcTicksToPspTime(pt,srcTick);
-		if(((pt.year-1)*12+pt.month) + numMonths < 1 || ((pt.year-1)*12+pt.month) + numMonths > 9999*12)
-		{
-			srcTick = 0;
-		}
-		else
-		{
-			if(numMonths < 0)
-			{
-				pt.year += numMonths/12;
-				int restMonth = pt.month + numMonths%12;
-				if(restMonth < 1)
-				{
-					pt.month = 12+restMonth;
-					pt.year--;
-				}
-				else
-				{
-					pt.month = restMonth;
-				}
-			}
-			else
-			{
-				pt.year += numMonths/12;
-				pt.month += numMonths%12;
-				if(pt.month > 12)
-				{
-					pt.month -= 12;
-					pt.year++;
-				}
-			}
-			u64 yearTicks = __RtcPspTimeToTicks(pt);
-			srcTick =yearTicks;
-		}
-		Memory::Write_U64(srcTick, destTickPtr);
+		WARN_LOG(SCERTC, "sceRtcTickAddMonths(%08x, %08x, %d): invalid address", destTickPtr, srcTickPtr, numMonths);
+		return -1;
 	}
 
-	DEBUG_LOG(SCERTC, "sceRtcTickAddMonths(%d,%d,%d)", destTickPtr, srcTickPtr, numMonths);
+	u64 srcTick = Memory::Read_U64(srcTickPtr);
+
+	ScePspDateTime pt;
+	memset(&pt, 0, sizeof(pt));
+
+	__RtcTicksToPspTime(pt,srcTick);
+	pt.year += numMonths / 12;
+	pt.month += numMonths % 12;
+
+	if (pt.month < 1)
+	{
+		pt.month += 12;
+		pt.year--;
+	}
+	if (pt.month > 12)
+	{
+		pt.month -= 12;
+		pt.year++;
+	}
+
+	if (__RtcValidatePspTime(pt))
+	{
+		// Did we land on a year that isn't a leap year?
+		if (pt.month == 2 && pt.day == 29 && !__RtcIsLeapYear((s16)pt.year))
+			pt.day = 28;
+		Memory::Write_U64(__RtcPspTimeToTicks(pt), destTickPtr);
+	}
+
+	DEBUG_LOG(SCERTC, "sceRtcTickAddMonths(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numMonths);
 	return 0;
 }
 
