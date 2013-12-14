@@ -13,9 +13,9 @@ inline float tiltInputCurve (float x, float deadzone, float sensitivity) {
 	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
-		return (x - deadzone) * factor;
+		return (x - deadzone) * factor * factor;
 	} else if (x < -deadzone) {
-		return (x + deadzone) * factor;
+		return (x + deadzone) * factor * factor;
 	} else {
 		return 0.0f;
 	}
@@ -23,7 +23,10 @@ inline float tiltInputCurve (float x, float deadzone, float sensitivity) {
 
 //dampen the tilt according to the given deadzone amount.
 inline Tilt dampTilt(const Tilt &tilt, float deadzone, float xSensitivity, float ySensitivity) {
-	return Tilt(tiltInputCurve(tilt.x_, deadzone, xSensitivity), tiltInputCurve(tilt.y_, deadzone, ySensitivity));
+	//multiply sensitivity by 2 so that "overshoot" is possible. I personally prefer a
+	//sensitivity >1 for kingdom hearts and < 1 for Gods Eater. so yes, overshoot is nice
+	//to have. 
+	return Tilt(tiltInputCurve(tilt.x_, deadzone, 2.0 * xSensitivity), tiltInputCurve(tilt.y_, deadzone, 2.0 * ySensitivity));
 }
 
 inline float clamp(float f) {
@@ -65,10 +68,7 @@ Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, 
 	//next, normalize the tilt values
 	transformedTilt = NormalizeTilt(transformedTilt);
 	
-	ILOG("\n->->->->->->->->->->->->->->->->->->->->->");
-	ILOG("Tilt X: %f; Y: %f", transformedTilt.y_, transformedTilt.x_);
-
-
+	//finally, dampen the tilt according to our curve.
 	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 };
 
