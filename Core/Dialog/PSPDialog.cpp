@@ -128,7 +128,7 @@ bool PSPDialog::IsButtonPressed(int checkButton)
 	return !isFading && !(lastButtons & checkButton) && (buttons & checkButton);
 }
 
-bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld)
+bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold, int framesHeldRepeatRate)
 {
 	bool btnWasHeldLastFrame = (lastButtons & checkButton) && (buttons & checkButton);
 	if (!isFading && btnWasHeldLastFrame) {
@@ -141,7 +141,7 @@ bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld)
 
 	// It's considered held for dialog purposes after 30 frames (~0.5 seconds).
 	// Seems to give the best responsiveness. Maybe this should be configurable?
-	if (framesHeld >= 30 && ((framesHeld % 10) == 0))
+	if (framesHeld >= framesHeldThreshold && ((framesHeld % framesHeldRepeatRate) == 0))
 		return true;
 
 	return false;

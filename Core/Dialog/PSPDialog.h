@@ -79,7 +79,7 @@ public:
 	void EndDraw();
 protected:
 	bool IsButtonPressed(int checkButton);
-	bool IsButtonHeld(int checkButton, int &framesHeld);
+	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
 	void DisplayButtons(int flags);
 
 	void StartFade(bool fadeIn_);
