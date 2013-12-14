@@ -849,7 +849,18 @@ int PSPOskDialog::NativeKeyboard()
 
 int PSPOskDialog::Update(int animSpeed)
 {
-	buttons = __CtrlReadLatch();
+	int cancelButton = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+	int confirmButton = cancelButton == CTRL_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+	static int cancelBtnFramesHeld = 0;
+	static int confirmBtnFramesHeld = 0;
+	static int leftBtnFramesHeld = 0;
+	static int upBtnFramesHeld = 0;
+	static int downBtnFramesHeld = 0;
+	static int rightBtnFramesHeld = 0;
+	const int framesHeldThreshold = 10;
+	const int framesHeldRepeatRate = 5;
+
+	buttons = __CtrlPeekButtons();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
@@ -925,21 +936,21 @@ int PSPOskDialog::Update(int animSpeed)
 		PPGeDrawText("R", 300, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
 
-		if (IsButtonPressed(CTRL_UP))
+		if (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
 		{
 			selectedChar -= numKeyCols[currentKeyboard];
 		}
-		else if (IsButtonPressed(CTRL_DOWN))
+		else if (IsButtonPressed(CTRL_DOWN) || IsButtonHeld(CTRL_DOWN, downBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
 		{
 			selectedChar += numKeyCols[currentKeyboard];
 		}
-		else if (IsButtonPressed(CTRL_LEFT))
+		else if (IsButtonPressed(CTRL_LEFT) || IsButtonHeld(CTRL_LEFT, leftBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
 		{
 			selectedChar--;
 			if (((selectedChar + numKeyCols[currentKeyboard]) % numKeyCols[currentKeyboard]) == numKeyCols[currentKeyboard] - 1)
 				selectedChar += numKeyCols[currentKeyboard];
 		}
-		else if (IsButtonPressed(CTRL_RIGHT))
+		else if (IsButtonPressed(CTRL_RIGHT) || IsButtonHeld(CTRL_RIGHT, rightBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
 		{
 			selectedChar++;
 			if ((selectedChar % numKeyCols[currentKeyboard]) == 0)
@@ -948,7 +959,7 @@ int PSPOskDialog::Update(int animSpeed)
 
 		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
 
-		if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CROSS : CTRL_CIRCLE))
+		if (IsButtonPressed(confirmButton) || IsButtonHeld(confirmButton, confirmBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
 		{
 			inputChars = CombinationString(true);
 		}
@@ -1014,7 +1025,7 @@ int PSPOskDialog::Update(int animSpeed)
 
 			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
-		else if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CIRCLE : CTRL_CROSS))
+		else if (IsButtonPressed(cancelButton) || IsButtonHeld(cancelButton, cancelBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
 		{
 			if (inputChars.size() > 0)
 			{
@@ -1051,7 +1062,7 @@ int PSPOskDialog::Update(int animSpeed)
 
 	oskParams->base.result = 0;
 	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
-
+	lastButtons = buttons;
 	return 0;
 }
 
