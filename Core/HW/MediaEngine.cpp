@@ -333,7 +333,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 			m_demux->demux(m_audioStream);
 		}
 #ifdef USE_FFMPEG
-		if (!m_pFormatCtx) {
+		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048 * 6) {
 			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
 			int mpegoffset = bswap32(*(int*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
