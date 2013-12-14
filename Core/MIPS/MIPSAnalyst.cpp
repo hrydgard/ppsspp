@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 
+#include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
@@ -158,7 +159,7 @@ namespace MIPSAnalyst {
 	{
 		u32 start;
 		u32 end;
-		u32 hash;
+		u64 hash;
 		u32 size;
 		bool isStraightLeaf;
 		bool hasHash;
@@ -168,7 +169,7 @@ namespace MIPSAnalyst {
 
 	vector<Function> functions;
 
-	map<u32, Function*> hashToFunction;
+	map<u64, Function*> hashToFunction;
 
 	void Shutdown()
 	{
@@ -217,26 +218,28 @@ namespace MIPSAnalyst {
 		return true;
 	}
 
-	void HashFunctions()
-	{
-		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++)
-		{
-			Function &f=*iter;
-			u32 hash = 0x1337babe;
-			for (u32 addr = f.start; addr <= f.end; addr += 4)
-			{
+	void HashFunctions() {
+		std::vector<u32> buffer;
+
+		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
+			Function &f = *iter;
+
+			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
+			buffer.resize((f.end - f.start + 4) / 4);
+			size_t pos = 0;
+			for (u32 addr = f.start; addr <= f.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
 				MIPSOpcode instr = Memory::Read_Instruction(addr);
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
-					validbits&=~0xFFFF;
+					validbits &= ~0xFFFF;
 				if (flags & IN_IMM26)
-					validbits&=~0x03FFFFFF;
-				hash = __rotl(hash,13);
-				hash ^= (instr&validbits);
+					validbits &= ~0x03FFFFFF;
+				buffer[pos++] = instr & validbits;
 			}
-			f.hash=hash;
-			f.hasHash=true;
+
+			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
+			f.hasHash = true;
 		}
 	}
 
@@ -431,7 +434,7 @@ namespace MIPSAnalyst {
 
 	struct HashMapFunc {
 		char name[64];
-		u32 hash;
+		u64 hash;
 		u32 size; //number of bytes
 
 		bool operator < (const HashMapFunc &other) const {
@@ -468,7 +471,7 @@ namespace MIPSAnalyst {
 
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
 			const HashMapFunc &mf = *it;
-			if (fprintf(file, "%x:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
+			if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
 				WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
 				break;
 			}
@@ -510,7 +513,7 @@ namespace MIPSAnalyst {
 
 		while (!feof(file)) {
 			HashMapFunc mf = { "" };
-			if (fscanf(file, "%x:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
+			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
 				char temp[1024];
 				fgets(temp, 1024, file);
 				continue;
