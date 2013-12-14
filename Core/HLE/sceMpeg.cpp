@@ -915,7 +915,13 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	}
 
 	hleEatCycles(2020);
-	DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+	static int lastFree = 0;
+	if (lastFree != ringbuffer->packetsFree) {
+		DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+		lastFree = ringbuffer->packetsFree;
+	} else {
+		VERBOSE_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+	}
 	return ringbuffer->packetsFree;
 }
 
