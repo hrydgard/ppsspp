@@ -64,13 +64,13 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.name));
 	Add(new TextView(entry_.author));
 
-	I18NCategory *s = GetI18NCategory("Store");
+	I18NCategory *st = GetI18NCategory("Store");
 	if (!g_GameManager.IsGameInstalled(entry_.file)) {
-		installButton_ = Add(new Button(s->T("Install")));
+		installButton_ = Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
-		Add(new TextView(s->T("Already Installed")));
-		Add(new Button(s->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
+		Add(new TextView(st->T("Already Installed")));
+		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
 	}
 
 	// Add star rating, comments etc?
@@ -78,7 +78,7 @@ void ProductView::CreateViews() {
 
 	float size = entry_.size / (1024.f * 1024.f);
 	char temp[256];
-	sprintf(temp, "%s: %.2f %s", s->T("Size"), size, s->T("MB"));
+	sprintf(temp, "%s: %.2f %s", st->T("Size"), size, st->T("MB"));
 
 	Add(new TextView(temp));
 }
@@ -187,10 +187,13 @@ void StoreScreen::CreateViews() {
 	using namespace UI;
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
+	
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *st = GetI18NCategory("Store");
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
-	topBar->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topBar->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topBar->Add(new TextView("PPSSPP Homebrew Store"));
 	UI::Drawable solid(0xFFbd9939);
 	topBar->SetBG(solid);
@@ -198,9 +201,9 @@ void StoreScreen::CreateViews() {
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		content->Add(new TextView(loading_ ? "Loading.." : "Connection Error"));
-		content->Add(new Button("Retry"))->OnClick.Handle(this, &StoreScreen::OnRetry);
-		content->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		content->Add(new TextView(loading_ ? st->T("Loading...") : st->T("Connection Error")));
+		content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
+		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	} else {
 		content = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
@@ -274,4 +277,3 @@ std::string StoreScreen::GetTranslatedString(const json_value *json, std::string
 		return fallback ? fallback : "(error)";
 	}
 }
-
