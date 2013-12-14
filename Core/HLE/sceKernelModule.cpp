@@ -499,6 +499,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 					// We add 1 in that case so that it ends up the right value.
 					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
 					Memory::Write_U32((it->data & ~0xFFFF) | high, it->addr);
+					currentMIPS->InvalidateICache(it->addr, 4);
 				}
 				lastHI16Processed = true;
 			}
