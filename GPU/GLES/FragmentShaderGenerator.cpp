@@ -405,6 +405,9 @@ void GenerateFragmentShader(char *buffer) {
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = t%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
+				case GE_TEXFUNC_UNKNOWN1:
+				case GE_TEXFUNC_UNKNOWN2:
+				case GE_TEXFUNC_UNKNOWN3:
 					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); break;
 				default:
 					WRITE(p, "  vec4 v = p;\n"); break;
@@ -421,6 +424,9 @@ void GenerateFragmentShader(char *buffer) {
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
+				case GE_TEXFUNC_UNKNOWN1:
+				case GE_TEXFUNC_UNKNOWN2:
+				case GE_TEXFUNC_UNKNOWN3:
 					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
 				default:
 					WRITE(p, "  vec4 v = p;\n"); break;
