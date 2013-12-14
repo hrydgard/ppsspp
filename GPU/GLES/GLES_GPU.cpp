@@ -18,6 +18,7 @@
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
@@ -1562,6 +1563,11 @@ void GLES_GPU::DoBlockTransfer() {
 			dstStride == 512 && height == 272) {
 		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
+
+#ifndef USING_GLES2
+	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+#endif
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {

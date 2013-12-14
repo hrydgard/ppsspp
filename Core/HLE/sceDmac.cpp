@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -41,6 +42,10 @@ void __DmacDoState(PointerWrap &p) {
 
 int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
+#ifndef USING_GLES2
+	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
+#endif
 
 	src &= ~0x40000000;
 	dst &= ~0x40000000;

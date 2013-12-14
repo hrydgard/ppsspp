@@ -28,7 +28,8 @@
 #include "MIPS/JitCommon/JitCommon.h"
 #include "HLE/HLE.h"
 #include "CPU.h"
-#include "Debugger/SymbolMap.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Config.h"
 
 namespace Memory
@@ -210,6 +211,9 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
+#ifndef USING_GLES2
+	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
+#endif
 }
 
 void GetString(std::string& _string, const u32 em_address)
