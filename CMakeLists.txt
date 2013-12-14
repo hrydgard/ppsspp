@@ -491,6 +491,12 @@ else()
 	set(ZLIB_LIBRARY zlib)
 endif()
 
+add_library(cityhash STATIC
+	native/ext/cityhash/city.cpp
+	native/ext/cityhash/city.h
+	native/ext/cityhash/citycrc.h
+)
+include_directories(ext/cityhash)
 
 add_library(libzip STATIC
 	native/ext/libzip/zip.h
@@ -1143,7 +1149,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk xbrz xxhash
+target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
@@ -1368,6 +1374,7 @@ if(APPLE)
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
 
 	# These can be fast even for debug.
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
 		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
