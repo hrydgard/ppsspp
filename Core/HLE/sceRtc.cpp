@@ -775,7 +775,7 @@ int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
 		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
-		srcTick += numHours*3600000000UL;
+		srcTick += numHours * 3600ULL * 1000000ULL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 	DEBUG_LOG(SCERTC, "sceRtcTickAddMinutes(%d,%d,%d)", destTickPtr, srcTickPtr, numHours);
@@ -788,7 +788,7 @@ int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays)
 	{
 		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
 
-		srcTick += numDays*86400000000UL;
+		srcTick += numDays * 86400ULL * 1000000ULL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 	DEBUG_LOG(SCERTC, "sceRtcTickAddDays(%d,%d,%d)", destTickPtr, srcTickPtr, numDays);
@@ -801,7 +801,7 @@ int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
 	{
 		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
 
-		srcTick += numWeeks*604800000000UL;
+		srcTick += numWeeks * 7ULL * 86400ULL * 1000000ULL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 	DEBUG_LOG(SCERTC, "sceRtcTickAddWeeks(%d,%d,%d)", destTickPtr, srcTickPtr, numWeeks);
