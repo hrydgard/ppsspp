@@ -137,6 +137,9 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 
 	while (address < end && start <= address)
 	{
+		if (!PSP_IsInited())
+			return;
+
 		auto it = findDisassemblyEntry(entries,address,false);
 		if (it != entries.end())
 		{
