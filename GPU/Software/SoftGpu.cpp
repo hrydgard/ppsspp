@@ -19,6 +19,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -146,6 +147,7 @@ SoftGPU::SoftGPU()
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 
+	framebufferDirty_ = true;
 	// TODO: Is there a default?
 	displayFramebuf_ = 0;
 	displayStride_ = 512;
@@ -255,6 +257,7 @@ void SoftGPU::CopyDisplayToOutputInternal()
 {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	framebufferDirty_ = false;
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
@@ -366,6 +369,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			cyclesExecuted += EstimatePerVertexCost() * count;
 			int bytesRead;
 			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead);
+			framebufferDirty_ = true;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 			// Some games rely on this, they don't bother reloading VADDR and IADDR.
@@ -420,6 +424,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
 				TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
 			}
+			framebufferDirty_ = true;
 			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
 		}
 		break;
@@ -582,6 +587,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 #endif
 
+			// Could theoretically dirty the framebuffer.
+			framebufferDirty_ = true;
 			break;
 		}
 
@@ -809,6 +816,22 @@ void SoftGPU::UpdateMemory(u32 dest, u32 src, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	// Let's just be safe.
+	framebufferDirty_ = true;
+}
+
+bool SoftGPU::FramebufferDirty() {
+	if (g_Config.bSeparateCPUThread) {
+		// Allow it to process fully before deciding if it's dirty.
+		SyncThread();
+	}
+
+	if (g_Config.iFrameSkip != 0) {
+		bool dirty = framebufferDirty_;
+		framebufferDirty_ = false;
+		return dirty;
+	}
+	return true;
 }
 
 bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
