@@ -56,6 +56,9 @@ public:
 
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+		displayFramebuf_ = framebuf;
+		displayStride_ = stride;
+		displayFormat_ = format;
 		host->GPUNotifyDisplay(framebuf, stride, format);
 	}
 	virtual void CopyDisplayToOutput();
@@ -85,8 +88,12 @@ public:
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
-	void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight);
+	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight, int dstwidth, int dstheight);
 
 private:
 	void CopyDisplayToOutputInternal();
+
+	u32 displayFramebuf_;
+	u32 displayStride_;
+	GEBufferFormat displayFormat_;
 };

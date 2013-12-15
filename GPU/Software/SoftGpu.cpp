@@ -145,6 +145,11 @@ SoftGPU::SoftGPU()
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
+
+	// TODO: Is there a default?
+	displayFramebuf_ = 0;
+	displayStride_ = 512;
+	displayFormat_ = GE_FORMAT_8888;
 }
 
 SoftGPU::~SoftGPU()
@@ -154,7 +159,7 @@ SoftGPU::~SoftGPU()
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.
-void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
+void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight, int dstwidth, int dstheight)
 {
 	glDisable(GL_BLEND);
 	glViewport(0, 0, dstwidth, dstheight);
@@ -163,18 +168,25 @@ void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int
 	glBindTexture(GL_TEXTURE_2D, temp_texture);
 
 	GLfloat texvert_u;
-	if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)gstate.FrameBufStride(), (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		texvert_u = (float)srcwidth / gstate.FrameBufStride();
+	if (displayFramebuf_ == 0) {
+		u32 data[] = {0};
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		texvert_u = 1.0f;
+	} else if (displayFormat_ == GE_FORMAT_8888) {
+		u8 *data = Memory::GetPointer(displayFramebuf_);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)displayStride_, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		texvert_u = (float)srcwidth / displayStride_;
 	} else {
 		// TODO: This should probably be converted in a shader instead..
 		// TODO: Do something less brain damaged to manage this buffer...
 		u32 *buf = new u32[srcwidth * srcheight];
+		FormatBuffer displayBuffer;
+		displayBuffer.data = Memory::GetPointer(displayFramebuf_);
 		for (int y = 0; y < srcheight; ++y) {
 			u32 *buf_line = &buf[y * srcwidth];
-			const u16 *fb_line = &fb.as16[y * gstate.FrameBufStride()];
+			const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
 
-			switch (gstate.FrameBufFormat()) {
+			switch (displayFormat_) {
 			case GE_FORMAT_565:
 				for (int x = 0; x < srcwidth; ++x) {
 					buf_line[x] = DecodeRGB565(fb_line[x]);
@@ -194,7 +206,7 @@ void SoftGPU::CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int
 				break;
 
 			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", gstate.FrameBufFormat());
+				ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
 			}
 		}
 
@@ -242,7 +254,7 @@ void SoftGPU::CopyDisplayToOutput()
 void SoftGPU::CopyDisplayToOutputInternal()
 {
 	// The display always shows 480x272.
-	CopyToCurrentFboFromRam(fb.data, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
