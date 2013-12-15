@@ -142,6 +142,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	// In GLSL ES 3.0, you use "out" variables instead.
 	bool glslES30 = false;
 	const char *varying = "varying";
+	const char *attribute = "attribute";
 	bool highpFog = false;
 
 #if defined(USING_GLES2)
@@ -177,6 +178,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 #endif
 
 	if (glslES30) {
+		attribute = "in";
 		varying = "out";
 	}
 
@@ -209,23 +211,23 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	}
 
 	if (useHWTransform)
-		WRITE(p, "attribute vec3 position;\n");
+		WRITE(p, "%s vec3 position;\n", attribute);
 	else
-		WRITE(p, "attribute vec4 position;\n");  // need to pass the fog coord in w
+		WRITE(p, "%s vec4 position;\n", attribute);  // need to pass the fog coord in w
 
 	if (useHWTransform && hasNormal)
-		WRITE(p, "attribute mediump vec3 normal;\n");
+		WRITE(p, "%s mediump vec3 normal;\n", attribute);
 
 	if (doTexture) {
 		if (!useHWTransform && doTextureProjection)
-			WRITE(p, "attribute vec3 texcoord;\n");
+			WRITE(p, "%s vec3 texcoord;\n", attribute);
 		else
-			WRITE(p, "attribute vec2 texcoord;\n");
+			WRITE(p, "%s vec2 texcoord;\n", attribute);
 	}
 	if (hasColor) {
-		WRITE(p, "attribute lowp vec4 color0;\n");
+		WRITE(p, "%s lowp vec4 color0;\n", attribute);
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
-			WRITE(p, "attribute lowp vec3 color1;\n");
+			WRITE(p, "%s lowp vec3 color1;\n", attribute);
 	}
 
 	if (gstate.isModeThrough())	{

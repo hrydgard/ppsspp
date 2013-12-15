@@ -127,6 +127,11 @@ bool CanReplaceAlphaWithStencil() {
 	if (!gstate.isStencilTestEnabled()) {
 		return false;
 	}
+
+	if (gl_extensions.ARB_blend_func_extended) {
+		return true;
+	}
+
 	if (gstate.isAlphaBlendEnabled()) {
 		return nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncA()];
 	}
@@ -386,12 +391,16 @@ void GenerateFragmentShader(char *buffer) {
 		else
 			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n"); 
 	}
+	if (gl_extensions.ARB_blend_func_extended) {
+		WRITE(p, "out lowp vec4 fragColor0;\n");
+		WRITE(p, "out lowp vec4 fragColor1;\n");
+	}
 
 	WRITE(p, "void main() {\n");
 
 	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  gl_FragColor = v_color0;\n");
+		WRITE(p, "  vec4 v = v_color0;\n");
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
@@ -491,31 +500,38 @@ void GenerateFragmentShader(char *buffer) {
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  gl_FragColor = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
-		} else {
-			WRITE(p, "  gl_FragColor = v;\n");
 		}
 	}
 
+	const char *fragColor = "gl_FragColor";
+	if (gl_extensions.ARB_blend_func_extended) {
+		WRITE(p, "  fragColor0 = vec4(v.rgb, 0.0);\n");
+		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
+		fragColor = "fragColor0";
+	} else {
+		WRITE(p, "  gl_FragColor = v;\n");
+	}
+	
 	if (stencilToAlpha) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
-			WRITE(p, "  gl_FragColor.a = u_stencilReplaceValue;\n");
+			WRITE(p, "  %s.a = u_stencilReplaceValue;\n", fragColor);
 			break;
 
 		case STENCIL_VALUE_ZERO:
-			WRITE(p, "  gl_FragColor.a = 0.0;\n");
+			WRITE(p, "  %s.a = 0.0;\n", fragColor);
 			break;
 
 		case STENCIL_VALUE_ONE:
-			WRITE(p, "  gl_FragColor.a = 1.0;\n");
+			WRITE(p, "  %s.a = 1.0;\n", fragColor);
 			break;
 
 		case STENCIL_VALUE_UNKNOWN:
 			// Maybe we should even mask away alpha using glColorMask and not change it at all? We do get here
 			// if the stencil mode is KEEP for example.
-			WRITE(p, "  gl_FragColor.a = 0.0;\n");
+			WRITE(p, "  %s.a = 0.0;\n", fragColor);
 			break;
 
 		case STENCIL_VALUE_KEEP:

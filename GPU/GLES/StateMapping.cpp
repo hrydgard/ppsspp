@@ -129,6 +129,19 @@ static const GLushort logicOps[] = {
 };
 #endif
 
+static GLenum toDualSource(GLenum blendfunc) {
+	switch (blendfunc) {
+#ifndef USING_GLES2
+	case GL_SRC_ALPHA:
+		return GL_SRC1_ALPHA;
+	case GL_ONE_MINUS_SRC_ALPHA:
+		return GL_ONE_MINUS_SRC1_ALPHA;
+#endif
+	default:
+		return blendfunc;
+	}
+}
+
 static GLenum blendColor2Func(u32 fix) {
 	if (fix == 0xFFFFFF)
 		return GL_ONE;
@@ -189,6 +202,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Shortcut by using GL_ONE where possible, no need to set blendcolor
 		GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
 		GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
+
+		if (gl_extensions.ARB_blend_func_extended) {
+			glBlendFuncA = toDualSource(glBlendFuncA);
+			glBlendFuncB = toDualSource(glBlendFuncB);
+		}
+
 		if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
 			Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
 			Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());

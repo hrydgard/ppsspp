@@ -96,6 +96,14 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glBindAttribLocation(program, ATTR_COLOR0, "color0");
 	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
+#ifndef USING_GLES2
+	if (gl_extensions.ARB_blend_func_extended) {
+		// Dual source alpha
+		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
+		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
+	}
+#endif
+
 	glLinkProgram(program);
 
 	// Detaching shaders is annoying when debugging with gDebugger
@@ -213,6 +221,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_world != -1) availableUniforms |= DIRTY_WORLDMATRIX;
 	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
+	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
+
 	// Looping up to numBones lets us avoid checking u_bone[i]
 	for (int i = 0; i < numBones; i++) {
 		if (u_bone[i] != -1)
@@ -474,7 +484,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
-		glUniform1f(u_stencilReplaceValue, gstate.getStencilTestRef());
+		glUniform1f(u_stencilReplaceValue, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
