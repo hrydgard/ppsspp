@@ -139,8 +139,8 @@ bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThr
 		return false;
 	}
 
-	// It's considered held for dialog purposes after 30 frames (~0.5 seconds).
-	// Seems to give the best responsiveness. Maybe this should be configurable?
+	// It's considered held for dialog purposes after 30 frames (~0.5 seconds),
+	// and set to repeat every 10 frames, by default.
 	if (framesHeld >= framesHeldThreshold && ((framesHeld % framesHeldRepeatRate) == 0))
 		return true;
 
