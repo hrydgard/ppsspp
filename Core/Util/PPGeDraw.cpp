@@ -287,7 +287,7 @@ void PPGeBegin()
 	PPGeSetDefaultTexture();
 
 	WriteCmd(GE_CMD_SCISSOR1, (0 << 10) | 0);
-	WriteCmd(GE_CMD_SCISSOR2, (1023 << 10) | 1023);
+	WriteCmd(GE_CMD_SCISSOR2, (271 << 10) | 479);
 	WriteCmd(GE_CMD_MINZ, 0);
 	WriteCmd(GE_CMD_MAXZ, 0xFFFF);
 
