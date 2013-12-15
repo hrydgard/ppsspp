@@ -997,9 +997,10 @@ void DrawTriangleSlice(
 						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
 						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
 						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
-						Vec4<int> t = texcolor_tl * (0xff - frac_u) + texcolor_tr * frac_u;
-						Vec4<int> b = texcolor_bl * (0xff - frac_u) + texcolor_br * frac_u;
-						texcolor = (t * (0xff - frac_v) + b * frac_v) / (256 * 256);
+						// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
+						Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
+						Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
+						texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
 					}
 					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
 					prim_color_rgb = out.rgb();
