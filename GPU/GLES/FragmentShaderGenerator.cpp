@@ -319,6 +319,8 @@ void GenerateFragmentShader(char *buffer) {
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
+	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		WRITE(p, "#version 130\n");
 	} else {
 		WRITE(p, "#version 110\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
