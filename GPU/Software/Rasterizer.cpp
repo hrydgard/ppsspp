@@ -882,6 +882,10 @@ void DrawTriangleSlice(
 	w1_base += orient2dIncY(-d02.x) * 16 * y1;
 	w2_base += orient2dIncY(d01.x) * 16 * y1;
 
+	// All the z values are the same, no interpolation required.
+	// This is common, and when we interpolate, we lose accuracy.
+	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
+
 	for (pprime.y = minY + y1 * 16; pprime.y < minY + y2 * 16; pprime.y += 16,
 										w0_base += orient2dIncY(d12.x)*16,
 										w1_base += orient2dIncY(-d02.x)*16,
@@ -1013,9 +1017,11 @@ void DrawTriangleSlice(
 
 				// TODO: Fogging
 
+				u16 z = v2.screenpos.z;
 				// TODO: Is that the correct way to interpolate?
 				// Without the (u32), this causes an ICE in some versions of gcc.
-				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
+				if (!flatZ)
+					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
 				// Depth range test
 				// TODO: Clear mode?
