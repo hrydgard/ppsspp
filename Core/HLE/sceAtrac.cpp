@@ -1577,7 +1577,8 @@ int _sceAtracGetContextAddress(int atracID) {
 	if (!atrac) {
 		ERROR_LOG(ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
 		return 0;
-	} else if (!atrac->atracContext.IsValid()) {
+	}
+	if (!atrac->atracContext.IsValid()) {
 		// allocate a new atracContext
 		u32 contextsize = 256;
 		atrac->atracContext = kernelMemory.Alloc(contextsize, false, "Atrac Context");
@@ -1585,11 +1586,11 @@ int _sceAtracGetContextAddress(int atracID) {
 			Memory::Memset(atrac->atracContext.ptr, 0, 256);
 
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->atracContext.ptr, atracID);
-	} else {
-		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
-		if (atrac->atracContext.IsValid())
-			_AtracGenarateContext(atrac, atrac->atracContext);
 	}
+	else
+		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
+	if (atrac->atracContext.IsValid())
+		_AtracGenarateContext(atrac, atrac->atracContext);
 	return atrac->atracContext.ptr;
 }
 
