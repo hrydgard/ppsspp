@@ -70,8 +70,7 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u
 					(tile_u % tiles_in_block_horizontal) +
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 
-	// TODO: HACK: for some reason, the second part needs to be diviced by two for CLUT4 textures to work properly.
-	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)))/((texel_size_bits == 4) ? 2 : 1);
+	return tile_idx * (tile_size_bits / 8) + ((u % texels_per_tile) * texel_size_bits) / 8;
 }
 
 static inline u32 LookupColor(unsigned int index, unsigned int level)
