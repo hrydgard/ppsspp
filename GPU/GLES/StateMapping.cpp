@@ -195,7 +195,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float constantAlpha = 1.0f;
 		if (gstate.isStencilTestEnabled() && !CanReplaceAlphaWithStencil()) {
 			if (gstate.isStencilTestEnabled() == STENCIL_VALUE_UNIFORM) {
-				constantAlpha = gstate.getStencilTestRef() * (1.0f / 255.0f);
+				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
 			}
 		}
 
