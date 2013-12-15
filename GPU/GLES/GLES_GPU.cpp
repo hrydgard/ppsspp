@@ -1549,8 +1549,13 @@ void GLES_GPU::DoBlockTransfer() {
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr))
-		framebufferManager_.UpdateFromMemory(dstBasePtr, (dstY + height) * dstStride * bpp, true);
+	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
+		// TODO: This causes glitches in Tactics Ogre if we don't implement both ways (which will probably be slow...)
+		// The main thing this helps is videos, which will have a matching stride, and zero x/y.
+		if (dstStride == srcStride && dstY == 0 && dstX == 0 && srcX == 0 && srcY == 0) {
+			framebufferManager_.UpdateFromMemory(dstBasePtr, (dstY + height) * dstStride * bpp, true);
+		}
+	}
 	
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
