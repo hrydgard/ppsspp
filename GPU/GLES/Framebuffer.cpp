@@ -570,7 +570,7 @@ static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 	int region_height = gstate.getRegionY2() + 1;
 	int scissor_width = gstate.getScissorX2() + 1;
 	int scissor_height = gstate.getScissorY2() + 1;
-	int fb_stride = gstate.fbwidth & 0x3C0;
+	int fb_stride = gstate.FrameBufStride();
 
 	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
 
@@ -662,10 +662,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// Get parameters
 	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.fbwidth & 0x3C0;
+	int fb_stride = gstate.FrameBufStride();
 
 	u32 z_address = gstate.getDepthBufRawAddress();
-	int z_stride = gstate.zbwidth & 0x3C0;
+	int z_stride = gstate.DepthBufStride();
 
 	// Yeah this is not completely right. but it'll do for now.
 	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
@@ -1557,7 +1557,7 @@ void FramebufferManager::Resized() {
 
 bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.fbwidth & 0x3C0;
+	int fb_stride = gstate.FrameBufStride();
 
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
@@ -1584,10 +1584,10 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 
 bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.fbwidth & 0x3C0;
+	int fb_stride = gstate.FrameBufStride();
 
 	u32 z_address = gstate.getDepthBufRawAddress();
-	int z_stride = gstate.zbwidth & 0x3C0;
+	int z_stride = gstate.DepthBufStride();
 
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
@@ -1617,7 +1617,7 @@ bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 
 bool FramebufferManager::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.fbwidth & 0x3C0;
+	int fb_stride = gstate.FrameBufStride();
 
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {

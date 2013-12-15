@@ -406,7 +406,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		snprintf(saveTitle, 512, "%s", param.GetFileInfo(currentSelectedSave).saveTitle);
 		snprintf(saveDetail, 512, "%s", param.GetFileInfo(currentSelectedSave).saveDetail);
 		
-		PPGeDrawRect(180, 136, 980, 137, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawRect(180, 136, 480, 137, CalcFadedColor(0xFFFFFFFF));
 		std::string titleTxt = title;
 		std::string timeTxt = time;
 		std::string saveTitleTxt = saveTitle;

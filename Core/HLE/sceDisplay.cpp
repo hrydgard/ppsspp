@@ -462,7 +462,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
-	}	else if (g_Config.iFrameSkip > 1)	{
+	} else if (g_Config.iFrameSkip > 1)	{
 		// Other values = fixed frameskip
 		if (numSkippedFrames >= g_Config.iFrameSkip - 1)
 			skipFrame = false;
@@ -563,9 +563,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
 		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.001f / 60.0f));
 
-		// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
-		// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
-		int maxFrameskip = throttle ? g_Config.iFrameSkip : 8;
+		int maxFrameskip = 8;
+		if (throttle) {
+			if (g_Config.iFrameSkip == 1) {
+				// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
+				maxFrameskip = 4;
+			} else {
+				maxFrameskip = g_Config.iFrameSkip - 1;
+			}
+		}
 		if (numSkippedFrames >= maxFrameskip) {
 			skipFrame = false;
 		}
