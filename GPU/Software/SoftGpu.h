@@ -76,6 +76,8 @@ public:
 		fullInfo = "Software";
 	}
 
+	virtual bool FramebufferDirty();
+
 	virtual bool FramebufferReallyDirty() {
 		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
 	}
@@ -93,6 +95,7 @@ protected:
 private:
 	void CopyDisplayToOutputInternal();
 
+	bool framebufferDirty_;
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
