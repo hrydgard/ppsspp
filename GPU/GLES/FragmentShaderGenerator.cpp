@@ -133,7 +133,7 @@ bool CanReplaceAlphaWithStencil() {
 	}
 
 	if (gstate.isAlphaBlendEnabled()) {
-		return nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncA()];
+		return nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()];
 	}
 	return true;
 }
