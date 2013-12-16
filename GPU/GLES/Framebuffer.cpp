@@ -519,6 +519,11 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		program = draw2dprogram_;
 	}
 
+	// Always use linear filtering when stretching a buffer to the screen. Might want to make this
+	// an option in the future.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
 	glsl_bind(program);
 	if (program == postShaderProgram_ && timeLoc_ != -1) {
 		int flipCount = __DisplayGetFlipCount();
