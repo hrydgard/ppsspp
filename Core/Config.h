@@ -74,6 +74,7 @@ public:
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
+	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
 
