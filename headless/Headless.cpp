@@ -343,6 +343,7 @@ int main(int argc, const char* argv[])
 	g_Config.iInternalResolution = 1;
 	g_Config.bFrameSkipUnthrottle = false;
 	g_Config.bEnableLogging = fullLog;
+	g_Config.iNumWorkerThreads = 1;
 
 #ifdef _WIN32
 	InitSysDirectories();

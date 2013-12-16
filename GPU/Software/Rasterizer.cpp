@@ -70,8 +70,7 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u
 					(tile_u % tiles_in_block_horizontal) +
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 
-	// TODO: HACK: for some reason, the second part needs to be diviced by two for CLUT4 textures to work properly.
-	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)))/((texel_size_bits == 4) ? 2 : 1);
+	return tile_idx * (tile_size_bits / 8) + ((u % texels_per_tile) * texel_size_bits) / 8;
 }
 
 static inline u32 LookupColor(unsigned int index, unsigned int level)
@@ -206,10 +205,18 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 		{
 			// projection mapping, TODO: Move this code to TransformUnit!
 			Vec3<float> source;
-			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+			switch (gstate.getUVProjMode()) {
+			case GE_PROJMAP_POSITION:
 				source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
-			} else {
+				break;
+
+			case GE_PROJMAP_UV:
+				source = Vec3f((v0.texturecoords * w0 + v1.texturecoords * w1 + v2.texturecoords * w2) / (w0 + w1 + w2), 0.0f);
+				break;
+
+			default:
 				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+				break;
 			}
 
 			Mat3x3<float> tgen(gstate.tgenMatrix);
@@ -875,6 +882,10 @@ void DrawTriangleSlice(
 	w1_base += orient2dIncY(-d02.x) * 16 * y1;
 	w2_base += orient2dIncY(d01.x) * 16 * y1;
 
+	// All the z values are the same, no interpolation required.
+	// This is common, and when we interpolate, we lose accuracy.
+	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
+
 	for (pprime.y = minY + y1 * 16; pprime.y < minY + y2 * 16; pprime.y += 16,
 										w0_base += orient2dIncY(d12.x)*16,
 										w1_base += orient2dIncY(-d02.x)*16,
@@ -986,9 +997,10 @@ void DrawTriangleSlice(
 						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
 						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
 						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
-						Vec4<int> t = texcolor_tl * (0xff - frac_u) + texcolor_tr * frac_u;
-						Vec4<int> b = texcolor_bl * (0xff - frac_u) + texcolor_br * frac_u;
-						texcolor = (t * (0xff - frac_v) + b * frac_v) / (256 * 256);
+						// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
+						Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
+						Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
+						texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
 					}
 					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
 					prim_color_rgb = out.rgb();
@@ -1006,9 +1018,11 @@ void DrawTriangleSlice(
 
 				// TODO: Fogging
 
+				u16 z = v2.screenpos.z;
 				// TODO: Is that the correct way to interpolate?
 				// Without the (u32), this causes an ICE in some versions of gcc.
-				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
+				if (!flatZ)
+					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
 				// Depth range test
 				// TODO: Clear mode?

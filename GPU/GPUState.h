@@ -218,10 +218,10 @@ struct GPUgstate
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
-	int FrameBufStride() const { return fbwidth&0x7C0; }
+	int FrameBufStride() const { return fbwidth&0x7FC; }
 	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF) | ((zbwidth & 0xFF0000) << 8); }
 	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
-	int DepthBufStride() const { return zbwidth&0x7C0; }
+	int DepthBufStride() const { return zbwidth&0x7FC; }
 
 	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }

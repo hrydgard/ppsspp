@@ -676,4 +676,4 @@ void EmuScreen::autoLoad() {
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
 		SaveState::LoadSlot(lastSlot, 0, 0);
 	}
-};
+}
