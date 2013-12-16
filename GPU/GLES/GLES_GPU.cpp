@@ -693,14 +693,13 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				break;
 				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-			
 
 			if (gstate.isAntiAliasEnabled()) {
 				// Discard AA lines in DOA
 				if (prim == GE_PRIM_LINE_STRIP)
 					break;
-				// Discard AA lines in Summon Night 5
-				if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
+				// Discard AA lines in Summon Night 5 
+				if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
 					break;
 			}
 
