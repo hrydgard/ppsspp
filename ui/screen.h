@@ -48,6 +48,7 @@ public:
 	virtual void update(InputState &input) {}
 	virtual void render() {}
 	virtual void deviceLost() {}
+	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void touch(const TouchInput &touch) {}
 	virtual void key(const KeyInput &key) {}
@@ -95,6 +96,7 @@ public:
 	UIContext *getUIContext() { return uiContext_; }
 
 	void render();
+	void resized();
 	void deviceLost();
 	void shutdown();
 

@@ -79,6 +79,13 @@ void ScreenManager::axis(const AxisInput &axis) {
 		stack_.back().screen->axis(axis);
 }
 
+void ScreenManager::resized() {
+	// Have to notify the whole stack, otherwise there will be problems when going back
+	// to non-top screens.
+	for (auto iter = stack_.begin(); iter != stack_.end(); ++iter) {
+		iter->screen->resized();
+	}
+}
 
 void ScreenManager::render() {
 	if (!stack_.empty()) {

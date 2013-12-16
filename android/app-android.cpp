@@ -52,11 +52,6 @@ void SystemToast(const char *text) {
 	frameCommandParam = text;
 }
 
-// TODO: need a Hide or bool show;
-void ShowAd(int x, int y, bool center_x) {
-	ELOG("TODO! ShowAd!");
-}
-
 void ShowKeyboard() {
 	frameCommand = "showKeyboard";
 	frameCommandParam = "";
@@ -103,8 +98,8 @@ std::string System_GetProperty(SystemProperty prop) {
 // Remember that all of these need initialization on init! The process
 // may be reused when restarting the game. Globals are DANGEROUS.
 
-float dp_xscale = 1;
-float dp_yscale = 1;
+float dp_xscale = 1.0f;
+float dp_yscale = 1.0f;
 
 InputState input_state;
 
@@ -113,16 +108,14 @@ static bool first_lost = true;
 static bool use_opensl_audio = false;
 static std::string library_path;
 
-std::string GetJavaString(JNIEnv *env, jstring jstr)
-{
+std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	const char *str = env->GetStringUTFChars(jstr, 0);
 	std::string cpp_string = std::string(str);
 	env->ReleaseStringUTFChars(jstr, str);
 	return cpp_string;
 }
 
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEnv *env, jclass)
-{
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
 	std::string app_name, app_nice_name;
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
@@ -240,7 +233,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jc
 static jmethodID postCommand;
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("NativeApp.displayInit()");
+	ILOG("NativeApp.displayInit(pixel_xres = %i, pixel_yres = %i)", pixel_xres, pixel_yres);
 	if (!renderer_inited) {
 		// We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
 		// Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
@@ -265,6 +258,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
 	ILOG("NativeApp.displayResize(%i, %i)", w, h);
+
 	// TODO: Move some of the logic from displayInit here?
 	pixel_xres = w;
 	pixel_yres = h;
@@ -272,6 +266,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JN
 	dp_yres = pixel_yres * g_dpi_scale;
 	dp_xscale = (float)dp_xres / pixel_xres;
 	dp_yscale = (float)dp_yres / pixel_yres;
+
+	NativeResized();
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
@@ -332,9 +328,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(
 
 // This path is not used if OpenSL ES is available.
 extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
-	// Too spammy
-	// ILOG("NativeApp.audioRender");
-
 	// The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
 	EnableFZ();
 
@@ -356,8 +349,6 @@ extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 
 extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
-	// ELOG("Touch Enter %i", pointerId);
-
 	float scaledX = (int)(x * dp_xscale);	// why the (int) cast?
 	float scaledY = (int)(y * dp_yscale);
 
@@ -376,20 +367,17 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	}
 	NativeTouch(touch);
 
-
-	lock_guard guard(input_state.lock);
-
-	if (pointerId >= MAX_POINTERS) {
-		ELOG("Too many pointers: %i", pointerId);
-		return;	// We ignore 8+ pointers entirely.
+	{
+		lock_guard guard(input_state.lock);
+		if (pointerId >= MAX_POINTERS) {
+			ELOG("Too many pointers: %i", pointerId);
+			return;	// We ignore 8+ pointers entirely.
+		}
+		input_state.pointer_x[pointerId] = scaledX;
+		input_state.pointer_y[pointerId] = scaledY;
+		input_state.mouse_valid = true;
 	}
-	input_state.pointer_x[pointerId] = scaledX;
-	input_state.pointer_y[pointerId] = scaledY;
-	input_state.mouse_valid = true;
-
-	// ELOG("Touch Exit %i", pointerId);
 }
-
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key) {
 	KeyInput keyInput;
@@ -414,6 +402,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
+	if (!renderer_inited)
+		return;
 	switch (axisId) {
 	case JOYSTICK_AXIS_X:
 		left_joystick_x_async = value;
@@ -454,6 +444,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_mouseWheelEvent(
 }
 
 extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
+	if (!renderer_inited)
+		return;
 	// Theoretically this needs locking but I doubt it matters. Worst case, the X
 	// from one "sensor frame" will be used together with Y from the next.
 	// Should look into quantization though, for compressed movement storage.

@@ -35,10 +35,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 // Runs after NativeInit() at some point. May (and probably should) call OpenGL.
 void NativeInitGraphics();
 
-// Signals that you need to recreate all buffered OpenGL resources,
-// like textures, vbo etc. Also, if you have modified dp_xres and dp_yres, you have to 
-// do it again here. Main thread.
+// Signals that you need to destroy and recreate all buffered OpenGL resources,
+// like textures, vbo etc.
 void NativeDeviceLost();
+
+// If you want to change DPI stuff (such as modifying dp_xres and dp_yres), this is the
+// place to do it. You should only read g_dpi_scale and pixel_xres and pixel_yres in this,
+// and only write dp_xres and dp_yres.
+void NativeResized();
 
 // Called ~sixty times a second, delivers the current input state.
 // Main thread.
