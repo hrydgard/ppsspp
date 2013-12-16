@@ -670,19 +670,19 @@ int sceKernelReferGlobalProfiler(u32 statusPtr) {
 
 int ThreadManForKernel_446d8de6(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
-	WARN_LOG(SCEKERNEL,"Not support this patcher");
+	WARN_LOG(SCEKERNEL,"ThreadManForKernel_446d8de6:Not support this patcher");
 	return sceKernelCreateThread(threadName, entry, prio, stacksize,  attr, optionAddr);
 }
 
 int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 {	
-	WARN_LOG(SCEKERNEL,"Not support this patcher");
+	WARN_LOG(SCEKERNEL,"ThreadManForKernel_f475845d:Not support this patcher");
 	return sceKernelStartThread(threadToStartID,argSize,argBlockPtr);
 }
 
 int ThreadManForKernel_ceadeb47(u32 usec)
 {	
-	WARN_LOG(SCEKERNEL,"Not support this patcher");
+	WARN_LOG(SCEKERNEL,"ThreadManForKernel_ceadeb47:Not support this patcher");
 	return sceKernelDelayThread(usec);
 }
 
