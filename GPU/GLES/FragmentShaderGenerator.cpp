@@ -128,15 +128,15 @@ ReplaceAlphaType ReplaceAlphaWithStencil() {
 		return REPLACE_ALPHA_NO;
 	}
 
-	if (gl_extensions.ARB_blend_func_extended) {
-		return REPLACE_ALPHA_DUALSOURCE;
-	}
-
 	if (gstate.isAlphaBlendEnabled()) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
-			return REPLACE_ALPHA_NO;
+			if (gl_extensions.ARB_blend_func_extended) {
+				return REPLACE_ALPHA_DUALSOURCE;
+			} else {
+				return REPLACE_ALPHA_NO;
+			}
 		}
 	}
 
