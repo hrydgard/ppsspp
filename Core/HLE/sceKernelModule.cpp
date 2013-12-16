@@ -1854,20 +1854,20 @@ u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCount
 
 u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
 {
-	WARN_LOG(SCEMODULE,"Not support this patcher");
+	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_977de386:Not support this patcher");
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
 void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	WARN_LOG(SCEMODULE,"Not support this patcher");
+	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_50f0c1ec:Not support this patcher");
 	sceKernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr);
 }
 
 //fix for tiger x dragon
 u32 ModuleMgrForKernel_a1a78c58(const char *name, u32 flags, u32 optionAddr)
 {
-	WARN_LOG(SCEMODULE,"Not support this patcher");
+	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_a1a78c58:Not support this patcher");
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
