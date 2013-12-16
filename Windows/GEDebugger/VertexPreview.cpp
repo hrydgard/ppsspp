@@ -211,6 +211,19 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glScissor(x, y, fw, fh);
 	BindPreviewProgram(texPreviewProgram);
 
+	// TODO: Probably there's a better way and place to do this.
+	if (indices.empty()) {
+		for (int i = 0; i < count; ++i) {
+			vertices[i].u -= floor(vertices[i].u);
+			vertices[i].v -= floor(vertices[i].v);
+		}
+	} else {
+		for (int i = 0; i < count; ++i) {
+			vertices[indices[i]].u -= floor(vertices[indices[i]].u);
+			vertices[indices[i]].v -= floor(vertices[indices[i]].v);
+		}
+	}
+
 	ortho.setOrtho(0.0, 1.0, 1.0, 0.0, -1.0, 1.0);
 	glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glEnableVertexAttribArray(texPreviewProgram->a_position);

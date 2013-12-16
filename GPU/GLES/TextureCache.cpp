@@ -835,7 +835,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 			glBindTexture(GL_TEXTURE_2D, 0);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		}
-		UpdateSamplingParams(*entry, false);
+		// We need to force it, since we may have set it on a texture before attaching.
+		UpdateSamplingParams(*entry, true);
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
