@@ -53,8 +53,9 @@ enum StencilValueType {
 };
 
 enum ReplaceAlphaType {
-	REPLACE_ALPHA_NO,
-	REPLACE_ALPHA_YES,
+	REPLACE_ALPHA_NO = 0,
+	REPLACE_ALPHA_YES = 1,
+	REPLACE_ALPHA_DUALSOURCE = 2,
 };
 
 StencilValueType ReplaceAlphaWithStencilType();

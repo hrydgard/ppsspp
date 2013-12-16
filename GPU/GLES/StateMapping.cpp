@@ -193,7 +193,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
 		float constantAlpha = 1.0f;
-		if (gstate.isStencilTestEnabled() && ReplaceAlphaWithStencil() == REPLACE_ALPHA_NO) {
+		int replaceAlphaWithStencil = gstate.isStencilTestEnabled() ? ReplaceAlphaWithStencil() : REPLACE_ALPHA_NO;
+		if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
 			}
@@ -203,7 +204,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
 		GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
 
-		if (gl_extensions.ARB_blend_func_extended) {
+		if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
 			glBlendFuncA = toDualSource(glBlendFuncA);
 			glBlendFuncB = toDualSource(glBlendFuncB);
 		}

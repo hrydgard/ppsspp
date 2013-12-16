@@ -129,7 +129,7 @@ ReplaceAlphaType ReplaceAlphaWithStencil() {
 	}
 
 	if (gl_extensions.ARB_blend_func_extended) {
-		return REPLACE_ALPHA_YES;
+		return REPLACE_ALPHA_DUALSOURCE;
 	}
 
 	if (gstate.isAlphaBlendEnabled()) {
@@ -365,7 +365,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 
 	ReplaceAlphaType stencilToAlpha;
-	if (!gstate.isModeClear()) {
+	if (gstate.isModeClear()) {
 		stencilToAlpha = REPLACE_ALPHA_NO;
 	} else {
 		stencilToAlpha = ReplaceAlphaWithStencil();
@@ -412,7 +412,8 @@ void GenerateFragmentShader(char *buffer) {
 		else
 			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
 	}
-	if (gl_extensions.ARB_blend_func_extended) {
+
+	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 		WRITE(p, "out vec4 fragColor0;\n");
 		WRITE(p, "out vec4 fragColor1;\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -527,14 +528,16 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
-	if (gl_extensions.ARB_blend_func_extended) {
+	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 		WRITE(p, "  fragColor0 = vec4(v.rgb, 0.0);\n");
 		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
-	} else {
+	} else if (stencilToAlpha == REPLACE_ALPHA_YES) {
+		WRITE(p, "  %s = vec4(v.rgb, 0.0);\n", fragColor0);
+	} else {  // stencilToAlpha == REPLACE_ALPHA_NO
 		WRITE(p, "  %s = v;\n", fragColor0);
 	}
 
-	if (stencilToAlpha) {
+	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
 			WRITE(p, "  %s.a = u_stencilReplaceValue;\n", fragColor0);
