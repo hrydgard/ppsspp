@@ -299,6 +299,7 @@ void GenerateFragmentShader(char *buffer) {
 	// In GLSL ES 3.0, you use "in" variables instead of varying.
 	bool glslES30 = false;
 	const char *varying = "varying";
+	const char *fragColor0 = "gl_FragColor";
 	bool highpFog = false;
 
 #if defined(USING_GLES2)
@@ -317,9 +318,11 @@ void GenerateFragmentShader(char *buffer) {
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
+		fragColor0 = "fragColor0";
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		fragColor0 = "fragColor0";
 		WRITE(p, "#version 130\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
 		WRITE(p, "#define lowp\n");
@@ -399,6 +402,8 @@ void GenerateFragmentShader(char *buffer) {
 	if (gl_extensions.ARB_blend_func_extended) {
 		WRITE(p, "out vec4 fragColor0;\n");
 		WRITE(p, "out vec4 fragColor1;\n");
+	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		WRITE(p, "out vec4 fragColor0;\n");
 	}
 
 	WRITE(p, "void main() {\n");
@@ -509,33 +514,31 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
-	const char *fragColor = "gl_FragColor";
 	if (gl_extensions.ARB_blend_func_extended) {
 		WRITE(p, "  fragColor0 = vec4(v.rgb, 0.0);\n");
 		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
-		fragColor = "fragColor0";
 	} else {
-		WRITE(p, "  gl_FragColor = v;\n");
+		WRITE(p, "  %s = v;\n", fragColor0);
 	}
 
 	if (stencilToAlpha) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
-			WRITE(p, "  %s.a = u_stencilReplaceValue;\n", fragColor);
+			WRITE(p, "  %s.a = u_stencilReplaceValue;\n", fragColor0);
 			break;
 
 		case STENCIL_VALUE_ZERO:
-			WRITE(p, "  %s.a = 0.0;\n", fragColor);
+			WRITE(p, "  %s.a = 0.0;\n", fragColor0);
 			break;
 
 		case STENCIL_VALUE_ONE:
-			WRITE(p, "  %s.a = 1.0;\n", fragColor);
+			WRITE(p, "  %s.a = 1.0;\n", fragColor0);
 			break;
 
 		case STENCIL_VALUE_UNKNOWN:
 			// Maybe we should even mask away alpha using glColorMask and not change it at all? We do get here
 			// if the stencil mode is KEEP for example.
-			WRITE(p, "  %s.a = 0.0;\n", fragColor);
+			WRITE(p, "  %s.a = 0.0;\n", fragColor0);
 			break;
 
 		case STENCIL_VALUE_KEEP:
@@ -545,10 +548,10 @@ void GenerateFragmentShader(char *buffer) {
 	}
 #ifdef DEBUG_SHADER
 	if (doTexture) {
-		WRITE(p, "  gl_FragColor = texture2D(tex, v_texcoord.xy);\n");
-		WRITE(p, "  gl_FragColor += vec4(0.3,0,0.3,0.3);\n");
+		WRITE(p, "  %s = texture2D(tex, v_texcoord.xy);\n", fragColor0);
+		WRITE(p, "  %s += vec4(0.3,0,0.3,0.3);\n", fragColor0);
 	} else {
-		WRITE(p, "  gl_FragColor = vec4(1,0,1,1);\n");
+		WRITE(p, "  %s = vec4(1,0,1,1);\n", fragColor0);
 	}
 #endif
 	WRITE(p, "}\n");
