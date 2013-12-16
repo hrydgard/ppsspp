@@ -40,6 +40,9 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="TiltEventProcessor.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="InstallZipScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -82,6 +85,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TiltAnalogSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltEventProcessor.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="InstallZipScreen.h">
