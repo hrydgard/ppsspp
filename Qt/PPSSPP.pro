@@ -83,6 +83,7 @@ SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/GamepadEmu.cpp \
 	$$P/UI/GameInfoCache.cpp \
 	$$P/UI/OnScreenDisplay.cpp \
+	$$P/UI/TiltEventProcessor.cpp \
 	$$P/UI/UIShader.cpp \
 	$$P/UI/ui_atlas_lowmem.cpp \
 	$$P/android/jni/TestRunner.cpp
