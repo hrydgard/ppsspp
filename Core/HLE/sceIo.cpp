@@ -1966,6 +1966,25 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			return (int)f->info.size;
 		break;
 
+	// Get ISO9660 volume descriptor (from open ISO9660 file.)
+	case 0x01020001:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
+			WARN_LOG_REPORT(SCEIO, "sceIoIoCtl: Invalid out pointer while reading ISO9660 volume descriptor");
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		} else {
+			INFO_LOG(SCEIO, "sceIoIoCtl: reading ISO9660 volume descriptor read");
+			u32 descFd = pspFileSystem.OpenFile("disc0:/sce_lbn0x10_size0x800", FILEACCESS_READ);
+			if (descFd == 0) {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			}
+			pspFileSystem.ReadFile(descFd, Memory::GetPointer(outdataPtr), 0x800);
+			pspFileSystem.CloseFile(descFd);
+			return 0;
+		}
+		break;
+
 	// Get UMD sector size
 	case 0x01020003:
 		INFO_LOG(SCEIO, "sceIoIoCtl: Asked for sector size of file %i", id);
