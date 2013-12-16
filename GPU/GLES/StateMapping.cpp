@@ -193,7 +193,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
 		float constantAlpha = 1.0f;
-		if (gstate.isStencilTestEnabled() && !CanReplaceAlphaWithStencil()) {
+		if (gstate.isStencilTestEnabled() && ReplaceAlphaWithStencil() == REPLACE_ALPHA_NO) {
 			if (gstate.isStencilTestEnabled() == STENCIL_VALUE_UNIFORM) {
 				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
 			}
@@ -290,7 +290,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
 		// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
 		// the factors to zero). So let's do that.
-		if (CanReplaceAlphaWithStencil()) {
+		if (ReplaceAlphaWithStencil() != REPLACE_ALPHA_NO) {
 			// Let the fragment shader take care of it.
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
 		} else if (gstate.isStencilTestEnabled()) {

@@ -52,6 +52,11 @@ enum StencilValueType {
 	STENCIL_VALUE_KEEP,
 };
 
+enum ReplaceAlphaType {
+	REPLACE_ALPHA_NO,
+	REPLACE_ALPHA_YES,
+};
+
 StencilValueType ReplaceAlphaWithStencilType();
-bool CanReplaceAlphaWithStencil();
+ReplaceAlphaType ReplaceAlphaWithStencil();
 
