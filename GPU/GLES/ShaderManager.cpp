@@ -401,7 +401,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		};
 		if (my_isinf(fogcoef[1])) {
 			// not really sure what a sensible value might be.
-			fogcoef[1] = 10000.0f;
+			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
 		}
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
