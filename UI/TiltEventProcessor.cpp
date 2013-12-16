@@ -1,5 +1,7 @@
+#ifdef _MSC_VER
 #define _USE_MATH_DEFINES
 #include <cmath>
+#endif
 #include "TiltEventProcessor.h"
 #include "Core/HLE/sceCtrl.h"
 #include "math.h"
