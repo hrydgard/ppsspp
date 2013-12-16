@@ -687,6 +687,8 @@ void NativeMessageReceived(const char *message, const char *value) {
 	}
 }
 
+void NativeResized() {
+}
 
 void NativeShutdown() {
 	screenManager->shutdown();
