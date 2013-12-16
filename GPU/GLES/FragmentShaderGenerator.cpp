@@ -321,6 +321,10 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "#version 330\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		WRITE(p, "#version 130\n");
+		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
 	} else {
 		WRITE(p, "#version 110\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
@@ -363,18 +367,17 @@ void GenerateFragmentShader(char *buffer) {
 	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
-	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
-		WRITE(p, "uniform lowp vec3 u_texenv;\n");
+	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND)
+		WRITE(p, "uniform vec3 u_texenv;\n");
 
-	WRITE(p, "%s lowp vec4 v_color0;\n", varying);
+	WRITE(p, "%s vec4 v_color0;\n", varying);
 	if (lmode)
-		WRITE(p, "%s lowp vec3 v_color1;\n", varying);
+		WRITE(p, "%s vec3 v_color1;\n", varying);
 	if (enableFog) {
-		WRITE(p, "uniform lowp vec3 u_fogcolor;\n");
+		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
 	}
-	if (doTexture)
-	{
+	if (doTexture) {
 		if (doTextureProjection)
 			WRITE(p, "%s mediump vec3 v_texcoord;\n", varying);
 		else
@@ -382,20 +385,20 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	if (enableAlphaTest) {
-		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
+		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
-			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n"); 
+			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
 	}
 	if (enableColorTest) {
-		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
+		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
 			WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
-			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n"); 
+			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
 	}
 	if (gl_extensions.ARB_blend_func_extended) {
-		WRITE(p, "out lowp vec4 fragColor0;\n");
-		WRITE(p, "out lowp vec4 fragColor1;\n");
+		WRITE(p, "out vec4 fragColor0;\n");
+		WRITE(p, "out vec4 fragColor1;\n");
 	}
 
 	WRITE(p, "void main() {\n");
@@ -439,7 +442,6 @@ void GenerateFragmentShader(char *buffer) {
 				default:
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
-
 			} else { // texfmt == RGB
 				switch (gstate.getTextureFunction()) {
 				case GE_TEXFUNC_MODULATE:
@@ -490,10 +492,10 @@ void GenerateFragmentShader(char *buffer) {
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
-			WARN_LOG_REPORT_ONCE(colortest, G3D, "Color test function : %s", colorTestFuncs[colorTestFunc]); 
+			WARN_LOG_REPORT_ONCE(colortest, G3D, "Color test function : %s", colorTestFuncs[colorTestFunc]);
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) 
+				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
 					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 				else
 					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
@@ -515,7 +517,7 @@ void GenerateFragmentShader(char *buffer) {
 	} else {
 		WRITE(p, "  gl_FragColor = v;\n");
 	}
-	
+
 	if (stencilToAlpha) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
