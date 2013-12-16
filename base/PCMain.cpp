@@ -317,6 +317,18 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
 }
 
+// returns -1 on failure
+int parseInt(const char *str) {
+	int val;
+	int retval = sscanf(str, "%d", &val);
+	printf("%i = sscanf %s\n", retval, str);
+	if (retval != 1) {
+		return -1;
+	} else {
+		return val;
+	}
+}
+
 #ifdef _WIN32
 #undef main
 #endif
@@ -358,9 +370,21 @@ int main(int argc, char *argv[]) {
 	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
 #else
 	mode = SDL_OPENGL;
-	for (int i = 1; i < argc; i++)
+	int set_xres = -1;
+	int set_yres = -1;
+	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
+		if (set_xres == -2) {
+			set_xres = parseInt(argv[i]);
+		} else if (set_yres == -2) {
+			set_yres = parseInt(argv[i]);
+		}
+		if (!strcmp(argv[i],"--xres"))
+			set_xres = -2;
+		if (!strcmp(argv[i],"--yres"))
+			set_yres = -2;
+	}
 #endif
 	if (mode & SDL_FULLSCREEN) {
 		const SDL_VideoInfo* info = SDL_GetVideoInfo();
@@ -382,13 +406,20 @@ int main(int argc, char *argv[]) {
 		std::swap(pixel_xres, pixel_yres);
 	}
 
+	if (set_xres > 0) {
+		pixel_xres = set_xres;
+	}
+	if (set_yres > 0) {
+		pixel_yres = set_yres;
+	}
+
 	dp_xres = (float)pixel_xres;
 	dp_yres = (float)pixel_yres;
 
 	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
-		return(2);
+		return 2;
 	}
 #ifdef EGL
 	EGL_Init();
@@ -443,10 +474,6 @@ int main(int argc, char *argv[]) {
 #endif
 
 	pixel_in_dps = (float)pixel_xres / dp_xres;
-
-	float dp_xscale = (float)dp_xres / pixel_xres;
-	float dp_yscale = (float)dp_yres / pixel_yres;
-
 	g_dpi_scale = dp_xres / (float)pixel_xres;
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
@@ -461,8 +488,9 @@ int main(int argc, char *argv[]) {
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
-	if (SDL_OpenAudio(&fmt, NULL) < 0)
+	if (SDL_OpenAudio(&fmt, NULL) < 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
+	}
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
@@ -482,7 +510,7 @@ int main(int argc, char *argv[]) {
 	int framecount = 0;
 	float t = 0;
 	float lastT = 0;
-	uint32_t pad_buttons = 0;  // legacy pad buttons
+	uint32_t pad_buttons = 0;	 // legacy pad buttons
 	while (true) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
@@ -490,8 +518,8 @@ int main(int argc, char *argv[]) {
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * dp_xscale;
-			float my = event.motion.y * dp_yscale;
+			float mx = event.motion.x * g_dpi_scale;
+			float my = event.motion.y * g_dpi_scale;
 
 			switch (event.type) {
 			case SDL_QUIT:
@@ -532,7 +560,6 @@ int main(int argc, char *argv[]) {
 					{
 						input_state.pointer_x[0] = mx;
 						input_state.pointer_y[0] = my;
-						//input_state.mouse_buttons_down = 1;
 						input_state.pointer_down[0] = true;
 						input_state.mouse_valid = true;
 						TouchInput input;
