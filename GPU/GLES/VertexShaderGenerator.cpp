@@ -148,8 +148,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
 	// ES doesn't support dual source alpha :(
-	if (false && gl_extensions.GLES3) {
-		WRITE(p, "version 300 es\n");
+	if (gl_extensions.GLES3) {
+		WRITE(p, "#version 300 es\n");
 		glslES30 = true;
 	} else {
 		WRITE(p, "#version 100\n");  // GLSL ES 1.0

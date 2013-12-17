@@ -307,13 +307,16 @@ void GenerateFragmentShader(char *buffer) {
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *fragColor0 = "gl_FragColor";
+	const char *texture = "texture2D";
 	bool highpFog = false;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
 	// ES doesn't support dual source alpha :(
-	if (false && gl_extensions.GLES3) {
+	if (gl_extensions.GLES3) {
 		WRITE(p, "#version 300 es\n");  // GLSL ES 1.0
+		fragColor0 = "fragColor0";
+		texture = "texture";
 		glslES30 = true;
 	} else {
 		WRITE(p, "#version 100\n");  // GLSL ES 1.0
@@ -326,6 +329,7 @@ void GenerateFragmentShader(char *buffer) {
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
+		texture = "texture";
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -437,9 +441,9 @@ void GenerateFragmentShader(char *buffer) {
 
 		if (gstate.isTextureMapEnabled()) {
 			if (doTextureProjection) {
-				WRITE(p, "  vec4 t = texture2DProj(tex, v_texcoord);\n");
+				WRITE(p, "  vec4 t = %sProj(tex, v_texcoord);\n", texture);
 			} else {
-				WRITE(p, "  vec4 t = texture2D(tex, v_texcoord);\n");
+				WRITE(p, "  vec4 t = %s(tex, v_texcoord);\n", texture);
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 
