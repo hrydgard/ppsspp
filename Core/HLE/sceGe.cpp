@@ -333,8 +333,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 	DEBUG_LOG(SCEGE,
 			"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
-	PSPPointer<PspGeListArgs> optParam;
-	optParam = optParamAddr;
+	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, false);
 	if ((int)listID >= 0)
@@ -352,8 +351,7 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 	DEBUG_LOG(SCEGE,
 			"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
-	PSPPointer<PspGeListArgs> optParam;
-	optParam = optParamAddr;
+	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);
 	if ((int)listID >= 0)

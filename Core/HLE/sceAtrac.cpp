@@ -694,8 +694,7 @@ u32 sceAtracEndEntry() {
 }
 
 u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr) {
-	PSPPointer<AtracResetBufferInfo> bufferInfo;
-	bufferInfo = bufferInfoAddr;
+	auto bufferInfo = PSPPointer<AtracResetBufferInfo>::Create(bufferInfoAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {

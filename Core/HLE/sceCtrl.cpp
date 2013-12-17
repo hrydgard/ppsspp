@@ -236,8 +236,7 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	ctrlBufRead = (ctrlBuf - availBufs + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
 
 	int done = 0;
-	PSPPointer<_ctrl_data> data;
-	data = ctrlDataPtr;
+	auto data = PSPPointer<_ctrl_data>::Create(ctrlDataPtr);
 	for (u32 i = 0; i < availBufs; ++i)
 		done += __CtrlReadSingleBuffer(data++, negative);
 

@@ -222,8 +222,7 @@ u32 sceUmdGetDiscInfo(u32 infoAddr)
 	DEBUG_LOG(SCEIO, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
 	if (Memory::IsValidAddress(infoAddr)) {
-		PSPPointer<PspUmdInfo> info;
-		info = infoAddr;
+		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
 		if (info->size != 8)
 			return PSP_ERROR_UMD_INVALID_PARAM;
 

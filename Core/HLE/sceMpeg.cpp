@@ -900,8 +900,7 @@ int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 
 int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 {
-	PSPPointer<SceMpegRingBuffer> ringbuffer;
-	ringbuffer = ringbufferAddr;
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 
 	if (!ringbuffer.IsValid()) {
 		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x) - bad address", ringbufferAddr);

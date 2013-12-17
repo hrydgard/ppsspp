@@ -51,6 +51,7 @@ extern "C" {
 #include "Core/HLE/sceDisplay.h"
 
 const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
+const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
 const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
@@ -988,6 +989,32 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 	return newPos;
 }
 
+s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
+	seek = FILEMOVE_BEGIN;
+
+	s64 newPos = 0;
+	switch (whence) {
+	case 0:
+		newPos = offset;
+		break;
+	case 1:
+		newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
+		seek = FILEMOVE_CURRENT;
+		break;
+	case 2:
+		newPos = f->info.size + offset;
+		seek = FILEMOVE_END;
+		break;
+	default:
+		return (s32)SCE_KERNEL_ERROR_INVAL;
+	}
+
+	// Yes, -1 is the correct return code for this case.
+	if (newPos < 0)
+		return -1;
+	return newPos;
+}
+
 s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
@@ -996,31 +1023,14 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 			WARN_LOG(SCEIO, "sceIoLseek*(%d, %llx, %i): async busy", id, offset, whence);
 			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
-		FileMove seek = FILEMOVE_BEGIN;
-
-		s64 newPos = 0;
-		switch (whence) {
-		case 0:
-			newPos = offset;
-			break;
-		case 1:
-			newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
-			seek = FILEMOVE_CURRENT;
-			break;
-		case 2:
-			newPos = f->info.size + offset;
-			seek = FILEMOVE_END;
-			break;
-		default:
-			return (s32)SCE_KERNEL_ERROR_INVAL;
-		}
+		FileMove seek;
+		s64 newPos = __IoLseekDest(f, offset, whence, seek);
 
 		if(f->npdrm)
 			return npdrmLseek(f, (s32)offset, seek);
 
-		// Yes, -1 is the correct return code for this case.
 		if (newPos < 0)
-			return -1;
+			return newPos;
 		return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 	} else {
 		return (s32) error;
@@ -1966,47 +1976,137 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			return (int)f->info.size;
 		break;
 
+	// Get ISO9660 volume descriptor (from open ISO9660 file.)
+	case 0x01020001:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
+			WARN_LOG_REPORT(SCEIO, "sceIoIoctl: Invalid out pointer while reading ISO9660 volume descriptor");
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		} else {
+			INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
+			u32 descFd = pspFileSystem.OpenFile("disc0:/sce_lbn0x10_size0x800", FILEACCESS_READ);
+			if (descFd == 0) {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			}
+			pspFileSystem.ReadFile(descFd, Memory::GetPointer(outdataPtr), 0x800);
+			pspFileSystem.CloseFile(descFd);
+			return 0;
+		}
+		break;
+
+	// Get ISO9660 path table (from open ISO9660 file.)
+	case 0x01020002:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// Seems like it will accept an out size > path table size, but only write path table bytes.
+		// If not big enough, returns SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT.
+		// Probably only the LE version.
+		{
+			char temp[256];
+			// We want the reported message to include the cmd, so it's unique.
+			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
+			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
+			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+		}
+		break;
+
 	// Get UMD sector size
 	case 0x01020003:
-		INFO_LOG(SCEIO, "sceIoIoCtl: Asked for sector size of file %i", id);
-		if (Memory::IsValidAddress(outdataPtr) && outlen == 4) {
-			Memory::Write_U32(f->info.sectorSize, outdataPtr);
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Asked for sector size of file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
+			// ISOs always use 2048 sized sectors.
+			Memory::Write_U32(2048, outdataPtr);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
 	// Get UMD file offset
 	case 0x01020004:
-		{
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Asked for file offset of file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
 			u32 offset = (u32)pspFileSystem.GetSeekPos(f->handle);
-			INFO_LOG(SCEIO, "sceIoIoCtl: Asked for file offset of file %i", id);
-			if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
-				Memory::Write_U32(offset, outdataPtr);
+			Memory::Write_U32(offset, outdataPtr);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
+
+	case 0x01010005:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Seek for file %i", id);
+		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			struct SeekInfo {
+				u64 offset;
+				u32 unk;
+				u32 whence;
+			};
+			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
+			FileMove seek;
+			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
+			if (newPos < 0 || newPos > f->info.size) {
+				// Not allowed to seek past the end of the file with this API.
+				return ERROR_ERRNO_IO_ERROR;
 			}
+			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
 	// Get UMD file start sector.
 	case 0x01020006:
-		INFO_LOG(SCEIO, "sceIoIoCtl: Asked for start sector of file %i", id);
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Asked for start sector of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
 			Memory::Write_U32(f->info.startSector, outdataPtr);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
 	// Get UMD file size in bytes.
 	case 0x01020007:
-		INFO_LOG(SCEIO, "sceIoIoCtl: Asked for size of file %i", id);
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Asked for size of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
 			Memory::Write_U64(f->info.size, outdataPtr);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
+
+	// Read from UMD file.
+	case 0x01030008:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Read from file %i", id);
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			u32 size = Memory::Read_U32(indataPtr);
+			if (Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				return sceIoRead(id, outdataPtr, size);
+			} else {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			}
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
 	// Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
 	// TODO: This is unsupported on ms0:/ (SCE_KERNEL_ERROR_UNSUP.)
 	case 0x01f30003:
-		INFO_LOG(SCEIO, "sceIoIoCtl: Unknown cmd %08x always returns 1", cmd);
+		INFO_LOG(SCEIO, "sceIoIoctl: Unknown cmd %08x always returns 1", cmd);
 		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
-			INFO_LOG(SCEIO, "sceIoIoCtl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
+			INFO_LOG(SCEIO, "sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
 			return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 		}
 		else {
@@ -2020,6 +2120,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
 			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
 			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+			// TODO: return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 		}
 		break;
 	}
@@ -2060,8 +2161,7 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 	WARN_LOG(SCEIO, "sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
 
-	PSPPointer<SceUID> out;
-	out = outAddr;
+	auto out = PSPPointer<SceUID>::Create(outAddr);
 	int count = 0;
 
 	// Always have the first three.

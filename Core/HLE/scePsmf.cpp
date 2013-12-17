@@ -395,8 +395,7 @@ static std::map<u32, PsmfPlayer *> psmfPlayerMap;
 
 Psmf *getPsmf(u32 psmf)
 {
-	PSPPointer<PsmfData> psmfstruct;
-	psmfstruct = psmf;
+	auto psmfstruct = PSPPointer<PsmfData>::Create(psmf);
 	if (!psmfstruct.IsValid())
 		return 0;
 	auto iter = psmfMap.find(psmfstruct->headerOffset);
