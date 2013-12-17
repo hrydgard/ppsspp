@@ -197,8 +197,9 @@ void CheckGLExtensions() {
 
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
-	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
+	if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
 		// Force this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
+		// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
 		gl_extensions.ARB_blend_func_extended = false;
 	}
 
