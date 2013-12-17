@@ -26,6 +26,7 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gl_state.h"
 
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
@@ -44,6 +45,10 @@ const int FB_HEIGHT = 272;
 FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
+
+// TODO: This one lives in GPU/GLES/Framebuffer.cpp, move it to somewhere common.
+void CenterRect(float *x, float *y, float *w, float *h,
+								float origW, float origH, float frameW, float frameH);
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
@@ -117,9 +122,11 @@ SoftGPU::SoftGPU()
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // 4-byte pixel alignment
 	glGenTextures(1, &temp_texture);
 
-
 	// TODO: Use highp for GLES
 	static const char *fragShaderText =
+#ifdef USING_GLES2
+		"#version 100\n"
+#endif
 		"varying vec2 TexCoordOut;\n"
 		"uniform sampler2D Texture;\n"
 		"void main() {\n"
@@ -128,6 +135,9 @@ SoftGPU::SoftGPU()
 		"   gl_FragColor = tmpcolor;\n"
 		"}\n";
 	static const char *vertShaderText =
+#ifdef USING_GLES2
+		"#version 100\n"
+#endif
 		"attribute vec4 pos;\n"
 		"attribute vec2 TexCoordIn;\n "
 		"varying vec2 TexCoordOut;\n "
@@ -161,11 +171,14 @@ SoftGPU::~SoftGPU()
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.
-void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight, int dstwidth, int dstheight)
+void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 {
-	glDisable(GL_BLEND);
-	glViewport(0, 0, dstwidth, dstheight);
-	glScissor(0, 0, dstwidth, dstheight);
+	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
+	float dstheight = (float)PSP_CoreParameter().pixelHeight;
+
+	glstate.blend.disable();
+	glstate.viewport.set(0, 0, dstwidth, dstheight);
+	glstate.scissorTest.disable();
 
 	glBindTexture(GL_TEXTURE_2D, temp_texture);
 
@@ -217,17 +230,33 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight, int ds
 
 		delete[] buf;
 	}
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 	glUseProgram(program);
 
-	static const GLfloat verts[4][2] = {
-		{ -1, -1}, // Left top
-		{ -1,  1}, // left bottom
-		{  1,  1}, // right bottom
-		{  1, -1}  // right top
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight);
+
+	x /= 0.5f * dstwidth;
+	y /= 0.5f * dstheight;
+	w /= 0.5f * dstwidth;
+	h /= 0.5f * dstheight;
+	float x2 = x + w;
+	float y2 = y + h;
+	x -= 1.0f;
+	y -= 1.0f;
+	x2 -= 1.0f;
+	y2 -= 1.0f;
+
+	const GLfloat verts[4][2] = {
+		{ x, y }, // Left top
+		{ x, y2}, // left bottom
+		{ x2, y2}, // right bottom
+		{ x2, y}  // right top
 	};
+
 	const GLfloat texverts[4][2] = {
 		{0, 1},
 		{0, 0},
@@ -256,7 +285,7 @@ void SoftGPU::CopyDisplayToOutput()
 void SoftGPU::CopyDisplayToOutputInternal()
 {
 	// The display always shows 480x272.
-	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
 }
 

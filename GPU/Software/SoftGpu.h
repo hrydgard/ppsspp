@@ -90,7 +90,7 @@ public:
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
-	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight, int dstwidth, int dstheight);
+	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
 
 private:
 	void CopyDisplayToOutputInternal();
