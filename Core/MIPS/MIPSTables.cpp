@@ -917,8 +917,6 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op)
 	return instr;
 }
 
-
-
 void MIPSCompileOp(MIPSOpcode op)
 {
 	if (op == 0)
@@ -927,12 +925,10 @@ void MIPSCompileOp(MIPSOpcode op)
 	const MIPSInfo info = MIPSGetInfo(op);
 	if (instr)
 	{
-		if (instr->compile)
-			(MIPSComp::jit->*(instr->compile))(op);   // woohoo, member functions pointers!
-		else
-		{
+		if (instr->compile) {
+			(MIPSComp::jit->*(instr->compile))(op);
+		} else {
 			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
-			//MessageBox(0,"ARGH2",0,0);//compile an interpreter call
 		}
 
 		if (info & OUT_EAT_PREFIX)
@@ -944,15 +940,11 @@ void MIPSCompileOp(MIPSOpcode op)
 	}
 }
 
-
 void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
 {
-	if (op == 0)
-	{
+	if (op == 0) {
 		sprintf(out,"nop");
-	}
-	else
-	{
+	} else {
 		disPC = pc;
 		const MIPSInstruction *instr = MIPSGetInstruction(op);
 		if (instr && instr->disasm) {
@@ -966,26 +958,16 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
 			}
 		} else {
 			strcpy(out, "no instruction :(");
-			//__asm int 3
 			MIPSGetInstruction(op);
 		}
 	}
 }
 
-
-void MIPSInterpret(MIPSOpcode op) //only for those rare ones
-{
-	//if ((op&0xFFFFF000) == 0xd0110000)
-	//	Crash();
-	//if (atable[CRUNCH_MIPS_OP(op)].interpret)
-	//		atable[CRUNCH_MIPS_OP(op)].interpret(op);
-	//	else
-	//		_dbg_assert_msg_(MIPS,0,"Trying to interpret instruction that can't be interpreted");
+void MIPSInterpret(MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	if (instr && instr->interpret)
+	if (instr && instr->interpret) {
 		instr->interpret(op);
-	else
-	{
+	} else {
 		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
 		// Try to disassemble it
 		char disasm[256];

@@ -36,8 +36,7 @@ const bool disablePrefixes = false;
 
 using namespace PpcGen;
 
-
-//#define USE_VMX128
+// #define USE_VMX128
 
 namespace MIPSComp
 {

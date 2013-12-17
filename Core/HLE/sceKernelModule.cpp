@@ -821,8 +821,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		module->nm.data_size -= textSize;
 
 #if !defined(USING_GLES2)
-		if (!reader.LoadSymbols())
-			MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, true);
+		bool gotSymbols = reader.LoadSymbols();
+		MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
 #else
 		// Scan for functions (for the analysis results which can help the JIT).
 		// But don't insert into the symbol map.
@@ -981,8 +981,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 textStart = reader.GetVaddr();
 		u32 textEnd = firstImportStubAddr - 4;
 #if !defined(USING_GLES2)
-		if (!reader.LoadSymbols())
-			MIPSAnalyst::ScanForFunctions(textStart, textEnd, true);
+		bool gotSymbols = reader.LoadSymbols();
+		MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
 #endif
 	}
 

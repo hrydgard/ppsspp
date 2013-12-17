@@ -508,6 +508,15 @@
     <ClCompile Include="HLE\ReplaceTables.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\x86\CompReplace.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompReplace.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcCompReplace.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">

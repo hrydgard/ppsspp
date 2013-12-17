@@ -18,6 +18,7 @@
 #include <cmath>
 #include <limits>
 #include <xmmintrin.h>
+
 #include "base/logging.h"
 #include "math/math_util.h"
 
@@ -30,14 +31,12 @@
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"
 
-
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
-
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)

@@ -19,7 +19,6 @@
 
 #include "Globals.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/HLE/ReplaceTables.h"
 
 class DebugInterface;
 
@@ -88,16 +87,26 @@ namespace MIPSAnalyst
 		char name[64];
 	};
 
+	struct ReplacementTableEntry;
+
 	void Reset();
 
 	bool IsRegisterUsed(u32 reg, u32 addr);
 	// This will not only create a database of "AnalyzedFunction" structs, it also
 	// will insert all the functions it finds into the symbol map, if insertSymbols is true.
+
+	// If we have loaded symbols from the elf, we'll register functions as they are touched
+	// so that we don't just dump them all in the cache.
+	void AnalyzeFunction(u32 startAddr, u32 size, const char *name);
 	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols);
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
+
+	void SetHashMapFilename(std::string filename = "");
 	void LoadHashMap(std::string filename);
 	void StoreHashMap(std::string filename = "");
+
+	const char *LookupHash(u64 hash, int funcSize);
 	void ReplaceFunctions(const ReplacementTableEntry *e, int numEntries);
 
 	void UpdateHashMap();

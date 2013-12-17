@@ -433,12 +433,45 @@ namespace MIPSAnalyst {
 
 		HashFunctions();
 
+		std::string hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
 		if (g_Config.bFuncHashMap) {
-			LoadHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
-			StoreHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
+			LoadHashMap(hashMapFilename);
+			StoreHashMap(hashMapFilename);
+			if (insertSymbols) {
+				ApplyHashMap();
+			}
+			if (g_Config.bFuncHashMap) {
+				ReplaceFunctions();
+			}
+		}
+	}
+
+	void AnalyzeFunction(u32 startAddr, u32 size, const char *name) {
+		// Check if we have this already
+		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+			if (iter->start == startAddr) {
+				// Let's just add it to the hashmap.
+				if (iter->hasHash) {
+					HashMapFunc hfun;
+					hfun.hash = iter->hash;
+					strncpy(hfun.name, name, 64);
+					hfun.size = iter->size;
+					hashMap.insert(hfun);
+				}
+				return;
+			}
 		}
 
-		// ReplaceFunctions();
+		// Cheats a little.
+		AnalyzedFunction fun;
+		fun.start = startAddr;
+		fun.end = startAddr + size - 4;
+		fun.isStraightLeaf = false;  // dunno really
+		strncpy(fun.name, name, 64);
+		fun.name[63] = 0;
+		functions.push_back(fun);
+
+		HashFunctions();
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
@@ -463,10 +496,7 @@ namespace MIPSAnalyst {
 
 	void ReplaceFunctions() {
 		for (size_t i = 0; i < functions.size(); i++) {
-			int index = GetReplacementFuncIndex(functions[i].hash, functions[i].size);
-			if (index >= 0) {
-				Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)i, functions[i].start);
-			}
+			WriteReplaceInstruction(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 
@@ -489,9 +519,29 @@ namespace MIPSAnalyst {
 		}
 	}
 
+	const char *LookupHash(u64 hash, int funcsize) {
+		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
+			if (it->hash == hash && it->size == funcsize) {
+				return it->name;
+			}
+		}
+		return 0;
+	}
+
+	void SetHashMapFilename(std::string filename) {
+		if (filename.empty())
+			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
+		else
+			hashmapFileName = filename;
+	}
+
 	void StoreHashMap(std::string filename) {
 		if (filename.empty())
 			filename = hashmapFileName;
+
+		if (!hashMap.size()) {
+			return;
+		}
 
 		FILE *file = File::OpenCFile(filename, "wt");
 		if (!file) {
@@ -557,8 +607,6 @@ namespace MIPSAnalyst {
 			hashMap.insert(mf);
 		}
 		fclose(file);
-
-		ApplyHashMap();
 	}
 
 	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op) {

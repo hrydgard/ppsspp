@@ -15,22 +15,45 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Regular replacement funcs are just C functions. These take care of their
+// own parameter parsing using the old school PARAM macros.
+// The return value is the number of cycles to eat.
+
+// JIT replacefuncs can be for inline or "outline" replacement.
+// With inline replacement, we recognize the call to the functions
+// at jal time already. With outline replacement, we just replace the
+// implementation.
+
+// In both cases the jit needs to know how much to subtract downcount.
+//
+// If the replacement func returned a positive number, this will be treated
+// as the number of cycles to subtract.
+// If the replacement func returns -1, it will be assumed that the subtraction
+// was done by the replacement func.
 
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
-typedef void (* ReplaceFunc)();
+typedef int (* ReplaceFunc)();
+
+enum {
+	REPFLAG_ALLOWINLINE = 1,
+};
 
 // Kind of similar to HLE functions but with different data.
 struct ReplacementTableEntry {
-	u32 hash;
-	int size;
 	const char *name;
 	ReplaceFunc replaceFunc;
-	int cyclesToEat;
+	MIPSComp::MIPSReplaceFunc jitReplaceFunc;
+	int flags;
 };
 
+void Replacement_Init();
+void Replacement_Shutdown();
+
 int GetNumReplacementFuncs();
-int GetReplacementFuncIndex(u64 hash, int size);
+int GetReplacementFuncIndex(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(int index);
+void WriteReplaceInstruction(u32 address, u64 hash, int size);

@@ -173,7 +173,7 @@ void Clear()
 Opcode Read_Instruction(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
-	if (MIPS_IS_EMUHACK(inst) && MIPSComp::jit)
+	if (MIPS_IS_RUNBLOCK(inst) && MIPSComp::jit)
 	{
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
 		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
@@ -182,6 +182,8 @@ Opcode Read_Instruction(u32 address)
 		} else {
 			return inst;
 		}
+	} else if (MIPS_IS_REPLACEMENT(inst)) {
+		return inst;
 	} else {
 		return inst;
 	}

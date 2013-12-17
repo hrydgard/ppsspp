@@ -15,28 +15,114 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <map>
+
 #include "base/basictypes.h"
+#include "base/logging.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 
-void NormalizeVector(u32 vecPtr) {
-	// TODO
+#include "GPU/Math3D.h"
+
+// I think these have to be pretty accurate, but we can probably
+// get away with approximating the VFPU vsin/vcos and vrot pretty roughly.
+static int Replace_sinf() {
+	float f = PARAMF(0);
+	RETURNF(sinf(f));
+	return 80;  // guess number of cycles
+}
+
+static int Replace_cosf() {
+	float f = PARAMF(0);
+	RETURNF(cosf(f));
+	return 80;  // guess number of cycles
+}
+
+// Should probably do JIT versions of this, possibly ones that only delegate
+// large copies to a C function.
+static int Replace_memcpy() {
+	u32 destPtr = PARAM(0);
+	u8 *dst = Memory::GetPointer(destPtr);
+	u8 *src = Memory::GetPointer(PARAM(1));
+	u32 bytes = PARAM(2);
+	if (dst && src) {
+		memcpy(dst, src, bytes);
+	}
+	RETURN(destPtr);
+	return 10 + bytes / 4;  // approximation
+}
+
+static int Replace_memset() {
+	u32 destPtr = PARAM(0);
+	u8 *dst = Memory::GetPointer(destPtr);
+	u8 value = PARAM(1);
+	u32 bytes = PARAM(2);
+	if (dst) {
+		memset(dst, value, bytes);
+	}
+	RETURN(destPtr);
+	return 10 + bytes / 4;  // approximation
+}
+
+static int Replace_strlen() {
+	u32 srcPtr = PARAM(0);
+	const char *src = (const char *)Memory::GetPointer(srcPtr);
+	u32 len = (u32)strlen(src);
+	RETURN(len);
+	return 4 + len;  // approximation
+}
+
+static int Replace_vmmul_q_transp() {
+	float *out = (float *)Memory::GetPointerUnchecked(PARAM(0));
+	const float *a = (const float *)Memory::GetPointerUnchecked(PARAM(1));
+	const float *b = (const float *)Memory::GetPointerUnchecked(PARAM(2));
+
+	// TODO: Actually use an optimized matrix multiply here...
+	Matrix4ByMatrix4(out, b, a);
+	return 16;
 }
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
-// The latter is recommended for fast math functions.
 static const ReplacementTableEntry entries[] = {
-	{ 0x0, 64, "NormalizeVector", WrapV_U<NormalizeVector>, 20 }
+	// TODO: I think some games can be helped quite a bit by implementing the
+	// double-precision soft-float routines: __adddf3, __subdf3 and so on. These
+	// should of course be implemented JIT style, inline.
+	{ "sinf", &Replace_sinf, 0, 0},
+	{ "cosf", &Replace_cosf, 0, 0},
+	{ "memcpy", &Replace_memcpy, 0, 0},
+	{ "memset", &Replace_memset, 0, 0},
+	{ "strlen", &Replace_strlen, 0, 0},
+	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
+	{ "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
+	{}
 };
+
+static std::map<u32, u32> replacedInstructions;
+
+void Replacement_Init() {
+}
+
+void Replacement_Shutdown() {
+	replacedInstructions.clear();
+}
 
 int GetNumReplacementFuncs() {
 	return ARRAY_SIZE(entries);
 }
 
-int GetReplacementFuncIndex(u64 hash, int size) {
+int GetReplacementFuncIndex(u64 hash, int funcSize) {
+	const char *name = MIPSAnalyst::LookupHash(hash, funcSize);
+	if (!name) {
+		return -1;
+	}
+
 	// TODO: Build a lookup and keep it around
 	for (int i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (entries[i].hash == hash && entries[i].size == size) {
+		if (!entries[i].name)
+			continue;
+		if (!strcmp(name, entries[i].name)) {
 			return i;
 		}
 	}
@@ -45,4 +131,13 @@ int GetReplacementFuncIndex(u64 hash, int size) {
 
 const ReplacementTableEntry *GetReplacementFunc(int i) {
 	return &entries[i];
+}
+
+void WriteReplaceInstruction(u32 address, u64 hash, int size) {
+	int index = GetReplacementFuncIndex(hash, size);
+	if (index >= 0) {
+		replacedInstructions[address] = Memory::Read_U32(address);
+		ILOG("Replaced %s at %08x", entries[index].name, address);
+		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
+	}
 }

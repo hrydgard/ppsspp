@@ -36,6 +36,7 @@
 #include "Core/System.h"
 #include "Core/PSPMixer.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceAudio.h"
@@ -167,6 +168,7 @@ void CPU_Init() {
 	IdentifiedFileType type = Identify_File(filename);
 
 	MIPSAnalyst::Reset();
+	Replacement_Init();
 
 	switch (type) {
 	case FILETYPE_PSP_ISO:
@@ -214,6 +216,8 @@ void CPU_Shutdown() {
 	if (g_Config.bAutoSaveSymbolMap) {
 		host->SaveSymbolMap();
 	}
+
+	Replacement_Shutdown();
 
 	CoreTiming::Shutdown();
 	__KernelShutdown();
