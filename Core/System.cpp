@@ -322,7 +322,12 @@ bool PSP_IsInited() {
 }
 
 void PSP_Shutdown() {
-	MIPSAnalyst::StoreHashMap();
+#ifndef USING_GLES2
+	if (g_Config.bFuncHashMap) {
+		MIPSAnalyst::StoreHashMap();
+	}
+#endif
+
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
 	Core_NotifyShutdown();
