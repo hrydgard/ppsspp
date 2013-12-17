@@ -2084,6 +2084,23 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
+	// Read from UMD file.
+	case 0x01030008:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Read from file %i", id);
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			u32 size = Memory::Read_U32(indataPtr);
+			if (Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				return sceIoRead(id, outdataPtr, size);
+			} else {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			}
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
+
 	// Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
 	// TODO: This is unsupported on ms0:/ (SCE_KERNEL_ERROR_UNSUP.)
 	case 0x01f30003:
