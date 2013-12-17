@@ -268,14 +268,13 @@ void PSPSaveDialog::DisplayBanner(int which)
 
 void PSPSaveDialog::DisplaySaveList(bool canMove)
 {
-	int displayCount = 0;
 	static int upFramesHeld = 0;
 	static int downFramesHeld = 0;
 
-	for (int i = 0; i < param.GetFilenameCount(); i++)
+	for (int displayCount = 0; displayCount < param.GetFilenameCount(); displayCount++)
 	{
 		int textureColor = 0xFFFFFFFF;
-		auto fileInfo = param.GetFileInfo(i);
+		auto fileInfo = param.GetFileInfo(displayCount);
 
 		if (fileInfo.size == 0 && fileInfo.texture != NULL)
 			textureColor = 0xFF777777;
@@ -302,6 +301,10 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 		else if (displayCount > currentSelectedSave)
 			y += 48 + 45 * (displayCount - currentSelectedSave);
 
+		// Skip if it's well outside the screen.
+		if (y > 472.0f || y < -200.0f)
+			continue;
+
 		int tw = 256;
 		int th = 256;
 		if (fileInfo.texture != NULL) {
@@ -311,7 +314,6 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
 		}
 		PPGeSetDefaultTexture();
-		displayCount++;
 	}
 
 	if (canMove) {

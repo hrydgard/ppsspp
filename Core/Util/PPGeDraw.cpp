@@ -846,6 +846,7 @@ bool PPGeImage::Load() {
 	u32 texSize = width_ * height_ * 4;
 	texture_ = __PPGeDoAlloc(texSize, true, "Savedata Icon");
 	if (texture_ == 0) {
+		free(textureData);
 		WARN_LOG(SCEGE, "Bad PPGeImage - unable to allocate space for texture");
 		return false;
 	}
