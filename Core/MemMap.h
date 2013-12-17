@@ -428,6 +428,12 @@ struct PSPPointer
 	{
 		return Memory::IsValidAddress(ptr);
 	}
+
+	static PSPPointer<T> Create(u32 ptr) {
+		PSPPointer<T> p;
+		p = ptr;
+		return p;
+	}
 };
 
 

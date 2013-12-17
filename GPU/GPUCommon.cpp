@@ -182,8 +182,7 @@ int GPUCommon::GetStack(int index, u32 stackPtr) {
 	}
 
 	if (index >= 0) {
-		PSPPointer<u32> stack;
-		stack = stackPtr;
+		auto stack = PSPPointer<u32>::Create(stackPtr);
 		if (stack.IsValid()) {
 			auto entry = currentList->stack[index];
 			// Not really sure what most of these values are.

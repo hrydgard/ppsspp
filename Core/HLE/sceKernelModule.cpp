@@ -1803,8 +1803,7 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 		return -1;
 	}
 
-	PSPPointer<ModuleInfo> info;
-	info = infoAddr;
+	auto info = PSPPointer<ModuleInfo>::Create(infoAddr);
 
 	memcpy(info->segmentaddr, module->nm.segmentaddr, sizeof(info->segmentaddr));
 	memcpy(info->segmentsize, module->nm.segmentsize, sizeof(info->segmentsize));

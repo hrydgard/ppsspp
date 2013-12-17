@@ -1535,8 +1535,7 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 	if (!Memory::IsValidAddress(statusPtr))
 		return -1;
 
-	PSPPointer<SceKernelThreadRunStatus> runStatus;
-	runStatus = statusPtr;
+	auto runStatus = PSPPointer<SceKernelThreadRunStatus>::Create(statusPtr);
 
 	// TODO: Check size?
 	runStatus->size = sizeof(SceKernelThreadRunStatus);
@@ -2575,8 +2574,7 @@ int sceKernelDelayThread(u32 usec)
 
 int sceKernelDelaySysClockThreadCB(u32 sysclockAddr)
 {
-	PSPPointer<SceKernelSysClock> sysclock;
-	sysclock = sysclockAddr;
+	auto sysclock = PSPPointer<SceKernelSysClock>::Create(sysclockAddr);
 	if (!sysclock.IsValid()) {
 		ERROR_LOG(SCEKERNEL, "sceKernelDelaySysClockThreadCB(%08x) - bad pointer", sysclockAddr);
 		return -1;
@@ -2594,8 +2592,7 @@ int sceKernelDelaySysClockThreadCB(u32 sysclockAddr)
 
 int sceKernelDelaySysClockThread(u32 sysclockAddr)
 {
-	PSPPointer<SceKernelSysClock> sysclock;
-	sysclock = sysclockAddr;
+	auto sysclock = PSPPointer<SceKernelSysClock>::Create(sysclockAddr);
 	if (!sysclock.IsValid()) {
 		ERROR_LOG(SCEKERNEL, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
 		return -1;
