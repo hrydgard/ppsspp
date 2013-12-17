@@ -166,9 +166,9 @@ void CheckGLExtensions() {
 #endif
 #else
 	// If the GL version >= 4.3, we know it's a true superset of OpenGL ES 3.0 and can thus enable
-	// modern paths.
+	// all the same modern paths.
 	// Most of it could be enabled on lower GPUs as well, but let's start this way.
-	if ((gl_extensions.ver[0] == 4 && gl_extensions.ver[1] >= 3) || gl_extensions.ver[0] > 4) {
+	if (gl_extensions.VersionGEThan(4, 3, 0)) {
 		gl_extensions.GLES3 = true;
 	}
 #endif
@@ -197,6 +197,10 @@ void CheckGLExtensions() {
 
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
+	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
+		// Force this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
+		gl_extensions.ARB_blend_func_extended = false;
+	}
 
 #ifdef USING_GLES2
 	gl_extensions.OES_packed_depth_stencil = strstr(extString, "GL_OES_packed_depth_stencil") != 0;
