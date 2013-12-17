@@ -379,7 +379,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	int index = op.encoding & 0xFFFFFF;
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 
-	CALL(entry->replaceFunc);
+	CALL((const void *)entry->replaceFunc);
 	// Alternatively, we could inline it here, instead of calling out, if it's a function
 	// we can emit.
 
