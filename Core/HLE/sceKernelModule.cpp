@@ -21,6 +21,7 @@
 
 #include "native/base/stringutil.h"
 #include "Common/FileUtil.h"
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Reporting.h"
@@ -235,13 +236,13 @@ public:
 		p.Do(isStarted);
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
-		FuncSymbolExport fsx = {0};
+		FuncSymbolExport fsx = {{0}};
 		p.Do(exportedFuncs, fsx);
-		FuncSymbolImport fsi = {0};
+		FuncSymbolImport fsi = {{0}};
 		p.Do(importedFuncs, fsi);
-		VarSymbolExport vsx = {0};
+		VarSymbolExport vsx = {{0}};
 		p.Do(exportedVars, vsx);
-		VarSymbolImport vsi = {0};
+		VarSymbolImport vsi = {{0}};
 		p.Do(importedVars, vsi);
 		RebuildImpExpModuleNames();
 	}
@@ -824,9 +825,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		bool gotSymbols = reader.LoadSymbols();
 		MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
 #else
-		// Scan for functions (for the analysis results which can help the JIT).
-		// But don't insert into the symbol map.
-		// MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, false);
+		if (g_Config.bFuncHashMap) {
+			bool gotSymbols = reader.LoadSymbols();
+			MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
+		}
 #endif
 	}
 
@@ -983,6 +985,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 #if !defined(USING_GLES2)
 		bool gotSymbols = reader.LoadSymbols();
 		MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
+#else
+		if (g_Config.bFuncHashMap) {
+			bool gotSymbols = reader.LoadSymbols();
+			MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
+		}
 #endif
 	}
 

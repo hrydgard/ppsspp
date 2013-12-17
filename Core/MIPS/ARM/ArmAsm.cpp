@@ -151,8 +151,8 @@ void Jit::GenerateFixedCode()
 			// TODO: In practice, do we ever run code from uncached space (| 0x40000000)? If not, we can remove this BIC.
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 			LDR(R0, MEMBASEREG, R0);
-			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
-			BIC(R0, R0, Operand2(0xFC, 4));
+			AND(R1, R0, Operand2(0xFF, 4));   // rotation is to the right, in 2-bit increments.
+			BIC(R0, R0, Operand2(0xFF, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
 			SetCC(CC_EQ);
 				// IDEA - we have 26 bits, why not just use offsets from base of code?

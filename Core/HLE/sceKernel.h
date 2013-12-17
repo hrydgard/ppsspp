@@ -452,7 +452,7 @@ public:
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
 			// Tekken 6 spams 0x80020001 gets wrong with no ill effects, also on the real PSP
-			if (handle != 0 && handle != 0x80020001)
+			if (handle != 0 && (u32)handle != 0x80020001)
 			{
 				WARN_LOG(SCEKERNEL, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			}

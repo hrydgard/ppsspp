@@ -366,7 +366,12 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		FlushAll();
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
-		BL((const void *)(entry->replaceFunc));
+		if (BLInRange((const void *)(entry->replaceFunc))) {
+			BL((const void *)(entry->replaceFunc));
+		} else {
+			MOVI2R(R0, (u32)entry->replaceFunc);
+			BL(R0);
+		}
 		// Alternatively, we could inline it here, instead of calling out, if it's a function
 		// we can emit.
 
