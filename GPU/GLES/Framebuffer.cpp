@@ -692,12 +692,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address)) {
 			vfb = v;
-			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			if (v->width < drawing_width && v->height < drawing_height) {
+			// fb_stride changed , set it 
+			if (v->fb_stride != fb_stride) {
 				v->width = drawing_width;
 				v->height = drawing_height;
+				v->fb_stride = fb_stride;
 			}
+			// v->format changed, set it 
 			if (v->format != fmt) {
 				v->width = drawing_width;
 				v->height = drawing_height;
