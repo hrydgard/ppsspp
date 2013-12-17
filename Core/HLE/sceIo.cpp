@@ -51,6 +51,7 @@ extern "C" {
 #include "Core/HLE/sceDisplay.h"
 
 const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
+const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
 const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
@@ -988,6 +989,32 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 	return newPos;
 }
 
+s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
+	seek = FILEMOVE_BEGIN;
+
+	s64 newPos = 0;
+	switch (whence) {
+	case 0:
+		newPos = offset;
+		break;
+	case 1:
+		newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
+		seek = FILEMOVE_CURRENT;
+		break;
+	case 2:
+		newPos = f->info.size + offset;
+		seek = FILEMOVE_END;
+		break;
+	default:
+		return (s32)SCE_KERNEL_ERROR_INVAL;
+	}
+
+	// Yes, -1 is the correct return code for this case.
+	if (newPos < 0)
+		return -1;
+	return newPos;
+}
+
 s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
@@ -996,31 +1023,14 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 			WARN_LOG(SCEIO, "sceIoLseek*(%d, %llx, %i): async busy", id, offset, whence);
 			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
-		FileMove seek = FILEMOVE_BEGIN;
-
-		s64 newPos = 0;
-		switch (whence) {
-		case 0:
-			newPos = offset;
-			break;
-		case 1:
-			newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
-			seek = FILEMOVE_CURRENT;
-			break;
-		case 2:
-			newPos = f->info.size + offset;
-			seek = FILEMOVE_END;
-			break;
-		default:
-			return (s32)SCE_KERNEL_ERROR_INVAL;
-		}
+		FileMove seek;
+		s64 newPos = __IoLseekDest(f, offset, whence, seek);
 
 		if(f->npdrm)
 			return npdrmLseek(f, (s32)offset, seek);
 
-		// Yes, -1 is the correct return code for this case.
 		if (newPos < 0)
-			return -1;
+			return newPos;
 		return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 	} else {
 		return (s32) error;
@@ -2026,7 +2036,29 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
-	// 0x01020005 - SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED
+	case 0x01010005:
+		// TODO: Should not work for umd0:/, ms0:/, etc.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Seek for file %i", id);
+		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			struct SeekInfo {
+				u64 offset;
+				u32 unk;
+				u32 whence;
+			};
+			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
+			FileMove seek;
+			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
+			if (newPos < 0 || newPos > f->info.size) {
+				// Not allowed to seek past the end of the file with this API.
+				return ERROR_ERRNO_IO_ERROR;
+			}
+			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
 
 	// Get UMD file start sector.
 	case 0x01020006:
@@ -2071,6 +2103,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
 			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
 			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+			// TODO: return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 		}
 		break;
 	}
