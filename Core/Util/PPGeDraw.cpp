@@ -811,7 +811,7 @@ PPGeImage::PPGeImage(const std::string &pspFilename)
 }
 
 PPGeImage::PPGeImage(u32 pngPointer, size_t pngSize)
-	: filename_(""), png_(pngPointer), size_(pngSize) {
+	: filename_(""), png_(pngPointer), size_(pngSize), texture_(0) {
 }
 
 PPGeImage::~PPGeImage() {
