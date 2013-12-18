@@ -167,12 +167,14 @@ public:
 
 	void ClearCache();
 	void ClearCacheAt(u32 em_address, int length = 4);
+
 private:
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState state);
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
+	bool ReplaceJalTo(u32 dest);
 
 	// See CompileDelaySlotFlags for flags.
 	void CompileDelaySlot(int flags, RegCacheState *state = NULL);

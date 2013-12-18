@@ -52,6 +52,7 @@ static int Replace_atan2f() {
 	RETURNF(atan2f(f1, f2));
 	return 120;  // guess number of cycles
 }
+
 // Should probably do JIT versions of this, possibly ones that only delegate
 // large copies to a C function.
 static int Replace_memcpy() {
@@ -151,12 +152,11 @@ static const ReplacementTableEntry entries[] = {
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
-
 	{ "strlen", &Replace_strlen, 0, 0},
 	{ "strcpy", &Replace_strcpy, 0, 0},
-	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
+	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
 	{}
 };
@@ -208,11 +208,16 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 }
 
 bool GetReplacedOpAt(u32 address, u32 *op) {
-	auto iter = replacedInstructions.find(address);
-	if (iter != replacedInstructions.end()) {
-		*op = iter->second;
-		return true;
-	} else {
-		return false;
+	u32 instr = Memory::Read_U32(address);
+	if (MIPS_IS_REPLACEMENT(instr)) {
+		auto iter = replacedInstructions.find(address);
+		if (iter != replacedInstructions.end()) {
+			*op = iter->second;
+			return true;
+		} else {
+			return false;
+		}
 	}
+	*op = instr;
+	return true;
 }

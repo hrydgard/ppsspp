@@ -133,16 +133,13 @@ struct Opcode {
 	u32 encoding;
 };
 
-// used by JIT to read instructions
+// used by JIT to read instructions. Does not resolve replacements.
 Opcode Read_Opcode_JIT(const u32 _Address);
-// used by JIT. uses iCacheJIT. Reads in the "Locked cache" mode
+// used by JIT. Reads in the "Locked cache" mode
 void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
-// this is used by Debugger a lot. 
-// For now, just reads from memory!
+
+// Should be used by analyzers, disassemblers etc. Does resolve replacements.
 Opcode Read_Instruction(const u32 _Address);
-
-
-// For use by emulator
 
 u8  Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);

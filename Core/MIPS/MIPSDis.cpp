@@ -334,6 +334,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t->$%08x",name,addr);
 	}
+
 	void Dis_JumpRegType(MIPSOpcode op, char *out)
 	{
 		int rs = _RS;
@@ -363,11 +364,18 @@ namespace MIPSDis
 
 	void Dis_Emuhack(MIPSOpcode op, char *out)
 	{
-		//const char *name = MIPSGetName(op);
-		//sprintf(out,"%s\t-",name);
-		out[0]='*';
-		out[1]=0;
-		// MIPSDisAsm(MIPSComp::GetOriginalOp(op), currentDebugMIPS->GetPC(), out+1);
+		switch (op.encoding >> 24) {
+		case 0x68:
+			strcpy(out, "* jitblock");
+			break;
+		case 0x6a:
+			strcpy(out, "* replacement");
+			break;
+		default:
+			out[0]='*';
+			out[1]=0;
+			break;
+		}
 	}
 
 

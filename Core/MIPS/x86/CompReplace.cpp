@@ -27,6 +27,7 @@ int Jit::Replace_fabsf() {
 	fpr.MapReg(0, MAP_DIRTY | MAP_NOINIT);
 	MOVSS(fpr.RX(0), fpr.R(12));
 	ANDPS(fpr.RX(0), M((void *)&ssNoSignMask));
+	fpr.ReleaseSpillLocks();
 	return 4;  // Number of instructions in the MIPS function
 }
 

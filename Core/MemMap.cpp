@@ -171,15 +171,22 @@ void Clear()
 		memset(m_pVRAM, 0, VRAM_SIZE);
 }
 
+
+
 Opcode Read_Instruction(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit)
-	{
+	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
 		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
 		if (block_num >= 0) {
-			return bc->GetOriginalFirstOp(block_num);
+			inst = bc->GetOriginalFirstOp(block_num);
+			/*
+			u32 op;
+			if (GetReplacedOpAt(address, &op)) {
+				return Opcode(op);
+			}*/
+			return inst;
 		} else {
 			return inst;
 		}
@@ -197,7 +204,18 @@ Opcode Read_Instruction(u32 address)
 
 Opcode Read_Opcode_JIT(u32 address)
 {
-	return Read_Instruction(address);
+	Opcode inst = Opcode(Read_U32(address));
+	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
+		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
+		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
+		if (block_num >= 0) {
+			return bc->GetOriginalFirstOp(block_num);
+		} else {
+			return inst;
+		}
+	} else {
+		return inst;
+	}
 }
 
 // WARNING! No checks!

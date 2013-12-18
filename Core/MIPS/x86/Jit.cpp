@@ -229,7 +229,7 @@ void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = Memory::Read_Instruction(addr);
+	MIPSOpcode op = Memory::Read_Opcode_JIT(addr);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -323,7 +323,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(js.compilerPC, 0);
 
-		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -370,6 +370,35 @@ void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock");
+}
+
+bool Jit::ReplaceJalTo(u32 dest) {
+	MIPSOpcode op(Memory::Read_U32(dest));
+	if (!MIPS_IS_REPLACEMENT(dest))
+		return false;
+
+	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	const ReplacementTableEntry *entry = GetReplacementFunc(index);
+	if (!entry) {
+		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
+		return false;
+	}
+
+	// Warning - this might be bad if the code at the destination changes...
+	if (entry->flags & REPFLAG_ALLOWINLINE) {
+		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
+
+		// First, compile the delay slot. It's unconditional so no issues.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		// Technically, we should write the unused return address to RA, but meh.
+		MIPSReplaceFunc repl = entry->jitReplaceFunc;
+		int cycles = (this->*repl)();
+		js.downcountAmount += cycles;
+		// No writing exits, keep going!
+		return true;
+	} else {
+		return false;
+	}
 }
 
 void Jit::Comp_ReplacementFunc(MIPSOpcode op)
