@@ -553,8 +553,8 @@ void Jit::Comp_Jump(MIPSOpcode op)
 
 	case 3: //jal
 		// Special case for branches to "replace functions":
-		// if (ReplaceJalTo(targetAddr))
-		// 	return;
+		if (ReplaceJalTo(targetAddr))
+			return;
 
 		// Save return address - might be overwritten by delay slot.
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);

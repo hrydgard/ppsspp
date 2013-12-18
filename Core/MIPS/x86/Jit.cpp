@@ -373,8 +373,8 @@ void Jit::Comp_RunBlock(MIPSOpcode op)
 }
 
 bool Jit::ReplaceJalTo(u32 dest) {
-	MIPSOpcode op(Memory::Read_U32(dest));
-	if (!MIPS_IS_REPLACEMENT(dest))
+	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
+	if (!MIPS_IS_REPLACEMENT(op.encoding))
 		return false;
 
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
@@ -395,6 +395,10 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
 		// No writing exits, keep going!
+
+		// Add a trigger so that if the inlined code changes, we invalidate this block.
+		// TODO: Correctly determine the size of this block.
+		blocks.CreateProxyBlock(js.blockStart, dest, 4, GetCodePtr());
 		return true;
 	} else {
 		return false;

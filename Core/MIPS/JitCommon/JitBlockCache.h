@@ -55,6 +55,8 @@ const int MAX_JIT_BLOCK_EXITS = 8;
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
 
+// We should be careful not to access these block structures during runtime as they are large.
+// Fine to mess with them at block compile time though.
 struct JitBlock {
 	bool ContainsAddress(u32 em_address);
 	
@@ -71,6 +73,7 @@ struct JitBlock {
 	u16 blockNum;
 
 	bool invalid;
+	bool isProxy;  // If set, exitAddress[0] points to the block we're proxying for.
 	bool linkStatus[MAX_JIT_BLOCK_EXITS];
 
 #ifdef USE_VTUNE
@@ -80,13 +83,15 @@ struct JitBlock {
 
 typedef void (*CompiledCode)();
 
-class JitBlockCache
-{
+class JitBlockCache {
 public:
 	JitBlockCache(MIPSState *mips_, CodeBlock *codeBlock);
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);
+	// When a proxy block is invalidated, the block located at the rootAddress
+	// is invalidated too.
+	int CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
@@ -100,7 +105,7 @@ public:
 	JitBlock *GetBlock(int block_num);
 
 	// Fast way to get a block. Only works on the first source-cpu instruction of a block.
-	int GetBlockNumberFromStartAddress(u32 em_address);
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true);
 
 	// slower, but can get numbers from within blocks, not just the first instruction.
 	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
@@ -134,6 +139,7 @@ private:
 	MIPSState *mips;
 	CodeBlock *codeBlock_;
 	JitBlock *blocks;
+	std::vector<int> proxyBlockIndices_;
 
 	int num_blocks;
 	std::multimap<u32, int> links_to;

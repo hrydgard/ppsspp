@@ -196,6 +196,8 @@ private:
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
 
+	bool ReplaceJalTo(u32 dest);
+
 	void SaveDowncount();
 	void RestoreDowncount();
 

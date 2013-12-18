@@ -433,6 +433,9 @@ void Jit::Comp_Jump(MIPSOpcode op)
 		break;
 
 	case 3: //jal
+		if (ReplaceJalTo(targetAddr))
+			return;
+
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {

@@ -124,6 +124,7 @@ void JitBlockCache::Clear()
 		DestroyBlock(i, false);
 	links_to.clear();
 	block_map.clear();
+	proxyBlockIndices_.clear();
 	num_blocks = 0;
 }
 
@@ -150,6 +151,28 @@ int JitBlockCache::AllocateBlock(u32 em_address)
 		b.linkStatus[i] = false;
 	}
 	b.blockNum = num_blocks;
+	b.isProxy = false;
+	num_blocks++; //commit the current block
+	return num_blocks - 1;
+}
+
+int JitBlockCache::CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
+	JitBlock &b = blocks[num_blocks];
+	b.invalid = false;
+	b.originalAddress = startAddress;
+	b.originalSize = size;
+	for (int i = 0; i < MAX_JIT_BLOCK_EXITS; ++i) {
+		b.exitAddress[i] = INVALID_EXIT;
+		b.exitPtrs[i] = 0;
+		b.linkStatus[i] = false;
+	}
+	b.exitAddress[0] = rootAddress;
+	b.blockNum = num_blocks;
+	b.isProxy = true;
+	// Make binary searches and stuff work ok
+	b.normalEntry = codePtr;
+	b.checkedEntry = codePtr;
+	proxyBlockIndices_.push_back(num_blocks);
 	num_blocks++; //commit the current block
 	return num_blocks - 1;
 }
@@ -201,10 +224,8 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 #endif
 }
 
-int binary_search(JitBlock blocks[], const u8 *baseoff, int imin, int imax)
-{
-	while (imin < imax)
-	{
+static int binary_search(JitBlock blocks[], const u8 *baseoff, int imin, int imax) {
+	while (imin < imax) {
 		int imid = (imin + imax) / 2;
 		if (blocks[imid].normalEntry < baseoff)
 			imin = imid + 1;
@@ -230,7 +251,7 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad) 
 		return -1;
 	}
 
-	int bl = binary_search(blocks, baseoff, 0, num_blocks-1);
+	int bl = binary_search(blocks, baseoff, 0, num_blocks - 1);
 	if (blocks[bl].invalid)
 		return -1;
 	return bl;
@@ -241,16 +262,25 @@ MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
 	return MIPSOpcode(MIPS_EMUHACK_OPCODE | off);
 }
 
-int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr)
-{
+int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly) {
 	if (!blocks)
 		return -1;
+
 	MIPSOpcode inst = MIPSOpcode(Memory::Read_U32(addr));
 	int bl = GetBlockNumberFromEmuHackOp(inst);
-	if (bl < 0)
+	if (bl < 0) {
+		// Wasn't an emu hack op, look through proxyBlockIndices_. 
+		for (size_t i = 0; i < proxyBlockIndices_.size(); i++) {
+			int blockIndex = proxyBlockIndices_[i];
+			if (blocks[blockIndex].originalAddress == addr && blocks[blockIndex].isProxy && !blocks[blockIndex].invalid)
+				return blockIndex;
+		}
 		return -1;
+	}
+
 	if (blocks[bl].originalAddress != addr)
-		return -1;		
+		return -1;	
+
 	return bl;
 }
 
@@ -272,15 +302,13 @@ u32 JitBlockCache::GetAddressFromBlockPtr(const u8 *ptr) const {
 		}
 	}
 
-	// It's in jit somewhere, but we must've deleted it.
+	// It's in jit somewhere, but we must have deleted it.
 	return 0;
 }
 
 MIPSOpcode JitBlockCache::GetOriginalFirstOp(int block_num)
 {
-	if (block_num >= num_blocks || block_num < 0)
-	{
-		//PanicAlert("JitBlockCache::GetOriginalFirstOp - block_num = %u is out of range", block_num);
+	if (block_num >= num_blocks || block_num < 0) {
 		return MIPSOpcode(block_num);
 	}
 	return blocks[block_num].originalFirstOpcode;
@@ -293,6 +321,7 @@ void JitBlockCache::LinkBlockExits(int i)
 		// This block is dead. Don't relink it.
 		return;
 	}
+
 	for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 		if (b.exitAddress[e] != INVALID_EXIT && !b.linkStatus[e]) {
 			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
@@ -400,19 +429,39 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		ERROR_LOG_REPORT(JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
 	}
-	JitBlock &b = blocks[block_num];
-	if (b.invalid) {
+	JitBlock *b = &blocks[block_num];
+
+	// Follow a block proxy chain.
+	// Destroy the block that transitively has this as a proxy. Likely the root block once inlined
+	// this block or its 'parent', so now that this block has changed, the root block must be destroyed.
+	while (b->isProxy) {
+		// false to allow the slow search for proxy blocks.
+		block_num = GetBlockNumberFromStartAddress(b->exitAddress[0], false);  // exitAddress is repurposed for this.
+		JitBlock *proxy = b;
+		proxy->invalid = true;  // The proxy block can safely be invalidated immediately. No need to change anything.
+		b = &blocks[block_num];
+		if (b->invalid) {
+			// Block has already been invalidated, possibly by some other proxy block.
+			return;
+		}
+	}
+
+	// TODO: Handle the case when there's a proxy block and a regular JIT block at the same location.
+	// In this case we probably "leak" the proxy block currently (no memory leak but it'll stay enabled).
+
+	if (b->invalid) {
 		if (invalidate)
 			ERROR_LOG(JIT, "Invalidating invalid block %d", block_num);
 		return;
 	}
-	b.invalid = true;
-	if (Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num).encoding)
-		Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode);
-	// It's not safe to set normalEntry to 0 here, since we use a binary search.
+	b->invalid = true;
+	if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding)
+		Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
+
+	// It's not safe to set normalEntry to 0 here, since we use a binary search
+	// that looks at that later to find blocks. Marking it invalid is enough.
 
 	UnlinkBlock(block_num);
-
 
 #if defined(ARM)
 
@@ -420,8 +469,8 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	// Not entirely ideal, but .. pretty good.
 	// I hope there's enough space...
 	// checkedEntry is the only "linked" entrance so it's enough to overwrite that.
-	ARMXEmitter emit((u8 *)b.checkedEntry);
-	emit.MOVI2R(R0, b.originalAddress);
+	ARMXEmitter emit((u8 *)b->checkedEntry);
+	emit.MOVI2R(R0, b->originalAddress);
 	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->dispatcher);
 	emit.FlushIcache();
@@ -431,12 +480,12 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. pretty good.
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
-	XEmitter emit((u8 *)b.checkedEntry);
-	emit.MOV(32, M(&mips->pc), Imm32(b.originalAddress));
+	XEmitter emit((u8 *)b->checkedEntry);
+	emit.MOV(32, M(&mips->pc), Imm32(b->originalAddress));
 	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
 #elif defined(PPC)
-	PPCXEmitter emit((u8 *)b.checkedEntry);
-	emit.MOVI2R(R3, b.originalAddress);
+	PPCXEmitter emit((u8 *)b->checkedEntry);
+	emit.MOVI2R(R3, b->originalAddress);
 	emit.STW(R0, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->dispatcher);
 	emit.FlushIcache();
