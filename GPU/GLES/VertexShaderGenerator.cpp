@@ -128,6 +128,18 @@ static const char * const boneWeightAttrDecl[9] = {
 	"attribute mediump vec4 w1, w2;\n",
 };
 
+static const char * const boneWeightInDecl[9] = {
+	"#ERROR#",
+	"in mediump float w1;\n",
+	"in mediump vec2 w1;\n",
+	"in mediump vec3 w1;\n",
+	"in mediump vec4 w1;\n",
+	"in mediump vec4 w1;\nin mediump float w2;\n",
+	"in mediump vec4 w1;\nin mediump vec2 w2;\n",
+	"in mediump vec4 w1;\nin mediump vec3 w2;\n",
+	"in mediump vec4 w1, w2;\n",
+};
+
 enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
@@ -143,6 +155,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *attribute = "attribute";
+	const char * const * boneWeightDecl = boneWeightAttrDecl;
 	bool highpFog = false;
 
 #if defined(USING_GLES2)
@@ -180,6 +193,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (glslES30) {
 		attribute = "in";
 		varying = "out";
+		boneWeightDecl = boneWeightInDecl;
 	}
 
 	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
@@ -207,7 +221,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	}
 
 	if (vertTypeIsSkinningEnabled(vertType)) {
-		WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(vertTypeGetNumBoneWeights(vertType))]);
+		WRITE(p, "%s", boneWeightDecl[TranslateNumBones(vertTypeGetNumBoneWeights(vertType))]);
 	}
 
 	if (useHWTransform)
