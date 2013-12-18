@@ -398,9 +398,10 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		js.compiling = false;
 	} else if (entry->replaceFunc) {
 		FlushAll();
+
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
-		CALL((const void *)entry->replaceFunc);
+		ABI_CallFunction((void *)entry->replaceFunc);
 		// Alternatively, we could inline it here, instead of calling out, if it's a function
 		// we can emit.
 
@@ -411,7 +412,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 		js.compiling = false;
 	} else {
-		ERROR_LOG(HLE, "Replacement function has neither jit nor regular impl");
+		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
 }
 

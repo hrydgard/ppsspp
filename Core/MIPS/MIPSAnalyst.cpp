@@ -423,9 +423,9 @@ namespace MIPSAnalyst {
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		if (insertSymbols) {
-			for (auto iter = functions.begin(); iter != functions.end(); iter++) {
-				iter->size = iter->end - iter->start + 4;
+		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+			iter->size = iter->end - iter->start + 4;
+			if (insertSymbols) {
 				char temp[256];
 				symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 			}
@@ -451,14 +451,17 @@ namespace MIPSAnalyst {
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
 				// Let's just add it to the hashmap.
-				if (iter->hasHash) {
+				if (iter->hasHash && size) {
 					HashMapFunc hfun;
 					hfun.hash = iter->hash;
 					strncpy(hfun.name, name, 64);
-					hfun.size = iter->size;
+					hfun.name[63] = 0;
+					hfun.size = size;
 					hashMap.insert(hfun);
+					return;
+				} else {
+					ERROR_LOG(HLE, "%s: %08x %08x : match but no hash (%i) or no size", name, startAddr, size, iter->hasHash);
 				}
-				return;
 			}
 		}
 

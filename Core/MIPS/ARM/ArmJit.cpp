@@ -380,7 +380,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		js.downcountAmount = 0;  // we just subtracted most of it
 		WriteExitDestInR(R1);
 	} else {
-		ERROR_LOG(HLE, "Replacement function has neither jit nor regular impl");
+		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
 
 	js.compiling = false;
@@ -459,7 +459,7 @@ void Jit::WriteDownCount(int offset)
 	}
 }
 
-// Abuses R1
+// Abuses R2
 void Jit::WriteDownCountR(ARMReg reg)
 {
 	if (jo.downcountInRegister) {
