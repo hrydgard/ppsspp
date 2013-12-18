@@ -198,8 +198,21 @@ const ReplacementTableEntry *GetReplacementFunc(int i) {
 void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 	int index = GetReplacementFuncIndex(hash, size);
 	if (index >= 0) {
-		replacedInstructions[address] = Memory::Read_U32(address);
-		ILOG("Replaced %s at %08x", entries[index].name, address);
+		u32 prevInstr = Memory::Read_U32(address);
+		if (MIPS_IS_REPLACEMENT(prevInstr))
+			return;
+		replacedInstructions[address] = prevInstr;
+		INFO_LOG(HLE, "Replaced %s at %08x", entries[index].name, address);
 		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
+	}
+}
+
+bool GetReplacedOpAt(u32 address, u32 *op) {
+	auto iter = replacedInstructions.find(address);
+	if (iter != replacedInstructions.end()) {
+		*op = iter->second;
+		return true;
+	} else {
+		return false;
 	}
 }

@@ -42,14 +42,14 @@ struct JitBlock;
 #define MIPS_JITBLOCK_MASK 0xFF000000
 #define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
 
-#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_RUNBLOCK(op) (((op) & 0xFF000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
-
 // There are 2 bits available for sub-opcodes, 0x03000000.
 #define EMUOP_RUNBLOCK 0   // Runs a JIT block
 #define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
 #define EMUOP_CALL_REPLACEMENT 2
+
+#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
+#define MIPS_IS_RUNBLOCK(op) (((op) & 0xFF000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
+#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
 
 #define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
 

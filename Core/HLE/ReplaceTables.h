@@ -56,4 +56,6 @@ void Replacement_Shutdown();
 int GetNumReplacementFuncs();
 int GetReplacementFuncIndex(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(int index);
+
 void WriteReplaceInstruction(u32 address, u64 hash, int size);
+bool GetReplacedOpAt(u32 address, u32 *op);
