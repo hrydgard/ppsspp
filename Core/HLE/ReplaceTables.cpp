@@ -102,22 +102,30 @@ static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
 	char *dst = (char *)Memory::GetPointer(destPtr);
 	const char *src = (const char *)Memory::GetPointer(PARAM(1));
-	u32 bytes = PARAM(2);
 	if (dst && src) {
 		strcpy(dst, src);
 	}
 	RETURN(destPtr);
-	return 10 + bytes / 4;  // approximation
+	return 10;  // approximation
 }
 
 static int Replace_strcmp() {
 	const char *a = (const char *)Memory::GetPointer(PARAM(0));
 	const char *b = (const char *)Memory::GetPointer(PARAM(1));
-	u32 bytes = PARAM(2);
 	if (a && b) {
 		RETURN(strcmp(a, b));
 	}
 	return 10;  // approximation
+}
+
+static int Replace_strncmp() {
+	const char *a = (const char *)Memory::GetPointer(PARAM(0));
+	const char *b = (const char *)Memory::GetPointer(PARAM(1));
+	u32 bytes = PARAM(2);
+	if (a && b) {
+		RETURN(strncmp(a, b, bytes));
+	}
+	return 10 + bytes / 4;  // approximation
 }
 
 static int Replace_vmmul_q_transp() {
@@ -135,6 +143,7 @@ static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
 	// double-precision soft-float routines: __adddf3, __subdf3 and so on. These
 	// should of course be implemented JIT style, inline.
+
 	{ "sinf", &Replace_sinf, 0, 0},
 	{ "cosf", &Replace_cosf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
@@ -142,11 +151,13 @@ static const ReplacementTableEntry entries[] = {
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
+
 	{ "strlen", &Replace_strlen, 0, 0},
 	{ "strcpy", &Replace_strcpy, 0, 0},
-	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
-	{ "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
+	{ "strcmp", &Replace_strcmp, 0, 0},
+	{ "strncmp", &Replace_strncmp, 0, 0},
+	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
 	{}
 };
 
