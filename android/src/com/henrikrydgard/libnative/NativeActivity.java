@@ -679,7 +679,14 @@ public class NativeActivity extends Activity {
     		sendIntent.setType("text/plain");
     		sendIntent.putExtra(Intent.EXTRA_TEXT, params);
     		sendIntent.setAction(Intent.ACTION_SEND);
-    		startActivity(sendIntent);    		
+    		startActivity(sendIntent);
+    	} else if (command.equals("showTwitter")) {
+    		String twitter_user_name = params;
+    		try {
+			    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
+        } catch (Exception e) {
+			    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+        }
     	} else if (command.equals("launchMarket")) {
     		// Don't need this, can just use launchBrowser with a market:
     		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
