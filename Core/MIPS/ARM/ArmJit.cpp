@@ -333,6 +333,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
+bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
+{
+	// TODO: Not used by anything yet.
+	return false;
+}
+
 void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.

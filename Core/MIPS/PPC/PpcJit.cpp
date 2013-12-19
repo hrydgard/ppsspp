@@ -74,6 +74,12 @@ void Jit::Compile(u32 em_address)
 	}
 }
 
+bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
+{
+	// TODO: Not used by anything yet.
+	return false;
+}
+
 void Jit::MovFromPC(PPCReg r) {
 	LWZ(r, CTXREG, offsetof(MIPSState, pc));
 }

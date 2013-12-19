@@ -296,9 +296,7 @@ namespace MIPSComp
 		void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 		const u8 *DoJit(u32 em_address, JitBlock *b);
 
-		bool IsInDispatch(const u8 *p) {
-			return IsInSpace(p);
-		}
+		bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 		PpcJitOptions jo;
 		PpcJitState js;
