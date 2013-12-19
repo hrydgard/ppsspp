@@ -410,6 +410,8 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
 #ifdef ANDROID
 	System_SendMessage("showTwitter", "PPSSPP_emu");
+#else
+	LaunchBrowser("https://twitter.com/#!/PPSSPP_emu");
 #endif
 	return UI::EVENT_DONE;
 }
