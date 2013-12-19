@@ -26,8 +26,9 @@
 
 #include "GPU/Math3D.h"
 
-// I think these have to be pretty accurate, but we can probably
-// get away with approximating the VFPU vsin/vcos and vrot pretty roughly.
+// I think these have to be pretty accurate as these are libc replacements,
+// but we can probably get away with approximating the VFPU vsin/vcos and vrot
+// pretty roughly.
 static int Replace_sinf() {
 	float f = PARAMF(0);
 	RETURNF(sinf(f));
@@ -60,8 +61,8 @@ static int Replace_memcpy() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	if (bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
-		u8 *src = Memory::GetPointer(srcPtr);
+		u8 *dst = Memory::GetPointerUnchecked(destPtr);
+		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
 		}
@@ -75,8 +76,8 @@ static int Replace_memmove() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	if (bytes != 0) {
-		u8 *dst = Memory::GetPointer(destPtr);
-		u8 *src = Memory::GetPointer(srcPtr);
+		u8 *dst = Memory::GetPointerUnchecked(destPtr);
+		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		if (dst && src) {
 			memmove(dst, src, bytes);
 		}
@@ -87,7 +88,7 @@ static int Replace_memmove() {
 
 static int Replace_memset() {
 	u32 destPtr = PARAM(0);
-	u8 *dst = Memory::GetPointer(destPtr);
+	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
 	if (dst) {
@@ -99,7 +100,7 @@ static int Replace_memset() {
 
 static int Replace_strlen() {
 	u32 srcPtr = PARAM(0);
-	const char *src = (const char *)Memory::GetPointer(srcPtr);
+	const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
 	u32 len = (u32)strlen(src);
 	RETURN(len);
 	return 4 + len;  // approximation
@@ -107,8 +108,8 @@ static int Replace_strlen() {
 
 static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointer(destPtr);
-	const char *src = (const char *)Memory::GetPointer(PARAM(1));
+	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
+	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
 	if (dst && src) {
 		strcpy(dst, src);
 	}
@@ -117,8 +118,8 @@ static int Replace_strcpy() {
 }
 
 static int Replace_strcmp() {
-	const char *a = (const char *)Memory::GetPointer(PARAM(0));
-	const char *b = (const char *)Memory::GetPointer(PARAM(1));
+	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
+	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
 	if (a && b) {
 		RETURN(strcmp(a, b));
 	}
@@ -126,8 +127,8 @@ static int Replace_strcmp() {
 }
 
 static int Replace_strncmp() {
-	const char *a = (const char *)Memory::GetPointer(PARAM(0));
-	const char *b = (const char *)Memory::GetPointer(PARAM(1));
+	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
+	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
 	u32 bytes = PARAM(2);
 	if (a && b) {
 		RETURN(strncmp(a, b, bytes));
