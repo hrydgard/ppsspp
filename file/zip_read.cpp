@@ -90,7 +90,7 @@ bool AssetsAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *
 
 bool AssetsAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 	QFileInfo qinfo(QString(":/assets/") + path);
-	if (qinfo.exists()) {
+	if (!qinfo.exists()) {
 		info->exists = false;
 		info->size = 0;
 		return false;
