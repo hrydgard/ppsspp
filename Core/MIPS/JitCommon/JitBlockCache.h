@@ -25,7 +25,6 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPS.h"
 
-
 #if defined(ARM)
 #include "Common/ArmEmitter.h"
 namespace ArmGen { class ARMXEmitter; }
@@ -98,7 +97,7 @@ public:
 	int AllocateBlock(u32 em_address);
 	// When a proxy block is invalidated, the block located at the rootAddress
 	// is invalidated too.
-	int ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
+	void ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
@@ -134,7 +133,7 @@ public:
 	std::vector<u32> SaveAndClearEmuHackOps();
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
-	int GetNumBlocks() const { return num_blocks; }
+	int GetNumBlocks() const { return num_blocks_; }
 
 private:
 	void LinkBlockExits(int i);
@@ -143,14 +142,14 @@ private:
 
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
-	MIPSState *mips;
+	MIPSState *mips_;
 	CodeBlock *codeBlock_;
-	JitBlock *blocks;
+	JitBlock *blocks_;
 	std::vector<int> proxyBlockIndices_;
 
-	int num_blocks;
-	std::multimap<u32, int> links_to;
-	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
+	int num_blocks_;
+	std::multimap<u32, int> links_to_;
+	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
 
 	enum {
 		MAX_NUM_BLOCKS = 65536*2
