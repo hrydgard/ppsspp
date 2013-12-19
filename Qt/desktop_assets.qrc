@@ -1,6 +1,6 @@
 <RCC>
 	<qresource prefix="/">
-		<file alias="assets/ui_atlas.zim">../assets/ui_atlas_lowmem.zim</file>
+		<file alias="assets/ui_atlas_lowmem.zim">../assets/ui_atlas_lowmem.zim</file>
 		<file alias="assets/ppge_atlas.zim">../assets/ppge_atlas.zim</file>
 		<file alias="assets/lang">../lang</file>
 		<file alias="assets/langregion.ini">../assets/langregion.ini</file>

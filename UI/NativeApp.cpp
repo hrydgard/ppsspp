@@ -470,7 +470,11 @@ void NativeInitGraphics() {
 	ui_draw2d_front.Init();
 
 	uiTexture = new Texture();
+#ifdef USING_QT_UI
+	if (!uiTexture->Load("ui_atlas_lowmem.zim")) {
+#else
 	if (!uiTexture->Load("ui_atlas.zim")) {
+#endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
 	}

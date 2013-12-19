@@ -462,7 +462,7 @@ void NativeInitGraphics()
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
-	if (!uiTexture->Load("ui_atlas.zim"))
+	if (!uiTexture->Load("ui_atlas_lowmem.zim"))
 	{
 		qDebug() << "Failed to load texture";
 	}

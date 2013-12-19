@@ -1,4 +1,4 @@
-VERSION = 0.9.5
+VERSION = 0.9.6
 DEFINES += USING_QT_UI USE_FFMPEG
 unix:!qnx:!symbian:!mac: CONFIG += linux
 
