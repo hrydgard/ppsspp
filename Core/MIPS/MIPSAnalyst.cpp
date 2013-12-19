@@ -507,7 +507,7 @@ namespace MIPSAnalyst {
 		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 			const AnalyzedFunction &f = *it;
 			// Small functions aren't very interesting.
-			if (!f.hasHash || f.size < 12) {
+			if (!f.hasHash || f.size <= 16) {
 				continue;
 			}
 			// Functions with default names aren't very interesting either.
