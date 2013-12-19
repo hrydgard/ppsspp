@@ -171,7 +171,7 @@ void Jit::CompileDelaySlot(int flags)
 	// delay slot, we're screwed.
 	if (flags & DELAYSLOT_SAFE)
 		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
-	
+
 	js.inDelaySlot = true;
 	MIPSOpcode op = Memory::Read_Instruction(js.compilerPC + 4);
 	MIPSCompileOp(op);
@@ -211,7 +211,6 @@ void Jit::Compile(u32 em_address) {
 
 void Jit::RunLoopUntil(u64 globalticks)
 {
-	// TODO: copy globalticks somewhere
 	((void (*)())enterCode)();
 }
 
@@ -368,6 +367,10 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
 		// No writing exits, keep going!
+
+		// Add a trigger so that if the inlined code changes, we invalidate this block.
+		// TODO: Correctly determine the size of this block.
+		blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
 		return true;
 	} else {
 		return false;

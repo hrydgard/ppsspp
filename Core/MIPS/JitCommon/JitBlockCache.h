@@ -59,7 +59,7 @@ const int MAX_JIT_BLOCK_EXITS = 8;
 // Fine to mess with them at block compile time though.
 struct JitBlock {
 	bool ContainsAddress(u32 em_address);
-	
+
 	const u8 *checkedEntry;
 	const u8 *normalEntry;
 
@@ -91,7 +91,7 @@ public:
 	int AllocateBlock(u32 em_address);
 	// When a proxy block is invalidated, the block located at the rootAddress
 	// is invalidated too.
-	int CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
+	int ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();

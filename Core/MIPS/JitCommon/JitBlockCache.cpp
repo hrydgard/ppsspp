@@ -156,7 +156,9 @@ int JitBlockCache::AllocateBlock(u32 em_address)
 	return num_blocks - 1;
 }
 
-int JitBlockCache::CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
+int JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
+	// TODO: If there's an existing block at the startAddress, add rootAddress as a proxy root of that block.
+
 	JitBlock &b = blocks[num_blocks];
 	b.invalid = false;
 	b.originalAddress = startAddress;

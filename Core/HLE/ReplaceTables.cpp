@@ -63,9 +63,7 @@ static int Replace_memcpy() {
 	if (bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		if (dst && src) {
-			memmove(dst, src, bytes);
-		}
+		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
 	return 10 + bytes / 4;  // approximation
@@ -78,9 +76,7 @@ static int Replace_memmove() {
 	if (bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		if (dst && src) {
-			memmove(dst, src, bytes);
-		}
+		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
 	return 10 + bytes / 4;  // approximation
@@ -91,9 +87,7 @@ static int Replace_memset() {
 	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (dst) {
-		memset(dst, value, bytes);
-	}
+	memset(dst, value, bytes);
 	RETURN(destPtr);
 	return 10 + bytes / 4;  // approximation
 }
@@ -110,9 +104,17 @@ static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
 	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
 	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
-	if (dst && src) {
-		strcpy(dst, src);
-	}
+	strcpy(dst, src);
+	RETURN(destPtr);
+	return 10;  // approximation
+}
+
+static int Replace_strncpy() {
+	u32 destPtr = PARAM(0);
+	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
+	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
+	u32 bytes = PARAM(2);
+	strncpy(dst, src, bytes);
 	RETURN(destPtr);
 	return 10;  // approximation
 }
@@ -120,9 +122,7 @@ static int Replace_strcpy() {
 static int Replace_strcmp() {
 	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
 	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
-	if (a && b) {
-		RETURN(strcmp(a, b));
-	}
+	RETURN(strcmp(a, b));
 	return 10;  // approximation
 }
 
@@ -130,9 +130,7 @@ static int Replace_strncmp() {
 	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
 	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
 	u32 bytes = PARAM(2);
-	if (a && b) {
-		RETURN(strncmp(a, b, bytes));
-	}
+	RETURN(strncmp(a, b, bytes));
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -161,6 +159,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "memset", &Replace_memset, 0, 0},
 	{ "strlen", &Replace_strlen, 0, 0},
 	{ "strcpy", &Replace_strcpy, 0, 0},
+	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
 	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},

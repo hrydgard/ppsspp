@@ -59,9 +59,8 @@ const bool USE_JIT_MISSMAP = false;
 static std::map<std::string, u32> notJitOps;
 
 template<typename A, typename B>
-std::pair<B,A> flip_pair(const std::pair<A,B> &p)
-{
-    return std::pair<B, A>(p.second, p.first);
+std::pair<B,A> flip_pair(const std::pair<A,B> &p) {
+	return std::pair<B, A>(p.second, p.first);
 }
 
 u32 JitBreakpoint()
@@ -286,9 +285,7 @@ void Jit::Compile(u32 em_address)
 
 void Jit::RunLoopUntil(u64 globalticks)
 {
-	// TODO: copy globalticks somewhere
 	((void (*)())asm_.enterCode)();
-	// NOTICE_LOG(JIT, "Exited jitted code at %i, corestate=%i, dc=%i", CoreTiming::GetTicks() / 1000, (int)coreState, CoreTiming::downcount);
 }
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
@@ -429,7 +426,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 
 		// Add a trigger so that if the inlined code changes, we invalidate this block.
 		// TODO: Correctly determine the size of this block.
-		blocks.CreateProxyBlock(js.blockStart, dest, 4, GetCodePtr());
+		blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
 		return true;
 	} else {
 		return false;
@@ -444,7 +441,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	// Inlined function calls (caught in jal) are handled differently.
 
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
-		
+
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
 		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
