@@ -139,11 +139,22 @@ JitBlock *JitBlockCache::GetBlock(int no)
 	return &blocks[no];
 }
 
-int JitBlockCache::AllocateBlock(u32 em_address)
+int JitBlockCache::AllocateBlock(u32 startAddress)
 {
 	JitBlock &b = blocks[num_blocks];
+	// If there's an existing pure proxy block at the address, we need to ditch it and create a new one,
+	// taking over the proxied blocks.
+	int num = GetBlockNumberFromStartAddress(startAddress, false);
+	if (num >= 0) {
+		if (blocks[num].IsPureProxy()) {
+			blocks[num].invalid = true;
+			b.proxyFor = blocks[num].proxyFor;
+			blocks[num].proxyFor.clear();
+		}
+	}
+
 	b.invalid = false;
-	b.originalAddress = em_address;
+	b.originalAddress = startAddress;
 	for (int i = 0; i < MAX_JIT_BLOCK_EXITS; ++i)
 	{
 		b.exitAddress[i] = INVALID_EXIT;
@@ -151,13 +162,18 @@ int JitBlockCache::AllocateBlock(u32 em_address)
 		b.linkStatus[i] = false;
 	}
 	b.blockNum = num_blocks;
-	b.isProxy = false;
 	num_blocks++; //commit the current block
 	return num_blocks - 1;
 }
 
 int JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
-	// TODO: If there's an existing block at the startAddress, add rootAddress as a proxy root of that block.
+	// If there's an existing block at the startAddress, add rootAddress as a proxy root of that block
+	// instead of creating a new block.
+	int num = GetBlockNumberFromStartAddress(startAddress, false);
+	if (num != -1) {
+		INFO_LOG(HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
+		blocks[num].proxyFor.push_back(rootAddress);
+	}
 
 	JitBlock &b = blocks[num_blocks];
 	b.invalid = false;
@@ -170,10 +186,11 @@ int JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const
 	}
 	b.exitAddress[0] = rootAddress;
 	b.blockNum = num_blocks;
-	b.isProxy = true;
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
 	b.checkedEntry = codePtr;
+	b.SetPureProxy();
+
 	proxyBlockIndices_.push_back(num_blocks);
 	num_blocks++; //commit the current block
 	return num_blocks - 1;
@@ -186,7 +203,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);
 	Memory::Write_Opcode_JIT(b.originalAddress, opcode);
-	
+
 	// Convert the logical address to a physical address for the block map
 	// Yeah, this'll work fine for PSP too I think.
 	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
@@ -271,17 +288,19 @@ int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly)
 	MIPSOpcode inst = MIPSOpcode(Memory::Read_U32(addr));
 	int bl = GetBlockNumberFromEmuHackOp(inst);
 	if (bl < 0) {
-		// Wasn't an emu hack op, look through proxyBlockIndices_. 
-		for (size_t i = 0; i < proxyBlockIndices_.size(); i++) {
-			int blockIndex = proxyBlockIndices_[i];
-			if (blocks[blockIndex].originalAddress == addr && blocks[blockIndex].isProxy && !blocks[blockIndex].invalid)
-				return blockIndex;
+		if (!realBlocksOnly) {
+			// Wasn't an emu hack op, look through proxyBlockIndices_. 
+			for (size_t i = 0; i < proxyBlockIndices_.size(); i++) {
+				int blockIndex = proxyBlockIndices_[i];
+				if (blocks[blockIndex].originalAddress == addr && !blocks[blockIndex].proxyFor.empty() && !blocks[blockIndex].invalid)
+					return blockIndex;
+			}
 		}
 		return -1;
 	}
 
 	if (blocks[bl].originalAddress != addr)
-		return -1;	
+		return -1;
 
 	return bl;
 }
@@ -433,20 +452,17 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	}
 	JitBlock *b = &blocks[block_num];
 
+	// Pure proxy blocks always point directly to a real block, there should be no chains of
+	// proxy-only blocks pointing to proxy-only blocks.
 	// Follow a block proxy chain.
 	// Destroy the block that transitively has this as a proxy. Likely the root block once inlined
 	// this block or its 'parent', so now that this block has changed, the root block must be destroyed.
-	while (b->isProxy) {
-		// false to allow the slow search for proxy blocks.
-		block_num = GetBlockNumberFromStartAddress(b->exitAddress[0], false);  // exitAddress is repurposed for this.
-		JitBlock *proxy = b;
-		proxy->invalid = true;  // The proxy block can safely be invalidated immediately. No need to change anything.
-		b = &blocks[block_num];
-		if (b->invalid) {
-			// Block has already been invalidated, possibly by some other proxy block.
-			return;
-		}
+	for (size_t i = 0; i < b->proxyFor.size(); i++) {
+		int proxied_blocknum = GetBlockNumberFromStartAddress(b->proxyFor[i], false);
+		DestroyBlock(block_num, invalidate);
 	}
+	b->proxyFor.clear();
+	// TODO: Remove from proxyBlockIndices_.
 
 	// TODO: Handle the case when there's a proxy block and a regular JIT block at the same location.
 	// In this case we probably "leak" the proxy block currently (no memory leak but it'll stay enabled).

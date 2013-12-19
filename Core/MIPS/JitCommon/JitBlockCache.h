@@ -68,17 +68,24 @@ struct JitBlock {
 
 	u32 originalAddress;
 	MIPSOpcode originalFirstOpcode; //to be able to restore
-	u16 codeSize; 
+	u16 codeSize;
 	u16 originalSize;
 	u16 blockNum;
 
 	bool invalid;
-	bool isProxy;  // If set, exitAddress[0] points to the block we're proxying for.
 	bool linkStatus[MAX_JIT_BLOCK_EXITS];
 
 #ifdef USE_VTUNE
 	char blockName[32];
 #endif
+	std::vector<u32> proxyFor;
+
+	bool IsPureProxy() const {
+		return originalFirstOpcode.encoding == 0;
+	}
+	void SetPureProxy() {
+		originalFirstOpcode.encoding = 0;
+	}
 };
 
 typedef void (*CompiledCode)();
