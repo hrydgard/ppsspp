@@ -824,7 +824,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.h)
 include_directories(native)
 
-if(APPLE)
+if(APPLE OR BLACKBERRY)
 	SET(RT_LIB)
 else()
 	SET(RT_LIB rt)
