@@ -823,7 +823,14 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy rt ${GLEW_LIBRARIES})
+
+if(APPLE)
+	SET(RT_LIB)
+else()
+	SET(RT_LIB rt)
+endif()
+
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log)
