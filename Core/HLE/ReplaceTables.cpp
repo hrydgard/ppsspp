@@ -57,11 +57,14 @@ static int Replace_atan2f() {
 // large copies to a C function.
 static int Replace_memcpy() {
 	u32 destPtr = PARAM(0);
-	u8 *dst = Memory::GetPointer(destPtr);
-	u8 *src = Memory::GetPointer(PARAM(1));
+	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (dst && src) {
-		memcpy(dst, src, bytes);
+	if (bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *src = Memory::GetPointer(srcPtr);
+		if (dst && src) {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 	return 10 + bytes / 4;  // approximation
@@ -69,11 +72,14 @@ static int Replace_memcpy() {
 
 static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
-	u8 *dst = Memory::GetPointer(destPtr);
-	u8 *src = Memory::GetPointer(PARAM(1));
+	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (dst && src) {
-		memcpy(dst, src, bytes);
+	if (bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		u8 *src = Memory::GetPointer(srcPtr);
+		if (dst && src) {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 	return 10 + bytes / 4;  // approximation

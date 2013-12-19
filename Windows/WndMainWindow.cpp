@@ -1555,37 +1555,15 @@ namespace MainWindow
 				{
 					VerySleepy_AddrInfo *info = (VerySleepy_AddrInfo *)lParam;
 					const u8 *ptr = (const u8 *)info->addr;
-					if (MIPSComp::jit) {
-						JitBlockCache *blocks = MIPSComp::jit->GetBlockCache();
-						u32 jitAddr = blocks->GetAddressFromBlockPtr(ptr);
+					std::string name;
 
-						// Returns 0 when it's valid, but unknown.
-						if (jitAddr == 0) {
-							wcscpy_s(info->name, L"Jit::UnknownOrDeletedBlock");
-							return TRUE;
-						}
-						if (jitAddr != (u32)-1) {
-							const char *label = symbolMap.GetDescription(jitAddr);
-							if (label != NULL) {
-								swprintf_s(info->name, L"Jit::%08x_%S", jitAddr, label);
-							} else {
-								swprintf_s(info->name, L"Jit::%08x", jitAddr);
-							}
-							return TRUE;
-						}
-
-						// Perhaps it's in jit the dispatch runloop.
-						if (MIPSComp::jit->IsInDispatch(ptr)) {
-							wcscpy_s(info->name, L"Jit::RunLoopUntil");
-							return TRUE;
-						}
+					if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(ptr, name)) {
+						swprintf_s(info->name, L"Jit::%S", name.c_str());
+						return TRUE;
 					}
-					if (gpu) {
-						std::string name;
-						if (gpu->DescribeCodePtr(ptr, name)) {
-							swprintf_s(info->name, L"GPU::%S", name.c_str());
-							return TRUE;
-						}
+					if (gpu && gpu->DescribeCodePtr(ptr, name)) {
+						swprintf_s(info->name, L"GPU::%S", name.c_str());
+						return TRUE;
 					}
 				}
 				return FALSE;
