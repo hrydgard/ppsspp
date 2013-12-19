@@ -119,6 +119,7 @@ private:
 	UI::EventReturn OnForums(UI::EventParams &e);
 	UI::EventReturn OnChineseForum(UI::EventParams &e);
 	UI::EventReturn OnShare(UI::EventParams &e);
+	UI::EventReturn OnTwitter(UI::EventParams &e);
 
 	int frames_;
 };

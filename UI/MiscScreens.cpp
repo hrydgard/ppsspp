@@ -389,6 +389,7 @@ void CreditsScreen::CreateViews() {
 	}
 #ifdef ANDROID
 	root_->Add(new Button(c->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
+	root_->Add(new Button(c->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
 #ifdef GOLD
 	root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
@@ -402,6 +403,13 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 #else
 	LaunchBrowser("http://central.ppsspp.org/buygold");
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
+#ifdef ANDROID
+	System_SendMessage("showTwitter", "PPSSPP_emu");
 #endif
 	return UI::EVENT_DONE;
 }
