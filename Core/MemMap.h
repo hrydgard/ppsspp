@@ -139,7 +139,7 @@ Opcode Read_Opcode_JIT(const u32 _Address);
 void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
 
 // Should be used by analyzers, disassemblers etc. Does resolve replacements.
-Opcode Read_Instruction(const u32 _Address);
+Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
 
 u8  Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);

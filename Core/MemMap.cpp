@@ -171,9 +171,7 @@ void Clear()
 		memset(m_pVRAM, 0, VRAM_SIZE);
 }
 
-
-
-Opcode Read_Instruction(u32 address)
+Opcode Read_Instruction(u32 address, bool resolveReplacements)
 {
 	Opcode inst = Opcode(Read_U32(address));
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
@@ -181,11 +179,19 @@ Opcode Read_Instruction(u32 address)
 		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
 		if (block_num >= 0) {
 			inst = bc->GetOriginalFirstOp(block_num);
-			/*
-			u32 op;
-			if (GetReplacedOpAt(address, &op)) {
-				return Opcode(op);
-			}*/
+			if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
+				u32 op;
+				if (GetReplacedOpAt(address, &op)) {
+					if (MIPS_IS_EMUHACK(op)) {
+						ERROR_LOG(HLE,"WTF 1");
+						return Opcode(op);
+					} else {
+						return Opcode(op);
+					}
+				} else {
+					ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst);
+				}
+			}
 			return inst;
 		} else {
 			return inst;
@@ -193,7 +199,12 @@ Opcode Read_Instruction(u32 address)
 	} else if (MIPS_IS_REPLACEMENT(inst.encoding)) {
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
-			return Opcode(op);
+			if (MIPS_IS_EMUHACK(op)) {
+				ERROR_LOG(HLE,"WTF 2");
+				return Opcode(op);
+			} else {
+				return Opcode(op);
+			}
 		} else {
 			return inst;
 		}

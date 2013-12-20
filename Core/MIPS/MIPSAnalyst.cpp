@@ -228,7 +228,12 @@ namespace MIPSAnalyst {
 			size_t pos = 0;
 			for (u32 addr = f.start; addr <= f.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
-				MIPSOpcode instr = Memory::Read_Instruction(addr);
+				MIPSOpcode instr = Memory::Read_Instruction(addr, true);
+				if (MIPS_IS_EMUHACK(instr)) {
+					f.hasHash = false;
+					goto skip;
+				}
+				
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits &= ~0xFFFF;
@@ -239,6 +244,8 @@ namespace MIPSAnalyst {
 
 			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
 			f.hasHash = true;
+skip:
+			;
 		}
 	}
 

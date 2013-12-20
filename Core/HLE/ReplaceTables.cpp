@@ -205,8 +205,13 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 	int index = GetReplacementFuncIndex(hash, size);
 	if (index >= 0) {
 		u32 prevInstr = Memory::Read_U32(address);
-		if (MIPS_IS_REPLACEMENT(prevInstr))
+		if (MIPS_IS_REPLACEMENT(prevInstr)) {
 			return;
+		}
+		if (MIPS_IS_RUNBLOCK(prevInstr)) {
+			// Likely already both replaced and jitted. Ignore.
+			return;
+		}
 		replacedInstructions[address] = prevInstr;
 		INFO_LOG(HLE, "Replaced %s at %08x", entries[index].name, address);
 		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
@@ -214,7 +219,7 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 }
 
 bool GetReplacedOpAt(u32 address, u32 *op) {
-	u32 instr = Memory::Read_U32(address);
+	u32 instr = Memory::Read_Opcode_JIT(address).encoding;
 	if (MIPS_IS_REPLACEMENT(instr)) {
 		auto iter = replacedInstructions.find(address);
 		if (iter != replacedInstructions.end()) {
@@ -224,6 +229,5 @@ bool GetReplacedOpAt(u32 address, u32 *op) {
 			return false;
 		}
 	}
-	*op = instr;
-	return true;
+	return false;
 }
