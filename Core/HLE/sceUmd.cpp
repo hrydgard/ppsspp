@@ -96,7 +96,10 @@ u8 __KernelUmdGetState()
 	}
 	// TODO: My tests give PSP_UMD_READY but I suppose that's when it's been sitting in the drive?
 	else
-		state |= PSP_UMD_NOT_READY;
+	// Fix Narisokonai Eiyuutan: Taiyou to Tsuki no Monogatari black screen
+	// Fix The History Channel: Great Battles of Rome load probrem.
+	// Fix Sora no Kiseki SC change disc issue
+		state |= PSP_UMD_READY;
 	return state;
 }
 
