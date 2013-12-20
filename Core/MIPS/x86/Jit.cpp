@@ -422,6 +422,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
+		js.compilerPC += 4;
 		// No writing exits, keep going!
 
 		// Add a trigger so that if the inlined code changes, we invalidate this block.

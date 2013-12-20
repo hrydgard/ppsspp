@@ -241,7 +241,6 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.MapReg(fd, fd == fs, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
 		PAND(fpr.RX(fd), M((void *)ssNoSignMask));
-		fpr.ReleaseSpillLocks();
 		break;
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
@@ -249,7 +248,6 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 			fpr.SpillLock(fd, fs);
 			fpr.MapReg(fd, fd == fs, true);
 			MOVSS(fpr.RX(fd), fpr.R(fs));
-			fpr.ReleaseSpillLocks();
 		}
 		break;
 
@@ -258,7 +256,6 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.MapReg(fd, fd == fs, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
 		PXOR(fpr.RX(fd), M((void *)ssSignBits2));
-		fpr.ReleaseSpillLocks();
 		break;
 
 
@@ -266,8 +263,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.SpillLock(fd, fs); // this probably works, just badly tested
 		fpr.MapReg(fd, fd == fs, true);
 		SQRTSS(fpr.RX(fd), fpr.R(fs));
-		fpr.ReleaseSpillLocks();
-		return;
+		break;
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
 		{
@@ -289,7 +285,6 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 
 			SetJumpTarget(skip);
 			MOV(32, fpr.R(fd), R(EAX));
-			fpr.ReleaseSpillLocks();
 		}
 		break;
 
@@ -305,9 +300,10 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 15: //FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
 	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
 	default:
-		Comp_Generic(op);
+		DISABLE;
 		return;
 	}
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_mxc1(MIPSOpcode op)

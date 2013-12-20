@@ -556,6 +556,9 @@ void Jit::Comp_Jump(MIPSOpcode op)
 		if (ReplaceJalTo(targetAddr))
 			return;
 
+		// Check for small function inlining (future)
+		
+
 		// Save return address - might be overwritten by delay slot.
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);

@@ -24,8 +24,8 @@
 namespace MIPSComp {
 
 int Jit::Replace_fabsf() {
-	fpr.MapDirtyIn(0, 13);
-	VABS(fpr.R(0), fpr.R(13));
+	fpr.MapDirtyIn(0, 12);
+	VABS(fpr.R(0), fpr.R(12));
 	return 6;  // Number of instructions in the MIPS function
 }
 

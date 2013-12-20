@@ -919,7 +919,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
 						symbolMap.SetLabelName(newname.c_str(),funcBegin);
 						u32 funcSize = symbolMap.GetFunctionSize(curAddress);
-						MIPSAnalyst::AnalyzeFunction(funcBegin, funcSize, newname.c_str());
+						MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
 						MIPSAnalyst::UpdateHashMap();
 						MIPSAnalyst::ApplyHashMap();
 						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);

@@ -24,6 +24,7 @@ static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7
 namespace MIPSComp {
 
 int Jit::Replace_fabsf() {
+	fpr.SpillLock(0, 12);
 	fpr.MapReg(0, MAP_DIRTY | MAP_NOINIT);
 	MOVSS(fpr.RX(0), fpr.R(12));
 	ANDPS(fpr.RX(0), M((void *)&ssNoSignMask));

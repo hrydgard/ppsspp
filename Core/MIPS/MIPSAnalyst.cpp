@@ -453,7 +453,7 @@ skip:
 		}
 	}
 
-	void AnalyzeFunction(u32 startAddr, u32 size, const char *name) {
+	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
 		// Check if we have this already
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
@@ -485,8 +485,6 @@ skip:
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
-		StoreHashMap(GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini");
-
 		// It makes sense to forget functions as modules are unloaded but it breaks
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.

@@ -144,6 +144,60 @@ static int Replace_vmmul_q_transp() {
 	return 16;
 }
 
+// TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
+// Anyway, not sure if worth it. There's not that many matrices written per frame normally.
+static int Replace_dl_write_matrix() {
+	u32 *dlStruct = (u32 *)Memory::GetPointerUnchecked(PARAM(0));
+	u32 *dlPtr = (u32 *)Memory::GetPointerUnchecked(dlStruct[2]);
+	u32 *dataPtr = (u32 *)Memory::GetPointerUnchecked(PARAM(2));
+
+	u32 matrix;
+	int count = 12;
+	switch (PARAM(1)) {
+	case 3:
+		matrix = 0x40000000;  // tex mtx
+		break;
+	case 2:
+		matrix = 0x3A000000;
+		break;
+	case 1:
+		matrix = 0x3C000000;
+		break;
+	case 0:
+		matrix = 0x3E000000;
+		count = 16;
+		break;
+	}
+	
+	*dlPtr++ = matrix;
+	matrix += 0x01000000;
+
+	if (count == 16) {
+		// Ultra SIMD friendly!
+		for (int i = 0; i < count; i++) {
+			dlPtr[i] = matrix | (dataPtr[i] >> 8);
+		}
+	} else {
+		// Bit tricky to SIMD (note the offsets) but should be doable
+		dlPtr[0] = matrix | (dataPtr[0] >> 8);
+		dlPtr[1] = matrix | (dataPtr[1] >> 8);
+		dlPtr[2] = matrix | (dataPtr[2] >> 8);
+		dlPtr[3] = matrix | (dataPtr[4] >> 8);
+		dlPtr[4] = matrix | (dataPtr[5] >> 8);
+		dlPtr[5] = matrix | (dataPtr[6] >> 8);
+		dlPtr[6] = matrix | (dataPtr[8] >> 8);
+		dlPtr[7] = matrix | (dataPtr[9] >> 8);
+		dlPtr[8] = matrix | (dataPtr[10] >> 8);
+		dlPtr[9] = matrix | (dataPtr[12] >> 8);
+		dlPtr[10] = matrix | (dataPtr[13] >> 8);
+		dlPtr[11] = matrix | (dataPtr[14] >> 8);
+	}
+
+	dlStruct[2] += (1 + count) * 4;
+	RETURN(dlStruct[2]);
+	return 60;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -154,6 +208,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "cosf", &Replace_cosf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
 	{ "atan2f", &Replace_atan2f, 0, 0},
+	/*
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
@@ -162,7 +217,13 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
+	*/
 	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
+	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0},
+	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
+	// dl_write_matrix_3 doesn't take the dl as a parameter, it accesses a global instead. Need to extract the address of the global from the code when replacing...
+	// dunno about write_matrix_3 and 4
+
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
 	{}
 };
