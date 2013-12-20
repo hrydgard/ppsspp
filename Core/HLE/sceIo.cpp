@@ -2102,17 +2102,23 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
-	// Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
-	// TODO: This is unsupported on ms0:/ (SCE_KERNEL_ERROR_UNSUP.)
+	// Read raw sectors from UMD device file.
 	case 0x01f30003:
-		INFO_LOG(SCEIO, "sceIoIoctl: Unknown cmd %08x always returns 1", cmd);
-		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
-			INFO_LOG(SCEIO, "sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-			return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
+		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Sector read from file %i", id);
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			u32 size = Memory::Read_U32(indataPtr);
+			// Note that size is specified in sectors, not bytes.
+			if (size > 0 && Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				return sceIoRead(id, outdataPtr, size);
+			} else {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			}
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
-		else {
-			return 1;
-		}
+		break;
 
 	default:
 		{
