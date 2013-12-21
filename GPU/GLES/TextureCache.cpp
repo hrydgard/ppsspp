@@ -512,7 +512,6 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 
 	if (!g_Config.bMipMap || noMip) {
-		magFilt &= 1;
 		minFilt &= 1;
 	}
 
@@ -526,6 +525,8 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 
 	// Workaround for a clamping bug in pre-HD ATI/AMD drivers
+	// Applies to Tegra too apparently. Maybe the issue is that we can't wrap non-pow2 textures on these
+	// platforms, if so then we should change the name of this bool.
 	if (gl_extensions.ATIClampBug && entry.framebuffer)
 		return;
 
