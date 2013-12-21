@@ -54,6 +54,18 @@ static int Replace_atan2f() {
 	return 120;  // guess number of cycles
 }
 
+static int Replace_floorf() {
+	float f1 = PARAMF(0);
+	RETURNF(floorf(f1));
+	return 30;  // guess number of cycles
+}
+
+static int Replace_ceilf() {
+	float f1 = PARAMF(0);
+	RETURNF(ceilf(f1));
+	return 30;  // guess number of cycles
+}
+
 // Should probably do JIT versions of this, possibly ones that only delegate
 // large copies to a C function.
 static int Replace_memcpy() {
@@ -144,12 +156,61 @@ static int Replace_vmmul_q_transp() {
 	return 16;
 }
 
+// a0 = pointer to destination address
+// a1 = matrix
+// a2 = source address
+static int Replace_gta_dl_write_matrix() {
+	u32 *ptr = (u32 *)Memory::GetPointerUnchecked(PARAM(0));
+	u32 *dest = (u32_le *)Memory::GetPointerUnchecked(ptr[0]);
+	u32 *src = (u32_le *)Memory::GetPointerUnchecked(PARAM(2));
+	u32 matrix = PARAM(1) << 24;
+
+#if defined(_M_IX86) || defined(_M_X64)
+	__m128i topBytes = _mm_set1_epi32(matrix);
+	__m128i m0 = _mm_loadu_si128((const __m128i *)src);
+	__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
+	__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
+	__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
+	m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
+	m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
+	m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
+	m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
+	// These three stores overlap by a word, due to the offsets.
+	_mm_storeu_si128((__m128i *)dest, m0);
+	_mm_storeu_si128((__m128i *)(dest + 3), m1);
+	_mm_storeu_si128((__m128i *)(dest + 6), m2);
+	// Store the last one in parts to not overwrite forwards (probably mostly risk free though)
+	_mm_storel_epi64((__m128i *)(dest + 9), m3);
+	m3 = _mm_srli_si128(m3, 8);
+	_mm_store_ss((float *)(dest + 11), _mm_castsi128_ps(m3));
+#else
+	// Bit tricky to SIMD (note the offsets) but should be doable if not perfect
+	dest[0] = matrix | (src[0] >> 8);
+	dest[1] = matrix | (src[1] >> 8);
+	dest[2] = matrix | (src[2] >> 8);
+	dest[3] = matrix | (src[4] >> 8);
+	dest[4] = matrix | (src[5] >> 8);
+	dest[5] = matrix | (src[6] >> 8);
+	dest[6] = matrix | (src[8] >> 8);
+	dest[7] = matrix | (src[9] >> 8);
+	dest[8] = matrix | (src[10] >> 8);
+	dest[9] = matrix | (src[12] >> 8);
+	dest[10] = matrix | (src[13] >> 8);
+	dest[11] = matrix | (src[14] >> 8);
+#endif
+
+	(*ptr) += 0x30;
+	RETURN(0);
+	return 38;
+}
+
+
 // TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
 	u32 *dlStruct = (u32 *)Memory::GetPointerUnchecked(PARAM(0));
-	u32 *dlPtr = (u32 *)Memory::GetPointerUnchecked(dlStruct[2]);
-	u32 *dataPtr = (u32 *)Memory::GetPointerUnchecked(PARAM(2));
+	u32 *dest = (u32 *)Memory::GetPointerUnchecked(dlStruct[2]);
+	u32 *src = (u32 *)Memory::GetPointerUnchecked(PARAM(2));
 
 	u32 matrix;
 	int count = 12;
@@ -169,28 +230,81 @@ static int Replace_dl_write_matrix() {
 		break;
 	}
 	
-	*dlPtr++ = matrix;
+	*dest++ = matrix;
 	matrix += 0x01000000;
 
 	if (count == 16) {
-		// Ultra SIMD friendly!
+		// Ultra SIMD friendly! These intrinsics generate pretty much perfect code,
+		// no point in hand rolling.
+#if defined(_M_IX86) || defined(_M_X64)
+		__m128i topBytes = _mm_set1_epi32(matrix);
+		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
+		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
+		__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
+		__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
+		m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
+		m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
+		m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
+		m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
+		_mm_storeu_si128((__m128i *)dest, m0);
+		_mm_storeu_si128((__m128i *)(dest + 4), m1);
+		_mm_storeu_si128((__m128i *)(dest + 8), m2);
+		_mm_storeu_si128((__m128i *)(dest + 12), m3);
+#else
+#if 0
+		//TODO: Finish NEON, make conditional somehow
+		uint32x4_t topBytes = vdupq_n_u32(matrix);
+		uint32x4_t m0 = vld1q_u32(dataPtr);
+		uint32x4_t m1 = vld1q_u32(dataPtr + 4);
+		uint32x4_t m2 = vld1q_u32(dataPtr + 8);
+		uint32x4_t m3 = vld1q_u32(dataPtr + 12);
+		m0 = vorr_u32(vsri_n_u32(m0, 8), topBytes);  // TODO: look into VSRI
+		m1 = vorr_u32(vshr_n_u32(m1, 8), topBytes);
+		m2 = vorr_u32(vshr_n_u32(m2, 8), topBytes);
+		m3 = vorr_u32(vshr_n_u32(m3, 8), topBytes);
+		vst1q_u32(dlPtr, m0);
+		vst1q_u32(dlPtr + 4, m1);
+		vst1q_u32(dlPtr + 8, m2);
+		vst1q_u32(dlPtr + 12, m3);
+#endif
 		for (int i = 0; i < count; i++) {
-			dlPtr[i] = matrix | (dataPtr[i] >> 8);
+			dest[i] = matrix | (src[i] >> 8);
 		}
+#endif
 	} else {
-		// Bit tricky to SIMD (note the offsets) but should be doable
-		dlPtr[0] = matrix | (dataPtr[0] >> 8);
-		dlPtr[1] = matrix | (dataPtr[1] >> 8);
-		dlPtr[2] = matrix | (dataPtr[2] >> 8);
-		dlPtr[3] = matrix | (dataPtr[4] >> 8);
-		dlPtr[4] = matrix | (dataPtr[5] >> 8);
-		dlPtr[5] = matrix | (dataPtr[6] >> 8);
-		dlPtr[6] = matrix | (dataPtr[8] >> 8);
-		dlPtr[7] = matrix | (dataPtr[9] >> 8);
-		dlPtr[8] = matrix | (dataPtr[10] >> 8);
-		dlPtr[9] = matrix | (dataPtr[12] >> 8);
-		dlPtr[10] = matrix | (dataPtr[13] >> 8);
-		dlPtr[11] = matrix | (dataPtr[14] >> 8);
+#if defined(_M_IX86) || defined(_M_X64)
+		__m128i topBytes = _mm_set1_epi32(matrix);
+		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
+		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
+		__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
+		__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
+		m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
+		m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
+		m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
+		m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
+		// These three stores overlap by a word, due to the offsets.
+		_mm_storeu_si128((__m128i *)dest, m0);
+		_mm_storeu_si128((__m128i *)(dest + 3), m1);
+		_mm_storeu_si128((__m128i *)(dest + 6), m2);
+		// Store the last one in parts to not overwrite forwards (probably mostly risk free though)
+		_mm_storel_epi64((__m128i *)(dest + 9), m3);
+		m3 = _mm_srli_si128(m3, 8);
+		_mm_store_ss((float *)(dest + 11), _mm_castsi128_ps(m3));
+#else
+		// Bit tricky to SIMD (note the offsets) but should be doable if not perfect
+		dest[0] = matrix | (src[0] >> 8);
+		dest[1] = matrix | (src[1] >> 8);
+		dest[2] = matrix | (src[2] >> 8);
+		dest[3] = matrix | (src[4] >> 8);
+		dest[4] = matrix | (src[5] >> 8);
+		dest[5] = matrix | (src[6] >> 8);
+		dest[6] = matrix | (src[8] >> 8);
+		dest[7] = matrix | (src[9] >> 8);
+		dest[8] = matrix | (src[10] >> 8);
+		dest[9] = matrix | (src[12] >> 8);
+		dest[10] = matrix | (src[13] >> 8);
+		dest[11] = matrix | (src[14] >> 8);
+#endif
 	}
 
 	dlStruct[2] += (1 + count) * 4;
@@ -208,7 +322,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "cosf", &Replace_cosf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
 	{ "atan2f", &Replace_atan2f, 0, 0},
-	/*
+	{ "floorf", &Replace_floorf, 0, 0},
+	{ "ceilf", &Replace_ceilf, 0, 0},
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
@@ -217,12 +332,12 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
-	*/
-	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
-	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0},
+	// { "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
+	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
+	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, 0},
 	// dl_write_matrix_3 doesn't take the dl as a parameter, it accesses a global instead. Need to extract the address of the global from the code when replacing...
-	// dunno about write_matrix_3 and 4
+	// Haven't investigated write_matrix_4 and 5 but I think they are similar to 1 and 2.
 
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
 	{}
