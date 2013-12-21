@@ -26,6 +26,10 @@
 
 #include "GPU/Math3D.h"
 
+#if defined(_M_IX86) || defined(_M_X64)
+#include <emmintrin.h>
+#endif
+
 // I think these have to be pretty accurate as these are libc replacements,
 // but we can probably get away with approximating the VFPU vsin/vcos and vrot
 // pretty roughly.
