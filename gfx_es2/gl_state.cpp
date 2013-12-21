@@ -282,6 +282,7 @@ void CheckGLExtensions() {
 #ifdef USING_GLES2
 	gl_extensions.FBO_ARB = true;
 	gl_extensions.FBO_EXT = false;
+	gl_extensions.ATIClampBug = gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA;   // Tegras - TODO: more specific check
 #else
 	gl_extensions.FBO_ARB = false;
 	gl_extensions.FBO_EXT = false;
