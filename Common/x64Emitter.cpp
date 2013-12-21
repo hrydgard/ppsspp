@@ -69,6 +69,8 @@ enum NormalSSEOps
 	sseMOVAPtoRM =	 0x29, //MOVAP to RM
 	sseMOVUPfromRM = 0x10, //MOVUP from RM
 	sseMOVUPtoRM =	 0x11, //MOVUP to RM
+	sseMOVDQfromRM = 0x6F,
+	sseMOVDQtoRM   = 0x7F,
 	sseMASKMOVDQU =  0xF7,
 	sseLDDQU      =  0xF0,
 	sseSHUF       =  0xC6,
@@ -1267,14 +1269,19 @@ void XEmitter::UCOMISS(X64Reg regOp, OpArg arg) {WriteSSEOp(32, sseUCOMIS, true,
 void XEmitter::UCOMISD(X64Reg regOp, OpArg arg) {WriteSSEOp(64, sseUCOMIS, true, regOp, arg);}
 
 void XEmitter::MOVAPS(X64Reg regOp, OpArg arg)  {WriteSSEOp(32, sseMOVAPfromRM, true, regOp, arg);}
-void XEmitter::MOVAPD(X64Reg regOp, OpArg arg)  {WriteSSEOp(64, sseMOVAPfromRM, true, regOp, arg);}
 void XEmitter::MOVAPS(OpArg arg, X64Reg regOp)  {WriteSSEOp(32, sseMOVAPtoRM, true, regOp, arg);}
-void XEmitter::MOVAPD(OpArg arg, X64Reg regOp)  {WriteSSEOp(64, sseMOVAPtoRM, true, regOp, arg);}
-
 void XEmitter::MOVUPS(X64Reg regOp, OpArg arg)  {WriteSSEOp(32, sseMOVUPfromRM, true, regOp, arg);}
-void XEmitter::MOVUPD(X64Reg regOp, OpArg arg)  {WriteSSEOp(64, sseMOVUPfromRM, true, regOp, arg);}
 void XEmitter::MOVUPS(OpArg arg, X64Reg regOp)  {WriteSSEOp(32, sseMOVUPtoRM, true, regOp, arg);}
+
+void XEmitter::MOVAPD(X64Reg regOp, OpArg arg)  {WriteSSEOp(64, sseMOVAPfromRM, true, regOp, arg);}
+void XEmitter::MOVAPD(OpArg arg, X64Reg regOp)  {WriteSSEOp(64, sseMOVAPtoRM, true, regOp, arg);}
+void XEmitter::MOVUPD(X64Reg regOp, OpArg arg)  {WriteSSEOp(64, sseMOVUPfromRM, true, regOp, arg);}
 void XEmitter::MOVUPD(OpArg arg, X64Reg regOp)  {WriteSSEOp(64, sseMOVUPtoRM, true, regOp, arg);}
+
+void XEmitter::MOVDQA(X64Reg regOp, OpArg arg)  {WriteSSEOp(64, sseMOVDQfromRM, true, regOp, arg);}
+void XEmitter::MOVDQA(OpArg arg, X64Reg regOp)  {WriteSSEOp(64, sseMOVDQtoRM, true, regOp, arg);}
+void XEmitter::MOVDQU(X64Reg regOp, OpArg arg)  {WriteSSEOp(32, sseMOVDQfromRM, false, regOp, arg);}
+void XEmitter::MOVDQU(OpArg arg, X64Reg regOp)  {WriteSSEOp(32, sseMOVDQtoRM, false, regOp, arg);}
 
 void XEmitter::MOVSS(X64Reg regOp, OpArg arg)   {WriteSSEOp(32, sseMOVUPfromRM, false, regOp, arg);}
 void XEmitter::MOVSD(X64Reg regOp, OpArg arg)   {WriteSSEOp(64, sseMOVUPfromRM, false, regOp, arg);}
@@ -1373,6 +1380,11 @@ void XEmitter::PSLLQ(X64Reg reg, int shift) {
 
 void XEmitter::PSLLDQ(X64Reg reg, int shift) {
 	WriteSSEOp(64, 0x73, true, (X64Reg)7, R(reg));
+	Write8(shift);
+}
+
+void XEmitter::PSRLDQ(X64Reg reg, int shift) {
+	WriteSSEOp(64, 0x73, true, (X64Reg)3, R(reg));
 	Write8(shift);
 }
 

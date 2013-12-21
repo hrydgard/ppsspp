@@ -540,16 +540,23 @@ public:
 	void UCOMISS(X64Reg regOp, OpArg arg);
 	void UCOMISD(X64Reg regOp, OpArg arg);
 
-	// SSE/SSE2: Moves. Use the right data type for your data, in most cases.
-	void MOVAPS(X64Reg regOp, OpArg arg);
-	void MOVAPD(X64Reg regOp, OpArg arg);
-	void MOVAPS(OpArg arg, X64Reg regOp);
-	void MOVAPD(OpArg arg, X64Reg regOp);
+	// SSE/SSE2: Moves. Use the right data type for your data to avoid slight penalties on some CPUs.
 
+	// Singles
+	void MOVAPS(X64Reg regOp, OpArg arg);
+	void MOVAPS(OpArg arg, X64Reg regOp);
 	void MOVUPS(X64Reg regOp, OpArg arg);
-	void MOVUPD(X64Reg regOp, OpArg arg);
 	void MOVUPS(OpArg arg, X64Reg regOp);
+	// Doubles
+	void MOVAPD(X64Reg regOp, OpArg arg);
+	void MOVAPD(OpArg arg, X64Reg regOp);
+	void MOVUPD(X64Reg regOp, OpArg arg);
 	void MOVUPD(OpArg arg, X64Reg regOp);
+	// Integers (NOTE: untested - I added these then it turned out I didn't have a use for them after all).
+	void MOVDQA(X64Reg regOp, OpArg arg);
+	void MOVDQA(OpArg arg, X64Reg regOp);
+	void MOVDQU(X64Reg regOp, OpArg arg);
+	void MOVDQU(OpArg arg, X64Reg regOp);
 
 	void MOVSS(X64Reg regOp, OpArg arg);
 	void MOVSD(X64Reg regOp, OpArg arg);
@@ -657,6 +664,7 @@ public:
 	void PSLLD(X64Reg reg, int shift);
 	void PSLLQ(X64Reg reg, int shift);
 
+	void PSRLDQ(X64Reg reg, int shift);
 	void PSLLDQ(X64Reg reg, int shift);
 
 	void PSRAW(X64Reg reg, int shift);
