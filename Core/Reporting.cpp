@@ -239,7 +239,7 @@ namespace Reporting
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
 		// TODO: Numbers to avoid dependency on GLES code.
-		if (g_Config.iRenderingMode >= FB_READFBOMEMORY_CPU)
+		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
 		return true;
 	}
