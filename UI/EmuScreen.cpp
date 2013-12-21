@@ -38,6 +38,7 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -590,7 +591,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering)
 		fbo_unbind();
 

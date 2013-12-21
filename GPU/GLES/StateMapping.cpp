@@ -277,7 +277,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Some Android devices (especially Mali, it seems) composite badly if there's alpha in the backbuffer.
 		// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
 #ifdef ANDROID
-		if (g_Config.iRenderingMode == 0) {
+		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 			if (glBlendFuncA == GL_DST_ALPHA) glBlendFuncA = GL_ZERO;
 			if (glBlendFuncB == GL_DST_ALPHA) glBlendFuncB = GL_ZERO;
 			if (glBlendFuncA == GL_ONE_MINUS_DST_ALPHA) glBlendFuncA = GL_ONE;

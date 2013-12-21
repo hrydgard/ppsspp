@@ -25,6 +25,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "GPU/GLES/Framebuffer.h"
 
 #include "net/http_client.h"
 #include "net/resolve.h"
@@ -238,7 +239,7 @@ namespace Reporting
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
 		// TODO: Numbers to avoid dependency on GLES code.
-		if (g_Config.iRenderingMode == 2 || g_Config.iRenderingMode == 3)
+		if (g_Config.iRenderingMode >= FB_READFBOMEMORY_CPU)
 			return false;
 		return true;
 	}
