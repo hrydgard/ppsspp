@@ -41,6 +41,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "Common/KeyMap.h"
 
 #ifdef _WIN32
@@ -119,7 +120,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
 	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-	postProcChoice_->SetEnabled(g_Config.iRenderingMode != 0);
+	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 #if defined(_WIN32) || defined(USING_QT_UI)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -138,7 +139,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()));
 	resolutionChoice_->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != 0);
+	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
@@ -321,8 +322,8 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
-	postProcChoice_->SetEnabled(g_Config.iRenderingMode != 0);
-	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != 0);
+	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	return UI::EVENT_DONE;
 }
 
