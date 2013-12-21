@@ -1124,9 +1124,7 @@ void TextureCache::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-#if 0   // Needs more testing
-#ifdef MAY_HAVE_GLES3
-	if (gl_extensions.GLES3) {
+	if (gl_extensions.GLES3 && maxLevel > 0) {
 		// glTexStorage2D requires the use of sized formats.
 		GLenum storageFmt = GL_RGBA8;
 		switch (dstFmt) {
@@ -1142,33 +1140,31 @@ void TextureCache::SetTexture(bool force) {
 		// Make sure we don't use glTexImage2D after glTexStorage2D.
 		replaceImages = true;
 	}
-#endif
-#endif
 
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
 	// be as good quality as the game's own (might even be better in some cases though).
 
-	// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
-	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
-	// years away.
-	//
-	// Actually, seems we reverted to autogen mipmaps on all platforms.
+	// Always load base level texture here 
 	LoadTextureLevel(*entry, 0, replaceImages, dstFmt);
-	if (maxLevel > 0) {
-		glGenerateMipmap(GL_TEXTURE_2D);
-		/*
-		for (int i = 0; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, i, replaceImages);
-		}
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-		*/
+
+	if (g_Config.bMipMap && maxLevel > 0) {
+#ifndef USING_GLES2
+			for (int i = 1; i <= maxLevel; i++) {
+				LoadTextureLevel(*entry, i, replaceImages, dstFmt);
+			}
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+#else 
+			glGenerateMipmap(GL_TEXTURE_2D);
+#endif
 	} else {
-		// TODO: This is supported on GLES3
-#if !defined(USING_GLES2)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+#ifndef USING_GLES2
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
+#else
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 #endif
 	}
 

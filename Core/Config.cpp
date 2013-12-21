@@ -204,7 +204,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
 
-	graphics->Get("MipMap", &bMipMap, false);
+	graphics->Get("MipMap", &bMipMap, true);
 
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
