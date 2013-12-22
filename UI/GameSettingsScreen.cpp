@@ -33,6 +33,7 @@
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
+#include "UI/TiltEventProcessor.h"
 
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -233,10 +234,12 @@ void GameSettingsScreen::CreateViews() {
 
 #if defined(USING_GLES2)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
-	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
-	Choice *tiltAnalog = controlsSettings->Add(new Choice(c->T("Customize tilt")));
-	tiltAnalog->OnClick.Handle(this, &GameSettingsScreen::OnTiltAnalogSettings);
-	tiltAnalog->SetEnabledPtr(&g_Config.bAccelerometerToAnalogHoriz);
+	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons"};
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, c->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), c, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
+
+	Choice *customizeTilt = controlsSettings->Add(new Choice(c->T("Customize tilt")));
+	customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCuztomize);
+	customizeTilt->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
 #endif
 	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
@@ -501,7 +504,14 @@ UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn GameSettingsScreen::OnTiltAnalogSettings(UI::EventParams &e){
+//when the tilt event type is modified, we need to reset all tilt settings.
+//refer to the ResetTiltEvents() function for a detailed explanation.
+UI::EventReturn GameSettingsScreen::OnTiltTypeChange(UI::EventParams &e){
+	TiltEventProcessor::ResetTiltEvents();
+	return UI::EVENT_DONE;
+};
+
+UI::EventReturn GameSettingsScreen::OnTiltCuztomize(UI::EventParams &e){
 	screenManager()->push(new TiltAnalogSettingsScreen());
 	return UI::EVENT_DONE;
 };

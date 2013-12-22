@@ -281,6 +281,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
+  $(SRC)/UI/TiltEventProcessor.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \

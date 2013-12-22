@@ -130,7 +130,6 @@ public:
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
 	bool bShowDebugStats;
-	bool bAccelerometerToAnalogHoriz;
 
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
@@ -144,6 +143,9 @@ public:
 	int iTiltSensitivityY;
 	//the deadzone radius of the tilt
 	float fDeadzoneRadius;
+	//type of tilt input currently selected: Defined in TiltEventProcessor.h
+	//0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
+	int iTiltInputType;
 
 	// The three tabs.
 	bool bGridView1;

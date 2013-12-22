@@ -506,6 +506,7 @@ void EmuScreen::update(InputState &input) {
 	// Apply tilt to left stick
 	// TODO: Make into an axis
 #ifdef USING_GLES2
+	/*
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// Get the "base" coordinate system which is setup by the calibration system
 		float base_x = g_Config.fTiltBaseX;
@@ -538,6 +539,7 @@ void EmuScreen::update(InputState &input) {
 		leftstick_y += clamp1(delta_y);
 		__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
 	}
+	*/
 #endif
 
 	// Make sure fpsLimit starts at 0

@@ -54,7 +54,8 @@ private:
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
-	UI::EventReturn OnTiltAnalogSettings(UI::EventParams &e);
+	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
+	UI::EventReturn OnTiltCuztomize(UI::EventParams &e);
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);

@@ -33,6 +33,7 @@
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
+    <ClCompile Include="TiltEventProcessor.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
@@ -53,6 +54,7 @@
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="Store.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
+    <ClInclude Include="TiltEventProcessor.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
