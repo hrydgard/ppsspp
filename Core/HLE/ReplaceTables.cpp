@@ -45,6 +45,30 @@ static int Replace_cosf() {
 	return 80;  // guess number of cycles
 }
 
+static int Replace_tanf() {
+	float f = PARAMF(0);
+	RETURNF(tanf(f));
+	return 80;  // guess number of cycles
+}
+
+static int Replace_acosf() {
+	float f = PARAMF(0);
+	RETURNF(acosf(f));
+	return 80;  // guess number of cycles
+}
+
+static int Replace_asinf() {
+	float f = PARAMF(0);
+	RETURNF(asinf(f));
+	return 80;  // guess number of cycles
+}
+
+static int Replace_atanf() {
+	float f = PARAMF(0);
+	RETURNF(atanf(f));
+	return 80;  // guess number of cycles
+}
+
 static int Replace_sqrtf() {
 	float f = PARAMF(0);
 	RETURNF(sqrtf(f));
@@ -324,6 +348,10 @@ static const ReplacementTableEntry entries[] = {
 
 	{ "sinf", &Replace_sinf, 0, 0},
 	{ "cosf", &Replace_cosf, 0, 0},
+	{ "tanf", &Replace_tanf, 0, 0},
+	{ "asinf", &Replace_asinf, 0, 0},
+	{ "acosf", &Replace_acosf, 0, 0},
+	{ "atanf", &Replace_atanf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
 	{ "atan2f", &Replace_atan2f, 0, 0},
 	{ "floorf", &Replace_floorf, 0, 0},
