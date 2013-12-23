@@ -245,10 +245,10 @@ public slots:
 		fmt.setSampleSize(AUDIO_SAMPLESIZE);
 		fmt.setByteOrder(QAudioFormat::LittleEndian);
 		fmt.setSampleType(QAudioFormat::SignedInt);
-		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
+		mixlen = 5*2*AUDIO_CHANNELS*AUDIO_SAMPLES;
 		mixbuf = (char*)malloc(mixlen);
 		output = new QAudioOutput(fmt);
-		output->setBufferSize(mixlen*10);
+		output->setBufferSize(mixlen);
 		feed = output->start();
 		if (feed != NULL)
 			timer = startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
@@ -257,7 +257,7 @@ public slots:
 protected:
 	void timerEvent(QTimerEvent *) {
 		memset(mixbuf, 0, mixlen);
-		size_t frames = NativeMix((short *)mixbuf, AUDIO_SAMPLES);
+		size_t frames = NativeMix((short *)mixbuf, 5*AUDIO_SAMPLES);
 		if (frames > 0)
 			feed->write(mixbuf, sizeof(short) * 2 * frames);
 	}
