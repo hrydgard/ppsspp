@@ -218,6 +218,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #else
 	graphics->Get("TimerHack", &bTimerHack, false);
 #endif
+	graphics->Get("PhantasyStarHack", &bPhantasyStarHack, false);
 	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
 	graphics->Get("PostShader", &sPostShaderName, "Off");
 
@@ -513,6 +514,7 @@ void Config::Save() {
 		graphics->Set("DisableStencilTest", bDisableStencilTest);
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("TimerHack", bTimerHack);
+		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("PostShader", sPostShaderName);
 

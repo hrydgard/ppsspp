@@ -117,6 +117,7 @@ public:
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bTimerHack;
+	bool bPhantasyStarHack;
 	bool bLowQualitySplineBezier;
 	std::string sPostShaderName;  // Off for off.
 

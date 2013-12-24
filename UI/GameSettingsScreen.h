@@ -73,6 +73,8 @@ private:
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
+	bool Phantasy_Star_fix;
+
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
 	bool showDebugStats_;

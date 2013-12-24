@@ -183,6 +183,8 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bPhantasyStarHack, gs->T("Work arround Phantasy Star")));
+
 	if (PSP_IsInited())
 		prescale->SetEnabled(false);
 
