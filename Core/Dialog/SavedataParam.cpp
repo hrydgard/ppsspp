@@ -1116,14 +1116,19 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 	bool listEmptyFile = true;
 	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD ||
-			param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE)
+		param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE)
 	{
 		listEmptyFile = false;
 	}
 
 	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList.IsValid())
+	if (param->saveNameList.IsValid() && 
+		param->mode != SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD &&
+		param->mode != SCE_UTILITY_SAVEDATA_TYPE_SAVE)
+		// These modes seem only care about a save file.
+		// Set saveName to saveDataList instead of saveNameList.
+		// Inspired by seventh dragon 2020 1/2.
 	{
 		Clear();
 
