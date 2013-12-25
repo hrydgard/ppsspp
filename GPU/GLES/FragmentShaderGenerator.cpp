@@ -124,7 +124,7 @@ const bool nonAlphaDestFactors[16] = {
 };
 
 ReplaceAlphaType ReplaceAlphaWithStencil() {
-	if (!gstate.isStencilTestEnabled()) {
+	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
 	}
 
@@ -191,6 +191,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 		case GE_STENCILOP_INCR:
 		case GE_STENCILOP_INVERT:
 			return STENCIL_VALUE_UNKNOWN;
+
 		case GE_STENCILOP_KEEP:
 			return STENCIL_VALUE_KEEP;
 		}
@@ -367,13 +368,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-
-	ReplaceAlphaType stencilToAlpha;
-	if (gstate.isModeClear()) {
-		stencilToAlpha = REPLACE_ALPHA_NO;
-	} else {
-		stencilToAlpha = ReplaceAlphaWithStencil();
-	}
+	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -450,31 +445,48 @@ void GenerateFragmentShader(char *buffer) {
 			if (doTextureAlpha) { // texfmt == RGBA
 				switch (gstate.getTextureFunction()) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = p * t%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = p * t%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = t%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = t%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_ADD:
 				case GE_TEXFUNC_UNKNOWN1:
 				case GE_TEXFUNC_UNKNOWN2:
 				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); 
+					break;
 				default:
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			} else { // texfmt == RGB
 				switch (gstate.getTextureFunction()) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); 
+					break;
+
 				case GE_TEXFUNC_ADD:
 				case GE_TEXFUNC_UNKNOWN1:
 				case GE_TEXFUNC_UNKNOWN2:
@@ -502,7 +514,7 @@ void GenerateFragmentShader(char *buffer) {
 				}
 			}
 		}
-
+		
 		// TODO: Before or after the color test?
 		if (enableColorDoubling && enableAlphaDoubling) {
 			WRITE(p, "  v = v * 2.0;\n");
@@ -511,7 +523,7 @@ void GenerateFragmentShader(char *buffer) {
 		} else if (enableAlphaDoubling) {
 			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
-
+		
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -532,13 +544,19 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
-	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+	switch (stencilToAlpha) {
+	case REPLACE_ALPHA_DUALSOURCE:
 		WRITE(p, "  fragColor0 = vec4(v.rgb, 0.0);\n");
-		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
-	} else if (stencilToAlpha == REPLACE_ALPHA_YES) {
+		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");	
+		break;
+
+	case REPLACE_ALPHA_YES:
 		WRITE(p, "  %s = vec4(v.rgb, 0.0);\n", fragColor0);
-	} else {  // stencilToAlpha == REPLACE_ALPHA_NO
+		break;
+
+	case REPLACE_ALPHA_NO:
 		WRITE(p, "  %s = v;\n", fragColor0);
+		break;
 	}
 
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
@@ -566,6 +584,7 @@ void GenerateFragmentShader(char *buffer) {
 			break;
 		}
 	}
+
 #ifdef DEBUG_SHADER
 	if (doTexture) {
 		WRITE(p, "  %s = texture2D(tex, v_texcoord.xy);\n", fragColor0);
