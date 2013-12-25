@@ -514,7 +514,16 @@ void GenerateFragmentShader(char *buffer) {
 				}
 			}
 		}
-
+		
+		// TODO: Before or after the color test?
+		if (enableColorDoubling && enableAlphaDoubling) {
+			WRITE(p, "  v = v * 2.0;\n");
+		} else if (enableColorDoubling) {
+			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+		} else if (enableAlphaDoubling) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
+		}
+		
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -526,15 +535,6 @@ void GenerateFragmentShader(char *buffer) {
 				else
 					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 			}
-		}
-
-		// Try to do the ColorDoubling and AlphaDoubling right after color/alpha test done.
-		if (enableColorDoubling && enableAlphaDoubling) {
-			WRITE(p, "  v = v * 2.0;\n");
-		} else if (enableColorDoubling) {
-			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		} else if (enableAlphaDoubling) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 
 		if (enableFog) {
