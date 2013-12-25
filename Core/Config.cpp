@@ -514,7 +514,7 @@ void Config::Save() {
 		graphics->Set("DisableStencilTest", bDisableStencilTest);
 		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 		graphics->Set("TimerHack", bTimerHack);
-		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
+		graphics->Set("PhantasyStarHack", bPhantasyStarHack);
 		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
 		graphics->Set("PostShader", sPostShaderName);
 
