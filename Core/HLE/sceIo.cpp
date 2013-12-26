@@ -2106,6 +2106,18 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
+	// Get current sector seek pos from UMD device file.
+	case 0x01d20001:
+		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Sector tell from file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
+			Memory::Write_U32((u32)pspFileSystem.GetSeekPos(f->handle), outdataPtr);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
+
 	// Read raw sectors from UMD device file.
 	case 0x01f30003:
 		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
