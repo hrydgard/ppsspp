@@ -193,7 +193,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
 		float constantAlpha = 1.0f;
-		ReplaceAlphaType replaceAlphaWithStencil = gstate.isStencilTestEnabled() ? ReplaceAlphaWithStencil() : REPLACE_ALPHA_NO;
+		ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
 		if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
