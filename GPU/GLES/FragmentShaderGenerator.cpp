@@ -32,6 +32,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "native/gfx_es2/gl_state.h"
 
 #define WRITE p+=sprintf
 
@@ -264,6 +265,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
+		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -293,6 +295,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			// 3 bits
 			id->d[0] |= ReplaceAlphaWithStencilType() << 21;
 		}
+
+		if (computeAbsdiff)
+			id->d[0] |= (computeAbsdiff & 1) << 24;
+
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
@@ -328,7 +334,12 @@ void GenerateFragmentShader(char *buffer) {
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
 #elif !defined(FORCE_OPENGL_2_0)
-	if (gl_extensions.VersionGEThan(3, 3, 0)) {
+	if (gl_extensions.VersionGEThan(4, 2, 0)) {
+		fragColor0 = "fragColor0";
+		texture = "texture";
+		glslES30 = true;
+		WRITE(p, "#version 420\n");
+	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
 		texture = "texture";
 		glslES30 = true;
@@ -369,6 +380,10 @@ void GenerateFragmentShader(char *buffer) {
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
+
+	if (gl_extensions.ARB_shader_image_load_store) {
+		WRITE(p, "layout (binding = 0, rgba8) uniform coherent image2D color;\n");
+	}
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -420,6 +435,9 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	WRITE(p, "void main() {\n");
+
+	// Get the pixel coordinate 
+	WRITE(p, "	ivec2 pix_coord = ivec2(gl_FragCoord.xy);\n");
 
 	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
@@ -542,6 +560,22 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
+	}
+
+	// Programmable ABSDIFF blending mode here .
+	if(gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF) {
+		// Use image Load/Store - GL_ARB_shader_image_load_store
+		if (gl_extensions.ARB_shader_image_load_store) {
+			WRITE(p, "	vec4 old_color = imageLoad(color, pix_coord);\n");
+			WRITE(p, "  vec4 out_color;\n");
+			WRITE(p, "  out_color.rgb = abs(v.rgb - old_color.rgb);\n");
+			WRITE(p, "  imageStore(color, pix_coord, out_color);\n");
+			WRITE(p, "  v.rgb = out_color.rgb;\n");
+		}
+
+		// Use gl_LastFragData[0] - GL_EXT_shader_framebuffer_fetch
+		if (gl_extensions.EXT_shader_framebuffer_fetch)
+			WRITE(p, "  gl_FragColor.rgb = abs(v.rgb - gl_LastFragData[0].rgb);\n");
 	}
 
 	switch (stencilToAlpha) {

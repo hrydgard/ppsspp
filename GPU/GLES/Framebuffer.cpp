@@ -98,6 +98,11 @@ enum {
 	FBO_OLD_AGE = 5,
 };
 
+enum {
+	COLOR_TEXTURE,
+	DEPTH_TEXTURE,
+};
+
 static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
 }
@@ -930,6 +935,25 @@ void FramebufferManager::CopyDisplayToOutput() {
 		ClearBuffer();
 		DestroyDraw2DProgram();
 		SetLineWidth();
+	}
+
+	// Bind textures to a image
+	if (gl_extensions.ARB_shader_image_load_store) {
+		GLuint textures[2];
+		glGenTextures(2, textures);
+
+		int fbo_w, fbo_h;
+		fbo_get_dimensions(vfb->fbo, &fbo_w, &fbo_h);
+
+		glBindTexture(GL_TEXTURE_2D, textures[COLOR_TEXTURE]);
+		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, fbo_w, fbo_h);
+		glBindImageTexture(0, textures[COLOR_TEXTURE], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+
+		/*
+		glBindTexture(GL_TEXTURE_2D, textures[DEPTH_TEXTURE]);
+		glTexStorage2D(GL_TEXTURE_2D, 1, GL_R16F, fbo_w, fbo_h);
+		glBindImageTexture(1, textures[DEPTH_TEXTURE], 0, GL_FALSE, 0, GL_READ_WRITE, GL_R16F);
+		*/
 	}
 
 	if (vfb->fbo) {
