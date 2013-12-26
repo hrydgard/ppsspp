@@ -2120,6 +2120,32 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
+	// Seek by sector in UMD device file.
+	case 0x01f100a6:
+		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Sector seek for file %i", id);
+		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			struct SeekInfo {
+				u64 offset;
+				u32 unk;
+				u32 whence;
+			};
+			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
+			FileMove seek;
+			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
+			// Position is in sectors, don't forget.
+			if (newPos < 0 || newPos > f->info.size / 0x800) {
+				// Not allowed to seek past the end of the file with this API.
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
+			}
+			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
+
 	default:
 		{
 			char temp[256];
