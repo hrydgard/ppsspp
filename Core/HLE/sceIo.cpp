@@ -1906,8 +1906,7 @@ u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
-int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
-{
+int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
@@ -1918,6 +1917,9 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		ERROR_LOG(SCEIO, "%08x=sceIoIoctl id: %08x, cmd %08x, async busy", error, id, cmd);
 		return SCE_KERNEL_ERROR_ASYNC_BUSY;
 	}
+
+	// TODO: Move this into each command, probably?
+	usec = 100;
 
 	//KD Hearts:
 	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
@@ -2093,6 +2095,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			u32 size = Memory::Read_U32(indataPtr);
 			if (Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				// sceIoRead does its own delaying (and deferring.)
+				usec = 0;
 				return sceIoRead(id, outdataPtr, size);
 			} else {
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
@@ -2111,6 +2115,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			u32 size = Memory::Read_U32(indataPtr);
 			// Note that size is specified in sectors, not bytes.
 			if (size > 0 && Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				// sceIoRead does its own delaying (and deferring.)
+				usec = 0;
 				return sceIoRead(id, outdataPtr, size);
 			} else {
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
@@ -2163,11 +2169,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
-	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
-	// Just a low estimate on timing.
-	// TODO: What errors are delayed?
-	if (result != (int)SCE_KERNEL_ERROR_ASYNC_BUSY && result != (int)SCE_KERNEL_ERROR_UNSUP) {
-		return hleDelayResult(result, "io ctrl command", 100);
+	int usec = 0;
+	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+	if (usec != 0) {
+		return hleDelayResult(result, "io ctrl command", usec);
 	}
 	return result;
 }
@@ -2182,8 +2187,9 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
 		DEBUG_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
-		__IoSchedAsync(f, id, 100);
+		int usec = 100;
+		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+		__IoSchedAsync(f, id, usec);
 		return 0;
 	} else {
 		ERROR_LOG(SCEIO, "UNIMPL %08x=sceIoIoctlAsync id: %08x, cmd %08x, bad file", error, id, cmd);
