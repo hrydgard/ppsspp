@@ -467,7 +467,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	// Get ISO9660 volume descriptor (from open ISO9660 file.)
 	case 0x01020001:
 		if (e.isBlockSectorMode) {
-			ERROR_LOG(FILESYS, "Unsupported 0x01020001 command on a umd block device");
+			ERROR_LOG(FILESYS, "Unsupported read volume descriptor command on a umd block device");
 			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 		}
 
@@ -477,8 +477,38 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		}
 
 		INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
-		blockDevice->ReadBlock(0x10, Memory::GetPointer(outdataPtr));
+		blockDevice->ReadBlock(16, Memory::GetPointer(outdataPtr));
 		return 0;
+
+	// Get ISO9660 path table (from open ISO9660 file.)
+	case 0x01020002:
+		if (e.isBlockSectorMode) {
+			ERROR_LOG(FILESYS, "Unsupported read path table command on a umd block device");
+			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+		}
+
+		VolDescriptor desc;
+		blockDevice->ReadBlock(16, (u8 *)&desc);
+		if (outlen < (u32)desc.pathTableLengthLE) {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		} else {
+			int block = (u16)desc.firstLETableSectorLE;
+			u32 size = (u32)desc.pathTableLengthLE;
+			u8 *out = Memory::GetPointer(outdataPtr);
+
+			while (size >= 2048) {
+				blockDevice->ReadBlock(block++, out);
+				out += 2048;
+			}
+
+			// The remaining (or, usually, only) partial sector.
+			if (size > 0) {
+				u8 temp[2048];
+				blockDevice->ReadBlock(block, temp);
+				memcpy(out, temp, size);
+			}
+			return 0;
+		}
 	}
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }

@@ -1979,21 +1979,6 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			return (int)f->info.size;
 		break;
 
-	// Get ISO9660 path table (from open ISO9660 file.)
-	case 0x01020002:
-		// TODO: Should not work for umd0:/, ms0:/, etc.
-		// Seems like it will accept an out size > path table size, but only write path table bytes.
-		// If not big enough, returns SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT.
-		// Probably only the LE version.
-		{
-			char temp[256];
-			// We want the reported message to include the cmd, so it's unique.
-			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
-			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
-			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-		}
-		break;
-
 	// Get UMD sector size
 	case 0x01020003:
 		// TODO: Should not work for umd0:/, ms0:/, etc.
