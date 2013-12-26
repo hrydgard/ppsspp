@@ -498,6 +498,11 @@ bool VirtualDiscFileSystem::OwnsHandle(u32 handle) {
 	return (iter != entries.end());
 }
 
+int VirtualDiscFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	// TODO: How to support these?
+	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+}
+
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;

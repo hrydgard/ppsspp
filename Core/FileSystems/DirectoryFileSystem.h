@@ -95,6 +95,7 @@ public:
 	size_t   SeekFile(u32 handle, s32 position, FileMove type);
 	PSPFileInfo GetFileInfo(std::string filename);
 	bool     OwnsHandle(u32 handle);
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
 
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);
@@ -132,6 +133,7 @@ public:
 	size_t   SeekFile(u32 handle, s32 position, FileMove type);
 	PSPFileInfo GetFileInfo(std::string filename);
 	bool     OwnsHandle(u32 handle);
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
 
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);

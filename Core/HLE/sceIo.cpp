@@ -1979,25 +1979,6 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			return (int)f->info.size;
 		break;
 
-	// Get ISO9660 volume descriptor (from open ISO9660 file.)
-	case 0x01020001:
-		// TODO: Should not work for umd0:/, ms0:/, etc.
-		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
-		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
-			WARN_LOG_REPORT(SCEIO, "sceIoIoctl: Invalid out pointer while reading ISO9660 volume descriptor");
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
-		} else {
-			INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
-			u32 descFd = pspFileSystem.OpenFile("disc0:/sce_lbn0x10_size0x800", FILEACCESS_READ);
-			if (descFd == 0) {
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
-			}
-			pspFileSystem.ReadFile(descFd, Memory::GetPointer(outdataPtr), 0x800);
-			pspFileSystem.CloseFile(descFd);
-			return 0;
-		}
-		break;
-
 	// Get ISO9660 path table (from open ISO9660 file.)
 	case 0x01020002:
 		// TODO: Should not work for umd0:/, ms0:/, etc.
@@ -2166,12 +2147,15 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 	default:
 		{
-			char temp[256];
-			// We want the reported message to include the cmd, so it's unique.
-			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
-			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
-			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-			// TODO: return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+			int result = pspFileSystem.Ioctl(f->handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+			if (result == SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED) {
+				char temp[256];
+				// We want the reported message to include the cmd, so it's unique.
+				sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
+				Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
+				ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+			}
+			return result;
 		}
 		break;
 	}

@@ -18,6 +18,8 @@
 #include "Globals.h"
 #include "Common/Common.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include <cstring>
 #include <cstdio>
@@ -450,6 +452,35 @@ bool ISOFileSystem::OwnsHandle(u32 handle)
 {
 	EntryMap::iterator iter = entries.find(handle);
 	return (iter != entries.end());
+}
+
+int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	EntryMap::iterator iter = entries.find(handle);
+	if (iter == entries.end()) {
+		ERROR_LOG(FILESYS, "Ioctl on a bad file handle");
+		return SCE_KERNEL_ERROR_BADF;
+	}
+
+	OpenFileEntry &e = iter->second;
+
+	switch (cmd) {
+	// Get ISO9660 volume descriptor (from open ISO9660 file.)
+	case 0x01020001:
+		if (e.isBlockSectorMode) {
+			ERROR_LOG(FILESYS, "Unsupported 0x01020001 command on a umd block device");
+			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+		}
+
+		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
+			WARN_LOG_REPORT(FILESYS, "sceIoIoctl: Invalid out pointer while reading ISO9660 volume descriptor");
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+
+		INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
+		blockDevice->ReadBlock(0x10, Memory::GetPointer(outdataPtr));
+		return 0;
+	}
+	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)

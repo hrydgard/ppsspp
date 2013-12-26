@@ -479,6 +479,15 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	}
 }
 
+int MetaFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec)
+{
+	lock_guard guard(lock);
+	IFileSystem *sys = GetHandleOwner(handle);
+	if (sys)
+		return sys->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+	return SCE_KERNEL_ERROR_ERROR;
+}
+
 void MetaFileSystem::CloseFile(u32 handle)
 {
 	lock_guard guard(lock);

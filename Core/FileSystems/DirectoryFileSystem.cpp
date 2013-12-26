@@ -489,6 +489,10 @@ bool DirectoryFileSystem::OwnsHandle(u32 handle) {
 	return (iter != entries.end());
 }
 
+int DirectoryFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+}
+
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
@@ -765,6 +769,10 @@ void VFSFileSystem::CloseFile(u32 handle) {
 bool VFSFileSystem::OwnsHandle(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
 	return (iter != entries.end());
+}
+
+int VFSFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {

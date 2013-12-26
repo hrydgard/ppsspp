@@ -36,6 +36,7 @@ public:
 	void     CloseFile(u32 handle);
 	PSPFileInfo GetFileInfo(std::string filename);
 	bool     OwnsHandle(u32 handle);
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 
