@@ -59,8 +59,6 @@ const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR		   = 0x80020323;
 
 const int ERROR_PGD_INVALID_HEADER				   = 0x80510204;
 
-#define PSP_DEV_TYPE_ALIAS 0x20
-
 /*
 
 TODO: async io is missing features!
@@ -107,6 +105,9 @@ typedef u64 SceIores;
 const int PSP_COUNT_FDS = 64;
 // TODO: Should be 3, and stdin/stdout/stderr are special values aliased to 0?
 const int PSP_MIN_FD = 4;
+const int PSP_STDOUT = 1;
+const int PSP_STDERR = 2;
+const int PSP_STDIN = 3;
 static int asyncNotifyEvent = -1;
 static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
@@ -553,22 +554,22 @@ u32 sceIoUnassign(const char *alias)
 u32 sceKernelStdin() {
 	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
 	hleEatCycles(1);
-	DEBUG_LOG(SCEIO, "3=sceKernelStdin()");
-	return 3;
+	DEBUG_LOG(SCEIO, "%d=sceKernelStdin()", PSP_STDIN);
+	return PSP_STDIN;
 }
 
 u32 sceKernelStdout() {
 	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
 	hleEatCycles(1);
-	DEBUG_LOG(SCEIO, "1=sceKernelStdout()");
-	return 1;
+	DEBUG_LOG(SCEIO, "%d=sceKernelStdout()", PSP_STDOUT);
+	return PSP_STDOUT;
 }
 
 u32 sceKernelStderr() {
 	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
 	hleEatCycles(1);
-	DEBUG_LOG(SCEIO, "2=sceKernelStderr()");
-	return 2;
+	DEBUG_LOG(SCEIO, "%d=sceKernelStderr()", PSP_STDERR);
+	return PSP_STDERR;
 }
 
 void __IoCompleteAsyncIO(int fd) {
@@ -714,7 +715,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 }
 
 bool __IoRead(int &result, int id, u32 data_addr, int size) {
-	if (id == 3) {
+	if (id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoRead STDIN");
 		return 0; //stdin
 	}
@@ -828,7 +829,7 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 	const void *data_ptr = Memory::GetPointer(data_addr);
 	// Let's handle stdout/stderr specially.
-	if (id == 1 || id == 2) {
+	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
 		const int str_size = size == 0 ? 0 : (str[size - 1] == '\n' ? size - 1 : size);
 		INFO_LOG(SCEIO, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
@@ -935,15 +936,20 @@ u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	}
 }
 
-u32 sceIoGetDevType(int id) 
-{
-	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoGetDevType(%d)", id);
+u32 sceIoGetDevType(int id) {
+	if (id == PSP_STDOUT || id == PSP_STDERR || id == PSP_STDIN) {
+		DEBUG_LOG(SCEIO, "sceIoGetDevType(%d)", id);
+		return PSP_DEV_TYPE_FILE;
+	}
+
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	int result;
-	if (f) 
-		result = PSP_DEV_TYPE_ALIAS;
-	else {
+	if (f) {
+		// TODO: When would this return PSP_DEV_TYPE_ALIAS?
+		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
+		result = pspFileSystem.DevType(f->handle);
+	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	}

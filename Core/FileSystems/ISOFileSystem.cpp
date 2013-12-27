@@ -513,6 +513,12 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
+int ISOFileSystem::DevType(u32 handle)
+{
+	EntryMap::iterator iter = entries.find(handle);
+	return iter->second.isBlockSectorMode ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
+}
+
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 {
 	EntryMap::iterator iter = entries.find(handle);

@@ -103,6 +103,7 @@ public:
 	virtual int  RenameFile(const std::string &from, const std::string &to);
 	virtual bool RemoveFile(const std::string &filename);
 	virtual int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
+	virtual int  DevType(u32 handle);
 
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);

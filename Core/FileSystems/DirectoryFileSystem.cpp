@@ -493,6 +493,11 @@ int DirectoryFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u3
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
+int DirectoryFileSystem::DevType(u32 handle) {
+	EntryMap::iterator iter = entries.find(handle);
+	return PSP_DEV_TYPE_FILE;
+}
+
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
@@ -773,6 +778,11 @@ bool VFSFileSystem::OwnsHandle(u32 handle) {
 
 int VFSFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+}
+
+int VFSFileSystem::DevType(u32 handle) {
+	EntryMap::iterator iter = entries.find(handle);
+	return PSP_DEV_TYPE_FILE;
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
