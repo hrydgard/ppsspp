@@ -291,7 +291,7 @@ u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
-	if (!dstp.IsValid() || !dstp->IsValid())
+	if (!dstp.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccEncodeUTF8(%08x, U+%04x): invalid pointer", dstAddrAddr, ucs);
 		return 0;
@@ -305,7 +305,7 @@ void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 {
 	auto dstp = PSPPointer<PSPWCharPointer>::Create(dstAddrAddr);
 
-	if (!dstp.IsValid() || !dstp->IsValid())
+	if (!dstp.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccEncodeUTF16(%08x, U+%04x): invalid pointer", dstAddrAddr, ucs);
 		return;
@@ -321,7 +321,7 @@ u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
-	if (!dstp.IsValid() || !dstp->IsValid())
+	if (!dstp.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccEncodeSJIS(%08x, U+%04x): invalid pointer", dstAddrAddr, jis);
 		return 0;
@@ -335,7 +335,7 @@ u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
-	if (!dstp.IsValid() || !dstp->IsValid()) {
+	if (!dstp.IsValid()) {
 		ERROR_LOG(HLE, "sceCccDecodeUTF8(%08x): invalid pointer", dstAddrAddr);
 		// Should crash?
 		return 0;
@@ -355,7 +355,7 @@ u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPWCharPointer>::Create(dstAddrAddr);
 
-	if (!dstp.IsValid() || !dstp->IsValid()) {
+	if (!dstp.IsValid()) {
 		ERROR_LOG(HLE, "sceCccDecodeUTF16(%08x): invalid pointer", dstAddrAddr);
 		// Should crash?
 		return 0;
@@ -376,7 +376,7 @@ u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
-	if (!dstp.IsValid() || !dstp->IsValid()) {
+	if (!dstp.IsValid()) {
 		ERROR_LOG(HLE, "sceCccDecodeSJIS(%08x): invalid pointer", dstAddrAddr);
 		// Should crash?
 		return 0;
