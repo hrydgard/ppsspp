@@ -494,7 +494,6 @@ int DirectoryFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u3
 }
 
 int DirectoryFileSystem::DevType(u32 handle) {
-	EntryMap::iterator iter = entries.find(handle);
 	return PSP_DEV_TYPE_FILE;
 }
 
@@ -781,7 +780,6 @@ int VFSFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 }
 
 int VFSFileSystem::DevType(u32 handle) {
-	EntryMap::iterator iter = entries.find(handle);
 	return PSP_DEV_TYPE_FILE;
 }
 
