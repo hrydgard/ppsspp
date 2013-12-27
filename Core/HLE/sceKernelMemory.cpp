@@ -789,7 +789,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 	if (!block->IsValid())
 	{
 		delete block;
-		ERROR_LOG(SCEKERNEL, "ARGH! sceKernelAllocPartitionMemory failed");
+		ERROR_LOG(SCEKERNEL, "sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x): allocation failed", partition, name, type, size, addr);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	SceUID uid = kernelObjects.Create(block);
@@ -1526,53 +1526,56 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
 		return error;
 }
 
-
-// TODO: Make proper kernel objects for these instead of using the UID as a pointer.
-
-
-
 u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
-
-	// Just support allocating a block in the user region.
-	if (paramsAddr) {
-		u32 length = Memory::Read_U32(paramsAddr);
-		if (length != 4) {
-			WARN_LOG(SCEKERNEL, "AllockMemoryBlock(SysMemUserForUser_FE707FDF) : unknown parameters with length %d", length);
-		}
+	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
+		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
-	if (type > 1) {
+	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
+		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): unsupported type %d", pname, type);
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
-
-	u32 blockPtr = userMemory.Alloc(size, type == 1, pname);
-	if (!blockPtr) {
+	if (size == 0) {
+		WARN_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): invalid size %x", pname, size);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
-	INFO_LOG(SCEKERNEL,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", blockPtr, pname, type, size, paramsAddr);
+	if (pname == NULL) {
+		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(): NULL name");
+		return SCE_KERNEL_ERROR_ERROR;
+	}
 
-	// Create a UID object??? Nah, let's just us the UID itself (hack!)
+	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, pname, size, (MemblockType)type, 0);
+	if (!block->IsValid())
+	{
+		delete block;
+		ERROR_LOG(SCEKERNEL, "AllocMemoryBlock(%s, %i, %08x, %08x): allocation failed");
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+	}
+	SceUID uid = kernelObjects.Create(block);
 
-	return blockPtr;
+	INFO_LOG(SCEKERNEL,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", uid, pname, type, size, paramsAddr);
+	return uid;
 }
 
 u32 FreeMemoryBlock(u32 uid) {
 	INFO_LOG(SCEKERNEL, "FreeMemoryBlock(%08x)", uid);
-	u32 blockPtr = userMemory.GetBlockStartFromAddress(uid);
-	if (!blockPtr) {
-		return SCE_KERNEL_ERROR_UNKNOWN_UID;
-	}
-	userMemory.Free(blockPtr);
-	return 0;
+	return kernelObjects.Destroy<PartitionMemoryBlock>(uid);
 }
 
 u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
-	INFO_LOG(SCEKERNEL, "GetMemoryBlockPtr(%08x, %08x)", uid, addr);
-	u32 blockPtr = userMemory.GetBlockStartFromAddress(uid);
-	if (!blockPtr) {
-		return SCE_KERNEL_ERROR_UNKNOWN_UID;
+	u32 error;
+	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
+	if (block)
+	{
+		INFO_LOG(SCEKERNEL, "GetMemoryBlockPtr(%08x, %08x) = %08x", uid, addr, block->address);
+		Memory::Write_U32(block->address, addr);
+		return 0;
 	}
-	Memory::Write_U32(blockPtr, addr);
-	return 0;
+	else
+	{
+		ERROR_LOG(SCEKERNEL, "GetMemoryBlockPtr(%08x, %08x) failed", uid, addr);
+		return 0;
+	}
 }
 
 u32 SysMemUserForUser_D8DE5C1E(){
