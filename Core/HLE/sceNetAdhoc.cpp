@@ -642,15 +642,15 @@ int sceNetAdhocPdpDelete(int id, int unknown) {
 			SceNetAdhocPdpStat * sock = pdp[id - 1];
 
 			// Valid Socket
-			if (socket != NULL) {
+			if (sock != NULL) {
 				// Close Connection
 				closesocket(sock->id);
 
 				// Remove Port Forward from Router
-				//sceNetPortClose("UDP", socket->lport);
+				//sceNetPortClose("UDP", sock->lport);
 
 				// Free Memory
-				// free(socket);
+				// free(sock);
 
 				// Free Translation Slot
 				pdp[id - 1] = NULL;
