@@ -1807,6 +1807,43 @@ u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 	return 0;
 }
 
+SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
+{
+	SceKernelLMOption *lmoption = 0;
+	if (lmoptionPtr) {
+		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+	}
+	std::string error_string;
+	Module *module = 0;
+	u32 magic;
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, &error_string, &magic);
+
+	if (!module) {
+		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
+		// This checks for the SFO magic number.
+		if (magic == 0x46535000) {
+			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
+			return -1;
+		}
+
+		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
+		// Let's just act as if it worked.
+
+		NOTICE_LOG(LOADER, "Module is blacklisted or undecryptable - we lie about success");
+		return 1;
+	}
+
+	if (lmoption) {
+		INFO_LOG(SCEMODULE,"%i=sceKernelLoadModuleBufferUsbWlan(%x,%08x,flag=%08x,%08x,%08x,%08x,position = %08x)",
+			module->GetUID(),size,bufPtr,flags,
+			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
+	} else {
+		INFO_LOG(SCEMODULE,"%i=sceKernelLoadModuleBufferUsbWlan(%x,%08x,flag=%08x,(...))", module->GetUID(), size,bufPtr, flags);
+	}
+
+	return module->GetUID();
+}
+
 u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 {
 	INFO_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
@@ -1895,7 +1932,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xd1ff982a,&WrapU_UUUUU<sceKernelStopModule>,"sceKernelStopModule", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0x2e0911aa,WrapU_U<sceKernelUnloadModule>,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
-	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???
+	{0xF9275D98,WrapI_UUUU<sceKernelLoadModuleBufferUsbWlan>,"sceKernelLoadModuleBufferUsbWlan"}, ///???
 	{0xCC1D3699,0,"sceKernelStopUnloadSelfModule"},
 	{0x748CBED9,WrapU_UU<sceKernelQueryModuleInfo>,"sceKernelQueryModuleInfo"},
 	{0xd8b73127,&WrapU_U<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},

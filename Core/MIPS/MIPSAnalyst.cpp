@@ -547,7 +547,8 @@ skip:
 		if (filename.empty())
 			filename = hashmapFileName;
 
-		if (!hashMap.size()) {
+		UpdateHashMap();
+		if (hashMap.empty()) {
 			return;
 		}
 
@@ -556,8 +557,6 @@ skip:
 			WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
 			return;
 		}
-
-		UpdateHashMap();
 
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
 			const HashMapFunc &mf = *it;
