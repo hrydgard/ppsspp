@@ -498,6 +498,16 @@ bool VirtualDiscFileSystem::OwnsHandle(u32 handle) {
 	return (iter != entries.end());
 }
 
+int VirtualDiscFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	// TODO: How to support these?
+	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+}
+
+int VirtualDiscFileSystem::DevType(u32 handle) {
+	EntryMap::iterator iter = entries.find(handle);
+	return iter->second.type == VFILETYPE_ISO ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
+}
+
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;

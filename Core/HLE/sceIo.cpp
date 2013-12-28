@@ -59,8 +59,6 @@ const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR		   = 0x80020323;
 
 const int ERROR_PGD_INVALID_HEADER				   = 0x80510204;
 
-#define PSP_DEV_TYPE_ALIAS 0x20
-
 /*
 
 TODO: async io is missing features!
@@ -107,6 +105,9 @@ typedef u64 SceIores;
 const int PSP_COUNT_FDS = 64;
 // TODO: Should be 3, and stdin/stdout/stderr are special values aliased to 0?
 const int PSP_MIN_FD = 4;
+const int PSP_STDOUT = 1;
+const int PSP_STDERR = 2;
+const int PSP_STDIN = 3;
 static int asyncNotifyEvent = -1;
 static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
@@ -553,22 +554,22 @@ u32 sceIoUnassign(const char *alias)
 u32 sceKernelStdin() {
 	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
 	hleEatCycles(1);
-	DEBUG_LOG(SCEIO, "3=sceKernelStdin()");
-	return 3;
+	DEBUG_LOG(SCEIO, "%d=sceKernelStdin()", PSP_STDIN);
+	return PSP_STDIN;
 }
 
 u32 sceKernelStdout() {
 	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
 	hleEatCycles(1);
-	DEBUG_LOG(SCEIO, "1=sceKernelStdout()");
-	return 1;
+	DEBUG_LOG(SCEIO, "%d=sceKernelStdout()", PSP_STDOUT);
+	return PSP_STDOUT;
 }
 
 u32 sceKernelStderr() {
 	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
 	hleEatCycles(1);
-	DEBUG_LOG(SCEIO, "2=sceKernelStderr()");
-	return 2;
+	DEBUG_LOG(SCEIO, "%d=sceKernelStderr()", PSP_STDERR);
+	return PSP_STDERR;
 }
 
 void __IoCompleteAsyncIO(int fd) {
@@ -714,7 +715,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 }
 
 bool __IoRead(int &result, int id, u32 data_addr, int size) {
-	if (id == 3) {
+	if (id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoRead STDIN");
 		return 0; //stdin
 	}
@@ -828,7 +829,7 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 	const void *data_ptr = Memory::GetPointer(data_addr);
 	// Let's handle stdout/stderr specially.
-	if (id == 1 || id == 2) {
+	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
 		const int str_size = size == 0 ? 0 : (str[size - 1] == '\n' ? size - 1 : size);
 		INFO_LOG(SCEIO, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
@@ -935,15 +936,20 @@ u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	}
 }
 
-u32 sceIoGetDevType(int id) 
-{
-	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoGetDevType(%d)", id);
+u32 sceIoGetDevType(int id) {
+	if (id == PSP_STDOUT || id == PSP_STDERR || id == PSP_STDIN) {
+		DEBUG_LOG(SCEIO, "sceIoGetDevType(%d)", id);
+		return PSP_DEV_TYPE_FILE;
+	}
+
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	int result;
-	if (f) 
-		result = PSP_DEV_TYPE_ALIAS;
-	else {
+	if (f) {
+		// TODO: When would this return PSP_DEV_TYPE_ALIAS?
+		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
+		result = pspFileSystem.DevType(f->handle);
+	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	}
@@ -1906,8 +1912,7 @@ u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
-int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
-{
+int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
@@ -1918,6 +1923,9 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		ERROR_LOG(SCEIO, "%08x=sceIoIoctl id: %08x, cmd %08x, async busy", error, id, cmd);
 		return SCE_KERNEL_ERROR_ASYNC_BUSY;
 	}
+
+	// TODO: Move this into each command, probably?
+	usec = 100;
 
 	//KD Hearts:
 	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
@@ -1975,40 +1983,6 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			return f->pgdInfo->data_size;
 		else
 			return (int)f->info.size;
-		break;
-
-	// Get ISO9660 volume descriptor (from open ISO9660 file.)
-	case 0x01020001:
-		// TODO: Should not work for umd0:/, ms0:/, etc.
-		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
-		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
-			WARN_LOG_REPORT(SCEIO, "sceIoIoctl: Invalid out pointer while reading ISO9660 volume descriptor");
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
-		} else {
-			INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
-			u32 descFd = pspFileSystem.OpenFile("disc0:/sce_lbn0x10_size0x800", FILEACCESS_READ);
-			if (descFd == 0) {
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
-			}
-			pspFileSystem.ReadFile(descFd, Memory::GetPointer(outdataPtr), 0x800);
-			pspFileSystem.CloseFile(descFd);
-			return 0;
-		}
-		break;
-
-	// Get ISO9660 path table (from open ISO9660 file.)
-	case 0x01020002:
-		// TODO: Should not work for umd0:/, ms0:/, etc.
-		// Seems like it will accept an out size > path table size, but only write path table bytes.
-		// If not big enough, returns SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT.
-		// Probably only the LE version.
-		{
-			char temp[256];
-			// We want the reported message to include the cmd, so it's unique.
-			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
-			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
-			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-		}
 		break;
 
 	// Get UMD sector size
@@ -2093,6 +2067,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			u32 size = Memory::Read_U32(indataPtr);
 			if (Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				// sceIoRead does its own delaying (and deferring.)
+				usec = 0;
 				return sceIoRead(id, outdataPtr, size);
 			} else {
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
@@ -2102,26 +2078,75 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
-	// Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
-	// TODO: This is unsupported on ms0:/ (SCE_KERNEL_ERROR_UNSUP.)
+	// Get current sector seek pos from UMD device file.
+	case 0x01d20001:
+		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Sector tell from file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
+			Memory::Write_U32((u32)pspFileSystem.GetSeekPos(f->handle), outdataPtr);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+		break;
+
+	// Read raw sectors from UMD device file.
 	case 0x01f30003:
-		INFO_LOG(SCEIO, "sceIoIoctl: Unknown cmd %08x always returns 1", cmd);
-		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
-			INFO_LOG(SCEIO, "sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-			return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
+		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Sector read from file %i", id);
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			u32 size = Memory::Read_U32(indataPtr);
+			// Note that size is specified in sectors, not bytes.
+			if (size > 0 && Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+				// sceIoRead does its own delaying (and deferring.)
+				usec = 0;
+				return sceIoRead(id, outdataPtr, size);
+			} else {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			}
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
-		else {
-			return 1;
+		break;
+
+	// Seek by sector in UMD device file.
+	case 0x01f100a6:
+		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
+		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
+		INFO_LOG(SCEIO, "sceIoIoctl: Sector seek for file %i", id);
+		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+			struct SeekInfo {
+				u64 offset;
+				u32 unk;
+				u32 whence;
+			};
+			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
+			FileMove seek;
+			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
+			// Position is in sectors, don't forget.
+			if (newPos < 0 || newPos > f->info.size / 0x800) {
+				// Not allowed to seek past the end of the file with this API.
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
+			}
+			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
+		} else {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
+		break;
 
 	default:
 		{
-			char temp[256];
-			// We want the reported message to include the cmd, so it's unique.
-			sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
-			Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
-			ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-			// TODO: return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+			int result = pspFileSystem.Ioctl(f->handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+			if (result == SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED) {
+				char temp[256];
+				// We want the reported message to include the cmd, so it's unique.
+				sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
+				Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
+				ERROR_LOG(SCEIO, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+			}
+			return result;
 		}
 		break;
 	}
@@ -2131,11 +2156,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
-	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
-	// Just a low estimate on timing.
-	// TODO: What errors are delayed?
-	if (result != (int)SCE_KERNEL_ERROR_ASYNC_BUSY && result != (int)SCE_KERNEL_ERROR_UNSUP) {
-		return hleDelayResult(result, "io ctrl command", 100);
+	int usec = 0;
+	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+	if (usec != 0) {
+		return hleDelayResult(result, "io ctrl command", usec);
 	}
 	return result;
 }
@@ -2150,8 +2174,9 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
 		DEBUG_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
-		__IoSchedAsync(f, id, 100);
+		int usec = 100;
+		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+		__IoSchedAsync(f, id, usec);
 		return 0;
 	} else {
 		ERROR_LOG(SCEIO, "UNIMPL %08x=sceIoIoctlAsync id: %08x, cmd %08x, bad file", error, id, cmd);

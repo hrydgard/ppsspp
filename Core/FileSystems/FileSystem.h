@@ -18,7 +18,8 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceKernel.h"
 
 enum FileAccess
 {
@@ -40,6 +41,13 @@ enum FileType
 {
 	FILETYPE_NORMAL=1,
 	FILETYPE_DIRECTORY=2
+};
+
+enum DevType
+{
+	PSP_DEV_TYPE_BLOCK = 0x04,
+	PSP_DEV_TYPE_FILE  = 0x10,
+	PSP_DEV_TYPE_ALIAS = 0x20,
 };
 
 
@@ -120,6 +128,8 @@ public:
 	virtual int      RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     RemoveFile(const std::string &filename) = 0;
 	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) = 0;
+	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
+	virtual int      DevType(u32 handle) = 0;
 };
 
 
@@ -140,6 +150,8 @@ public:
 	virtual int RenameFile(const std::string &from, const std::string &to) {return -1;}
 	virtual bool RemoveFile(const std::string &filename) {return false;}
 	virtual bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
+	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
+	virtual int DevType(u32 handle) {return 0;}
 };
 
 
