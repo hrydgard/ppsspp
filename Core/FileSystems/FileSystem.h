@@ -111,7 +111,9 @@ public:
 	virtual u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size) = 0;
+	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) = 0;
 	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) = 0;
+	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) = 0;
 	virtual size_t   SeekFile(u32 handle, s32 position, FileMove type) = 0;
 	virtual PSPFileInfo GetFileInfo(std::string filename) = 0;
 	virtual bool     OwnsHandle(u32 handle) = 0;
@@ -135,7 +137,9 @@ public:
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) {return 0;}
 	void     CloseFile(u32 handle) {}
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) {return 0;}
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {return 0;}
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) {return 0;}
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {return 0;}
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) {return 0;}
 	PSPFileInfo GetFileInfo(std::string filename) {PSPFileInfo f; return f;}
 	bool     OwnsHandle(u32 handle) {return false;}

@@ -520,6 +520,12 @@ int ISOFileSystem::DevType(u32 handle)
 
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
+{
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -599,7 +605,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	}
 }
 
-size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) 
+size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
+{
+	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
+	return 0;
+}
+
+size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
 {
 	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;

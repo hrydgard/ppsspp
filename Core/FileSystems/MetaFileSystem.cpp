@@ -555,7 +555,7 @@ size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	lock_guard guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
-		return sys->ReadFile(handle,pointer,size);
+		return sys->ReadFile(handle, pointer, size);
 	else
 		return 0;
 }
@@ -565,7 +565,27 @@ size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
 	lock_guard guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
-		return sys->WriteFile(handle,pointer,size);
+		return sys->WriteFile(handle, pointer, size);
+	else
+		return 0;
+}
+
+size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
+{
+	lock_guard guard(lock);
+	IFileSystem *sys = GetHandleOwner(handle);
+	if (sys)
+		return sys->ReadFile(handle, pointer, size, usec);
+	else
+		return 0;
+}
+
+size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
+{
+	lock_guard guard(lock);
+	IFileSystem *sys = GetHandleOwner(handle);
+	if (sys)
+		return sys->WriteFile(handle, pointer, size, usec);
 	else
 		return 0;
 }

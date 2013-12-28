@@ -422,6 +422,11 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 }
 
 size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -696,6 +701,12 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 }
 
 size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
+{
+	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
+	return 0;
+}
+
+size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
 {
 	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
 	return 0;

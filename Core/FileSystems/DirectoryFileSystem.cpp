@@ -600,6 +600,11 @@ int DirectoryFileSystem::DevType(u32 handle) {
 }
 
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -613,6 +618,11 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 }
 
 size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
+	int ignored;
+	return WriteFile(handle, pointer, size, ignored);
+}
+
+size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -971,6 +981,11 @@ int VFSFileSystem::DevType(u32 handle) {
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	DEBUG_LOG(FILESYS,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
@@ -986,6 +1001,11 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 }
 
 size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
+	int ignored;
+	return WriteFile(handle, pointer, size, ignored);
+}
+
+size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
 	// NOT SUPPORTED - READ ONLY
 	return 0;
 }

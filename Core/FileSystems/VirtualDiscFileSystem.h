@@ -33,6 +33,7 @@ public:
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	void     CloseFile(u32 handle) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
@@ -45,6 +46,7 @@ public:
 
 	// unsupported operations
 	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size) override;
+	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
 	bool MkDir(const std::string &dirname) override;
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
