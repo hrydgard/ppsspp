@@ -299,6 +299,9 @@
     <None Include="..\ios\ViewController.mm">
       <Filter>Other Platforms</Filter>
     </None>
+    <None Include="..\assets\knownfuncs.ini">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

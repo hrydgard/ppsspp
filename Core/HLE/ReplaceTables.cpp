@@ -109,6 +109,19 @@ static int Replace_memcpy() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_memcpy16() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 bytes = PARAM(2) * 16;
+	if (bytes != 0) {
+		u8 *dst = Memory::GetPointerUnchecked(destPtr);
+		u8 *src = Memory::GetPointerUnchecked(srcPtr);
+		memmove(dst, src, bytes);
+	}
+	RETURN(destPtr);
+	return 10 + bytes / 4;  // approximation
+}
+
 static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
@@ -357,6 +370,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "floorf", &Replace_floorf, 0, 0},
 	{ "ceilf", &Replace_ceilf, 0, 0},
 	{ "memcpy", &Replace_memcpy, 0, 0},
+	{ "memcpy16", &Replace_memcpy16, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
 	{ "strlen", &Replace_strlen, 0, 0},
@@ -385,6 +399,8 @@ void Replacement_Init() {
 void Replacement_Shutdown() {
 	replacedInstructions.clear();
 }
+
+// TODO: Do something on load state?
 
 int GetNumReplacementFuncs() {
 	return ARRAY_SIZE(entries);
@@ -423,7 +439,7 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 			return;
 		}
 		replacedInstructions[address] = prevInstr;
-		INFO_LOG(HLE, "Replaced %s at %08x", entries[index].name, address);
+		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
 		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
 	}
 }
