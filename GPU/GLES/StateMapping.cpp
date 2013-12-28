@@ -534,7 +534,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-		float depthRangeMin = zOff - zScale;
+		float depthRangeMin = g_Config.bPhantasyStarHack ? zOff : zOff - zScale;		
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
 	}
