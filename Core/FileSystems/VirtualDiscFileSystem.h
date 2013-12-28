@@ -180,6 +180,7 @@ private:
 
 	std::vector<FileListEntry> fileList;
 	u32 currentBlockIndex;
+	u32 lastReadBlock_;
 
 	std::map<std::string, Handler *> handlers;
 };

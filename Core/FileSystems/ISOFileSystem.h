@@ -86,6 +86,7 @@ private:
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
 	BlockDevice *blockDevice;
+	u32 lastReadBlock_;
 
 	TreeEntry entireISO;
 

@@ -227,6 +227,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 	{
 		u8 theSector[2048];
 		blockDevice->ReadBlock(secnum, theSector);
+		lastReadBlock_ = secnum;
 
 		for (int offset = 0; offset < 2048; )
 		{
@@ -535,7 +536,12 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 		{
 			// Whole sectors! Shortcut to this simple code.
 			blockDevice->ReadBlocks(e.seekPos, (int)size, pointer);
+			if (abs((int)lastReadBlock_ - (int)e.seekPos) > 100) {
+				// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+				usec = 100000;
+			}
 			e.seekPos += (int)size;
+			lastReadBlock_ = e.seekPos;
 			return (int)size;
 		}
 
@@ -594,6 +600,11 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 		}
 
 		size_t totalBytes = pointer - start;
+		if (abs((int)lastReadBlock_ - (int)secNum) > 100) {
+			// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+			usec = 100000;
+		}
+		lastReadBlock_ = secNum;
 		e.seekPos += (unsigned int)totalBytes;
 		return (size_t)totalBytes;
 	}
@@ -750,7 +761,7 @@ ISOFileSystem::TreeEntry::~TreeEntry() {
 
 void ISOFileSystem::DoState(PointerWrap &p)
 {
-	auto s = p.Section("ISOFileSystem", 1);
+	auto s = p.Section("ISOFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -805,5 +816,11 @@ void ISOFileSystem::DoState(PointerWrap &p)
 				p.Do(path);
 			}
 		}
+	}
+
+	if (s >= 2) {
+		p.Do(lastReadBlock_);
+	} else {
+		lastReadBlock_ = 0;
 	}
 }

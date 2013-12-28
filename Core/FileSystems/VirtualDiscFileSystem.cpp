@@ -146,7 +146,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)
 {
-	auto s = p.Section("VirtualDiscFileSystem", 1);
+	auto s = p.Section("VirtualDiscFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -215,6 +215,12 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 			p.Do(of.startOffset);
 			p.Do(of.size);
 		}
+	}
+
+	if (s >= 2) {
+		p.Do(lastReadBlock_);
+	} else {
+		lastReadBlock_ = 0;
 	}
 
 	// We don't savestate handlers (loaded on fs load), but if they change, it may not load properly.
@@ -473,6 +479,12 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &u
 			temp.Close();
 
 			iter->second.curOffset += size;
+			// TODO: This probably isn't enough...
+			if (abs((int)lastReadBlock_ - (int)iter->second.curOffset) > 100) {
+				// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+				usec = 100000;
+			}
+			lastReadBlock_ = iter->second.curOffset;
 			return size;
 		}
 
