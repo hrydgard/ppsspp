@@ -21,11 +21,11 @@
 
 namespace Lighting {
 
-void Process(VertexData& vertex)
+void Process(VertexData& vertex, bool hasColor)
 {
 	Vec3<int> mec = Vec3<int>(gstate.getMaterialEmissiveR(), gstate.getMaterialEmissiveG(), gstate.getMaterialEmissiveB());
 
-	Vec3<int> mac = (gstate.materialupdate&1)
+	Vec3<int> mac = hasColor && (gstate.materialupdate&1)
 						? vertex.color0.rgb()
 						: Vec3<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB());
 	Vec3<int> final_color = mec + mac * Vec3<int>(gstate.getAmbientR(), gstate.getAmbientG(), gstate.getAmbientB()) / 255;
@@ -92,7 +92,7 @@ void Process(VertexData& vertex)
 
 		// diffuse lighting
 		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
-		Vec3<int> mdc = (gstate.materialupdate&2)
+		Vec3<int> mdc = hasColor && (gstate.materialupdate&2)
 							? vertex.color0.rgb()
 							: Vec3<int>(gstate.getMaterialDiffuseR(), gstate.getMaterialDiffuseG(), gstate.getMaterialDiffuseB());
 
@@ -115,7 +115,7 @@ void Process(VertexData& vertex)
 			Vec3<float> H = worldE / worldE.Length() + L / L.Length();
 
 			Vec3<int> lsc = Vec3<int>(gstate.getSpecularColorR(light), gstate.getSpecularColorG(light), gstate.getSpecularColorB(light));
-			Vec3<int> msc = (gstate.materialupdate&4)
+			Vec3<int> msc = hasColor && (gstate.materialupdate&4)
 								? vertex.color0.rgb()
 								: Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB());
 
@@ -144,7 +144,7 @@ void Process(VertexData& vertex)
 		vertex.color1 = Vec3<int>(0, 0, 0);
 	}
 
-	int maa = (gstate.materialupdate&1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
+	int maa = hasColor && (gstate.materialupdate&1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
 	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
 
 	vertex.color0 = vertex.color0.Clamp(0, 255);

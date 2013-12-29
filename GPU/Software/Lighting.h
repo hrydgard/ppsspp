@@ -21,6 +21,6 @@
 
 namespace Lighting {
 
-void Process(VertexData& vertex);
+void Process(VertexData& vertex, bool hasColor);
 
 }

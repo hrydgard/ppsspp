@@ -177,7 +177,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 			vertex.worldnormal /= vertex.worldnormal.Length();
 		}
 
-		Lighting::Process(vertex);
+		Lighting::Process(vertex, vreader.hasColor0());
 	} else {
 		vertex.screenpos.x = (u32)pos[0] * 16 + gstate.getOffsetX16();
 		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();

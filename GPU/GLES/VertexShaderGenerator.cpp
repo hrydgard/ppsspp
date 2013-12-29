@@ -297,7 +297,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		}
 		if (gstate.isLightingEnabled()) {
 			WRITE(p, "uniform lowp vec4 u_ambient;\n");
-			if ((gstate.materialupdate & 2) == 0)
+			if ((gstate.materialupdate & 2) == 0 || !hasColor)
 				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
 			// if ((gstate.materialupdate & 4) == 0)
 			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
@@ -451,9 +451,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (gstate.materialupdate & 1) ? (hasColor ? "color0" : "u_matambientalpha") : "u_matambientalpha";
-		const char *diffuseStr = (gstate.materialupdate & 2) ? (hasColor ? "color0.rgb" : "u_matambientalpha.rgb") : "u_matdiffuse";
-		const char *specularStr = (gstate.materialupdate & 4) ? (hasColor ? "color0.rgb" : "u_matambientalpha.rgb") : "u_matspecular.rgb";
+		const char *ambientStr = (gstate.materialupdate & 1) && hasColor ? "color0" : "u_matambientalpha";
+		const char *diffuseStr = (gstate.materialupdate & 2) && hasColor ? "color0.rgb" : "u_matdiffuse";
+		const char *specularStr = (gstate.materialupdate & 4) && hasColor ? "color0.rgb" : "u_matspecular.rgb";
 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
