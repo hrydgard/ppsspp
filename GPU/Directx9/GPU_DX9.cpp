@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
+
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Config.h"

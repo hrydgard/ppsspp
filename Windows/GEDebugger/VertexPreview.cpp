@@ -19,6 +19,7 @@
 #include "gfx_es2/glsl_program.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
+#include "Core/System.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"

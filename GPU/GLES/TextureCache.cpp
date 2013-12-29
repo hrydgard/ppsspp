@@ -17,6 +17,7 @@
 
 #include <map>
 #include <algorithm>
+#include <cstring>
 
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -27,6 +28,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "math/math_util.h"

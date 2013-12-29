@@ -17,6 +17,7 @@
 
 #pragma once
 #include "Globals.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
 enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_MACRO, DISTYPE_DATA, DISTYPE_OTHER };

@@ -6,6 +6,8 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include <algorithm>
 
+static const int numCPUs = 1;
+
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
 const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 8;

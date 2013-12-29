@@ -56,6 +56,8 @@
 #include "Common/StringUtils.h"
 #include "main.h"
 
+static const int numCPUs = 1;
+
 static PMixer *curMixer;
 
 float mouseDeltaX = 0;

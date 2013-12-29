@@ -77,6 +77,8 @@
 
 #define ENABLE_TOUCH 0
 
+static const int numCPUs = 1;
+
 int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
