@@ -370,11 +370,11 @@ void *TextureCache::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture<u16_le>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture<u32_le>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 			}
 		} else {
@@ -410,11 +410,11 @@ void *TextureCache::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture<u16_le>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture<u32_le>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 			}
 			buf = tmpTexBuf32.data();
@@ -655,7 +655,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
-	if(clearCacheNextFrame_) {
+	if (clearCacheNextFrame_) {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
