@@ -103,7 +103,7 @@ void TextureCache::Decimate() {
 	lastBoundTexture = -1;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
+		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
 		} else {
@@ -113,7 +113,8 @@ void TextureCache::Decimate() {
 
 	if (g_Config.bTextureSecondaryCache) {
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
+			// In low memory mode, we kill them all.
+			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				glDeleteTextures(1, &iter->second.texture);
 				secondCache.erase(iter++);
 			} else {
