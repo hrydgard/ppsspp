@@ -305,6 +305,7 @@ void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
 	// In GLSL ES 3.0, you use "in" variables instead of varying.
+
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *fragColor0 = "gl_FragColor";
@@ -415,7 +416,7 @@ void GenerateFragmentShader(char *buffer) {
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 		WRITE(p, "out vec4 fragColor0;\n");
 		WRITE(p, "out vec4 fragColor1;\n");
-	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+	} else if (!strcmp(fragColor0, "fragColor0")) {
 		WRITE(p, "out vec4 fragColor0;\n");
 	}
 
