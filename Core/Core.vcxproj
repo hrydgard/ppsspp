@@ -188,6 +188,7 @@
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
+    <ClCompile Include="FileSystems\FileSystem.cpp" />
     <ClCompile Include="FileSystems\MetaFileSystem.cpp" />
     <ClCompile Include="FileSystems\tlzrc.cpp" />
     <ClCompile Include="FileSystems\VirtualDiscFileSystem.cpp" />

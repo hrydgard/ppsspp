@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "Common/ChunkFile.h"
 #include "Core/HLE/sceKernel.h"
 
 enum FileAccess
@@ -69,28 +67,10 @@ private:
 
 struct PSPFileInfo
 {
-	PSPFileInfo() 
+	PSPFileInfo()
 		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0) {}
 
-	void DoState(PointerWrap &p)
-	{
-		auto s = p.Section("PSPFileInfo", 1);
-		if (!s)
-			return;
-
-		p.Do(name);
-		p.Do(size);
-		p.Do(access);
-		p.Do(exists);
-		p.Do(type);
-		p.Do(atime);
-		p.Do(ctime);
-		p.Do(mtime);
-		p.Do(isOnSectorSystem);
-		p.Do(startSector);
-		p.Do(numSectors);
-		p.Do(sectorSize);
-	}
+	void DoState(PointerWrap &p);
 
 	std::string name;
 	s64 size;

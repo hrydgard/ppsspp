@@ -15,15 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstring>
+#include <cstdio>
+#include <ctype.h>
+
 #include "Globals.h"
 #include "Common/Common.h"
+#include "Common/ChunkFile.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include <cstring>
-#include <cstdio>
-#include <ctype.h>
 
 
 const int sectorSize = 2048;

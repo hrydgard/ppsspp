@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "native/ext/jpge/jpgd.h"
+
+#include "Common.h"
+#include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
-#include "Common.h"
-#include "native/ext/jpge/jpgd.h"
 
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
 //#define JPEG_DEBUG

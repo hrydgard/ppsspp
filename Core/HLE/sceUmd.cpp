@@ -26,6 +26,7 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 
 #include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 

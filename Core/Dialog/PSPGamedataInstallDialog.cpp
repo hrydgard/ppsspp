@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPGamedataInstallDialog.h"
-#include "ChunkFile.h"
-#include "../Core/MemMap.h"
+#include "Common/ChunkFile.h"
+#include "Core/MemMap.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Dialog/PSPGamedataInstallDialog.h"
 
 std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
 

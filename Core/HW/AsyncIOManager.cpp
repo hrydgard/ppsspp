@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HW/AsyncIOManager.h"

@@ -28,6 +28,8 @@
 #undef st_atime
 #undef st_mtime
 
+struct PSPFileInfo;
+
 enum SceUtilitySavedataType
 {
 	SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD        = 0,

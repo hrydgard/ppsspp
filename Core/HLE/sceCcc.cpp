@@ -19,6 +19,7 @@
 #include "util/text/utf16.h"
 #include "util/text/shiftjis.h"
 
+#include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 

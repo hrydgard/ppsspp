@@ -17,8 +17,12 @@
 
 #include <vector>
 
+#include "base/timeutil.h"
+#include "i18n/i18n.h"
+
 #include "Common/StdMutex.h"
 #include "Common/FileUtil.h"
+#include "Common/ChunkFile.h"
 
 #include "Core/SaveState.h"
 #include "Core/Config.h"
@@ -26,16 +30,15 @@
 #include "Core/CoreTiming.h"
 #include "Core/Host.h"
 #include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
-#include "HW/MemoryStick.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
-#include "base/timeutil.h"
-#include "i18n/i18n.h"
 
 namespace SaveState
 {

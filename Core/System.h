@@ -17,12 +17,13 @@
 
 #pragma once
 
-#include "../Globals.h"
+#include "Globals.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
-#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/CoreParameter.h"
 #include "Core/ELF/ParamSFO.h"
+
+class MetaFileSystem;
 
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;

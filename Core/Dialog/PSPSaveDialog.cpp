@@ -15,15 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPSaveDialog.h"
-#include "../Util/PPGeDraw.h"
-#include "../HLE/sceCtrl.h"
-#include "../HLE/sceUtility.h"
-#include "../Core/MemMap.h"
-#include "../Config.h"
+#include "i18n/i18n.h"
+
+#include "Common/ChunkFile.h"
+
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUtility.h"
+#include "Core/MemMap.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/HW/MemoryStick.h"
-#include "i18n/i18n.h"
+#include "Core/Dialog/PSPSaveDialog.h"
 
 const float FONT_SCALE = 0.55f;
 

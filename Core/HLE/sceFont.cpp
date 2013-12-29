@@ -7,10 +7,11 @@
 #include <map>
 #include <algorithm>
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/FileSystems/FileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceKernel.h"

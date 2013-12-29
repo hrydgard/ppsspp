@@ -1,11 +1,11 @@
-#include "CwCheat.h"
-#include "../Core/CoreTiming.h"
-#include "../Core/CoreParameter.h"
-#include "StringUtils.h"
+#include "Common/StringUtils.h"
+#include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
-#include "Config.h"
-#include "MIPS/MIPS.h"
+#include "Core/CoreTiming.h"
+#include "Core/CoreParameter.h"
+#include "Core/CwCheat.h"
 #include "Core/Config.h"
+#include "Core/MIPS/MIPS.h"
 
 static int CheatEvent = -1;
 std::string gameTitle;

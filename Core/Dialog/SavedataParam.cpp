@@ -17,9 +17,11 @@
 
 
 #include "base/logging.h"
+#include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceChnnlsv.h"

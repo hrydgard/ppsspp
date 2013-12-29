@@ -966,6 +966,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileSystems/DirectoryFileSystem.cpp
 	Core/FileSystems/DirectoryFileSystem.h
 	Core/FileSystems/FileSystem.h
+	Core/FileSystems/FileSystem.cpp
 	Core/FileSystems/ISOFileSystem.cpp
 	Core/FileSystems/ISOFileSystem.h
 	Core/FileSystems/MetaFileSystem.cpp

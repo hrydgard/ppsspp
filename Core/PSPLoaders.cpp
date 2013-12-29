@@ -15,33 +15,35 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ELF/ElfReader.h"
+#include "file/file_util.h"
+
+#include "Common/StringUtils.h"
+
+#include "Core/ELF/ElfReader.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "FileSystems/BlockDevices.h"
 #include "FileSystems/DirectoryFileSystem.h"
 #include "FileSystems/ISOFileSystem.h"
+#include "FileSystems/MetaFileSystem.h"
 #include "FileSystems/VirtualDiscFileSystem.h"
 
-#include "MemMap.h"
+#include "Core/MemMap.h"
 
-#include "MIPS/MIPS.h"
-#include "MIPS/MIPSAnalyst.h"
-#include "MIPS/MIPSCodeUtils.h"
-
-#include "file/file_util.h"
-#include "StringUtils.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 
 #include "Host.h"
 
-#include "System.h"
-#include "PSPLoaders.h"
-#include "HLE/HLE.h"
-#include "HLE/sceKernel.h"
-#include "HLE/sceKernelThread.h"
-#include "HLE/sceKernelModule.h"
-#include "HLE/sceKernelMemory.h"
-#include "ELF/ParamSFO.h"
 #include "Core/Config.h"
+#include "Core/System.h"
+#include "Core/PSPLoaders.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceKernelMemory.h"
 
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and

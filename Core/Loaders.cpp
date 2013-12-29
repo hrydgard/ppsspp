@@ -16,16 +16,17 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
-#include "Common/FileUtil.h"
-#include "MIPS/MIPS.h"
-#include "MIPS/MIPSCodeUtils.h"
 
-#include "HLE/HLE.h"
-#include "HLE/sceKernelModule.h"
-#include "PSPLoaders.h"
-#include "MemMap.h"
-#include "Loaders.h"
-#include "System.h"
+#include "Common/FileUtil.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/PSPLoaders.h"
+#include "Core/MemMap.h"
+#include "Core/Loaders.h"
+#include "Core/System.h"
 
 // TODO : improve, look in the file more
 IdentifiedFileType Identify_File(std::string &filename)

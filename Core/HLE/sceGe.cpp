@@ -18,6 +18,7 @@
 #include <map>
 #include <vector>
 
+#include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/System.h"

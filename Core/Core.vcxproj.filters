@@ -126,6 +126,9 @@
     <ClCompile Include="FileSystems\ISOFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\FileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
     <ClCompile Include="FileSystems\MetaFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>

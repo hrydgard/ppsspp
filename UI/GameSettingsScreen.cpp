@@ -35,6 +35,8 @@
 #include "UI/TiltAnalogSettingsScreen.h"
 #include "UI/TiltEventProcessor.h"
 
+#include "Common/KeyMap.h"
+#include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -43,7 +45,6 @@
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/Framebuffer.h"
-#include "Common/KeyMap.h"
 
 #ifdef _WIN32
 namespace MainWindow {

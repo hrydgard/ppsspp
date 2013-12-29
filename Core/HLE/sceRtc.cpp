@@ -25,6 +25,7 @@
 #include <time.h>
 #include "base/timeutil.h"
 
+#include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"

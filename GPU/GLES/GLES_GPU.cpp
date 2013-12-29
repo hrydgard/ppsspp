@@ -18,6 +18,8 @@
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 
+#include "Common/ChunkFile.h"
+
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"

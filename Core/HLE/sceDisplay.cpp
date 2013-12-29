@@ -30,6 +30,7 @@
 #include "gfx_es2/gl_state.h"
 #endif
 
+#include "Common/ChunkFile.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Reporting.h"

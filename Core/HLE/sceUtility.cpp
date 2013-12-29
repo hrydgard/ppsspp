@@ -17,24 +17,25 @@
 
 #include <set>
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
+#include "file/ini_file.h"
+
+#include "Common/ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceUtility.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceUtility.h"
 
-#include "sceCtrl.h"
-#include "../Util/PPGeDraw.h"
-#include "../Dialog/PSPSaveDialog.h"
-#include "../Dialog/PSPMsgDialog.h"
-#include "../Dialog/PSPPlaceholderDialog.h"
-#include "../Dialog/PSPOskDialog.h"
-#include "../Dialog/PSPGamedataInstallDialog.h"
-#include "../Dialog/PSPNetconfDialog.h"
-
-#include "../native/file/ini_file.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Dialog/PSPPlaceholderDialog.h"
+#include "Core/Dialog/PSPOskDialog.h"
+#include "Core/Dialog/PSPGamedataInstallDialog.h"
+#include "Core/Dialog/PSPNetconfDialog.h"
 
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;

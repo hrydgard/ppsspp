@@ -19,7 +19,9 @@
 #include <limits>
 
 #include "math/math_util.h"
+
 #include "Common.h"
+#include "Common/ChunkFile.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"

@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 #include <map>
+
+#include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
