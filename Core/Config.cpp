@@ -187,13 +187,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iAnisotropyLevel = 4;
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
-	graphics->Get("TextureBackoffCache", &bTextureBackoffCache, true);
-	// The secondary cache uses lots of VRAM, so disable by default on mobile/Xbox.
-#if !defined(USING_GLES2) && !defined(_XBOX)
-	graphics->Get("TextureSecondaryCache", &bTextureSecondaryCache, true);
-#else
+	graphics->Get("TextureBackoffCache", &bTextureBackoffCache, false);
 	graphics->Get("TextureSecondaryCache", &bTextureSecondaryCache, false);
-#endif
 #ifdef IOS
 	graphics->Get("VertexDecJit", &bVertexDecoderJit, iosCanUseJit);
 #else
