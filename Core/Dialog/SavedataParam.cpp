@@ -147,6 +147,47 @@ namespace
 	};
 }
 
+void SaveFileInfo::DoState(PointerWrap &p)
+{
+	auto s = p.Section("SaveFileInfo", 1, 2);
+	if (!s)
+		return;
+
+	p.Do(size);
+	p.Do(saveName);
+	p.Do(idx);
+
+	p.DoArray(title, sizeof(title));
+	p.DoArray(saveTitle, sizeof(saveTitle));
+	p.DoArray(saveDetail, sizeof(saveDetail));
+
+	p.Do(modif_time);
+
+	if (s <= 1) {
+		u32 textureData;
+		int textureWidth;
+		int textureHeight;
+		p.Do(textureData);
+		p.Do(textureWidth);
+		p.Do(textureHeight);
+
+		if (textureData != 0) {
+			// Must be MODE_READ.
+			texture = new PPGeImage("");
+			texture->CompatLoad(textureData, textureWidth, textureHeight);
+		}
+	} else {
+		bool hasTexture = texture != NULL;
+		p.Do(hasTexture);
+		if (hasTexture) {
+			if (p.mode == p.MODE_READ) {
+				texture = new PPGeImage("");
+			}
+			texture->DoState(p);
+		}
+	}
+}
+
 SavedataParam::SavedataParam()
 	: pspParam(0)
 	, selectedSave(0)

@@ -22,6 +22,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/Host.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"

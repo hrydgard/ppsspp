@@ -21,6 +21,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -168,6 +169,13 @@ SoftGPU::~SoftGPU()
 {
 	glDeleteProgram(program);
 	glDeleteTextures(1, &temp_texture);
+}
+
+void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	displayFramebuf_ = framebuf;
+	displayStride_ = stride;
+	displayFormat_ = format;
+	host->GPUNotifyDisplay(framebuf, stride, format);
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.

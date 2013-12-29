@@ -17,8 +17,8 @@
 
 #include "PSPNetconfDialog.h"
 #include "ChunkFile.h"
-#include "../Core/MemMap.h"
-#include "../Core/HLE/sceNetAdhoc.h"
+#include "Core/MemMap.h"
+#include "Core/HLE/sceNetAdhoc.h"
 
 #define NETCONF_CONNECT_ADHOC 2
 #define NETCONF_CREATE_ADHOC 4

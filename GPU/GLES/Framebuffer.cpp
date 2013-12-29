@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
+#include <algorithm>
+
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
@@ -37,8 +40,6 @@
 #include "GPU/GLES/ShaderManager.h"
 
 #include "UI/OnScreenDisplay.h"
-
-#include <algorithm>
 
 #if defined(USING_GLES2)
 #ifndef GL_READ_FRAMEBUFFER

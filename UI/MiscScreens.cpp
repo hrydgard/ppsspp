@@ -31,6 +31,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"

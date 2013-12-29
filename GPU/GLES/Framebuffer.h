@@ -18,6 +18,8 @@
 #pragma once
 
 #include <list>
+#include <set>
+#include <algorithm>
 
 #include "gfx/gl_common.h"
 #include "gfx_es2/fbo.h"

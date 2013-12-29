@@ -33,6 +33,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/PSPMixer.h"
 #include "Core/HLE/HLE.h"
@@ -80,6 +81,14 @@ volatile CoreState coreState = CORE_STEPPING;
 // Note: intentionally not used for CORE_NEXTFRAME.
 volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
+
+void UpdateUIState(GlobalUIState newState) {
+	// Never leave the EXIT state.
+	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
+		globalUIState = newState;
+		host->UpdateDisassembly();
+	}
+}
 
 bool IsAudioInitialised() {
 	return mixer != NULL;

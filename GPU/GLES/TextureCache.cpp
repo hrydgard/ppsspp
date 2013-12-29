@@ -18,6 +18,7 @@
 #include <map>
 #include <algorithm>
 
+#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
