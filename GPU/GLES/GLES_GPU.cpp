@@ -1285,10 +1285,9 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	//////////////////////////////////////////////////////////////////
-	//	Z/STENCIL TESTING
+	//	DEPTH TESTING
 	//////////////////////////////////////////////////////////////////
 
-	case GE_CMD_STENCILTESTENABLE:
 	case GE_CMD_ZTESTENABLE:
 	case GE_CMD_ZTEST:
 	case GE_CMD_ZWRITEDISABLE:
@@ -1427,12 +1426,18 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 #endif
 
-	// Handled in StateMapping.
+	//////////////////////////////////////////////////////////////////
+	//	STENCIL TESTING
+	//////////////////////////////////////////////////////////////////
+
 	case GE_CMD_STENCILTEST:
+		// Handled in StateMapping.
 		if (diff) {
 			shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
 		}
 		break;
+
+	case GE_CMD_STENCILTESTENABLE:
 	case GE_CMD_STENCILOP:
 		break;
 

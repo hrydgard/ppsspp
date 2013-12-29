@@ -193,7 +193,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
 		float constantAlpha = 1.0f;
-		ReplaceAlphaType replaceAlphaWithStencil = gstate.isStencilTestEnabled() ? ReplaceAlphaWithStencil() : REPLACE_ALPHA_NO;
+		ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
 		if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
@@ -407,18 +407,23 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
 		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-		bool amask = (gstate.pmska & 0xFF) < 128;
 
-		// Let's not write to alpha if stencil isn't enabled.
-		if (!gstate.isStencilTestEnabled()) {
+		bool amask;
+		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
+
+		switch (stencilToAlpha) {
+		case REPLACE_ALPHA_DUALSOURCE:
+			amask = (gstate.pmska & 0xFF) < 128;
+			break;
+
+		case REPLACE_ALPHA_YES:
+			amask = true;
+			break;
+
+		case REPLACE_ALPHA_NO:
 			amask = false;
-		} else {
-			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-				amask = false;
-			}
+			break;
 		}
-
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
 		// Stencil Test
