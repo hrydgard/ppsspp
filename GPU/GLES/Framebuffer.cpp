@@ -978,6 +978,20 @@ void FramebufferManager::CopyDisplayToOutput() {
 		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		if (gl_extensions.GLES3) {
+			// Discard depth buffer here 
+			const GLenum depth[]  = {GL_DEPTH_ATTACHMENT};
+			GLuint depthBuffer = fbo_get_depth_buffer(vfb->fbo);
+			glBindFramebuffer(GL_FRAMEBUFFER, depthBuffer);
+			glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, depth);
+
+			// Discard stencil buffer here 
+			const GLenum stencil[]  = {GL_STENCIL_ATTACHMENT};
+			GLuint stencilBuffer = fbo_get_stencil_buffer(vfb->fbo);
+			glBindFramebuffer(GL_FRAMEBUFFER, stencilBuffer);
+			glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, stencil);
+		}
 	}
 }
 
