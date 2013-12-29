@@ -19,6 +19,8 @@
 
 #include <cmath>
 
+namespace Math3D {
+
 // Helper for Vec classes to clamp values.
 template<typename T>
 inline static T VecClamp(const T &v, const T &low, const T &high)
@@ -318,8 +320,6 @@ public:
 #undef _DEFINE_SWIZZLER2
 };
 
-typedef Vec3<float> Vec3f;
-
 template<typename T>
 class Vec4
 {
@@ -488,8 +488,6 @@ public:
 #undef _DEFINE_SWIZZLER3
 };
 
-typedef Vec4<float> Vec4f;
-
 
 template<typename BaseType>
 class Mat3x3
@@ -590,6 +588,11 @@ private:
 	BaseType values[4*4];
 };
 
+}; // namespace Math3D
+
+typedef Math3D::Vec3<float> Vec3f;
+typedef Math3D::Vec4<float> Vec4f;
+
 
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
@@ -629,11 +632,32 @@ inline void Matrix4ByMatrix4(float out[16], const float a[16], const float b[16]
 	Vec4ByMatrix44(out + 12, a + 12, b);
 }
 
+inline void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[1];
+	m4x4[2] = m4x3[2];
+	m4x4[3] = 0.0f;
+	m4x4[4] = m4x3[3];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[5];
+	m4x4[7] = 0.0f;
+	m4x4[8] = m4x3[6];
+	m4x4[9] = m4x3[7];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = 0.0f;
+	m4x4[12] = m4x3[9];
+	m4x4[13] = m4x3[10];
+	m4x4[14] = m4x3[11];
+	m4x4[15] = 1.0f;
+}
+
 
 inline float Vec3Dot(const float v1[3], const float v2[3])
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
 }
+
+namespace Math3D {
 
 template<typename T>
 inline T Dot(const Vec2<T>& a, const Vec2<T>& b)
@@ -658,6 +682,8 @@ inline Vec3<T> Cross(const Vec3<T>& a, const Vec3<T>& b)
 {
 	return Vec3<T>(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
 }
+
+}; // namespace Math3D
 
 // linear interpolation via float: 0.0=begin, 1.0=end
 template<typename X>

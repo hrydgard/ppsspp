@@ -910,3 +910,8 @@ bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
 {
 	return Rasterizer::GetCurrentTexture(buffer);
 }
+
+bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
+{
+	return TransformUnit::GetCurrentSimpleVertices(count, vertices, indices);
+}

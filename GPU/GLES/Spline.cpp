@@ -28,10 +28,9 @@
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
-u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
-	VertexDecoder *dec = GetVertexDecoder(vertType);
 	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
 
 	// OK, morphing eliminated but bones still remain to be taken care of.
@@ -126,6 +125,11 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 
 	// Okay, there we are! Return the new type (but keep the index bits)
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & GE_VTYPE_IDX_MASK);
+}
+
+u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+	VertexDecoder *dec = GetVertexDecoder(vertType);
+	return NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
 #define START_OPEN 1
