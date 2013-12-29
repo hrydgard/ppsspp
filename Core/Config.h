@@ -97,6 +97,8 @@ public:
 	int iWindowHeight;
 
 	bool bVertexCache;
+	bool bTextureBackoffCache;
+	bool bTextureSecondaryCache;
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
