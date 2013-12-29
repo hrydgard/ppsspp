@@ -40,6 +40,8 @@
 
 #include <algorithm>
 
+#define BUFFER_OFFSET(bytes) ((GLubyte*)NULL + (bytes))
+
 #if defined(USING_GLES2)
 #ifndef GL_READ_FRAMEBUFFER
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
@@ -93,14 +95,25 @@ static const char color_vs[] =
 	"  gl_Position = a_position;\n"
 	"}\n";
 
+static const char clear_color_fs[] =
+	"#version 420 compatibility\n"
+	"layout (binding = 0, rgba8) uniform image2D color;\n"
+	"uniform vec4 u_colorclear;\n"
+	"void main() {\n"
+	"	ivec2 pix_coord = ivec2(gl_FragCoord.xy);\n"
+	"	imageStore(color, pix_coord, u_colorclear);\n"
+	"	gl_FragColor = u_colorclear;\n"
+	"}\n";
+
+static const char clear_color_vs[] =
+	"#version 420 compatibility\n"
+	"void main() {\n"
+	"	gl_Position = vec4(gl_Vertex.xy, 0.0, 1.0);\n"
+	"}\n";
+	
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
 	FBO_OLD_AGE = 5,
-};
-
-enum {
-	COLOR_TEXTURE,
-	DEPTH_TEXTURE,
 };
 
 static bool MaskedEqual(u32 addr1, u32 addr2) {
@@ -207,6 +220,16 @@ void FramebufferManager::CompileDraw2DProgram() {
 			plainColorLoc_ = glsl_uniform_loc(plainColorProgram_, "u_color");
 		}
 
+		if (gl_extensions.ARB_shader_image_load_store) {
+			clearColorProgram_ = glsl_create_source(clear_color_vs, clear_color_fs, &errorString);
+			if (!clearColorProgram_) {
+				ERROR_LOG_REPORT(G3D, "Failed to compile clearColorProgram! This shouldn't happen.\n%s", errorString.c_str());
+			} else {
+				glsl_bind(clearColorProgram_);
+				clearColorLoc_ = glsl_uniform_loc(clearColorProgram_, "u_colorclear");
+			}
+		}
+		
 		SetNumExtraFBOs(0);
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
@@ -274,6 +297,10 @@ void FramebufferManager::DestroyDraw2DProgram() {
 		glsl_destroy(plainColorProgram_);
 		plainColorProgram_ = 0;
 	}
+	if (clearColorProgram_) {
+		glsl_destroy(clearColorProgram_);
+		clearColorProgram_ = 0;
+	}
 	if (postShaderProgram_) {
 		glsl_destroy(postShaderProgram_);
 		postShaderProgram_ = 0;
@@ -295,6 +322,7 @@ FramebufferManager::FramebufferManager() :
 	draw2dprogram_(0),
 	postShaderProgram_(0),
 	plainColorLoc_(-1),
+	clearColorLoc_(-1),
 	timeLoc_(-1),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
@@ -307,6 +335,8 @@ FramebufferManager::FramebufferManager() :
 	currentPBO_(0)
 #endif
 {
+	memset(vao, 0, sizeof(vao));
+	memset(vbo, 0, sizeof(vbo));
 	CompileDraw2DProgram();
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
@@ -473,6 +503,25 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 	glDisableVertexAttribArray(program->a_position);
+
+	glsl_unbind();
+}
+
+void FramebufferManager::ClearColor() {
+	GLSLProgram *program = 0;
+	if (!draw2dprogram_) {
+		CompileDraw2DProgram();
+	}
+	program = clearColorProgram_;
+	glsl_bind(program);
+
+	if (clearColorLoc_ != -1)
+		glUniform4f(clearColorLoc_, 0.0f, 0.0f, 0.0f, 1.0f);
+
+	glBindVertexArray(vao[clear]);
+	glDrawArrays(GL_QUADS, 0, 4);
+
+	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 	glsl_unbind();
 }
@@ -937,23 +986,33 @@ void FramebufferManager::CopyDisplayToOutput() {
 		SetLineWidth();
 	}
 
-	// Bind textures to a image
-	if (gl_extensions.ARB_shader_image_load_store) {
-		GLuint textures[2];
-		glGenTextures(2, textures);
+	// Bind color texture to a image
+	if (vfb->fbo && gl_extensions.ARB_shader_image_load_store) {
+		// Textures
+		glGenTextures(tex_size, tex);
 
 		int fbo_w, fbo_h;
 		fbo_get_dimensions(vfb->fbo, &fbo_w, &fbo_h);
 
-		glBindTexture(GL_TEXTURE_2D, textures[COLOR_TEXTURE]);
+		glBindTexture(GL_TEXTURE_2D, tex[color]);
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, fbo_w, fbo_h);
-		glBindImageTexture(0, textures[COLOR_TEXTURE], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+		glBindImageTexture(0, tex[color], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
-		/*
-		glBindTexture(GL_TEXTURE_2D, textures[DEPTH_TEXTURE]);
-		glTexStorage2D(GL_TEXTURE_2D, 1, GL_R16F, fbo_w, fbo_h);
-		glBindImageTexture(1, textures[DEPTH_TEXTURE], 0, GL_FALSE, 0, GL_READ_WRITE, GL_R16F);
-		*/
+		// Vertex Arrays
+		const float clearQuad[] = {
+			-1.f, -1.f,
+			-1.f, 1.f,
+			1.f, 1.f,
+			1.f, -1.f
+		};
+		glGenVertexArrays(vao_size, vao);
+		glGenBuffers(vao_size, vbo);
+
+		glBindVertexArray(vao[clear]);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[clear]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(clearQuad), clearQuad, GL_STATIC_DRAW);
+		glVertexPointer(2, GL_FLOAT, 0, BUFFER_OFFSET(0));
+		glEnableClientState(GL_VERTEX_ARRAY);
 	}
 
 	if (vfb->fbo) {

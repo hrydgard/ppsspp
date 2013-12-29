@@ -492,6 +492,10 @@ void GLES_GPU::InitClearInternal() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+
+	if (gl_extensions.ARB_shader_image_load_store) {
+		framebufferManager_.ClearColor();
+	}
 }
 
 void GLES_GPU::DumpNextFrame() {

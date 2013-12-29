@@ -338,7 +338,7 @@ void GenerateFragmentShader(char *buffer) {
 		fragColor0 = "fragColor0";
 		texture = "texture";
 		glslES30 = true;
-		WRITE(p, "#version 420\n");
+		WRITE(p, "#version 420 compatibility\n");
 	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
 		texture = "texture";
