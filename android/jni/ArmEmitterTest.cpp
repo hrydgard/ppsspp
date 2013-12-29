@@ -35,7 +35,7 @@ void TestCode::Generate()
 {
 	testCodePtr = this->GetCodePtr();
 	// Sonic1 commented that R11 is the frame pointer in debug mode, whatever "debug mode" means.
-	PUSH(2, R11, _LR);
+	PUSH(2, R11, R_LR);
 
 	// Load the three pointers
 	/*
@@ -88,7 +88,7 @@ void TestCode::Generate()
 	VSTR(S12, R11, 4 * (32 + 31));
 	*/
 	//VSTR(S2, R0, 8);
-	POP(2, R11, _PC); // Yup, this is how you return.
+	POP(2, R11, R_PC); // Yup, this is how you return.
 
 	FlushLitPool();
 	FlushIcache();

@@ -83,12 +83,12 @@ void Jit::GenerateFixedCode()
 
 	SetCC(CC_AL);
 
-	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, _LR);
+	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, R_LR);
 	// Take care to 8-byte align stack for function calls.
 	// We are misaligned here because of an odd number of args for PUSH.
 	// It's not like x86 where you need to account for an extra 4 bytes
 	// consumed by CALL.
-	SUB(_SP, _SP, 4);
+	SUB(R_SP, R_SP, 4);
 	// Now we are correctly aligned and plan to stay that way.
 
 	// TODO: R12 should be usable for regalloc but will get thrashed by C code.
@@ -185,9 +185,9 @@ void Jit::GenerateFixedCode()
 	breakpointBailout = GetCodePtr();
 	SaveDowncount();
 
-	ADD(_SP, _SP, 4);
+	ADD(R_SP, R_SP, 4);
 
-	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
+	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, R_PC);  // Returns
 
 
 	// Uncomment if you want to see the output...

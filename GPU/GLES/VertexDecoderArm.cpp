@@ -156,7 +156,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	SetCC(CC_AL);
 
-	PUSH(6, R4, R5, R6, R7, R8, _LR);
+	PUSH(6, R4, R5, R6, R7, R8, R_LR);
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	// This step can be NEON-ized but the savings would be miniscule.
@@ -247,7 +247,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUBS(counterReg, counterReg, 1);
 	B_CC(CC_NEQ, loopStart);
 
-	POP(6, R4, R5, R6, R7, R8, _PC);
+	POP(6, R4, R5, R6, R7, R8, R_PC);
 
 	FlushLitPool();
 	FlushIcache();
