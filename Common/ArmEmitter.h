@@ -27,11 +27,7 @@
 #endif
 #include <vector>
 
-#undef _IP
 #undef R0
-#undef _SP
-#undef _LR
-#undef _PC
 
 // VCVT flags
 #define TO_FLOAT      0
@@ -51,7 +47,7 @@ enum ARMReg
 	// R13 - R15 are SP, LR, and PC.
 	// Almost always referred to by name instead of register number
 	R12 = 12, R13 = 13, R14 = 14, R15 = 15,
-	_IP = 12, _SP = 13, _LR = 14, _PC = 15,
+	R_IP = 12, R_SP = 13, R_LR = 14, R_PC = 15,
 
 
 	// VFP single precision registers
@@ -738,41 +734,41 @@ public:
 
 
 	// Notes:
-	// Rm == _PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
+	// Rm == R_PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
 	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!    Added a REG_UPDATE pseudo register.
 
 	// Load/store multiple registers full of elements (a register is a D register)
 	// Specifying alignment when it can be guaranteed is documented to improve load/store performance.
 	// For example, when loading a set of four 64-bit registers that we know is 32-byte aligned, we should specify ALIGN_256.
-	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
 	// Load/store single lanes of D registers
-	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
-	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
+	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = R_PC);
+	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = R_PC);
 
 	// Load one value into all lanes of a D or a Q register (either supported, all formats should work). 
-	void VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm = _PC);
+	void VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm = R_PC);
 
 	/*
 	// Deinterleave two loads... or something. TODO
-	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
-	void VLD2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLD2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
+	void VST2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
 
-	void VLD3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
-	void VLD3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLD3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
+	void VST3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
 
-	void VLD4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
-	void VLD4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLD4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
+	void VST4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
 	*/
 
 	void VMRS_APSR();
