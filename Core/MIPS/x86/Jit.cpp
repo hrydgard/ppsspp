@@ -26,6 +26,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"

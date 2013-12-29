@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "Globals.h"
-#include "Core/Debugger/SymbolMap.h"
+#include <string>
+#include "Common/CommonTypes.h"
 
 struct InputState;
 
@@ -55,10 +55,7 @@ public:
 	virtual void BootDone() {}
 
 	virtual bool IsDebuggingEnabled() {return true;}
-	virtual bool AttemptLoadSymbolMap() {
-		symbolMap.Clear();
-		return false;
-	}
+	virtual bool AttemptLoadSymbolMap();
 	virtual void SaveSymbolMap() {}
 	virtual void SetWindowTitle(const char *message) {}
 

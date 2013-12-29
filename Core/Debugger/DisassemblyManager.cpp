@@ -15,17 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "DisassemblyManager.h"
-#include "DebugInterface.h"
-#include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSTables.h"
-#include "Common/Common.h"
-#include "ext/xxhash.h"
 
 #include <algorithm>
+#include <map>
 
-std::map<u32,DisassemblyEntry*> DisassemblyManager::entries;
+#include "ext/xxhash.h"
+
+#include "Common/CommonTypes.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/DisassemblyManager.h"
+
+std::map<u32, DisassemblyEntry*> DisassemblyManager::entries;
 DebugInterface* DisassemblyManager::cpu;
 int DisassemblyManager::maxParamChars = 29;
 
@@ -73,7 +77,7 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 			} else {
 				arguments += sprintf(arguments,"0x%08X",branchTarget);
 			}
-			
+
 			disasm += 3+8;
 			continue;
 		}

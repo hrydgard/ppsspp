@@ -933,6 +933,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/DebugInterface.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
+	Core/Debugger/DisassemblyManager.cpp
+	Core/Debugger/DisassemblyManager.h
 	Core/Dialog/PSPDialog.cpp
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPGamedataInstallDialog.cpp
