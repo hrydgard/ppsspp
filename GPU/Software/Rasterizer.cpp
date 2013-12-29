@@ -433,7 +433,7 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 	}
 }
 
-static inline bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Vec2<u10>& line1, const Vec2<u10>& line2)
+static inline bool IsRightSideOrFlatBottomLine(const Vec2<fixed16>& vertex, const Vec2<fixed16>& line1, const Vec2<fixed16>& line2)
 {
 	if (line1.y == line2.y) {
 		// just check if vertex is above us => bottom line parallel to x-axis
@@ -1260,14 +1260,16 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
-	buffer.Allocate(gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_8BIT);
+	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
+	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT);
 
 	u8 *row = buffer.GetData();
-	for (int y = 0; y < 512; ++y) {
-		for (int x = 0; x < gstate.DepthBufStride(); ++x) {
-			row[x] = GetPixelStencil(x, y);
+	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
+		for (int x = gstate.getRegionX1(); x <= gstate.getRegionX2(); ++x) {
+			row[x - gstate.getRegionX1()] = GetPixelStencil(x, y);
 		}
-		row += gstate.DepthBufStride();
+		row += w;
 	}
 	return true;
 }

@@ -132,6 +132,9 @@ public:
 		return decJitCache_->IsInSpace(ptr);
 	}
 
+	// Really just for convenience to share with softgpu.
+	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
+
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();

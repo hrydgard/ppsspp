@@ -17,6 +17,8 @@
 
 #include "Math3D.h"
 
+namespace Math3D {
+
 template<>
 float Vec2<float>::Length() const
 {
@@ -188,3 +190,5 @@ float Vec4<float>::Normalize()
 	(*this) = (*this)/len;
 	return len;
 }
+
+}; // namespace Math3D

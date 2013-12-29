@@ -16,8 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Host.h"
-#include "../GPUState.h"
-#include "../GLES/VertexDecoder.h"
+#include "Core/Config.h"
+#include "GPU/GPUState.h"
+#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/Common/SplineCommon.h"
 
 #include "TransformUnit.h"
 #include "Clipper.h"
@@ -177,7 +180,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 			vertex.worldnormal /= vertex.worldnormal.Length();
 		}
 
-		Lighting::Process(vertex);
+		Lighting::Process(vertex, vreader.hasColor0());
 	} else {
 		vertex.screenpos.x = (u32)pos[0] * 16 + gstate.getOffsetX16();
 		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();
@@ -472,4 +475,83 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 	}
 
 	host->GPUNotifyDraw();
+}
+
+// TODO: This probably is not the best interface.
+bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	// This is always for the current vertices.
+	u16 indexLowerBound = 0;
+	u16 indexUpperBound = count - 1;
+
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
+		const u16 *inds16 = (const u16 *)inds;
+
+		if (inds) {
+			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
+			indices.resize(count);
+			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			case GE_VTYPE_IDX_16BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds16[i];
+				}
+				break;
+			case GE_VTYPE_IDX_8BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds[i];
+				}
+				break;
+			default:
+				return false;
+			}
+		} else {
+			indices.clear();
+		}
+	} else {
+		indices.clear();
+	}
+
+	static std::vector<u32> temp_buffer;
+	static std::vector<SimpleVertex> simpleVertices;
+	temp_buffer.resize(65536 * 24 / sizeof(u32));
+	simpleVertices.resize(indexUpperBound + 1);
+
+	VertexDecoder vdecoder;
+	vdecoder.SetVertexType(gstate.vertType);
+	TransformDrawEngine::NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), &vdecoder, indexLowerBound, indexUpperBound, gstate.vertType);
+
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
+	vertices.resize(indexUpperBound + 1);
+	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
+		const SimpleVertex &vert = simpleVertices[i];
+
+		if (gstate.isModeThrough()) {
+			vertices[i].u = vert.uv[0];
+			vertices[i].v = vert.uv[1];
+			vertices[i].x = vert.pos.x;
+			vertices[i].y = vert.pos.y;
+			vertices[i].z = vert.pos.z;
+		} else {
+			float clipPos[4];
+			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
+			ScreenCoords screenPos = ClipToScreen(clipPos);
+			DrawingCoords drawPos = ScreenToDrawing(screenPos);
+
+			vertices[i].u = vert.uv[0];
+			vertices[i].v = vert.uv[1];
+			vertices[i].x = drawPos.x;
+			vertices[i].y = drawPos.y;
+			vertices[i].z = 1.0;
+		}
+	}
+
+	return true;
 }
