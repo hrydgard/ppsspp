@@ -18,7 +18,7 @@
 #pragma once
 
 #include "MIPS.h"
-#include "../Debugger/DebugInterface.h"
+#include "Core/Debugger/DebugInterface.h"
 
 class MIPSDebugInterface : public DebugInterface
 {

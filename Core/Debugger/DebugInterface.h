@@ -22,6 +22,11 @@
 
 struct MemMap;
 
+enum {
+	GPR_SIZE_32,
+	GPR_SIZE_64,
+};
+
 class DebugInterface
 {
 public:

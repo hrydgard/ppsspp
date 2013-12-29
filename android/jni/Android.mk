@@ -169,7 +169,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
-  $(SRC)/Core/CPU.cpp \
   $(SRC)/Core/CwCheat.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Host.cpp \

@@ -18,6 +18,7 @@
 #include "Common/Common.h"
 #include "Common/Atomics.h"
 
+#include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/Host.h"

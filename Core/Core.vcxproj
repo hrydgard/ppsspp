@@ -168,7 +168,6 @@
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CoreTiming.cpp" />
-    <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Cwcheat.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\DisassemblyManager.cpp" />
@@ -437,7 +436,6 @@
     <ClInclude Include="Core.h" />
     <ClInclude Include="CoreParameter.h" />
     <ClInclude Include="CoreTiming.h" />
-    <ClInclude Include="CPU.h" />
     <ClInclude Include="Cwcheat.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\DebugInterface.h" />

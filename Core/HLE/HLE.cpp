@@ -15,26 +15,30 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/timeutil.h"
-#include "HLE.h"
 #include <map>
 #include <vector>
 #include <string>
-#include "../MemMap.h"
-#include "../Config.h"
+
+#include "base/timeutil.h"
+
+#include "Core/Config.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-#include "HLETables.h"
-#include "../System.h"
-#include "sceDisplay.h"
-#include "sceIo.h"
-#include "sceAudio.h"
-#include "sceKernelMemory.h"
-#include "sceKernelThread.h"
-#include "sceKernelInterrupt.h"
-#include "../MIPS/MIPSCodeUtils.h"
-#include "../Host.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceIo.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/HLE.h"
 
 enum
 {

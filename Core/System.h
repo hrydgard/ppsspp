@@ -17,10 +17,11 @@
 
 #pragma once
 
+#include "Common/CommonTypes.h"
 #include "Core/CoreParameter.h"
-#include "Core/ELF/ParamSFO.h"
 
 class MetaFileSystem;
+class ParamSFOData;
 
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;

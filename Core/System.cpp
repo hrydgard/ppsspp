@@ -159,8 +159,7 @@ void CPU_Shutdown();
 
 void CPU_Init() {
 	coreState = CORE_POWERUP;
-	currentCPU = &mipsr4k;
-	numCPUs = 1;
+	currentMIPS = &mipsr4k;
 
 	// Default memory settings
 	// Seems to be the safest place currently..
@@ -237,7 +236,6 @@ void CPU_Shutdown() {
 	}
 	pspFileSystem.Shutdown();
 	Memory::Shutdown();
-	currentCPU = 0;
 }
 
 void CPU_RunLoop() {
@@ -331,7 +329,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 }
 
 bool PSP_IsInited() {
-	return currentCPU != 0;
+	return currentMIPS != 0;
 }
 
 void PSP_Shutdown() {
@@ -354,6 +352,7 @@ void PSP_Shutdown() {
 	}
 	GPU_Shutdown();
 	host->SetWindowTitle(0);
+	currentMIPS = 0;
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {

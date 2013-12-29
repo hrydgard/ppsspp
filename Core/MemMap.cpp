@@ -27,7 +27,6 @@
 #include "MIPS/JitCommon/JitCommon.h"
 #include "HLE/HLE.h"
 
-#include "Core/CPU.h"
 #include "Core/Core.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/Breakpoints.h"

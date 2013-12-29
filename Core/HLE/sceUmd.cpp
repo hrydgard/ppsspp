@@ -15,11 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <vector>
+
+#include "file/file_util.h"
+
 #include "Common/ChunkFile.h"
-#include "Core/HLE/HLE.h"
-#include "Core/MIPS/MIPS.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -29,8 +34,6 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
-
-#include "file/file_util.h"
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 

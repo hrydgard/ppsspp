@@ -31,6 +31,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"

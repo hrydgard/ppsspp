@@ -17,6 +17,7 @@
 
 #include "zlib.h"
 
+#include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/scePauth.h"
 #include "Core/HLE/HLE.h"

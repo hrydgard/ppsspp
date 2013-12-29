@@ -6,6 +6,8 @@
 #include "Core/CwCheat.h"
 #include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/System.h"
 
 static int CheatEvent = -1;
 std::string gameTitle;

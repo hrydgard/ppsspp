@@ -21,6 +21,7 @@
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -42,13 +43,13 @@ static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
 static std::map<u64, std::vector<MIPSAnalyst::AnalyzedFunction*>> hashToFunction;
 
 struct HashMapFunc {
-  char name[64];
-  u64 hash;
-  u32 size; //number of bytes
+	char name[64];
+	u64 hash;
+	u32 size; //number of bytes
 
-  bool operator < (const HashMapFunc &other) const {
-    return hash < other.hash || (hash == other.hash && size < other.size);
-  }
+	bool operator < (const HashMapFunc &other) const {
+		return hash < other.hash || (hash == other.hash && size < other.size);
+	}
 };
 
 static std::set<HashMapFunc> hashMap;
@@ -233,7 +234,7 @@ namespace MIPSAnalyst {
 					f.hasHash = false;
 					goto skip;
 				}
-				
+
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits &= ~0xFFFF;

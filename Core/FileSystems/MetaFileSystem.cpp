@@ -539,15 +539,15 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 
 int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data) {
 	int error = 0;
-	u32 handle = pspFileSystem.OpenWithError(error, filename, FILEACCESS_READ);
+	u32 handle = OpenWithError(error, filename, FILEACCESS_READ);
 	if (handle == 0)
 		return error;
 
-	size_t dataSize = (size_t)pspFileSystem.GetFileInfo(filename).size;
+	size_t dataSize = (size_t)GetFileInfo(filename).size;
 	data.resize(dataSize);
 
-	size_t result = pspFileSystem.ReadFile(handle, (u8 *)&data[0], dataSize);
-	pspFileSystem.CloseFile(handle);
+	size_t result = ReadFile(handle, (u8 *)&data[0], dataSize);
+	CloseFile(handle);
 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
@@ -557,7 +557,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 void MetaFileSystem::DoState(PointerWrap &p)
 {
 	lock_guard guard(lock);
-	
+
 	auto s = p.Section("MetaFileSystem", 1);
 	if (!s)
 		return;

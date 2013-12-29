@@ -57,12 +57,12 @@
 
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
-#include "Core/PSPMixer.h"
-#include "Core/CPU.h"
 #include "Core/Config.h"
-#include "Core/HLE/sceCtrl.h"
 #include "Core/Host.h"
+#include "Core/PSPMixer.h"
 #include "Core/SaveState.h"
+#include "Core/System.h"
+#include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
 #include "Common/MemArena.h"
 

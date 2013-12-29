@@ -19,6 +19,7 @@
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 
+#include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceMpeg.h"

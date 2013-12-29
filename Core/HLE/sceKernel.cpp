@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/HLE/HLE.h"
@@ -32,8 +33,6 @@
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-
-#include "util/random/rng.h"
 
 #include "__sceAudio.h"
 #include "sceAtrac.h"

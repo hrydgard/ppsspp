@@ -17,8 +17,10 @@
 
 #include <cstdlib>
 #include <set>
+
 #include "native/thread/thread.h"
 #include "native/thread/threadutil.h"
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Host.h"

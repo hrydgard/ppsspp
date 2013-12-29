@@ -175,19 +175,16 @@ private:
 
 
 
-const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align) 
+const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align)
 {
-	MIPSState *x = currentCPU;
-	currentCPU = cpu;
-	
-	static char mojs[256]; 
+	static char mojs[256];
 	if (Memory::IsValidAddress(address))
 		MIPSDisAsm(Memory::Read_Opcode_JIT(address), address, mojs);
 	else
 		strcpy(mojs, "-");
-	currentCPU = x;
 	return mojs;
 }
+
 unsigned int MIPSDebugInterface::readMemory(unsigned int address)
 {
 	return Memory::Read_Instruction(address).encoding;

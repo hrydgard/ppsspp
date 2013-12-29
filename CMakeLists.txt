@@ -916,8 +916,6 @@ endif()
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
-	Core/CPU.cpp
-	Core/CPU.h
 	Core/Config.cpp
 	Core/Config.h
 	Core/Core.cpp

@@ -29,6 +29,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
+
 #ifdef _WIN32
 #include "Windows/OpenGLBase.h"
 #include "Windows/InputDevice.h"
@@ -258,7 +259,6 @@ reswitch:
 				goto reswitch;
 			}
 
-			currentCPU = &mipsr4k;
 			Core_SingleStep();
 			// update disasm dialog
 #if defined(USING_QT_UI) || defined(_DEBUG)

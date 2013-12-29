@@ -249,9 +249,6 @@
     <ClCompile Include="CoreTiming.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="CPU.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Host.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -712,9 +709,6 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="CoreTiming.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="CPU.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Host.h">
