@@ -865,17 +865,39 @@ bool SoftGPU::FramebufferDirty() {
 
 bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
 {
-	// We don't know the height, so just use 512, which should be the max (hopefully?)
-	// TODO: Could check clipping and such, though...?
-	buffer = GPUDebugBuffer(fb.data, gstate.FrameBufStride(), 512, gstate.FrameBufFormat());
+	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
+	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+	buffer.Allocate(w, h, gstate.FrameBufFormat());
+
+	u8 *src = fb.data;
+	u8 *dst = buffer.GetData();
+	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
+		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
+			memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * 4);
+			dst += w * 4;
+			src += gstate.FrameBufStride() * 4;
+		} else {
+			memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * 2);
+			dst += w * 2;
+			src += gstate.FrameBufStride() * 2;
+		}
+	}
 	return true;
 }
 
 bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
 {
-	// We don't know the height, so just use 512, which should be the max (hopefully?)
-	// TODO: Could check clipping and such, though...?
-	buffer = GPUDebugBuffer(depthbuf.data, gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_16BIT);
+	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
+	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT);
+
+	u8 *src = depthbuf.data;
+	u8 *dst = buffer.GetData();
+	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
+		memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * 2);
+		dst += w * 2;
+		src += gstate.DepthBufStride() * 2;
+	}
 	return true;
 }
 
