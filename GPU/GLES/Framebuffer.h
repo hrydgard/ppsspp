@@ -123,6 +123,7 @@ public:
 	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
 
 	void DrawPlainColor(u32 color);
+	void ClearColor();
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -206,7 +207,9 @@ private:
 	GLSLProgram *draw2dprogram_;
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
+	GLSLProgram *clearColorProgram_;
 	int plainColorLoc_;
+	int clearColorLoc_;
 	int timeLoc_;
 
 	TextureCache *textureCache_;

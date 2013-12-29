@@ -180,7 +180,10 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_matspecular = glGetUniformLocation(program, "u_matspecular");
 	u_matemissive = glGetUniformLocation(program, "u_matemissive");
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
-
+	
+	// Clear Color
+	u_colorclear = glGetUniformLocation(program, "u_colorclear");
+	
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
 		sprintf(temp, "u_lightpos%i", i);
