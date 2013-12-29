@@ -865,38 +865,34 @@ bool SoftGPU::FramebufferDirty() {
 
 bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
 {
-	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
-	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+	const int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
+	const int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
 	buffer.Allocate(w, h, gstate.FrameBufFormat());
 
-	u8 *src = fb.data;
+	const int depth = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const u8 *src = fb.data + gstate.FrameBufStride() * depth * gstate.getRegionY1();
 	u8 *dst = buffer.GetData();
 	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
-		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
-			memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * 4);
-			dst += w * 4;
-			src += gstate.FrameBufStride() * 4;
-		} else {
-			memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * 2);
-			dst += w * 2;
-			src += gstate.FrameBufStride() * 2;
-		}
+		memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * depth);
+		dst += w * depth;
+		src += gstate.FrameBufStride() * depth;
 	}
 	return true;
 }
 
 bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
 {
-	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
-	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+	const int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
+	const int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT);
 
-	u8 *src = depthbuf.data;
+	const int depth = 2;
+	const u8 *src = depthbuf.data + gstate.DepthBufStride() * depth * gstate.getRegionY1();
 	u8 *dst = buffer.GetData();
 	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
-		memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * 2);
-		dst += w * 2;
-		src += gstate.DepthBufStride() * 2;
+		memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * depth);
+		dst += w * depth;
+		src += gstate.DepthBufStride() * depth;
 	}
 	return true;
 }
