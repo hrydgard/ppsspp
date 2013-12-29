@@ -413,6 +413,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		switch (stencilToAlpha) {
 		case REPLACE_ALPHA_DUALSOURCE:
+		case REPLACE_ALPHA_NO:
 			amask = (gstate.pmska & 0xFF) < 128;
 			break;
 
@@ -420,9 +421,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			amask = true;
 			break;
 
-		case REPLACE_ALPHA_NO:
-			amask = false;
-			break;
 		}
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
