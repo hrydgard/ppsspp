@@ -86,6 +86,8 @@ public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
 	~DirectoryFileSystem();
 
+	void CloseAll();
+
 	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
@@ -107,6 +109,8 @@ public:
 private:
 	struct OpenFileEntry {
 		DirectoryFileHandle hFile;
+		std::string guestFilename;
+		FileAccess access;
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
