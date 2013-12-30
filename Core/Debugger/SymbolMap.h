@@ -20,6 +20,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <string>
 
 #include "native/base/mutex.h"
 

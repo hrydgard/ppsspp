@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 
 // There's a good description of the thread scheduling rules in:

@@ -15,14 +15,13 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include "ArmEmitter.h"
-#include "CPUDetect.h"
-
 #include "base/logging.h"
 
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 // For cache flushing on Symbian/iOS/Blackberry
 #ifdef __SYMBIAN32__
@@ -37,6 +36,10 @@
 #ifdef BLACKBERRY
 #include <sys/mman.h>
 #endif
+
+#include "MemoryUtil.h"
+#include "ArmEmitter.h"
+#include "CPUDetect.h"
 
 // __FUNCTION__ is misused a lot below, it's no longer a string literal but a virtual
 // variable so this use fails in some compilers. Just define it away for now.
@@ -115,7 +118,7 @@ bool ARMXEmitter::TrySetValue_TwoOp(ARMReg reg, u32 val)
 	}
 	if (ops > 2)
 		return false;
-	
+
 	bool first = true;
 	for (int i = 0; i < 16; i++, val >>=2) {
 		if (val & 0x3) {
@@ -2587,6 +2590,38 @@ void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
 	Src = SubBase(Src);
 	int op = 0;
 	Write32((0xF3B6 << 16) | ((Dest & 0x10) << 18) | ((Dest & 0xF) << 12) | 0x600 | (op << 8) | ((Src & 0x10) << 1) | (Src & 0xF));
+}
+
+void ARMXCodeBlock::AllocCodeSpace(int size) {
+	region_size = size;
+	region = (u8*)AllocateExecutableMemory(region_size);
+	SetCodePtr(region);
+}
+
+// Always clear code space with breakpoints, so that if someone accidentally executes
+// uninitialized, it just breaks into the debugger.
+void ARMXCodeBlock::ClearCodeSpace() {
+	// x86/64: 0xCC = breakpoint
+	memset(region, 0xCC, region_size);
+	ResetCodePtr();
+}
+
+void ARMXCodeBlock::FreeCodeSpace() {
+#ifdef __SYMBIAN32__
+	ResetExecutableMemory(region);
+#else
+	FreeMemoryPages(region, region_size);
+#endif
+	region = NULL;
+	region_size = 0;
+}
+
+void ARMXCodeBlock::WriteProtect() {
+	WriteProtectMemory(region, region_size, true);
+}
+
+void ARMXCodeBlock::UnWriteProtect() {
+	UnWriteProtectMemory(region, region_size, false);
 }
 
 }

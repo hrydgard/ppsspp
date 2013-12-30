@@ -17,6 +17,8 @@
 
 #pragma	once
 
+#include <string>
+
 enum IdentifiedFileType {
 	FILETYPE_ERROR,
 

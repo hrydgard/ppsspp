@@ -1,3 +1,5 @@
+#include <string.h>
+
 extern "C"
 {
 #include "ext/libkirk/kirk_engine.h"

@@ -236,7 +236,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode _Value)
 }
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
-{	
+{
 	u8 *ptr = GetPointer(_Address);
 	if (ptr != NULL) {
 		memset(ptr, _iValue, _iLength);
@@ -249,21 +249,6 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 #ifndef USING_GLES2
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 #endif
-}
-
-void GetString(std::string& _string, const u32 em_address)
-{
-	char stringBuffer[2048];
-	char *string = stringBuffer;
-	char c;
-	u32 addr = em_address;
-	while ((c = Read_U8(addr)))
-	{
-		*string++ = c;
-		addr++;
-	}
-	*string++ = '\0';
-	_string = stringBuffer;
 }
 
 const char *GetAddressName(u32 address)

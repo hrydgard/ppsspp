@@ -317,7 +317,7 @@ public:
 		if (vec_size > 0)
 			DoArray(&x[0], vec_size);
 	}
-	
+
 	// Store deques.
 	template<class T>
 	void Do(std::deque<T *> &x)

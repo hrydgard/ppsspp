@@ -17,6 +17,8 @@
 
 #include "Common.h"
 
+#include <string.h>
+
 #if defined(__APPLE__) || defined(__SYMBIAN32__)
 #define __thread
 #endif

@@ -21,7 +21,6 @@
 #define _DOLPHIN_INTEL_CODEGEN_
 
 #include "Common.h"
-#include "MemoryUtil.h"
 
 #if !defined(_M_IX86) && !defined(_M_X64)
 #error "Don't build this on arm."
@@ -740,29 +739,14 @@ public:
 	virtual ~XCodeBlock() { if (region) FreeCodeSpace(); }
 
 	// Call this before you generate any code.
-	void AllocCodeSpace(int size)
-	{
-		region_size = size;
-		region = (u8*)AllocateExecutableMemory(region_size);
-		SetCodePtr(region);
-	}
+	void AllocCodeSpace(int size);
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace() 
-	{
-		// x86/64: 0xCC = breakpoint
-		memset(region, 0xCC, region_size);
-		ResetCodePtr();
-	}
+	void ClearCodeSpace();
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace()
-	{
-		FreeMemoryPages(region, region_size);
-		region = NULL;
-		region_size = 0;
-	}
+	void FreeCodeSpace();
 
 	bool IsInSpace(const u8 *ptr) const
 	{
@@ -771,10 +755,7 @@ public:
 
 	// Cannot currently be undone. Will write protect the entire code region.
 	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect()
-	{
-		WriteProtectMemory(region, region_size, true);		
-	}
+	void WriteProtect();
 
 	void ResetCodePtr()
 	{

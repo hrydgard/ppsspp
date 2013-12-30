@@ -21,9 +21,6 @@
 // DO NOT EVER INCLUDE <windows.h> directly _or indirectly_ from this file
 // since it slows down the build a lot.
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <stdarg.h>
 
 #ifdef _MSC_VER

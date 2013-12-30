@@ -21,7 +21,6 @@
 #ifndef _WIN32
 #include <sys/mman.h>
 #endif
-#include <string>
 
 void* AllocateExecutableMemory(size_t size, bool low = true);
 void* AllocateMemoryPages(size_t size);
@@ -39,15 +38,15 @@ inline int GetPageSize() { return 4096; }
 template <typename T>
 class SimpleBuf {
 public:
-	SimpleBuf() : buf_(NULL), size_(0) {
+	SimpleBuf() : buf_(0), size_(0) {
 	}
 
-	SimpleBuf(size_t size) : buf_(NULL) {
+	SimpleBuf(size_t size) : buf_(0) {
 		resize(size);
 	}
 
 	~SimpleBuf() {
-		if (buf_ != NULL) {
+		if (buf_ != 0) {
 			FreeMemoryPages(buf_, size_ * sizeof(T));
 		}
 	}
@@ -59,7 +58,7 @@ public:
 	// Doesn't preserve contents.
 	void resize(size_t size) {
 		if (size_ < size) {
-			if (buf_ != NULL) {
+			if (buf_ != 0) {
 				FreeMemoryPages(buf_, size_ * sizeof(T));
 			}
 			buf_ = (T *)AllocateMemoryPages(size * sizeof(T));

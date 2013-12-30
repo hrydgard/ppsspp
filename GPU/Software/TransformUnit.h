@@ -19,7 +19,7 @@
 
 #include "CommonTypes.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "../Math3D.h"
+#include "GPU/Math3D.h"
 
 using namespace Math3D;
 

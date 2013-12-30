@@ -18,7 +18,6 @@
 #ifndef _STRINGUTIL_H_
 #define _STRINGUTIL_H_
 
-#include <iomanip>
 #include <base/stringutil.h>
 
 #include "Common.h"
@@ -35,21 +34,6 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 	va_start(args, format);
 	CharArrayFromFormatV(out, Count, format, args);
 	va_end(args);
-}
-
-// Thousand separator. Turns 12345678 into 12,345,678
-template <typename I>
-std::string ThousandSeparate(I value, int spaces = 0)
-{
-	std::ostringstream oss;
-
-// std::locale("") seems to be broken on many platforms
-#if defined _WIN32 || (defined __linux__ && !defined __clang__)
-	oss.imbue(std::locale(""));
-#endif
-	oss << std::setw(spaces) << value;
-
-	return oss.str();
 }
 
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
