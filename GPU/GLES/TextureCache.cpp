@@ -1127,6 +1127,7 @@ void TextureCache::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
+#if defined(MAY_HAVE_GLES3)
 	if (gl_extensions.GLES3 && maxLevel > 0) {
 		// glTexStorage2D requires the use of sized formats.
 		GLenum storageFmt = GL_RGBA8;
@@ -1139,10 +1140,12 @@ void TextureCache::SetTexture(bool force) {
 			ERROR_LOG(G3D, "Unknown dstfmt %i", (int)dstFmt);
 			break;
 		}
+		// TODO: This may cause bugs, since it hard-sets the texture w/h, and we might try to reuse it later with a different size.
 		glTexStorage2D(GL_TEXTURE_2D, maxLevel + 1, storageFmt, w, h);
 		// Make sure we don't use glTexImage2D after glTexStorage2D.
 		replaceImages = true;
 	}
+#endif
 
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -1166,7 +1169,7 @@ void TextureCache::SetTexture(bool force) {
 #ifndef USING_GLES2
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
-#else
+#elif defined(MAY_HAVE_GLES3)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 #endif
 	}
