@@ -17,13 +17,14 @@
 
 #pragma once
 
-#include "../../../Globals.h"
+#include "Common/CommonTypes.h"
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/PPC/PpcRegCache.h"
 #include "Core/MIPS/PPC/PpcRegCacheFpu.h"
 
 #include "Core/MIPS/MIPS.h"
+
 #include <ppcEmitter.h>
 
 namespace MIPSComp

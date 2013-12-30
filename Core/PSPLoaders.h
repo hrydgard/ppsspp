@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../Globals.h"
+#include <string>
 
 #include "MemMap.h"
 

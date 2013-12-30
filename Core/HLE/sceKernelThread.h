@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <vector>
 
 // There's a good description of the thread scheduling rules in:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java

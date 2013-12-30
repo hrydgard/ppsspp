@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "Core/HW/BufferQueue.h"
+#include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
+#include "Core/HW/BufferQueue.h"
 
 class MpegDemux
 {

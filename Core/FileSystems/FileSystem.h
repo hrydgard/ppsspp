@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <vector>
 #include "Core/HLE/sceKernel.h"
 
 enum FileAccess

@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Util/PPGeDraw.h"
-#include "PSPDialog.h"
-#include "ChunkFile.h"
 #include "i18n/i18n.h"
+
+#include "Common/ChunkFile.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/Dialog/PSPDialog.h"
 
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;

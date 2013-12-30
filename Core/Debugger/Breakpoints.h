@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "DebugInterface.h"
 #include <vector>
+
+#include "Core/Debugger/DebugInterface.h"
 
 struct BreakPointCond
 {

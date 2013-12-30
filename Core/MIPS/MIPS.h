@@ -18,6 +18,7 @@
 #pragma once
 
 #include "util/random/rng.h"
+#include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
 
 typedef Memory::Opcode MIPSOpcode;

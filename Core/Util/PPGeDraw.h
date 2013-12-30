@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "../../Globals.h"
 #include "ppge_atlas.h"
+#include "Common/CommonTypes.h"
 
 class PointerWrap;
 

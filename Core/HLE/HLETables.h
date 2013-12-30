@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "../../Globals.h"
-
 #define NID_THREADRETURN 0xc0debabe
 #define NID_CALLBACKRETURN 0xbadc0fee
 #define NID_INTERRUPTRETURN 0xbadd00d5

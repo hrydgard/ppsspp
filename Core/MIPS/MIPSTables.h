@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
 struct MIPSInfo {

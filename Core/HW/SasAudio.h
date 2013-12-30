@@ -22,9 +22,8 @@
 
 #pragma once
 
-#include "../Globals.h"
-#include "ChunkFile.h"
-
+#include "Common/ChunkFile.h"
+#include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
 
 enum {

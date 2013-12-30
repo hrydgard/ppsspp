@@ -17,9 +17,10 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "Common.h"
 #include <map>
+
+#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 
 class PointerWrap;
 

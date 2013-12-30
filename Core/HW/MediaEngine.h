@@ -24,9 +24,9 @@
 
 // An approximation of what the interface will look like. Similar to JPCSP's.
 
-#include "../../Globals.h"
-#include "../HLE/sceMpeg.h"
-#include "ChunkFile.h"
+#include "Common/CommonTypes.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MpegDemux.h"
 
 struct SimpleAT3;

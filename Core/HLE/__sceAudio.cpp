@@ -15,23 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "__sceAudio.h"
-#include "sceAudio.h"
-#include "sceKernel.h"
-#include "sceKernelThread.h"
 #include "base/mutex.h"
-#include "CommonTypes.h"
-#include "../CoreTiming.h"
-#include "../MemMap.h"
-#include "../Host.h"
-#include "../Config.h"
-#include "ChunkFile.h"
-#include "FixedSizeQueue.h"
+
+#include "Globals.h" // only for clamp_s16
+#include "Common/CommonTypes.h"
+#include "Common/ChunkFile.h"
+#include "Common/FixedSizeQueue.h"
 #include "Common/Atomics.h"
-#include "../../native/base/mutex.h"
+
+#include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
+#include "Core/Host.h"
+#include "Core/Config.h"
+#include "Core/HLE/__sceAudio.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
 
 // Should be used to lock anything related to the outAudioQueue.
-//atomic locks are used on the lock. TODO: make this lock-free
+// atomic locks are used on the lock. TODO: make this lock-free
 atomic_flag atomicLock_;
 recursive_mutex mutex_;
 

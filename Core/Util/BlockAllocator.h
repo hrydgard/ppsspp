@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-
 class PointerWrap;
+
+#include "Common/CommonTypes.h"
 
 // Generic allocator thingy. Allocates blocks from a range.
 

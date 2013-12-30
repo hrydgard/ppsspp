@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
-#include "Asm.h"
+#include "Core/MIPS/x86/Asm.h"
 
 #if defined(ARM)
 #error DO NOT BUILD X86 JIT ON ARM
@@ -28,8 +28,8 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
-#include "RegCache.h"
-#include "RegCacheFPU.h"
+#include "Core/MIPS/x86/RegCache.h"
+#include "Core/MIPS/x86/RegCacheFPU.h"
 
 namespace MIPSComp
 {

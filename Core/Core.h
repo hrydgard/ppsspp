@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "Globals.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 

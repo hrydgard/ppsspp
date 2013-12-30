@@ -18,6 +18,8 @@
 #ifndef _CORETIMING_H
 #define _CORETIMING_H
 
+#include "Common/CommonTypes.h"
+
 // This is a system to schedule events into the emulated machine's future. Time is measured
 // in main CPU clock cycles.
 
@@ -30,8 +32,6 @@
 // So to schedule a new event on a regular basis:
 // inside callback:
 //   ScheduleEvent(periodInCycles - cyclesLate, callback, "whatever")
-
-#include "../Globals.h"
 
 class PointerWrap;
 

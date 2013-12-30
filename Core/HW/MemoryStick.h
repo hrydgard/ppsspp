@@ -1,4 +1,6 @@
-#include "../../Globals.h"
+#pragma once
+
+#include "Common/ChunkFile.h"
 
 class PointerWrap;
 

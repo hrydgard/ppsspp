@@ -16,13 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+
 #include "base/NativeApp.h"
 #include "base/display.h"
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
 
-#include "Globals.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"

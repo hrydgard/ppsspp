@@ -19,8 +19,8 @@
 #include <cstdio>
 #include <ctype.h>
 
-#include "Globals.h"
 #include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"

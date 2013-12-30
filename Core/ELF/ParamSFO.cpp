@@ -15,9 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
-#include <string.h>
-#include "ParamSFO.h"
+#include <cstdio>
+#include <cstring>
+
+#include "Common/CommonTypes.h"
+#include "Common/Log.h"
+#include "Core/ELF/ParamSFO.h"
 
 struct Header
 {

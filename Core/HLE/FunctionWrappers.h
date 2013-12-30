@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 
 // For easy parameter parsing and return value processing.

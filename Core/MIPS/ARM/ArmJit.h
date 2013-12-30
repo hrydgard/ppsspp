@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "../../../Globals.h"
-
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"

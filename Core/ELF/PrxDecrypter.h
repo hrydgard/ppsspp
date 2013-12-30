@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 
 #define MISSING_KEY -10
 

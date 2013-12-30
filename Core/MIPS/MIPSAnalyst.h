@@ -17,7 +17,9 @@
 
 #pragma once
 
-#include "Globals.h"
+#include <vector>
+
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
 class DebugInterface;

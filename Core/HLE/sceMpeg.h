@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "../MIPS/MIPS.h"
+#include "Common/CommonTypes.h"
+#include "Core/MIPS/MIPS.h"
 
 class PointerWrap;
 

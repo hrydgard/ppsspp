@@ -23,7 +23,7 @@
 // The ISOFileSystemReader reads from a BlockDevice, so it automatically works
 // with CISO images.
 
-#include "../../Globals.h"
+#include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
 
 class BlockDevice

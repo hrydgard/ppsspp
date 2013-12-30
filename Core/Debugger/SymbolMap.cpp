@@ -24,8 +24,8 @@
 
 #include <algorithm>
 
+#include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"
-#include "Globals.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 

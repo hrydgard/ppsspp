@@ -17,11 +17,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-
 #include "JitCommon/JitCommon.h"
-
-#include "../HLE/HLE.h"
+#include "Common/CommonTypes.h"
+#include "Core/HLE/HLE.h"
 
 // Invalid branch target address
 #define INVALIDTARGET 0xFFFFFFFF
