@@ -1149,8 +1149,9 @@ void TextureCache::SetTexture(bool force) {
 
 	// Always load base level texture here 
 	LoadTextureLevel(*entry, 0, replaceImages, dstFmt);
-
-	if (g_Config.bMipMap && maxLevel > 0) {
+	
+	// Mipmapping only enable when texture scaling disable
+	if (g_Config.bMipMap && g_Config.iTexScalingLevel == 1 && maxLevel > 0) {
 #ifndef USING_GLES2
 			for (int i = 1; i <= maxLevel; i++) {
 				LoadTextureLevel(*entry, i, replaceImages, dstFmt);
