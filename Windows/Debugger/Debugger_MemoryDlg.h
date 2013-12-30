@@ -4,7 +4,6 @@
 #include "Windows/W32Util/DialogManager.h"
 
 #include "Core/MemMap.h"
-#include "Core/CPU.h"
 
 #include "Core/Debugger/DebugInterface.h"
 

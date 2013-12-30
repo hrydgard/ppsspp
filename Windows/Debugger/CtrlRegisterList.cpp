@@ -19,6 +19,8 @@
 
 #include "../main.h"
 
+static const int numCPUs = 1;
+
 //#include "DbgHelp.h"
 extern HMENU g_hPopupMenus;
 

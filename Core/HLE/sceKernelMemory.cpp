@@ -1550,7 +1550,7 @@ u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	if (!block->IsValid())
 	{
 		delete block;
-		ERROR_LOG(SCEKERNEL, "AllocMemoryBlock(%s, %i, %08x, %08x): allocation failed");
+		ERROR_LOG(SCEKERNEL, "AllocMemoryBlock(%s, %i, %08x, %08x): allocation failed", pname, type, size, paramsAddr);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	SceUID uid = kernelObjects.Create(block);

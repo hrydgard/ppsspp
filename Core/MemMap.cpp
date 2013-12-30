@@ -188,7 +188,7 @@ Opcode Read_Instruction(u32 address, bool resolveReplacements)
 						return Opcode(op);
 					}
 				} else {
-					ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst);
+					ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst.encoding);
 				}
 			}
 			return inst;

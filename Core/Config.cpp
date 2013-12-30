@@ -473,7 +473,7 @@ void Config::Save() {
 		pinnedPaths->Clear();
 		for (size_t i = 0; i < vPinnedPaths.size(); ++i) {
 			char keyName[64];
-			snprintf(keyName, sizeof(keyName), "Path%d", i);
+			snprintf(keyName, sizeof(keyName), "Path%d", (int)i);
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 

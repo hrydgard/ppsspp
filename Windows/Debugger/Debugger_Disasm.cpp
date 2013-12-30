@@ -20,7 +20,6 @@
 #include "Windows/WndMainWindow.h"
 
 #include "Core/Core.h"
-#include "Core/CPU.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -35,6 +34,8 @@
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
+
+static const int numCPUs = 1;
 
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
 const int TEMP_BREAKPOINT_WAIT_MS = 100;

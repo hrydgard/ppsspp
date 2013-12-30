@@ -17,6 +17,7 @@
 
 #include <map>
 #include <algorithm>
+#include <cstring>
 
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -26,6 +27,7 @@
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "math/math_util.h"
