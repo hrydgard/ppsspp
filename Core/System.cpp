@@ -300,6 +300,8 @@ void System_Wake() {
 	}
 }
 
+static bool pspIsInited = false;
+
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 
@@ -325,11 +327,12 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 			*error_string = "Unable to initialize rendering engine.";
 		}
 	}
+	pspIsInited = success;
 	return success;
 }
 
 bool PSP_IsInited() {
-	return currentMIPS != 0;
+	return pspIsInited;
 }
 
 void PSP_Shutdown() {
@@ -353,6 +356,7 @@ void PSP_Shutdown() {
 	GPU_Shutdown();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
+	pspIsInited = false;
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
