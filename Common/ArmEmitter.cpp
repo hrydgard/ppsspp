@@ -22,6 +22,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // For cache flushing on Symbian/iOS/Blackberry
 #ifdef __SYMBIAN32__

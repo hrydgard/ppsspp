@@ -21,6 +21,7 @@
 #define _DOLPHIN_ARM_CODEGEN_
 
 #include <vector>
+#include <stdint.h>
 
 #include "Common.h"
 #if defined(__SYMBIAN32__) || defined(PANDORA)
