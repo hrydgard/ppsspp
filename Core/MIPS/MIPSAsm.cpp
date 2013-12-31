@@ -3,6 +3,7 @@
 #endif
 #include "MIPSAsm.h"
 #include <cstdarg>
+#include <cstring>
 
 namespace MIPSAsm
 {

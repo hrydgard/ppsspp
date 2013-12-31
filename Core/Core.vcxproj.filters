@@ -948,6 +948,9 @@
     <ClInclude Include="HLE\ReplaceTables.h">
       <Filter>HLE</Filter>
     </ClInclude>
+    <ClInclude Include="HW\BufferQueue.h">
+      <Filter>HW</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

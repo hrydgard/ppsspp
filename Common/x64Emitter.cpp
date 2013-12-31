@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <cstring>
+
 #include "x64Emitter.h"
 #include "ABI.h"
 #include "CPUDetect.h"

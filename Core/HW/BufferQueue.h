@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstring>
 #include "Common/ChunkFile.h"
 
 struct BufferQueue {

@@ -415,6 +415,11 @@ u32 sceKernelIcacheClearAll()
 	return 0;
 }
 
+void KernelObject::GetQuickInfo(char *ptr, int size)
+{
+	strcpy(ptr, "-");
+}
+
 KernelObjectPool::KernelObjectPool()
 {
 	memset(occupied, 0, sizeof(bool)*maxCount);

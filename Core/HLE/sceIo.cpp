@@ -2141,7 +2141,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	default:
 		{
 			int result = pspFileSystem.Ioctl(f->handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
-			if (result == SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED) {
+			if (result == (int)SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED) {
 				char temp[256];
 				// We want the reported message to include the cmd, so it's unique.
 				sprintf(temp, "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);

@@ -21,6 +21,7 @@
 #ifndef _WIN32
 #include <sys/mman.h>
 #endif
+#include <stdint.h>
 
 void* AllocateExecutableMemory(size_t size, bool low = true);
 void* AllocateMemoryPages(size_t size);

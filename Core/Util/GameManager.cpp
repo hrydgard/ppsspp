@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <set>
+#include <cstring>
 
 #include "file/file_util.h"
 #include "ext/libzip/zip.h"

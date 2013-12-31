@@ -723,7 +723,7 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			p.Do(key);
 			p.Do(iter->second.guestFilename);
 			p.Do(iter->second.access);
-			u32 position = iter->second.hFile.Seek(0, FILEMOVE_CURRENT);
+			u32 position = (u32)iter->second.hFile.Seek(0, FILEMOVE_CURRENT);
 			p.Do(position);
 		}
 	}

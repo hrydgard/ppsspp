@@ -409,7 +409,7 @@ public:
 	virtual const char *GetTypeName() {return "[BAD KERNEL OBJECT TYPE]";}
 	virtual const char *GetName() {return "[UNKNOWN KERNEL OBJECT]";}
 	virtual int GetIDType() const = 0;
-	virtual void GetQuickInfo(char *ptr, int size) {strcpy(ptr,"-");}
+	virtual void GetQuickInfo(char *ptr, int size);
 
 	// Implement this in all subclasses:
 	// static u32 GetMissingErrorCode()

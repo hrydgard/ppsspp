@@ -1892,7 +1892,7 @@ u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCount
 	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {		
 		Module *module = kernelObjects.Get<Module>(*mod, error);
 		if (!module->isFake) {
-			if (resultBufferOffset < (int)resultBufferSize) {
+			if (resultBufferOffset < resultBufferSize) {
 				Memory::Write_U32(module->GetUID(), resultBuffer + resultBufferOffset);
 				resultBufferOffset += 4;
 			}
