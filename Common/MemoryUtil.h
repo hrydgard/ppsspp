@@ -23,6 +23,10 @@
 #endif
 #include <stdint.h>
 
+#ifdef BLACKBERRY
+using std::size_t;
+#endif
+
 void* AllocateExecutableMemory(size_t size, bool low = true);
 void* AllocateMemoryPages(size_t size);
 void FreeMemoryPages(void* ptr, size_t size);
