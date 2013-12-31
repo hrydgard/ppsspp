@@ -199,7 +199,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			File::CreateFullPath(outFilename.c_str());
 			createdDirs.insert(outFilename);
 		}
-		if (!isDir && strstr(fn, "/") != 0) {
+		if (!isDir && strchr(fn, '/') != 0) {
 			struct zip_stat zstat;
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
 				allBytes += zstat.size;
@@ -213,7 +213,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
 		// README files etc.
-		if (strstr(fn, "/") != 0) {
+		if (strchr(fn, '/') != 0) {
 			struct zip_stat zstat;
 			zip_stat_index(z, i, 0, &zstat);
 			size_t size = zstat.size;
