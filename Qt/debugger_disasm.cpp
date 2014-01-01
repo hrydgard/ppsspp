@@ -5,7 +5,6 @@
 
 #include "debugger_disasm.h"
 #include "ui_debugger_disasm.h"
-#include "Core/CPU.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "ctrldisasmview.h"

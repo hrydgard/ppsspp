@@ -4,7 +4,6 @@
 #include <set>
 #include <QMenu>
 
-#include "Core/CPU.h"
 #include "ui_debugger_displaylist.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GeDisasm.h"
