@@ -249,6 +249,8 @@ Psmf::Psmf(u32 data) {
 	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
 	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
 	numStreams = bswap16(Memory::Read_U16(data + 0x80));
+	// TODO: Always?
+	headerSize = 0x800;
 
 	currentStreamNum = -1;
 	currentAudioStreamNum = -1;
