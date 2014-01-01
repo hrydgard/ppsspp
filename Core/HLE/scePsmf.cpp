@@ -91,11 +91,10 @@ struct PsmfPlayerData {
 };
 
 struct PsmfEntry {
-	int EPIndex;
-	int EPPicOffset;
 	int EPPts;
 	int EPOffset;
-	int id;
+	int EPIndex;
+	int EPPicOffset;
 };
 
 int getMaxAheadTimestamp(int packets) {return std::max(40000, packets * 700);}
@@ -122,6 +121,8 @@ public:
 
 	void setStreamNum(int num);
 	bool setStreamWithType(int type, int channel);
+
+	int FindEPWithTimestamp(int pts);
 
 	u32 magic;
 	u32 version;
@@ -151,7 +152,7 @@ public:
 	int videoHeight;
 	int audioChannels;
 	int audioFrequency;
-	PsmfEntry psmfEntry;
+	std::vector<PsmfEntry> EPMap;
 
 	PsmfStreamMap streamMap;
 };
@@ -210,6 +211,18 @@ public:
 		psmf->videoWidth = Memory::Read_U8(addr + 12) * 16;
 		psmf->videoHeight = Memory::Read_U8(addr + 13) * 16;
 
+		const u32 EP_MAP_STRIDE = 1 + 1 + 4 + 4;
+		psmf->EPMap.clear();
+		for (u32 i = 0; i < psmf->EPMapEntriesNum; i++) {
+			const u32 entryAddr = addr + psmf->EPMapOffset + EP_MAP_STRIDE * i;
+			PsmfEntry entry;
+			entry.EPIndex = Memory::Read_U8(entryAddr + 0);
+			entry.EPPicOffset = Memory::Read_U8(entryAddr + 1);
+			entry.EPPts = Memory::Read_U32(entryAddr + 2);
+			entry.EPOffset = Memory::Read_U32(entryAddr + 6);
+			psmf->EPMap.push_back(entry);
+		}
+
 		INFO_LOG(ME, "PSMF MPEG data found: id=%02x, privid=%02x, epmoff=%08x, epmnum=%08x, width=%i, height=%i", streamId, privateStreamId, psmf->EPMapOffset, psmf->EPMapEntriesNum, psmf->videoWidth, psmf->videoHeight);
 	}
 
@@ -249,6 +262,8 @@ Psmf::Psmf(u32 data) {
 	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
 	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
 	numStreams = bswap16(Memory::Read_U16(data + 0x80));
+	// TODO: Always?
+	headerSize = 0x800;
 
 	currentStreamNum = -1;
 	currentAudioStreamNum = -1;
@@ -296,7 +311,7 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 }
 
 void Psmf::DoState(PointerWrap &p) {
-	auto s = p.Section("Psmf", 1);
+	auto s = p.Section("Psmf", 1, 2);
 	if (!s)
 		return;
 
@@ -322,6 +337,10 @@ void Psmf::DoState(PointerWrap &p) {
 	p.Do(videoHeight);
 	p.Do(audioChannels);
 	p.Do(audioFrequency);
+
+	if (s >= 2) {
+		p.Do(EPMap);
+	}
 
 	p.Do(streamMap);
 }
@@ -389,6 +408,26 @@ bool Psmf::setStreamWithType(int type, int channel) {
 		}
 	}
 	return false;
+}
+
+int Psmf::FindEPWithTimestamp(int pts) {
+	int best = -1;
+	int bestPts = 0;
+
+	for (int i = 0; i < (int)EPMap.size(); ++i) {
+		const int matchPts = EPMap[i].EPPts;
+		if (matchPts == pts) {
+			// Exact match, take it.
+			return i;
+		}
+		// TODO: Does it actually do fuzzy matching?
+		if (matchPts < pts && matchPts >= bestPts) {
+			best = i;
+			bestPts = matchPts;
+		}
+	}
+
+	return best;
 }
 
 
@@ -637,7 +676,7 @@ u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetHeaderSize(%08x): invalid psmf", psmfStruct);
+		ERROR_LOG(ME, "scePsmfGetPsmfVersion(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	DEBUG_LOG(ME, "scePsmfGetPsmfVersion(%08x)", psmfStruct);
@@ -717,19 +756,20 @@ u32 scePsmfCheckEPMap(u32 psmfPlayer)
 	return 0;  // Should be okay according to JPCSP
 }
 
-u32 scePsmfGetEPWithId(u32 psmfStruct, int id, u32 outAddr)
+u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x): invalid psmf", psmfStruct, id, outAddr);
+		ERROR_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x): invalid psmf", psmfStruct, epid, entryAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	DEBUG_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, id, outAddr);
-	if (Memory::IsValidAddress(outAddr)) {
-		Memory::Write_U32(psmf->psmfEntry.EPPts, outAddr);
-		Memory::Write_U32(psmf->psmfEntry.EPOffset, outAddr + 4);
-		Memory::Write_U32(psmf->psmfEntry.EPIndex, outAddr + 8);
-		Memory::Write_U32(psmf->psmfEntry.EPPicOffset, outAddr + 12);
+	DEBUG_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, epid, entryAddr);
+	if (epid < 0 || epid > (int)psmf->EPMap.size()) {
+		// TODO: Just a guess.
+		return ERROR_PSMF_INVALID_TIMESTAMP;
+	}
+	if (Memory::IsValidAddress(entryAddr)) {
+		Memory::WriteStruct(entryAddr, &psmf->EPMap[epid]);
 	}
 	return 0;
 }
@@ -745,11 +785,15 @@ u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 	if (ts < psmf->presentationStartTime) {
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
+
+	int epid = psmf->FindEPWithTimestamp(ts);
+	if (epid < 0 || epid > (int)psmf->EPMap.size()) {
+		// TODO: Just a guess.
+		return ERROR_PSMF_INVALID_TIMESTAMP;
+	}
+
 	if (Memory::IsValidAddress(entryAddr)) {
-		Memory::Write_U32(psmf->psmfEntry.EPPts, entryAddr);
-		Memory::Write_U32(psmf->psmfEntry.EPOffset, entryAddr + 4);
-		Memory::Write_U32(psmf->psmfEntry.EPIndex, entryAddr + 8);
-		Memory::Write_U32(psmf->psmfEntry.EPPicOffset, entryAddr + 12);
+		Memory::WriteStruct(entryAddr, &psmf->EPMap[epid]);
 	}
 	return 0;
 }
@@ -766,7 +810,12 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
 
-	return psmf->psmfEntry.id;
+	int epid = psmf->FindEPWithTimestamp(ts);
+	if (epid < 0 || epid > (int)psmf->EPMap.size()) {
+		// TODO: Just a guess.
+		return ERROR_PSMF_INVALID_TIMESTAMP;
+	}
+	return epid;
 }
 
 int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr) 
