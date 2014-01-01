@@ -20,6 +20,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include <limits>
+#include <stdio.h>
 
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "zlib.h"
+#include <stdio.h>
 
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
