@@ -34,6 +34,7 @@ struct GLExtensions {
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
 	bool OES_depth_texture;
+	bool OES_texture_npot;  // If this is set, can wrap non-pow-2 textures. Set on desktop.
 	bool EXT_discard_framebuffer;
 	bool FBO_ARB;
 	bool FBO_EXT;
@@ -43,7 +44,6 @@ struct GLExtensions {
 	bool OES_vertex_array_object;
 	bool EXT_shader_framebuffer_fetch;
 	bool EXT_blend_minmax;
-	bool ATIClampBug;
 	bool NV_draw_texture;
 	bool NV_copy_image;
 	bool EXT_unpack_subimage;  // always supported on desktop and ES3

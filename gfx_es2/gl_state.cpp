@@ -195,6 +195,9 @@ void CheckGLExtensions() {
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
 #endif
 
+	// Check the desktop extension instead of the OES one. They are very similar.
+	gl_extensions.OES_texture_npot = strstr(extString, "GL_ARB_texture_non_power_of_two") != 0;
+
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
 	gl_extensions.ARB_shader_image_load_store = (strstr(extString, "GL_ARB_shader_image_load_store") != 0) || (strstr(extString, "GL_EXT_shader_image_load_store") != 0);
@@ -205,6 +208,7 @@ void CheckGLExtensions() {
 	}
 
 #ifdef USING_GLES2
+	gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;
 	gl_extensions.OES_packed_depth_stencil = strstr(extString, "GL_OES_packed_depth_stencil") != 0;
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
@@ -283,7 +287,6 @@ void CheckGLExtensions() {
 #ifdef USING_GLES2
 	gl_extensions.FBO_ARB = true;
 	gl_extensions.FBO_EXT = false;
-	gl_extensions.ATIClampBug = gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA;   // Tegras - TODO: more specific check
 #else
 	gl_extensions.FBO_ARB = false;
 	gl_extensions.FBO_EXT = false;
@@ -292,7 +295,6 @@ void CheckGLExtensions() {
 		gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 		gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
 		gl_extensions.PBO_ARB = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
-		gl_extensions.ATIClampBug = ((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0));
 	}
 #endif
 
