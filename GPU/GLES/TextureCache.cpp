@@ -527,10 +527,10 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		entry.magFilt = magFilt;
 	}
 
-	// Workaround for a clamping bug in pre-HD ATI/AMD drivers
-	// Applies to Tegra too apparently. Maybe the issue is that we can't wrap non-pow2 textures on these
-	// platforms, if so then we should change the name of this bool.
-	if (gl_extensions.ATIClampBug && entry.framebuffer)
+	// Platforms without non-pow-2 extensions can't wrap non-pow-2 textures.
+	// Only framebuffer textures are non-pow-2 so this check works but excludes some cases
+	// where we could have enabled wrapping. TODO
+	if (!gl_extensions.OES_texture_npot && entry.framebuffer)
 		return;
 
 	if (force || entry.sClamp != sClamp) {
