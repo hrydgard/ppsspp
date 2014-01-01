@@ -676,7 +676,7 @@ u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetHeaderSize(%08x): invalid psmf", psmfStruct);
+		ERROR_LOG(ME, "scePsmfGetPsmfVersion(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	DEBUG_LOG(ME, "scePsmfGetPsmfVersion(%08x)", psmfStruct);
