@@ -142,6 +142,7 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_noAudioData = false;
 	m_bufSize = 0x2000;
 	m_mpegheaderReadPos = 0;
+	m_decodingsize = 0;
 	g_iNumVideos++;
 }
 
