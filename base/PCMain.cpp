@@ -368,6 +368,8 @@ int main(int argc, char *argv[]) {
 	int mode;
 #ifdef USING_GLES2
 	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
+	int set_xres = -1;
+	int set_yres = -1;
 #else
 	mode = SDL_OPENGL;
 	int set_xres = -1;
