@@ -51,14 +51,6 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
-// TODO: This helps when you have plenty of VRAM, sometimes quite a bit.
-// But on Android, it sometimes causes out of memory that isn't recovered from.
-#if !defined(USING_GLES2) && !defined(_XBOX)
-#define USE_SECONDARY_CACHE 1
-#else
-#define USE_SECONDARY_CACHE 0
-#endif
-
 extern int g_iNumVideos;
 
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
@@ -111,26 +103,33 @@ void TextureCache::Decimate() {
 	lastBoundTexture = -1;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
+		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
-		}
-		else
+		} else {
 			++iter;
-	}
-#if USE_SECONDARY_CACHE
-	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-			glDeleteTextures(1, &iter->second.texture);
-			secondCache.erase(iter++);
 		}
-		else
-			++iter;
 	}
-#endif
+
+	if (g_Config.bTextureSecondaryCache) {
+		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
+			// In low memory mode, we kill them all.
+			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
+				glDeleteTextures(1, &iter->second.texture);
+				secondCache.erase(iter++);
+			} else {
+				++iter;
+			}
+		}
+	}
 }
 
 void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
+	// If we're hashing every use, without backoff, then this isn't needed.
+	if (!g_Config.bTextureBackoffCache) {
+		return;
+	}
+
 	addr &= 0x0FFFFFFF;
 	u32 addr_end = addr + size;
 
@@ -160,6 +159,11 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 }
 
 void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
+	// If we're hashing every use, without backoff, then this isn't needed.
+	if (!g_Config.bTextureBackoffCache) {
+		return;
+	}
+
 	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
 		if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
 			// Clear status -> STATUS_HASHING.
@@ -366,11 +370,11 @@ void *TextureCache::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture<u16_le>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture<u32_le>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 			}
 		} else {
@@ -406,11 +410,11 @@ void *TextureCache::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture<u16_le>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture<u32_le>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 			}
 			buf = tmpTexBuf32.data();
@@ -651,7 +655,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
-	if(clearCacheNextFrame_) {
+	if (clearCacheNextFrame_) {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
@@ -973,7 +977,9 @@ void TextureCache::SetTexture(bool force) {
 					hashFail = true;
 				} else if ((entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 					// Reset to STATUS_HASHING.
-					entry->status &= ~TexCacheEntry::STATUS_MASK;
+					if (g_Config.bTextureBackoffCache) {
+						entry->status &= ~TexCacheEntry::STATUS_MASK;
+					}
 				}
 			}
 
@@ -984,27 +990,27 @@ void TextureCache::SetTexture(bool force) {
 
 				// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 				// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-#if USE_SECONDARY_CACHE
-				if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-					u64 secondKey = fullhash | (u64)cluthash << 32;
-					TexCache::iterator secondIter = secondCache.find(secondKey);
-					if (secondIter != secondCache.end()) {
-						TexCacheEntry *secondEntry = &secondIter->second;
-						if (secondEntry->Matches(dim, format, maxLevel)) {
-							// Reset the numInvalidated value lower, we got a match.
-							if (entry->numInvalidated > 8) {
-								--entry->numInvalidated;
+				if (g_Config.bTextureSecondaryCache) {
+					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
+						u64 secondKey = fullhash | (u64)cluthash << 32;
+						TexCache::iterator secondIter = secondCache.find(secondKey);
+						if (secondIter != secondCache.end()) {
+							TexCacheEntry *secondEntry = &secondIter->second;
+							if (secondEntry->Matches(dim, format, maxLevel)) {
+								// Reset the numInvalidated value lower, we got a match.
+								if (entry->numInvalidated > 8) {
+									--entry->numInvalidated;
+								}
+								entry = secondEntry;
+								match = true;
 							}
-							entry = secondEntry;
-							match = true;
+						} else {
+							secondKey = entry->fullhash | (u64)entry->cluthash << 32;
+							secondCache[secondKey] = *entry;
+							doDelete = false;
 						}
-					} else {
-						secondKey = entry->fullhash | (u64)entry->cluthash << 32;
-						secondCache[secondKey] = *entry;
-						doDelete = false;
 					}
 				}
-#endif
 			}
 		}
 
@@ -1046,7 +1052,11 @@ void TextureCache::SetTexture(bool force) {
 		cache[cachekey] = entryNew;
 
 		entry = &cache[cachekey];
-		entry->status = TexCacheEntry::STATUS_HASHING;
+		if (g_Config.bTextureBackoffCache) {
+			entry->status = TexCacheEntry::STATUS_HASHING;
+		} else {
+			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+		}
 	}
 
 	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetUserMemoryBase()) {

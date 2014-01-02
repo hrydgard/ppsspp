@@ -187,6 +187,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iAnisotropyLevel = 4;
 	}
 	graphics->Get("VertexCache", &bVertexCache, true);
+	graphics->Get("TextureBackoffCache", &bTextureBackoffCache, false);
+	graphics->Get("TextureSecondaryCache", &bTextureSecondaryCache, false);
 #ifdef IOS
 	graphics->Get("VertexDecJit", &bVertexDecoderJit, iosCanUseJit);
 #else
@@ -499,6 +501,8 @@ void Config::Save() {
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
+		graphics->Set("TextureBackoffCache", bTextureBackoffCache);
+		graphics->Set("TextureSecondaryCache", bTextureSecondaryCache);
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
 #endif
