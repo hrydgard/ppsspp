@@ -43,6 +43,16 @@ u32 sceHprmIsRemoteExist() {
 	return 0;
 }
 
+u32 sceHprmPeekLatch(u32 latchAddr) {
+	DEBUG_LOG(HLE,"sceHprmReadLatch latchAddr %08x",latchAddr);
+	return 0;
+}
+
+u32 sceHprmReadLatch(u32 latchAddr) {
+	DEBUG_LOG(HLE,"sceHprmReadLatch latchAddr %08x",latchAddr);
+	return 0;
+}
+
 const HLEFunction sceHprm[] = 
 {
 	{0x089fdfa4, 0, "sceHprm_089fdfa4"},
@@ -52,9 +62,8 @@ const HLEFunction sceHprm[] =
 	{0x219C58F1, WrapU_V<sceHprmIsMicrophoneExist>, "sceHprmIsMicrophoneExist"},
 	{0xC7154136, 0, "sceHprmRegisterCallback"},
 	{0x444ED0B7, 0, "sceHprmUnregitserCallback"}, // Typo.
-	{0x1910B327, 0, "sceHprmPeekCurrentKey"},
-	{0x2BCEC83E, 0, "sceHprmPeekLatch"},
-	{0x40D2F9F0, 0, "sceHprmReadLatch"},
+	{0x2BCEC83E, &WrapU_U<sceHprmPeekLatch>, "sceHprmPeekLatch"},
+	{0x40D2F9F0, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch"},
 };
 
 void Register_sceHprm()
