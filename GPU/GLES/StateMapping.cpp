@@ -409,16 +409,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 
-    		// Let's not write to alpha if stencil isn't enabled.
-    		if (!gstate.isStencilTestEnabled()) {
-        		amask = false;
-    		} else {
-        		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-        		if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-            			amask = false;
-        		}
-    		}
-		glstate.colorMask.set(rmask, gmask, bmask, amask); 
+		// Let's not write to alpha if stencil isn't enabled.
+		if (!gstate.isStencilTestEnabled()) {
+			amask = false;
+		} else {
+			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+				amask = false;
+			}
+		}
+
+		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
 		// Stencil Test
 		if (gstate.isStencilTestEnabled() && enableStencilTest) {
