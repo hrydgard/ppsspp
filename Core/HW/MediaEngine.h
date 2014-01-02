@@ -60,6 +60,7 @@ public:
 	bool loadStream(u8* buffer, int readSize, int RingbufferSize);
 	// open the mpeg context
 	bool openContext();
+	void closeContext();
 
 	// Returns number of packets actually added. I guess the buffer might be full.
 	int addStreamData(u8* buffer, int addSize);

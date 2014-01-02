@@ -152,34 +152,11 @@ MediaEngine::~MediaEngine() {
 }
 
 void MediaEngine::closeMedia() {
-#ifdef USE_FFMPEG
-	if (m_buffer)
-		av_free(m_buffer);
-	if (m_pFrameRGB)
-		av_free(m_pFrameRGB);
-	if (m_pFrame)
-		av_free(m_pFrame);
-	if (m_pIOContext && m_pIOContext->buffer)
-		av_free(m_pIOContext->buffer);
-	if (m_pIOContext)
-		av_free(m_pIOContext);
-	if (m_pCodecCtx)
-		avcodec_close(m_pCodecCtx);
-	if (m_pFormatCtx)
-		avformat_close_input(&m_pFormatCtx);
-#endif // USE_FFMPEG
+	closeContext();
 	if (m_pdata)
 		delete m_pdata;
 	if (m_demux)
 		delete m_demux;
-	m_buffer = 0;
-#ifdef USE_FFMPEG
-	m_pFrame = 0;
-	m_pFrameRGB = 0;
-	m_pIOContext = 0;
-	m_pCodecCtx = 0;
-	m_pFormatCtx = 0;
-#endif
 	m_pdata = 0;
 	m_demux = 0;
 	AT3Close(&m_audioContext);
@@ -267,8 +244,10 @@ bool MediaEngine::openContext() {
 	if (avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
 		return false;
 
-	if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
+	if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0) {
+		closeContext();
 		return false;
+	}
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
 		WARN_LOG_REPORT(ME, "Bad video stream %d", m_videoStream);
@@ -308,6 +287,32 @@ bool MediaEngine::openContext() {
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
 #endif // USE_FFMPEG
 	return true;
+}
+
+void MediaEngine::closeContext()
+{
+#ifdef USE_FFMPEG
+	if (m_buffer)
+		av_free(m_buffer);
+	if (m_pFrameRGB)
+		av_free(m_pFrameRGB);
+	if (m_pFrame)
+		av_free(m_pFrame);
+	if (m_pIOContext && m_pIOContext->buffer)
+		av_free(m_pIOContext->buffer);
+	if (m_pIOContext)
+		av_free(m_pIOContext);
+	if (m_pCodecCtx)
+		avcodec_close(m_pCodecCtx);
+	if (m_pFormatCtx)
+		avformat_close_input(&m_pFormatCtx);
+	m_pFrame = 0;
+	m_pFrameRGB = 0;
+	m_pIOContext = 0;
+	m_pCodecCtx = 0;
+	m_pFormatCtx = 0;
+#endif
+	m_buffer = 0;
 }
 
 bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
