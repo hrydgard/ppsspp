@@ -35,6 +35,7 @@
 #include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
+#include "Windows/InputBox.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -48,6 +49,7 @@
 #include "Core/Config.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -1387,6 +1389,38 @@ namespace MainWindow
 
 				case ID_DEBUG_MEMORYVIEW:
 					memoryWindow[0]->Show(true);
+					break;
+
+				case ID_DEBUG_EXTRACTFILE:
+					{
+						std::string filename;
+						if (!InputBox_GetString(hInst, hwndMain, L"Disc filename", filename, filename)) {
+							break;
+						}
+
+						const char *lastSlash = strrchr(filename.c_str(), '/');
+						if (lastSlash) {
+							fn = lastSlash + 1;
+						} else {
+							fn = "";
+						}
+
+						PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+						if (!info.exists) {
+							MessageBox(hwndMain, L"File does not exist.", L"Sorry",0);
+						} else if (info.type == FILETYPE_DIRECTORY) {
+							MessageBox(hwndMain, L"Cannot extract directories.", L"Sorry",0);
+						} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"0All files\0*.*\0\0", L"", fn)) {
+							FILE *fp = fopen(fn.c_str(), "wb");
+							u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
+							u8 buffer[4096];
+							while (pspFileSystem.ReadFile(handle, buffer, sizeof(buffer)) > 0) {
+								fwrite(buffer, sizeof(buffer), 1, fp);
+							}
+							pspFileSystem.CloseFile(handle);
+							fclose(fp);
+						}
+					}
 					break;
 
 				case ID_DEBUG_LOG:

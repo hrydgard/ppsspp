@@ -559,7 +559,7 @@ bool GameBrowser::IsCurrentPathPinned() {
 }
 
 const std::vector<std::string> GameBrowser::GetPinnedPaths() {
-#ifdef _WIN32
+#ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
 	static const std::string sepChars = "/\\";
@@ -587,7 +587,7 @@ const std::vector<std::string> GameBrowser::GetPinnedPaths() {
 }
 
 const std::string GameBrowser::GetBaseName(const std::string &path) {
-#ifdef _WIN32
+#ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
 	static const std::string sepChars = "/\\";

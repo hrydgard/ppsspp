@@ -407,7 +407,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
-        MENUITEM "Log Console",	                            ID_DEBUG_LOG
+        MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
+        MENUITEM "Log Console",                             ID_DEBUG_LOG
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
 
