@@ -813,7 +813,8 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	rl->redraw();						
 	// Update Debug Counter
 	wchar_t tempTicks[24];
-	_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks()-lastTicks);
+	if (PSP_IsInited())
+		_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks()-lastTicks);
 	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 
 	// Update Register Dialog
