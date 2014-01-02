@@ -44,7 +44,7 @@ u32 sceHprmIsRemoteExist() {
 }
 
 u32 sceHprmPeekLatch(u32 latchAddr) {
-	DEBUG_LOG(HLE,"sceHprmReadLatch latchAddr %08x",latchAddr);
+	DEBUG_LOG(HLE,"sceHprmPeekLatch latchAddr %08x",latchAddr);
 	return 0;
 }
 
