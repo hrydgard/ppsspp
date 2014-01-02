@@ -1,6 +1,7 @@
 VERSION = 0.9.6
 DEFINES += USING_QT_UI USE_FFMPEG
 unix:!qnx:!symbian:!mac: CONFIG += linux
+maemo5|contains(MEEGO_EDITION,harmattan): CONFIG += maemo
 
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
@@ -28,7 +29,7 @@ win32-msvc* {
 	DEFINES += __STDC_CONSTANT_MACROS
 	QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
 	QMAKE_CXXFLAGS += -ffast-math -fno-strict-aliasing
-	contains(MEEGO_EDITION,harmattan): QMAKE_CXXFLAGS += -std=gnu++0x
+	maemo: QMAKE_CXXFLAGS += -std=gnu++0x
 	else: QMAKE_CXXFLAGS += -std=c++0x
 	QMAKE_CFLAGS_RELEASE -= -O2
 	QMAKE_CFLAGS_RELEASE += -O3
@@ -49,15 +50,15 @@ else { # Assume ARM
 
 gleslib = $$lower($$QMAKE_LIBS_OPENGL)
 gleslib = $$find(gleslib, "gles")
-contains(MEEGO_EDITION,harmattan)|!count(gleslib,0) {
+maemo|!count(gleslib,0) {
 	DEFINES += USING_GLES2
 }
 
 # Platform specific
-contains(MEEGO_EDITION,harmattan) {
+contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
+maemo {
 	# Does not yet support FFMPEG
 	DEFINES -= USE_FFMPEG
-	DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 }
 
 macx {

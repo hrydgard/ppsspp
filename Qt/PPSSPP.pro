@@ -129,7 +129,7 @@ symbian {
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
 
-contains(MEEGO_EDITION,harmattan) {
+maemo {
 	target.path = /opt/PPSSPP/bin
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
