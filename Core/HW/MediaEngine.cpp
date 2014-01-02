@@ -188,7 +188,7 @@ void MediaEngine::closeMedia() {
 }
 
 void MediaEngine::DoState(PointerWrap &p){
-	auto s = p.Section("MediaEngine", 1);
+	auto s = p.Section("MediaEngine", 1, 2);
 	if (!s)
 		return;
 
@@ -218,6 +218,11 @@ void MediaEngine::DoState(PointerWrap &p){
 
 	p.Do(m_videopts);
 	p.Do(m_audiopts);
+
+	if (s >= 2) {
+		p.Do(m_firstTimeStamp);
+		p.Do(m_lastTimeStamp);
+	}
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
