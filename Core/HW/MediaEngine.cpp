@@ -152,34 +152,11 @@ MediaEngine::~MediaEngine() {
 }
 
 void MediaEngine::closeMedia() {
-#ifdef USE_FFMPEG
-	if (m_buffer)
-		av_free(m_buffer);
-	if (m_pFrameRGB)
-		av_free(m_pFrameRGB);
-	if (m_pFrame)
-		av_free(m_pFrame);
-	if (m_pIOContext && m_pIOContext->buffer)
-		av_free(m_pIOContext->buffer);
-	if (m_pIOContext)
-		av_free(m_pIOContext);
-	if (m_pCodecCtx)
-		avcodec_close(m_pCodecCtx);
-	if (m_pFormatCtx)
-		avformat_close_input(&m_pFormatCtx);
-#endif // USE_FFMPEG
+	closeContext();
 	if (m_pdata)
 		delete m_pdata;
 	if (m_demux)
 		delete m_demux;
-	m_buffer = 0;
-#ifdef USE_FFMPEG
-	m_pFrame = 0;
-	m_pFrameRGB = 0;
-	m_pIOContext = 0;
-	m_pCodecCtx = 0;
-	m_pFormatCtx = 0;
-#endif
 	m_pdata = 0;
 	m_demux = 0;
 	AT3Close(&m_audioContext);
@@ -188,7 +165,7 @@ void MediaEngine::closeMedia() {
 }
 
 void MediaEngine::DoState(PointerWrap &p){
-	auto s = p.Section("MediaEngine", 1);
+	auto s = p.Section("MediaEngine", 1, 2);
 	if (!s)
 		return;
 
@@ -218,6 +195,11 @@ void MediaEngine::DoState(PointerWrap &p){
 
 	p.Do(m_videopts);
 	p.Do(m_audiopts);
+
+	if (s >= 2) {
+		p.Do(m_firstTimeStamp);
+		p.Do(m_lastTimeStamp);
+	}
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
@@ -262,8 +244,10 @@ bool MediaEngine::openContext() {
 	if (avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
 		return false;
 
-	if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
+	if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0) {
+		closeContext();
 		return false;
+	}
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
 		WARN_LOG_REPORT(ME, "Bad video stream %d", m_videoStream);
@@ -305,6 +289,32 @@ bool MediaEngine::openContext() {
 	return true;
 }
 
+void MediaEngine::closeContext()
+{
+#ifdef USE_FFMPEG
+	if (m_buffer)
+		av_free(m_buffer);
+	if (m_pFrameRGB)
+		av_free(m_pFrameRGB);
+	if (m_pFrame)
+		av_free(m_pFrame);
+	if (m_pIOContext && m_pIOContext->buffer)
+		av_free(m_pIOContext->buffer);
+	if (m_pIOContext)
+		av_free(m_pIOContext);
+	if (m_pCodecCtx)
+		avcodec_close(m_pCodecCtx);
+	if (m_pFormatCtx)
+		avformat_close_input(&m_pFormatCtx);
+	m_pFrame = 0;
+	m_pFrameRGB = 0;
+	m_pIOContext = 0;
+	m_pCodecCtx = 0;
+	m_pFormatCtx = 0;
+#endif
+	m_buffer = 0;
+}
+
 bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 {
 	closeMedia();
@@ -334,7 +344,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 			m_demux->demux(m_audioStream);
 		}
 #ifdef USE_FFMPEG
-		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048 * 5) {
+		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
 			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
 			int mpegoffset = bswap32(*(int*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
