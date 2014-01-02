@@ -77,7 +77,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool s
 			retz = 65535.f;
 	}
 
-	if (set_flag && (retx > 4095.9375f || rety > 4096.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
+	if (set_flag && (retx > 4095.9375f || rety > 4095.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
 		outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375
