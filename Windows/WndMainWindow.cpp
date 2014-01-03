@@ -103,6 +103,7 @@ static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
 extern InputState input_state;
+static std::set<int> keyboardKeysDown;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -1083,13 +1084,15 @@ namespace MainWindow
 				}
 
 				if (wParam == WA_INACTIVE) {
-					// Force-release TAB, which is the most annoying one when alt tabbing
-					// This isn't exactly a correct solution but will fix this annoyance for many.
+					// Force-release all held keys on the keyboard to prevent annoying stray inputs.
 					KeyInput key;
 					key.deviceId = DEVICE_ID_KEYBOARD;
-					key.keyCode = NKCODE_TAB;
 					key.flags = KEY_UP;
-					NativeKey(key);
+
+					for (auto i = keyboardKeysDown.begin(); i != keyboardKeysDown.end(); ++i) {
+						key.keyCode = *i;
+						NativeKey(key);
+					}
 				}
 			}
 			break;
@@ -1546,12 +1549,17 @@ namespace MainWindow
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
 						if (key.keyCode) {
 							NativeKey(key);
+							keyboardKeysDown.insert(key.keyCode);
 						}
 					} else if (raw->data.keyboard.Message == WM_KEYUP) {
 						key.flags = KEY_UP;
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
 						if (key.keyCode) {
-							NativeKey(key);	
+							NativeKey(key);
+
+							auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
+							if (keyDown != keyboardKeysDown.end())
+								keyboardKeysDown.erase(keyDown);
 						}
 					}
 				} else if (raw->header.dwType == RIM_TYPEMOUSE) {
