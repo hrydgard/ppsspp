@@ -43,6 +43,9 @@
 GlobalUIState lastUIState = UISTATE_MENU;
 #endif
 
+static SDL_Surface*        g_Screen        = NULL;
+bool g_ToggleFullScreenNextFrame = false;
+
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
 #include "EGL/egl.h"
@@ -51,11 +54,11 @@ GlobalUIState lastUIState = UISTATE_MENU;
 #include "SDL_syswm.h"
 #include "math.h"
 
-EGLDisplay          g_eglDisplay    = NULL;
-EGLContext          g_eglContext    = NULL;
-EGLSurface          g_eglSurface    = NULL;
-Display*            g_Display       = NULL;
-NativeWindowType    g_Window        = (NativeWindowType)NULL;
+static EGLDisplay          g_eglDisplay    = NULL;
+static EGLContext          g_eglContext    = NULL;
+static EGLSurface          g_eglSurface    = NULL;
+static Display*            g_Display       = NULL;
+static NativeWindowType    g_Window        = (NativeWindowType)NULL;
 
 int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 	EGLenum error;
@@ -203,7 +206,9 @@ void Vibrate(int length_ms) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	// Log?
+	if (!strcmp(command, "toggle_fullscreen")) {
+		g_ToggleFullScreenNextFrame = true;
+	}
 }
 
 void LaunchBrowser(const char *url) {
@@ -299,7 +304,7 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_rstick_y = 0;
 
 #ifdef PANDORA
-	if ((ljoy)||(rjoy)) {
+	if (ljoy || rjoy) {
 		SDL_JoystickUpdate();
 		if (ljoy) {
 			input->pad_lstick_x = max(min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f), -1.0f);
@@ -326,6 +331,23 @@ int parseInt(const char *str) {
 		return -1;
 	} else {
 		return val;
+	}
+}
+
+void ToggleFullScreenIfFlagSet() {
+	if (g_ToggleFullScreenNextFrame) {
+		g_ToggleFullScreenNextFrame = false;
+
+#if 1
+		int flags = g_Screen->flags; // Save the current flags in case toggling fails
+		g_Screen = SDL_SetVideoMode(0, 0, 0, g_Screen->flags ^ SDL_FULLSCREEN); // Toggles FullScreen Mode
+		if (g_Screen == NULL) {
+			g_Screen = SDL_SetVideoMode(0, 0, 0, flags); // If toggle FullScreen failed, then switch back
+		}
+		if (g_Screen == NULL) {
+			exit(1); // If you can't switch back for some reason, then epic fail
+		}
+#endif
 	}
 }
 
@@ -418,11 +440,13 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres;
 	dp_yres = (float)pixel_yres;
 
-	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode) == NULL) {
+	g_Screen = SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode);
+	if (g_Screen == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
 		return 2;
 	}
+
 #ifdef EGL
 	EGL_Init();
 #endif
@@ -698,6 +722,8 @@ int main(int argc, char *argv[]) {
 			lastT = t;
 		}
 #endif
+
+		ToggleFullScreenIfFlagSet();
 		time_update();
 		t = time_now();
 		framecount++;
