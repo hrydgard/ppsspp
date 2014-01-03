@@ -611,6 +611,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
+#if !defined(_WIN32) && !defined(USING_GLES2)
+	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
+#endif
 
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
