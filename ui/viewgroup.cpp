@@ -1085,6 +1085,7 @@ struct HeldKey {
 	int deviceId;
 	int startFrame;
 
+	// Ignores startFrame
 	bool operator <(const HeldKey &other) const {
 		if (deviceId < other.deviceId) return true;
 		if (deviceId > other.deviceId) return false;
@@ -1103,15 +1104,21 @@ void KeyEvent(const KeyInput &key, ViewGroup *root) {
 	if (key.flags & KEY_DOWN) {
 		// We ignore the device ID here. Anything with a DPAD is OK.
 		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
-			lock_guard lock(focusLock);
-			focusMoves.push_back(key.keyCode);
-
 			// Let's only repeat DPAD initially.
 			HeldKey hk;
 			hk.key = key.keyCode;
 			hk.deviceId = key.deviceId;
 			hk.startFrame = frameCount;
+
+			// Check if the key is already held. If it is, ignore it. This is to avoid
+			// multiple key repeat mechanisms colliding.
+			if (heldKeys.find(hk) != heldKeys.end()) {
+				return;
+			}
+
 			heldKeys.insert(hk);
+			lock_guard lock(focusLock);
+			focusMoves.push_back(key.keyCode);
 		}
 	}
 	if (key.flags & KEY_UP) {
@@ -1137,6 +1144,9 @@ static void ProcessHeldKeys(ViewGroup *root) {
 				key.deviceId = iter->deviceId;
 				key.flags = KEY_DOWN;
 				KeyEvent(key, root);
+
+				lock_guard lock(focusLock);
+				focusMoves.push_back(key.keyCode);
 			}
 		}
 	}
