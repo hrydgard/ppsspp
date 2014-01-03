@@ -77,7 +77,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";
 
-	int DefaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	std::string defaultLangRegion = "en_US";
 	if (bFirstRun) {
 		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
@@ -87,7 +87,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		langValuesMapping = GetLangValuesMapping();
 		if (!defaultLangRegion.empty()) {
 			if (langValuesMapping.find(defaultLangRegion) != langValuesMapping.end()) {
-				DefaultLang = langValuesMapping[defaultLangRegion].second;
+				defaultLang = langValuesMapping[defaultLangRegion].second;
 			}
 		}
 	}
@@ -349,7 +349,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
 	pspConfig->Get("MacAddress", &localMacAddress, "01:02:03:04:05:06");
-	pspConfig->Get("Language", &iLanguage, DefaultLang);
+	pspConfig->Get("Language", &iLanguage, defaultLang);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
 	pspConfig->Get("TimeZone", &iTimeZone, 0);
