@@ -1119,6 +1119,9 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		ERROR_LOG(SCEGE, "Incomplete target framebuffer, aborting blit");
 		fbo_unbind();
+		if (gl_extensions.FBO_ARB) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		}
 		return;
 	}
 
@@ -1271,6 +1274,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		if (vfb->fbo) {
 			fbo_bind_for_read(vfb->fbo);
 		} else {
+			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
 			fbo_unbind();
 			if (gl_extensions.FBO_ARB) {
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -1365,6 +1369,9 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		fbo_unbind();
+		if (gl_extensions.FBO_ARB) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		}
 		return;
 	}
 
