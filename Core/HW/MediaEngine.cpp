@@ -266,18 +266,8 @@ bool MediaEngine::openContext() {
 			return false;
 	}
 
-	// Get a pointer to the codec context for the video stream
-	m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
-
-	// Find the decoder for the video stream
-	AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
-	if(pCodec == NULL)
+	if (!setVideoStream(m_videoStream, true))
 		return false;
-
-	// Open codec
-	AVDictionary *optionsDict = 0;
-	if(avcodec_open2(m_pCodecCtx, pCodec, &optionsDict)<0)
-		return false; // Could not open codec
 
 	setVideoDim();
 	m_audioContext = AT3Create();
@@ -341,7 +331,6 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 			size  = 0;
 		if (m_demux) {
 			m_demux->addStreamData(buffer, addSize);
-			m_demux->demux(m_audioStream);
 		}
 #ifdef USE_FFMPEG
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
@@ -356,6 +345,39 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 		m_isVideoEnd = false;
 	}
 	return size;
+}
+
+bool MediaEngine::setVideoStream(int streamNum, bool force) {
+	if (m_videoStream == streamNum && !force) {
+		// Yay, nothing to do.
+		return true;
+	}
+
+	m_videoStream = streamNum;
+#ifdef USE_FFMPEG
+	if (m_pFormatCtx) {
+		if (m_pCodecCtx) {
+			avcodec_close(m_pCodecCtx);
+		}
+
+		// Get a pointer to the codec context for the video stream
+		m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
+
+		// Find the decoder for the video stream
+		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
+		if (pCodec == NULL) {
+			return false;
+		}
+
+		// Open codec
+		AVDictionary *optionsDict = 0;
+		if (avcodec_open2(m_pCodecCtx, pCodec, &optionsDict) < 0) {
+			return false; // Could not open codec
+		}
+	}
+#endif
+
+	return true;
 }
 
 bool MediaEngine::setVideoDim(int width, int height)
@@ -670,6 +692,10 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	if (!m_demux) {
 		return 0;
 	}
+
+	// Demux now (rather than on add data) so that we select the right stream.
+	m_demux->demux(m_audioStream);
+
 	u8 *audioFrame = 0;
 	int headerCode1, headerCode2;
 	int frameSize = m_demux->getNextaudioFrame(&audioFrame, &headerCode1, &headerCode2);

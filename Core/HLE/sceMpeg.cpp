@@ -1019,6 +1019,8 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
+	ctx->mediaengine->setVideoStream(streamInfo->second.num);
+
 	if (streamInfo->second.needsReset)
 	{
 		sceAu.pts = 0;
@@ -1099,6 +1101,10 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
+	if (streamInfo != ctx->streamMap.end())
+		ctx->mediaengine->setAudioStream(streamInfo->second.num);
+	else
+		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
 
 	// The audio can end earlier than the video does.
 	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
@@ -1245,7 +1251,7 @@ u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 
 u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 {
-	DEBUG_LOG(ME, "UNIMPL sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
+	DEBUG_LOG(ME, "sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
 
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
