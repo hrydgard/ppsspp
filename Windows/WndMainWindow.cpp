@@ -103,7 +103,7 @@ static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
 extern InputState input_state;
-static std::vector<int> keyboardKeysDown;
+static std::set<int> keyboardKeysDown;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -1549,10 +1549,7 @@ namespace MainWindow
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
 						if (key.keyCode) {
 							NativeKey(key);
-
-							const bool keyNotDownAlready = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode) == keyboardKeysDown.end();
-							if (keyNotDownAlready)
-								keyboardKeysDown.push_back(key.keyCode);
+							keyboardKeysDown.insert(key.keyCode);
 						}
 					} else if (raw->data.keyboard.Message == WM_KEYUP) {
 						key.flags = KEY_UP;
