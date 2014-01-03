@@ -309,6 +309,8 @@ private:
 	std::string defaultPath_;
 };
 
+std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
+
 // TODO: Find a better place for this.
 extern http::Downloader g_DownloadManager;
 extern Config g_Config;

@@ -84,4 +84,3 @@ void __UtilityDoState(PointerWrap &p);
 void __UtilityShutdown();
 
 void Register_sceUtility();
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();

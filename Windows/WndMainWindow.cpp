@@ -68,7 +68,6 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
-#include "Core/HLE/sceUtility.h"
 #include "GPU/Common/PostShader.h"
 
 #include "Core/HLE/sceUmd.h"
