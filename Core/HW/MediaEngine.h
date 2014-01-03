@@ -65,7 +65,7 @@ public:
 	// Returns number of packets actually added. I guess the buffer might be full.
 	int addStreamData(u8* buffer, int addSize);
 
-	void setVideoStream(int streamNum) { m_videoStream = streamNum; }
+	bool setVideoStream(int streamNum, bool force = false);
 	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
 
 	u8 *getFrameImage();
