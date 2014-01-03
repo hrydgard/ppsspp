@@ -155,8 +155,11 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 
 void MpegDemux::demux(int audioChannel)
 {
-	if (audioChannel != 1)
+	if (audioChannel != 1) {
+		NOTICE_LOG(ME,"MultiChannel Audio : %i", audioChannel)
 		m_audioChannel = audioChannel;
+	}
+
 	while (m_index < m_len)
 	{
 		if (m_index + 2048 > m_readSize)
