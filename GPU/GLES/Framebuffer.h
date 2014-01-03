@@ -137,11 +137,13 @@ public:
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
-
+	void ClearBuffer();
+	void DisableState();
+	
 #ifdef USING_GLES2
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 #else
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
 #endif 
 
 	// TODO: Break out into some form of FBO manager
