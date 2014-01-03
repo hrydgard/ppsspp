@@ -1550,8 +1550,8 @@ namespace MainWindow
 						if (key.keyCode) {
 							NativeKey(key);
 
-							const bool keyNotHeld = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode) == keyboardKeysDown.end();
-							if (keyNotHeld)
+							const bool keyNotDownAlready = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode) == keyboardKeysDown.end();
+							if (keyNotDownAlready)
 								keyboardKeysDown.push_back(key.keyCode);
 						}
 					} else if (raw->data.keyboard.Message == WM_KEYUP) {
