@@ -278,7 +278,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
-		printf("huly\n");
 		System_SendMessage("toggle_fullscreen", "");
 		break;
 	}
