@@ -742,19 +742,19 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb->colorDepth = FBO_8888;
 		} else { 
 			switch (fmt) {
-				case GE_FORMAT_4444:
-					vfb->colorDepth = FBO_4444;
-					break;
-				case GE_FORMAT_5551:
-					vfb->colorDepth = FBO_5551;
-					break;
-				case GE_FORMAT_565:
-					vfb->colorDepth = FBO_565;
-					break;
-				case GE_FORMAT_8888:
-				default:
-					vfb->colorDepth = FBO_8888;
-					break;
+			case GE_FORMAT_4444:
+				vfb->colorDepth = FBO_4444;
+				break;
+			case GE_FORMAT_5551:
+				vfb->colorDepth = FBO_5551;
+				break;
+			case GE_FORMAT_565:
+				vfb->colorDepth = FBO_565;
+				break;
+			case GE_FORMAT_8888:
+			default:
+				vfb->colorDepth = FBO_8888;
+				break;
 			}
 		}
 
@@ -779,7 +779,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		ClearBuffer();
-		glEnable(GL_DITHER);  // why?
+		if (vfb->colorDepth != FBO_8888) {
+			// Enable dithering only when pixel format is not RGBA8888
+			glEnable(GL_DITHER);
+		}
 		currentRenderVfb_ = vfb;
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -1064,7 +1067,10 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR)
 				glstate.viewport.restore();
 			ClearBuffer();
-			glEnable(GL_DITHER);
+			if (nvfb->colorDepth != FBO_8888) {
+				// Enable dithering only when pixel format is not RGBA8888
+				glEnable(GL_DITHER);
+			}
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			gstate_c.textureChanged = true;
