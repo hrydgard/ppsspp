@@ -307,7 +307,6 @@ private:
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;
 	std::string defaultPath_;
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 };
 
 // TODO: Find a better place for this.

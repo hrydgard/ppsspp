@@ -84,7 +84,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		if (i18nrepo.IniExists(langRegion))
 			defaultLangRegion = langRegion;
 		// TODO: Be smart about same language, different country
-		langValuesMapping = GetLangValuesMapping();
+		auto langValuesMapping = GetLangValuesMapping();
 		if (!defaultLangRegion.empty()) {
 			if (langValuesMapping.find(defaultLangRegion) != langValuesMapping.end()) {
 				defaultLang = langValuesMapping[defaultLangRegion].second;
