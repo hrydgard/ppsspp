@@ -155,7 +155,7 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 
 void MpegDemux::demux(int audioChannel)
 {
-	if (audioChannel >= 0)
+	if (audioChannel != 1)
 		m_audioChannel = audioChannel;
 	while (m_index < m_len)
 	{
