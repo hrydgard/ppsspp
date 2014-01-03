@@ -1560,9 +1560,9 @@ namespace MainWindow
 						if (key.keyCode) {
 							NativeKey(key);
 
-							auto keyHeld = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
-							if (keyHeld != keyboardKeysDown.end())
-								keyboardKeysDown.erase(keyHeld);
+							auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
+							if (keyDown != keyboardKeysDown.end())
+								keyboardKeysDown.erase(keyDown);
 						}
 					}
 				} else if (raw->header.dwType == RIM_TYPEMOUSE) {
