@@ -61,7 +61,8 @@ void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
 	s_2 = 0;
 }
 
-void VagDecoder::DecodeBlock(u8 *&readp) {
+void VagDecoder::DecodeBlock(u8 *&read_pointer) {
+	u8 *readp = read_pointer;
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
@@ -79,24 +80,33 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 			loopAtNextBlock_ = true;
 		}
 	}
+
+	// Keep state in locals to avoid bouncing to memory.
+	int s1 = s_1;
+	int s2 = s_2;
+
+	int coef1 = f[predict_nr][0];
+	int coef2 = f[predict_nr][1];
+
 	for (int i = 0; i < 28; i += 2) {
-		int d = *readp++;
-		int s = (short)((d & 0xf) << 12);
-		DecodeSample(i, s >> shift_factor, predict_nr);
-		s = (short)((d & 0xf0) << 8);
-		DecodeSample(i + 1, s >> shift_factor, predict_nr);
+		u8 d = *readp++;
+		int sample1 = (short)((d & 0xf) << 12) >> shift_factor;
+		int sample2 = (short)((d & 0xf0) << 8) >> shift_factor;
+		s2 = (int)(sample1 + ((s1 * coef1 + s2 * coef2) >> 6));
+		s1 = (int)(sample2 + ((s2 * coef1 + s1 * coef2) >> 6));
+		samples[i] = s2;
+		samples[i + 1] = s1;
 	}
+
+	s_1 = s1;
+	s_2 = s2;
 	curSample = 0;
 	curBlock_++;
 	if (curBlock_ == numBlocks_) {
 		end_ = true;
 	}
-}
 
-inline void VagDecoder::DecodeSample(int i, int sample, int predict_nr) {
-	samples[i] = (int) (sample + ((s_1 * f[predict_nr][0] + s_2 * f[predict_nr][1]) >> 6));
-	s_2 = s_1;
-	s_1 = samples[i];
+	read_pointer = readp;
 }
 
 void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
@@ -137,8 +147,7 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	}
 }
 
-void VagDecoder::DoState(PointerWrap &p)
-{
+void VagDecoder::DoState(PointerWrap &p) {
 	auto s = p.Section("VagDecoder", 1);
 	if (!s)
 		return;

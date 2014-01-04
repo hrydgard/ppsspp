@@ -62,8 +62,7 @@ enum {
 	PSP_SAS_EFFECT_TYPE_PIPE = 8,
 };
 
-struct WaveformEffect
-{
+struct WaveformEffect {
 	int type;
 	int delay;
 	int feedback;
@@ -98,7 +97,6 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
-	void DecodeSample(int i, int sample, int predict_nr);
 	int samples[28];
 	int curSample;
 
@@ -132,9 +130,7 @@ private:
 	BufferQueue *sampleQueue;
 };
 
-// Max height: 0x40000000 I think
-class ADSREnvelope
-{
+class ADSREnvelope {
 public:
 	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
@@ -184,14 +180,13 @@ private:
 
 	ADSRState state_;
 	int steps_;
-	s64 height_;  // s64 to avoid having to care about overflow when calculatimg. TODO: this should be fine as s32
+	s64 height_;  // s64 to avoid having to care about overflow when calculating. TODO: this should be fine as s32
 };
 
 // A SAS voice.
 // TODO: Look into pre-decoding the VAG samples on SetVoice instead of decoding them on the fly.
 // It's not very likely that games encode VAG dynamically.
-struct SasVoice
-{
+struct SasVoice {
 	SasVoice()
 		: playing(false),
 			paused(false),
@@ -262,8 +257,7 @@ struct SasVoice
 	SasAtrac3 atrac3;
 };
 
-class SasInstance
-{
+class SasInstance {
 public:
 	SasInstance();
 	~SasInstance();

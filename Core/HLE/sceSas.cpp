@@ -394,15 +394,15 @@ u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv2) {
 }
 
 u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
-	DEBUG_LOG(SCESAS, "sceSasGetEnvelopeHeight(%08x, %i)", core, voiceNum);
-	
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
-		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		ERROR_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
-	return v.envelope.GetHeight();
+	int height = v.envelope.GetHeight();
+	DEBUG_LOG(SCESAS, "%i = sceSasGetEnvelopeHeight(%08x, %i)", height, core, voiceNum);
+	return height;
 }
 
 u32 sceSasRevType(u32 core, int type) {
