@@ -53,7 +53,7 @@ win32 {
 	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
 }
 linux {
-	LIBS += -ldl -lrt
+	LIBS += -ldl -lrt -lz
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
