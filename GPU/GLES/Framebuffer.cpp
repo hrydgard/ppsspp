@@ -863,6 +863,17 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			ClearBuffer();
 		}
 #endif
+
+#ifndef USING_GLES2
+		if (gl_extensions.FBO_ARB && currentRenderVfb_ != NULL && MaskedEqual(currentRenderVfb_->z_address, vfb->z_address)) {
+			// Let's only do this if not clearing.
+			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+				fbo_bind_for_read(currentRenderVfb_->fbo);
+				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			}
+		}
+#endif
+
 		currentRenderVfb_ = vfb;
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
