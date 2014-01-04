@@ -187,7 +187,7 @@ namespace MIPSAnalyst {
 		hashToFunction.clear();
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
-			if (f.hasHash) {
+			if (f.hasHash && f.size > 16) {
 				hashToFunction[f.hash].push_back(&f);
 			}
 		}
@@ -459,7 +459,7 @@ skip:
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
 				// Let's just add it to the hashmap.
-				if (iter->hasHash && size) {
+				if (iter->hasHash && size > 16) {
 					HashMapFunc hfun;
 					hfun.hash = iter->hash;
 					strncpy(hfun.name, name, 64);
@@ -467,7 +467,7 @@ skip:
 					hfun.size = size;
 					hashMap.insert(hfun);
 					return;
-				} else {
+				} else if (!iter->hasHash || size == 0) {
 					ERROR_LOG(HLE, "%s: %08x %08x : match but no hash (%i) or no size", name, startAddr, size, iter->hasHash);
 				}
 			}
