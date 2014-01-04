@@ -61,7 +61,7 @@ int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
 			break;
 		}
 	}
-		if ((c & 0xC0) == 0x40) {
+	if ((c & 0xC0) == 0x40) {
 		read8();
 		c = read8();
 		length -= 2;

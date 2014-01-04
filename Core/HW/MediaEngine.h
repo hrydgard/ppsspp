@@ -70,6 +70,7 @@ public:
 
 	u8 *getFrameImage();
 	int getRemainSize();
+	int getAudioRemainSize();
 
 	bool stepVideo(int videoPixelMode);
 	int writeVideoImage(u32 bufferPtr, int frameWidth = 512, int videoPixelMode = 3);

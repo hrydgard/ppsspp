@@ -867,6 +867,7 @@ int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
 	int addMax = std::max(2048 * 100, tempbufSize);
 	do {
 		size = std::min(psmfplayer->mediaengine->getRemainSize(), tempbufSize);
+		size = std::min(psmfplayer->mediaengine->getAudioRemainSize(), size);
 		size = std::min(psmfplayer->streamSize - psmfplayer->readSize, size);
 		if (size <= 0)
 			break;
@@ -891,13 +892,13 @@ int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int 
 		if (offset > 0)
 			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
 		u8* buf = psmfplayer->tempbuf;
-		u32 tempbufSize = sizeof(psmfplayer->tempbuf);
+		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
 		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
 		int mpegoffset = bswap32(*(u32*)(buf + PSMF_STREAM_OFFSET_OFFSET));
 		psmfplayer->readSize = size - mpegoffset;
 		psmfplayer->streamSize = bswap32(*(u32*)(buf + PSMF_STREAM_SIZE_OFFSET));
 		psmfplayer->fileoffset = offset + mpegoffset;
-		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)tempbufSize));
+		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
 		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	}
