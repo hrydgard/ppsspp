@@ -683,6 +683,15 @@ int MediaEngine::getRemainSize() {
 	return std::max(m_pdata->getRemainSize() - m_decodingsize - 2048, 0);
 }
 
+int MediaEngine::getAudioRemainSize() {
+	if (!m_demux) {
+		// No audio, so it can't be full, return video instead.
+		return getRemainSize();
+	}
+
+	return m_demux->getRemainSize();
+}
+
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	if (!Memory::IsValidAddress(bufferPtr)) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);

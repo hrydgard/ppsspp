@@ -19,6 +19,10 @@ public:
 	// return its framesize
 	int getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2);
 
+	inline int getRemainSize() {
+		return m_len - m_readSize;
+	}
+
 	void DoState(PointerWrap &p);
 
 private:
