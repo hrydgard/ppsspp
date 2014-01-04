@@ -253,7 +253,11 @@ void fbo_unbind() {
 
 void fbo_bind_as_render_target(FBO *fbo) {
 	if (gl_extensions.FBO_ARB) {
+#ifndef USING_GLES2
+		if (true) {
+#else
 		if (gl_extensions.GLES3) {
+#endif
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
 		} else {
 			// This will collide with bind_for_read - but there's nothing in ES 2.0
@@ -269,7 +273,11 @@ void fbo_bind_as_render_target(FBO *fbo) {
 
 void fbo_bind_for_read(FBO *fbo) {
 	if (gl_extensions.FBO_ARB) {
+#ifndef USING_GLES2
+		if (true) {
+#else
 		if (gl_extensions.GLES3) {
+#endif
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
 		} else {
 			// This will collide with bind_as_render_target - but there's nothing in ES 2.0
