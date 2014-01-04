@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -593,6 +593,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_RUNONLOAD);
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_GEDEBUGGER,L"\tCtrl+G");
+		TranslateMenuItem(ID_DEBUG_EXTRACTFILE);
 		TranslateMenuItem(ID_DEBUG_LOG, L"\tCtrl+L");
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, L"\tCtrl+M");
 
