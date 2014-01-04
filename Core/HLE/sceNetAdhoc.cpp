@@ -1174,6 +1174,12 @@ int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dp
 						
 						// Bound Socket to local Port
 						if (bind(tcpsocket, (sockaddr *)&addr, sizeof(addr)) == 0) {
+							// Update sport with the port assigned by bind
+							socklen_t len = sizeof(addr);
+							if (getsockname(tcpsocket, (sockaddr *)&addr, &len) == 0) {
+								sport = ntohs(addr.sin_port);
+							}
+							
 							// Allocate Memory
 							SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
 							
