@@ -115,19 +115,19 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		return;
 	}
 	u8 *readp = Memory::GetPointer(read_);
-	if (!readp)
-	{
+	if (!readp) {
 		WARN_LOG(SASMIX, "Bad VAG samples address?");
 		return;
 	}
 	u8 *origp = readp;
+
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
 			if (loopAtNextBlock_) {
 				VERBOSE_LOG(SASMIX, "Looping VAG from block %d/%d to %d", curBlock_, numBlocks_, loopStartBlock_);
 				// data_ starts at curBlock = -1.
 				read_ = data_ + 16 * loopStartBlock_ + 16;
-				readp = Memory::GetPointer(read_);
+				readp = Memory::GetPointerUnchecked(read_);
 				origp = readp;
 				curBlock_ = loopStartBlock_;
 				loopAtNextBlock_ = false;
@@ -139,7 +139,7 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 				return;
 			}
 		}
-		outSamples[i] = end_ ? 0 : samples[curSample++];
+		outSamples[i] = samples[curSample++];
 	}
 
 	if (readp > origp) {
