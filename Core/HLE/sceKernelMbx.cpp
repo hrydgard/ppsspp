@@ -121,6 +121,9 @@ struct Mbx : public KernelObject
 	{
 		u32 ptr = nmb.packetListHead;
 
+		if (Memory::IsValidAddress(nmb.packetListHead))
+			return -1;
+
 		if (nmb.numMessages == 991)
 		{
 			u32 next = Memory::Read_U32(nmb.packetListHead);
