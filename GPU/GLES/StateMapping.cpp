@@ -334,7 +334,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
-	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
 	// Dither
@@ -355,7 +354,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Depth Test
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(gstate.isClearModeDepthMask() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+		glstate.depthWrite.set(gstate.isClearModeDepthMask() ? GL_TRUE : GL_FALSE);
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();
@@ -397,7 +396,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
-			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 		} else {
 			glstate.depthTest.disable();
 		}
