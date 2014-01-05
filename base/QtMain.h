@@ -9,7 +9,7 @@
 
 #include <QAudioOutput>
 #include <QAudioFormat>
-#ifdef USING_GLES2
+#if defined(USING_GLES2) && !defined(MAEMO)
 #include <QAccelerometer>
 QTM_USE_NAMESPACE
 #endif
@@ -193,7 +193,7 @@ protected:
 
 	void updateAccelerometer()
 	{
-#ifdef USING_GLES2
+#if defined(USING_GLES2) && !defined(MAEMO)
 		// TODO: Toggle it depending on whether it is enabled
 		QAccelerometerReading *reading = acc->reading();
 		if (reading) {
@@ -206,7 +206,7 @@ protected:
 
 private:
 	InputState input_state;
-#ifdef USING_GLES2
+#if defined(USING_GLES2) && !defined(MAEMO)
 	QAccelerometer* acc;
 #endif
 };

@@ -35,6 +35,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "Qt:Blackberry";
 #elif defined(MEEGO_EDITION_HARMATTAN)
 		return "Qt:Meego";
+#elif defined(MAEMO)
+		return "Qt:Maemo";
 #elif defined(Q_OS_LINUX)
 		return "Qt:Linux";
 #elif defined(_WIN32)
@@ -100,7 +102,7 @@ Q_DECL_EXPORT
 #endif
 int main(int argc, char *argv[])
 {
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) && !defined(MAEMO)
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 	QApplication a(argc, argv);
@@ -118,7 +120,7 @@ int main(int argc, char *argv[])
 #elif defined(BLACKBERRY)
 	const char *savegame_dir = "/accounts/1000/shared/misc/";
 	const char *assets_dir = "app/native/assets/";
-#elif defined(MEEGO_EDITION_HARMATTAN)
+#elif defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
 	const char *savegame_dir = "/home/user/MyDocs/PPSSPP/";
 	const char *assets_dir = "/opt/PPSSPP/";
 #else
