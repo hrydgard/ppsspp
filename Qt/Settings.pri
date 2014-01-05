@@ -56,6 +56,7 @@ maemo|!count(gleslib,0) {
 
 # Platform specific
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
+maemo5: DEFINES += MAEMO
 maemo {
 	# Does not yet support FFMPEG
 	DEFINES -= USE_FFMPEG
