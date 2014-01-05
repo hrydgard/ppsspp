@@ -87,6 +87,9 @@ public class NativeActivity extends Activity {
 
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
+	
+	// Key used by shortcut creation.
+	public static final String SHORTCUT_EXTRA_KEY = "org.ppsspp.ppsspp.Shortcuts";
    
 	// Easy way to flip it on and off from code.
 	private static final boolean useKitkatImmersiveMode = false;
@@ -203,6 +206,15 @@ public class NativeActivity extends Activity {
 		    e.printStackTrace();
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
+		
+		// Get shortcut parameter, in case app was launched from homescreen shortcut.
+		// We obtain shortcut parameter from Intent extra string.
+        // Intent extra will be null if we launch from normal app drawer.
+        String shortcutParam = getIntent().getStringExtra(SHORTCUT_EXTRA_KEY);
+        if(shortcutParam == null) {
+        	shortcutParam = new String("");
+        }
+
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
@@ -230,7 +242,7 @@ public class NativeActivity extends Activity {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
 				
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL);
 	    Log.i(TAG, "Device: " + deviceType);     
 	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
 
