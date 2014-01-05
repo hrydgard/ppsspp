@@ -865,7 +865,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 #endif
 
 #ifndef USING_GLES2
-		if (gl_extensions.FBO_ARB && currentRenderVfb_ != NULL && currentRenderVfb_->fbo != NULL && MaskedEqual(currentRenderVfb_->z_address, vfb->z_address)) {
+		if (gl_extensions.FBO_ARB && currentRenderVfb_ != NULL &&
+				currentRenderVfb_->fbo != NULL &&
+				MaskedEqual(currentRenderVfb_->z_address, vfb->z_address) &&
+				currentRenderVfb_->renderWidth == vfb->renderWidth &&
+				currentRenderVfb_->renderHeight == vfb->renderHeight) {
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(currentRenderVfb_->fbo);
