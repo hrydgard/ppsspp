@@ -1080,6 +1080,9 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 
 static int frameCount;
 
+// Ignore deviceId when checking for matches. Turns out that Ouya for example sends
+// completely broken input where the original keypresses have deviceId = 10 and the repeats
+// have deviceId = 0.
 struct HeldKey {
 	int key;
 	int deviceId;
@@ -1087,12 +1090,10 @@ struct HeldKey {
 
 	// Ignores startFrame
 	bool operator <(const HeldKey &other) const {
-		if (deviceId < other.deviceId) return true;
-		if (deviceId > other.deviceId) return false;
 		if (key < other.key) return true;
 		return false;
 	}
-	bool operator ==(const HeldKey &other) const { return key == other.key && deviceId == other.deviceId; }
+	bool operator ==(const HeldKey &other) const { return key == other.key; }
 };
 
 static std::set<HeldKey> heldKeys;

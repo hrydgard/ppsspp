@@ -2,6 +2,7 @@ package com.henrikrydgard.libnative;
 
 import android.annotation.TargetApi;
 import android.os.Build;
+import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputDevice.MotionRange;
 import android.view.KeyEvent;
@@ -9,6 +10,8 @@ import android.view.MotionEvent;
 
 @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 public class InputDeviceState {
+	private static final String TAG = "InputDeviceState";
+	
 	// DEVICE_ID_PAD_0 from the cpp code. TODO: allocate these sequentially if we get more controllers.
 	private static int deviceId = 10;
 	
