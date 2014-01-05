@@ -320,3 +320,8 @@ void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus);
 
 int LoadExecForUser_362A956B();
 int sceKernelRegisterExitCallback(SceUID cbId);
+
+KernelObject *__KernelThreadEventHandlerObject();
+SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u32 mask, u32 handlerPtr, u32 commonArg);
+int sceKernelReleaseThreadEventHandler(SceUID uid);
+int sceKernelReferThreadEventHandlerStatus(SceUID uid, u32 infoPtr);
