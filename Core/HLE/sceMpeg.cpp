@@ -1373,7 +1373,7 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 		x, y, width, height);
 
 	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
-	return hleDelayResult(0, "mpeg avc csc", avcDecodeDelayMs);;
+	return hleDelayResult(0, "mpeg avc csc", avcDecodeDelayMs);
 }
 
 u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
