@@ -864,8 +864,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		}
 #endif
 
-#ifndef USING_GLES2
-		if (gl_extensions.FBO_ARB && currentRenderVfb_ != NULL &&
+		if (gl_extensions.GLES3 && gl_extensions.FBO_ARB && currentRenderVfb_ != NULL &&
 				currentRenderVfb_->fbo != NULL &&
 				MaskedEqual(currentRenderVfb_->z_address, vfb->z_address) &&
 				currentRenderVfb_->renderWidth == vfb->renderWidth &&
@@ -876,7 +875,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			}
 		}
-#endif
+
 
 		currentRenderVfb_ = vfb;
 	} else {
