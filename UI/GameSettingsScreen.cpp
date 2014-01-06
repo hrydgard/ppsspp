@@ -19,6 +19,7 @@
 #include "base/timeutil.h"
 #include "math/curves.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -182,8 +183,8 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
-	// Maybe hide this on non-PVR?
-	graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
+	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
+		graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
