@@ -2,8 +2,6 @@ package org.ppsspp.ppsspp;
 
 import java.io.File;
 
-import com.henrikrydgard.libnative.NativeActivity;
-
 import android.app.Activity;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
@@ -33,7 +31,7 @@ public class ShortcutActivity extends Activity {
 		// homescreen. Set our app as target Context. Set Main activity as
 		// target class. Add any parameter to extra.
 		Intent shortcutIntent = new Intent(this, PpssppActivity.class);
-		shortcutIntent.putExtra(NativeActivity.SHORTCUT_EXTRA_KEY, path);
+		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, path);
 
 		// This is Intent that will be returned by this method, as response to
 		// ACTION_CREATE_SHORTCUT. Wrap shortcut intent inside this intent.
@@ -41,7 +39,6 @@ public class ShortcutActivity extends Activity {
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, getResources()
 				.getString(R.string.app_name));
-
 		ShortcutIconResource iconResource = Intent.ShortcutIconResource
 				.fromContext(this, R.drawable.ic_launcher);
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE,
