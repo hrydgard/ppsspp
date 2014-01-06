@@ -17,7 +17,6 @@
 
 #include <map>
 #include <set>
-
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -580,7 +579,7 @@ skip:
 
 			// Yay, found a function.
 
-			for (int i = 0; i < iter->second.size(); i++) {
+			for (unsigned int i = 0; i < iter->second.size(); i++) {
 				AnalyzedFunction &f = *(iter->second[i]);
 				if (f.hash == mf->hash && f.size == mf->size) {
 					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
