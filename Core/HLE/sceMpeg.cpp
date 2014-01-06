@@ -233,9 +233,10 @@ static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int si
 	buf->callback_addr = callback_addr;
 	buf->callback_args = callback_args;
 	buf->dataUpperBound = data + packets * 2048;
-	buf->semaID = -1;
+	buf->semaID = 0;
 	buf->mpeg = 0;
-}	
+	buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
+}
 
 u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
@@ -372,19 +373,37 @@ u32 sceMpegInit() {
 	return hleDelayResult(0, "mpeg init", 750);
 }
 
-u32 sceMpegRingbufferQueryMemSize(int packets)
-{
-	DEBUG_LOG(ME, "sceMpegRingbufferQueryMemSize(%i)", packets);
-	int size = packets * (104 + 2048);
-	return size;
+u32 __MpegRingbufferQueryMemSize(int packets) {
+	return packets * (104 + 2048);
 }
 
-u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg)
-{
-	DEBUG_LOG(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %i, %08x, %i)", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
-	SceMpegRingBuffer ring;
-	InitRingbuffer(&ring, numPackets, data, size, callbackAddr, callbackArg);
-	Memory::WriteStruct(ringbufferAddr, &ring);
+u32 sceMpegRingbufferQueryMemSize(int packets) {
+	DEBUG_LOG(ME, "sceMpegRingbufferQueryMemSize(%i)", packets);
+	return __MpegRingbufferQueryMemSize(packets);
+}
+
+u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
+	if (!Memory::IsValidAddress(ringbufferAddr)) {
+		ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): bad ringbuffer, should crash", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+	if ((int)size < 0) {
+		ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): invalid size", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
+		return ERROR_MPEG_NO_MEMORY;
+	}
+	if (__MpegRingbufferQueryMemSize(numPackets) > size) {
+		if (numPackets < 0x00100000) {
+			ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): too many packets for buffer", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
+			return ERROR_MPEG_NO_MEMORY;
+		} else {
+			// The PSP's firmware allows some cases here, due to a bug in its validation.
+			ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): too many packets for buffer, bogus size", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
+		}
+	}
+
+	DEBUG_LOG(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x)", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
+	auto ring = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
+	InitRingbuffer(ring, numPackets, data, size, callbackAddr, callbackArg);
 	return 0;
 }
 
@@ -416,7 +435,8 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	int mpegHandle = dataPtr + 0x30;
 	Memory::Write_U32(mpegHandle, mpegAddr);
 
-	Memory::Memcpy(mpegHandle, "LIBMPEG.001", 12);
+	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8);
+	Memory::Memcpy(mpegHandle + 8, "001\0", 4);
 	Memory::Write_U32(-1, mpegHandle + 12);
 	if (ringbufferAddr){
 		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
@@ -934,14 +954,14 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 
 	if (!ringbuffer.IsValid()) {
-		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x): invalid addresses", ringbufferAddr);
-		return -1;
+		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x): invalid ringbuffer, should crash", ringbufferAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 	if (!ctx) {
 		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x): bad mpeg handle", ringbufferAddr);
-		return -1;
+		return ERROR_MPEG_NOT_YET_INIT;
 	}
 
 	hleEatCycles(2020);
@@ -1259,9 +1279,8 @@ u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 	return 0;
 }
 
-u32 sceMpegRingbufferQueryPackNum(int memorySize)
-{
-	ERROR_LOG(ME, "sceMpegRingbufferQueryPackNum(%i)", memorySize);
+int sceMpegRingbufferQueryPackNum(u32 memorySize) {
+	DEBUG_LOG(ME, "sceMpegRingbufferQueryPackNum(%i)", memorySize);
 	int packets = memorySize / (2048 + 104);
 	return packets;
 }
@@ -1379,11 +1398,7 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
 {
 	DEBUG_LOG(ME, "sceMpegRingbufferDestruct(%08x)", ringbufferAddr);
-
-	auto ringbuffer = Memory::GetStruct<SceMpegRingBuffer>(ringbufferAddr);
-	ringbuffer->packetsFree = ringbuffer->packets;
-	ringbuffer->packetsRead = 0;
-	ringbuffer->packetsWritten = 0;
+	// Apparently, does nothing.
 	return 0;
 }
 
@@ -1611,7 +1626,7 @@ const HLEFunction sceMpeg[] =
 	{0xb240a59e,WrapU_UUU<sceMpegRingbufferPut>,"sceMpegRingbufferPut"},
 	{0xb5f6dc87,WrapI_U<sceMpegRingbufferAvailableSize>,"sceMpegRingbufferAvailableSize"},
 	{0xd7a29f46,WrapU_I<sceMpegRingbufferQueryMemSize>,"sceMpegRingbufferQueryMemSize"},
-	{0x769BEBB6,WrapU_I<sceMpegRingbufferQueryPackNum>,"sceMpegRingbufferQueryPackNum"},
+	{0x769BEBB6,WrapI_U<sceMpegRingbufferQueryPackNum>,"sceMpegRingbufferQueryPackNum"},
 	{0x211a057c,WrapI_UUUUU<sceMpegAvcQueryYCbCrSize>,"sceMpegAvcQueryYCbCrSize"},
 	{0xf0eb1125,WrapI_UUUU<sceMpegAvcDecodeYCbCr>,"sceMpegAvcDecodeYCbCr"},
 	{0xf2930c9c,WrapU_UUU<sceMpegAvcDecodeStopYCbCr>,"sceMpegAvcDecodeStopYCbCr"},
