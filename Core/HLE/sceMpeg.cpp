@@ -954,14 +954,14 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 
 	if (!ringbuffer.IsValid()) {
-		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x): invalid addresses", ringbufferAddr);
-		return -1;
+		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x): invalid ringbuffer, should crash", ringbufferAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 	if (!ctx) {
 		ERROR_LOG(ME, "sceMpegRingbufferAvailableSize(%08x): bad mpeg handle", ringbufferAddr);
-		return -1;
+		return ERROR_MPEG_NOT_YET_INIT;
 	}
 
 	hleEatCycles(2020);
