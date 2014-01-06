@@ -45,7 +45,7 @@ public:
 #if QT_VERSION < 0x50000
 		setAttribute(Qt::WA_LockLandscapeOrientation);
 #endif
-#if defined(USING_GLES2) || defined(MAEMO)
+#if defined(USING_GLES2) && !defined(MAEMO)
 		acc = new QAccelerometer(this);
 		acc->start();
 #endif
@@ -54,7 +54,7 @@ public:
 		startTimer(16);
 	}
 	~MainUI() {
-#if defined(USING_GLES2) || defined(MAEMO)
+#if defined(USING_GLES2) && !defined(MAEMO)
 		delete acc;
 #endif
 		NativeShutdownGraphics();

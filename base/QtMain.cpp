@@ -3,7 +3,7 @@
  *
  */
 // Qt 4.7+ / 5.0+ implementation of the framework.
-// Currently supports: Symbian, Blackberry, Meego, Linux, Windows, Mac OSX
+// Currently supports: Symbian, Blackberry, Maemo/Meego, Linux, Windows, Mac OSX
 
 #include <QApplication>
 #include <QUrl>
