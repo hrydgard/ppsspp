@@ -435,7 +435,8 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	int mpegHandle = dataPtr + 0x30;
 	Memory::Write_U32(mpegHandle, mpegAddr);
 
-	Memory::Memcpy(mpegHandle, "LIBMPEG.001", 12);
+	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8);
+	Memory::Memcpy(mpegHandle + 8, "001\0", 4);
 	Memory::Write_U32(-1, mpegHandle + 12);
 	if (ringbufferAddr){
 		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
