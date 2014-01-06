@@ -91,7 +91,17 @@ const char *getWaitTypeName(WaitType type)
 	return "Unknown";
 }
 
-	enum {
+enum ThreadEventType {
+	THREADEVENT_CREATE = 1,
+	THREADEVENT_START  = 2,
+	THREADEVENT_EXIT   = 4,
+	THREADEVENT_DELETE = 8,
+	THREADEVENT_SUPPORTED = THREADEVENT_CREATE | THREADEVENT_START | THREADEVENT_EXIT | THREADEVENT_DELETE,
+};
+
+void __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type);
+
+enum {
 	PSP_THREAD_ATTR_KERNEL       = 0x00001000,
 	PSP_THREAD_ATTR_VFPU         = 0x00004000,
 	PSP_THREAD_ATTR_SCRATCH_SRAM = 0x00008000, // Save/restore scratch as part of context???
@@ -632,6 +642,9 @@ u32 extendReturnHackAddr;
 u32 moduleReturnHackAddr;
 std::vector<ThreadCallback> threadEndListeners;
 
+typedef std::vector<SceUID> ThreadEventHandlerList;
+static std::map<SceUID, ThreadEventHandlerList> threadEventHandlers;
+
 // Lists all thread ids that aren't deleted/etc.
 std::vector<SceUID> threadqueue;
 
@@ -943,7 +956,7 @@ void __KernelThreadingInit()
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelThread", 1);
+	auto s = p.Section("sceKernelThread", 1, 2);
 	if (!s)
 		return;
 
@@ -978,6 +991,9 @@ void __KernelThreadingDoState(PointerWrap &p)
 
 	__SetCurrentThread(kernelObjects.GetFast<Thread>(currentThread), currentThread, __KernelGetThreadName(currentThread));
 	lastSwitchCycles = CoreTiming::GetTicks();
+
+	if (s >= 2)
+		p.Do(threadEventHandlers);
 }
 
 void __KernelThreadingDoStateLate(PointerWrap &p)
@@ -1146,6 +1162,7 @@ void __KernelThreadingShutdown()
 	__SetCurrentThread(NULL, 0, NULL);
 	intReturnHackAddr = 0;
 	pausedDelays.clear();
+	threadEventHandlers.clear();
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1633,6 +1650,9 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 		t->Cleanup();
 	}
 
+	// TODO: Thread should not be deleted yet...
+	__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE);
+
 	return kernelObjects.Destroy<Thread>(threadID);
 }
 
@@ -1940,6 +1960,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// This won't schedule to the new thread, but it may to one woken from eating cycles.
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
 	hleReSchedule("thread created");
+
+	__KernelThreadTriggerEvent((attr & PSP_THREAD_ATTR_KERNEL) != 0, id, THREADEVENT_CREATE);
 	return hleLogSuccessInfoI(SCEKERNEL, id);
 }
 
@@ -3472,13 +3494,6 @@ int LoadExecForUser_362A956B()
 }
 
 static const SceUID SCE_TE_THREADID_ALL_USER = 0xFFFFFFF0;
-enum {
-	THREADEVENT_CREATE = 1,
-	THREADEVENT_START  = 2,
-	THREADEVENT_EXIT   = 4,
-	THREADEVENT_DELETE = 8,
-	THREADEVENT_KNOWN = THREADEVENT_CREATE | THREADEVENT_START | THREADEVENT_EXIT | THREADEVENT_DELETE,
-};
 
 struct NativeThreadEventHandler {
 	u32 size;
@@ -3512,6 +3527,37 @@ KernelObject *__KernelThreadEventHandlerObject() {
 	return new ThreadEventHandler;
 }
 
+void __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID threadID, ThreadEventType type) {
+	for (auto it = handlers.begin(), end = handlers.end(); it != end; ++it) {
+		u32 error;
+		const auto teh = kernelObjects.Get<ThreadEventHandler>(*it, error);
+		if (!teh || (teh->nteh.mask & type) == 0) {
+			continue;
+		}
+
+		const u32 args[] = {(u32)type, (u32)threadID, teh->nteh.commonArg};
+		__KernelCallAddress(__GetCurrentThread(), teh->nteh.handlerPtr, nullptr, args, ARRAY_SIZE(args), true, 0);
+	}
+}
+
+void __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type) {
+	auto exactHandlers = threadEventHandlers.find(threadID);
+	if (exactHandlers != threadEventHandlers.end()) {
+		__KernelThreadTriggerEvent(exactHandlers->second, threadID, type);
+	}
+	if (isKernel) {
+		auto kernelHandlers = threadEventHandlers.find(SCE_TE_THREADID_ALL_USER);
+		if (kernelHandlers != threadEventHandlers.end()) {
+			__KernelThreadTriggerEvent(kernelHandlers->second, threadID, type);
+		}
+	} else {
+		auto userHandlers = threadEventHandlers.find(SCE_TE_THREADID_ALL_USER);
+		if (userHandlers != threadEventHandlers.end()) {
+			__KernelThreadTriggerEvent(userHandlers->second, threadID, type);
+		}
+	}
+}
+
 SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u32 mask, u32 handlerPtr, u32 commonArg) {
 	if (!name) {
 		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
@@ -3523,7 +3569,7 @@ SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u3
 	if (kernelObjects.Get<Thread>(threadID, error) == NULL && threadID != SCE_TE_THREADID_ALL_USER) {
 		return hleReportError(SCEKERNEL, error, "bad thread id");
 	}
-	if ((mask & ~THREADEVENT_KNOWN) != 0) {
+	if ((mask & ~THREADEVENT_SUPPORTED) != 0) {
 		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MASK, "invalid event mask");
 	}
 
@@ -3537,11 +3583,20 @@ SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u3
 	teh->nteh.commonArg = commonArg;
 
 	SceUID uid = kernelObjects.Create(teh);
+	threadEventHandlers[threadID].push_back(uid);
 
 	return hleLogSuccessI(SCEKERNEL, uid);
 }
 
 int sceKernelReleaseThreadEventHandler(SceUID uid) {
+	u32 error;
+	auto teh = kernelObjects.Get<ThreadEventHandler>(uid, error);
+	if (!teh) {
+		return hleReportError(SCEKERNEL, error, "bad handler id");
+	}
+
+	auto &handlers = threadEventHandlers[teh->nteh.threadID];
+	handlers.erase(std::remove(handlers.begin(), handlers.end(), uid), handlers.end());
 	return hleLogSuccessI(SCEKERNEL, kernelObjects.Destroy<ThreadEventHandler>(uid));
 }
 
