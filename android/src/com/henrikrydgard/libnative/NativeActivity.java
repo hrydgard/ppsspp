@@ -88,9 +88,6 @@ public class NativeActivity extends Activity {
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
 	
-	// Key used by shortcut creation.
-	public static final String SHORTCUT_EXTRA_KEY = "org.ppsspp.ppsspp.Shortcuts";
-   
 	// Easy way to flip it on and off from code.
 	private static final boolean useKitkatImmersiveMode = false;
 
@@ -103,6 +100,8 @@ public class NativeActivity extends Activity {
 	protected NativeRenderer nativeRenderer;
 	
 	boolean useOpenSL = false;
+	
+	private String shortcutParam = "";
 	
 	public static String runCommand;
 	public static String commandParameter;
@@ -173,6 +172,10 @@ public class NativeActivity extends Activity {
 		}
 	}
 	
+	public void setShortcutParam(String shortcutParam) {
+		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
+	}
+	
 	public void Initialize() {
 		
 		//initialise audio classes. Do this here since detectOptimalAudioSettings()
@@ -207,14 +210,6 @@ public class NativeActivity extends Activity {
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
 		
-		// Get shortcut parameter, in case app was launched from homescreen shortcut.
-		// We obtain shortcut parameter from Intent extra string.
-        // Intent extra will be null if we launch from normal app drawer.
-        String shortcutParam = getIntent().getStringExtra(SHORTCUT_EXTRA_KEY);
-        if(shortcutParam == null) {
-        	shortcutParam = new String("");
-        }
-
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
