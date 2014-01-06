@@ -876,11 +876,14 @@ void FramebufferManager::SetRenderFrameBuffer() {
 #else
 		if (doDepthCopy && gl_extensions.GLES3) {
 #endif
+
+#ifdef MAY_HAVE_GLES3
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(currentRenderVfb_->fbo);
 				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			}
+#endif
 		}
 
 		currentRenderVfb_ = vfb;
