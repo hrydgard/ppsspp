@@ -87,7 +87,7 @@ public class NativeActivity extends Activity {
 
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
-   
+	
 	// Easy way to flip it on and off from code.
 	private static final boolean useKitkatImmersiveMode = false;
 
@@ -100,6 +100,8 @@ public class NativeActivity extends Activity {
 	protected NativeRenderer nativeRenderer;
 	
 	boolean useOpenSL = false;
+	
+	private String shortcutParam = "";
 	
 	public static String runCommand;
 	public static String commandParameter;
@@ -170,6 +172,10 @@ public class NativeActivity extends Activity {
 		}
 	}
 	
+	public void setShortcutParam(String shortcutParam) {
+		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
+	}
+	
 	public void Initialize() {
 		
 		//initialise audio classes. Do this here since detectOptimalAudioSettings()
@@ -203,6 +209,7 @@ public class NativeActivity extends Activity {
 		    e.printStackTrace();
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
+		
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
@@ -230,7 +237,7 @@ public class NativeActivity extends Activity {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
 				
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL);
 	    Log.i(TAG, "Device: " + deviceType);     
 	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
 

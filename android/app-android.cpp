@@ -139,7 +139,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
+		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam, 
+		jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
 
 	ILOG("NativeApp.init() -- begin");
@@ -166,9 +167,11 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	std::string externalDir = GetJavaString(env, jexternalDir);
 	std::string user_data_path = GetJavaString(env, jdataDir) + "/";
 	library_path = GetJavaString(env, jlibraryDir) + "/";
+	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string installID = GetJavaString(env, jinstallID);
 
 	ILOG("NativeApp.init(): External storage path: %s", externalDir.c_str());
+	ILOG("NativeApp.init(): Launch shortcut parameter: %s", shortcut_param.c_str());
 
 	std::string app_name;
 	std::string app_nice_name;
@@ -181,8 +184,19 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 
-	const char *argv[2] = {app_name.c_str(), 0};
-	NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+
+	// If shortcut_param is not empty, pass it as additional varargs argument to NativeInit() method.
+	// NativeInit() is expected to treat extra argument as boot_filename, which in turn will start game immediately.
+	// NOTE: Will only work if ppsspp started from Activity.onCreate(). Won't work if ppsspp app start from onResume().
+
+	if(shortcut_param.empty()) {
+		const char *argv[2] = {app_name.c_str(), 0};
+		NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+	}
+	else {
+		const char *argv[3] = {app_name.c_str(), shortcut_param.c_str(), 0};
+		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+	}
 
 	use_opensl_audio = juseNativeAudio;
 	ILOG("NativeApp.init() -- end");
