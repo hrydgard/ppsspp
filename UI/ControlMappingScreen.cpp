@@ -264,6 +264,16 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 }
 
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+	// Ignore the accelerometer for mapping for now.
+	switch (axis.axisId) {
+	case JOYSTICK_AXIS_ACCELEROMETER_X:
+	case JOYSTICK_AXIS_ACCELEROMETER_Y:
+	case JOYSTICK_AXIS_ACCELEROMETER_Z:
+		return;
+	default:
+		;
+	}
+
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
 		screenManager()->finishDialog(this, DR_OK);
