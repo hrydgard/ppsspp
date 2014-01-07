@@ -1,0 +1,282 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{457F45D2-556F-47BC-A31D-AFF0D15BEAED}</ProjectGuid>
+    <RootNamespace>GPU</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>..\dx9sdk\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;$(WindowsSDK_LibraryPath_x86)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>..\dx9sdk\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x64;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>..\dx9sdk\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x64;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>..\dx9sdk\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <OmitFramePointers>false</OmitFramePointers>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>false</OmitFramePointers>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="Common\GPUDebugInterface.h" />
+    <ClInclude Include="Common\IndexGenerator.h" />
+    <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Common\SplineCommon.h" />
+    <ClInclude Include="Common\TextureDecoderNEON.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="Common\VertexDecoderCommon.h" />
+    <ClInclude Include="Debugger\Breakpoints.h" />
+    <ClInclude Include="Debugger\Stepping.h" />
+    <ClInclude Include="Directx9\GPU_DX9.h" />
+    <ClInclude Include="Directx9\helper\dx_state.h" />
+    <ClInclude Include="Directx9\helper\fbo.h" />
+    <ClInclude Include="Directx9\helper\global.h" />
+    <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h" />
+    <ClInclude Include="Directx9\FramebufferDX9.h" />
+    <ClInclude Include="Directx9\ShaderManagerDX9.h" />
+    <ClInclude Include="Directx9\StateMappingDX9.h" />
+    <ClInclude Include="Directx9\TextureCacheDX9.h" />
+    <ClInclude Include="Directx9\TextureScalerDX9.h" />
+    <ClInclude Include="Directx9\TransformPipelineDX9.h" />
+    <ClInclude Include="Directx9\VertexDecoderDX9.h" />
+    <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h" />
+    <ClInclude Include="ge_constants.h" />
+    <ClInclude Include="GeDisasm.h" />
+    <ClInclude Include="GLES\FragmentShaderGenerator.h" />
+    <ClInclude Include="GLES\Framebuffer.h" />
+    <ClInclude Include="GLES\GLES_GPU.h" />
+    <ClInclude Include="GLES\ShaderManager.h" />
+    <ClInclude Include="GLES\StateMapping.h" />
+    <ClInclude Include="GLES\TextureCache.h" />
+    <ClInclude Include="GLES\TextureScaler.h" />
+    <ClInclude Include="GLES\TransformPipeline.h" />
+    <ClInclude Include="GLES\VertexDecoder.h" />
+    <ClInclude Include="GLES\VertexShaderGenerator.h" />
+    <ClInclude Include="GPUCommon.h" />
+    <ClInclude Include="GPUInterface.h" />
+    <ClInclude Include="GPUState.h" />
+    <ClInclude Include="Math3D.h" />
+    <ClInclude Include="Null\NullGpu.h" />
+    <ClInclude Include="Software\Clipper.h" />
+    <ClInclude Include="Software\Colors.h" />
+    <ClInclude Include="Software\Lighting.h" />
+    <ClInclude Include="Software\Rasterizer.h" />
+    <ClInclude Include="Software\SoftGpu.h" />
+    <ClInclude Include="Software\TransformUnit.h" />
+    <ClInclude Include="Common\TextureDecoder.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="Common\IndexGenerator.cpp" />
+    <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\TextureDecoderNEON.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\Stepping.cpp" />
+    <ClCompile Include="Directx9\GPU_DX9.cpp" />
+    <ClCompile Include="Directx9\helper\dx_state.cpp" />
+    <ClCompile Include="Directx9\helper\fbo.cpp" />
+    <ClCompile Include="Directx9\helper\global.cpp" />
+    <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp" />
+    <ClCompile Include="Directx9\FramebufferDX9.cpp" />
+    <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
+    <ClCompile Include="Directx9\SplineDX9.cpp" />
+    <ClCompile Include="Directx9\StateMappingDX9.cpp" />
+    <ClCompile Include="Directx9\TextureCacheDX9.cpp" />
+    <ClCompile Include="Directx9\TextureScalerDX9.cpp" />
+    <ClCompile Include="Directx9\TransformPipelineDX9.cpp" />
+    <ClCompile Include="Directx9\VertexDecoderDX9.cpp" />
+    <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
+    <ClCompile Include="GeDisasm.cpp" />
+    <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
+    <ClCompile Include="GLES\Framebuffer.cpp" />
+    <ClCompile Include="GLES\GLES_GPU.cpp" />
+    <ClCompile Include="GLES\ShaderManager.cpp" />
+    <ClCompile Include="GLES\Spline.cpp" />
+    <ClCompile Include="GLES\StateMapping.cpp" />
+    <ClCompile Include="GLES\TextureCache.cpp" />
+    <ClCompile Include="GLES\TextureScaler.cpp" />
+    <ClCompile Include="GLES\SoftwareTransform.cpp" />
+    <ClCompile Include="GLES\TransformPipeline.cpp" />
+    <ClCompile Include="GLES\VertexDecoder.cpp" />
+    <ClCompile Include="GLES\VertexDecoderArm.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="GLES\VertexDecoderX86.cpp" />
+    <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
+    <ClCompile Include="GPUCommon.cpp" />
+    <ClCompile Include="GPUState.cpp" />
+    <ClCompile Include="Math3D.cpp" />
+    <ClCompile Include="Null\NullGpu.cpp" />
+    <ClCompile Include="Software\Clipper.cpp" />
+    <ClCompile Include="Software\Lighting.cpp" />
+    <ClCompile Include="Software\Rasterizer.cpp" />
+    <ClCompile Include="Software\SoftGpu.cpp" />
+    <ClCompile Include="Software\TransformUnit.cpp" />
+    <ClCompile Include="Common\TextureDecoder.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common_vc2013.vcxproj">
+      <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CMakeLists.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
