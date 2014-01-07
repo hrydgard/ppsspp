@@ -868,7 +868,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			currentRenderVfb_ != NULL &&
 			currentRenderVfb_->fbo != NULL &&
 			MaskedEqual(currentRenderVfb_->z_address, vfb->z_address) &&
-			currentRenderVfb_->renderWidth == vfb->renderWidth &&
+			currentRenderVfb_->fb_stride == vfb->fb_stride &&
 			currentRenderVfb_->renderHeight == vfb->renderHeight;
 
 #ifndef USING_GLES2
@@ -881,7 +881,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(currentRenderVfb_->fbo);
-				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				glBlitFramebuffer(0, 0, currentRenderVfb_->fb_stride, currentRenderVfb_->renderHeight, 0, 0, vfb->fb_stride, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			}
 #endif
 		}
