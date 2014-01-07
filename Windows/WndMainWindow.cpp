@@ -1582,6 +1582,7 @@ namespace MainWindow
 					} else if (raw->data.keyboard.Message == WM_KEYUP) {
 						key.flags = KEY_UP;
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+
 						if (key.keyCode) {
 							NativeKey(key);
 
