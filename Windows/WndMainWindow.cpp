@@ -1229,11 +1229,7 @@ namespace MainWindow
 
 				case ID_FILE_SAVESTATE_NEXT_SLOT:
 				{
-					I18NCategory *sy = GetI18NCategory("System");
-					g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
-					char msg[30];
-					sprintf(msg, "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
-					osm.Show(msg);
+					SaveState::NextSlot();
 					break;
 				}
 
