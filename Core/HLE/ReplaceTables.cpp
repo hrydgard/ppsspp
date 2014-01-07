@@ -361,14 +361,20 @@ static const ReplacementTableEntry entries[] = {
 
 	{ "sinf", &Replace_sinf, 0, 0},
 	{ "cosf", &Replace_cosf, 0, 0},
+
 	{ "tanf", &Replace_tanf, 0, 0},
+
+	/*  These two collide (same hash) and thus can't be replaced :/
 	{ "asinf", &Replace_asinf, 0, 0},
 	{ "acosf", &Replace_acosf, 0, 0},
+	*/
+
 	{ "atanf", &Replace_atanf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
 	{ "atan2f", &Replace_atan2f, 0, 0},
 	{ "floorf", &Replace_floorf, 0, 0},
 	{ "ceilf", &Replace_ceilf, 0, 0},
+
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memcpy16", &Replace_memcpy16, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
@@ -378,9 +384,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
-	
+
 	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
-	
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
 	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, 0},
