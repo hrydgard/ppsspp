@@ -262,6 +262,7 @@ void GameSettingsScreen::CreateViews() {
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 #if defined(_WIN32) && !defined(USING_QT_UI)
+	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, c->T("Ignore Windows Key")));
 #endif
 

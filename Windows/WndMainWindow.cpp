@@ -603,6 +603,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_LANGUAGE);
 		TranslateMenuItem(ID_OPTIONS_TOPMOST);
 		TranslateMenuItem(ID_OPTIONS_PAUSE_FOCUS);
+		TranslateMenuItem(ID_OPTIONS_IGNOREWINKEY);
 		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(ID_OPTIONS_CONTROLS);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
@@ -1283,6 +1284,10 @@ namespace MainWindow
 					NativeMessageReceived("language screen", "");
 					break;
 
+				case ID_OPTIONS_IGNOREWINKEY:
+					g_Config.bIgnoreWindowsKey = !g_Config.bIgnoreWindowsKey;
+					break;
+
 				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(RESOLUTION_AUTO); break;
 				case ID_OPTIONS_SCREEN1X:   SetInternalResolution(RESOLUTION_NATIVE); break;
 				case ID_OPTIONS_SCREEN2X:   SetInternalResolution(RESOLUTION_2X); break;
@@ -1750,6 +1755,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
+		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 
 		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,
