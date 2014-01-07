@@ -747,6 +747,8 @@ namespace MainWindow
 		windowTitle = title;
 	}
 
+	// Taken from http://msdn.microsoft.com/en-us/library/windows/desktop/ee416808%28v=vs.85%29.aspx and adapted
+	// to our coding style.
 	LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		if (nCode < 0 || nCode != HC_ACTION)
 			return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
