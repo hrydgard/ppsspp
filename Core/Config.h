@@ -60,6 +60,7 @@ public:
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
+	bool bIgnoreWindowsKey;
 #endif
 	// Core
 	bool bIgnoreBadMemAccess;

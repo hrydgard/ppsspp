@@ -288,7 +288,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
 	control->Get("ShowTouchDpad", &bShowTouchDpad, true);
 	control->Get("ShowTouchUnthrottle", &bShowTouchUnthrottle, true);
-
+#if defined(_WIN32) && !defined(USING_QT_UI)
+	control->Get("IgnoreWindowsKey", &bIgnoreWindowsKey, false);
+#endif
 #if defined(USING_GLES2)
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (KeyMap::HasBuiltinController(name)) {
@@ -626,6 +628,9 @@ void Config::Save() {
 		control->Set("AnalogStickY", fAnalogStickY);
 		control->Set("AnalogStickScale", fAnalogStickScale);
 		control->Delete("DPadRadius");
+#if defined(_WIN32) && !defined(USING_QT_UI)
+		control->Set("IgnoreWindowsKey", bIgnoreWindowsKey);
+#endif
 
 		IniFile::Section *network = iniFile.GetOrCreateSection("Network");
 		network->Set("EnableWlan", bEnableWlan);

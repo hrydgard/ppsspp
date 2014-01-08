@@ -104,6 +104,8 @@ static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
 extern InputState input_state;
 static std::set<int> keyboardKeysDown;
+static HHOOK g_keyboardHook;
+static bool g_IsWindowActive;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -601,6 +603,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_LANGUAGE);
 		TranslateMenuItem(ID_OPTIONS_TOPMOST);
 		TranslateMenuItem(ID_OPTIONS_PAUSE_FOCUS);
+		TranslateMenuItem(ID_OPTIONS_IGNOREWINKEY);
 		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(ID_OPTIONS_CONTROLS);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
@@ -745,9 +748,31 @@ namespace MainWindow
 		windowTitle = title;
 	}
 
+	// Taken from http://msdn.microsoft.com/en-us/library/windows/desktop/ee416808%28v=vs.85%29.aspx and adapted
+	// to our coding style.
+	LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+		if (nCode < 0 || nCode != HC_ACTION)
+			return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
+
+		bool eatKeystroke = false;
+		KBDLLHOOKSTRUCT *keyboardInfo = (KBDLLHOOKSTRUCT *)lParam;
+
+		switch (wParam)	{
+		case WM_KEYDOWN:
+		case WM_KEYUP:
+			eatKeystroke = (g_Config.bIgnoreWindowsKey && g_IsWindowActive && (keyboardInfo->vkCode == VK_LWIN || keyboardInfo->vkCode == VK_RWIN));
+			break;
+		}
+
+		if (eatKeystroke)
+			return 1;
+		else
+			return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
+	}
+
 	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
 		hInst = hInstance; // Store instance handle in our global variable.
-
+		g_keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
 		RECT rc = DetermineWindowRectangle();
 
 		u32 style = WS_OVERLAPPEDWINDOW;
@@ -804,7 +829,7 @@ namespace MainWindow
 
 		dev[0].usUsagePage = 1;
 		dev[0].usUsage = 6;
-		dev[0].dwFlags = 0;
+		dev[0].dwFlags = RIDEV_NOHOTKEYS;
 
 		dev[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
 		dev[1].usUsage = HID_USAGE_GENERIC_MOUSE;
@@ -906,6 +931,7 @@ namespace MainWindow
 		case WM_ACTIVATE:
 			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 				g_activeWindow = WINDOW_MAINWINDOW;
+				g_IsWindowActive = true;
 			}
 			break;
 
@@ -1073,6 +1099,7 @@ namespace MainWindow
 				bool pause = true;
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					g_activeWindow = WINDOW_MAINWINDOW;
+					g_IsWindowActive = true;
 					pause = false;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && globalUIState == UISTATE_INGAME) {
@@ -1089,7 +1116,7 @@ namespace MainWindow
 					KeyInput key;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					key.flags = KEY_UP;
-
+					g_IsWindowActive = false;
 					for (auto i = keyboardKeysDown.begin(); i != keyboardKeysDown.end(); ++i) {
 						key.keyCode = *i;
 						NativeKey(key);
@@ -1251,6 +1278,10 @@ namespace MainWindow
 
 				case ID_OPTIONS_LANGUAGE:
 					NativeMessageReceived("language screen", "");
+					break;
+
+				case ID_OPTIONS_IGNOREWINKEY:
+					g_Config.bIgnoreWindowsKey = !g_Config.bIgnoreWindowsKey;
 					break;
 
 				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(RESOLUTION_AUTO); break;
@@ -1544,6 +1575,7 @@ namespace MainWindow
 					if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
 						key.flags = KEY_DOWN;
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+
 						if (key.keyCode) {
 							NativeKey(key);
 							keyboardKeysDown.insert(key.keyCode);
@@ -1551,6 +1583,7 @@ namespace MainWindow
 					} else if (raw->data.keyboard.Message == WM_KEYUP) {
 						key.flags = KEY_UP;
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+
 						if (key.keyCode) {
 							NativeKey(key);
 
@@ -1645,6 +1678,7 @@ namespace MainWindow
 		case WM_DESTROY:
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+			UnhookWindowsHookEx(g_keyboardHook);
 			PostQuitMessage(0);
 			break;
 
@@ -1717,6 +1751,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
+		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 
 		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,

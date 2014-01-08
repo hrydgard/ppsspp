@@ -261,6 +261,11 @@ void GameSettingsScreen::CreateViews() {
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+#if defined(_WIN32) && !defined(USING_QT_UI)
+	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
+	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, c->T("Ignore Windows Key")));
+#endif
+
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
