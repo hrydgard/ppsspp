@@ -29,6 +29,8 @@ namespace SaveState
 
 	void Init();
 
+	// Cycle through the 5 savestate slots
+	void NextSlot();
 	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
 	// Checks whether there's an existing save in the specified slot.
