@@ -347,7 +347,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		{
 			vag.GetSamples(output, numSamples);
 			if (vag.End()) {
-				// NOTICE_LOG(SAS, "Hit end of VAG audio");
+				// Hit end of VAG audio
 				playing = false;
 				on = false;  // ??
 			}
@@ -375,7 +375,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		{
 			int ret = atrac3.getNextSamples(output, numSamples);
 			if (ret) {
-				// Hit atrac3 voice end
+				// Hit end of Atrac3 audio
 				playing = false;
 				on = false;  // ??
 			}
@@ -594,7 +594,8 @@ void SasVoice::KeyOff() {
 void SasVoice::ChangedParams(bool changedVag) {
 	if (!playing && on) {
 		playing = true;
-		if (changedVag)
+		on = false;
+		if (changedVag && Memory::IsValidAddress(vagAddr))
 			vag.Start(vagAddr, vagSize, loop);
 	}
 	// TODO: restart VAG somehow
