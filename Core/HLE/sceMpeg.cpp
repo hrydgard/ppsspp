@@ -235,7 +235,8 @@ static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int si
 	buf->dataUpperBound = data + packets * 2048;
 	buf->semaID = 0;
 	buf->mpeg = 0;
-	buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
+	// TODO: This appears in tests, but may not be in all versions.
+	//buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
 }
 
 u32 convertTimestampToDate(u32 ts) {
