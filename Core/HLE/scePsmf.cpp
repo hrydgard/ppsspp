@@ -764,7 +764,7 @@ u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	DEBUG_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, epid, entryAddr);
-	if (epid < 0 || epid > (int)psmf->EPMap.size()) {
+	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		// TODO: Just a guess.
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
@@ -787,7 +787,7 @@ u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 	}
 
 	int epid = psmf->FindEPWithTimestamp(ts);
-	if (epid < 0 || epid > (int)psmf->EPMap.size()) {
+	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		// TODO: Just a guess.
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
@@ -811,14 +811,14 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 	}
 
 	int epid = psmf->FindEPWithTimestamp(ts);
-	if (epid < 0 || epid > (int)psmf->EPMap.size()) {
+	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		// TODO: Just a guess.
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
 	return epid;
 }
 
-int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr) 
+int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 {
 	WARN_LOG(ME, "scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, psmfPlayerDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -829,8 +829,8 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 	}
 
 	if (Memory::IsValidAddress(psmfPlayerDataAddr)) {
-		psmfplayer->displayBuffer = Memory::Read_U32(psmfPlayerDataAddr);          
-		psmfplayer->displayBufferSize = Memory::Read_U32(psmfPlayerDataAddr + 4);     
+		psmfplayer->displayBuffer = Memory::Read_U32(psmfPlayerDataAddr);
+		psmfplayer->displayBufferSize = Memory::Read_U32(psmfPlayerDataAddr + 4);
 		psmfplayer->playbackThreadPriority = Memory::Read_U32(psmfPlayerDataAddr + 8);
 	}
 
@@ -839,7 +839,7 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 	return 0;
 }
 
-int scePsmfPlayerStop(u32 psmfPlayer) 
+int scePsmfPlayerStop(u32 psmfPlayer)
 {
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -848,7 +848,7 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 	return 0;
 }
 
-int scePsmfPlayerBreak(u32 psmfPlayer) 
+int scePsmfPlayerBreak(u32 psmfPlayer)
 {
 	ERROR_LOG(ME, "UNIMPL scePsmfPlayerBreak(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
