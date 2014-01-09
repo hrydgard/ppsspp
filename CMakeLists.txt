@@ -58,6 +58,10 @@ if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
 
+if(NOT DEFINED UNITTEST)
+	set(UNITTEST ON)
+endif()
+
 # User-editable options (go into CMakeCache.txt)
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
@@ -70,6 +74,7 @@ option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+option(UNITTEST "Set to OFF to not generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
@@ -1361,6 +1366,15 @@ if(HEADLESS)
 	target_link_libraries(PPSSPPHeadless
 		${COCOA_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
+endif()
+
+if(UNITTEST)
+	add_executable(unitTest
+		unittest/UnitTest.cpp
+	)
+	target_link_libraries(unitTest
+		${COCOA_LIBRARY} ${LinkCommon})
+	setup_target_project(unitTest unittest)
 endif()
 
 if (TargetBin)
