@@ -19,6 +19,7 @@
 #include "base/timeutil.h"
 #include "math/curves.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -162,8 +163,6 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
 
-	// In case we're going to add few other antialiasing option like MSAA in the future.
-	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
 	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x","4x", "5x"};
@@ -182,10 +181,12 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
-	// Maybe hide this on non-PVR?
-	graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
+	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
+		graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
+#ifdef USING_GLES2
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
+#endif	
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
 	if (PSP_IsInited())
 		prescale->SetEnabled(false);
