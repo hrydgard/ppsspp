@@ -1073,7 +1073,6 @@ namespace MainWindow
 				bool pause = true;
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					g_activeWindow = WINDOW_MAINWINDOW;
-					g_IsWindowActive = true;
 					pause = false;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && globalUIState == UISTATE_INGAME) {
