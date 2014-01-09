@@ -766,7 +766,7 @@ u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 	DEBUG_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, epid, entryAddr);
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		// TODO: Just a guess.
-		return ERROR_PSMF_INVALID_TIMESTAMP;
+		return ERROR_PSMF_INVALID_ID;
 	}
 	if (Memory::IsValidAddress(entryAddr)) {
 		Memory::WriteStruct(entryAddr, &psmf->EPMap[epid]);
@@ -789,7 +789,7 @@ u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 	int epid = psmf->FindEPWithTimestamp(ts);
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		// TODO: Just a guess.
-		return ERROR_PSMF_INVALID_TIMESTAMP;
+		return ERROR_PSMF_INVALID_ID;
 	}
 
 	if (Memory::IsValidAddress(entryAddr)) {
@@ -813,7 +813,7 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 	int epid = psmf->FindEPWithTimestamp(ts);
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		// TODO: Just a guess.
-		return ERROR_PSMF_INVALID_TIMESTAMP;
+		return ERROR_PSMF_INVALID_ID;
 	}
 	return epid;
 }
