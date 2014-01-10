@@ -19,6 +19,7 @@ void register_gl_resource_holder(GfxResourceHolder *holder) {
 		WLOG("GL resource holder not initialized, cannot register resource");
 	}
 }
+
 void unregister_gl_resource_holder(GfxResourceHolder *holder) {
 	if (inLost) {
 		FLOG("BAD: Should not call unregister_gl_resource_holder from lost path");
@@ -44,9 +45,11 @@ void gl_lost() {
 		inLost = false;
 		return;
 	}
+
+	// TODO: We should really do this when we get the context back, not during gl_lost...
 	ILOG("gl_lost() restoring %i items:", (int)holders->size());
 	for (size_t i = 0; i < holders->size(); i++) {
-		ILOG("GLLost(%i / %i, %p)", (int) i, (int) holders->size(), (*holders)[i]);
+		ILOG("GLLost(%i / %i, %p)", (int)(i + 1), (int) holders->size(), (*holders)[i]);
 		(*holders)[i]->GLLost();
 	}
 	ILOG("gl_lost() completed restoring %i items:", (int)holders->size());
