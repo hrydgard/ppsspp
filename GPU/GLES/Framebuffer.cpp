@@ -879,6 +879,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 #ifdef MAY_HAVE_GLES3
 			// Let's only do this if not clearing.
+			// Note : It is a hack to improve performance in general case .Exclude throughmode is used for the 
+			// intermittent sprite missing in Star Wars Force Unleashed
 			if (!gstate.isClearModeDepthMask() && gstate.isModeThrough()) {
 				fbo_bind_for_read(currentRenderVfb_->fbo);
 				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
