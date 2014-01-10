@@ -1,6 +1,8 @@
 #pragma once
 
 // RIFF file format reader/writer. Very old code, basically a total mess but it still works.
+// Has nothing to do with the ChunkFile.h used in Dolphin or PPSSPP.
+// LAMEFile should be removed.
 
 // TO REMEMBER WHEN USING:
 
