@@ -750,9 +750,15 @@ u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct)
 	return psmf->currentStreamNum;
 }
 
-u32 scePsmfCheckEPMap(u32 psmfPlayer) 
+u32 scePsmfCheckEPMap(u32 psmfStruct) 
 {
-	INFO_LOG(ME, "scePsmfCheckEPMap(%08x)", psmfPlayer);
+	Psmf *psmf = getPsmf(psmfStruct);
+	if (!psmf) {
+		ERROR_LOG(ME, "scePsmfCheckEPMap(%08x): invalid psmf", psmfStruct);
+		return ERROR_PSMF_NOT_FOUND;
+	}
+
+	DEBUG_LOG(ME, "scePsmfCheckEPMap(%08x)", psmfStruct);
 	return 0;  // Should be okay according to JPCSP
 }
 
@@ -810,6 +816,11 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 	}
 	DEBUG_LOG(ME, "scePsmfGetEPidWithTimestamp(%08x, %i)", psmfStruct, ts);
 
+	if (psmf->EPMap.empty()) {
+		ERROR_LOG(ME, "scePsmfGetEPidWithTimestamp(%08x): EPMap is empty", psmfStruct);
+		return ERROR_PSMF_NOT_FOUND;
+	}
+
 	if (ts < psmf->presentationStartTime) {
 		ERROR_LOG(ME, "scePsmfGetEPidWithTimestamp(%08x, %i): invalid timestamp", psmfStruct, ts);
 		return ERROR_PSMF_INVALID_TIMESTAMP;
@@ -820,6 +831,7 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 		ERROR_LOG(ME, "scePsmfGetEPidWithTimestamp(%08x, %i): invalid id", psmfStruct, epid);
 		return ERROR_PSMF_INVALID_ID;
 	}
+
 	return epid;
 }
 
