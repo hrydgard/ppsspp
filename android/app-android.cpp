@@ -10,9 +10,11 @@
 #include <stdint.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <queue>
 
 #include "base/basictypes.h"
 #include "base/display.h"
+#include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
@@ -28,8 +30,16 @@
 
 static JNIEnv *jniEnvUI;
 
-std::string frameCommand;
-std::string frameCommandParam;
+struct FrameCommand {
+	FrameCommand() {}
+	FrameCommand(std::string cmd, std::string prm) : command(cmd), params(prm) {}
+
+	std::string command;
+	std::string params;
+};
+
+recursive_mutex frameCommandLock;
+std::queue<FrameCommand> frameCommands;
 
 std::string systemName;
 std::string langRegion;
@@ -48,40 +58,40 @@ int optimalSampleRate = 0;
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
-	frameCommand = "toast";
-	frameCommandParam = text;
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand("toast", text));
 }
 
 void ShowKeyboard() {
-	frameCommand = "showKeyboard";
-	frameCommandParam = "";
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand("showKeyboard", ""));
 }
 
 void Vibrate(int length_ms) {
-	frameCommand = "vibrate";
+	lock_guard guard(frameCommandLock);
 	char temp[32];
 	sprintf(temp, "%i", length_ms);
-	frameCommandParam = temp;
+	frameCommands.push(FrameCommand("vibrate", temp));
 }
 
 void LaunchBrowser(const char *url) {
-	frameCommand = "launchBrowser";
-	frameCommandParam = url;
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand("launchBrowser", url));
 }
 
 void LaunchMarket(const char *url) {
-	frameCommand = "launchMarket";
-	frameCommandParam = url;
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand("launchMarket", url));
 }
 
 void LaunchEmail(const char *email_address) {
-	frameCommand = "launchEmail";
-	frameCommandParam = email_address;
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand("launchEmail", email_address));
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	frameCommand = command;
-	frameCommandParam = parameter;
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand(command, parameter));
 }
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -285,8 +295,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JN
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
-	// Too spammy
-	// ILOG("NativeApp.displayRender()");
 	if (renderer_inited) {
 		// TODO: Look into if these locks are a perf loss
 		{
@@ -317,15 +325,19 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 
-	if (!frameCommand.empty()) {
-		DLOG("frameCommand %s %s", frameCommand.c_str(), frameCommandParam.c_str());
+	while (!frameCommands.empty()) {
+		FrameCommand frameCmd;
+		{
+			lock_guard guard(frameCommandLock);
+			frameCmd = frameCommands.front();
+			frameCommands.pop();
+		}
 
-		jstring cmd = env->NewStringUTF(frameCommand.c_str());
-		jstring param = env->NewStringUTF(frameCommandParam.c_str());
+		DLOG("frameCommand %s %s", cmd.command.c_str(), frameCmd.params.c_str());
+
+		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
+		jstring param = env->NewStringUTF(frameCmd.params.c_str());
 		env->CallVoidMethod(obj, postCommand, cmd, param);
-
-		frameCommand = "";
-		frameCommandParam = "";
 	}
 }
 
@@ -486,7 +498,6 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
-	jboolean isCopy;
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());

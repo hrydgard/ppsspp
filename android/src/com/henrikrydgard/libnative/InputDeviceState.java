@@ -37,6 +37,8 @@ public class InputDeviceState {
 	               mAxes[i++] = range.getAxis();
 	          }
 	     }
+	     
+	     Log.i(TAG, "Registering input device with " + numAxes + " axes: " + device.getName());
 	}
 	
 	public static float ProcessAxis(InputDevice.MotionRange range, float axisvalue) {
