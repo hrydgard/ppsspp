@@ -631,6 +631,25 @@ struct ThreadQueueList
 		}
 	}
 
+	// Only for debugging, returns priority level.
+	int contains(const SceUID uid)
+	{
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			if (queues[i].data == NULL)
+				continue;
+
+			Queue *cur = &queues[i];
+			for (int j = cur->first; j < cur->end; ++j)
+			{
+				if (cur->data[j] == uid)
+					return i;
+			}
+		}
+
+		return -1;
+	}
+
 	inline SceUID pop_first()
 	{
 		Queue *cur = first;
@@ -2423,10 +2442,11 @@ int sceKernelTerminateThread(SceUID threadID)
 		}
 
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateThread(%i)", threadID);
-		// On terminate, we reset the thread priority.  On exit, we don't always (see __KernelResetThread.)
-		t->nt.currentPriority = t->nt.initialPriority;
 		// TODO: Should this reschedule?  Seems like not.
 		__KernelStopThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated");
+
+		// On terminate, we reset the thread priority.  On exit, we don't always (see __KernelResetThread.)
+		t->nt.currentPriority = t->nt.initialPriority;
 
 		return 0;
 	}
