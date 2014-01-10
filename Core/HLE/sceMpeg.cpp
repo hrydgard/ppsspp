@@ -1173,6 +1173,12 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 		result = PSP_ERROR_MPEG_NO_DATA;
 	}
+
+	if (ctx->mediaengine->IsNoAudioData()) {
+		INFO_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
+		result = PSP_ERROR_MPEG_NO_DATA;
+	}
+
 	sceAu.write(auAddr);
 
 	// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error 
