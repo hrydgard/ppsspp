@@ -879,7 +879,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 #ifdef MAY_HAVE_GLES3
 			// Let's only do this if not clearing.
-			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+			if (!gstate.isClearModeDepthMask() && gstate.isModeThrough()) {
 				fbo_bind_for_read(currentRenderVfb_->fbo);
 				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			}
