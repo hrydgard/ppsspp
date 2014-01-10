@@ -259,6 +259,8 @@ void RegisterAllModules() {
 	Register_ThreadManForUser();
 	Register_ThreadManForKernel();
 	Register_LoadExecForUser();
+	Register_LoadExecForKernel();
+	Register_SysMemForKernel();
 	Register_UtilsForKernel();
 	Register_SysMemUserForUser();
 	Register_InterruptManager();
