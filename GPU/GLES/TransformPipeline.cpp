@@ -123,8 +123,8 @@ TransformDrawEngine::TransformDrawEngine()
 		framebufferManager_(0),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
-		uvScale(0),
-		decodeCounter_(0) {
+		decodeCounter_(0),
+		uvScale(0) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.

@@ -15,7 +15,7 @@ const std::string storeBaseUrl = "http://store.ppsspp.org/";
 class ProductItemView : public UI::Choice {
 public:
 	ProductItemView(const StoreEntry &entry, UI::LayoutParams *layoutParams = 0)
-		: entry_(entry), UI::Choice(entry.name, layoutParams) {}
+		: UI::Choice(entry.name, layoutParams), entry_(entry) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = 300;

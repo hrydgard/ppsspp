@@ -52,10 +52,10 @@ namespace MIPSComp {
 		};
 
 		JitState()
-			: prefixSFlag(PREFIX_UNKNOWN),
+			: startDefaultPrefix(true),
+			prefixSFlag(PREFIX_UNKNOWN),
 			prefixTFlag(PREFIX_UNKNOWN),
-			prefixDFlag(PREFIX_UNKNOWN),
-			startDefaultPrefix(true) {}
+			prefixDFlag(PREFIX_UNKNOWN) {}
 
 		u32 compilerPC;
 		u32 blockStart;

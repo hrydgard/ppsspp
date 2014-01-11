@@ -45,8 +45,9 @@ enum GameRegion {
 class GameInfo {
 public:
 	GameInfo()
-		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
-			wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0), disc_total(0), disc_number(0), region(-1) {}
+		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
+		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantBG(false),
+		  gameSize(0), saveDataSize(0), installDataSize(0) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();

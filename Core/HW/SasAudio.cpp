@@ -728,12 +728,12 @@ ADSREnvelope::ADSREnvelope()
 		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		sustainLevel(0x100),
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		rate_(0),
+		type_(0),
+		invDuration_(0),
 		state_(STATE_OFF),
 		steps_(0),
-		height_(0),
-		type_(0),
-		rate_(0),
-		invDuration_(0) {
+		height_(0) {
 }
 
 void ADSREnvelope::WalkCurve(int type) {
