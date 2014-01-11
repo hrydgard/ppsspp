@@ -139,7 +139,7 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_demux = 0;
 	m_audioContext = 0;
 	m_isVideoEnd = false;
-	m_noAudioData = false;
+	m_isAudioEnd = false;
 	m_bufSize = 0x2000;
 	m_mpegheaderReadPos = 0;
 	m_decodingsize = 0;
@@ -161,7 +161,7 @@ void MediaEngine::closeMedia() {
 	m_demux = 0;
 	AT3Close(&m_audioContext);
 	m_isVideoEnd = false;
-	m_noAudioData = false;
+	m_isAudioEnd = false;
 }
 
 void MediaEngine::DoState(PointerWrap &p){
@@ -202,7 +202,7 @@ void MediaEngine::DoState(PointerWrap &p){
 	}
 
 	p.Do(m_isVideoEnd);
-	p.Do(m_noAudioData);
+	p.Do(m_isAudioEnd);
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
@@ -272,7 +272,7 @@ bool MediaEngine::openContext() {
 	setVideoDim();
 	m_audioContext = AT3Create();
 	m_isVideoEnd = false;
-	m_noAudioData = false;
+	m_isAudioEnd = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
 #endif // USE_FFMPEG
@@ -330,7 +330,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 		if (!m_pdata->push(buffer, size)) 
 			size  = 0;
 		if (m_demux) {
-			m_noAudioData = false;
+			m_isAudioEnd = false;
 			m_demux->addStreamData(buffer, addSize);
 		}
 #ifdef USE_FFMPEG
@@ -710,7 +710,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int headerCode1, headerCode2;
 	int frameSize = m_demux->getNextaudioFrame(&audioFrame, &headerCode1, &headerCode2);
 	if (frameSize == 0) {
-		m_noAudioData = true;
+		m_isAudioEnd = true;
 		return 0;
 	}
 	int outbytes = 0;
@@ -732,7 +732,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		}
 	}
 	m_audiopts += 4180;
-	m_noAudioData = false;
+	m_isAudioEnd = false;
 	return 0x2000;
 }
 
