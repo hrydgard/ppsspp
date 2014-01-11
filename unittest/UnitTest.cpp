@@ -35,6 +35,7 @@
 #include "ext/disarm.h"
 #include "math/math_util.h"
 #include "util/text/parsers.h"
+#include "Core/Config.h"
 
 #define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
 #define EXPECT_FALSE(a) if ((a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
@@ -314,6 +315,7 @@ bool TestParsers() {
 
 int main(int argc, const char *argv[])
 {
+	g_Config.bEnableLogging = true;
 	TestAsin();
 	//TestSinCos();
 	//TestArmEmitter();
