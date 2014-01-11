@@ -192,7 +192,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	entireISO.name = "";
 	entireISO.isDirectory = false;
 	entireISO.startingPosition = 0;
-	entireISO.size = _blockDevice->GetNumBlocks() * _blockDevice->GetBlockSize();
+	entireISO.size = _blockDevice->GetNumBlocks();
 	entireISO.flags = 0;
 	entireISO.parent = NULL;
 
