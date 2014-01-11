@@ -330,6 +330,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 		if (!m_pdata->push(buffer, size)) 
 			size  = 0;
 		if (m_demux) {
+			m_noAudioData = false;
 			m_demux->addStreamData(buffer, addSize);
 		}
 #ifdef USE_FFMPEG
