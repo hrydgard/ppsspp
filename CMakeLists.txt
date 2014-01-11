@@ -58,9 +58,10 @@ if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
 
-if(NOT DEFINED UNITTEST)
-	set(UNITTEST ON)
-endif()
+# Doesn't link on some platforms
+#if(NOT DEFINED UNITTEST)
+#	set(UNITTEST OFF)
+#endif()
 
 # User-editable options (go into CMakeCache.txt)
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
@@ -74,7 +75,7 @@ option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
-option(UNITTEST "Set to OFF to not generate the unittest target" ${UNITTEST})
+option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
