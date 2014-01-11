@@ -297,11 +297,11 @@ FramebufferManager::FramebufferManager() :
 	postShaderProgram_(0),
 	plainColorLoc_(-1),
 	timeLoc_(-1),
-	postShaderAtOutputResolution_(false),
-	resized_(false),
 	textureCache_(0),
 	shaderManager_(0),
-	usePostShader_(false)
+	usePostShader_(false),
+	postShaderAtOutputResolution_(false),
+	resized_(false)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),

@@ -69,6 +69,8 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 		"add %1, %1, %2\n"
 		"mov r6, #0\n"
 
+		".align 2\n"
+
 		// If we have zero sized input, we'll return garbage.  Oh well, shouldn't happen.
 		"QuickTexHashBasic_next:\n"
 		"ldmia %2!, {r2-r5}\n"
@@ -78,6 +80,8 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 		"add r6, r6, r4\n"
 		"eor r6, r6, r5\n"
 		"blo QuickTexHashBasic_next\n"
+
+		".align 2\n"
 
 		"QuickTexHashBasic_done:\n"
 		"mov %0, r6\n"
