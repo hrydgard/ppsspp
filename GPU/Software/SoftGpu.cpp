@@ -172,7 +172,8 @@ SoftGPU::~SoftGPU()
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	displayFramebuf_ = framebuf;
+	// Seems like this can point into RAM, but should be VRAM if not in RAM.
+	displayFramebuf_ = (framebuf & 0xFF000000) == 0 ? 0x44000000 | framebuf : framebuf;
 	displayStride_ = stride;
 	displayFormat_ = format;
 	host->GPUNotifyDisplay(framebuf, stride, format);
