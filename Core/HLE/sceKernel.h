@@ -373,8 +373,6 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr);
 
 void sceKernelExitGame();
 void sceKernelExitGameWithStatus();
-int LoadExecForUser_362A956B();
-void sceKernelRegisterExitCallback();
 
 u32 sceKernelDevkitVersion();
 

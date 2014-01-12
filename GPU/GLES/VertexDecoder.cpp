@@ -821,7 +821,7 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 	if (jitCache && g_Config.bVertexDecoderJit) {
 		jitted_ = jitCache->Compile(*this);
 		if (!jitted_) {
-			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x", fmt_);;
+			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x", fmt_);
 		}
 	}
 }
