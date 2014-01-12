@@ -194,16 +194,22 @@ struct ModuleInfo {
 	char name[28];
 };
 
-struct ModuleWaitingThread
-{
+struct ModuleWaitingThread {
 	SceUID threadID;
 	u32 statusPtr;
 };
 
-class Module : public KernelObject
-{
+enum NativeModuleStatus {
+	MODULE_STATUS_STARTING = 4,
+	MODULE_STATUS_STARTED = 5,
+	MODULE_STATUS_STOPPING = 6,
+	MODULE_STATUS_STOPPED = 7,
+	MODULE_STATUS_UNLOADING = 8,
+};
+
+class Module : public KernelObject {
 public:
-	Module() : memoryBlockAddr(0), isFake(false), isStarted(false) {}
+	Module() : memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
@@ -226,7 +232,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Module", 1);
+		auto s = p.Section("Module", 1, 2);
 		if (!s)
 			return;
 
@@ -234,7 +240,16 @@ public:
 		p.Do(memoryBlockAddr);
 		p.Do(memoryBlockSize);
 		p.Do(isFake);
-		p.Do(isStarted);
+
+		if (s < 2) {
+			bool isStarted = false;
+			p.Do(isStarted);
+			if (isStarted)
+				nm.status = MODULE_STATUS_STARTED;
+			else
+				nm.status = MODULE_STATUS_STOPPED;
+		}
+
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
 		FuncSymbolExport fsx = {{0}};
@@ -325,8 +340,6 @@ public:
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
 	bool isFake;
-	// Probably one of the NativeModule fields, but not sure...
-	bool isStarted;
 };
 
 KernelObject *__KernelModuleObject()
@@ -1218,7 +1231,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
 {
-	m->isStarted = true;
+	m->nm.status = MODULE_STATUS_STARTED;
 	if (m->nm.module_start_func != 0 && m->nm.module_start_func != (u32)-1)
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
@@ -1493,7 +1506,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			Memory::Write_U32(0, returnValueAddr);
 		RETURN(moduleId);
 		return;
-	} else if (module->isStarted) {
+	} else if (module->nm.status == MODULE_STATUS_STARTED) {
 		ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x) : already started",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
@@ -1523,7 +1536,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			{
 				// TODO: Why are we just returning the module ID in this case?
 				WARN_LOG(SCEMODULE, "sceKernelStartModule(): module has no start or entry func");
-				module->isStarted = true;
+				module->nm.status = MODULE_STATUS_STARTED;
 				RETURN(moduleId);
 				return;
 			}
@@ -1549,13 +1562,14 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
 
 			const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
+			module->nm.status = MODULE_STATUS_STARTING;
 			module->waitingThreads.push_back(mwt);
 		}
 		else if (entryAddr == 0)
 		{
 			INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			module->isStarted = true;
+			module->nm.status = MODULE_STATUS_STARTED;
 		}
 		else
 		{
@@ -1592,7 +1606,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 			Memory::Write_U32(0, returnValueAddr);
 		return 0;
 	}
-	if (!module->isStarted)
+	if (module->nm.status != MODULE_STATUS_STARTED)
 	{
 		ERROR_LOG(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): already stopped", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		return SCE_KERNEL_ERROR_ALREADY_STOPPED;
@@ -1630,17 +1644,18 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 		__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "stopped module");
 
 		const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
+		module->nm.status = MODULE_STATUS_STOPPING;
 		module->waitingThreads.push_back(mwt);
 	}
 	else if (stopFunc == 0)
 	{
 		INFO_LOG(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): no stop func, skipping", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
-		module->isStarted = false;
+		module->nm.status = MODULE_STATUS_STOPPED;
 	}
 	else
 	{
 		ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
-		module->isStarted = false;
+		module->nm.status = MODULE_STATUS_STOPPED;
 	}
 
 	return 0;
@@ -1659,9 +1674,70 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	return moduleId;
 }
 
-u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
-{
-	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
+	if (loadedModules.size() > 1) {
+		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game may have crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+
+		SceUID moduleID = __KernelGetCurThreadModuleId();
+		u32 priority = 0x20;
+		u32 stacksize = 0x40000;
+		u32 attr = 0;
+
+		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
+
+		u32 error;
+		Module *module = kernelObjects.Get<Module>(moduleID, error);
+		if (!module) {
+			ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): invalid module id", exitCode, argSize, argp, statusAddr, optionAddr);
+			return error;
+		}
+
+		u32 stopFunc = module->nm.module_stop_func;
+		if (module->nm.module_stop_thread_priority != 0)
+			priority = module->nm.module_stop_thread_priority;
+		if (module->nm.module_stop_thread_stacksize != 0)
+			stacksize = module->nm.module_stop_thread_stacksize;
+		if (module->nm.module_stop_thread_attr != 0)
+			attr = module->nm.module_stop_thread_attr;
+
+		// TODO: Need to test how this really works.  Let's assume it's an override.
+		if (Memory::IsValidAddress(optionAddr)) {
+			auto options = Memory::GetStruct<SceKernelSMOption>(optionAddr);
+			// TODO: Check how size handling actually works.
+			if (options->size != 0 && options->priority != 0)
+				priority = options->priority;
+			if (options->size != 0 && options->stacksize != 0)
+				stacksize = options->stacksize;
+			if (options->size != 0 && options->attribute != 0)
+				attr = options->attribute;
+			// TODO: Maybe based on size?
+			else if (attr != 0)
+				WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);
+		}
+
+		if (Memory::IsValidAddress(stopFunc)) {
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0);
+			sceKernelStartThread(threadID, argSize, argp);
+			__KernelSetThreadRA(threadID, NID_MODULERETURN);
+			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
+
+			const ModuleWaitingThread mwt = {__KernelGetCurThread(), statusAddr};
+			module->nm.status = MODULE_STATUS_UNLOADING;
+			module->waitingThreads.push_back(mwt);
+		} else if (stopFunc == 0) {
+			INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
+			sceKernelExitDeleteThread(exitCode);
+			module->Cleanup();
+			kernelObjects.Destroy<Module>(moduleID);
+		} else {
+			ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
+			sceKernelExitDeleteThread(exitCode);
+			module->Cleanup();
+			kernelObjects.Destroy<Module>(moduleID);
+		}
+	} else {
+		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+	}
 
 	// Probably similar to sceKernelStopModule, but games generally call this when they die.
 	return 0;
@@ -1683,25 +1759,36 @@ void __KernelReturnFromModuleFunc()
 
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(leftModuleID, error);
-	if (!module)
-	{
+	if (!module) {
 		ERROR_LOG_REPORT(SCEMODULE, "Returned from deleted module start/stop func");
 		return;
 	}
 
 	// We can't be starting and stopping at the same time, so no need to differentiate.
-	module->isStarted = !module->isStarted;
-	for (auto it = module->waitingThreads.begin(), end = module->waitingThreads.end(); it < end; ++it)
-	{
+	if (module->nm.status == MODULE_STATUS_STARTING)
+		module->nm.status = MODULE_STATUS_STARTED;
+	if (module->nm.status == MODULE_STATUS_STOPPING)
+		module->nm.status = MODULE_STATUS_STOPPED;
+	for (auto it = module->waitingThreads.begin(), end = module->waitingThreads.end(); it < end; ++it) {
 		// Still waiting?
 		if (HLEKernel::VerifyWait(it->threadID, WAITTYPE_MODULE, leftModuleID))
 		{
-			if (it->statusPtr != 0)
-				Memory::Write_U32(exitStatus, it->statusPtr);
-			__KernelResumeThreadFromWait(it->threadID, 0);
+			if (module->nm.status == MODULE_STATUS_UNLOADING) {
+				// TODO: Maybe should maintain the exitCode?
+				sceKernelDeleteThread(it->threadID);
+			} else {
+				if (it->statusPtr != 0)
+					Memory::Write_U32(exitStatus, it->statusPtr);
+				__KernelResumeThreadFromWait(it->threadID, 0);
+			}
 		}
 	}
 	module->waitingThreads.clear();
+
+	if (module->nm.status == MODULE_STATUS_UNLOADING) {
+		// TODO: Delete the waiting thread?
+		kernelObjects.Destroy<Module>(leftModuleID);
+	}
 }
 
 struct GetModuleIdByAddressArg
