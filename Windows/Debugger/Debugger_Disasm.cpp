@@ -70,6 +70,30 @@ LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 	return (LRESULT)CallWindowProc((WNDPROC)DefGotoEditProc,hDlg,message,wParam,lParam);
 }
 
+FAR WNDPROC DefFuncListProc;
+
+LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch(message)
+	{
+	case WM_KEYDOWN:
+		if( wParam == VK_RETURN )
+		{
+			SendMessage(GetParent(hDlg),WM_COMMAND,MAKEWPARAM(IDC_FUNCTIONLIST,CBN_DBLCLK),0);
+			SetFocus(hDlg);	// it's more natural to keep the focus when using keyboard controls
+			return 0;
+		}
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+		}
+		break;
+	};
+
+	return (LRESULT)CallWindowProc((WNDPROC)DefFuncListProc,hDlg,message,wParam,lParam);
+}
 
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
 {
@@ -114,6 +138,11 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
 	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)GotoEditProc); 
 	
+	// subclass the function list
+	HWND funcListWnd = GetDlgItem(m_hDlg,IDC_FUNCTIONLIST);
+	DefFuncListProc = (WNDPROC)GetWindowLongPtr(funcListWnd,GWLP_WNDPROC);
+	SetWindowLongPtr(funcListWnd,GWLP_WNDPROC,(LONG_PTR)FuncListProc); 
+
 	// init bottom tabs
 	bottomTabs = new TabControl(GetDlgItem(m_hDlg,IDC_DEBUG_BOTTOMTABS));
 
