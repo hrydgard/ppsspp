@@ -207,15 +207,9 @@ static u32 lastMpegHandle = 0;
 MpegContext *getMpegCtx(u32 mpegAddr) {
 	u32 mpeg = Memory::Read_U32(mpegAddr);
 
-	// TODO: Remove.
-	if (mpegMap.find(mpeg) == mpegMap.end())
-	{
-		ERROR_LOG_REPORT(ME, "Bad mpeg handle %08x - using last one (%08x) instead", mpeg, lastMpegHandle);
-		mpeg = lastMpegHandle;
-	}
-
 	if (mpegMap.find(mpeg) == mpegMap.end())
 		return NULL;
+
 	return mpegMap[mpeg];
 }
 
