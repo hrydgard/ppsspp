@@ -922,6 +922,7 @@ const HLEFunction SysMemForKernel[] =
 {
 	{0x636c953b,0, "SysMemForKernel_636c953b"},
 	{0xc9805775,0, "SysMemForKernel_c9805775"},
+	{0x1c1fbfe7,0, "SysMemForKernel_1c1fbfe7"},
 };
 
 void Register_SysMemForKernel()
