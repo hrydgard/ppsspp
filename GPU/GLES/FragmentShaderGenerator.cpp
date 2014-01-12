@@ -364,7 +364,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool enableColorDoubling = gstate.isColorDoublingEnabled();
+	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
@@ -515,16 +515,7 @@ void GenerateFragmentShader(char *buffer) {
 				}
 			}
 		}
-		
-		// TODO: Before or after the color test?
-		if (enableColorDoubling && enableAlphaDoubling) {
-			WRITE(p, "  v = v * 2.0;\n");
-		} else if (enableColorDoubling) {
-			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		} else if (enableAlphaDoubling) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
-		}
-		
+
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -536,6 +527,15 @@ void GenerateFragmentShader(char *buffer) {
 				else
 					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 			}
+		}
+
+		// Color doubling happens after the color test.
+		if (enableColorDoubling && enableAlphaDoubling) {
+			WRITE(p, "  v = v * 2.0;\n");
+		} else if (enableColorDoubling) {
+			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+		} else if (enableAlphaDoubling) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 
 		if (enableFog) {
