@@ -809,7 +809,7 @@ u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 
 	if (!foundHandler && Memory::IsValidAddress(handlerPtr)) {
 		if (adhocctlHandlers.size() >= MAX_ADHOCCTL_HANDLERS) {
-			ERROR_LOG(SCENET, "UNTESTED UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+			ERROR_LOG(SCENET, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS;
 			return retval;
 		}
@@ -891,6 +891,7 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 int sceNetAdhocctlTerm() {
 	DEBUG_LOG(SCENET, "sceNetAdhocctlTerm()");
 	if (!g_Config.bEnableWlan) {
+		netAdhocctlInited = false;
 		return 0;
 	}
 
@@ -1009,6 +1010,7 @@ int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *macAddr, 
 int sceNetAdhocTerm() {
 	DEBUG_LOG(SCENET, "sceNetAdhocTerm()");
 	if (!g_Config.bEnableWlan) {
+		netAdhocInited = false;
 		return 0;
 	}
 
