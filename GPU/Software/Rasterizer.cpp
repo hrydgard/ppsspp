@@ -1007,12 +1007,6 @@ void DrawTriangleSlice(
 					prim_color_a = out.a();
 				}
 
-				if (gstate.isColorDoublingEnabled() && !clearMode) {
-					// TODO: Do we need to clamp here?
-					prim_color_rgb *= 2;
-					sec_color *= 2;
-				}
-
 				if (!clearMode)
 					prim_color_rgb += sec_color;
 
@@ -1071,6 +1065,11 @@ void DrawTriangleSlice(
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
 				}
+
+				if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
+					prim_color_rgb *= 2;
+				}
+
 				if (!clearMode)
 					prim_color_rgb = prim_color_rgb.Clamp(0, 255);
 
