@@ -698,8 +698,8 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int lat
 }
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
-	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
-	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
+	const FrameBufferState &fbState = latchedMode == 1 && framebufIsLatched ? latchedFramebuf : framebuf;
+	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, latchedMode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
