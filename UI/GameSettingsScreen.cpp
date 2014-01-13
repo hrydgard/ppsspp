@@ -313,6 +313,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->SetSpacing(0);
 
 	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
+	static const char *models[] = {"PSP-2000/3000", "PSP-1000"};
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, s->T("PSP Model"), models, 0, ARRAY_SIZE(models), s, screenManager()));
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
 #if defined(_WIN32) || defined(USING_QT_UI)
