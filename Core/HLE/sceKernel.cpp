@@ -743,7 +743,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xaa73c935,WrapV_I<sceKernelExitThread>,"sceKernelExitThread"},
 	{0x809ce29b,WrapV_I<sceKernelExitDeleteThread>,"sceKernelExitDeleteThread"},
 	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
-	{0x293b45b8,WrapI_V<sceKernelGetThreadId>,"sceKernelGetThreadId"},
+	{0x293b45b8,WrapI_V<sceKernelGetThreadId>,				   "sceKernelGetThreadId",				   HLE_NOT_IN_INTERRUPT},
 	{0x3B183E26,WrapI_I<sceKernelGetThreadExitStatus>,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,WrapI_I<sceKernelGetThreadStackFreeSize>,      "sceKernelGetThreadStackFreeSize"},
 	{0xFFC36A14,WrapU_UU<sceKernelReferThreadRunStatus>,"sceKernelReferThreadRunStatus"},
