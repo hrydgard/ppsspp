@@ -877,6 +877,11 @@ void TextureCache::SetTexture(bool force) {
 		return;
 	}
 
+	u32 fb_addr = gstate.getFrameBufRawAddress() | 0x04000000;
+	if (fb_addr == gstate.getTextureAddress(0)) {
+		WARN_LOG_REPORT(HLE, "Render to self texture (%08x)", fb_addr);
+	}
+
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
 		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
