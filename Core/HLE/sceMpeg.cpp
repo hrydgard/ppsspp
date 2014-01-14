@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-// This code is part shamelessly "inspired" from JPSCP.
+// This code is part shamelessly "inspired" from JPCSP.
 #include <map>
 #include <algorithm>
 
@@ -203,6 +203,7 @@ static bool isCurrentMpegAnalyzed;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
 static u32 lastMpegHandle = 0;
+static u32 RegisteredMpeg = -1;
 
 MpegContext *getMpegCtx(u32 mpegAddr) {
 	u32 mpeg = Memory::Read_U32(mpegAddr);
@@ -326,6 +327,7 @@ void __MpegInit() {
 	isCurrentMpegAnalyzed = false;
 	isMpegInit = false;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
+	RegisteredMpeg = -1;
 
 #ifdef USING_FFMPEG
 	avcodec_register_all();
@@ -334,7 +336,7 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1);
+	auto s = p.Section("sceMpeg", 1, 2);
 	if (!s)
 		return;
 
@@ -343,6 +345,8 @@ void __MpegDoState(PointerWrap &p) {
 	p.Do(isCurrentMpegAnalyzed);
 	p.Do(isMpegInit);
 	p.Do(actionPostPut);
+	if (s >= 2)
+		p.Do(RegisteredMpeg);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
 	p.Do(mpegMap);
@@ -572,6 +576,39 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	return 0;
 }
 
+void setRegisteredMpeg(u32 mpeg) {
+	RegisteredMpeg = mpeg;
+}
+
+u32 getRegisteredMpeg() {
+	return RegisteredMpeg;
+}
+
+void __MpegChangeVideoChannel(int channel) {
+	u32 mpeg = getRegisteredMpeg();
+	if (mpeg == (u32)-1)
+		return;
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx)
+		return;
+	if (ctx->mediaengine->setVideoStream(channel)) {
+		INFO_LOG(ME,"Change video channel to %d", channel);
+	} else {
+		WARN_LOG(ME,"Fail to change video channel to %d", channel);
+	}
+}
+
+void __MpegChangeAudioChannel(int channel) {
+	u32 mpeg = getRegisteredMpeg();
+	if (mpeg == (u32)-1)
+		return;
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx)
+		return;
+	ctx->mediaengine->setAudioStream(channel);
+	INFO_LOG(ME,"Change audio channel to %d", channel);
+}
+
 int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
@@ -581,6 +618,8 @@ int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	}
 
 	INFO_LOG(ME, "sceMpegRegistStream(%08x, %i, %i)", mpeg, streamType, streamNum);
+
+	setRegisteredMpeg(mpeg);
 
 	switch (streamType) {
 	case MPEG_AVC_STREAM:
@@ -772,6 +811,7 @@ u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
 	info.sid = -1 ;
 	info.needsReset = true;
 	ctx->isAnalyzed = false;
+	setRegisteredMpeg(-1);
 	return 0;
 }
 
@@ -1064,8 +1104,6 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
-	ctx->mediaengine->setVideoStream(streamInfo->second.num);
-
 	if (streamInfo->second.needsReset) {
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
@@ -1145,9 +1183,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
-	if (streamInfo != ctx->streamMap.end())
-		ctx->mediaengine->setAudioStream(streamInfo->second.num);
-	else
+	if (streamInfo == ctx->streamMap.end())
 		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
 
 	// The audio can end earlier than the video does.

@@ -385,7 +385,8 @@ void Psmf::setStreamNum(int num) {
 	switch (type) {
 	case PSMF_AVC_STREAM:
 		if (currentVideoStreamNum != num) {
-			// TODO: Tell video mediaengine or something about channel.
+			// Tell video mediaengine about channel.
+			__MpegChangeVideoChannel(channel);
 			currentVideoStreamNum = num;
 		}
 		break;
@@ -393,7 +394,8 @@ void Psmf::setStreamNum(int num) {
 	case PSMF_ATRAC_STREAM:
 	case PSMF_PCM_STREAM:
 		if (currentAudioStreamNum != num) {
-			// TODO: Tell audio mediaengine or something about channel.
+			// Tell audio mediaengine about channel.
+			__MpegChangeAudioChannel(channel);
 			currentAudioStreamNum = num;
 		}
 		break;
