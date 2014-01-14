@@ -13,7 +13,6 @@ public class NativeApp {
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
 	
 	public static native boolean isLandscape();
-
 	public static native boolean isAtTopLevel();
 
 	// These have Android semantics: Resume is always called on bootup, after init

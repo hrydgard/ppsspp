@@ -362,7 +362,7 @@ json_value *json_parse(char *source, char **error_pos, char **error_desc, int *e
 		case ':':
 			if (!top || top->type != JSON_OBJECT)
 			{
-				ERROR(it, "Unexpected character");
+				ERROR(it, "Unexpected character (no top level)");
 			}
 			++it;
 			break;
@@ -570,7 +570,7 @@ json_value *json_parse(char *source, char **error_pos, char **error_desc, int *e
 			break;
 
 		default:
-			ERROR(it, "Unexpected character");
+			ERROR(it, "Unexpected character (unknown)");
 		}
 
 		// skip white space

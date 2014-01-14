@@ -125,7 +125,13 @@ public class NativeActivity extends Activity {
     InputDeviceState inputPlayerB;
     String inputPlayerADesc;
     
-
+    
+    // Functions for the app activity to override to change behaviour.
+    
+    public boolean useLowProfileButtons() {
+    	return true;
+    }
+    
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
 		try {
@@ -356,14 +362,20 @@ public class NativeActivity extends Activity {
 	
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	public void darkenOnScreenButtons() {
-		mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+		if (useLowProfileButtons()) {
+			mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+		}
 	}
 	
 	@TargetApi(Build.VERSION_CODES.KITKAT)
 	public void setImmersiveMode() {
 		// this.setImmersive(true); // This is an entirely different kind of immersive mode - hides some notification
 		if (useKitkatImmersiveMode) {
-			mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+			int flags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+			if (useLowProfileButtons()) {
+				flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
+			}
+			mGLSurfaceView.setSystemUiVisibility(flags);
 		}
 	}
 
