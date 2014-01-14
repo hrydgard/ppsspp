@@ -500,6 +500,5 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
-	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
