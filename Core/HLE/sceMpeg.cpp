@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-// This code is part shamelessly "inspired" from JPSCP.
+// This code is part shamelessly "inspired" from JPCSP.
 #include <map>
 #include <algorithm>
 
