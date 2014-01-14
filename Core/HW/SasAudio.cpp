@@ -350,6 +350,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				// NOTICE_LOG(SAS, "Hit end of VAG audio");
 				playing = false;
 				on = false;  // ??
+				envelope.KeyOff();
 			}
 		}
 		break;
@@ -378,6 +379,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				// Hit atrac3 voice end
 				playing = false;
 				on = false;  // ??
+				envelope.KeyOff();
 			}
 		}
 		break;
