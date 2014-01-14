@@ -97,4 +97,7 @@ void __MpegInit();
 void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
 
+void __MpegChangeVideoChannel(int channel);
+void __MpegChangeAudioChannel(int channel);
+
 void Register_sceMpeg();
