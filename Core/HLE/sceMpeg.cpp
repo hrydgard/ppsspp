@@ -336,7 +336,7 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1);
+	auto s = p.Section("sceMpeg", 1, 2);
 	if (!s)
 		return;
 
@@ -345,7 +345,8 @@ void __MpegDoState(PointerWrap &p) {
 	p.Do(isCurrentMpegAnalyzed);
 	p.Do(isMpegInit);
 	p.Do(actionPostPut);
-	p.Do(RegisteredMpeg);
+	if (s >= 2)
+		p.Do(RegisteredMpeg);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
 	p.Do(mpegMap);
