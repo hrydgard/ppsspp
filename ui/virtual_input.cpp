@@ -57,7 +57,6 @@ void TouchCrossPad::update(InputState &input_state)
 	float stick_size_ = radius_ * 2;
 	float inv_stick_size = 1.0f / (stick_size_ * scale_);
 	const float deadzone = 0.17f;
-	bool all_up = true;
 
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i]) {
@@ -67,13 +66,11 @@ void TouchCrossPad::update(InputState &input_state)
 			if (rad < deadzone || rad > 1.0f)
 				continue;
 
-			all_up = false;
-
 			if (dx == 0 && dy == 0)
 				continue;
 
 			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 8) + 0.5f)) & 7;
-	
+
 			input_state.pad_buttons &= ~(PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN);
 			switch (direction) {
 			case 0: input_state.pad_buttons |= PAD_BUTTON_RIGHT; break;
@@ -117,10 +114,8 @@ TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex
 void TouchStick::update(InputState &input_state)
 {
 	float inv_stick_size = 1.0f / (stick_size_ * scale_);
-	bool all_up = true;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i]) {
-			all_up = false;
 			float dx = (input_state.pointer_x[i] - stick_x_) * inv_stick_size;
 			float dy = (input_state.pointer_y[i] - stick_y_) * inv_stick_size;
 			// Ignore outside box

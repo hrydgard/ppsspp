@@ -111,7 +111,6 @@ void Event::Trigger(EventParams &e) {
 
 // Call this from UI thread
 EventReturn Event::Dispatch(EventParams &e) {
-	bool eventHandled = false;
 	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
 		if ((iter->func)(e) == UI::EVENT_DONE) {
 			// Event is handled, stop looping immediately. This event might even have gotten deleted.
@@ -404,7 +403,6 @@ EventReturn CheckBox::OnClicked(EventParams &e) {
 void CheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 	int paddingX = 12;
-	int paddingY = 8;
 
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
