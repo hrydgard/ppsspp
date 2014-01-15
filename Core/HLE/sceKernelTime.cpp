@@ -41,11 +41,17 @@ void __KernelTimeInit()
 
 void __KernelTimeDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelTime", 1);
+	auto s = p.Section("sceKernelTime", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(start_time);
+	if (s < 2) {
+		p.Do(start_time);
+	} else {
+		u64 t = start_time;
+		p.Do(t);
+		start_time = (time_t)t;
+	}
 }
 
 int sceKernelGetSystemTime(u32 sysclockPtr)
