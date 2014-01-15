@@ -119,35 +119,39 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferForma
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH) {
+	float outW;
+	float outH;
+
 	if (g_Config.bStretchToDisplay) {
-		*x = 0;
-		*y = 0;
-		*w = frameW;
-		*h = frameH;
-		return;
-	}
-
-	float origRatio = origW/origH;
-	float frameRatio = frameW/frameH;
-
-	if (origRatio > frameRatio) {
-		// Image is wider than frame. Center vertically.
-		float scale = origW / frameW;
-		*x = 0.0f;
-		*w = frameW;
-		*h = frameW / origRatio;
-		// Stretch a little bit
-		if (g_Config.bPartialStretch)
-			*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
-		*y = (frameH - *h) / 2.0f;
+		outW = frameW;
+		outH = frameH;
 	} else {
-		// Image is taller than frame. Center horizontally.
-		float scale = origH / frameH;
-		*y = 0.0f;
-		*h = frameH;
-		*w = frameH * origRatio;
-		*x = (frameW - *w) / 2.0f;
+		float origRatio = origW / origH;
+		float frameRatio = frameW / frameH;
+		if (origRatio > frameRatio) {
+			// Image is wider than frame. Center vertically.
+			outW = frameW;
+			outH = frameW / origRatio;
+			// Stretch a little bit
+			if (g_Config.bPartialStretch)
+				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
+		}
+		else {
+			// Image is taller than frame. Center horizontally.
+			outW = frameH * origRatio;
+			outH = frameH;
+		}
 	}
+
+	if (g_Config.bSmallDisplay) {
+		outW /= 2.0f;
+		outH /= 2.0f;
+	}
+
+	*x = (frameW - outW) / 2.0f;
+	*y = (frameH - outH) / 2.0f;
+	*w = outW;
+	*h = outH;
 }
 
 static void ClearBuffer() {

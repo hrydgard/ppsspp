@@ -89,6 +89,7 @@ public:
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	bool bPartialStretch;
 	bool bStretchToDisplay;
+	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
 	bool bVSync;
 	int iFrameSkip;
 	bool bFrameSkipUnthrottle;

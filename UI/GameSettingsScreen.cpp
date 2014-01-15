@@ -128,6 +128,8 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
+	// Small Display: To avoid overlapping touch controls on large tablets. Better control over this will be coming later.
+	graphicsSettings->Add(new CheckBox(&g_Config.bSmallDisplay, gs->T("Small Display")));
 	if (pixel_xres < pixel_yres * 1.3) // Smaller than 4:3
 		graphicsSettings->Add(new CheckBox(&g_Config.bPartialStretch, gs->T("Partial Vertical Stretch")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));

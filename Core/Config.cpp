@@ -247,8 +247,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifdef BLACKBERRY
 	partialStretchDefault = pixel_xres < 1.3 * pixel_yres;
 #endif
+	
+	// TODO: Replace these settings with a list of options
 	graphics->Get("PartialStretch", &bPartialStretch, partialStretchDefault);
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
+	graphics->Get("SmallDisplay", &bSmallDisplay, false);
+
 	graphics->Get("TrueColor", &bTrueColor, true);
 
 	graphics->Get("MipMap", &bMipMap, true);
@@ -555,6 +559,7 @@ void Config::Save() {
 #endif
 		graphics->Set("PartialStretch", bPartialStretch);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
+		graphics->Set("SmallDisplay", &bSmallDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
