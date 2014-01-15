@@ -303,8 +303,13 @@ void System_Wake() {
 static bool pspIsInited = false;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+#if defined(_WIN32) && defined(_M_X64)
+	INFO_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
+#elif defined(_WIN32) && !defined(_M_X64)
+	INFO_LOG(BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
+#else
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
-
+#endif
 	coreParameter = coreParam;
 	coreParameter.errorString = "";
 
