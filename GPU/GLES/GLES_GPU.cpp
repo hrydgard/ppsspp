@@ -1550,7 +1550,8 @@ void GLES_GPU::DoBlockTransfer() {
 	for (int y = 0; y < height; y++) {
 		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
 		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
-		memcpy(dst, src, width * bpp);
+		if (Memory::IsValidAddress(u32(dst)) && Memory::IsValidAddress(u32(src)))
+			memcpy(dst, src, width * bpp);
 	}
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
