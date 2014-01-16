@@ -1543,13 +1543,30 @@ void GLES_GPU::DoBlockTransfer() {
 		return;
 	}
 	
+	// Check that the last address of both source and dest are valid addresses
+
+	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
+	u32 dstLastAddr = dstBasePtr + ((height - 1 + dstY) * dstStride + (dstX + width - 1)) * bpp;
+
+	if (!Memory::IsValidAddress(srcLastAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
+		return;
+	}
+	if (!Memory::IsValidAddress(dstLastAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
+		return;
+	}
+
 	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 	// entirely by walking a couple of pointers...
 	// GetPointerUnchecked crash in windows 64 bit of issue 2301
 	for (int y = 0; y < height; y++) {
-		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+		u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+		u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+
+		const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
+		u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
 		memcpy(dst, src, width * bpp);
 	}
 
