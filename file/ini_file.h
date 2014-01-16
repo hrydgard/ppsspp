@@ -70,6 +70,12 @@ public:
 			Set(key,temp);
 		}
 
+		// Declare without a body to make it fail to compile. This is to prevent accidentally
+		// setting a pointer as a bool. The failure is in the linker unfortunately, but that's better
+		// than accidentally succeeding in a bad way.
+		template<class T>
+		void Set(const char *key, T *ptr);
+
 		bool Get(const char* key, int* value, int defaultValue = 0);
 		bool Get(const char* key, uint32_t* value, uint32_t defaultValue = 0);
 		bool Get(const char* key, bool* value, bool defaultValue = false);
