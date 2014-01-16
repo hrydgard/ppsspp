@@ -1532,13 +1532,11 @@ void GLES_GPU::DoBlockTransfer() {
 	int bpp = gstate.getTransferBpp();
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-	if (!Memory::IsValidAddress(srcBasePtr)) {
+	if (!Memory::IsVRAMAddress(srcBasePtr)) {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
 		return;
 	}
-
-	if (!Memory::IsValidAddress(dstBasePtr)) {
+	if (!Memory::IsVRAMAddress(dstBasePtr)) {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
 		return;
 	}
@@ -1550,8 +1548,7 @@ void GLES_GPU::DoBlockTransfer() {
 	for (int y = 0; y < height; y++) {
 		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
 		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
-		if (Memory::IsValidAddress(u32(dst)) && Memory::IsValidAddress(u32(src)))
-			memcpy(dst, src, width * bpp);
+		memcpy(dst, src, width * bpp);
 	}
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
