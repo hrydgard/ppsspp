@@ -349,7 +349,7 @@ public class NativeActivity extends Activity {
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
-      	Log.e(TAG, "onDestroy");
+      	Log.i(TAG, "onDestroy");
 		mGLSurfaceView.onDestroy();
 		nativeRenderer.onDestroyed();
 		NativeApp.audioShutdown();
