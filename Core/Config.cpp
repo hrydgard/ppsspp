@@ -559,7 +559,7 @@ void Config::Save() {
 #endif
 		graphics->Set("PartialStretch", bPartialStretch);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
-		graphics->Set("SmallDisplay", &bSmallDisplay);
+		graphics->Set("SmallDisplay", bSmallDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
