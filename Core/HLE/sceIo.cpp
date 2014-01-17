@@ -2432,8 +2432,49 @@ const HLEFunction IoFileMgrForUser[] = {
 	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'x', "xix"   },
 };
 
+const HLEFunction IoFileMgrForKernel[] =
+{
+	{0xa905b705, 0, "sceIoCloseAll"},
+	{0x411106BA, 0, "sceIoGetThreadCwd"},
+	{0xCB0A151F, 0, "sceIoChangeThreadCwd"},
+	{0x8E982A74, 0, "sceIoAddDrv"},
+	{0xC7F35804, 0, "sceIoDelDrv"},
+	{0x3C54E908, 0, "sceIoReopen"},
+	{0xb29ddf9c, &WrapU_C<sceIoDopen>, "sceIoDopen"},
+	{0xe3eb004c, &WrapU_IU<sceIoDread>, "sceIoDread"},
+	{0xeb092469, &WrapU_I<sceIoDclose>, "sceIoDclose"},
+	{0x109f50bc, &WrapU_CII<sceIoOpen>, "sceIoOpen"},
+	{0x6a638d83, &WrapU_IUI<sceIoRead>, "sceIoRead"},
+	{0x42ec03ac, &WrapU_IUI<sceIoWrite>, "sceIoWrite"},
+	{0x68963324, &WrapU_III<sceIoLseek32>, "sceIoLseek32"},
+	{0x27eb27b8, &WrapI64_II64I<sceIoLseek>, "sceIoLseek"},
+	{0x810c4bc3, &WrapU_I<sceIoClose>, "sceIoClose"},
+	{0x779103a0, &WrapU_CC<sceIoRename>, "sceIoRename"},
+	{0xf27a9c51, &WrapU_C<sceIoRemove>, "sceIoRemove"},
+	{0x55f4717d, 0, "sceIoChdir"},
+	{0x06a70004, 0, "sceIoMkdir"},
+	{0x1117c65f, 0, "sceIoRmdir"},
+	{0x54f5fb11, 0, "sceIoDevctl"},
+	{0x63632449, 0, "sceIoIoctl"},
+	{0xab96437f, 0, "sceIoSync"},
+	{0xb2a628c1, 0, "sceIoAssign"},
+	{0x6d08a871, 0, "sceIoUnassign"},
+	{0xace946e8, 0, "sceIoGetstat"},
+	{0xb8a740f4, 0, "sceIoChstat"},
+	{0xa0b5a7c2, 0, "sceIoReadAsync"},
+	{0x3251ea56, 0, "sceIoPollAsync"},
+	{0xe23eec33, 0, "sceIoWaitAsync"},
+	{0x35dbd746, 0, "sceIoWaitAsyncCB"},
+	{0xbd17474f, 0, "IoFileMgrForKernel_BD17474F"},
+	{0x76da16e3, 0, "IoFileMgrForKernel_76DA16E3"},
+};
+
 void Register_IoFileMgrForUser() {
 	RegisterModule("IoFileMgrForUser", ARRAY_SIZE(IoFileMgrForUser), IoFileMgrForUser);
+}
+
+void Register_IoFileMgrForKernel() {
+	RegisterModule("IoFileMgrForKernel", ARRAY_SIZE(IoFileMgrForKernel), IoFileMgrForKernel);
 }
 
 
@@ -2451,6 +2492,22 @@ const HLEFunction StdioForUser[] = {
 	{0X9D061C19, nullptr,                               "sceKernelStdioClose",         '?', ""      },
 };
 
+const HLEFunction StdioForKernel[] =
+{
+	{0x98220F3E, 0, "sceKernelStdoutReopen"},
+	{0xFB5380C5, 0, "sceKernelStderrReopen"},
+	{0xcab439df, 0, "printf"},
+	{0x2CCF071A, 0, "fdprintf"},
+	{0xd97c8cb9, 0, "puts"},
+	{0x172D316E, &WrapU_V<sceKernelStdin>, "sceKernelStdin"},
+	{0xA6BAB2E9, &WrapU_V<sceKernelStdout>, "sceKernelStdout"},
+	{0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr"},
+};
+
 void Register_StdioForUser() {
 	RegisterModule("StdioForUser", ARRAY_SIZE(StdioForUser), StdioForUser);
+}
+
+void Register_StdioForKernel() {
+	RegisterModule("StdioForKernel", ARRAY_SIZE(StdioForKernel), StdioForKernel);
 }
