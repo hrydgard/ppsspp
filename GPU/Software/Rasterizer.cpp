@@ -1028,6 +1028,11 @@ void DrawTriangleSlice(
 					if (!ColorTestPassed(prim_color_rgb))
 						continue;
 
+				// Color doubling happens after the color test.
+				if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
+					prim_color_rgb *= 2;
+				}
+
 				// TODO: Does a need to be clamped?
 				if (gstate.isAlphaTestEnabled() && !clearMode)
 					if (!AlphaTestPassed(prim_color_a))
@@ -1064,10 +1069,6 @@ void DrawTriangleSlice(
 				if (gstate.isAlphaBlendEnabled() && !clearMode) {
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
-				}
-
-				if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
-					prim_color_rgb *= 2;
 				}
 
 				if (!clearMode)
