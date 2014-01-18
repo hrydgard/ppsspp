@@ -212,7 +212,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
-	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0 || !useHWTransform;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;  // This also means that we are texturing from a render target
@@ -348,13 +348,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (hasTexcoord) {
-				WRITE(p, "  v_texcoord = texcoord;\n");
-			} else if (doTextureProjection) {
-				WRITE(p, "  v_texcoord = vec3(0.0, 0.0, 1.0);\n");
-			} else {
-				WRITE(p, "  v_texcoord = vec2(0.0);\n");
-			}
+			WRITE(p, "  v_texcoord = texcoord;\n");
 		}
 		if (hasColor) {
 			WRITE(p, "  v_color0 = color0;\n");
