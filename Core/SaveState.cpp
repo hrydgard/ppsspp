@@ -84,9 +84,10 @@ namespace SaveState
 
 	struct StateRingbuffer
 	{
-		StateRingbuffer(int size) : first_(0), next_(0), size_(size)
+		StateRingbuffer(int size) : first_(0), next_(0), size_(size), base_(-1)
 		{
 			states_.resize(size);
+			baseMapping_.resize(size);
 		}
 
 		CChunkFileReader::Error Save()
@@ -95,7 +96,27 @@ namespace SaveState
 			if ((next_ % size_) == first_)
 				++first_;
 
-			return SaveToRam(states_[n]);
+			static std::vector<u8> buffer;
+			std::vector<u8> *compressBuffer = &buffer;
+			CChunkFileReader::Error err;
+
+			if (base_ == -1 || ++baseUsage_ > BASE_USAGE_INTERVAL)
+			{
+				base_ = (base_ + 1) % ARRAY_SIZE(bases_);
+				baseUsage_ = 0;
+				err = SaveToRam(bases_[base_]);
+				// Let's not bother savestating twice.
+				compressBuffer = &bases_[base_];
+			}
+			else
+				err = SaveToRam(buffer);
+
+			if (err == CChunkFileReader::ERROR_NONE)
+				Compress(states_[n], *compressBuffer, bases_[base_]);
+			else
+				states_[n].clear();
+			baseMapping_[n] = base_;
+			return err;
 		}
 
 		CChunkFileReader::Error Restore()
@@ -104,11 +125,54 @@ namespace SaveState
 			if (Empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
 
-			int n = (next_-- + size_) % size_;
+			int n = (--next_ + size_) % size_;
 			if (states_[n].empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
 
-			return LoadFromRam(states_[n]);
+			static std::vector<u8> buffer;
+			Decompress(buffer, states_[n], bases_[baseMapping_[n]]);
+			return LoadFromRam(buffer);
+		}
+
+		void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base)
+		{
+			result.clear();
+			for (size_t i = 0; i < state.size(); i += BLOCK_SIZE)
+			{
+				int blockSize = std::min(BLOCK_SIZE, (int)(state.size() - i));
+				if (i + blockSize > base.size() || memcmp(&state[i], &base[i], blockSize) != 0)
+				{
+					result.push_back(1);
+					result.insert(result.end(), state.begin() + i, state.begin() +i + blockSize);
+				}
+				else
+					result.push_back(0);
+			}
+		}
+
+		void Decompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
+		{
+			result.clear();
+			result.reserve(base.size());
+			auto basePos = base.begin();
+			for (size_t i = 0; i < compressed.size(); )
+			{
+				if (compressed[i] == 0)
+				{
+					++i;
+					int blockSize = std::min(BLOCK_SIZE, (int)(base.size() - result.size()));
+					result.insert(result.end(), basePos, basePos + blockSize);
+					basePos += blockSize;
+				}
+				else
+				{
+					++i;
+					int blockSize = std::min(BLOCK_SIZE, (int)(compressed.size() - i));
+					result.insert(result.end(), compressed.begin() + i, compressed.begin() + i + blockSize);
+					i += blockSize;
+					basePos += blockSize;
+				}
+			}
 		}
 
 		void Clear()
@@ -122,11 +186,18 @@ namespace SaveState
 			return next_ == first_;
 		}
 
+		static const int BLOCK_SIZE = 8192;
+		// TODO: Instead, based on size of compressed state?
+		static const int BASE_USAGE_INTERVAL = 15;
 		typedef std::vector<u8> StateBuffer;
 		int first_;
 		int next_;
 		int size_;
 		std::vector<StateBuffer> states_;
+		StateBuffer bases_[2];
+		std::vector<int> baseMapping_;
+		int base_;
+		int baseUsage_;
 	};
 
 	static bool needsProcess = false;
@@ -134,7 +205,7 @@ namespace SaveState
 	static std::recursive_mutex mutex;
 
 	// TODO: Should this be configurable?
-	static const int REWIND_NUM_STATES = 5;
+	static const int REWIND_NUM_STATES = 20;
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
