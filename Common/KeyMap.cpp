@@ -151,7 +151,7 @@ static const DefMappingStruct default360KeyMap[] = {
 	{VIRTKEY_UNTHROTTLE  , JOYSTICK_AXIS_RTRIGGER, +1},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_THUMBR},
 	{VIRTKEY_PAUSE       , JOYSTICK_AXIS_LTRIGGER, +1},
-	{CTRL_HOME			 , NKCODE_HOME},
+	{VIRTKEY_PAUSE,        NKCODE_HOME},
 };
 
 static const DefMappingStruct defaultShieldKeyMap[] = {
