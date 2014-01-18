@@ -111,10 +111,10 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			OpArg src;
 			if (safe.PrepareRead(src, 4))
 				MOVSS(fpr.RX(ft), src);
-			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
+			if (safe.PrepareSlowRead(&Memory::Read_U32))
 			{
-				MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
-				MOVSS(fpr.RX(ft), M((void *)&ssLoadStoreTemp));
+				MOV(32, M(&ssLoadStoreTemp), R(EAX));
+				MOVSS(fpr.RX(ft), M(&ssLoadStoreTemp));
 			}
 			safe.Finish();
 
@@ -134,8 +134,8 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 				MOVSS(dest, fpr.RX(ft));
 			if (safe.PrepareSlowWrite())
 			{
-				MOVSS(M((void *)&ssLoadStoreTemp), fpr.RX(ft));
-				safe.DoSlowWrite((void *) &Memory::Write_U32, M((void *)&ssLoadStoreTemp));
+				MOVSS(M(&ssLoadStoreTemp), fpr.RX(ft));
+				safe.DoSlowWrite(&Memory::Write_U32, M(&ssLoadStoreTemp));
 			}
 			safe.Finish();
 
@@ -160,17 +160,17 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 {
 	MOVSS(XMM0, fpr.R(lhs));
 	CMPSS(XMM0, fpr.R(rhs), compare);
-	MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
+	MOVSS(M(&currentMIPS->fpcond), XMM0);
 
 	// This means that NaN also means true, e.g. !<> or !>, etc.
 	if (allowNaN)
 	{
 		MOVSS(XMM0, fpr.R(lhs));
 		CMPUNORDSS(XMM0, fpr.R(rhs));
-		MOVSS(M((void *) &ssCompareTemp), XMM0);
+		MOVSS(M(&ssCompareTemp), XMM0);
 
-		MOV(32, R(EAX), M((void *) &ssCompareTemp));
-		OR(32, M((void *) &currentMIPS->fpcond), R(EAX));
+		MOV(32, R(EAX), M(&ssCompareTemp));
+		OR(32, M(&currentMIPS->fpcond), R(EAX));
 	}
 }
 
@@ -185,7 +185,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op)
 	{
 	case 0: //f
 	case 8: //sf
-		MOV(32, M((void *) &currentMIPS->fpcond), Imm32(0));
+		MOV(32, M(&currentMIPS->fpcond), Imm32(0));
 		break;
 
 	case 1: //un
@@ -240,7 +240,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
-		PAND(fpr.RX(fd), M((void *)ssNoSignMask));
+		PAND(fpr.RX(fd), M(ssNoSignMask));
 		break;
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
@@ -255,7 +255,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
-		PXOR(fpr.RX(fd), M((void *)ssSignBits2));
+		PXOR(fpr.RX(fd), M(ssSignBits2));
 		break;
 
 

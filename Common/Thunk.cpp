@@ -91,12 +91,12 @@ void ThunkManager::Shutdown()
 	FreeCodeSpace();
 }
 
-void *ThunkManager::ProtectFunction(void *function, int num_params)
+const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 {
-	std::map<void *, const u8 *>::iterator iter;
+	std::map<const void *, const u8 *>::iterator iter;
 	iter = thunks.find(function);
 	if (iter != thunks.end())
-		return (void *)iter->second;
+		return (const void *)iter->second;
 	if (!region)
 		PanicAlert("Trying to protect functions before the emu is started. Bad bad bad.");
 
@@ -108,9 +108,9 @@ void *ThunkManager::ProtectFunction(void *function, int num_params)
 #else
 	SUB(64, R(ESP), Imm8(0x8));
 #endif
-	ABI_CallFunction((void*)save_regs);
-	ABI_CallFunction((void*)function);
-	ABI_CallFunction((void*)load_regs);
+	ABI_CallFunction(save_regs);
+	ABI_CallFunction(function);
+	ABI_CallFunction(load_regs);
 #ifdef _WIN32
 	ADD(64, R(ESP), Imm8(0x28));
 #else
@@ -118,7 +118,7 @@ void *ThunkManager::ProtectFunction(void *function, int num_params)
 #endif
 	RET();
 #else
-	CALL((void*)save_regs);
+	CALL((const void *)save_regs);
 	// Since parameters are in the previous stack frame, not in registers, this takes some
 	// trickery : we simply re-push the parameters. might not be optimal, but that doesn't really
 	// matter.
@@ -135,5 +135,5 @@ void *ThunkManager::ProtectFunction(void *function, int num_params)
 #endif
 
 	thunks[function] = call_point;
-	return (void *)call_point;
+	return (const void *)call_point;
 }

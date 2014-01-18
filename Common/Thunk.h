@@ -44,7 +44,7 @@ class ThunkManager : public ArmGen::ARMXCodeBlock
 class ThunkManager : public Gen::XCodeBlock
 #endif
 {
-	std::map<void *, const u8 *> thunks;
+	std::map<const void *, const u8 *> thunks;
 
 	const u8 *save_regs;
 	const u8 *load_regs;
@@ -56,7 +56,32 @@ public:
 	~ThunkManager() {
 		Shutdown();
 	}
-	void *ProtectFunction(void *function, int num_params);
+	const void *ProtectFunction(const void *function, int num_params);
+
+	template <typename Tr>
+	const void *ProtectFunction(Tr (*func)()) {
+		return ProtectFunction((const void *)func, 0);
+	}
+
+	template <typename Tr, typename T1>
+	const void *ProtectFunction(Tr (*func)(T1)) {
+		return ProtectFunction((const void *)func, 1);
+	}
+
+	template <typename Tr, typename T1, typename T2>
+	const void *ProtectFunction(Tr (*func)(T1, T2)) {
+		return ProtectFunction((const void *)func, 2);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3>
+	const void *ProtectFunction(Tr (*func)(T1, T2, T3)) {
+		return ProtectFunction((const void *)func, 3);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3, typename T4>
+	const void *ProtectFunction(Tr (*func)(T1, T2, T3, T4)) {
+		return ProtectFunction((const void *)func, 4);
+	}
 
 	const u8 *GetSaveRegsFunction() const {
 		return save_regs;
