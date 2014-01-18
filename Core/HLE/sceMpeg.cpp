@@ -816,6 +816,7 @@ u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 	}
 
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcDecodeStopYCbCr(%08x, %08x, %08x)", mpeg, bufferAddr, statusAddr);
+	Memory::Write_U32(0, statusAddr);
 	return 0;
 }
 
