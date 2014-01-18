@@ -55,12 +55,13 @@ int TranslateNumBones(int bones) {
 
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useHWTransform) {
-	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
+	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
+	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -68,7 +69,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	id->d[0] = lmode & 1;
 	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
 	id->d[0] |= ((int)enableFog) << 2;
-	id->d[0] |= doTexture << 3;
+	id->d[0] |= (doTexture & 1) << 3;
 	id->d[0] |= (hasColor & 1) << 4;
 	if (doTexture) {
 		id->d[0] |= (gstate_c.flipTexture & 1) << 5;
@@ -112,6 +113,8 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 		id->d[1] |= gstate.areNormalsReversed() << 26;
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
 			id->d[1] |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 27;  // two bits
+		} else {
+			id->d[1] |= (hasTexcoord & 1) << 27;
 		}
 	}
 }
@@ -203,12 +206,13 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	}
 
 	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
-	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
+	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
+	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;  // This also means that we are texturing from a render target
@@ -238,7 +242,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (useHWTransform && hasNormal)
 		WRITE(p, "%s mediump vec3 normal;\n", attribute);
 
-	if (doTexture) {
+	if (doTexture && hasTexcoord) {
 		if (!useHWTransform && doTextureProjection)
 			WRITE(p, "%s vec3 texcoord;\n", attribute);
 		else
@@ -343,8 +347,15 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
-		if (doTexture)
-			WRITE(p, "  v_texcoord = texcoord;\n");
+		if (doTexture) {
+			if (hasTexcoord) {
+				WRITE(p, "  v_texcoord = texcoord;\n");
+			} else if (doTextureProjection) {
+				WRITE(p, "  v_texcoord = vec3(0.0, 0.0, 1.0);\n");
+			} else {
+				WRITE(p, "  v_texcoord = vec2(0.0);\n");
+			}
+		}
 		if (hasColor) {
 			WRITE(p, "  v_color0 = color0;\n");
 			if (lmode)
@@ -589,9 +600,17 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (prescale && !flipV) {
-					WRITE(p, "  v_texcoord = texcoord;\n");
+					if (hasTexcoord) {
+						WRITE(p, "  v_texcoord = texcoord;\n");
+					} else {
+						WRITE(p, "  v_texcoord = vec2(0.0);\n");
+					}
 				} else {
-					WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+					if (hasTexcoord) {
+						WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+					} else {
+						WRITE(p, "  v_texcoord = u_uvscaleoffset.zw;\n");
+					}
 				}
 				break;
 
@@ -605,9 +624,13 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							// prescale is false here.
-							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-							temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);
+							if (hasTexcoord) {
+								static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+								const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+								temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);
+							} else {
+								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
+							}
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
