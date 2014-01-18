@@ -186,9 +186,9 @@ namespace SaveState
 			return next_ == first_;
 		}
 
-		static const int BLOCK_SIZE = 8192;
+		static const int BLOCK_SIZE;
 		// TODO: Instead, based on size of compressed state?
-		static const int BASE_USAGE_INTERVAL = 15;
+		static const int BASE_USAGE_INTERVAL;
 		typedef std::vector<u8> StateBuffer;
 		int first_;
 		int next_;
@@ -210,6 +210,8 @@ namespace SaveState
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
 	static float rewindLastTime = 0.0f;
+	const int StateRingbuffer::BLOCK_SIZE = 8192;
+	const int StateRingbuffer::BASE_USAGE_INTERVAL = 15;
 
 	void SaveStart::DoState(PointerWrap &p)
 	{

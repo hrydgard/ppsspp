@@ -47,7 +47,7 @@ void ThunkManager::Shutdown()
 	FreeCodeSpace();
 }
 
-void *ThunkManager::ProtectFunction(void *function, int num_params)
+const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 {
 	_dbg_assert_msg_(JIT, false, "Arm ThunkManager not implemented?  Will crash.");
 	return NULL;
