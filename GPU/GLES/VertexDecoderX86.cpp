@@ -177,19 +177,19 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	int boneCount = 0;
 	if (dec.weighttype && g_Config.bSoftwareSkinning) {
 		for (int i = 0; i < 8; i++) {
-			MOVUPS(XMM0, M((void *)(gstate.boneMatrix + 12 * i)));
-			MOVUPS(XMM1, M((void *)(gstate.boneMatrix + 12 * i + 3)));
-			MOVUPS(XMM2, M((void *)(gstate.boneMatrix + 12 * i + 3 * 2)));
-			MOVUPS(XMM3, M((void *)(gstate.boneMatrix + 12 * i + 3 * 3)));
-			ANDPS(XMM0, M((void *)&threeMasks));
-			ANDPS(XMM1, M((void *)&threeMasks));
-			ANDPS(XMM2, M((void *)&threeMasks));
-			ANDPS(XMM3, M((void *)&threeMasks));
-			ORPS(XMM3, M((void *)&aOne));
-			MOVAPS(M((void *)(bones + 16 * i)), XMM0);
-			MOVAPS(M((void *)(bones + 16 * i + 4)), XMM1);
-			MOVAPS(M((void *)(bones + 16 * i + 8)), XMM2);
-			MOVAPS(M((void *)(bones + 16 * i + 12)), XMM3);
+			MOVUPS(XMM0, M((gstate.boneMatrix + 12 * i)));
+			MOVUPS(XMM1, M((gstate.boneMatrix + 12 * i + 3)));
+			MOVUPS(XMM2, M((gstate.boneMatrix + 12 * i + 3 * 2)));
+			MOVUPS(XMM3, M((gstate.boneMatrix + 12 * i + 3 * 3)));
+			ANDPS(XMM0, M(&threeMasks));
+			ANDPS(XMM1, M(&threeMasks));
+			ANDPS(XMM2, M(&threeMasks));
+			ANDPS(XMM3, M(&threeMasks));
+			ORPS(XMM3, M(&aOne));
+			MOVAPS(M((bones + 16 * i)), XMM0);
+			MOVAPS(M((bones + 16 * i + 4)), XMM1);
+			MOVAPS(M((bones + 16 * i + 8)), XMM2);
+			MOVAPS(M((bones + 16 * i + 12)), XMM3);
 		}
 	}
 
@@ -204,9 +204,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
 		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MULPS(fpScaleOffsetReg, M((void *)&by128));
+			MULPS(fpScaleOffsetReg, M(&by128));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MULPS(fpScaleOffsetReg, M((void *)&by32768));
+			MULPS(fpScaleOffsetReg, M(&by32768));
 		}
 		MOVSS(fpScratchReg, MDisp(tempReg1, 8));
 		MOVSS(fpScratchReg2, MDisp(tempReg1, 12));
@@ -349,7 +349,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(XMM1, R(tempReg1));
-		MULSS(XMM1, M((void *)&by128));
+		MULSS(XMM1, M(&by128));
 		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
@@ -387,7 +387,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(XMM1, R(tempReg1));
-		MULSS(XMM1, M((void *)&by32768));
+		MULSS(XMM1, M(&by32768));
 		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
@@ -559,7 +559,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	// Alternate approach
 	MOVD_xmm(XMM3, MDisp(srcReg, dec_->coloff));
 	MOVAPS(XMM2, R(XMM3));
-	MOVAPS(XMM1, M((void *)nibbles));
+	MOVAPS(XMM1, M(nibbles));
 	PSLLD(XMM2, 4);
 	PAND(XMM3, R(XMM1));
 	PAND(XMM2, R(XMM1));
@@ -732,7 +732,7 @@ void VertexDecoderJitCache::Jit_NormalS8Skin() {
 	PSLLD(XMM1, 24);
 	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M((void *)&by128));
+	MULPS(XMM3, M(&by128));
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -744,7 +744,7 @@ void VertexDecoderJitCache::Jit_NormalS16Skin() {
 	PSLLD(XMM1, 16);
 	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M((void *)&by32768));
+	MULPS(XMM3, M(&by32768));
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -807,7 +807,7 @@ void VertexDecoderJitCache::Jit_PosS8Skin() {
 	PSLLD(XMM1, 24);
 	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M((void *)&by128));
+	MULPS(XMM3, M(&by128));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
@@ -818,7 +818,7 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 	PSLLD(XMM1, 16);
 	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M((void *)&by32768));
+	MULPS(XMM3, M(&by32768));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 

@@ -86,7 +86,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = J_CC(CC_S, true);
 
-		CMP(32, M((void*)&coreState), Imm32(0));
+		CMP(32, M(&coreState), Imm32(0));
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
 
@@ -129,13 +129,13 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
-			ABI_CallFunction((void *)&Jit);
+			ABI_CallFunction(&Jit);
 			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
 
-		CMP(32, M((void*)&coreState), Imm32(0));
+		CMP(32, M(&coreState), Imm32(0));
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);

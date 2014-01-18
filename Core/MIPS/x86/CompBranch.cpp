@@ -110,21 +110,21 @@ static void JitBranchLogMismatch(MIPSOpcode op, u32 pc)
 void Jit::BranchLog(MIPSOpcode op)
 {
 	FlushAll();
-	ABI_CallFunctionCC(thunks.ProtectFunction((void *) &JitBranchLog, 2), op.encoding, js.compilerPC);
+	ABI_CallFunctionCC(thunks.ProtectFunction(&JitBranchLog), op.encoding, js.compilerPC);
 }
 
 void Jit::BranchLogExit(MIPSOpcode op, u32 dest, bool useEAX)
 {
 	OpArg destArg = useEAX ? R(EAX) : Imm32(dest);
 
-	CMP(32, M((void *) &intBranchExit), destArg);
+	CMP(32, M(&intBranchExit), destArg);
 	FixupBranch skip = J_CC(CC_E);
 
-	MOV(32, M((void *) &jitBranchExit), destArg);
-	ABI_CallFunctionCC(thunks.ProtectFunction((void *) &JitBranchLogMismatch, 2), op.encoding, js.compilerPC);
+	MOV(32, M(&jitBranchExit), destArg);
+	ABI_CallFunctionCC(thunks.ProtectFunction(&JitBranchLogMismatch), op.encoding, js.compilerPC);
 	// Restore EAX, we probably ruined it.
 	if (useEAX)
-		MOV(32, R(EAX), M((void *) &jitBranchExit));
+		MOV(32, R(EAX), M(&jitBranchExit));
 
 	SetJumpTarget(skip);
 }
@@ -445,7 +445,7 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	TEST(32, M((void *)&(mips_->fpcond)), Imm32(1));
+	TEST(32, M(&(mips_->fpcond)), Imm32(1));
 
 	CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
 }
@@ -492,7 +492,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	// THE CONDITION
 	int imm3 = (op >> 18) & 7;
 
-	TEST(32, M((void *)&(mips_->vfpuCtrl[VFPU_CTRL_CC])), Imm32(1 << imm3));
+	TEST(32, M(&(mips_->vfpuCtrl[VFPU_CTRL_CC])), Imm32(1 << imm3));
 
 	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
 	CompBranchExits(cc, targetAddr, notTakenTarget, delaySlotIsNice, likely, false);
@@ -687,7 +687,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	if (quickFunc)
 		ABI_CallFunctionP(quickFunc, (void *)GetSyscallInfo(op));
 	else
-		ABI_CallFunctionC((void *)&CallSyscall, op.encoding);
+		ABI_CallFunctionC(&CallSyscall, op.encoding);
 
 	WriteSyscallExit();
 	js.compiling = false;
