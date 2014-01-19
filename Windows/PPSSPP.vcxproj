@@ -294,6 +294,7 @@
     <ClCompile Include="InputDevice.cpp" />
     <ClCompile Include="KeyboardDevice.cpp" />
     <ClCompile Include="RawInput.cpp" />
+    <ClCompile Include="TouchInputHandler.cpp" />
     <ClCompile Include="W32Util\DialogManager.cpp" />
     <ClCompile Include="W32Util\Misc.cpp">
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename)2.obj</ObjectFileName>
@@ -344,6 +345,7 @@
     <ClInclude Include="InputDevice.h" />
     <ClInclude Include="KeyboardDevice.h" />
     <ClInclude Include="RawInput.h" />
+    <ClInclude Include="TouchInputHandler.h" />
     <ClInclude Include="W32Util\DialogManager.h" />
     <ClInclude Include="W32Util\Misc.h" />
     <ClInclude Include="W32Util\PropertySheet.h" />

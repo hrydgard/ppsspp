@@ -140,6 +140,9 @@
     <ClCompile Include="RawInput.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
+    <ClCompile Include="TouchInputHandler.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -252,6 +255,9 @@
       <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="RawInput.h">
+      <Filter>Windows\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="TouchInputHandler.h">
       <Filter>Windows\Input</Filter>
     </ClInclude>
   </ItemGroup>
