@@ -1146,8 +1146,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 }
 
-void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec3<int> sec_color) {
-	// TODO: Texturing, blending etc.
+void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec3<int> sec_color, float s, float t) {
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 
@@ -1156,7 +1155,51 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 
 	bool clearMode = gstate.isModeClear();
 
-	// TODO: Abstract out texture mapping so we can insert it here. Too big to duplicate.
+	if (gstate.isTextureMapEnabled() && !clearMode) {
+		int texbufwidthbits[8] = {0};
+
+		int maxTexLevel = (gstate.texmode >> 16) & 7;
+		u8 *texptr[8] = {NULL};
+
+		int magFilt = (gstate.texfilter>>8) & 1;
+		if (g_Config.iTexFiltering > 1) {
+			if (g_Config.iTexFiltering == 2) {
+				magFilt = 0;
+			} else if (g_Config.iTexFiltering == 3) {
+				magFilt = 1;
+			}
+		}
+		if ((gstate.texfilter & 4) == 0) {
+			// No mipmapping enabled
+			maxTexLevel = 0;
+		}
+
+		if (gstate.isTextureMapEnabled() && !clearMode) {
+			// TODO: Always using level 0.
+			maxTexLevel = 0;
+			GETextureFormat texfmt = gstate.getTextureFormat();
+			for (int i = 0; i <= maxTexLevel; i++) {
+				u32 texaddr = gstate.getTextureAddress(i);
+				texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+				texptr[i] = Memory::GetPointer(texaddr);
+			}
+		}
+
+		if (gstate.isModeThrough()) {
+			// TODO: Is it really this simple?
+			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+		} else {
+			float texScaleU = getFloat24(gstate.texscaleu);
+			float texScaleV = getFloat24(gstate.texscalev);
+			float texOffsetU = getFloat24(gstate.texoffsetu);
+			float texOffsetV = getFloat24(gstate.texoffsetv);
+
+			s = s * texScaleU + texOffsetU;
+			t = t * texScaleV + texOffsetV;
+			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+		}
+	}
+
 	if (!clearMode)
 		prim_color_rgb += sec_color;
 
@@ -1175,7 +1218,8 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 
 void DrawPoint(const VertexData &v0)
 {
-	DrawPixel(v0.screenpos, v0.color0.rgb(), v0.color0.a(), v0.color1);
+	// TODO: UVGenMode?
+	DrawPixel(v0.screenpos, v0.color0.rgb(), v0.color0.a(), v0.color1, v0.texturecoords.s(), v0.texturecoords.t());
 }
 
 void DrawLine(const VertexData &v0, const VertexData &v1)
@@ -1198,12 +1242,84 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	float yinc = (float)dy / steps;
 	float zinc = (float)dz / steps;
 
+	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
+	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+	bool clearMode = gstate.isModeClear();
+
+	int texbufwidthbits[8] = {0};
+
+	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	u8 *texptr[8] = {NULL};
+
+	int magFilt = (gstate.texfilter>>8) & 1;
+	if (g_Config.iTexFiltering > 1) {
+		if (g_Config.iTexFiltering == 2) {
+			magFilt = 0;
+		} else if (g_Config.iTexFiltering == 3) {
+			magFilt = 1;
+		}
+	}
+	if ((gstate.texfilter & 4) == 0) {
+		// No mipmapping enabled
+		maxTexLevel = 0;
+	}
+
+	if (gstate.isTextureMapEnabled() && !clearMode) {
+		// TODO: Always using level 0.
+		GETextureFormat texfmt = gstate.getTextureFormat();
+		for (int i = 0; i <= maxTexLevel; i++) {
+			u32 texaddr = gstate.getTextureAddress(i);
+			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+			texptr[i] = Memory::GetPointer(texaddr);
+		}
+	}
+
+	float texScaleU = getFloat24(gstate.texscaleu);
+	float texScaleV = getFloat24(gstate.texscalev);
+	float texOffsetU = getFloat24(gstate.texoffsetu);
+	float texOffsetV = getFloat24(gstate.texoffsetv);
+
 	float x = a.x;
 	float y = a.y;
 	float z = a.z;
-	for (; steps >= 0; steps--) {
-		// TODO: interpolate color and UV over line
-		DrawPixel(ScreenCoords(x, y, z), v0.color0.rgb(), v0.color0.a(), v0.color1);
+	for (int i = 0; i <= steps; i++) {
+		if (x < scissorTL.x || y < scissorTL.y || x >= scissorBR.x || y >= scissorBR.y)
+			continue;
+
+		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps;
+		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps;
+		// TODO: UVGenMode?
+		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps;
+		Vec3<int> prim_color_rgb = c0.rgb();
+		int prim_color_a = c0.a();
+		float s = tc.s();
+		float t = tc.t();
+
+		if (gstate.isTextureMapEnabled() && !clearMode) {
+			if (gstate.isModeThrough()) {
+				// TODO: Is it really this simple?
+				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			} else {
+				s = s * texScaleU + texOffsetU;
+				t = t * texScaleV + texOffsetV;
+				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			}
+		}
+
+		if (!clearMode)
+			prim_color_rgb += sec_color;
+
+		ScreenCoords pprime = ScreenCoords(x, y, z);
+
+		// TODO: Fogging
+		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+
+		if (clearMode) {
+			DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
+		} else {
+			DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
+		}
+
 		x = x + xinc;
 		y = y + yinc;
 		z = z + zinc;
