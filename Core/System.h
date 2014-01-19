@@ -49,6 +49,9 @@ extern GlobalUIState globalUIState;
 void UpdateUIState(GlobalUIState newState);
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
+bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
+bool PSP_InitUpdate(std::string *error_string);
+bool PSP_IsIniting();
 bool PSP_IsInited();
 void PSP_Shutdown();
 void PSP_RunLoopUntil(u64 globalticks);
