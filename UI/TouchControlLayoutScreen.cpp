@@ -281,7 +281,6 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	ILOG("Resetting touch control layout");
-	float defaultScale = 1.15;
 	g_Config.ResetControlLayout();
 	InitPadLayout();
 	RecreateViews();

@@ -339,7 +339,6 @@ void AddressPromptScreen::UpdatePreviewDigits() {
 }
 
 void AddressPromptScreen::key(const KeyInput &key) {
-	int nextDigit = -1;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
 			AddDigit(key.keyCode - NKCODE_0);

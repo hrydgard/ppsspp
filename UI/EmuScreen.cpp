@@ -435,23 +435,6 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	}
 }
 
-
-// TODO: Get rid of this.
-static const struct { int from, to; } legacy_touch_mapping[12] = {
-	{PAD_BUTTON_A, CTRL_CROSS},
-	{PAD_BUTTON_B, CTRL_CIRCLE},
-	{PAD_BUTTON_X, CTRL_SQUARE},
-	{PAD_BUTTON_Y, CTRL_TRIANGLE},
-	{PAD_BUTTON_START, CTRL_START},
-	{PAD_BUTTON_SELECT, CTRL_SELECT},
-	{PAD_BUTTON_LBUMPER, CTRL_LTRIGGER},
-	{PAD_BUTTON_RBUMPER, CTRL_RTRIGGER},
-	{PAD_BUTTON_UP, CTRL_UP},
-	{PAD_BUTTON_RIGHT, CTRL_RIGHT},
-	{PAD_BUTTON_DOWN, CTRL_DOWN},
-	{PAD_BUTTON_LEFT, CTRL_LEFT},
-};
-
 void EmuScreen::CreateViews() {
 	InitPadLayout();
 	root_ = CreatePadLayout(&pauseTrigger_);
@@ -500,11 +483,6 @@ void EmuScreen::update(InputState &input) {
 
 	if (invalid_)
 		return;
-
-	float leftstick_x = 0.0f;
-	float leftstick_y = 0.0f;
-	float rightstick_x = 0.0f;
-	float rightstick_y = 0.0f;
 
 	// Virtual keys.
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
@@ -611,8 +589,6 @@ void EmuScreen::render() {
 	glstate.viewport.restore();
 
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
-
-	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 	if (root_) {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
