@@ -18,6 +18,7 @@
 #include "base/basictypes.h"
 
 #include "Common/ThreadPools.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -858,6 +859,14 @@ void DrawTriangleSlice(
 	int maxTexLevel = (gstate.texmode >> 16) & 7;
 	u8 *texptr[8] = {NULL};
 
+	int magFilt = (gstate.texfilter>>8) & 1;
+	if (g_Config.iTexFiltering > 1) {
+		if (g_Config.iTexFiltering == 2) {
+			magFilt = 0;
+		} else if (g_Config.iTexFiltering == 3) {
+			magFilt = 1;
+		}
+	}
 	if ((gstate.texfilter & 4) == 0) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
@@ -937,8 +946,6 @@ void DrawTriangleSlice(
 					int frac_u, frac_v;
 
 					int texlevel = 0;
-					
-					int magFilt = (gstate.texfilter>>8) & 1;
 
 					bool bilinear = magFilt != 0;
 					// bilinear = false;
