@@ -48,6 +48,7 @@ protected:
 
 private:
 	void bootGame(const std::string &filename);
+	void bootComplete();
 	void processAxis(const AxisInput &axis, int direction);
 
 	void pspKey(int pspKeyCode, int flags);

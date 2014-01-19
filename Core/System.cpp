@@ -301,8 +301,13 @@ void System_Wake() {
 }
 
 static bool pspIsInited = false;
+static bool pspIsIniting = false;
 
-bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
+	if (pspIsIniting) {
+		return false;
+	}
+
 #if defined(_WIN32) && defined(_M_X64)
 	INFO_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
 #elif defined(_WIN32) && !defined(_M_X64)
@@ -312,15 +317,28 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 #endif
 	coreParameter = coreParam;
 	coreParameter.errorString = "";
+	pspIsIniting = true;
 
 	if (g_Config.bSeparateCPUThread) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
 		cpuThread->detach();
-		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	} else {
 		CPU_Init();
+	}
+
+	*error_string = coreParameter.errorString;
+	return coreParameter.fileToStart != "";
+}
+
+bool PSP_InitUpdate(std::string *error_string) {
+	if (pspIsInited || !pspIsIniting) {
+		return true;
+	}
+
+	if (g_Config.bSeparateCPUThread && !CPU_IsReady()) {
+		return false;
 	}
 
 	bool success = coreParameter.fileToStart != "";
@@ -333,7 +351,22 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		}
 	}
 	pspIsInited = success;
-	return success;
+	pspIsIniting = false;
+	return true;
+}
+
+bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+	PSP_InitStart(coreParam, error_string);
+
+	if (g_Config.bSeparateCPUThread) {
+		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
+	}
+
+	return PSP_InitUpdate(error_string);
+}
+
+bool PSP_IsIniting() {
+	return pspIsIniting;
 }
 
 bool PSP_IsInited() {
@@ -362,6 +395,7 @@ void PSP_Shutdown() {
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;
+	pspIsIniting = false;
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {

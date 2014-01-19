@@ -63,14 +63,29 @@ EmuScreen::EmuScreen(const std::string &filename)
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
-	booted_ = true;
-	std::string fileToStart = filename;
+	if (PSP_IsIniting()) {
+		std::string error_string;
+		booted_ = PSP_InitUpdate(&error_string);
+		if (booted_) {
+			invalid_ = !PSP_IsInited();
+			if (invalid_) {
+				errorMessage_ = error_string;
+				ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
+				System_SendMessage("event", "failstartgame");
+				return;
+			}
+			bootComplete();
+		}
+		return;
+	}
+
+	invalid_ = true;
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
-	coreParam.fileToStart = fileToStart;
+	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
 	coreParam.startPaused = false;
 	coreParam.printfEmuLog = false;
@@ -92,23 +107,24 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.pixelHeight = pixel_yres;
 
 	std::string error_string;
-	if (PSP_Init(coreParam, &error_string)) {
-		invalid_ = false;
-	} else {
+	if (!PSP_InitStart(coreParam, &error_string)) {
+		booted_ = true;
 		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		System_SendMessage("event", "failstartgame");
 		return;
 	}
+}
 
+void EmuScreen::bootComplete() {
 	globalUIState = UISTATE_INGAME;
 	host->BootDone();
 	host->UpdateDisassembly();
 
 	g_gameInfoCache.FlushBGs();
 
-	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
+	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
 	I18NCategory *s = GetI18NCategory("Screen"); 
