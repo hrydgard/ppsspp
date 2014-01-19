@@ -1146,7 +1146,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 }
 
-void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec3<int> sec_color, float s, float t) {
+void DrawPoint(const VertexData &v0)
+{
+	ScreenCoords pos = v0.screenpos;
+	Vec3<int> prim_color_rgb = v0.color0.rgb();
+	int prim_color_a = v0.color0.a();
+	Vec3<int> sec_color = v0.color1;
+	// TODO: UVGenMode?
+	float s = v0.texturecoords.s();
+	float t = v0.texturecoords.t();
+
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 
@@ -1214,12 +1223,6 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 	} else {
 		DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
 	}
-}
-
-void DrawPoint(const VertexData &v0)
-{
-	// TODO: UVGenMode?
-	DrawPixel(v0.screenpos, v0.color0.rgb(), v0.color0.a(), v0.color1, v0.texturecoords.s(), v0.texturecoords.t());
 }
 
 void DrawLine(const VertexData &v0, const VertexData &v1)
