@@ -260,7 +260,7 @@ void CWCheatEngine::Run() {
 
 			int value;
 			unsigned int comm = code[0];
-			int arg = code[1];
+			u32 arg = code[1];
 			int addr = GetAddress(comm & 0x0FFFFFFF);
 
 			switch (comm >> 28) {
