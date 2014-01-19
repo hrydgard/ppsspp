@@ -1481,7 +1481,9 @@ namespace MainWindow
 			break;
 
 		case WM_INPUT:
-			return WindowsRawInput::Process(wParam, lParam);
+			return WindowsRawInput::Process(hWnd, wParam, lParam);
+
+		// TODO: Could do something useful with WM_INPUT_DEVICE_CHANGE?
 
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
@@ -1536,6 +1538,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 			EmuThread_Stop();
+			WindowsRawInput::Shutdown();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);
 

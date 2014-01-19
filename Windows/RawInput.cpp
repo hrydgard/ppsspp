@@ -22,6 +22,7 @@
 #include "Windows/RawInput.h"
 #include "Windows/KeyboardDevice.h"
 #include "Windows/WindowsHost.h"
+#include "Common/CommonFuncs.h"
 #include "Core/Config.h"
 
 #ifndef HID_USAGE_PAGE_GENERIC
@@ -65,7 +66,10 @@ namespace WindowsRawInput {
 		dev[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
 		dev[1].usUsage = HID_USAGE_GENERIC_MOUSE;
 		dev[1].dwFlags = 0;
-		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
+
+		if (!RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE))) {
+			WARN_LOG(COMMON, "Unable to register raw input devices: %s", GetLastErrorMsg());
+		}
 	}
 
 	static int GetTrueVKey(const RAWKEYBOARD &kb) {
@@ -90,7 +94,54 @@ namespace WindowsRawInput {
 		}
 	}
 
-	LRESULT Process(WPARAM wParam, LPARAM lParam) {
+	void ProcessKeyboard(RAWINPUT *raw, bool foreground) {
+		KeyInput key;
+		key.deviceId = DEVICE_ID_KEYBOARD;
+
+		if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
+			key.flags = KEY_DOWN;
+			key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+
+			if (key.keyCode) {
+				NativeKey(key);
+				keyboardKeysDown.insert(key.keyCode);
+			}
+		} else if (raw->data.keyboard.Message == WM_KEYUP) {
+			key.flags = KEY_UP;
+			key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+
+			if (key.keyCode) {
+				NativeKey(key);
+
+				auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
+				if (keyDown != keyboardKeysDown.end())
+					keyboardKeysDown.erase(keyDown);
+			}
+		}
+	}
+
+	void ProcessMouse(RAWINPUT *raw, bool foreground) {
+		KeyInput key;
+		key.deviceId = DEVICE_ID_MOUSE;
+
+		mouseDeltaX += raw->data.mouse.lLastX;
+		mouseDeltaY += raw->data.mouse.lLastY;
+
+		if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
+			key.flags = KEY_DOWN;
+			key.keyCode = windowsTransTable[VK_RBUTTON];
+			NativeKey(key);
+		} else if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
+			key.flags = KEY_UP;
+			key.keyCode = windowsTransTable[VK_RBUTTON];
+			NativeKey(key);
+		}
+
+		// TODO : Smooth and translate to an axis every frame.
+		// NativeAxis()
+	}
+
+	LRESULT Process(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 		UINT dwSize;
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 		if (!rawInputBuffer) {
@@ -101,56 +152,21 @@ namespace WindowsRawInput {
 			rawInputBuffer = realloc(rawInputBuffer, dwSize);
 		}
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
-		RAWINPUT* raw = (RAWINPUT*)rawInputBuffer;
-		if (raw->header.dwType == RIM_TYPEKEYBOARD) {
-			KeyInput key;
-			key.deviceId = DEVICE_ID_KEYBOARD;
-			if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
-				key.flags = KEY_DOWN;
-				key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+		RAWINPUT *raw = (RAWINPUT *)rawInputBuffer;
+		bool foreground = GET_RAWINPUT_CODE_WPARAM(wParam) == RIM_INPUT;
 
-				if (key.keyCode) {
-					NativeKey(key);
-					keyboardKeysDown.insert(key.keyCode);
-				}
-			} else if (raw->data.keyboard.Message == WM_KEYUP) {
-				key.flags = KEY_UP;
-				key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+		switch (raw->header.dwType) {
+		case RIM_TYPEKEYBOARD:
+			ProcessKeyboard(raw, foreground);
+			break;
 
-				if (key.keyCode) {
-					NativeKey(key);
-
-					auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
-					if (keyDown != keyboardKeysDown.end())
-						keyboardKeysDown.erase(keyDown);
-				}
-			}
-		} else if (raw->header.dwType == RIM_TYPEMOUSE) {
-			mouseDeltaX += raw->data.mouse.lLastX;
-			mouseDeltaY += raw->data.mouse.lLastY;
-
-			KeyInput key;
-			key.deviceId = DEVICE_ID_MOUSE;
-
-			int mouseRightBtnPressed = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN;
-			int mouseRightBtnReleased = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP;
-
-			if(mouseRightBtnPressed) {
-				key.flags = KEY_DOWN;
-				key.keyCode = windowsTransTable[VK_RBUTTON];
-				NativeKey(key);
-			}
-			else if(mouseRightBtnReleased) {
-				key.flags = KEY_UP;
-				key.keyCode = windowsTransTable[VK_RBUTTON];
-				NativeKey(key);
-			}
-
-			// TODO : Smooth and translate to an axis every frame.
-			// NativeAxis()
+		case RIM_TYPEMOUSE:
+			ProcessMouse(raw, foreground);
+			break;
 		}
 
-		return 0;
+		// Docs say to call DefWindowProc to perform necessary cleanup.
+		return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
 	}
 
 	void LoseFocus() {
@@ -162,5 +178,12 @@ namespace WindowsRawInput {
 			key.keyCode = *i;
 			NativeKey(key);
 		}
+	}
+
+	void Shutdown() {
+		if (rawInputBuffer) {
+			free(rawInputBuffer);
+		}
+		rawInputBuffer = 0;
 	}
 };
