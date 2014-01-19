@@ -137,6 +137,9 @@
     <ClCompile Include="GEDebugger\VertexPreview.cpp">
       <Filter>Windows\GE Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="RawInput.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -247,6 +250,9 @@
     </ClInclude>
     <ClInclude Include="..\ios\ViewController.h">
       <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="RawInput.h">
+      <Filter>Windows\Input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -61,6 +61,7 @@
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
+#include "Windows/RawInput.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScaler.h"
@@ -103,19 +104,11 @@ static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern bool g_TakeScreenshot;
 extern InputState input_state;
-static std::set<int> keyboardKeysDown;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
-
-#ifndef HID_USAGE_PAGE_GENERIC
-#define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
-#endif
-#ifndef HID_USAGE_GENERIC_MOUSE
-#define HID_USAGE_GENERIC_MOUSE        ((USHORT) 0x02)
-#endif
 
 namespace MainWindow
 {
@@ -130,8 +123,6 @@ namespace MainWindow
 	static int prevCursorY = -1;
 	static bool mouseButtonDown = false;
 	static bool hideCursor = false;
-	static void *rawInputBuffer;
-	static size_t rawInputBufferSize;
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
 	static std::vector<std::string> availableShaders;
@@ -799,17 +790,7 @@ namespace MainWindow
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
 
-		RAWINPUTDEVICE dev[2];
-		memset(dev, 0, sizeof(dev));
-
-		dev[0].usUsagePage = 1;
-		dev[0].usUsage = 6;
-		dev[0].dwFlags = g_Config.bIgnoreWindowsKey ? RIDEV_NOHOTKEYS : 0;
-
-		dev[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
-		dev[1].usUsage = HID_USAGE_GENERIC_MOUSE;
-		dev[1].dwFlags = 0;
-		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
+		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
 		return TRUE;
@@ -1036,28 +1017,6 @@ namespace MainWindow
 		}
 		return 0;
 	}
-
-	static int GetTrueVKey(const RAWKEYBOARD &kb) {
-		switch (kb.VKey) {
-		case VK_SHIFT:
-			return MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
-
-		case VK_CONTROL:
-			if (kb.Flags & RI_KEY_E0)
-				return VK_RCONTROL;
-			else
-				return VK_LCONTROL;
-
-		case VK_MENU:
-			if (kb.Flags & RI_KEY_E0)
-				return VK_RMENU;  // Right Alt / AltGr
-			else
-				return VK_LMENU;  // Left Alt
-
-		default:
-			return kb.VKey;
-		}
-	}
 	
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		int wmId, wmEvent;
@@ -1085,14 +1044,7 @@ namespace MainWindow
 				}
 
 				if (wParam == WA_INACTIVE) {
-					// Force-release all held keys on the keyboard to prevent annoying stray inputs.
-					KeyInput key;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					key.flags = KEY_UP;
-					for (auto i = keyboardKeysDown.begin(); i != keyboardKeysDown.end(); ++i) {
-						key.keyCode = *i;
-						NativeKey(key);
-					}
+					WindowsRawInput::LoseFocus();
 				}
 			}
 			break;
@@ -1529,67 +1481,9 @@ namespace MainWindow
 			break;
 
 		case WM_INPUT:
-			{
-				UINT dwSize;
-				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
-				if (!rawInputBuffer) {
-					rawInputBuffer = malloc(dwSize);
-					rawInputBufferSize = dwSize;
-				}
-				if (dwSize > rawInputBufferSize) {
-					rawInputBuffer = realloc(rawInputBuffer, dwSize);
-				}
-				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
-				RAWINPUT* raw = (RAWINPUT*)rawInputBuffer;
-				if (raw->header.dwType == RIM_TYPEKEYBOARD) {
-					KeyInput key;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
-						key.flags = KEY_DOWN;
-						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+			return WindowsRawInput::Process(hWnd, wParam, lParam);
 
-						if (key.keyCode) {
-							NativeKey(key);
-							keyboardKeysDown.insert(key.keyCode);
-						}
-					} else if (raw->data.keyboard.Message == WM_KEYUP) {
-						key.flags = KEY_UP;
-						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
-
-						if (key.keyCode) {
-							NativeKey(key);
-
-							auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
-							if (keyDown != keyboardKeysDown.end())
-								keyboardKeysDown.erase(keyDown);
-						}
-					}
-				} else if (raw->header.dwType == RIM_TYPEMOUSE) {
-					mouseDeltaX += raw->data.mouse.lLastX;
-					mouseDeltaY += raw->data.mouse.lLastY;
-
-					KeyInput key;
-					key.deviceId = DEVICE_ID_MOUSE;
-
-					int mouseRightBtnPressed = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN;
-					int mouseRightBtnReleased = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP;
-
-					if(mouseRightBtnPressed) {
-						key.flags = KEY_DOWN;
-						key.keyCode = windowsTransTable[VK_RBUTTON];
-						NativeKey(key);
-					}
-					else if(mouseRightBtnReleased) {
-						key.flags = KEY_UP;
-						key.keyCode = windowsTransTable[VK_RBUTTON];
-						NativeKey(key);
-					}
-
-					// TODO : Smooth and translate to an axis every frame.
-					// NativeAxis()
-				}
-			}
-			return 0;
+		// TODO: Could do something useful with WM_INPUT_DEVICE_CHANGE?
 
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
@@ -1644,6 +1538,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 			EmuThread_Stop();
+			WindowsRawInput::Shutdown();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
