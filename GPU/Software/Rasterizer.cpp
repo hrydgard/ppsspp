@@ -837,6 +837,82 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 }
 
 template <bool clearMode>
+inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_rgb, int prim_color_a) {
+	// Depth range test
+	// TODO: Clear mode?
+	if (!gstate.isModeThrough())
+		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
+			return;
+
+	if (gstate.isColorTestEnabled() && !clearMode)
+		if (!ColorTestPassed(prim_color_rgb))
+			return;
+
+	// TODO: Does a need to be clamped?
+	if (gstate.isAlphaTestEnabled() && !clearMode)
+		if (!AlphaTestPassed(prim_color_a))
+			return;
+
+	// In clear mode, it uses the alpha color as stencil.
+	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
+	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
+	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
+		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
+			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+			SetPixelStencil(p.x, p.y, stencil);
+			return;
+		}
+
+		// Also apply depth at the same time.  If disabled, same as passing.
+		if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
+			if (gstate.isStencilTestEnabled()) {
+				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+				SetPixelStencil(p.x, p.y, stencil);
+			}
+			return;
+		} else if (gstate.isStencilTestEnabled()) {
+			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+		}
+
+		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
+			SetPixelDepth(p.x, p.y, z);
+		}
+	} else if (clearMode && gstate.isClearModeDepthMask()) {
+		SetPixelDepth(p.x, p.y, z);
+	}
+
+	if (gstate.isAlphaBlendEnabled() && !clearMode) {
+		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
+		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
+	}
+
+	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
+		prim_color_rgb *= 2;
+	}
+
+	if (!clearMode)
+		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
+
+	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
+	u32 old_color = GetPixelColor(p.x, p.y);
+
+	// TODO: Is alpha blending still performed if logic ops are enabled?
+	if (gstate.isLogicOpEnabled() && !clearMode) {
+		// Logic ops don't affect stencil.
+		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
+	}
+
+	if (clearMode) {
+		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+	} else {
+		new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+	}
+
+	// TODO: Dither before or inside SetPixelColor
+	SetPixelColor(p.x, p.y, new_color);
+}
+
+template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int minX, int minY, int maxX, int maxY,
@@ -1025,78 +1101,7 @@ void DrawTriangleSlice(
 				if (!flatZ)
 					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
-				// Depth range test
-				// TODO: Clear mode?
-				if (!gstate.isModeThrough())
-					if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
-						continue;
-
-				if (gstate.isColorTestEnabled() && !clearMode)
-					if (!ColorTestPassed(prim_color_rgb))
-						continue;
-
-				// TODO: Does a need to be clamped?
-				if (gstate.isAlphaTestEnabled() && !clearMode)
-					if (!AlphaTestPassed(prim_color_a))
-						continue;
-
-				// In clear mode, it uses the alpha color as stencil.
-				u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
-				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-				if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
-					if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
-						stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
-						SetPixelStencil(p.x, p.y, stencil);
-						continue;
-					}
-
-					// Also apply depth at the same time.  If disabled, same as passing.
-					if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
-						if (gstate.isStencilTestEnabled()) {
-							stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
-							SetPixelStencil(p.x, p.y, stencil);
-						}
-						continue;
-					} else if (gstate.isStencilTestEnabled()) {
-						stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
-					}
-
-					if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
-						SetPixelDepth(p.x, p.y, z);
-					}
-				} else if (clearMode && gstate.isClearModeDepthMask()) {
-					SetPixelDepth(p.x, p.y, z);
-				}
-
-				if (gstate.isAlphaBlendEnabled() && !clearMode) {
-					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
-				}
-
-				if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
-					prim_color_rgb *= 2;
-				}
-
-				if (!clearMode)
-					prim_color_rgb = prim_color_rgb.Clamp(0, 255);
-
-				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
-				u32 old_color = GetPixelColor(p.x, p.y);
-
-				// TODO: Is alpha blending still performed if logic ops are enabled?
-				if (gstate.isLogicOpEnabled() && !clearMode) {
-					// Logic ops don't affect stencil.
-					new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
-				}
-
-				if (clearMode) {
-					new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
-				} else {
-					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
-				}
-
-				// TODO: Dither before or inside SetPixelColor
-				SetPixelColor(p.x, p.y, new_color);
+				DrawSinglePixel<clearMode>(p, z, prim_color_rgb, prim_color_a);
 			}
 		}
 	}
@@ -1144,12 +1149,6 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 	bool clearMode = gstate.isModeClear();
 
 	// TODO: Abstract out texture mapping so we can insert it here. Too big to duplicate.
-	if (gstate.isColorDoublingEnabled() && !clearMode) {
-		// TODO: Do we need to clamp here?
-		prim_color_rgb *= 2;
-		sec_color *= 2;
-	}
-
 	if (!clearMode)
 		prim_color_rgb += sec_color;
 
@@ -1159,72 +1158,11 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 	u16 z = pos.z;
 
-	// Depth range test
-	// TODO: Clear mode?
-	if (!gstate.isModeThrough())
-		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
-			return;
-
-	if (gstate.isColorTestEnabled() && !clearMode)
-		if (!ColorTestPassed(prim_color_rgb))
-			return;
-
-	// TODO: Does a need to be clamped?
-	if (gstate.isAlphaTestEnabled() && !clearMode)
-		if (!AlphaTestPassed(prim_color_a))
-			return;
-
-	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
-	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
-		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
-			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
-			SetPixelStencil(p.x, p.y, stencil);
-			return;
-		}
-
-		// Also apply depth at the same time.  If disabled, same as passing.
-		if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
-			if (gstate.isStencilTestEnabled()) {
-				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
-				SetPixelStencil(p.x, p.y, stencil);
-			}
-			return;
-		} else if (gstate.isStencilTestEnabled()) {
-			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
-		}
-
-		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
-			SetPixelDepth(p.x, p.y, z);
-		}
-	} else if (clearMode && gstate.isClearModeDepthMask()) {
-		SetPixelDepth(p.x, p.y, z);
-	}
-
-	if (gstate.isAlphaBlendEnabled() && !clearMode) {
-		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
-	}
-	if (!clearMode)
-		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
-
-	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
-	u32 old_color = GetPixelColor(p.x, p.y);
-
-	// TODO: Is alpha blending still performed if logic ops are enabled?
-	if (gstate.isLogicOpEnabled() && !clearMode) {
-		// Logic ops don't affect stencil.
-		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
-	}
-
 	if (clearMode) {
-		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+		DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
 	} else {
-		new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+		DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
 	}
-
-	SetPixelColor(p.x, p.y, new_color);
 }
 
 void DrawPoint(const VertexData &v0)
