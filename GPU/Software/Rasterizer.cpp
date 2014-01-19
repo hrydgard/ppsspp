@@ -914,6 +914,70 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 	SetPixelColor(p.x, p.y, new_color);
 }
 
+inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
+	int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
+	int frac_u, frac_v;
+
+	int texlevel = 0;
+
+	bool bilinear = magFilt != 0;
+	// bilinear = false;
+
+	if (gstate.isModeThrough()) {
+		int u_texel = s * 256;
+		int v_texel = t * 256;
+		frac_u = u_texel & 0xff;
+		frac_v = v_texel & 0xff;
+		u_texel >>= 8;
+		v_texel >>= 8;
+
+		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
+		// texlevel = x
+
+		if (texlevel > maxTexLevel)
+			texlevel = maxTexLevel;
+
+		GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
+		if (bilinear) {
+			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
+			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
+			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
+		}
+	} else {
+		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
+		// texlevel = x
+
+		if (texlevel > maxTexLevel)
+			texlevel = maxTexLevel;
+
+		if (bilinear) {
+			GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u, frac_v);
+		} else {
+			GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
+		}
+	}
+
+	Vec4<int> texcolor;
+	int bufwbits = texbufwidthbits[texlevel];
+	const u8 *tptr = texptr[texlevel];
+	if (!bilinear) {
+		// Nearest filtering only. Round texcoords or just chop bits?
+		texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+	} else {
+		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
+		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
+		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
+		// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
+		Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
+		Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
+		texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
+	}
+	Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
+	prim_color_rgb = out.rgb();
+	prim_color_a = out.a();
+}
+
 template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
@@ -1020,76 +1084,18 @@ void DrawTriangleSlice(
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
-					int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
-					int frac_u, frac_v;
-
-					int texlevel = 0;
-
-					bool bilinear = magFilt != 0;
-					// bilinear = false;
-
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
 						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) * wsum);
 						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) * wsum);
-
-						int u_texel = s * 256;
-						int v_texel = t * 256;
-						frac_u = u_texel & 0xff;
-						frac_v = v_texel & 0xff;
-						u_texel >>= 8;
-						v_texel >>= 8;
-
-						// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
-						// texlevel = x     
-
-						if (texlevel > maxTexLevel)
-							texlevel = maxTexLevel;
-
-						GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
-						if (bilinear) {
-							GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
-							GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
-							GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
-						}
+						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
 						t = t * texScaleV + texOffsetV;
-
-						// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
-						// texlevel = x
-
-						if (texlevel > maxTexLevel)
-							texlevel = maxTexLevel;
-
-						if (bilinear) {
-							GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u, frac_v);
-						} else {
-							GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
-						}
+						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					}
-
-					Vec4<int> texcolor;
-					int bufwbits = texbufwidthbits[texlevel];
-					const u8 *tptr = texptr[texlevel];
-					if (!bilinear) {
-						// Nearest filtering only. Round texcoords or just chop bits?
-						texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
-					} else {
-						Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
-						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
-						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
-						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
-						// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
-						Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
-						Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-						texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
-					}
-					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
-					prim_color_rgb = out.rgb();
-					prim_color_a = out.a();
 				}
 
 				if (!clearMode)
