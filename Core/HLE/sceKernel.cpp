@@ -341,6 +341,7 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 		if (addr != 0)
 			gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
+	hleEatCycles(190);
 	return 0;
 }
 
@@ -358,6 +359,7 @@ int sceKernelDcacheWritebackAll()
 	// Some games seem to use this a lot, it doesn't make sense
 	// to zap the whole texture cache.
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
+	hleEatCycles(3524);
 	return 0;
 }
 
@@ -372,6 +374,7 @@ int sceKernelDcacheWritebackRange(u32 addr, int size)
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
+	hleEatCycles(165);
 	return 0;
 }
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
@@ -385,6 +388,7 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
+	hleEatCycles(165);
 	return 0;
 }
 int sceKernelDcacheWritebackInvalidateAll()
@@ -393,6 +397,7 @@ int sceKernelDcacheWritebackInvalidateAll()
 	NOTICE_LOG(CPU,"sceKernelDcacheInvalidateAll()");
 #endif
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
+	hleEatCycles(1165);
 	return 0;
 }
 

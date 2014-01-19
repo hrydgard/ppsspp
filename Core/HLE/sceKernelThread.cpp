@@ -2316,6 +2316,7 @@ u32 sceKernelSuspendDispatchThread()
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
 	DEBUG_LOG(SCEKERNEL, "%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
+	hleEatCycles(940);
 	return oldDispatchEnabled;
 }
 
@@ -2331,6 +2332,7 @@ u32 sceKernelResumeDispatchThread(u32 enabled)
 	dispatchEnabled = enabled != 0;
 	DEBUG_LOG(SCEKERNEL, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
 	hleReSchedule("dispatch resumed");
+	hleEatCycles(940);
 	return 0;
 }
 
@@ -2481,6 +2483,7 @@ u32 __KernelGetCurThreadStack()
 SceUID sceKernelGetThreadId()
 {
 	VERBOSE_LOG(SCEKERNEL, "%i = sceKernelGetThreadId()", currentThread);
+	hleEatCycles(180);
 	return currentThread;
 }
 
@@ -3648,6 +3651,7 @@ void sceKernelCheckCallback()
 	} else {
 		RETURN(0);
 	}
+	hleEatCycles(230);
 }
 
 bool __KernelInCallback()

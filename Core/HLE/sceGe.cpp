@@ -313,6 +313,7 @@ u32 sceGeEdramGetAddr()
 {
 	u32 retVal = 0x04000000;
 	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetAddr", retVal);
+	hleEatCycles(150);
 	return retVal;
 }
 
