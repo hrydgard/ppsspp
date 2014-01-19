@@ -1028,11 +1028,6 @@ void DrawTriangleSlice(
 					if (!ColorTestPassed(prim_color_rgb))
 						continue;
 
-				// Color doubling happens after the color test.
-				if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
-					prim_color_rgb *= 2;
-				}
-
 				// TODO: Does a need to be clamped?
 				if (gstate.isAlphaTestEnabled() && !clearMode)
 					if (!AlphaTestPassed(prim_color_a))
@@ -1064,6 +1059,12 @@ void DrawTriangleSlice(
 					}
 				} else if (clearMode && gstate.isClearModeDepthMask()) {
 					SetPixelDepth(p.x, p.y, z);
+				}
+
+				// Color doubling happens after the color test.
+				// TODO: Does a need to be clamped? 
+				if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
+					prim_color_rgb *= 2;
 				}
 
 				if (gstate.isAlphaBlendEnabled() && !clearMode) {
