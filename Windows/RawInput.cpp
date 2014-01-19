@@ -56,7 +56,7 @@ namespace WindowsRawInput {
 	static size_t rawInputBufferSize;
 
 	void Init() {
-		RAWINPUTDEVICE dev[4];
+		RAWINPUTDEVICE dev[3];
 		memset(dev, 0, sizeof(dev));
 
 		dev[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
@@ -71,11 +71,7 @@ namespace WindowsRawInput {
 		dev[2].usUsage = HID_USAGE_GENERIC_JOYSTICK;
 		dev[2].dwFlags = 0;
 
-		dev[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
-		dev[2].usUsage = HID_USAGE_GENERIC_GAMEPAD;
-		dev[2].dwFlags = 0;
-
-		if (!RegisterRawInputDevices(dev, 4, sizeof(RAWINPUTDEVICE))) {
+		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
 			WARN_LOG(COMMON, "Unable to register raw input devices: %s", GetLastErrorMsg());
 		}
 	}
