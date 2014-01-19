@@ -87,7 +87,8 @@ enum
 	RAM_NORMAL_MASK = RAM_NORMAL_SIZE - 1,
 
 	// Used if the PSP model is PSP-2000 (Slim).
-	RAM_DOUBLE_SIZE = RAM_NORMAL_SIZE * 2,
+	// Try to set it as 62M 
+	RAM_DOUBLE_SIZE = 0x03E00000,
 
 	VRAM_SIZE			 = 0x200000,
 	VRAM_MASK			 = VRAM_SIZE - 1,
