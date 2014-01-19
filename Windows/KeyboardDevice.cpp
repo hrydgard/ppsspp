@@ -4,10 +4,8 @@
 #include "util/const_map.h"
 #include "KeyMap.h"
 #include "ControlMapping.h"
-#include "Windows/WndMainWindow.h"
 #include "KeyboardDevice.h"
 #include "../Common/CommonTypes.h"
-#include "../Core/HLE/sceCtrl.h"
 #include "WinUser.h"
 
 
