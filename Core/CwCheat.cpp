@@ -264,10 +264,22 @@ void CWCheatEngine::Run() {
 			int addr = GetAddress(comm & 0x0FFFFFFF);
 
 			switch (comm >> 28) {
-			case 0: // 8-bit write
+			case 0: // 8-bit write.But need more check
+				if (Memory::IsValidAddress(addr)){
+					if (arg < 0x000000100) // 8-bit 
+						Memory::Write_U8((u8) arg, addr);
+					else if (arg < 0x000010000) // 16-bit
+						Memory::Write_U16((u16) arg, addr);
+					else // 32-bit
+						Memory::Write_U32((u32) arg, addr);
+				}
+				break;
 			case 0x1: // 16-bit write
+				if (Memory::IsValidAddress(addr)){
+					Memory::Write_U16((u16) arg, addr);
+				}
+				break;
 			case 0x2: // 32-bit write
-				// 8,16,32 bit write should be the same
 				if (Memory::IsValidAddress(addr)){
 					Memory::Write_U32((u32) arg, addr);
 				}
