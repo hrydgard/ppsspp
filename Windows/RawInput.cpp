@@ -56,7 +56,7 @@ namespace WindowsRawInput {
 	static size_t rawInputBufferSize;
 
 	void Init() {
-		RAWINPUTDEVICE dev[2];
+		RAWINPUTDEVICE dev[4];
 		memset(dev, 0, sizeof(dev));
 
 		dev[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
@@ -67,7 +67,15 @@ namespace WindowsRawInput {
 		dev[1].usUsage = HID_USAGE_GENERIC_MOUSE;
 		dev[1].dwFlags = 0;
 
-		if (!RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE))) {
+		dev[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
+		dev[2].usUsage = HID_USAGE_GENERIC_JOYSTICK;
+		dev[2].dwFlags = 0;
+
+		dev[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
+		dev[2].usUsage = HID_USAGE_GENERIC_GAMEPAD;
+		dev[2].dwFlags = 0;
+
+		if (!RegisterRawInputDevices(dev, 4, sizeof(RAWINPUTDEVICE))) {
 			WARN_LOG(COMMON, "Unable to register raw input devices: %s", GetLastErrorMsg());
 		}
 	}
@@ -141,6 +149,10 @@ namespace WindowsRawInput {
 		// NativeAxis()
 	}
 
+	void ProcessHID(RAWINPUT *raw, bool foreground) {
+		// TODO: Use hidparse or something to understand the data.
+	}
+
 	LRESULT Process(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 		UINT dwSize;
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
@@ -162,6 +174,10 @@ namespace WindowsRawInput {
 
 		case RIM_TYPEMOUSE:
 			ProcessMouse(raw, foreground);
+			break;
+
+		case RIM_TYPEHID:
+			ProcessHID(raw, foreground);
 			break;
 		}
 
