@@ -881,13 +881,15 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 		SetPixelDepth(p.x, p.y, z);
 	}
 
+	// Doubling happens only when texturing is enabled, and after tests.
+	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
+		// TODO: Does this need to be clamped before blending?
+		prim_color_rgb *= 2;
+	}
+
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
-	}
-
-	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
-		prim_color_rgb *= 2;
 	}
 
 	if (!clearMode)
