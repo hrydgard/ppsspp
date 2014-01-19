@@ -98,7 +98,7 @@ LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
 {
 	cpu = _cpu;
-	lastTicks = CoreTiming::GetTicks();
+	lastTicks = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
 	keepStatusBarText = false;
 	hideBottomTabs = false;
 
@@ -187,7 +187,9 @@ CDisasm::~CDisasm()
 
 void CDisasm::stepInto()
 {
-	if (!Core_IsStepping()) return;
+	if (!PSP_IsInited() || !Core_IsStepping()) {
+		return;
+	}
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
@@ -235,7 +237,9 @@ void CDisasm::stepInto()
 
 void CDisasm::stepOver()
 {
-	if (Core_IsActive()) return;
+	if (!PSP_IsInited() || Core_IsActive()) {
+		return;
+	}
 	
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
@@ -283,6 +287,10 @@ void CDisasm::stepOver()
 
 void CDisasm::stepOut()
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
+
 	auto threads = GetThreadsInfo();
 
 	u32 entry, stackTop;
@@ -318,6 +326,10 @@ void CDisasm::stepOut()
 
 void CDisasm::runToLine()
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
+
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	u32 pos = ptr->getSelection();
 
@@ -488,6 +500,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STOPGO:
 				{
+					if (!PSP_IsInited()) {
+						break;
+					}
 					if (!Core_IsStepping())		// stop
 					{
 						ptr->setDontRedraw(false);
@@ -753,7 +768,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	HWND hDlg = m_hDlg;
 
 	// Update Dialog Windows
-	if (_bDebug && globalUIState == UISTATE_INGAME)
+	if (_bDebug && globalUIState == UISTATE_INGAME && PSP_IsInited())
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
@@ -785,7 +800,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	{
 		updateThreadLabel(true);
 		
-		if (globalUIState == UISTATE_INGAME)
+		if (globalUIState == UISTATE_INGAME && PSP_IsInited())
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
 			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);

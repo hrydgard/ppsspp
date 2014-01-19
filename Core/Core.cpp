@@ -143,7 +143,7 @@ static inline void UpdateRunLoop() {
 }
 
 void Core_RunLoop() {
-	while (globalUIState != UISTATE_INGAME && globalUIState != UISTATE_EXIT) {
+	while ((globalUIState != UISTATE_INGAME || !PSP_IsInited()) && globalUIState != UISTATE_EXIT) {
 		time_update();
 
 #if defined(_WIN32) && !defined(USING_QT_UI)
