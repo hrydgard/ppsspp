@@ -136,7 +136,7 @@ static void RotateUVThrough(VertexData &tl, VertexData &tr, VertexData &bl, Vert
 	}
 }
 
-void ProcessQuad(const VertexData& v0, const VertexData& v1)
+void ProcessRect(const VertexData& v0, const VertexData& v1)
 {
 	if (!gstate.isModeThrough()) {
 		VertexData buf[4];

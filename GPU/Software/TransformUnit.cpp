@@ -352,7 +352,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				}
 
 				case GE_PRIM_RECTANGLES:
-					Clipper::ProcessQuad(data[0], data[1]);
+					Clipper::ProcessRect(data[0], data[1]);
 					break;
 
 				case GE_PRIM_LINES:
