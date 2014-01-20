@@ -1237,9 +1237,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	int steps;
 	if (abs(dx) < abs(dy))
-		steps = dy / 16;
+		steps = abs(dy) / 16;
 	else
-		steps = dx / 16;
+		steps = abs(dx) / 16;
 
 	float xinc = (float)dx / steps;
 	float yinc = (float)dy / steps;
