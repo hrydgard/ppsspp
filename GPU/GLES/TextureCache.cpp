@@ -1537,14 +1537,18 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	int scaleFactor;
 	//Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0)
+	if (g_Config.iTexScalingLevel == 0) {
 #ifndef USING_GLES2
-		scaleFactor = std::min(5, g_Config.iInternalResolution);
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, g_Config.iInternalResolution);
+		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
+			scaleFactor = 2;
+		}
 #else
-		scaleFactor = std::min(3, g_Config.iInternalResolution);
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, g_Config.iInternalResolution);
 #endif
-	else
+	} else {
 		scaleFactor = g_Config.iTexScalingLevel;
+	}
 
 	// Don't scale the PPGe texture.
 	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
