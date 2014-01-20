@@ -331,6 +331,10 @@ FramebufferManager::~FramebufferManager() {
 	}
 	SetNumExtraFBOs(0);
 
+	for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
+		fbo_destroy(it->second);
+	}
+
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
 #endif
@@ -907,6 +911,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
 		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
 		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
+		
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
 #else
@@ -922,7 +927,53 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 #endif
 		}
 	}
+}
 
+void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
+	if (!framebuffer->fbo || !useBufferedRendering_) {
+		glBindTexture(GL_TEXTURE_2D, 0);
+		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		return;
+	}
+
+	if (MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
+#ifndef USING_GLES2
+		if (gl_extensions.FBO_ARB) {
+#else
+		if (gl_extensions.GLES3) {
+#endif
+#ifdef MAY_HAVE_GLES3
+
+			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+			FBO *renderCopy = NULL;
+			std::pair<int, int> copySize = std::make_pair((int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
+			for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
+				if (it->first == copySize) {
+					renderCopy = it->second;
+					break;
+				}
+			}
+			if (!renderCopy) {
+				renderCopy = fbo_create(framebuffer->renderWidth, framebuffer->renderHeight, 1, true, framebuffer->colorDepth);
+				renderCopies_[copySize] = renderCopy;
+			}
+
+			fbo_bind_as_render_target(renderCopy);
+			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
+			fbo_bind_for_read(framebuffer->fbo);
+			glBlitFramebuffer(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+			fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR)
+				glstate.viewport.restore();
+			fbo_bind_color_as_texture(renderCopy, 0);
+#endif
+		} else {
+			fbo_bind_color_as_texture(framebuffer->fbo, 0);
+		}
+	} else {
+		fbo_bind_color_as_texture(framebuffer->fbo, 0);
+	}
 }
 
 void FramebufferManager::CopyDisplayToOutput() {

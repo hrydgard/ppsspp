@@ -24,6 +24,7 @@
 #include "TextureScaler.h"
 
 struct VirtualFramebuffer;
+class FramebufferManager;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -55,6 +56,10 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
+
+	void SetFramebufferManager(FramebufferManager *fbManager) {
+		framebufferManager_ = fbManager;
+	}
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
@@ -115,8 +120,8 @@ private:
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
-	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
-	void *ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt, int bufw);
+	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
+	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
@@ -160,5 +165,6 @@ private:
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
+	FramebufferManager *framebufferManager_;
 };
 

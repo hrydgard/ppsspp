@@ -397,6 +397,7 @@ GLES_GPU::GLES_GPU()
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
+	textureCache_.SetFramebufferManager(&framebufferManager_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -893,8 +894,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -970,8 +973,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 		///
@@ -982,8 +987,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -1209,8 +1216,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
