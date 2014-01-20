@@ -18,6 +18,7 @@
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
+#include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "ui/view.h"
@@ -168,11 +169,23 @@ void GameSettingsScreen::CreateViews() {
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
-	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x","4x", "5x"};
+	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
+	static const char *texScaleLevelsPOT[] = {"Auto", "Off", "2x", "4x"};
 #else
-	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x"};
+	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x"};
+	static const char *texScaleLevelsPOT[] = {"Auto", "Off", "2x"};
 #endif
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, ARRAY_SIZE(texScaleLevels), gs, screenManager()));
+
+	static const char **texScaleLevels;
+	static int numTexScaleLevels;
+	if (gl_extensions.OES_texture_npot) {
+		texScaleLevels = texScaleLevelsNPOT;
+		numTexScaleLevels = ARRAY_SIZE(texScaleLevelsNPOT);
+	} else {
+		texScaleLevels = texScaleLevelsPOT;
+		numTexScaleLevels = ARRAY_SIZE(texScaleLevelsPOT);
+	}
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gs, screenManager()));
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
