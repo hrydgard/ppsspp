@@ -1285,14 +1285,15 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	float x = a.x;
 	float y = a.y;
 	float z = a.z;
+	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i <= steps; i++) {
 		if (x < scissorTL.x || y < scissorTL.y || x >= scissorBR.x || y >= scissorBR.y)
 			continue;
 
-		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps;
-		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps;
+		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
+		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
 		// TODO: UVGenMode?
-		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps;
+		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 		Vec3<int> prim_color_rgb = c0.rgb();
 		int prim_color_a = c0.a();
 		float s = tc.s();
