@@ -138,6 +138,8 @@ public:
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 
+	void BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
+	
 	// Just for logging right now.  Might remove/change.
 	void NotifyBlockTransfer(u32 dst, u32 src);
 
