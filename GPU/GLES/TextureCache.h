@@ -72,14 +72,16 @@ private:
 
 		enum Status {
 			STATUS_HASHING = 0x00,
-			STATUS_RELIABLE = 0x01,  // cache, don't hash
-			STATUS_UNRELIABLE = 0x02,  // never cache
+			STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
+			STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
 			STATUS_MASK = 0x03,
 
 			STATUS_ALPHA_UNKNOWN = 0x04,
-			STATUS_ALPHA_FULL = 0x00,  // Has no alpha channel, or always full alpha.
-			STATUS_ALPHA_SIMPLE = 0x08,  // Like above, but also has 0 alpha (e.g. 5551.)
+			STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
+			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
 			STATUS_ALPHA_MASK = 0x0c,
+
+			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
 		};
 
 		// Status, but int so we can zero initialize.
