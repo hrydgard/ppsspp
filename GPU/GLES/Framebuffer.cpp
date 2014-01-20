@@ -1603,6 +1603,36 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
+void FramebufferManager::NotifyBlockTransfer(u32 dst, u32 src) {
+#ifndef USING_GLES2
+	if (!reportedBlits_.insert(std::make_pair(dst, src)).second) {
+		// Already reported/checked.
+		return;
+	}
+
+	bool dstBuffer = false;
+	bool srcBuffer = false;
+
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		if (MaskedEqual(vfb->fb_address, dst)) {
+			dstBuffer = true;
+		}
+		if (MaskedEqual(vfb->fb_address, src)) {
+			srcBuffer = true;
+		}
+	}
+
+	if (dstBuffer && srcBuffer) {
+		WARN_LOG_REPORT(G3D, "Intra buffer block transfer (not supported) %08x -> %08x", src, dst);
+	} else if (dstBuffer) {
+		WARN_LOG_REPORT(G3D, "Block transfer upload (not supported) %08x -> %08x", src, dst);
+	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		WARN_LOG_REPORT(G3D, "Block transfer download (not supported) %08x -> %08x", src, dst);
+	}
+#endif
+}
+
 void FramebufferManager::Resized() {
 	resized_ = true;
 }

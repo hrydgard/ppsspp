@@ -1571,6 +1571,7 @@ void GLES_GPU::DoBlockTransfer() {
 	}
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
+	framebufferManager_.NotifyBlockTransfer(dstBasePtr, srcBasePtr);
 
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
 	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
