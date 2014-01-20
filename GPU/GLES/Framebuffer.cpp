@@ -868,28 +868,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		}
 #endif
 
-		bool doDepthCopy = 
-			currentRenderVfb_ != NULL &&
-			currentRenderVfb_->fbo != NULL &&
-			MaskedEqual(currentRenderVfb_->z_address, vfb->z_address) &&
-			currentRenderVfb_->renderWidth == vfb->renderWidth &&
-			currentRenderVfb_->renderHeight == vfb->renderHeight;
-
-#ifndef USING_GLES2
-		if (doDepthCopy && gl_extensions.FBO_ARB) {
-#else
-		if (doDepthCopy && gl_extensions.GLES3) {
-#endif
-
-#ifdef MAY_HAVE_GLES3
-			// Let's only do this if not clearing.
-			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
-				fbo_bind_for_read(currentRenderVfb_->fbo);
-				glBlitFramebuffer(0, 0, currentRenderVfb_->renderWidth, currentRenderVfb_->renderHeight, 0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			}
-#endif
-		}
-
+		// Copy depth pixel value from the read framebuffer to the draw framebuffer
+		BindFramebufferDepth(currentRenderVfb_,vfb);
 		currentRenderVfb_ = vfb;
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -917,6 +897,32 @@ void FramebufferManager::SetLineWidth() {
 		glPointSize((float)g_Config.iInternalResolution);
 	}
 #endif
+}
+
+void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
+	if (!sourceframebuffer || !targetframebuffer->fbo || !useBufferedRendering_) {
+		return;
+	}
+	
+	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
+		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
+		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
+#ifndef USING_GLES2
+		if (gl_extensions.FBO_ARB) {
+#else
+		if (gl_extensions.GLES3) {
+#endif
+
+#ifdef MAY_HAVE_GLES3
+			// Let's only do this if not clearing.
+			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+				fbo_bind_for_read(sourceframebuffer->fbo);
+				glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			}
+#endif
+		}
+	}
+
 }
 
 void FramebufferManager::CopyDisplayToOutput() {
