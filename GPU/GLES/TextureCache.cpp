@@ -47,6 +47,9 @@
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
+// Changes more frequent than this will be considered "frequent" and prevent texture scaling.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT 15
+
 #ifndef GL_UNPACK_ROW_LENGTH
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
@@ -992,6 +995,9 @@ void TextureCache::SetTexture(bool force) {
 			if (hashFail) {
 				match = false;
 				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
+				if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
+					entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+				}
 				entry->numFrames = 0;
 
 				// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
@@ -1048,8 +1054,9 @@ void TextureCache::SetTexture(bool force) {
 					glDeleteTextures(1, &entry->texture);
 				}
 			}
-			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
-				entry->status = TexCacheEntry::STATUS_HASHING;
+			// Clear the reliable bit if set.
+			if ((entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
+				entry->status &= ~TexCacheEntry::STATUS_MASK;
 			}
 		}
 	} else {
@@ -1551,10 +1558,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		scaleFactor = 1;
 
 	u32 *pixelData = (u32 *)finalBuf;
-	if (scaleFactor > 1 && entry.numInvalidated == 0)
+	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
-	// Or always?
-	if (entry.numInvalidated == 0)
+
+	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
 		CheckAlpha(entry, pixelData, dstFmt, w, h);
 	else
 		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
