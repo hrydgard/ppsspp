@@ -166,7 +166,7 @@ static bool blendColorSimilar(Vec3f a, Vec3f b, float margin = 0.1f) {
 void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
-	if (gstate_c.textureChanged) {
+	if (gstate_c.textureChanged && !gstate.isModeClear()) {
 		if (gstate.isTextureMapEnabled()) {
 			textureCache_->SetTexture();
 		}
