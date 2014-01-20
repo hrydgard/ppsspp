@@ -332,6 +332,9 @@ FramebufferManager::~FramebufferManager() {
 	}
 	SetNumExtraFBOs(0);
 
+	if (renderCopy_)
+		fbo_destroy(renderCopy_);
+
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
 #endif
