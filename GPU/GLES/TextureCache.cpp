@@ -830,22 +830,15 @@ bool SetDebugTexture() {
 }
 #endif
 
-void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
-{
+void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
-		// But let's still not use random memory.
-		if (entry->framebuffer->fbo) {
-			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-			// Keep the framebuffer alive.
-			// TODO: Dangerous if it sets a new one?
-			entry->framebuffer->last_frame_used = gpuStats.numFlips;
-		} else {
-			glBindTexture(GL_TEXTURE_2D, 0);
-			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		}
+		framebufferManager_->BindFramebufferColor(entry->framebuffer);
+
+		// Keep the framebuffer alive.
+		entry->framebuffer->last_frame_used = gpuStats.numFlips;
+
 		// We need to force it, since we may have set it on a texture before attaching.
 		UpdateSamplingParams(*entry, true);
 		gstate_c.curTextureWidth = entry->framebuffer->width;
@@ -882,11 +875,6 @@ void TextureCache::SetTexture(bool force) {
 
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-
-	u32 fb_addr = gstate.getFrameBufRawAddress() | 0x04000000;
-	if (fb_addr == gstate.getTextureAddress(0)) {
-		WARN_LOG_REPORT(HLE, "Texturing from same buffer as target (%08x : %ix%i)", fb_addr, w, h);
-	}
 
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {

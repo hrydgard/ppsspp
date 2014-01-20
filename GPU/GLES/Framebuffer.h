@@ -139,7 +139,10 @@ public:
 	void SetLineWidth();
 
 	void BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
-	
+
+	// For use when texturing from a framebuffer.  May create a duplicate if target.
+	void BindFramebufferColor(VirtualFramebuffer *framebuffer);
+
 	// Just for logging right now.  Might remove/change.
 	void NotifyBlockTransfer(u32 dst, u32 src);
 
@@ -228,6 +231,9 @@ private:
 	bool useBufferedRendering_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+	FBO *renderCopy_;
+	int renderCopyWidth_;
+	int renderCopyHeight_;
 
 	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
 

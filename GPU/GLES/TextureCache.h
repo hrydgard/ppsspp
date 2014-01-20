@@ -24,6 +24,7 @@
 #include "TextureScaler.h"
 
 struct VirtualFramebuffer;
+class FramebufferManager;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -55,6 +56,10 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
+
+	void SetFramebufferManager(FramebufferManager *fbManager) {
+		framebufferManager_ = fbManager;
+	}
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
@@ -160,5 +165,6 @@ private:
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
+	FramebufferManager *framebufferManager_;
 };
 
