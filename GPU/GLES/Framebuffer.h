@@ -231,9 +231,7 @@ private:
 	bool useBufferedRendering_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-	FBO *renderCopy_;
-	int renderCopyWidth_;
-	int renderCopyHeight_;
+	std::map<std::pair<int, int>, FBO *> renderCopies_;
 
 	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
 

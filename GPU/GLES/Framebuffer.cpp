@@ -305,8 +305,7 @@ FramebufferManager::FramebufferManager() :
 	shaderManager_(0),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
-	resized_(false),
-	renderCopy_(0)
+	resized_(false)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -332,8 +331,9 @@ FramebufferManager::~FramebufferManager() {
 	}
 	SetNumExtraFBOs(0);
 
-	if (renderCopy_)
-		fbo_destroy(renderCopy_);
+	for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
+		fbo_destroy(it->second);
+	}
 
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
@@ -945,15 +945,20 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 #ifdef MAY_HAVE_GLES3
 
 			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-			if (!renderCopy_ || renderCopyWidth_ != framebuffer->renderWidth || renderCopyHeight_ != framebuffer->renderHeight) {
-				if (renderCopy_)
-					fbo_destroy(renderCopy_);
-				renderCopy_ = fbo_create(framebuffer->renderWidth, framebuffer->renderHeight, 1, true, framebuffer->colorDepth);
-				renderCopyWidth_ = framebuffer->renderWidth;
-				renderCopyHeight_ = framebuffer->renderHeight;
+			FBO *renderCopy = NULL;
+			std::pair<int, int> copySize = std::make_pair((int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
+			for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
+				if (it->first == copySize) {
+					renderCopy = it->second;
+					break;
+				}
+			}
+			if (!renderCopy) {
+				renderCopy = fbo_create(framebuffer->renderWidth, framebuffer->renderHeight, 1, true, framebuffer->colorDepth);
+				renderCopies_[copySize] = renderCopy;
 			}
 
-			fbo_bind_as_render_target(renderCopy_);
+			fbo_bind_as_render_target(renderCopy);
 			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 			fbo_bind_for_read(framebuffer->fbo);
 			glBlitFramebuffer(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -961,7 +966,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR)
 				glstate.viewport.restore();
-			fbo_bind_color_as_texture(renderCopy_, 0);
+			fbo_bind_color_as_texture(renderCopy, 0);
 #endif
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
