@@ -885,7 +885,7 @@ void TextureCache::SetTexture(bool force) {
 
 	u32 fb_addr = gstate.getFrameBufRawAddress() | 0x04000000;
 	if (fb_addr == gstate.getTextureAddress(0)) {
-		WARN_LOG_REPORT(HLE, "Render to self texture (%08x : %ix%i)", fb_addr, w, h);
+		WARN_LOG_REPORT(HLE, "Texturing from same buffer as target (%08x : %ix%i)", fb_addr, w, h);
 	}
 
 	GETextureFormat format = gstate.getTextureFormat();
