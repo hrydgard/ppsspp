@@ -1584,6 +1584,7 @@ namespace MainWindow
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
 			// with corresponding menu items.
 			UpdateMenus();
+			WindowsRawInput::NotifyMenu();
 			break;
 
 		// Turn off the screensaver.

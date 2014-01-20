@@ -21,5 +21,6 @@ namespace WindowsRawInput {
 	void Init();
 	LRESULT Process(HWND hWnd, WPARAM wParam, LPARAM lParam);
 	void LoseFocus();
+	void NotifyMenu();
 	void Shutdown();
 };
