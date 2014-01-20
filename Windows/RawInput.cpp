@@ -21,6 +21,7 @@
 #include "input/input_state.h"
 #include "Windows/RawInput.h"
 #include "Windows/KeyboardDevice.h"
+#include "Windows/WndMainWindow.h"
 #include "Windows/WindowsHost.h"
 #include "Common/CommonFuncs.h"
 #include "Core/Config.h"
@@ -54,6 +55,7 @@ namespace WindowsRawInput {
 	static std::set<int> keyboardKeysDown;
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
+	static bool menuActive;
 
 	void Init() {
 		RAWINPUTDEVICE dev[3];
@@ -74,6 +76,16 @@ namespace WindowsRawInput {
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
 			WARN_LOG(COMMON, "Unable to register raw input devices: %s", GetLastErrorMsg());
 		}
+	}
+
+	bool UpdateMenuActive() {
+		MENUBARINFO info;
+		memset(&info, 0, sizeof(info));
+		info.cbSize = sizeof(info);
+		if (GetMenuBarInfo(MainWindow::GetHWND(), OBJID_MENU, 0, &info) != 0) {
+			menuActive = info.fBarFocused != FALSE;
+		}
+		return menuActive;
 	}
 
 	static int GetTrueVKey(const RAWKEYBOARD &kb) {
@@ -99,6 +111,11 @@ namespace WindowsRawInput {
 	}
 
 	void ProcessKeyboard(RAWINPUT *raw, bool foreground) {
+		if (menuActive && UpdateMenuActive()) {
+			// Ignore keyboard input while a menu is active, it's probably interacting with the menu.
+			return;
+		}
+
 		KeyInput key;
 		key.deviceId = DEVICE_ID_KEYBOARD;
 
@@ -125,6 +142,11 @@ namespace WindowsRawInput {
 	}
 
 	void ProcessMouse(RAWINPUT *raw, bool foreground) {
+		if (menuActive && UpdateMenuActive()) {
+			// Ignore mouse input while a menu is active, it's probably interacting with the menu.
+			return;
+		}
+
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
 
@@ -190,6 +212,10 @@ namespace WindowsRawInput {
 			key.keyCode = *i;
 			NativeKey(key);
 		}
+	}
+
+	void NotifyMenu() {
+		UpdateMenuActive();
 	}
 
 	void Shutdown() {
