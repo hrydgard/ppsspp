@@ -133,6 +133,12 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 
 void SymbolMap::SaveSymbolMap(const char *filename) const {
 	lock_guard guard(lock_);
+
+	// Don't bother writing a blank file.
+	if (!File::Exists(filename) && functions.empty() && data.empty()) {
+		return;
+	}
+
 	FILE *f = File::OpenCFile(filename, "w");
 	if (!f)
 		return;
