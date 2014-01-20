@@ -138,6 +138,9 @@ public:
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 
+	// Just for logging right now.  Might remove/change.
+	void NotifyBlockTransfer(u32 dst, u32 src);
+
 #ifdef USING_GLES2
   void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 #else
@@ -230,4 +233,6 @@ private:
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 #endif
+
+	std::set<std::pair<u32, u32>> reportedBlits_;
 };
