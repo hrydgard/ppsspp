@@ -740,8 +740,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -830,8 +832,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -1045,8 +1049,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
