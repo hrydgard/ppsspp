@@ -1684,6 +1684,9 @@ namespace MainWindow
 		if (!gl_extensions.OES_texture_npot) {
 			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_GRAYED);
 			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_GRAYED);
+		} else {
+			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
+			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
 		}
 
 		static const int texscalingtypeitems[] = {
