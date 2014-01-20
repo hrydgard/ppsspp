@@ -906,6 +906,36 @@ void Register_LoadExecForUser()
 	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
 
+int LoadExecForKernel_4AC57943(SceUID cbId)
+{
+	WARN_LOG(SCEKERNEL,"LoadExecForKernel_4AC57943:Not support this patcher");
+	return sceKernelRegisterExitCallback(cbId);
+}
+
+const HLEFunction LoadExecForKernel[] =
+{
+	{0x4AC57943,&WrapI_I<LoadExecForKernel_4AC57943>,"LoadExecForKernel_4AC57943"},
+	{0xa3d5e142,0, "LoadExecForKernel_a3d5e142"},
+};
+
+void Register_LoadExecForKernel()
+{
+	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
+}
+
+const HLEFunction SysMemForKernel[] =
+{
+	{0x636c953b,0, "SysMemForKernel_636c953b"},
+	{0xc9805775,0, "SysMemForKernel_c9805775"},
+	{0x1c1fbfe7,0, "SysMemForKernel_1c1fbfe7"},
+};
+
+void Register_SysMemForKernel()
+{
+	RegisterModule("SysMemForKernel", ARRAY_SIZE(SysMemForKernel), SysMemForKernel);
+}
+
+
 const HLEFunction ExceptionManagerForKernel[] =
 {
 	{0x3FB264FC, 0, "sceKernelRegisterExceptionHandler"},
