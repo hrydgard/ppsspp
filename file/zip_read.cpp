@@ -117,7 +117,7 @@ ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
 
 	std::vector<FileInfo> info;
 	GetFileListing("assets", &info, 0);
-	for (int i = 0; i < info.size(); i++) {
+	for (size_t i = 0; i < info.size(); i++) {
 		if (info[i].isDirectory) {
 			DLOG("Directory: %s", info[i].name.c_str());
 		} else {
@@ -137,9 +137,11 @@ uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
 	return ReadFromZip(zip_file_, temp_path, size);
 }
 
-bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
-{
-	DLOG("Zip path: %s", path);
+bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<FileInfo> *listing, const char *filter = 0) {
+	char path[1024];
+	strcpy(path, in_zip_path_);
+	strcat(path, orig_path);
+
 	std::set<std::string> filters;
 	std::string tmp;
 	if (filter) {
@@ -186,6 +188,9 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		info.fullName = std::string(path);
 		if (info.fullName[info.fullName.size() - 1] == '/')
 			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
+
+		// Remove the "inzip" part of the fullname.
+		info.fullName = info.fullName.substr(strlen(in_zip_path_));
 		info.fullName += "/" + *diter;
 		info.exists = true;
 		info.isWritable = false;
@@ -199,6 +204,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		info.fullName = std::string(path);
 		if (info.fullName[info.fullName.size() - 1] == '/')
 			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
+		info.fullName = info.fullName.substr(strlen(in_zip_path_));
 		info.fullName += "/" + *fiter;
 		info.exists = true;
 		info.isWritable = false;
@@ -334,8 +340,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	return 0;
 }
 
-bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter)
-{
+bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
 	if (path[0] == '/') {
 		// Local path, not VFS.
 		ILOG("Not a VFS path: %s . Reading local directory.", path);
@@ -347,8 +352,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
-			if (entries[i].reader->GetFileListing(path + prefix_len, listing, filter))
-			{
+			if (entries[i].reader->GetFileListing(path + prefix_len, listing, filter)) {
 				return true;
 			}
 		}
@@ -357,8 +361,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 	return false;
 }
 
-bool VFSGetFileInfo(const char *path, FileInfo *info)
-{
+bool VFSGetFileInfo(const char *path, FileInfo *info) {
 	if (path[0] == '/') {
 		// Local path, not VFS.
 		ILOG("Not a VFS path: %s . Getting local file info.", path);
