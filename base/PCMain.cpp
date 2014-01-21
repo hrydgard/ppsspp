@@ -148,7 +148,8 @@ int8_t EGL_Init() {
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
 #endif
 	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, g_eglConfig, g_Window, 0);
-	if (g_eglSurface == EGL_NO_SURFACE) EGL_ERROR("Unable to create EGL surface!", true);
+	if (g_eglSurface == EGL_NO_SURFACE)
+		EGL_ERROR("Unable to create EGL surface!", true);
 
 	if (eglMakeCurrent(g_eglDisplay, g_eglSurface, g_eglSurface, g_eglContext) != EGL_TRUE)
 		EGL_ERROR("Unable to make GLES context current.", true);
@@ -323,12 +324,23 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 }
 
 // returns -1 on failure
-int parseInt(const char *str) {
+static int parseInt(const char *str) {
 	int val;
 	int retval = sscanf(str, "%d", &val);
-	printf("%i = sscanf %s\n", retval, str);
+	printf("%i = scanf %s\n", retval, str);
 	if (retval != 1) {
 		return -1;
+	} else {
+		return val;
+	}
+}
+
+static float parseFloat(const char *str) {
+	float val;
+	int retval = sscanf(str, "%f", &val);
+	printf("%i = sscanf %s\n", retval, str);
+	if (retval != 1) {
+		return -1.0f;
 	} else {
 		return val;
 	}
@@ -396,6 +408,8 @@ int main(int argc, char *argv[]) {
 	mode = SDL_OPENGL;
 	int set_xres = -1;
 	int set_yres = -1;
+
+	float set_dpi = 1.0f;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
@@ -404,10 +418,15 @@ int main(int argc, char *argv[]) {
 		} else if (set_yres == -2) {
 			set_yres = parseInt(argv[i]);
 		}
+		if (set_dpi == -2)
+			set_dpi = parseFloat(argv[i]);
+
 		if (!strcmp(argv[i],"--xres"))
 			set_xres = -2;
 		if (!strcmp(argv[i],"--yres"))
 			set_yres = -2;
+		if (!strcmp(argv[i],"--dpi"))
+			set_dpi = -2;
 	}
 #endif
 	if (mode & SDL_FULLSCREEN) {
@@ -436,9 +455,13 @@ int main(int argc, char *argv[]) {
 	if (set_yres > 0) {
 		pixel_yres = set_yres;
 	}
+	float dpi_scale = 1.0f;
+	if (set_dpi > 0) {
+		dpi_scale = set_dpi;
+	}
 
-	dp_xres = (float)pixel_xres;
-	dp_yres = (float)pixel_yres;
+	dp_xres = (float)pixel_xres * dpi_scale;
+	dp_yres = (float)pixel_yres * dpi_scale;
 
 	g_Screen = SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode);
 	if (g_Screen == NULL) {

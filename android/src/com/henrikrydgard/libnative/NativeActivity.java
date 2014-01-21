@@ -30,6 +30,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Vibrator;
+import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -116,8 +117,6 @@ public class NativeActivity extends Activity {
 	private AudioManager audioManager;
 	
 	private Vibrator vibrator;
-	    
-    public static boolean inputBoxCancelled;
     
     // Allow for two connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
@@ -636,17 +635,18 @@ public class NativeActivity extends Activity {
 			return true;
 		}
 	}
-	
-	public String inputBox(String title, String defaultText, String defaultAction) {
+
+	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
+	public void inputBox(String title, String defaultText, String defaultAction) {
     	final FrameLayout fl = new FrameLayout(this);
     	final EditText input = new EditText(this);
     	input.setGravity(Gravity.CENTER);
 
-    	inputBoxCancelled = false;
-		FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+    	FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
     	editBoxLayout.setMargins(2, 20, 2, 20);
     	fl.addView(input, editBoxLayout);
 
+    	input.setInputType(InputType.TYPE_CLASS_TEXT);
     	input.setText(defaultText);
     	input.selectAll();
     	
@@ -655,79 +655,93 @@ public class NativeActivity extends Activity {
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
     			public void onClick(DialogInterface d, int which) {
+    	    		NativeApp.sendMessage("inputbox_completed", input.getText().toString());
     				d.dismiss();
     			}
     		})
     		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
     			public void onClick(DialogInterface d, int which) {
+    	    		NativeApp.sendMessage("inputbox_failed", "");
     				d.cancel();
-        	    	NativeActivity.inputBoxCancelled = false;
     			}
     		}).create();
-    	dlg.setCancelable(false);
+    	
+    	dlg.setCancelable(true);
     	dlg.show();
-    	if (inputBoxCancelled)
-    		return null;
-    	NativeApp.sendMessage("INPUTBOX:" + title, input.getText().toString());
-    	return input.getText().toString();
     }
      
     public boolean processCommand(String command, String params) {
-    	if (command.equals("launchBrowser")) {
-    		Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
-    		startActivity(i);
-    		return true;
-    	} else if (command.equals("launchEmail")) {
-    		Intent send = new Intent(Intent.ACTION_SENDTO);
-    		String uriText;
-    		uriText = "mailto:email@gmail.com" + 
-    		          "?subject=Your app is..." + 
-    		          "&body=great! Or?";
-    		uriText = uriText.replace(" ", "%20");
-    		Uri uri = Uri.parse(uriText);
-    		send.setData(uri);
-    		startActivity(Intent.createChooser(send, "E-mail the app author!"));
-    		return true;
-    	} else if (command.equals("sharejpeg")) {
-    		Intent share = new Intent(Intent.ACTION_SEND);
-    		share.setType("image/jpeg");
-    		share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
-    		startActivity(Intent.createChooser(share, "Share Picture"));
-    	} else if (command.equals("sharetext")) {
-    		Intent sendIntent = new Intent();
-    		sendIntent.setType("text/plain");
-    		sendIntent.putExtra(Intent.EXTRA_TEXT, params);
-    		sendIntent.setAction(Intent.ACTION_SEND);
-    		startActivity(sendIntent);
-    	} else if (command.equals("showTwitter")) {
-    		String twitter_user_name = params;
-    		try {
-			    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
-        } catch (Exception e) {
-			    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
-        }
-    	} else if (command.equals("launchMarket")) {
-    		// Don't need this, can just use launchBrowser with a market:
-    		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
-    		// http://developer.android.com/guide/publishing/publishing.html#marketintent
-    		return false;
-    	} else if (command.equals("toast"))  {
-    		Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
-    		toast.show();
-    		return true;
-    	} else if (command.equals("showKeyboard")) {
-    		InputMethodManager inputMethodManager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
-    		// No idea what the point of the ApplicationWindowToken is or if it matters where we get it from...
-    	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
-    		return true;
-    	} else if (command.equals("hideKeyboard")) {
-    		InputMethodManager inputMethodManager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
-    	    inputMethodManager.toggleSoftInputFromWindow(mGLSurfaceView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
-    		return true;
-    	} else if (command.equals("inputBox")) {
-    		inputBox(params, "", "OK");
-    		return true;
-    	} else if (command.equals("vibrate")) {
+		if (command.equals("launchBrowser")) {
+			Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
+			startActivity(i);
+			return true;
+		} else if (command.equals("launchEmail")) {
+			Intent send = new Intent(Intent.ACTION_SENDTO);
+			String uriText;
+			uriText = "mailto:email@gmail.com" + "?subject=Your app is..."
+					+ "&body=great! Or?";
+			uriText = uriText.replace(" ", "%20");
+			Uri uri = Uri.parse(uriText);
+			send.setData(uri);
+			startActivity(Intent.createChooser(send, "E-mail the app author!"));
+			return true;
+		} else if (command.equals("sharejpeg")) {
+			Intent share = new Intent(Intent.ACTION_SEND);
+			share.setType("image/jpeg");
+			share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
+			startActivity(Intent.createChooser(share, "Share Picture"));
+		} else if (command.equals("sharetext")) {
+			Intent sendIntent = new Intent();
+			sendIntent.setType("text/plain");
+			sendIntent.putExtra(Intent.EXTRA_TEXT, params);
+			sendIntent.setAction(Intent.ACTION_SEND);
+			startActivity(sendIntent);
+		} else if (command.equals("showTwitter")) {
+			String twitter_user_name = params;
+			try {
+				startActivity(new Intent(Intent.ACTION_VIEW,
+						Uri.parse("twitter://user?screen_name="
+								+ twitter_user_name)));
+			} catch (Exception e) {
+				startActivity(new Intent(
+						Intent.ACTION_VIEW,
+						Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+			}
+		} else if (command.equals("launchMarket")) {
+			// Don't need this, can just use launchBrowser with a market:
+			// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
+			// http://developer.android.com/guide/publishing/publishing.html#marketintent
+			return false;
+		} else if (command.equals("toast")) {
+			Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
+			toast.show();
+			return true;
+		} else if (command.equals("showKeyboard")) {
+			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+			// No idea what the point of the ApplicationWindowToken is or if it
+			// matters where we get it from...
+			inputMethodManager.toggleSoftInputFromWindow(
+					mGLSurfaceView.getApplicationWindowToken(),
+					InputMethodManager.SHOW_FORCED, 0);
+			return true;
+		} else if (command.equals("hideKeyboard")) {
+			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+			inputMethodManager.toggleSoftInputFromWindow(
+					mGLSurfaceView.getApplicationWindowToken(),
+					InputMethodManager.SHOW_FORCED, 0);
+			return true;
+		} else if (command.equals("inputbox")) {
+			String title = "Input";
+			String defString = "";
+			String[] param = params.split(":");
+			if (param[0].length() > 0)
+				title = param[0];
+			if (param.length > 1)
+				defString = param[1];
+			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
+			inputBox(title, defString, "OK");
+			return true;
+		} else if (command.equals("vibrate")) {
 			if (vibrator != null) {
 				int milliseconds = -1;
 				if (params != "") {
@@ -736,11 +750,13 @@ public class NativeActivity extends Activity {
 					} catch (NumberFormatException e) {
 					}
 				}
-				// Special parameters to perform standard haptic feedback operations
+				// Special parameters to perform standard haptic feedback
+				// operations
 				// -1 = Standard keyboard press feedback
 				// -2 = Virtual key press
 				// -3 = Long press feedback
-				// Note that these three do not require the VIBRATE Android permission.
+				// Note that these three do not require the VIBRATE Android
+				// permission.
 				switch (milliseconds) {
 				case -1:
 					mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -756,8 +772,8 @@ public class NativeActivity extends Activity {
 					break;
 				}
 			}
-    		return true;
-    	}
+			return true;
+		}
     	return false;
     }
 }
