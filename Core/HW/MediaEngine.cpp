@@ -128,7 +128,7 @@ void __AdjustBGMVolume(s16 *samples, u32 count) {
 MediaEngine::MediaEngine(): m_pdata(0) {
 #ifdef USE_FFMPEG
 	m_pFormatCtx = 0;
-	m_pCodecCtx = 0;
+	m_pCodecCtxs.clear();
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
@@ -292,14 +292,14 @@ void MediaEngine::closeContext()
 		av_free(m_pIOContext->buffer);
 	if (m_pIOContext)
 		av_free(m_pIOContext);
-	if (m_pCodecCtx)
-		avcodec_close(m_pCodecCtx);
+	for (auto it = m_pCodecCtxs.begin(), end = m_pCodecCtxs.end(); it != end; ++it)
+		avcodec_close(it->second);
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
-	m_pCodecCtx = 0;
+	m_pCodecCtxs.clear();
 	m_pFormatCtx = 0;
 #endif
 	m_buffer = 0;
@@ -356,13 +356,9 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 
 	m_videoStream = streamNum;
 #ifdef USE_FFMPEG
-	if (m_pFormatCtx) {
-		if (m_pCodecCtx) {
-			avcodec_close(m_pCodecCtx);
-		}
-
+	if (m_pFormatCtx && m_pCodecCtxs.find(m_videoStream) == m_pCodecCtxs.end()) {
 		// Get a pointer to the codec context for the video stream
-		m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
+		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
 
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
@@ -375,6 +371,7 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		if (avcodec_open2(m_pCodecCtx, pCodec, &optionsDict) < 0) {
 			return false; // Could not open codec
 		}
+		m_pCodecCtxs[m_videoStream] = m_pCodecCtx;
 	}
 #endif
 
@@ -384,8 +381,11 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 bool MediaEngine::setVideoDim(int width, int height)
 {
 #ifdef USE_FFMPEG
-	if (!m_pCodecCtx)
+	auto codecIter = m_pCodecCtxs.find(m_videoStream);
+	if (codecIter == m_pCodecCtxs.end())
 		return false;
+	AVCodecContext *m_pCodecCtx = codecIter->second;
+
 	if (width == 0 && height == 0)
 	{
 		// use the orignal video size
@@ -418,6 +418,9 @@ bool MediaEngine::setVideoDim(int width, int height)
 
 void MediaEngine::updateSwsFormat(int videoPixelMode) {
 #ifdef USE_FFMPEG
+	auto codecIter = m_pCodecCtxs.find(m_videoStream);
+	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
+
 	AVPixelFormat swsDesired = getSwsFormat(videoPixelMode);
 	if (swsDesired != m_sws_fmt && m_pCodecCtx != 0) {
 		m_sws_fmt = swsDesired;
@@ -443,6 +446,9 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	// if video engine is broken, force to add timestamp
 	m_videopts += 3003;
 #ifdef USE_FFMPEG
+	auto codecIter = m_pCodecCtxs.find(m_videoStream);
+	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
+
 	if (!m_pFormatCtx)
 		return false;
 	if (!m_pCodecCtx)
