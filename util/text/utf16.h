@@ -25,7 +25,7 @@ public:
 		const uint32_t u = UTF16_Swap<is_little>(c_[index_++]);
 
 		// Surrogate pair.  UTF-16 is so simple.  We assume it's valid.
-		if ((u & 0xD800) == 0xD800) {
+		if ((u & 0xF800) == 0xD800) {
 			return 0x10000 + (((u & 0x3FF) << 10) | (UTF16_Swap<is_little>(c_[index_++]) & 0x3FF));
 		}
 		return u;
