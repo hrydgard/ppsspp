@@ -24,6 +24,7 @@
 
 // An approximation of what the interface will look like. Similar to JPCSP's.
 
+#include <map>
 #include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
 #include "Core/HLE/sceMpeg.h"
@@ -96,7 +97,7 @@ public:  // TODO: Very little of this below should be public.
 	// Video ffmpeg context - not used for audio
 #ifdef USE_FFMPEG
 	AVFormatContext *m_pFormatCtx;
-	AVCodecContext *m_pCodecCtx;
+	std::map<int, AVCodecContext *> m_pCodecCtxs;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
 	AVIOContext *m_pIOContext;
