@@ -773,6 +773,8 @@ public class NativeActivity extends Activity {
 				}
 			}
 			return true;
+		} else if (command.equals("finish")) {
+			finish();
 		}
     	return false;
     }
