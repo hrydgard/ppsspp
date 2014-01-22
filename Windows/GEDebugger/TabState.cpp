@@ -364,14 +364,15 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				"ABGR 4444",
 				"ABGR 8888",
 			};
-			const u8 palette = (value >> 0) & 0xFF;
+			const u8 palette = (value >> 0) & 3;
+			const u8 shift = (value >> 2) & 0x3F;
 			const u8 mask = (value >> 8) & 0xFF;
 			const u8 offset = (value >> 16) & 0xFF;
-			if (palette < (u8)ARRAY_SIZE(clutformats) && offset < 0x20) {
-				if (offset == 0) {
-					swprintf(dest, L"%S & %02x", clutformats[palette], mask);
+			if (palette < (u8)ARRAY_SIZE(clutformats) && offset < 0x20 && shift < 0x20) {
+				if (offset == 0 && shift == 0) {
+					swprintf(dest, L"%S ind & %02x", clutformats[palette], mask);
 				} else {
-					swprintf(dest, L"%S & %02x, offset +%d", clutformats[palette], mask, offset);
+					swprintf(dest, L"%S (ind >> %d) & %02x, offset +%d", clutformats[palette], shift, mask, offset);
 				}
 			} else {
 				swprintf(dest, L"%06x", value);
