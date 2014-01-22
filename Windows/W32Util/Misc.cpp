@@ -188,14 +188,19 @@ void GenericListControl::Update()
 
 void GenericListControl::ResizeColumns()
 {
-	RECT rect;
-	GetClientRect(handle,&rect);
+	if (inResizeColumns)
+		return;
+	inResizeColumns = true;
 
-	int totalListSize = rect.right-rect.left;
+	RECT rect;
+	GetClientRect(handle, &rect);
+
+	int totalListSize = rect.right - rect.left;
 	for (int i = 0; i < columnCount; i++)
 	{
-		ListView_SetColumnWidth(handle,i,columns[i].size * totalListSize);
+		ListView_SetColumnWidth(handle, i, columns[i].size * totalListSize);
 	}
+	inResizeColumns = false;
 }
 
 LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

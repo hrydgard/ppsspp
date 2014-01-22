@@ -52,4 +52,6 @@ private:
 	wchar_t stringBuffer[256];
 	bool valid;
 	bool sendInvalidRows;
+	// Used for hacky workaround to fix a rare hang (see issue #5184)
+	volatile bool inResizeColumns;
 };
