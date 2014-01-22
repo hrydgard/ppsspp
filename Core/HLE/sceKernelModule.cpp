@@ -232,7 +232,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Module", 1, 2);
+		auto s = p.Section("Module", 1, 3);
 		if (!s)
 			return;
 
@@ -248,6 +248,11 @@ public:
 				nm.status = MODULE_STATUS_STARTED;
 			else
 				nm.status = MODULE_STATUS_STOPPED;
+		}
+
+		if (s >= 3) {
+			p.Do(textStart);
+			p.Do(textEnd);
 		}
 
 		ModuleWaitingThread mwt = {0};
@@ -415,12 +420,16 @@ void __KernelModuleInit()
 
 void __KernelModuleDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelModule", 1);
+	auto s = p.Section("sceKernelModule", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
+
+	if (s >= 2) {
+		p.Do(loadedModules);
+	}
 }
 
 void __KernelModuleShutdown()
