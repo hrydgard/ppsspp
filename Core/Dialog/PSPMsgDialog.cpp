@@ -284,8 +284,8 @@ int PSPMsgDialog::Update(int animSpeed)
 
 int PSPMsgDialog::Abort()
 {
-	// TODO: Probably not exactly the same?
-	return PSPDialog::Shutdown();
+	status = SCE_UTILITY_STATUS_FINISHED;
+	return 0;
 }
 
 int PSPMsgDialog::Shutdown(bool force)

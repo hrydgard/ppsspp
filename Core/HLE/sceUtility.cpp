@@ -309,10 +309,9 @@ int sceUtilityMsgDialogAbort()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	currentDialogActive = false;
 
 	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort()");
 	return msgDialog.Abort();
