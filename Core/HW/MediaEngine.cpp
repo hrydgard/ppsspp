@@ -42,6 +42,9 @@ static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0x03;
 
 int g_iNumVideos = 0;
 
+static const int videoTimestampStep = 3003;       // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
+static const int audioTimestampStep = 4180;       // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
+
 #ifdef USE_FFMPEG
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
@@ -444,7 +447,7 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 
 bool MediaEngine::stepVideo(int videoPixelMode) {
 	// if video engine is broken, force to add timestamp
-	m_videopts += 3003;
+	m_videopts += videoTimestampStep;
 #ifdef USE_FFMPEG
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
@@ -737,7 +740,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			outbuf[i * 2 + 1] = sample;
 		}
 	}
-	m_audiopts += 4180;
+	m_audiopts += audioTimestampStep;
 	m_noAudioData = false;
 	return 0x2000;
 }
@@ -747,9 +750,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	if (m_demux)
-		return std::max(m_audiopts - 4180, (s64)0);
-	return m_videopts;
+	return m_audiopts;
 }
 
 s64 MediaEngine::getLastTimeStamp() {
