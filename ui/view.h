@@ -735,33 +735,6 @@ private:
 	float progress_;
 };
 
-
-
-// This tab strip is a little special.
-/*
-class TabStrip : public View {
-public:
-	TabStrip();
-
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(DrawContext &dc);
-
-	void AddTab(const std::string &title, uint32_t color) {
-		Tab tab;
-		tab.title = title;
-		tab.color = color;
-		tabs_.push_back(tab);
-	}
-
-private:
-	int selected_;
-	struct Tab {
-		std::string title;
-		uint32_t color;
-	};
-	std::vector<Tab> tabs_;
-};*/
-
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
 
 void EventTriggered(Event *e, EventParams params);
