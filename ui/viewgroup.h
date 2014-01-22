@@ -1,9 +1,12 @@
 #pragma once
 
+#include <vector>
+
 #include "base/logging.h"
-#include "ui/view.h"
+#include "base/mutex.h"
 #include "math/geom2d.h"
 #include "input/gesture_detector.h"
+#include "ui/view.h"
 
 namespace UI {
 
