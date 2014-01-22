@@ -188,7 +188,6 @@ void GenericListControl::Update()
 
 void GenericListControl::ResizeColumns()
 {
-	static volatile bool inResizeColumns = false;
 	if (inResizeColumns)
 		return;
 	inResizeColumns = true;
