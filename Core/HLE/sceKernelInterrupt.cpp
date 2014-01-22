@@ -328,35 +328,36 @@ void InterruptState::clear()
 // Returns true if anything was executed.
 bool __RunOnePendingInterrupt()
 {
-	if (inInterrupt || !interruptsEnabled)
-	{
+	bool needsThreadReturn = false;
+
+	if (inInterrupt || !interruptsEnabled) {
 		// Already in an interrupt! We'll keep going when it's done.
 		return false;
 	}
 	// Can easily prioritize between different kinds of interrupts if necessary.
 retry:
-	if (!pendingInterrupts.empty())
-	{
-		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
-		// To avoid "injecting" return values into our saved state, we context switch here.
-		SceUID savedThread = __KernelGetCurThread();
-		if (__KernelSwitchOffThread("interrupt"))
-			threadBeforeInterrupt = savedThread;
-
+	if (!pendingInterrupts.empty()) {
 		PendingInterrupt pend = pendingInterrupts.front();
 
 		IntrHandler* handler = intrHandlers[pend.intr];
-		if(handler == NULL)
-		{
+		if (handler == NULL) {
 			WARN_LOG(SCEINTC, "Ignoring interrupt");
 			pendingInterrupts.pop_front();
 			goto retry;
 		}
 
+		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
+		// To avoid "injecting" return values into our saved state, we context switch here.
+		SceUID savedThread = __KernelGetCurThread();
+		if (__KernelSwitchOffThread("interrupt")) {
+			threadBeforeInterrupt = savedThread;
+			needsThreadReturn = true;
+		}
+
 		intState.save();
 		inInterrupt = true;
 
-		if(!handler->run(pend)) {
+		if (!handler->run(pend)) {
 			pendingInterrupts.pop_front();
 			inInterrupt = false;
 			goto retry;
@@ -364,9 +365,9 @@ retry:
 
 		currentMIPS->r[MIPS_REG_RA] = __KernelInterruptReturnAddress();
 		return true;
-	}
-	else
-	{
+	} else {
+		if (needsThreadReturn)
+			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 		// DEBUG_LOG(SCEINTC, "No more interrupts!");
 		return false;
 	}
