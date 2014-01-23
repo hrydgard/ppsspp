@@ -49,5 +49,4 @@
     <permission>access_shared</permission>
     <permission>use_gamepad</permission>
     <permission>play_audio</permission>
-    <permission>narrow_landscape_exit</permission>
 </qnx>
