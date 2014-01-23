@@ -328,8 +328,7 @@ namespace MainWindow
 		const int y = 0;
 		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
 		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
-		ERROR_LOG(CPU,"xres: %d yres: %d",cx,cy);
-		::SetWindowPos(hWnd, HWND_TOPMOST, -10, -10, cx, cy, SWP_FRAMECHANGED);
+		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
 		// Set full screen indicator.
 		g_Config.bFullScreen = true;
@@ -747,7 +746,6 @@ namespace MainWindow
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
-		SetProcessDPIAware();
 		hInst = hInstance; // Store instance handle in our global variable.
 		RECT rc = DetermineWindowRectangle();
 
