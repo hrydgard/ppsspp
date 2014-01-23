@@ -5,8 +5,6 @@
 
 #include "Core/System.h"
 
-#define ENABLE_TOUCH 0
-
 namespace MainWindow
 {
 	enum {
