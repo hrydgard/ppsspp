@@ -396,9 +396,11 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	case VOICETYPE_VAG:
 		if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
 			break;
+		// else fallthrough! Don't change the check above.
 	case VOICETYPE_PCM:
 		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
 			break;
+		// else fallthrough! Don't change the check above.
 	default:
 		// Load resample history (so we can use a wide filter)
 		resampleBuffer[0] = voice.resampleHist[0];
