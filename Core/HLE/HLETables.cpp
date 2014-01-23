@@ -259,8 +259,6 @@ void RegisterAllModules() {
 	Register_ThreadManForUser();
 	Register_ThreadManForKernel();
 	Register_LoadExecForUser();
-	Register_LoadExecForKernel();
-	Register_SysMemForKernel();
 	Register_UtilsForKernel();
 	Register_SysMemUserForUser();
 	Register_InterruptManager();
@@ -319,5 +317,9 @@ void RegisterAllModules() {
 	{
 		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
+
+	// New modules have to be added at the end, or they will break savestates.
+	Register_LoadExecForKernel();
+	Register_SysMemForKernel();
 }
 
