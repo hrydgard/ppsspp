@@ -400,6 +400,8 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
 	int mode;
+	float set_dpi = 1.0f;
+	float set_scale = 1.0f;
 #ifdef USING_GLES2
 	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
 	int set_xres = -1;
@@ -409,7 +411,6 @@ int main(int argc, char *argv[]) {
 	int set_xres = -1;
 	int set_yres = -1;
 
-	float set_dpi = 1.0f;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
@@ -420,6 +421,8 @@ int main(int argc, char *argv[]) {
 		}
 		if (set_dpi == -2)
 			set_dpi = parseFloat(argv[i]);
+		if (set_scale == -2)
+			set_scale = parseFloat(argv[i]);
 
 		if (!strcmp(argv[i],"--xres"))
 			set_xres = -2;
@@ -427,6 +430,8 @@ int main(int argc, char *argv[]) {
 			set_yres = -2;
 		if (!strcmp(argv[i],"--dpi"))
 			set_dpi = -2;
+		if (!strcmp(argv[i],"--scale"))
+			set_scale = -2;
 	}
 #endif
 	if (mode & SDL_FULLSCREEN) {
@@ -438,12 +443,14 @@ int main(int argc, char *argv[]) {
 #endif
 	} else {
 		// set a sensible default resolution (2x)
-		pixel_xres = 480 * 2;
-		pixel_yres = 272 * 2;
+		pixel_xres = 480 * 2 * set_scale;
+		pixel_yres = 272 * 2 * set_scale;
 #ifdef PPSSPP
 		g_Config.bFullScreen = false;
 #endif
 	}
+
+	set_dpi = 1.0f / set_dpi;
 
 	if (!landscape) {
 		std::swap(pixel_xres, pixel_yres);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "backtrace.h"
+
 // Simple wrapper around Android's logging interface that also allows other
 // implementations, and also some misc utilities.
 
@@ -29,12 +31,14 @@ inline void Crash() { __asm { int 3 }; }
 
 #if defined(ARM) || defined(MIPS)
 inline void Crash() {
+	PrintBacktraceToStderr();
 	char *p = (char *)1337;
 	*p = 1;
 }
 #else
 // TODO: 64-bit version
 inline void Crash() {
+	PrintBacktraceToStderr();
 	asm("int $0x3");
 }
 #endif

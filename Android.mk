@@ -10,6 +10,7 @@ LOCAL_SRC_FILES :=\
     android/native_audio.cpp \
     audio/wav_read.cpp \
     audio/mixer.cpp.arm \
+    base/backtrace.cpp \
     base/buffer.cpp \
     base/display.cpp \
     base/timeutil.cpp \
