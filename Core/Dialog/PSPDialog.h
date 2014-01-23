@@ -80,7 +80,8 @@ public:
 protected:
 	bool IsButtonPressed(int checkButton);
 	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
-	void DisplayButtons(int flags);
+	// The caption override is assumed to have a size of 64 bytes.
+	void DisplayButtons(int flags, const char *caption = NULL);
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
