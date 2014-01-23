@@ -1261,7 +1261,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 	case 0x01F20003:
 		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			PSPFileInfo info = pspFileSystem.GetFileInfo("umd1:");
-			Memory::Write_U32((u32) (info.size / 2048) - 1, outPtr);
+			Memory::Write_U32((u32) (info.size) - 1, outPtr);
 			return 0;
 		} else {
 			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
@@ -2128,7 +2128,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			FileMove seek;
 			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
 			// Position is in sectors, don't forget.
-			if (newPos < 0 || newPos > f->info.size / 0x800) {
+			if (newPos < 0 || newPos > f->info.size) {
 				// Not allowed to seek past the end of the file with this API.
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
 			}
