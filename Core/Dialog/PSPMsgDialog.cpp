@@ -276,9 +276,9 @@ int PSPMsgDialog::Update(int animSpeed)
 		EndDraw();
 
 		lastButtons = buttons;
+		messageDialog.result = 0;
 	}
 
-	messageDialog.result = 0;
 	Memory::Memcpy(messageDialogAddr, &messageDialog ,messageDialog.common.size);
 	return 0;
 }
