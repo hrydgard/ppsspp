@@ -75,8 +75,6 @@
 
 #include "Core/HLE/sceUmd.h"
 
-#include <WinUser.h>
-
 #ifdef THEMES
 #include "XPTheme.h"
 #endif
@@ -119,7 +117,6 @@ namespace MainWindow
 	HWND hwndMain;
 	HWND hwndDisplay;
 	HWND hwndGameList;
-
 	TouchInputHandler touchHandler;
 	static HMENU menu;
 
