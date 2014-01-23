@@ -47,7 +47,8 @@ struct pspMessageDialog
 	u32_le options;
 	u32_le buttonPressed;
 	// End of request V2 (Size 580)
-	s32_le unknown[32];
+	char okayButton[64];
+	char cancelButton[64];
 	// End of request V3 (Size 708)
 };
 
