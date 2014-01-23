@@ -394,10 +394,10 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 void SasInstance::MixVoice(SasVoice &voice) {
 	switch (voice.type) {
 	case VOICETYPE_VAG:
-		if (!voice.vagAddr)
+		if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
 			break;
 	case VOICETYPE_PCM:
-		if (!voice.pcmAddr)
+		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
 			break;
 	default:
 		// Load resample history (so we can use a wide filter)
