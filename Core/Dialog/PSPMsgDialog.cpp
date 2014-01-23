@@ -54,7 +54,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	Memory::Memcpy(&messageDialog,paramAddr,size);
 
 	// debug info
-	int optionsNotCoded = ((messageDialog.options | SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED) ^ SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED);
+	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
 	if(optionsNotCoded)
 	{
 		ERROR_LOG_REPORT(SCEUTILITY, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
@@ -70,7 +70,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	}
 	else if(size == SCE_UTILITY_MSGDIALOG_SIZE_V2 && messageDialog.type == 1)
 	{
-		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXT |
+		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXTSOUND |
 				SCE_UTILITY_MSGDIALOG_OPTION_YESNO |
 				SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO;
 		if (((messageDialog.options | validOp) ^ validOp) != 0)
@@ -83,6 +83,11 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	{
 		if((messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO) &&
 				!(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_YESNO))
+		{
+			flag |= DS_ERROR;
+			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
+		}
+		if (messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED)
 		{
 			flag |= DS_ERROR;
 			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
