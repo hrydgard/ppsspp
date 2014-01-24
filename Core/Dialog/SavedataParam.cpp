@@ -42,7 +42,7 @@ static const std::string PIC1_FILENAME = "PIC1.PNG";
 static const std::string SND0_FILENAME = "SND0.AT3";
 static const std::string SFO_FILENAME = "PARAM.SFO";
 
-std::string savePath = "ms0:/PSP/SAVEDATA/";
+static const std::string savePath = "ms0:/PSP/SAVEDATA/";
 
 namespace
 {
@@ -216,20 +216,19 @@ void SavedataParam::Init()
 #endif
 }
 
-std::string SavedataParam::GetSaveDirName(SceUtilitySavedataParam* param, int saveId)
+std::string SavedataParam::GetSaveDirName(const SceUtilitySavedataParam *param, int saveId) const
 {
 	if (!param) {
 		return "";
 	}
 
-	std::string dirName = GetSaveName(param);
 	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
-		dirName = GetFilename(saveId);
-
-	return dirName;
+		return GetFilename(saveId);
+	else
+		return GetSaveName(param);
 }
 
-std::string SavedataParam::GetSaveDir(SceUtilitySavedataParam* param, const std::string &saveDirName)
+std::string SavedataParam::GetSaveDir(const SceUtilitySavedataParam *param, const std::string &saveDirName) const
 {
 	if (!param) {
 		return "";
@@ -238,12 +237,12 @@ std::string SavedataParam::GetSaveDir(SceUtilitySavedataParam* param, const std:
 	return GetGameName(param) + saveDirName;
 }
 
-std::string SavedataParam::GetSaveDir(SceUtilitySavedataParam* param, int saveId)
+std::string SavedataParam::GetSaveDir(const SceUtilitySavedataParam *param, int saveId) const
 {
 	return GetSaveDir(param, GetSaveDirName(param, saveId));
 }
 
-std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, const std::string &saveDir)
+std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param, const std::string &saveDir) const
 {
 	if (!param) {
 		return "";
@@ -252,35 +251,32 @@ std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, const
 	return savePath + saveDir;
 }
 
-std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, int saveId)
+std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param, int saveId) const
 {
 	return GetSaveFilePath(param, GetSaveDir(param, saveId));
 }
 
-std::string SavedataParam::GetGameName(SceUtilitySavedataParam* param)
+inline static std::string FixedToString(const char *str, size_t n)
 {
-	char gameName[14];
-	memcpy(gameName,param->gameName,13);
-	gameName[13] = 0;
-	return gameName;
+	return std::string(str, strnlen(str, n));
 }
 
-std::string SavedataParam::GetSaveName(SceUtilitySavedataParam* param)
+std::string SavedataParam::GetGameName(const SceUtilitySavedataParam *param) const
 {
-	char saveName[21];
-	memcpy(saveName,param->saveName,20);
-	saveName[20] = 0;
-	if(strcmp(saveName,"<>") == 0)
+	return FixedToString(param->gameName, ARRAY_SIZE(param->gameName));
+}
+
+std::string SavedataParam::GetSaveName(const SceUtilitySavedataParam *param) const
+{
+	const std::string saveName = FixedToString(param->saveName, ARRAY_SIZE(param->saveName));
+	if (saveName == "<>")
 		return "";
 	return saveName;
 }
 
-std::string SavedataParam::GetFileName(SceUtilitySavedataParam* param)
+std::string SavedataParam::GetFileName(const SceUtilitySavedataParam *param) const
 {
-	char fileName[14];
-	memcpy(fileName,param->fileName,13);
-	fileName[13] = 0;
-	return fileName;
+	return FixedToString(param->fileName, ARRAY_SIZE(param->fileName));
 }
 
 bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
@@ -309,7 +305,7 @@ int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	if (param->fileName == NULL)
 		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
 
-	std::string filename = savePath + GetGameName(param) + GetSaveName(param) + "/" + param->fileName;
+	std::string filename = savePath + GetGameName(param) + GetSaveName(param) + "/" + GetFileName(param);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists)
 		pspFileSystem.RemoveFile(filename);
@@ -1188,7 +1184,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			int realCount = 0;
 			for (int i = 0; i < saveDataListCount; i++) {
 				// "<>" means saveName can be anything...
-				if (strcmp(saveNameListData[i], "<>") == 0) {
+				if (strncmp(saveNameListData[i], "<>", ARRAY_SIZE(saveNameListData[i])) == 0) {
 					std::string fileDataPath = "";				
 					// TODO:Maybe we need a way to reorder the files?
 					auto allSaves = pspFileSystem.GetDirListing(savePath);
@@ -1201,7 +1197,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 							if(IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;
 
-							fileDataPath = savePath + it->name +  "/" + param->fileName;
+							fileDataPath = savePath + it->name +  "/" + GetFileName(param);
 							PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 							if (info.exists) {
 								SetFileInfo(realCount, info, saveName);
@@ -1219,13 +1215,14 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					continue;
 				}
 
-				DEBUG_LOG(SCEUTILITY,"Name : %s",saveNameListData[i]);
+				const std::string thisSaveName = FixedToString(saveNameListData[i], ARRAY_SIZE(saveNameListData[i]));
+				DEBUG_LOG(SCEUTILITY, "Name : %s", thisSaveName.c_str());
 
-				std::string fileDataPath = savePath+GetGameName(param) + saveNameListData[i] + "/" + param->fileName;
+				std::string fileDataPath = savePath + GetGameName(param) + thisSaveName + "/" + GetFileName(param);
 				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 				if (info.exists)
 				{
-					SetFileInfo(realCount, info, saveNameListData[i]);
+					SetFileInfo(realCount, info, thisSaveName);
 
 					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath.c_str());
 					realCount++;
@@ -1234,7 +1231,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				{
 					if (listEmptyFile)
 					{
-						ClearFileInfo(saveDataList[realCount], saveNameListData[i]);
+						ClearFileInfo(saveDataList[realCount], thisSaveName);
 						DEBUG_LOG(SCEUTILITY,"Don't Exist");
 						realCount++;
 					}
@@ -1254,7 +1251,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		// get and stock file info for each file
 		DEBUG_LOG(SCEUTILITY,"Name : %s",GetSaveName(param).c_str());
 
-		std::string fileDataPath = savePath + GetGameName(param) + GetSaveName(param) + "/" + param->fileName;
+		std::string fileDataPath = savePath + GetGameName(param) + GetSaveName(param) + "/" + GetFileName(param);
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 		if (info.exists)
 		{
@@ -1350,7 +1347,12 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	}
 }
 
-SceUtilitySavedataParam* SavedataParam::GetPspParam()
+SceUtilitySavedataParam *SavedataParam::GetPspParam()
+{
+	return pspParam;
+}
+
+const SceUtilitySavedataParam *SavedataParam::GetPspParam() const
 {
 	return pspParam;
 }
@@ -1364,7 +1366,7 @@ const SaveFileInfo& SavedataParam::GetFileInfo(int idx)
 {
 	return saveDataList[idx];
 }
-std::string SavedataParam::GetFilename(int idx)
+std::string SavedataParam::GetFilename(int idx) const
 {
 	return saveDataList[idx].saveName;
 }

@@ -73,7 +73,7 @@ public:
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();
 
-private :
+private:
 
 	void DisplayBanner(int which);
 	void DisplaySaveList(bool canMove = true);
@@ -82,7 +82,7 @@ private :
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2();
 	void DisplayMessage(std::string text, bool hasYesNo = false);
-	const std::string GetSelectedSaveDirName();
+	const std::string GetSelectedSaveDirName() const;
 
 	enum DisplayState
 	{
