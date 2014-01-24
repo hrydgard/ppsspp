@@ -422,8 +422,27 @@ enum {
 	FPS_LIMIT_CUSTOM = 1,
 };
 
+// Start out assuming we'll go at 59.94 NTSC.
+static float timestepSmooth[8] = {
+	1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f,
+	1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f,
+};
+static int timestepNext = 0;
+
+static float CalculateSmoothTimestep(float lastTimestep) {
+	timestepSmooth[timestepNext] = lastTimestep;
+	timestepNext = (timestepNext + 1) % ARRAY_SIZE(timestepSmooth);
+
+	float summed = 0.0f;
+	for (size_t i = 0; i < ARRAY_SIZE(timestepSmooth); ++i) {
+		summed += timestepSmooth[i];
+	}
+	return summed / (float)ARRAY_SIZE(timestepSmooth);
+}
+
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
+void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
+	float timestep = CalculateSmoothTimestep(lastTimestep);
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = !PSP_CoreParameter().unthrottle;
 	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0)
