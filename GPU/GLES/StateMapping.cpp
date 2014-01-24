@@ -356,6 +356,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
 		glstate.depthWrite.set(gstate.isClearModeDepthMask() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+		if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
+			framebufferManager_->SetDepthUpdated();
+		}
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();
@@ -398,6 +401,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+			framebufferManager_->SetDepthUpdated();
 		} else {
 			glstate.depthTest.disable();
 		}
