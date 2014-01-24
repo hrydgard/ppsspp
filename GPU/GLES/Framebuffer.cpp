@@ -744,7 +744,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
-		vfb->memoryUpdated = false; 
+		vfb->memoryUpdated = false;
+		vfb->depthUpdated = false;
 
 		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
@@ -907,7 +908,13 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	if (!sourceframebuffer || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
 	}
-	
+
+	// If depth wasn't updated, then we're at least "two degrees" away from the data.
+	// This is an optimization: it probably doesn't need to be copied in this case.
+	if (!sourceframebuffer->depthUpdated) {
+		return;
+	}
+
 	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
 		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
 		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
@@ -923,6 +930,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
 				glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
 			}
 #endif
 		}
