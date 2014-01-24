@@ -1,9 +1,9 @@
 #pragma once
 
 #ifdef _WIN32
-#include "SDL/SDL.h"
-#include "SDL/SDL_joystick.h"
-#include "SDL/SDL_thread.h"
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_joystick.h"
+#include "SDL2/SDL_thread.h"
 #else
 #include "SDL.h"
 #include "SDL_joystick.h"

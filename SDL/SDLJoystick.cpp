@@ -13,11 +13,7 @@ extern "C" {
 SDLJoystick::SDLJoystick(bool init_SDL ): running(true),joy(NULL),thread(NULL){
 	if (init_SDL)
 	{
-		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO
-#ifndef _WIN32
-				| SDL_INIT_EVENTTHREAD
-#endif
-				);
+		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO);
 	}
 	fillMapping();
 
@@ -41,7 +37,7 @@ SDLJoystick::~SDLJoystick(){
 }
 
 void SDLJoystick::startEventLoop(){
-	thread = SDL_CreateThread(SDLJoystickThreadWrapper, static_cast<void *>(this));
+	thread = SDL_CreateThread(SDLJoystickThreadWrapper, "joystick", static_cast<void *>(this));
 }
 
 void SDLJoystick::ProcessInput(SDL_Event &event){
