@@ -99,10 +99,10 @@ ViewController* sharedViewController;
 		iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
 		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
         
-        if ([GCController class]) { // Checking the availability of a GameController framework
+		if ([GCController class]) { // Checking the availability of a GameController framework
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
-        }
+		}
 	}
 	return self;
 }
@@ -174,7 +174,7 @@ ViewController* sharedViewController;
 {
 	[self viewDidUnload];
 
-    if ([GCController class]) self.gameController = nil;
+	if ([GCController class]) self.gameController = nil;
 	self.iCadeView = nil;
 	self.audioEngine = nil;
 	self.touches = nil;
@@ -471,8 +471,7 @@ void DisableFZ(){};
         return;
     }
     
-    self.gameController.controllerPausedHandler = ^(GCController *controller)
-    {
+    self.gameController.controllerPausedHandler = ^(GCController *controller) {
         KeyInput key;
         key.flags = KEY_DOWN;
         key.keyCode = NKCODE_ESCAPE;
