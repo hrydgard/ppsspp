@@ -149,7 +149,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam, 
+		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
 
@@ -191,6 +191,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	g_dpi = dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
+	ILOG("DPI detected: %i %f", dpi, g_dpi_scale);
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 
@@ -199,7 +200,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	// NativeInit() is expected to treat extra argument as boot_filename, which in turn will start game immediately.
 	// NOTE: Will only work if ppsspp started from Activity.onCreate(). Won't work if ppsspp app start from onResume().
 
-	if(shortcut_param.empty()) {
+	if (shortcut_param.empty()) {
 		const char *argv[2] = {app_name.c_str(), 0};
 		NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
 	}
