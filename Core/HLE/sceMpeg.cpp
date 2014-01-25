@@ -1092,20 +1092,14 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		result = PSP_ERROR_MPEG_NO_DATA;
 	}
 
-	if (ctx->avc.avcDecodeResult == 0) {
-		INFO_LOG(ME, "Video decode completed");
-		ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
-		result = PSP_ERROR_MPEG_NO_DATA;
-	}
-
 	// The avcau struct may have been modified by mediaengine, write it back.
 	sceAu.write(auAddr);
 
 	// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error 
 	if (Memory::IsValidAddress(attrAddr)) {
 		Memory::Write_U32(1, attrAddr);
+		ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 	}
-
 
 	DEBUG_LOG(ME, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
