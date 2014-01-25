@@ -59,7 +59,7 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: booted_(false), gamePath_(filename), invalid_(true), pauseTrigger_(false) {
+	: booted_(false), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -155,9 +155,10 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
-	if (result == DR_OK) {
+	if (result == DR_OK || quit_) {
 		screenManager()->switchScreen(new MainScreen());
 		System_SendMessage("event", "exitgame");
+		quit_ = false;
 	}
 	RecreateViews();
 }
@@ -484,6 +485,7 @@ void EmuScreen::update(InputState &input) {
 		if (errorMessage_.find("ZIP") != std::string::npos) {
 			screenManager()->push(new InstallZipScreen(gamePath_));
 			errorMessage_ = "";
+			quit_ = true;
 			return;
 		}
 		I18NCategory *g = GetI18NCategory("Error");
@@ -494,6 +496,7 @@ void EmuScreen::update(InputState &input) {
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
 		errorMessage_ = "";
+		quit_ = true;
 		return;
 	}
 
