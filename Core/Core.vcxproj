@@ -242,6 +242,7 @@
     <ClCompile Include="HLE\sceMd5.cpp" />
     <ClCompile Include="HLE\sceMp4.cpp" />
     <ClCompile Include="HLE\sceMp3.cpp" />
+    <ClCompile Include="HLE\sceMt19937.cpp" />
     <ClCompile Include="HLE\sceGameUpdate.cpp" />
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
@@ -509,6 +510,7 @@
     <ClInclude Include="HLE\scePsmf.h" />
     <ClInclude Include="HLE\scePspNpDrm_user.h" />
     <ClInclude Include="HLE\sceP3da.h" />
+    <ClInclude Include="HLE\sceMt19937.h" />   
     <ClInclude Include="HLE\sceMd5.h" />
     <ClInclude Include="HLE\sceMp4.h" />
     <ClInclude Include="HLE\sceMp3.h" />
