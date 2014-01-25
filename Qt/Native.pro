@@ -11,12 +11,6 @@ include(Settings.pri)
 	HEADERS += $$P/native/ext/glew/GL/*.h
 }
 
-# Backtrace
-x86:!mobile_platform: {
-	SOURCES += $$P/native/base/backtrace.cpp
-	HEADERS += $$P/native/base/backtrace.h
-}
-
 # RG_ETC1
 
 SOURCES += $$P/native/ext/rg_etc1/rg_etc1.cpp
@@ -73,6 +67,7 @@ INCLUDEPATH += $$P/native/ext
 # Native
 
 SOURCES +=  $$P/native/audio/*.cpp \
+	$$P/native/base/backtrace.cpp \
 	$$P/native/base/buffer.cpp \
 	$$P/native/base/colorutil.cpp \
 	$$P/native/base/display.cpp \
@@ -107,6 +102,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/parsers.cpp
 
 HEADERS +=  $$P/native/audio/*.h \
+	$$P/native/base/backtrace.h \
 	$$P/native/base/basictypes.h \
 	$$P/native/base/buffer.h \
 	$$P/native/base/color.h \
