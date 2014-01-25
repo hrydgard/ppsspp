@@ -480,14 +480,14 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 	// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	if (g_Config.iFrameSkip == 1 || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
-		// 1 == autoframeskip
+	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
+		// autoframeskip
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
-	} else if (g_Config.iFrameSkip > 1)	{
-		// Other values = fixed frameskip
-		if (numSkippedFrames >= g_Config.iFrameSkip - 1)
+	} else if (g_Config.iFrameSkip >= 1)	{
+		// fixed frameskip
+		if (numSkippedFrames >= g_Config.iFrameSkip)
 			skipFrame = false;
 		else
 			skipFrame = true;
@@ -589,12 +589,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 		int maxFrameskip = 8;
 		if (throttle) {
-			if (g_Config.iFrameSkip == 1) {
-				// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
-				maxFrameskip = 4;
-			} else {
-				maxFrameskip = g_Config.iFrameSkip - 1;
-			}
+			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
+			maxFrameskip = g_Config.iFrameSkip;
 		}
 		if (numSkippedFrames >= maxFrameskip) {
 			skipFrame = false;
