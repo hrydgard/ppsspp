@@ -601,7 +601,7 @@ static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 
 	if (fb_stride > 0 && fb_stride < 512) {
 		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
-		if (fb_stride == scissor_width && region_width != scissor_width) { 
+		if (fb_stride == scissor_width) { 
 			drawing_width = scissor_width;
 			drawing_height = scissor_height;
 		} else {
@@ -610,7 +610,7 @@ static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 		}
 	} else {
 		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-		if (fb_stride == region_width && region_width == viewport_width) { 
+		if (fb_stride == region_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
 		} else if (fb_stride == viewport_width) { 
@@ -706,11 +706,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address)) {
 			vfb = v;
-			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			if (v->width < drawing_width && v->height < drawing_height) {
+			if (v->fb_stride != fb_stride ) {
 				v->width = drawing_width;
 				v->height = drawing_height;
+				v->fb_stride = fb_stride;
 			}
 			if (v->format != fmt) {
 				v->width = drawing_width;
