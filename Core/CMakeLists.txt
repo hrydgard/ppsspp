@@ -60,6 +60,7 @@ set(SRCS
   HLE/sceNet.cpp
   HLE/sceNp.cpp
   HLE/sceP3da.cpp
+  HLE/sceMt19937.cpp
   HLE/sceMd5.cpp
   HLE/sceMp4.cpp
   HLE/sceMp3.cpp

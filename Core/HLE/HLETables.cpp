@@ -67,6 +67,7 @@
 #include "sceUsb.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
+#include "sceMt19937.h"
 
 #define N(s) s
 
@@ -321,5 +322,6 @@ void RegisterAllModules() {
 	// New modules have to be added at the end, or they will break savestates.
 	Register_LoadExecForKernel();
 	Register_SysMemForKernel();
+	Register_sceMt19937();
 }
 
