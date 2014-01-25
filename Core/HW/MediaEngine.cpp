@@ -443,8 +443,6 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 }
 
 bool MediaEngine::stepVideo(int videoPixelMode) {
-	// if video engine is broken, force to add timestamp
-	m_videopts += 3003;
 #ifdef USE_FFMPEG
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
@@ -478,7 +476,10 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
 					m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 
-				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - m_firstTimeStamp;
+				if (av_frame_get_best_effort_timestamp(m_pFrame) != AV_NOPTS_VALUE)
+					m_videopts = av_frame_get_best_effort_timestamp(m_pFrame) + av_frame_get_pkt_duration(m_pFrame) - m_firstTimeStamp;
+				else
+					m_videopts += av_frame_get_pkt_duration(m_pFrame);
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
@@ -494,6 +495,8 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	}
 	return bGetFrame;
 #else
+	// If video engine is not available, just add to the timestamp at least.
+	m_videopts += 3003;
 	return true;
 #endif // USE_FFMPEG
 }
