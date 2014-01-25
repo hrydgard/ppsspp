@@ -277,19 +277,23 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
+static void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
+	for (auto i = g_controllerMap[btn].begin(), end = g_controllerMap[btn].end(); i != end; ++i) {
+		keycodes->push_back((keycode_t)i->keyCode);
+	}
+}
+
 void UpdateConfirmCancelKeys() {
 	std::vector<keycode_t> confirmKeys, cancelKeys;
+	std::vector<keycode_t> tabLeft, tabRight;
 
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	for (auto i = g_controllerMap[confirmKey].begin(); i != g_controllerMap[confirmKey].end(); ++i) {
-		confirmKeys.push_back((keycode_t)i->keyCode);
-	}
-
-	for (auto i = g_controllerMap[cancelKey].begin(); i != g_controllerMap[cancelKey].end(); ++i) {
-		cancelKeys.push_back((keycode_t)i->keyCode);
-	}
+	KeyCodesFromPspButton(confirmKey, &confirmKeys);
+	KeyCodesFromPspButton(cancelKey, &cancelKeys);
+	KeyCodesFromPspButton(CTRL_LTRIGGER, &tabLeft);
+	KeyCodesFromPspButton(CTRL_RTRIGGER, &tabRight);
 
 	// Push several hard-coded keys before submitting to native.
 	const keycode_t hardcodedConfirmKeys[] = {
@@ -314,6 +318,7 @@ void UpdateConfirmCancelKeys() {
 	}
 
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
+	SetTabLeftRightKeys(tabLeft, tabRight);
 }
 
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
