@@ -741,5 +741,7 @@ void EventTriggered(Event *e, EventParams params);
 void DispatchEvents();
 bool IsAcceptKeyCode(int keyCode);
 bool IsEscapeKeyCode(int keyCode);
+bool IsTabLeftKeyCode(int keyCode);
+bool IsTabRightKeyCode(int keyCode);
 
 }  // namespace

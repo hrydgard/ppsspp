@@ -180,4 +180,7 @@ extern ButtonTracker g_buttonTracker;
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
 extern std::vector<keycode_t> confirmKeys;
 extern std::vector<keycode_t> cancelKeys;
-void SetConfirmCancelKeys(std::vector<keycode_t> confirm, std::vector<keycode_t> cancel);
+extern std::vector<keycode_t> tabLeftKeys;
+extern std::vector<keycode_t> tabRightKeys;
+void SetConfirmCancelKeys(const std::vector<keycode_t> &confirm, const std::vector<keycode_t> &cancel);
+void SetTabLeftRightKeys(const std::vector<keycode_t> &tabLeft, const std::vector<keycode_t> &tabRight);
