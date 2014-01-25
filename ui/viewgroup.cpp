@@ -975,9 +975,9 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 
 void ChoiceStrip::Key(const KeyInput &input) {
 	if (input.flags & KEY_DOWN) {
-		if (input.keyCode == NKCODE_BUTTON_L1 && selected_ > 0) {
+		if (IsTabLeftKeyCode(input.keyCode) && selected_ > 0) {
 			SetSelection(selected_ - 1);
-		} else if (input.keyCode == NKCODE_BUTTON_R1 && selected_ < (int)views_.size() - 1) {
+		} else if (IsTabRightKeyCode(input.keyCode) && selected_ < (int)views_.size() - 1) {
 			SetSelection(selected_ + 1);
 		}
 	}

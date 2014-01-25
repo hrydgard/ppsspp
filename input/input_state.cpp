@@ -44,10 +44,17 @@ int MapPadButtonFixed(int keycode) {
 
 std::vector<keycode_t> confirmKeys;
 std::vector<keycode_t> cancelKeys;
+std::vector<keycode_t> tabLeftKeys;
+std::vector<keycode_t> tabRightKeys;
 
-void SetConfirmCancelKeys(std::vector<keycode_t> confirm, std::vector<keycode_t> cancel) {
+void SetConfirmCancelKeys(const std::vector<keycode_t> &confirm, const std::vector<keycode_t> &cancel) {
 	confirmKeys = confirm;
 	cancelKeys = cancel;
+}
+
+void SetTabLeftRightKeys(const std::vector<keycode_t> &tabLeft, const std::vector<keycode_t> &tabRight) {
+	tabLeftKeys = tabLeft;
+	tabRightKeys = tabRight;
 }
 
 uint32_t ButtonTracker::Update() {
