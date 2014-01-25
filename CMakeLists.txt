@@ -1065,6 +1065,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceOpenPSID.h
 	Core/HLE/sceP3da.cpp
 	Core/HLE/sceP3da.h
+	Core/HLE/sceMt19937.cpp
+	Core/HLE/sceMt19937.h
 	Core/HLE/sceMd5.cpp
 	Core/HLE/sceMd5.h
 	Core/HLE/sceMp4.cpp
