@@ -87,9 +87,36 @@ public:
 	}
 	virtual void Touch(const TouchInput &input) {
 		UI::Clickable::Touch(input);
+		hovering_ = bounds_.Contains(input.x, input.y);
 		if (input.flags & TOUCH_UP) {
 			holdFrameCount_ = 0;
 		}
+	}
+
+	virtual void Key(const KeyInput &key) {
+		std::vector<int> pspKeys;
+		bool showInfo = false;
+
+		if (HasFocus() && (key.flags & KEY_UP) && KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
+			for (auto it = pspKeys.begin(), end = pspKeys.end(); it != end; ++it) {
+				// If the button mapped to triangle, then show the info.
+				if (*it == CTRL_TRIANGLE) {
+					showInfo = true;
+				}
+			}
+		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
+			// If it's the right mouse button, and it's not otherwise mapped, show the info also.
+			if (key.flags & KEY_UP) {
+				showInfo = true;
+			}
+		}
+
+		if (showInfo) {
+			TriggerOnHoldClick();
+			return;
+		}
+
+		Clickable::Key(key);
 	}
 
 	virtual void Update(const InputState &input_state) {
@@ -97,26 +124,31 @@ public:
 			holdFrameCount_++;
 		else
 			holdFrameCount_ = 0;
-		// Hold button for 1.5 seconds to launch the game directly
+		// Hold button for 1.5 seconds to launch the game options
 		if (holdFrameCount_ > 90) {
-			holdFrameCount_ = 0;
-			UI::EventParams e;
-			e.v = this;
-			e.s = gamePath_;
-			down_ = false;
-			OnHoldClick.Trigger(e);
+			TriggerOnHoldClick();
 		}
 	}
 
 	UI::Event OnHoldClick;
 
 private:
+	void TriggerOnHoldClick() {
+		holdFrameCount_ = 0;
+		UI::EventParams e;
+		e.v = this;
+		e.s = gamePath_;
+		down_ = false;
+		OnHoldClick.Trigger(e);
+	}
+
 	bool gridStyle_;
 	std::string gamePath_;
 	std::string title_;
 
 	int holdFrameCount_;
 	bool holdEnabled_;
+	bool hovering_;
 };
 
 void GameButton::Draw(UIContext &dc) {
