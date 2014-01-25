@@ -126,7 +126,7 @@ namespace KeyMap {
 
 	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
-	// Use if to translate KeyMap Keys to PSP
+	// Use to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
 	// your platform's keys to KeyMap keys.
 	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
@@ -153,7 +153,6 @@ namespace KeyMap {
 	void SetDefaultKeyMap(DefaultMaps dmap, bool replace);
 
 	void RestoreDefault();
-	void QuickMap(int device);
 
 	void UpdateConfirmCancelKeys();
 
