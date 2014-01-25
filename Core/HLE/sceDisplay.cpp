@@ -430,7 +430,10 @@ static float timestepSmooth[8] = {
 static int timestepNext = 0;
 
 static float CalculateSmoothTimestep(float lastTimestep) {
-	timestepSmooth[timestepNext] = lastTimestep;
+	// Straight up ignore timesteps that would cause sub-10 fps speeds.
+	if (lastTimestep < 1.001f / 10.0f) {
+		timestepSmooth[timestepNext] = lastTimestep;
+	}
 	timestepNext = (timestepNext + 1) % ARRAY_SIZE(timestepSmooth);
 
 	float summed = 0.0f;
@@ -562,7 +565,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
-	if (gpu->FramebufferDirty()) {
+	// But, let's flip at least once every 10 frames if possible, since there may be sound effects.
+	if (gpu->FramebufferDirty() || (g_Config.iRenderingMode != 0 && numVBlanksSinceFlip >= 10)) {
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
 			CalculateFPS();
 		}
