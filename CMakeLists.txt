@@ -666,14 +666,10 @@ else()
 	message(FATAL_ERROR "Could not find SDL. Failing.")
 endif()
 
-if(X86)
-	set(nativeExtra ${nativeExtra}
-		native/base/backtrace.cpp
-		native/base/backtrace.h)
-endif()
-
 add_library(native STATIC
 	${nativeExtra}
+	native/base/backtrace.cpp
+	native/base/backtrace.h
 	native/audio/mixer.cpp
 	native/audio/mixer.h
 	native/audio/wav_read.cpp
