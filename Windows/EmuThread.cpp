@@ -97,6 +97,15 @@ unsigned int WINAPI TheThread(void *)
 
 	host->UpdateUI();
 	
+	//Check Colour depth
+	HDC dc = GetDC(NULL);
+	u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
+	ReleaseDC(NULL, dc);
+	if (colour_depth != 32){
+		MessageBoxA(0, "Only support 32 bit colour", "OpenGL Error", MB_OK);
+		ExitProcess(1);
+	}
+
 	std::string error_string;
 	if (!host->InitGL(&error_string)) {
 		Reporting::ReportMessage("OpenGL init error: %s", error_string.c_str());
