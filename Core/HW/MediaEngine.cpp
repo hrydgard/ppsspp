@@ -703,7 +703,6 @@ int MediaEngine::getAudioRemainSize() {
 }
 
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
-#ifdef USE_FFMPEG
 	if (!Memory::IsValidAddress(bufferPtr)) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
@@ -726,9 +725,13 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int outbytes = 0;
 
 	if (m_audioContext != NULL) {
+#ifdef USE_FFMPEG
 		if (!AT3Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
 			ERROR_LOG(ME, "AT3 decode failed during video playback");
 		}
+#else
+		m_audiopts += 4180;
+#endif // USE_FFMPEG
 	}
 
 	if (headerCode1 == 0x24) {
@@ -743,10 +746,6 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	}
 	m_noAudioData = false;
 	return 0x2000;
-#else
-	m_audiopts += 4180;
-	return true;
-#endif // USE_FFMPEG
 }
 
 s64 MediaEngine::getVideoTimeStamp() {
