@@ -41,7 +41,7 @@ void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 		++numHits;
 
 		if (result & MEMCHECK_LOG)
-			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
+			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr).c_str(), pc, symbolMap.GetDescription(pc).c_str());
 		if (result & MEMCHECK_BREAK)
 		{
 			Core_EnableStepping(true);

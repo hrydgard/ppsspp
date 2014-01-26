@@ -1286,7 +1286,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, L"Load .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn)) {
 						symbolMap.LoadSymbolMap(fn.c_str());
 
 						if (disasmWindow[0])
@@ -1298,7 +1298,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_SAVEMAPFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, L"Save .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn))
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
 

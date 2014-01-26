@@ -463,8 +463,8 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 				else
 					wsprintf(dest,L"0x%08X",mc.end-mc.start);
 			} else {
-				const char* sym = symbolMap.GetLabelName(displayedBreakPoints_[index].addr);
-				if (sym != NULL)
+				const std::string sym = symbolMap.GetLabelString(displayedBreakPoints_[index].addr);
+				if (!sym.empty())
 				{
 					std::wstring s = ConvertUTF8ToWString(sym);
 					wcscpy(dest,s.c_str());
@@ -635,8 +635,8 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 		break;
 	case SF_ENTRYNAME:
 		{
-			const char* sym = symbolMap.GetLabelName(frames[row].entry);
-			if (sym != NULL) {
+			const std::string sym = symbolMap.GetLabelString(frames[row].entry);
+			if (!sym.empty()) {
 				wcscpy(dest, ConvertUTF8ToWString(sym).c_str());
 			} else {
 				wcscpy(dest,L"-");

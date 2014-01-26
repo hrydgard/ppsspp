@@ -213,6 +213,7 @@ public:
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
+			symbolMap.UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 	}
 	const char *GetName() {return nm.name;}
@@ -266,6 +267,12 @@ public:
 		VarSymbolImport vsi = {{0}};
 		p.Do(importedVars, vsi);
 		RebuildImpExpModuleNames();
+
+		if (p.mode == p.MODE_READ) {
+			char moduleName[29] = {0};
+			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
+			symbolMap.AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+		}
 	}
 
 	// We don't do this in the destructor to avoid annoying messages on game shutdown.
@@ -745,7 +752,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			*error_string = "Missing key";
 			delete [] newptr;
 			module->isFake = true;
-			strncpy(module->nm.name, head->modname, 28);
+			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 			return module;
@@ -814,13 +821,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		module->nm.data_size += reader.GetSegmentDataSize(i);
 	}
 	module->nm.gp_value = modinfo->gp;
-	strncpy(module->nm.name, modinfo->name, 28);
+	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
+
+	// Let's also get a truncated version.
+	char moduleName[29] = {0};
+	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
 
 	// Check for module blacklist - we don't allow games to load these modules from disc
 	// as we have HLE implementations and the originals won't run in the emu because they
 	// directly access hardware or for other reasons.
 	for (u32 i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
-		if (strcmp(modinfo->name, blacklistedModules[i]) == 0) {
+		if (strncmp(modinfo->name, blacklistedModules[i], ARRAY_SIZE(modinfo->name)) == 0) {
 			*error_string = "Blacklisted";
 			if (newptr)
 			{
@@ -831,6 +842,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			return module;
 		}
 	}
+
+	symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
 
 	SectionID textSection = reader.GetSectionByName(".text");
 

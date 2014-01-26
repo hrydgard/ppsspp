@@ -223,7 +223,7 @@ int MIPSDebugInterface::getColor(unsigned int address)
 	if (n==-1) return 0xFFFFFF;
 	return colors[n%6];
 }
-const char *MIPSDebugInterface::getDescription(unsigned int address) 
+std::string MIPSDebugInterface::getDescription(unsigned int address) 
 {
 	return symbolMap.GetDescription(address);
 }

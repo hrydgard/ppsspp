@@ -374,9 +374,9 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
 	else if (jitAddr != (u32)-1)
 	{
 		char temp[1024];
-		const char *label = symbolMap.GetDescription(jitAddr);
-		if (label != NULL)
-			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label);
+		const std::string label = symbolMap.GetDescription(jitAddr);
+		if (!label.empty())
+			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
 		else
 			snprintf(temp, sizeof(temp), "%08x", jitAddr);
 		name = temp;
