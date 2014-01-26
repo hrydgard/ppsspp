@@ -470,7 +470,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	}
 }
 
-void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
+bool SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
@@ -479,6 +479,11 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 			continue;
 		voicesPlayingCount++;
 		MixVoice(voice);
+	}
+
+	if (voicesPlayingCount == 0) {
+		ERROR_LOG(SASMIX,"SasInstance::Mix() : voicesPlayingCount is zero");
+		return true;
 	}
 
 	// Okay, apply effects processing to the Send buffer.
@@ -518,6 +523,8 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #ifdef AUDIO_TO_FILE
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif
+
+	return false;
 }
 
 void SasInstance::ApplyReverb() {
