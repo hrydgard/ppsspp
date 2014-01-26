@@ -482,7 +482,8 @@ bool SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	}
 
 	if (voicesPlayingCount == 0) {
-		ERROR_LOG(SASMIX,"SasInstance::Mix() : voicesPlayingCount is zero");
+		// This is fine, no need to log really.
+		// DEBUG_LOG(SASMIX,"SasInstance::Mix() : voicesPlayingCount is zero");
 		return true;
 	}
 
