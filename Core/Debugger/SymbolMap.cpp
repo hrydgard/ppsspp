@@ -443,7 +443,7 @@ u32 SymbolMap::GetModuleAbsoluteAddr(u32 relative, int moduleIndex) const {
 
 int SymbolMap::GetModuleIndex(u32 address) const {
 	lock_guard guard(lock_);
-	auto iter = activeModuleEnds.lower_bound(address);
+	auto iter = activeModuleEnds.upper_bound(address);
 	if (iter == activeModuleEnds.end())
 		return -1;
 	return iter->second.index;
