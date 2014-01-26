@@ -24,6 +24,8 @@
 
 #include <algorithm>
 
+#include "util/text/utf8.h"
+#include "zlib.h"
 #include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"
 #include "Core/MemMap.h"
@@ -52,8 +54,14 @@ void SymbolMap::Clear() {
 bool SymbolMap::LoadSymbolMap(const char *filename) {
 	lock_guard guard(lock_);
 	Clear();
-	FILE *f = File::OpenCFile(filename, "r");
-	if (!f)
+
+#if defined(_WIN32) && defined(UNICODE)
+	gzFile f = gzopen_w(ConvertUTF8ToWString(filename).c_str(), "r");
+#else
+	gzFile f = gzopen(filename, "r");
+#endif
+
+	if (f == Z_NULL)
 		return false;
 
 	//char temp[256];
@@ -65,9 +73,9 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 	bool started = false;
 	bool hasModules = false;
 
-	while (!feof(f)) {
+	while (!gzeof(f)) {
 		char line[512], temp[256] = {0};
-		char *p = fgets(line, 512, f);
+		char *p = gzgets(f, line, 512);
 		if (p == NULL)
 			break;
 
@@ -156,9 +164,9 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 			}
 		}
 	}
-	fclose(f);
+	gzclose(f);
 	SortSymbols();
-	return true;
+	return started;
 }
 
 void SymbolMap::SaveSymbolMap(const char *filename) const {
@@ -169,27 +177,32 @@ void SymbolMap::SaveSymbolMap(const char *filename) const {
 		return;
 	}
 
-	FILE *f = File::OpenCFile(filename, "w");
-	if (!f)
+#if defined(_WIN32) && defined(UNICODE)
+	gzFile f = gzopen_w(ConvertUTF8ToWString(filename).c_str(), "w9");
+#else
+	gzFile f = gzopen(filename, "w9");
+#endif
+
+	if (f == Z_NULL)
 		return;
 
-	fprintf(f,".text\n");
+	gzprintf(f, ".text\n");
 
 	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
 		const ModuleEntry &mod = *it;
-		fprintf(f, ".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
+		gzprintf(f, ".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
 	}
 
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
-		fprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
+		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
 	}
 
 	for (auto it = data.begin(), end = data.end(); it != end; ++it) {
 		const DataEntry& e = it->second;
-		fprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
+		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
-	fclose(f);
+	gzclose(f);
 }
 
 bool SymbolMap::LoadNocashSym(const char *filename) {
