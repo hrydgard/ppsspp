@@ -463,6 +463,25 @@ bool SymbolMap::IsModuleActive(int moduleIndex) const {
 	return false;
 }
 
+std::vector<LoadedModuleInfo> SymbolMap::getAllModules() const {
+	lock_guard guard(lock_);
+
+	std::vector<LoadedModuleInfo> result;
+	for (size_t i = 0; i < modules.size(); i++) {
+		LoadedModuleInfo m;
+		m.name = modules[i].name;
+		m.address = modules[i].start;
+		m.size = modules[i].size;
+
+		u32 key = modules[i].start + modules[i].size;
+		m.active = activeModuleEnds.find(key) != activeModuleEnds.end();
+
+		result.push_back(m);
+	}
+
+	return result;
+}
+
 void SymbolMap::AddFunction(const char* name, u32 address, u32 size, int moduleIndex) {
 	lock_guard guard(lock_);
 
