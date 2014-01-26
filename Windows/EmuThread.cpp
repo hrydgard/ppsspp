@@ -102,7 +102,7 @@ unsigned int WINAPI TheThread(void *)
 	u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
 	ReleaseDC(NULL, dc);
 	if (colour_depth != 32){
-		MessageBoxA(0, "Only support 32 bit colour", "OpenGL Error", MB_OK);
+		MessageBoxA(0, "Please switch your display to 32-bit colour mode", "OpenGL Error", MB_OK);
 		ExitProcess(1);
 	}
 
