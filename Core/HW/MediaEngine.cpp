@@ -337,7 +337,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 #ifdef USE_FFMPEG
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
 			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
-			int mpegoffset = bswap32(*(int*)(m_mpegheader + 8));
+			int mpegoffset = (int)(*(s32_be*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
 			openContext();
 		}
@@ -504,11 +504,10 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 
 // Helpers that null out alpha (which seems to be the case on the PSP.)
 // Some games depend on this, for example Sword Art Online (doesn't clear A's from buffer.)
-
 inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
 	// TODO: Use SSE/NEON, investigate why AV_PIX_FMT_RGB0 does not work.
-	u32 *dest = (u32 *)destp;
-	const u32 *src = (u32 *)srcp;
+	u32_le *dest = (u32_le *)destp;
+	const u32_le *src = (u32_le *)srcp;
 
 	u32 mask = 0x00FFFFFF;
 	for (int i = 0; i < width; ++i) {
@@ -522,8 +521,8 @@ inline void writeVideoLineABGR5650(void *destp, const void *srcp, int width) {
 
 inline void writeVideoLineABGR5551(void *destp, const void *srcp, int width) {
 	// TODO: Use SSE/NEON.
-	u16 *dest = (u16 *)destp;
-	const u16 *src = (u16 *)srcp;
+	u16_le *dest = (u16_le *)destp;
+	const u16_le *src = (u16_le *)srcp;
 
 	u16 mask = 0x7FFF;
 	for (int i = 0; i < width; ++i) {
@@ -533,8 +532,8 @@ inline void writeVideoLineABGR5551(void *destp, const void *srcp, int width) {
 
 inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	// TODO: Use SSE/NEON.
-	u16 *dest = (u16 *)destp;
-	const u16 *src = (u16 *)srcp;
+	u16_le *dest = (u16_le *)destp;
+	const u16_le *src = (u16_le *)srcp;
 
 	u16 mask = 0x0FFF;
 	for (int i = 0; i < width; ++i) {
