@@ -22,13 +22,14 @@
 #include "math/math_util.h"
 
 #include "Common/Common.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -182,8 +183,10 @@ namespace MIPSInt
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
-		if (!g_Config.bIgnoreBadMemAccess) 
-			Core_UpdateState(CORE_STEPPING);
+		if (!g_Config.bIgnoreBadMemAccess) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
 		PC += 4;
 	}
 

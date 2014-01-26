@@ -101,6 +101,24 @@ u32 JitBreakpoint()
 	return 1;
 }
 
+void JitMemCheck(u32 addr, int size, int isWrite)
+{
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return;
+
+	// Did we already hit one?
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
+		return;
+
+	CBreakPoints::ExecMemCheckJitBefore(addr, isWrite == 1, size, currentMIPS->pc);
+}
+
+void JitMemCheckCleanup()
+{
+	CBreakPoints::ExecMemCheckJitCleanup();
+}
+
 static void JitLogMiss(MIPSOpcode op)
 {
 	if (USE_JIT_MISSMAP)
@@ -602,6 +620,10 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
+	if ((js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) != 0) {
+		ABI_CallFunction(&JitMemCheckCleanup);
+		js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
+	}
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
@@ -892,19 +914,6 @@ void Jit::JitSafeMem::Finish()
 		jit_->SetJumpTarget(*it);
 }
 
-void JitMemCheck(u32 addr, int size, int isWrite)
-{
-	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
-		return;
-
-	// Did we already hit one?
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
-		return;
-
-	CBreakPoints::ExecMemCheck(addr, isWrite == 1, size, currentMIPS->pc);
-}
-
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
 {
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
@@ -921,7 +930,7 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 }
 
@@ -971,7 +980,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 }
 

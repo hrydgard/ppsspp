@@ -429,7 +429,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 	case BPL_TYPE:
 		{
 			if (isMemory) {
-				switch (displayedMemChecks_[index].cond) {
+				switch ((int)displayedMemChecks_[index].cond) {
 				case MEMCHECK_READ:
 					wcscpy(dest,L"Read");
 					break;
@@ -438,6 +438,12 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 					break;
 				case MEMCHECK_READWRITE:
 					wcscpy(dest,L"Read/Write");
+					break;
+				case MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE:
+					wcscpy(dest,L"Write Change");
+					break;
+				case MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE:
+					wcscpy(dest,L"Read/Write Change");
 					break;
 				}
 			} else {
