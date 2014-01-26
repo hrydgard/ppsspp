@@ -703,6 +703,7 @@ int MediaEngine::getAudioRemainSize() {
 }
 
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
+#ifdef USE_FFMPEG
 	if (!Memory::IsValidAddress(bufferPtr)) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
@@ -740,9 +741,12 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			outbuf[i * 2 + 1] = sample;
 		}
 	}
-	m_audiopts += 4180;
 	m_noAudioData = false;
 	return 0x2000;
+#else
+	m_audiopts += 4180;
+	return true;
+#endif // USE_FFMPEG
 }
 
 s64 MediaEngine::getVideoTimeStamp() {
@@ -750,7 +754,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	if (m_demux)
+	if (m_demux && m_audiopts > 0)
 		return std::max(m_audiopts - 4180, (s64)0);
 	return m_videopts;
 }
