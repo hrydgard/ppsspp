@@ -264,6 +264,15 @@ skip:
 		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
 	}
 
+	static bool IsDefaultFunction(const std::string &name) {
+		if (name.empty()) {
+			// Must be I guess?
+			return true;
+		}
+
+		return IsDefaultFunction(name.c_str());
+	}
+
 	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
 		static const u32 MAX_AHEAD_SCAN = 0x1000;
 		// Maybe a bit high... just to make sure we don't get confused by recursive tail recursion.
@@ -516,13 +525,13 @@ skip:
 				continue;
 			}
 			// Functions with default names aren't very interesting either.
-			const char *name = symbolMap.GetLabelName(f.start);
+			const std::string name = symbolMap.GetLabelString(f.start);
 			if (IsDefaultFunction(name)) {
 				continue;
 			}
 
 			HashMapFunc mf = { "", f.hash, f.size };
-			strncpy(mf.name, name, sizeof(mf.name) - 1);
+			strncpy(mf.name, name.c_str(), sizeof(mf.name) - 1);
 			hashMap.insert(mf);
 		}
 	}
@@ -584,10 +593,10 @@ skip:
 				if (f.hash == mf->hash && f.size == mf->size) {
 					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 
-					const char *existingLabel = symbolMap.GetLabelName(f.start);
+					std::string existingLabel = symbolMap.GetLabelString(f.start);
 					char defaultLabel[256];
 					// If it was renamed, keep it.  Only change the name if it's still the default.
-					if (existingLabel == NULL || !strcmp(existingLabel, DefaultFunctionName(defaultLabel, f.start))) {
+					if (existingLabel.empty() || !strcmp(existingLabel.c_str(), DefaultFunctionName(defaultLabel, f.start))) {
 						symbolMap.SetLabelName(mf->name, f.start);
 					}
 				}

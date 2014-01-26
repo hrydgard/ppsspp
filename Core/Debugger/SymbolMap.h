@@ -67,7 +67,7 @@ public:
 	SymbolType GetSymbolType(u32 address) const;
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
 	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
-	const char *GetDescription(unsigned int address) const;
+	std::string GetDescription(unsigned int address) const;
 	std::vector<SymbolEntry> GetAllSymbols(SymbolType symmask);
 
 #ifdef _WIN32
@@ -89,9 +89,8 @@ public:
 	bool RemoveFunction(u32 startAddress, bool removeName);
 
 	void AddLabel(const char* name, u32 address, int moduleIndex = -1);
+	std::string GetLabelString(u32 address) const;
 	void SetLabelName(const char* name, u32 address);
-	const char *GetLabelName(u32 address) const;
-	const char *GetLabelNameRel(u32 relAddress, int moduleIndex) const;
 	bool GetLabelValue(const char* name, u32& dest);
 
 	void AddData(u32 address, u32 size, DataType type, int moduleIndex = -1);
@@ -104,6 +103,8 @@ public:
 private:
 	void AssignFunctionIndices();
 	void UpdateActiveSymbols();
+	const char *GetLabelName(u32 address) const;
+	const char *GetLabelNameRel(u32 relAddress, int moduleIndex) const;
 
 	struct FunctionEntry {
 		u32 start;

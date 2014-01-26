@@ -333,9 +333,7 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address, SymbolType symmask) {
 		return dataAddress;
 }
 
-static char descriptionTemp[256];
-
-const char *SymbolMap::GetDescription(unsigned int address) const {
+std::string SymbolMap::GetDescription(unsigned int address) const {
 	lock_guard guard(lock_);
 	const char* labelName = NULL;
 
@@ -351,6 +349,7 @@ const char *SymbolMap::GetDescription(unsigned int address) const {
 	if (labelName != NULL)
 		return labelName;
 
+	char descriptionTemp[256];
 	sprintf(descriptionTemp, "(%08x)", address);
 	return descriptionTemp;
 }
@@ -740,6 +739,14 @@ const char *SymbolMap::GetLabelNameRel(u32 relAddress, int moduleIndex) const {
 		return NULL;
 
 	return it->second.name;
+}
+
+std::string SymbolMap::GetLabelString(u32 address) const {
+	lock_guard guard(lock_);
+	const char *label = GetLabelName(address);
+	if (label == NULL)
+		return "";
+	return label;
 }
 
 bool SymbolMap::GetLabelValue(const char* name, u32& dest) {
