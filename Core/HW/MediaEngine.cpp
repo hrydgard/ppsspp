@@ -138,6 +138,7 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
+	m_audiopts = 0;
 	m_isVideoEnd = false;
 	m_noAudioData = false;
 	m_bufSize = 0x2000;
