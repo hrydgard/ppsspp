@@ -92,6 +92,7 @@ public:
 	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
 	bool bVSync;
 	int iFrameSkip;
+	bool bAutoFrameSkip;
 	bool bFrameSkipUnthrottle;
 
 	int iWindowX;

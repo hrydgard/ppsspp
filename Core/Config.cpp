@@ -216,6 +216,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #endif
 
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
+	graphics->Get("AutoFrameSkip", &bAutoFrameSkip, false);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
 #ifdef _WIN32
 	graphics->Get("FrameSkipUnthrottle", &bFrameSkipUnthrottle, false);
@@ -547,6 +548,7 @@ void Config::Save() {
 		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("InternalResolution", iInternalResolution);
 		graphics->Set("FrameSkip", iFrameSkip);
+		graphics->Set("AutoFrameSkip", bAutoFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
 		graphics->Set("FrameSkipUnthrottle", bFrameSkipUnthrottle);
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);

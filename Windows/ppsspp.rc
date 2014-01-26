@@ -455,8 +455,9 @@ BEGIN
 				END
 				POPUP "Frame Skipping"
 				BEGIN
-					MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
 					MENUITEM "Auto",						        ID_OPTIONS_FRAMESKIP_AUTO
+					MENUITEM SEPARATOR
+					MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
 					MENUITEM "&1",							        ID_OPTIONS_FRAMESKIP_1
 					MENUITEM "&2",									ID_OPTIONS_FRAMESKIP_2
 					MENUITEM "&3",									ID_OPTIONS_FRAMESKIP_3
