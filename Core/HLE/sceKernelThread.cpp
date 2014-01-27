@@ -3131,9 +3131,10 @@ void Thread::setReturnValue(u32 retval)
 			u32 callId = this->currentMipscallId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
+				ERROR_LOG_REPORT(SCEKERNEL, "Injecting return value into thread in callback");
 				call->setReturnValue(retval);
 			} else {
-				ERROR_LOG(SCEKERNEL, "Failed to inject return value %08x in thread", retval);
+				ERROR_LOG_REPORT(SCEKERNEL, "Failed to inject return value %08x in thread", retval);
 			}
 		} else {
 			currentMIPS->r[2] = retval;
@@ -3150,9 +3151,10 @@ void Thread::setReturnValue(u64 retval)
 			u32 callId = this->currentMipscallId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
+				ERROR_LOG_REPORT(SCEKERNEL, "Injecting return value into thread in callback");
 				call->setReturnValue(retval);
 			} else {
-				ERROR_LOG(SCEKERNEL, "Failed to inject return value %08llx in thread", retval);
+				ERROR_LOG_REPORT(SCEKERNEL, "Failed to inject return value %08llx in thread", retval);
 			}
 		} else {
 			currentMIPS->r[2] = retval & 0xFFFFFFFF;
@@ -3170,6 +3172,7 @@ void Thread::resumeFromWait()
 	ActionAfterMipsCall *action = getRunningCallbackAction();
 	if (action)
 	{
+		ERROR_LOG_REPORT(SCEKERNEL, "Injecting thread resume within callback, type %d", (int)action->waitType);
 		action->status &= ~THREADSTATUS_WAIT;
 		if (!(action->status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
 			action->status = THREADSTATUS_READY;
@@ -3194,6 +3197,7 @@ bool Thread::isWaitingFor(WaitType type, int id)
 	ActionAfterMipsCall *action = getRunningCallbackAction();
 	if (action)
 	{
+		ERROR_LOG_REPORT(SCEKERNEL, "Checking wait status from within callback (incorrect result, type %d)", (int)action->waitType);
 		if (action->status & THREADSTATUS_WAIT)
 			return action->waitType == type && action->waitID == id;
 		return false;
@@ -3210,6 +3214,7 @@ int Thread::getWaitID(WaitType type)
 	ActionAfterMipsCall *action = getRunningCallbackAction();
 	if (action)
 	{
+		ERROR_LOG_REPORT(SCEKERNEL, "Checking wait id from within callback (incorrect result, type %d)", (int)action->waitType);
 		if (action->waitType == type)
 			return action->waitID;
 		return 0;
@@ -3225,7 +3230,10 @@ ThreadWaitInfo Thread::getWaitInfo()
 	// Thread might be in a callback right now.
 	ActionAfterMipsCall *action = getRunningCallbackAction();
 	if (action)
+	{
+		ERROR_LOG_REPORT(SCEKERNEL, "Checking wait info from within callback (incorrect result, type %d)", (int)action->waitType);
 		return action->waitInfo;
+	}
 
 	return this->waitInfo;
 }
