@@ -138,6 +138,7 @@ struct SceUtilitySavedataIdListInfo
 struct SceUtilitySavedataFileListEntry
 {
 	s32_le st_mode;
+	u32_le st_unk0;
 	u64_le st_size;
 	ScePspDateTime st_ctime;
 	ScePspDateTime st_atime;

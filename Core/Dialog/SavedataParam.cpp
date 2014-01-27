@@ -1069,6 +1069,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		}
 
 		entry->st_mode = 0x21FF;
+		entry->st_unk0 = 0;     // TODO: check on the PSP
 		entry->st_size = file->size + sizeOffset;
 		__IoCopyDate(entry->st_ctime, file->ctime);
 		__IoCopyDate(entry->st_atime, file->atime);
