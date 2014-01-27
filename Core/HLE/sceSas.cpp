@@ -134,11 +134,11 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 	// Turns out that delaying only when there's no voicesPlayingCount fixes issue #2304. Feels a bit
 	// like a hack. Note that Mix() returns true in this case which is a little confusing.
 	if (ret) {
-		// If voicesPlayingCount == 0 , delay 240 us and reschedule
-		return hleDelayResult(0, "sas core", 240);
-	} else {
-		// if voicesPlayingCount > 0 , no delay
+		// If voicesPlayingCount == 0 , no delay
 		return 0;
+	} else {
+		// if voicesPlayingCount > 0 , delay 240 us and reschedule
+		return hleDelayResult(0, "sas core", 240);
 	}
 }
 
@@ -155,11 +155,11 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 	// Turns out that delaying only when there's no voicesPlayingCount fixes issue #2304. Feels a bit
 	// like a hack. Note that Mix() returns true in this case which is a little confusing.
 	if (ret) {
-		// If voicesPlayingCount == 0 , delay 240 us and reschedule
-		return hleDelayResult(0, "sas core", 240);
-	} else {
-		// if voicesPlayingCount > 0 , no delay
+		// If voicesPlayingCount == 0 , no delay
 		return 0;
+	} else {
+		// if voicesPlayingCount > 0 , delay 240 us and reschedule
+		return hleDelayResult(0, "sas core", 240);
 	}
 }
 
