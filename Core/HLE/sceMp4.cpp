@@ -22,7 +22,7 @@
 u32 sceMp4Init()
 {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Init()");
-  	return 0;
+	return 0;
 }
 
 u32 sceMp4Finish()
@@ -135,7 +135,7 @@ u32 sceMp4SearchSyncSampleNum()
 
 u32 sceAacInit()
 {
-	ERROR_LOG(ME, "UNIMPL sceAacInit()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit()");
 	return 0;
 }
 
@@ -147,7 +147,7 @@ u32 sceAacExit()
 
 u32 sceAacInitResource()
 {
-	ERROR_LOG(ME, "UNIMPL sceAacInitResource()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource()");
 	return 0;
 }
 
@@ -171,7 +171,7 @@ u32 sceAacGetLoopNum()
 
 u32 sceAacSetLoopNum()
 {
-	ERROR_LOG(ME, "UNIMPL sceAacSetLoopNum()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacSetLoopNum()");
 	return 0;
 }
 
@@ -195,7 +195,7 @@ u32 sceAacGetInfoToAddStreamData()
 
 u32 sceAacGetMaxOutputSample()
 {
-	ERROR_LOG(ME, "UNIMPL sceAacGetMaxOutputSample()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacGetMaxOutputSample()");
 	return 0;
 }
 
@@ -207,7 +207,7 @@ u32 sceAacGetSumDecodedSample()
 
 u32 sceAacResetPlayPosition()
 {
-	ERROR_LOG(ME, "UNIMPL sceAacResetPlayPosition()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacResetPlayPosition()");
 	return 0;
 }
 
