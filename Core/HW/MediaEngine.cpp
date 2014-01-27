@@ -132,18 +132,31 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
+	m_sws_ctx = 0;
 #endif
+	m_sws_fmt = 0;
+	m_buffer = 0;
+
 	m_videoStream = -1;
 	m_audioStream = -1;
-	m_buffer = 0;
+
+	m_desWidth = 0;
+	m_desHeight = 0;
+	m_decodingsize = 0;
+	m_bufSize = 0x2000;
+	m_videopts = 0;
+	m_pdata = 0;
 	m_demux = 0;
 	m_audioContext = 0;
 	m_audiopts = 0;
+
+	m_firstTimeStamp = 0;
+	m_lastTimeStamp = 0;
 	m_isVideoEnd = false;
 	m_noAudioData = false;
-	m_bufSize = 0x2000;
+
+	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
-	m_decodingsize = 0;
 	g_iNumVideos++;
 }
 
@@ -295,12 +308,12 @@ void MediaEngine::closeContext()
 		av_free(m_pIOContext);
 	for (auto it = m_pCodecCtxs.begin(), end = m_pCodecCtxs.end(); it != end; ++it)
 		avcodec_close(it->second);
+	m_pCodecCtxs.clear();
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
-	m_pCodecCtxs.clear();
 	m_pFormatCtx = 0;
 #endif
 	m_buffer = 0;
@@ -314,8 +327,6 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 	m_audiopts = 0;
 	m_ringbuffersize = RingbufferSize;
 	m_pdata = new BufferQueue(RingbufferSize + 2048);
-	if (!m_pdata)
-		return false;
 	m_pdata->push(buffer, readSize);
 	m_firstTimeStamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
 	m_lastTimeStamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
@@ -400,19 +411,19 @@ bool MediaEngine::setVideoDim(int width, int height)
 	}
 
 	// Allocate video frame
-	m_pFrame = avcodec_alloc_frame();
-	
+	m_pFrame = av_frame_alloc();
+
 	m_sws_ctx = NULL;
 	m_sws_fmt = -1;
 	updateSwsFormat(TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888);
 
 	// Allocate video frame for RGB24
-	m_pFrameRGB = avcodec_alloc_frame();
+	m_pFrameRGB = av_frame_alloc();
 	int numBytes = avpicture_get_size((AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
-    m_buffer = (u8*)av_malloc(numBytes * sizeof(uint8_t));
-  
-    // Assign appropriate parts of buffer to image planes in pFrameRGB   
-    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
+	m_buffer = (u8*)av_malloc(numBytes * sizeof(uint8_t));
+
+	// Assign appropriate parts of buffer to image planes in m_pFrameRGB
+	avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
 #endif // USE_FFMPEG
 	return true;
 }

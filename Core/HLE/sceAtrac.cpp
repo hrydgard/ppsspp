@@ -1120,7 +1120,7 @@ int __AtracSetContext(Atrac *atrac) {
 		return ret;
 
 	// alloc audio frame
-	atrac->pFrame = avcodec_alloc_frame();
+	atrac->pFrame = av_frame_alloc();
 	// reinit decodePos, because ffmpeg had changed it.
 	atrac->decodePos = 0;
 #endif
