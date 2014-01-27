@@ -1414,7 +1414,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if ((g_Config.iTexScalingLevel != 1 || !gl_extensions.EXT_unpack_subimage) && w != bufw) {
+	if (!(g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1447,7 +1447,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	return finalBuf;
 }
 
-void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h) {
+void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;
@@ -1456,22 +1456,28 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-				u32 a = p[i] & 0x000F000F;
-				hitZeroAlpha |= a ^ 0x000F000F;
-				if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
+			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
+				for (int i = 0; i < (w + 1) / 2; ++i) {
+					u32 a = p[i] & 0x000F000F;
+					hitZeroAlpha |= a ^ 0x000F000F;
+					if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
+						hitSomeAlpha = 1;
+						break;
+					}
 				}
+				p += stride;
 			}
 		}
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-				u32 a = p[i] & 0x00010001;
-				hitZeroAlpha |= a ^ 0x00010001;
+			for (int y = 0; y < h; ++y) {
+				for (int i = 0; i < (w + 1) / 2; ++i) {
+					u32 a = p[i] & 0x00010001;
+					hitZeroAlpha |= a ^ 0x00010001;
+				}
+				p += stride;
 			}
 		}
 		break;
@@ -1483,13 +1489,16 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 	default:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < w * h; ++i) {
-				u32 a = p[i] & 0xFF000000;
-				hitZeroAlpha |= a ^ 0xFF000000;
-				if (a != 0xFF000000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
+			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
+				for (int i = 0; i < w; ++i) {
+					u32 a = p[i] & 0xFF000000;
+					hitZeroAlpha |= a ^ 0xFF000000;
+					if (a != 0xFF000000 && a != 0) {
+						hitSomeAlpha = 1;
+						break;
+					}
 				}
+				p += stride;
 			}
 		}
 		break;
@@ -1554,7 +1563,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
 	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
-		CheckAlpha(entry, pixelData, dstFmt, w, h);
+		CheckAlpha(entry, pixelData, dstFmt, useUnpack ? bufw : w, w, h);
 	else
 		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
