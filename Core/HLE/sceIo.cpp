@@ -503,6 +503,7 @@ void __IoShutdown() {
 	if (ioManagerThread != NULL) {
 		delete ioManagerThread;
 		ioManagerThread = NULL;
+		ioManager.Shutdown();
 	}
 
 	pspFileSystem.Unmount("ms0:", memstickSystem);

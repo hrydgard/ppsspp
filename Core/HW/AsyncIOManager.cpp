@@ -29,6 +29,12 @@ void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
 	ScheduleEvent(ev);
 }
 
+void AsyncIOManager::Shutdown() {
+	lock_guard guard(resultsLock_);
+	resultsPending_.clear();
+	results_.clear();
+}
+
 bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 	lock_guard guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {
