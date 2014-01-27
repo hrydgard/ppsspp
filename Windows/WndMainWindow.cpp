@@ -225,13 +225,12 @@ namespace MainWindow
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
-		{
 			zoom = (rc.right - rc.left + 479) / 480;
-			PSP_CoreParameter().renderWidth = 480 * zoom;
-			PSP_CoreParameter().renderHeight = 272 * zoom;
-			PSP_CoreParameter().outputWidth = 480 * zoom;
-			PSP_CoreParameter().outputHeight = 272 * zoom;
-		}
+
+		PSP_CoreParameter().renderWidth = 480 * zoom;
+		PSP_CoreParameter().renderHeight = 272 * zoom;
+		PSP_CoreParameter().outputWidth = 480 * zoom;
+		PSP_CoreParameter().outputHeight = 272 * zoom;
 		
 		if (displayOSM) {
 			I18NCategory *g = GetI18NCategory("Graphics");
