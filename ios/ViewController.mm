@@ -48,7 +48,9 @@ ViewController* sharedViewController;
 @property (nonatomic,retain) NSMutableArray* touches;
 @property (nonatomic,retain) AudioEngine* audioEngine;
 @property (nonatomic,retain) iCadeReaderView *iCadeView;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic,retain) GCController *gameController __attribute__((weak_import));
+#endif
 
 @end
 
@@ -98,11 +100,13 @@ ViewController* sharedViewController;
 		iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
 		iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
 		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
-        
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 		if ([GCController class]) { // Checking the availability of a GameController framework
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 		}
+#endif
 	}
 	return self;
 }
@@ -174,7 +178,13 @@ ViewController* sharedViewController;
 {
 	[self viewDidUnload];
 
-	if ([GCController class]) self.gameController = nil;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
+	if ([GCController class]) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:GCControllerDidConnectNotification object:nil];
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:GCControllerDidDisconnectNotification object:nil];
+        self.gameController = nil;
+    }
+#endif
 	self.iCadeView = nil;
 	self.audioEngine = nil;
 	self.touches = nil;
@@ -430,8 +440,11 @@ void DisableFZ(){};
 	
 }
 
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 - (void)controllerDidConnect:(NSNotification *)note
 {
+    if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
+    
     if (self.gameController != nil) return; // already have a connected controller
     
     [self setupController:(GCController *)note.object];
@@ -566,5 +579,6 @@ void DisableFZ(){};
         [self controllerButtonPressed:(value > 0.5) keyCode:NKCODE_BUTTON_12];
     };
 }
+#endif
 
 @end
