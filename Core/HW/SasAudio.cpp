@@ -484,7 +484,7 @@ bool SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	if (voicesPlayingCount == 0) {
 		// This is fine, no need to log really.
 		// DEBUG_LOG(SASMIX,"SasInstance::Mix() : voicesPlayingCount is zero");
-		return true;
+		return false;
 	}
 
 	// Okay, apply effects processing to the Send buffer.
@@ -525,7 +525,7 @@ bool SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif
 
-	return false;
+	return true;
 }
 
 void SasInstance::ApplyReverb() {
