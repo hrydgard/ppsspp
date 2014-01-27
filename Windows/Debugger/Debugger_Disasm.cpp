@@ -163,6 +163,10 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	stackTraceView->loadStackTrace();
 	bottomTabs->AddTab(stackTraceView->GetHandle(),L"Stack frames");
 	
+	moduleList = new CtrlModuleList(GetDlgItem(m_hDlg,IDC_MODULELIST),cpu);
+	moduleList->loadModules();
+	bottomTabs->AddTab(moduleList->GetHandle(),L"Modules");
+
 	bottomTabs->SetShowTabTitles(g_Config.bShowBottomTabTitles);
 	bottomTabs->ShowTab(memHandle);
 
@@ -366,6 +370,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDC_STACKFRAMES:
 			stackTraceView->HandleNotify(lParam);
+			break;
+		case IDC_MODULELIST:
+			moduleList->HandleNotify(lParam);
 			break;
 		case IDC_DEBUG_BOTTOMTABS:
 			bottomTabs->HandleNotify(lParam);
@@ -775,6 +782,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		breakpointList->reloadBreakpoints();
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();
+		moduleList->loadModules();
 		updateThreadLabel(false);
 
 		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");

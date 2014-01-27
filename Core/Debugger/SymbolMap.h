@@ -45,6 +45,13 @@ struct SymbolEntry {
 	u32 size;
 };
 
+struct LoadedModuleInfo {
+	std::string name;
+	u32 address;
+	u32 size;
+	bool active;
+};
+
 enum DataType {
 	DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD, DATATYPE_ASCII
 };
@@ -80,6 +87,7 @@ public:
 	u32 GetModuleAbsoluteAddr(u32 relative, int moduleIndex) const;
 	int GetModuleIndex(u32 address) const;
 	bool IsModuleActive(int moduleIndex) const;
+	std::vector<LoadedModuleInfo> getAllModules() const;
 
 	void AddFunction(const char* name, u32 address, u32 size, int moduleIndex = -1);
 	u32 GetFunctionStart(u32 address) const;
