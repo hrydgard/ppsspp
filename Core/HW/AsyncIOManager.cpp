@@ -23,8 +23,16 @@
 
 void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
 	lock_guard guard(resultsLock_);
-	resultsPending_.insert(ev.handle);
+	if (!resultsPending_.insert(ev.handle).second) {
+		ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+	}
 	ScheduleEvent(ev);
+}
+
+void AsyncIOManager::Shutdown() {
+	lock_guard guard(resultsLock_);
+	resultsPending_.clear();
+	results_.clear();
 }
 
 bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
@@ -66,7 +74,7 @@ void AsyncIOManager::ProcessEvent(AsyncIOEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG(SCEIO, "Unsupported IO event type");
+		ERROR_LOG_REPORT(SCEIO, "Unsupported IO event type");
 	}
 }
 
