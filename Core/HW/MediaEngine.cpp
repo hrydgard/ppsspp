@@ -725,9 +725,13 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int outbytes = 0;
 
 	if (m_audioContext != NULL) {
+#ifdef USE_FFMPEG
 		if (!AT3Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
 			ERROR_LOG(ME, "AT3 decode failed during video playback");
 		}
+#else
+		m_audiopts += 4180;
+#endif // USE_FFMPEG
 	}
 
 	if (headerCode1 == 0x24) {
@@ -740,7 +744,6 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			outbuf[i * 2 + 1] = sample;
 		}
 	}
-	m_audiopts += 4180;
 	m_noAudioData = false;
 	return 0x2000;
 }
@@ -750,7 +753,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	if (m_demux)
+	if (m_demux && m_audiopts > 0)
 		return std::max(m_audiopts - 4180, (s64)0);
 	return m_videopts;
 }
