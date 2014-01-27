@@ -2299,6 +2299,8 @@ void sceKernelExitDeleteThread(int exitStatus)
 	{
 		INFO_LOG(SCEKERNEL,"sceKernelExitDeleteThread(%d)", exitStatus);
 		__KernelDeleteThread(currentThread, exitStatus, "thread exited with delete");
+		// Temporary hack since we don't reschedule within callbacks.
+		g_inCbCount = 0;
 
 		hleReSchedule("thread exited with delete");
 	}

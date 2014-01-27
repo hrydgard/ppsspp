@@ -588,7 +588,12 @@ int ZEXPORT gzclose_r(file)
     err = state->err == Z_BUF_ERROR ? Z_BUF_ERROR : Z_OK;
     gz_error(state, Z_OK, NULL);
     free(state->path);
+#ifdef _WIN32
+	// Strange crash in debug-only when using close() under MSVC 2010.
+    ret = _close(state->fd);
+#else
     ret = close(state->fd);
+#endif
     free(state);
     return ret ? Z_ERRNO : err;
 }
