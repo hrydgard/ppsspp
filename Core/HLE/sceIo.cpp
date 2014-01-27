@@ -289,6 +289,10 @@ void __IoFreeFd(int fd, u32 &error) {
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
 				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
 			}
+
+			// Discard any pending results.
+			AsyncIOResult managerResult;
+			ioManager.WaitResult(f->handle, managerResult);
 		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);
 		fds[fd] = 0;
