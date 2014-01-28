@@ -273,6 +273,11 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->endOfAudioReached = false;
 	ctx->endOfVideoReached = false;
 
+	if (ctx->mpegFirstTimestamp != 90000 || ctx->mpegFirstTimestamp > ctx->mpegLastTimestamp || ctx->mpegLastTimestamp <= 0) {
+		// first/last timestamp is invalid!
+		return;
+	}
+
 	if (ctx->mpegMagic != PSMF_MAGIC || ctx->mpegVersion < 0 ||
 		(ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
 		// mpeg header is invalid!
