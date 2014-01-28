@@ -994,7 +994,7 @@ int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, int offse
 
 int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer) 
 {
-	WARN_LOG(ME, "scePsmfPlayerGetAudioOutSize(%08x)", psmfPlayer);
+	WARN_LOG(ME, "%i = scePsmfPlayerGetAudioOutSize(%08x)",audioSamplesBytes,psmfPlayer);
 	return audioSamplesBytes;
 }
 
