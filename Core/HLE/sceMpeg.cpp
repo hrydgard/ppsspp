@@ -405,7 +405,7 @@ u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32
 u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
 	if (!Memory::IsValidAddress(mpegAddr)) {
-		WARN_LOG(ME, "ERROR_MPEG_NO_MEMORY=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i): invalid addresses", mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
+		WARN_LOG(ME, "sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i): invalid addresses", mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
 		return -1;
 	}
 
@@ -646,6 +646,7 @@ int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 	if (esBuf == 0) {
 		return ERROR_MPEG_INVALID_VALUE;
 	}
+
 	if (esBuf >= 1 && esBuf <= NUM_ES_BUFFERS) {
 		// TODO: Check if it's already been free'd?
 		ctx->esBuffers[esBuf - 1] = false;
@@ -735,7 +736,7 @@ u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAdd
 
 	ERROR_LOG(ME, "sceMpegAvcDecodeStop(%08x, %08x, %08x, %08x)", mpeg, frameWidth, bufferAddr, statusAddr);
 
-	Memory::Write_U32(0,statusAddr);
+	Memory::Write_U32(0, statusAddr);
 	return 0;
 }
 
@@ -1124,7 +1125,7 @@ u32 sceMpegFinish()
 u32 sceMpegQueryMemSize()
 {
 	DEBUG_LOG(ME, "sceMpegQueryMemSize()");
-	return 0x10000;	// 64K
+	return MPEG_MEMSIZE;
 }
 
 int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
@@ -1221,7 +1222,7 @@ u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 	if (info.sid) {
 		switch (info.type) {
 		case MPEG_AVC_STREAM:
-			if(mode == MPEG_AU_MODE_DECODE) {
+			if (mode == MPEG_AU_MODE_DECODE) {
 				ctx->ignoreAvc = false;
 			} else if (mode == MPEG_AU_MODE_SKIP) {
 				ctx->ignoreAvc = true;
@@ -1229,14 +1230,14 @@ u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 			break;
 		case MPEG_AUDIO_STREAM:
 		case MPEG_ATRAC_STREAM:
-			if(mode == MPEG_AU_MODE_DECODE) {
+			if (mode == MPEG_AU_MODE_DECODE) {
 				ctx->ignoreAtrac = false;
 			} else if (mode == MPEG_AU_MODE_SKIP) {
 				ctx->ignoreAtrac = true;
 			}
 			break;
 		case MPEG_PCM_STREAM:
-			if(mode == MPEG_AU_MODE_DECODE) {
+			if (mode == MPEG_AU_MODE_DECODE) {
 				ctx->ignorePcm = false;
 			} else if (mode == MPEG_AU_MODE_SKIP) {
 				ctx->ignorePcm = true;
@@ -1281,10 +1282,13 @@ u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 	return 0;
 }
 
+int __MpegRingbufferQueryPackNum(u32 memorySize) {
+	return memorySize / (2048 + 104);
+}
+
 int sceMpegRingbufferQueryPackNum(u32 memorySize) {
 	DEBUG_LOG(ME, "sceMpegRingbufferQueryPackNum(%i)", memorySize);
-	int packets = memorySize / (2048 + 104);
-	return packets;
+	return __MpegRingbufferQueryPackNum(memorySize);
 }
 
 u32 sceMpegFlushAllStream(u32 mpeg)
@@ -1386,12 +1390,11 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 
 	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
 
-	int x  = Memory::Read_U32(rangeAddr);
+	int x = Memory::Read_U32(rangeAddr);
 	int y = Memory::Read_U32(rangeAddr + 4);
-	int width    = Memory::Read_U32(rangeAddr + 8);
-	int height   = Memory::Read_U32(rangeAddr + 12);
-	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode,
-		x, y, width, height);
+	int width = Memory::Read_U32(rangeAddr + 8);
+	int height = Memory::Read_U32(rangeAddr + 12);
+	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 
 	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
 	return hleDelayResult(0, "mpeg avc csc", avcDecodeDelayMs);
@@ -1598,6 +1601,110 @@ int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 	return ERROR_MPEG_NO_DATA;
 }
 
+u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegNextAvcRpAu(%08x, %08x): bad mpeg handle", mpeg, streamUid);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegNextAvcRpAu(%08x, %08x)", mpeg, streamUid);
+
+	return 0;
+}
+
+u32 sceMpegGetAvcNalAu(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegGetAvcNalAu(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegGetAvcNalAu(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegAvcDecodeDetailIndex(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegAvcDecodeDetailIndex(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegAvcDecodeDetail2(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegAvcDecodeDetail2(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegAvcDecodeDetail2(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegGetAvcEsAu(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegGetAvcEsAu(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegGetAvcEsAu(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegAvcCscInfo(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegAvcCscInfo(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegAvcCscInfo(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegAvcCscMode(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegAvcCscMode(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegAvcCscMode(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegFlushAu(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegFlushAu(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegFlushAu(%08x)", mpeg);
+
+	return 0;
+}
+
 const HLEFunction sceMpeg[] =
 {
 	{0xe1ce83a7,WrapI_UUUU<sceMpegGetAtracAu>,"sceMpegGetAtracAu"},
@@ -1646,11 +1753,14 @@ const HLEFunction sceMpeg[] =
 	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
 	{0xF5E7EA31,WrapI_UUUI<sceMpegAvcConvertToYuv420>,"sceMpegAvcConvertToYuv420"},
 	{0x01977054,WrapI_UUUU<sceMpegGetUserdataAu>,"sceMpegGetUserdataAu"},
-	{0x3c37a7a6,0,"sceMpegNextAvcRpAu"},
-	{0x11f95cf1,0,"sceMpegGetAvcNalAu"},
-	{0xab0e9556,0,"sceMpegAvcDecodeDetailIndex"},
-	{0xcf3547a2,0,"sceMpegAvcDecodeDetail2"},
-	{0x921fcccf,0,"sceMpegGetAvcEsAu"},
+	{0x3c37a7a6,WrapU_UU<sceMpegNextAvcRpAu>,"sceMpegNextAvcRpAu"},
+	{0x11f95cf1,WrapU_U<sceMpegGetAvcNalAu>,"sceMpegGetAvcNalAu"},
+	{0xab0e9556,WrapU_U<sceMpegAvcDecodeDetailIndex>,"sceMpegAvcDecodeDetailIndex"},
+	{0xcf3547a2,WrapU_U<sceMpegAvcDecodeDetail2>,"sceMpegAvcDecodeDetail2"},
+	{0x921fcccf,WrapU_U<sceMpegGetAvcEsAu>,"sceMpegGetAvcEsAu"},
+	{0xE95838F6,WrapU_U<sceMpegAvcCscInfo>,"sceMpegAvcCscInfo"},
+	{0xD1CE4950,WrapU_U<sceMpegAvcCscMode>,"sceMpegAvcCscMode"},
+	{0xDBB60658,WrapU_U<sceMpegFlushAu>,"sceMpegFlushAu"},
 	{0xd4dd6e75,0,"sceMpeg_D4DD6E75"},
 	{0x11cab459,0,"sceMpeg_11CAB459"},
 	{0xc345ded2,0,"sceMpeg_C345DED2"},
