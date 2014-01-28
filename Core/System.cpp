@@ -235,6 +235,7 @@ void CPU_Shutdown() {
 		mixer = 0;  // deleted in ShutdownSound
 	}
 	pspFileSystem.Shutdown();
+	mipsr4k.Shutdown();
 	Memory::Shutdown();
 }
 

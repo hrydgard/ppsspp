@@ -126,7 +126,10 @@ public:
 	MIPSState();
 	~MIPSState();
 
+	void Init();
+	void Shutdown();
 	void Reset();
+
 	void DoState(PointerWrap &p);
 
 	// MUST start with r and be followed by f!
@@ -181,10 +184,6 @@ public:
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
 	}
 
-	void Irq();
-	void SWI();
-	void Abort();
-
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
@@ -201,7 +200,5 @@ class MIPSDebugInterface;
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
-
-int MIPS_SingleStep();
 
 extern const float cst_constants[32];
