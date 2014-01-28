@@ -101,7 +101,7 @@ void DrawBackground(float alpha) {
 
 void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager) {
 	if (!strcmp(message, "clear jit")) {
-		if (MIPSComp::jit) {
+		if (MIPSComp::jit && PSP_IsInited()) {
 			MIPSComp::jit->ClearCache();
 		}
 	}

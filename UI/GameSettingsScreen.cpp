@@ -434,9 +434,7 @@ void GameSettingsScreen::update(InputState &input) {
 	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
 	if (g_Config.bShowDebugStats != showDebugStats_) {
 		// This affects the jit.
-		if (MIPSComp::jit) {
-			MIPSComp::jit->ClearCache();
-		}
+		NativeMessageReceived("clear jit", "");
 		g_Config.bShowDebugStats = showDebugStats_;
 	}
 }
