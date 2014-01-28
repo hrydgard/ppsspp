@@ -1666,6 +1666,45 @@ u32 sceMpegGetAvcEsAu(u32 mpeg)
 	return 0;
 }
 
+u32 sceMpegAvcCscInfo(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegAvcCscInfo(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegAvcCscInfo(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegAvcCscMode(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegAvcCscMode(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegAvcCscMode(%08x)", mpeg);
+
+	return 0;
+}
+
+u32 sceMpegFlushAu(u32 mpeg)
+{
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(ME, "UNIMPL sceMpegFlushAu(%08x): bad mpeg handle", mpeg);
+		return -1;
+	}
+
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMpegFlushAu(%08x)", mpeg);
+
+	return 0;
+}
+
 const HLEFunction sceMpeg[] =
 {
 	{0xe1ce83a7,WrapI_UUUU<sceMpegGetAtracAu>,"sceMpegGetAtracAu"},
@@ -1719,6 +1758,9 @@ const HLEFunction sceMpeg[] =
 	{0xab0e9556,WrapU_U<sceMpegAvcDecodeDetailIndex>,"sceMpegAvcDecodeDetailIndex"},
 	{0xcf3547a2,WrapU_U<sceMpegAvcDecodeDetail2>,"sceMpegAvcDecodeDetail2"},
 	{0x921fcccf,WrapU_U<sceMpegGetAvcEsAu>,"sceMpegGetAvcEsAu"},
+	{0xE95838F6,WrapU_U<sceMpegAvcCscInfo>,"sceMpegAvcCscInfo"},
+	{0xD1CE4950,WrapU_U<sceMpegAvcCscMode>,"sceMpegAvcCscMode"},
+	{0xDBB60658,WrapU_U<sceMpegFlushAu>,"sceMpegFlushAu"},
 	{0xd4dd6e75,0,"sceMpeg_D4DD6E75"},
 	{0x11cab459,0,"sceMpeg_11CAB459"},
 	{0xc345ded2,0,"sceMpeg_C345DED2"},
