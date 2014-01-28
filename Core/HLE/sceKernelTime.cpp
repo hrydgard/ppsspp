@@ -59,7 +59,7 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 	u64 t = CoreTiming::GetGlobalTimeUs();
 	if (Memory::IsValidAddress(sysclockPtr)) 
 		Memory::Write_U64(t, sysclockPtr);
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetSystemTime(out:%16llx)", t);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelGetSystemTime(out:%16llx)", t);
 	hleEatCycles(265);
 	hleReSchedule("system time");
 	return 0;
