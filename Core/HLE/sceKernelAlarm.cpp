@@ -30,6 +30,7 @@ std::list<SceUID> triggeredAlarm;
 struct NativeAlarm
 {
 	SceSize_le size;
+	u32_le pad;
 	u64_le schedule;
 	u32_le handlerPtr;
 	u32_le commonPtr;
