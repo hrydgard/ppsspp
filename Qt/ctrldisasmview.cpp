@@ -201,9 +201,9 @@ void CtrlDisAsmView::RunToHere()
 void CtrlDisAsmView::RenameFunction()
 {
     u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
-    if (funcBegin != -1)
+    if (funcBegin != (u32)-1)
     {
-        QString name = symbolMap.GetLabelName(funcBegin);
+        QString name = QString::fromStdString(symbolMap.GetLabelString(funcBegin));
         bool ok;
         QString newname = QInputDialog::getText(this, tr("New function name"),
                                     tr("New function name:"), QLineEdit::Normal,
@@ -339,7 +339,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 					branches[numBranches].dst=(int)(rowY1+((s64)offs-(s64)address)*rowHeight/align + rowHeight/2);
 					branches[numBranches].conditional = (dis[1]!=0); //unconditional 'b' branch
 					numBranches++;
-					const char *t = debugger->getDescription(offs);
+					const char *t = debugger->getDescription(offs).c_str();
 					if (memcmp(t,"z_",2)==0)
 						t+=2;
 					if (memcmp(t,"zz_",3)==0)
@@ -362,7 +362,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 			painter.setFont(normalFont);
 			if (desc[0]==0)
 			{
-				const char *t = debugger->getDescription(address);
+				const char *t = debugger->getDescription(address).c_str();
 				if (memcmp(t,"z_",2)==0)
 					t+=2;
 				if (memcmp(t,"zz_",3)==0)
