@@ -1361,8 +1361,11 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (!t)
-		ERROR_LOG(SCEKERNEL, "__KernelSwitchToThread: %x doesn't exist", threadID)
-	else
+	{
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelSwitchToThread: %x doesn't exist", threadID);
+		hleReSchedule("switch to deleted thread");
+	}
+	else if (t->isReady() || t->isRunning())
 	{
 		Thread *current = __GetCurrentThread();
 		if (current && current->isRunning())
@@ -1370,6 +1373,10 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 
 		__KernelSwitchContext(t, reason);
 		return true;
+	}
+	else
+	{
+		hleReSchedule("switch to waiting thread");
 	}
 
 	return false;
