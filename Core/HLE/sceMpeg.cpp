@@ -708,7 +708,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
 	// return 0 in first call, and then return 1, as PSPSDK mentioned
-	Memory::Write_U32(ctx->avc.avcDecodeResult ? 1 : 0, initAddr);
+	// Save the current frame's status to initAddr 
+	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
@@ -865,7 +866,8 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
 	// return 0 in first call, and then return 1, as PSPSDK mentioned
-	Memory::Write_U32(ctx->avc.avcDecodeResult ? 1 : 0, initAddr);
+	// Save the current frame's status to initAddr 
+	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
