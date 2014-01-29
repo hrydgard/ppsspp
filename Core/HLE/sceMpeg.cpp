@@ -274,7 +274,8 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->endOfVideoReached = false;
 
 	// Referencing https://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceMpeg.java#1258
-	if (ctx->mpegFirstTimestamp != 90000 || ctx->mpegFirstTimestamp > ctx->mpegLastTimestamp || ctx->mpegLastTimestamp <= 0) {
+	// Sanity check mpegFirstTimestamp should be at least greater than mpegLastTimestamp
+	if (ctx->mpegFirstTimestamp > ctx->mpegLastTimestamp) {
 		// first/last mpeg timestamp is invalid!
 		WARN_LOG(HLE,"Invalid first/last mpegtimestamp : %i , %i", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
 		return;
