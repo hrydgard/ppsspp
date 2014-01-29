@@ -373,8 +373,9 @@ u32 __MpegRingbufferQueryMemSize(int packets) {
 }
 
 u32 sceMpegRingbufferQueryMemSize(int packets) {
-	DEBUG_LOG(ME, "sceMpegRingbufferQueryMemSize(%i)", packets);
-	return __MpegRingbufferQueryMemSize(packets);
+	u32 ret = __MpegRingbufferQueryMemSize(packets);
+	DEBUG_LOG(ME, "%i = sceMpegRingbufferQueryMemSize(%i)",ret,packets);
+	return ret;
 }
 
 u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
@@ -1126,7 +1127,7 @@ u32 sceMpegFinish()
 
 u32 sceMpegQueryMemSize()
 {
-	DEBUG_LOG(ME, "sceMpegQueryMemSize()");
+	DEBUG_LOG(ME, "%i = sceMpegQueryMemSize()",MPEG_MEMSIZE);
 	return MPEG_MEMSIZE;
 }
 
