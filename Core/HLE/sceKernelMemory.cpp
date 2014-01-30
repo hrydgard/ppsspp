@@ -930,7 +930,7 @@ void sceKernelSetCompiledSdkVersion(int sdkVersion)
 void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x03070000){
+	if (sdkMainVersion == 0x03070000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -942,7 +942,7 @@ void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 void sceKernelSetCompiledSdkVersion380_390(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x03080000 || sdkMainVersion == 0x03090000){
+	if (sdkMainVersion == 0x03080000 || sdkMainVersion == 0x03090000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -954,12 +954,11 @@ void sceKernelSetCompiledSdkVersion380_390(int sdkVersion)
 void sceKernelSetCompiledSdkVersion395(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFFFF00;
-	if(sdkMainVersion == 0x04000000
+	if (sdkMainVersion == 0x04000000
 			|| sdkMainVersion == 0x04000100
 			|| sdkMainVersion == 0x04000500
 			|| sdkMainVersion == 0x03090500
-			|| sdkMainVersion == 0x03090600)
-	{
+			|| sdkMainVersion == 0x03090600) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -971,10 +970,9 @@ void sceKernelSetCompiledSdkVersion395(int sdkVersion)
 void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x06010000
+	if (sdkMainVersion == 0x06010000
 			|| sdkMainVersion == 0x06000000
-			|| sdkMainVersion == 0x06020000)
-	{
+			|| sdkMainVersion == 0x06020000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -986,8 +984,7 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x05000000	|| sdkMainVersion == 0x05050000)
-	{
+	if (sdkMainVersion == 0x05000000 || sdkMainVersion == 0x05050000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -999,8 +996,7 @@ void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 void sceKernelSetCompiledSdkVersion401_402(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x04010000 || sdkMainVersion == 0x04020000)
-	{
+	if (sdkMainVersion == 0x04010000 || sdkMainVersion == 0x04020000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -1012,8 +1008,7 @@ void sceKernelSetCompiledSdkVersion401_402(int sdkVersion)
 void sceKernelSetCompiledSdkVersion507(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x05070000)
-	{
+	if (sdkMainVersion == 0x05070000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -1025,10 +1020,9 @@ void sceKernelSetCompiledSdkVersion507(int sdkVersion)
 void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x06040000
+	if (sdkMainVersion == 0x06040000
 			|| sdkMainVersion == 0x06030000
-			|| sdkMainVersion == 0x06050000)
-	{
+			|| sdkMainVersion == 0x06050000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
@@ -1040,8 +1034,7 @@ void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 void sceKernelSetCompiledSdkVersion606(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x06060000)
-	{
+	if (sdkMainVersion == 0x06060000) {
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	} else {
