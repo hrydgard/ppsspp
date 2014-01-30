@@ -1109,7 +1109,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	if (!ret)
 		return hleDelayResult(ret, "psmfPlayer video decode", delaytime);
 	else
-		return hleDelayResult(ret, "psmfPlayer all data decoded", 3000);
+		return hleDelayResult(ret, "psmfPlayer all data decoded", avcDecodeDelayMs);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
@@ -1126,7 +1126,7 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
 	}
 	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
-	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
+	return hleDelayResult(ret, "psmfPlayer audio decode", atracDecodeDelayMs);
 }
 
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
