@@ -134,7 +134,7 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 
 void __KernelUmdActivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
+	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY | PSP_UMD_READABLE;
 	if (driveCBId != -1)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
