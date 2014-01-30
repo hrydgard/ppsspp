@@ -217,8 +217,8 @@ void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
 	std::string command = std::string("xdg-open ") + url;
-	errno = system(command.c_str());
-	if (errno) {
+	int err = system(command.c_str());
+	if (err) {
 		ILOG("Would have gone to %s but xdg-utils seems not to be installed", url)
 	}
 #elif __APPLE__
@@ -234,8 +234,8 @@ void LaunchMarket(const char *url) {
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
 	std::string command = std::string("xdg-open ") + url;
-	system(command.c_str());
-	if (errno) {
+	int err = system(command.c_str());
+	if (err) {
 		ILOG("Would have gone to %s but xdg-utils seems not to be installed", url)
 	}
 #elif __APPLE__
@@ -251,8 +251,8 @@ void LaunchEmail(const char *email_address) {
 	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif __linux__
 	std::string command = std::string("xdg-email ") + email_address;
-	system(command.c_str());
-	if (errno) {
+	int err = system(command.c_str());
+	if (err) {
 		ILOG("Would have gone to %s but xdg-utils seems not to be installed", email_address)
 	}
 #elif __APPLE__
