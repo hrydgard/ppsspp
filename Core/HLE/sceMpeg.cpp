@@ -66,10 +66,8 @@ static const int MPEG_AVC_DECODE_ERROR_FATAL = 0x80628002;
 static const int avcFirstDelayMs = 3600;
 static const int avcEmptyDelayMs = 320;
 static const int mpegDecodeErrorDelayMs = 100;
-static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
 static const int videoTimestampStep = 3003;       // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
 static const int audioTimestampStep = 4180;       // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
-//static const int audioFirstTimestamp = 89249;     // The first MPEG audio AU has always this timestamp
 static const int audioFirstTimestamp = 90000;     // The first MPEG audio AU has always this timestamp
 static const s64 UNKNOWN_TIMESTAMP = -1;
 

@@ -60,6 +60,7 @@ static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5A;
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcDecodeDelayMs = 5400;
+static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
 
 struct SceMpegAu {
 	s64_le pts;  // presentation time stamp

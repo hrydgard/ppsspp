@@ -1093,9 +1093,9 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	int ret = psmfplayer->mediaengine->IsVideoEnd() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-	int delaytime = 3000;
+	int delaytime = avcDecodeDelayMs;
 	if (deltapts > 0 && !psmfplayer->mediaengine->IsNoAudioData())
-		delaytime = deltapts * 1000000 / 90000;
+		delaytime = std::min((int)(deltapts * 1000000 / mpegTimestampPerSecond) , 200000);
 	if (!ret)
 		return hleDelayResult(ret, "psmfPlayer video decode", delaytime);
 	else
