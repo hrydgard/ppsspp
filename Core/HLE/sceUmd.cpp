@@ -28,6 +28,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
 #include "Core/FileSystems/BlockDevices.h"
@@ -134,7 +135,11 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 
 void __KernelUmdActivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
+	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE; // return as 0x22
+	// PSP_UMD_READY will be returned when sceKernelGetCompiledSdkVersion() != 0
+	if (sceKernelGetCompiledSdkVersion() != 0)
+		notifyArg |= PSP_UMD_READY; // return as 0x32 as real PSP do 
+
 	if (driveCBId != -1)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
