@@ -45,6 +45,7 @@ const int PSMF_PLAYER_CONFIG_LOOP = 0;
 const int PSMF_PLAYER_CONFIG_NO_LOOP = 1;
 const int PSMF_PLAYER_CONFIG_MODE_LOOP = 0;
 const int PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE = 1;
+const int PSMF_PLAYER_PIXEL_TYPE_NONE = -1;
 
 int psmfCurrentPts = 0;
 int psmfAvcStreamNum = 1;
@@ -858,8 +859,9 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 {
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
+	if (psmfplayer) {
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+	}
 	return 0;
 }
 
@@ -867,8 +869,10 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 {
 	ERROR_LOG(ME, "UNIMPL scePsmfPlayerBreak(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
-		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;//Fix everybody stress buster
+	if (psmfplayer) {
+		// Fix everybody stress buster
+		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
+	}
 	return 0;
 }
 
@@ -923,14 +927,11 @@ int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
-	{
+	if (psmfplayer) {
 		INFO_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 		_PsmfPlayerSetPsmfOffset(psmfplayer, filename, 0, false);
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player", psmfPlayer, filename);
 	}
 
@@ -941,14 +942,11 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 {
 	// TODO: hleCheckCurrentCallbacks?
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
-	{
+	if (psmfplayer) {
 		INFO_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 		_PsmfPlayerSetPsmfOffset(psmfplayer, filename, 0, true);
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player", psmfPlayer, filename);
 	}
 
@@ -958,14 +956,11 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 int scePsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset) 
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
-	{
+	if (psmfplayer) {
 		INFO_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s, %i)", psmfPlayer, filename, offset);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 		_PsmfPlayerSetPsmfOffset(psmfplayer, filename, offset, false);
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
 	}
 
@@ -976,14 +971,11 @@ int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, int offse
 {
 	// TODO: hleCheckCurrentCallbacks?
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
-	{
+	if (psmfplayer) {
 		INFO_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s, %i)", psmfPlayer, filename, offset);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 		_PsmfPlayerSetPsmfOffset(psmfplayer, filename, offset, true);
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
 	}
 
@@ -1191,10 +1183,12 @@ u32 scePsmfPlayerGetCurrentPlayMode(u32 psmfPlayer, u32 playModeAddr, u32 playSp
 	}
 	WARN_LOG(ME, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x)", psmfPlayer, playModeAddr, playSpeedAddr);
 	if (Memory::IsValidAddress(playModeAddr)) {
-		Memory::Write_U32(psmfplayer->playMode, playModeAddr); //Fixing for AKB MPEG wrong pointer
+		// Fix AKB MPEG wrong pointer
+		Memory::Write_U32(psmfplayer->playMode, playModeAddr);
 	}
 	if (Memory::IsValidAddress(playSpeedAddr)) {
-		Memory::Write_U32(psmfplayer->playSpeed, playSpeedAddr); //Fixing for AKB MPEG wrong pointer
+		// Fix AKB MPEG wrong pointer
+		Memory::Write_U32(psmfplayer->playSpeed, playSpeedAddr);
 	}
 	return 0;
 }
