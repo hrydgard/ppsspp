@@ -922,52 +922,18 @@ int sceKernelPrintf(const char *formatString)
 
 void sceKernelSetCompiledSdkVersion(int sdkVersion)
 {
-/*	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	bool valiSDK = false;
-	switch(sdkMainVersion)
-	{
-	case 0x01000000:
-	case 0x01050000:
-	case 0x02000000:
-	case 0x02050000:
-	case 0x02060000:
-	case 0x02070000:
-	case 0x02080000:
-	case 0x03000000:
-	case 0x03010000:
-	case 0x03030000:
-	case 0x03040000:
-	case 0x03050000:
-	case 0x03060000:
-		valiSDK = true;
-		break;
-	default:
-		valiSDK = false;
-		break;
-	}
-
-	if(valiSDK)
-	{*/
-		sdkVersion_ = sdkVersion;
-		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-/*	}
-	else
-	{
-		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion unknown SDK : %x\n",sdkVersion);
-	}
-	return;*/
+	sdkVersion_ = sdkVersion;
+	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	DEBUG_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion: %x\n",sdkVersion);
 }
 
 void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x03070000)
-	{
+	if(sdkMainVersion == 0x03070000){
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion370 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -976,13 +942,10 @@ void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 void sceKernelSetCompiledSdkVersion380_390(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x03080000 || sdkMainVersion == 0x03090000)
-	{
+	if(sdkMainVersion == 0x03080000 || sdkMainVersion == 0x03090000){
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion380_390 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -999,9 +962,7 @@ void sceKernelSetCompiledSdkVersion395(int sdkVersion)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion395 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -1016,9 +977,7 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion600_602 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -1027,14 +986,11 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x05000000
-			|| sdkMainVersion == 0x05050000)
+	if(sdkMainVersion == 0x05000000	|| sdkMainVersion == 0x05050000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion500_505 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -1043,14 +999,11 @@ void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 void sceKernelSetCompiledSdkVersion401_402(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x04010000
-			|| sdkMainVersion == 0x04020000)
+	if(sdkMainVersion == 0x04010000 || sdkMainVersion == 0x04020000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion401_402 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -1063,9 +1016,7 @@ void sceKernelSetCompiledSdkVersion507(int sdkVersion)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion507 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -1080,9 +1031,7 @@ void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion603_605 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
@@ -1095,9 +1044,7 @@ void sceKernelSetCompiledSdkVersion606(int sdkVersion)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL,"sceKernelSetCompiledSdkVersion606 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
