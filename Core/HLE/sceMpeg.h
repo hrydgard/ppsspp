@@ -37,6 +37,8 @@ enum {
 	ERROR_PSMF_INVALID_PSMF                             = 0x80615501,
 
 	ERROR_PSMFPLAYER_NOT_INITIALIZED                    = 0x80616001,
+	ERROR_PSMFPLAYER_INVALID_CONFIG_MODE                = 0x80616006,
+	ERROR_PSMFPLAYER_INVALID_CONFIG_VALUE               = 0x80616008,
 	ERROR_PSMFPLAYER_NO_MORE_DATA                       = 0x8061600c,
 
 	ERROR_MPEG_NO_DATA                                  = 0x80618001,

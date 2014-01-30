@@ -1323,17 +1323,38 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 		ERROR_LOG(ME, "scePsmfPlayerConfigPlayer(%08x, %i, %i): invalid psmf player", psmfPlayer, configMode, configAttr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+
+	if (psmfplayer->status == PSMF_PLAYER_STATUS_NONE) {
+		 return ERROR_PSMFPLAYER_NOT_INITIALIZED;
+	}
+
 	if (configMode == PSMF_PLAYER_CONFIG_MODE_LOOP) {
 		INFO_LOG(ME, "scePsmfPlayerConfigPlayer(%08x, loop, %i)", psmfPlayer, configAttr);
+		if (configAttr < 0 || configAttr > 1) 
+			return ERROR_PSMFPLAYER_INVALID_CONFIG_VALUE;
+
 		videoLoopStatus = configAttr;
 	} else if (configMode == PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE) {
 		INFO_LOG(ME, "scePsmfPlayerConfigPlayer(%08x, pixelType, %i)", psmfPlayer, configAttr);
-		// Does -1 mean default or something?
-		if (configAttr != -1) {
-			videoPixelMode = configAttr;
-		}
+			switch (configAttr) {
+				case PSMF_PLAYER_PIXEL_TYPE_NONE:
+					// -1 means nothing to change
+					break;
+				case GE_CMODE_16BIT_BGR5650:
+				case GE_CMODE_16BIT_ABGR5551:
+				case GE_CMODE_16BIT_ABGR4444:
+				case GE_CMODE_32BIT_ABGR8888:
+					videoPixelMode = configAttr;
+					break;
+				case 4:
+					ERROR_LOG_REPORT(ME, "scePsmfPlayerConfigPlayer(%08x, %i): invalid config value %i", psmfPlayer, configMode, configAttr);
+					break;
+				default:
+					return ERROR_PSMFPLAYER_INVALID_CONFIG_VALUE;
+			}
 	} else {
-		ERROR_LOG_REPORT(ME, "scePsmfPlayerConfigPlayer(%08x, %i, %i): unknown parameter", psmfPlayer, configMode, configAttr);
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerConfigPlayer(%08x, %i): invalid config mode %i", psmfPlayer, configAttr, configMode);
+		return ERROR_PSMFPLAYER_INVALID_CONFIG_MODE;
 	}
 
 	return 0;
