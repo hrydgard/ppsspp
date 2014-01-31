@@ -295,7 +295,7 @@ int PSPMsgDialog::Abort()
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	else {
 		status = SCE_UTILITY_STATUS_FINISHED;
-	return 0;
+		return 0;
 	}
 }
 
