@@ -82,9 +82,6 @@ static const int NUM_ES_BUFFERS = 2;
 
 static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
 
-static const int TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650 = 0X00;
-static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0X03;
-
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(40000, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }
@@ -446,7 +443,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	ctx->videoFrameCount = 0;
 	ctx->audioFrameCount = 0;
 	// TODO: What's the actual default?
-	ctx->videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;
+	ctx->videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 	ctx->avcRegistered = false;
 	ctx->atracRegistered = false;
 	ctx->pcmRegistered = false;
@@ -501,7 +498,7 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 	int mode = Memory::Read_U32(modeAddr);
 	int pixelMode = Memory::Read_U32(modeAddr + 4);
-	if (pixelMode >= TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650 && pixelMode <= TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888) {
+	if (pixelMode >= GE_CMODE_16BIT_BGR5650 && pixelMode <= GE_CMODE_32BIT_ABGR8888) {
 		ctx->videoPixelMode = pixelMode;
 	} else {
 		ERROR_LOG(ME, "sceMpegAvcDecodeMode(%i, %i): unknown pixelMode ", mode, pixelMode);
