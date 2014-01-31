@@ -59,9 +59,11 @@ static const int MPEG_AUDIO_STREAM = 15;
 static const int MPEG_AU_MODE_DECODE = 0;
 static const int MPEG_AU_MODE_SKIP = 1;
 static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
+static const int NUM_ES_BUFFERS = 2;
 
 static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
 static const int MPEG_AVC_DECODE_ERROR_FATAL = 0x80628002;
+static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
@@ -71,19 +73,14 @@ static const int mpegDecodeErrorDelayMs = 100;
 static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
 static const int videoTimestampStep = 3003;       // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
 static const int audioTimestampStep = 4180;       // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
-//static const int audioFirstTimestamp = 89249;     // The first MPEG audio AU has always this timestamp
 static const int audioFirstTimestamp = 90000;     // The first MPEG audio AU has always this timestamp
-static const s64 UNKNOWN_TIMESTAMP = -1;
+static const int maxAheadTimestamp = 40000;
 
 // At least 2048 bytes of MPEG data is provided when analysing the MPEG header
 static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 
-static const int NUM_ES_BUFFERS = 2;
-
-static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
-
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
-	return std::max(40000, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
+	return std::max(maxAheadTimestamp, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }
 
 const u8 defaultMpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
@@ -917,7 +914,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.esBuffer = bufferAddr;
 		sceAu.esSize = MPEG_ATRAC_ES_SIZE;
 		sceAu.pts = 0;
-		sceAu.dts = UNKNOWN_TIMESTAMP;
+		sceAu.dts = -1;
 
 		sceAu.write(auPointer);
 	}
