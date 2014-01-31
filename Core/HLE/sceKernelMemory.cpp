@@ -955,7 +955,7 @@ int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 
 int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if (sdkMainVersion == 0x03070000) {
+	if (sdkMainVersion != 0x03070000) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
 	}
 
