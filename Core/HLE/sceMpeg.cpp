@@ -1393,6 +1393,28 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 		return -1;
 	}
 
+	if (frameWidth == 0) {
+		if (!ctx->defaultFrameWidth) {
+			frameWidth = ctx->avc.avcDetailFrameWidth;
+		} else {
+			frameWidth = ctx->defaultFrameWidth;
+		}
+	}
+
+	SceMpegRingBuffer ringbuffer = {0};
+
+	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
+		Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+	} else {
+		ERROR_LOG(ME, "Bogus mpegringbufferaddr");
+		return -1;
+	}
+
+	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): mpeg buffer empty", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
+	}
+
 	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
 
 	int x = Memory::Read_U32(rangeAddr);
