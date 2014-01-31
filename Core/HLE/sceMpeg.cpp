@@ -43,6 +43,7 @@ static const int MPEG_PCM_ES_OUTPUT_SIZE = 320;
 // MPEG Userdata elementary stream.
 static const int MPEG_DATA_ES_SIZE = 0xA0000;
 static const int MPEG_DATA_ES_OUTPUT_SIZE = 0xA0000;
+static const int MPEG_DATA_ES_BUFFERS = 2;
 
 // MPEG analysis results.
 static const int MPEG_VERSION_0012 = 0;
@@ -59,11 +60,7 @@ static const int MPEG_AUDIO_STREAM = 15;
 static const int MPEG_AU_MODE_DECODE = 0;
 static const int MPEG_AU_MODE_SKIP = 1;
 static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
-static const int NUM_ES_BUFFERS = 2;
-
 static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
-static const int MPEG_AVC_DECODE_ERROR_FATAL = 0x80628002;
-static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
@@ -142,7 +139,7 @@ struct MpegContext {
 		p.Do(mpegFirstDate);
 		p.Do(mpegLastDate);
 		p.Do(mpegRingbufferAddr);
-		p.DoArray(esBuffers, NUM_ES_BUFFERS);
+		p.DoArray(esBuffers, MPEG_DATA_ES_BUFFERS);
 		p.Do(avc);
 		p.Do(avcRegistered);
 		p.Do(atracRegistered);
@@ -173,7 +170,7 @@ struct MpegContext {
 	u32 mpegFirstDate;
 	u32 mpegLastDate;
 	u32 mpegRingbufferAddr;
-	bool esBuffers[NUM_ES_BUFFERS];
+	bool esBuffers[MPEG_DATA_ES_BUFFERS];
 	AvcContext avc;
 
 	bool avcRegistered;
@@ -449,7 +446,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	ctx->ignorePcm = false;
 	ctx->ignoreAvc = false;
 	ctx->defaultFrameWidth = frameWidth;
-	for (int i = 0; i < NUM_ES_BUFFERS; i++) {
+	for (int i = 0; i < MPEG_DATA_ES_BUFFERS; i++) {
 		ctx->esBuffers[i] = false;
 	}
 
@@ -618,7 +615,7 @@ int sceMpegMallocAvcEsBuf(u32 mpeg)
 	DEBUG_LOG(ME, "sceMpegMallocAvcEsBuf(%08x)", mpeg);
 
 	// Doesn't actually malloc, just keeps track of a couple of flags
-	for (int i = 0; i < NUM_ES_BUFFERS; i++) {
+	for (int i = 0; i < MPEG_DATA_ES_BUFFERS; i++) {
 		if (!ctx->esBuffers[i]) {
 			ctx->esBuffers[i] = true;
 			return i + 1;
@@ -642,7 +639,7 @@ int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 		return ERROR_MPEG_INVALID_VALUE;
 	}
 
-	if (esBuf >= 1 && esBuf <= NUM_ES_BUFFERS) {
+	if (esBuf >= 1 && esBuf <= MPEG_DATA_ES_BUFFERS) {
 		// TODO: Check if it's already been free'd?
 		ctx->esBuffers[esBuf - 1] = false;
 	}
@@ -679,7 +676,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): mpeg buffer empty", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
-		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
+		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
@@ -837,7 +834,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): mpeg buffer empty", mpeg, auAddr, bufferAddr, initAddr);
-		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
+		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
@@ -901,7 +898,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 	SceMpegAu sceAu;
 	sceAu.read(auPointer);
 
-	if (bufferAddr >= 1 && bufferAddr <= (u32)NUM_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
+	if (bufferAddr >= 1 && bufferAddr <= (u32)MPEG_DATA_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
 		sceAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
 		sceAu.esSize = MPEG_AVC_ES_SIZE;
@@ -1049,12 +1046,12 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	if (!mpegRingbuffer.HasReadPackets() || mpegRingbuffer.IsEmpty()) {
-		DEBUG_LOG(ME, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
+		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		sceAu.pts = -1;
 		sceAu.dts = -1;
 		sceAu.write(auAddr);
 		// TODO: Does this really reschedule?
-		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
+		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
@@ -1077,7 +1074,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	{
 		ERROR_LOG(ME, "sceMpegGetAvcAu - video too much ahead");
 		// TODO: Does this really reschedule?
-		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
+		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}*/
 
 	int result = 0;
@@ -1089,7 +1086,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
 		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
-		result = PSP_ERROR_MPEG_NO_DATA;
+		result = ERROR_MPEG_NO_DATA;
 	}
 
 	// The avcau struct may have been modified by mediaengine, write it back.
@@ -1158,9 +1155,9 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	// The audio can end earlier than the video does.
 	if (mpegRingbuffer.IsEmpty()) {
-		DEBUG_LOG(ME, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
+		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		// TODO: Does this really delay?
-		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
+		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
 
 	int result = 0;
@@ -1171,12 +1168,12 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
 		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
-		result = PSP_ERROR_MPEG_NO_DATA;
+		result = ERROR_MPEG_NO_DATA;
 	}
 
 	if (ctx->mediaengine->IsNoAudioData()) {
 		INFO_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		result = PSP_ERROR_MPEG_NO_DATA;
+		result = ERROR_MPEG_NO_DATA;
 	}
 
 	sceAu.write(auAddr);
