@@ -291,7 +291,7 @@ int PSPMsgDialog::Update(int animSpeed)
 int PSPMsgDialog::Abort()
 {
 	//Fix Katekyoushi Hitman Reborn! Battle Arena
-	if (status == SCE_UTILITY_STATUS_NONE)
+	if (status != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	else {
 		status = SCE_UTILITY_STATUS_FINISHED;
