@@ -110,7 +110,8 @@ elseif(NOT IOS)
 	include(FindOpenGL REQUIRED)
 endif()
 if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
-	include(FindSDL)
+	include(FindPkgConfig)
+	PKG_SEARCH_MODULE(SDL sdl2)
 endif()
 include(FindThreads)
 if(APPLE)
@@ -605,6 +606,7 @@ endif()
 	
 set(nativeExtra)
 set(nativeExtraLibs)
+set(nativeExtraLibsHack)
 if(ANDROID)
 	set(nativeExtra ${nativeExtra}
 		native/base/NativeApp.h
@@ -650,14 +652,14 @@ elseif(BLACKBERRY)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
-	set(TargetBin PPSSPPSDL)
+	add_definitions(-DSDL)
 	# Require SDL
-	include_directories(${SDL_INCLUDE_DIR})
+	include_directories(${SDL_INCLUDE_DIRS})
 	set(nativeExtra ${nativeExtra} 
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
 		native/base/PCMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
+	set(nativeExtraLibsHack ${SDL_LIBRARIES})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
@@ -666,7 +668,7 @@ elseif(SDL_FOUND)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
-	message(FATAL_ERROR "Could not find SDL. Failing.")
+	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
 add_library(native STATIC
@@ -828,6 +830,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.cpp
 	native/ext/jpge/jpge.h)
 include_directories(native)
+target_link_libraries(native ${nativeExtraLibsHack})
 
 if(APPLE OR BLACKBERRY)
 	SET(RT_LIB)

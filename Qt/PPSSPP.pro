@@ -55,11 +55,11 @@ win32 {
 linux {
 	LIBS += -ldl -lrt -lz
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
-	packagesExist(sdl) {
-		DEFINES += QT_HAS_SDL
+	packagesExist(sdl2) {
+		DEFINES += SDL
 		SOURCES += $$P/SDL/SDLJoystick.cpp
 		HEADERS += $$P/SDL/SDLJoystick.h
-		PKGCONFIG += sdl
+		PKGCONFIG += sdl2
 	}
 }
 qnx: LIBS += -lscreen
