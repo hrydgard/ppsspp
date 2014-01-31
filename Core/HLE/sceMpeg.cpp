@@ -254,11 +254,10 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->mpegLastTimestamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);
 	ctx->mpegLastDate = convertTimestampToDate(ctx->mpegLastTimestamp);
-	ctx->avc.avcDetailFrameWidth = (*(u8*)(buffer + 142)) * 0x10;
-	ctx->avc.avcDetailFrameHeight = (*(u8*)(buffer + 143)) * 0x10;
+	ctx->avc.avcDetailFrameWidth = (*(u8*)(buffer + PSMF_FRAME_WIDTH_OFFSET)) * 0x10;
+	ctx->avc.avcDetailFrameHeight = (*(u8*)(buffer + PSMF_FRAME_HEIGHT_OFFSET)) * 0x10;
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 	ctx->avc.avcFrameStatus = 0;
-
 	ctx->videoFrameCount = 0;
 	ctx->audioFrameCount = 0;
 	ctx->endOfAudioReached = false;
@@ -364,20 +363,23 @@ u32 __MpegRingbufferQueryMemSize(int packets) {
 }
 
 u32 sceMpegRingbufferQueryMemSize(int packets) {
-	u32 ret = __MpegRingbufferQueryMemSize(packets);
-	DEBUG_LOG(ME, "%i = sceMpegRingbufferQueryMemSize(%i)",ret,packets);
-	return ret;
+	u32 size = __MpegRingbufferQueryMemSize(packets);
+	DEBUG_LOG(ME, "%i = sceMpegRingbufferQueryMemSize(%i)", size, packets);
+	return __MpegRingbufferQueryMemSize(packets);
 }
+
 
 u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
 	if (!Memory::IsValidAddress(ringbufferAddr)) {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): bad ringbuffer, should crash", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
+
 	if ((int)size < 0) {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): invalid size", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
 		return ERROR_MPEG_NO_MEMORY;
 	}
+
 	if (__MpegRingbufferQueryMemSize(numPackets) > size) {
 		if (numPackets < 0x00100000) {
 			ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): too many packets for buffer", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
@@ -422,10 +424,11 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	int mpegHandle = dataPtr + 0x30;
 	Memory::Write_U32(mpegHandle, mpegAddr);
 
+	// Initialize fake mpeg struct.
 	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8);
 	Memory::Memcpy(mpegHandle + 8, "001\0", 4);
 	Memory::Write_U32(-1, mpegHandle + 12);
-	if (ringbufferAddr){
+	if (ringbufferAddr != 0){
 		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
 		Memory::Write_U32(ringbuffer.dataUpperBound, mpegHandle + 20);
 	}
@@ -433,11 +436,11 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	mpegMap[mpegHandle] = ctx;
 	lastMpegHandle = mpegHandle;
 
+	// Initialize mpeg values.
 	ctx->mpegRingbufferAddr = ringbufferAddr;
 	ctx->videoFrameCount = 0;
 	ctx->audioFrameCount = 0;
-	// TODO: What's the actual default?
-	ctx->videoPixelMode = GE_CMODE_32BIT_ABGR8888;
+	ctx->videoPixelMode = GE_CMODE_32BIT_ABGR8888; // TODO: What's the actual default?
 	ctx->avcRegistered = false;
 	ctx->atracRegistered = false;
 	ctx->pcmRegistered = false;
@@ -726,8 +729,9 @@ u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAdd
 		return -1;
 	}
 
-	ERROR_LOG(ME, "sceMpegAvcDecodeStop(%08x, %08x, %08x, %08x)", mpeg, frameWidth, bufferAddr, statusAddr);
+	DEBUG_LOG(ME, "sceMpegAvcDecodeStop(%08x, %08x, %08x, %08x)", mpeg, frameWidth, bufferAddr, statusAddr);
 
+	// No last frame generated
 	Memory::Write_U32(0, statusAddr);
 	return 0;
 }
