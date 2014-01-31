@@ -1061,16 +1061,18 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
-	if (streamInfo == ctx->streamMap.end())	{
-		ERROR_LOG(ME, "sceMpegGetAvcAu - bad stream id %i", streamId);
-		return -1;
-	}
 
-	ctx->mediaengine->setVideoStream(streamInfo->second.num);
-
-	if (streamInfo->second.needsReset) {
+	if (streamInfo != ctx->streamMap.end() && streamInfo->second.needsReset) {
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
+	}
+
+	if (streamInfo == ctx->streamMap.end())	{
+		WARN_LOG_REPORT(ME, "sceMpegGetAvcAu: bad stream id %i", streamId);
+		return ERROR_MPEG_INVALID_ADDR;
+	} else {
+		// Set Video Stream
+		ctx->mediaengine->setVideoStream(streamInfo->second.num);
 	}
 
 	/*// Wait for audio if too much ahead
@@ -1143,14 +1145,19 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	auto streamInfo = ctx->streamMap.find(streamId);
+
 	if (streamInfo != ctx->streamMap.end() && streamInfo->second.needsReset) {
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
-	if (streamInfo != ctx->streamMap.end())
+
+	if (streamInfo == ctx->streamMap.end()) {
+		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: bad stream id %i", streamId);
+		return ERROR_MPEG_INVALID_ADDR;
+	} else {
+		// Set Audio Stream
 		ctx->mediaengine->setAudioStream(streamInfo->second.num);
-	else
-		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
+	}
 
 	// The audio can end earlier than the video does.
 	if (mpegRingbuffer.IsEmpty()) {
