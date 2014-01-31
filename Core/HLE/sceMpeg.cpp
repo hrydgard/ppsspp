@@ -1108,7 +1108,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	DEBUG_LOG(ME, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
 	// There's definitely more to it, but ultimately it seems games should expect it to delay randomly.
-	return hleDelayResult(result, "mpeg get avc", 100);
+	return hleDelayResult(result, "mpeg get avc", mpegDecodeErrorDelayMs);
 }
 
 u32 sceMpegFinish()
@@ -1187,7 +1187,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	DEBUG_LOG(ME, "%x=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	// TODO: Not clear on exactly when this delays.
-	return hleDelayResult(result, "mpeg get atrac", 100);
+	return hleDelayResult(result, "mpeg get atrac", mpegDecodeErrorDelayMs);
 }
 
 int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
