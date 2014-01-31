@@ -19,6 +19,20 @@ const float ITEM_HEIGHT = 64.f;
 static recursive_mutex focusLock;
 static std::vector<int> focusMoves;
 
+bool dragCaptured[MAX_POINTERS];
+
+void CaptureDrag(int id) {
+	dragCaptured[id] = true;
+}
+
+void ReleaseDrag(int id) {
+	dragCaptured[id] = false;
+}
+
+bool IsDragCaptured(int id) {
+	return dragCaptured[id];
+}
+
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w - (margins.left + margins.right);
 	inner.h = h - (margins.right + margins.left); 
@@ -636,12 +650,12 @@ void ScrollView::Touch(const TouchInput &input) {
 	}
 	if (input.flags & TOUCH_UP) {
 		float info[4];
-		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info))
+		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info))
 			inertia_ = info[1];
 	}
 
 	TouchInput input2;
-	if (CanScroll()) {
+	if (CanScroll() && !IsDragCaptured(input.id)) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
 		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info)) {

@@ -14,8 +14,6 @@
 #include <vector>
 #include <sstream>
 
-#include "base/basictypes.h"
-
 class JsonWriter {
 public:
 	JsonWriter();
@@ -55,6 +53,4 @@ private:
 	};
 	std::vector<StackEntry> stack_;
 	std::ostringstream str_;
-
-	DISALLOW_COPY_AND_ASSIGN(JsonWriter);
 };

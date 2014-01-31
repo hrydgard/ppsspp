@@ -1,5 +1,4 @@
-#ifndef _MATHUTILS_H
-#define _MATHUTILS_H
+#pragma once
 
 #include <cmath>
 #include <cstring>
@@ -203,5 +202,3 @@ inline uint16_t ShrinkToHalf(float full) {
 
 // FPU control.
 void EnableFZ();
-
-#endif

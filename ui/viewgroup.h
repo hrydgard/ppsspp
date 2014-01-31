@@ -377,4 +377,8 @@ void KeyEvent(const KeyInput &key, ViewGroup *root);
 void TouchEvent(const TouchInput &touch, ViewGroup *root);
 void AxisEvent(const AxisInput &axis, ViewGroup *root);
 
+void CaptureDrag(int id);
+void ReleaseDrag(int id);
+bool IsDragCaptured(int id);
+
 }  // namespace UI
