@@ -135,8 +135,6 @@ struct MpegContext {
 		p.Do(defaultFrameWidth);
 		p.Do(videoFrameCount);
 		p.Do(audioFrameCount);
-		p.Do(endOfAudioReached);
-		p.Do(endOfVideoReached);
 		p.Do(videoPixelMode);
 		p.Do(mpegMagic);
 		p.Do(mpegVersion);
@@ -166,8 +164,6 @@ struct MpegContext {
 	u32 defaultFrameWidth;
 	int videoFrameCount;
 	int audioFrameCount;
-	bool endOfAudioReached;
-	bool endOfVideoReached;
 	int videoPixelMode;
 	u32 mpegMagic;
 	int mpegVersion;
@@ -267,11 +263,8 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->avc.avcDetailFrameHeight = (*(u8*)(buffer + 143)) * 0x10;
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 	ctx->avc.avcFrameStatus = 0;
-
 	ctx->videoFrameCount = 0;
 	ctx->audioFrameCount = 0;
-	ctx->endOfAudioReached = false;
-	ctx->endOfVideoReached = false;
 
 	if (ctx->mpegMagic != PSMF_MAGIC || ctx->mpegVersion < 0 ||
 		(ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
