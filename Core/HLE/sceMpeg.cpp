@@ -683,7 +683,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		return -1;
 	}
 
-	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
+	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): mpeg buffer empty", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
@@ -842,7 +842,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 		return -1;
 	}
 
-	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
+	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): mpeg buffer empty", mpeg, auAddr, bufferAddr, initAddr);
 		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
@@ -982,7 +982,7 @@ void PostPutAction::run(MipsCall &call) {
 	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
 
 	int packetsAdded = currentMIPS->r[2];
-	if (ringbuffer.packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
+	if (!ringbuffer.HasReadPackets() && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, ctx);
 		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer.packets * ringbuffer.packetSize);
@@ -1054,7 +1054,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegAu sceAu;
 	sceAu.read(auAddr);
 
-	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
+	if (!mpegRingbuffer.HasReadPackets() || mpegRingbuffer.IsEmpty()) {
 		DEBUG_LOG(ME, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		sceAu.pts = -1;
 		sceAu.dts = -1;
@@ -1156,7 +1156,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
 
 	// The audio can end earlier than the video does.
-	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
+	if (mpegRingbuffer.IsEmpty()) {
 		DEBUG_LOG(ME, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		// TODO: Does this really delay?
 		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
