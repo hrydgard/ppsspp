@@ -503,7 +503,6 @@ public:
 		FreeStack();
 	}
 
-	ActionAfterMipsCall *getRunningCallbackAction();
 	void setReturnValue(u32 retval);
 	void setReturnValue(u64 retval);
 	void resumeFromWait();
@@ -3113,41 +3112,10 @@ void ActionAfterMipsCall::run(MipsCall &call) {
 	}
 }
 
-ActionAfterMipsCall *Thread::getRunningCallbackAction()
-{
-	if (this->GetUID() == currentThread && g_inCbCount > 0) {
-		MipsCall *call = mipsCalls.get(this->currentMipscallId);
-		ActionAfterMipsCall *action = 0;
-		if (call)
-			action = static_cast<ActionAfterMipsCall *>(call->doAfter);
-
-		// We don't have rtti, so check manually.
-		if (!call || !action || action->actionTypeID != actionAfterMipsCall) {
-			ERROR_LOG(SCEKERNEL, "Failed to access deferred info for thread: %s", this->nt.name);
-			return NULL;
-		}
-
-		return action;
-	}
-
-	return NULL;
-}
-
 void Thread::setReturnValue(u32 retval)
 {
 	if (this->GetUID() == currentThread) {
-		if (g_inCbCount) {
-			u32 callId = this->currentMipscallId;
-			MipsCall *call = mipsCalls.get(callId);
-			if (call) {
-				ERROR_LOG_REPORT(SCEKERNEL, "Injecting return value into thread in callback");
-				call->setReturnValue(retval);
-			} else {
-				ERROR_LOG_REPORT(SCEKERNEL, "Failed to inject return value %08x in thread", retval);
-			}
-		} else {
-			currentMIPS->r[2] = retval;
-		}
+		currentMIPS->r[2] = retval;
 	} else {
 		context.r[2] = retval;
 	}
@@ -3156,19 +3124,8 @@ void Thread::setReturnValue(u32 retval)
 void Thread::setReturnValue(u64 retval)
 {
 	if (this->GetUID() == currentThread) {
-		if (g_inCbCount) {
-			u32 callId = this->currentMipscallId;
-			MipsCall *call = mipsCalls.get(callId);
-			if (call) {
-				ERROR_LOG_REPORT(SCEKERNEL, "Injecting return value into thread in callback");
-				call->setReturnValue(retval);
-			} else {
-				ERROR_LOG_REPORT(SCEKERNEL, "Failed to inject return value %08llx in thread", retval);
-			}
-		} else {
-			currentMIPS->r[2] = retval & 0xFFFFFFFF;
-			currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
-		}
+		currentMIPS->r[2] = retval & 0xFFFFFFFF;
+		currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
 	} else {
 		context.r[2] = retval & 0xFFFFFFFF;
 		context.r[3] = (retval >> 32) & 0xFFFFFFFF;
@@ -3177,74 +3134,31 @@ void Thread::setReturnValue(u64 retval)
 
 void Thread::resumeFromWait()
 {
-	// Do we need to "inject" it?
-	ActionAfterMipsCall *action = getRunningCallbackAction();
-	if (action)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "Injecting thread resume within callback, type %d", (int)action->waitType);
-		action->status &= ~THREADSTATUS_WAIT;
-		if (!(action->status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
-			action->status = THREADSTATUS_READY;
+	nt.status &= ~THREADSTATUS_WAIT;
+	if (!(nt.status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
+		__KernelChangeReadyState(this, GetUID(), true);
 
-		// Non-waiting threads do not process callbacks.
-		action->isProcessingCallbacks = false;
-	}
-	else
-	{
-		this->nt.status &= ~THREADSTATUS_WAIT;
-		if (!(this->nt.status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
-			__KernelChangeReadyState(this, this->GetUID(), true);
-
-		// Non-waiting threads do not process callbacks.
-		this->isProcessingCallbacks = false;
-	}
+	// Non-waiting threads do not process callbacks.
+	isProcessingCallbacks = false;
 }
 
 bool Thread::isWaitingFor(WaitType type, int id)
 {
-	// Thread might be in a callback right now.
-	ActionAfterMipsCall *action = getRunningCallbackAction();
-	if (action)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "Checking wait status from within callback (incorrect result, type %d)", (int)action->waitType);
-		if (action->status & THREADSTATUS_WAIT)
-			return action->waitType == type && action->waitID == id;
-		return false;
-	}
-
-	if (this->nt.status & THREADSTATUS_WAIT)
-		return this->nt.waitType == type && this->nt.waitID == id;
+	if (nt.status & THREADSTATUS_WAIT)
+		return nt.waitType == type && nt.waitID == id;
 	return false;
 }
 
 int Thread::getWaitID(WaitType type)
 {
-	// Thread might be in a callback right now.
-	ActionAfterMipsCall *action = getRunningCallbackAction();
-	if (action)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "Checking wait id from within callback (incorrect result, type %d)", (int)action->waitType);
-		if (action->waitType == type)
-			return action->waitID;
-		return 0;
-	}
-
-	if (this->nt.waitType == type)
-		return this->nt.waitID;
+	if (nt.waitType == type)
+		return nt.waitID;
 	return 0;
 }
 
 ThreadWaitInfo Thread::getWaitInfo()
 {
-	// Thread might be in a callback right now.
-	ActionAfterMipsCall *action = getRunningCallbackAction();
-	if (action)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "Checking wait info from within callback (incorrect result, type %d)", (int)action->waitType);
-		return action->waitInfo;
-	}
-
-	return this->waitInfo;
+	return waitInfo;
 }
 
 void __KernelSwitchContext(Thread *target, const char *reason) 
