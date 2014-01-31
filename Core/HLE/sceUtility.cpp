@@ -312,9 +312,13 @@ int sceUtilityMsgDialogAbort()
 		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort()");
-	return msgDialog.Abort();
+	//Fix Katekyoushi Hitman Reborn! Battle Arena
+	int status = msgDialog.GetStatus();	
+	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort() status %08x",status);
+	if (status == 4)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	else
+		return msgDialog.Abort();
 }
 
 
