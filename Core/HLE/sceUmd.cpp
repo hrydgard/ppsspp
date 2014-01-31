@@ -135,10 +135,10 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 
 void __KernelUmdActivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE; // return as 0x22
+	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
 	// PSP_UMD_READY will be returned when sceKernelGetCompiledSdkVersion() != 0
 	if (sceKernelGetCompiledSdkVersion() != 0)
-		notifyArg |= PSP_UMD_READY; // return as 0x32 as real PSP do 
+		notifyArg |= PSP_UMD_READY;
 
 	if (driveCBId != -1)
 		__KernelNotifyCallback(driveCBId, notifyArg);
