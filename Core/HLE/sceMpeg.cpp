@@ -1175,8 +1175,8 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (ctx->mediaengine->IsNoAudioData()) {
 		INFO_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		if (mpegRingbuffer.packetsFree + 4 >= mpegRingbuffer.packets){
-			mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
+		if (mpegRingbuffer.packetsFree == 1020){
+			mpegRingbuffer.packetsFree = 1024;
 			Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 		}
 		else if (mpegRingbuffer.packetsFree !=0)
