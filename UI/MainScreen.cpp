@@ -106,7 +106,7 @@ public:
 			}
 		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
 			// If it's the right mouse button, and it's not otherwise mapped, show the info also.
-			if (key.flags & KEY_UP) {
+			if (HasFocus() && (key.flags & KEY_UP)) {
 				showInfo = true;
 			}
 		}
