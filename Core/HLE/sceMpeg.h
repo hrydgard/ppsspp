@@ -91,6 +91,9 @@ struct SceMpegRingBuffer {
 	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 	// TODO: This appears in tests, but may not be in all versions.
 	//u32_le gp;
+	
+	bool HasReadPackets() { return packetsRead != 0; }
+	bool IsEmpty() { return packetsFree == packets; }
 };
 
 void __MpegInit();
