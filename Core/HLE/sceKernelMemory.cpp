@@ -922,7 +922,7 @@ int sceKernelPrintf(const char *formatString)
 
 int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	bool valiSDK = false;
+	bool validSDK = false;
 	switch (sdkMainVersion) {
 	case 0x01000000:
 	case 0x01050000:
@@ -937,14 +937,14 @@ int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	case 0x03040000:
 	case 0x03050000:
 	case 0x03060000:
-		valiSDK = true;
+		validSDK = true;
 		break;
 	default:
-		valiSDK = false;
+		validSDK = false;
 		break;
 	}
 
-	if (!valiSDK) {
+	if (!validSDK) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
 	}
 
