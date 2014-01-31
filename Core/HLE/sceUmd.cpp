@@ -28,6 +28,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
 #include "Core/FileSystems/BlockDevices.h"
@@ -40,7 +41,7 @@ const u64 MICRO_DELAY_ACTIVATE = 4000;
 static u8 umdActivated = 1;
 static u32 umdStatus = 0;
 static u32 umdErrorStat = 0;
-static int driveCBId = -1;
+static int driveCBId = 0;
 static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
@@ -65,7 +66,7 @@ void __UmdInit()
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
-	driveCBId = -1;
+	driveCBId = 0;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
@@ -93,17 +94,12 @@ void __UmdDoState(PointerWrap &p)
 
 u8 __KernelUmdGetState()
 {
-	u8 state = PSP_UMD_PRESENT;
+	// Most games seem to expect the disc to be ready early on, active or not.
+	// It seems like the PSP sets this state when the disc is "ready".
+	u8 state = PSP_UMD_PRESENT | PSP_UMD_READY;
 	if (umdActivated) {
-		state |= PSP_UMD_READY;
 		state |= PSP_UMD_READABLE;
 	}
-	// TODO: My tests give PSP_UMD_READY but I suppose that's when it's been sitting in the drive?
-	else
-	// Fix Narisokonai Eiyuutan: Taiyou to Tsuki no Monogatari black screen
-	// Fix The History Channel: Great Battles of Rome load probrem.
-	// Fix Sora no Kiseki SC change disc issue
-		state |= PSP_UMD_READY;
 	return state;
 }
 
@@ -135,7 +131,7 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 void __KernelUmdActivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
-	if (driveCBId != -1)
+	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	// Don't activate immediately, take time to "spin up."
@@ -146,7 +142,7 @@ void __KernelUmdActivate()
 void __KernelUmdDeactivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
-	if (driveCBId != -1)
+	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
@@ -291,11 +287,15 @@ int sceUmdUnRegisterUMDCallBack(int cbId)
 {
 	int retVal;
 
-	if (cbId != driveCBId)
+	if (cbId != driveCBId) {
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
-	else {
-		retVal = cbId;
-		driveCBId = -1;
+	} else {
+		if (sceKernelGetCompiledSdkVersion() > 0x3000000) {
+			retVal = 0;
+		} else {
+			retVal = cbId;
+		}
+		driveCBId = 0;
 	}
 	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
 	return retVal;
