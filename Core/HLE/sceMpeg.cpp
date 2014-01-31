@@ -677,7 +677,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		return -1;
 	}
 
-	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
+	if (!ringbuffer.HasReadPackets() || ringbuffer.IsEmpty()) {
 		WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): mpeg buffer empty", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
@@ -836,7 +836,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 		return -1;
 	}
 
-	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
+	if (!ringbuffer.HasReadPackets() || ringbuffer.IsEmpty()) {
 		WARN_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): mpeg buffer empty", mpeg, auAddr, bufferAddr, initAddr);
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
@@ -1410,7 +1410,7 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 		return -1;
 	}
 
-	if (!ringbuffer.HasReadPackets() || ctx->mediaengine->IsVideoEnd()) {
+	if (!ringbuffer.HasReadPackets() || ringbuffer.IsEmpty()) {
 		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): mpeg buffer empty", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
