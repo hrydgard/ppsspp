@@ -42,6 +42,8 @@ enum {
 	ERROR_MPEG_NO_DATA                                  = 0x80618001,
 	ERROR_MPEG_ALREADY_INIT                             = 0x80618005,
 	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
+
+	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
 };
 
 // MPEG statics.
@@ -55,6 +57,8 @@ static const int PSMF_STREAM_OFFSET_OFFSET = 0x8;
 static const int PSMF_STREAM_SIZE_OFFSET = 0xC;
 static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x54;
 static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5A;
+static const int PSMF_FRAME_WIDTH_OFFSET = 0x8E;
+static const int PSMF_FRAME_HEIGHT_OFFSET = 0x8F;
 
 struct SceMpegAu {
 	s64_le pts;  // presentation time stamp
@@ -91,6 +95,9 @@ struct SceMpegRingBuffer {
 	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 	// TODO: This appears in tests, but may not be in all versions.
 	//u32_le gp;
+	
+	bool HasReadPackets() { return packetsRead != 0; }
+	bool IsEmpty() { return packetsFree == packets; }
 };
 
 void __MpegInit();
