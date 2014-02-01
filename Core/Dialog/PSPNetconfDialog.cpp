@@ -19,7 +19,13 @@
 #include "ChunkFile.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUtility.h"
+#include "i18n/i18n.h"
 
+#define NETCONF_CONNECT_APNET 0
+#define NETCONF_STATUS_APNET 1
 #define NETCONF_CONNECT_ADHOC 2
 #define NETCONF_CREATE_ADHOC 4
 #define NETCONF_JOIN_ADHOC 5
@@ -41,23 +47,64 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	Memory::Memcpy(&request, paramAddr, size);
 
 	status = SCE_UTILITY_STATUS_INITIALIZE;
+	__CtrlReadLatch();
+	StartFade(true);
 	return 0;
 }
 
+void PSPNetconfDialog::DrawBanner() {
+
+	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
+	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
+	I18NCategory *d = GetI18NCategory("Dialog");
+	PPGeDrawText(d->T("Network Connection"), 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+}
+
 int PSPNetconfDialog::Update(int animSpeed) {
-  if(request.netAction == NETCONF_CONNECT_ADHOC ||
-      request.netAction == NETCONF_CREATE_ADHOC ||
-      request.netAction == NETCONF_JOIN_ADHOC){
-    if(request.NetconfData != NULL){
-      Shutdown(true);
-        if(sceNetAdhocctlCreate(request.NetconfData->groupName) == 0)
-        {
-            status = SCE_UTILITY_STATUS_FINISHED;
-            return 0;
-        }
-        return -1;
-    }
-  }
+	buttons = __CtrlPeekButtons();
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *err = GetI18NCategory("Error");
+	const float WRAP_WIDTH = 254.0f;
+	const int confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? I_CROSS : I_CIRCLE;
+	const int confirmBtn = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
+
+	if (status == SCE_UTILITY_STATUS_INITIALIZE)
+	{
+		status = SCE_UTILITY_STATUS_RUNNING;
+	}
+	else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET)) {
+		UpdateFade(animSpeed);
+		StartDraw();
+		DrawBanner();
+		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
+		PPGeDrawTextWrapped(err->T("PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(confirmBtnImage, 195, 250, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("OK"), 225, 252, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		if (IsButtonPressed(confirmBtn)) {
+			StartFade(false);
+			status = SCE_UTILITY_STATUS_FINISHED;
+			request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
+		}
+		
+	}
+	else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_ADHOC || request.netAction == NETCONF_CREATE_ADHOC || NETCONF_JOIN_ADHOC)) {
+		if (request.NetconfData != NULL) {
+			Shutdown(true);
+			if (sceNetAdhocctlCreate(request.NetconfData->groupName) == 0)
+			{
+				status = SCE_UTILITY_STATUS_FINISHED;
+				return 0;
+			}
+			return -1;
+		}
+	}
+	else if (status == SCE_UTILITY_STATUS_FINISHED)
+	{
+		status = SCE_UTILITY_STATUS_SHUTDOWN;
+	}
+
+	EndDraw();
 	return 0;
 }
 
