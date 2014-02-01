@@ -604,7 +604,10 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 					got_frame = 0;
 					int bytes_in_packet = packet.size;
 					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
-					if (avret < 0) {
+					if (avret == AVERROR_PATCHWELCOME) {
+						ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
+						// Let's try the next frame.
+					} else if (avret < 0) {
 						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
 						atrac->failedDecode = true;
 						// No need to free the packet if decode_audio4 fails.
@@ -1770,7 +1773,10 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 
 				got_frame = 0;
 				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
-				if (avret < 0) {
+				if (avret == AVERROR_PATCHWELCOME) {
+					ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
+					// Let's try the next frame.
+				} else if (avret < 0) {
 					ERROR_LOG(ME, "atracID: %i, avcodec_decode_audio4: Error decoding audio %d", atracID, avret);
 					av_free_packet(&packet);
 					atrac->failedDecode = true;
