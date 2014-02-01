@@ -218,7 +218,7 @@ int PSPMsgDialog::Update(int animSpeed)
 		return 0;
 	}
 
-	if ((flag & DS_ERROR)||abort_return_error)
+	if ((flag & DS_ERROR)||abort_flag)
 	{
 		status = SCE_UTILITY_STATUS_FINISHED;
 	}
