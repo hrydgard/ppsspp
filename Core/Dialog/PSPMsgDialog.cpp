@@ -24,6 +24,7 @@
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
+bool abort_return_error = false;
 const float FONT_SCALE = 0.65f;
 
 PSPMsgDialog::PSPMsgDialog()
@@ -48,6 +49,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	{
 		return 0;
 	}
+	abort_return_error = false;
 	int size = Memory::Read_U32(paramAddr);
 	memset(&messageDialog,0,sizeof(messageDialog));
 	// Only copy the right size to support different request format
@@ -216,7 +218,7 @@ int PSPMsgDialog::Update(int animSpeed)
 		return 0;
 	}
 
-	if ((flag & DS_ERROR))
+	if ((flag & DS_ERROR)||abort_return_error)
 	{
 		status = SCE_UTILITY_STATUS_FINISHED;
 	}
@@ -290,8 +292,13 @@ int PSPMsgDialog::Update(int animSpeed)
 
 int PSPMsgDialog::Abort()
 {
-	status = SCE_UTILITY_STATUS_FINISHED;
-	return 0;
+	//Fix Katekyoushi Hitman Reborn! Battle Arena
+	if (status != SCE_UTILITY_STATUS_RUNNING)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	else {
+		abort_return_error = true;
+		return 0;
+	}
 }
 
 int PSPMsgDialog::Shutdown(bool force)
