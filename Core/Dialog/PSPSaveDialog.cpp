@@ -534,14 +534,6 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 
 int PSPSaveDialog::Update(int animSpeed)
 {
-	switch (status) {
-	case SCE_UTILITY_STATUS_FINISHED:
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
-		break;
-	default:
-		break;
-	}
-
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
