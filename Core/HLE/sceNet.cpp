@@ -359,7 +359,7 @@ int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
 int sceNetApctlDisconnect() {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
-	// or else games like Phantasy Star Portable 2 will hang.
+	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
 	return 0;
 }

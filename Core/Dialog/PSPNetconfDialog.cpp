@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,7 +47,10 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	Memory::Memcpy(&request, paramAddr, size);
 
 	status = SCE_UTILITY_STATUS_INITIALIZE;
+
+	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
+
 	StartFade(true);
 	return 0;
 }
@@ -55,6 +58,8 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 void PSPNetconfDialog::DrawBanner() {
 
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
+
+	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
 	I18NCategory *d = GetI18NCategory("Dialog");
 	PPGeDrawText(d->T("Network Connection"), 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
@@ -84,6 +89,8 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		if (IsButtonPressed(confirmBtn)) {
 			StartFade(false);
 			status = SCE_UTILITY_STATUS_FINISHED;
+			// TODO: When the dialog is aborted, does it really set the result to this?
+			// It seems to make Phantasy Star Portable 2 happy, so it should be okay for now.
 			request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 		}
 		
