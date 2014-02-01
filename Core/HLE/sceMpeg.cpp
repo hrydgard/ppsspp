@@ -1463,12 +1463,6 @@ u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 
 u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
 {
-	MpegContext *ctx = getMpegCtx(mpeg);
-	if (!ctx) {
-		WARN_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcDecTopAddr(%08x): bad mpeg handle", mpeg);
-		return -1;
-	}
-
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcDecTopAddr(%08x)", mpeg);
 	// it's just a random address
 	return 0x12345678;
@@ -1476,34 +1470,20 @@ u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
 
 u32 sceMpegAvcResourceFinish(u32 mpeg)
 {
-	MpegContext *ctx = getMpegCtx(mpeg);
-	if (!ctx) {
-		WARN_LOG(ME, "UNIMPL sceMpegAvcResourceFinish(%08x): bad mpeg handle", mpeg);
-		return -1;
-	}
-
 	DEBUG_LOG(ME,"UNIMPL sceMpegAvcResourceFinish(%08x)", mpeg);
 	return 0;
 }
 
 u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
 {
-	MpegContext *ctx = getMpegCtx(mpeg);
-	if (!ctx) {
-		WARN_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x): bad mpeg handle", mpeg);
-		return -1;
-	}
-
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
 	return 0;
 }
 
 u32 sceMpegAvcResourceInit(u32 mpeg)
 {
-	MpegContext *ctx = getMpegCtx(mpeg);
-	if (!ctx) {
-		WARN_LOG(ME, "UNIMPL sceMpegAvcResourceInit(%08x): bad mpeg handle", mpeg);
-		return -1;
+	if (mpeg != 1) {
+		return ERROR_MPEG_INVALID_VALUE;
 	}
 
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceInit(%08x)", mpeg);
