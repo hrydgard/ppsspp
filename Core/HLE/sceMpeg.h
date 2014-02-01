@@ -37,6 +37,8 @@ enum {
 	ERROR_PSMF_INVALID_PSMF                             = 0x80615501,
 
 	ERROR_PSMFPLAYER_NOT_INITIALIZED                    = 0x80616001,
+	ERROR_PSMFPLAYER_INVALID_CONFIG_MODE                = 0x80616006,
+	ERROR_PSMFPLAYER_INVALID_CONFIG_VALUE               = 0x80616008,
 	ERROR_PSMFPLAYER_NO_MORE_DATA                       = 0x8061600c,
 
 	ERROR_MPEG_NO_DATA                                  = 0x80618001,
@@ -55,6 +57,10 @@ static const int PSMF_STREAM_OFFSET_OFFSET = 0x8;
 static const int PSMF_STREAM_SIZE_OFFSET = 0xC;
 static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x54;
 static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5A;
+
+static const int atracDecodeDelayMs = 3000;
+static const int avcDecodeDelayMs = 5400;
+static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
 
 struct SceMpegAu {
 	s64_le pts;  // presentation time stamp
