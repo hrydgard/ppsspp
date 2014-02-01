@@ -463,7 +463,7 @@ u32 sceUtilityScreenshotUpdate(u32 animSpeed)
 	}
 	int ret = screenshotDialog.Update(animSpeed);
 	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotUpdate(%d)",ret,animSpeed);
-	return screenshotDialog.Update(animSpeed);
+	return ret;
 }
 
 int sceUtilityScreenshotGetStatus()
