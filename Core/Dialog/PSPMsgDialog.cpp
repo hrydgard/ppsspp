@@ -24,7 +24,7 @@
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
-bool abort_return_error = false;
+bool abort_flag = false;
 const float FONT_SCALE = 0.65f;
 
 PSPMsgDialog::PSPMsgDialog()
@@ -49,7 +49,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	{
 		return 0;
 	}
-	abort_return_error = false;
+	abort_flag = false;
 	int size = Memory::Read_U32(paramAddr);
 	memset(&messageDialog,0,sizeof(messageDialog));
 	// Only copy the right size to support different request format
@@ -296,7 +296,7 @@ int PSPMsgDialog::Abort()
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	else {
-		abort_return_error = true;
+		abort_flag = true;
 		return 0;
 	}
 }
