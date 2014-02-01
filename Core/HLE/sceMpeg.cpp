@@ -72,6 +72,7 @@ static const int videoTimestampStep = 3003;       // Value based on pmfplayer (m
 static const int audioTimestampStep = 4180;       // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
 static const int audioFirstTimestamp = 90000;     // The first MPEG audio AU has always this timestamp
 static const int maxAheadTimestamp = 40000;
+static const s64 UNKNOWN_TIMESTAMP = -1;
 
 // At least 2048 bytes of MPEG data is provided when analysing the MPEG header
 static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
@@ -915,7 +916,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.esBuffer = bufferAddr;
 		sceAu.esSize = MPEG_ATRAC_ES_SIZE;
 		sceAu.pts = 0;
-		sceAu.dts = -1;
+		sceAu.dts = UNKNOWN_TIMESTAMP;
 
 		sceAu.write(auPointer);
 	}
@@ -1391,28 +1392,6 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	if (!ctx) {
 		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): bad mpeg handle", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
 		return -1;
-	}
-
-	if (frameWidth == 0) {
-		if (!ctx->defaultFrameWidth) {
-			frameWidth = ctx->avc.avcDetailFrameWidth;
-		} else {
-			frameWidth = ctx->defaultFrameWidth;
-		}
-	}
-
-	SceMpegRingBuffer ringbuffer = {0};
-
-	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
-		Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
-	} else {
-		ERROR_LOG(ME, "Bogus mpegringbufferaddr");
-		return -1;
-	}
-
-	if (!ringbuffer.HasReadPackets() || ringbuffer.IsEmpty()) {
-		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): mpeg buffer empty", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
-		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
