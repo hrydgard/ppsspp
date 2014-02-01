@@ -543,7 +543,10 @@ int PSPSaveDialog::Update(int animSpeed)
 	}
 
 	if (status != SCE_UTILITY_STATUS_RUNNING)
+	{
+		status = SCE_UTILITY_STATUS_FINISHED;
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
 
 	if (!param.GetPspParam()) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
