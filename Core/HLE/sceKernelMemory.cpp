@@ -1313,6 +1313,8 @@ enum SceKernelVplAttr
 	PSP_VPL_ATTR_FIFO = 0x0000,
 	PSP_VPL_ATTR_PRIORITY = 0x0100,
 	PSP_VPL_ATTR_SMALLEST = 0x0200,
+	PSP_VPL_ATTR_MASK_ORDER = 0x0300,
+
 	PSP_VPL_ATTR_HIGHMEM = 0x4000,
 	PSP_VPL_ATTR_KNOWN = PSP_VPL_ATTR_FIFO | PSP_VPL_ATTR_PRIORITY | PSP_VPL_ATTR_SMALLEST | PSP_VPL_ATTR_HIGHMEM,
 };
@@ -1654,6 +1656,9 @@ retry:
 					vpl->waitingThreads.erase(iter);
 					goto retry;
 				}
+				// In FIFO, we stop at the first one that can't wake.
+				else if ((vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO)
+					break;
 			}
 
 			if (wokeThreads) {
