@@ -366,7 +366,7 @@ u32 __MpegRingbufferQueryMemSize(int packets) {
 u32 sceMpegRingbufferQueryMemSize(int packets) {
 	u32 size = __MpegRingbufferQueryMemSize(packets);
 	DEBUG_LOG(ME, "%i = sceMpegRingbufferQueryMemSize(%i)", size, packets);
-	return __MpegRingbufferQueryMemSize(packets);
+	return size;
 }
 
 
@@ -1060,18 +1060,16 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
+	if (streamInfo != ctx->streamMap.end())	{
+		ctx->mediaengine->setVideoStream(streamInfo->second.num);
+	} else {
+		WARN_LOG_REPORT(ME, "sceMpegGetAvcAu: invalid video stream %08x", streamId);
+		return -1;
+	}
 
 	if (streamInfo->second.needsReset) {
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
-	}
-
-	if (streamInfo == ctx->streamMap.end())	{
-		WARN_LOG_REPORT(ME, "sceMpegGetAvcAu: bad stream id %i", streamId);
-		return ERROR_MPEG_INVALID_ADDR;
-	} else {
-		// Set Video Stream
-		ctx->mediaengine->setVideoStream(streamInfo->second.num);
 	}
 
 	/*// Wait for audio if too much ahead
@@ -1106,7 +1104,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	DEBUG_LOG(ME, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
 	// There's definitely more to it, but ultimately it seems games should expect it to delay randomly.
-	return hleDelayResult(result, "mpeg get avc", mpegDecodeErrorDelayMs);
+	return hleDelayResult(result, "mpeg get avc", 100);
 }
 
 u32 sceMpegFinish()
@@ -1144,18 +1142,14 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	auto streamInfo = ctx->streamMap.find(streamId);
-
 	if (streamInfo != ctx->streamMap.end() && streamInfo->second.needsReset) {
 		sceAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
-
-	if (streamInfo == ctx->streamMap.end()) {
-		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: bad stream id %i", streamId);
-		return ERROR_MPEG_INVALID_ADDR;
-	} else {
-		// Set Audio Stream
+	if (streamInfo != ctx->streamMap.end()) {
 		ctx->mediaengine->setAudioStream(streamInfo->second.num);
+	} else {
+		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
 	}
 
 	// The audio can end earlier than the video does.
@@ -1190,7 +1184,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	DEBUG_LOG(ME, "%x=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	// TODO: Not clear on exactly when this delays.
-	return hleDelayResult(result, "mpeg get atrac", mpegDecodeErrorDelayMs);
+	return hleDelayResult(result, "mpeg get atrac", 100);
 }
 
 int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
