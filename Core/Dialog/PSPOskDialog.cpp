@@ -706,7 +706,7 @@ void PSPOskDialog::RenderKeyboard()
 
 	std::string buffer;
 
-	u32 FIELDDRAWMAX = 15;
+	static const u32 FIELDDRAWMAX = 16;
 	u32 limit = FieldMaxLength();
 	u32 drawLimit = std::min(FIELDDRAWMAX, limit);   // Field drew length limit.
 
