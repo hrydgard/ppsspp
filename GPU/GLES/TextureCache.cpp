@@ -1465,7 +1465,7 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 						break;
 					}
 				}
-				p += stride;
+				p += stride/2;
 			}
 		}
 		break;
@@ -1477,7 +1477,7 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 					u32 a = p[i] & 0x00010001;
 					hitZeroAlpha |= a ^ 0x00010001;
 				}
-				p += stride;
+				p += stride/2;
 			}
 		}
 		break;
