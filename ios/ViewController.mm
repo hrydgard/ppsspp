@@ -72,9 +72,8 @@ ViewController* sharedViewController;
 		net::Init();
 
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
-		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
-    iosCanUseJit = false;
-
+		
+		iosCanUseJit = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:
 							@"/Applications/Cydia.app",
 							@"/private/var/lib/apt" ,
@@ -84,9 +83,11 @@ ViewController* sharedViewController;
 
 		for(NSString *string in jailPath)
 		{
-			if ([[NSFileManager defaultManager] fileExistsAtPath:string])
-        iosCanUseJit = true;
+            if ([[NSFileManager defaultManager] fileExistsAtPath:string])
+                iosCanUseJit = true;
 		}
+        
+        NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
@@ -157,6 +158,14 @@ ViewController* sharedViewController;
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
 	self.iCadeView.active = YES;
+    
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
+    if ([GCController class]) {
+        if ([[GCController controllers] count] > 0) {
+            [self setupController:[[GCController controllers] firstObject]];
+        }
+    }
+#endif
 }
 
 - (void)viewDidUnload
@@ -448,8 +457,6 @@ void DisableFZ(){};
     if (self.gameController != nil) return; // already have a connected controller
     
     [self setupController:(GCController *)note.object];
-    
-    [[UIApplication sharedApplication] setIdleTimerDisabled:YES];   // prevent auto-lock
 }
 
 - (void)controllerDidDisconnect:(NSNotification *)note
@@ -483,6 +490,8 @@ void DisableFZ(){};
         self.gameController = nil;
         return;
     }
+    
+    [[UIApplication sharedApplication] setIdleTimerDisabled:YES];   // prevent auto-lock
     
     self.gameController.controllerPausedHandler = ^(GCController *controller) {
         KeyInput key;
