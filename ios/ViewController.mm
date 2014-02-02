@@ -83,11 +83,11 @@ ViewController* sharedViewController;
 
 		for(NSString *string in jailPath)
 		{
-            if ([[NSFileManager defaultManager] fileExistsAtPath:string])
-                iosCanUseJit = true;
+			if ([[NSFileManager defaultManager] fileExistsAtPath:string])
+				iosCanUseJit = true;
 		}
         
-        NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
+		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
