@@ -46,5 +46,6 @@ public:
 	virtual void DoState(PointerWrap &p);
 
 private:
+	void DrawBanner();
 	SceUtilityNetconfParam request;
 };
