@@ -1549,10 +1549,24 @@ bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, bool try
 	return false;
 }
 
-void __KernelVplTimeout(u64 userdata, int cyclesLate)
-{
+void __KernelVplTimeout(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID) userdata;
+	u32 error;
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
+
 	HLEKernel::WaitExecTimeout<VPL, WAITTYPE_VPL>(threadID);
+
+	// If in FIFO mode, that may have cleared another thread to wake up.
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
+	if (vpl && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO) {
+		bool wokeThreads;
+		std::vector<VplWaitingThread>::iterator iter = vpl->waitingThreads.begin();
+		// Unlock every waiting thread until the first that must still wait.
+		while (iter != vpl->waitingThreads.end() && __KernelUnlockVplForThread(vpl, *iter, error, 0, wokeThreads)) {
+			vpl->waitingThreads.erase(iter);
+			iter = vpl->waitingThreads.begin();
+		}
+	}
 }
 
 void __KernelSetVplTimeout(u32 timeoutPtr)
