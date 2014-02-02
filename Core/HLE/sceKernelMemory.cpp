@@ -204,23 +204,24 @@ struct SceKernelVplHeader {
 
 	u32 Allocate(u32 size) {
 		u32 allocBlocks = ((size + 7) / 8) + 1;
-		auto prev = PSPPointer<SceKernelVplBlock>::Create(0);
-		auto b = nextFreeBlock_;
+		auto prev = nextFreeBlock_;
 		do {
+			auto b = prev->next;
 			if (b->sizeInBlocks > allocBlocks) {
+				if (nextFreeBlock_ == b) {
+					nextFreeBlock_ = prev;
+				}
 				prev = b;
 				b = SplitBlock(b, allocBlocks);
 			}
 
 			if (b->sizeInBlocks == allocBlocks) {
 				UnlinkFreeBlock(b, prev);
-				_dbg_assert_msg_(SCEKERNEL, b->sizeInBlocks == allocBlocks, "Returned block of improper size.");
 				return b.ptr + 8;
 			}
 
 			prev = b;
-			b = b->next;
-		} while (b.IsValid() && b != nextFreeBlock_);
+		} while (prev.IsValid() && prev != nextFreeBlock_);
 
 		return (u32)-1;
 	}
@@ -281,21 +282,11 @@ struct SceKernelVplHeader {
 	}
 
 	void UnlinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev) {
-		// If this was the first we tried, we have to search for prev.
-		if (!prev.IsValid()) {
-			prev = LastBlock();
-			while (prev->next != b) {
-				prev = prev->next;
-				if (prev == LastBlock()) {
-					_dbg_assert_msg_(SCEKERNEL, prev != LastBlock(), "Should have found a previous free block.");
-					break;
-				}
-			}
-		}
-
 		allocatedInBlocks_ += b->sizeInBlocks;
 		prev->next = b->next;
-		nextFreeBlock_ = b->next;
+		if (nextFreeBlock_ == b) {
+			nextFreeBlock_ = prev;
+		}
 		b->next = SentinelPtr();
 	}
 
