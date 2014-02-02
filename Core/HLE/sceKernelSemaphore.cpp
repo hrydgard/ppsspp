@@ -331,7 +331,22 @@ retry:
 void __KernelSemaTimeout(u64 userdata, int cycleslate)
 {
 	SceUID threadID = (SceUID)userdata;
+	u32 error;
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
+
 	HLEKernel::WaitExecTimeout<Semaphore, WAITTYPE_SEMA>(threadID);
+
+	// If in FIFO mode, that may have cleared another thread to wake up.
+	Semaphore *s = kernelObjects.Get<Semaphore>(uid, error);
+	if (s && (s->ns.attr & PSP_SEMA_ATTR_PRIORITY) == PSP_SEMA_ATTR_FIFO) {
+		bool wokeThreads;
+		std::vector<SceUID>::iterator iter = s->waitingThreads.begin();
+		// Unlock every waiting thread until the first that must still wait.
+		while (iter != s->waitingThreads.end() && __KernelUnlockSemaForThread(s, *iter, error, 0, wokeThreads)) {
+			s->waitingThreads.erase(iter);
+			iter = s->waitingThreads.begin();
+		}
+	}
 }
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
