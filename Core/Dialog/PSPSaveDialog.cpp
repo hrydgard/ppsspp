@@ -176,7 +176,7 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	status = (int)retval < 0 ? SCE_UTILITY_STATUS_SHUTDOWN : SCE_UTILITY_STATUS_INITIALIZE;
 
-	lastButtons = __CtrlPeekButtons();
+	UpdateButtons();
 	StartFade(true);
 
 	/*INFO_LOG(SCEUTILITY,"Dump Param :");
@@ -553,7 +553,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		param.SetPspParam(&request);
 	}
 
-	buttons = __CtrlPeekButtons();
+	UpdateButtons();
 	UpdateFade(animSpeed);
 
 	okButtonImg = I_CIRCLE;
@@ -976,8 +976,6 @@ int PSPSaveDialog::Update(int animSpeed)
 			status = SCE_UTILITY_STATUS_FINISHED;
 		break;
 	}
-
-	lastButtons = buttons;
 
 	if (status == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size);

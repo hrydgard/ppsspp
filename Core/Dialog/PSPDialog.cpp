@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/HLE/sceCtrl.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/Dialog/PSPDialog.h"
 
@@ -124,14 +125,20 @@ pspUtilityDialogCommon *PSPDialog::GetCommonParam()
 	return 0;
 }
 
+void PSPDialog::UpdateButtons()
+{
+	lastButtons = __CtrlPeekButtons();
+	buttons = __CtrlReadLatch();
+}
+
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
-	return !isFading && !(lastButtons & checkButton) && (buttons & checkButton);
+	return !isFading && (buttons & checkButton);
 }
 
 bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold, int framesHeldRepeatRate)
 {
-	bool btnWasHeldLastFrame = (lastButtons & checkButton) && (buttons & checkButton);
+	bool btnWasHeldLastFrame = (lastButtons & checkButton) && (__CtrlPeekButtons() & checkButton);
 	if (!isFading && btnWasHeldLastFrame) {
 		framesHeld++;
 	}

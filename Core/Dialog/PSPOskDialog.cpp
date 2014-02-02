@@ -279,7 +279,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	languageMapping = GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
-	__CtrlReadLatch();
+	UpdateButtons();
 
 	StartFade(true);
 	return 0;
@@ -860,7 +860,7 @@ int PSPOskDialog::Update(int animSpeed)
 	const int framesHeldThreshold = 10;
 	const int framesHeldRepeatRate = 5;
 
-	buttons = __CtrlPeekButtons();
+	UpdateButtons();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
@@ -1062,7 +1062,6 @@ int PSPOskDialog::Update(int animSpeed)
 
 	oskParams->base.result = 0;
 	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	lastButtons = buttons;
 	return 0;
 }
 

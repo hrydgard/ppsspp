@@ -49,7 +49,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
 	// Eat any keys pressed before the dialog inited.
-	__CtrlReadLatch();
+	UpdateButtons();
 
 	StartFade(true);
 	return 0;
@@ -66,7 +66,7 @@ void PSPNetconfDialog::DrawBanner() {
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
-	buttons = __CtrlPeekButtons();
+	UpdateButtons();
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *err = GetI18NCategory("Error");
 	const float WRAP_WIDTH = 254.0f;
