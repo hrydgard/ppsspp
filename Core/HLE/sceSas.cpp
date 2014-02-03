@@ -129,16 +129,12 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
-	bool ret = sas->Mix(outAddr);
+	sas->Mix(outAddr);
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
-	// When there's no voicesPlayingCount , we return as no delay and fixes issue #2304.
-	// Note that Mix() returns true in this case when no voicesPlayingCount.
-	if (ret) {
-		// If voicesPlayingCount == 0 , no delay
-		return 0;
-	} else {
-		// if voicesPlayingCount > 0 , delay 240 us and reschedule
+	if (sas->GetGrainSize() > 256) {
 		return hleDelayResult(0, "sas core", 240);
+	} else {
+		return 0;
 	}
 }
 
@@ -150,16 +146,12 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
-	bool ret = sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
+	sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
-	// When there's no voicesPlayingCount , we return as no delay and fixes issue #2304.
-	// Note that Mix() returns true in this case when no voicesPlayingCount.
-	if (ret) {
-		// If voicesPlayingCount == 0 , no delay
-		return 0;
-	} else {
-		// if voicesPlayingCount > 0 , delay 240 us and reschedule
+	if (sas->GetGrainSize() > 256) {
 		return hleDelayResult(0, "sas core", 240);
+	} else {
+		return 0;
 	}
 }
 
