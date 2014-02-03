@@ -762,7 +762,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
 
-			if (IsButtonPressed(cancelButtonFlag)) {
+			// Allow OK to be pressed as well to confirm the save.
+			// The PSP only allows cancel, but that's generally not great UX.
+			// Allowing this here makes it quicker for most users to get into the actual game.
+			if (IsButtonPressed(cancelButtonFlag) || IsButtonPressed(okButtonFlag)) {
 				param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_SUCCESS;
 				// Set the save to use for autosave and autoload
 				param.SetSelectedSave(param.GetFileInfo(currentSelectedSave).idx);
