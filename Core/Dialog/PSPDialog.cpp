@@ -21,7 +21,6 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/Dialog/PSPDialog.h"
-#include "Core/HLE/sceKernelMemory.h"
 
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
@@ -41,7 +40,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 	PSPDialog::DialogStatus retval = status;
 	if (status == SCE_UTILITY_STATUS_SHUTDOWN)
 		status = SCE_UTILITY_STATUS_NONE;
-	if (sceKernelGetCompiledSdkVersion() >= 0x04000000  && status == SCE_UTILITY_STATUS_INITIALIZE)
+	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 		status = SCE_UTILITY_STATUS_RUNNING;
 	return retval;
 }

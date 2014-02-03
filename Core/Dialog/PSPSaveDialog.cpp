@@ -536,11 +536,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 int PSPSaveDialog::Update(int animSpeed)
 {
 	if (status != SCE_UTILITY_STATUS_RUNNING)
-	{
-		if (sceKernelGetCompiledSdkVersion() < 0x04000000 && status == SCE_UTILITY_STATUS_INITIALIZE)
-			status = SCE_UTILITY_STATUS_RUNNING;
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	}
 
 	if (!param.GetPspParam()) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
@@ -995,7 +991,6 @@ int PSPSaveDialog::Shutdown(bool force)
 {
 	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	status = SCE_UTILITY_STATUS_NONE;
 	param.SetPspParam(0);
 	if (sceKernelGetCompiledSdkVersion() < 0x04000000)
 		status = SCE_UTILITY_STATUS_NONE;
