@@ -131,7 +131,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
-	lastButtons = __CtrlPeekButtons();
+	UpdateButtons();
 	StartFade(true);
 	return 0;
 }
@@ -222,9 +222,8 @@ int PSPMsgDialog::Update(int animSpeed)
 	}
 	else
 	{
+		UpdateButtons();
 		UpdateFade(animSpeed);
-
-		buttons = __CtrlPeekButtons();
 
 		okButtonImg = I_CIRCLE;
 		cancelButtonImg = I_CROSS;
@@ -280,7 +279,6 @@ int PSPMsgDialog::Update(int animSpeed)
 
 		EndDraw();
 
-		lastButtons = buttons;
 		messageDialog.result = 0;
 	}
 

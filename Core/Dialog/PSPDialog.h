@@ -78,6 +78,7 @@ public:
 	void StartDraw();
 	void EndDraw();
 protected:
+	void UpdateButtons();
 	bool IsButtonPressed(int checkButton);
 	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
 	// The caption override is assumed to have a size of 64 bytes.
