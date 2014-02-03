@@ -74,24 +74,27 @@ AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
 // max or 50%?
 
 u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
+	int result = 0;
 	if (vol > 0xFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputBlocking() - invalid volume");
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		result = SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputBlocking() - bad channel");
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputBlocking() - channel not reserved");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioOutputBlocking(%08x, %08x, %08x)", chan, vol, samplePtr);
 		if (vol >= 0) {
 			chans[chan].leftVolume = vol;
 			chans[chan].rightVolume = vol;
 		}
 		chans[chan].sampleAddress = samplePtr;
-		return __AudioEnqueue(chans[chan], chan, true);
+		result = __AudioEnqueue(chans[chan], chan, true);
 	}
+
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutputBlocking(%08x, %08x, %08x)", result, chan, vol, samplePtr);
+	return result;
 }
 
 u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
@@ -123,38 +126,41 @@ u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 sample
 }
 
 u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
+	int result = 0;
 	if (vol > 0xFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput() - invalid volume");
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		result = SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput() - bad channel");
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved)	{
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput(%08x, %08x, %08x) - channel not reserved", chan, vol, samplePtr);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioOutputPanned(%08x, %08x, %08x)", chan, vol, samplePtr);
 		if (vol >= 0) {
 			chans[chan].leftVolume = vol;
 			chans[chan].rightVolume = vol;
 		}
 		chans[chan].sampleAddress = samplePtr;
-		return __AudioEnqueue(chans[chan], chan, false);
+		result = __AudioEnqueue(chans[chan], chan, false);
 	}
+
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutputPanned(%08x, %08x, %08x)", result, chan, vol, samplePtr);
+	return result;
 }
 
 u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
+	int result = 0;
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputPanned() - invalid volume");
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		result = SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputPanned() - bad channel");
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputPanned(%08x, %08x, %08x, %08x) - channel not reserved", chan, leftvol, rightvol, samplePtr);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioOutputPanned(%08x, %08x, %08x, %08x)", chan, leftvol, rightvol, samplePtr);
 		if (leftvol >= 0) {
 			chans[chan].leftVolume = leftvol;
 		}
@@ -162,31 +168,38 @@ u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
 			chans[chan].rightVolume = rightvol;
 		}
 		chans[chan].sampleAddress = samplePtr;
-		return __AudioEnqueue(chans[chan], chan, false);
+		result = __AudioEnqueue(chans[chan], chan, false);
 	}
+
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutputPanned(%08x, %08x, %08x, %08x)", result, chan, leftvol, rightvol, samplePtr);
+	return result;
 }
 
 int sceAudioGetChannelRestLen(u32 chan) {
+	int result = 0;
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLen(%08x) - bad channel", chan);
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
-	DEBUG_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLen(%08x)", remainingSamples, chan);
-	return remainingSamples;
+	result = (int)chans[chan].sampleQueue.size() / 2;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioGetChannelRestLen(%08x)", result, chan);
+	return result;
 }
 
 int sceAudioGetChannelRestLength(u32 chan) {
+	int result = 0;
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLength(%08x) - bad channel", chan);
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
-	DEBUG_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLength(%08x)", remainingSamples, chan);
-	return remainingSamples;
+	result = (int)chans[chan].sampleQueue.size() / 2;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioGetChannelRestLength(%08x)", result, chan);
+	return result;
 }
 
-static u32 GetFreeChannel() {
+static u32 __GetFreeChannel() {
 	for (u32 i = PSP_AUDIO_CHANNEL_MAX - 1; i > 0; --i) {
 		if (!chans[i].reserved)
 			return i;
@@ -195,53 +208,53 @@ static u32 GetFreeChannel() {
 }
 
 u32 sceAudioChReserve(int chan, u32 sampleCount, u32 format) {
+	int result = 0;
 	if (chan < 0) {
-		chan = GetFreeChannel();
+		chan = __GetFreeChannel();
 		if (chan < 0) {
 			ERROR_LOG(SCEAUDIO, "sceAudioChReserve - no channels remaining");
-			return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
+			result = SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
 		}
-	} 
-	if ((u32)chan >= PSP_AUDIO_CHANNEL_MAX)	{
+	} else if ((u32)chan >= PSP_AUDIO_CHANNEL_MAX)	{
 		ERROR_LOG(SCEAUDIO, "sceAudioChReserve(%08x, %08x, %08x) - bad channel", chan, sampleCount, format);
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
-	}
-	if ((sampleCount & 63) != 0 || sampleCount == 0 || sampleCount > PSP_AUDIO_SAMPLE_MAX) {
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	} else if ((sampleCount & 63) != 0 || sampleCount == 0 || sampleCount > PSP_AUDIO_SAMPLE_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChReserve(%08x, %08x, %08x) - invalid sample count", chan, sampleCount, format);
-		return SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
-	}
-	if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO) {
+		result = SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
+	} else if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChReserve(%08x, %08x, %08x) - invalid format", chan, sampleCount, format);
-		return SCE_ERROR_AUDIO_INVALID_FORMAT;
-	}
-	if (chans[chan].reserved) {
+		result = SCE_ERROR_AUDIO_INVALID_FORMAT;
+	} else if (chans[chan].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChReserve - reserve channel failed");
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
 
-	DEBUG_LOG(SCEAUDIO, "sceAudioChReserve(%08x, %08x, %08x)", chan, sampleCount, format);
 	chans[chan].sampleCount = sampleCount;
 	chans[chan].format = format;
 	chans[chan].reserved = true;
 	chans[chan].leftVolume = 0;
 	chans[chan].rightVolume = 0;
-	return chan;
+	result = chan;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioChReserve(%08x, %08x, %08x)", result, chan, sampleCount, format);
+	return result;
 }
 
 u32 sceAudioChRelease(u32 chan) {
+	int result = 1;
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChRelease(%i) - bad channel", chan);
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	} else if (!chans[chan].reserved) {
+		ERROR_LOG(SCEAUDIO, "sceAudioChRelease(%i) - channel not reserved", chan);
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 
-	if (!chans[chan].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioChRelease(%i) - channel not reserved", chan);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioChRelease(%i)", chan);
 	chans[chan].reset();
 	chans[chan].reserved = false;
-	return 1;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioChRelease(%i)", result, chan);
+	return result;
 }
 
 u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
@@ -258,118 +271,138 @@ u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
 	} else {
 		chans[chan].sampleCount = len;
 	}
+
 	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioSetChannelDataLen(%08x, %08x)", result , chan, len);
 	return result;
 }
 
 u32 sceAudioChangeChannelConfig(u32 chan, u32 format) {
+	int result = 0;
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChangeChannelConfig(%08x, %08x) - invalid channel number", chan, format);
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChangeChannelConfig(%08x, %08x) - channel not reserved", chan, format);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioChangeChannelConfig(%08x, %08x)", chan, format);
 		chans[chan].format = format;
-		return 0;
 	}
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioChangeChannelConfig(%08x, %08x)", result, chan, format);
+	return result;
 }
 
 u32 sceAudioChangeChannelVolume(u32 chan, u32 leftvol, u32 rightvol) {
+	int result = 0;
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChangeChannelVolume(%08x, %08x, %08x) - invalid volume", chan, leftvol, rightvol);
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		result = SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChangeChannelVolume(%08x, %08x, %08x) - invalid channel number", chan, leftvol, rightvol);
-		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+		result = SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved)	{
 		ERROR_LOG(SCEAUDIO, "sceAudioChangeChannelVolume(%08x, %08x, %08x) - channel not reserved", chan, leftvol, rightvol);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioChangeChannelVolume(%08x, %08x, %08x)", chan, leftvol, rightvol);
 		chans[chan].leftVolume = leftvol;
 		chans[chan].rightVolume = rightvol;
-		return 0;
 	}
+
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioChangeChannelVolume(%08x, %08x, %08x)", result, chan, leftvol, rightvol);
+	return result;
 }
 
-u32 sceAudioInit(){
+u32 sceAudioInit() {
 	DEBUG_LOG(SCEAUDIO, "sceAudioInit()");
 	// Don't need to do anything
 	return 0;
 }
 
-u32 sceAudioEnd(){
+u32 sceAudioEnd() {
 	DEBUG_LOG(SCEAUDIO, "sceAudioEnd()");
 	// Don't need to do anything
 	return 0;
 }
 
 u32 sceAudioOutput2Reserve(u32 sampleCount) {
+	int result = 0;
 	if (sampleCount < 17 || sampleCount > 4111) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput2Reserve(%08x) - invalid sample count", sampleCount);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		result = SCE_KERNEL_ERROR_INVALID_SIZE;
 	} else if (chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput2Reserve(%08x) - channel already reserved", sampleCount);
-		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioOutput2Reserve(%08x)", sampleCount);
 		chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
 		chans[PSP_AUDIO_CHANNEL_OUTPUT2].format = PSP_AUDIO_FORMAT_STEREO;
 		chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = true;
 	}
-	return 0;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutput2Reserve(%08x)", result, sampleCount);
+	return result;
 }
 
-u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr){
+u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
+	int result = 0;
 	// Note: 0xFFFFF, not 0xFFFF!
 	if (vol > 0xFFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput2OutputBlocking(%08x, %08x) - invalid volume", vol, dataPtr);
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		result = SCE_ERROR_AUDIO_INVALID_VOLUME;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2OutputBlocking(%08x, %08x)", vol, dataPtr);
+
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].leftVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].rightVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleAddress = dataPtr;
-	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_OUTPUT2], PSP_AUDIO_CHANNEL_OUTPUT2, true);
+	result = __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_OUTPUT2], PSP_AUDIO_CHANNEL_OUTPUT2, true);
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutput2OutputBlocking(%08x, %08x)", result, vol, dataPtr);
+	return result;
 }
 
-u32 sceAudioOutput2ChangeLength(u32 sampleCount){
+u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
+	int result = 0;
 	if (!chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput2ChangeLength(%08x) - channel not reserved ", sampleCount);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2ChangeLength(%08x)", sampleCount);
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
-	return 0;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutput2ChangeLength(%08x)", result, sampleCount);
+	return result;
 }
 
-u32 sceAudioOutput2GetRestSample(){
+u32 sceAudioOutput2GetRestSample() {
+	int result = 0;
 	if (!chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput2GetRestSample() - channel not reserved ");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2GetRestSample()");
-	return (u32) chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleQueue.size() / 2;
+	result = (u32) chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleQueue.size() / 2;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioOutput2GetRestSample()", result);
+	return result;
 }
 
-u32 sceAudioOutput2Release(){
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2Release()");
+u32 sceAudioOutput2Release() {
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reset();
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = false;
+
+	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2Release()");
 	return 0;
 }
 
 u32 sceAudioSetFrequency(u32 freq) {
+	int result = 0;
 	if (freq == 44100 || freq == 48000) {
-		INFO_LOG(SCEAUDIO, "sceAudioSetFrequency(%08x)", freq);
+		DEBUG_LOG(SCEAUDIO, "sceAudioSetFrequency(%08x)", freq);
 		__AudioSetOutputFrequency(freq);
-		return 0;
 	} else {
 		ERROR_LOG(SCEAUDIO, "sceAudioSetFrequency(%08x) - invalid frequency (must be 44.1 or 48 khz)", freq);
-		return SCE_ERROR_AUDIO_INVALID_FREQUENCY;
+		result = SCE_ERROR_AUDIO_INVALID_FREQUENCY;
 	}
+
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioSetFrequency(%08x)", result, freq);
+	return result;
 }
 
 u32 sceAudioSetVolumeOffset() {
@@ -378,49 +411,56 @@ u32 sceAudioSetVolumeOffset() {
 }
 
 u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
+	int result = 0;
 	if (format == 4) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
-		return PSP_AUDIO_ERROR_SRC_FORMAT_4;
+		result = PSP_AUDIO_ERROR_SRC_FORMAT_4;
 	} else if (format != 2) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		result = SCE_KERNEL_ERROR_INVALID_SIZE;
 	} else if (sampleCount < 17 || sampleCount > 4111) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - invalid sample count", sampleCount, freq, format);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		result = SCE_KERNEL_ERROR_INVALID_SIZE;
 	} else if (chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - channel already reserved ", sampleCount, freq, format);
-		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x)", sampleCount, freq, format);
 		chans[PSP_AUDIO_CHANNEL_SRC].reserved = true;
 		chans[PSP_AUDIO_CHANNEL_SRC].sampleCount = sampleCount;
 		chans[PSP_AUDIO_CHANNEL_SRC].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
 		__AudioSetOutputFrequency(freq);
 	}
-	return 0;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioSRCChReserve(%08x, %08x, %08x)", result, sampleCount, freq, format);
+	return result;
 }
 
 u32 sceAudioSRCChRelease() {
+	int result = 0;
 	if (!chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChRelease() - channel already reserved ");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		result = SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioSRCChRelease()");
 	chans[PSP_AUDIO_CHANNEL_SRC].reset();
 	chans[PSP_AUDIO_CHANNEL_SRC].reserved = false;
-	return 0;
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioSRCChRelease()", result);
+	return result;
 }
 
 u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
+	int result = 0;
 	if (vol > 0xFFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCOutputBlocking(%08x, %08x) - invalid volume", vol, buf);
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		result = SCE_ERROR_AUDIO_INVALID_VOLUME;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioSRCOutputBlocking(%08x, %08x)", vol, buf);
 	chans[PSP_AUDIO_CHANNEL_SRC].leftVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_SRC].rightVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_SRC].sampleAddress = buf;
-	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_SRC], PSP_AUDIO_CHANNEL_SRC, true);
+	result = __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_SRC], PSP_AUDIO_CHANNEL_SRC, true);
+	
+	DEBUG_LOG(SCEAUDIO, "%08x = sceAudioSRCOutputBlocking(%08x, %08x)", result, vol, buf);
+	return result;
 }
 
 const HLEFunction sceAudio[] = 
