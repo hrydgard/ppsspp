@@ -1313,6 +1313,8 @@ enum SceKernelVplAttr
 	PSP_VPL_ATTR_FIFO = 0x0000,
 	PSP_VPL_ATTR_PRIORITY = 0x0100,
 	PSP_VPL_ATTR_SMALLEST = 0x0200,
+	PSP_VPL_ATTR_MASK_ORDER = 0x0300,
+
 	PSP_VPL_ATTR_HIGHMEM = 0x4000,
 	PSP_VPL_ATTR_KNOWN = PSP_VPL_ATTR_FIFO | PSP_VPL_ATTR_PRIORITY | PSP_VPL_ATTR_SMALLEST | PSP_VPL_ATTR_HIGHMEM,
 };
@@ -1389,7 +1391,7 @@ bool __KernelClearVplThreads(VPL *vpl, int reason)
 	return wokeThreads;
 }
 
-void __KernelSortFplThreads(VPL *vpl)
+void __KernelSortVplThreads(VPL *vpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = vpl->GetUID();
@@ -1502,7 +1504,7 @@ int sceKernelDeleteVpl(SceUID uid)
 
 // Returns false for invalid parameters (e.g. don't check callbacks, etc.)
 // Successful allocation is indicated by error == 0.
-bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, const char *funcname) {
+bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, bool trying, const char *funcname) {
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl) {
 		if (size == 0 || size > (u32) vpl->nv.poolSize) {
@@ -1512,6 +1514,19 @@ bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, const ch
 		}
 
 		VERBOSE_LOG(SCEKERNEL, "%s(vpl=%i, size=%i, ptrout=%08x)", funcname, uid, size, addrPtr);
+
+		// For some reason, try doesn't follow the same rules...
+		if (!trying && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO)
+		{
+			__KernelSortVplThreads(vpl);
+			if (!vpl->waitingThreads.empty())
+			{
+				// Can't allocate, blocked by FIFO queue.
+				error = SCE_KERNEL_ERROR_NO_MEMORY;
+				return true;
+			}
+		}
+
 		// Allocate using the header only for newer vpls (older come from savestates.)
 		u32 addr;
 		if (vpl->header.IsValid()) {
@@ -1534,10 +1549,24 @@ bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, const ch
 	return false;
 }
 
-void __KernelVplTimeout(u64 userdata, int cyclesLate)
-{
+void __KernelVplTimeout(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID) userdata;
+	u32 error;
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
+
 	HLEKernel::WaitExecTimeout<VPL, WAITTYPE_VPL>(threadID);
+
+	// If in FIFO mode, that may have cleared another thread to wake up.
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
+	if (vpl && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO) {
+		bool wokeThreads;
+		std::vector<VplWaitingThread>::iterator iter = vpl->waitingThreads.begin();
+		// Unlock every waiting thread until the first that must still wait.
+		while (iter != vpl->waitingThreads.end() && __KernelUnlockVplForThread(vpl, *iter, error, 0, wokeThreads)) {
+			vpl->waitingThreads.erase(iter);
+			iter = vpl->waitingThreads.begin();
+		}
+	}
 }
 
 void __KernelSetVplTimeout(u32 timeoutPtr)
@@ -1562,7 +1591,7 @@ void __KernelSetVplTimeout(u32 timeoutPtr)
 int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 {
 	u32 error, ignore;
-	if (__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__))
+	if (__KernelAllocateVpl(uid, size, addrPtr, error, false, __FUNCTION__))
 	{
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
@@ -1591,7 +1620,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 {
 	u32 error, ignore;
-	if (__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__))
+	if (__KernelAllocateVpl(uid, size, addrPtr, error, false, __FUNCTION__))
 	{
 		hleCheckCurrentCallbacks();
 
@@ -1622,7 +1651,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
 {
 	u32 error;
-	__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__);
+	__KernelAllocateVpl(uid, size, addrPtr, error, true, __FUNCTION__);
 	return error;
 }
 
@@ -1645,7 +1674,7 @@ int sceKernelFreeVpl(SceUID uid, u32 addr) {
 		}
 
 		if (freed) {
-			__KernelSortFplThreads(vpl);
+			__KernelSortVplThreads(vpl);
 
 			bool wokeThreads = false;
 retry:
@@ -1654,6 +1683,9 @@ retry:
 					vpl->waitingThreads.erase(iter);
 					goto retry;
 				}
+				// In FIFO, we stop at the first one that can't wake.
+				else if ((vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO)
+					break;
 			}
 
 			if (wokeThreads) {
@@ -1700,7 +1732,7 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 	if (vpl) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
 
-		__KernelSortFplThreads(vpl);
+		__KernelSortVplThreads(vpl);
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (vpl->header.IsValid()) {
 			vpl->nv.freeSize = vpl->header->FreeSize();
