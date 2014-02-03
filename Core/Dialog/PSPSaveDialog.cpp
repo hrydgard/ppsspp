@@ -27,6 +27,7 @@
 #include "Core/Reporting.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/HLE/sceKernelMemory.h"
 
 const float FONT_SCALE = 0.55f;
 
@@ -990,10 +991,11 @@ int PSPSaveDialog::Shutdown(bool force)
 {
 	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-
-	PSPDialog::Shutdown();
 	param.SetPspParam(0);
-
+	if (sceKernelGetCompiledSdkVersion() < 0x04000000)
+		status = SCE_UTILITY_STATUS_NONE;
+	else
+		PSPDialog::Shutdown();
 	return 0;
 }
 
