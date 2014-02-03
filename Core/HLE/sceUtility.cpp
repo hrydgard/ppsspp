@@ -330,7 +330,7 @@ int sceUtilityOskInitStart(u32 oskPtr)
 	currentDialogType = UTILITY_DIALOG_OSK;
 	currentDialogActive = true;
 	int ret = oskDialog.Init(oskPtr);
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskInitStart(%08x)", oskPtr);
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskInitStart(%08x)", ret, oskPtr);
 	return ret;
 }
 
