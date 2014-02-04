@@ -139,6 +139,10 @@ int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, in
 
 int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo)
 {
+	if (bufferWidth < 0 || widthHeight < 0){
+		WARN_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
+		return 0x80650051;
+	}
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	DEBUG_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
