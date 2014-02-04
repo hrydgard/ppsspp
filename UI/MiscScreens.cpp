@@ -223,11 +223,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 	langValuesMapping = GetLangValuesMapping();
 
 	std::vector<FileInfo> tempLangs;
-#ifdef ANDROID
-	VFSGetFileListing("assets/lang", &tempLangs, "ini");
-#else
 	VFSGetFileListing("lang", &tempLangs, "ini");
-#endif
 	std::vector<std::string> listing;
 	int selected = -1;
 	int counter = 0;
