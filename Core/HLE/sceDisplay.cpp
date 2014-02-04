@@ -188,7 +188,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 3);
+	auto s = p.Section("sceDisplay", 1, 4);
 	if (!s)
 		return;
 
@@ -209,7 +209,9 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(mode);
 	p.Do(resumeMode);
 	p.Do(holdMode);
-	p.Do(brightnessLevel);
+	if (s >= 4) {
+		p.Do(brightnessLevel);
+	}
 	p.Do(width);
 	p.Do(height);
 	WaitVBlankInfo wvi(0);
