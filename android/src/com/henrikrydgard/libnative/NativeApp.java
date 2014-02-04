@@ -40,5 +40,7 @@ public class NativeApp {
 	public static native void accelerometer(float x, float y, float z);
 
 	public static native void sendMessage(String msg, String arg);
+	
+	public static native String queryConfig(String queryName);
 }
  

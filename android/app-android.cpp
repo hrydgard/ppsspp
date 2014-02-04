@@ -147,6 +147,14 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
 	optimalSampleRate = optimalSR;
 }
 
+extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
+	(JNIEnv *env, jclass, jstring jquery) {
+	std::string query = GetJavaString(env, jquery);
+	std::string result = NativeQueryConfig(query);
+	jstring jresult = env->NewStringUTF(result.c_str());
+	return jresult;
+}
+
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,

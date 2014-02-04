@@ -669,7 +669,7 @@ public class NativeActivity extends Activity {
     	dlg.setCancelable(true);
     	dlg.show();
     }
-     
+	
     public boolean processCommand(String command, String params) {
 		if (command.equals("launchBrowser")) {
 			Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
