@@ -1177,7 +1177,12 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (ctx->mediaengine->IsNoAudioData()) {
 		INFO_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		result = ERROR_MPEG_NO_DATA;
+		if (mpegRingbuffer.packetsFree >= 1020 && mpegRingbuffer.packetsFree < 1024 && mpegRingbuffer.packets == 1024){
+			mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
+			Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+		}
+		else if (mpegRingbuffer.packetsFree !=0 && sceAu.dts != -1)
+			result = ERROR_MPEG_NO_DATA;
 	}
 
 	sceAu.write(auAddr);
