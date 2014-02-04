@@ -673,6 +673,12 @@ public class NativeActivity extends Activity {
 		}
 	}
 
+	
+	@TargetApi(11)
+	private AlertDialog.Builder createDialogBuilderWithTheme() {
+   		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
+	}
+	
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
 	public void inputBox(String title, String defaultText, String defaultAction) {
     	final FrameLayout fl = new FrameLayout(this);
@@ -687,7 +693,13 @@ public class NativeActivity extends Activity {
     	input.setText(defaultText);
     	input.selectAll();
     	
-    	AlertDialog dlg = new AlertDialog.Builder(this)
+    	AlertDialog.Builder bld = null;
+    	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+    		bld = new AlertDialog.Builder(this);
+    	else
+    		bld = createDialogBuilderWithTheme();
+
+    	AlertDialog dlg = bld
     		.setView(fl)
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
