@@ -905,25 +905,27 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 
 	DEBUG_LOG(ME, "sceMpegInitAu(%08x, %i, %08x)", mpeg, bufferAddr, auPointer);
 
-	SceMpegAu sceAu;
-	sceAu.read(auPointer);
+	SceMpegAu avcAu;
+	SceMpegAu atracAu;
+	avcAu.read(auPointer);
+	atracAu.read(auPointer);
 
 	if (bufferAddr >= 1 && bufferAddr <= (u32)MPEG_DATA_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
-		sceAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
-		sceAu.esSize = MPEG_AVC_ES_SIZE;
-		sceAu.dts = 0;
-		sceAu.pts = 0;
+		avcAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
+		avcAu.esSize = MPEG_AVC_ES_SIZE;
+		avcAu.dts = 0;
+		avcAu.pts = 0;
 
-		sceAu.write(auPointer);
+		avcAu.write(auPointer);
 	} else {
 		// This esbuffer has been left as Atrac.
-		sceAu.esBuffer = bufferAddr;
-		sceAu.esSize = MPEG_ATRAC_ES_SIZE;
-		sceAu.pts = 0;
-		sceAu.dts = UNKNOWN_TIMESTAMP;
+		atracAu.esBuffer = bufferAddr;
+		atracAu.esSize = MPEG_ATRAC_ES_SIZE;
+		atracAu.pts = 0;
+		atracAu.dts = UNKNOWN_TIMESTAMP;
 
-		sceAu.write(auPointer);
+		atracAu.write(auPointer);
 	}
 	return 0;
 }
@@ -1052,14 +1054,14 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegRingBuffer mpegRingbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
-	SceMpegAu sceAu;
-	sceAu.read(auAddr);
+	SceMpegAu avcAu;
+	avcAu.read(auAddr);
 
 	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
-		sceAu.pts = -1;
-		sceAu.dts = -1;
-		sceAu.write(auAddr);
+		avcAu.pts = -1;
+		avcAu.dts = -1;
+		avcAu.write(auAddr);
 		// TODO: Does this really reschedule?
 		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
@@ -1073,7 +1075,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	if (streamInfo->second.needsReset) {
-		sceAu.pts = 0;
+		avcAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
 
@@ -1087,10 +1089,11 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	int result = 0;
 
-	sceAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
-	sceAu.dts = sceAu.pts - videoTimestampStep;
+	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
+	avcAu.dts = avcAu.pts - videoTimestampStep;
+
 	if (ctx->mediaengine->IsVideoEnd()) {
-		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
+		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)avcAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
 		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
@@ -1098,7 +1101,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	// The avcau struct may have been modified by mediaengine, write it back.
-	sceAu.write(auAddr);
+	avcAu.write(auAddr);
 
 	// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error 
 	if (Memory::IsValidAddress(attrAddr)) {
@@ -1143,12 +1146,12 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegRingBuffer mpegRingbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
-	SceMpegAu sceAu;
-	sceAu.read(auAddr);
+	SceMpegAu atracAu;
+	atracAu.read(auAddr);
 
 	auto streamInfo = ctx->streamMap.find(streamId);
 	if (streamInfo != ctx->streamMap.end() && streamInfo->second.needsReset) {
-		sceAu.pts = 0;
+		atracAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
 	if (streamInfo != ctx->streamMap.end()) {
@@ -1166,9 +1169,9 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	int result = 0;
 
-	sceAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
+	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 	if (ctx->mediaengine->IsVideoEnd()) {
-		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
+		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
 		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
@@ -1176,11 +1179,11 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	if (ctx->mediaengine->IsNoAudioData()) {
-		INFO_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
+		INFO_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		result = ERROR_MPEG_NO_DATA;
 	}
 
-	sceAu.write(auAddr);
+	atracAu.write(auAddr);
 
 	// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error 
 	if (Memory::IsValidAddress(attrAddr)) {
