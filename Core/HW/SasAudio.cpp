@@ -471,7 +471,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	}
 }
 
-bool SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
+void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
@@ -519,12 +519,6 @@ bool SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #ifdef AUDIO_TO_FILE
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif
-
-	if (voicesPlayingCount == 0) {
-		return true;
-	} else {
-		return false;
-	}
 }
 
 void SasInstance::ApplyReverb() {
