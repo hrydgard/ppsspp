@@ -264,6 +264,14 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->endOfAudioReached = false;
 	ctx->endOfVideoReached = false;
 
+	// Referencing https://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceMpeg.java#1258
+	// Sanity check mpegFirstTimestamp should be at least greater than mpegLastTimestamp
+	if (ctx->mpegFirstTimestamp > ctx->mpegLastTimestamp) {
+		// first/last mpeg timestamp is invalid!
+		WARN_LOG(HLE,"Invalid first/last mpegtimestamp : %i , %i", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
+		return;
+	}
+
 	if (ctx->mpegMagic != PSMF_MAGIC || ctx->mpegVersion < 0 ||
 		(ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
 		// mpeg header is invalid!
