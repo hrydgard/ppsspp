@@ -347,7 +347,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		{
 			vag.GetSamples(output, numSamples);
 			if (vag.End()) {
-				// NOTICE_LOG(SAS, "Hit end of VAG audio");
+				// NOTICE_LOG(SCESAS, "Hit end of VAG audio");
 				playing = false;
 				on = false;  // ??
 				envelope.KeyOff();
@@ -464,8 +464,9 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		if (voice.envelope.HasEnded())
 		{
-			// NOTICE_LOG(SAS, "Hit end of envelope");
+			// NOTICE_LOG(SCESAS, "Hit end of envelope");
 			voice.playing = false;
+			voice.on = false;
 		}
 	}
 }

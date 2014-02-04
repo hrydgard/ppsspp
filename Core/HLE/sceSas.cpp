@@ -99,7 +99,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	INFO_LOG(SCESAS, "sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 
 	sas->SetGrainSize(grainSize);
-	// Seems like maxVoiecs is actually ignored for all intents and purposes.
+	// Seems like maxVoices is actually ignored for all intents and purposes.
 	sas->maxVoices = PSP_SAS_VOICES_MAX;
 	sas->outputMode = outputMode;
 	for (int i = 0; i < sas->maxVoices; i++) {
@@ -117,7 +117,7 @@ u32 sceSasGetEndFlag(u32 core) {
 			endFlag |= (1 << i);
 	}
 
-	DEBUG_LOG(SCESAS, "sceSasGetEndFlag(%08x)", endFlag);
+	DEBUG_LOG(SCESAS, "%08x=sceSasGetEndFlag(%08x)", endFlag, core);
 	return endFlag;
 }
 
