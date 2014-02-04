@@ -32,6 +32,14 @@ const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
 
+enum {
+	ROTATION_AUTO = 0,
+	ROTATION_LOCKED_HORIZONTAL = 1,
+	ROTATION_LOCKED_VERTICAL = 2,
+	ROTATION_LOCKED_HORIZONTAL180 = 3,
+	ROTATION_LOCKED_VERTICAL180 = 4,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -74,6 +82,8 @@ public:
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
+	int iScreenRotation;
+
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
 	std::vector<std::string> vPinnedPaths;

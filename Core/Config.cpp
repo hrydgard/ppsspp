@@ -145,6 +145,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("ReportingHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
+#ifdef ANDROID
+	general->Get("ScreenRotation", &iScreenRotation, 1);
+#endif
+
 #if defined(_WIN32) && !defined(USING_QT_UI)
 	general->Get("TopMost", &bTopMost);
 	general->Get("WindowX", &iWindowX, -1); // -1 tells us to center the window.
@@ -490,6 +494,10 @@ void Config::Save() {
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportingHost", sReportHost);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
+#ifdef ANDROID
+		general->Set("ScreenRotation", iScreenRotation);
+#endif
+
 #if defined(_WIN32) && !defined(USING_QT_UI)
 		general->Set("TopMost", bTopMost);
 		general->Set("WindowX", iWindowX);

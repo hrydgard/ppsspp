@@ -199,7 +199,14 @@ void NativeHost::ShutdownSound() {
 }
 
 std::string NativeQueryConfig(std::string query) {
-	return "";
+	if (query == "screenRotation") {
+		char temp[128];
+		sprintf(temp, "%i", g_Config.iScreenRotation);
+		ILOG("Rotation queried: %s", temp);
+		return temp;
+	} else {
+		return "";
+	}
 }
 
 int NativeMix(short *audio, int num_samples) {
