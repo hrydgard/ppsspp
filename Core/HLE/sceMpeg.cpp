@@ -1551,6 +1551,11 @@ int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int 
 		return -1;
 	}
 
+	if (ctx->mediaengine->m_buffer == 0){
+		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)m_buffer = 0 ", mpeg, bufferOutputAddr, unknown1, unknown2);
+		return 0x806201FE;
+	}
+
 	DEBUG_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutputAddr, unknown1, unknown2);
 	const u8 *data = ctx->mediaengine->getFrameImage();
 	int width = ctx->mediaengine->m_desWidth;
