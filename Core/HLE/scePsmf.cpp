@@ -1063,6 +1063,8 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
 		if (psmfplayer->mediaengine->IsVideoEnd()) {
 			INFO_LOG(ME, "video end reached");
+			psmfplayer->psmfPlayerAvcAu.pts = -1;
+			psmfplayer->psmfPlayerAvcAu.dts = -1;
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
