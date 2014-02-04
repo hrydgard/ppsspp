@@ -105,11 +105,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 // Scans the directories for shader ini files and collects info about all the shaders found.
 void LoadAllPostShaderInfo() {
 	std::vector<std::string> directories;
-#ifdef ANDROID
-	directories.push_back("assets/shaders");
-#else
 	directories.push_back("shaders");
-#endif
 	directories.push_back(g_Config.memCardDirectory + "PSP/shaders");
 	LoadPostShaderInfo(directories);
 }
