@@ -17,6 +17,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
@@ -124,7 +125,6 @@ public class NativeActivity extends Activity {
     InputDeviceState inputPlayerB;
     String inputPlayerADesc;
     
-    
     // Functions for the app activity to override to change behaviour.
     
     public boolean useLowProfileButtons() {
@@ -182,9 +182,8 @@ public class NativeActivity extends Activity {
 	}
 	
 	public void Initialize() {
-		
-		//initialise audio classes. Do this here since detectOptimalAudioSettings()
-		//needs audioManager
+		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
+		// needs audioManager
         this.audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
 		this.audioFocusChangeListener = new AudioFocusChangeListener();
 		
@@ -197,12 +196,6 @@ public class NativeActivity extends Activity {
         	detectOptimalAudioSettings();
         }
 
-        /*
-        if (NativeApp.isLandscape()) {
-    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-    	} else {
-    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-    	}*/
     	Log.i(TAG, "onCreate");
     	// Get system information
 		ApplicationInfo appInfo = null;  
@@ -243,7 +236,20 @@ public class NativeActivity extends Activity {
 				
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL);
-	    Log.i(TAG, "Device: " + deviceType);     
+
+		// OK, config should be initialized, we can query for screen rotation.
+		if (Build.VERSION.SDK_INT >= 9) {
+			updateScreenRotation();
+		}	
+
+		/*
+        if (NativeApp.isLandscape()) {
+    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    	} else {
+    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    	}*/
+
+		Log.i(TAG, "Device: " + deviceType);     
 	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
 
 	    // Detect OpenGL support.
@@ -272,6 +278,37 @@ public class NativeActivity extends Activity {
         // inputBox("Please ener a s", "", "Save");
 	}
 
+	@TargetApi(9)
+	private void updateScreenRotation() {
+		// Query the native application on the desired rotation.
+		int rot = 0;
+		String rotString = NativeApp.queryConfig("screenRotation");
+		try {
+			rot = Integer.parseInt(rotString);
+		} catch (NumberFormatException e) {
+			Log.e(TAG, "Invalid rotation: " + rotString);
+			return;
+		}
+		Log.i(TAG, "Rotation requested: " + rot);
+		switch (rot) {
+		case 0:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+			break;
+		case 1:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+			break;
+		case 2:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+			break;
+		case 3:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
+			break;
+		case 4:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);
+			break;
+		}
+	}
+	
 	// Need API 11 to check for existence of a vibrator? Zany.
 	@TargetApi(11)
 	public void checkForVibrator() {
@@ -775,6 +812,10 @@ public class NativeActivity extends Activity {
 			return true;
 		} else if (command.equals("finish")) {
 			finish();
+		} else if (command.equals("rotate")) {
+			if (Build.VERSION.SDK_INT >= 9) {
+				updateScreenRotation();
+			}	
 		}
     	return false;
     }
