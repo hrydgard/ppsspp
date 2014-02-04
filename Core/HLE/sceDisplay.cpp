@@ -88,6 +88,7 @@ static int numSkippedFrames;
 static bool hasSetMode;
 static int resumeMode;
 static int holdMode;
+static int brightnessLevel;
 static int mode;
 static int width;
 static int height;
@@ -149,6 +150,7 @@ void __DisplayInit() {
 	mode = 0;
 	resumeMode = 0;
 	holdMode = 0;
+	brightnessLevel = 100;
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
@@ -207,6 +209,7 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(mode);
 	p.Do(resumeMode);
 	p.Do(holdMode);
+	p.Do(brightnessLevel);
 	p.Do(width);
 	p.Do(height);
 	WaitVBlankInfo wvi(0);
@@ -894,7 +897,15 @@ u32 sceDisplaySetResumeMode(u32 rMode) {
 }
 
 u32 sceDisplayGetBrightness(u32 levelAddr) {
-	ERROR_LOG(SCEDISPLAY,"UNIMPL sceDisplayGetBrightness(%08x)", levelAddr);
+	ERROR_LOG(SCEDISPLAY,"sceDisplayGetBrightness(%08x)", levelAddr);
+	if (Memory::IsValidAddress(levelAddr))
+		Memory::Write_U32(brightnessLevel, levelAddr);
+	return 0;
+}
+
+u32 sceDisplaySetBrightness(u32 bLevel) {
+	ERROR_LOG(SCEDISPLAY,"sceDisplaySetBrightness(%08x)", bLevel);
+	brightnessLevel = bLevel;
 	return 0;
 }
 
@@ -925,6 +936,7 @@ const HLEFunction sceDisplay[] = {
 	{0xBF79F646,WrapU_U<sceDisplayGetResumeMode>,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,WrapU_U<sceDisplayGetBrightness>,"sceDisplayGetBrightness"},
+	{0x9E3C6DC6,WrapU_U<sceDisplaySetBrightness>,"sceDisplaySetBrightness"},
 	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,WrapU_V<sceDisplayIsVsync>,"sceDisplayIsVsync"},
 };
