@@ -333,6 +333,10 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 		if (utf.end())
 			break;
 		cval = utf.next();
+		// Translate non-breaking space to space.
+		if (cval == 0xA0) {
+			cval = ' ';
+		}
 		if (cval == '\n') {
 			maxX = std::max(maxX, wacc);
 			wacc = 0;
@@ -407,6 +411,10 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		if (utf.end())
 			break;
 		cval = utf.next();
+		// Translate non-breaking space to space.
+		if (cval == 0xA0) {
+			cval = ' ';
+		}
 		if (cval == '\n') {
 			y += atlasfont.height * fontscaley;
 			x = sx;
