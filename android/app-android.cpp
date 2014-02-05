@@ -384,24 +384,21 @@ extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 
 extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
-	float scaledX = (int)(x * dp_xscale);	// why the (int) cast?
-	float scaledY = (int)(y * dp_yscale);
+	float scaledX = x * dp_xscale;
+	float scaledY = y * dp_yscale;
 
 	TouchInput touch;
 	touch.id = pointerId;
 	touch.x = scaledX;
 	touch.y = scaledY;
-	if (code == 1) {
+	touch.flags = code;
+	if (code & 2) {
 		input_state.pointer_down[pointerId] = true;
-		touch.flags = TOUCH_DOWN;
-	} else if (code == 2) {
+	} else if (code & 4) {
 		input_state.pointer_down[pointerId] = false;
-		touch.flags = TOUCH_UP;
-	} else {
-		touch.flags = TOUCH_MOVE;
 	}
-	NativeTouch(touch);
 
+	NativeTouch(touch);
 	{
 		lock_guard guard(input_state.lock);
 		if (pointerId >= MAX_POINTERS) {

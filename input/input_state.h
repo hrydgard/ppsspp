@@ -8,12 +8,13 @@
 // For more detailed and configurable input, implement NativeTouch, NativeKey and NativeAxis and do your
 // own mapping. Might later move the mapping system from PPSSPP to native.
 
+#include <map>
+#include <vector>
+
 #include "math/lin/vec3.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
 #include "input/keycodes.h"
-#include <map>
-#include <vector>
 
 // Default device IDs
 
@@ -113,11 +114,19 @@ void UpdateInputState(InputState *input, bool merge = false);
 void EndInputState(InputState *input);
 
 enum {
-	TOUCH_MOVE = 1,
-	TOUCH_DOWN = 2,
-	TOUCH_UP = 4,
-	TOUCH_CANCEL = 8,  // Sent by scrollviews to their children when they detect a scroll
-	TOUCH_WHEEL = 16,  // Scrollwheel event. Usually only affects Y.
+	TOUCH_MOVE = 1 << 0,
+	TOUCH_DOWN = 1 << 1,
+	TOUCH_UP = 1 << 2,
+	TOUCH_CANCEL = 1 << 3,  // Sent by scrollviews to their children when they detect a scroll
+	TOUCH_WHEEL = 1 << 4,  // Scrollwheel event. Usually only affects Y.
+
+	// These are the Android getToolType() codes, shifted by 10.
+	TOUCH_TOOL_MASK = 7 << 10,
+	TOUCH_TOOL_UNKNOWN = 0 << 10,
+	TOUCH_TOOL_FINGER = 1 << 10,
+	TOUCH_TOOL_STYLUS = 2 << 10,
+	TOUCH_TOOL_MOUSE = 3 << 10,
+	TOUCH_TOOL_ERASER = 4 << 10,
 };
 
 // Used for asynchronous touch input.
@@ -135,9 +144,9 @@ struct TouchInput {
 #undef KEY_UP
 
 enum {
-	KEY_DOWN = 1,
-	KEY_UP = 2,
-	KEY_HASWHEELDELTA = 4,
+	KEY_DOWN = 1 << 0,
+	KEY_UP = 1 << 1,
+	KEY_HASWHEELDELTA = 1 << 2,
 };
 
 struct KeyInput {

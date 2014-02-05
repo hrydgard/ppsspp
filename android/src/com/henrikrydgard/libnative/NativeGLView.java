@@ -3,12 +3,14 @@ package com.henrikrydgard.libnative;
 // Touch- and sensor-enabled GLSurfaceView.
 // Supports simple multitouch and pressure.
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
+import android.os.Build;
 import android.os.Handler;
 // import android.os.Build;
 // import android.util.Log;
@@ -62,34 +64,44 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		}
 	}
 
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+	private int getToolType(final MotionEvent ev, int pointer) {
+		return ev.getToolType(pointer);
+	}
+	
 	public boolean onTouchEvent(final MotionEvent ev) {
+		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
 			
 			final int action = ev.getActionMasked();
 			
+			// These code bits are now the same as the constants in input_state.h.
 			switch (action) {
 			case MotionEvent.ACTION_DOWN:
 			case MotionEvent.ACTION_POINTER_DOWN:
 				if (ev.getActionIndex() == i)
-					code = 1;
+					code = 2;
 				break;
 			case MotionEvent.ACTION_UP:
 			case MotionEvent.ACTION_POINTER_UP:
 				if (ev.getActionIndex() == i)
-					code = 2;
+					code = 4;
 				break;
 			case MotionEvent.ACTION_MOVE:
-				code = 3;
+				code = 1;
 				break;
 			default:
 				break;
 			}
+			
 			if (code != 0) {
-				float x = ev.getX(i);
-				float y = ev.getY(i);
-				NativeApp.touch(x, y, code, pid);
+				if (canReadToolType) {
+					int tool = getToolType(ev, i);
+					code |= tool << 10;  // We use the Android tool type codes
+				}
+				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
 		return true;
