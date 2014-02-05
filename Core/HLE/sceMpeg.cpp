@@ -905,27 +905,25 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 
 	DEBUG_LOG(ME, "sceMpegInitAu(%08x, %i, %08x)", mpeg, bufferAddr, auPointer);
 
-	SceMpegAu avcAu;
-	SceMpegAu atracAu;
-	avcAu.read(auPointer);
-	atracAu.read(auPointer);
+	SceMpegAu sceAu;
+	sceAu.read(auPointer);
 
 	if (bufferAddr >= 1 && bufferAddr <= (u32)MPEG_DATA_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
-		avcAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
-		avcAu.esSize = MPEG_AVC_ES_SIZE;
-		avcAu.dts = 0;
-		avcAu.pts = 0;
+		sceAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
+		sceAu.esSize = MPEG_AVC_ES_SIZE;
+		sceAu.dts = 0;
+		sceAu.pts = 0;
 
-		avcAu.write(auPointer);
+		sceAu.write(auPointer);
 	} else {
 		// This esbuffer has been left as Atrac.
-		atracAu.esBuffer = bufferAddr;
-		atracAu.esSize = MPEG_ATRAC_ES_SIZE;
-		atracAu.pts = 0;
-		atracAu.dts = UNKNOWN_TIMESTAMP;
+		sceAu.esBuffer = bufferAddr;
+		sceAu.esSize = MPEG_ATRAC_ES_SIZE;
+		sceAu.pts = 0;
+		sceAu.dts = UNKNOWN_TIMESTAMP;
 
-		atracAu.write(auPointer);
+		sceAu.write(auPointer);
 	}
 	return 0;
 }
