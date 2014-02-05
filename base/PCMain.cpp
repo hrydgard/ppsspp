@@ -8,10 +8,10 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <ShellAPI.h>
-#include "SDL/SDL.h"
-#include "SDL/SDL_timer.h"
-#include "SDL/SDL_audio.h"
-#include "SDL/SDL_video.h"
+#include "SDL.h"
+#include "SDL_timer.h"
+#include "SDL_audio.h"
+#include "SDL_video.h"
 #else
 #include <unistd.h>
 #include <pwd.h>
@@ -33,7 +33,10 @@
 #include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "math/math_util.h"
+
+#ifndef _WIN32
 #include "SDL/SDLJoystick.h"
+#endif
 
 #ifdef PPSSPP
 // Bad: PPSSPP includes from native
@@ -184,7 +187,9 @@ void EGL_Close() {
 SDL_Joystick    *ljoy = NULL;
 SDL_Joystick    *rjoy = NULL;
 #else
+#ifndef _WIN32
 SDLJoystick *joystick = NULL;
+#endif
 #endif
 
 // Simple implementations of System functions
@@ -568,7 +573,9 @@ int main(int argc, char *argv[]) {
 			rjoy = SDL_JoystickOpen(1);
 	}
 #else
+#ifndef _WIN32
 	joystick = new SDLJoystick();
+#endif
 #endif
 	EnableFZ();
 
@@ -722,7 +729,9 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			default:
+#ifndef _WIN32
 				joystick->ProcessInput(event);
+#endif
 				break;
 			}
 		}
@@ -768,8 +777,10 @@ int main(int argc, char *argv[]) {
 		framecount++;
 	}
 #ifndef PANDORA
+#ifndef _WIN32
 	delete joystick;
 	joystick = NULL;
+#endif
 #endif
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
