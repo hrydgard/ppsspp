@@ -20,6 +20,8 @@ void PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 		// Special path that means root of file system.
 		std::vector<std::string> drives = getWindowsDrives();
 		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
+			if (*drive == "A:/" || *drive == "B:/")
+				continue;
 			FileInfo fake;
 			fake.fullName = *drive;
 			fake.name = *drive;
