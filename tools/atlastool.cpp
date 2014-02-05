@@ -14,7 +14,7 @@
 #include <png.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include <freetype/ftbitmap.h>
+#include <ftbitmap.h>
 #include <set>
 #include <map>
 #include <vector>
@@ -363,7 +363,10 @@ void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges,
 
 	for (size_t i = 0, n = fontRefs.size(); i < n; ++i) {
 		FT_Face &font = fonts[i];
-		CHECK(FT_New_Face(freetype, fontRefs[i].file_.c_str(), 0, &font) == 0);
+		if (FT_New_Face(freetype, fontRefs[i].file_.c_str(), 0, &font) != 0) {
+			printf("Failed to load file %s\n", fontRefs[i].file_.c_str());
+			CHECK(false);
+		}
 		printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
 
 		CHECK(FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) == 0);
