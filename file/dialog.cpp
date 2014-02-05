@@ -5,11 +5,16 @@
 
 #include <string>
 
+#include "util/text/utf8.h"
+
 // For desktop operating systems only. Stubbed out on Android.
 // Simplified as this will only be used in utilities / temp code.
 // An false returned means cancel;
-bool OpenFileDialog(const wchar_t *title, const wchar_t *extension, std::wstring *filename)
+bool OpenFileDialog(const char *title, const char *extension, std::string *filename)
 {
+	std::wstring wtitle = ConvertUTF8ToWString(std::string(title));
+	std::wstring wext = ConvertUTF8ToWString(std::string(extension));
+
 	OPENFILENAME of;
 	memset(&of, 0, sizeof(of));
 	wchar_t buffer[512] = {0};
@@ -20,22 +25,24 @@ bool OpenFileDialog(const wchar_t *title, const wchar_t *extension, std::wstring
 	// These weird strings with zeroes in them can't be dealt with using normal string
 	// functions, so here we go - evil hackery.
 	wchar_t filter[256] = L"XXX files\0*.XXX\0\0";
-	memcpy(filter, extension, 3);
-	memcpy(filter + 12, extension, 3);
+	memcpy(filter, wext.c_str(), 3 * sizeof(wchar_t));
+	memcpy(filter + 12, wext.c_str(), 3 * sizeof(wchar_t));
 	of.lpstrFilter = filter;
 
-	of.lpstrDefExt = extension;
+	of.lpstrDefExt = wext.c_str();
 	of.lpstrFile = buffer;
 	of.nMaxFile = 511;
 
 	of.Flags = OFN_FILEMUSTEXIST;
 	if (!GetOpenFileName(&of)) return false;
-	*filename = of.lpstrFile;
+	*filename = ConvertWStringToUTF8(of.lpstrFile);
 	return true;
 }
 
-bool SaveFileDialog(const wchar_t *title, const wchar_t *extension, std::wstring *filename)
-{
+bool SaveFileDialog(const char *title, const char *extension, std::string *filename) {
+	std::wstring wtitle = ConvertUTF8ToWString(std::string(title));
+	std::wstring wext = ConvertUTF8ToWString(std::string(extension));
+
 	OPENFILENAME of;
 	memset(&of, 0, sizeof(of));
 	wchar_t buffer[512] = {0};
@@ -46,18 +53,18 @@ bool SaveFileDialog(const wchar_t *title, const wchar_t *extension, std::wstring
 	// These weird strings with zeroes in them can't be dealt with using normal string
 	// functions, so here we go - evil hackery.
 	wchar_t filter[256] = L"XXX files\0*.XXX\0\0";
-	memcpy(filter, extension, 3);
-	memcpy(filter + 12, extension, 3);
+	memcpy(filter, wext.c_str(), 3 * sizeof(wchar_t));
+	memcpy(filter + 12, wext.c_str(), 3 * sizeof(wchar_t));
 	of.lpstrFilter = filter;
 
-	of.lpstrDefExt = extension;
+	of.lpstrDefExt = wext.c_str();
 	of.lpstrFile = buffer;
 	of.nMaxFile = 511;
 
 	of.Flags = OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
 	if (!GetSaveFileName(&of))
 		return false;
-	*filename = of.lpstrFile;
+	*filename = ConvertWStringToUTF8(of.lpstrFile);
 	return true;
 }
 
