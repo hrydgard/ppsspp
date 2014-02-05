@@ -381,6 +381,8 @@ void ToggleFullScreenIfFlagSet() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
+	putenv("SDL_VIDEO_CENTERED=1");
+
 	std::string app_name;
 	std::string app_name_nice;
 	bool landscape;
