@@ -267,6 +267,7 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	// Sanity Check ctx->mpegFirstTimestamp
 	if (ctx->mpegFirstTimestamp != 90000) {
 		WARN_LOG_REPORT(ME, "Unexpected mpeg first timestamp: %llx / %lld", ctx->mpegFirstTimestamp, ctx->mpegFirstTimestamp);
+		return;
 	}
 	
 	if (ctx->mpegMagic != PSMF_MAGIC || ctx->mpegVersion < 0 ||
