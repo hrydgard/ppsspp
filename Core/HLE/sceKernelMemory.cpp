@@ -1477,8 +1477,6 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 		if (size > 4)
 			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
 	}
-	if (attr & PSP_VPL_ATTR_SMALLEST)
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateVpl(): unsupported SMALLEST wake priority attr");
 
 	return id;
 }
