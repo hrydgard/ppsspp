@@ -172,7 +172,6 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 				char temp[256];
 				op = (op & 0xFFFF0000) | (((int)(op & 0xFFFF) + (int)relocateTo) & 0xFFFF);
 				MIPSDisAsm(MIPSOpcode(op), 0, temp);
-				ERROR_LOG_REPORT(LOADER, "Testing: R_MIPS_16 reloc @ %08x : %s", addr, temp);
 			}
 			break;
 
