@@ -47,7 +47,8 @@ GlobalUIState lastUIState = UISTATE_MENU;
 #endif
 
 static SDL_Surface*        g_Screen        = NULL;
-bool g_ToggleFullScreenNextFrame = false;
+static bool g_ToggleFullScreenNextFrame = false;
+static int g_QuitRequested = 0;
 
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
@@ -214,6 +215,9 @@ void Vibrate(int length_ms) {
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "toggle_fullscreen")) {
 		g_ToggleFullScreenNextFrame = true;
+	} else if (!strcmp(command, "finish")) {
+		// Do a clean exit
+		g_QuitRequested = true;
 	}
 }
 
@@ -381,7 +385,10 @@ void ToggleFullScreenIfFlagSet() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-	putenv("SDL_VIDEO_CENTERED=1");
+	// Avoid warning about conversion from const char * to char *
+	char envTemp[256];
+	strcpy(envTemp, "SDL_VIDEO_CENTERED=1");
+	putenv(envTemp);
 
 	std::string app_name;
 	std::string app_name_nice;
@@ -588,7 +595,6 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
-		int quitRequested = 0;
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
@@ -597,7 +603,7 @@ int main(int argc, char *argv[]) {
 
 			switch (event.type) {
 			case SDL_QUIT:
-				quitRequested = 1;
+				g_QuitRequested = 1;
 				break;
 			case SDL_KEYDOWN:
 				{
@@ -738,7 +744,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		if (quitRequested)
+		if (g_QuitRequested)
 			break;
 
 		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
