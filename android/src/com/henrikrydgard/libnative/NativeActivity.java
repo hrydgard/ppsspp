@@ -101,8 +101,6 @@ public class NativeActivity extends Activity {
 	private NativeAudioPlayer audioPlayer;
 	protected NativeRenderer nativeRenderer;
 	
-	boolean useOpenSL = false;
-	
 	private String shortcutParam = "";
 	
 	public static String runCommand;
@@ -181,22 +179,26 @@ public class NativeActivity extends Activity {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
 	}
 	
+	private boolean useOpenSL() {
+    	// Native OpenSL became available on Gingerbread. Let's use it!
+	    return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD);
+	}
+	
 	public void Initialize() {
-		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
+    	// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
         this.audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
 		this.audioFocusChangeListener = new AudioFocusChangeListener();
 		
-        if (Build.VERSION.SDK_INT >= 9) {
-        	// Native OpenSL is available. Let's use it!
-        	useOpenSL = true;
-        }
         if (Build.VERSION.SDK_INT >= 17) {
         	// Get the optimal buffer sz
         	detectOptimalAudioSettings();
         }
 
-    	Log.i(TAG, "onCreate");
+        // isLandscape is used to trigger GetAppInfo currently, we 
+        boolean landscape = NativeApp.isLandscape();
+        Log.d(TAG, "Landscape: " + landscape);
+        
     	// Get system information
 		ApplicationInfo appInfo = null;  
 		PackageManager packMgmr = getPackageManager();
@@ -212,45 +214,29 @@ public class NativeActivity extends Activity {
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 		@SuppressWarnings("deprecation")
-        int scrPixelFormat = display.getPixelFormat();
-        Point size = new Point();
 
-        GetScreenSize(size);
-        int scrWidth = size.x;
-        int scrHeight = size.y;
-		
-        float scrRefreshRate = display.getRefreshRate();
+		float scrRefreshRate = display.getRefreshRate();
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
-		int dpi = metrics.densityDpi;
 
-		// We only use dpi to calculate the width. Smaller aspect ratios have giant text despite high DPI.
-		// Uh, I mean, this makes no sense. What was I thinking when I wrote this? Let's just use the DPI as it is.
-		// dpi = (int)((float)dpi * ((float)scrWidth/(float)scrHeight) / (16.0/9.0)); // Adjust to 16:9
+		int dpi = metrics.densityDpi;
 		
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
 				
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL);
+		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL());
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
 			updateScreenRotation();
 		}	
 
-		/*
-        if (NativeApp.isLandscape()) {
-    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-    	} else {
-    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-    	}*/
-
 		Log.i(TAG, "Device: " + deviceType);     
-	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
+	    Log.i(TAG, " rate: " + scrRefreshRate + " dpi: " + dpi);     
 
 	    // Detect OpenGL support.
 	    // We don't currently use this detection for anything but good to have in the log.
@@ -269,13 +255,6 @@ public class NativeActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 11) {
         	checkForVibrator();
         }
-        /*
-        editText = new EditText(this);
-        editText.setText("Hello world");
-        
-        addContentView(editText, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        */
-        // inputBox("Please ener a s", "", "Save");
 	}
 
 	@TargetApi(9)
@@ -334,9 +313,11 @@ public class NativeActivity extends Activity {
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 		
 		// Initialize audio and tell PPSSPP to gain audio focus
-		if (!useOpenSL) {
+		if (!useOpenSL()) {
+			Log.w(TAG, "Falling back to AudioTrack");
 			audioPlayer = new NativeAudioPlayer();
 		}
+		
 		NativeAudioPlayer.gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
         

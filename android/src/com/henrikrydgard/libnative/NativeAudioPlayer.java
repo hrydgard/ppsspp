@@ -16,7 +16,6 @@ public class NativeAudioPlayer {
 	public synchronized void stop() {
 		if (thread != null) {
 			waitUntilDone();
-			
 		} else {
 			Log.e(TAG, "Was already stopped");
 		}
@@ -48,8 +47,8 @@ public class NativeAudioPlayer {
 		}
 	}
 	
-	
 	private void playStreaming() {
+		
 		playing_ = true;
 		thread = new Thread(new Runnable() {
 			public void run() {

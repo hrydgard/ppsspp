@@ -31,7 +31,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	}
 
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-		Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
+		// Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
 		// Actually, it seems that it is here we should recreate lost GL objects.
 		displayInit();
 	}

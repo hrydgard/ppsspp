@@ -125,6 +125,8 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	return cpp_string;
 }
 
+// This is now only used as a trigger for GetAppInfo as a function to all before Init.
+// On Android we don't use any of the values it returns.
 extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
 	std::string app_name, app_nice_name;
 	bool landscape;

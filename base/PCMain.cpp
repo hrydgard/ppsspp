@@ -111,7 +111,7 @@ int8_t EGL_Open() {
 }
 
 int8_t EGL_Init() {
-	EGLConfig g_eglConfig; //[1] = {NULL};
+	EGLConfig g_eglConfig;
 	EGLint g_numConfigs = 0;
 	EGLint attrib_list[]= {
 #ifdef PANDORA
@@ -140,8 +140,7 @@ int8_t EGL_Init() {
 	// Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
-	if(SDL_GetWMInfo(&sysInfo) <= 0)
-	{
+	if(SDL_GetWMInfo(&sysInfo) <= 0) {
 		printf("EGL ERROR: Unable to get SDL window handle: %s\n", SDL_GetError());
 		return 1;
 	}
@@ -162,8 +161,7 @@ int8_t EGL_Init() {
 }
 
 void EGL_Close() {
-	if (g_eglDisplay != NULL)
-	{
+	if (g_eglDisplay != NULL) {
 		eglMakeCurrent(g_eglDisplay, NULL, NULL, EGL_NO_CONTEXT);
 		if (g_eglContext != NULL) {
 			eglDestroyContext(g_eglDisplay, g_eglContext);
