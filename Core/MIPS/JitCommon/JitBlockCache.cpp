@@ -22,6 +22,8 @@
 // performance hit, it's not enabled by default, but it's useful for
 // locating performance issues.
 
+#include <cstddef>
+
 #include "Common.h"
 
 #ifdef _WIN32
