@@ -69,6 +69,7 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
+	bool bEscapeExitsEmulator;
 #endif
 	// Core
 	bool bIgnoreBadMemAccess;

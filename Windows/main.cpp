@@ -297,6 +297,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 			if (!strncmp(__argv[i], "--windowed", strlen("--windowed")))
 				g_Config.bFullScreen = false;
+
+			if (!strncmp(__argv[i], "--escapeexitsemu", strlen("--escapeexitsemu")))
+				g_Config.bEscapeExitsEmulator = true;
 		}
 	}
 #ifdef _DEBUG
