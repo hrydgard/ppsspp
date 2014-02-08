@@ -197,16 +197,15 @@ static std::map<u32, MpegContext *> mpegMap;
 static u32 lastMpegHandle = 0;
 
 MpegContext *getMpegCtx(u32 mpegAddr) {
+	if (!Memory::IsValidAddress(mpegAddr))
+		return NULL;
+		
 	u32 mpeg = Memory::Read_U32(mpegAddr);
 
 	if (mpegMap.find(mpeg) == mpegMap.end())
 		return NULL;
 
 	return mpegMap[mpeg];
-}
-
-u32 getMpegHandle(u32 mpeg) {
-	return Memory::Read_U32(mpeg);
 }
 
 static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int size, int callback_addr, int callback_args) {
