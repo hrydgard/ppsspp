@@ -300,7 +300,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #if defined(_WIN32) && !defined(USING_QT_UI)
 	control->Get("IgnoreWindowsKey", &bIgnoreWindowsKey, false);
 #endif
-#if defined(USING_GLES2)
+#if defined(MOBILE_DEVICE)
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (KeyMap::HasBuiltinController(name)) {
 		control->Get("ShowTouchControls", &bShowTouchControls, false);
@@ -311,7 +311,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("ShowTouchControls", &bShowTouchControls, false);
 #endif
 	// control->Get("KeyMapping",iMappingMap);
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 	control->Get("TiltBaseX", &fTiltBaseX, 0);
 	control->Get("TiltBaseY", &fTiltBaseY, 0);
 	control->Get("InvertTiltX", &bInvertTiltX, false);
@@ -603,7 +603,7 @@ void Config::Save() {
 		control->Set("ShowTouchUnthrottle", bShowTouchUnthrottle);
 		control->Set("ShowTouchDpad", bShowTouchDpad);
 
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 		control->Set("TiltBaseX", fTiltBaseX);
 		control->Set("TiltBaseY", fTiltBaseY);
 		control->Set("InvertTiltX", bInvertTiltX);

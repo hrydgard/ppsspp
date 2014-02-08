@@ -320,12 +320,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
 		}
 
-		// Don't report on Android device (why?)
-#if !defined(USING_GLES2)
 		if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
 			WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
 		}
-#endif
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
 			glstate.blendEquation.set(eqLookup[blendFuncEq]);

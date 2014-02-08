@@ -1,7 +1,7 @@
 # These are definitions for LOCAL_ variables for PPSSPP.
 # They are shared between ppsspp_jni (lib for Android app) and ppsspp_headless.
 
-LOCAL_CFLAGS := -DUSE_FFMPEG -DUSING_GLES2 -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -D__STDC_CONSTANT_MACROS
+LOCAL_CFLAGS := -DUSE_FFMPEG -DUSING_GLES2 -DMOBILE_DEVICE -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -D__STDC_CONSTANT_MACROS
 # yes, it's really CPPFLAGS for C++
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
 LOCAL_C_INCLUDES := \

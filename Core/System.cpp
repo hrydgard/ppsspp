@@ -375,7 +375,7 @@ bool PSP_IsInited() {
 }
 
 void PSP_Shutdown() {
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
 		MIPSAnalyst::StoreHashMap();
 	}

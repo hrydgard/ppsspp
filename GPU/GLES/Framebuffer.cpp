@@ -1677,7 +1677,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 void FramebufferManager::NotifyBlockTransfer(u32 dst, u32 src) {
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	if (!reportedBlits_.insert(std::make_pair(dst, src)).second) {
 		// Already reported/checked.
 		return;

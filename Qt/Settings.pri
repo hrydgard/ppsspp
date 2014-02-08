@@ -52,6 +52,7 @@ gleslib = $$lower($$QMAKE_LIBS_OPENGL)
 gleslib = $$find(gleslib, "gles")
 maemo|!count(gleslib,0) {
 	DEFINES += USING_GLES2
+	DEFINES += MOBILE_DEVICE
 }
 
 # Platform specific

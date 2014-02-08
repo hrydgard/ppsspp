@@ -733,7 +733,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 			if (prim > GE_PRIM_RECTANGLES) {
 				ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
 			}
@@ -1267,7 +1267,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ALPHATEST:
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
@@ -1416,7 +1416,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		}
 		break;
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	case GE_CMD_ANTIALIASENABLE:
 		if (data != 0)
 			WARN_LOG_REPORT_ONCE(antiAlias, G3D, "Unsupported antialias enabled: %06x", data);
@@ -1426,16 +1426,18 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLodSlope, G3D, "Unsupported texture lod slope: %06x", data);
 		break;
+#endif
 
 	case GE_CMD_TEXLEVEL:
+#ifndef MOBILE_DEVICE
 		if (data == 1)
 			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
 		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
+#endif
 		if (diff)
 			gstate_c.textureChanged = true;
 		break;
-#endif
 
 	//////////////////////////////////////////////////////////////////
 	//	STENCIL TESTING
@@ -1603,7 +1605,7 @@ void GLES_GPU::DoBlockTransfer() {
 		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 #endif

@@ -500,6 +500,7 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 
 		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
+		// TODO: This doesn't make sense for DirectX?
 #ifndef USING_GLES2
 		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 #else
@@ -928,6 +929,7 @@ std::vector<FramebufferInfo> FramebufferManagerDX9::GetFramebufferList() {
 void FramebufferManagerDX9::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
+	// TODO: This doesn't make sense for DirectX?
 #ifndef USING_GLES2
 	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 #else

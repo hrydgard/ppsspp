@@ -731,7 +731,7 @@ rotateVBO:
 	decodeCounter_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
 #endif
 }

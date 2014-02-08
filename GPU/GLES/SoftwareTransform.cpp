@@ -286,7 +286,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
-#if defined(USING_GLES2)
+#if defined(MOBILE_DEVICE)
 	if (vertexCount > 0x10000/3)
 		vertexCount = 0x10000/3;
 #endif

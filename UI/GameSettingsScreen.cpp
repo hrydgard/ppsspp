@@ -138,7 +138,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Performance")));
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
 #else
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
@@ -169,7 +169,7 @@ void GameSettingsScreen::CreateViews() {
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
 	static const char *texScaleLevelsPOT[] = {"Auto", "Off", "2x", "4x"};
 #else
@@ -255,7 +255,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(c->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 
-#if defined(USING_GLES2)
+#if defined(MOBILE_DEVICE)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons"};
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, c->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), c, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
@@ -298,7 +298,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default) (unstable)"), screenManager()));
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, s->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (0 = off, mem hog)"), screenManager()));
 #endif
 
@@ -343,7 +343,7 @@ void GameSettingsScreen::CreateViews() {
 #if defined(_WIN32) || defined(USING_QT_UI)
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
-#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(USING_GLES2))
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	// Screenshot functionality is not yet available on non-Windows/non-Qt
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, s->T("Screenshots as PNG")));
 #endif

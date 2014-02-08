@@ -508,7 +508,7 @@ void EmuScreen::update(InputState &input) {
 
 	// Apply tilt to left stick
 	// TODO: Make into an axis
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 	/*
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// Get the "base" coordinate system which is setup by the calibration system
