@@ -1557,8 +1557,8 @@ int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int 
 	}
 
 	if (ctx->mediaengine->m_buffer == 0){
-		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)m_buffer = 0 ", mpeg, bufferOutputAddr, unknown1, unknown2);
-		return 0x806201FE;
+		WARN_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x): m_buffer is zero ", mpeg, bufferOutputAddr, unknown1, unknown2);
+		return ERROR_MPEG_AVC_INVALID_VALUE;
 	}
 
 	DEBUG_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutputAddr, unknown1, unknown2);

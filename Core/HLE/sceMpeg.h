@@ -43,6 +43,7 @@ enum {
 	ERROR_MPEG_ALREADY_INIT                             = 0x80618005,
 	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
 
+	ERROR_MPEG_AVC_INVALID_VALUE                        = 0x806201fe,
 	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
 };
 
