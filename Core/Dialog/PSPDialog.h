@@ -83,12 +83,22 @@ protected:
 	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
 	// The caption override is assumed to have a size of 64 bytes.
 	void DisplayButtons(int flags, const char *caption = NULL);
+	void ChangeStatus(DialogStatus newStatus, int delayUs);
+	void ChangeStatusInit(int delayUs);
+	void ChangeStatusShutdown(int delayUs);
+
+	// TODO: Remove this once all dialogs are updated.
+	virtual bool UseAutoStatus() {
+		return true;
+	}
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
 	u32 CalcFadedColor(u32 inColor);
 
 	DialogStatus status;
+	DialogStatus pendingStatus;
+	u64 pendingStatusTicks;
 
 	unsigned int lastButtons;
 	unsigned int buttons;

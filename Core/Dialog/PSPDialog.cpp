@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/Dialog/PSPDialog.h"
@@ -25,9 +26,9 @@
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
 
-PSPDialog::PSPDialog() : status(SCE_UTILITY_STATUS_SHUTDOWN)
-, lastButtons(0)
-, buttons(0)
+PSPDialog::PSPDialog()
+	: status(SCE_UTILITY_STATUS_NONE), pendingStatus(SCE_UTILITY_STATUS_NONE),
+	  pendingStatusTicks(0), lastButtons(0), buttons(0)
 {
 
 }
@@ -37,12 +38,39 @@ PSPDialog::~PSPDialog() {
 
 PSPDialog::DialogStatus PSPDialog::GetStatus()
 {
+	if (pendingStatusTicks != 0 && CoreTiming::GetTicks() >= pendingStatusTicks) {
+		status = pendingStatus;
+		pendingStatusTicks = 0;
+	}
+
 	PSPDialog::DialogStatus retval = status;
-	if (status == SCE_UTILITY_STATUS_SHUTDOWN)
-		status = SCE_UTILITY_STATUS_NONE;
-	if (status == SCE_UTILITY_STATUS_INITIALIZE)
-		status = SCE_UTILITY_STATUS_RUNNING;
+	if (UseAutoStatus()) {
+		if (status == SCE_UTILITY_STATUS_SHUTDOWN)
+			status = SCE_UTILITY_STATUS_NONE;
+		if (status == SCE_UTILITY_STATUS_INITIALIZE)
+			status = SCE_UTILITY_STATUS_RUNNING;
+	}
 	return retval;
+}
+
+void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
+	if (delayUs <= 0) {
+		status = newStatus;
+		pendingStatusTicks = 0;
+	} else {
+		pendingStatus = newStatus;
+		pendingStatusTicks = CoreTiming::GetTicks() + usToCycles(delayUs);
+	}
+}
+
+void PSPDialog::ChangeStatusInit(int delayUs) {
+	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatus(SCE_UTILITY_STATUS_RUNNING, delayUs);
+}
+
+void PSPDialog::ChangeStatusShutdown(int delayUs) {
+	status = SCE_UTILITY_STATUS_SHUTDOWN;
+	ChangeStatus(SCE_UTILITY_STATUS_NONE, delayUs);
 }
 
 void PSPDialog::StartDraw()
@@ -58,7 +86,7 @@ void PSPDialog::EndDraw()
 
 int PSPDialog::Shutdown(bool force)
 {
-	status = SCE_UTILITY_STATUS_SHUTDOWN;
+	ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
 	return 0;
 }
 
@@ -87,7 +115,7 @@ void PSPDialog::UpdateFade(int animSpeed)
 			isFading = false;
 			if (!fadeIn)
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
+				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 			}
 		}
 	}
@@ -102,7 +130,7 @@ u32 PSPDialog::CalcFadedColor(u32 inColor)
 
 void PSPDialog::DoState(PointerWrap &p)
 {
-	auto s = p.Section("PSPDialog", 1);
+	auto s = p.Section("PSPDialog", 1, 2);
 	if (!s)
 		return;
 
@@ -117,6 +145,13 @@ void PSPDialog::DoState(PointerWrap &p)
 	p.Do(cancelButtonImg);
 	p.Do(okButtonFlag);
 	p.Do(cancelButtonFlag);
+
+	if (s >= 2) {
+		p.Do(pendingStatus);
+		p.Do(pendingStatusTicks);
+	} else {
+		pendingStatusTicks = 0;
+	}
 }
 
 pspUtilityDialogCommon *PSPDialog::GetCommonParam()
