@@ -379,12 +379,17 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 
 
 u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv2) {
-	DEBUG_LOG(SCESAS, "sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	// This bit could be related to decay type or systain type, but gives an error if you try to set it.
+	if ((ADSREnv2 >> 13) & 1) {
+		WARN_LOG_REPORT(SCESAS, "sceSasSetSimpleADSR(%08x, %d, %04x, %04x): Invalid ADSREnv2", core, voiceNum, ADSREnv1, ADSREnv2);
+		return ERROR_SAS_INVALID_ADSR_CURVE_MODE;
+	}
+
+	DEBUG_LOG(SCESAS, "sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetSimpleEnvelope(ADSREnv1 & 0xFFFF, ADSREnv2 & 0xFFFF);

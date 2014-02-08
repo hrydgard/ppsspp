@@ -396,7 +396,7 @@ int sceUtilityNetconfInitStart(u32 paramsAddr)
 int sceUtilityNetconfShutdownStart(unsigned int unknown)
 {
 	if (currentDialogType != UTILITY_DIALOG_NET) {
-		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStartt(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
