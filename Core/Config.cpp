@@ -149,7 +149,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	general->Get("ScreenRotation", &iScreenRotation, 1);
 #endif
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	general->Get("TopMost", &bTopMost);
 	general->Get("WindowX", &iWindowX, -1); // -1 tells us to center the window.
 	general->Get("WindowY", &iWindowY, -1);
@@ -213,7 +213,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("SoftwareSkinning", &bSoftwareSkinning, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	// Auto on Windows, 2x on large screens, 1x elsewhere.
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	graphics->Get("InternalResolution", &iInternalResolution, 0);
 #else
 	graphics->Get("InternalResolution", &iInternalResolution, pixel_xres >= 1024 ? 2 : 1);
@@ -297,7 +297,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
 	control->Get("ShowTouchDpad", &bShowTouchDpad, true);
 	control->Get("ShowTouchUnthrottle", &bShowTouchUnthrottle, true);
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	control->Get("IgnoreWindowsKey", &bIgnoreWindowsKey, false);
 #endif
 #if defined(MOBILE_DEVICE)
@@ -406,7 +406,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	pspConfig->Get("ButtonPreference", &iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS);
 	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	pspConfig->Get("BypassOSKWithKeyboard", &bBypassOSKWithKeyboard, false);
 #endif
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
@@ -498,7 +498,7 @@ void Config::Save() {
 		general->Set("ScreenRotation", iScreenRotation);
 #endif
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		general->Set("TopMost", bTopMost);
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
@@ -643,7 +643,7 @@ void Config::Save() {
 		control->Set("AnalogStickY", fAnalogStickY);
 		control->Set("AnalogStickScale", fAnalogStickScale);
 		control->Delete("DPadRadius");
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		control->Set("IgnoreWindowsKey", bIgnoreWindowsKey);
 #endif
 
@@ -666,7 +666,7 @@ void Config::Save() {
 		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
 		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		pspConfig->Set("BypassOSKWithKeyboard", bBypassOSKWithKeyboard);
 #endif
 

@@ -146,7 +146,7 @@ void Core_RunLoop() {
 	while ((globalUIState != UISTATE_INGAME || !PSP_IsInited()) && globalUIState != UISTATE_EXIT) {
 		time_update();
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		double startTime = time_now_d();
 		UpdateRunLoop();
 
@@ -165,7 +165,7 @@ void Core_RunLoop() {
 	while (!coreState && globalUIState == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		if (!Core_IsStepping()) {
 			GL_SwapBuffers();
 		}

@@ -64,7 +64,7 @@ public:
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
@@ -262,7 +262,7 @@ public:
 	int iPSPModel;
 	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	bool bBypassOSKWithKeyboard;
 #endif
 
