@@ -48,6 +48,7 @@ enum {
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
 	ERROR_SAS_INVALID_VOLUME = 0x80420018,
+	ERROR_SAS_INVALID_ADSR_RATE = 0x80420019,
 	ERROR_SAS_INVALID_SIZE = 0x8042001A,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
@@ -345,13 +346,19 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 	return 0;
 }
 
-u32 sceSasSetADSR(u32 core, int voiceNum, int flag , int a, int d, int s, int r) {
-	DEBUG_LOG(SCESAS, "0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)",core, voiceNum, flag, a, d, s, r)
-
+u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	// Create a mask like flag for the invalid values.
+	int invalid = (a < 0 ? 0x1 : 0) | (a < 0 ? 0x1 : 0) | (s < 0 ? 0x1 : 0) | (r < 0 ? 0x1 : 0);
+	if (invalid & flag) {
+		WARN_LOG(SCESAS, "sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid value", core, voiceNum, flag, a, d, s, r)
+		return ERROR_SAS_INVALID_ADSR_RATE;
+	}
+
+	DEBUG_LOG(SCESAS, "0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r)
 
 	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackRate  = a;
