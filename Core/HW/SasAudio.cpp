@@ -218,12 +218,24 @@ void SasAtrac3::DoState(PointerWrap &p) {
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
 
-int simpleRate(int n) {
+static int simpleRate(int n) {
 	n &= 0x7F;
 	if (n == 0x7F) {
 		return 0;
 	}
 	int rate = ((7 - (n & 0x3)) << 26) >> (n >> 2);
+	if (rate == 0) {
+		return 1;
+	}
+	return rate;
+}
+
+static int exponentRate(int n) {
+	n &= 0x7F;
+	if (n == 0x7F) {
+		return 0;
+	}
+	int rate = ((7 - (n & 0x3)) << 24) >> (n >> 2);
 	if (rate == 0) {
 		return 1;
 	}
@@ -239,22 +251,22 @@ static int getAttackType(int bitfield1) {
 }
 
 static int getDecayRate(int bitfield1) {
-	return 0x80000000 >> ((bitfield1 >> 4) & 0x000F);
-}
-
-static int getSustainRate(int bitfield2) {
-	return simpleRate(bitfield2 >> 6);
+	int n = (bitfield1 >> 4) & 0x000F;
+	if (n == 0)
+		return 0x7FFFFFFF;
+	return 0x80000000 >> n;
 }
 
 static int getSustainType(int bitfield2) {
-	switch (bitfield2 >> 13) {
-	case 0: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE;
-	case 2: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
-	case 4: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT;
-	case 6: return PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
+	return (bitfield2 >> 14) & 3;
+}
+
+static int getSustainRate(int bitfield2) {
+	if (getSustainType(bitfield2) == PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE) {
+		return exponentRate(bitfield2 >> 6);
+	} else {
+		return simpleRate(bitfield2 >> 6);
 	}
-	ERROR_LOG(SASMIX,"sasSetSimpleADSR,ERROR_SAS_INVALID_ADSR_CURVE_MODE");
-	return 0;
 }
 
 static int getReleaseType(int bitfield2) {
@@ -267,9 +279,14 @@ static int getReleaseRate(int bitfield2) {
 		return 0;
 	}
 	if (getReleaseType(bitfield2) == PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE) {
-		return (0x40000000 >> (n + 2));
+		if (n == 30) {
+			return 0x40000000;
+		} else if (n == 29) {
+			return 1;
+		}
+		return 0x10000000 >> n;
 	}
-	return (0x40000000 >> n);
+	return 0x80000000 >> n;
 }
 
 static int getSustainLevel(int bitfield1) {

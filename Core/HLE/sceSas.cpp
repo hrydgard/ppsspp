@@ -48,6 +48,7 @@ enum {
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
 	ERROR_SAS_INVALID_VOLUME = 0x80420018,
+	ERROR_SAS_INVALID_ADSR_RATE = 0x80420019,
 	ERROR_SAS_INVALID_SIZE = 0x8042001A,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
@@ -299,7 +300,7 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 	if (voiceNum == -1) {
 		// TODO: Some games (like Every Extend Extra) deliberately pass voiceNum = -1. Does that mean all voices? for now let's ignore.
-		DEBUG_LOG(SCESAS, "sceSasSetKeyOff(%08x, %i) - voiceNum = -1???", core, voiceNum);
+		WARN_LOG_REPORT(SCESAS, "sceSasSetKeyOff(%08x, %i) - voiceNum = -1???", core, voiceNum);
 		return 0;
 	} else if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
@@ -345,13 +346,19 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 	return 0;
 }
 
-u32 sceSasSetADSR(u32 core, int voiceNum, int flag , int a, int d, int s, int r) {
-	DEBUG_LOG(SCESAS, "0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)",core, voiceNum, flag, a, d, s, r)
-
+u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	// Create a mask like flag for the invalid values.
+	int invalid = (a < 0 ? 0x1 : 0) | (d < 0 ? 0x2 : 0) | (s < 0 ? 0x4 : 0) | (r < 0 ? 0x8 : 0);
+	if (invalid & flag) {
+		WARN_LOG_REPORT(SCESAS, "sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid value", core, voiceNum, flag, a, d, s, r)
+		return ERROR_SAS_INVALID_ADSR_RATE;
+	}
+
+	DEBUG_LOG(SCESAS, "0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r)
 
 	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackRate  = a;
@@ -361,14 +368,38 @@ u32 sceSasSetADSR(u32 core, int voiceNum, int flag , int a, int d, int s, int r)
 	return 0;
 }
 
-u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int r) {
-	DEBUG_LOG(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x)",core, voiceNum, flag, a,d,s,r)
-
+u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+	// Probably by accident (?), the PSP ignores the top bit of these values.
+	a = a & ~0x80000000;
+	d = d & ~0x80000000;
+	s = s & ~0x80000000;
+	r = r & ~0x80000000;
+
+	// This will look like the update flag for the invalid modes.
+	int invalid = 0;
+	if (a > 5 || (a & 1) != 0) {
+		invalid |= 0x1;
+	}
+	if (d > 5 || (d & 1) != 1) {
+		invalid |= 0x2;
+	}
+	if (s > 5) {
+		invalid |= 0x4;
+	}
+	if (r > 5 || (r & 1) != 1) {
+		invalid |= 0x8;
+	}
+	if (invalid & flag) {
+		WARN_LOG_REPORT(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+		return ERROR_SAS_INVALID_ADSR_CURVE_MODE;
+	}
+
+	DEBUG_LOG(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r);
 	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackType  = a;
 	if ((flag & 0x2) != 0) v.envelope.decayType   = d;
@@ -379,12 +410,17 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 
 
 u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv2) {
-	DEBUG_LOG(SCESAS, "sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	// This bit could be related to decay type or systain type, but gives an error if you try to set it.
+	if ((ADSREnv2 >> 13) & 1) {
+		WARN_LOG_REPORT(SCESAS, "sceSasSetSimpleADSR(%08x, %d, %04x, %04x): Invalid ADSREnv2", core, voiceNum, ADSREnv1, ADSREnv2);
+		return ERROR_SAS_INVALID_ADSR_CURVE_MODE;
+	}
+
+	DEBUG_LOG(SCESAS, "sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetSimpleEnvelope(ADSREnv1 & 0xFFFF, ADSREnv2 & 0xFFFF);
