@@ -49,8 +49,8 @@ PSPSaveDialog::~PSPSaveDialog() {
 int PSPSaveDialog::Init(int paramAddr)
 {
 	// Ignore if already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)	{
-		ERROR_LOG(SCEUTILITY,"A save request is already running !");
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	
@@ -543,7 +543,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 
 int PSPSaveDialog::Update(int animSpeed)
 {
-	if (status != SCE_UTILITY_STATUS_RUNNING)
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	if (!param.GetPspParam()) {
@@ -1002,7 +1002,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 int PSPSaveDialog::Shutdown(bool force)
 {
-	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	PSPDialog::Shutdown();
