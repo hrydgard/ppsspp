@@ -38,6 +38,8 @@ PSPDialog::~PSPDialog() {
 PSPDialog::DialogStatus PSPDialog::GetStatus()
 {
 	PSPDialog::DialogStatus retval = status;
+	if (status == SCE_UTILITY_STATUS_FINISHED)
+		status = SCE_UTILITY_STATUS_NONE;
 	if (status == SCE_UTILITY_STATUS_SHUTDOWN)
 		status = SCE_UTILITY_STATUS_NONE;
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
