@@ -391,9 +391,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
 	pspConfig->Get("PSPFirmwareVersion", &iFirmwareVersion, PSP_DEFAULT_FIRMWARE);
+	// TODO: Can probably default this on, but not sure about its memory differences.
 #if !defined(_M_X64) && !defined(_WIN32) && !defined(__SYMBIAN32__)
-	// 32-bit mmap cannot map more than 32MB contiguous
-	iPSPModel = PSP_MODEL_FAT;
+	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_FAT);
+#else
+	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
 #endif
 	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
