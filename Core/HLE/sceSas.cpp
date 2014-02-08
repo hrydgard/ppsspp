@@ -352,7 +352,7 @@ u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) 
 		return ERROR_SAS_INVALID_VOICE;
 	}
 	// Create a mask like flag for the invalid values.
-	int invalid = (a < 0 ? 0x1 : 0) | (a < 0 ? 0x1 : 0) | (s < 0 ? 0x1 : 0) | (r < 0 ? 0x1 : 0);
+	int invalid = (a < 0 ? 0x1 : 0) | (d < 0 ? 0x2 : 0) | (s < 0 ? 0x4 : 0) | (r < 0 ? 0x8 : 0);
 	if (invalid & flag) {
 		WARN_LOG_REPORT(SCESAS, "sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid value", core, voiceNum, flag, a, d, s, r)
 		return ERROR_SAS_INVALID_ADSR_RATE;
