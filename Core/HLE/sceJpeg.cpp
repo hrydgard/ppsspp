@@ -21,6 +21,7 @@
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
+#include "sceMpeg.h"
 
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
 //#define JPEG_DEBUG
@@ -109,19 +110,13 @@ void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
 int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth)
 {
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
-	DEBUG_LOG(ME, "UNIMPL sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
+	DEBUG_LOG(ME, "sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	return 0;
 }
 
 int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
-	return 0;
-}
-
-int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
-{
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	return 0;
 }
 
@@ -141,8 +136,9 @@ int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, i
 {
 	if (bufferWidth < 0 || widthHeight < 0){
 		WARN_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
-		return 0x80650051;
+		return ERROR_JPEG_INVALID_VALUE;
 	}
+
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	DEBUG_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
@@ -154,49 +150,36 @@ int sceJpegFinishMJpeg()
 	return 0;
 }
 
-int getYCbCrBufferSize(int w, int h)
-{
+int getYCbCrBufferSize(int w, int h) {
 	// Return necessary buffer size for conversion: 12 bits per pixel
 	return ((w * h) >> 1) * 3;
 }
 
-int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode)
-{
-	ERROR_LOG_REPORT(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
+int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
+	u8 *buf = Memory::GetPointer(jpegAddr);
+	int width, height, actual_components;
+	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 
-	int w = 0, h = 0, actual_components = 0;
+	if (actual_components != 3) {
+	// The assumption that the image was RGB was wrong...
+	// Try again.
+		int components = actual_components;
+		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
+	}
 
-	if (!Memory::IsValidAddress(jpegAddr))
-	{
-		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
+	if (jpegBuf == NULL) {
+		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG data");
 		return getYCbCrBufferSize(0, 0);
 	}
-	else // Memory address is good
-	{
-		// But data may not be...so check it
-		u8 *buf = Memory::GetPointer(jpegAddr);
-		unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &w, &h, &actual_components, 3);
-		if (actual_components != 3)
-		{
-			// The assumption that the image was RGB was wrong...
-			// Try again.
-			int components = actual_components;
-			jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &w, &h, &actual_components, components);
-		}
-		if (jpegBuf == NULL)
-		{
-			ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG data");
-			return getYCbCrBufferSize(0, 0);
-		}
-	}
-
+	
 	// Buffer to store info about the color space in use.
 	// - Bits 24 to 32 (Always empty): 0x00
 	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr) 
 	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
 	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
-	if (Memory::IsValidAddress(colourInfoAddr))
+	if (Memory::IsValidAddress(colourInfoAddr)) {
 		Memory::Write_U32(0x00020202, colourInfoAddr);
+	}
 
 #ifdef JPEG_DEBUG
 		char jpeg_fname[256];
@@ -212,11 +195,21 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
-	return getYCbCrBufferSize(w, h);
+	return getYCbCrBufferSize(width, height);
+}
+int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode)
+{
+	ERROR_LOG_REPORT(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
+
+	if (!Memory::IsValidAddress(jpegAddr)) {
+		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
+		return getYCbCrBufferSize(0, 0);
+	}
+
+	return __JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
 }
 
-int getWidthHeight(int width, int height)
-{
+int getWidthHeight(int width, int height) {
 	return (width << 16) | height;
 }
 
@@ -271,32 +264,53 @@ int __JpegConvertRGBToYCbCr (const void *data, u32 bufferOutputAddr, int width, 
 	return (width << 16) | height;
 }
 
-int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
-{
-	WARN_LOG_REPORT(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
-
-	if (!Memory::IsValidAddress(jpegAddr))
-	{
-		return getWidthHeight(0, 0);
-	}
-
+int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
 	u8 *buf = Memory::GetPointer(jpegAddr);
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
-	if (actual_components != 3)
-	{
+
+	if (actual_components != 3) {
 		// The assumption that the image was RGB was wrong...
 		// Try again.
 		int components = actual_components;
 		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
 	}
-	if (jpegBuf == NULL)
+
+	if (jpegBuf == NULL) {
 		return getWidthHeight(0, 0);
-	if (actual_components == 3)
+	}
+
+	if (actual_components == 3) {
 		__JpegConvertRGBToYCbCr(jpegBuf, yCbCrAddr, width, height);
+	}
+
 	// TODO: There's more...
 
 	return getWidthHeight(width, height);
+}
+
+int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
+{
+	WARN_LOG_REPORT(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
+
+	if (!Memory::IsValidAddress(jpegAddr)) {
+		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCr: Bad JPEG address 0x%08x", jpegAddr);
+		return getWidthHeight(0, 0);
+	}
+
+	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
+}
+
+int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
+{
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
+
+	if (!Memory::IsValidAddress(jpegAddr)) {
+		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively: Bad JPEG address 0x%08x", jpegAddr);
+		return getWidthHeight(0, 0);
+	}
+	// Do as same way as sceJpegDecodeMJpegYCbCr() but with smaller block size
+	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
 
 int sceJpeg_9B36444C()
