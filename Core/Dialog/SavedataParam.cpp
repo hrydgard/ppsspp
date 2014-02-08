@@ -1002,10 +1002,11 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		ERROR_LOG_REPORT(SCEUTILITY, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
-	// TODO: This may depend on sdk version or something?  Not returned by default.
-	if (false && fileList->systemEntries.IsValid() && fileList->maxSystemEntries > 5) {
-		ERROR_LOG_REPORT(SCEUTILITY, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
-		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	if (sceKernelGetCompiledSdkVersion() >= 0x02060000) {
+		if (fileList->systemEntries.IsValid() && fileList->maxSystemEntries > 5) {
+			ERROR_LOG_REPORT(SCEUTILITY, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
+			return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+		}
 	}
 
 	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);

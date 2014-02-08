@@ -73,6 +73,11 @@ public:
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();
 
+protected:
+	virtual bool UseAutoStatus() {
+		return false;
+	}
+
 private:
 
 	void DisplayBanner(int which);
