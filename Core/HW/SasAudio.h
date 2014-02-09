@@ -139,6 +139,7 @@ public:
 
 	void KeyOn();
 	void KeyOff();
+	void End();
 
 	void Step();
 

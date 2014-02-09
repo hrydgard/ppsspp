@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "SasAudio.h"
 
 #include <algorithm>
@@ -286,6 +287,8 @@ static int getReleaseRate(int bitfield2) {
 		}
 		return 0x10000000 >> n;
 	}
+	if (n == 0)
+		return 0x7FFFFFFF;
 	return 0x80000000 >> n;
 }
 
@@ -303,6 +306,10 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	releaseRate 	= getReleaseRate(ADSREnv2);
 	releaseType 	= getReleaseType(ADSREnv2);
 	sustainLevel 	= getSustainLevel(ADSREnv1);
+
+	if (attackRate < 0 || decayRate < 0 || sustainRate < 0 || releaseRate < 0) {
+		ERROR_LOG_REPORT(SCESAS, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
+	}
 }
 
 SasInstance::SasInstance()
@@ -367,7 +374,8 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				// NOTICE_LOG(SCESAS, "Hit end of VAG audio");
 				playing = false;
 				on = false;  // ??
-				envelope.KeyOff();
+				// TODO: Should this remain on somehow or just hit rock bottom immediately?
+				envelope.End();
 			}
 		}
 		break;
@@ -396,7 +404,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				// Hit atrac3 voice end
 				playing = false;
 				on = false;  // ??
-				envelope.KeyOff();
+				envelope.End();
 			}
 		}
 		break;
@@ -878,6 +886,11 @@ void ADSREnvelope::KeyOff() {
 	// Does this really make sense? I don't think so, the release-decay should happen
 	// from whatever level we are at, although the weirdo exponentials we have start at a fixed state :(
 	height_ = sustainLevel;
+}
+
+void ADSREnvelope::End() {
+	SetState(STATE_OFF);
+	height_ = 0;
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
