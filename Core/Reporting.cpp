@@ -36,6 +36,7 @@
 #include "base/buffer.h"
 #include "thread/thread.h"
 
+#include <set>
 #include <stdlib.h>
 #include <cstdarg>
 
@@ -49,6 +50,8 @@ namespace Reporting
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
+	// Keeps track of report-only-once identifiers.
+	static std::set<std::string> logOnceUsed;
 
 	enum RequestType
 	{
@@ -188,6 +191,19 @@ namespace Reporting
 #else
 		return "Unknown";
 #endif
+	}
+
+	void Init()
+	{
+		// New game, clean slate.
+		spamProtectionCount = 0;
+		logOnceUsed.clear();
+	}
+
+	bool ShouldLogOnce(const char *identifier)
+	{
+		// True if it wasn't there already -> so yes, log.
+		return logOnceUsed.insert(identifier).second;
 	}
 
 	int Process(int pos)

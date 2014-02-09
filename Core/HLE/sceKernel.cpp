@@ -133,6 +133,7 @@ void __KernelInit()
 	__HeapInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
+	Reporting::Init();
 
 	// "Internal" PSP libraries
 	__PPGeInit();
