@@ -389,7 +389,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	network->Get("EnableWlan", &bEnableWlan, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
 	pspConfig->Get("PSPFirmwareVersion", &iFirmwareVersion, PSP_DEFAULT_FIRMWARE);
 	// TODO: Can probably default this on, but not sure about its memory differences.
 #if !defined(_M_X64) && !defined(_WIN32) && !defined(__SYMBIAN32__)
