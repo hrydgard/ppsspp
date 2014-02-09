@@ -401,7 +401,7 @@ void CtrlMatrixList::GetColumnText(wchar_t *dest, int row, int col) {
 
 		switch (col) {
 		case MATRIXLIST_COL_NAME:
-			swprintf(dest, L"View %d", r);
+			swprintf(dest, L"World %d", r);
 			break;
 
 		default:
