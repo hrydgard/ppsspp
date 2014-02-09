@@ -47,6 +47,7 @@ private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void ResizeColumns();
 	void ProcessCopy();
+	void SelectAll();
 
 	HWND handle;
 	WNDPROC oldProc;

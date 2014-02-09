@@ -229,6 +229,11 @@ LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam,
 			if (KeyDownAsync(VK_CONTROL))
 				list->ProcessCopy();
 			break;
+
+		case 'A':
+			if (KeyDownAsync(VK_CONTROL))
+				list->SelectAll();
+			break;
 		}
 		break;
 	}
@@ -238,7 +243,7 @@ LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam,
 
 void GenericListControl::ProcessCopy()
 {
-	int start = ListView_GetSelectionMark(handle);
+	int start = GetSelectedIndex();
 	int size;
 	if (start == -1)
 		size = GetRowCount();
@@ -251,6 +256,20 @@ void GenericListControl::ProcessCopy()
 void GenericListControl::CopyRows(int start, int size)
 {
 	std::wstring data;
+
+	if (start == 0 && size == GetRowCount())
+	{
+		// Let's also copy the header if everything is selected.
+		for (int c = 0; c < columnCount; ++c)
+		{
+			data.append(columns[c].name);
+			if (c < columnCount - 1)
+				data.append(L"\t");
+			else
+				data.append(L"\r\n");
+		}
+	}
+
 	for (int r = start; r < start + size; ++r)
 	{
 		for (int c = 0; c < columnCount; ++c)
@@ -265,6 +284,11 @@ void GenericListControl::CopyRows(int start, int size)
 		}
 	}
 	W32Util::CopyTextToClipboard(handle, data);
+}
+
+void GenericListControl::SelectAll()
+{
+	ListView_SetItemState(handle, -1, LVIS_SELECTED, LVIS_SELECTED);
 }
 
 int GenericListControl::GetSelectedIndex()
