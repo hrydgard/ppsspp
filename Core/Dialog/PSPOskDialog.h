@@ -211,6 +211,11 @@ public:
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();
 
+protected:
+	virtual bool UseAutoStatus() {
+		return false;
+	}
+
 private:
 	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);

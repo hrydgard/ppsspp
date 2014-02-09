@@ -66,6 +66,11 @@ public:
 
 	int Abort();
 
+protected:
+	virtual bool UseAutoStatus() {
+		return false;
+	}
+
 private :
 	void DisplayMessage(std::string text, bool hasYesNo = false, bool hasOK = false);
 

@@ -94,6 +94,7 @@ protected:
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
+	virtual void FinishFadeOut();
 	u32 CalcFadedColor(u32 inColor);
 
 	DialogStatus status;
