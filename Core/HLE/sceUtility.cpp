@@ -369,12 +369,6 @@ int sceUtilityOskGetStatus()
 
 	int status = oskDialog.GetStatus();
 
-	// Seems that 4 is the cancelled status for OSK?
-	if (status == 4)
-	{
-		status = 5;
-	}
-
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
 	return status;
 }
