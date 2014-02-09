@@ -69,3 +69,31 @@ private:
 
 	CtrlVertexList *values;
 };
+
+class CtrlMatrixList: public GenericListControl {
+public:
+	CtrlMatrixList(HWND hwnd);
+
+protected:
+	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
+	virtual void GetColumnText(wchar_t *dest, int row, int col);
+	virtual int GetRowCount();
+};
+
+class TabMatrices : public Dialog {
+public:
+	TabMatrices(HINSTANCE _hInstance, HWND _hParent);
+	~TabMatrices();
+
+	virtual void Update() {
+		values->Update();
+	}
+
+protected:
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+
+private:
+	void UpdateSize(WORD width, WORD height);
+
+	CtrlMatrixList *values;
+};

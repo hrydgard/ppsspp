@@ -43,6 +43,66 @@ enum VertexListCols {
 	VERTEXLIST_COL_COLOR,
 };
 
+static const GenericListViewColumn matrixListCols[] = {
+	{ L"Name", 0.24f },
+	{ L"0", 0.19f },
+	{ L"1", 0.19f },
+	{ L"2", 0.19f },
+	{ L"3", 0.19f },
+};
+
+enum MatrixListCols {
+	MATRIXLIST_COL_NAME,
+	MATRIXLIST_COL_0,
+	MATRIXLIST_COL_1,
+	MATRIXLIST_COL_2,
+	MATRIXLIST_COL_3,
+
+	MATRIXLIST_COL_COUNT,
+};
+
+enum MatrixListRows {
+	MATRIXLIST_ROW_WORLD_0,
+	MATRIXLIST_ROW_WORLD_1,
+	MATRIXLIST_ROW_WORLD_2,
+	MATRIXLIST_ROW_VIEW_0,
+	MATRIXLIST_ROW_VIEW_1,
+	MATRIXLIST_ROW_VIEW_2,
+	MATRIXLIST_ROW_PROJ_0,
+	MATRIXLIST_ROW_PROJ_1,
+	MATRIXLIST_ROW_PROJ_2,
+	MATRIXLIST_ROW_PROJ_3,
+	MATRIXLIST_ROW_TGEN_0,
+	MATRIXLIST_ROW_TGEN_1,
+	MATRIXLIST_ROW_TGEN_2,
+	MATRIXLIST_ROW_BONE_0_0,
+	MATRIXLIST_ROW_BONE_0_1,
+	MATRIXLIST_ROW_BONE_0_2,
+	MATRIXLIST_ROW_BONE_1_0,
+	MATRIXLIST_ROW_BONE_1_1,
+	MATRIXLIST_ROW_BONE_1_2,
+	MATRIXLIST_ROW_BONE_2_0,
+	MATRIXLIST_ROW_BONE_2_1,
+	MATRIXLIST_ROW_BONE_2_2,
+	MATRIXLIST_ROW_BONE_3_0,
+	MATRIXLIST_ROW_BONE_3_1,
+	MATRIXLIST_ROW_BONE_3_2,
+	MATRIXLIST_ROW_BONE_4_0,
+	MATRIXLIST_ROW_BONE_4_1,
+	MATRIXLIST_ROW_BONE_4_2,
+	MATRIXLIST_ROW_BONE_5_0,
+	MATRIXLIST_ROW_BONE_5_1,
+	MATRIXLIST_ROW_BONE_5_2,
+	MATRIXLIST_ROW_BONE_6_0,
+	MATRIXLIST_ROW_BONE_6_1,
+	MATRIXLIST_ROW_BONE_6_2,
+	MATRIXLIST_ROW_BONE_7_0,
+	MATRIXLIST_ROW_BONE_7_1,
+	MATRIXLIST_ROW_BONE_7_2,
+
+	MATRIXLIST_ROW_COUNT,
+};
+
 CtrlVertexList::CtrlVertexList(HWND hwnd)
 	: GenericListControl(hwnd, vertexListCols, ARRAY_SIZE(vertexListCols)), raw_(false) {
 	decoder = new VertexDecoder();
@@ -260,6 +320,145 @@ BOOL TabVertices::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (wParam)
 		{
 		case IDC_GEDBG_VERTICES:
+			values->HandleNotify(lParam);
+			break;
+		}
+		break;
+	}
+
+	return FALSE;
+}
+
+CtrlMatrixList::CtrlMatrixList(HWND hwnd)
+	: GenericListControl(hwnd, matrixListCols, ARRAY_SIZE(matrixListCols)) {
+	Update();
+}
+
+void CtrlMatrixList::GetColumnText(wchar_t *dest, int row, int col) {
+	if (row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT) {
+		wcscpy(dest, L"Invalid");
+		return;
+	}
+
+	auto state = gpuDebug->GetGState();
+
+	if (row >= MATRIXLIST_ROW_BONE_0_0) {
+		int b = (row - MATRIXLIST_ROW_BONE_0_0) / 3;
+		int r = (row - MATRIXLIST_ROW_BONE_0_0) % 3;
+		int offset = (row - MATRIXLIST_ROW_BONE_0_0) * 4 + col - 1;
+
+		switch (col) {
+		case MATRIXLIST_COL_NAME:
+			swprintf(dest, L"Bone #%d row %d", b, r);
+			break;
+
+		default:
+			swprintf(dest, L"%f", state.boneMatrix[offset]);
+			break;
+		}
+	} else if (row >= MATRIXLIST_ROW_TGEN_0) {
+		int r = row - MATRIXLIST_ROW_TGEN_0;
+		int offset = r * 4 + col - 1;
+
+		switch (col) {
+		case MATRIXLIST_COL_NAME:
+			swprintf(dest, L"Texgen %d", r);
+			break;
+
+		default:
+			swprintf(dest, L"%f", state.tgenMatrix[offset]);
+			break;
+		}
+	} else if (row >= MATRIXLIST_ROW_PROJ_0) {
+		int r = row - MATRIXLIST_ROW_PROJ_0;
+		int offset = r * 4 + col - 1;
+
+		switch (col) {
+		case MATRIXLIST_COL_NAME:
+			swprintf(dest, L"Proj %d", r);
+			break;
+
+		default:
+			swprintf(dest, L"%f", state.projMatrix[offset]);
+			break;
+		}
+	} else if (row >= MATRIXLIST_ROW_VIEW_0) {
+		int r = row - MATRIXLIST_ROW_VIEW_0;
+		int offset = r * 4 + col - 1;
+
+		switch (col) {
+		case MATRIXLIST_COL_NAME:
+			swprintf(dest, L"View %d", r);
+			break;
+
+		default:
+			swprintf(dest, L"%f", state.viewMatrix[offset]);
+			break;
+		}
+	} else {
+		int r = row - MATRIXLIST_ROW_WORLD_0;
+		int offset = r * 4 + col - 1;
+
+		switch (col) {
+		case MATRIXLIST_COL_NAME:
+			swprintf(dest, L"View %d", r);
+			break;
+
+		default:
+			swprintf(dest, L"%f", state.worldMatrix[offset]);
+			break;
+		}
+	}
+}
+
+int CtrlMatrixList::GetRowCount() {
+	if (!gpuDebug) {
+		return 0;
+	}
+
+	return MATRIXLIST_ROW_COUNT;
+}
+
+TabMatrices::TabMatrices(HINSTANCE _hInstance, HWND _hParent)
+	: Dialog((LPCSTR)IDD_GEDBG_TAB_MATRICES, _hInstance, _hParent) {
+	values = new CtrlMatrixList(GetDlgItem(m_hDlg, IDC_GEDBG_MATRICES));
+}
+
+TabMatrices::~TabMatrices() {
+	delete values;
+}
+
+void TabMatrices::UpdateSize(WORD width, WORD height) {
+	struct Position {
+		int x,y;
+		int w,h;
+	};
+
+	Position position;
+	static const int borderMargin = 5;
+
+	position.x = borderMargin;
+	position.y = borderMargin;
+	position.w = width - 2 * borderMargin;
+	position.h = height - 2 * borderMargin;
+
+	HWND handle = GetDlgItem(m_hDlg, IDC_GEDBG_MATRICES);
+	MoveWindow(handle, position.x, position.y, position.w, position.h, TRUE);
+}
+
+BOOL TabMatrices::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
+	switch (message) {
+	case WM_INITDIALOG:
+		return TRUE;
+
+	case WM_SIZE:
+		UpdateSize(LOWORD(lParam), HIWORD(lParam));
+		return TRUE;
+
+	case WM_NOTIFY:
+		switch (wParam)
+		{
+		case IDC_GEDBG_MATRICES:
 			values->HandleNotify(lParam);
 			break;
 		}

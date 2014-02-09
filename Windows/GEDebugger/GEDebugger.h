@@ -50,6 +50,7 @@ class TabStateLighting;
 class TabStateTexture;
 class TabStateSettings;
 class TabVertices;
+class TabMatrices;
 
 class CGEDebugger : public Dialog {
 public:
@@ -77,6 +78,7 @@ private:
 	TabStateTexture *textureState;
 	TabStateSettings *settings;
 	TabVertices *vertices;
+	TabMatrices *matrices;
 	SimpleGLWindow *frameWindow;
 	SimpleGLWindow *texWindow;
 	TabControl *tabs;

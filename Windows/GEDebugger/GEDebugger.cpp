@@ -106,6 +106,9 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	vertices = new TabVertices(_hInstance, m_hDlg);
 	tabs->AddTabDialog(vertices, L"Vertices");
 
+	matrices = new TabMatrices(_hInstance, m_hDlg);
+	tabs->AddTabDialog(matrices, L"Matrices");
+
 	lists = new TabDisplayLists(_hInstance, m_hDlg);
 	tabs->AddTabDialog(lists, L"Lists");
 
@@ -126,6 +129,7 @@ CGEDebugger::~CGEDebugger() {
 	delete textureState;
 	delete settings;
 	delete vertices;
+	delete matrices;
 	delete lists;
 	delete tabs;
 	delete fbTabs;
@@ -233,6 +237,7 @@ void CGEDebugger::UpdatePreviews() {
 	textureState->Update();
 	settings->Update();
 	vertices->Update();
+	matrices->Update();
 	lists->Update();
 }
 
