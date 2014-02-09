@@ -21,6 +21,10 @@
 #include "SDL_video.h"
 #endif
 
+#ifdef RPI
+#include <bcm_host.h>
+#endif
+
 #include <algorithm>
 
 #include "base/display.h"
@@ -383,6 +387,10 @@ void ToggleFullScreenIfFlagSet() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
+#ifdef RPI
+	bcm_host_init();
+#endif
+
 	// Avoid warning about conversion from const char * to char *
 	char envTemp[256];
 	strcpy(envTemp, "SDL_VIDEO_CENTERED=1");
@@ -802,6 +810,10 @@ int main(int argc, char *argv[]) {
 #endif
 	SDL_Quit();
 	net::Shutdown();
+#ifdef RPI
+	bcm_host_deinit();
+#endif
+
 	exit(0);
 	return 0;
 }
