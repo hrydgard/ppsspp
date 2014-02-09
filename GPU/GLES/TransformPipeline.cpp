@@ -939,7 +939,7 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 			}
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
-			vertices[i].z = 1.0;
+			vertices[i].z = drawPos.z;
 			if (gstate.vertType & GE_VTYPE_COL_MASK) {
 				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
 			} else {
