@@ -20,6 +20,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -219,7 +220,8 @@ namespace Reporting
 			postdata.Add("fps", fps);
 		}
 
-		// TODO: Settings, savestate/savedata status, some measure of speed/fps?
+		// TODO: Settings?
+		postdata.Add("savestate_used", SaveState::HasLoadedState());
 
 		switch (payload.type)
 		{
