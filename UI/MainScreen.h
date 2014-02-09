@@ -63,15 +63,14 @@ private:
 	bool backFromStore_;
 };
 
-class GamePauseScreen : public UIDialogScreen {
+class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreen(), gamePath_(filename), saveSlots_(NULL) {}
+	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), saveSlots_(NULL) {}
 	virtual ~GamePauseScreen();
 
 	virtual void onFinish(DialogResult result);
 
 protected:
-	virtual void DrawBackground(UIContext &dc);
 	virtual void CreateViews();
 	virtual void update(InputState &input);
 	virtual void sendMessage(const char *message, const char *value);
@@ -89,8 +88,6 @@ private:
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
 	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
-
-	std::string gamePath_;
 
 	UI::ChoiceStrip *saveSlots_;
 	UI::Choice *saveStateButton_;

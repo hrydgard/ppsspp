@@ -39,6 +39,15 @@ protected:
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
 
+class UIScreenWithGameBackground : public UIScreenWithBackground {
+public:
+	UIScreenWithGameBackground(const std::string &gamePath)
+		: UIScreenWithBackground(), gamePath_(gamePath) {}
+	virtual void DrawBackground(UIContext &dc);
+protected:
+	std::string gamePath_;
+};
+
 class UIDialogScreenWithBackground : public UIDialogScreen {
 public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
@@ -46,6 +55,15 @@ protected:
 	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value);
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
+};
+
+class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
+public:
+	UIDialogScreenWithGameBackground(const std::string &gamePath)
+		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
+	virtual void DrawBackground(UIContext &dc);
+protected:
+	std::string gamePath_;
 };
 
 class PromptScreen : public UIDialogScreenWithBackground {

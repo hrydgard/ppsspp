@@ -37,7 +37,6 @@
 
 static bool enableAll = false;
 static std::vector<std::string> cheatList;
-extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
 static std::deque<bool> bEnableCheat;
 
