@@ -8,6 +8,7 @@ namespace W32Util
 	HBITMAP CreateBitmapFromARGB(HWND someHwnd, DWORD *image, int w, int h);
 	void NiceSizeFormat(size_t size, char *out);
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text);
+	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext);
 	void MakeTopMost(HWND hwnd, bool topMost);
 }
 
@@ -41,9 +42,11 @@ protected:
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
+	virtual void CopyRows(int start, int size);
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void ResizeColumns();
+	void ProcessCopy();
 
 	HWND handle;
 	WNDPROC oldProc;
