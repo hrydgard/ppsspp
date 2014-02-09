@@ -61,20 +61,24 @@ namespace W32Util
 
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {
 		std::wstring wtext = ConvertUTF8ToWString(text);
+		return CopyTextToClipboard(hwnd, wtext);
+	}
+
+	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext) {
 		OpenClipboard(hwnd);
 		EmptyClipboard();
-		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t)); 
-		if (hglbCopy == NULL) { 
-			CloseClipboard(); 
-			return FALSE; 
-		} 
+		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t));
+		if (hglbCopy == NULL) {
+			CloseClipboard();
+			return FALSE;
+		}
 
-		// Lock the handle and copy the text to the buffer. 
+		// Lock the handle and copy the text to the buffer.
 
-		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy); 
-		wcscpy(lptstrCopy, wtext.c_str()); 
-		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character 
-		GlobalUnlock(hglbCopy); 
+		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy);
+		wcscpy(lptstrCopy, wtext.c_str());
+		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character
+		GlobalUnlock(hglbCopy);
 		SetClipboardData(CF_UNICODETEXT, hglbCopy);
 		CloseClipboard();
 		return TRUE;
@@ -216,9 +220,75 @@ LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam,
 	case WM_SIZE:
 		list->ResizeColumns();
 		break;
+
+	case WM_KEYDOWN:
+		switch (wParam)
+		{
+		case VK_INSERT:
+		case 'C':
+			if (KeyDownAsync(VK_CONTROL))
+				list->ProcessCopy();
+			break;
+
+		case 'A':
+			if (KeyDownAsync(VK_CONTROL))
+				list->SelectAll();
+			break;
+		}
+		break;
 	}
 
 	return (LRESULT)CallWindowProc((WNDPROC)list->oldProc,hwnd,msg,wParam,lParam);
+}
+
+void GenericListControl::ProcessCopy()
+{
+	int start = GetSelectedIndex();
+	int size;
+	if (start == -1)
+		size = GetRowCount();
+	else
+		size = ListView_GetSelectedCount(handle);
+
+	CopyRows(start, size);
+}
+
+void GenericListControl::CopyRows(int start, int size)
+{
+	std::wstring data;
+
+	if (start == 0 && size == GetRowCount())
+	{
+		// Let's also copy the header if everything is selected.
+		for (int c = 0; c < columnCount; ++c)
+		{
+			data.append(columns[c].name);
+			if (c < columnCount - 1)
+				data.append(L"\t");
+			else
+				data.append(L"\r\n");
+		}
+	}
+
+	for (int r = start; r < start + size; ++r)
+	{
+		for (int c = 0; c < columnCount; ++c)
+		{
+			stringBuffer[0] = 0;
+			GetColumnText(stringBuffer, r, c);
+			data.append(stringBuffer);
+			if (c < columnCount - 1)
+				data.append(L"\t");
+			else
+				data.append(L"\r\n");
+		}
+	}
+	W32Util::CopyTextToClipboard(handle, data);
+}
+
+void GenericListControl::SelectAll()
+{
+	ListView_SetItemState(handle, -1, LVIS_SELECTED, LVIS_SELECTED);
 }
 
 int GenericListControl::GetSelectedIndex()

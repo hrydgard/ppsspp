@@ -40,6 +40,7 @@ static const char preview_vs[] =
 	"uniform mat4 u_viewproj;\n"
 	"void main() {\n"
 	"  gl_Position = u_viewproj * a_position;\n"
+	"  gl_Position.z = 1.0f;\n"
 	"}\n";
 
 static GLSLProgram *previewProgram = NULL;
