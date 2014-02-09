@@ -44,6 +44,171 @@ Config g_Config;
 extern bool iosCanUseJit;
 #endif
 
+struct ConfigSetting {
+	enum Type
+	{
+		TYPE_TERMINATOR,
+		TYPE_BOOL,
+		TYPE_INT,
+		TYPE_STRING,
+	};
+	union Value
+	{
+		bool b;
+		int i;
+		const char *s;
+	};
+
+	ConfigSetting(bool v)
+		: ini_(""), type_(TYPE_TERMINATOR), report_(false), save_(false) {
+		ptr_ = NULL;
+	}
+
+	ConfigSetting(const char *ini, bool *v, bool def, bool save = true)
+		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save) {
+		ptr_ = (void *)v;
+		default_.b = def;
+	}
+
+	ConfigSetting(const char *ini, int *v, int def, bool save = true)
+		: ini_(ini), type_(TYPE_INT), report_(false), save_(save) {
+		ptr_ = (void *)v;
+		default_.i = def;
+	}
+
+	ConfigSetting(const char *ini, std::string *v, const char *def, bool save = true)
+		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save) {
+		ptr_ = (void *)v;
+		default_.s = def;
+	}
+
+	bool HasMore() {
+		return type_ != TYPE_TERMINATOR;
+	}
+
+	bool Get(IniFile::Section *section) {
+		switch (type_) {
+		case TYPE_BOOL:
+			return section->Get(ini_, (bool *)ptr_, default_.b);
+		case TYPE_INT:
+			return section->Get(ini_, (int *)ptr_, default_.i);
+		case TYPE_STRING:
+			return section->Get(ini_, (std::string *)ptr_, default_.s);
+		default:
+			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			return false;
+		}
+	}
+
+	void Set(IniFile::Section *section) {
+		if (!save_)
+			return;
+
+		switch (type_) {
+		case TYPE_BOOL:
+			return section->Set(ini_, *(bool *)ptr_);
+		case TYPE_INT:
+			return section->Set(ini_, *(int *)ptr_);
+		case TYPE_STRING:
+			return section->Set(ini_, *(std::string *)ptr_);
+		default:
+			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			return;
+		}
+	}
+
+	const char *ini_;
+	Type type_;
+	bool report_;
+	bool save_;
+	void *ptr_;
+	Value default_;
+};
+
+struct ReportedConfigSetting : public ConfigSetting {
+	template <typename T>
+	ReportedConfigSetting(const char *ini, T *v, const T def, bool save = true)
+		: ConfigSetting(ini, v, def, save) {
+		report_ = true;
+	}
+	ReportedConfigSetting(const char *ini, std::string *v, const char *def, bool save = true)
+		: ConfigSetting(ini, v, def, save) {
+		report_ = true;
+	}
+};
+
+struct LangRegionSetting : public ReportedConfigSetting {
+	LangRegionSetting(const char *ini, std::string *v, bool save = true)
+		: ReportedConfigSetting(ini, v, "", save) {
+	}
+
+	bool Get(IniFile::Section *section);
+};
+
+struct NumWorkersSetting : public ReportedConfigSetting {
+	NumWorkersSetting(const char *ini, int *v, bool save = true)
+		: ReportedConfigSetting(ini, v, 0, save) {
+	}
+
+	bool Get(IniFile::Section *section) {
+		default_.i = cpu_info.num_cores;
+		return ReportedConfigSetting::Get(section);
+	}
+};
+
+struct ConfigSectionSettings {
+	const char *section;
+	ConfigSetting *settings;
+};
+
+static ConfigSetting generalSettings[] = {
+	ConfigSetting("FirstRun", &g_Config.bFirstRun, true),
+	ConfigSetting("RunCount", &g_Config.iRunCount, 0),
+	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true),
+	ConfigSetting("AutoRun", &g_Config.bAutoRun, true),
+	ConfigSetting("Browse", &g_Config.bBrowse, false),
+	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true),
+	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
+	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
+	ConfigSetting("HomebrewStore", &g_Config.bHomebrewStore, false, false),
+	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
+	LangRegionSetting("Language", &g_Config.sLanguageIni),
+
+	NumWorkersSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads),
+	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false),
+	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false),
+	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false),
+	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0),
+	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0),
+
+	ConfigSetting("GridView1", &g_Config.bGridView1, true),
+	ConfigSetting("GridView2", &g_Config.bGridView2, true),
+	ConfigSetting("GridView3", &g_Config.bGridView3, false),
+
+	// "default" means let emulator decide, "" means disable.
+	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
+	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false),
+
+#ifdef ANDROID
+	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
+#endif
+
+#if defined(USING_WIN_UI)
+	ConfigSetting("TopMost", &g_Config.bTopMost, false),
+	ConfigSetting("WindowX", &g_Config.iWindowX, -1), // -1 tells us to center the window.
+	ConfigSetting("WindowY", &g_Config.iWindowY, -1),
+	ConfigSetting("WindowWidth", &g_Config.iWindowWidth, 0),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
+	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
+	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false),
+#endif
+
+	ConfigSetting(false),
+};
+
+static ConfigSectionSettings sections[] = {
+	{"General", generalSettings},
+};
+
 Config::Config() { }
 Config::~Config() { }
 
@@ -85,6 +250,18 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	return langValuesMapping;
 }
 
+bool LangRegionSetting::Get(IniFile::Section *section) {
+	static std::string defaultLangRegion = "en_US";
+	if (g_Config.bFirstRun) {
+		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
+		if (i18nrepo.IniExists(langRegion))
+			defaultLangRegion = langRegion;
+	}
+
+	default_.s = defaultLangRegion.c_str();
+	return ReportedConfigSetting::Get(section);
+}
+
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	iniFilename_ = FindConfigFile(iniFileName != NULL ? iniFileName : "ppsspp.ini");
 	controllerIniFilename_ = FindConfigFile(controllerIniFilename != NULL ? controllerIniFilename : "controls.ini");
@@ -98,20 +275,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
+		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+			setting->Get(section);
+		}
+	}
+
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
-	general->Get("FirstRun", &bFirstRun, true);
-	general->Get("RunCount", &iRunCount, 0);
 	iRunCount++;
-	general->Get("Enable Logging", &bEnableLogging, true);
-	general->Get("AutoRun", &bAutoRun, true);
-	general->Get("Browse", &bBrowse, false);
-	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
-	general->Get("CurrentDirectory", &currentDirectory, "");
-	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
-	general->Get("HomebrewStore", &bHomebrewStore, false);
-	general->Get("CheckForNewVersion", &bCheckForNewVersion, true);
-
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";
 
@@ -130,33 +303,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	general->Get("Language", &sLanguageIni, defaultLangRegion.c_str());
-	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
-	general->Get("EnableAutoLoad", &bEnableAutoLoad, false);
-	general->Get("EnableCheats", &bEnableCheats, false);
-	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
-	general->Get("StateSlot", &iCurrentStateSlot, 0);
-	general->Get("RewindFlipFrequency", &iRewindFlipFrequency, 0);
-	general->Get("GridView1", &bGridView1, true);
-	general->Get("GridView2", &bGridView2, true);
-	general->Get("GridView3", &bGridView3, false);
-
-	// "default" means let emulator decide, "" means disable.
-	general->Get("ReportingHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
-	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
-#ifdef ANDROID
-	general->Get("ScreenRotation", &iScreenRotation, 1);
-#endif
-
-#if defined(USING_WIN_UI)
-	general->Get("TopMost", &bTopMost);
-	general->Get("WindowX", &iWindowX, -1); // -1 tells us to center the window.
-	general->Get("WindowY", &iWindowY, -1);
-	general->Get("WindowWidth", &iWindowWidth, 0);   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
-	general->Get("WindowHeight", &iWindowHeight, 0);
-	general->Get("PauseOnLostFocus", &bPauseOnLostFocus, false);
-#endif
 
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 	recent->Get("MaxRecent", &iMaxRecent, 30);
@@ -486,39 +633,13 @@ void Config::Save() {
 
 		// Need to do this somewhere...
 		bFirstRun = false;
-		general->Set("FirstRun", bFirstRun);
-		general->Set("RunCount", iRunCount);
-		general->Set("Enable Logging", bEnableLogging);
-		general->Set("AutoRun", bAutoRun);
-		general->Set("Browse", bBrowse);
-		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
-		general->Set("CurrentDirectory", currentDirectory);
-		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
-		general->Set("ReportingHost", sReportHost);
-		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
-#ifdef ANDROID
-		general->Set("ScreenRotation", iScreenRotation);
-#endif
 
-#if defined(USING_WIN_UI)
-		general->Set("TopMost", bTopMost);
-		general->Set("WindowX", iWindowX);
-		general->Set("WindowY", iWindowY);
-		general->Set("WindowWidth", iWindowWidth);
-		general->Set("WindowHeight", iWindowHeight);
-		general->Set("PauseOnLostFocus", bPauseOnLostFocus);
-#endif
-		general->Set("Language", sLanguageIni);
-		general->Set("NumWorkerThreads", iNumWorkerThreads);
-		general->Set("EnableAutoLoad", bEnableAutoLoad);
-		general->Set("EnableCheats", bEnableCheats);
-		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
-		general->Set("StateSlot", iCurrentStateSlot);
-		general->Set("RewindFlipFrequency", iRewindFlipFrequency);
-		general->Set("GridView1", bGridView1);
-		general->Set("GridView2", bGridView2);
-		general->Set("GridView3", bGridView3);
-		general->Set("CheckForNewVersion", bCheckForNewVersion);
+		for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+			IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
+			for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+				setting->Set(section);
+			}
+		}
 
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
