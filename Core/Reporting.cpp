@@ -216,26 +216,75 @@ namespace Reporting
 		return logOnceUsed.insert(identifier).second;
 	}
 
-	int Process(int pos)
+	void AddGameInfo(UrlEncoder &postdata)
 	{
-		Payload &payload = payloadBuffer[pos];
-
-		std::string gpuPrimary, gpuFull;
-		if (gpu)
-			gpu->GetReportingInfo(gpuPrimary, gpuFull);
-
-		UrlEncoder postdata;
-		postdata.Add("version", PPSSPP_GIT_VERSION);
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
 		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
+		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+	}
+
+	void AddSystemInfo(UrlEncoder &postdata)
+	{
+		std::string gpuPrimary, gpuFull;
+		if (gpu)
+			gpu->GetReportingInfo(gpuPrimary, gpuFull);
+		
+		postdata.Add("version", PPSSPP_GIT_VERSION);
 		postdata.Add("gpu", gpuPrimary);
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
-		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+	}
+
+	void AddConfigInfo(UrlEncoder &postdata)
+	{
 		postdata.Add("pixel_width", PSP_CoreParameter().pixelWidth);
 		postdata.Add("pixel_height", PSP_CoreParameter().pixelHeight);
+
+		postdata.Add("config.sys.jit", g_Config.bJit);
+		postdata.Add("config.sys.cpu_thread", g_Config.bSeparateCPUThread);
+		postdata.Add("config.sys.io_thread", g_Config.bSeparateIOThread);
+		postdata.Add("config.sys.locked_cpu", g_Config.iLockedCPUSpeed);
+		postdata.Add("config.sys.cheats", g_Config.bEnableCheats);
+		postdata.Add("config.sys.lang", g_Config.iLanguage);
+		postdata.Add("config.sys.encrypt_save", g_Config.bEncryptSave);
+		postdata.Add("config.sys.psp_model", g_Config.iPSPModel);
+		postdata.Add("config.sys.firmware_ver", g_Config.iFirmwareVersion);
+		postdata.Add("config.gpu.swrast", g_Config.bSoftwareRendering);
+		postdata.Add("config.gpu.hw_transform", g_Config.bHardwareTransform);
+		postdata.Add("config.gpu.sw_skinning", g_Config.bSoftwareSkinning);
+		postdata.Add("config.gpu.rendering_mode", g_Config.iRenderingMode);
+		postdata.Add("config.gpu.tex_filtering", g_Config.iTexFiltering);
+		postdata.Add("config.gpu.frameskip", g_Config.iFrameSkip);
+		postdata.Add("config.gpu.autoskip", g_Config.bAutoFrameSkip);
+		postdata.Add("config.gpu.vertex_cache", g_Config.bVertexCache);
+		postdata.Add("config.gpu.tex_backoff_cache", g_Config.bTextureBackoffCache);
+		postdata.Add("config.gpu.tex_second_cache", g_Config.bTextureSecondaryCache);
+		postdata.Add("config.gpu.vertex_jit", g_Config.bVertexDecoderJit);
+		postdata.Add("config.gpu.internal_res", g_Config.iInternalResolution);
+		postdata.Add("config.gpu.mipmap", g_Config.bMipMap);
+		postdata.Add("config.gpu.tex_scaling_level", g_Config.iTexScalingLevel);
+		postdata.Add("config.gpu.tex_scaling_type", g_Config.iTexScalingType);
+		postdata.Add("config.gpu.tex_deposterize", g_Config.bTexDeposterize);
+		postdata.Add("config.gpu.fps_limit", g_Config.iFpsLimit);
+		postdata.Add("config.gpu.force_max_fps", g_Config.iForceMaxEmulatedFPS);
+		postdata.Add("config.gpu.lowq_spline_bezier", g_Config.bLowQualitySplineBezier);
+		postdata.Add("config.hack.disable_stencil", g_Config.bDisableStencilTest);
+		postdata.Add("config.hack.always_depth_write", g_Config.bAlwaysDepthWrite);
+		postdata.Add("config.hack.timer_hack", g_Config.bTimerHack);
+		postdata.Add("config.hack.disable_alpha", g_Config.bDisableAlphaTest);
+		postdata.Add("config.hack.prescale_uv", g_Config.bPrescaleUV);
+		postdata.Add("config.hack.discard_regs", g_Config.bDiscardRegsOnJRRA);
+		postdata.Add("config.hack.skip_deadbeef", g_Config.bSkipDeadbeefFilling);
+		postdata.Add("config.hack.func_hash_map", g_Config.bFuncHashMap);
+		postdata.Add("config.audio.low_latency", g_Config.bLowLatencyAudio);
+		postdata.Add("config.net.enable_wlan", g_Config.bEnableWlan);
+	}
+
+	void AddGameplayInfo(UrlEncoder &postdata)
+	{
+		// Just to get an idea of how long they played.
 		postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4)
@@ -246,8 +295,18 @@ namespace Reporting
 			postdata.Add("fps", fps);
 		}
 
-		// TODO: Settings?
 		postdata.Add("savestate_used", SaveState::HasLoadedState());
+	}
+
+	int Process(int pos)
+	{
+		Payload &payload = payloadBuffer[pos];
+
+		UrlEncoder postdata;
+		AddSystemInfo(postdata);
+		AddGameInfo(postdata);
+		AddConfigInfo(postdata);
+		AddGameplayInfo(postdata);
 
 		switch (payload.type)
 		{
