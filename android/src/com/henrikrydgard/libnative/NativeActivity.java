@@ -90,9 +90,6 @@ public class NativeActivity extends Activity {
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
 	
-	// Easy way to flip it on and off from code.
-	private static final boolean useKitkatImmersiveMode = false;
-
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 	
@@ -288,6 +285,28 @@ public class NativeActivity extends Activity {
 		}
 	}
 	
+	@SuppressLint("InlinedApi")
+	@TargetApi(14)
+	private void updateSystemUiVisibility() {
+		String immersive = NativeApp.queryConfig("immersiveMode");
+		Log.i(TAG, "Immersive: " + immersive);
+		boolean useImmersive = immersive.equals("1") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+
+		int flags = 0;
+		if (useLowProfileButtons()) {
+			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
+		}
+		if (useImmersive) {
+			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+			Log.i(TAG, "Setting immersive mode");
+		}
+		if (mGLSurfaceView != null) {
+			mGLSurfaceView.setSystemUiVisibility(flags);
+		} else {
+			Log.e(TAG, "updateSystemUiVisibility: GLSurfaceView not yet created, ignoring");
+		}
+	}
+	
 	// Need API 11 to check for existence of a vibrator? Zany.
 	@TargetApi(11)
 	public void checkForVibrator() {
@@ -349,12 +368,10 @@ public class NativeActivity extends Activity {
 		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
         setContentView(mGLSurfaceView);
-		if (Build.VERSION.SDK_INT >= 14) {
-			darkenOnScreenButtons();
-		}
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-			setImmersiveMode();
-		}
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            updateSystemUiVisibility();
+        }
     }
 
     @Override
@@ -377,25 +394,6 @@ public class NativeActivity extends Activity {
 		audioManager = null;
 	}  
 	
-	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-	public void darkenOnScreenButtons() {
-		if (useLowProfileButtons()) {
-			mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
-		}
-	}
-	
-	@TargetApi(Build.VERSION_CODES.KITKAT)
-	public void setImmersiveMode() {
-		// this.setImmersive(true); // This is an entirely different kind of immersive mode - hides some notification
-		if (useKitkatImmersiveMode) {
-			int flags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-			if (useLowProfileButtons()) {
-				flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
-			}
-			mGLSurfaceView.setSystemUiVisibility(flags);
-		}
-	}
-
     private boolean detectOpenGLES20() {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         ConfigurationInfo info = am.getDeviceConfigurationInfo();
@@ -438,23 +436,17 @@ public class NativeActivity extends Activity {
 			audioPlayer.play();
 		}
 		NativeApp.resume();
-		if (Build.VERSION.SDK_INT >= 14) {
-			darkenOnScreenButtons();
-		}
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-			setImmersiveMode();
-		}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            updateSystemUiVisibility();
+        }
 	}
     
-    // Prevent destroying and recreating the main activity when the device rotates etc,
-    // since this would stop the sound.
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
-    	// Ignore orientation change
     	super.onConfigurationChanged(newConfig);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-			setImmersiveMode();
-		}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            updateSystemUiVisibility();
+        }
     }
     
     // We simply grab the first input device to produce an event and ignore all others that are connected.
@@ -809,6 +801,10 @@ public class NativeActivity extends Activity {
 			if (Build.VERSION.SDK_INT >= 9) {
 				updateScreenRotation();
 			}	
+		} else if (command.equals("immersive")) {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+				updateSystemUiVisibility();
+			}
 		}
     	return false;
     }
