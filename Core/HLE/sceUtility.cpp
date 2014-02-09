@@ -263,7 +263,7 @@ int sceUtilityMsgDialogInitStart(u32 structAddr)
 	currentDialogType = UTILITY_DIALOG_MSG;
 	currentDialogActive = true;
 	int ret = msgDialog.Init(structAddr);
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogInitStart(%08x)",ret,structAddr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogInitStart(%08x)",ret,structAddr);
 	return ret;
 }
 
@@ -389,7 +389,7 @@ int sceUtilityNetconfInitStart(u32 paramsAddr)
 	currentDialogType = UTILITY_DIALOG_NET;
 	currentDialogActive = true;	
 	int ret = netDialog.Init(paramsAddr);
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfInitStart(%08x)",ret,paramsAddr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityNetconfInitStart(%08x)",ret,paramsAddr);
 	return ret;
 }
 
@@ -489,7 +489,7 @@ int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
 	currentDialogActive = true;	
 	int ret = gamedataInstallDialog.Init(paramsAddr);
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallInitStart(%08x)",ret,paramsAddr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallInitStart(%08x)",ret,paramsAddr);
 	return ret;
 }
 
