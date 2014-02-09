@@ -40,6 +40,9 @@ namespace Reporting
 	// Should be called whenever a new game is loaded to forget things.
 	void Init();
 
+	// Should be called whenever the game configuration changes.
+	void UpdateConfig();
+
 	// Returns whether or not the reporting system is currently enabled.
 	bool IsEnabled();
 
@@ -55,5 +58,6 @@ namespace Reporting
 	// Report a message string, using the format string as a key.
 	void ReportMessage(const char *message, ...);
 
+	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);
 }

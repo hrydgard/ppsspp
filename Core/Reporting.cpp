@@ -52,6 +52,8 @@ namespace Reporting
 	static std::string lastHostname;
 	// Keeps track of report-only-once identifiers.
 	static std::set<std::string> logOnceUsed;
+	// Keeps track of whether a harmful setting was ever used.
+	static bool everUnsupported = false;
 
 	enum RequestType
 	{
@@ -198,6 +200,13 @@ namespace Reporting
 		// New game, clean slate.
 		spamProtectionCount = 0;
 		logOnceUsed.clear();
+		everUnsupported = false;
+	}
+
+	void UpdateConfig()
+	{
+		if (!IsSupported())
+			everUnsupported = true;
 	}
 
 	bool ShouldLogOnce(const char *identifier)
@@ -265,7 +274,7 @@ namespace Reporting
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !IsSupported())
+		if (g_Config.sReportHost.empty() || !IsSupported() || everUnsupported)
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)

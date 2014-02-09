@@ -31,6 +31,7 @@
 #include "Common/FileUtil.h"
 #include "Core/System.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/SaveState.h"
 
 #include "UI/EmuScreen.h"
@@ -1045,6 +1046,7 @@ void GamePauseScreen::onFinish(DialogResult result) {
 	// Do we really always need to "gpu->Resized" here?
 	if (gpu)
 		gpu->Resized();
+	Reporting::UpdateConfig();
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {

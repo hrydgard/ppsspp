@@ -394,6 +394,7 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
 	}
+	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 
@@ -498,6 +499,7 @@ UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
 	}
+	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
