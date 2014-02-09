@@ -628,13 +628,13 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_PAUSE, "Pause"},
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	{VIRTKEY_REWIND, "Rewind"},
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
 	{VIRTKEY_NEXT_SLOT,  "Next Slot"},
-#if !defined(_WIN32) && !defined(USING_GLES2)
+#if !defined(_WIN32) && !defined(MOBILE_DEVICE)
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif
 

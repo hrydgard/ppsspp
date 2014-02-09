@@ -868,7 +868,7 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 		g_Config.Save();
 		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 	}
-#elif defined(_WIN32)
+#elif defined(USING_WIN_UI)
 	MainWindow::BrowseAndBoot("");
 #endif
 	return UI::EVENT_DONE;

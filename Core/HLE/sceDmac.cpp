@@ -42,7 +42,7 @@ void __DmacDoState(PointerWrap &p) {
 
 int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
 #endif

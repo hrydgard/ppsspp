@@ -432,7 +432,7 @@ namespace SaveState
 
 	void Process()
 	{
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
 #endif

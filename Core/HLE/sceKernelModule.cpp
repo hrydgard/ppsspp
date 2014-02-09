@@ -857,7 +857,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
 		module->nm.data_size -= textSize;
 
-#if !defined(USING_GLES2)
+#if !defined(MOBILE_DEVICE)
 		bool gotSymbols = reader.LoadSymbols();
 		MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
 #else
@@ -1018,7 +1018,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (textSection == -1) {
 		u32 textStart = reader.GetVaddr();
 		u32 textEnd = firstImportStubAddr - 4;
-#if !defined(USING_GLES2)
+#if !defined(MOBILE_DEVICE)
 		bool gotSymbols = reader.LoadSymbols();
 		MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
 #else

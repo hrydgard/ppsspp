@@ -429,7 +429,7 @@ void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 }
 
 static DirectoryFileSystem *memstickSystem = NULL;
-#if (defined(_WIN32) && !defined(USING_QT_UI)) || defined(APPLE)
+#if defined(USING_WIN_UI) || defined(APPLE)
 static DirectoryFileSystem *flash0System = NULL;
 #else
 static VFSFileSystem *flash0System = NULL;
@@ -455,7 +455,7 @@ void __IoInit() {
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
 	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memCardDirectory);
-#if (defined(_WIN32) && !defined(USING_QT_UI)) || defined(APPLE)
+#if defined(USING_WIN_UI) || defined(APPLE)
 	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
 #else
 	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");

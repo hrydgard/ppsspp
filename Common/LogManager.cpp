@@ -94,7 +94,7 @@ LogManager::LogManager() {
 	}
 
 	// Remove file logging on small devices
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	fileLog_ = new FileLogListener("");
 	consoleLog_ = new ConsoleListener();
 	debuggerLog_ = new DebuggerLogListener();
@@ -106,7 +106,7 @@ LogManager::LogManager() {
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		log_[i]->SetEnable(true);
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		log_[i]->AddListener(fileLog_);
 		log_[i]->AddListener(consoleLog_);
 #ifdef _MSC_VER
@@ -119,7 +119,7 @@ LogManager::LogManager() {
 
 LogManager::~LogManager() {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		if (fileLog_ != NULL)
 			logManager_->RemoveListener((LogTypes::LOG_TYPE)i, fileLog_);
 		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, consoleLog_);
@@ -133,7 +133,7 @@ LogManager::~LogManager() {
 		delete log_[i];
 	if (fileLog_ != NULL)
 		delete fileLog_;
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	delete consoleLog_;
 	delete debuggerLog_;
 #endif

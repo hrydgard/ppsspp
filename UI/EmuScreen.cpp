@@ -129,7 +129,7 @@ void EmuScreen::bootComplete() {
 
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
@@ -181,7 +181,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 		host->BootDone();
 		host->UpdateDisassembly();
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 		if (g_Config.bAutoRun) {
 			Core_EnableStepping(false);
 		} else {
@@ -508,7 +508,7 @@ void EmuScreen::update(InputState &input) {
 
 	// Apply tilt to left stick
 	// TODO: Make into an axis
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 	/*
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// Get the "base" coordinate system which is setup by the calibration system

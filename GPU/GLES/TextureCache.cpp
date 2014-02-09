@@ -915,7 +915,7 @@ void TextureCache::SetTexture(bool force) {
 		// Validate the texture still matches the cache entry.
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		match &= host->GPUAllowTextureCache(texaddr);
 #endif
 
@@ -1542,7 +1542,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	int scaleFactor;
 	//Auto-texture scale upto 5x rendering resolution
 	if (g_Config.iTexScalingLevel == 0) {
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, g_Config.iInternalResolution);
 		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
 			scaleFactor = 2;
