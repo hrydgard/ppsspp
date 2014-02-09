@@ -25,6 +25,7 @@
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/TabDisplayLists.h"
 #include "Windows/GEDebugger/TabState.h"
+#include "Windows/GEDebugger/TabVertices.h"
 #include "Windows/InputBox.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/WndMainWindow.h"
@@ -102,6 +103,9 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	settings = new TabStateSettings(_hInstance, m_hDlg);
 	tabs->AddTabDialog(settings, L"Settings");
 
+	vertices = new TabVertices(_hInstance, m_hDlg);
+	tabs->AddTabDialog(vertices, L"Vertices");
+
 	lists = new TabDisplayLists(_hInstance, m_hDlg);
 	tabs->AddTabDialog(lists, L"Lists");
 
@@ -121,6 +125,7 @@ CGEDebugger::~CGEDebugger() {
 	delete lighting;
 	delete textureState;
 	delete settings;
+	delete vertices;
 	delete lists;
 	delete tabs;
 	delete fbTabs;
@@ -227,6 +232,7 @@ void CGEDebugger::UpdatePreviews() {
 	lighting->Update();
 	textureState->Update();
 	settings->Update();
+	vertices->Update();
 	lists->Update();
 }
 

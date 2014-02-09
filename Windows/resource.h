@@ -79,6 +79,7 @@
 #define IDD_TABDISPLAYLISTS             251
 #define IDD_GEDBG_TAB_VALUES            252
 #define IDD_DUMPMEMORY                  253
+#define IDD_GEDBG_TAB_VERTICES          254
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -156,6 +157,8 @@
 #define IDC_GEDBG_FRAMEBUFADDR          1191
 #define IDC_GEDBG_TEXADDR               1192
 #define IDC_GEDBG_FBTABS                1193
+#define IDC_GEDBG_VERTICES              1194
+#define IDC_GEDBG_RAWVERTS              1195
 
 #define ID_SHADERS_BASE  5000
 
@@ -312,9 +315,9 @@
 // Next default values for new objects
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        254
-#define _APS_NEXT_COMMAND_VALUE         40144
-#define _APS_NEXT_CONTROL_VALUE         1193
+#define _APS_NEXT_RESOURCE_VALUE        255
+#define _APS_NEXT_COMMAND_VALUE         40148
+#define _APS_NEXT_CONTROL_VALUE         1196
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

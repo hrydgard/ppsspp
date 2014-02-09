@@ -183,6 +183,7 @@ struct GPUDebugVertex {
 	float x;
 	float y;
 	float z;
+	u8 c[4];
 };
 
 class GPUDebugInterface {
