@@ -24,7 +24,12 @@
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
-const float FONT_SCALE = 0.65f;
+static const float FONT_SCALE = 0.65f;
+
+// These are rough, it seems to take a long time to init, and probably depends on threads.
+// TODO: This takes like 700ms on a PSP but that's annoyingly long.
+const static int MSG_INIT_DELAY_US = 300000;
+const static int MSG_SHUTDOWN_DELAY_US = 26000;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -35,11 +40,10 @@ PSPMsgDialog::PSPMsgDialog()
 PSPMsgDialog::~PSPMsgDialog() {
 }
 
-int PSPMsgDialog::Init(unsigned int paramAddr)
-{
+int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
-	{
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
 		return 0;
 	}
 
@@ -129,7 +133,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 		strncpy(msgText, messageDialog.string, 512);
 	}
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatusInit(MSG_INIT_DELAY_US);
 
 	UpdateButtons();
 	StartFade(true);
@@ -209,19 +213,14 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPMsgDialog::Update(int animSpeed)
-{
-	if (status != SCE_UTILITY_STATUS_RUNNING)
-	{
-		return 0;
+int PSPMsgDialog::Update(int animSpeed) {
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if ((flag & DS_ERROR))
-	{
-		status = SCE_UTILITY_STATUS_FINISHED;
-	}
-	else
-	{
+	if ((flag & DS_ERROR)) {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+	} else {
 		UpdateButtons();
 		UpdateFade(animSpeed);
 
@@ -286,20 +285,26 @@ int PSPMsgDialog::Update(int animSpeed)
 	return 0;
 }
 
-int PSPMsgDialog::Abort()
-{
-	//Fix Katekyoushi Hitman Reborn! Battle Arena
-	if (status != SCE_UTILITY_STATUS_RUNNING)
+int PSPMsgDialog::Abort() {
+	// Katekyoushi Hitman Reborn! Battle Arena expects this to fail when not running.
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	else {
-		status = SCE_UTILITY_STATUS_FINISHED;
+	} else {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 		return 0;
 	}
 }
 
-int PSPMsgDialog::Shutdown(bool force)
-{
-	return PSPDialog::Shutdown();
+int PSPMsgDialog::Shutdown(bool force) {
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(MSG_SHUTDOWN_DELAY_US);
+	}
+
+	return 0;
 }
 
 void PSPMsgDialog::DoState(PointerWrap &p)
