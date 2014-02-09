@@ -86,7 +86,11 @@ void PSPDialog::EndDraw()
 
 int PSPDialog::Shutdown(bool force)
 {
-	ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
+	if (force) {
+		ChangeStatus(SCE_UTILITY_STATUS_NONE, 0);
+	} else {
+		ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
+	}
 	return 0;
 }
 

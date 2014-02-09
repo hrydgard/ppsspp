@@ -1005,8 +1005,10 @@ int PSPSaveDialog::Shutdown(bool force)
 	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	PSPDialog::Shutdown();
-	ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
+	}
 	param.SetPspParam(0);
 
 	return 0;
