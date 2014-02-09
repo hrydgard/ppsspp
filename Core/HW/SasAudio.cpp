@@ -367,7 +367,8 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				// NOTICE_LOG(SCESAS, "Hit end of VAG audio");
 				playing = false;
 				on = false;  // ??
-				envelope.KeyOff();
+				// TODO: Should this remain on somehow or just hit rock bottom immediately?
+				envelope.End();
 			}
 		}
 		break;
@@ -396,7 +397,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				// Hit atrac3 voice end
 				playing = false;
 				on = false;  // ??
-				envelope.KeyOff();
+				envelope.End();
 			}
 		}
 		break;
@@ -878,6 +879,11 @@ void ADSREnvelope::KeyOff() {
 	// Does this really make sense? I don't think so, the release-decay should happen
 	// from whatever level we are at, although the weirdo exponentials we have start at a fixed state :(
 	height_ = sustainLevel;
+}
+
+void ADSREnvelope::End() {
+	SetState(STATE_OFF);
+	height_ = 0;
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
