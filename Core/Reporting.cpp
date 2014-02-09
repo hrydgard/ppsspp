@@ -22,6 +22,7 @@
 #include "Core/Config.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/ELF/ParamSFO.h"
@@ -269,6 +270,12 @@ namespace Reporting
 		// TODO: Numbers to avoid dependency on GLES code.
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
+
+		// Some users run the exe from a zip or something, and don't have fonts.
+		// This breaks things, but let's not report it since it's confusing.
+		if (!pspFileSystem.GetFileInfo("flash0:/font").exists)
+			return false;
+
 		return true;
 	}
 
