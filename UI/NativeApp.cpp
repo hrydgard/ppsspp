@@ -202,8 +202,9 @@ std::string NativeQueryConfig(std::string query) {
 	if (query == "screenRotation") {
 		char temp[128];
 		sprintf(temp, "%i", g_Config.iScreenRotation);
-		ILOG("Rotation queried: %s", temp);
 		return temp;
+	} else if (query == "immersiveMode") {
+		return g_Config.bImmersiveMode ? "1" : "0";
 	} else {
 		return "";
 	}
@@ -793,11 +794,14 @@ void NativeShutdown() {
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif
+
+	ILOG("NativeShutdown called");
+
+	System_SendMessage("finish", "");
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
 #ifdef ANDROID
-	ILOG("NativeShutdown called");
 	exit(0);
 #endif
 

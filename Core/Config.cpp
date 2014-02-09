@@ -257,6 +257,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	graphics->Get("PartialStretch", &bPartialStretch, partialStretchDefault);
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("SmallDisplay", &bSmallDisplay, false);
+	graphics->Get("ImmersiveMode", &bImmersiveMode, false);
 
 	graphics->Get("TrueColor", &bTrueColor, true);
 
@@ -571,6 +572,7 @@ void Config::Save() {
 		graphics->Set("PartialStretch", bPartialStretch);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("SmallDisplay", bSmallDisplay);
+		graphics->Set("ImmersiveMode", bImmersiveMode);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);

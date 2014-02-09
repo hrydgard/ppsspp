@@ -101,6 +101,7 @@ public:
 	bool bPartialStretch;
 	bool bStretchToDisplay;
 	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
+	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bVSync;
 	int iFrameSkip;
 	bool bAutoFrameSkip;

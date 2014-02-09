@@ -943,7 +943,6 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	System_SendMessage("event", "exitprogram");
 	NativeShutdown();
-	exit(0);
 	return UI::EVENT_DONE;
 }
 
