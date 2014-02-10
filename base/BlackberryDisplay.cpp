@@ -135,8 +135,6 @@ void BlackberryMain::switchDisplay(int idx) {
 	if (emulating) {
 		PSP_CoreParameter().pixelWidth   = pixel_xres;
 		PSP_CoreParameter().pixelHeight  = pixel_yres;
-		PSP_CoreParameter().outputWidth  = dp_xres;
-		PSP_CoreParameter().outputHeight = dp_yres;
 	}
 }
 

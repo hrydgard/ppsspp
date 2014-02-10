@@ -563,7 +563,9 @@ int main(int argc, char *argv[]) {
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
+
 	NativeInitGraphics();
+	NativeResized();
 
 	SDL_AudioSpec fmt;
 	fmt.freq = 44100;
