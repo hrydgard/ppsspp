@@ -122,8 +122,8 @@ private:
 
 //initializes the layout from Config. if a default layout does not exist,
 //it sets up default values
-void InitPadLayout(float globalScale = 1.15f);
-UI::ViewGroup *CreatePadLayout(bool *pause);
+void InitPadLayout(float xres, float yres, float globalScale = 1.15f);
+UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause);
 
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;

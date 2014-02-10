@@ -453,8 +453,9 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 }
 
 void EmuScreen::CreateViews() {
-	InitPadLayout();
-	root_ = CreatePadLayout(&pauseTrigger_);
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
+	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}

@@ -624,6 +624,7 @@ void NativeRender() {
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+
 	glsl_bind(UIShader_Get());
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
@@ -782,7 +783,9 @@ void NativeMessageReceived(const char *message, const char *value) {
 }
 
 void NativeResized() {
-	uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+	if (uiContext) {
+		uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+	}
 }
 
 void NativeShutdown() {

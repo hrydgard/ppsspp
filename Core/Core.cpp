@@ -122,7 +122,6 @@ void UpdateScreenScale(int width, int height) {
 }
 
 static inline void UpdateRunLoop() {
-	UpdateScreenScale(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	{
 		{
 #ifdef _WIN32

@@ -17,7 +17,6 @@
 
 #include <vector>
 
-#include "base/display.h"
 #include "base/colorutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
@@ -32,6 +31,10 @@
 
 static const int leftColumnWidth = 140;
 
+// Ugly hackery, need to rework some stuff to get around this
+static float local_dp_xres;
+static float local_dp_yres;
+
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
 }
@@ -39,7 +42,7 @@ static u32 GetButtonColor() {
 class DragDropButton : public MultiTouchButton {
 public:
 	DragDropButton(float &x, float &y, int bgImg, int img, float &scale)
-	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y*dp_yres, UI::NONE, UI::NONE, true)),
+	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y*local_dp_yres, UI::NONE, UI::NONE, true)),
 		x_(x), y_(y), theScale_(scale) {
 		scale_ = theScale_;
 	}
@@ -52,7 +55,7 @@ public:
 
 	virtual void SavePosition() {
 		x_ = toFullscreenCoord(bounds_.centerX());
-		y_ = bounds_.centerY() / dp_yres;
+		y_ = bounds_.centerY() / local_dp_yres;
 		scale_ = theScale_;
 	}
 
@@ -65,12 +68,12 @@ public:
 private:
 	// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
 	inline float toFullscreenCoord(int screenx) {
-		return  (float)(screenx - leftColumnWidth) / (dp_xres - leftColumnWidth);
+		return  (float)(screenx - leftColumnWidth) / (local_dp_xres - leftColumnWidth);
 	}
 
 	// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftColumnWidth to dp_xres)
 	inline int fromFullscreenCoord(float controllerX) {
-		return leftColumnWidth + (dp_xres - leftColumnWidth) * controllerX;
+		return leftColumnWidth + (local_dp_xres - leftColumnWidth) * controllerX;
 	};
 
 	float &x_, &y_;
@@ -218,15 +221,17 @@ void TouchControlLayoutScreen::touch(const TouchInput &touch) {
 
 	int mode = mode_->GetSelection();
 
+	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
+
 	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != 0) {
 		if (mode == 0) {
 			const Bounds &bounds = pickedControl_->GetBounds();
 
 			int mintouchX = leftColumnWidth + bounds.w * 0.5;
-			int maxTouchX = dp_xres - bounds.w * 0.5;
+			int maxTouchX = screen_bounds.w - bounds.w * 0.5;
 
 			int minTouchY = bounds.h * 0.5;
-			int maxTouchY = dp_yres - bounds.h * 0.5;
+			int maxTouchY = screen_bounds.h - bounds.h * 0.5;
 
 			int newX = bounds.centerX(), newY = bounds.centerY();
 
@@ -284,7 +289,8 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	ILOG("Resetting touch control layout");
 	g_Config.ResetControlLayout();
-	InitPadLayout();
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
 	RecreateViews();
 	return UI::EVENT_DONE;
 };
@@ -295,7 +301,11 @@ void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult
 
 void TouchControlLayoutScreen::CreateViews() {
 	// setup g_Config for button layout
-	InitPadLayout();
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
+
+	local_dp_xres = bounds.w;
+	local_dp_yres = bounds.h;
 
 	using namespace UI;
 
