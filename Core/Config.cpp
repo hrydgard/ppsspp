@@ -182,8 +182,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
-	for (auto it : pinnedPaths) {
-		vPinnedPaths.push_back(it.second);
+	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
+		vPinnedPaths.push_back(it->second);
 	}
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
