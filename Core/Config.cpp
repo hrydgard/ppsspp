@@ -23,6 +23,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"
 #include "util/text/parsers.h"
+#include "net/url.h"
 
 #include "Common/CPUDetect.h"
 #include "Common/KeyMap.h"
@@ -164,6 +165,25 @@ struct ConfigSetting {
 			return section->Set(ini_, *(float *)ptr_);
 		case TYPE_STRING:
 			return section->Set(ini_, *(std::string *)ptr_);
+		default:
+			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			return;
+		}
+	}
+
+	void Report(UrlEncoder &data, const std::string &prefix) {
+		if (!report_)
+			return;
+
+		switch (type_) {
+		case TYPE_BOOL:
+			return data.Add(prefix + ini_, *(bool *)ptr_);
+		case TYPE_INT:
+			return data.Add(prefix + ini_, *(int *)ptr_);
+		case TYPE_FLOAT:
+			return data.Add(prefix + ini_, *(float *)ptr_);
+		case TYPE_STRING:
+			return data.Add(prefix + ini_, *(std::string *)ptr_);
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return;
@@ -936,4 +956,13 @@ void Config::ResetControlLayout() {
 	g_Config.fAnalogStickX = -1.0;
 	g_Config.fAnalogStickY = -1.0;
 	g_Config.fAnalogStickScale = defaultControlScale;
+}
+
+void Config::GetReportingInfo(UrlEncoder &data) {
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		const std::string prefix = std::string("config.") + sections[i].section;
+		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+			setting->Report(data, prefix);
+		}
+	}
 }
