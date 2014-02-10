@@ -340,7 +340,6 @@ namespace MainWindow
 		ResizeDisplay(showOSM, true);
 
 		ShowOwnedPopups(hwndMain, FALSE);
-		UpdateScreenScale(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	}
 
 	RECT DetermineWindowRectangle() {
