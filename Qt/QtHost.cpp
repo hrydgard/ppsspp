@@ -1,4 +1,5 @@
 // This file is Qt Desktop's equivalent of NativeApp.cpp
+// It's really quite nasty that this isn't shared with the other ports...
 
 #include <QFileInfo>
 #include <QDebug>
@@ -502,6 +503,10 @@ void NativeRender()
 
 	if (g_TakeScreenshot)
 		TakeScreenshot();
+}
+
+void NativeResized() {
+  // We may need to do something here at some point.
 }
 
 void NativeMessageReceived(const char *message, const char *value)
