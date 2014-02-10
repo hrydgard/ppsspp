@@ -58,9 +58,18 @@ struct UrlEncoder
 		Add(key, value ? "true" : "false");
 	}
 
+	virtual void Finish()
+	{
+	}
+
 	const std::string &ToString() const
 	{
 		return data;
+	}
+
+	virtual std::string GetMimeType() const
+	{
+		return "application/x-www-form-urlencoded";
 	}
 
 protected:
@@ -142,12 +151,12 @@ struct MultipartFormDataEncoder : UrlEncoder
 		data += "\r\n";
 	}
 
-	void Finish()
+	virtual void Finish()
 	{
 		data += "--" + boundary + "--";
 	}
 
-	std::string GetMimeType() const
+	virtual std::string GetMimeType() const
 	{
 		return "multipart/form-data; boundary=\"" + boundary + "\"";
 	}
