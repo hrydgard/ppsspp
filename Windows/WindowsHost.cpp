@@ -104,6 +104,7 @@ bool WindowsHost::InitGL(std::string *error_message)
 void WindowsHost::ShutdownGL()
 {
 	GL_Shutdown();
+	PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message)

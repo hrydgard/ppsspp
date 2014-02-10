@@ -139,7 +139,9 @@ static inline void UpdateRunLoop() {
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
 	}
-	NativeRender();
+	if (globalUIState != UISTATE_EXIT) {
+		NativeRender();
+	}
 }
 
 void Core_RunLoop() {

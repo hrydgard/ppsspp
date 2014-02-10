@@ -55,7 +55,7 @@ void EmuThread_Stop()
 	// Already stopped?
 	{
 		lock_guard guard(emuThreadLock);
-		if (emuThread == NULL)
+		if (emuThread == NULL || emuThreadReady == THREAD_END)
 			return;
 	}
 
