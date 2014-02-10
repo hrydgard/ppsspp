@@ -1338,7 +1338,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 
 	// This should really send it on to a FileSystem implementation instead.
 
-	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:"))
+	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:") || !strcmp(name, "memstick:"))
 	{
 		// MemorySticks Checks
 		switch (cmd) {
