@@ -46,20 +46,24 @@ extern bool iosCanUseJit;
 #endif
 
 struct ConfigSetting {
-	enum Type
-	{
+	enum Type {
 		TYPE_TERMINATOR,
 		TYPE_BOOL,
 		TYPE_INT,
 		TYPE_FLOAT,
 		TYPE_STRING,
 	};
-	union Value
-	{
+	union Value {
 		bool b;
 		int i;
 		float f;
 		const char *s;
+	};
+	union SettingPtr {
+		bool *b;
+		int *i;
+		float *f;
+		std::string *s;
 	};
 
 	typedef bool (*BoolDefaultCallback)();
@@ -67,57 +71,69 @@ struct ConfigSetting {
 	typedef float (*FloatDefaultCallback)();
 	typedef const char *(*StringDefaultCallback)();
 
+	union Callback {
+		BoolDefaultCallback b;
+		IntDefaultCallback i;
+		FloatDefaultCallback f;
+		StringDefaultCallback s;
+	};
+
 	ConfigSetting(bool v)
-		: ini_(""), type_(TYPE_TERMINATOR), report_(false), save_(false), cb_(NULL) {
-		ptr_ = NULL;
+		: ini_(""), type_(TYPE_TERMINATOR), report_(false), save_(false) {
+		ptr_.b = NULL;
+		cb_.b = NULL;
 	}
 
 	ConfigSetting(const char *ini, bool *v, bool def, bool save = true)
-		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save), cb_(NULL) {
-		ptr_ = (void *)v;
+		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save) {
+		ptr_.b = v;
+		cb_.b = NULL;
 		default_.b = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, int def, bool save = true)
-		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), cb_(NULL) {
-		ptr_ = (void *)v;
+		: ini_(ini), type_(TYPE_INT), report_(false), save_(save) {
+		ptr_.i = v;
+		cb_.i = NULL;
 		default_.i = def;
 	}
 
 	ConfigSetting(const char *ini, float *v, float def, bool save = true)
-		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save), cb_(NULL) {
-		ptr_ = (void *)v;
+		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save) {
+		ptr_.f = v;
+		cb_.f = NULL;
 		default_.f = def;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, const char *def, bool save = true)
-		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save), cb_(NULL) {
-		ptr_ = (void *)v;
+		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save) {
+		ptr_.s = v;
+		cb_.s = NULL;
 		default_.s = def;
 	}
 
 	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save = true)
 		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save) {
-		ptr_ = (void *)v;
-		cb_ = (void *)def;
+		ptr_.b = v;
+		cb_.b = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save = true)
 		: ini_(ini), type_(TYPE_INT), report_(false), save_(save) {
-		ptr_ = (void *)v;
-		cb_ = (void *)def;
+		ptr_ .i= v;
+		cb_.i = def;
 	}
 
 	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save = true)
 		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save) {
-		ptr_ = (void *)v;
-		cb_ = (void *)def;
+		ptr_.f = v;
+		cb_.f = def;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, bool save = true)
 		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save) {
-		ptr_ = (void *)v;
-		cb_ = (void *)def;
+		ptr_.s = v;
+		cb_.s = def;
 	}
 
 	bool HasMore() {
@@ -127,25 +143,25 @@ struct ConfigSetting {
 	bool Get(IniFile::Section *section) {
 		switch (type_) {
 		case TYPE_BOOL:
-			if (cb_) {
-				default_.b = ((BoolDefaultCallback)cb_)();
+			if (cb_.b) {
+				default_.b = cb_.b();
 			}
-			return section->Get(ini_, (bool *)ptr_, default_.b);
+			return section->Get(ini_, ptr_.b, default_.b);
 		case TYPE_INT:
-			if (cb_) {
-				default_.i = ((IntDefaultCallback)cb_)();
+			if (cb_.i) {
+				default_.i = cb_.i();
 			}
-			return section->Get(ini_, (int *)ptr_, default_.i);
+			return section->Get(ini_, ptr_.i, default_.i);
 		case TYPE_FLOAT:
-			if (cb_) {
-				default_.f = ((FloatDefaultCallback)cb_)();
+			if (cb_.f) {
+				default_.f = cb_.f();
 			}
-			return section->Get(ini_, (float *)ptr_, default_.f);
+			return section->Get(ini_, ptr_.f, default_.f);
 		case TYPE_STRING:
-			if (cb_) {
-				default_.s = ((StringDefaultCallback)cb_)();
+			if (cb_.s) {
+				default_.s = cb_.s();
 			}
-			return section->Get(ini_, (std::string *)ptr_, default_.s);
+			return section->Get(ini_, ptr_.s, default_.s);
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return false;
@@ -158,13 +174,13 @@ struct ConfigSetting {
 
 		switch (type_) {
 		case TYPE_BOOL:
-			return section->Set(ini_, *(bool *)ptr_);
+			return section->Set(ini_, *ptr_.b);
 		case TYPE_INT:
-			return section->Set(ini_, *(int *)ptr_);
+			return section->Set(ini_, *ptr_.i);
 		case TYPE_FLOAT:
-			return section->Set(ini_, *(float *)ptr_);
+			return section->Set(ini_, *ptr_.f);
 		case TYPE_STRING:
-			return section->Set(ini_, *(std::string *)ptr_);
+			return section->Set(ini_, *ptr_.s);
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return;
@@ -177,13 +193,13 @@ struct ConfigSetting {
 
 		switch (type_) {
 		case TYPE_BOOL:
-			return data.Add(prefix + ini_, *(bool *)ptr_);
+			return data.Add(prefix + ini_, *ptr_.b);
 		case TYPE_INT:
-			return data.Add(prefix + ini_, *(int *)ptr_);
+			return data.Add(prefix + ini_, *ptr_.i);
 		case TYPE_FLOAT:
-			return data.Add(prefix + ini_, *(float *)ptr_);
+			return data.Add(prefix + ini_, *ptr_.f);
 		case TYPE_STRING:
-			return data.Add(prefix + ini_, *(std::string *)ptr_);
+			return data.Add(prefix + ini_, *ptr_.s);
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return;
@@ -194,9 +210,9 @@ struct ConfigSetting {
 	Type type_;
 	bool report_;
 	bool save_;
-	void *ptr_;
+	SettingPtr ptr_;
 	Value default_;
-	void *cb_;
+	Callback cb_;
 };
 
 struct ReportedConfigSetting : public ConfigSetting {
