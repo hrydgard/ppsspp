@@ -112,6 +112,9 @@ public:
 	}
 	void DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);	// Always centers
 	void DrawTexRect(float x1, float y1, float x2, float y2, float u1, float v1, float u2, float v2, Color color);
+	void DrawTexRect(const Bounds &bounds, float u1, float v1, float u2, float v2, Color color) {
+		DrawTexRect(bounds.x, bounds.y, bounds.x2(), bounds.y2(), u1, v1, u2, v2, color);
+	}
 	// Results in 18 triangles. Kind of expensive for a button.
 	void DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
 	// This is only 6 triangles, much cheaper.
