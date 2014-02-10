@@ -942,7 +942,10 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	System_SendMessage("event", "exitprogram");
+#ifndef USING_WIN_UI
 	NativeShutdown();
+#endif
+	globalUIState = UISTATE_EXIT;
 	return UI::EVENT_DONE;
 }
 
