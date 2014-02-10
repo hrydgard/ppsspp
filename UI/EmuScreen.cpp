@@ -35,6 +35,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -202,6 +203,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
 		}
+		Reporting::UpdateConfig();
 		RecreateViews();
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();

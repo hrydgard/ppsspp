@@ -45,6 +45,8 @@ namespace http {
 	class Downloader;
 }
 
+struct UrlEncoder;
+
 struct Config {
 public:
 	Config();
@@ -316,6 +318,8 @@ public:
 	void DismissUpgrade();
 
 	void ResetControlLayout();
+
+	void GetReportingInfo(UrlEncoder &data);
 
 private:
 	std::string iniFilename_;

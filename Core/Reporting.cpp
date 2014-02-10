@@ -20,7 +20,9 @@
 #include "Common/CPUDetect.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/ELF/ParamSFO.h"
@@ -35,6 +37,7 @@
 #include "base/buffer.h"
 #include "thread/thread.h"
 
+#include <set>
 #include <stdlib.h>
 #include <cstdarg>
 
@@ -48,6 +51,10 @@ namespace Reporting
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
+	// Keeps track of report-only-once identifiers.
+	static std::set<std::string> logOnceUsed;
+	// Keeps track of whether a harmful setting was ever used.
+	static bool everUnsupported = false;
 
 	enum RequestType
 	{
@@ -189,26 +196,58 @@ namespace Reporting
 #endif
 	}
 
-	int Process(int pos)
+	void Init()
 	{
-		Payload &payload = payloadBuffer[pos];
+		// New game, clean slate.
+		spamProtectionCount = 0;
+		logOnceUsed.clear();
+		everUnsupported = false;
+	}
 
-		std::string gpuPrimary, gpuFull;
-		if (gpu)
-			gpu->GetReportingInfo(gpuPrimary, gpuFull);
+	void UpdateConfig()
+	{
+		if (!IsSupported())
+			everUnsupported = true;
+	}
 
-		UrlEncoder postdata;
-		postdata.Add("version", PPSSPP_GIT_VERSION);
+	bool ShouldLogOnce(const char *identifier)
+	{
+		// True if it wasn't there already -> so yes, log.
+		return logOnceUsed.insert(identifier).second;
+	}
+
+	void AddGameInfo(UrlEncoder &postdata)
+	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
 		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
+		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+	}
+
+	void AddSystemInfo(UrlEncoder &postdata)
+	{
+		std::string gpuPrimary, gpuFull;
+		if (gpu)
+			gpu->GetReportingInfo(gpuPrimary, gpuFull);
+		
+		postdata.Add("version", PPSSPP_GIT_VERSION);
 		postdata.Add("gpu", gpuPrimary);
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
-		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+	}
+
+	void AddConfigInfo(UrlEncoder &postdata)
+	{
 		postdata.Add("pixel_width", PSP_CoreParameter().pixelWidth);
 		postdata.Add("pixel_height", PSP_CoreParameter().pixelHeight);
+
+		g_Config.GetReportingInfo(postdata);
+	}
+
+	void AddGameplayInfo(UrlEncoder &postdata)
+	{
+		// Just to get an idea of how long they played.
 		postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4)
@@ -219,7 +258,18 @@ namespace Reporting
 			postdata.Add("fps", fps);
 		}
 
-		// TODO: Settings, savestate/savedata status, some measure of speed/fps?
+		postdata.Add("savestate_used", SaveState::HasLoadedState());
+	}
+
+	int Process(int pos)
+	{
+		Payload &payload = payloadBuffer[pos];
+
+		UrlEncoder postdata;
+		AddSystemInfo(postdata);
+		AddGameInfo(postdata);
+		AddConfigInfo(postdata);
+		AddGameplayInfo(postdata);
 
 		switch (payload.type)
 		{
@@ -239,15 +289,20 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		// TODO: Numbers to avoid dependency on GLES code.
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
+
+		// Some users run the exe from a zip or something, and don't have fonts.
+		// This breaks things, but let's not report it since it's confusing.
+		if (!pspFileSystem.GetFileInfo("flash0:/font").exists)
+			return false;
+
 		return true;
 	}
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !IsSupported())
+		if (g_Config.sReportHost.empty() || !IsSupported() || everUnsupported)
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)

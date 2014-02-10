@@ -394,6 +394,7 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
 	}
+	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 
@@ -404,41 +405,11 @@ UI::EventReturn GameSettingsScreen::OnShaderChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void DrawBackground(float alpha);
-
 UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 	if (gpu) {
 		gpu->DumpNextFrame();
 	}
 	return UI::EVENT_DONE;
-}
-
-void GameSettingsScreen::DrawBackground(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
-	dc.Flush();
-
-	dc.RebindTexture();
-	::DrawBackground(1.0f);
-	dc.Flush();
-
-	if (ginfo && ginfo->pic1Texture) {
-		ginfo->pic1Texture->Bind(0);
-		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
-		dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
-		dc.Flush();
-		dc.RebindTexture();
-	}
-	/*
-	if (ginfo && ginfo->pic0Texture) {
-		ginfo->pic0Texture->Bind(0);
-		// Pic0 is drawn in the bottom right corner, overlaying pic1.
-		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
-		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
-		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 2)) & 0xFFc0c0c0;
-		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,color);
-		ui_draw2d.Flush();
-		dc.RebindTexture();
-	}*/
 }
 
 void GameSettingsScreen::update(InputState &input) {
@@ -528,6 +499,7 @@ UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
 	}
+	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {

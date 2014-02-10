@@ -22,10 +22,10 @@
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class GameSettingsScreen : public UIDialogScreenWithBackground {
+class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(std::string gamePath, std::string gameID = "")
-		: gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
+		: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
 
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
@@ -34,12 +34,11 @@ public:
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
 
 private:
-	std::string gamePath_, gameID_;
+	std::string gameID_;
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;

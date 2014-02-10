@@ -30,6 +30,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
+#include "UI/GameInfoCache.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -99,6 +100,32 @@ void DrawBackground(float alpha) {
 	}
 }
 
+void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, true);
+	dc.Flush();
+
+	if (ginfo) {
+		bool hasPic = false;
+		if (ginfo->pic1Texture) {
+			ginfo->pic1Texture->Bind(0);
+			hasPic = true;
+		} else if (ginfo->pic0Texture) {
+			ginfo->pic0Texture->Bind(0);
+			hasPic = true;
+		}
+		if (hasPic) {
+			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+			dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1, color);
+			dc.Flush();
+			dc.RebindTexture();
+		} else {
+			::DrawBackground(1.0f);
+			dc.RebindTexture();
+			dc.Flush();
+		}
+	}
+}
+
 void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager) {
 	if (!strcmp(message, "clear jit")) {
 		if (MIPSComp::jit && PSP_IsInited()) {
@@ -110,6 +137,14 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
 	dc.Flush();
+}
+
+void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	DrawGameBackground(dc, gamePath_);
+}
+
+void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	DrawGameBackground(dc, gamePath_);
 }
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
