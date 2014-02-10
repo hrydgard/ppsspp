@@ -44,6 +44,7 @@
 #include "UI/CwCheatScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/ReportScreen.h"
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
@@ -1176,6 +1177,13 @@ void GamePauseScreen::CreateViews() {
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
+#if 0
+	// TODO, also might be nice to show overall compat rating here?
+	if (Reporting::IsEnabled()) {
+		I18NCategory *rp = GetI18NCategory("Reporting");
+		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
+	}
+#endif
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
@@ -1204,6 +1212,11 @@ void GamePauseScreen::onFinish(DialogResult result) {
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
+	screenManager()->push(new ReportScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

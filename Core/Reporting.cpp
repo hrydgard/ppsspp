@@ -140,7 +140,7 @@ namespace Reporting
 		return ++spamProtectionCount >= SPAM_LIMIT;
 	}
 
-	bool SendReportRequest(const char *uri, const std::string &data, Buffer *output = NULL)
+	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
 		bool result = false;
 		net::AutoInit netInit;
@@ -153,7 +153,7 @@ namespace Reporting
 		if (http.Resolve(ServerHostname(), ServerPort()))
 		{
 			http.Connect();
-			http.POST("/report/message", data, "application/x-www-form-urlencoded", output);
+			http.POST("/report/message", data, mimeType, output);
 			http.Disconnect();
 			result = true;
 		}
@@ -289,7 +289,7 @@ namespace Reporting
 	{
 		Payload &payload = payloadBuffer[pos];
 
-		UrlEncoder postdata;
+		MultipartFormDataEncoder postdata;
 		AddSystemInfo(postdata);
 		AddGameInfo(postdata);
 		AddConfigInfo(postdata);
@@ -303,7 +303,8 @@ namespace Reporting
 			payload.string1.clear();
 			payload.string2.clear();
 
-			SendReportRequest("/report/message", postdata.ToString());
+			postdata.Finish();
+			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType());
 			break;
 		}
 

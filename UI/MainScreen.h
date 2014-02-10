@@ -92,6 +92,7 @@ private:
 	UI::EventReturn OnMainSettings(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
+	UI::EventReturn OnReportFeedback(UI::EventParams &e);
 
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
