@@ -262,6 +262,11 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->audioFrameCount = 0;
 	ctx->endOfAudioReached = false;
 	ctx->endOfVideoReached = false;
+
+	// Sanity Check ctx->mpegFirstTimestamp
+	if (ctx->mpegFirstTimestamp != 90000) {
+		WARN_LOG_REPORT(ME, "Unexpected mpeg first timestamp: %llx / %lld", ctx->mpegFirstTimestamp, ctx->mpegFirstTimestamp);
+	}
 	
 	if (ctx->mpegMagic != PSMF_MAGIC || ctx->mpegVersion < 0 ||
 		(ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
