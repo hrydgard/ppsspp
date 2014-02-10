@@ -120,7 +120,7 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, int row, int col) {
 	}
 
 	if (!indices.empty()) {
-		if (row >= indices.size()) {
+		if (row >= (int)indices.size()) {
 			swprintf(dest, L"Invalid indice %d", row);
 			return;
 		}
@@ -130,7 +130,7 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, int row, int col) {
 	if (raw_) {
 		FormatVertColRaw(dest, row, col);
 	} else {
-		if (row >= vertices.size()) {
+		if (row >= (int)vertices.size()) {
 			swprintf(dest, L"Invalid vertex %d", row);
 			return;
 		}
