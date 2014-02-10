@@ -326,7 +326,6 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		// TODO: Numbers to avoid dependency on GLES code.
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
 
