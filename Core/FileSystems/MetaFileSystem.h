@@ -79,6 +79,8 @@ public:
 		return false;
 	}
 
+	std::string NormalizePrefix(std::string prefix) const;
+
 	// Only possible if a file system is a DirectoryFileSystem or similar.
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	
