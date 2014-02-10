@@ -4,6 +4,8 @@
 const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
 const char *UrlEncoder::hexChars = "0123456789ABCDEF";
 
+int MultipartFormDataEncoder::seq = 0;
+
 void Url::Split() {
 	size_t colonSlashSlash = url_.find("://");
 	if (colonSlashSlash == std::string::npos) {
