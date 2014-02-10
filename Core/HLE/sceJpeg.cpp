@@ -63,12 +63,6 @@ u32 convertYCbCrToABGR (int y, int cb, int cr) {
 	return 0xFF000000 | (b << 16) | (g << 8) | (r << 0);
 }
 
-int sceJpegDecompressAllImage()
-{
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecompressAllImage()");
-	return 0;
-}
-
 void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {	
 	int height = widthHeight & 0xFFF;
 	int width = (widthHeight >> 16) & 0xFFF;
@@ -110,13 +104,14 @@ void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
 int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth)
 {
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
+	
 	DEBUG_LOG(ME, "sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	return 0;
 }
 
 int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	DEBUG_LOG(ME, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return 0;
 }
 
@@ -128,7 +123,7 @@ int sceJpegDeleteMJpeg()
 
 int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	DEBUG_LOG(ME, "UNIMPL sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return 0;
 }
 
@@ -140,6 +135,7 @@ int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, i
 	}
 
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
+	
 	DEBUG_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
 }
@@ -199,13 +195,12 @@ int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 }
 int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
-
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
 		return getYCbCrBufferSize(0, 0);
 	}
 
+	DEBUG_LOG(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
 	return __JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
 }
 
@@ -291,41 +286,39 @@ int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
 
 int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
 {
-	WARN_LOG_REPORT(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
-
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCr: Bad JPEG address 0x%08x", jpegAddr);
 		return getWidthHeight(0, 0);
 	}
-
+	
+	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
 
 int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
-
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively: Bad JPEG address 0x%08x", jpegAddr);
 		return getWidthHeight(0, 0);
 	}
+	
+	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	// Do as same way as sceJpegDecodeMJpegYCbCr() but with smaller block size
 	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
 
 int sceJpeg_9B36444C()
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpeg_9B36444C()");
+	DEBUG_LOG(ME, "UNIMPL sceJpeg_9B36444C()");
 	return 0;
 }
 
 int sceJpegCreateMJpeg(int width, int height)
 {
-	DEBUG_LOG(ME, "sceJpegCreateMJpeg(%i, %i)", width, height);
-
 	mjpegWidth = width;
 	mjpegHeight = height;
 
+	DEBUG_LOG(ME, "sceJpegCreateMJpeg(%i, %i)", width, height);
 	return 0;
 }
 
@@ -337,10 +330,15 @@ int sceJpegInitMJpeg()
 
 int sceJpegMJpegCscWithColorOption()
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
+	DEBUG_LOG(ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
 	return 0;
 }
 
+int sceJpegDecompressAllImage()
+{
+	DEBUG_LOG(ME, "UNIMPL sceJpegDecompressAllImage()");
+	return 0;
+}
 
 const HLEFunction sceJpeg[] =
 {
