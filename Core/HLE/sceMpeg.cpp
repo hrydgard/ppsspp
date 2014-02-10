@@ -965,6 +965,12 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	hleEatCycles(2020);
 	static int lastFree = 0;
 	if (lastFree != ringbuffer->packetsFree) {
+		// Fix PacMan World 3 's video
+		if (ringbuffer->packetsFree >= 1020 && ringbuffer->packetsFree < 1024 && ringbuffer->packets == 1024)
+		{
+			WARN_LOG(ME, "Clamp the packetsFree to 1024");
+			ringbuffer->packetsFree = 1024;
+		}
 		DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
 		lastFree = ringbuffer->packetsFree;
 	} else {
