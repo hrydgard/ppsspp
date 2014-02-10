@@ -7,11 +7,11 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
+#include "base/display.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
-#include "base/display.h"
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
@@ -339,7 +339,7 @@ void MainWindow::fullscrAct()
 
 		showNormal();
 		SetZoom(g_Config.iInternalResolution);
-		InitPadLayout();
+		InitPadLayout(dp_xres, dp_yres);
 		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
@@ -355,7 +355,7 @@ void MainWindow::fullscrAct()
 
 		if (gpu)
 			gpu->Resized();
-		InitPadLayout();
+		InitPadLayout(dp_xres, dp_yres);
 		if (globalUIState == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
