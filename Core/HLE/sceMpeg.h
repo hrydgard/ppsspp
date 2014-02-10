@@ -45,6 +45,8 @@ enum {
 
 	ERROR_MPEG_AVC_INVALID_VALUE                        = 0x806201fe,
 	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
+	
+	ERROR_JPEG_INVALID_VALUE                            = 0x80650051,
 };
 
 // MPEG statics.
