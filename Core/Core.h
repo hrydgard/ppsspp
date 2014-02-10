@@ -41,4 +41,4 @@ bool Core_IsInactive();
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
 
-void UpdateScreenScale();
+void UpdateScreenScale(int width, int height);

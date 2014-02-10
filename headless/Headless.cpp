@@ -68,6 +68,7 @@ struct InputState;
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
+void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 void System_SendMessage(const char *command, const char *parameter) {}

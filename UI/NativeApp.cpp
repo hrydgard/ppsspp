@@ -496,7 +496,7 @@ void NativeInitGraphics() {
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
-	uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+
 	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -618,8 +618,9 @@ void NativeRender() {
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.Restore();
 
-	float xres = uiContext->GetBounds().w;
-	float yres = uiContext->GetBounds().h;
+	float xres = dp_xres;
+	float yres = dp_yres;
+
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);

@@ -87,7 +87,6 @@ unsigned int WINAPI TheThread(void *)
 	// Native overwrites host. Can't allow that.
 
 	Host *oldHost = host;
-	UpdateScreenScale();
 
 	NativeInit(__argc, (const char **)__argv, "1234", "1234", "1234");
 	Host *nativeHost = host;
@@ -116,6 +115,7 @@ unsigned int WINAPI TheThread(void *)
 	}
 
 	NativeInitGraphics();
+	NativeResized();
 
 	INFO_LOG(BOOT, "Done.");
 	_dbg_update_();
