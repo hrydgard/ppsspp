@@ -33,6 +33,7 @@
 #include "ext/jpge/jpge.h"
 #endif
 
+#include "base/display.h"
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "base/NativeApp.h"
@@ -495,6 +496,7 @@ void NativeInitGraphics() {
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
+	uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
 	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -577,7 +579,7 @@ void TakeScreenshot() {
 #endif
 }
 
-void DrawDownloadsOverlay(UIContext &ctx) {
+void DrawDownloadsOverlay(UIContext &dc) {
 	// Thin bar at the top of the screen like Chrome.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (progress.empty()) {
@@ -591,16 +593,16 @@ void DrawDownloadsOverlay(UIContext &ctx) {
 		0xFF777777,
 	};
 
-	ctx.Begin();
+	dc.Begin();
 	int h = 5;
 	for (size_t i = 0; i < progress.size(); i++) {
-		float barWidth = 10 + (dp_xres - 10) * progress[i];
+		float barWidth = 10 + (dc.GetBounds().w - 10) * progress[i];
 		Bounds bounds(0, h * i, barWidth, h);
 		UI::Drawable solid(colors[i & 3]);
-		ctx.FillRect(solid, bounds);
+		dc.FillRect(solid, bounds);
 	}
-	ctx.End();
-	ctx.Flush();
+	dc.End();
+	dc.Flush();
 }
 
 void NativeRender() {
@@ -616,8 +618,11 @@ void NativeRender() {
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.Restore();
 
+	float xres = uiContext->GetBounds().w;
+	float yres = uiContext->GetBounds().h;
+	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
+	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 	glsl_bind(UIShader_Get());
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
@@ -776,6 +781,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 }
 
 void NativeResized() {
+	uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
 }
 
 void NativeShutdown() {

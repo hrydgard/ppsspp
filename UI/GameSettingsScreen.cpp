@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"

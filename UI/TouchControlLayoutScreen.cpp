@@ -17,32 +17,24 @@
 
 #include <vector>
 
+#include "base/display.h"
+#include "base/colorutil.h"
+#include "gfx_es2/draw_buffer.h"
+#include "i18n/i18n.h"
+#include "ui/ui_context.h"
+#include "ui_atlas.h"
+
 #include "TouchControlLayoutScreen.h"
 #include "TouchControlVisibilityScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "base/colorutil.h"
-#include "ui/ui_context.h"
-#include "ui_atlas.h"
-#include "gfx_es2/draw_buffer.h"
 #include "GamepadEmu.h"
-#include "i18n/i18n.h"
 
 static const int leftColumnWidth = 140;
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
 }
-
-// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
-static inline float toFullscreenCoord(int screenx) {
-	return  (float)(screenx - leftColumnWidth) / (dp_xres - leftColumnWidth);
-}
-
-// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftColumnWidth to dp_xres)
-static inline int fromFullscreenCoord(float controllerX) {
-	return leftColumnWidth + (dp_xres - leftColumnWidth) * controllerX;
-};
 
 class DragDropButton : public MultiTouchButton {
 public:
@@ -71,6 +63,16 @@ public:
 	virtual void SetSpacing(float s) { }
 
 private:
+	// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
+	inline float toFullscreenCoord(int screenx) {
+		return  (float)(screenx - leftColumnWidth) / (dp_xres - leftColumnWidth);
+	}
+
+	// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftColumnWidth to dp_xres)
+	inline int fromFullscreenCoord(float controllerX) {
+		return leftColumnWidth + (dp_xres - leftColumnWidth) * controllerX;
+	};
+
 	float &x_, &y_;
 	float &theScale_;
 };

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "GamepadEmu.h"
+#include "base/display.h"
 #include "base/colorutil.h"
 #include "base/NativeApp.h"
 #include "math/math_util.h"

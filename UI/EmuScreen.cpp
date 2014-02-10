@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "android/app-android.h"
+#include "base/display.h"
 #include "base/logging.h"
 
 #include "gfx_es2/glsl_program.h"
@@ -92,9 +93,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+
 	if (g_Config.iInternalResolution == 0) {
-		coreParam.renderWidth = dp_xres;
-		coreParam.renderHeight = dp_yres;
+		coreParam.renderWidth = bounds.w;
+		coreParam.renderHeight = bounds.h;
 	} else {
 		if (g_Config.iInternalResolution < 0)
 			g_Config.iInternalResolution = 1;
@@ -102,8 +105,10 @@ void EmuScreen::bootGame(const std::string &filename) {
 		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
 	}
 
-	coreParam.pixelWidth = pixel_xres;
-	coreParam.pixelHeight = pixel_yres;
+	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
+	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
+	coreParam.pixelWidth = pixel_xres * bounds.w / dp_xres;
+	coreParam.pixelHeight = pixel_yres * bounds.h / dp_yres;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
@@ -613,7 +618,7 @@ void EmuScreen::render() {
 	}
 
 	if (!osm.IsEmpty()) {
-		osm.Draw(ui_draw2d);
+		osm.Draw(ui_draw2d, screenManager()->getUIContext()->GetBounds());
 	}
 
 	if (g_Config.bShowDebugStats) {
@@ -642,9 +647,11 @@ void EmuScreen::render() {
 		default:
 			return;
 		}
+
+		float xres = screenManager()->getUIContext()->GetBounds().w;
 		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 

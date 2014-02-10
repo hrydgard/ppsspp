@@ -1,6 +1,5 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include "base/display.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "base/mutex.h"
@@ -60,7 +59,6 @@ void EmuThread_Stop()
 	}
 
 	globalUIState = UISTATE_EXIT;
-//	DSound_UpdateSound();
 	Core_Stop();
 	Core_WaitInactive(800);
 	if (WAIT_TIMEOUT == WaitForSingleObject(emuThread, 800))
