@@ -147,6 +147,18 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32 color, int alig
 	RectVGradient(x, y, w, h, color, color);
 }
 
+void DrawBuffer::hLine(float x1, float y, float x2, uint32 color) {
+	Rect(x1, y, x2 - x1, pixel_in_dps, color);
+}
+
+void DrawBuffer::vLine(float x, float y1, float y2, uint32 color) {
+	Rect(x, y1, pixel_in_dps, y2 - y1, color);
+}
+
+void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32 color) {
+	Rect(x, y1, pixel_in_dps, y2 - y1, (color | 0xFF000000) & 0x7F000000);
+}
+
 void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom) {
 	V(x,		 y,     0, colorTop,    0, 0);
 	V(x + w, y,		 0, colorTop,    1, 0);
@@ -154,6 +166,14 @@ void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32 colorT
 	V(x,		 y,     0, colorTop,    0, 0);
 	V(x + w, y + h, 0, colorBottom, 1, 1);
 	V(x,		 y + h, 0, colorBottom, 0, 1);
+}
+
+void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32 color, int align) {
+	hLine(x, y, x + w + pixel_in_dps, color);
+	hLine(x, y + h, x + w + pixel_in_dps, color);
+
+	vLine(x, y, y + h + pixel_in_dps, color);
+	vLine(x + w, y, y + h + pixel_in_dps, color);
 }
 
 void DrawBuffer::MultiVGradient(float x, float y, float w, float h, GradientStop *stops, int numStops) {

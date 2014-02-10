@@ -4,7 +4,6 @@
 
 #include "base/basictypes.h"
 #include "base/color.h"
-#include "base/display.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture_atlas.h"
 #include "math/geom2d.h"
@@ -73,17 +72,11 @@ public:
 	void Flush(bool set_blend_state=true);
 
 	void Rect(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
-	void hLine(float x1, float y, float x2, uint32 color) { Rect(x1, y, x2 - x1, pixel_in_dps, color); }
-	void vLine(float x, float y1, float y2, uint32 color) { Rect(x, y1, pixel_in_dps, y2 - y1, color); }
-	void vLineAlpha50(float x, float y1, float y2, uint32 color) { Rect(x, y1, pixel_in_dps, y2 - y1, (color | 0xFF000000) & 0x7F000000); }
+	void hLine(float x1, float y, float x2, uint32 color);
+	void vLine(float x, float y1, float y2, uint32 color);
+	void vLineAlpha50(float x, float y1, float y2, uint32 color);
 
-	void RectOutline(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT) {
-		hLine(x, y, x + w + pixel_in_dps, color);
-		hLine(x, y + h, x + w + pixel_in_dps, color);
-
-		vLine(x, y, y + h + pixel_in_dps, color);
-		vLine(x + w, y, y + h + pixel_in_dps, color);
-	}
+	void RectOutline(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
 	
 	void RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom);
 	void RectVDarkFaded(float x, float y, float w, float h, uint32 colorTop) {

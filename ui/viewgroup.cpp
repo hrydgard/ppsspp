@@ -1,6 +1,5 @@
 #include <set>
 
-#include "base/display.h"
 #include "base/functional.h"
 #include "base/logging.h"
 #include "base/mutex.h"
@@ -105,7 +104,7 @@ void ViewGroup::Axis(const AxisInput &input) {
 void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.
-		dc.FillRect(UI::Drawable(0x60000000), Bounds(0,0,dp_xres, dp_yres));
+		dc.FillRect(UI::Drawable(0x60000000), dc.GetBounds());
 		float dropsize = 30;
 		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid,
 			bounds_.x - dropsize, bounds_.y,
@@ -1072,11 +1071,7 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 		ELOG("Tried to layout a view hierarchy from a zero pointer root");
 		return;
 	}
-	Bounds rootBounds;
-	rootBounds.x = 0;
-	rootBounds.y = 0;
-	rootBounds.w = dp_xres;
-	rootBounds.h = dp_yres;
+	const Bounds &rootBounds = dc.GetBounds();
 
 	MeasureSpec horiz(EXACTLY, rootBounds.w);
 	MeasureSpec vert(EXACTLY, rootBounds.h);

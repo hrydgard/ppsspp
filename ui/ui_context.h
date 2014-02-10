@@ -59,7 +59,13 @@ public:
 	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 
+	// in dps, like dp_xres and dp_yres
+	void SetBounds(const Bounds &b) { bounds_ = b; }
+	const Bounds &GetBounds() const { return bounds_; }
+
 private:
+	Bounds bounds_;
+
 	float fontScaleX_;
 	float fontScaleY_;
 	UI::FontStyle *fontStyle_;

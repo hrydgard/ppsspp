@@ -1,3 +1,4 @@
+#include "base/display.h"
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
@@ -12,6 +13,7 @@ UIContext::UIContext()
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 	fontStyle_ = new UI::FontStyle();
+	bounds_ = Bounds(0, 0, dp_xres, dp_yres);
 }
 
 UIContext::~UIContext() {
@@ -107,7 +109,7 @@ Bounds UIContext::GetScissorBounds() {
 	if (!scissorStack_.empty())
 		return scissorStack_.back();
 	else
-		return Bounds(0, 0, dp_xres, dp_yres);
+		return bounds_;
 }
 
 void UIContext::ActivateTopScissor() {
@@ -119,7 +121,7 @@ void UIContext::ActivateTopScissor() {
 		int w = scale * bounds.w;
 		int h = scale * bounds.h;
 
-		glstate.scissorRect.set(x,y,w,h);
+		glstate.scissorRect.set(x, y, w, h);
 		glstate.scissorTest.enable();
 	} else {
 		glstate.scissorTest.disable();

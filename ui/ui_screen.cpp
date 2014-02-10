@@ -143,10 +143,14 @@ void PopupScreen::touch(const TouchInput &touch) {
 void PopupScreen::CreateViews() {
 	using namespace UI;
 
+	UIContext &dc = *screenManager()->getUIContext();
+
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
+	float yres = screenManager()->getUIContext()->GetBounds().h;
+
 	box_ = new LinearLayout(ORIENT_VERTICAL,
-		new AnchorLayoutParams(550, FillVertical() ? dp_yres - 30 : WRAP_CONTENT, dp_xres / 2, dp_yres / 2, NONE, NONE, true));
+		new AnchorLayoutParams(550, FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY(), NONE, NONE, true));
 
 	root_->Add(box_);
 	box_->SetBG(UI::Drawable(0xFF303030));
@@ -198,7 +202,7 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	listView_ = parent->Add(new ListView(&adaptor_)); //, new LinearLayoutParams(1.0)));
-	listView_->SetMaxHeight(dp_yres - 140);
+	listView_->SetMaxHeight(screenManager()->getUIContext()->GetBounds().h - 140);
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }
 
