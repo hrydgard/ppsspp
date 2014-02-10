@@ -102,8 +102,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
 	}
 
-	coreParam.outputWidth = dp_xres;
-	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
 
@@ -474,8 +472,6 @@ void EmuScreen::update(InputState &input) {
 	UIScreen::update(input);
 
 	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
-	PSP_CoreParameter().outputWidth = dp_xres;
-	PSP_CoreParameter().outputHeight = dp_yres;
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 

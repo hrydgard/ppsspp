@@ -1526,8 +1526,6 @@ void FramebufferManager::EndFrame() {
 
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
-		PSP_CoreParameter().outputWidth = 480 * zoom;
-		PSP_CoreParameter().outputHeight = 272 * zoom;
 		resized_ = false;
 	}
 

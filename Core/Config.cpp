@@ -697,22 +697,25 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	// MIGRATION: For users who had the old static touch layout, aren't I nice?
 	if (fDpadX > 1.0 || fDpadY > 1.0) { // Likely the rest are too!
-		fActionButtonCenterX /= dp_xres;
-		fActionButtonCenterY /= dp_yres;
-		fDpadX /= dp_xres;
-		fDpadY /= dp_yres;
-		fStartKeyX /= dp_xres;
-		fStartKeyY /= dp_yres;
-		fSelectKeyX /= dp_xres;
-		fSelectKeyY /= dp_yres;
-		fUnthrottleKeyX /= dp_xres;
-		fUnthrottleKeyY /= dp_yres;
-		fLKeyX /= dp_xres;
-		fLKeyY /= dp_yres;
-		fRKeyX /= dp_xres;
-		fRKeyY /= dp_yres;
-		fAnalogStickX /= dp_xres;
-		fAnalogStickY /= dp_yres;
+		float screen_width = dp_xres;
+		float screen_height = dp_yres;
+
+		fActionButtonCenterX /= screen_width;
+		fActionButtonCenterY /= screen_height;
+		fDpadX /= screen_width;
+		fDpadY /= screen_height;
+		fStartKeyX /= screen_width;
+		fStartKeyY /= screen_height;
+		fSelectKeyX /= screen_width;
+		fSelectKeyY /= screen_height;
+		fUnthrottleKeyX /= screen_width;
+		fUnthrottleKeyY /= screen_height;
+		fLKeyX /= screen_width;
+		fLKeyY /= screen_height;
+		fRKeyX /= screen_width;
+		fRKeyY /= screen_height;
+		fAnalogStickX /= screen_width;
+		fAnalogStickY /= screen_height;
 	}
 	
 	if (dismissedVersion == upgradeVersion) {

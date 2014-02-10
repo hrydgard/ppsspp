@@ -311,8 +311,6 @@ int main(int argc, const char* argv[])
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
-	coreParameter.outputWidth = 480;
-	coreParameter.outputHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
 	coreParameter.unthrottle = true;
