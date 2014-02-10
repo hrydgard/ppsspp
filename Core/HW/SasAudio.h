@@ -168,7 +168,6 @@ private:
 	// No need to save in state
 	int rate_;
 	int type_;
-	float invDuration_;
 
 	enum ADSRState {
 		STATE_ATTACK,
@@ -180,7 +179,6 @@ private:
 	void SetState(ADSRState state);
 
 	ADSRState state_;
-	int steps_;
 	s64 height_;  // s64 to avoid having to care about overflow when calculating. TODO: this should be fine as s32
 };
 

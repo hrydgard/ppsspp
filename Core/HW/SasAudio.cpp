@@ -668,86 +668,6 @@ void SasVoice::DoState(PointerWrap &p)
 	atrac3.DoState(p);
 }
 
-// This is horribly stolen from JPCSP.
-// Need to find a real solution.
-static const short expCurve[] = {
-	0x0000, 0x0380, 0x06E4, 0x0A2D, 0x0D5B, 0x1072, 0x136F, 0x1653,
-	0x1921, 0x1BD9, 0x1E7B, 0x2106, 0x237F, 0x25E4, 0x2835, 0x2A73,
-	0x2CA0, 0x2EBB, 0x30C6, 0x32C0, 0x34AB, 0x3686, 0x3852, 0x3A10,
-	0x3BC0, 0x3D63, 0x3EF7, 0x4081, 0x41FC, 0x436E, 0x44D3, 0x462B,
-	0x477B, 0x48BF, 0x49FA, 0x4B2B, 0x4C51, 0x4D70, 0x4E84, 0x4F90,
-	0x5095, 0x5191, 0x5284, 0x5370, 0x5455, 0x5534, 0x5609, 0x56D9,
-	0x57A3, 0x5867, 0x5924, 0x59DB, 0x5A8C, 0x5B39, 0x5BE0, 0x5C81,
-	0x5D1C, 0x5DB5, 0x5E48, 0x5ED5, 0x5F60, 0x5FE5, 0x6066, 0x60E2,
-	0x615D, 0x61D2, 0x6244, 0x62B2, 0x631D, 0x6384, 0x63E8, 0x644A,
-	0x64A8, 0x6503, 0x655B, 0x65B1, 0x6605, 0x6653, 0x66A2, 0x66ED,
-	0x6737, 0x677D, 0x67C1, 0x6804, 0x6844, 0x6882, 0x68BF, 0x68F9,
-	0x6932, 0x6969, 0x699D, 0x69D2, 0x6A03, 0x6A34, 0x6A63, 0x6A8F,
-	0x6ABC, 0x6AE6, 0x6B0E, 0x6B37, 0x6B5D, 0x6B84, 0x6BA7, 0x6BCB,
-	0x6BED, 0x6C0E, 0x6C2D, 0x6C4D, 0x6C6B, 0x6C88, 0x6CA4, 0x6CBF,
-	0x6CD9, 0x6CF3, 0x6D0C, 0x6D24, 0x6D3B, 0x6D52, 0x6D68, 0x6D7D,
-	0x6D91, 0x6DA6, 0x6DB9, 0x6DCA, 0x6DDE, 0x6DEF, 0x6DFF, 0x6E10,
-	0x6E20, 0x6E30, 0x6E3E, 0x6E4C, 0x6E5A, 0x6E68, 0x6E76, 0x6E82,
-	0x6E8E, 0x6E9B, 0x6EA5, 0x6EB1, 0x6EBC, 0x6EC6, 0x6ED1, 0x6EDB,
-	0x6EE4, 0x6EED, 0x6EF6, 0x6EFE, 0x6F07, 0x6F10, 0x6F17, 0x6F20,
-	0x6F27, 0x6F2E, 0x6F35, 0x6F3C, 0x6F43, 0x6F48, 0x6F4F, 0x6F54,
-	0x6F5B, 0x6F60, 0x6F66, 0x6F6B, 0x6F70, 0x6F74, 0x6F79, 0x6F7E,
-	0x6F82, 0x6F87, 0x6F8A, 0x6F90, 0x6F93, 0x6F97, 0x6F9A, 0x6F9E,
-	0x6FA1, 0x6FA5, 0x6FA8, 0x6FAC, 0x6FAD, 0x6FB1, 0x6FB4, 0x6FB6,
-	0x6FBA, 0x6FBB, 0x6FBF, 0x6FC1, 0x6FC4, 0x6FC6, 0x6FC8, 0x6FC9,
-	0x6FCD, 0x6FCF, 0x6FD0, 0x6FD2, 0x6FD4, 0x6FD6, 0x6FD7, 0x6FD9,
-	0x6FDB, 0x6FDD, 0x6FDE, 0x6FDE, 0x6FE0, 0x6FE2, 0x6FE4, 0x6FE5,
-	0x6FE5, 0x6FE7, 0x6FE9, 0x6FE9, 0x6FEB, 0x6FEC, 0x6FEC, 0x6FEE,
-	0x6FEE, 0x6FF0, 0x6FF0, 0x6FF2, 0x6FF2, 0x6FF3, 0x6FF3, 0x6FF5,
-	0x6FF5, 0x6FF7, 0x6FF7, 0x6FF7, 0x6FF9, 0x6FF9, 0x6FF9, 0x6FFA,
-	0x6FFA, 0x6FFA, 0x6FFC, 0x6FFC, 0x6FFC, 0x6FFE, 0x6FFE, 0x6FFE,
-	0x7000
-};
-
-static int durationFromRate(int rate) {
-	if (rate == 0) {
-		return PSP_SAS_ENVELOPE_FREQ_MAX;
-	} else {
-		// From experimental tests on a PSP:
-		//   rate=0x7FFFFFFF => duration=0x10
-		//   rate=0x3FFFFFFF => duration=0x22
-		//   rate=0x1FFFFFFF => duration=0x44
-		//   rate=0x0FFFFFFF => duration=0x81
-		//   rate=0x07FFFFFF => duration=0xF1
-		//   rate=0x03FFFFFF => duration=0x1B9
-		//
-		// The correct curve model is still unknown.
-		// We use the following approximation:
-		//   duration = 0x7FFFFFFF / rate * 0x10
-		return PSP_SAS_ENVELOPE_FREQ_MAX / rate * 0x10;
-	}
-}
-
-const short expCurveReference = 0x7000;
-
-const float expCurveToEnvelopeHeight = (float)PSP_SAS_ENVELOPE_HEIGHT_MAX / (float)expCurveReference;
-
-// This needs a rewrite / rethink. Doing all this per sample is insane.
-static float computeExpCurveAt(int index, float invDuration) {
-	const int curveLength = ARRAY_SIZE(expCurve);
-
-	if (invDuration == 0.0f)
-		return 0.0f;
-
-	float curveIndex = (index * curveLength) * invDuration;
-	int curveIndex1 = (int) curveIndex;
-	int curveIndex2 = curveIndex1 + 1;
-	float curveIndexFraction = curveIndex - curveIndex1;
-
-	if (curveIndex1 < 0) {
-		return expCurve[0];
-	} else if (curveIndex2 >= curveLength || curveIndex2 < 0) {
-		return expCurve[curveLength - 1];
-	}
-
-	return expCurve[curveIndex1] * (1.f - curveIndexFraction) + expCurve[curveIndex2] * curveIndexFraction;
-}
-
 ADSREnvelope::ADSREnvelope()
 	: attackRate(0),
 		decayRate(0),
@@ -760,14 +680,12 @@ ADSREnvelope::ADSREnvelope()
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		rate_(0),
 		type_(0),
-		invDuration_(0),
 		state_(STATE_OFF),
-		steps_(0),
 		height_(0) {
 }
 
 void ADSREnvelope::WalkCurve(int type) {
-	float expFactor;
+	s64 expDelta;
 	switch (type) {
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE:
 		height_ += rate_;
@@ -786,14 +704,15 @@ void ADSREnvelope::WalkCurve(int type) {
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
-		expFactor = computeExpCurveAt(steps_, invDuration_);
-		height_ = (s64)(expFactor * expCurveToEnvelopeHeight);
-		height_ = PSP_SAS_ENVELOPE_HEIGHT_MAX - height_;
+		expDelta = height_ - PSP_SAS_ENVELOPE_HEIGHT_MAX;
+		expDelta -= (expDelta * (s64)rate_) / 0x100000000LL;
+		height_ = expDelta + PSP_SAS_ENVELOPE_HEIGHT_MAX - (rate_ + 3) / 4;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
-		expFactor = computeExpCurveAt(steps_, invDuration_);
-		height_ = (s64)(expFactor * expCurveToEnvelopeHeight);
+		expDelta = height_ - PSP_SAS_ENVELOPE_HEIGHT_MAX;
+		expDelta -= (expDelta * (s64)rate_) / 0x100000000LL;
+		height_ = expDelta + 0x4000 + PSP_SAS_ENVELOPE_HEIGHT_MAX;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_DIRECT:
@@ -803,7 +722,6 @@ void ADSREnvelope::WalkCurve(int type) {
 }
 
 void ADSREnvelope::SetState(ADSRState state) {
-	steps_ = 0;
 	state_ = state;
 	switch (state) {
 	case STATE_ATTACK:
@@ -824,22 +742,6 @@ void ADSREnvelope::SetState(ADSRState state) {
 		break;
 	case STATE_OFF:
 		return;
-	}
-
-	switch (type_) {
-	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
-	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
-		{
-			int duration = durationFromRate(rate_);
-			if (duration == 0) {
-				invDuration_ = 0.0f;
-			} else {
-				invDuration_ = 1.0f / (float)duration;
-			}
-		}
-		break;
-	default:
-		break;
 	}
 }
 
@@ -873,7 +775,6 @@ void ADSREnvelope::Step() {
 		// Do nothing
 		break;
 	}
-	steps_++;
 }
 
 void ADSREnvelope::KeyOn() {
@@ -909,7 +810,8 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 	p.Do(sustainLevel);
 	p.Do(releaseType);
 	p.Do(state_);
-	p.Do(steps_);
+	int stepsLegacy;
+	p.Do(stepsLegacy);
 	p.Do(height_);
 
 	// If loading, recompute the per-state variables
