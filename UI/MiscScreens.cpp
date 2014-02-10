@@ -92,11 +92,11 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 #ifdef GOLD
 	img = I_BG_GOLD;
 #endif
-	ui_draw2d.DrawImageStretch(img, 0, 0, xres, yres);
+	ui_draw2d.DrawImageStretch(img, dc.GetBounds());
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
-		float x = xbase[i];
-		float y = ybase[i] + 40 * cosf(i * 7.2f + t * 1.3f);
+		float x = xbase[i] + dc.GetBounds().x;
+		float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
 		float angle = sinf(i + t);
 		int n = i & 3;
 		ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
@@ -118,7 +118,7 @@ void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
 		}
 		if (hasPic) {
 			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
-			dc.Draw()->DrawTexRect(0,0, dc.GetBounds().w, dc.GetBounds().h, 0,0,1,1, color);
+			dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 			dc.Flush();
 			dc.RebindTexture();
 		} else {
@@ -370,6 +370,8 @@ void LogoScreen::render() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 
+	const Bounds &bounds = dc.GetBounds();
+
 	float xres = dc.GetBounds().w;
 	float yres = dc.GetBounds().h;
 
@@ -389,19 +391,19 @@ void LogoScreen::render() {
 	char temp[256];
 	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
 #ifdef GOLD
-	dc.Draw()->DrawImage(I_ICONGOLD, (xres / 2) - 120, (yres / 2) - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
-	dc.Draw()->DrawImage(I_ICON, (xres / 2) - 120, (yres / 2) - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #endif
-	dc.Draw()->DrawImage(I_LOGO, (xres / 2) + 40, yres / 2 - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, xres / 2, yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), xres / 2, yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText("www.ppsspp.org", xres / 2, yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (boot_filename.size()) {
-		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), xres / 2, yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
 
 	dc.End();

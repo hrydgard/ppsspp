@@ -647,10 +647,10 @@ void EmuScreen::render() {
 			return;
 		}
 
-		float xres = screenManager()->getUIContext()->GetBounds().w;
+		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 

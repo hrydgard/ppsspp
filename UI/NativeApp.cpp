@@ -784,7 +784,10 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	if (uiContext) {
+		// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
+		// The UI now supports any offset but not the EmuScreen yet.
 		uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+		// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
 	}
 }
 
