@@ -750,10 +750,8 @@ void NativeAxis(const AxisInput &key) {
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 	
-
 	//now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
-
 
 	//now send the appropriate tilt event
 	switch (g_Config.iTiltInputType) {

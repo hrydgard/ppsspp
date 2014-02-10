@@ -242,8 +242,10 @@ namespace MainWindow
 			osm.Show(g->T(message), 2.0f);
 		}
 
-		UpdateScreenScale(width, height);
-		NativeMessageReceived("gpu resized", "");
+		if (!noWindowMovement) {
+			UpdateScreenScale(width, height);
+			NativeMessageReceived("gpu resized", "");
+		}
 	}
 
 	void SetWindowSize(int zoom) {
