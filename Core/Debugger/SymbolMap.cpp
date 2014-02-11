@@ -52,8 +52,9 @@ void SymbolMap::Clear() {
 }
 
 bool SymbolMap::LoadSymbolMap(const char *filename) {
+	Clear();  // let's not recurse the lock
+
 	lock_guard guard(lock_);
-	Clear();
 
 #if defined(_WIN32) && defined(UNICODE)
 	gzFile f = gzopen_w(ConvertUTF8ToWString(filename).c_str(), "r");

@@ -22,17 +22,17 @@ For build instructions and other development tutorials, see the [wiki](https://g
 What's new in 0.9.7
 -------------------
 * Several scheduling and audio fixes, fixing black screens in Yu Gi Oh games among other things.
-* Screen rotation support on Android
-* Initial multitouch support on Windows 8 for on-screen controls.
+* Screen rotation and immersive mode support on Android
 * Large improvements to the software renderer (still not really playable, but looks right more
   often than not)
-* Bugfixes and new VPL allocator, fixing Pangya Golf performance problems.
-* Some mpeg/video playback fixes, fixing Parappa The Rapper and others.
+* New VPL allocator and bugfixes, fixing Pangya Golf performance problems.
+* Some mpeg/video playback fixes, fixing Parappa The Rapper and others. Some issues remain.
 * Fix save state bugs causing incompatibility between 32 and 64-bit platforms.
 * Symbol map/debugger improvements
 * Depth buffer copy, fixing Jeanne D'arc. May cause minor slowdowns though, this will be worked
   around in the future.
-* MsgDialog fixes
+* MsgDialog fixes. Saving fixed in numerous games.
+* Initial multitouch support on Windows 8 for on-screen controls.
 
 What's new in 0.9.6
 -------------------
