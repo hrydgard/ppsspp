@@ -30,8 +30,8 @@
 
 const static float FONT_SCALE = 0.55f;
 
-// These are rough, it seems to take at least 100ms or so to init, and shutdown depends on threads.
-const static int SAVEDATA_INIT_DELAY_US = 100000;
+// These are rough, it seems to take at least 500ms or so to init, and shutdown depends on threads.
+const static int SAVEDATA_INIT_DELAY_US = 500000;
 const static int SAVEDATA_SHUTDOWN_DELAY_US = 2000;
 
 
