@@ -761,9 +761,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	if (m_demux)
-		return std::max(m_audiopts - 4180, (s64)0);
-	return m_videopts;
+	return m_audiopts;
 }
 
 s64 MediaEngine::getLastTimeStamp() {
