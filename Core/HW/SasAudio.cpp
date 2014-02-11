@@ -678,47 +678,45 @@ ADSREnvelope::ADSREnvelope()
 		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		sustainLevel(0),
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
-		rate_(0),
-		type_(0),
 		state_(STATE_OFF),
 		height_(0) {
 }
 
-void ADSREnvelope::WalkCurve(int type) {
+void ADSREnvelope::WalkCurve(int type, int rate) {
 	s64 expDelta;
 	switch (type) {
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE:
-		height_ += rate_;
+		height_ += rate;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE:
-		height_ -= rate_;
+		height_ -= rate;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT:
 		if (height_ < (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX * 3 / 4) {
-			height_ += rate_;
+			height_ += rate;
 		} else {
-			height_ += rate_ / 4;
+			height_ += rate / 4;
 		}
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
 		expDelta = height_ - PSP_SAS_ENVELOPE_HEIGHT_MAX;
 		// Flipping the sign so that we can shift in the top bits.
-		expDelta += (-expDelta * rate_) >> 32;
-		height_ = expDelta + PSP_SAS_ENVELOPE_HEIGHT_MAX - (rate_ + 3UL) / 4UL;
+		expDelta += (-expDelta * rate) >> 32;
+		height_ = expDelta + PSP_SAS_ENVELOPE_HEIGHT_MAX - (rate + 3UL) / 4UL;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
 		expDelta = height_ - PSP_SAS_ENVELOPE_HEIGHT_MAX;
 		// Flipping the sign so that we can shift in the top bits.
-		expDelta += (-expDelta * rate_) >> 32;
+		expDelta += (-expDelta * rate) >> 32;
 		height_ = expDelta + 0x4000 + PSP_SAS_ENVELOPE_HEIGHT_MAX;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_DIRECT:
-		height_ = rate_;  // Simple :)
+		height_ = rate;  // Simple :)
 		break;
 	}
 }
@@ -727,51 +725,31 @@ void ADSREnvelope::SetState(ADSRState state) {
 	if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX) {
 		height_ = PSP_SAS_ENVELOPE_HEIGHT_MAX;
 	}
-
+	// TODO: Also check for height_ < 0 and set to 0?
 	state_ = state;
-	switch (state) {
-	case STATE_ATTACK:
-		rate_ = attackRate;
-		type_ = attackType;
-		break;
-	case STATE_DECAY:
-		rate_ = decayRate;
-		type_ = decayType;
-		break;
-	case STATE_SUSTAIN:
-		rate_ = sustainRate;
-		type_ = sustainType;
-		break;
-	case STATE_RELEASE:
-		rate_ = releaseRate;
-		type_ = releaseType;
-		break;
-	case STATE_OFF:
-		return;
-	}
 }
 
 void ADSREnvelope::Step() {
 	switch (state_) {
 	case STATE_ATTACK:
-		WalkCurve(type_);
+		WalkCurve(attackType, attackRate);
 		if (height_ >= PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < 0)
 			SetState(STATE_DECAY);
 		break;
 	case STATE_DECAY:
-		WalkCurve(type_);
+		WalkCurve(decayType, decayRate);
 		if (height_ < sustainLevel)
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
-		WalkCurve(type_);
+		WalkCurve(sustainType, sustainRate);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
 		}
 		break;
 	case STATE_RELEASE:
-		WalkCurve(type_);
+		WalkCurve(releaseType, releaseRate);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_OFF);
