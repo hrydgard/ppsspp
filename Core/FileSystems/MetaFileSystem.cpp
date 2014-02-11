@@ -230,7 +230,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 			size_t prefLen = fileSystems[i].prefix.size();
 			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
 			{
-				outpath = realpath.substr(prefLen);
+				outpath = realpath.substr(prefixPos + 1);
 				*system = &(fileSystems[i]);
 
 				VERBOSE_LOG(FILESYS, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
