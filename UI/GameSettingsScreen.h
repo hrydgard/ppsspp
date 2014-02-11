@@ -48,6 +48,7 @@ private:
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
+	UI::CheckBox *frameSkipAuto_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -67,6 +68,7 @@ private:
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
+	UI::EventReturn OnFrameSkipChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);

@@ -109,9 +109,9 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()));
-	CheckBox *autoSkip = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gs->T("Auto FrameSkip")));
-	autoSkip->SetEnabledPtr((bool *)&g_Config.iFrameSkip);
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnFrameSkipChange);
+	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gs->T("Auto FrameSkip")));
+	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
 	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
@@ -364,6 +364,12 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 
 	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnFrameSkipChange(UI::EventParams &e) {
+	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
+
 	return UI::EVENT_DONE;
 }
 
