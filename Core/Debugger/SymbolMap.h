@@ -108,9 +108,10 @@ public:
 
 	static const u32 INVALID_ADDRESS = (u32)-1;
 
+	void UpdateActiveSymbols();
+
 private:
 	void AssignFunctionIndices();
-	void UpdateActiveSymbols();
 	const char *GetLabelName(u32 address) const;
 	const char *GetLabelNameRel(u32 relAddress, int moduleIndex) const;
 

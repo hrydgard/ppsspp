@@ -646,6 +646,8 @@ skip:
 				}
 			}
 		}
+		// Used to be called in SetLabelName, let's call it only once instead.
+		symbolMap.UpdateActiveSymbols();
 	}
 
 	void LoadHashMap(std::string filename) {

@@ -738,7 +738,10 @@ void SymbolMap::SetLabelName(const char* name, u32 address) {
 		if (label != labels.end()) {
 			strcpy(label->second.name,name);
 			label->second.name[127] = 0;
-			UpdateActiveSymbols();
+
+			// Do we really need to call this here? Causes extreme startup slowdown
+			// as this gets called for every function identified by the function replacement code.
+			// UpdateActiveSymbols();
 		}
 	}
 }
