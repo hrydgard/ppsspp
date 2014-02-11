@@ -753,7 +753,7 @@ void ADSREnvelope::Step() {
 	switch (state_) {
 	case STATE_ATTACK:
 		WalkCurve(type_);
-		if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < 0)
+		if (height_ >= PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < 0)
 			SetState(STATE_DECAY);
 		break;
 	case STATE_DECAY:
