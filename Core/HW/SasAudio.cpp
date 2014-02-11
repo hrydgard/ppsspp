@@ -705,13 +705,15 @@ void ADSREnvelope::WalkCurve(int type) {
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE:
 		expDelta = height_ - PSP_SAS_ENVELOPE_HEIGHT_MAX;
-		expDelta -= (expDelta * (s64)rate_) / 0x100000000LL;
-		height_ = expDelta + PSP_SAS_ENVELOPE_HEIGHT_MAX - ((u32)rate_ + 3UL) / 4UL;
+		// Flipping the sign so that we can shift in the top bits.
+		expDelta += (-expDelta * rate_) >> 32;
+		height_ = expDelta + PSP_SAS_ENVELOPE_HEIGHT_MAX - (rate_ + 3UL) / 4UL;
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE:
 		expDelta = height_ - PSP_SAS_ENVELOPE_HEIGHT_MAX;
-		expDelta -= (expDelta * (s64)rate_) / 0x100000000LL;
+		// Flipping the sign so that we can shift in the top bits.
+		expDelta += (-expDelta * rate_) >> 32;
 		height_ = expDelta + 0x4000 + PSP_SAS_ENVELOPE_HEIGHT_MAX;
 		break;
 
