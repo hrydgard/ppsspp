@@ -797,9 +797,4 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 	int stepsLegacy;
 	p.Do(stepsLegacy);
 	p.Do(height_);
-
-	// If loading, recompute the per-state variables
-	if (p.GetMode() == PointerWrap::MODE_READ) {
-		SetState(state_);
-	}
 }
