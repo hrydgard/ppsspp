@@ -943,9 +943,12 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	System_SendMessage("event", "exitprogram");
-#ifndef USING_WIN_UI
-	NativeShutdown();
-#endif
+
+	// Request the framework to exit cleanly.
+	System_SendMessage("finish", "");
+
+	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
+
 	globalUIState = UISTATE_EXIT;
 	return UI::EVENT_DONE;
 }
