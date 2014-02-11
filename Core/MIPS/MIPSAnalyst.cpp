@@ -641,7 +641,7 @@ skip:
 					char defaultLabel[256];
 					// If it was renamed, keep it.  Only change the name if it's still the default.
 					if (existingLabel.empty() || !strcmp(existingLabel.c_str(), DefaultFunctionName(defaultLabel, f.start))) {
-						symbolMap.SetLabelName(mf->name, f.start);
+						symbolMap.SetLabelName(mf->name, f.start, false);
 					}
 				}
 			}
