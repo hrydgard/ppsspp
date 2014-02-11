@@ -262,7 +262,7 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->audioFrameCount = 0;
 	ctx->endOfAudioReached = false;
 	ctx->endOfVideoReached = false;
-	
+
 	// Sanity Check ctx->mpegFirstTimestamp
 	if (ctx->mpegFirstTimestamp != 90000) {
 		WARN_LOG_REPORT(ME, "Unexpected mpeg first timestamp: %llx / %lld", ctx->mpegFirstTimestamp, ctx->mpegFirstTimestamp);
@@ -515,32 +515,28 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 		return -1;
 	}
 
-	MpegContext *ctx = getMpegCtx(mpeg);
-	if (!ctx) {
-		WARN_LOG(ME, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
-		return -1;
-	}
-
 	DEBUG_LOG(ME, "sceMpegQueryStreamOffset(%08x, %08x, %08x)", mpeg, bufferAddr, offsetAddr);
 
-	// Kinda destructive, no?
-	AnalyzeMpeg(Memory::GetPointer(bufferAddr), ctx);
+	MpegContext ctx;
+	ctx.mediaengine = 0;
 
-	if (ctx->mpegMagic != PSMF_MAGIC) {
+	AnalyzeMpeg(Memory::GetPointer(bufferAddr), &ctx);
+
+	if (ctx.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset: Bad PSMF magic");
 		Memory::Write_U32(0, offsetAddr);
 		return ERROR_MPEG_INVALID_VALUE;
-	} else if (ctx->mpegVersion < 0) {
+	} else if (ctx.mpegVersion < 0) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset: Bad version");
 		Memory::Write_U32(0, offsetAddr);
 		return ERROR_MPEG_BAD_VERSION;
-	} else if ((ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
+	} else if ((ctx.mpegOffset & 2047) != 0 || ctx.mpegOffset == 0) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset: Bad offset");
 		Memory::Write_U32(0, offsetAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	}
 
-	Memory::Write_U32(ctx->mpegOffset, offsetAddr);
+	Memory::Write_U32(ctx.mpegOffset, offsetAddr);
 	return 0;
 }
 
