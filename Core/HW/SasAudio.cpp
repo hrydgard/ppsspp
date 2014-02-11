@@ -676,7 +676,7 @@ ADSREnvelope::ADSREnvelope()
 		attackType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		decayType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
-		sustainLevel(0x100),
+		sustainLevel(0),
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		rate_(0),
 		type_(0),
@@ -722,6 +722,10 @@ void ADSREnvelope::WalkCurve(int type) {
 }
 
 void ADSREnvelope::SetState(ADSRState state) {
+	if (height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX) {
+		height_ = PSP_SAS_ENVELOPE_HEIGHT_MAX;
+	}
+
 	state_ = state;
 	switch (state) {
 	case STATE_ATTACK:
