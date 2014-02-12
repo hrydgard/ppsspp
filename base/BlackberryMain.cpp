@@ -43,9 +43,9 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-  if (!strcmp(command, "finish")) {
-    g_quitRequested = true;
-  }
+	if (!strcmp(command, "finish")) {
+		g_quitRequested = true;
+	}
 }
 
 void SystemToast(const char *text) {
@@ -140,7 +140,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		NativeTouch(input);
 		break;
 	// Mouse, Simulator
-    case SCREEN_EVENT_POINTER:
+	case SCREEN_EVENT_POINTER:
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &buttons);
 		if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { // Down
 			input_state.pointer_x[0] = pair[0] * g_dpi_scale;
@@ -221,7 +221,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 }
 
 void BlackberryMain::startMain(int argc, char *argv[]) {
-  g_quitRequested = false;
+	g_quitRequested = false;
 	// Receive events from window manager
 	screen_create_context(&screen_cxt, 0);
 	// Initialise Blackberry Platform Services
