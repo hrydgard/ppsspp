@@ -590,6 +590,9 @@ void EmuScreen::render() {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_POWERDOWN)	{
+		if (PSP_IsInited()) {
+			PSP_Shutdown();
+		}
 		ILOG("SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		invalid_ = true;
