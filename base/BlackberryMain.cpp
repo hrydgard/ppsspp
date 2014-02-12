@@ -17,6 +17,8 @@
 #include "Core/Config.h"
 #include "UI/MiscScreens.h"
 
+static bool g_quitRequested = false;
+
 // Simple implementations of System functions
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -39,7 +41,11 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {}
+void System_SendMessage(const char *command, const char *parameter) {
+  if (!strcmp(command, "finish")) {
+    g_quitRequested = true;
+  }
+}
 
 void SystemToast(const char *text) {
 	dialog_instance_t dialog = 0;
@@ -214,6 +220,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 }
 
 void BlackberryMain::startMain(int argc, char *argv[]) {
+  g_quitRequested = false;
 	// Receive events from window manager
 	screen_create_context(&screen_cxt, 0);
 	// Initialise Blackberry Platform Services
@@ -236,7 +243,7 @@ void BlackberryMain::startMain(int argc, char *argv[]) {
 
 void BlackberryMain::runMain() {
 	bool running = true;
-	while (running) {
+	while (running && !g_quitRequested) {
 		input_state.mouse_valid = false;
 		input_state.accelerometer_valid = false;
 		while (true) {
