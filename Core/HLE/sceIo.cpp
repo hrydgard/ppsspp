@@ -1133,6 +1133,8 @@ FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
 		access |= FILEACCESS_APPEND;
 	if (flags & O_CREAT)
 		access |= FILEACCESS_CREATE;
+	if (flags & O_TRUNC)
+		access |= FILEACCESS_TRUNCATE;
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 

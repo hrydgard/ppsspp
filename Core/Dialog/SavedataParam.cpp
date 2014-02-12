@@ -81,7 +81,7 @@ namespace
 
 	bool WritePSPFile(std::string filename, u8 *data, SceSize dataSize)
 	{
-		u32 handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+		u32 handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 		if (handle == 0)
 			return false;
 

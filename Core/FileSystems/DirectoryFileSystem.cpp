@@ -187,6 +187,10 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 	//Let's do it!
 	hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = hFile != INVALID_HANDLE_VALUE;
+	if (success && (access & FILEACCESS_TRUNCATE)) {
+		// We don't use OPEN_TRUNCATE because it would fail if it existed.
+		SetEndOfFile(hFile);
+	}
 #else
 	// Convert flags in access parameter to fopen access mode
 	const char *mode = NULL;
@@ -196,6 +200,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		else
 			mode = "ab";  // append only, create if needed
 	} else if (access & FILEACCESS_WRITE) {
+		// TODO: "w" is wrong here.  WRITE means write without truncate.
 		if (access & FILEACCESS_READ) {
 			// FILEACCESS_CREATE is ignored for read only, write only, and append
 			// because C++ standard fopen's nonexistant file creation can only be
