@@ -219,21 +219,9 @@ namespace MainWindow
 		osm.Show(g->T(message), 2.0f);
 	}
 
-	static void ResizeDisplay(bool noWindowMovement = false) {
-		int width = PSP_CoreParameter().pixelWidth, height = PSP_CoreParameter().pixelHeight;
+	static void UpdateRenderResolution() {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
-		if (!noWindowMovement) {
-			if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth &&
-				(rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
-				return;
-
-			width = rc.right - rc.left;
-			height = rc.bottom - rc.top;
-			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
-			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
-		}
-
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
@@ -242,6 +230,24 @@ namespace MainWindow
 		// Actually, auto mode should be more granular...
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
+	}
+
+	static void ResizeDisplay(bool noWindowMovement = false) {
+		int width = 0, height = 0;
+		RECT rc;
+		GetClientRect(hwndMain, &rc);
+		if (!noWindowMovement) {
+			width = rc.right - rc.left;
+			height = rc.bottom - rc.top;
+			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
+			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
+			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
+			// Need to clean all of this up...
+			PSP_CoreParameter().pixelWidth = width;
+			PSP_CoreParameter().pixelHeight = height;
+		}
+
+		UpdateRenderResolution();
 		
 		if (!noWindowMovement) {
 			UpdateScreenScale(width, height);
@@ -253,7 +259,7 @@ namespace MainWindow
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		ResizeDisplay(true);
+		ResizeDisplay(false);
 		ShowScreenResolution();
 	}
 
@@ -270,6 +276,7 @@ namespace MainWindow
 			setTexScalingMultiplier(0);
 
 		gpu->Resized();
+		UpdateRenderResolution();
 		ShowScreenResolution();
 	}
 
