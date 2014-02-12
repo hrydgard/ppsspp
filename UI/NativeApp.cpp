@@ -383,8 +383,16 @@ void NativeInit(int argc, const char *argv[],
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 #endif
+	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
+	// test new languages without recompiling the entire app, which is a hassle).
+	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
 
-	i18nrepo.LoadIni(g_Config.sLanguageIni);
+	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
+	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
+		i18nrepo.LoadIni(g_Config.sLanguageIni);
+	else
+		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+
 	I18NCategory *d = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
