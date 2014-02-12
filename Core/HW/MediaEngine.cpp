@@ -723,6 +723,9 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		return 0;
 	}
 
+	// When m_demux , increment pts 
+	m_audiopts += 4180;
+	
 	// Demux now (rather than on add data) so that we select the right stream.
 	m_demux->demux(m_audioStream);
 
@@ -751,7 +754,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			outbuf[i * 2 + 1] = sample;
 		}
 	}
-	m_audiopts += 4180;
+
 	m_noAudioData = false;
 	return 0x2000;
 }
@@ -761,7 +764,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	return m_audiopts;
+	return m_demux ? m_audiopts - 4180 : -1;
 }
 
 s64 MediaEngine::getLastTimeStamp() {
