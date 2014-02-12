@@ -40,6 +40,7 @@ struct FBO {
 	FBOColorDepth colorDepth;
 };
 
+static FBO *g_overriddenBackbuffer;
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
@@ -237,8 +238,12 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 }
 
 void fbo_unbind() {
-	CheckGLExtensions();
+	if (g_overriddenBackbuffer) {
+		fbo_bind_as_render_target(g_overriddenBackbuffer);
+		return;
+	}
 
+	CheckGLExtensions();
 	if (gl_extensions.FBO_ARB) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	} else {
@@ -249,6 +254,10 @@ void fbo_unbind() {
 #ifdef IOS
 	bindDefaultFBO();
 #endif
+}
+
+void fbo_override_backbuffer(FBO *fbo) {
+	g_overriddenBackbuffer = fbo;
 }
 
 void fbo_bind_as_render_target(FBO *fbo) {

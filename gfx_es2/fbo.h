@@ -36,3 +36,5 @@ void fbo_get_dimensions(FBO *fbo, int *w, int *h);
 int fbo_get_color_texture(FBO *fbo);
 int fbo_get_depth_buffer(FBO *fbo);
 int fbo_get_stencil_buffer(FBO *fbo);
+
+void fbo_override_backbuffer(FBO *fbo);  // Makes unbind bind this instead of the real backbuffer.
