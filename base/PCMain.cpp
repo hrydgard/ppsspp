@@ -751,15 +751,15 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 		}
-
 		if (g_QuitRequested)
 			break;
-
 		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
 		NativeUpdate(input_state);
+		if (g_QuitRequested)
+			break;
 		NativeRender();
 #if defined(PPSSPP) && !defined(MAEMO)
 		if (lastUIState != globalUIState) {
