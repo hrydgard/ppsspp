@@ -84,8 +84,7 @@ Lighter::Lighter(int vertType) {
 	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
 }
 
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm)
-{
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm) {
 	Color4 in(colorIn);
 
 	const Color4 *ambient;
@@ -109,8 +108,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
 	Color4 lightSum1(0, 0, 0, 0);
 
-	for (int l = 0; l < 4; l++)
-	{
+	for (int l = 0; l < 4; l++) {
 		// can we skip this light?
 		if (!gstate.isLightChanEnabled(l))
 			continue;
@@ -171,21 +169,18 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		// Better specular
 		// Vec3f toViewer = (viewer - pos).Normalized();
 
-		if (doSpecular)
-		{
+		if (doSpecular) {
 			Vec3f halfVec = (toLight + toViewer);
 			halfVec.Normalize();
 
 			dot = Dot(halfVec, norm);
-			if (dot > 0.0f)
-			{
+			if (dot > 0.0f) {
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
 				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
 			}
 		}
 
-		if (gstate.isLightChanEnabled(l))
-		{
+		if (gstate.isLightChanEnabled(l)) {
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
 			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
 		}

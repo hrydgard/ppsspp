@@ -742,7 +742,7 @@ struct Plane {
 	float Test(float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
 };
 
-void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
+static void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
 	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
 	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
 	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom
@@ -754,7 +754,7 @@ void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
 // This code is HIGHLY unoptimized!
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
-// our clipping planes, we reject the box.
+// our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
 bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	float *verts = (float *)(decoded + 65536 * 18);
@@ -824,8 +824,7 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 
 // TODO: Probably move this to common code (with normalization?)
 
-static inline Vec3f ClipToScreen(const Vec4f& coords)
-{
+static Vec3f ClipToScreen(const Vec4f& coords) {
 	// TODO: Check for invalid parameters (x2 < x1, etc)
 	float vpx1 = getFloat24(gstate.viewportx1);
 	float vpx2 = getFloat24(gstate.viewportx2);
@@ -842,15 +841,10 @@ static inline Vec3f ClipToScreen(const Vec4f& coords)
 	return Vec3f(retx * 16, rety * 16, retz);
 }
 
-static Vec3f ScreenToDrawing(const Vec3f& coords)
-{
+static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	Vec3f ret;
-	ret.x = coords.x - gstate.getOffsetX16();
-	ret.y = coords.y - gstate.getOffsetY16();
-
-	// Convert from 16-bit fixed point to float.
-	ret.x *= 1.0 / 16.0;
-	ret.y *= 1.0 / 16.0;
+	ret.x = (coords.x - gstate.getOffsetX16()) * (1.0f / 16.0f);
+	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
 	ret.z = coords.z;
 	return ret;
 }
