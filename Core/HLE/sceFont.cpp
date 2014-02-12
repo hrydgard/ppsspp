@@ -79,7 +79,8 @@ struct FontRegistryEntry {
 };
 
 static const FontRegistryEntry fontRegistry[] = {
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0},
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0 },
 	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0},
 	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0},
 	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0},
@@ -499,16 +500,24 @@ void __LoadInternalFonts() {
 	}
 	const std::string fontPath = "flash0:/font/";
 	const std::string fontOverridePath = "ms0:/PSP/flash0/font/";
+	const std::string userfontPath = "disc0:/PSP_GAME/USRDIR/";
+	
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
 	}
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 		const FontRegistryEntry &entry = fontRegistry[i];
-		std::string fontFilename = fontOverridePath + entry.fileName;
+		std::string fontFilename = userfontPath + entry.fileName; 
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
 
 		if (!info.exists) {
-			// No override, let's use the default then.
+			// No user font, let's try override path.
+			fontFilename = fontOverridePath + entry.fileName;
+			info = pspFileSystem.GetFileInfo(fontFilename);
+		}
+
+		if (!info.exists) {
+			// No override, let's use the default path.
 			fontFilename = fontPath + entry.fileName;
 			info = pspFileSystem.GetFileInfo(fontFilename);
 		}
