@@ -7,6 +7,7 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <string>
+#include <string.h>
 
 #include <bps/locale.h>           // Get locale
 #include <bps/navigator_invoke.h> // Receive invocation messages

@@ -24,6 +24,8 @@
 #endif
 #include "QtMain.h"
 
+#include <string.h>
+
 InputState* input_state;
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -54,7 +56,12 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	// Log?
+  // TODO: Cleaner exit
+  if (!strcmp(command, "finish")) {
+    NativeShutdown();
+	  net::Shutdown();
+    exit(0);
+  }
 }
 
 bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
