@@ -176,9 +176,10 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<FileInfo>
 				// A directory.
 				std::string dirName = std::string(name + pathlen + 1, slashPos - (name + pathlen + 1));
 				directories.insert(dirName);
-			} else {
-				files.insert(std::string(name + pathlen + 1));
-			}
+			} else if (name[pathlen] == '/') {
+				const char *fn = name + pathlen + 1;
+				files.insert(std::string(fn));
+			}  // else, it was a file with the same prefix as the path. like langregion.ini next to lang/.
 		}
 	}
 
@@ -351,7 +352,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 		getFilesInDir(path, listing, filter);
 		return true;
 	}
-
+	
 	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
