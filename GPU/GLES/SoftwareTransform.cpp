@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/gl_state.h"
+#include "math/math_util.h"
 
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -306,6 +307,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	Lighter lighter(vertType);
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
+	// Same fixup as in ShaderManager.cpp
+	if (my_isinf(fog_slope)) {
+		// not really sure what a sensible value might be.
+		fog_slope = fog_slope < 0.0f ? -10000.0f : 10000.0f;
+	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	for (int index = 0; index < maxIndex; index++) {
