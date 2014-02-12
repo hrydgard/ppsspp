@@ -72,13 +72,19 @@ bool I18NRepo::IniExists(const std::string &languageID) const {
 	return true;
 }
 
-bool I18NRepo::LoadIni(const std::string &languageID) {
+bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overridePath) {
 	IniFile ini;
-	std::string iniPath = GetIniPath(languageID);
-//	ILOG("Loading lang ini %s", iniPath.c_str());
-	if (!ini.LoadFromVFS(GetIniPath(languageID))) {
-		return false;
+	std::string iniPath;
+
+	//	ILOG("Loading lang ini %s", iniPath.c_str());
+	if (!overridePath.empty()) {
+		iniPath = overridePath + languageID + ".ini";
+	} else {
+		iniPath = GetIniPath(languageID);
 	}
+
+	if (!ini.LoadFromVFS(iniPath))
+		return false;
 
 	Clear();
 
