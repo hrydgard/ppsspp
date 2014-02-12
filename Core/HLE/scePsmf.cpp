@@ -1106,7 +1106,6 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 
-	DEBUG_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
 	if (Memory::IsValidAddress(videoDataAddr)) {
 		int frameWidth = Memory::Read_U32(videoDataAddr);
         u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
@@ -1122,6 +1121,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	_PsmfPlayerFillRingbuffer(psmfplayer);
 	int ret = psmfplayer->mediaengine->IsVideoEnd() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
+	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetVideoData(%08x, %08x)", ret, psmfPlayer, videoDataAddr);
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 	int delaytime = 3000;
 	if (deltapts > 0 && !psmfplayer->mediaengine->IsNoAudioData())
@@ -1146,12 +1146,12 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 
-	DEBUG_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
 	if (Memory::IsValidAddress(audioDataAddr)) {
 		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
 	}
 	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
 	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
 }
 
