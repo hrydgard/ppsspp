@@ -76,7 +76,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 	IniFile ini;
 	std::string iniPath;
 
-	//	ILOG("Loading lang ini %s", iniPath.c_str());
+//	ILOG("Loading lang ini %s", iniPath.c_str());
 	if (!overridePath.empty()) {
 		iniPath = overridePath + languageID + ".ini";
 	} else {
