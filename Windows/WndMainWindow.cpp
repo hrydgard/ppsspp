@@ -275,7 +275,9 @@ namespace MainWindow
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		gpu->Resized();
+		if (gpu)
+			gpu->Resized();
+
 		UpdateRenderResolution();
 		ShowScreenResolution();
 	}
