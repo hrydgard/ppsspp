@@ -1047,7 +1047,6 @@ namespace MainWindow
 
 		case WM_MOVE:
 			SavePosition();
-			ResizeDisplay();
 			break;
 
 		case WM_SIZE:
