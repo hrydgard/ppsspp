@@ -13,7 +13,7 @@
 static const int numCPUs = 1;
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
-enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
+enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
 enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
 enum { ML_NAME, ML_ADDRESS, ML_SIZE, ML_ACTIVE, ML_COLUMNCOUNT };
 
@@ -26,14 +26,22 @@ GenericListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ L"Wait type",		0.20f }
 };
 
+GenericListViewDef threadListDef = {
+	threadColumns,	ARRAY_SIZE(threadColumns),	NULL,	false
+};
+
 GenericListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
-	{ L"Type",			0.12f },
+	{ L"",				0.03f },	// enabled
+	{ L"Type",			0.15f },
 	{ L"Offset",		0.12f },
-	{ L"Size/Label",	0.18f },
+	{ L"Size/Label",	0.20f },
 	{ L"Opcode",		0.28f },
 	{ L"Condition",		0.17f },
 	{ L"Hits",			0.05f },
-	{ L"Enabled",		0.08f }
+};
+
+GenericListViewDef breakpointListDef = {
+	breakpointColumns,	ARRAY_SIZE(breakpointColumns),	NULL,	true
 };
 
 GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
@@ -45,11 +53,19 @@ GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 	{ L"Frame Size",	0.12f }
 };
 
+GenericListViewDef stackTraceListDef = {
+	stackTraceColumns,	ARRAY_SIZE(stackTraceColumns),	NULL,	false
+};
+
 GenericListViewColumn moduleListColumns[ML_COLUMNCOUNT] = {
 	{ L"Name",			0.25f },
 	{ L"Address",		0.25f },
 	{ L"Size",			0.25f },
 	{ L"Active",		0.25f },
+};
+
+GenericListViewDef moduleListDef = {
+	moduleListColumns,	ARRAY_SIZE(moduleListColumns),	NULL,	false
 };
 
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
@@ -60,7 +76,7 @@ const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
 // CtrlThreadList
 //
 
-CtrlThreadList::CtrlThreadList(HWND hwnd): GenericListControl(hwnd,threadColumns,TL_COLUMNCOUNT)
+CtrlThreadList::CtrlThreadList(HWND hwnd): GenericListControl(hwnd,threadListDef)
 {
 	Update();
 }
@@ -245,7 +261,7 @@ const char* CtrlThreadList::getCurrentThreadName()
 //
 
 CtrlBreakpointList::CtrlBreakpointList(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
-	: GenericListControl(hwnd,breakpointColumns,BPL_COLUMNCOUNT),cpu(cpu),disasm(disasm)
+	: GenericListControl(hwnd,breakpointListDef),cpu(cpu),disasm(disasm)
 {
 	SetSendInvalidRows(true);
 	Update();
@@ -299,6 +315,17 @@ void CtrlBreakpointList::reloadBreakpoints()
 	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
 	displayedMemChecks_= CBreakPoints::GetMemChecks();
 	Update();
+
+	for (int i = 0; i < GetRowCount(); i++)
+	{
+		bool isMemory;
+		int index = getBreakpointIndex(i, isMemory);
+
+		if (isMemory)
+			SetCheckState(i,(displayedMemChecks_[index].result & MEMCHECK_BREAK) != 0);
+		else
+			SetCheckState(i,displayedBreakPoints_[index].enabled);
+	}
 }
 
 void CtrlBreakpointList::editBreakpoint(int itemIndex)
@@ -521,11 +548,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 		break;
 	case BPL_ENABLED:
 		{
-			if (isMemory) {
-				wsprintf(dest,displayedMemChecks_[index].result & MEMCHECK_BREAK ? L"True" : L"False");
-			} else {
-				wsprintf(dest,displayedBreakPoints_[index].enabled ? L"True" : L"False");
-			}
+			wsprintf(dest,L"\xFFFE");
 		}
 		break;
 	}
@@ -539,6 +562,11 @@ void CtrlBreakpointList::OnDoubleClick(int itemIndex, int column)
 void CtrlBreakpointList::OnRightClick(int itemIndex, int column, const POINT& point)
 {
 	showBreakpointMenu(itemIndex,point);
+}
+
+void CtrlBreakpointList::OnToggle(int item, bool newValue)
+{
+	toggleEnabled(item);
 }
 
 void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
@@ -604,7 +632,7 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 //
 
 CtrlStackTraceView::CtrlStackTraceView(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
-	: GenericListControl(hwnd,stackTraceColumns,SF_COLUMNCOUNT),cpu(cpu),disasm(disasm)
+	: GenericListControl(hwnd,stackTraceListDef),cpu(cpu),disasm(disasm)
 {
 	Update();
 }
@@ -709,7 +737,7 @@ void CtrlStackTraceView::loadStackTrace()
 //
 
 CtrlModuleList::CtrlModuleList(HWND hwnd, DebugInterface* cpu)
-	: GenericListControl(hwnd,moduleListColumns,ML_COLUMNCOUNT),cpu(cpu)
+	: GenericListControl(hwnd,moduleListDef),cpu(cpu)
 {
 	Update();
 }

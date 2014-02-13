@@ -30,6 +30,10 @@ static const GenericListViewColumn stateValuesCols[] = {
 	{ L"Value", 0.50f },
 };
 
+GenericListViewDef stateValuesListDef = {
+	stateValuesCols,	ARRAY_SIZE(stateValuesCols),	NULL,	false
+};
+
 enum StateValuesCols {
 	STATEVALUES_COL_NAME,
 	STATEVALUES_COL_VALUE,
@@ -257,7 +261,7 @@ static const TabStateRow stateSettingsRows[] = {
 //   GE_CMD_UNKNOWN_*
 
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
-	: GenericListControl(hwnd, stateValuesCols, ARRAY_SIZE(stateValuesCols)),
+	: GenericListControl(hwnd, stateValuesListDef),
 	  rows_(rows), rowCount_(rowCount) {
 	Update();
 }
