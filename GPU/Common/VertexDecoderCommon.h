@@ -95,8 +95,8 @@ public:
 				const float *f = (const float *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
 				if (isThrough()) {
-					// Integer value passed in a float. Wraps and all, required for Monster Hunter.
-					pos[2] = (float)((u16)(s32)pos[2]) * (1.0f / 65535.0f);
+					// Integer value passed in a float. Clamped to 0, 65535.
+					pos[2] = pos[2] > 65535.0f ? 1.0f : (pos[2] < 0.0f ? 0.0f : pos[2] * (1.0f / 65535.0f));
 				}
 				// See https://github.com/hrydgard/ppsspp/pull/3419, something is weird.
 			}
@@ -144,6 +144,10 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
+				if (isThrough()) {
+					// Integer value passed in a float. Clamped to 0, 65535.
+					pos[2] = pos[2] > 65535.0f ? 65535.0f : (pos[2] < 0.0f ? 0.0f : pos[2]);
+				}
 				// TODO: Does non-through need conversion?
 			}
 			break;
