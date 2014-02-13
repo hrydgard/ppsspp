@@ -36,6 +36,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
+#include "Common/FileUtil.h"
 
 #include "ui_atlas.h"
 
@@ -320,7 +321,18 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	g_Config.sLanguageIni = code;
 
-	if (i18nrepo.LoadIni(g_Config.sLanguageIni)) {
+	bool iniLoadedSuccessfully = false;
+	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
+	// test new languages without recompiling the entire app, which is a hassle).
+	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+
+	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
+	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
+		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni);
+	else
+		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+
+	if (iniLoadedSuccessfully) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {
 			// Fallback to English
