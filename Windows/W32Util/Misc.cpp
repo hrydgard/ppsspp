@@ -21,7 +21,7 @@ namespace W32Util
 
 		GetWindowRect(hwnd, &rect);
 		GetWindowRect(hwndParent, &rectP);
-        
+
 		width  = rect.right  - rect.left;
 		height = rect.bottom - rect.top;
 
@@ -30,7 +30,7 @@ namespace W32Util
 
 		screenwidth  = GetSystemMetrics(SM_CXSCREEN);
 		screenheight = GetSystemMetrics(SM_CYSCREEN);
-    
+
 		//make sure that the dialog box never moves outside of
 		//the screen
 		if(x < 0) x = 0;
@@ -94,8 +94,9 @@ namespace W32Util
 
 
 
-GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _columns, int _columnCount)
-	: handle(hwnd), columns(_columns),columnCount(_columnCount),valid(false)
+GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
+	: handle(hwnd), columns(def.columns),columnCount(def.columnCount),valid(false),
+	inResizeColumns(false),updating(false)
 {
 	DWORD style = GetWindowLong(handle,GWL_STYLE) | LVS_REPORT;
 	SetWindowLong(handle, GWL_STYLE, style);
@@ -103,12 +104,14 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _
 	SetWindowLongPtr(handle,GWLP_USERDATA,(LONG_PTR)this);
 	oldProc = (WNDPROC) SetWindowLongPtr(handle,GWLP_WNDPROC,(LONG_PTR)wndProc);
 
-	SendMessage(handle, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
+	auto exStyle = LVS_EX_FULLROWSELECT;
+	if (def.checkbox)
+		exStyle |= LVS_EX_CHECKBOXES;
+	SendMessage(handle, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, exStyle);
 
 	LVCOLUMN lvc; 
 	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
 	lvc.iSubItem = 0;
-	lvc.fmt = LVCFMT_LEFT;
 	
 	RECT rect;
 	GetClientRect(handle,&rect);
@@ -117,8 +120,17 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _
 	for (int i = 0; i < columnCount; i++) {
 		lvc.cx = columns[i].size * totalListSize;
 		lvc.pszText = columns[i].name;
+
+		if (columns[i].flags & GLVC_CENTERED)
+			lvc.fmt = LVCFMT_CENTER;
+		else
+			lvc.fmt = LVCFMT_LEFT;
+
 		ListView_InsertColumn(handle, i, &lvc);
 	}
+
+	if (def.columnOrder != NULL)
+		ListView_SetColumnOrderArray(handle,columnCount,def.columnOrder);
 
 	SetSendInvalidRows(false);
 	valid = true;
@@ -157,10 +169,27 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 		dispInfo->item.pszText = stringBuffer;
 		return;
 	}
+	 
+	// handle checkboxes
+	if (mhdr->code == LVN_ITEMCHANGED && updating == false)
+	{
+		NMLISTVIEW* item = (NMLISTVIEW*) lParam;
+		if (item->iItem != -1 && (item->uChanged & LVIF_STATE) != 0)
+		{
+			// image is 1 if unchcked, 2 if checked
+			int oldImage = (item->uOldState & LVIS_STATEIMAGEMASK) >> 12;
+			int newImage = (item->uNewState & LVIS_STATEIMAGEMASK) >> 12;
+			if (oldImage != newImage)
+				OnToggle(item->iItem,newImage == 2);
+		}
+
+		return;
+	}
 }
 
 void GenericListControl::Update()
 {
+	updating = true;
 	int newRows = GetRowCount();
 
 	int items = ListView_GetItemCount(handle);
@@ -188,6 +217,15 @@ void GenericListControl::Update()
 
 	InvalidateRect(handle,NULL,true);
 	UpdateWindow(handle);
+	updating = false;
+}
+
+
+void GenericListControl::SetCheckState(int item, bool state)
+{
+	updating = true;
+	ListView_SetCheckState(handle,item,state ? TRUE : FALSE);
+	updating = false;
 }
 
 void GenericListControl::ResizeColumns()

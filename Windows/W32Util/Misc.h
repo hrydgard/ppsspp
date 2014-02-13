@@ -16,7 +16,19 @@ struct GenericListViewColumn
 {
 	wchar_t *name;
 	float size;
+	int flags;
 };
+
+struct GenericListViewDef
+{
+	const GenericListViewColumn* columns;
+	int columnCount;
+	int* columnOrder;
+	bool checkbox;			// the first column will always have the checkbox. specify a custom order to change its position
+};
+
+#define GLVC_CENTERED		1
+
 
 // the most significant bit states whether the key is currently down.
 // simply checking if it's != 0 is not enough, as bit0 is set if
@@ -29,7 +41,7 @@ inline bool KeyDownAsync(int vkey)
 class GenericListControl
 {
 public:
-	GenericListControl(HWND hwnd, const GenericListViewColumn* _columns, int _columnCount);
+	GenericListControl(HWND hwnd, const GenericListViewDef& def);
 	virtual ~GenericListControl() { };
 	void HandleNotify(LPARAM lParam);
 	void Update();
@@ -37,12 +49,14 @@ public:
 	HWND GetHandle() { return handle; };
 	void SetSendInvalidRows(bool enabled) { sendInvalidRows = enabled; };
 protected:
+	void SetCheckState(int item, bool state);
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
 	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
 	virtual void CopyRows(int start, int size);
+	virtual void OnToggle(int item, bool newValue) { };
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void ResizeColumns();
@@ -58,4 +72,5 @@ private:
 	bool sendInvalidRows;
 	// Used for hacky workaround to fix a rare hang (see issue #5184)
 	volatile bool inResizeColumns;
+	volatile bool updating;
 };

@@ -38,6 +38,7 @@ protected:
 	virtual int GetRowCount() { return getTotalBreakpointCount(); };
 	virtual void OnDoubleClick(int itemIndex, int column);
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point);
+	virtual void OnToggle(int item, bool newValue);
 private:
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;

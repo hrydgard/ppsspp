@@ -34,6 +34,10 @@ static const GenericListViewColumn vertexListCols[] = {
 	// TODO: Normal, weight, morph?
 };
 
+GenericListViewDef vertexListDef = {
+	vertexListCols,	ARRAY_SIZE(vertexListCols),	NULL,	false
+};
+
 enum VertexListCols {
 	VERTEXLIST_COL_X,
 	VERTEXLIST_COL_Y,
@@ -49,6 +53,10 @@ static const GenericListViewColumn matrixListCols[] = {
 	{ L"1", 0.19f },
 	{ L"2", 0.19f },
 	{ L"3", 0.19f },
+};
+
+GenericListViewDef matrixListDef = {
+	matrixListCols,	ARRAY_SIZE(matrixListCols),	NULL,	false
 };
 
 enum MatrixListCols {
@@ -104,7 +112,7 @@ enum MatrixListRows {
 };
 
 CtrlVertexList::CtrlVertexList(HWND hwnd)
-	: GenericListControl(hwnd, vertexListCols, ARRAY_SIZE(vertexListCols)), raw_(false) {
+	: GenericListControl(hwnd, vertexListDef), raw_(false) {
 	decoder = new VertexDecoder();
 	Update();
 }
@@ -330,7 +338,7 @@ BOOL TabVertices::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 }
 
 CtrlMatrixList::CtrlMatrixList(HWND hwnd)
-	: GenericListControl(hwnd, matrixListCols, ARRAY_SIZE(matrixListCols)) {
+	: GenericListControl(hwnd, matrixListDef) {
 	Update();
 }
 
