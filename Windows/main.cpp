@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <WinNls.h>
+#include <math.h>
+
 #include "Common/CommonWindows.h"
 
 #include "file/vfs.h"
@@ -202,6 +204,9 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
+	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
+	_set_FMA3_enable(0);
+
 	EnableCrashingOnCrashes();
 
 	wchar_t modulePath[MAX_PATH];
