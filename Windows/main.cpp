@@ -205,7 +205,9 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
+#ifdef _M_X64
 	_set_FMA3_enable(0);
+#endif
 
 	EnableCrashingOnCrashes();
 
