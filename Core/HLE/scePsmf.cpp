@@ -864,6 +864,11 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
+		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): not initialized", psmfPlayer);
+		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
+	}
+
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 	return 0;
@@ -1095,6 +1100,11 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	
+	if (psmfplayer->status != PSMF_PLAYER_STATUS_STANDBY){
+		ERROR_LOG(ME, "scePsmfPlayerReleasePsmf(%08x): not initalized", psmfPlayer);
+		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
+	}
+
 	ERROR_LOG(ME, "UNIMPL scePsmfPlayerReleasePsmf(%08x)", psmfPlayer);
 	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
