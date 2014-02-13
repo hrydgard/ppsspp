@@ -694,7 +694,7 @@ void ADSREnvelope::WalkCurve(int type, int rate) {
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT:
-		if (height_ < (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX * 3 / 4) {
+		if (height_ <= (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX * 3 / 4) {
 			height_ += rate;
 		} else {
 			height_ += rate / 4;
