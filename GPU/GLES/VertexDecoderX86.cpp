@@ -765,6 +765,9 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
+	// This commented out version is likely slightly faster but treats all three as signed, which
+	// appears to be wrong.
+	/*
 	XORPS(XMM3, R(XMM3));
 	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
 	PUNPCKLWD(XMM1, R(XMM3));
@@ -772,6 +775,16 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
 	CVTDQ2PS(XMM3, R(XMM1));
 	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
+	*/
+	MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff));
+	MOVSX(32, 16, tempReg2, MDisp(srcReg, dec_->posoff + 2));
+	MOVZX(32, 16, tempReg3, MDisp(srcReg, dec_->posoff + 4));  // NOTE: MOVZX
+	CVTSI2SS(fpScratchReg, R(tempReg1));
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff), fpScratchReg);
+	CVTSI2SS(fpScratchReg, R(tempReg2));
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 4), fpScratchReg);
+	CVTSI2SS(fpScratchReg, R(tempReg3));
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.

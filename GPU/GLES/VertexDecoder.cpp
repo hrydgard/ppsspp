@@ -462,9 +462,10 @@ void VertexDecoder::Step_PosS16Through() const
 {
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const s16 *sv = (const s16*)(ptr_ + posoff);
+	const u16 *uv = (const u16*)(ptr_ + posoff);
 	v[0] = sv[0];
 	v[1] = sv[1];
-	v[2] = sv[2];
+	v[2] = uv[2];
 }
 
 void VertexDecoder::Step_PosFloatThrough() const
