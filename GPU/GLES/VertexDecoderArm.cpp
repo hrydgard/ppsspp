@@ -723,7 +723,7 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	// TODO: SIMD
 	LDRSH(tempReg1, srcReg, dec_->posoff);
 	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
-	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
+	LDRH(tempReg3, srcReg, dec_->posoff + 4);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	for (int i = 0; i < 3; i++) {
 		VMOV(fpScratchReg, tr[i]);
