@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="97"
-    android:versionName="0.9.6" >
+    android:versionCode="970"
+    android:versionName="0.9.7" >
 
     <uses-sdk
         android:minSdkVersion="8"
