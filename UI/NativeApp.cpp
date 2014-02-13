@@ -109,10 +109,14 @@ bool iosCanUseJit;
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;
-recursive_mutex pendingMutex;
-static bool isMessagePending;
-static std::string pendingMessage;
-static std::string pendingValue;
+
+struct PendingMessage {
+	std::string msg;
+	std::string value;
+};
+
+static recursive_mutex pendingMutex;
+static std::vector<PendingMessage> pendingMessages;
 static UIContext *uiContext;
 
 std::thread *graphicsLoadThread;
@@ -243,8 +247,7 @@ void NativeInit(int argc, const char *argv[],
 	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
-	isMessagePending = false;
-
+	pendingMessages.clear();
 #ifdef IOS
 	user_data_path += "/";
 #endif
@@ -651,10 +654,10 @@ void NativeRender() {
 void NativeUpdate(InputState &input) {
 	{
 		lock_guard lock(pendingMutex);
-		if (isMessagePending) {
-			screenManager->sendMessage(pendingMessage.c_str(), pendingValue.c_str());
-			isMessagePending = false;
+		for (size_t i = 0; i < pendingMessages.size(); i++) {
+			screenManager->sendMessage(pendingMessages[i].msg.c_str(), pendingMessages[i].value.c_str());
 		}
+		pendingMessages.clear();
 	}
 
 	g_DownloadManager.Update();
@@ -781,11 +784,10 @@ void NativeAxis(const AxisInput &key) {
 void NativeMessageReceived(const char *message, const char *value) {
 	// We can only have one message queued.
 	lock_guard lock(pendingMutex);
-	if (!isMessagePending) {
-		pendingMessage = message;
-		pendingValue = value;
-		isMessagePending = true;
-	}
+	PendingMessage pendingMessage;
+	pendingMessage.msg = message;
+	pendingMessage.value = value;
+	pendingMessages.push_back(pendingMessage);
 }
 
 void NativeResized() {
