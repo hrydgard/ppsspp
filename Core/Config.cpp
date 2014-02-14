@@ -555,6 +555,7 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
+	ConfigSetting("DectectInvalidMemory", &g_Config.bDetectInvalidMemory, false),
 
 	ConfigSetting(false),
 };

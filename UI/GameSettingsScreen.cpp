@@ -576,6 +576,9 @@ void DeveloperToolsScreen::CreateViews() {
 		cpuTests->SetEnabled(false);
 	}
 
+#ifdef _WIN32
+	list->Add(new CheckBox(&g_Config.bDetectInvalidMemory, s->T("Detect invalid memory", "Detect invalid memory in Visual Studio")));
+#endif
 	list->Add(new CheckBox(&g_Config.bEnableLogging, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
 	list->Add(new ItemHeader(de->T("Language")));
