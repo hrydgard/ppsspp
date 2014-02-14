@@ -54,7 +54,7 @@ int psmfPlayerVersion = PSMF_PLAYER_VERSION_FULL;
 int psmfMaxAheadTimestamp = 40000;
 int audioSamples = 2048;  
 int audioSamplesBytes = audioSamples * 4;
-int videoPixelMode = GE_MMODE_32BIT_ABGR8888;
+int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
 enum PsmfPlayerStatus {
