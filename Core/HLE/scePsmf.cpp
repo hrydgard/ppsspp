@@ -46,8 +46,6 @@ const int PSMF_PLAYER_CONFIG_NO_LOOP = 1;
 const int PSMF_PLAYER_CONFIG_MODE_LOOP = 0;
 const int PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE = 1;
 
-const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0X03;
-
 int psmfCurrentPts = 0;
 int psmfAvcStreamNum = 1;
 int psmfAtracStreamNum = 1;
@@ -56,7 +54,7 @@ int psmfPlayerVersion = PSMF_PLAYER_VERSION_FULL;
 int psmfMaxAheadTimestamp = 40000;
 int audioSamples = 2048;  
 int audioSamplesBytes = audioSamples * 4;
-int videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;
+int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
 enum PsmfPlayerStatus {
@@ -66,6 +64,15 @@ enum PsmfPlayerStatus {
 	PSMF_PLAYER_STATUS_PLAYING = 0x4,
 	PSMF_PLAYER_STATUS_ERROR = 0x100,
 	PSMF_PLAYER_STATUS_PLAYING_FINISHED = 0x200,
+};
+
+enum PsmfPlayerMode {
+	PSMF_PLAYER_MODE_PLAY = 0,
+	PSMF_PLAYER_MODE_SLOWMOTION = 1,
+	PSMF_PLAYER_MODE_STEPFRAME = 2,
+	PSMF_PLAYER_MODE_PAUSE = 3,
+	PSMF_PLAYER_MODE_FORWARD = 4,
+	PSMF_PLAYER_MODE_REWIND = 5,
 };
 
 struct PsmfData {
@@ -457,7 +464,7 @@ PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
 
 void __PsmfInit()
 {
-	videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;
+	videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 }
 
@@ -1187,6 +1194,11 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 
+	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+		INFO_LOG(HLE, "scePsmfPlayerGetVideoData(%08x): paused mode", psmfPlayer);
+		return 0;
+	}
+	
 	if (Memory::IsValidAddress(videoDataAddr)) {
 		int frameWidth = Memory::Read_U32(videoDataAddr);
         u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
@@ -1233,6 +1245,11 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 
+	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
+		return 0;
+	}
+	
 	if (Memory::IsValidAddress(audioDataAddr)) {
 		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
