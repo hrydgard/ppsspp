@@ -73,6 +73,7 @@ What's new in 0.9.5
 * Qt audio has been fixed.
 * Analog controller support for Blackberry.
 
+
 ADHOC SUPPORT (by Igor Calabria)
 ================================
 This is based on coldbird's code: http://code.google.com/p/aemu/
