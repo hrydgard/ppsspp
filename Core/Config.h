@@ -77,6 +77,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	bool bDetectInvalidMemory;
 	bool bCheckForNewVersion;
 
 	// Definitely cannot be changed while game is running.

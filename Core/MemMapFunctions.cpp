@@ -95,6 +95,8 @@ inline void ReadFromHardware(T &var, const u32 address)
 		} else {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		}
+		if (g_Config.bDetectInvalidMemory)
+			DebugBreak();
 		static bool reported = false;
 		if (!reported) {
 			Reporting::ReportMessage("ReadFromHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
@@ -132,6 +134,8 @@ inline void WriteToHardware(u32 address, const T data)
 		} else {
 			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		}
+		if (g_Config.bDetectInvalidMemory)
+			DebugBreak();
 		static bool reported = false;
 		if (!reported) {
 			Reporting::ReportMessage("WriteToHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
