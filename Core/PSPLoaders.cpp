@@ -158,11 +158,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	}
 
 	// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
-	for (int i = 0; i < ARRAY_SIZE(altBootNames); i++) {
-		std::string id = g_paramSFO.GetValueString("DISC_ID");
-		if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
-			bootpath == "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
-		}
+	std::string id = g_paramSFO.GetValueString("DISC_ID");
+	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
+		bootpath == "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
 	}
 
 
