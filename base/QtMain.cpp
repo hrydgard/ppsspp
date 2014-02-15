@@ -64,7 +64,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
-bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
+bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
 {
 	QString text = emugl->InputBoxGetQString(QString(title), QString(defaultValue));
 	if (text.isEmpty())
