@@ -116,7 +116,7 @@ void Vibrate(int length_ms);
 void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
 void LaunchEmail(const char *email_address);
-bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength);
+bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outlength);
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue);
 void System_SendMessage(const char *command, const char *parameter);
 
