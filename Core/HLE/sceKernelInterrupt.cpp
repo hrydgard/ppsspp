@@ -635,17 +635,17 @@ u32 sysclib_strcpy(u32 dst, u32 src) {
 }
 
 u32 sysclib_strlen(u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(dest=%08x, src=%08x)", dst, src);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(dest=%08x, src=%08x)", src);
 	return (u32)strlen(Memory::GetCharPointer(src));
 }
 
 int sysclib_memcmp(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x)", dst, src);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
 }
 
 int sysclib_sprintf(u32 dst, u32 fmt) {
-	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, src);
+	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
 	// TODO
 	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
 }
