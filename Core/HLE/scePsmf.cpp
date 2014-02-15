@@ -879,7 +879,7 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 
 int scePsmfPlayerBreak(u32 psmfPlayer)
 {
-	ERROR_LOG(ME, "UNIMPL scePsmfPlayerBreak(%08x)", psmfPlayer);
+	ERROR_LOG(ME, "scePsmfPlayerBreak(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;//Fix everybody stress buster
@@ -1012,7 +1012,7 @@ int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer)
 
 int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts) 
 {
-	WARN_LOG(ME, "UNIMPL scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
@@ -1083,7 +1083,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 
 int scePsmfPlayerReleasePsmf(u32 psmfPlayer) 
 {
-	ERROR_LOG(ME, "UNIMPL scePsmfPlayerReleasePsmf(%08x)", psmfPlayer);
+	ERROR_LOG(ME, "scePsmfPlayerReleasePsmf(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
