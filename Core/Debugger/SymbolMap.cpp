@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// These functions tends to be slow in debug mode.
+// Comment this out if debugging the symbol map itself.
+#if defined(_MSC_VER) && defined(_DEBUG)
+#pragma optimize("gty", on)
+#endif
+
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <WindowsX.h>
@@ -728,7 +734,7 @@ void SymbolMap::AddLabel(const char* name, u32 address, int moduleIndex) {
 	}
 }
 
-void SymbolMap::SetLabelName(const char* name, u32 address, bool updateImmediately) {
+void SymbolMap::SetLabelName(const char* name, u32 address) {
 	lock_guard guard(lock_);
 	auto labelInfo = activeLabels.find(address);
 	if (labelInfo == activeLabels.end()) {
@@ -740,10 +746,11 @@ void SymbolMap::SetLabelName(const char* name, u32 address, bool updateImmediate
 			strcpy(label->second.name,name);
 			label->second.name[127] = 0;
 
-			// Allow the caller to skip this as it causes extreme startup slowdown
-			// when this gets called for every function identified by the function replacement code.
-			if (updateImmediately) {
-				UpdateActiveSymbols();
+			// Refresh the active item if it exists.
+			auto active = activeLabels.find(address);
+			if (active != activeLabels.end() && active->second.module == label->second.module) {
+				activeLabels.erase(active);
+				activeLabels.insert(std::make_pair(address, label->second));
 			}
 		}
 	}
