@@ -64,6 +64,8 @@ struct DirectoryFileHandle
 #else
 	int hFile;
 #endif
+	s64 needsTrunc_;
+
 	DirectoryFileHandle()
 	{
 #ifdef _WIN32
@@ -71,6 +73,7 @@ struct DirectoryFileHandle
 #else
 		hFile = -1;
 #endif
+		needsTrunc_ = -1;
 	}
 
 	std::string GetLocalPath(std::string& basePath, std::string localpath);
