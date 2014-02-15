@@ -135,7 +135,9 @@ bool Exists(const std::string &filename)
 {
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
 	// Save the old error mode 
+#ifdef _WIN32
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
+#endif
 
 	struct stat64 file_info;
 #if defined(_WIN32) && defined(UNICODE)
@@ -151,7 +153,9 @@ bool Exists(const std::string &filename)
 #endif
 
 	// Set the old error mode
+#ifdef _WIN32
 	SetErrorMode(OldMode);
+#endif
 
 	return (result == 0);
 }
