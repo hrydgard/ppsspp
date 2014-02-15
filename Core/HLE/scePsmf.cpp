@@ -1247,6 +1247,8 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
 		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
+		// Clear the audio when paused.
+		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		return 0;
 	}
 	
