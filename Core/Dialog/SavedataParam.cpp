@@ -1234,7 +1234,6 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					{
 						ClearFileInfo(saveDataList[realCount], thisSaveName);
 						DEBUG_LOG(SCEUTILITY,"Don't Exist");
-						realCount++;
 					}
 				}
 			}
