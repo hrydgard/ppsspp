@@ -56,12 +56,12 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-  // TODO: Cleaner exit
-  if (!strcmp(command, "finish")) {
-    NativeShutdown();
-	  net::Shutdown();
-    exit(0);
-  }
+	// TODO: Cleaner exit
+	if (!strcmp(command, "finish")) {
+		NativeShutdown();
+		net::Shutdown();
+		exit(0);
+	}
 }
 
 bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
@@ -104,6 +104,37 @@ float CalculateDPIScale()
 #endif
 }
 
+static int mainInternal(QApplication &a)
+{
+#ifdef USING_GLES2
+	emugl = new MainUI();
+	emugl->resize(pixel_xres, pixel_yres);
+	emugl->showFullScreen();
+#endif
+#ifdef __SYMBIAN32__
+	// Set RunFast hardware mode for VFPv2.
+	User::SetFloatingPointMode(EFpModeRunFast);
+	// Disable screensaver
+	QScopedPointer<QSystemScreenSaver> ssObject(new QSystemScreenSaver(emugl));
+	ssObject->setScreenSaverInhibit();
+	QScopedPointer<SymbianMediaKeys> mediakeys(new SymbianMediaKeys());
+#endif
+
+	QScopedPointer<QThread> thread(new QThread);
+	QScopedPointer<MainAudio> audio(new MainAudio());
+	audio->moveToThread(thread.data());
+	QObject::connect(thread.data(), SIGNAL(started()), audio.data(), SLOT(run()));
+	thread->start();
+
+#ifdef QT_HAS_SDL
+	SDLJoystick joy(true);
+	joy.startEventLoop();
+#endif
+	int ret = a.exec();
+	thread->quit();
+	return ret;
+}
+
 #ifndef QT_HAS_SDL
 Q_DECL_EXPORT
 #endif
@@ -135,32 +166,9 @@ int main(int argc, char *argv[])
 	const char *assets_dir = "./";
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
-#ifdef USING_GLES2
-	emugl = new MainUI();
-	emugl->resize(pixel_xres, pixel_yres);
-	emugl->showFullScreen();
-#endif
-#ifdef __SYMBIAN32__
-	// Set RunFast hardware mode for VFPv2.
-	User::SetFloatingPointMode(EFpModeRunFast);
-	// Disable screensaver
-	QScopedPointer<QSystemScreenSaver> ssObject(new QSystemScreenSaver(emugl));
-	ssObject->setScreenSaverInhibit();
-	QScopedPointer<SymbianMediaKeys> mediakeys(new SymbianMediaKeys());
-#endif
 
-	QScopedPointer<QThread> thread(new QThread);
-	QScopedPointer<MainAudio> audio(new MainAudio());
-	audio->moveToThread(thread.data());
-	QObject::connect(thread.data(), SIGNAL(started()), audio.data(), SLOT(run()));
-	thread->start();
+	int ret = mainInternal(a);
 
-#ifdef QT_HAS_SDL
-	SDLJoystick joy(true);
-	joy.startEventLoop();
-#endif
-	int ret = a.exec();
-	thread->quit();
 	NativeShutdown();
 	net::Shutdown();
 	return ret;
