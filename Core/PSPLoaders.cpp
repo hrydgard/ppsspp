@@ -125,7 +125,7 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.LEI",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DNR",
 	"disc0:/PSP_GAME/SYSDIR/DBZ2.BIN",
-	"disc0:/PSP_GAME/SYSDIR/PAKFILE2.BIN",
+	"disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN",
 };
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
@@ -153,7 +153,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	// Bypass Chinese translation patches, see comment above.
 	for (int i = 0; i < ARRAY_SIZE(altBootNames); i++) {
 		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
-			bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.OLD";
+			bootpath = altBootNames[i];
 			break;
 		}
 	}
