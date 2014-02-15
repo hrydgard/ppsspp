@@ -424,6 +424,14 @@ public class NativeActivity extends Activity {
 	@Override
 	protected void onResume() {
 		super.onResume();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            updateSystemUiVisibility();
+        }
+		// OK, config should be initialized, we can query for screen rotation.
+		if (Build.VERSION.SDK_INT >= 9) {
+			updateScreenRotation();
+		}	
+
 		Log.i(TAG, "onResume");
 		if (mGLSurfaceView != null) {
 			mGLSurfaceView.onResume();
@@ -436,9 +444,6 @@ public class NativeActivity extends Activity {
 			audioPlayer.play();
 		}
 		NativeApp.resume();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            updateSystemUiVisibility();
-        }
 	}
     
     @Override
