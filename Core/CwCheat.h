@@ -15,19 +15,18 @@ void __CheatInit();
 void __CheatShutdown();
 void __CheatDoState(PointerWrap &p);
 
-std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList);
+// Return whether cheats are enabled and in effect.
+bool CheatsInEffect();
 
 class CWCheatEngine {
 public:
 	CWCheatEngine();
-	std::string String();
-	void AddCheatLine(std::string& line);
 	std::vector<std::string> GetCodesList();
 	void CreateCodeList();
 	void Exit();
 	void Run();
 	std::vector<int> GetNextCode();
-	
+	bool HasCheats();
 
 private:
 	void SkipCodes(int count);

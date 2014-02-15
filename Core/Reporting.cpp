@@ -20,6 +20,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/CwCheat.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -292,6 +293,8 @@ namespace Reporting
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
 		if (g_Config.bTimerHack)
+			return false;
+		if (CheatsInEffect())
 			return false;
 		// Not sure if we should support locked cpu at all, but definitely not far out values.
 		if (g_Config.iLockedCPUSpeed != 0 && (g_Config.iLockedCPUSpeed < 111 || g_Config.iLockedCPUSpeed > 333))
