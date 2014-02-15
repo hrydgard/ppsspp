@@ -60,7 +60,8 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 
 CtrlMemView::~CtrlMemView()
 {
-  DeleteObject(font);
+	DeleteObject(font);
+	DeleteObject(underlineFont);
 }
 
 void CtrlMemView::init()

@@ -78,6 +78,9 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 		
 		// Continue with window creation.
 		return win != NULL;
+	case WM_NCDESTROY:
+		delete win;
+		break;
 	case WM_SIZE:
 		win->redraw();
 		break;

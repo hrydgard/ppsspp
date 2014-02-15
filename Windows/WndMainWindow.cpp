@@ -828,6 +828,23 @@ namespace MainWindow
 		DialogManager::AddDlg(memoryWindow[0]);
 	}
 
+	void DestroyDebugWindows() {
+		DialogManager::RemoveDlg(disasmWindow[0]);
+		if (disasmWindow[0])
+			delete disasmWindow[0];
+		disasmWindow[0] = 0;
+		
+		DialogManager::RemoveDlg(geDebuggerWindow);
+		if (geDebuggerWindow)
+			delete geDebuggerWindow;
+		geDebuggerWindow = 0;
+		
+		DialogManager::RemoveDlg(memoryWindow[0]);
+		if (memoryWindow[0])
+			delete memoryWindow[0];
+		memoryWindow[0] = 0;
+	}
+
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		static std::wstring filter = L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
 		for (int i = 0; i < (int)filter.length(); i++) {
@@ -1334,15 +1351,18 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
-					disasmWindow[0]->Show(true);
+					if (disasmWindow[0])
+						disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_GEDEBUGGER:
-					geDebuggerWindow->Show(true);
+					if (geDebuggerWindow)
+						geDebuggerWindow->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
-					memoryWindow[0]->Show(true);
+					if (memoryWindow[0])
+						memoryWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_EXTRACTFILE:
@@ -1549,10 +1569,13 @@ namespace MainWindow
 			break;
 
 		case WM_USER + 1:
-			disasmWindow[0]->NotifyMapLoaded();
-			memoryWindow[0]->NotifyMapLoaded();
+			if (disasmWindow[0])
+				disasmWindow[0]->NotifyMapLoaded();
+			if (memoryWindow[0])
+				memoryWindow[0]->NotifyMapLoaded();
 
-			disasmWindow[0]->UpdateDialog();
+			if (disasmWindow[0])
+				disasmWindow[0]->UpdateDialog();
 
 			SetForegroundWindow(hwndMain);
 			break;

@@ -51,6 +51,7 @@ namespace MainWindow
 	void Init(HINSTANCE hInstance);
 	BOOL Show(HINSTANCE hInstance, int nCmdShow);
 	void CreateDebugWindows();
+	void DestroyDebugWindows();
 	void Close();
 	void UpdateMenus();
 	void UpdateCommands();

@@ -63,7 +63,7 @@ typedef struct HWND__ *HWND;
 
 class SymbolMap {
 public:
-	SymbolMap() {}
+	SymbolMap() : sawUnknownModule(false) {}
 	void Clear();
 	void SortSymbols();
 
@@ -95,10 +95,13 @@ public:
 	u32 GetFunctionSize(u32 startAddress) const;
 	bool SetFunctionSize(u32 startAddress, u32 newSize);
 	bool RemoveFunction(u32 startAddress, bool removeName);
+	// Search for the first address their may be a function after address.
+	// Only valid for currently loaded modules.  Not guaranteed there will be a function.
+	u32 FindPossibleFunctionAtAfter(u32 address) const;
 
 	void AddLabel(const char* name, u32 address, int moduleIndex = -1);
 	std::string GetLabelString(u32 address) const;
-	void SetLabelName(const char* name, u32 address, bool updateImmediately = true);
+	void SetLabelName(const char* name, u32 address);
 	bool GetLabelValue(const char* name, u32& dest);
 
 	void AddData(u32 address, u32 size, DataType type, int moduleIndex = -1);
@@ -160,6 +163,7 @@ private:
 	std::vector<ModuleEntry> modules;
 
 	mutable recursive_mutex lock_;
+	bool sawUnknownModule;
 };
 
 extern SymbolMap symbolMap;

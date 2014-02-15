@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// These functions tends to be slow in debug mode.
+// Comment this out if debugging the symbol map itself.
+#if defined(_MSC_VER) && defined(_DEBUG)
+#pragma optimize("gty", on)
+#endif
+
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <WindowsX.h>
@@ -488,13 +494,15 @@ void SymbolMap::AddFunction(const char* name, u32 address, u32 size, int moduleI
 
 	if (moduleIndex == -1) {
 		moduleIndex = GetModuleIndex(address);
+	} else if (moduleIndex == 0) {
+		sawUnknownModule = true;
 	}
 
 	// Is there an existing one?
 	u32 relAddress = GetModuleRelativeAddr(address, moduleIndex);
 	auto symbolKey = std::make_pair(moduleIndex, relAddress);
 	auto existing = functions.find(symbolKey);
-	if (existing == functions.end()) {
+	if (sawUnknownModule && existing == functions.end()) {
 		// Fall back: maybe it's got moduleIndex = 0.
 		existing = functions.find(std::make_pair(0, address));
 	}
@@ -556,6 +564,15 @@ u32 SymbolMap::GetFunctionStart(u32 address) const {
 	}
 
 	return INVALID_ADDRESS;
+}
+
+u32 SymbolMap::FindPossibleFunctionAtAfter(u32 address) const {
+	lock_guard guard(lock_);
+	auto it = activeFunctions.lower_bound(address);
+	if (it == activeFunctions.end()) {
+		return (u32)-1;
+	}
+	return it->first;
 }
 
 u32 SymbolMap::GetFunctionSize(u32 startAddress) const {
@@ -686,13 +703,15 @@ void SymbolMap::AddLabel(const char* name, u32 address, int moduleIndex) {
 
 	if (moduleIndex == -1) {
 		moduleIndex = GetModuleIndex(address);
+	} else if (moduleIndex == 0) {
+		sawUnknownModule = true;
 	}
 
 	// Is there an existing one?
 	u32 relAddress = GetModuleRelativeAddr(address, moduleIndex);
 	auto symbolKey = std::make_pair(moduleIndex, relAddress);
 	auto existing = labels.find(symbolKey);
-	if (existing == labels.end()) {
+	if (sawUnknownModule && existing == labels.end()) {
 		// Fall back: maybe it's got moduleIndex = 0.
 		existing = labels.find(std::make_pair(0, address));
 	}
@@ -728,7 +747,7 @@ void SymbolMap::AddLabel(const char* name, u32 address, int moduleIndex) {
 	}
 }
 
-void SymbolMap::SetLabelName(const char* name, u32 address, bool updateImmediately) {
+void SymbolMap::SetLabelName(const char* name, u32 address) {
 	lock_guard guard(lock_);
 	auto labelInfo = activeLabels.find(address);
 	if (labelInfo == activeLabels.end()) {
@@ -740,10 +759,11 @@ void SymbolMap::SetLabelName(const char* name, u32 address, bool updateImmediate
 			strcpy(label->second.name,name);
 			label->second.name[127] = 0;
 
-			// Allow the caller to skip this as it causes extreme startup slowdown
-			// when this gets called for every function identified by the function replacement code.
-			if (updateImmediately) {
-				UpdateActiveSymbols();
+			// Refresh the active item if it exists.
+			auto active = activeLabels.find(address);
+			if (active != activeLabels.end() && active->second.module == label->second.module) {
+				activeLabels.erase(active);
+				activeLabels.insert(std::make_pair(address, label->second));
 			}
 		}
 	}
@@ -792,13 +812,15 @@ void SymbolMap::AddData(u32 address, u32 size, DataType type, int moduleIndex) {
 
 	if (moduleIndex == -1) {
 		moduleIndex = GetModuleIndex(address);
+	} else if (moduleIndex == 0) {
+		sawUnknownModule = true;
 	}
 
 	// Is there an existing one?
 	u32 relAddress = GetModuleRelativeAddr(address, moduleIndex);
 	auto symbolKey = std::make_pair(moduleIndex, relAddress);
 	auto existing = data.find(symbolKey);
-	if (existing == data.end()) {
+	if (sawUnknownModule && existing == data.end()) {
 		// Fall back: maybe it's got moduleIndex = 0.
 		existing = data.find(std::make_pair(0, address));
 	}
