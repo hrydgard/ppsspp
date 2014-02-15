@@ -63,7 +63,7 @@ typedef struct HWND__ *HWND;
 
 class SymbolMap {
 public:
-	SymbolMap() {}
+	SymbolMap() : sawUnknownModule(false) {}
 	void Clear();
 	void SortSymbols();
 
@@ -160,6 +160,7 @@ private:
 	std::vector<ModuleEntry> modules;
 
 	mutable recursive_mutex lock_;
+	bool sawUnknownModule;
 };
 
 extern SymbolMap symbolMap;

@@ -494,13 +494,15 @@ void SymbolMap::AddFunction(const char* name, u32 address, u32 size, int moduleI
 
 	if (moduleIndex == -1) {
 		moduleIndex = GetModuleIndex(address);
+	} else if (moduleIndex == 0) {
+		sawUnknownModule = true;
 	}
 
 	// Is there an existing one?
 	u32 relAddress = GetModuleRelativeAddr(address, moduleIndex);
 	auto symbolKey = std::make_pair(moduleIndex, relAddress);
 	auto existing = functions.find(symbolKey);
-	if (existing == functions.end()) {
+	if (sawUnknownModule && existing == functions.end()) {
 		// Fall back: maybe it's got moduleIndex = 0.
 		existing = functions.find(std::make_pair(0, address));
 	}
@@ -692,13 +694,15 @@ void SymbolMap::AddLabel(const char* name, u32 address, int moduleIndex) {
 
 	if (moduleIndex == -1) {
 		moduleIndex = GetModuleIndex(address);
+	} else if (moduleIndex == 0) {
+		sawUnknownModule = true;
 	}
 
 	// Is there an existing one?
 	u32 relAddress = GetModuleRelativeAddr(address, moduleIndex);
 	auto symbolKey = std::make_pair(moduleIndex, relAddress);
 	auto existing = labels.find(symbolKey);
-	if (existing == labels.end()) {
+	if (sawUnknownModule && existing == labels.end()) {
 		// Fall back: maybe it's got moduleIndex = 0.
 		existing = labels.find(std::make_pair(0, address));
 	}
@@ -799,13 +803,15 @@ void SymbolMap::AddData(u32 address, u32 size, DataType type, int moduleIndex) {
 
 	if (moduleIndex == -1) {
 		moduleIndex = GetModuleIndex(address);
+	} else if (moduleIndex == 0) {
+		sawUnknownModule = true;
 	}
 
 	// Is there an existing one?
 	u32 relAddress = GetModuleRelativeAddr(address, moduleIndex);
 	auto symbolKey = std::make_pair(moduleIndex, relAddress);
 	auto existing = data.find(symbolKey);
-	if (existing == data.end()) {
+	if (sawUnknownModule && existing == data.end()) {
 		// Fall back: maybe it's got moduleIndex = 0.
 		existing = data.find(std::make_pair(0, address));
 	}
