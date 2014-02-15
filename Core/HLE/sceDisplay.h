@@ -39,5 +39,3 @@ void __DisplayGetVPS(float *out_vps);
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
 int __DisplayGetVCount();
 int __DisplayGetFlipCount();
-
-void Register_sceDisplay_driver();
