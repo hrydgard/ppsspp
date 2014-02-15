@@ -51,8 +51,8 @@ namespace Reporting
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
-	// Keeps track of report-only-once identifiers.
-	static std::set<std::string> logOnceUsed;
+	// Keeps track of report-only-once identifiers.  Since they're always constants, a pointer is okay.
+	static std::set<const char *> logOnceUsed;
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
 
@@ -294,7 +294,7 @@ namespace Reporting
 
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
-		if (!pspFileSystem.GetFileInfo("flash0:/font").exists)
+		if (!File::Exists(g_Config.flash0Directory + "/font"))
 			return false;
 
 		return true;
