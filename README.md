@@ -18,6 +18,9 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 0.9.7.1
+---------------------
+* Some critical bugfixes (rotation, haptic feedback on Android, etc)
 
 What's new in 0.9.7
 -------------------
