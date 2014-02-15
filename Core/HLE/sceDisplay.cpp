@@ -945,4 +945,5 @@ const HLEFunction sceDisplay[] = {
 
 void Register_sceDisplay() {
 	RegisterModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
+	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
 }

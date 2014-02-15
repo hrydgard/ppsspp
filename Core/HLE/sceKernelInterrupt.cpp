@@ -611,11 +611,54 @@ const HLEFunction Kernel_Library[] =
 	{0xfa835cde,WrapI_I<sceKernelGetTlsAddr>, "sceKernelGetTlsAddr"},
 };
 
+u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
+	memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+	return dst;
+}
+
+u32 sysclib_strcat(u32 dst, u32 src) {
+	strcat((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+	return dst;
+}
+
+int sysclib_strcmp(u32 dst, u32 src) {
+	return strcmp((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+}
+
+u32 sysclib_strcpy(u32 dst, u32 src) {
+	strcpy((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+	return dst;
+}
+
+u32 sysclib_strlen(u32 src) {
+	return (u32)strlen(Memory::GetCharPointer(src));
+}
+
+int sysclib_memcmp(u32 dst, u32 src, u32 size) {
+	return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
+}
+
+int sysclib_sprintf(u32 dst, u32 fmt) {
+	// TODO
+	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
+}
+
+const HLEFunction SysclibForKernel[] =
+{
+	{ 0xAB7592FF, WrapU_UUU<sysclib_memcpy>, "memcpy" },
+	{ 0x476FD94A, WrapU_UU<sysclib_strcat>, "strcat" },
+	{ 0xC0AB8932, WrapI_UU<sysclib_strcmp>, "strcmp" },
+	{ 0xEC6F1CF2, WrapU_UU<sysclib_strcpy>, "strcpy" },
+	{ 0x52DF196C, WrapU_U<sysclib_strlen>, "strlen" },
+	{ 0x81D0D1F7, WrapI_UUU<sysclib_memcmp>, "memcmp" },
+	{ 0x7661e728, WrapI_UU<sysclib_sprintf>, "sprintf" },
+};
+
 void Register_Kernel_Library()
 {
 	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
+	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
 }
-
 
 const HLEFunction InterruptManager[] =
 {
