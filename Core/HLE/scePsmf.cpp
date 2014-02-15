@@ -1198,7 +1198,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		INFO_LOG(HLE, "scePsmfPlayerGetVideoData(%08x): paused mode", psmfPlayer);
 		return 0;
 	}
-	
+
 	if (Memory::IsValidAddress(videoDataAddr)) {
 		int frameWidth = Memory::Read_U32(videoDataAddr);
         u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
@@ -1247,13 +1247,17 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
 		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
+		// Clear the audio when paused.
+		if (Memory::IsValidAddress(audioDataAddr)) {
+			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+		}
 		return 0;
 	}
-	
+
 	if (Memory::IsValidAddress(audioDataAddr)) {
-		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
 	}
+	
 	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
 	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
@@ -1288,15 +1292,12 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 	}
 
 	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
+	if (!isInitialized || psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
 		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
 	DEBUG_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x)", psmfPlayer, currentPtsAddr);
-	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
-		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
-	}
 
 	if (Memory::IsValidAddress(currentPtsAddr)) {
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
@@ -1313,13 +1314,8 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 	}
 
 	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
+	if (!isInitialized || psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
 		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x): not initialized", psmfPlayer);
-		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
-	}
-
-	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
-		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x): not initialized", psmfPlayer, psmfInfoAddr);
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
