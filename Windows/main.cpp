@@ -182,7 +182,7 @@ void EnableCrashingOnCrashes()
   } 
 }
 
-bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
+bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
 {
 	std::string out;
 	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
