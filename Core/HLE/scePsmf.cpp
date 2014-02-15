@@ -1245,18 +1245,18 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 
-	if (Memory::IsValidAddress(audioDataAddr)) {
-		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
-	}
-	
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
 		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
 		// Clear the audio when paused.
-		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+		if (Memory::IsValidAddress(audioDataAddr)) {
+			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+		}
 		return 0;
 	}
 
-	psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
+	if (Memory::IsValidAddress(audioDataAddr)) {
+		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
+	}
 	
 	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
