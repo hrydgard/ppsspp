@@ -94,6 +94,9 @@ private:
 	void Init();
 	void Shutdown();
 	void Reset();
+
+	int ThunkStackOffset();
+	int ThunkBytesNeeded();
 };
 
 #endif // _THUNK_H_
