@@ -489,7 +489,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 #ifdef _WIN32
 		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
 #else
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, access = %i", (int)access);
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
 #endif
 		//wwwwaaaaahh!!
 		return 0;
