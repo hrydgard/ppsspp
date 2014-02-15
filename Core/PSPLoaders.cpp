@@ -172,6 +172,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/DBZ2.BIN").exists) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/DBZ2.BIN";
 	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
+		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
+	}
 
 	bool hasEncrypted = false;
 	u32 fd;
