@@ -138,6 +138,10 @@ namespace W32Util
 		thread_->detach();
 	}
 
+	AsyncBrowseDialog::~AsyncBrowseDialog() {
+		delete thread_;
+	}
+
 	bool AsyncBrowseDialog::GetResult(std::string &filename) {
 		filename = filename_;
 		return result_;

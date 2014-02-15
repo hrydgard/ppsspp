@@ -171,7 +171,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	bottomTabs->ShowTab(memHandle);
 
 	// init status bar
-	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, L"", m_hDlg, IDC_DISASMSTATUSBAR);
+	statusBarWnd = CreateWindowEx(0, STATUSCLASSNAME, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, m_hDlg, (HMENU)IDC_DISASMSTATUSBAR, _hInstance, NULL);
 	if (g_Config.bDisplayStatusBar == false)
 	{
 		ShowWindow(statusBarWnd,SW_HIDE);
@@ -187,6 +187,14 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 CDisasm::~CDisasm()
 {
+	DestroyWindow(statusBarWnd);
+
+	delete leftTabs;
+	delete bottomTabs;
+	delete breakpointList;
+	delete threadList;
+	delete stackTraceView;
+	delete moduleList;
 }
 
 void CDisasm::stepInto()
