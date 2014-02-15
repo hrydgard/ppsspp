@@ -394,7 +394,9 @@ skip:
 				// We still need to insert the func for hashing purposes.
 				currentFunction.start = syminfo.address;
 				currentFunction.end = syminfo.address + syminfo.size - 4;
+				currentFunction.foundInSymbolMap = true;
 				functions.push_back(currentFunction);
+				currentFunction.foundInSymbolMap = false;
 				currentFunction.start = addr + 4;
 				furthestBranch = 0;
 				looking = false;
@@ -485,7 +487,7 @@ skip:
 
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			iter->size = iter->end - iter->start + 4;
-			if (insertSymbols) {
+			if (insertSymbols && !iter->foundInSymbolMap) {
 				char temp[256];
 				symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 			}
@@ -640,7 +642,7 @@ skip:
 					std::string existingLabel = symbolMap.GetLabelString(f.start);
 					char defaultLabel[256];
 					// If it was renamed, keep it.  Only change the name if it's still the default.
-					if (existingLabel.empty() || !strcmp(existingLabel.c_str(), DefaultFunctionName(defaultLabel, f.start))) {
+					if (existingLabel.empty() || existingLabel == DefaultFunctionName(defaultLabel, f.start)) {
 						symbolMap.SetLabelName(mf->name, f.start);
 					}
 				}

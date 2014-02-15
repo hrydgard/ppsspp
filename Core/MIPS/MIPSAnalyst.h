@@ -87,6 +87,7 @@ namespace MIPSAnalyst
 		bool isStraightLeaf;
 		bool hasHash;
 		bool usesVFPU;
+		bool foundInSymbolMap;
 		char name[64];
 	};
 
