@@ -375,6 +375,11 @@ bool PSP_IsInited() {
 }
 
 void PSP_Shutdown() {
+	// Do nothing if we never inited.
+	if (!pspIsInited && !pspIsIniting) {
+		return;
+	}
+
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
 		MIPSAnalyst::StoreHashMap();
