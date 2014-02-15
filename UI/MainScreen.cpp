@@ -948,6 +948,9 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	System_SendMessage("finish", "");
 
 	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
+#ifdef ANDROID
+	exit(0);
+#endif
 
 	globalUIState = UISTATE_EXIT;
 	return UI::EVENT_DONE;
