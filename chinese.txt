@@ -1,54 +1,7 @@
-﻿[LangRegionNames]
-ja_JP = "日本語"
-en_US = "English"
-fi_FI = "Suomi"
-fr_FR = "Français"
-es_ES = "Castellano (España)"
-es_LA = "Español (América Latina)"
-de_DE = "Deutsch"
-it_IT = "Italiano"
-nl_NL = "Nederlands"
-pt_PT = "Português"
-pt_BR = "Português Brasileiro"
-ru_RU = "Русский"
-ko_KR = "한국어"
-zh_TW = "繁體中文"
-zh_CN = "简体中文"
-ar_AE = "العربية"
-az_AZ = "Azeri"
-ca_ES = "Català"
-gr_EL = "Ελληνικά"
-he_IL = "עברית"
-hu_HU = "Magyar"
-id_ID = "Indonesia"
-pl_PL = "Polski"
-ro_RO = "Român"
-sv_SE = "Svenska"
-tr_TR = "Türk"
-uk_UA = "Українська"
-vn_VN = "Vietnamese"
-cz_CZ = "Česky"
-tg_PH = "Tagalog"
-dr_ID = "Duri"
-fa_IR = "فارسی"
-da_DK = "Dansk"
+五于天末開下理事畫現玫珠表珍列玉平不來與屯妻到互寺城霜載直進吉協南才垢圾夫無墳增示赤過志地雪支三奪大廳左豐百右曆面幫原胡春克太磁砂灰達成顧肆友龍本村枯林械相查可機格析極檢構術樣檔傑棕楊李要權楷七革基苛式牙劃或功貢攻匠菜共區芳燕東芝世節切芭藥睛睦盯虎止舊占鹵貞睡肯具餐眩瞳步眯瞎盧眼皮此量時晨果虹早昌蠅曙遇昨蝗明蛤晚景暗晃顯暈電最歸緊昆呈葉順呆呀中雖呂另員呼聽吸只史嘛啼吵喧叫啊哪吧喲車軒因困四輥加男軸力斬胃辦羅罰較邊思軌輕累同財央朵曲由則嶄冊幾販骨內風凡贈峭迪豈郵鳳生行知條長處得各務向筆物秀答稱入科秒秋管秘季委麼第後持拓打找年提扣押抽手折扔失換擴拉朱摟近所報掃反批且肝采肛膽腫肋肌用遙朋臉胸及膠膛愛甩妥肥脂全會估休代個介保佃仙作伯仍從你信們償夥億他分公化錢針然釘氏外旬名甸負兒鐵角欠多久勻樂炙錠包凶爭色主計慶訂度讓劉訓為高放訴衣認義方說就變這記離良充率閏半關親並站間部曾商產瓣前閃交六立冰普帝決聞妝馮北汪法尖灑江小濁澡漸沒少泊肖興光注洋水淡學沁池當漢漲業灶類燈煤粘燭熾煙燦烽煌粗粉炮米料炒炎迷斷籽婁寬寂審宮軍宙客賓家空宛社實宵災之官字安它懷導居民收慢避慚屆必怕愉懈心習悄屢忱憶敢恨怪尼衛際承阿陳恥陽職陣出降孤陰隊防聯孫耿遼也子限取陛姨尋姑雜毀旭如舅九奶婚妨嫌錄靈巡刀好婦媽姆對參戲臺勸觀矣牟能難允駐駝馬鄧艱雙線結頃紅引旨強細綱張綿級給約紡弱紗繼綜紀弛綠經比烴定守害一在工上是國和的有人我了發以瑟斑晴語伍殘封都動什杆舍鞍伏邦悲韭源善著羚磊礦劇頁萬尤跋森棵酒寧歌臣茹哎莽酣謹甘黃臘垂道植申卡叔趾足虛玻晶暮臨象堅界肅梨刊章朝蠶品喊帶雷恩閘鴨轟曼黑柬溫盆苯苦某荊匡芋棋柑奎霸震積餘敘者複怎炸箋簡數贛徹覆碧凰皚易腸派汽拿攀勢拋看拜哲嶽兵肢縣甫擁解穆受貌豺豪橡毅衰畏喪眾輸夷份雁谷蘇癸蹬察鏡跑軟鳥鳴島印狽逛魯漁免見殺便誓辯尺州亢亡丹亥孩俯肪激唯截顏沖頭均壯獸敝幸夾旁辭滓療嫉泵永函兆泰康否杯系黨滅庶兼播凱撰挖巨啟眉媚聲蕊恭舔翌翻熟屈齒齡亨蒸滁椰服矛倉她施媳案淄巢扭那丸津食霓騷令通私雲爸驟蘊雍幻慈每沸曳王土木目日口田山禾白月金言火已女又幹士二十寸雨古犬石廠丁西戈蔔曰蟲川甲皿竹斤乃八夕文廣辛門貝己巳乙屍羽耳臼巴弓階而種自深農體路正論些資形重戰使等合圖新還想點其起性鬥把裡兩應制育去氣問展意接情油題利壓組期毛群次但孔流席運質治位器指
+简繁
 
-[SystemLanguage]
-ja_JP = "JAPANESE"
-en_US = "ENGLISH"
-fr_FR = "FRENCH"
-es_ES = "SPANISH"
-es_LA = "SPANISH"
-de_DE = "GERMAN"
-it_IT = "ITALIAN"
-nl_NL = "DUTCH"
-pt_PT = "PORTUGUESE"
-pt_BR = "PORTUGUESE"
-ru_RU = "RUSSIAN"
-ko_KR = "KOREAN"
-zh_TW = "CHINESE_TRADITIONAL"
-zh_CN = "CHINESE_SIMPLIFIED"
-# 感谢您参与 PPSSPP 模拟器的界面汉化工作!
+﻿# 感谢您参与 PPSSPP 模拟器的界面汉化工作!
 #
 # 您可以根据本文件创建您本地语言的ini文件
 # 或者对已有的ini文件进行更新
@@ -68,6 +21,7 @@ zh_CN = "CHINESE_SIMPLIFIED"
 
 [MainMenu]
 Load = 载入游戏 ...
+Browse = 浏览...
 Credits = 开发团队
 Exit = 退出程序
 Recent = 玩过的游戏
@@ -87,6 +41,9 @@ DynarecisJailed = 动态重编译 (JIT) - (未越狱 - 不可用)
 Fast Memory = 快速内存访问 (不稳定)
 Multithreaded (experimental) = CPU多线程 (试验)
 I/O on thread (experimental) = I/O多线程 (试验)
+Atomic Audio locks (experimental) = 原子音频锁定（试验性）
+Rewind Snapshot Frequency = 快照倒回频率(0=关闭)
+Auto Load Newest Savestate = 自动载入最新即时存档
 Enable Cheats = 开启金手指
 Day Light Saving = 夏令时
 Change Nickname = 修改昵称
@@ -111,6 +68,10 @@ Clear Recent Games List = 清除玩过的游戏列表
 Savestate Slot = 即时存档位置
 UI Language = 界面语言
 Restore Default Settings = 恢复PPSSPP设置到默认值
+Networking = 联网
+Enable networking = 启用联网/无线区域网路(测试)
+VersionCheck = 检查PPSSPP新版本
+PSP Model = PSP机型
 
 [Graphics]
 Stretch to Display = 拉伸画面
@@ -135,9 +96,15 @@ Auto (1:1) = 自动 (1:1)
 Low quality spline/bezier curves (speed) = B样条曲线 (降低质量提高速度)
 Mipmapping = 多级纹理映射 (Mipmap贴图)
 Alternative Speed = 自定义速度
+Postprocessing Shader = 后处理着色器
+Vertex Decoder JIT = 顶点解码器即时编译
+LowCurves = 低品质样条函数/贝兹曲线(提升速度)
+Timer Hack = 定时器修改
+Disable Alpha Test (PowerVR speedup) = 禁用Alpha测试(提升PowerVR设备速度)
 Unlimited = 不限
+Software Skinning = 减少绘图调用(提升速度)
 # 目前不使用
-True Color = 真实颜色
+True Color = 真彩色
 Anisotropic Filtering = 各向异性过滤
 Texture Scaling = 纹理缩放
 Deposterize = 色调融合
@@ -153,9 +120,9 @@ Auto = 自动
 8x = 8倍
 16x = 16倍
 xBRZ = xBRZ
-Hybrid = Hybrid
-Bicubic = Bicubic
-Hybrid + Bicubic = Hybrid + Bicubic
+Hybrid = 混合
+Bicubic = 双线性内插
+Hybrid + Bicubic = 混合 + 双线性内插
 VSync = 垂直同步
 FullScreen = 全屏幕
 Show FPS Counter = 显示FPS计数器...
@@ -187,6 +154,11 @@ Disable Stencil Test = 禁用模版测试（修正最终幻想4）
 Internal Resolution = 内部分辨率
 Window Size = 窗口大小
 Texture Coord Speedhack = 加速贴图坐标
+Performance = 性能
+Auto FrameSkip = 自动跳帧
+Small Display = 原始分辨率显示
+Lazy texture caching = 减少缓存存取(提升速度)
+Retain changed textures = 保持贴图与内存(提速,占用内存)
 
 [Pause]
 Save State = 保存即时存档
@@ -194,6 +166,8 @@ Load State = 读取即时存档
 Continue = 继续游戏
 Exit to menu = 返回主菜单
 Game Settings = 游戏设置
+Cheats = 金手指
+Switch UMD = 切换光碟
 
 [MainSettings]
 Audio = 声音设置
@@ -228,6 +202,24 @@ Button Opacity = 按钮透明度
 Show Left Analog Stick = 显示左摇杆
 Control Mapping = 按键映射
 HapticFeedback = 按键反馈 (震动)
+Custom layout... = 自定义布局
+Visibility = 可见设定
+Disable D-Pad diagonals (4-way touch) = 禁止D-Pad对角线(四方向触控)
+Button style = 按键样式
+Classic = 传统
+Thin borders = 薄边框
+Tilt Input Type = 倾斜替代按键
+None (Disabled) = 无(禁用)
+Analog Stick = 摇杆
+D-PAD = 方向键
+PSP Action Buttons = PSP功能键
+Move = 移动
+Resize = 重设
+Dpad = 方向键
+Toggle All = 全选
+Touch Control Visibility = 可见触摸控制
+Keyboard = 键盘控制设定
+Ignore Windows Key = 忽略Windows键
 
 [Dialog]
 Back = 返回
@@ -257,6 +249,7 @@ Deleting = 删除中\n请稍候...
 Delete completed = 已删除.
 DeleteConfirmAll = 将删除该游戏的所有存档.\n您确定吗?
 DeleteConfirmGame = 将删除该游戏, 该操作不能撤销.\n您确定吗?
+Reset = 重设
 
 [Error]
 Error loading file = 文件载入错误:
@@ -307,8 +300,8 @@ this translation by = 界面汉化:
 # 不需要的行留空，一行4个人这样的排版看起来比较合适.
 # 在这里添加PPSSPP界面汉化人员的名单
 translators1 = sum2012, kaienfr, raven02, aquanull, xiwo4525
-translators2 = xiwo4525, wuspring, zzq920817, W-MS
-translators3 =
+translators2 = xiwo4525, wuspring, zzq920817, W-MS, xzapk
+translators3 = 
 translators4 =
 translators5 =
 translators6 =
@@ -359,6 +352,7 @@ Run = 运行(&R)
 Pause = 暂停(&P)
 Stop = 停止(&S)
 Reset = 复位(&E)
+Switch UMD = 切換光碟
 Enable Sound = 开启声音(&O)
 Enable Cheats = 启用金手指(游戏将会复位)(&C)
 
@@ -401,19 +395,20 @@ Texture Filtering = 纹理过滤方式(&X)
 	Linear on FMV = 在CG中使用线性过滤(&F)
 # 纹理缩放中的"Off"将使用与前文相同的翻译, 如果您认为需要区分开来, 请在GitHub中提交问题.
 Texture Scaling = 纹理缩放方式(&T)
-	xBRZ = &xBRZ
-	Hybrid = &Hybrid
-	Bicubic = &Bicubic
-	Hybrid + Bicubic = H&ybrid + Bicubic
+	xBRZ = &高清过滤
+	Hybrid = &混合
+	Bicubic = &双线性内插
+	Hybrid + Bicubic = 混合 + 双线性内插
 	Deposterize = 色调融合(&D)
 Hardware Transform = 硬件几何变换(&H)
 Vertex Cache = 顶点缓存(&V)
 VSync = 垂直同步(&Y)
 FXAA antialiasing = 快速近似抗锯齿(&A)
+Postprocessing Shader = 后处理着色器
 Show FPS Counter = 显示&FPS计数器
 Show Debug Statistics = 显示调试信息(&G)
 
-Language = 语言(&L)
+Language... = 语言(&L)
 
 Help = 帮助(&H)
 www.ppsspp.org = 访问www.&ppsspp.org
@@ -438,9 +433,17 @@ Import Cheats = 从cheat.db导入金手指
 Enable/Disable All = 启用/禁用所有金手指
 Cheats = 金手指
 
+[Upgrade]
+New version of PPSSPP available = 新版本PPSSPP已经就绪
+Download = 下载
+Dismiss = 忽略
 
-
-[DesktopUI]
+[InstallZip]
+Install game from ZIP file? = 从ZIP档案安装游戏?
+Install = 安装
+Delete ZIP file = 删除ZIP档案
+Installed! = 安装完成!
+﻿[DesktopUI]
 Font = Microsoft YaHei
 File = 檔案
 Load = 載入遊戲...
@@ -459,6 +462,7 @@ Run = 執行
 Pause = 暫停
 Stop = 停止
 Reset = 重置
+Switch UMD = 切換光碟
 Run on Load = 載入後執行
 Enable Sound = 開啟聲音
 Enable Cheats = 啓用作弊碼
@@ -473,6 +477,7 @@ Disassembly = 反彙編
 Log Console = 控制台日誌
 Memory View... = 查看記憶體...
 GE Debugger... = GE除錯器
+Extract File... = 提取檔案...
 
 Game Settings = 遊戲設定
 Fullscreen = 全螢幕
@@ -506,8 +511,8 @@ Control Mapping... = 控制映射
 Window Size = 視窗大小
 Postprocessing Shader = 後處理著色器
 Pause When Not Focused = 在非使用中時暫停
-
-Language = 語言設定
+Language... = 語言設定
+Ignore Windows Key = 忽略Windows鍵
 
 Help = 幫助
 Buy Gold = 購買黃金版
@@ -517,6 +522,7 @@ PPSSPP Chinese Forum = PPSSPP中國貼吧
 
 [MainMenu]
 Load = 載入遊戲...
+Browse = 瀏覽...
 Settings = 設定
 Credits = 製作組
 Exit = 離開
@@ -527,6 +533,7 @@ How to get games = 如何獲得遊戲
 How to get homebrew & demos = 如何獲得自製遊戲和試玩
 Game Settings = 遊戲設定
 Support PPSSPP = 支持PPSSPP
+DownloadFromStore = 從PPSSPP自製軟體商店下載
 
 [MainSettings]
 Graphics = 圖形設定
@@ -602,7 +609,13 @@ Auto (1:1) = 自動(1:1)
 Performance = 性能
 LowCurves = 低品質樣條函數/貝茲曲線 (提升速度) 
 Postprocessing Shader = 後處理著色器
+Timer Hack = 定時器修改
 Disable Alpha Test (PowerVR speedup) = 禁用Alpha測試 (提升PowerVR設備速度)
+Software Skinning = 減少繪圖調用 (提升速度)
+Lazy texture caching = 緩慢紋理快取 (提升速度)
+Retain changed textures = 保留已變更紋理 (提升速度)
+Small Display = 畫面縮小顯示
+Auto FrameSkip = 自動跳幀
 
 [Audio]
 SFX volume = 效果音量
@@ -622,6 +635,12 @@ HapticFeedback = 按鍵反饋 (震動)
 Custom layout... = 自定義佈局
 Visibility = 可視設定
 Touch Control Visibility = 觸摸可視控制
+Disable D-Pad diagonals (4-way touch) = 禁止D-Pad對角線 (四方向觸控)
+Button style = 按鍵樣式
+Classic = 傳統
+Thin borders = 薄邊框
+Keyboard = 鍵盤控制設定
+Ignore Windows Key = 忽略Windows鍵
 
 [System]
 Emulation = 模擬
@@ -630,6 +649,7 @@ Dynarec = 動態重新編譯 (JIT)
 DynarecisJailed = 動態重新編譯 (JIT) - 尚未越獄故無法使用
 Multithreaded (experimental) = CPU多執行緒 (試驗)
 I/O on thread (experimental) = I/O多執行緒 (試驗)
+Atomic Audio locks (experimental) = 原子音訊鎖定 (試驗)
 Change CPU Clock = 調整CPU時鐘 (默認值0)
 Cheats = 秘籍 (實驗，見官方論壇)
 Enable Cheats = 啓用作弊碼
@@ -652,6 +672,12 @@ Use O to confirm = 使用O確認
 Savestate Slot = 即時存檔插槽
 Restore Default Settings = 還原默認設定
 UI Language = 介面語言
+Rewind Snapshot Frequency = 快照倒回頻率 (0=關閉)
+Auto Load Newest Savestate = 自動載入最新即時存檔
+Networking = 聯網
+Enable networking = 啟用聯網/無線區域網路 (測試)
+VersionCheck = 檢查PPSSPP新版本
+PSP Model = PSP機型
 
 [Developer]
 General = 一般
@@ -695,14 +721,20 @@ Deleting = 刪除中\n請稍候...
 Delete completed = 檔案已刪除。
 DeleteConfirmAll = 您確定要刪除此遊戲的所有檔案?
 DeleteConfirmGame = 您確定要刪除此遊戲?\n該操作無法撤銷
+Retry = 重新嘗試
+Move = 位置設定
+Resize = 大小設定
+Network Connection = 網路連線
 
 [Pause]
 Save State = 即時存檔
 Load State = 載入存檔
+Rewind = 倒回
 Continue = 繼續
 Game Settings = 遊戲設定
 Cheats = 金手指
 Exit to menu = 返回主選單
+Switch UMD = 切換光碟
 
 [Error]
 Error loading file = 檔案載入錯誤
@@ -719,6 +751,7 @@ No EBOOT.PBP, misidentified game = 沒有EBOOT.PBP，錯誤識別遊戲.
 PSX game image detected. = 抱歉，不支持PSX遊戲
 OpenGLDriverError = OpenGL驅動程式錯誤
 InsufficientOpenGLDriver = 檢測到對OpenGL驅動程式支持不足\n\nPPSSPP需要GPU支持OpenGL 2.0才能執行\n\n請檢查GPU是否相容OpenGL 2.0並更新顯示卡的驅動程式
+PPSSPPDoesNotSupportInternet = PPSSPP目前不支持連線到網路進行DLC、PSN或遊戲的更新
 
 [Screen]
 fixed = 速度：固定
@@ -766,6 +799,9 @@ RightAn.Left = 右搖桿: 左
 RightAn.Right = 右搖桿: 右
 Analog Stick = 類比搖桿
 Dpad = Dpad
+Rewind = 倒回
+Save State = 即時存檔
+Load State = 載入存檔
 
 [Game]
 Play = 開始遊戲
@@ -777,3 +813,441 @@ SaveData = 存檔
 Delete Save Data = 刪除存檔
 Remove From Recent = 刪除此記錄
 ConfirmDelete = 確定
+Show In Folder = 顯示資料夾
+
+[Upgrade]
+New version of PPSSPP available = 新版本PPSSPP已經就緒
+Download = 下載
+Dismiss = 忽略
+
+[InstallZip]
+Install game from ZIP file? = 從ZIP檔案安裝遊戲?
+Install = 安裝
+Delete ZIP file = 刪除ZIP檔案
+Installed! = 安裝完成!
+
+[Store]
+Install = 安裝
+Already Installed = 已安裝完成
+Uninstall = 解除安裝
+Size = 大小
+MB = MB
+Loading... = 載入中...
+Connection Error = 連線錯誤
+# Thanks for your interest in translating PPSSPP.
+#
+# Simply copy this file to a new ini file with your language code,
+# or use it to update an existing file with that name.
+#
+# To see a list of codes, view this page:
+# http://stackoverflow.com/questions/3191664/list-of-all-locales-and-their-short-codes
+#
+# Please note, while translating:
+#
+# Ampersands (&) on the RIGHT side of an equals sign denote an underlined keyboard hotkey.
+# The hotkeys are only supported currently in the DesktopUI section, however.
+#
+# Example 1: &File. This will make it so when you press ALT + F on Windows, it'll open the File menu.
+# Example 2: Homebrew && Demos.  This would show one real ampersand in the menu.
+#
+# Happy translating.
+
+[MainMenu]
+Load = 読み込む...
+Browse = 参照...
+Game Settings = 設定
+Exit = 終了
+Credits = クレジット
+www.ppsspp.org = www.ppsspp.org
+Support PPSSPP = Support PPSSPP
+Recent = 履歴
+Games = ゲーム
+How to get games = How can I get games?
+Home = Home
+Homebrew & Demos = 自作ソフト && 体験版
+How to get homebrew & demos = How can I get homebrew && demos?
+
+[MainSettings]
+Graphics = グラフィックス
+Audio = オーディオ
+Controls = コントロール
+System = システム
+
+[Game]
+Play = プレイ
+Game = ゲーム
+SaveData = セーブデータ
+MB = MB
+Delete Save Data = セーブデータ削除
+Delete Game = ゲーム削除
+ConfirmDelete = 削除
+Create Shortcut = ショートカットを作成
+Remove From Recent = 履歴から削除
+
+[Pause]
+Continue = 再開する
+Game Settings = 設定
+Cheats = チート
+Exit to menu = メニューに戻る
+Save State = ステートを保存
+Load State = ステートを読み込む
+
+[CwCheats]
+Cheats = チート
+Options = オプション
+Back = 戻る
+Import Cheats = cheat.dbからインポート
+Enable/Disable All = 全てを有効/無効
+
+[PSPCredits]
+created = Created by
+license = Free software under GPL 2.0
+title = A fast and portable PSP emulator
+contributors = Contributors:
+specialthanks = Special thanks to:
+written = Written in C++ for speed and portability
+tools = Free tools used:
+website = Check out the website:
+list = compatibility lists, forums, and development info
+check = Also check out Dolphin, the best Wii/GC emu around:
+info1 = PPSSPP is intended for educational purposes only.
+info2 = Please make sure that you own the rights to any games
+info3 = you play by owning the UMD or by buying the digital
+info4 = download from the PSN store on your real PSP.
+info5 = PSP is a trademark by Sony, Inc.
+Buy Gold = Buy Gold
+PPSSPP Forums = PPSSPP Forums
+this translation by = this translation by:
+# Add translators1-6 for up to 6 lines of translator credits.
+# Leave extra lines blank. 4 contributors per line seems to look best.
+# Add translators or contributors who translated PPSSPP into your language here.
+translators1 = raven02, nachume
+translators2 =
+translators3 =
+translators4 =
+translators5 =
+translators6 =
+
+[Graphics]
+Rendering Mode = レンダリングモード
+Mode = モード
+Non-Buffered Rendering = Non-Buffered Rendering
+Buffered Rendering = Buffered Rendering
+Read Framebuffers To Memory (CPU) = Read framebuffer to memory (CPU)
+Read Framebuffers To Memory (GPU) = Read framebuffer to memory (GPU)
+Frame Rate Control = フレームレート制御
+Frame Skipping = フレームスキップ
+Frames = フレーム
+Off = Off
+Auto = Auto
+1 = 1
+2 = 2
+3 = 3
+4 = 4
+5 = 5
+6 = 6
+7 = 7
+8 = 8
+Force max 60 FPS (helps GoW) = 60 FPS以下に強制 (speeds up GoW)
+Alternative Speed = オルタナティブスピード
+Unlimited = Unlimited
+Features = 機能
+Postprocessing Shader = Postprocessing shader
+FullScreen = フルスクリーン
+Stretch to Display = 画面に合わせて引き伸ばす
+Mipmapping = ミップマッピング
+Performance = パフォーマンス
+Rendering Resolution = レンダリング解像度
+Auto (1:1) = Auto (1:1)
+1x PSP = 1x PSP
+2x PSP = 2x PSP
+3x PSP = 3x PSP
+4x PSP = 4x PSP
+5x PSP = 5x PSP
+6x PSP = 6x PSP
+7x PSP = 7x PSP
+8x PSP = 8x PSP
+9x PSP = 9x PSP
+10x PSP = 10x PSP
+VSync = 垂直同期信号 (VSYNC)
+Hardware Transform = ハードウェアT&&L
+Vertex Cache = 頂点キャッシュ
+LowCurves = Low quality spline/bezier curves (speed up)
+Texture Scaling = テクスチャスケーリング
+Upscale Level = アップスケールレベル
+2x = 2x
+3x = 3x
+4x = 4x
+5x = 5x
+Upscale Type = アップスケールタイプ
+xBRZ = xBRZ
+Hybrid = Hybrid
+Bicubic = Bicubic
+Hybrid + Bicubic = Hybrid + Bicubic
+Deposterize = Deposterize
+Texture Filtering = テクスチャフィルタリング
+Anisotropic Filtering = 異方性フィルタリング
+Texture Filter = テクスチャフィルター
+8x = 8x
+16x = 16x
+Nearest = Nearest
+Linear = Linear
+Linear on FMV = Linear on FMV
+Hack Settings = ハック設定 (these WILL cause glitches)
+Disable Alpha Test (PowerVR speedup) = Disable alpha test (PowerVR speed up)
+Disable Stencil Test = Disable stencil test
+Always Depth Write = Always depth write
+Texture Coord Speedhack = Texture coord speedhack (speed up)
+Overlay Information = オーバーレイ情報
+Show FPS Counter = Speed/FPSを表示
+None = None
+Speed = Speed
+FPS = FPS
+Both = Speed && FPS
+Show Debug Statistics = デバッグ情報を表示
+Debugging = デバッグ
+Dump next frame to log = フレームをダンプ
+Software Rendering = ソフトウェアレンダリング (実験中)
+
+Internal Resolution = 内部解像度
+Window Size = ウィンドウサイズ
+
+[Audio]
+SFX volume = SFX 音量
+BGM volume = BGM 音量
+Enable Sound = 音声を出力
+Low latency audio = 低レイテンシオーディオ
+
+[Controls]
+Control Mapping = コントロールマッピング
+Tilt = アナログ操作に加速度センサーを使用 (横持ち基準)
+Tilt Sensitivity = 加速度センサーの感度
+OnScreen = 画面にタッチ用のコントローラーを表示
+Custom layout... = カスタムレイアウト...
+Button Opacity = ボタンの透明度
+Button Scaling = ボタンの大きさ
+HapticFeedback = Haptic feedback (vibration)
+Visibility = Visibility
+Touch Control Visibility = Touch control visibility
+
+[KeyMapping]
+Clear All = 全て削除
+Default All = デフォルト
+Map a new key for = Map a new key for
+
+[MappableControls]
+Dpad = Dpad
+Analog Stick = Analog stick
+Up = Dpad Up
+Down = Dpad Down
+Left = Dpad Left
+Right = Dpad Right
+An.Up = Analog Up
+An.Down = Analog Down
+An.Left = Analog Left
+An.Right = Analog Right
+RapidFire = Rapid-fire
+Unthrottle = Unthrottle
+SpeedToggle = Speed toggle
+Pause = Pause
+RightAn.Up = RightAn.Up
+RightAn.Down = RightAn.Down
+RightAn.Left = RightAn.Left
+RightAn.Right = RightAn.Right
+
+[System]
+UI Language = UI言語
+Emulation = エミュレーション
+Fast Memory = メモリアクセスの高速化 (不安定)
+Multithreaded (experimental) = マルチスレッド CPU/GPU (実験中)
+I/O on thread (experimental) = マルチスレッド I/O (実験中)
+Change CPU Clock = CPUクロックを変更 (0 = デフォルト)
+Atomic Audio locks (experimental) = Atomic audio locks (experimental)
+Cheats = チート (実験中、フォーラムを参照)
+Enable Cheats = チートを有効
+General = 全般設定
+Developer Tools = 開発者用ツール
+Clear Recent Games List = 履歴を削除
+Restore Default Settings = 設定をデフォルトに戻す
+Enable Compatibility Server Reports = 互換サーバーレポートを有効
+PSP Settings = PSP設定
+Change Nickname = ニックネームの変更
+Screenshots as PNG = スクリーンショットをPNG形式で保存
+Day Light Saving = サマータイム
+Date Format = 日付の形式
+YYYYMMDD = 年/月/日
+MMDDYYYY = 月/日/年
+DDMMYYYY = 日/月/年
+Time Format = 時刻の形式
+12HR = 12時間
+24HR = 24時間
+Confirmation Button = 決定ボタン
+Use O to confirm = Oボタン
+Use X to confirm = Xボタン
+
+Dynarec = 動的再コンパイル (JIT)
+DynarecisJailed = 動的再コンパイル (JIT) - (非脱獄時、JITは使用できません)
+
+[Developer]
+RestoreDefaultSettings = 全ての設定(コントロールマッピングを除く)を\nデフォルトに戻してもよろしいですか？\n設定後、PPSSPPを再起動してください。
+System Information = システム情報
+Show Developer Menu = 開発用メニューを表示
+Run CPU Tests = CPUテストを実行
+Enable Logging = ロギングを有効
+Logging Channels = ロギングチャンネル
+Language = 言語
+Load language ini = 言語設定を読み込む
+Save language ini = 言語設定を保存する
+
+[Dialog]
+Save = セーブ
+Load = ロード
+OK = OK
+Cancel = キャンセル
+Back = 戻る
+Yes = はい
+No = いいえ
+Enter = 決定
+Select = 選択
+Delete = 削除
+Start = スタート
+Finish = 終了
+Shift = Shift
+Reset = Reset
+Toggle All = Toggle all
+NEW DATA = 新しいデータ
+Confirm Save = データをセーブしますか？
+Confirm Overwrite = データを上書きしますか？
+Saving = セーブ中です。\nしばらくお待ちください。
+Save completed = セーブが完了しました。
+ConfirmLoad = データをロードしますか？
+Loading = ロード中です。\nしばらくお待ちください。
+Load completed = ロードが完了しました。
+There is no data = データがありません。
+DeleteConfirm = データを削除します。\n本当によろしいですか？
+Deleting = 削除中です。\nしばらくお待ちください。
+Delete completed = 削除が完了しました。
+DeleteConfirmAll = あなたは本当にこのゲームの\nセーブデータを削除してもよろしいですか？
+DeleteConfirmGame = あなたは本当にこのゲームを削除してもよろしいですか？\nデータを元に戻すことはできません。
+
+[Screen]
+fixed = Speed: alternate
+standard = Speed: standard
+Loaded State = 状態を読み込みました
+Saved State = 状態を保存しました
+LoadStateDoesntExist = 状態の読み込みに失敗しました：セーブステートが存在しません！
+LoadStateWrongVersion = 状態の読み込みに失敗しました：セーブステートのバージョンが古いです！
+Save State Failed = 状態の保存に失敗しました！
+PressESC = Press ESC to open the pause menu.
+Chainfire3DWarning = WARNING: Chainfire3D detected, may cause problems
+
+[Error]
+Error loading file = ファイルの読み込みエラー
+PS1 EBOOTs are not supported by PPSSPP. = PS1 EBOOTs are not supported by PPSSPP.
+Failed to load executable: File corrupt = failed to load executable: file corrupt.
+RAR file detected (Require WINRAR) = file is compressed (RAR).\nPlease decompress first (try WinRAR).
+RAR file detected (Require UnRAR) = file is compressed (RAR).\nPlease decompress first (try UnRAR).
+ZIP file detected (Require WINRAR) = file is compressed (ZIP).\nPlease decompress first (try WinRAR).
+ZIP file detected (Require UnRAR) = file is compressed (ZIP).\nPlease decompress first (try UnRAR).
+Just a directory. = just a directory.
+Failed to identify file = failed to identify file.
+Error reading file = error reading file.
+No EBOOT.PBP, misidentified game = no EBOOT.PBP, misidentified game.
+PSX game image detected. = File is a MODE2 image. PPSSPP doesn't support PS1 games.
+OpenGLDriverError = OpenGL driver error
+InsufficientOpenGLDriver = Insufficient OpenGL driver support detected!\n\nYour GPU reports that it does not support OpenGL 2.0, which is currently required for PPSSPP to run.\n\nPlease check that your GPU is compatible with OpenGL 2.0. If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\nVisit the forums at http://forums.ppsspp.org for more information.
+
+[DesktopUI]
+# If your language does not show well with the default font, you can use Font to specify a different one.
+#Font = Trebuchet MS
+
+File = ファイル
+Load = 読み込む...
+Open Directory... = ディレクトリを開く...
+Open from MS:/PSP/GAME... = MS:/PSP/GAMEを開く...
+Open Memory Stick = メモリースティックを開く
+Savestate Slot = セーブステートスロット
+Load State = ステートを読み込む
+Save State = ステートを保存
+Load State File... = ステートファイルを読み込む...
+Save State File... = ステートファイルを保存...
+Exit = 終了
+
+Emulation = エミュレーション
+# Run doesn't appear when not in-game.
+# They alternate in-game.
+Run = 実行
+Pause = 一時停止
+Stop = 停止
+Reset = 再起動
+
+Debugging = デバッグ
+Load Map File... = Mapファイルを読み込む...
+Save Map File... = Mapファイルを保存...
+Reset Symbol Table = Symbol Tableをリセット
+Dump Next Frame to Log = フレームをダンプ
+Take Screenshot = スクリーンショットを撮る
+Show Debug Statistics = デバッグ情報を表示
+Ignore Illegal Reads/Writes = 不正な読み込み/書き込みを無視
+Run on Load = ロードして実行
+Disassembly = Disassembly...
+GE Debugger... = GE Debugger...
+Log Console = Log console
+Memory View... = Memory view...
+
+Game Settings = 設定
+Keep PPSSPP On Top = ウィンドウを常に手前に表示
+Pause When Not Focused = Pause When Not Focused
+More Settings... = 詳細設定...
+Control Mapping... = コントロールマッピング...
+Stretch to Display = 画面に合わせて引き伸ばす
+Fullscreen = フルスクリーン
+VSync = 垂直同期信号 (VSYNC)
+Postprocessing Shader = Postprocessing Shader
+Rendering Resolution = レンダリング解像度
+Window Size = ウィンドウサイズ
+Rendering Mode = レンダリングモード
+Non-Buffered Rendering = Non-Buffered Rendering
+Buffered Rendering = Buffered Rendering
+Read Framebuffers To Memory (CPU) = Read Framebuffers To Memory (CPU)
+Read Framebuffers To Memory (GPU) = Read Framebuffers To Memory (GPU)
+# Also uses Auto from above.  Please open an issue on GitHub if your language needs different words.
+Frame Skipping = フレームスキップ
+Off = Off
+Auto = Auto
+# Also uses Auto from above.  Please open an issue on GitHub if your language needs different words.
+Texture Filtering = テクスチャフィルタリング
+Nearest = Nearest
+Linear = Linear
+Linear on FMV = Linear on FMV
+# Also uses Off from above.  Please open an issue on GitHub if your language needs different words.
+Texture Scaling = テクスチャスケーリング
+xBRZ = xBRZ
+Hybrid = Hybrid
+Bicubic = Bicubic
+Hybrid + Bicubic = Hybrid + Bicubic
+Deposterize = Deposterize
+Hardware Transform = ハードウェアT&&L
+Vertex Cache = 頂点キャッシュ
+Show FPS Counter = Speed/FPSを表示
+Enable Sound = 音声を出力
+Enable Cheats = チートを有効
+
+Language = 言語
+
+Help = ヘルプ
+www.ppsspp.org = www.ppsspp.org
+PPSSPP Forums = PPSSPP Forums
+Buy Gold = Buy Gold
+About PPSSPP... = About PPSSPP...
+
+[Upgrade]
+New version of PPSSPP available = New version of PPSSPP available
+Download = Download
+Dismiss = Dismiss
+
+[InstallZip]
+Install game from ZIP file? = Install game from ZIP file?
+Install = Install
+Delete ZIP file = Delete ZIP file
+Installed! = Installed!
