@@ -51,6 +51,12 @@ static const int MPEG_VERSION_0013 = 1;
 static const int MPEG_VERSION_0014 = 2;
 static const int MPEG_VERSION_0015 = 3;
 
+// PSMF analysis results.
+static const int PSMF_VERSION_0012 = 0x32313030;
+static const int PSMF_VERSION_0013 = 0x33313030;
+static const int PSMF_VERSION_0014 = 0x34313030;
+static const int PSMF_VERSION_0015 = 0x35313030;
+
 // MPEG streams.
 static const int MPEG_AVC_STREAM = 0;
 static const int MPEG_ATRAC_STREAM = 1;

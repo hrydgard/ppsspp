@@ -27,31 +27,14 @@ enum {
 	ERROR_MPEG_NO_MEMORY                                = 0x80610022,
 	ERROR_MPEG_INVALID_ADDR                             = 0x80610103,
 	ERROR_MPEG_INVALID_VALUE                            = 0x806101fe,
-
-	ERROR_PSMF_NOT_INITIALIZED                          = 0x80615001,
-	ERROR_PSMF_BAD_VERSION                              = 0x80615002,
-	ERROR_PSMF_NOT_FOUND                                = 0x80615025,
-	ERROR_PSMF_INVALID_ID                               = 0x80615100,
-	ERROR_PSMF_INVALID_VALUE                            = 0x806151fe,
-	ERROR_PSMF_INVALID_TIMESTAMP                        = 0x80615500,
-	ERROR_PSMF_INVALID_PSMF                             = 0x80615501,
-
-	ERROR_PSMFPLAYER_NOT_INITIALIZED                    = 0x80616001,
-	ERROR_PSMFPLAYER_NO_MORE_DATA                       = 0x8061600c,
-
 	ERROR_MPEG_NO_DATA                                  = 0x80618001,
 	ERROR_MPEG_ALREADY_INIT                             = 0x80618005,
 	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
-
 	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
 };
 
 // MPEG statics.
 static const u32 PSMF_MAGIC = 0x464D5350;
-static const int PSMF_VERSION_0012 = 0x32313030;
-static const int PSMF_VERSION_0013 = 0x33313030;
-static const int PSMF_VERSION_0014 = 0x34313030;
-static const int PSMF_VERSION_0015 = 0x35313030;
 static const int PSMF_STREAM_VERSION_OFFSET = 0x4;
 static const int PSMF_STREAM_OFFSET_OFFSET = 0x8;
 static const int PSMF_STREAM_SIZE_OFFSET = 0xC;
