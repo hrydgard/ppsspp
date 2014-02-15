@@ -291,6 +291,11 @@ namespace Reporting
 		// Disabled when using certain hacks, because they make for poor reports.
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
+		if (g_Config.bTimerHack)
+			return false;
+		// Not sure if we should support locked cpu at all, but definitely not far out values.
+		if (g_Config.iLockedCPUSpeed != 0 && (g_Config.iLockedCPUSpeed < 111 || g_Config.iLockedCPUSpeed > 333))
+			return false;
 
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
