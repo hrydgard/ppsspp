@@ -287,12 +287,8 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 	}
 
 	std::string dirPath = GetSaveFilePath(param,saveId);
-	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
-	{
-		if (saveDataList[saveId].size == 0) // don't delete no existing file
-		{
-			return false;
-		}
+	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		return false;
 	}
 
 	pspFileSystem.RmDir(dirPath);
@@ -506,12 +502,9 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
-	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
-	{
-		if (saveDataList[saveId].size == 0) // don't read no existing file
-		{
-			return false;
-		}
+	std::string filePath = dirPath + "/" + GetFileName(param);
+	if (!pspFileSystem.GetFileInfo(filePath).exists) {
+		return false;
 	}
 
 	if(!LoadSaveData(param, saveDirName, dirPath, secureMode)) // Load main savedata
