@@ -538,3 +538,19 @@ void Register_sceCtrl()
 {
 	RegisterModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
 }
+
+int sceCtrl_driver_3A622550(u32 ctrlDataPtr, u32 nBufs)
+{
+	WARN_LOG(SCECTRL, "sceCtrl_driver_3A622550:Not support this patcher");
+	return sceCtrlPeekBufferPositive(ctrlDataPtr, nBufs);
+}
+
+static const HLEFunction sceCtrl_driver[] =
+{
+	{ 0x3A622550, WrapI_UU<sceCtrl_driver_3A622550>, "sceCtrl_driver_3A622550" },
+};
+
+void Register_sceCtrl_driver()
+{
+	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl_driver), sceCtrl_driver);
+}

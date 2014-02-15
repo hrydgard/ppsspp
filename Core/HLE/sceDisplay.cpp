@@ -946,3 +946,17 @@ const HLEFunction sceDisplay[] = {
 void Register_sceDisplay() {
 	RegisterModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
 }
+
+u32 sceDisplay_driver_984C27E7() {
+	WARN_LOG(SCEDISPLAY, "sceDisplay_driver_984C27E7:Not support this patcher");
+	return sceDisplayWaitVblankStart();
+}
+
+const HLEFunction sceDisplay_driver[] = {
+	{ 0x984C27E7, WrapU_V<sceDisplay_driver_984C27E7>, "sceDisplay_driver_984C27E7", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+};
+
+
+void Register_sceDisplay_driver() {
+	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay_driver), sceDisplay_driver);
+}
