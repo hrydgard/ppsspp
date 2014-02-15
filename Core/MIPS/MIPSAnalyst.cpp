@@ -385,10 +385,14 @@ skip:
 		bool isStraightLeaf = true;
 
 		u32 addr;
+		u32 addrNextSym = 0;
 		for (addr = startAddr; addr <= endAddr; addr += 4) {
 			// Use pre-existing symbol map info if available. May be more reliable.
 			SymbolInfo syminfo;
-			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
+			if (addrNextSym <= addr) {
+				addrNextSym = symbolMap.FindPossibleFunctionAtAfter(addr);
+			}
+			if (addrNextSym <= addr && symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
 				addr = syminfo.address + syminfo.size - 4;
 
 				// We still need to insert the func for hashing purposes.

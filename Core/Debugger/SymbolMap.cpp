@@ -566,6 +566,15 @@ u32 SymbolMap::GetFunctionStart(u32 address) const {
 	return INVALID_ADDRESS;
 }
 
+u32 SymbolMap::FindPossibleFunctionAtAfter(u32 address) const {
+	lock_guard guard(lock_);
+	auto it = activeFunctions.lower_bound(address);
+	if (it == activeFunctions.end()) {
+		return (u32)-1;
+	}
+	return it->first;
+}
+
 u32 SymbolMap::GetFunctionSize(u32 startAddress) const {
 	lock_guard guard(lock_);
 	auto it = activeFunctions.find(startAddress);
