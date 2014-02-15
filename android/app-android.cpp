@@ -336,15 +336,13 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 
+	lock_guard guard(frameCommandLock);
 	while (!frameCommands.empty()) {
 		FrameCommand frameCmd;
-		{
-			lock_guard guard(frameCommandLock);
-			frameCmd = frameCommands.front();
-			frameCommands.pop();
-		}
+		frameCmd = frameCommands.front();
+		frameCommands.pop();
 
-		DLOG("frameCommand %s %s", cmd.command.c_str(), frameCmd.params.c_str());
+		DLOG("frameCommand %s %s", frameCmd.command.c_str(), frameCmd.params.c_str());
 
 		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
 		jstring param = env->NewStringUTF(frameCmd.params.c_str());
