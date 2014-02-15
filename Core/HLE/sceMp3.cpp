@@ -324,7 +324,7 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	memset(ctx, 0, sizeof(Mp3Context));
 
 	if (!Memory::IsValidAddress(mp3Addr))
-		WARN_LOG(ME, "sceMp3ReserveMp3Handle invalid address")
+		WARN_LOG(ME, "sceMp3ReserveMp3Handle(%08x) invalid address",mp3Addr)
 	else {
 		ctx->mp3StreamStart = Memory::Read_U64(mp3Addr);
 		ctx->mp3StreamEnd = Memory::Read_U64(mp3Addr + 8);
