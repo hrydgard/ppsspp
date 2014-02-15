@@ -62,14 +62,14 @@ struct DirectoryFileHandle
 #ifdef _WIN32
 	HANDLE hFile;
 #else
-	FILE* hFile;
+	int hFile;
 #endif
 	DirectoryFileHandle()
 	{
 #ifdef _WIN32
 		hFile = (HANDLE)-1;
 #else
-		hFile = 0;
+		hFile = -1;
 #endif
 	}
 

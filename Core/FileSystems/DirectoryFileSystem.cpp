@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <fcntl.h>
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
@@ -192,44 +193,31 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		SetEndOfFile(hFile);
 	}
 #else
-	// Convert flags in access parameter to fopen access mode
-	const char *mode = NULL;
+	int flags = 0;
 	if (access & FILEACCESS_APPEND) {
-		if (access & FILEACCESS_READ)
-			mode = "ab+";  // append+read, create if needed
-		else
-			mode = "ab";  // append only, create if needed
+		flags |= O_APPEND;
+	}
+	if ((access & FILEACCESS_READ) && (access & FILEACCESS_WRITE)) {
+		flags |= O_RDWR;
+	} else if (access & FILEACCESS_READ) {
+		flags |= O_RDONLY;
 	} else if (access & FILEACCESS_WRITE) {
-		// TODO: "w" is wrong here.  WRITE means write without truncate.
-		if (access & FILEACCESS_READ) {
-			// FILEACCESS_CREATE is ignored for read only, write only, and append
-			// because C++ standard fopen's nonexistant file creation can only be
-			// customized for files opened read+write
-			if (access & FILEACCESS_CREATE)
-				mode = "wb+";  // read+write, create if needed
-			else
-				mode = "rb+";  // read+write, but don't create
-		} else {
-			mode = "wb";  // write only, create if needed
-		}
-	} else {  // neither write nor append, so default to read only
-		mode = "rb";  // read only, don't create
+		flags |= O_WRONLY;
+	}
+	if (access & FILEACCESS_CREATE) {
+		flags |= O_CREAT;
 	}
 
-	hFile = fopen(fullName.c_str(), mode);
-	bool success = hFile != 0;
+	hFile = open(fullName.c_str(), flags, 0666);
+	bool success = hFile != -1;
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
-	if (!success &&
-	    !(access & FILEACCESS_APPEND) &&
-	    !(access & FILEACCESS_CREATE) &&
-	    !(access & FILEACCESS_WRITE))
-	{
+	if (!success && !(access & FILEACCESS_CREATE)) {
 		if ( ! FixPathCase(basePath,fileName, FPC_PATH_MUST_EXIST) )
 			return 0;  // or go on and attempt (for a better error code than just 0?)
 		fullName = GetLocalPath(basePath,fileName); 
-		const char* fullNameC = fullName.c_str();
+		const char *fullNameC = fullName.c_str();
 
 		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
 
@@ -238,8 +226,8 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		hFile = CreateFile(fullNameC, desired, sharemode, 0, openmode, 0, 0);
 		success = hFile != INVALID_HANDLE_VALUE;
 #else
-		hFile = fopen(fullNameC, mode);
-		success = hFile != 0;
+		hFile = open(fullNameC, flags, 0666);
+		success = hFile != -1;
 #endif
 	}
 #endif
@@ -253,7 +241,7 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 #ifdef _WIN32
 	::ReadFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
 #else
-	bytesRead = fread(pointer, 1, size, hFile);
+	bytesRead = read(hFile, pointer, size);
 #endif
 	return bytesRead;
 }
@@ -264,7 +252,7 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 #ifdef _WIN32
 	::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
 #else
-	bytesWritten = fwrite(pointer, 1, size, hFile);
+	bytesWritten = write(hFile, pointer, size);
 #endif
 	return bytesWritten;
 }
@@ -287,8 +275,7 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	case FILEMOVE_CURRENT:  moveMethod = SEEK_CUR;  break;
 	case FILEMOVE_END:      moveMethod = SEEK_END;  break;
 	}
-	fseek(hFile, position, moveMethod);
-	return ftell(hFile);
+	return lseek(hFile, position, moveMethod);
 #endif
 }
 
@@ -298,8 +285,8 @@ void DirectoryFileHandle::Close()
 	if (hFile != (HANDLE)-1)
 		CloseHandle(hFile);
 #else
-	if (hFile != 0)
-		fclose(hFile);
+	if (hFile != -1)
+		close(hFile);
 #endif
 }
 
