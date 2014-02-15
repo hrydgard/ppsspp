@@ -1156,7 +1156,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 	bool listEmptyFile = true;
 	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD ||
-			param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE)
+		param->mode == SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD ||
+		param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE)
 	{
 		listEmptyFile = false;
 	}
@@ -1234,6 +1235,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					{
 						ClearFileInfo(saveDataList[realCount], thisSaveName);
 						DEBUG_LOG(SCEUTILITY,"Don't Exist");
+						realCount++;
 					}
 				}
 			}
