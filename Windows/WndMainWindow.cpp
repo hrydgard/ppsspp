@@ -1485,7 +1485,7 @@ namespace MainWindow
 						// The Menu ID is contained in wParam, so subtract
 						// ID_SHADERS_BASE and an additional 1 off it.
 						u32 index = (wParam - ID_SHADERS_BASE - 1);
-						if (index >= 0 && index < availableShaders.size()) {
+						if (index < availableShaders.size()) {
 							g_Config.sPostShaderName = availableShaders[index];
 
 							NativeMessageReceived("gpu resized", "");
