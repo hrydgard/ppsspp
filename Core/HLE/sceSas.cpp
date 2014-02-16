@@ -50,6 +50,7 @@ enum {
 	ERROR_SAS_INVALID_VOLUME = 0x80420018,
 	ERROR_SAS_INVALID_ADSR_RATE = 0x80420019,
 	ERROR_SAS_INVALID_SIZE = 0x8042001A,
+	ERROR_SAS_REV_INVALID_VOLUME = 0x80420023,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
 };
@@ -452,7 +453,11 @@ u32 sceSasRevParam(u32 core, int delay, int feedback) {
 	return 0;
 }
 
-u32 sceSasRevEVOL(u32 core, int lv, int rv) {
+u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
+	if (lv > 0x1000 || rv > 0x1000) {
+		WARN_LOG_REPORT(SCESAS, "sceSasRevEVOL(%08x, %i, %i): invalid volume", core, lv, rv);
+		return ERROR_SAS_REV_INVALID_VOLUME;
+	}
 	DEBUG_LOG(SCESAS, "sceSasRevEVOL(%08x, %i, %i)", core, lv, rv);
 	sas->waveformEffect.leftVol = lv;
 	sas->waveformEffect.rightVol = rv;
@@ -556,7 +561,7 @@ const HLEFunction sceSasCore[] =
 	{0xa0cf2fa4, WrapU_UI<sceSasSetKeyOff>, "__sceSasSetKeyOff"},
 	{0x76f01aca, WrapU_UI<sceSasSetKeyOn>, "__sceSasSetKeyOn"},
 	{0xf983b186, WrapU_UII<sceSasRevVON>, "__sceSasRevVON"},
-	{0xd5a229c9, WrapU_UII<sceSasRevEVOL>, "__sceSasRevEVOL"},  
+	{0xd5a229c9, WrapU_UUU<sceSasRevEVOL>, "__sceSasRevEVOL"},
 	{0x33d4ab37, WrapU_UI<sceSasRevType>, "__sceSasRevType"},
 	{0x267a6dd2, WrapU_UII<sceSasRevParam>, "__sceSasRevParam"},
 	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"},
