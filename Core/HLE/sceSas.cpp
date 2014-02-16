@@ -299,11 +299,7 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 
 // sceSasSetKeyOff can be used to start sounds, that just sound during the Release phase!
 u32 sceSasSetKeyOff(u32 core, int voiceNum) {
-	if (voiceNum == -1) {
-		// TODO: Some games (like Every Extend Extra) deliberately pass voiceNum = -1. Does that mean all voices? for now let's ignore.
-		WARN_LOG_REPORT(SCESAS, "sceSasSetKeyOff(%08x, %i) - voiceNum = -1???", core, voiceNum);
-		return 0;
-	} else if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	} else {
