@@ -310,10 +310,10 @@ namespace Reporting
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !IsSupported() || everUnsupported)
-			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
+			return false;
+		if (g_Config.sReportHost.empty() || !IsSupported() || everUnsupported)
 			return false;
 		return true;
 	}
