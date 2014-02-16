@@ -343,6 +343,8 @@ int main(int argc, const char* argv[])
 	g_Config.bFrameSkipUnthrottle = false;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
+	g_Config.iBGMVolume = MAX_CONFIG_VOLUME;
+	g_Config.iSFXVolume = MAX_CONFIG_VOLUME;
 
 #ifdef _WIN32
 	InitSysDirectories();
