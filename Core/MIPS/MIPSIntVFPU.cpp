@@ -1774,37 +1774,48 @@ bad:
 	// There has to be a concise way of expressing this in terms of
 	// bit manipulation on the raw floats.
 	void Int_Vwbn(MIPSOpcode op) {
-		Reporting::ReportMessage("vwbn not implemented");
-		if (!PSP_CoreParameter().headLess) {
-			_dbg_assert_msg_(CPU,0,"vwbn not implemented");
-		}
-		PC += 4;
-		EatPrefixes();
-
-		/*
 		int vd = _VD;
 		int vs = _VS;
-
-		double modulo = pow(2.0, 127 - (int)((op >> 16) & 0xFF));
-
-		// Only S is allowed? gas says so
 		VectorSize sz = GetVecSize(op);
 
-		float s[4];
-		float d[4];
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++) {
-			double bn = (double)s[i];
-			if (bn > 0.0)
-				bn = fmod((double)bn, modulo);
-			d[i] = s[i] < 0.0f ? bn - modulo : bn + modulo;
+		union FloatBits {
+			float f[4];
+			u32 u[4];
+		};
+
+		FloatBits d;
+		FloatBits s;
+		u8 exp = (u8)((op >> 16) & 0xFF);
+
+		ReadVector(s.f, sz, vs);
+		// TODO: Test swizzle, t?
+		ApplySwizzleS(s.f, sz);
+
+		if (sz != V_Single) {
+			ERROR_LOG_REPORT(CPU, "vwbn not implemented for size %d", GetNumVectorElements(sz));
 		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
+			u32 sigbit = s.u[i] & 0x80000000;
+			u32 prevExp = (s.u[i] & 0x7F800000) >> 23;
+			u32 mantissa = s.u[i] & 0x007FFFFF;
+			if (prevExp != 0xFF && prevExp != 0) {
+				if (exp > prevExp) {
+					s8 shift = (exp - prevExp) & 0xF;
+					mantissa = mantissa >> shift;
+					mantissa |= 1 << (23 - shift);
+				} else {
+					s8 shift = (prevExp - exp) & 0xF;
+					mantissa = mantissa << shift;
+				}
+				d.u[i] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+			} else {
+				d.u[i] = s.u[i] | (exp << 23);
+			}
+		}
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
-		EatPrefixes();*/
+		EatPrefixes();
 	}
 
 	void Int_Vsbn(MIPSOpcode op)
@@ -1821,7 +1832,7 @@ bad:
 
 		FloatBits d;
 		FloatBits s;
-		u8 exp = 127 + VI(vt);
+		u8 exp = (u8)(127 + VI(vt));
 
 		ReadVector(s.f, sz, vs);
 		// TODO: Test swizzle, t?
