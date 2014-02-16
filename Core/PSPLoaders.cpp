@@ -175,11 +175,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	std::string id = g_paramSFO.GetValueString("DISC_ID");
 	for (int i = 0; i < ARRAY_SIZE(altBootNames); i++) {
 		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
-			{
 				if (altBootDisc_ID[i] == "" || altBootDisc_ID[i] == id){
 					bootpath = altBootNames[i];
 				}
-			}
 		}
 	}
 
