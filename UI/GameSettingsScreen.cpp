@@ -368,6 +368,7 @@ UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
 	// are caused by that (framebuffer copies overwriting display lists, etc).
+	Reporting::UpdateConfig();
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
@@ -449,6 +450,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	}
 
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
+	Reporting::UpdateConfig();
 	g_Config.Save();
 
 	host->UpdateUI();

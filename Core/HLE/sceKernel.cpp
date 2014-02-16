@@ -180,6 +180,7 @@ void __KernelShutdown()
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
+	Reporting::Shutdown();
 
 	kernelRunning = false;
 }

@@ -37,8 +37,9 @@
 
 namespace Reporting
 {
-	// Should be called whenever a new game is loaded to forget things.
+	// Should be called whenever a new game is loaded/shutdown to forget things.
 	void Init();
+	void Shutdown();
 
 	// Should be called whenever the game configuration changes.
 	void UpdateConfig();

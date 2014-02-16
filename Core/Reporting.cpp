@@ -56,6 +56,8 @@ namespace Reporting
 	static std::set<const char *> logOnceUsed;
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
+	// Support is cached here to avoid checking it on every single request.
+	static bool currentSupported = false;
 
 	enum RequestType
 	{
@@ -203,11 +205,19 @@ namespace Reporting
 		spamProtectionCount = 0;
 		logOnceUsed.clear();
 		everUnsupported = false;
+		currentSupported = IsSupported();
+	}
+
+	void Shutdown()
+	{
+		// Just so it can be enabled in the menu again.
+		Init();
 	}
 
 	void UpdateConfig()
 	{
-		if (!IsSupported())
+		currentSupported = IsSupported();
+		if (!currentSupported && PSP_IsInited())
 			everUnsupported = true;
 	}
 
@@ -305,12 +315,12 @@ namespace Reporting
 		if (!File::Exists(g_Config.flash0Directory + "/font"))
 			return false;
 
-		return true;
+		return !everUnsupported;
 	}
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !IsSupported() || everUnsupported)
+		if (g_Config.sReportHost.empty() || !currentSupported)
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
