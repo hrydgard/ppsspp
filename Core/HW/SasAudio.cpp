@@ -758,12 +758,26 @@ void ADSREnvelope::Step() {
 	case STATE_OFF:
 		// Do nothing
 		break;
+
+	case STATE_KEYON:
+		height_ = 0;
+		SetState(STATE_KEYON_STEP);
+		break;
+	case STATE_KEYON_STEP:
+		// This entire state is pretty much a hack to reproduce PSP behavior.
+		// The STATE_KEYON state is a real state, but not sure how it switches.
+		// It takes 32 steps at 0 for keyon to "kick in", 31 should shift to 0 anyway.
+		height_++;
+		if (height_ >= 31) {
+			height_ = 0;
+			SetState(STATE_ATTACK);
+		}
+		break;
 	}
 }
 
 void ADSREnvelope::KeyOn() {
-	SetState(STATE_ATTACK);
-	height_ = 0;
+	SetState(STATE_KEYON);
 }
 
 void ADSREnvelope::KeyOff() {
@@ -779,7 +793,7 @@ void ADSREnvelope::End() {
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
-	auto s = p.Section("ADSREnvelope", 1);
+	auto s = p.Section("ADSREnvelope", 1, 2);
 	if (!s) {
 		return;
 	}
@@ -793,8 +807,15 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 	p.Do(sustainType);
 	p.Do(sustainLevel);
 	p.Do(releaseType);
-	p.Do(state_);
-	int stepsLegacy;
-	p.Do(stepsLegacy);
+	if (s < 2) {
+		p.Do(state_);
+		if (state_ == 4) {
+			state_ = STATE_OFF;
+		}
+		int stepsLegacy;
+		p.Do(stepsLegacy);
+	} else {
+		p.Do(state_);
+	}
 	p.Do(height_);
 }
