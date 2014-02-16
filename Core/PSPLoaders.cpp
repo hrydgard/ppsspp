@@ -110,7 +110,6 @@ void InitMemoryForGameISO(std::string fileToStart) {
 // inventing new filenames though...
 static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.OLD",
-	"disc0:/PSP_GAME/SYSDIR/EBOOT.OLD",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DAT",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.BI",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.LLD",
@@ -126,6 +125,27 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DNR",
 	"disc0:/PSP_GAME/SYSDIR/DBZ2.BIN",
 	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
+	"disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN"
+};
+
+static const char *altBootDisc_ID[] = {
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"NPJH50624",
 };
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
@@ -149,21 +169,17 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
-
+	
 	// Bypass Chinese translation patches, see comment above.
-	for (int i = 0; i < ARRAY_SIZE(altBootNames); i++) {
-		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
-			bootpath = altBootNames[i];
-			break;
-		}
-	}
-
 	// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
 	std::string id = g_paramSFO.GetValueString("DISC_ID");
-	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
-		bootpath == "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
+	for (int i = 0; i < ARRAY_SIZE(altBootNames); i++) {
+		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
+				if (altBootDisc_ID[i] == "" || altBootDisc_ID[i] == id){
+					bootpath = altBootNames[i];
+				}
+		}
 	}
-
 
 	bool hasEncrypted = false;
 	u32 fd;
