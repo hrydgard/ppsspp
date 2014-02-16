@@ -15,26 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-// BUGS!
-// It seems likely that there are VFPU bugs, as the intro videos to the Lego Harry Potter
-// games showcase serious macroblock corruption and the IDCT is done with VFPU instructions.
-
-// Here's a list of all the instructions used, and thus those which should be exhaustively tested:
-// lv.q
-// vs2i.p
-// vi2f.q
-// vmul.q
-// vs2i.p
-// vsub.q
-// vadd.q
-// vscl.q
-// vpfxd 0-1 x 4  (before vscl.q)
-// vscl.q
-// vf2iz.q
-// vi2uc.q
-// sv.s
-
 // TODO: Test and maybe fix: https://code.google.com/p/jpcsp/source/detail?r=3082#
 
 #include "Core/Core.h"
@@ -1829,10 +1809,38 @@ bad:
 
 	void Int_Vsbn(MIPSOpcode op)
 	{
-		Reporting::ReportMessage("vsbn not implemented");
-		if (!PSP_CoreParameter().headLess) {
-			_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		union FloatBits {
+			float f[4];
+			u32 u[4];
+		};
+
+		FloatBits d;
+		FloatBits s;
+		u8 exp = 127 + VI(vt);
+
+		ReadVector(s.f, sz, vs);
+		// TODO: Test swizzle, t?
+		ApplySwizzleS(s.f, sz);
+
+		if (sz != V_Single) {
+			ERROR_LOG_REPORT(CPU, "vsbn not implemented for size %d", GetNumVectorElements(sz));
 		}
+		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
+			// Simply replace the expontent bits.
+			u32 prev = s.u[i] & 0x7F800000;
+			if (prev != 0 && prev != 0x7F800000) {
+				d.u[i] = (s.u[i] & ~0x7F800000) | (exp << 23);
+			} else {
+				d.u[i] = s.u[i];
+			}
+		}
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
