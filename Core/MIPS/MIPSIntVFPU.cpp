@@ -15,26 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-// BUGS!
-// It seems likely that there are VFPU bugs, as the intro videos to the Lego Harry Potter
-// games showcase serious macroblock corruption and the IDCT is done with VFPU instructions.
-
-// Here's a list of all the instructions used, and thus those which should be exhaustively tested:
-// lv.q
-// vs2i.p
-// vi2f.q
-// vmul.q
-// vs2i.p
-// vsub.q
-// vadd.q
-// vscl.q
-// vpfxd 0-1 x 4  (before vscl.q)
-// vscl.q
-// vf2iz.q
-// vi2uc.q
-// sv.s
-
 // TODO: Test and maybe fix: https://code.google.com/p/jpcsp/source/detail?r=3082#
 
 #include "Core/Core.h"
@@ -1794,45 +1774,83 @@ bad:
 	// There has to be a concise way of expressing this in terms of
 	// bit manipulation on the raw floats.
 	void Int_Vwbn(MIPSOpcode op) {
-		Reporting::ReportMessage("vwbn not implemented");
-		if (!PSP_CoreParameter().headLess) {
-			_dbg_assert_msg_(CPU,0,"vwbn not implemented");
-		}
-		PC += 4;
-		EatPrefixes();
-
-		/*
 		int vd = _VD;
 		int vs = _VS;
-
-		double modulo = pow(2.0, 127 - (int)((op >> 16) & 0xFF));
-
-		// Only S is allowed? gas says so
 		VectorSize sz = GetVecSize(op);
 
-		float s[4];
-		float d[4];
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++) {
-			double bn = (double)s[i];
-			if (bn > 0.0)
-				bn = fmod((double)bn, modulo);
-			d[i] = s[i] < 0.0f ? bn - modulo : bn + modulo;
+		union FloatBits {
+			float f[4];
+			u32 u[4];
+		};
+
+		FloatBits d;
+		FloatBits s;
+		u8 exp = (u8)((op >> 16) & 0xFF);
+
+		ReadVector(s.f, sz, vs);
+		// TODO: Test swizzle, t?
+		ApplySwizzleS(s.f, sz);
+
+		if (sz != V_Single) {
+			ERROR_LOG_REPORT(CPU, "vwbn not implemented for size %d", GetNumVectorElements(sz));
 		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
+			u32 sigbit = s.u[i] & 0x80000000;
+			u32 prevExp = (s.u[i] & 0x7F800000) >> 23;
+			u32 mantissa = (s.u[i] & 0x007FFFFF) | 0x00800000;
+			if (prevExp != 0xFF && prevExp != 0) {
+				if (exp > prevExp) {
+					s8 shift = (exp - prevExp) & 0xF;
+					mantissa = mantissa >> shift;
+				} else {
+					s8 shift = (prevExp - exp) & 0xF;
+					mantissa = mantissa << shift;
+				}
+				d.u[i] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+			} else {
+				d.u[i] = s.u[i] | (exp << 23);
+			}
+		}
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
-		EatPrefixes();*/
+		EatPrefixes();
 	}
 
 	void Int_Vsbn(MIPSOpcode op)
 	{
-		Reporting::ReportMessage("vsbn not implemented");
-		if (!PSP_CoreParameter().headLess) {
-			_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		union FloatBits {
+			float f[4];
+			u32 u[4];
+		};
+
+		FloatBits d;
+		FloatBits s;
+		u8 exp = (u8)(127 + VI(vt));
+
+		ReadVector(s.f, sz, vs);
+		// TODO: Test swizzle, t?
+		ApplySwizzleS(s.f, sz);
+
+		if (sz != V_Single) {
+			ERROR_LOG_REPORT(CPU, "vsbn not implemented for size %d", GetNumVectorElements(sz));
 		}
+		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
+			// Simply replace the expontent bits.
+			u32 prev = s.u[i] & 0x7F800000;
+			if (prev != 0 && prev != 0x7F800000) {
+				d.u[i] = (s.u[i] & ~0x7F800000) | (exp << 23);
+			} else {
+				d.u[i] = s.u[i];
+			}
+		}
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}

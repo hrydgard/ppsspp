@@ -20,6 +20,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/CwCheat.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -51,10 +52,12 @@ namespace Reporting
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
-	// Keeps track of report-only-once identifiers.
-	static std::set<std::string> logOnceUsed;
+	// Keeps track of report-only-once identifiers.  Since they're always constants, a pointer is okay.
+	static std::set<const char *> logOnceUsed;
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
+	// Support is cached here to avoid checking it on every single request.
+	static bool currentSupported = false;
 
 	enum RequestType
 	{
@@ -202,11 +205,19 @@ namespace Reporting
 		spamProtectionCount = 0;
 		logOnceUsed.clear();
 		everUnsupported = false;
+		currentSupported = IsSupported();
+	}
+
+	void Shutdown()
+	{
+		// Just so it can be enabled in the menu again.
+		Init();
 	}
 
 	void UpdateConfig()
 	{
-		if (!IsSupported())
+		currentSupported = IsSupported();
+		if (!currentSupported && PSP_IsInited())
 			everUnsupported = true;
 	}
 
@@ -291,18 +302,25 @@ namespace Reporting
 		// Disabled when using certain hacks, because they make for poor reports.
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
+		if (g_Config.bTimerHack)
+			return false;
+		if (CheatsInEffect())
+			return false;
+		// Not sure if we should support locked cpu at all, but definitely not far out values.
+		if (g_Config.iLockedCPUSpeed != 0 && (g_Config.iLockedCPUSpeed < 111 || g_Config.iLockedCPUSpeed > 333))
+			return false;
 
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
-		if (!pspFileSystem.GetFileInfo("flash0:/font").exists)
+		if (!File::Exists(g_Config.flash0Directory + "/font"))
 			return false;
 
-		return true;
+		return !everUnsupported;
 	}
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !IsSupported() || everUnsupported)
+		if (g_Config.sReportHost.empty() || !currentSupported)
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)

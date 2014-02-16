@@ -107,6 +107,29 @@ CWCheatEngine::CWCheatEngine() {
 void CWCheatEngine::Exit() {
 	exit2 = true;
 }
+
+static inline std::vector<std::string> makeCodeParts(const std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
+	std::string currentcode;
+	std::vector<std::string> finalList;
+	char split_char = '\n';
+	char empty = ' ';
+	for (size_t i = 0; i < CodesList.size(); i++) {
+		currentcode = CodesList[i];
+		for (size_t j=0; j < currentcode.length(); j++) {
+			if (currentcode[j] == empty) {
+				currentcode[j] = '\n';
+			}
+		}
+		trim2(currentcode);
+		std::istringstream iss(currentcode);
+		std::string each;
+		while (std::getline(iss, each, split_char)) {
+			finalList.push_back(each);
+		}
+	}
+	return finalList;
+}
+
 void CWCheatEngine::CreateCodeList() { //Creates code list to be used in function GetNextCode
 	initialCodesList = GetCodesList();
 	std::string currentcode, codename;
@@ -146,27 +169,7 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 	}
 	parts = makeCodeParts(codelist);
 }
-inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
-	std::string currentcode;
-	std::vector<std::string> finalList;
-	char split_char = '\n';
-	char empty = ' ';
-	for (size_t i = 0; i < CodesList.size(); i++) {
-		currentcode = CodesList[i];
-		for (size_t j=0; j < currentcode.length(); j++) {
-			if (currentcode[j] == empty) {
-				currentcode[j] = '\n';
-			}
-		}
-		trim2(currentcode);
-		std::istringstream iss(currentcode);
-		std::string each;
-		while (std::getline(iss, each, split_char)) {
-			finalList.push_back(each);
-		}
-	}
-	return finalList;
-}
+
 std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints to Run() which contains the address and value of one cheat.
 	std::string code1;
 	std::string code2;
@@ -565,5 +568,13 @@ void CWCheatEngine::Run() {
 	Exit();
 }
 
+bool CWCheatEngine::HasCheats() {
+	return !parts.empty();
+}
 
+bool CheatsInEffect() {
+	if (!cheatEngine || !cheatsEnabled)
+		return false;
+	return cheatEngine->HasCheats();
+}
 

@@ -298,7 +298,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	if(!param)
 		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
-	if (param->fileName == NULL)
+	if (param->fileName[0] == '\0')
 		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
 
 	std::string filename = savePath + GetGameName(param) + GetSaveName(param) + "/" + GetFileName(param);

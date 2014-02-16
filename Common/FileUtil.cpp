@@ -133,6 +133,12 @@ static void StripTailDirSlashes(std::wstring &fname)
 // Returns true if file filename exists
 bool Exists(const std::string &filename)
 {
+	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
+	// Save the old error mode 
+#ifdef _WIN32
+	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
+#endif
+
 	struct stat64 file_info;
 #if defined(_WIN32) && defined(UNICODE)
 	std::wstring copy = ConvertUTF8ToWString(filename);
@@ -145,6 +151,12 @@ bool Exists(const std::string &filename)
 
 	int result = stat64(copy.c_str(), &file_info);
 #endif
+
+	// Set the old error mode
+#ifdef _WIN32
+	SetErrorMode(OldMode);
+#endif
+
 	return (result == 0);
 }
 

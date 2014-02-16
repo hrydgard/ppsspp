@@ -226,13 +226,30 @@ void FramebufferManager::CompileDraw2DProgram() {
 				// user shader experiments.
 				ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
 				// let's show the first line of the error string as an OSM.
+				std::set<std::string> blacklistedLines;
+				// These aren't useful to show, skip to the first interesting line.
+				blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
+				blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
+				blacklistedLines.insert("Compile failed.");
+				blacklistedLines.insert("");
+
+				std::string firstLine;
+				size_t start = 0;
 				for (size_t i = 0; i < errorString.size(); i++) {
 					if (errorString[i] == '\n') {
-						errorString = errorString.substr(0, i);
-						break;
+						firstLine = errorString.substr(start, i - start);
+						if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
+							break;
+						}
+						start = i + 1;
+						firstLine.clear();
 					}
 				}
-				osm.Show("Post-shader error: " + errorString + " ...", 10.0f, 0xFF3090FF);
+				if (!firstLine.empty()) {
+					osm.Show("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+				} else {
+					osm.Show("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+				}
 				usePostShader_ = false;
 			} else {
 				glsl_bind(postShaderProgram_);
