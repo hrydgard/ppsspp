@@ -183,7 +183,6 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
 
-#ifdef _DEBUG
 #ifdef _WIN32
 	static const char sep = '\\';
 #else
@@ -197,7 +196,6 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 		if (fileshort != file)
 			file = fileshort + 1;
 	}
-#endif
 
 	char *msgPos = msg;
 	if (hleCurrentThreadName != NULL) {
@@ -233,7 +231,7 @@ LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
 	: enable_(enable) {
 	strncpy(m_fullName, fullName, 128);
 	strncpy(m_shortName, shortName, 32);
-	level_ = LogTypes::LDEBUG;
+	level_ = LogTypes::LINFO;
 }
 
 // LogContainer
