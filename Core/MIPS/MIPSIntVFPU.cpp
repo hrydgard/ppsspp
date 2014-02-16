@@ -1797,12 +1797,11 @@ bad:
 		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
 			u32 sigbit = s.u[i] & 0x80000000;
 			u32 prevExp = (s.u[i] & 0x7F800000) >> 23;
-			u32 mantissa = s.u[i] & 0x007FFFFF;
+			u32 mantissa = (s.u[i] & 0x007FFFFF) | 0x00800000;
 			if (prevExp != 0xFF && prevExp != 0) {
 				if (exp > prevExp) {
 					s8 shift = (exp - prevExp) & 0xF;
 					mantissa = mantissa >> shift;
-					mantissa |= 1 << (23 - shift);
 				} else {
 					s8 shift = (prevExp - exp) & 0xF;
 					mantissa = mantissa << shift;
