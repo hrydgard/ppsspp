@@ -3402,7 +3402,7 @@ void __KernelReturnFromMipsCall()
 	{
 		if (call->cbId > 0)
 		{
-			if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL && call->cbId > 0)
+			if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL)
 				waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
 			else
 				ERROR_LOG_REPORT(HLE, "Missing begin/restore funcs for wait type %d", cur->nt.waitType);
