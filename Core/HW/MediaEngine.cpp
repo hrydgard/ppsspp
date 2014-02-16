@@ -35,11 +35,6 @@ extern "C" {
 }
 #endif // USE_FFMPEG
 
-static const int TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650 = 0x00;
-static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551 = 0x01;
-static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444 = 0x02;
-static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0x03;
-
 int g_iNumVideos = 0;
 
 #ifdef USE_FFMPEG
@@ -47,13 +42,13 @@ static AVPixelFormat getSwsFormat(int pspFormat)
 {
 	switch (pspFormat)
 	{
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_BGR5650:
 		return AV_PIX_FMT_BGR565LE;
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR5551:
 		return AV_PIX_FMT_BGR555LE;
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+	case GE_CMODE_16BIT_ABGR4444:
 		return AV_PIX_FMT_BGR444LE;
-	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+	case GE_CMODE_32BIT_ABGR8888:
 		return AV_PIX_FMT_RGBA;
 	default:
 		ERROR_LOG(ME, "Unknown pixel format");
@@ -101,11 +96,11 @@ static int getPixelFormatBytes(int pspFormat)
 {
 	switch (pspFormat)
 	{
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
 		return 2;
-	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+	case GE_CMODE_32BIT_ABGR8888:
 		return 4;
 
 	default:
@@ -415,7 +410,7 @@ bool MediaEngine::setVideoDim(int width, int height)
 
 	m_sws_ctx = NULL;
 	m_sws_fmt = -1;
-	updateSwsFormat(TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888);
+	updateSwsFormat(GE_CMODE_32BIT_ABGR8888);
 
 	// Allocate video frame for RGB24
 	m_pFrameRGB = av_frame_alloc();
@@ -572,7 +567,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	const u8 *data = m_pFrameRGB->data[0];
 
 	switch (videoPixelMode) {
-	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+	case GE_CMODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += width * sizeof(u32);
@@ -581,7 +576,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		videoImageSize = frameWidth * sizeof(u32) * height;
 		break;
 
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += width * sizeof(u16);
@@ -590,7 +585,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += width * sizeof(u16);
@@ -599,7 +594,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+	case GE_CMODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += width * sizeof(u16);
@@ -641,7 +636,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		height = m_desHeight - ypos;
 
 	switch (videoPixelMode) {
-	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+	case GE_CMODE_32BIT_ABGR8888:
 		data += (ypos * m_desWidth + xpos) * sizeof(u32);
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf, data, width);
@@ -651,7 +646,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
 		break;
 
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_BGR5650:
 		data += (ypos * m_desWidth + xpos) * sizeof(u16);
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf, data, width);
@@ -661,7 +656,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR5551:
 		data += (ypos * m_desWidth + xpos) * sizeof(u16);
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf, data, width);
@@ -671,7 +666,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+	case GE_CMODE_16BIT_ABGR4444:
 		data += (ypos * m_desWidth + xpos) * sizeof(u16);
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf, data, width);
