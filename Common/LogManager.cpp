@@ -231,7 +231,11 @@ LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
 	: enable_(enable) {
 	strncpy(m_fullName, fullName, 128);
 	strncpy(m_shortName, shortName, 32);
+#if defined(_DEBUG)
+	level_ = LogTypes::LDEBUG;
+#else
 	level_ = LogTypes::LINFO;
+#endif
 }
 
 // LogContainer
