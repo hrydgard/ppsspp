@@ -57,6 +57,18 @@ int audioSamplesBytes = audioSamples * 4;
 int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
+enum PsmfPlayerError {
+	ERROR_PSMF_NOT_INITIALIZED = 0x80615001,
+	ERROR_PSMF_BAD_VERSION = 0x80615002,
+	ERROR_PSMF_NOT_FOUND = 0x80615025,
+	ERROR_PSMF_INVALID_ID = 0x80615100,
+	ERROR_PSMF_INVALID_VALUE = 0x806151fe,
+	ERROR_PSMF_INVALID_TIMESTAMP = 0x80615500,
+	ERROR_PSMF_INVALID_PSMF = 0x80615501,
+	ERROR_PSMFPLAYER_NOT_INITIALIZED = 0x80616001,
+	ERROR_PSMFPLAYER_NO_MORE_DATA = 0x8061600c,
+};
+
 enum PsmfPlayerStatus {
 	PSMF_PLAYER_STATUS_NONE = 0x0,
 	PSMF_PLAYER_STATUS_INIT = 0x1,
@@ -898,7 +910,7 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 
 int scePsmfPlayerBreak(u32 psmfPlayer)
 {
-	ERROR_LOG(ME, "UNIMPL scePsmfPlayerBreak(%08x)", psmfPlayer);
+	WARN_LOG(ME, "scePsmfPlayerBreak(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerBreak(%08x): invalid psmf player", psmfPlayer);
@@ -1058,7 +1070,7 @@ int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer)
 
 int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts) 
 {
-	WARN_LOG(ME, "UNIMPL scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 
@@ -1169,7 +1181,7 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
-	ERROR_LOG(ME, "UNIMPL scePsmfPlayerReleasePsmf(%08x)", psmfPlayer);
+	WARN_LOG(ME, "scePsmfPlayerReleasePsmf(%08x)", psmfPlayer);
 	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
