@@ -65,7 +65,8 @@ int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 
 u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
-		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
+		// Some games seem to do this frequently.
+		DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
