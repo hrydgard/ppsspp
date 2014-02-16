@@ -44,6 +44,7 @@ enum {
 	ERROR_SAS_INVALID_SAMPLE_RATE = 0x80420004,
 	ERROR_SAS_BAD_ADDRESS = 0x80420005,
 	ERROR_SAS_INVALID_VOICE = 0x80420010,
+	ERROR_SAS_INVALID_NOISE_FREQ = 0x80420011,
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
@@ -316,12 +317,16 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 }
 
 u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
-	DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	if (freq < 0 || freq >= 64) {
+		DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
+		return ERROR_SAS_INVALID_NOISE_FREQ;
+	}
+
+	DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_NOISE;
