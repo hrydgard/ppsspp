@@ -782,9 +782,6 @@ void ADSREnvelope::KeyOn() {
 
 void ADSREnvelope::KeyOff() {
 	SetState(STATE_RELEASE);
-	// Does this really make sense? I don't think so, the release-decay should happen
-	// from whatever level we are at, although the weirdo exponentials we have start at a fixed state :(
-	height_ = sustainLevel;
 }
 
 void ADSREnvelope::End() {
