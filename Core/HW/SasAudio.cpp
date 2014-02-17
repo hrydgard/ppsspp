@@ -381,19 +381,21 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		break;
 	case VOICETYPE_PCM:
 		{
-			u32 size = std::min(pcmSize * 2 - pcmIndex, (int)(numSamples * sizeof(s16)));
-			if (!on) {
-				pcmIndex = 0;
-				break;
-			}
-			Memory::Memcpy(output, pcmAddr + pcmIndex, size);
-			int remaining = numSamples * sizeof(s16) - size;
-			if (remaining > 0) {
-				memset(output + size, 0, remaining);
-			}
-			pcmIndex += size;
-			if (pcmIndex >= pcmSize * 2) {
-				pcmIndex = 0;
+			int needed = numSamples;
+			s16 *out = output;
+			while (needed > 0) {
+				u32 size = std::min(pcmSize - pcmIndex, needed);
+				if (!on) {
+					pcmIndex = 0;
+					break;
+				}
+				Memory::Memcpy(out, pcmAddr + pcmIndex * sizeof(s16), size * sizeof(s16));
+				pcmIndex += size;
+				needed -= size;
+				out += size;
+				if (pcmIndex >= pcmSize) {
+					pcmIndex = pcmLoopPos;
+				}
 			}
 		}
 		break;
@@ -632,7 +634,7 @@ void SasVoice::ChangedParams(bool changedVag) {
 
 void SasVoice::DoState(PointerWrap &p)
 {
-	auto s = p.Section("SasVoice", 1);
+	auto s = p.Section("SasVoice", 1, 2);
 	if (!s)
 		return;
 
@@ -647,6 +649,11 @@ void SasVoice::DoState(PointerWrap &p)
 	p.Do(pcmAddr);
 	p.Do(pcmSize);
 	p.Do(pcmIndex);
+	if (s >= 2) {
+		p.Do(pcmLoopPos);
+	} else {
+		pcmLoopPos = 0;
+	}
 	p.Do(sampleRate);
 
 	p.Do(sampleFrac);

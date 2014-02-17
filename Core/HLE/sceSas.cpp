@@ -47,6 +47,7 @@ enum {
 	ERROR_SAS_INVALID_NOISE_FREQ = 0x80420011,
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
+	ERROR_SAS_INVALID_LOOP_POS = 0x80420015,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
 	ERROR_SAS_INVALID_VOLUME = 0x80420018,
 	ERROR_SAS_INVALID_ADSR_RATE = 0x80420019,
@@ -183,24 +184,26 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	return 0;
 }
 
-u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
+u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos)
 {
-	INFO_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loop);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
-
+	if (size <= 0 || size > 0x10000) {
+		WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
+		return ERROR_SAS_INVALID_SIZE;
+	}
+	if (loopPos >= size) {
+		ERROR_LOG_REPORT(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i): bad loop pos", core, voiceNum, pcmAddr, size, loopPos);
+		return ERROR_SAS_INVALID_LOOP_POS;
+	}
 	if (!Memory::IsValidAddress(pcmAddr)) {
 		ERROR_LOG(SCESAS, "Ignoring invalid PCM audio address %08x", pcmAddr);
 		return 0;
 	}
 
-	if (size <= 0 || size > 0x10000) {
-		WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
-		return ERROR_SAS_INVALID_SIZE;
-	}
+	INFO_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loopPos);
 
 	SasVoice &v = sas->voices[voiceNum];
 	u32 prevPcmAddr = v.pcmAddr;
@@ -208,7 +211,8 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
 	v.pcmIndex = 0;
-	v.loop = loop ? true : false;
+	v.pcmLoopPos = loopPos >= 0 ? loopPos : 0;
+	v.loop = loopPos >= 0 ? true : false;
 	v.playing = true;
 	v.ChangedParams(pcmAddr == prevPcmAddr);
 	return 0;
@@ -546,9 +550,9 @@ u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 
 const HLEFunction sceSasCore[] =
 {
-	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, 
+	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"},
 	{0xa3589d81, WrapU_UU<_sceSasCore>, "__sceSasCore"},
-	{0x50a14dfc, WrapU_UUII<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	
+	{0x50a14dfc, WrapU_UUII<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},
 	{0x68a46b95, WrapU_U<sceSasGetEndFlag>, "__sceSasGetEndFlag"},
 	{0x440ca7d8, WrapU_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
 	{0xad84d37f, WrapU_UII<sceSasSetPitch>, "__sceSasSetPitch"},
@@ -557,7 +561,7 @@ const HLEFunction sceSasCore[] =
 	{0x019b25eb, WrapU_UIIIIII<sceSasSetADSR>, "__sceSasSetADSR"},
 	{0x9ec3676a, WrapU_UIIIIII<sceSasSetADSRMode>, "__sceSasSetADSRmode"},
 	{0x5f9529f6, WrapU_UII<sceSasSetSL>, "__sceSasSetSL"},
-	{0x74ae582a, WrapU_UI<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
+	{0x74ae582a, WrapU_UI<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},
 	{0xcbcd4f79, WrapU_UIUU<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
 	{0xa0cf2fa4, WrapU_UI<sceSasSetKeyOff>, "__sceSasSetKeyOff"},
 	{0x76f01aca, WrapU_UI<sceSasSetKeyOn>, "__sceSasSetKeyOn"},

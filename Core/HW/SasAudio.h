@@ -227,6 +227,7 @@ struct SasVoice {
 	u32 pcmAddr;
 	int pcmSize;
 	int pcmIndex;
+	int pcmLoopPos;
 	int sampleRate;
 
 	int sampleFrac;
