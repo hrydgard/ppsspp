@@ -1121,12 +1121,22 @@ void TextureCache::SetTexture(bool force) {
 	lastBoundTexture = entry->texture;
 
 	// Adjust maxLevel to actually present levels..
+	bool badMipSizes = false;
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
 			maxLevel = i - 1;
 			break;
+		}
+
+		if (i > 0) {
+			int tw = gstate.getTextureWidth(i);
+			int th = gstate.getTextureWidth(i);
+			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
+				badMipSizes = true;
+			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
+				badMipSizes = true;
 		}
 	}
 
@@ -1169,11 +1179,15 @@ void TextureCache::SetTexture(bool force) {
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
 #ifndef USING_GLES2
+		if (badMipSizes) {
+			glGenerateMipmap(GL_TEXTURE_2D);
+		}	else {
 			for (int i = 1; i <= maxLevel; i++) {
 				LoadTextureLevel(*entry, i, replaceImages, dstFmt);
 			}
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+		}
 #else 
 			glGenerateMipmap(GL_TEXTURE_2D);
 #endif
