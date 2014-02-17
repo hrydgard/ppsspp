@@ -151,16 +151,11 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 		PanicAlert("Trying to protect functions before the emu is started. Bad bad bad.");
 
 	const u8 *call_point = GetCodePtr();
-	// Make sure to align stack.
+	Enter(this);
+
 #ifdef _M_X64
-	SUB(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded()));
-	ABI_CallFunction(save_regs);
 	ABI_CallFunction(function);
-	ABI_CallFunction(load_regs);
-	ADD(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded()));
-	RET();
 #else
-	CALL((const void *)save_regs);
 	// Since parameters are in the previous stack frame, not in registers, this takes some
 	// trickery : we simply re-push the parameters. might not be optimal, but that doesn't really
 	// matter.
@@ -172,10 +167,32 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 	}
 	CALL(function);
 	ABI_RestoreStack(num_params * 4);
-	CALL((void*)load_regs);
-	RET();
 #endif
+
+	Leave(this);
+	RET();
 
 	thunks[function] = call_point;
 	return (const void *)call_point;
+}
+
+void ThunkManager::Enter(ThunkEmitter *emit)
+{
+#ifdef _M_X64
+	// Make sure to align stack.
+	emit->SUB(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded()));
+	emit->ABI_CallFunction(save_regs);
+#else
+	emit->CALL((const void *)save_regs);
+#endif
+}
+
+void ThunkManager::Leave(ThunkEmitter *emit)
+{
+#ifdef _M_X64
+	emit->ABI_CallFunction(load_regs);
+	emit->ADD(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded()));
+#else
+	emit->CALL((void*)load_regs);
+#endif
 }

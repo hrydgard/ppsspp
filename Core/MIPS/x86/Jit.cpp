@@ -999,17 +999,17 @@ void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const OpArg
 void Jit::CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2, const u32 arg3)
 {
 	// On x64, we need to save R8, which is caller saved.
-	ABI_CallFunction(thunks.GetSaveRegsFunction());
+	thunks.Enter(this);
 	ABI_CallFunctionCCC(func, arg1, arg2, arg3);
-	ABI_CallFunction(thunks.GetLoadRegsFunction());
+	thunks.Leave(this);
 }
 
 void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 arg2, const u32 arg3)
 {
 	// On x64, we need to save R8, which is caller saved.
-	ABI_CallFunction(thunks.GetSaveRegsFunction());
+	thunks.Enter(this);
 	ABI_CallFunctionACC(func, arg1, arg2, arg3);
-	ABI_CallFunction(thunks.GetLoadRegsFunction());
+	thunks.Leave(this);
 }
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }

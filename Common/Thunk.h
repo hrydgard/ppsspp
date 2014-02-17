@@ -39,10 +39,14 @@
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
 #if defined(ARM)
-class ThunkManager : public ArmGen::ARMXCodeBlock
+typedef ArmGen::ARMXEmitter ThunkEmitter;
+typedef ArmGen::ARMXCodeBlock ThunkCodeBlock;
 #else
-class ThunkManager : public Gen::XCodeBlock
+typedef Gen::XEmitter ThunkEmitter;
+typedef Gen::XCodeBlock ThunkCodeBlock;
 #endif
+
+class ThunkManager : public ThunkCodeBlock
 {
 	std::map<const void *, const u8 *> thunks;
 
@@ -83,12 +87,8 @@ public:
 		return ProtectFunction((const void *)func, 4);
 	}
 
-	const u8 *GetSaveRegsFunction() const {
-		return save_regs;
-	}
-	const u8 *GetLoadRegsFunction() const {
-		return load_regs;
-	}
+	void Enter(ThunkEmitter *emit);
+	void Leave(ThunkEmitter *emit);
 
 private:
 	void Init();
