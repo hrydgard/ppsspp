@@ -144,11 +144,15 @@ public:
 	void Step();
 
 	int GetHeight() const {
-		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
+		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
+	}
+	bool NeedsKeyOn() const {
+		return state_ == STATE_KEYON;
 	}
 	bool HasEnded() const {
 		return state_ == STATE_OFF;
 	}
+
 	int attackRate;
 	int decayRate;
 	int sustainRate;
@@ -162,14 +166,17 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
-	void ComputeDuration();
-
+	// Actual PSP values.
 	enum ADSRState {
-		STATE_ATTACK,
-		STATE_DECAY,
-		STATE_SUSTAIN,
-		STATE_RELEASE,
-		STATE_OFF,
+		// Okay, this one isn't a real value but it might be.
+		STATE_KEYON_STEP = -42,
+
+		STATE_KEYON = -2,
+		STATE_OFF = -1,
+		STATE_ATTACK = 0,
+		STATE_DECAY = 1,
+		STATE_SUSTAIN = 2,
+		STATE_RELEASE = 3,
 	};
 	void SetState(ADSRState state);
 
@@ -212,6 +219,7 @@ struct SasVoice {
 	void DoState(PointerWrap &p);
 
 	void ReadSamples(s16 *output, int numSamples);
+	bool HaveSamplesEnded();
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
@@ -224,6 +232,7 @@ struct SasVoice {
 	u32 pcmAddr;
 	int pcmSize;
 	int pcmIndex;
+	int pcmLoopPos;
 	int sampleRate;
 
 	int sampleFrac;

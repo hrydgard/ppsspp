@@ -381,19 +381,28 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		break;
 	case VOICETYPE_PCM:
 		{
-			u32 size = std::min(pcmSize * 2 - pcmIndex, (int)(numSamples * sizeof(s16)));
-			if (!on) {
-				pcmIndex = 0;
-				break;
+			int needed = numSamples;
+			s16 *out = output;
+			while (needed > 0) {
+				u32 size = std::min(pcmSize - pcmIndex, needed);
+				if (!on) {
+					pcmIndex = 0;
+					break;
+				}
+				Memory::Memcpy(out, pcmAddr + pcmIndex * sizeof(s16), size * sizeof(s16));
+				pcmIndex += size;
+				needed -= size;
+				out += size;
+				if (pcmIndex >= pcmSize) {
+					if (!loop) {
+						// All out, quit.  We'll end in HaveSamplesEnded().
+						break;
+					}
+					pcmIndex = pcmLoopPos;
+				}
 			}
-			Memory::Memcpy(output, pcmAddr + pcmIndex, size);
-			int remaining = numSamples * sizeof(s16) - size;
-			if (remaining > 0) {
-				memset(output + size, 0, remaining);
-			}
-			pcmIndex += size;
-			if (pcmIndex >= pcmSize * 2) {
-				pcmIndex = 0;
+			if (needed > 0) {
+				memset(out, 0, needed * sizeof(s16));
 			}
 		}
 		break;
@@ -413,6 +422,24 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 			memset(output, 0, numSamples * sizeof(s16));
 		}
 		break;
+	}
+}
+
+bool SasVoice::HaveSamplesEnded() {
+	switch (type) {
+	case VOICETYPE_VAG:
+		// TODO: Is it here, or before the samples are processed?
+		return false;
+
+	case VOICETYPE_PCM:
+		return pcmIndex >= pcmSize;
+
+	case VOICETYPE_ATRAC3:
+		// TODO: Is it here, or before the samples are processed?
+		return false;
+
+	default:
+		return false;
 	}
 }
 
@@ -441,7 +468,12 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			numSamples = grainSize * 4;
 		}
 
-		voice.ReadSamples(resampleBuffer + 2, numSamples);
+		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
+		if (voice.envelope.NeedsKeyOn()) {
+			voice.ReadSamples(resampleBuffer + 2 + 32, numSamples - 32);
+		} else {
+			voice.ReadSamples(resampleBuffer + 2, numSamples);
+		}
 
 		// Smoothness HACKERY
 		resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
@@ -487,6 +519,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
 		voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
 
+		if (voice.HaveSamplesEnded())
+			voice.envelope.End();
 		if (voice.envelope.HasEnded())
 		{
 			// NOTICE_LOG(SCESAS, "Hit end of envelope");
@@ -632,7 +666,7 @@ void SasVoice::ChangedParams(bool changedVag) {
 
 void SasVoice::DoState(PointerWrap &p)
 {
-	auto s = p.Section("SasVoice", 1);
+	auto s = p.Section("SasVoice", 1, 2);
 	if (!s)
 		return;
 
@@ -647,11 +681,21 @@ void SasVoice::DoState(PointerWrap &p)
 	p.Do(pcmAddr);
 	p.Do(pcmSize);
 	p.Do(pcmIndex);
+	if (s >= 2) {
+		p.Do(pcmLoopPos);
+	} else {
+		pcmLoopPos = 0;
+	}
 	p.Do(sampleRate);
 
 	p.Do(sampleFrac);
 	p.Do(pitch);
 	p.Do(loop);
+	if (s < 2 && type == VOICETYPE_PCM) {
+		// We set loop incorrectly before, and always looped.
+		// Let's keep always looping, since it's usually right.
+		loop = true;
+	}
 
 	p.Do(noiseFreq);
 
@@ -675,7 +719,7 @@ ADSREnvelope::ADSREnvelope()
 		releaseRate(0),
 		attackType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		decayType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
-		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
+		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		sustainLevel(0),
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		state_(STATE_OFF),
@@ -694,7 +738,7 @@ void ADSREnvelope::WalkCurve(int type, int rate) {
 		break;
 
 	case PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT:
-		if (height_ < (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX * 3 / 4) {
+		if (height_ <= (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX * 3 / 4) {
 			height_ += rate;
 		} else {
 			height_ += rate / 4;
@@ -758,19 +802,30 @@ void ADSREnvelope::Step() {
 	case STATE_OFF:
 		// Do nothing
 		break;
+
+	case STATE_KEYON:
+		height_ = 0;
+		SetState(STATE_KEYON_STEP);
+		break;
+	case STATE_KEYON_STEP:
+		// This entire state is pretty much a hack to reproduce PSP behavior.
+		// The STATE_KEYON state is a real state, but not sure how it switches.
+		// It takes 32 steps at 0 for keyon to "kick in", 31 should shift to 0 anyway.
+		height_++;
+		if (height_ >= 31) {
+			height_ = 0;
+			SetState(STATE_ATTACK);
+		}
+		break;
 	}
 }
 
 void ADSREnvelope::KeyOn() {
-	SetState(STATE_ATTACK);
-	height_ = 0;
+	SetState(STATE_KEYON);
 }
 
 void ADSREnvelope::KeyOff() {
 	SetState(STATE_RELEASE);
-	// Does this really make sense? I don't think so, the release-decay should happen
-	// from whatever level we are at, although the weirdo exponentials we have start at a fixed state :(
-	height_ = sustainLevel;
 }
 
 void ADSREnvelope::End() {
@@ -779,7 +834,7 @@ void ADSREnvelope::End() {
 }
 
 void ADSREnvelope::DoState(PointerWrap &p) {
-	auto s = p.Section("ADSREnvelope", 1);
+	auto s = p.Section("ADSREnvelope", 1, 2);
 	if (!s) {
 		return;
 	}
@@ -793,8 +848,15 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 	p.Do(sustainType);
 	p.Do(sustainLevel);
 	p.Do(releaseType);
-	p.Do(state_);
-	int stepsLegacy;
-	p.Do(stepsLegacy);
+	if (s < 2) {
+		p.Do(state_);
+		if (state_ == 4) {
+			state_ = STATE_OFF;
+		}
+		int stepsLegacy;
+		p.Do(stepsLegacy);
+	} else {
+		p.Do(state_);
+	}
 	p.Do(height_);
 }

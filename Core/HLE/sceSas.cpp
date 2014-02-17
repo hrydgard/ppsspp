@@ -44,12 +44,15 @@ enum {
 	ERROR_SAS_INVALID_SAMPLE_RATE = 0x80420004,
 	ERROR_SAS_BAD_ADDRESS = 0x80420005,
 	ERROR_SAS_INVALID_VOICE = 0x80420010,
+	ERROR_SAS_INVALID_NOISE_FREQ = 0x80420011,
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
+	ERROR_SAS_INVALID_LOOP_POS = 0x80420015,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
 	ERROR_SAS_INVALID_VOLUME = 0x80420018,
 	ERROR_SAS_INVALID_ADSR_RATE = 0x80420019,
 	ERROR_SAS_INVALID_SIZE = 0x8042001A,
+	ERROR_SAS_REV_INVALID_VOLUME = 0x80420023,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
 };
@@ -181,24 +184,26 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	return 0;
 }
 
-u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
+u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos)
 {
-	INFO_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loop);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
-
+	if (size <= 0 || size > 0x10000) {
+		WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
+		return ERROR_SAS_INVALID_SIZE;
+	}
+	if (loopPos >= size) {
+		ERROR_LOG_REPORT(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i): bad loop pos", core, voiceNum, pcmAddr, size, loopPos);
+		return ERROR_SAS_INVALID_LOOP_POS;
+	}
 	if (!Memory::IsValidAddress(pcmAddr)) {
 		ERROR_LOG(SCESAS, "Ignoring invalid PCM audio address %08x", pcmAddr);
 		return 0;
 	}
 
-	if (size <= 0 || size > 0x10000) {
-		WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
-		return ERROR_SAS_INVALID_SIZE;
-	}
+	INFO_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loopPos);
 
 	SasVoice &v = sas->voices[voiceNum];
 	u32 prevPcmAddr = v.pcmAddr;
@@ -206,7 +211,8 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
 	v.pcmIndex = 0;
-	v.loop = loop ? true : false;
+	v.pcmLoopPos = loopPos >= 0 ? loopPos : 0;
+	v.loop = loopPos >= 0 ? true : false;
 	v.playing = true;
 	v.ChangedParams(pcmAddr == prevPcmAddr);
 	return 0;
@@ -298,11 +304,7 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 
 // sceSasSetKeyOff can be used to start sounds, that just sound during the Release phase!
 u32 sceSasSetKeyOff(u32 core, int voiceNum) {
-	if (voiceNum == -1) {
-		// TODO: Some games (like Every Extend Extra) deliberately pass voiceNum = -1. Does that mean all voices? for now let's ignore.
-		WARN_LOG_REPORT(SCESAS, "sceSasSetKeyOff(%08x, %i) - voiceNum = -1???", core, voiceNum);
-		return 0;
-	} else if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	} else {
@@ -319,12 +321,16 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 }
 
 u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
-	DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	if (freq < 0 || freq >= 64) {
+		DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
+		return ERROR_SAS_INVALID_NOISE_FREQ;
+	}
+
+	DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_NOISE;
@@ -452,7 +458,11 @@ u32 sceSasRevParam(u32 core, int delay, int feedback) {
 	return 0;
 }
 
-u32 sceSasRevEVOL(u32 core, int lv, int rv) {
+u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
+	if (lv > 0x1000 || rv > 0x1000) {
+		WARN_LOG_REPORT(SCESAS, "sceSasRevEVOL(%08x, %i, %i): invalid volume", core, lv, rv);
+		return ERROR_SAS_REV_INVALID_VOLUME;
+	}
 	DEBUG_LOG(SCESAS, "sceSasRevEVOL(%08x, %i, %i)", core, lv, rv);
 	sas->waveformEffect.leftVol = lv;
 	sas->waveformEffect.rightVol = rv;
@@ -540,9 +550,9 @@ u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 
 const HLEFunction sceSasCore[] =
 {
-	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, 
+	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"},
 	{0xa3589d81, WrapU_UU<_sceSasCore>, "__sceSasCore"},
-	{0x50a14dfc, WrapU_UUII<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	
+	{0x50a14dfc, WrapU_UUII<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},
 	{0x68a46b95, WrapU_U<sceSasGetEndFlag>, "__sceSasGetEndFlag"},
 	{0x440ca7d8, WrapU_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
 	{0xad84d37f, WrapU_UII<sceSasSetPitch>, "__sceSasSetPitch"},
@@ -551,12 +561,12 @@ const HLEFunction sceSasCore[] =
 	{0x019b25eb, WrapU_UIIIIII<sceSasSetADSR>, "__sceSasSetADSR"},
 	{0x9ec3676a, WrapU_UIIIIII<sceSasSetADSRMode>, "__sceSasSetADSRmode"},
 	{0x5f9529f6, WrapU_UII<sceSasSetSL>, "__sceSasSetSL"},
-	{0x74ae582a, WrapU_UI<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
+	{0x74ae582a, WrapU_UI<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},
 	{0xcbcd4f79, WrapU_UIUU<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
 	{0xa0cf2fa4, WrapU_UI<sceSasSetKeyOff>, "__sceSasSetKeyOff"},
 	{0x76f01aca, WrapU_UI<sceSasSetKeyOn>, "__sceSasSetKeyOn"},
 	{0xf983b186, WrapU_UII<sceSasRevVON>, "__sceSasRevVON"},
-	{0xd5a229c9, WrapU_UII<sceSasRevEVOL>, "__sceSasRevEVOL"},  
+	{0xd5a229c9, WrapU_UUU<sceSasRevEVOL>, "__sceSasRevEVOL"},
 	{0x33d4ab37, WrapU_UI<sceSasRevType>, "__sceSasRevType"},
 	{0x267a6dd2, WrapU_UII<sceSasRevParam>, "__sceSasRevParam"},
 	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"},
