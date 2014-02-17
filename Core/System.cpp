@@ -363,7 +363,8 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	}
 
-	return PSP_InitUpdate(error_string);
+	PSP_InitUpdate(error_string);
+	return pspIsInited;
 }
 
 bool PSP_IsIniting() {
