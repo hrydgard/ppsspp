@@ -530,6 +530,9 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanAdhocChannel", &g_Config.iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC),
 #if defined(USING_WIN_UI)
 	ConfigSetting("BypassOSKWithKeyboard", &g_Config.bBypassOSKWithKeyboard, false),
+#endif
+	// Qt can use this too.
+#ifdef _WIN32
 	ConfigSetting("FontScaleSize", &g_Config.iNewUIFontScale, 100),
 #endif
 	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool)PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF),
