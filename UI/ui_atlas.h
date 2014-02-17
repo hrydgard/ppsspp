@@ -3,6 +3,8 @@
 #pragma once
 #include "gfx/texture_atlas.h"
 
+#define GOLD
+
 // FONTS_ui
 #define UBUNTU24 0
 
