@@ -35,7 +35,7 @@
 #define NOTICE_LOG_ONCE(n,t,...)  { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG(t, __VA_ARGS__); } }
 #define INFO_LOG_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG(t, __VA_ARGS__); } }
 
-struct PointerWrap;
+class PointerWrap;
 
 namespace Reporting
 {
