@@ -72,6 +72,7 @@ public:
 	std::string sFont;
 	bool bIgnoreWindowsKey;
 	bool bEscapeExitsEmulator;
+	int iNewUIFontScale;
 #endif
 	// Core
 	bool bIgnoreBadMemAccess;

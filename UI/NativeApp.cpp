@@ -434,9 +434,13 @@ void NativeInitGraphics() {
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
 #ifdef _WIN32
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
+	const int defaultFontSize = 22 * g_Config.iNewUIFontScale / 100;
+	const int defaultSmallFontSize = 15 * g_Config.iNewUIFontScale / 100;
+	const int defaultSmallerFontSize = 12 * g_Config.iNewUIFontScale / 100;
+
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), defaultFontSize);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), defaultSmallFontSize);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), defaultSmallerFontSize);
 #else
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
