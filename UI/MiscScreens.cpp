@@ -162,7 +162,7 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 }
 
 UI::EventReturn UIScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
+	screenManager()->RecreateAllViews();
 	if (host) {
 		host->UpdateUI();
 	}
@@ -171,7 +171,7 @@ UI::EventReturn UIScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
 }
 
 UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
+	screenManager()->RecreateAllViews();
 	if (host) {
 		host->UpdateUI();
 	}

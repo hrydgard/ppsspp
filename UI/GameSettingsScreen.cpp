@@ -490,7 +490,7 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
+	screenManager()->RecreateAllViews();
 
 	if (host) {
 		host->UpdateUI();
