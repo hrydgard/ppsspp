@@ -82,6 +82,7 @@ protected:
 		dp_yres = pixel_yres * g_dpi_scale;
 		PSP_CoreParameter().pixelWidth = pixel_xres;
 		PSP_CoreParameter().pixelHeight = pixel_yres;
+		UpdateScreenScale(pixel_xres, pixel_yres);
 	}
 
 	void timerEvent(QTimerEvent *) {
