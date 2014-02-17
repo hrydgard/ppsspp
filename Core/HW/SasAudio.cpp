@@ -470,7 +470,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
 		if (voice.envelope.NeedsKeyOn()) {
-			voice.ReadSamples(resampleBuffer + 2 + 32, numSamples - 32);
+			int delay = (32 * voice.pitch) / PSP_SAS_PITCH_BASE;
+			voice.ReadSamples(resampleBuffer + 2 + delay, numSamples - delay);
 		} else {
 			voice.ReadSamples(resampleBuffer + 2, numSamples);
 		}
