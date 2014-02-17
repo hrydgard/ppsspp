@@ -35,11 +35,16 @@
 #define NOTICE_LOG_ONCE(n,t,...)  { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG(t, __VA_ARGS__); } }
 #define INFO_LOG_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG(t, __VA_ARGS__); } }
 
+struct PointerWrap;
+
 namespace Reporting
 {
 	// Should be called whenever a new game is loaded/shutdown to forget things.
 	void Init();
 	void Shutdown();
+
+	// Check savestate compatibility, mostly needed on load.
+	void DoState(PointerWrap &p);
 
 	// Should be called whenever the game configuration changes.
 	void UpdateConfig();

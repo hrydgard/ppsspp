@@ -261,6 +261,7 @@ void __KernelDoState(PointerWrap &p)
 
 		__InterruptsDoStateLate(p);
 		__KernelThreadingDoStateLate(p);
+		Reporting::DoState(p);
 	}
 }
 
