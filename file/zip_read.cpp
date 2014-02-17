@@ -19,12 +19,12 @@
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
 	struct zip_stat zstat;
-	zip_file *file = zip_fopen(archive, filename, 0);
+	zip_file *file = zip_fopen(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED);
 	if (!file) {
 		ELOG("Error opening %s from ZIP", filename);
 		return 0;
 	}
-	zip_stat(archive, filename, ZIP_FL_NOCASE, &zstat);
+	zip_stat(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED, &zstat);
 
 	uint8_t *contents = new uint8_t[zstat.size + 1];
 	zip_fread(file, contents, zstat.size);
@@ -227,7 +227,7 @@ bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 	char temp_path[1024];
 	strcpy(temp_path, in_zip_path_);
 	strcat(temp_path, path);
-	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE, &zstat)) {
+	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED, &zstat)) {
 		// ZIP files do not have real directories, so we'll end up here if we
 		// try to stat one. For now that's fine.
 		info->exists = false;
@@ -329,7 +329,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
-			// ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
+			ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;
