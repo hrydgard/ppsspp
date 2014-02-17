@@ -214,6 +214,19 @@ namespace Reporting
 		Init();
 	}
 
+	void DoState(PointerWrap &p)
+	{
+		const int LATEST_VERSION = 1;
+		auto s = p.Section("Reporting", 0, LATEST_VERSION);
+		if (!s || s < LATEST_VERSION) {
+			// Don't report from old savestates, they may "entomb" bugs.
+			everUnsupported = true;
+			return;
+		}
+
+		p.Do(everUnsupported);
+	}
+
 	void UpdateConfig()
 	{
 		currentSupported = IsSupported();
