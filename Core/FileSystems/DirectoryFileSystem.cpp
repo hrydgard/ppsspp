@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <fcntl.h>
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
@@ -165,6 +166,13 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 	std::string fullName = GetLocalPath(basePath,fileName);
 	DEBUG_LOG(FILESYS,"Actually opening %s", fullName.c_str());
 
+	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
+	// This is abnormal, so we deviate from the PSP's behavior and truncate on write/close.
+	// This means it's incorrectly not truncated before the write.
+	if (access & FILEACCESS_TRUNCATE) {
+		needsTrunc_ = 0;
+	}
+
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
 	// Convert parameters to Windows permissions and access
@@ -187,49 +195,32 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 	//Let's do it!
 	hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = hFile != INVALID_HANDLE_VALUE;
-	if (success && (access & FILEACCESS_TRUNCATE)) {
-		// We don't use OPEN_TRUNCATE because it would fail if it existed.
-		SetEndOfFile(hFile);
-	}
 #else
-	// Convert flags in access parameter to fopen access mode
-	const char *mode = NULL;
+	int flags = 0;
 	if (access & FILEACCESS_APPEND) {
-		if (access & FILEACCESS_READ)
-			mode = "ab+";  // append+read, create if needed
-		else
-			mode = "ab";  // append only, create if needed
+		flags |= O_APPEND;
+	}
+	if ((access & FILEACCESS_READ) && (access & FILEACCESS_WRITE)) {
+		flags |= O_RDWR;
+	} else if (access & FILEACCESS_READ) {
+		flags |= O_RDONLY;
 	} else if (access & FILEACCESS_WRITE) {
-		// TODO: "w" is wrong here.  WRITE means write without truncate.
-		if (access & FILEACCESS_READ) {
-			// FILEACCESS_CREATE is ignored for read only, write only, and append
-			// because C++ standard fopen's nonexistant file creation can only be
-			// customized for files opened read+write
-			if (access & FILEACCESS_CREATE)
-				mode = "wb+";  // read+write, create if needed
-			else
-				mode = "rb+";  // read+write, but don't create
-		} else {
-			mode = "wb";  // write only, create if needed
-		}
-	} else {  // neither write nor append, so default to read only
-		mode = "rb";  // read only, don't create
+		flags |= O_WRONLY;
+	}
+	if (access & FILEACCESS_CREATE) {
+		flags |= O_CREAT;
 	}
 
-	hFile = fopen(fullName.c_str(), mode);
-	bool success = hFile != 0;
+	hFile = open(fullName.c_str(), flags, 0666);
+	bool success = hFile != -1;
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
-	if (!success &&
-	    !(access & FILEACCESS_APPEND) &&
-	    !(access & FILEACCESS_CREATE) &&
-	    !(access & FILEACCESS_WRITE))
-	{
+	if (!success && !(access & FILEACCESS_CREATE)) {
 		if ( ! FixPathCase(basePath,fileName, FPC_PATH_MUST_EXIST) )
 			return 0;  // or go on and attempt (for a better error code than just 0?)
 		fullName = GetLocalPath(basePath,fileName); 
-		const char* fullNameC = fullName.c_str();
+		const char *fullNameC = fullName.c_str();
 
 		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
 
@@ -238,8 +229,8 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		hFile = CreateFile(fullNameC, desired, sharemode, 0, openmode, 0, 0);
 		success = hFile != INVALID_HANDLE_VALUE;
 #else
-		hFile = fopen(fullNameC, mode);
-		success = hFile != 0;
+		hFile = open(fullNameC, flags, 0666);
+		success = hFile != -1;
 #endif
 	}
 #endif
@@ -250,10 +241,21 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 {
 	size_t bytesRead = 0;
+	if (needsTrunc_ != -1) {
+		// If the file was marked to be truncated, pretend there's nothing.
+		// On a PSP. it actually is truncated, but the data wasn't erased.
+		off_t off = (off_t)Seek(0, FILEMOVE_CURRENT);
+		if (needsTrunc_ <= off) {
+			return 0;
+		}
+		if (needsTrunc_ < off + size) {
+			size = needsTrunc_ - off;
+		}
+	}
 #ifdef _WIN32
 	::ReadFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
 #else
-	bytesRead = fread(pointer, 1, size, hFile);
+	bytesRead = read(hFile, pointer, size);
 #endif
 	return bytesRead;
 }
@@ -264,13 +266,27 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 #ifdef _WIN32
 	::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
 #else
-	bytesWritten = fwrite(pointer, 1, size, hFile);
+	bytesWritten = write(hFile, pointer, size);
 #endif
+	if (needsTrunc_ != -1) {
+		off_t off = (off_t)Seek(0, FILEMOVE_CURRENT);
+		if (needsTrunc_ < off) {
+			needsTrunc_ = off;
+		}
+	}
 	return bytesWritten;
 }
 
 size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 {
+	if (needsTrunc_ != -1) {
+		// If the file is "currently truncated" move to the end based on that position.
+		// The actual, underlying file hasn't been truncated (yet.)
+		if (type == FILEMOVE_END) {
+			type = FILEMOVE_BEGIN;
+			position = needsTrunc_ + position;
+		}
+	}
 #ifdef _WIN32
 	DWORD moveMethod = 0;
 	switch (type) {
@@ -287,19 +303,26 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	case FILEMOVE_CURRENT:  moveMethod = SEEK_CUR;  break;
 	case FILEMOVE_END:      moveMethod = SEEK_END;  break;
 	}
-	fseek(hFile, position, moveMethod);
-	return ftell(hFile);
+	return lseek(hFile, position, moveMethod);
 #endif
 }
 
 void DirectoryFileHandle::Close()
 {
+	if (needsTrunc_ != -1) {
+#ifdef _WIN32
+		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
+		SetEndOfFile(hFile);
+#else
+		ftruncate(hFile, (off_t)needsTrunc_);
+#endif
+	}
 #ifdef _WIN32
 	if (hFile != (HANDLE)-1)
 		CloseHandle(hFile);
 #else
-	if (hFile != 0)
-		fclose(hFile);
+	if (hFile != -1)
+		close(hFile);
 #endif
 }
 
@@ -466,7 +489,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 #ifdef _WIN32
 		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
 #else
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, access = %i", (int)access);
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
 #endif
 		//wwwwaaaaahh!!
 		return 0;
@@ -687,7 +710,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 }
 
 void DirectoryFileSystem::DoState(PointerWrap &p) {
-	auto s = p.Section("DirectoryFileSystem", 0, 1);
+	auto s = p.Section("DirectoryFileSystem", 0, 2);
 	if (!s)
 		return;
 
@@ -698,6 +721,7 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 	//     std::string       filename (in guest's terms, untranslated)
 	//     enum FileAccess   file access mode
 	//     u32               seek position
+	//     s64               current truncate position (v2+ only)
 
 	u32 num = (u32) entries.size();
 	p.Do(num);
@@ -720,6 +744,9 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 				ERROR_LOG(FILESYS, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}
+			if (s >= 2) {
+				p.Do(entry.hFile.needsTrunc_);
+			}
 			entries[key] = entry;
 		}
 	} else {
@@ -730,6 +757,7 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			p.Do(iter->second.access);
 			u32 position = (u32)iter->second.hFile.Seek(0, FILEMOVE_CURRENT);
 			p.Do(position);
+			p.Do(iter->second.hFile.needsTrunc_);
 		}
 	}
 }

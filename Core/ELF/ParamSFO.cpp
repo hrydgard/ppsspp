@@ -89,6 +89,8 @@ u8* ParamSFOData::GetValueData(std::string key, unsigned int *size)
 // I'm so sorry Ced but this is highly endian unsafe :(
 bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 {
+	if (size < sizeof(Header))
+		return false;
 	const Header *header = (const Header *)paramsfo;
 	if (header->magic != 0x46535000)
 		return false;
