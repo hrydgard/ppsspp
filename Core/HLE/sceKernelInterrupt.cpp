@@ -612,33 +612,40 @@ const HLEFunction Kernel_Library[] =
 };
 
 u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	return dst;
 }
 
 u32 sysclib_strcat(u32 dst, u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
 	strcat((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
 	return dst;
 }
 
 int sysclib_strcmp(u32 dst, u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
 	return strcmp((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
 }
 
 u32 sysclib_strcpy(u32 dst, u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
 	strcpy((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
 	return dst;
 }
 
 u32 sysclib_strlen(u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(dest=%08x, src=%08x)", src);
 	return (u32)strlen(Memory::GetCharPointer(src));
 }
 
 int sysclib_memcmp(u32 dst, u32 src, u32 size) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
 }
 
 int sysclib_sprintf(u32 dst, u32 fmt) {
+	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
 	// TODO
 	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
 }
@@ -657,6 +664,10 @@ const HLEFunction SysclibForKernel[] =
 void Register_Kernel_Library()
 {
 	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
+}
+
+void Register_SysclibForKernel()
+{
 	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
 }
 

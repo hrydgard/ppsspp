@@ -149,3 +149,4 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber);
 void Register_Kernel_Library();
 void Register_InterruptManager();
 
+void Register_SysclibForKernel();
