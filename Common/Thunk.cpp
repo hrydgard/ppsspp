@@ -37,8 +37,8 @@ using namespace Gen;
 void ThunkManager::Init()
 {
 #ifdef _M_X64
-	// Account for the return address.
-	int stackOffset = 0x8;
+	// Account for the return address and "home space" on Windows (which needs to be at the bottom.)
+	const int stackOffset = ThunkStackOffset();
 	int stackPosition;
 #endif
 
