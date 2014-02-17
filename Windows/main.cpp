@@ -60,6 +60,9 @@ CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 static std::string langRegion;
 static std::string osName;
 
+typedef BOOL(WINAPI *isProcessDPIAwareProc)();
+typedef BOOL(WINAPI *setProcessDPIAwareProc)();
+
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
@@ -202,31 +205,28 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 	}
 }
 
-bool SystemIsWindowsVistaOrHigher()
+void MakePPSSPPDPIAware()
 {
-	u64 conditionMask = 0;
-	OSVERSIONINFOEX osvi;
-	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
+	isProcessDPIAwareProc isDPIAwareProc = (isProcessDPIAwareProc) 
+		GetProcAddress(GetModuleHandle(TEXT("User32.dll")), "IsProcessDPIAware");
 
-	osvi.dwOSVersionInfoSize = sizeof(osvi);
-	osvi.dwMajorVersion = 6;
-	u32 op = VER_EQUAL;
+	setProcessDPIAwareProc setDPIAwareProc = (setProcessDPIAwareProc)
+		GetProcAddress(GetModuleHandle(TEXT("User32.dll")), "SetProcessDPIAware");
 
-	VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, op);
-
-	const u32 typeMask = VER_MAJORVERSION;
-
-	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
+	// If we're not DPI aware, make it so, but do it safely.
+	if (isDPIAwareProc != nullptr) {
+		if (!isDPIAwareProc()) {
+			if (setDPIAwareProc != nullptr)
+				setDPIAwareProc();
+		}
+	}
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
 	// Windows Vista and above: alert Windows that PPSSPP is DPI aware,
 	// so that we don't flicker in fullscreen on some PCs.
-	if (SystemIsWindowsVistaOrHigher()) {
-		if (!IsProcessDPIAware())
-			SetProcessDPIAware();
-	}
+	MakePPSSPPDPIAware();
 
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 #ifdef _M_X64
