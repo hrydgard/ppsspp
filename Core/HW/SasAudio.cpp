@@ -368,16 +368,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	// Read N samples into the resample buffer. Could do either PCM or VAG here.
 	switch (type) {
 	case VOICETYPE_VAG:
-		{
-			vag.GetSamples(output, numSamples);
-			if (vag.End()) {
-				// NOTICE_LOG(SCESAS, "Hit end of VAG audio");
-				playing = false;
-				on = false;  // ??
-				// TODO: Should this remain on somehow or just hit rock bottom immediately?
-				envelope.End();
-			}
-		}
+		vag.GetSamples(output, numSamples);
 		break;
 	case VOICETYPE_PCM:
 		{
@@ -428,8 +419,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 bool SasVoice::HaveSamplesEnded() {
 	switch (type) {
 	case VOICETYPE_VAG:
-		// TODO: Is it here, or before the samples are processed?
-		return false;
+		return vag.End();
 
 	case VOICETYPE_PCM:
 		return pcmIndex >= pcmSize;
