@@ -545,14 +545,16 @@ void TakeScreenshot() {
 	// First, find a free filename.
 	int i = 0;
 
-	char temp[256];
+	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+
+	char filename[256];
 	while (i < 10000){
-		if(g_Config.bScreenshotsAsPNG)
-			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.png", g_Config.memCardDirectory.c_str(), i);
+		if (g_Config.bScreenshotsAsPNG)
+			sprintf(filename, "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
 		else
-			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.jpg", g_Config.memCardDirectory.c_str(), i);
+			sprintf(filename, "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
 		FileInfo info;
-		if (!getFileInfo(temp, &info))
+		if (!getFileInfo(filename, &info))
 			break;
 		i++;
 	}
@@ -575,18 +577,18 @@ void TakeScreenshot() {
 		png.format = PNG_FORMAT_RGB;
 		png.width = pixel_xres;
 		png.height = pixel_yres;
-		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 3, NULL);
+		png_image_write_to_file(&png, filename, 0, flipbuffer, pixel_xres * 3, NULL);
 		png_image_free(&png);
 	} else {
 		jpge::params params;
 		params.m_quality = 90;
-		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 3, flipbuffer, params);
+		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
 
 	delete [] buffer;
 	delete [] flipbuffer;
 
-	osm.Show(temp);
+	osm.Show(filename);
 #endif
 }
 
