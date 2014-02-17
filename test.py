@@ -97,11 +97,13 @@ tests_good = [
   "misc/libc",
   "misc/deadbeef",
   "misc/dcache",
+  "misc/sdkver",
   "misc/timeconv",
   "mstick/mstick",
   "rtc/rtc",
   "string/string",
   "sysmem/freesize",
+  "sysmem/memblock",
   "sysmem/sysmem",
   "threads/alarm/alarm",
   "threads/alarm/cancel/cancel",
@@ -170,6 +172,7 @@ tests_good = [
   "threads/semaphores/cancel",
   "threads/semaphores/create",
   "threads/semaphores/delete",
+  "threads/semaphores/fifo",
   "threads/semaphores/poll",
   "threads/semaphores/priority",
   "threads/semaphores/refer",
@@ -189,7 +192,9 @@ tests_good = [
   "threads/vpl/allocate",
   "threads/vpl/cancel",
   "threads/vpl/delete",
+  "threads/vpl/fifo",
   "threads/vpl/free",
+  "threads/vpl/order",
   "threads/vpl/priority",
   "threads/vpl/refer",
   "threads/vpl/try",
@@ -213,9 +218,12 @@ tests_good = [
   "power/volatile/lock",
   "power/volatile/trylock",
   "power/volatile/unlock",
+  "umd/register",
   "umd/callbacks/umd",
   "umd/wait/wait",
   "io/directory/directory",
+  "video/mpeg/ringbuffer/memsize",
+  "video/mpeg/ringbuffer/packnum",
 ]
 
 tests_next = [
@@ -228,6 +236,13 @@ tests_next = [
   "audio/sceaudio/datalen",
   "audio/sceaudio/output",
   "audio/sceaudio/reserve",
+  "audio/sascore/adsrcurve",
+  "audio/sascore/getheight",
+  "audio/sascore/keyoff",
+  "audio/sascore/keyon",
+  "audio/sascore/noise",
+  "audio/sascore/pcm",
+  "audio/sascore/setadsr",
   "ctrl/vblank",
   "display/hcount",
   "intr/waits",
@@ -243,6 +258,8 @@ tests_next = [
   "utility/savedata/getsize",
   "utility/savedata/idlist",
   "utility/savedata/sizes",
+  "utility/msgdialog/abort",
+  "utility/msgdialog/dialog",
   "gpu/commands/basic",
   "gpu/commands/material",
   "gpu/complex/complex",
@@ -268,6 +285,8 @@ tests_next = [
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
   "video/mpeg/basic",
+  "ideo/mpeg/ringbuffer/construct",
+  "ideo/mpeg/ringbuffer/destruct",
   "video/pmf/pmf",
   "video/pmf_simple/pmf_simple",
   "video/psmfplayer/basic",
@@ -282,8 +301,6 @@ test_broken = [
 tests_ignored = [
   "kirk/kirk",
   "me/me",
-
-  "umd/umd", # mostly fixed but output seems broken? (first retval of unregister...)
 ]
 
 
