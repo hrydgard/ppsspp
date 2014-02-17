@@ -639,6 +639,7 @@ void SasVoice::KeyOn() {
 	playing = true;
 	on = true;
 	paused = false;
+	sampleFrac = 0;
 }
 
 void SasVoice::KeyOff() {
