@@ -394,8 +394,15 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 				needed -= size;
 				out += size;
 				if (pcmIndex >= pcmSize) {
+					if (!loop) {
+						// All out, quit.  We'll end in HaveSamplesEnded().
+						break;
+					}
 					pcmIndex = pcmLoopPos;
 				}
+			}
+			if (needed > 0) {
+				memset(out, 0, needed * sizeof(s16));
 			}
 		}
 		break;
@@ -415,6 +422,24 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 			memset(output, 0, numSamples * sizeof(s16));
 		}
 		break;
+	}
+}
+
+bool SasVoice::HaveSamplesEnded() {
+	switch (type) {
+	case VOICETYPE_VAG:
+		// TODO: Is it here, or before the samples are processed?
+		return false;
+
+	case VOICETYPE_PCM:
+		return pcmIndex >= pcmSize;
+
+	case VOICETYPE_ATRAC3:
+		// TODO: Is it here, or before the samples are processed?
+		return false;
+
+	default:
+		return false;
 	}
 }
 
@@ -489,6 +514,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
 		voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
 
+		if (voice.HaveSamplesEnded())
+			voice.envelope.End();
 		if (voice.envelope.HasEnded())
 		{
 			// NOTICE_LOG(SCESAS, "Hit end of envelope");
@@ -659,6 +686,11 @@ void SasVoice::DoState(PointerWrap &p)
 	p.Do(sampleFrac);
 	p.Do(pitch);
 	p.Do(loop);
+	if (s < 2 && type == VOICETYPE_PCM) {
+		// We set loop incorrectly before, and always looped.
+		// Let's keep always looping, since it's usually right.
+		loop = true;
+	}
 
 	p.Do(noiseFreq);
 

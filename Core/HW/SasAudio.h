@@ -215,6 +215,7 @@ struct SasVoice {
 	void DoState(PointerWrap &p);
 
 	void ReadSamples(s16 *output, int numSamples);
+	bool HaveSamplesEnded();
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
