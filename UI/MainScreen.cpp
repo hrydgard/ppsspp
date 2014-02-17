@@ -959,8 +959,8 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (dialog->tag() == "store") {
 		backFromStore_ = true;
-		RecreateViews();
 	}
+	RecreateViews();
 }
 
 void GamePauseScreen::update(InputState &input) {
