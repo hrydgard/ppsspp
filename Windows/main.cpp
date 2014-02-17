@@ -202,8 +202,32 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 	}
 }
 
+bool SystemIsWindowsVistaOrHigher()
+{
+	u64 conditionMask = 0;
+	OSVERSIONINFOEX osvi;
+	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
+
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = 6;
+	u32 op = VER_EQUAL;
+
+	VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, op);
+
+	const u32 typeMask = VER_MAJORVERSION;
+
+	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
+}
+
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
+	// Windows Vista and above: alert Windows that PPSSPP is DPI aware,
+	// so that we don't flicker in fullscreen on some PCs.
+	if (SystemIsWindowsVistaOrHigher()) {
+		if (!IsProcessDPIAware())
+			SetProcessDPIAware();
+	}
+
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 #ifdef _M_X64
 	_set_FMA3_enable(0);
