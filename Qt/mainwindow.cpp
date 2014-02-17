@@ -383,8 +383,6 @@ void MainWindow::SetZoom(int zoom) {
 	emugl->setFixedSize(480 * zoom, 272 * zoom);
 	setFixedSize(sizeHint());
 
-	UpdateScreenScale(480 * zoom, 272 * zoom);
-
 	if (gpu)
 		gpu->Resized();
 }
