@@ -146,9 +146,13 @@ public:
 	int GetHeight() const {
 		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
 	}
+	bool NeedsKeyOn() const {
+		return state_ == STATE_KEYON;
+	}
 	bool HasEnded() const {
 		return state_ == STATE_OFF;
 	}
+
 	int attackRate;
 	int decayRate;
 	int sustainRate;

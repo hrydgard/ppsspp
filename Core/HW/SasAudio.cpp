@@ -468,7 +468,12 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			numSamples = grainSize * 4;
 		}
 
-		voice.ReadSamples(resampleBuffer + 2, numSamples);
+		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
+		if (voice.envelope.NeedsKeyOn()) {
+			voice.ReadSamples(resampleBuffer + 2 + 32, numSamples - 32);
+		} else {
+			voice.ReadSamples(resampleBuffer + 2, numSamples);
+		}
 
 		// Smoothness HACKERY
 		resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
