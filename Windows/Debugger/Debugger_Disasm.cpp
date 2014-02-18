@@ -641,7 +641,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_SETSTATUSBARTEXT:
 		if (!keepStatusBarText)
-			SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+			SetWindowText(statusBarWnd, ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
