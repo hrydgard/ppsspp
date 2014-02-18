@@ -34,6 +34,10 @@
 #endif
 #endif
 
+#ifdef IOS
+void* globalbase=NULL;
+#endif
+
 #ifdef ANDROID
 
 // Hopefully this ABI will never change...
@@ -230,13 +234,28 @@ u8* MemArena::Find4GBBase()
 	}
 	return base;
 #else
-	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
-		MAP_ANON | MAP_SHARED, -1, 0);
-	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
-		return 0;
-	}
-	munmap(base, 0x10000000);
+#ifdef IOS
+    void* base = NULL;
+    if (globalbase==NULL){
+        base = mmap(0, 0x08000000, PROT_READ | PROT_WRITE,
+                    MAP_ANON | MAP_SHARED, -1, 0);
+        if (base == MAP_FAILED) {
+            PanicAlert("Failed to map 128 MB of memory space: %s", strerror(errno));
+            return 0;
+        }
+        munmap(base, 0x08000000);
+        globalbase=base;
+    }
+    else{base=globalbase;}
+#else
+    void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
+                      MAP_ANON | MAP_SHARED, -1, 0);
+    if (base == MAP_FAILED) {
+        PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
+        return 0;
+    }
+    munmap(base, 0x10000000);
+#endif
 	return static_cast<u8*>(base);
 #endif
 #endif
