@@ -29,8 +29,9 @@
 enum {
 	PSP_SAS_VOICES_MAX = 32,
 
-	PSP_SAS_PITCH_MIN = 1,
+	PSP_SAS_PITCH_MIN = 0x0000,
 	PSP_SAS_PITCH_BASE = 0x1000,
+	PSP_SAS_PITCH_BASE_SHIFT = 12,
 	PSP_SAS_PITCH_MAX = 0x4000,
 
 	PSP_SAS_VOL_MAX = 0x1000,
@@ -291,5 +292,10 @@ public:
 	WaveformEffect waveformEffect;
 
 private:
+	void MixSamples(SasVoice &voice);
+	void MixSamplesHalfPitch(SasVoice &voice);
+	void MixSamplesOptimal(SasVoice &voice);
+	void MixSample(SasVoice &voice, int i, int sample, u8 volumeShift);
+
 	int grainSize;
 };

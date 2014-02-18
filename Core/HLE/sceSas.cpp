@@ -45,6 +45,7 @@ enum {
 	ERROR_SAS_BAD_ADDRESS = 0x80420005,
 	ERROR_SAS_INVALID_VOICE = 0x80420010,
 	ERROR_SAS_INVALID_NOISE_FREQ = 0x80420011,
+	ERROR_SAS_INVALID_PITCH = 0x80420012,
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
 	ERROR_SAS_INVALID_LOOP_POS = 0x80420015,
@@ -263,23 +264,17 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effec
 }
 
 u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
-	DEBUG_LOG(SCESAS, "sceSasSetPitch(%08x, %i, %i)", core, voiceNum, pitch);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
-
-	SasVoice &v = sas->voices[voiceNum];
-	// Clamp pitch
-	if (pitch < PSP_SAS_PITCH_MIN) {
-		WARN_LOG(SCESAS, "sceSasSetPitch: bad pitch %i, clamping to %i", pitch, PSP_SAS_PITCH_MIN);
-		pitch = PSP_SAS_PITCH_MIN;
-	} else if (pitch > PSP_SAS_PITCH_MAX) {
-		WARN_LOG(SCESAS, "sceSasSetPitch: bad pitch %i, clamping to %i", pitch, PSP_SAS_PITCH_MAX);
-		pitch = PSP_SAS_PITCH_MAX;
+	if (pitch < PSP_SAS_PITCH_MIN || pitch > PSP_SAS_PITCH_MAX) {
+		WARN_LOG(SCESAS, "sceSasSetPitch(%08x, %i, %i): bad pitch", core, voiceNum, pitch);
+		return ERROR_SAS_INVALID_PITCH;
 	}
 
+	DEBUG_LOG(SCESAS, "sceSasSetPitch(%08x, %i, %i)", core, voiceNum, pitch);
+	SasVoice &v = sas->voices[voiceNum];
 	v.pitch = pitch;
 	v.ChangedParams(false);
 	return 0;
