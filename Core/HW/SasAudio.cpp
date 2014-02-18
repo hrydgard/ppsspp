@@ -452,7 +452,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// Actually this is not entirely correct - we need to get one extra sample, and store it
 		// for the next time around. A little complicated...
 		// But for now, see Smoothness HACKERY below :P
-		u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
+		u32 numSamples = ((u32)voice.sampleFrac + (u32)grainSize * (u32)voice.pitch) >> PSP_SAS_PITCH_BASE_SHIFT;
 		if ((int)numSamples > grainSize * 4) {
 			ERROR_LOG(SASMIX, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 			numSamples = grainSize * 4;
@@ -461,7 +461,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
 		const bool ignorePitch = voice.type == VOICETYPE_PCM && voice.pitch > PSP_SAS_PITCH_BASE;
 		if (voice.envelope.NeedsKeyOn()) {
-			int delay = ignorePitch ? 32 : (32 * voice.pitch) / PSP_SAS_PITCH_BASE;
+			int delay = ignorePitch ? 32 : (32 * (u32)voice.pitch) >> PSP_SAS_PITCH_BASE_SHIFT;
 			voice.ReadSamples(resampleBuffer + 2 + delay, numSamples - delay);
 		} else {
 			voice.ReadSamples(resampleBuffer + 2, numSamples);
@@ -505,8 +505,8 @@ void SasInstance::MixSamples(SasVoice &voice) {
 		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
 
 	for (int i = 0; i < grainSize; i++) {
-		const int readIndex = sampleFrac / PSP_SAS_PITCH_BASE;
-		const int readFrac = sampleFrac % PSP_SAS_PITCH_BASE;
+		const int readIndex = sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT;
+		const int readFrac = sampleFrac & (PSP_SAS_PITCH_BASE - 1);
 		int sample1 = resampleBuffer[readIndex + 2];
 		int sample2 = resampleBuffer[readIndex + 1 + 2];
 		int sample = (sample1 * (PSP_SAS_PITCH_BASE - readFrac) + sample2 * readFrac) / PSP_SAS_PITCH_BASE;
@@ -526,9 +526,9 @@ void SasInstance::MixSamplesHalfPitch(SasVoice &voice) {
 
 	int readIndex2 = voice.sampleFrac == 0 ? 0 : 1;
 	for (int i = 0; i < grainSize; i++) {
-		int sample1 = resampleBuffer[readIndex2 / 2 + 2];
-		int sample2 = resampleBuffer[readIndex2 / 2 + 1 + 2];
-		int sample = readIndex2 & 1 ? (sample1 + sample2) / 2 : sample1;
+		int sample1 = resampleBuffer[(readIndex2 >> 1) + 2];
+		int sample2 = resampleBuffer[(readIndex2 >> 1) + 1 + 2];
+		int sample = readIndex2 & 1 ? ((sample1 + sample2) >> 1) : sample1;
 		++readIndex2;
 
 		MixSample(voice, i, sample, volumeShift);
