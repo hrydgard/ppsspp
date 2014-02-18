@@ -130,7 +130,7 @@ static const char *altBootNames[] = {
 // Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
 static const char *damageAltBootNames[] = {
 	"disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN",
-	"disc0:/PSP_GAME/SYSDIR/BOOT.BIN",
+	"disc0:/PSP_GAME/USRDIR/Monologue_Sub/Monologue_Sub.Sub",
 };
 
 static const char *damageAltBootDISC_ID[] = {
