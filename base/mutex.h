@@ -96,7 +96,7 @@ public:
 
 	bool trylock() {
 #ifdef _WIN32
-		return TryEnterCriticalSection(&mut_) == TRUE;
+		return TryEnterCriticalSection(&mut_) != FALSE;
 #else
 		return pthread_mutex_trylock(&mut_) != EBUSY;
 #endif
