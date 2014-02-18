@@ -459,8 +459,9 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		}
 
 		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
+		const bool ignorePitch = voice.type == VOICETYPE_PCM && voice.pitch > PSP_SAS_PITCH_BASE;
 		if (voice.envelope.NeedsKeyOn()) {
-			int delay = (32 * voice.pitch) / PSP_SAS_PITCH_BASE;
+			int delay = ignorePitch ? 32 : (32 * voice.pitch) / PSP_SAS_PITCH_BASE;
 			voice.ReadSamples(resampleBuffer + 2 + delay, numSamples - delay);
 		} else {
 			voice.ReadSamples(resampleBuffer + 2, numSamples);
@@ -474,7 +475,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
 
 		// Let's try to optimize the easy case where we don't need to resample at all.
-		if (voice.sampleFrac == 0 && (voice.pitch == PSP_SAS_PITCH_BASE || voice.pitch == PSP_SAS_PITCH_BASE * 2 || voice.pitch == PSP_SAS_PITCH_BASE * 4))
+		if (voice.sampleFrac == 0 && (voice.pitch == PSP_SAS_PITCH_BASE || ignorePitch))
 			MixSamplesOptimal(voice);
 		// Half pitch is also quite common.
 		else if (voice.pitch == PSP_SAS_PITCH_BASE / 2)
@@ -543,11 +544,8 @@ void SasInstance::MixSamplesOptimal(SasVoice &voice) {
 		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
 
 	int readIndex = 2;
-	const int readStep = voice.pitch / PSP_SAS_PITCH_BASE;
 	for (int i = 0; i < grainSize; i++) {
-		int sample = resampleBuffer[readIndex];
-		readIndex += readStep;
-
+		int sample = resampleBuffer[readIndex++];
 		MixSample(voice, i, sample, volumeShift);
 	}
 }
