@@ -109,6 +109,11 @@ void UpdateScreenScale(int width, int height) {
 	pixel_yres = height;
 	g_dpi = 72;
 	g_dpi_scale = 1.0f;
+#ifdef __SYMBIAN32__
+	dp_xres *= 1.4f;
+	dp_yres *= 1.4f;
+	g_dpi_scale = 1.4f;
+#endif
 #ifdef _WIN32
 	if (pixel_xres < 480 + 80) {
 		dp_xres *= 2;
