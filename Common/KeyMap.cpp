@@ -887,7 +887,7 @@ bool IsXperiaPlay(const std::string &name) {
 }
 
 bool IsBlackberryQWERTY(const std::string &name) {
-	return name == "Blackberry10:QWERTY";
+	return name == "Blackberry:QWERTY";
 }
 
 bool HasBuiltinController(const std::string &name) {
