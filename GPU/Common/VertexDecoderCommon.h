@@ -306,7 +306,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtc0_8888, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
-			memset(color, 0, sizeof(float) * 4);
+			memset(color, 0, sizeof(u8) * 4);
 			break;
 		}
 	}
