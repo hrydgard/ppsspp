@@ -48,7 +48,7 @@ static const s8 f[16][2] = {
 	{   0,   0 },
 };
 
-void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
+void VagDecoder::Start(u32 data, u32 vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
 	loopStartBlock_ = 0;
@@ -462,6 +462,9 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		const bool ignorePitch = voice.type == VOICETYPE_PCM && voice.pitch > PSP_SAS_PITCH_BASE;
 		if (voice.envelope.NeedsKeyOn()) {
 			int delay = ignorePitch ? 32 : (32 * (u32)voice.pitch) >> PSP_SAS_PITCH_BASE_SHIFT;
+			// VAG seems to have an extra sample delay (not shared by PCM.)
+			if (voice.type == VOICETYPE_VAG)
+				++delay;
 			voice.ReadSamples(resampleBuffer + 2 + delay, numSamples - delay);
 		} else {
 			voice.ReadSamples(resampleBuffer + 2, numSamples);
