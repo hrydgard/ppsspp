@@ -51,7 +51,7 @@ static const u8 f[16][2] = {
 void VagDecoder::Start(u32 data, u32 vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
-	loopStartBlock_ = 0;
+	loopStartBlock_ = -1;
 	numBlocks_ = vagSize / 16;
 	end_ = false;
 	data_ = data;
