@@ -306,7 +306,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtc0_8888, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
-			memset(color, 0, sizeof(float) * 4);
+			memset(color, 0, sizeof(u8) * 4);
 			break;
 		}
 	}
@@ -353,7 +353,7 @@ public:
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
-			memset(weights, 0, sizeof(float) * 4);
+			memset(weights, 0, sizeof(float) * 8);
 			break;
 		}
 
