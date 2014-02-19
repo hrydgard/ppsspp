@@ -27,31 +27,31 @@
 
 // #define AUDIO_TO_FILE
 
-static const s8 f[16][2] = {
+static const u8 f[16][2] = {
 	{   0,   0 },
-	{  60,	 0 },
-	{ 115, -52 },
-	{  98, -55 },
-	{ 122, -60 },
-
-	// Padding to prevent overflow.
-	{   0,   0 },
-	{   0,   0 },
+	{  60,   0 },
+	{ 115,  52 },
+	{  98,  55 },
+	{ 122,  60 },
+	// TODO: The below values could use more testing, but match initial tests.
+	// Not sure if they are used by games, found by tests.
 	{   0,   0 },
 	{   0,   0 },
+	{  52,   0 },
+	{  55,   2 },
+	{  60, 125 },
 	{   0,   0 },
+	{   0,  91 },
 	{   0,   0 },
-	{   0,   0 },
-	{   0,   0 },
-	{   0,   0 },
-	{   0,   0 },
-	{   0,   0 },
+	{   2, 216 },
+	{ 125,   6 },
+	{   0, 151 },
 };
 
-void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
+void VagDecoder::Start(u32 data, u32 vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
-	loopStartBlock_ = 0;
+	loopStartBlock_ = -1;
 	numBlocks_ = vagSize / 16;
 	end_ = false;
 	data_ = data;
@@ -87,14 +87,14 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	int s2 = s_2;
 
 	int coef1 = f[predict_nr][0];
-	int coef2 = f[predict_nr][1];
+	int coef2 = -f[predict_nr][1];
 
 	for (int i = 0; i < 28; i += 2) {
 		u8 d = *readp++;
 		int sample1 = (short)((d & 0xf) << 12) >> shift_factor;
 		int sample2 = (short)((d & 0xf0) << 8) >> shift_factor;
-		s2 = (int)(sample1 + ((s1 * coef1 + s2 * coef2) >> 6));
-		s1 = (int)(sample2 + ((s2 * coef1 + s1 * coef2) >> 6));
+		s2 = clamp_s16(sample1 + ((s1 * coef1 + s2 * coef2) >> 6));
+		s1 = clamp_s16(sample2 + ((s2 * coef1 + s1 * coef2) >> 6));
 		samples[i] = s2;
 		samples[i + 1] = s1;
 	}
@@ -462,6 +462,9 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		const bool ignorePitch = voice.type == VOICETYPE_PCM && voice.pitch > PSP_SAS_PITCH_BASE;
 		if (voice.envelope.NeedsKeyOn()) {
 			int delay = ignorePitch ? 32 : (32 * (u32)voice.pitch) >> PSP_SAS_PITCH_BASE_SHIFT;
+			// VAG seems to have an extra sample delay (not shared by PCM.)
+			if (voice.type == VOICETYPE_VAG)
+				++delay;
 			voice.ReadSamples(resampleBuffer + 2 + delay, numSamples - delay);
 		} else {
 			voice.ReadSamples(resampleBuffer + 2, numSamples);

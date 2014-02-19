@@ -28,14 +28,14 @@
 
 #include <cstdlib>
 #include "base/basictypes.h"
-#include "Log.h"
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../HW/SasAudio.h"
+#include "Common/Log.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/HW/SasAudio.h"
 #include "Core/Reporting.h"
 
-#include "sceSas.h"
-#include "sceKernel.h"
+#include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceKernel.h"
 
 enum {
 	ERROR_SAS_INVALID_GRAIN = 0x80420001,
@@ -52,7 +52,7 @@ enum {
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
 	ERROR_SAS_INVALID_VOLUME = 0x80420018,
 	ERROR_SAS_INVALID_ADSR_RATE = 0x80420019,
-	ERROR_SAS_INVALID_SIZE = 0x8042001A,
+	ERROR_SAS_INVALID_PCM_SIZE = 0x8042001A,
 	ERROR_SAS_REV_INVALID_VOLUME = 0x80420023,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
@@ -153,26 +153,30 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 }
 
 u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
-	DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	if (size <= 0 || (size & 0xF) != 0) {
+	if (size == 0 || ((u32)size & 0xF) != 0) {
 		if (size == 0) {
 			DEBUG_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
 		} else {
 			WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
 		}
-		return ERROR_SAS_INVALID_SIZE;
+		return ERROR_SAS_INVALID_PARAMETER;
+	}
+	if (loop != 0 && loop != 1) {
+		WARN_LOG_REPORT(SCESAS, "%s: invalid loop mode %d", __FUNCTION__, size);
+		return ERROR_SAS_INVALID_LOOP_POS;
 	}
 
 	if (!Memory::IsValidAddress(vagAddr)) {
 		ERROR_LOG(SCESAS, "Ignoring invalid VAG audio address %08x", vagAddr);
 		return 0;
 	}
+
+	DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
 
 	//Real VAG header is 0x30 bytes behind the vagAddr
 	SasVoice &v = sas->voices[voiceNum];
@@ -193,7 +197,7 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos
 	}
 	if (size <= 0 || size > 0x10000) {
 		WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
-		return ERROR_SAS_INVALID_SIZE;
+		return ERROR_SAS_INVALID_PCM_SIZE;
 	}
 	if (loopPos >= size) {
 		ERROR_LOG_REPORT(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i): bad loop pos", core, voiceNum, pcmAddr, size, loopPos);

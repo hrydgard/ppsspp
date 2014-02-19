@@ -88,7 +88,7 @@ enum VoiceType {
 class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0), end_(true) {}
-	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
+	void Start(u32 dataPtr, u32 vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
@@ -229,7 +229,7 @@ struct SasVoice {
 	VoiceType type;
 
 	u32 vagAddr;
-	int vagSize;
+	u32 vagSize;
 	u32 pcmAddr;
 	int pcmSize;
 	int pcmIndex;
