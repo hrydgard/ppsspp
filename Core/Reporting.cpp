@@ -333,7 +333,7 @@ namespace Reporting
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !currentSupported)
+		if (g_Config.sReportHost.empty() || (!currentSupported && PSP_IsInited()))
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
