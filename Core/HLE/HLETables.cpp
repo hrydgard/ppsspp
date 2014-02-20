@@ -323,5 +323,10 @@ void RegisterAllModules() {
 	Register_LoadExecForKernel();
 	Register_SysMemForKernel();
 	Register_sceMt19937();
+	Register_SysclibForKernel();
+	Register_sceCtrl_driver();
+	Register_sceDisplay_driver();
+
+
 }
 

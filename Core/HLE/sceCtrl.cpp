@@ -538,3 +538,8 @@ void Register_sceCtrl()
 {
 	RegisterModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
 }
+
+void Register_sceCtrl_driver()
+{
+	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
+}

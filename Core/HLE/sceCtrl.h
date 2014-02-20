@@ -64,3 +64,5 @@ void __CtrlSetRapidFire(bool state);
 u32 __CtrlPeekButtons();
 void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();
+
+void Register_sceCtrl_driver();
