@@ -610,6 +610,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
+			if (!PSP_IsInited()) {
+				break;
+			}
 			wchar_t szBuffer[256];
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
