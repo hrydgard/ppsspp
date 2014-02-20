@@ -113,6 +113,8 @@ public class NativeActivity extends Activity {
 	private AudioManager audioManager;
 	
 	private Vibrator vibrator;
+
+	private boolean isXperiaPlay;
     
     // Allow for two connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
@@ -206,6 +208,8 @@ public class NativeActivity extends Activity {
 		    e.printStackTrace();
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
+
+	    isXperiaPlay = IsXperiaPlay();
 		
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
@@ -483,11 +487,15 @@ public class NativeActivity extends Activity {
         return inputPlayerA;
     }
 
+    public boolean IsXperiaPlay() {
+        return android.os.Build.MODEL.equals("R800a") || android.os.Build.MODEL.equals("R800i") || android.os.Build.MODEL.equals("R800x") || android.os.Build.MODEL.equals("R800at") || android.os.Build.MODEL.equals("SO-01D") || android.os.Build.MODEL.equals("zeus");
+    }
+
     // We grab the keys before onKeyDown/... even see them. This is also better because it lets us
     // distinguish devices.
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && !isXperiaPlay) {
 			InputDeviceState state = getInputDeviceState(event);
 			if (state == null) {
 				return super.dispatchKeyEvent(event);
