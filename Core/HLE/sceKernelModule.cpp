@@ -1487,7 +1487,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module.
 		// Let's just act as if it worked.
-		NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
+		NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 		return __KernelLoadExec(name, 0, &error_string);
 	}
 
