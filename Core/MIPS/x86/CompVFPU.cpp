@@ -450,6 +450,8 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 
 void Jit::Comp_VIdt(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
 
 	int vd = _VD;
 	VectorSize sz = GetVecSize(op);
