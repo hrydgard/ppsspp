@@ -80,16 +80,16 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 	switch (gstate.getClutPaletteFormat()) {
-	case GE_TFMT_5650:
+	case GE_CMODE_16BIT_BGR5650:
 		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-	case GE_TFMT_5551:
+	case GE_CMODE_16BIT_ABGR5551:
 		return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-	case GE_TFMT_4444:
+	case GE_CMODE_16BIT_ABGR4444:
 		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-	case GE_TFMT_8888:
+	case GE_CMODE_32BIT_ABGR8888:
 		return DecodeRGBA8888(clut[index + clutSharingOffset]);
 
 	default:
