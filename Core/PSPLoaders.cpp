@@ -127,6 +127,19 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
 };
 
+// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
+static const char *damageAltBootNames[] = {
+	"disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN",
+	"disc0:/PSP_GAME/USRDIR/Monologue_Sub/Monologue_Sub.Sub",//Traditional Chinese version:let PPSSPP fail to load in patched game,then use BOOT.BIN
+	"disc0:/PSP_GAME/USRDIR/Monologue_Sub/Sub_001.Sub",//Simplified Chinese version:let PPSSPP fail to load in patched game,then use BOOT.BIN
+};
+
+static const char *damageAltBootDISC_ID[] = {
+	"NPJH50624",
+	"ULJS00241",
+	"ULJS00241",
+};
+
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {
 	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
@@ -158,10 +171,12 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 	// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
 	std::string id = g_paramSFO.GetValueString("DISC_ID");
-	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
-		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
+	for (int i = 0; i < ARRAY_SIZE(damageAltBootNames); i++) {
+		if (id == damageAltBootDISC_ID[i] && pspFileSystem.GetFileInfo(damageAltBootNames[i]).exists) {
+			bootpath = damageAltBootNames[i];
+			break;
+		}
 	}
-
 
 	bool hasEncrypted = false;
 	u32 fd;
