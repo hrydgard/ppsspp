@@ -470,8 +470,8 @@ u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 
 u32 sceSasRevVON(u32 core, int dry, int wet) {
 	DEBUG_LOG(SCESAS, "sceSasRevVON(%08x, %i, %i)", core, dry, wet);
-	sas->waveformEffect.isDryOn = dry & 1;
-	sas->waveformEffect.isWetOn = wet & 1;
+	sas->waveformEffect.isDryOn = dry != 0;
+	sas->waveformEffect.isWetOn = wet != 0;
 	return 0;
 }
 
@@ -492,8 +492,13 @@ u32 sceSasGetOutputMode(u32 core) {
 }
 
 u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
+	if (outputMode != 0 && outputMode != 1) {
+		ERROR_LOG_REPORT(SCESAS, "sceSasSetOutputMode(%08x, %i): bad output mode", core, outputMode);
+		return ERROR_SAS_INVALID_OUTPUT_MODE;
+	}
 	DEBUG_LOG(SCESAS, "sceSasSetOutputMode(%08x, %i)", core, outputMode);
 	sas->outputMode = outputMode;
+
 	return 0;
 }
 
