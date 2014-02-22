@@ -339,13 +339,12 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
 }
 
 u32 sceSasSetSL(u32 core, int voiceNum, int level) {
-	DEBUG_LOG(SCESAS, "sceSasSetSL(%08x, %i, %i)", core, voiceNum, level);
-
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+	DEBUG_LOG(SCESAS, "sceSasSetSL(%08x, %i, %08x)", core, voiceNum, level);
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.sustainLevel = level;
 	return 0;
@@ -400,7 +399,12 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int
 		invalid |= 0x8;
 	}
 	if (invalid & flag) {
-		WARN_LOG_REPORT(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+		if (a == 5 && d == 5 && s == 5 && r == 5) {
+			// Some games do this right at init.  It seems to fail even on a PSP, but let's not report it.
+			DEBUG_LOG(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+		} else {
+			WARN_LOG_REPORT(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+		}
 		return ERROR_SAS_INVALID_ADSR_CURVE_MODE;
 	}
 
@@ -410,7 +414,7 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int
 	if ((flag & 0x2) != 0) v.envelope.decayType   = d;
 	if ((flag & 0x4) != 0) v.envelope.sustainType = s;
 	if ((flag & 0x8) != 0) v.envelope.releaseType = r;
-	return 0 ;
+	return 0;
 }
 
 
