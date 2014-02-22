@@ -333,8 +333,8 @@ public:
 			params_.numFonts = 9;
 		}
 
-		// We use the same strange scheme that JPCSP uses.
-		u32 allocSize = 4 + 4 * params_.numFonts;
+		// Technically, this should be four separate allocations.
+		u32 allocSize = 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230 + (u32)internalFonts.size() * 0xA8;
 		PostAllocCallback *action = (PostAllocCallback *) __KernelCreateAction(actionPostAllocCallback);
 		action->SetFontLib(GetListID());
 
