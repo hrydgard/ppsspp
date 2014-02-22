@@ -288,8 +288,11 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
-	systemSettings->Add(new ItemHeader(s->T("UI Language")));
+	systemSettings->Add(new ItemHeader(s->T("UI Settings")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+#ifdef USING_WIN_UI
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iNewUIFontScale, 25, 200, s->T("FontScaleSize", "Font Scale Size (Requires Restart)"), screenManager()));
+#endif
 
 	systemSettings->Add(new ItemHeader(s->T("Emulation")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));

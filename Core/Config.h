@@ -73,6 +73,11 @@ public:
 	bool bIgnoreWindowsKey;
 	bool bEscapeExitsEmulator;
 #endif
+	// Under WIN32 because Qt can use it, too.
+#ifdef _WIN32
+	int iNewUIFontScale;
+#endif
+
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
