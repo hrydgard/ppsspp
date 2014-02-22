@@ -417,10 +417,16 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	switch(msg)
 	{
 	case WM_NCCREATE:
-		win = new SimpleGLWindow(hwnd);
-		
-		// Continue with window creation.
-		return win != NULL ? TRUE : FALSE;
+		try
+		{
+			win = new SimpleGLWindow(hwnd);
+			// Continue with window creation.
+			return TRUE;
+		}
+		catch (const std::bad_alloc &)
+		{
+			return FALSE;
+		}
 
 	case WM_NCDESTROY:
 		delete win;
