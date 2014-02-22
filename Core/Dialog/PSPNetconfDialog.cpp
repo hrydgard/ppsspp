@@ -95,7 +95,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		}
 		
 	}
-	else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_ADHOC || request.netAction == NETCONF_CREATE_ADHOC || NETCONF_JOIN_ADHOC)) {
+	else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_ADHOC || request.netAction == NETCONF_CREATE_ADHOC || request.netAction == NETCONF_JOIN_ADHOC)) {
 		if (request.NetconfData != NULL) {
 			Shutdown(true);
 			if (sceNetAdhocctlCreate(request.NetconfData->groupName) == 0)
