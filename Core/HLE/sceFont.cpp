@@ -19,6 +19,7 @@
 #include "Core/HLE/sceKernelThread.h"
 
 enum {
+	ERROR_FONT_OUT_OF_MEMORY                            = 0x80460001,
 	ERROR_FONT_INVALID_LIBID                            = 0x80460002,
 	ERROR_FONT_INVALID_PARAMETER                        = 0x80460003,
 	ERROR_FONT_TOO_MANY_OPEN_FONTS                      = 0x80460009,
@@ -288,17 +289,21 @@ public:
 	PostAllocCallback() {}
 	static Action *Create() { return new PostAllocCallback(); }
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("PostAllocCallback", 1);
+		auto s = p.Section("PostAllocCallback", 1, 2);
 		if (!s)
 			return;
 
 		p.Do(fontLibID_);
+		if (s >= 2) {
+			p.Do(errorCodePtr_);
+		}
 	}
 	void run(MipsCall &call);
-	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetFontLib(u32 fontLibID, u32 errorCodePtr) { fontLibID_ = fontLibID; errorCodePtr_ = errorCodePtr; }
 
 private:
 	u32 fontLibID_;
+	u32 errorCodePtr_;
 };
 
 class PostOpenCallback : public Action {
@@ -327,7 +332,7 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr) :	fontHRes_(128.0f), fontVRes_(128.0f) {
+	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f) {
 		Memory::ReadStruct(paramPtr, &params_);
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
@@ -336,7 +341,7 @@ public:
 		// Technically, this should be four separate allocations.
 		u32 allocSize = 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230 + (u32)internalFonts.size() * 0xA8;
 		PostAllocCallback *action = (PostAllocCallback *) __KernelCreateAction(actionPostAllocCallback);
-		action->SetFontLib(GetListID());
+		action->SetFontLib(GetListID(), errorCodePtr);
 
 		u32 args[2] = { params_.userDataAddr, allocSize };
 		__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, true);
@@ -460,10 +465,16 @@ private:
 void PostAllocCallback::run(MipsCall &call) {
 	INFO_LOG(SCEFONT, "Entering PostAllocCallback::run");
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
-	FontLib *fontLib = fontLibList[fontLibID_];
-	fontLib->AllocDone(v0);
-	fontLibMap[fontLib->handle()] = fontLibID_;
-	call.setReturnValue(fontLib->handle());
+	if (v0 == 0) {
+		// TODO: Who deletes fontLib?
+		Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
+		call.setReturnValue(0);
+	} else {
+		FontLib *fontLib = fontLibList[fontLibID_];
+		fontLib->AllocDone(v0);
+		fontLibMap[fontLib->handle()] = fontLibID_;
+		call.setReturnValue(fontLib->handle());
+	}
 	INFO_LOG(SCEFONT, "Leaving PostAllocCallback::run");
 }
 
@@ -644,7 +655,7 @@ u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	INFO_LOG(SCEFONT, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 	*errorCode = 0;
 
-	FontLib *newLib = new FontLib(paramPtr);
+	FontLib *newLib = new FontLib(paramPtr, errorCodePtr);
 	fontLibList.push_back(newLib);
 	// The game should never see this value, the return value is replaced
 	// by the action. Except if we disable the alloc, in this case we return
