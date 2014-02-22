@@ -329,6 +329,10 @@ public:
 
 	FontLib(u32 paramPtr) :	fontHRes_(128.0f), fontVRes_(128.0f) {
 		Memory::ReadStruct(paramPtr, &params_);
+		if (params_.numFonts > 9) {
+			params_.numFonts = 9;
+		}
+
 		// We use the same strange scheme that JPCSP uses.
 		u32 allocSize = 4 + 4 * params_.numFonts;
 		PostAllocCallback *action = (PostAllocCallback *) __KernelCreateAction(actionPostAllocCallback);
@@ -622,20 +626,30 @@ void __FontDoState(PointerWrap &p) {
 u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	// Lazy load internal fonts, only when font library first inited.
 	__LoadInternalFonts();
-	INFO_LOG(SCEFONT, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 
-	if (Memory::IsValidAddress(paramPtr) && Memory::IsValidAddress(errorCodePtr)) {
-		Memory::Write_U32(0, errorCodePtr);
-		
-		FontLib *newLib = new FontLib(paramPtr);
-		fontLibList.push_back(newLib);
-		// The game should never see this value, the return value is replaced
-		// by the action. Except if we disable the alloc, in this case we return
-		// the handle correctly here.
-		return newLib->handle();
+	auto params = PSPPointer<FontNewLibParams>::Create(paramPtr);
+	auto errorCode = PSPPointer<u32>::Create(errorCodePtr);
+
+	if (!params.IsValid() || !errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontNewLib(%08x, %08x): invalid addresses", paramPtr, errorCodePtr);
+		// The PSP would crash in this situation, not a real error code.
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+	if (!Memory::IsValidAddress(params->allocFuncAddr) || !Memory::IsValidAddress(params->freeFuncAddr)) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontNewLib(%08x, %08x): missing alloc func", paramPtr, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		return 0;
 	}
 
-	return 0;
+	INFO_LOG(SCEFONT, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
+	*errorCode = 0;
+
+	FontLib *newLib = new FontLib(paramPtr);
+	fontLibList.push_back(newLib);
+	// The game should never see this value, the return value is replaced
+	// by the action. Except if we disable the alloc, in this case we return
+	// the handle correctly here.
+	return newLib->handle();
 }
 
 int sceFontDoneLib(u32 fontLibHandle) {
