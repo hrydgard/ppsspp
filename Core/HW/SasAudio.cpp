@@ -615,17 +615,12 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 		s16 *outpR = outp + grainSize * 1;
 		s16 *outpSendL = outp + grainSize * 2;
 		s16 *outpSendR = outp + grainSize * 3;
-		if (inp) {
-			// The PSP seems to not update the data at all, let's report to see what games hit this.
-			ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix: unsupported raw outputMode");
-		} else {
-			WARN_LOG_REPORT(SCESAS, "sceSasCore: raw outputMode");
-			for (int i = 0; i < grainSize * 2; i += 2) {
-				*outpL++ = clamp_s16(mixBuffer[i + 0]);
-				*outpR++ = clamp_s16(mixBuffer[i + 1]);
-				*outpSendL++ = clamp_s16(sendBuffer[i + 0]);
-				*outpSendR++ = clamp_s16(sendBuffer[i + 1]);
-			}
+		WARN_LOG_REPORT(SCESAS, "sceSasCore: raw outputMode");
+		for (int i = 0; i < grainSize * 2; i += 2) {
+			*outpL++ = clamp_s16(mixBuffer[i + 0]);
+			*outpR++ = clamp_s16(mixBuffer[i + 1]);
+			*outpSendL++ = clamp_s16(sendBuffer[i + 0]);
+			*outpSendR++ = clamp_s16(sendBuffer[i + 1]);
 		}
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);

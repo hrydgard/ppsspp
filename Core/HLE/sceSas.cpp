@@ -128,26 +128,32 @@ u32 sceSasGetEndFlag(u32 core) {
 
 // Runs the mixer
 u32 _sceSasCore(u32 core, u32 outAddr) {
-	DEBUG_LOG(SCESAS, "sceSasCore(%08x, %08x)", core, outAddr);
-
 	if (!Memory::IsValidAddress(outAddr)) {
+		ERROR_LOG_REPORT(SCESAS, "sceSasCore(%08x, %08x): invalid address", core, outAddr);
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
+	DEBUG_LOG(SCESAS, "sceSasCore(%08x, %08x)", core, outAddr);
 	sas->Mix(outAddr);
+
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
 	return hleDelayResult(0, "sas core", 240);
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
 u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume) {
-	DEBUG_LOG(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i)", core, inoutAddr, leftVolume, rightVolume);
-
 	if (!Memory::IsValidAddress(inoutAddr)) {
+		ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i): invalid address", core, inoutAddr, leftVolume, rightVolume);
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
-
+	if (sas->outputMode == PSP_SAS_OUTPUTMODE_RAW) {
+		ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i): unsupported outputMode", core, inoutAddr, leftVolume, rightVolume);
+		return 0x80000004;
+	}
+	
+	DEBUG_LOG(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i)", core, inoutAddr, leftVolume, rightVolume);
 	sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
+
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
 	return hleDelayResult(0, "sas core", 240);
 }
