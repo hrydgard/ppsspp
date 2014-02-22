@@ -324,6 +324,20 @@ private:
 	u32 fontLibID_;
 };
 
+struct NativeFontLib {
+	FontNewLibParams params;
+	// TODO
+	u32_le fontInfo1;
+	u32_le fontInfo2;
+	u32_le unk1;
+	float_le hRes;
+	float_le vRes;
+	u32_le internalFontCount;
+	u32_le internalFontInfo;
+	u16_le unk4;
+	u16_le unk5;
+};
+
 // A "fontLib" is a container of loaded fonts.
 // One can open either "internal" fonts or custom fonts into a fontlib.
 class FontLib {
@@ -376,10 +390,23 @@ public:
 		fonts_.resize(params_.numFonts);
 		isfontopen_.resize(params_.numFonts);
 		for (size_t i = 0; i < fonts_.size(); i++) {
-			u32 addr = allocatedAddr + 4 + (u32)i * 4;
+			u32 addr = allocatedAddr + 0x4C + (u32)i * 0x4C;
 			isfontopen_[i] = 0;
 			fonts_[i] = addr;
 		}
+
+		// Let's write out the native struct to make tests easier.
+		// It's possible games may depend on this staying in ram, e.g. copying it, we may move to that.
+		auto nfl = PSPPointer<NativeFontLib>::Create(allocatedAddr);
+		nfl->params = params_;
+		nfl->fontInfo1 = allocatedAddr + 0x4C;
+		nfl->fontInfo2 = allocatedAddr + 0x4C + params_.numFonts * 0x4C;
+		nfl->unk1 = 0;
+		nfl->hRes = fontHRes_;
+		nfl->vRes = fontVRes_;
+		nfl->internalFontCount = (u32)internalFonts.size();
+		nfl->internalFontInfo = allocatedAddr + 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230;
+		nfl->unk4 = 0x5F;
 	}
 
 	u32 handle() const { return handle_; }
