@@ -315,7 +315,7 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 SasInstance::SasInstance()
 	: maxVoices(PSP_SAS_VOICES_MAX),
 		sampleRate(44100),
-		outputMode(0),
+		outputMode(PSP_SAS_OUTPUTMODE_MIXED),
 		mixBuffer(0),
 		sendBuffer(0),
 		resampleBuffer(0),
@@ -567,10 +567,10 @@ inline void SasInstance::MixSample(SasVoice &voice, int i, int sample, u8 volume
 	// We mix into this 32-bit temp buffer and clip in a second loop
 	// Ideally, the shift right should be there too but for now I'm concerned about
 	// not overflowing.
-	mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> volumeShift; // Max = 16 and Min = 12(default)
+	mixBuffer[i * 2] += (sample * voice.volumeLeft) >> volumeShift; // Max = 16 and Min = 12(default)
 	mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
-	sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 12;
-	sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
+	sendBuffer[i * 2] += (sample * voice.effectLeft) >> volumeShift;
+	sendBuffer[i * 2 + 1] += (sample * voice.effectRight) >> volumeShift;
 	voice.envelope.Step();
 }
 
@@ -586,6 +586,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	}
 
 	// Okay, apply effects processing to the Send buffer.
+	// TODO: Is this only done in PSP_SAS_OUTPUTMODE_MIXED?
 	//if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF)
 	//	ApplyReverb();
 
@@ -594,26 +595,36 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
 	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
 	const s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
-	if (outputMode == 0) {
+	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
+		// TODO: Mix send when it has proper values, probably based on dry/wet?
 		if (inp) {
 			for (int i = 0; i < grainSize * 2; i += 2) {
-				int sampleL = mixBuffer[i] + sendBuffer[i] + ((*inp++) * leftVol >> 12);
-				int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1] + ((*inp++) * rightVol >> 12);
+				int sampleL = mixBuffer[i + 0] + ((*inp++) * leftVol >> 12);
+				int sampleR = mixBuffer[i + 1] + ((*inp++) * rightVol >> 12);
 				*outp++ = clamp_s16(sampleL);
 				*outp++ = clamp_s16(sampleR);
 			}
 		} else {
 			for (int i = 0; i < grainSize * 2; i += 2) {
-				*outp++ = clamp_s16(mixBuffer[i] + sendBuffer[i]);
-				*outp++ = clamp_s16(mixBuffer[i + 1] + sendBuffer[i + 1]);
+				*outp++ = clamp_s16(mixBuffer[i + 0]);
+				*outp++ = clamp_s16(mixBuffer[i + 1]);
 			}
 		}
 	} else {
-		for (int i = 0; i < grainSize * 2; i += 2) {
-			int sampleL = mixBuffer[i] + sendBuffer[i];
-			if (inp)
-				sampleL += (*inp++) * leftVol >> 12;
-			*outp++ = clamp_s16(sampleL);
+		s16 *outpL = outp + grainSize * 0;
+		s16 *outpR = outp + grainSize * 1;
+		s16 *outpSendL = outp + grainSize * 2;
+		s16 *outpSendR = outp + grainSize * 3;
+		if (inp) {
+			// The PSP seems to not update the data at all, let's report to see what games hit this.
+			ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix: unsupported raw outputMode");
+		} else {
+			for (int i = 0; i < grainSize * 2; i += 2) {
+				*outpL++ = clamp_s16(mixBuffer[i + 0]);
+				*outpR++ = clamp_s16(mixBuffer[i + 1]);
+				*outpSendL++ = clamp_s16(sendBuffer[i + 0]);
+				*outpSendR++ = clamp_s16(sendBuffer[i + 1]);
+			}
 		}
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
@@ -711,7 +722,7 @@ void SasVoice::ChangedParams(bool changedVag) {
 
 void SasVoice::DoState(PointerWrap &p)
 {
-	auto s = p.Section("SasVoice", 1, 2);
+	auto s = p.Section("SasVoice", 1, 3);
 	if (!s)
 		return;
 
@@ -746,8 +757,11 @@ void SasVoice::DoState(PointerWrap &p)
 
 	p.Do(volumeLeft);
 	p.Do(volumeRight);
-	p.Do(volumeLeftSend);
-	p.Do(volumeRightSend);
+	if (s < 3) {
+		// There were extra variables here that were for the same purpose.
+		p.Do(effectLeft);
+		p.Do(effectRight);
+	}
 	p.Do(effectLeft);
 	p.Do(effectRight);
 	p.DoArray(resampleHist, ARRAY_SIZE(resampleHist));

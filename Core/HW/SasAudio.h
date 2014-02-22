@@ -61,6 +61,9 @@ enum {
 	PSP_SAS_EFFECT_TYPE_ECHO = 6,
 	PSP_SAS_EFFECT_TYPE_DELAY = 7,
 	PSP_SAS_EFFECT_TYPE_PIPE = 8,
+
+	PSP_SAS_OUTPUTMODE_MIXED = 0,
+	PSP_SAS_OUTPUTMODE_RAW = 1,
 };
 
 struct WaveformEffect {
@@ -205,8 +208,6 @@ struct SasVoice {
 			noiseFreq(0),
 			volumeLeft(PSP_SAS_VOL_MAX),
 			volumeRight(PSP_SAS_VOL_MAX),
-			volumeLeftSend(0),
-			volumeRightSend(0),
 			effectLeft(PSP_SAS_VOL_MAX),
 			effectRight(PSP_SAS_VOL_MAX) {
 		memset(resampleHist, 0, sizeof(resampleHist));
@@ -245,12 +246,7 @@ struct SasVoice {
 	int volumeLeft;
 	int volumeRight;
 
-	// I am pretty sure that volumeLeftSend and effectLeft really are the same thing (and same for right of course).
-	// We currently have nothing that ever modifies volume*Send.
-	// One game that uses an effect (probably a reverb) is MHU.
-
-	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
-	int volumeRightSend;
+	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int effectLeft;
 	int effectRight;
 	s16 resampleHist[2];

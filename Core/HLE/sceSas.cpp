@@ -141,7 +141,7 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 
 // Another way of running the mixer, the inoutAddr should be both input and output
 u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume) {
-	DEBUG_LOG(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i)", core , inoutAddr, leftVolume, rightVolume);
+	DEBUG_LOG(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i)", core, inoutAddr, leftVolume, rightVolume);
 
 	if (!Memory::IsValidAddress(inoutAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
