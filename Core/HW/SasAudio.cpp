@@ -619,6 +619,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 			// The PSP seems to not update the data at all, let's report to see what games hit this.
 			ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix: unsupported raw outputMode");
 		} else {
+			WARN_LOG_REPORT(SCESAS, "sceSasCore: raw outputMode");
 			for (int i = 0; i < grainSize * 2; i += 2) {
 				*outpL++ = clamp_s16(mixBuffer[i + 0]);
 				*outpR++ = clamp_s16(mixBuffer[i + 1]);
