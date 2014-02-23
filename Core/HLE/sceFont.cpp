@@ -260,22 +260,22 @@ public:
 	}
 
 	LoadedFont(Font *font, u32 fontLibID, u32 handle)
-		: fontLibID_(fontLibID), font_(font), handle_(handle) {}
+		: fontLibID_(fontLibID), font_(font), handle_(handle), open_(true) {}
 
 	Font *GetFont() { return font_; }
 	PGF *GetPGF() { return font_->GetPGF(); }
-	FontLib *GetFontLib() { if (!IsOpen()) return NULL; return fontLibList[fontLibID_]; }
+	FontLib *GetFontLib() { return fontLibList[fontLibID_]; }
 	u32 Handle() const { return handle_; }
 
-	bool IsOpen() const { return fontLibID_ != (u32)-1; }
+	bool IsOpen() const { return open_; }
 	void Close() {
-		fontLibID_ = (u32)-1;
+		open_ = false;
 		// We keep the rest around until deleted, as some queries are allowed
 		// on closed fonts (which is rather strange).
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("LoadedFont", 1);
+		auto s = p.Section("LoadedFont", 1, 2);
 		if (!s)
 			return;
 
@@ -295,12 +295,18 @@ public:
 			font_ = internalFonts[internalFont];
 		}
 		p.Do(handle_);
+		if (s >= 2) {
+			p.Do(open_);
+		} else {
+			open_ = fontLibID_ != (u32)-1;
+		}
 	}
 
 private:
 	u32 fontLibID_;
 	Font *font_;
 	u32 handle_;
+	bool open_;
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
 
@@ -933,7 +939,7 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 		ERROR_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x): bad charInfo pointer", fontHandle, charCode, charInfoPtr);
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
-	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		// The PSP crashes, but we assume it'd work like sceFontGetFontInfo(), and not touch charInfo.
 		ERROR_LOG_REPORT(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x): bad font", fontHandle, charCode, charInfoPtr);
@@ -985,7 +991,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 		ERROR_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
-	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x): bad font", fontHandle, charCode, glyphImagePtr);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1003,7 +1009,7 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 		ERROR_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
-	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad font", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 		return ERROR_FONT_INVALID_PARAMETER;
