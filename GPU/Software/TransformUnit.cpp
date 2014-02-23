@@ -102,8 +102,8 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 {
 	ScreenCoords ret;
-	ret.x = (((u32)coords.x * 16 + gstate.getOffsetX16()));
-	ret.y = (((u32)coords.y * 16 + gstate.getOffsetY16()));
+	ret.x = (u32)coords.x * 16 + gstate.getOffsetX16();
+	ret.y = (u32)coords.y * 16 + gstate.getOffsetY16();
 	ret.z = coords.z;
 	return ret;
 }
