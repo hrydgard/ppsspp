@@ -125,6 +125,16 @@ enum MatchQuality {
 	MATCH_PERFECT,
 };
 
+enum FontOpenMode {
+	FONT_OPEN_INTERNAL_STINGY = 0,
+	FONT_OPEN_INTERNAL_FULL = 1,
+	// Calls open/seek/read/close handlers to read the file partially.
+	FONT_OPEN_USERFILE_HANDLERS = 2,
+	// Reads directly from filesystem.
+	FONT_OPEN_USERFILE_FULL = 3,
+	FONT_OPEN_USERBUFFER = 4,
+};
+
 // TODO: Merge this class with PGF? That'd make it harder to support .bwfon
 // fonts though, unless that's added directly to PGF.
 class Font {
@@ -376,10 +386,6 @@ public:
 		return (u32)(std::find(fontLibList.begin(), fontLibList.end(), this) - fontLibList.begin());
 	}
 
-	void Close() {
-		__KernelDirectMipsCall(params_.closeFuncAddr, 0, 0, 0, false);
-	}
-
 	void Done() {
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (isfontopen_[i] == FONT_IS_OPEN) {
@@ -438,7 +444,9 @@ public:
 		return fonts_[index];
 	}
 
-	LoadedFont *OpenFont(Font *font, int &error) {
+	LoadedFont *OpenFont(Font *font, FontOpenMode mode, int &error) {
+		// TODO: Do something with mode, possibly save it where the PSP does in the struct.
+		// Maybe needed in Font, though?  Handlers seem... difficult to emulate.
 		int freeFontIndex = -1;
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (isfontopen_[i] == 0) {
@@ -737,7 +745,8 @@ u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 		return 0;
 	}
 
-	LoadedFont *font = fontLib->OpenFont(internalFonts[index], *errorCode);
+	FontOpenMode openMode = mode == 0 ? FONT_OPEN_INTERNAL_STINGY : FONT_OPEN_INTERNAL_FULL;
+	LoadedFont *font = fontLib->OpenFont(internalFonts[index], openMode, *errorCode);
 	if (font) {
 		fontMap[font->Handle()] = font;
 		*errorCode = 0;
@@ -770,7 +779,7 @@ u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLe
 	INFO_LOG(SCEFONT, "sceFontOpenUserMemory(%08x, %08x, %08x, %08x)", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
 	const u8 *fontData = Memory::GetPointer(memoryFontAddrPtr);
 	Font *f = new Font(fontData, memoryFontLength);
-	LoadedFont *font = fontLib->OpenFont(f, *errorCode);
+	LoadedFont *font = fontLib->OpenFont(f, FONT_OPEN_USERBUFFER, *errorCode);
 	if (font) {
 		fontMap[font->Handle()] = font;
 		*errorCode = 0;
@@ -818,7 +827,8 @@ u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 error
 	std::vector<u8> buffer;
 	pspFileSystem.ReadEntireFile(fileName, buffer);
 	Font *f = new Font(buffer);
-	LoadedFont *font = fontLib->OpenFont(f, *errorCode);
+	FontOpenMode openMode = mode == 0 ? FONT_OPEN_USERFILE_HANDLERS : FONT_OPEN_USERFILE_FULL;
+	LoadedFont *font = fontLib->OpenFont(f, openMode, *errorCode);
 	if (font) {
 		fontMap[font->Handle()] = font;
 		*errorCode = 0;
