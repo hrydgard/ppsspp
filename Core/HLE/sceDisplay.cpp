@@ -180,7 +180,6 @@ void __DisplayInit() {
 	lastNumFlips = 0;
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
-	fpsHistoryValid = 0;
 
 	InitGfxState();
 

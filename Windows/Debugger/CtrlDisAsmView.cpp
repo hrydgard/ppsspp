@@ -1273,7 +1273,7 @@ void CtrlDisAsmView::disassembleToFile()
 	ofn.lpstrFile = fileName ;
 	ofn.lpstrFile[0] = '\0';
 	ofn.nMaxFile = sizeof( fileName );
-	ofn.lpstrFilter = L"All files";
+	ofn.lpstrFilter = L"All Files\0*.*\0\0";
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = NULL ;
 	ofn.nMaxFileTitle = 0 ;
