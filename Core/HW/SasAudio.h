@@ -288,10 +288,5 @@ public:
 	WaveformEffect waveformEffect;
 
 private:
-	void MixSamples(SasVoice &voice);
-	void MixSamplesHalfPitch(SasVoice &voice);
-	void MixSamplesOptimal(SasVoice &voice);
-	void MixSample(SasVoice &voice, int i, int sample, u8 volumeShift);
-
 	int grainSize;
 };
