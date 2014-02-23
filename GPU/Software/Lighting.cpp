@@ -76,7 +76,6 @@ void Process(VertexData& vertex, bool hasColor)
 			float _spot = Dot(-L,dir) / d / dir.Length();
 			float cutoff = getFloat24(gstate.lcutoff[light]&0xFFFFFF);
 			if (_spot > cutoff) {
-				spot = _spot;
 				float conv = getFloat24(gstate.lconv[light]&0xFFFFFF);
 				spot = pow(_spot, conv);
 			} else {
