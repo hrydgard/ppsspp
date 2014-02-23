@@ -478,7 +478,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
 
 		// Resample to the correct pitch, writing exactly "grainSize" samples.
-		// This is a poor resampler by the way.
+		// This is a HORRIBLE resampler by the way.
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
 
 		u32 sampleFrac = voice.sampleFrac;
@@ -487,11 +487,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		if (volumeShift < 0) volumeShift = 0;
 		for (int i = 0; i < grainSize; i++) {
 			// For now: nearest neighbour, not even using the resample history at all.
-			const int readIndex = sampleFrac / PSP_SAS_PITCH_BASE;
-			const int readFrac = sampleFrac % PSP_SAS_PITCH_BASE;
-			int sample1 = resampleBuffer[readIndex + 2];
-			int sample2 = resampleBuffer[readIndex + 1 + 2];
-			int sample = (sample1 * (PSP_SAS_PITCH_BASE - readFrac) + sample2 * readFrac) / PSP_SAS_PITCH_BASE;
+			int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
 			sampleFrac += voice.pitch;
 
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
@@ -513,7 +509,10 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			voice.envelope.Step();
 		}
 
-		voice.sampleFrac = sampleFrac & (PSP_SAS_PITCH_BASE - 1);
+		voice.sampleFrac = sampleFrac;
+		// Let's hope grainSize is a power of 2.
+		//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
+		voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
 
 		if (voice.HaveSamplesEnded())
 			voice.envelope.End();
