@@ -507,12 +507,11 @@ void SasInstance::MixSamples(SasVoice &voice) {
 	if (g_Config.iSFXVolume >= 0 && g_Config.iSFXVolume < MAX_CONFIG_VOLUME)
 		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
 
-	const int offset = sampleFrac == 0 ? 2 : 1;
 	for (int i = 0; i < grainSize; i++) {
 		const int readIndex = sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT;
 		const int readFrac = sampleFrac & (PSP_SAS_PITCH_BASE - 1);
-		int sample1 = resampleBuffer[readIndex + offset];
-		int sample2 = resampleBuffer[readIndex + 1 + offset];
+		int sample1 = resampleBuffer[readIndex + 2];
+		int sample2 = resampleBuffer[readIndex + 1 + 2];
 		int sample = (sample1 * (PSP_SAS_PITCH_BASE - readFrac) + sample2 * readFrac) / PSP_SAS_PITCH_BASE;
 		sampleFrac += voice.pitch;
 
@@ -528,7 +527,7 @@ void SasInstance::MixSamplesHalfPitch(SasVoice &voice) {
 	if (g_Config.iSFXVolume >= 0 && g_Config.iSFXVolume < MAX_CONFIG_VOLUME)
 		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
 
-	int readIndex2 = voice.sampleFrac == 0 ? 0 : -1;
+	int readIndex2 = voice.sampleFrac == 0 ? 0 : 1;
 	for (int i = 0; i < grainSize; i++) {
 		int sample1 = resampleBuffer[(readIndex2 >> 1) + 2];
 		int sample2 = resampleBuffer[(readIndex2 >> 1) + 1 + 2];
