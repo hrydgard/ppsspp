@@ -262,7 +262,7 @@ public:
 	PGF();
 	~PGF();
 
-	void ReadPtr(const u8 *ptr, size_t dataSize);
+	bool ReadPtr(const u8 *ptr, size_t dataSize);
 
 	bool GetCharInfo(int charCode, PGFCharInfo *ci, int altCharCode);
 	void GetFontInfo(PGFFontInfo *fi);
