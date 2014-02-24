@@ -939,8 +939,6 @@ namespace MainWindow
 		// and as asynchronous touch events for minimal latency.
 
 		case WM_LBUTTONDOWN:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) != MOUSEEVENTF_FROMTOUCH ) 
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
@@ -960,13 +958,10 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				SetCapture(hWnd);
-				
 			}
 			break;
 
 		case WM_MOUSEMOVE:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) != MOUSEEVENTF_FROMTOUCH)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
@@ -997,8 +992,6 @@ namespace MainWindow
 			break;
 
 		case WM_LBUTTONUP:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) != MOUSEEVENTF_FROMTOUCH)
 			{
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
@@ -1021,7 +1014,7 @@ namespace MainWindow
 		case WM_TOUCH:
 			{
 				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
-				return DefWindowProc(hWnd, message, wParam, lParam);
+				return 0;
 			}
 
 		case WM_PAINT:
