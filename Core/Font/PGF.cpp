@@ -174,8 +174,12 @@ void PGF::DoState(PointerWrap &p) {
 	p.Do(firstGlyph);
 }
 
-void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
+bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *const startPtr = ptr;
+
+	if (dataSize < sizeof(header)) {
+		return false;
+	}
 
 	INFO_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
@@ -221,6 +225,10 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	const u8 *uptr = (const u8 *)wptr;
 
+	if (uptr >= startPtr + dataSize) {
+		return false;
+	}
+
 	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
 	const u8 *shadowCharMap = uptr;
 	uptr += shadowCharMapSize;
@@ -243,6 +251,10 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	}
 
 	uptr = (const u8 *)sptr;
+
+	if (uptr >= startPtr + dataSize) {
+		return false;
+	}
 
 	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
 	const u8 *charMap = uptr;
@@ -295,6 +307,8 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 			}
 		}
 	}
+
+	return true;
 }
 
 int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
