@@ -452,7 +452,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// Actually this is not entirely correct - we need to get one extra sample, and store it
 		// for the next time around. A little complicated...
 		// But for now, see Smoothness HACKERY below :P
-		u32 numSamples = ((u32)voice.sampleFrac + (u32)grainSize * (u32)voice.pitch + PSP_SAS_PITCH_BASE - 1) >> PSP_SAS_PITCH_BASE_SHIFT;
+		u32 numSamples = ((u32)voice.sampleFrac + (u32)grainSize * (u32)voice.pitch) >> PSP_SAS_PITCH_BASE_SHIFT;
 		if ((int)numSamples > grainSize * 4) {
 			ERROR_LOG(SASMIX, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 			numSamples = grainSize * 4;
@@ -477,14 +477,42 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		voice.resampleHist[0] = resampleBuffer[2 + numSamples - 2];
 		voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
 
-		// Let's try to optimize the easy case where we don't need to resample at all.
-		if (voice.sampleFrac == 0 && (voice.pitch == PSP_SAS_PITCH_BASE || ignorePitch))
-			MixSamplesOptimal(voice);
-		// Half pitch is also quite common.
-		else if (voice.pitch == PSP_SAS_PITCH_BASE / 2)
-			MixSamplesHalfPitch(voice);
-		else
-			MixSamples(voice);
+		// Resample to the correct pitch, writing exactly "grainSize" samples.
+		// This is a HORRIBLE resampler by the way.
+		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
+
+		u32 sampleFrac = voice.sampleFrac;
+		// We need to shift by 12 anyway, so combine that with the volume shift.
+		int volumeShift = (12 + MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
+		if (volumeShift < 0) volumeShift = 0;
+		for (int i = 0; i < grainSize; i++) {
+			// For now: nearest neighbour, not even using the resample history at all.
+			int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
+			sampleFrac += voice.pitch;
+
+			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
+			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
+			int envelopeValue = voice.envelope.GetHeight();
+			envelopeValue = (envelopeValue + (1 << 14)) >> 15;
+
+			// We just scale by the envelope before we scale by volumes.
+			// Again, we round up by adding (1 << 14) first (*after* multiplying.)
+			sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
+
+			// We mix into this 32-bit temp buffer and clip in a second loop
+			// Ideally, the shift right should be there too but for now I'm concerned about
+			// not overflowing.
+			mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> volumeShift; // Max = 16 and Min = 12(default)
+			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
+			sendBuffer[i * 2] += sample * voice.effectLeft >> volumeShift;
+			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> volumeShift;
+			voice.envelope.Step();
+		}
+
+		voice.sampleFrac = sampleFrac;
+		// Let's hope grainSize is a power of 2.
+		//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
+		voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
 
 		if (voice.HaveSamplesEnded())
 			voice.envelope.End();
@@ -495,86 +523,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			voice.on = false;
 		}
 	}
-}
-
-void SasInstance::MixSamples(SasVoice &voice) {
-	// Resample to the correct pitch, writing exactly "grainSize" samples.
-	// This is a poor resampler by the way.
-	u32 sampleFrac = voice.sampleFrac;
-
-	// We need to shift by 12 anyway, so combine that with the volume shift.
-	u8 volumeShift = 12;
-	if (g_Config.iSFXVolume >= 0 && g_Config.iSFXVolume < MAX_CONFIG_VOLUME)
-		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
-
-	// The first two are resample history, were we done with the last one?
-	const int offset = sampleFrac == 0 ? 2 : 1;
-	for (int i = 0; i < grainSize; i++) {
-		const int readIndex = sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT;
-		const int readFrac = sampleFrac & (PSP_SAS_PITCH_BASE - 1);
-		int sample1 = resampleBuffer[readIndex + offset];
-		int sample2 = resampleBuffer[readIndex + 1 + offset];
-		int sample = (sample1 * (PSP_SAS_PITCH_BASE - readFrac) + sample2 * readFrac) / PSP_SAS_PITCH_BASE;
-		sampleFrac += voice.pitch;
-
-		MixSample(voice, i, sample, volumeShift);
-	}
-
-	voice.sampleFrac = sampleFrac & (PSP_SAS_PITCH_BASE - 1);
-}
-
-void SasInstance::MixSamplesHalfPitch(SasVoice &voice) {
-	// We need to shift by 12 anyway, so combine that with the volume shift.
-	u8 volumeShift = 12;
-	if (g_Config.iSFXVolume >= 0 && g_Config.iSFXVolume < MAX_CONFIG_VOLUME)
-		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
-
-	// The first two are resample history, were we done with the last one?
-	int readIndex2 = voice.sampleFrac == 0 ? 4 : 3;
-	for (int i = 0; i < grainSize; i++) {
-		int sample1 = resampleBuffer[(readIndex2 >> 1)];
-		int sample2 = resampleBuffer[(readIndex2 >> 1) + 1];
-		int sample = readIndex2 & 1 ? ((sample1 + sample2) >> 1) : sample1;
-		++readIndex2;
-
-		MixSample(voice, i, sample, volumeShift);
-	}
-
-	voice.sampleFrac = readIndex2 & 1 ? PSP_SAS_PITCH_BASE / 2 : 0;
-}
-
-void SasInstance::MixSamplesOptimal(SasVoice &voice) {
-	// We need to shift by 12 anyway, so combine that with the volume shift.
-	u8 volumeShift = 12;
-	if (g_Config.iSFXVolume >= 0 && g_Config.iSFXVolume < MAX_CONFIG_VOLUME)
-		volumeShift += MAX_CONFIG_VOLUME - g_Config.iSFXVolume;
-
-	// The first two are resample history.
-	int readIndex = 2;
-	for (int i = 0; i < grainSize; i++) {
-		int sample = resampleBuffer[readIndex++];
-		MixSample(voice, i, sample, volumeShift);
-	}
-}
-
-inline void SasInstance::MixSample(SasVoice &voice, int i, int sample, u8 volumeShift) {
-	// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
-	// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
-	int envelopeValue = voice.envelope.GetHeight();
-	envelopeValue = (envelopeValue + (1 << 14)) >> 15;
-
-	// We just scale by the envelope before we scale by volumes.
-	// Again, we round up by adding (1 << 14) first (*after* multiplying.)
-	sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
-
-	// We mix into this 32-bit temp buffer and clip in a second loop
-	// Ideally, the shift right should be there too but for now I'm concerned about
-	// not overflowing.
-	mixBuffer[i * 2] += (sample * voice.volumeLeft) >> volumeShift; // Max = 16 and Min = 12(default)
-	mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
-	sendBuffer[i * 2] += (sample * voice.effectLeft) >> volumeShift;
-	sendBuffer[i * 2 + 1] += (sample * voice.effectRight) >> volumeShift;
-	voice.envelope.Step();
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
@@ -703,7 +651,6 @@ void SasVoice::KeyOn() {
 	on = true;
 	paused = false;
 	sampleFrac = 0;
-	Reset();
 }
 
 void SasVoice::KeyOff() {
