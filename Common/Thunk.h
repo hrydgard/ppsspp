@@ -87,8 +87,8 @@ public:
 		return ProtectFunction((const void *)func, 4);
 	}
 
-	void Enter(ThunkEmitter *emit);
-	void Leave(ThunkEmitter *emit);
+	void Enter(ThunkEmitter *emit, bool withinCall = false);
+	void Leave(ThunkEmitter *emit, bool withinCall = false);
 
 private:
 	void Init();

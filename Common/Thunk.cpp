@@ -151,7 +151,7 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 		PanicAlert("Trying to protect functions before the emu is started. Bad bad bad.");
 
 	const u8 *call_point = GetCodePtr();
-	Enter(this);
+	Enter(this, true);
 
 #ifdef _M_X64
 	ABI_CallFunction(function);
@@ -169,29 +169,29 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 	ABI_RestoreStack(num_params * 4);
 #endif
 
-	Leave(this);
+	Leave(this, true);
 	RET();
 
 	thunks[function] = call_point;
 	return (const void *)call_point;
 }
 
-void ThunkManager::Enter(ThunkEmitter *emit)
+void ThunkManager::Enter(ThunkEmitter *emit, bool withinCall)
 {
 #ifdef _M_X64
 	// Make sure to align stack.
-	emit->SUB(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded()));
+	emit->SUB(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded() + (withinCall ? 0 : 8)));
 	emit->ABI_CallFunction(save_regs);
 #else
 	emit->CALL((const void *)save_regs);
 #endif
 }
 
-void ThunkManager::Leave(ThunkEmitter *emit)
+void ThunkManager::Leave(ThunkEmitter *emit, bool withinCall)
 {
 #ifdef _M_X64
 	emit->ABI_CallFunction(load_regs);
-	emit->ADD(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded()));
+	emit->ADD(64, R(ESP), Imm32(ThunkStackOffset() + ThunkBytesNeeded() + (withinCall ? 0 : 8)));
 #else
 	emit->CALL((void*)load_regs);
 #endif
