@@ -314,6 +314,8 @@ void fbo_destroy(FBO *fbo) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDeleteFramebuffers(1, &fbo->handle);
 		glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
+		glDeleteRenderbuffers(1, &fbo->z_buffer);
+		glDeleteRenderbuffers(1, &fbo->stencil_buffer);
 	} else {
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
