@@ -79,7 +79,8 @@
 #include "XPTheme.h"
 #endif
 
-#define MOUSEEVENTF_FROMTOUCH 0xFF515700
+#define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
+#define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
 
 static const int numCPUs = 1;
 
@@ -940,7 +941,7 @@ namespace MainWindow
 
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) != MOUSEEVENTF_FROMTOUCH ) 
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
@@ -960,13 +961,13 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				SetCapture(hWnd);
-				
+
 			}
 			break;
 
 		case WM_MOUSEMOVE:
 			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) != MOUSEEVENTF_FROMTOUCH)
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
@@ -998,7 +999,7 @@ namespace MainWindow
 
 		case WM_LBUTTONUP:
 			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) != MOUSEEVENTF_FROMTOUCH)
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
@@ -1021,7 +1022,7 @@ namespace MainWindow
 		case WM_TOUCH:
 			{
 				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
-				return DefWindowProc(hWnd, message, wParam, lParam);
+				return 0;
 			}
 
 		case WM_PAINT:
