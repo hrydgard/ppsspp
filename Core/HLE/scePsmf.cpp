@@ -929,7 +929,7 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 }
 
 int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
-	if (!psmfplayer->filehandle || !psmfplayer->tempbuf)
+	if (!psmfplayer->filehandle)
 		return -1;
 	u8* buf = psmfplayer->tempbuf;
 	int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
