@@ -268,6 +268,16 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+	// On systems that aren't Symbian, iOS, and Meego Harmattan, offer to let the user see this button.
+	// Some Windows touch devices don't have a back button or other button to call up the menu.
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
+
+	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
+	enablePauseBtn->SetEnabled(!PSP_IsInited());
+#endif
+
 	CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
 	disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
 	View *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));

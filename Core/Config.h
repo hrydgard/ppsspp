@@ -227,6 +227,10 @@ public:
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
 
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+	bool bShowTouchPause;
+#endif
+
 	bool bHapticFeedback;
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
