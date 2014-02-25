@@ -862,7 +862,7 @@ int sceFontClose(u32 fontHandle) {
 int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
-		ERROR_LOG(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
+		ERROR_LOG_REPORT(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
 		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 	}
 
@@ -904,22 +904,37 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 }
 
 // Returns the font index, not handle
-int sceFontFindFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr) {
-	INFO_LOG(SCEFONT, "sceFontFindFont(%x, %x, %x)", libHandlePtr, fontStylePtr, errorCodePtr);
-	if (!Memory::IsValidAddress(errorCodePtr)) {
-		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontFindFont(%x, %x, %x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
+		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
+	}
+
+	FontLib *fontLib = GetFontLib(libHandle);
+	if (!fontLib) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontFindFont(%08x, %08x, %08x): invalid font lib", libHandle, fontStylePtr, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
 		return 0;
 	}
 
-	PGFFontStyle style;
-	Memory::ReadStruct(fontStylePtr, &style);
+	if (!Memory::IsValidAddress(fontStylePtr)) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontFindFont(%08x, %08x, %08x): invalid style address", libHandle, fontStylePtr, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		return 0;
+	}
+
+	INFO_LOG(SCEFONT, "sceFontFindFont(%x, %x, %x)", libHandle, fontStylePtr, errorCodePtr);
+
+	auto requestedStyle = Memory::GetStruct<const PGFFontStyle>(fontStylePtr);
 
 	for (size_t i = 0; i < internalFonts.size(); i++) {
-		if (internalFonts[i]->MatchesStyle(style, false)) {
-			Memory::Write_U32(0, errorCodePtr);
+		if (internalFonts[i]->MatchesStyle(*requestedStyle, false)) {
+			*errorCode = 0;
 			return (int)i;
 		}
 	}
+	*errorCode = 0;
 	return -1;
 }
 
