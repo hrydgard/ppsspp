@@ -635,7 +635,7 @@ u32 sysclib_strcpy(u32 dst, u32 src) {
 }
 
 u32 sysclib_strlen(u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(dest=%08x, src=%08x)", src);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
 	return (u32)strlen(Memory::GetCharPointer(src));
 }
 
