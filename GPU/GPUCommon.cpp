@@ -765,7 +765,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		{
 			easy_guard guard(listLock);
 			if (currentList->stackptr == 0) {
-				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
+				DEBUG_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
 				auto &stackEntry = currentList->stack[--currentList->stackptr];
 				gstate_c.offsetAddr = stackEntry.offsetAddr;
