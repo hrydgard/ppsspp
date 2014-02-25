@@ -227,7 +227,9 @@ public:
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
 
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
 	bool bShowTouchPause;
+#endif
 
 	bool bHapticFeedback;
 
