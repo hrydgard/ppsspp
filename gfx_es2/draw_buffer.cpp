@@ -195,6 +195,31 @@ void DrawBuffer::Rect(float x, float y, float w, float h,
 		V(x,	   y + h, 0, color, u, v + uh);
 }
 
+void DrawBuffer::Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32 color) {
+	const AtlasImage &image = atlas->images[atlas_image];
+
+	// No caps yet!
+	// Pre-rotated - we are making a thick line here
+	float dx = -(y2 - y1);
+	float dy = x2 - x1;
+	float len = sqrtf(dx * dx + dy * dy) / thickness;
+	if (len <= 0.0f)
+		len = 1.0f;
+
+	dx /= len;
+	dy /= len;
+
+	float x[4] = { x1 - dx, x2 - dx, x1 + dx, x2 + dx };
+	float y[4] = { y1 - dy, y2 - dy, y1 + dy, y2 + dy };
+
+	V(x[0],	y[0], color, image.u1, image.v1);
+	V(x[1],	y[1], color, image.u2, image.v1);
+	V(x[2],	y[2], color, image.u1, image.v2);
+	V(x[2],	y[2], color, image.u1, image.v2);
+	V(x[1],	y[1], color, image.u2, image.v1);
+	V(x[3],	y[3], color, image.u2, image.v2);
+}
+
 void DrawBuffer::MeasureImage(ImageID atlas_image, float *w, float *h) {
 	const AtlasImage &image = atlas->images[atlas_image];
 	*w = (float)image.w;

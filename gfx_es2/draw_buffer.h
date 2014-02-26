@@ -76,8 +76,10 @@ public:
 	void vLine(float x, float y1, float y2, uint32 color);
 	void vLineAlpha50(float x, float y1, float y2, uint32 color);
 
+	void Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32 color);
+
 	void RectOutline(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
-	
+
 	void RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom);
 	void RectVDarkFaded(float x, float y, float w, float h, uint32 colorTop) {
 		RectVGradient(x, y, w, h, colorTop, darkenColor(colorTop));
