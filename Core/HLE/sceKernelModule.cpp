@@ -1649,7 +1649,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	// TODO: Need to test how this really works.  Let's assume it's an override.
 	if (Memory::IsValidAddress(optionAddr))
 	{
-		auto options = Memory::GetStruct<SceKernelSMOption>(optionAddr);
+		auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 		// TODO: Check how size handling actually works.
 		if (options->size != 0 && options->priority != 0)
 			priority = options->priority;
@@ -1728,7 +1728,7 @@ u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp,
 
 		// TODO: Need to test how this really works.  Let's assume it's an override.
 		if (Memory::IsValidAddress(optionAddr)) {
-			auto options = Memory::GetStruct<SceKernelSMOption>(optionAddr);
+			auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 			// TODO: Check how size handling actually works.
 			if (options->size != 0 && options->priority != 0)
 				priority = options->priority;
