@@ -810,7 +810,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			// If we've made it this far, it should be safe to dump.
 			if (g_Config.bDumpDecryptedEboot) {
 				INFO_LOG(SCEMODULE, "Dumping derypted EBOOT.BIN to file.");
-				__SaveDecryptedEbootToStorageMedia(ptr, head->elf_size);
+				const u32 dumpLength = ret;
+				__SaveDecryptedEbootToStorageMedia(ptr, dumpLength);
 			}
 		}
 	}
