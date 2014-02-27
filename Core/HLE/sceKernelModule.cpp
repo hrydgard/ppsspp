@@ -48,6 +48,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 
@@ -719,6 +720,48 @@ void Module::Cleanup() {
 	}
 }
 
+void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
+	if (!decryptedEbootDataPtr) {
+		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid pointer");
+		return;
+	}
+
+	if (length == 0) {
+		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid length");
+		return;
+	}
+
+	const std::string filenameToDumpTo = g_paramSFO.GetValueString("DISC_ID") + ".BIN";
+	const std::string dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
+	const std::string fullPath = dumpDirectory + filenameToDumpTo;
+
+	// If the file already exists, don't dump it again.
+	if (File::Exists(fullPath)) {
+		INFO_LOG(SCEMODULE, "Decrypted EBOOT.BIN already exists for this game, skipping dump.");
+		return;
+	}
+
+	// Make sure the dump directory exists before continuing.
+	if (!File::Exists(dumpDirectory)) {
+		if (!File::CreateDir(dumpDirectory)) {
+			ERROR_LOG(SCEMODULE, "Unable to create directory for EBOOT dumping, aborting.");
+			return;
+		}
+	}
+
+	FILE *decryptedEbootFile = fopen(fullPath.c_str(), "wb");
+	if (!decryptedEbootFile) {
+		ERROR_LOG(SCEMODULE, "Unable to write decrypted EBOOT.");
+		return;
+	}
+
+	const size_t lengthToWrite = length;
+
+	fwrite(decryptedEbootDataPtr, sizeof(u8), lengthToWrite, decryptedEbootFile);
+	fclose(decryptedEbootFile);
+	INFO_LOG(SCEMODULE, "Successfully wrote decrypted EBOOT to %s", fullPath.c_str());
+}
+
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
@@ -763,6 +806,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		} else {
 			// TODO: Is this right?
 			module->nm.bss_size = head->bss_size;
+
+			// If we've made it this far, it should be safe to dump.
+			if (g_Config.bDumpDecryptedEboot) {
+				INFO_LOG(SCEMODULE, "Dumping derypted EBOOT.BIN to file.");
+				const u32 dumpLength = ret;
+				__SaveDecryptedEbootToStorageMedia(ptr, dumpLength);
+			}
 		}
 	}
 
