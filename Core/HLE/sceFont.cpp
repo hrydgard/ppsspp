@@ -878,7 +878,7 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 
 	INFO_LOG(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x)", libHandle, fontStylePtr, errorCodePtr);
 
-	auto requestedStyle = Memory::GetStruct<const PGFFontStyle>(fontStylePtr);
+	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 
 	// Find the first nearest match for H/V, OR the last exact match for others.
 	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
@@ -941,7 +941,7 @@ int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 
 	INFO_LOG(SCEFONT, "sceFontFindFont(%x, %x, %x)", libHandle, fontStylePtr, errorCodePtr);
 
-	auto requestedStyle = Memory::GetStruct<const PGFFontStyle>(fontStylePtr);
+	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 
 	// Find the closest exact match for the fields specified.
 	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
@@ -979,7 +979,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 	}
 
 	DEBUG_LOG(SCEFONT, "sceFontGetFontInfo(%x, %x)", fontHandle, fontInfoPtr);
-	auto fi = Memory::GetStruct<PGFFontInfo>(fontInfoPtr);
+	auto fi = PSPPointer<PGFFontInfo>::Create(fontInfoPtr);
 	font->GetPGF()->GetFontInfo(fi);
 	fi->fontStyle = font->GetFont()->GetFontStyle();
 
@@ -1008,7 +1008,7 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
 	auto fontLib = font->GetFontLib();
 	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
-	auto charInfo = Memory::GetStruct<PGFCharInfo>(charInfoPtr);
+	auto charInfo = PSPPointer<PGFCharInfo>::Create(charInfoPtr);
 	font->GetPGF()->GetCharInfo(charCode, charInfo, altCharCode);
 
 	return 0;
@@ -1057,7 +1057,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	}
 
 	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
-	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
+	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
 	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
@@ -1074,10 +1074,10 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
 
-	INFO_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
+	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 

@@ -323,7 +323,7 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 	return -1;
 }
 
-bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) {
+bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) const {
 	Glyph glyph;
 	memset(charInfo, 0, sizeof(*charInfo));
 
@@ -357,7 +357,7 @@ bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) {
 	return true;
 }
 
-void PGF::GetFontInfo(PGFFontInfo *fi) {
+void PGF::GetFontInfo(PGFFontInfo *fi) const {
 	fi->maxGlyphWidthI = header.maxSize[0];
 	fi->maxGlyphHeightI = header.maxSize[1];
 	fi->maxGlyphAscenderI = header.maxAscender;
@@ -511,7 +511,7 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 	return true;
 }
 
-bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) {
+bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) const {
 	if (charCode < firstGlyph)
 		return false;
 	charCode -= firstGlyph;
@@ -530,7 +530,7 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) {
 	return true;
 }
 
-void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) {
+void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) const {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
 		// No Glyph available for this charCode, try to use the alternate char.
@@ -555,6 +555,12 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 	int x = image->xPos64 >> 6;
 	int y = image->yPos64 >> 6;
+
+	// Negative means don't clip on that side.
+	if (clipWidth < 0)
+		clipWidth = glyph.w;
+	if (clipHeight < 0)
+		clipHeight = glyph.h;
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.
@@ -624,7 +630,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	gpu->InvalidateCache(image->bufferPtr, image->bytesPerLine * image->bufHeight, GPU_INVALIDATE_SAFE);
 }
 
-void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) {
+void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) const {
 	if (x < 0 || x >= bufWidth || y < 0 || y >= bufHeight) {
 		return;
 	}

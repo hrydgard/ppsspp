@@ -1315,7 +1315,7 @@ u32 sceMpegFlushAllStream(u32 mpeg)
 	ctx->isAnalyzed = false;
 
 	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
-		auto ringbuffer = Memory::GetStruct<SceMpegRingBuffer>(ctx->mpegRingbufferAddr);
+		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
 
 		ringbuffer->packetsFree = ringbuffer->packets;
 		ringbuffer->packetsRead = 0;

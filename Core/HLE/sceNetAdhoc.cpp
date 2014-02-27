@@ -1256,7 +1256,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 
 	SceNetEtherAddr * addr = NULL;
 	if (Memory::IsValidAddress(peerMacAddrPtr)) {
-		addr = Memory::GetStruct<SceNetEtherAddr>(peerMacAddrPtr);
+		addr = PSPPointer<SceNetEtherAddr>::Create(peerMacAddrPtr);
 	}
 	uint16_t * port = NULL;
 	if (Memory::IsValidAddress(peerPortPtr)) {
