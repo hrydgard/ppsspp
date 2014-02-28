@@ -330,7 +330,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 
 	*error_string = coreParameter.errorString;
-	return coreParameter.fileToStart != "";
+	bool success = coreParameter.fileToStart != "";
+	if (!success) {
+		pspIsIniting = false;
+	}
+	return success;
 }
 
 bool PSP_InitUpdate(std::string *error_string) {
