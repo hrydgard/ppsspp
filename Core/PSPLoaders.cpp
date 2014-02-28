@@ -133,19 +133,22 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
-	if (fileInfo.exists)
-	{
+	if (fileInfo.exists) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
-		if (g_paramSFO.ReadSFO(paramsfo))
-		{
+		if (g_paramSFO.ReadSFO(paramsfo)) {
+			// Last ditch effort to detect PS1 games: they should use the ME category in the PARAM.SFO.
+			if (g_paramSFO.GetValueString("CATEGORY") == "ME") {
+				ERROR_LOG(LOADER, "Category is ME, PS1 game detected. Cancelling game load.");
+				*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
+				return false;
+			}
 			char title[1024];
 			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
 			INFO_LOG(LOADER, "%s", title);
 			host->SetWindowTitle(title);
 		}
 	}
-
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 
@@ -165,8 +168,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 	bool hasEncrypted = false;
 	u32 fd;
-	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)
-	{
+	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0) {
 		u8 head[4];
 		pspFileSystem.ReadFile(fd, head, 4);
 		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
@@ -174,8 +176,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 		}
 		pspFileSystem.CloseFile(fd);
 	}
-	if (!hasEncrypted)
-	{
+	if (!hasEncrypted) {
 		// try unencrypted BOOT.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
 	}
