@@ -1023,11 +1023,28 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 	return 0;
 }
 
-int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown, u32 fontIndex) {
-	DEBUG_LOG(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, unknown, fontIndex);
+// It says FontInfo but it means Style - this is like sceFontGetFontList().
+int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 index) {
+	auto fontStyle = PSPPointer<PGFFontStyle>::Create(fontInfoPtr);
 	FontLib *fl = GetFontLib(libHandle);
-	u32 fontHandle = fl->GetFontHandle(fontIndex);
-	return sceFontGetFontInfo(fontHandle, fontInfoPtr);
+	if (!fl || fl->handle() == 0) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x,  %i): invalid font lib", libHandle, fontInfoPtr, index);
+		return !fl ? ERROR_FONT_INVALID_LIBID : ERROR_FONT_INVALID_PARAMETER;
+	}
+	if (index >= internalFonts.size()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i): invalid font index", libHandle, fontInfoPtr, index);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	if (!fontStyle.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i): invalid info pointer", libHandle, fontInfoPtr, index);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, index);
+	auto font = internalFonts[index];
+	*fontStyle = font->GetFontStyle();
+
+	return 0;
 }
 
 int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
@@ -1311,7 +1328,7 @@ const HLEFunction sceLibFont[] = {
 	{0x099ef33c, WrapI_UUU<sceFontFindOptimumFont>, "sceFontFindOptimumFont"},	
 	{0x681e61a7, WrapI_UUU<sceFontFindFont>, "sceFontFindFont"},	
 	{0x2f67356a, WrapI_V<sceFontCalcMemorySize>, "sceFontCalcMemorySize"},	
-	{0x5333322d, WrapI_UUUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
+	{0x5333322d, WrapI_UUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
 	{0xa834319d, WrapU_UUUU<sceFontOpen>, "sceFontOpen"},	
 	{0x57fcb733, WrapU_UCUU<sceFontOpenUserFile>, "sceFontOpenUserFile"},	
 	{0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory"},	
