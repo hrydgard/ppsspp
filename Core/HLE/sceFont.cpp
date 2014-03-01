@@ -357,7 +357,7 @@ struct NativeFontLib {
 	float_le vRes;
 	u32_le internalFontCount;
 	u32_le internalFontInfo;
-	u16_le unk4;
+	u16_le altCharCode;
 	u16_le unk5;
 };
 
@@ -369,7 +369,7 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f) {
+	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f), altCharCode_(0x5F) {
 		Memory::ReadStruct(paramPtr, &params_);
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
@@ -426,7 +426,7 @@ public:
 		nfl->vRes = fontVRes_;
 		nfl->internalFontCount = (u32)internalFonts.size();
 		nfl->internalFontInfo = allocatedAddr + 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230;
-		nfl->unk4 = 0x5F;
+		nfl->altCharCode = altCharCode_;
 	}
 
 	u32 handle() const { return handle_; }
@@ -1082,11 +1082,14 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 }
 
 int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
-	INFO_LOG(SCEFONT, "sceFontSetAltCharacterCode(%08x) (%08x)", fontLibHandle, charCode);
 	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		fl->SetAltCharCode(charCode);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontSetAltCharacterCode(%08x, %08x): invalid font lib", fontLibHandle, charCode);
+		return ERROR_FONT_INVALID_LIBID;
 	}
+
+	INFO_LOG(SCEFONT, "sceFontSetAltCharacterCode(%08x, %08x)", fontLibHandle, charCode);
+	fl->SetAltCharCode(charCode & 0xFFFF);
 	return 0;
 }
 
