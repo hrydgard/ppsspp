@@ -1048,10 +1048,21 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	return 0;
 }
 
-// Not sure about the arguments.
-int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 shadowCharInfoPtr) {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, shadowCharInfoPtr);
-	// TODO
+int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
+	if (!Memory::IsValidAddress(charInfoPtr)) {
+		ERROR_LOG(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x): bad charInfo pointer", fontHandle, charCode, charInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x): bad font", fontHandle, charCode, charInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
+	auto charInfo = PSPPointer<PGFCharInfo>::Create(charInfoPtr);
+	font->GetCharInfo(charCode, charInfo, FONT_PGF_SHADOWGLYPH);
+
 	return 0;
 }
 

@@ -273,7 +273,8 @@ public:
 	PGFHeader header;
 
 private:
-	bool GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &glyph);
+	bool ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph);
+	bool ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph);
 	bool GetCharGlyph(int charCode, int glyphType, Glyph &glyph) const;
 
 	// Unused
