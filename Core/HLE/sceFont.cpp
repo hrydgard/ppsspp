@@ -1028,19 +1028,19 @@ int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 index) {
 	auto fontStyle = PSPPointer<PGFFontStyle>::Create(fontInfoPtr);
 	FontLib *fl = GetFontLib(libHandle);
 	if (!fl || fl->handle() == 0) {
-		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x,  %i): invalid font lib", libHandle, fontInfoPtr, index);
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i): invalid font lib", libHandle, fontInfoPtr, index);
 		return !fl ? ERROR_FONT_INVALID_LIBID : ERROR_FONT_INVALID_PARAMETER;
 	}
 	if (index >= internalFonts.size()) {
-		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i): invalid font index", libHandle, fontInfoPtr, index);
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i): invalid font index", libHandle, fontInfoPtr, index);
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
 	if (!fontStyle.IsValid()) {
-		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i): invalid info pointer", libHandle, fontInfoPtr, index);
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i): invalid info pointer", libHandle, fontInfoPtr, index);
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
 
-	DEBUG_LOG(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, index);
+	DEBUG_LOG(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i)", libHandle, fontInfoPtr, index);
 	auto font = internalFonts[index];
 	*fontStyle = font->GetFontStyle();
 
@@ -1178,16 +1178,26 @@ int sceFontFlush(u32 fontHandle) {
 
 // One would think that this should loop through the fonts loaded in the fontLibHandle,
 // but it seems not.
-int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts) {
-	INFO_LOG(SCEFONT, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
-	numFonts = std::min(numFonts, (u32)internalFonts.size());
-	for (u32 i = 0; i < numFonts; i++)
-	{
-		PGFFontStyle style = internalFonts[i]->GetFontStyle();
-		Memory::WriteStruct(fontStylePtr, &style);
-		fontStylePtr += sizeof(style);
+int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts) {
+	auto fontStyles = PSPPointer<PGFFontStyle>::Create(fontStylePtr);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontList(%08x, %08x, %i): invalid font lib", fontLibHandle, fontStylePtr, numFonts);
+		return ERROR_FONT_INVALID_LIBID;
 	}
-	return 0;
+	if (!fontStyles.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontList(%08x, %08x, %i): invalid style pointer", fontLibHandle, fontStylePtr, numFonts);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
+	if (fl->handle() != 0) {
+		numFonts = std::min(numFonts, (int)internalFonts.size());
+		for (int i = 0; i < numFonts; i++)
+			fontStyles[i] = internalFonts[i]->GetFontStyle();
+	}
+
+	return hleDelayResult(0, "font list read", 100);
 }
 
 int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {	
@@ -1324,7 +1334,7 @@ const HLEFunction sceLibFont[] = {
 	{0x574b6fbc, WrapI_U<sceFontDoneLib>, "sceFontDoneLib"},
 	{0x48293280, WrapI_UFF<sceFontSetResolution>, "sceFontSetResolution"},	
 	{0x27f6e642, WrapI_UU<sceFontGetNumFontList>, "sceFontGetNumFontList"},
-	{0xbc75d85b, WrapI_UUU<sceFontGetFontList>, "sceFontGetFontList"},	
+	{0xbc75d85b, WrapI_UUI<sceFontGetFontList>, "sceFontGetFontList"},
 	{0x099ef33c, WrapI_UUU<sceFontFindOptimumFont>, "sceFontFindOptimumFont"},	
 	{0x681e61a7, WrapI_UUU<sceFontFindFont>, "sceFontFindFont"},	
 	{0x2f67356a, WrapI_V<sceFontCalcMemorySize>, "sceFontCalcMemorySize"},	
