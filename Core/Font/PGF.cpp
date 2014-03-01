@@ -323,16 +323,16 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 	return -1;
 }
 
-bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) const {
+bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode, int glyphType) const {
 	Glyph glyph;
 	memset(charInfo, 0, sizeof(*charInfo));
 
-	if (!GetCharGlyph(charCode, FONT_PGF_CHARGLYPH, glyph)) {
+	if (!GetCharGlyph(charCode, glyphType, glyph)) {
 		if (charCode < firstGlyph) {
 			// Character not in font, return zeroed charInfo as on real PSP.
 			return false;
 		}
-		if (!GetCharGlyph(altCharCode, FONT_PGF_CHARGLYPH, glyph)) {
+		if (!GetCharGlyph(altCharCode, glyphType, glyph)) {
 			return false;
 		}
 	}

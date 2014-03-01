@@ -264,7 +264,7 @@ public:
 
 	bool ReadPtr(const u8 *ptr, size_t dataSize);
 
-	bool GetCharInfo(int charCode, PGFCharInfo *ci, int altCharCode) const;
+	bool GetCharInfo(int charCode, PGFCharInfo *ci, int altCharCode, int glyphType = FONT_PGF_CHARGLYPH) const;
 	void GetFontInfo(PGFFontInfo *fi) const;
 	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) const;
 
