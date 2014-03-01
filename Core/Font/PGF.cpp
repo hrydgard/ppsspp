@@ -557,10 +557,14 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	int y = image->yPos64 >> 6;
 
 	// Negative means don't clip on that side.
+	if (clipX < 0)
+		clipX = 0;
+	if (clipY < 0)
+		clipY = 0;
 	if (clipWidth < 0)
-		clipWidth = glyph.w;
+		clipWidth = 8192;
 	if (clipHeight < 0)
-		clipHeight = glyph.h;
+		clipHeight = 8192;
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.
