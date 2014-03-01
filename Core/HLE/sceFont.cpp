@@ -218,6 +218,7 @@ public:
 private:
 	void Init(const u8 *data, size_t dataSize) {
 		valid_ = pgf_.ReadPtr(data, dataSize);
+		memset(&style_, 0, sizeof(style_));
 		style_.fontH = (float)pgf_.header.hSize / 64.0f;
 		style_.fontV = (float)pgf_.header.vSize / 64.0f;
 		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
