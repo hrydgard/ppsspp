@@ -276,7 +276,7 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	int charmap_compr_len = header.revision == 3 ? 7 : 1;
 	charmap_compr.resize(charmap_compr_len * 4);
 	glyphs.resize(header.charPointerLength);
-	shadowGlyphs.resize(header.shadowMapLength);
+	shadowGlyphs.resize(header.charPointerLength);
 	firstGlyph = header.firstGlyph;
 
 	// Parse out the char map (array where each entry is an irregular number of bits)
@@ -289,21 +289,21 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	}
 
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
-	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, shadowGlyphs.size());
+	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, (s32)header.shadowMapLength);
 
 	// Pregenerate glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
-		GetGlyph(fontData, charPointers[i] * 4 * 8  /* ??? */, FONT_PGF_CHARGLYPH, glyphs[i]);
+		ReadCharGlyph(fontData, charPointers[i] * 4 * 8  /* ??? */, glyphs[i]);
 	}
 
 	// And shadow glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
 		size_t shadowId = glyphs[i].shadowID;
-		if ((shadowId < shadowMap.size()) && (shadowId < shadowGlyphs.size())) {
+		if (shadowId < shadowMap.size()) {
 			size_t charId = shadowMap[shadowId];
-			if (charId < glyphs.size()) {
+			if (charId < shadowGlyphs.size()) {
 				// TODO: check for pre existing shadow glyph
-				GetGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, FONT_PGF_SHADOWGLYPH, shadowGlyphs[shadowId]);
+				ReadShadowGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, shadowGlyphs[charId]);
 			}
 		}
 	}
@@ -323,16 +323,16 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 	return -1;
 }
 
-bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode) const {
+bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode, int glyphType) const {
 	Glyph glyph;
 	memset(charInfo, 0, sizeof(*charInfo));
 
-	if (!GetCharGlyph(charCode, FONT_PGF_CHARGLYPH, glyph)) {
+	if (!GetCharGlyph(charCode, glyphType, glyph)) {
 		if (charCode < firstGlyph) {
 			// Character not in font, return zeroed charInfo as on real PSP.
 			return false;
 		}
-		if (!GetCharGlyph(altCharCode, FONT_PGF_CHARGLYPH, glyph)) {
+		if (!GetCharGlyph(altCharCode, glyphType, glyph)) {
 			return false;
 		}
 	}
@@ -387,14 +387,39 @@ void PGF::GetFontInfo(PGFFontInfo *fi) const {
 	fi->BPP = header.bpp;
 }
 
-bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &glyph) {
-	if (glyphType == FONT_PGF_SHADOWGLYPH) {
-		if (charPtr + 96 > fontDataSize * 8)
-			return false;
-		charPtr += getBits(14, fontdata, charPtr) * 8;
-		if (charPtr + 96 > fontDataSize * 8)
-			return false;
+bool PGF::ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
+	// Most of the glyph info is from the char data.
+	if (!ReadCharGlyph(fontdata, charPtr, glyph))
+		return false;
+
+	// Skip over the char data.
+	if (charPtr + 96 > fontDataSize * 8)
+		return false;
+	charPtr += getBits(14, fontdata, charPtr) * 8;
+	if (charPtr + 96 > fontDataSize * 8)
+		return false;
+
+	// Skip size.
+	charPtr += 14;
+
+	glyph.w = consumeBits(7, fontdata, charPtr);
+	glyph.h = consumeBits(7, fontdata, charPtr);
+
+	glyph.left = consumeBits(7, fontdata, charPtr);
+	if (glyph.left >= 64) {
+		glyph.left -= 128;
 	}
+
+	glyph.top = consumeBits(7, fontdata, charPtr);
+	if (glyph.top >= 64) {
+		glyph.top -= 128;
+	}
+
+	glyph.ptr = (u32)(charPtr / 8);
+	return true;
+}
+
+bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	// Skip size.
 	charPtr += 14;
 
@@ -413,98 +438,93 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 
 	glyph.flags = consumeBits(6, fontdata, charPtr);
 
-	if (glyphType == FONT_PGF_CHARGLYPH) {
-		glyph.shadowFlags = consumeBits(2, fontdata, charPtr) << (2 + 3);
-		glyph.shadowFlags |= consumeBits(2, fontdata, charPtr) << 3;
-		glyph.shadowFlags |= consumeBits(3, fontdata, charPtr);
+	glyph.shadowFlags = consumeBits(2, fontdata, charPtr) << (2 + 3);
+	glyph.shadowFlags |= consumeBits(2, fontdata, charPtr) << 3;
+	glyph.shadowFlags |= consumeBits(3, fontdata, charPtr);
 
-		glyph.shadowID = consumeBits(9, fontdata, charPtr);
+	glyph.shadowID = consumeBits(9, fontdata, charPtr);
 
-		if ((glyph.flags & FONT_PGF_METRIC_DIMENSION_INDEX) == FONT_PGF_METRIC_DIMENSION_INDEX)
-		{
-			int dimensionIndex = consumeBits(8, fontdata, charPtr);
+	if ((glyph.flags & FONT_PGF_METRIC_DIMENSION_INDEX) == FONT_PGF_METRIC_DIMENSION_INDEX)
+	{
+		int dimensionIndex = consumeBits(8, fontdata, charPtr);
 
-			if (dimensionIndex < header.dimTableLength) {
-				glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
-				glyph.dimensionHeight = dimensionTable[1][dimensionIndex];
-			}
-
-			if (dimensionIndex == 0 && isJPCSPFont(fileName.c_str())) {
-				// Fonts created by ttf2pgf do not contain complete Glyph information.
-				// Provide default values.
-				glyph.dimensionWidth = glyph.w << 6;
-				glyph.dimensionHeight = glyph.h << 6;
-			}
-		}
-		else
-		{
-			glyph.dimensionWidth = consumeBits(32, fontdata, charPtr);
-			glyph.dimensionHeight = consumeBits(32, fontdata, charPtr);
+		if (dimensionIndex < header.dimTableLength) {
+			glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
+			glyph.dimensionHeight = dimensionTable[1][dimensionIndex];
 		}
 
-		if ((glyph.flags & FONT_PGF_METRIC_BEARING_X_INDEX) == FONT_PGF_METRIC_BEARING_X_INDEX)
-		{
-			int xAdjustIndex = consumeBits(8, fontdata, charPtr);
-
-			if (xAdjustIndex < header.xAdjustTableLength) {
-				glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
-				glyph.xAdjustV = xAdjustTable[1][xAdjustIndex];
-			}
-
-			if (xAdjustIndex == 0 && isJPCSPFont(fileName.c_str()))
-			{
-				// Fonts created by ttf2pgf do not contain complete Glyph information.
-				// Provide default values.
-				glyph.xAdjustH = glyph.left << 6;
-				glyph.xAdjustV = glyph.left << 6;
-			}
+		if (dimensionIndex == 0 && isJPCSPFont(fileName.c_str())) {
+			// Fonts created by ttf2pgf do not contain complete Glyph information.
+			// Provide default values.
+			glyph.dimensionWidth = glyph.w << 6;
+			glyph.dimensionHeight = glyph.h << 6;
 		}
-		else
-		{
-			glyph.xAdjustH = consumeBits(32, fontdata, charPtr);
-			glyph.xAdjustV = consumeBits(32, fontdata, charPtr);
-		}
+	}
+	else
+	{
+		glyph.dimensionWidth = consumeBits(32, fontdata, charPtr);
+		glyph.dimensionHeight = consumeBits(32, fontdata, charPtr);
+	}
 
-		if ((glyph.flags & FONT_PGF_METRIC_BEARING_Y_INDEX) == FONT_PGF_METRIC_BEARING_Y_INDEX)
-		{
-			int yAdjustIndex = consumeBits(8, fontdata, charPtr);
+	if ((glyph.flags & FONT_PGF_METRIC_BEARING_X_INDEX) == FONT_PGF_METRIC_BEARING_X_INDEX)
+	{
+		int xAdjustIndex = consumeBits(8, fontdata, charPtr);
 
-			if (yAdjustIndex < header.xAdjustTableLength) {
-				glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
-				glyph.yAdjustV = yAdjustTable[1][yAdjustIndex];
-			}
-
-			if (yAdjustIndex == 0 && isJPCSPFont(fileName.c_str()))
-			{
-				// Fonts created by ttf2pgf do not contain complete Glyph information.
-				// Provide default values.
-				glyph.yAdjustH = glyph.top << 6;
-				glyph.yAdjustV = glyph.top << 6;
-			}
-		}
-		else
-		{
-			glyph.yAdjustH = consumeBits(32, fontdata, charPtr);
-			glyph.yAdjustV = consumeBits(32, fontdata, charPtr);
+		if (xAdjustIndex < header.xAdjustTableLength) {
+			glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
+			glyph.xAdjustV = xAdjustTable[1][xAdjustIndex];
 		}
 
-		if ((glyph.flags & FONT_PGF_METRIC_ADVANCE_INDEX) == FONT_PGF_METRIC_ADVANCE_INDEX)
+		if (xAdjustIndex == 0 && isJPCSPFont(fileName.c_str()))
 		{
-			int advanceIndex = consumeBits(8, fontdata, charPtr);
+			// Fonts created by ttf2pgf do not contain complete Glyph information.
+			// Provide default values.
+			glyph.xAdjustH = glyph.left << 6;
+			glyph.xAdjustV = glyph.left << 6;
+		}
+	}
+	else
+	{
+		glyph.xAdjustH = consumeBits(32, fontdata, charPtr);
+		glyph.xAdjustV = consumeBits(32, fontdata, charPtr);
+	}
 
-			if (advanceIndex < header.advanceTableLength) {
-				glyph.advanceH = advanceTable[0][advanceIndex];
-				glyph.advanceV = advanceTable[1][advanceIndex];
-			}
+	if ((glyph.flags & FONT_PGF_METRIC_BEARING_Y_INDEX) == FONT_PGF_METRIC_BEARING_Y_INDEX)
+	{
+		int yAdjustIndex = consumeBits(8, fontdata, charPtr);
+
+		if (yAdjustIndex < header.xAdjustTableLength) {
+			glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
+			glyph.yAdjustV = yAdjustTable[1][yAdjustIndex];
 		}
-		else
+
+		if (yAdjustIndex == 0 && isJPCSPFont(fileName.c_str()))
 		{
-			glyph.advanceH = consumeBits(32, fontdata, charPtr);
-			glyph.advanceV = consumeBits(32, fontdata, charPtr);
+			// Fonts created by ttf2pgf do not contain complete Glyph information.
+			// Provide default values.
+			glyph.yAdjustH = glyph.top << 6;
+			glyph.yAdjustV = glyph.top << 6;
 		}
-	} else {
-		glyph.shadowID = 65535;
-		glyph.advanceH = 0;
+	}
+	else
+	{
+		glyph.yAdjustH = consumeBits(32, fontdata, charPtr);
+		glyph.yAdjustV = consumeBits(32, fontdata, charPtr);
+	}
+
+	if ((glyph.flags & FONT_PGF_METRIC_ADVANCE_INDEX) == FONT_PGF_METRIC_ADVANCE_INDEX)
+	{
+		int advanceIndex = consumeBits(8, fontdata, charPtr);
+
+		if (advanceIndex < header.advanceTableLength) {
+			glyph.advanceH = advanceTable[0][advanceIndex];
+			glyph.advanceV = advanceTable[1][advanceIndex];
+		}
+	}
+	else
+	{
+		glyph.advanceH = consumeBits(32, fontdata, charPtr);
+		glyph.advanceV = consumeBits(32, fontdata, charPtr);
 	}
 
 	glyph.ptr = (u32)(charPtr / 8);
@@ -557,10 +577,14 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	int y = image->yPos64 >> 6;
 
 	// Negative means don't clip on that side.
+	if (clipX < 0)
+		clipX = 0;
+	if (clipY < 0)
+		clipY = 0;
 	if (clipWidth < 0)
-		clipWidth = glyph.w;
+		clipWidth = 8192;
 	if (clipHeight < 0)
-		clipHeight = glyph.h;
+		clipHeight = 8192;
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.

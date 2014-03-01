@@ -161,7 +161,7 @@ public:
 
 	const PGFFontStyle &GetFontStyle() const { return style_; }
 
-	MatchQuality MatchesStyle(const PGFFontStyle &style, bool optimum) const {
+	MatchQuality MatchesStyle(const PGFFontStyle &style) const {
 		// If no field matches, it doesn't match.
 		MatchQuality match = MATCH_UNKNOWN;
 
@@ -218,6 +218,7 @@ public:
 private:
 	void Init(const u8 *data, size_t dataSize) {
 		valid_ = pgf_.ReadPtr(data, dataSize);
+		memset(&style_, 0, sizeof(style_));
 		style_.fontH = (float)pgf_.header.hSize / 64.0f;
 		style_.fontV = (float)pgf_.header.vSize / 64.0f;
 		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
@@ -258,10 +259,14 @@ public:
 	LoadedFont(Font *font, u32 fontLibID, u32 handle)
 		: fontLibID_(fontLibID), font_(font), handle_(handle), open_(true) {}
 
-	Font *GetFont() { return font_; }
-	PGF *GetPGF() { return font_->GetPGF(); }
+	const Font *GetFont() const { return font_; }
+	const PGF *GetPGF() const { return font_->GetPGF(); }
+	const FontLib *GetFontLib() const { return fontLibList[fontLibID_]; }
 	FontLib *GetFontLib() { return fontLibList[fontLibID_]; }
 	u32 Handle() const { return handle_; }
+
+	bool GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType = FONT_PGF_CHARGLYPH) const;
+	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int glyphType) const;
 
 	bool IsOpen() const { return open_; }
 	void Close() {
@@ -357,8 +362,13 @@ struct NativeFontLib {
 	float_le vRes;
 	u32_le internalFontCount;
 	u32_le internalFontInfo;
-	u16_le unk4;
+	u16_le altCharCode;
 	u16_le unk5;
+};
+
+struct FontImageRect {
+	s16_le width;
+	s16_le height;
 };
 
 // A "fontLib" is a container of loaded fonts.
@@ -369,7 +379,8 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f) {
+	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f), altCharCode_(0x5F) {
+		nfl_ = 0;
 		Memory::ReadStruct(paramPtr, &params_);
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
@@ -416,17 +427,17 @@ public:
 
 		// Let's write out the native struct to make tests easier.
 		// It's possible games may depend on this staying in ram, e.g. copying it, we may move to that.
-		auto nfl = PSPPointer<NativeFontLib>::Create(allocatedAddr);
-		nfl->params = params_;
-		nfl->fontInfo1 = allocatedAddr + 0x4C;
-		nfl->fontInfo2 = allocatedAddr + 0x4C + params_.numFonts * 0x4C;
-		nfl->unk1 = 0;
-		nfl->unk2 = 0;
-		nfl->hRes = fontHRes_;
-		nfl->vRes = fontVRes_;
-		nfl->internalFontCount = (u32)internalFonts.size();
-		nfl->internalFontInfo = allocatedAddr + 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230;
-		nfl->unk4 = 0x5F;
+		nfl_ = allocatedAddr;
+		nfl_->params = params_;
+		nfl_->fontInfo1 = allocatedAddr + 0x4C;
+		nfl_->fontInfo2 = allocatedAddr + 0x4C + params_.numFonts * 0x4C;
+		nfl_->unk1 = 0;
+		nfl_->unk2 = 0;
+		nfl_->hRes = fontHRes_;
+		nfl_->vRes = fontVRes_;
+		nfl_->internalFontCount = (u32)internalFonts.size();
+		nfl_->internalFontInfo = allocatedAddr + 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230;
+		nfl_->altCharCode = altCharCode_;
 	}
 
 	u32 handle() const { return handle_; }
@@ -435,12 +446,20 @@ public:
 	void SetResolution(float hres, float vres) {
 		fontHRes_ = hres;
 		fontVRes_ = vres;
+		if (nfl_.IsValid()) {
+			nfl_->hRes = hres;
+			nfl_->vRes = vres;
+		}
 	}
 
 	float FontHRes() const { return fontHRes_; }
 	float FontVRes() const { return fontVRes_; }
 
-	void SetAltCharCode(int charCode) { altCharCode_ = charCode; }
+	void SetAltCharCode(int charCode) {
+		altCharCode_ = charCode;
+		if (nfl_.IsValid())
+			nfl_->altCharCode = charCode;
+	}
 
 	int GetFontHandle(int index) {
 		return fonts_[index];
@@ -482,7 +501,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("FontLib", 1);
+		auto s = p.Section("FontLib", 1, 2);
 		if (!s)
 			return;
 
@@ -494,6 +513,11 @@ public:
 		p.Do(fileFontHandle_);
 		p.Do(handle_);
 		p.Do(altCharCode_);
+		if (s >= 2) {
+			p.Do(nfl_);
+		} else {
+			nfl_ = 0;
+		}
 	}
 
 	void SetFileFontHandle(u32 handle) {
@@ -512,6 +536,7 @@ private:
 	int fileFontHandle_;
 	int handle_;
 	int altCharCode_;
+	PSPPointer<NativeFontLib> nfl_;
 
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
 };
@@ -537,6 +562,18 @@ void PostOpenCallback::run(MipsCall &call) {
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	fontLib->SetFileFontHandle(v0);
+}
+
+inline bool LoadedFont::GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType) const {
+	auto fontLib = GetFontLib();
+	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
+	return GetPGF()->GetCharInfo(charCode, charInfo, altCharCode, glyphType);
+}
+
+inline void LoadedFont::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int glyphType) const {
+	auto fontLib = GetFontLib();
+	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
+	GetPGF()->DrawCharacter(image, clipX, clipY, clipWidth, clipHeight, charCode, altCharCode, glyphType);
 }
 
 FontLib *GetFontLib(u32 handle) {
@@ -619,26 +656,6 @@ Style FontStyleFromString(const std::string &str) {
 	else if (str == "Bold Italic")
 		return FONT_STYLE_BOLD_ITALIC;
 	return FONT_STYLE_REGULAR;
-}
-
-Font *GetOptimumFont(const PGFFontStyle &requestedStyle, Font *optimumFont, Font *candidateFont) {
-	if (!optimumFont)
-		return candidateFont;
-	PGFFontStyle optimumStyle = optimumFont->GetFontStyle();
-	PGFFontStyle candidateStyle = candidateFont->GetFontStyle();
-
-	bool testH = requestedStyle.fontH != 0.0f || requestedStyle.fontV == 0.0f;
-	if (testH && fabsf(requestedStyle.fontH - optimumStyle.fontH) > fabsf(requestedStyle.fontH - candidateStyle.fontH)) {
-		return candidateFont;
-	}
-
-	// Check the fontV if it is specified or both fontH and fontV are unspecified
-	bool testV = requestedStyle.fontV != 0.f || requestedStyle.fontH == 0.f;
-	if (testV && fabsf(requestedStyle.fontV - optimumStyle.fontV) > fabsf(requestedStyle.fontV - candidateStyle.fontV)) {
-		return candidateFont;
-	}
-
-	return optimumFont;
 }
 
 int GetInternalFontIndex(Font *font) {
@@ -884,16 +901,17 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
 	float vRes = requestedStyle->fontVRes > 0.0f ? requestedStyle->fontVRes : fontLib->FontVRes();
 	Font *optimumFont = 0;
+	Font *nearestFont = 0;
 	float nearestDist = std::numeric_limits<float>::infinity();
 	for (size_t i = 0; i < internalFonts.size(); i++) {
-		MatchQuality q = internalFonts[i]->MatchesStyle(*requestedStyle, true);
+		MatchQuality q = internalFonts[i]->MatchesStyle(*requestedStyle);
 		if (q != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
 			if (requestedStyle->fontH > 0.0f) {
 				float hDist = abs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
 				if (hDist < nearestDist) {
 					nearestDist = hDist;
-					q = MATCH_GOOD;
+					nearestFont = internalFonts[i];
 				}
 			}
 			if (requestedStyle->fontV > 0.0f) {
@@ -901,13 +919,16 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 				float vDist = abs(matchStyle.fontVRes * matchStyle.fontV - vRes * requestedStyle->fontH);
 				if (vDist < nearestDist) {
 					nearestDist = vDist;
-					q = MATCH_GOOD;
+					nearestFont = internalFonts[i];
 				}
 			}
 		}
 		if (q == MATCH_GOOD) {
 			optimumFont = internalFonts[i];
 		}
+	}
+	if (nearestFont) {
+		optimumFont = nearestFont;
 	}
 	if (optimumFont) {
 		*errorCode = 0;
@@ -947,7 +968,7 @@ int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
 	float vRes = requestedStyle->fontVRes > 0.0f ? requestedStyle->fontVRes : fontLib->FontVRes();
 	for (size_t i = 0; i < internalFonts.size(); i++) {
-		if (internalFonts[i]->MatchesStyle(*requestedStyle, false) != MATCH_NONE) {
+		if (internalFonts[i]->MatchesStyle(*requestedStyle) != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
 			if (requestedStyle->fontH > 0.0f) {
 				float hDist = abs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
@@ -986,11 +1007,28 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 	return 0;
 }
 
-int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown, u32 fontIndex) {
-	DEBUG_LOG(SCEFONT, "sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, unknown, fontIndex);
+// It says FontInfo but it means Style - this is like sceFontGetFontList().
+int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 index) {
+	auto fontStyle = PSPPointer<PGFFontStyle>::Create(fontInfoPtr);
 	FontLib *fl = GetFontLib(libHandle);
-	u32 fontHandle = fl->GetFontHandle(fontIndex);
-	return sceFontGetFontInfo(fontHandle, fontInfoPtr);
+	if (!fl || fl->handle() == 0) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i): invalid font lib", libHandle, fontInfoPtr, index);
+		return !fl ? ERROR_FONT_INVALID_LIBID : ERROR_FONT_INVALID_PARAMETER;
+	}
+	if (index >= internalFonts.size()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i): invalid font index", libHandle, fontInfoPtr, index);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	if (!fontStyle.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i): invalid info pointer", libHandle, fontInfoPtr, index);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetFontInfoByIndexNumber(%08x, %08x, %i)", libHandle, fontInfoPtr, index);
+	auto font = internalFonts[index];
+	*fontStyle = font->GetFontStyle();
+
+	return 0;
 }
 
 int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
@@ -1006,42 +1044,67 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	}
 
 	DEBUG_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
-	auto fontLib = font->GetFontLib();
-	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	auto charInfo = PSPPointer<PGFCharInfo>::Create(charInfoPtr);
-	font->GetPGF()->GetCharInfo(charCode, charInfo, altCharCode);
+	font->GetCharInfo(charCode, charInfo);
 
 	return 0;
 }
 
-// Not sure about the arguments.
-int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 shadowCharInfoPtr) {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, shadowCharInfoPtr);
-	// TODO
+int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
+	if (!Memory::IsValidAddress(charInfoPtr)) {
+		ERROR_LOG(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x): bad charInfo pointer", fontHandle, charCode, charInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x): bad font", fontHandle, charCode, charInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
+	auto charInfo = PSPPointer<PGFCharInfo>::Create(charInfoPtr);
+	font->GetCharInfo(charCode, charInfo, FONT_PGF_SHADOWGLYPH);
+
 	return 0;
 }
 
 int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
-	DEBUG_LOG(SCEFONT, "sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
-	if (!Memory::IsValidAddress(charRectPtr))
-		return -1;
-	
-	PGFCharInfo charInfo;
-	LoadedFont *font = GetLoadedFont(fontHandle, false);
-	if (font) {
-		auto fontLib = font->GetFontLib();
-		int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
-		font->GetPGF()->GetCharInfo(charCode, &charInfo, altCharCode);
-		Memory::Write_U16(charInfo.bitmapWidth, charRectPtr);      // character bitmap width in pixels
-		Memory::Write_U16(charInfo.bitmapHeight, charRectPtr + 2);  // character bitmap height in pixels
-	} else {
-		ERROR_LOG(SCEFONT, "sceFontGetCharImageRect - invalid font");
+	auto charRect = PSPPointer<FontImageRect>::Create(charRectPtr);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetCharImageRect(%08x, %i, %08x): bad font", fontHandle, charCode, charRectPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
 	}
+	if (!charRect.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetCharImageRect(%08x, %i, %08x): invalid rect pointer", fontHandle, charCode, charRectPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
+	PGFCharInfo charInfo;
+	font->GetCharInfo(charCode, &charInfo);
+	charRect->width = charInfo.bitmapWidth;
+	charRect->height = charInfo.bitmapHeight;
 	return 0;
 }
 
 int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowImageRect()");
+	auto charRect = PSPPointer<FontImageRect>::Create(charRectPtr);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowImageRect(%08x, %i, %08x): bad font", fontHandle, charCode, charRectPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	if (!charRect.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowImageRect(%08x, %i, %08x): invalid rect pointer", fontHandle, charCode, charRectPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
+	PGFCharInfo charInfo;
+	font->GetCharInfo(charCode, &charInfo, FONT_PGF_SHADOWGLYPH);
+	charRect->width = charInfo.bitmapWidth;
+	charRect->height = charInfo.bitmapHeight;
 	return 0;
 }
 
@@ -1058,8 +1121,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 
 	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
-	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->DrawCharacter(glyph, -1, -1, -1, -1, charCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
@@ -1076,17 +1138,19 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 
 	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
-	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
 int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
-	INFO_LOG(SCEFONT, "sceFontSetAltCharacterCode(%08x) (%08x)", fontLibHandle, charCode);
 	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		fl->SetAltCharCode(charCode);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontSetAltCharacterCode(%08x, %08x): invalid font lib", fontLibHandle, charCode);
+		return ERROR_FONT_INVALID_LIBID;
 	}
+
+	INFO_LOG(SCEFONT, "sceFontSetAltCharacterCode(%08x, %08x)", fontLibHandle, charCode);
+	fl->SetAltCharCode(charCode & 0xFFFF);
 	return 0;
 }
 
@@ -1098,76 +1162,126 @@ int sceFontFlush(u32 fontHandle) {
 
 // One would think that this should loop through the fonts loaded in the fontLibHandle,
 // but it seems not.
-int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts) {
-	INFO_LOG(SCEFONT, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
-	numFonts = std::min(numFonts, (u32)internalFonts.size());
-	for (u32 i = 0; i < numFonts; i++)
-	{
-		PGFFontStyle style = internalFonts[i]->GetFontStyle();
-		Memory::WriteStruct(fontStylePtr, &style);
-		fontStylePtr += sizeof(style);
+int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts) {
+	auto fontStyles = PSPPointer<PGFFontStyle>::Create(fontStylePtr);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontList(%08x, %08x, %i): invalid font lib", fontLibHandle, fontStylePtr, numFonts);
+		return ERROR_FONT_INVALID_LIBID;
 	}
-	return 0;
+	if (!fontStyles.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetFontList(%08x, %08x, %i): invalid style pointer", fontLibHandle, fontStylePtr, numFonts);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
+	if (fl->handle() != 0) {
+		numFonts = std::min(numFonts, (int)internalFonts.size());
+		for (int i = 0; i < numFonts; i++)
+			fontStyles[i] = internalFonts[i]->GetFontStyle();
+	}
+
+	return hleDelayResult(0, "font list read", 100);
 }
 
 int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {	
-	INFO_LOG(SCEFONT, "sceFontGetNumFontList(%08x, %08x)", fontLibHandle, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	return (int)internalFonts.size();
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetNumFontList(%08x, %08x): invalid error address", fontLibHandle, errorCodePtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetNumFontList(%08x, %08x): invalid font lib", fontLibHandle, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontGetNumFontList(%08x, %08x)", fontLibHandle, errorCodePtr);
+	*errorCode = 0;
+	return fl->handle() == 0 ? 0 : (int)internalFonts.size();
 }
 
 int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
-	INFO_LOG(SCEFONT, "sceFontSetResolution(%08x, %f, %f)", fontLibHandle, hRes, vRes);
 	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		fl->SetResolution(hRes, vRes);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontSetResolution(%08x, %f, %f): invalid font lib", fontLibHandle, hRes, vRes);
+		return ERROR_FONT_INVALID_LIBID;
 	}
+	if (hRes <= 0.0f || vRes <= 0.0f) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontSetResolution(%08x, %f, %f): negative value", fontLibHandle, hRes, vRes);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	INFO_LOG(SCEFONT, "sceFontSetResolution(%08x, %f, %f)", fontLibHandle, hRes, vRes);
+	fl->SetResolution(hRes, vRes);
 	return 0;
 }
 
 float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x)", fontLibHandle, fontPixelsH, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPixelsH * pointDPI / fl->FontHRes();
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x): invalid error address", fontLibHandle, fontPixelsH, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPixelsH, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x)", fontLibHandle, fontPixelsH, errorCodePtr);
+	*errorCode = 0;
+	return fontPixelsH * pointDPI / fl->FontHRes();
 }
 
 float sceFontPixelToPointV(int fontLibHandle, float fontPixelsV, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x)", fontLibHandle, fontPixelsV, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPixelsV * pointDPI / fl->FontVRes();
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x): invalid error address", fontLibHandle, fontPixelsV, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPixelsV, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x)", fontLibHandle, fontPixelsV, errorCodePtr);
+	*errorCode = 0;
+	return fontPixelsV * pointDPI / fl->FontVRes();
 }
 
 float sceFontPointToPixelH(int fontLibHandle, float fontPointsH, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x)", fontLibHandle, fontPointsH, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPointsH * fl->FontHRes() / pointDPI;
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x): invalid error address", fontLibHandle, fontPointsH, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPointsH, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x)", fontLibHandle, fontPointsH, errorCodePtr);
+	*errorCode = 0;
+	return fontPointsH * fl->FontHRes() / pointDPI;
 }
 
 float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x)", fontLibHandle, fontPointsV, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPointsV * fl->FontVRes() / pointDPI;
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x): invalid error address", fontLibHandle, fontPointsV, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPointsV, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x)", fontLibHandle, fontPointsV, errorCodePtr);
+	*errorCode = 0;
+	return fontPointsV * fl->FontVRes() / pointDPI;
 }
 
 int sceFontCalcMemorySize() {
@@ -1175,13 +1289,37 @@ int sceFontCalcMemorySize() {
 	return 0;
 }
 
-int sceFontGetShadowGlyphImage() {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowGlyphImage()");
+int sceFontGetShadowGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
+	if (!Memory::IsValidAddress(glyphImagePtr)) {
+		ERROR_LOG(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x): bad font", fontHandle, charCode, glyphImagePtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
+	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
+	font->DrawCharacter(glyph, -1, -1, -1, -1, charCode, FONT_PGF_SHADOWGLYPH);
 	return 0;
 }
 
-int sceFontGetShadowGlyphImage_Clip() {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowGlyphImage_Clip()");
+int sceFontGetShadowGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
+	if (!Memory::IsValidAddress(glyphImagePtr)) {
+		ERROR_LOG(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad font", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
+	font->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, FONT_PGF_SHADOWGLYPH);
 	return 0;
 }
 
@@ -1190,11 +1328,11 @@ const HLEFunction sceLibFont[] = {
 	{0x574b6fbc, WrapI_U<sceFontDoneLib>, "sceFontDoneLib"},
 	{0x48293280, WrapI_UFF<sceFontSetResolution>, "sceFontSetResolution"},	
 	{0x27f6e642, WrapI_UU<sceFontGetNumFontList>, "sceFontGetNumFontList"},
-	{0xbc75d85b, WrapI_UUU<sceFontGetFontList>, "sceFontGetFontList"},	
+	{0xbc75d85b, WrapI_UUI<sceFontGetFontList>, "sceFontGetFontList"},
 	{0x099ef33c, WrapI_UUU<sceFontFindOptimumFont>, "sceFontFindOptimumFont"},	
 	{0x681e61a7, WrapI_UUU<sceFontFindFont>, "sceFontFindFont"},	
 	{0x2f67356a, WrapI_V<sceFontCalcMemorySize>, "sceFontCalcMemorySize"},	
-	{0x5333322d, WrapI_UUUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
+	{0x5333322d, WrapI_UUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
 	{0xa834319d, WrapU_UUUU<sceFontOpen>, "sceFontOpen"},	
 	{0x57fcb733, WrapU_UCUU<sceFontOpenUserFile>, "sceFontOpenUserFile"},	
 	{0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory"},	
@@ -1211,8 +1349,8 @@ const HLEFunction sceLibFont[] = {
 	{0x472694cd, WrapF_IFU<sceFontPointToPixelH>, "sceFontPointToPixelH"},	
 	{0x3c4b7e82, WrapF_IFU<sceFontPointToPixelV>, "sceFontPointToPixelV"},	
 	{0xee232411, WrapI_UU<sceFontSetAltCharacterCode>, "sceFontSetAltCharacterCode"},
-	{0x568be516, WrapI_V<sceFontGetShadowGlyphImage>, "sceFontGetShadowGlyphImage"},
-	{0x5dcf6858, WrapI_V<sceFontGetShadowGlyphImage_Clip>, "sceFontGetShadowGlyphImage_Clip"},
+	{0x568be516, WrapI_UUU<sceFontGetShadowGlyphImage>, "sceFontGetShadowGlyphImage"},
+	{0x5dcf6858, WrapI_UUUIIII<sceFontGetShadowGlyphImage_Clip>, "sceFontGetShadowGlyphImage_Clip"},
 	{0x02d7f94b, WrapI_U<sceFontFlush>, "sceFontFlush"},
 };
 
