@@ -71,6 +71,7 @@
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
 #include "UIShader.h"
+#include "HostTypes.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
@@ -100,7 +101,6 @@ Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
-std::string game_title;
 
 #ifdef IOS
 bool iosCanUseJit;
@@ -144,43 +144,6 @@ public:
 	}
 };
 
-
-// TODO: Get rid of this junk
-class NativeHost : public Host {
-public:
-	NativeHost() {
-		// hasRendered = false;
-	}
-
-	virtual void UpdateUI() {}
-
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
-
-	virtual void SetDebugMode(bool mode) { }
-
-	virtual bool InitGL(std::string *error_message) { return true; }
-	virtual void ShutdownGL() {}
-
-	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound();
-
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {}
-
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
-	virtual void ResetSymbolMap() {}
-	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
-	virtual void SetWindowTitle(const char *message) {
-		if (message)
-			game_title = message;
-		else
-			game_title = "";
-	}
-};
-
 // globals
 static PMixer *g_mixer = 0;
 #ifndef _WIN32
@@ -202,6 +165,11 @@ void NativeHost::ShutdownSound() {
 #endif
 	g_mixer = 0;
 }
+
+#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
+void QtHost::InitSound(PMixer *mixer) { g_mixer = mixer; }
+void QtHost::ShutdownSound() { g_mixer = 0; }
+#endif
 
 std::string NativeQueryConfig(std::string query) {
 	if (query == "screenRotation") {
@@ -266,7 +234,9 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	VFSRegister("", new DirectoryAssetReader(savegame_directory));
 
+#if defined(MOBILE_DEVICE) || !defined(USING_QT_UI)
 	host = new NativeHost();
+#endif
 
 #if defined(ANDROID)
 	g_Config.internalDataDirectory = savegame_directory;
@@ -421,6 +391,12 @@ void NativeInit(int argc, const char *argv[],
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
+
+#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
+	MainWindow* mainWindow = new MainWindow(0);
+	mainWindow->show();
+	host = new QtHost(mainWindow);
+#endif
 }
 
 void NativeInitGraphics() {

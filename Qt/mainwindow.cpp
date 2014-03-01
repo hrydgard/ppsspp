@@ -15,8 +15,6 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
-#include "QtHost.h"
-
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	currentLanguage("en"),
@@ -27,7 +25,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
-	host = new QtHost(this);
 	emugl = new MainUI(this);
 
 	setCentralWidget(emugl);
@@ -35,8 +32,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	updateMenus();
 
 	SetZoom(g_Config.iInternalResolution);
-
-	SetGameTitle(fileToStart);
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
