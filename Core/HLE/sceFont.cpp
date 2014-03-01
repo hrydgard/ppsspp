@@ -1136,11 +1136,17 @@ int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {
 }
 
 int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
-	INFO_LOG(SCEFONT, "sceFontSetResolution(%08x, %f, %f)", fontLibHandle, hRes, vRes);
 	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		fl->SetResolution(hRes, vRes);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontSetResolution(%08x, %f, %f): invalid font lib", fontLibHandle, hRes, vRes);
+		return ERROR_FONT_INVALID_LIBID;
 	}
+	if (hRes <= 0.0f || vRes <= 0.0f) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontSetResolution(%08x, %f, %f): negative value", fontLibHandle, hRes, vRes);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	INFO_LOG(SCEFONT, "sceFontSetResolution(%08x, %f, %f)", fontLibHandle, hRes, vRes);
+	fl->SetResolution(hRes, vRes);
 	return 0;
 }
 
