@@ -1151,47 +1151,71 @@ int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
 }
 
 float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x)", fontLibHandle, fontPixelsH, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPixelsH * pointDPI / fl->FontHRes();
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x): invalid error address", fontLibHandle, fontPixelsH, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPixelsH, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x)", fontLibHandle, fontPixelsH, errorCodePtr);
+	*errorCode = 0;
+	return fontPixelsH * pointDPI / fl->FontHRes();
 }
 
 float sceFontPixelToPointV(int fontLibHandle, float fontPixelsV, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x)", fontLibHandle, fontPixelsV, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPixelsV * pointDPI / fl->FontVRes();
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x): invalid error address", fontLibHandle, fontPixelsV, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPixelsV, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x)", fontLibHandle, fontPixelsV, errorCodePtr);
+	*errorCode = 0;
+	return fontPixelsV * pointDPI / fl->FontVRes();
 }
 
 float sceFontPointToPixelH(int fontLibHandle, float fontPointsH, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x)", fontLibHandle, fontPointsH, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPointsH * fl->FontHRes() / pointDPI;
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x): invalid error address", fontLibHandle, fontPointsH, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPointsH, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x)", fontLibHandle, fontPointsH, errorCodePtr);
+	*errorCode = 0;
+	return fontPointsH * fl->FontHRes() / pointDPI;
 }
 
 float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 errorCodePtr) {
-	DEBUG_LOG(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x)", fontLibHandle, fontPointsV, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	FontLib *fl = GetFontLib(fontLibHandle);
-	if (fl) {
-		return fontPointsV * fl->FontVRes() / pointDPI;
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x): invalid error address", fontLibHandle, fontPointsV, errorCodePtr);
+		return 0.0f;
 	}
-	return 0;
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPointsV, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0.0f;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x)", fontLibHandle, fontPointsV, errorCodePtr);
+	*errorCode = 0;
+	return fontPointsV * fl->FontVRes() / pointDPI;
 }
 
 int sceFontCalcMemorySize() {
