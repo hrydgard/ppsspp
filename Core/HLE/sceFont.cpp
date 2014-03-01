@@ -161,7 +161,7 @@ public:
 
 	const PGFFontStyle &GetFontStyle() const { return style_; }
 
-	MatchQuality MatchesStyle(const PGFFontStyle &style, bool optimum) const {
+	MatchQuality MatchesStyle(const PGFFontStyle &style) const {
 		// If no field matches, it doesn't match.
 		MatchQuality match = MATCH_UNKNOWN;
 
@@ -658,26 +658,6 @@ Style FontStyleFromString(const std::string &str) {
 	return FONT_STYLE_REGULAR;
 }
 
-Font *GetOptimumFont(const PGFFontStyle &requestedStyle, Font *optimumFont, Font *candidateFont) {
-	if (!optimumFont)
-		return candidateFont;
-	PGFFontStyle optimumStyle = optimumFont->GetFontStyle();
-	PGFFontStyle candidateStyle = candidateFont->GetFontStyle();
-
-	bool testH = requestedStyle.fontH != 0.0f || requestedStyle.fontV == 0.0f;
-	if (testH && fabsf(requestedStyle.fontH - optimumStyle.fontH) > fabsf(requestedStyle.fontH - candidateStyle.fontH)) {
-		return candidateFont;
-	}
-
-	// Check the fontV if it is specified or both fontH and fontV are unspecified
-	bool testV = requestedStyle.fontV != 0.f || requestedStyle.fontH == 0.f;
-	if (testV && fabsf(requestedStyle.fontV - optimumStyle.fontV) > fabsf(requestedStyle.fontV - candidateStyle.fontV)) {
-		return candidateFont;
-	}
-
-	return optimumFont;
-}
-
 int GetInternalFontIndex(Font *font) {
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i] == font)
@@ -921,16 +901,17 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
 	float vRes = requestedStyle->fontVRes > 0.0f ? requestedStyle->fontVRes : fontLib->FontVRes();
 	Font *optimumFont = 0;
+	Font *nearestFont = 0;
 	float nearestDist = std::numeric_limits<float>::infinity();
 	for (size_t i = 0; i < internalFonts.size(); i++) {
-		MatchQuality q = internalFonts[i]->MatchesStyle(*requestedStyle, true);
+		MatchQuality q = internalFonts[i]->MatchesStyle(*requestedStyle);
 		if (q != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
 			if (requestedStyle->fontH > 0.0f) {
 				float hDist = abs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
 				if (hDist < nearestDist) {
 					nearestDist = hDist;
-					q = MATCH_GOOD;
+					nearestFont = internalFonts[i];
 				}
 			}
 			if (requestedStyle->fontV > 0.0f) {
@@ -938,13 +919,16 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 				float vDist = abs(matchStyle.fontVRes * matchStyle.fontV - vRes * requestedStyle->fontH);
 				if (vDist < nearestDist) {
 					nearestDist = vDist;
-					q = MATCH_GOOD;
+					nearestFont = internalFonts[i];
 				}
 			}
 		}
 		if (q == MATCH_GOOD) {
 			optimumFont = internalFonts[i];
 		}
+	}
+	if (nearestFont) {
+		optimumFont = nearestFont;
 	}
 	if (optimumFont) {
 		*errorCode = 0;
@@ -984,7 +968,7 @@ int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
 	float vRes = requestedStyle->fontVRes > 0.0f ? requestedStyle->fontVRes : fontLib->FontVRes();
 	for (size_t i = 0; i < internalFonts.size(); i++) {
-		if (internalFonts[i]->MatchesStyle(*requestedStyle, false) != MATCH_NONE) {
+		if (internalFonts[i]->MatchesStyle(*requestedStyle) != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
 			if (requestedStyle->fontH > 0.0f) {
 				float hDist = abs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
