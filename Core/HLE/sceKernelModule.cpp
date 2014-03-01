@@ -762,6 +762,43 @@ void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u
 	INFO_LOG(SCEMODULE, "Successfully wrote decrypted EBOOT to %s", fullPath.c_str());
 }
 
+static bool IsHLEVersionedModule(const char *name) {
+	// TODO: Only some of these are currently known to be versioned.
+	// Potentially only sceMpeg_library matters.
+	// For now, we're just reporting version numbers.
+	for (size_t i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
+		if (!strncmp(name, blacklistedModules[i], 28)) {
+			return true;
+		}
+	}
+	static const char *otherModules[] = {
+		"sceAvcodec_driver",
+		"sceAudiocodec_Driver",
+		"sceAudiocodec",
+		"sceVideocodec_Driver",
+		"sceVideocodec",
+		"sceMpegbase_Driver",
+		"sceMpegbase",
+		"scePsmf_library",
+		"scePsmfP_library",
+		"scePsmfPlayer",
+		"sceSAScore",
+		"sceCcc_Library",
+		"SceParseHTTPheader_Library",
+		"SceParseURI_Library",
+		// Guessing.
+		"sceJpeg",
+		"sceJpeg_library",
+		"sceJpeg_Library",
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(otherModules); i++) {
+		if (!strncmp(name, otherModules[i], 28)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
@@ -779,6 +816,14 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (*magic == 0x5053507e) { // "~PSP"
 		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
+
+		if (IsHLEVersionedModule(head->modname)) {
+			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
+			char temp[256];
+			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", head->modname);
+			INFO_LOG_REPORT(SCEMODULE,temp, ver);
+		}
+
 		const u8 *in = ptr;
 		u32 size = head->elf_size;
 		if (head->psp_size > size)
@@ -876,6 +921,12 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	// Let's also get a truncated version.
 	char moduleName[29] = {0};
 	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
+
+	if (IsHLEVersionedModule(modinfo->name)) {
+		char temp[256];
+		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", modinfo->name);
+		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion);
+	}
 
 	// Check for module blacklist - we don't allow games to load these modules from disc
 	// as we have HLE implementations and the originals won't run in the emu because they
