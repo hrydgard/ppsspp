@@ -522,6 +522,9 @@ void TakeScreenshot() {
 	int i = 0;
 
 	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	if (gameId.empty()) {
+		gameId = "MENU";
+	}
 
 	char filename[256];
 	while (i < 10000){

@@ -430,7 +430,6 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
-		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 	}
 
@@ -1390,7 +1389,7 @@ namespace MainWindow
 							MessageBox(hwndMain, L"File does not exist.", L"Sorry",0);
 						} else if (info.type == FILETYPE_DIRECTORY) {
 							MessageBox(hwndMain, L"Cannot extract directories.", L"Sorry",0);
-						} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"0All files\0*.*\0\0", L"", fn)) {
+						} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
 							FILE *fp = fopen(fn.c_str(), "wb");
 							u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 							u8 buffer[4096];
