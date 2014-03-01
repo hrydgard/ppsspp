@@ -1201,10 +1201,20 @@ int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts) {
 }
 
 int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {	
-	INFO_LOG(SCEFONT, "sceFontGetNumFontList(%08x, %08x)", fontLibHandle, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-	return (int)internalFonts.size();
+	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	if (!errorCode.IsValid()) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetNumFontList(%08x, %08x): invalid error address", fontLibHandle, errorCodePtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (!fl) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetNumFontList(%08x, %08x): invalid font lib", fontLibHandle, errorCodePtr);
+		*errorCode = ERROR_FONT_INVALID_LIBID;
+		return 0;
+	}
+	DEBUG_LOG(SCEFONT, "sceFontGetNumFontList(%08x, %08x)", fontLibHandle, errorCodePtr);
+	*errorCode = 0;
+	return fl->handle() == 0 ? 0 : (int)internalFonts.size();
 }
 
 int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
