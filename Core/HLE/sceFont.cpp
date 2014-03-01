@@ -370,6 +370,7 @@ public:
 	}
 
 	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f), altCharCode_(0x5F) {
+		nfl_ = 0;
 		Memory::ReadStruct(paramPtr, &params_);
 		if (params_.numFonts > 9) {
 			params_.numFonts = 9;
@@ -416,17 +417,17 @@ public:
 
 		// Let's write out the native struct to make tests easier.
 		// It's possible games may depend on this staying in ram, e.g. copying it, we may move to that.
-		auto nfl = PSPPointer<NativeFontLib>::Create(allocatedAddr);
-		nfl->params = params_;
-		nfl->fontInfo1 = allocatedAddr + 0x4C;
-		nfl->fontInfo2 = allocatedAddr + 0x4C + params_.numFonts * 0x4C;
-		nfl->unk1 = 0;
-		nfl->unk2 = 0;
-		nfl->hRes = fontHRes_;
-		nfl->vRes = fontVRes_;
-		nfl->internalFontCount = (u32)internalFonts.size();
-		nfl->internalFontInfo = allocatedAddr + 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230;
-		nfl->altCharCode = altCharCode_;
+		nfl_ = allocatedAddr;
+		nfl_->params = params_;
+		nfl_->fontInfo1 = allocatedAddr + 0x4C;
+		nfl_->fontInfo2 = allocatedAddr + 0x4C + params_.numFonts * 0x4C;
+		nfl_->unk1 = 0;
+		nfl_->unk2 = 0;
+		nfl_->hRes = fontHRes_;
+		nfl_->vRes = fontVRes_;
+		nfl_->internalFontCount = (u32)internalFonts.size();
+		nfl_->internalFontInfo = allocatedAddr + 0x4C + params_.numFonts * 0x4C + params_.numFonts * 0x230;
+		nfl_->altCharCode = altCharCode_;
 	}
 
 	u32 handle() const { return handle_; }
@@ -435,12 +436,20 @@ public:
 	void SetResolution(float hres, float vres) {
 		fontHRes_ = hres;
 		fontVRes_ = vres;
+		if (nfl_.IsValid()) {
+			nfl_->hRes = hres;
+			nfl_->vRes = vres;
+		}
 	}
 
 	float FontHRes() const { return fontHRes_; }
 	float FontVRes() const { return fontVRes_; }
 
-	void SetAltCharCode(int charCode) { altCharCode_ = charCode; }
+	void SetAltCharCode(int charCode) {
+		altCharCode_ = charCode;
+		if (nfl_.IsValid())
+			nfl_->altCharCode = charCode;
+	}
 
 	int GetFontHandle(int index) {
 		return fonts_[index];
@@ -482,7 +491,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("FontLib", 1);
+		auto s = p.Section("FontLib", 1, 2);
 		if (!s)
 			return;
 
@@ -494,6 +503,11 @@ public:
 		p.Do(fileFontHandle_);
 		p.Do(handle_);
 		p.Do(altCharCode_);
+		if (s >= 2) {
+			p.Do(nfl_);
+		} else {
+			nfl_ = 0;
+		}
 	}
 
 	void SetFileFontHandle(u32 handle) {
@@ -512,6 +526,7 @@ private:
 	int fileFontHandle_;
 	int handle_;
 	int altCharCode_;
+	PSPPointer<NativeFontLib> nfl_;
 
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
 };
