@@ -276,7 +276,7 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	int charmap_compr_len = header.revision == 3 ? 7 : 1;
 	charmap_compr.resize(charmap_compr_len * 4);
 	glyphs.resize(header.charPointerLength);
-	shadowGlyphs.resize(header.shadowMapLength);
+	shadowGlyphs.resize(header.charPointerLength);
 	firstGlyph = header.firstGlyph;
 
 	// Parse out the char map (array where each entry is an irregular number of bits)
@@ -289,7 +289,7 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	}
 
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
-	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, shadowGlyphs.size());
+	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, (s32)header.shadowMapLength);
 
 	// Pregenerate glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
@@ -299,11 +299,11 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	// And shadow glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
 		size_t shadowId = glyphs[i].shadowID;
-		if ((shadowId < shadowMap.size()) && (shadowId < shadowGlyphs.size())) {
+		if (shadowId < shadowMap.size()) {
 			size_t charId = shadowMap[shadowId];
-			if (charId < glyphs.size()) {
+			if (charId < shadowGlyphs.size()) {
 				// TODO: check for pre existing shadow glyph
-				GetGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, FONT_PGF_SHADOWGLYPH, shadowGlyphs[shadowId]);
+				GetGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, FONT_PGF_SHADOWGLYPH, shadowGlyphs[charId]);
 			}
 		}
 	}

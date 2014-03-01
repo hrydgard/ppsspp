@@ -1059,7 +1059,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->GetPGF()->DrawCharacter(glyph, -1, -1, -1, -1, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
@@ -1175,13 +1175,39 @@ int sceFontCalcMemorySize() {
 	return 0;
 }
 
-int sceFontGetShadowGlyphImage() {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowGlyphImage()");
+int sceFontGetShadowGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
+	if (!Memory::IsValidAddress(glyphImagePtr)) {
+		ERROR_LOG(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x): bad font", fontHandle, charCode, glyphImagePtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
+	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
+	int altCharCode = font->GetFontLib()->GetAltCharCode();
+	font->GetPGF()->DrawCharacter(glyph, -1, -1, -1, -1, charCode, altCharCode, FONT_PGF_SHADOWGLYPH);
 	return 0;
 }
 
-int sceFontGetShadowGlyphImage_Clip() {
-	ERROR_LOG_REPORT(SCEFONT, "UNIMPL sceFontGetShadowGlyphImage_Clip()");
+int sceFontGetShadowGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
+	if (!Memory::IsValidAddress(glyphImagePtr)) {
+		ERROR_LOG(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad font", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
+	int altCharCode = font->GetFontLib()->GetAltCharCode();
+	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, altCharCode, FONT_PGF_SHADOWGLYPH);
 	return 0;
 }
 
@@ -1211,8 +1237,8 @@ const HLEFunction sceLibFont[] = {
 	{0x472694cd, WrapF_IFU<sceFontPointToPixelH>, "sceFontPointToPixelH"},	
 	{0x3c4b7e82, WrapF_IFU<sceFontPointToPixelV>, "sceFontPointToPixelV"},	
 	{0xee232411, WrapI_UU<sceFontSetAltCharacterCode>, "sceFontSetAltCharacterCode"},
-	{0x568be516, WrapI_V<sceFontGetShadowGlyphImage>, "sceFontGetShadowGlyphImage"},
-	{0x5dcf6858, WrapI_V<sceFontGetShadowGlyphImage_Clip>, "sceFontGetShadowGlyphImage_Clip"},
+	{0x568be516, WrapI_UUU<sceFontGetShadowGlyphImage>, "sceFontGetShadowGlyphImage"},
+	{0x5dcf6858, WrapI_UUUIIII<sceFontGetShadowGlyphImage_Clip>, "sceFontGetShadowGlyphImage_Clip"},
 	{0x02d7f94b, WrapI_U<sceFontFlush>, "sceFontFlush"},
 };
 
