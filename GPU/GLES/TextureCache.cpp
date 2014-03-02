@@ -1031,7 +1031,7 @@ void TextureCache::SetTexture(bool force) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1554,15 +1554,20 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 
 	int scaleFactor;
-	//Auto-texture scale upto 5x rendering resolution
+	// Auto-texture scale upto 5x rendering resolution
 	if (g_Config.iTexScalingLevel == 0) {
+		scaleFactor = g_Config.iInternalResolution;
+		if (scaleFactor == 0) {
+			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
+		}
+
 #ifndef MOBILE_DEVICE
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, g_Config.iInternalResolution);
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, scaleFactor);
 		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
 			scaleFactor = 2;
 		}
 #else
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, g_Config.iInternalResolution);
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, scaleFactor);
 #endif
 	} else {
 		scaleFactor = g_Config.iTexScalingLevel;
