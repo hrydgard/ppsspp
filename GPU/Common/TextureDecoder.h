@@ -92,7 +92,7 @@ static const u32 textureAlignMask16[16] = {
 
 static inline u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format) {
 	// This is a hack to allow for us to draw the huge PPGe texture, which is always in kernel ram.
-	if (texaddr < PSP_GetUserMemoryBase())
+	if (texaddr < PSP_GetKernelMemoryEnd())
 		return gstate.texbufwidth[level] & 0x1FFF;
 
 	u32 bufw = gstate.texbufwidth[level] & textureAlignMask16[format];
