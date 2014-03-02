@@ -638,7 +638,7 @@ void __IoSchedSync(FileNode *f, int fd, int usec) {
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
 	CoreTiming::ScheduleEvent(usToCycles(usec), syncNotifyEvent, param);
 
-	f->pendingAsyncResult = true;
+	f->pendingAsyncResult = false;
 	f->hasAsyncResult = false;
 }
 
