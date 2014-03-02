@@ -764,10 +764,13 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 				return true;
 			}
 		} else {
-			ERROR_LOG_REPORT(SCEIO, "sceIoRead Reading into bad pointer %08x", data_addr);
-			// TODO: Returning 0 because it wasn't being sign-extended in async result before.
-			// What should this do?
-			result = 0;
+			if (size != 0) {
+				// TODO: For some combinations of bad pointer + size, SCE_KERNEL_ERROR_ILLEGAL_ADDR.
+				// Seems like only for kernel RAM.  For most cases, it really is -1.
+				result = -1;
+			} else {
+				result = 0;
+			}
 			return true;
 		}
 	} else {
