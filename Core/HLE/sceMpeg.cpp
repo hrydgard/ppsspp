@@ -20,10 +20,10 @@
 #include <map>
 #include <algorithm>
 
-#include "sceMpeg.h"
-#include "sceKernelThread.h"
-#include "HLE.h"
-#include "../HW/MediaEngine.h"
+#include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HW/MediaEngine.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
@@ -196,11 +196,10 @@ struct MpegContext {
 };
 
 static bool isMpegInit;
+static int mpegLibVersion;
 static u32 streamIdGen;
-static bool isCurrentMpegAnalyzed;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
-static u32 lastMpegHandle = 0;
 
 MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
@@ -226,8 +225,10 @@ static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int si
 	buf->dataUpperBound = data + packets * 2048;
 	buf->semaID = 0;
 	buf->mpeg = 0;
-	// TODO: This appears in tests, but may not be in all versions.
-	//buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
+	// This isn't in ver 0104, but it is in 010A.
+	// TODO: Which versions in between those does it exist in?
+	if (mpegLibVersion >= 0x010A)
+		buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
 }
 
 u32 convertTimestampToDate(u32 ts) {
@@ -282,11 +283,13 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 
 	if (ctx->mediaengine && (ctx->mpegStreamSize > 0) && !ctx->isAnalyzed) {
 		// init mediaEngine
-		SceMpegRingBuffer ringbuffer = {0};
-		if(ctx->mpegRingbufferAddr != 0){
-			Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
-		};
-		ctx->mediaengine->loadStream(buffer, ctx->mpegOffset, ringbuffer.packets * ringbuffer.packetSize);
+		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+		if (ringbuffer.IsValid()) {
+			ctx->mediaengine->loadStream(buffer, ctx->mpegOffset, ringbuffer->packets * ringbuffer->packetSize);
+		} else {
+			// TODO: Does this make any sense?
+			ctx->mediaengine->loadStream(buffer, ctx->mpegOffset, 0);
+		}
 		ctx->mediaengine->setVideoDim();
 	}
 	
@@ -322,10 +325,9 @@ private:
 };
 
 void __MpegInit() {
-	lastMpegHandle = 0;
-	streamIdGen = 1;
-	isCurrentMpegAnalyzed = false;
 	isMpegInit = false;
+	mpegLibVersion = 0x010A;
+	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
 #ifdef USING_FFMPEG
@@ -335,13 +337,22 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1);
+	auto s = p.Section("sceMpeg", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(lastMpegHandle);
-	p.Do(streamIdGen);
-	p.Do(isCurrentMpegAnalyzed);
+	if (s < 2) {
+		int oldLastMpeg = -1;
+		bool oldIsMpegAnaltized = false;
+		p.Do(oldLastMpeg);
+		p.Do(streamIdGen);
+		p.Do(oldIsMpegAnaltized);
+		// Let's assume the oldest version.
+		mpegLibVersion = 0x0101;
+	} else {
+		p.Do(streamIdGen);
+		p.Do(mpegLibVersion);
+	}
 	p.Do(isMpegInit);
 	p.Do(actionPostPut);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
@@ -355,6 +366,10 @@ void __MpegShutdown() {
 		delete it->second;
 	}
 	mpegMap.clear();
+}
+
+void __MpegLoadModule(int version) {
+	mpegLibVersion = version;
 }
 
 u32 sceMpegInit() {
@@ -419,16 +434,14 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 		return ERROR_MPEG_NO_MEMORY;
 	}
 
-	SceMpegRingBuffer ringbuffer;
-	if(ringbufferAddr != 0){
-		Memory::ReadStruct(ringbufferAddr, &ringbuffer);
-		if (ringbuffer.packetSize == 0) {
-			ringbuffer.packetsFree = 0;
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
+	if (ringbuffer.IsValid()) {
+		if (ringbuffer->packetSize == 0) {
+			ringbuffer->packetsFree = 0;
 		} else {
-			ringbuffer.packetsFree = (ringbuffer.dataUpperBound - ringbuffer.data) / ringbuffer.packetSize;
+			ringbuffer->packetsFree = (ringbuffer->dataUpperBound - ringbuffer->data) / ringbuffer->packetSize;
 		}
-		ringbuffer.mpeg = mpegAddr;
-		Memory::WriteStruct(ringbufferAddr, &ringbuffer);
+		ringbuffer->mpeg = mpegAddr;
 	}
 
 	// Generate, and write mpeg handle into mpeg data, for some reason
@@ -439,13 +452,12 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8);
 	Memory::Memcpy(mpegHandle + 8, "001\0", 4);
 	Memory::Write_U32(-1, mpegHandle + 12);
-	if (ringbufferAddr) {
+	if (ringbuffer.IsValid()) {
 		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
-		Memory::Write_U32(ringbuffer.dataUpperBound, mpegHandle + 20);
+		Memory::Write_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
 	}
 	MpegContext *ctx = new MpegContext;
 	mpegMap[mpegHandle] = ctx;
-	lastMpegHandle = mpegHandle;
 
 	// Initialize mpeg values.
 	ctx->mpegRingbufferAddr = ringbufferAddr;
@@ -679,16 +691,13 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
-	SceMpegRingBuffer ringbuffer = {0};
-
-	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
-		Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
-	} else {
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (!ringbuffer.IsValid()) {
 		ERROR_LOG(ME, "Bogus mpegringbufferaddr");
 		return -1;
 	}
 
-	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
+	if (ringbuffer->packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): mpeg buffer empty", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
@@ -705,13 +714,12 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer.packetsFree = ctx->mediaengine->getRemainSize() / 2048;
+	ringbuffer->packetsFree = ctx->mediaengine->getRemainSize() / 2048;
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
 	// Flush structs back to memory
 	avcAu.write(auAddr);
-	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
 	// Save the current frame's status to initAddr 
 	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
@@ -839,15 +847,13 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
-	SceMpegRingBuffer ringbuffer = {0};
-	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
-		Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
-	} else {
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (!ringbuffer.IsValid()) {
 		ERROR_LOG(ME, "Bogus mpegringbufferaddr");
 		return -1;
 	}
 
-	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
+	if (ringbuffer->packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): mpeg buffer empty", mpeg, auAddr, bufferAddr, initAddr);
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
@@ -863,13 +869,12 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	}else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer.packetsFree = ctx->mediaengine->getRemainSize() / 2048;
+	ringbuffer->packetsFree = ctx->mediaengine->getRemainSize() / 2048;
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
 	// Flush structs back to memory
 	avcAu.write(auAddr);
-	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
 	// Save the current frame's status to initAddr 
 	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
@@ -980,33 +985,31 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 }
 
 void PostPutAction::run(MipsCall &call) {
-	SceMpegRingBuffer ringbuffer;
-	Memory::ReadStruct(ringAddr_, &ringbuffer);
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringAddr_);
 
-	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
+	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 
 	int packetsAdded = currentMIPS->r[2];
-	if (ringbuffer.packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
+	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, ctx);
-		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer.packets * ringbuffer.packetSize);
+		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer->packets * ringbuffer->packetSize);
 	}
 	if (packetsAdded > 0) {
-		if (packetsAdded > ringbuffer.packetsFree) {
-			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer.packetsFree);
-			packetsAdded = ringbuffer.packetsFree;
+		if (packetsAdded > ringbuffer->packetsFree) {
+			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer->packetsFree);
+			packetsAdded = ringbuffer->packetsFree;
 		}
-		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer.data), packetsAdded * 2048) / 2048;
+		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer->data), packetsAdded * 2048) / 2048;
 		if (actuallyAdded != packetsAdded) {
 			WARN_LOG_REPORT(ME, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
 		}
-		ringbuffer.packetsRead += packetsAdded;
-		ringbuffer.packetsWritten += packetsAdded;
-		ringbuffer.packetsFree -= packetsAdded;
+		ringbuffer->packetsRead += packetsAdded;
+		ringbuffer->packetsWritten += packetsAdded;
+		ringbuffer->packetsFree -= packetsAdded;
 	}
-	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer.packetsRead, ringbuffer.packets);
+	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer->packetsRead, ringbuffer->packets);
 
-	Memory::WriteStruct(ringAddr_, &ringbuffer);
 	call.setReturnValue(packetsAdded);
 }
 
@@ -1021,27 +1024,31 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 		return 0;
 	}
 
-	SceMpegRingBuffer ringbuffer;
-	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
+	if (!ringbuffer.IsValid()) {
+		// Would have crashed before, TODO test behavior.
+		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut(%08x, %i, %i): invalid ringbuffer address", ringbufferAddr, numPackets, available);
+		return -1;
+	}
 
-	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
+	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 	if (!ctx) {
-		WARN_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): bad mpeg handle %08x", ringbufferAddr, numPackets, available, ringbuffer.mpeg);
+		WARN_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): bad mpeg handle %08x", ringbufferAddr, numPackets, available, ringbuffer->mpeg);
 		return -1;
 	}
 
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
-	if (ringbuffer.callback_addr != 0) {
+	if (ringbuffer->callback_addr != 0) {
 		PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 		action->setRingAddr(ringbufferAddr);
 		// TODO: Should call this multiple times until we get numPackets.
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
-		u32 packetsThisRound = std::min(numPackets, (u32)ringbuffer.packets);
-		u32 args[3] = {(u32)ringbuffer.data, packetsThisRound, (u32)ringbuffer.callback_args};
-		__KernelDirectMipsCall(ringbuffer.callback_addr, action, args, 3, false);
+		u32 packetsThisRound = std::min(numPackets, (u32)ringbuffer->packets);
+		u32 args[3] = {(u32)ringbuffer->data, packetsThisRound, (u32)ringbuffer->callback_args};
+		__KernelDirectMipsCall(ringbuffer->callback_addr, action, args, 3, false);
 	} else {
-		ERROR_LOG(ME, "sceMpegRingbufferPut: callback_addr zero");
+		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
 	}
 	return 0;
 }
@@ -1054,13 +1061,17 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
-	SceMpegRingBuffer mpegRingbuffer;
-	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (!ringbuffer.IsValid()) {
+		// Would have crashed before, TODO test behavior.
+		ERROR_LOG_REPORT(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
+		return -1;
+	}
 
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
-	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
+	if (ringbuffer->packetsRead == 0 || ringbuffer->packetsFree == ringbuffer->packets) {
 		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		avcAu.pts = -1;
 		avcAu.dts = -1;
@@ -1097,8 +1108,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)avcAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
-		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+		ringbuffer->packetsFree = ringbuffer->packets;
 
 		result = ERROR_MPEG_NO_DATA;
 	}
@@ -1146,8 +1156,12 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
-	SceMpegRingBuffer mpegRingbuffer;
-	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (!ringbuffer.IsValid()) {
+		// Would have crashed before, TODO test behavior.
+		WARN_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
+		return -1;
+	}
 
 	SceMpegAu atracAu;
 	atracAu.read(auAddr);
@@ -1164,7 +1178,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	// The audio can end earlier than the video does.
-	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
+	if (ringbuffer->packetsFree == ringbuffer->packets) {
 		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		// TODO: Does this really delay?
 		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
@@ -1175,8 +1189,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
-		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+		ringbuffer->packetsFree = ringbuffer->packets;
 		result = ERROR_MPEG_NO_DATA;
 	}
 
@@ -1314,9 +1327,8 @@ u32 sceMpegFlushAllStream(u32 mpeg)
 
 	ctx->isAnalyzed = false;
 
-	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
-		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
-
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (ringbuffer.IsValid()) {
 		ringbuffer->packetsFree = ringbuffer->packets;
 		ringbuffer->packetsRead = 0;
 		ringbuffer->packetsWritten = 0;

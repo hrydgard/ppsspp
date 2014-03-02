@@ -76,12 +76,14 @@ struct SceMpegRingBuffer {
 	s32_le dataUpperBound;
 	s32_le semaID; // unused?
 	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
-	// TODO: This appears in tests, but may not be in all versions.
-	//u32_le gp;
+	// Note: not available in all versions.
+	u32_le gp;
 };
 
 void __MpegInit();
 void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
+
+void __MpegLoadModule(int version);
 
 void Register_sceMpeg();
