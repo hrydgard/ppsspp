@@ -242,6 +242,8 @@ tests_good = [
   "umd/callbacks/umd",
   "umd/wait/wait",
   "io/directory/directory",
+  "video/mpeg/ringbuffer/construct",
+  "video/mpeg/ringbuffer/destruct",
   "video/mpeg/ringbuffer/memsize",
   "video/mpeg/ringbuffer/packnum",
 ]
@@ -317,8 +319,6 @@ tests_next = [
   "umd/raw_access/raw_access",
   "video/mpeg/basic",
   "video/mpeg/ringbuffer/avail",
-  "video/mpeg/ringbuffer/construct",
-  "video/mpeg/ringbuffer/destruct",
   "video/pmf/pmf",
   "video/pmf_simple/pmf_simple",
   "video/psmfplayer/basic",
