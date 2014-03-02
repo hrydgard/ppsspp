@@ -225,9 +225,8 @@ static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int si
 	buf->dataUpperBound = data + packets * 2048;
 	buf->semaID = 0;
 	buf->mpeg = 0;
-	// This isn't in ver 0104, but it is in 010A.
-	// TODO: Which versions in between those does it exist in?
-	if (mpegLibVersion >= 0x010A)
+	// This isn't in ver 0104, but it is in 0105.
+	if (mpegLibVersion >= 0x0105)
 		buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
 }
 
