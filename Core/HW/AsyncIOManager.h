@@ -51,6 +51,7 @@ class AsyncIOManager : public IOThreadEventQueue {
 public:
 	void DoState(PointerWrap &p);
 
+	bool HasOperation(u32 handle);
 	void ScheduleOperation(AsyncIOEvent ev);
 	void Shutdown();
 

@@ -742,7 +742,17 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
 				return true;
-			} else if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE) {
+			}
+
+			bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
+			if (useThread) {
+				// If there's a pending operation on this file, wait for it to finish and don't overwrite it.
+				useThread = !ioManager.HasOperation(f->handle);
+				if (!useThread) {
+					ioManager.SyncThread();
+				}
+			}
+			if (useThread) {
 				AsyncIOEvent ev = IO_EVENT_READ;
 				ev.handle = f->handle;
 				ev.buf = data;
@@ -854,7 +864,16 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		}
-		if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE) {
+
+		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
+		if (useThread) {
+			// If there's a pending operation on this file, wait for it to finish and don't overwrite it.
+			useThread = !ioManager.HasOperation(f->handle);
+			if (!useThread) {
+				ioManager.SyncThread();
+			}
+		}
+		if (useThread) {
 			AsyncIOEvent ev = IO_EVENT_WRITE;
 			ev.handle = f->handle;
 			ev.buf = (u8 *) data_ptr;

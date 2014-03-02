@@ -21,6 +21,16 @@
 #include "Core/HW/AsyncIOManager.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 
+bool AsyncIOManager::HasOperation(u32 handle) {
+	if (resultsPending_.find(handle) != resultsPending_.end()) {
+		return true;
+	}
+	if (results_.find(handle) != results_.end()) {
+		return true;
+	}
+	return false;
+}
+
 void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
 	lock_guard guard(resultsLock_);
 	if (!resultsPending_.insert(ev.handle).second) {
