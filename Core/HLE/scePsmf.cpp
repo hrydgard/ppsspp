@@ -728,6 +728,9 @@ u32 scePsmfVerifyPsmf(u32 psmfAddr)
 		ERROR_LOG(ME, "scePsmfVerifyPsmf(%08x): bad version %08x", psmfAddr, version);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	// Kurohyou 2 (at least the demo) uses an uninitialized value that happens to be zero on the PSP.
+	// It appears to be written by scePsmfVerifyPsmf(), so we write some bytes into the stack here.
+	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20);
 	DEBUG_LOG(ME, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	return 0;
 }
@@ -800,13 +803,13 @@ u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
 		ERROR_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x): invalid psmf", psmfStruct, epid, entryAddr);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 	DEBUG_LOG(ME, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, epid, entryAddr);
 
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		ERROR_LOG(ME, "scePsmfGetEPWithId(%08x, %i): invalid id", psmfStruct, epid);
-		return ERROR_PSMF_INVALID_ID;
+		return ERROR_PSMF_NOT_FOUND;
 	}
 	if (Memory::IsValidAddress(entryAddr)) {
 		Memory::WriteStruct(entryAddr, &psmf->EPMap[epid]);
@@ -819,19 +822,19 @@ u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
 		ERROR_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i, %08x): invalid psmf", psmfStruct, ts, entryAddr);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMF_NOT_INITIALIZED;
 	}
 	DEBUG_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i, %08x)", psmfStruct, ts, entryAddr);
 
 	if (ts < psmf->presentationStartTime) {
 		ERROR_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i): invalid timestamp", psmfStruct, ts);
-		return ERROR_PSMF_INVALID_TIMESTAMP;
+		return ERROR_PSMF_NOT_FOUND;
 	}
 
 	int epid = psmf->FindEPWithTimestamp(ts);
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
 		ERROR_LOG(ME, "scePsmfGetEPWithTimestamp(%08x, %i): invalid id", psmfStruct, epid);
-		return ERROR_PSMF_INVALID_ID;
+		return ERROR_PSMF_NOT_FOUND;
 	}
 
 	if (Memory::IsValidAddress(entryAddr)) {
