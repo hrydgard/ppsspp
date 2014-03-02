@@ -67,6 +67,11 @@ namespace MIPSCodeUtils
 	u32 GetBranchTargetNoRA(u32 addr)
 	{
 		MIPSOpcode op = Memory::Read_Instruction(addr);
+		return GetBranchTargetNoRA(addr, op);
+	}
+
+	u32 GetBranchTargetNoRA(u32 addr, MIPSOpcode op)
+	{
 		if (op != 0)
 		{
 			MIPSInfo info = MIPSGetInfo(op);
