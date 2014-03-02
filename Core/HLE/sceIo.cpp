@@ -1024,6 +1024,11 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
 	seek = FILEMOVE_BEGIN;
 
+	// Let's make sure this isn't incorrect mid-operation.
+	if (ioManager.HasOperation(f->handle)) {
+		ioManager.SyncThread();
+	}
+
 	s64 newPos = 0;
 	switch (whence) {
 	case 0:
