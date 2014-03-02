@@ -20,10 +20,10 @@
 #include <map>
 #include <algorithm>
 
-#include "sceMpeg.h"
-#include "sceKernelThread.h"
-#include "HLE.h"
-#include "../HW/MediaEngine.h"
+#include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HW/MediaEngine.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
@@ -196,11 +196,10 @@ struct MpegContext {
 };
 
 static bool isMpegInit;
+static int mpegLibVersion;
 static u32 streamIdGen;
-static bool isCurrentMpegAnalyzed;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
-static u32 lastMpegHandle = 0;
 
 MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
@@ -322,10 +321,9 @@ private:
 };
 
 void __MpegInit() {
-	lastMpegHandle = 0;
-	streamIdGen = 1;
-	isCurrentMpegAnalyzed = false;
 	isMpegInit = false;
+	mpegLibVersion = 0x010A;
+	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
 #ifdef USING_FFMPEG
@@ -335,13 +333,22 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1);
+	auto s = p.Section("sceMpeg", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(lastMpegHandle);
-	p.Do(streamIdGen);
-	p.Do(isCurrentMpegAnalyzed);
+	if (s < 2) {
+		int oldLastMpeg = -1;
+		bool oldIsMpegAnaltized = false;
+		p.Do(oldLastMpeg);
+		p.Do(streamIdGen);
+		p.Do(oldIsMpegAnaltized);
+		// Let's assume the oldest version.
+		mpegLibVersion = 0x0101;
+	} else {
+		p.Do(streamIdGen);
+		p.Do(mpegLibVersion);
+	}
 	p.Do(isMpegInit);
 	p.Do(actionPostPut);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
@@ -355,6 +362,10 @@ void __MpegShutdown() {
 		delete it->second;
 	}
 	mpegMap.clear();
+}
+
+void __MpegLoadModule(int version) {
+	mpegLibVersion = version;
 }
 
 u32 sceMpegInit() {
@@ -445,7 +456,6 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	}
 	MpegContext *ctx = new MpegContext;
 	mpegMap[mpegHandle] = ctx;
-	lastMpegHandle = mpegHandle;
 
 	// Initialize mpeg values.
 	ctx->mpegRingbufferAddr = ringbufferAddr;

@@ -46,6 +46,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
@@ -822,6 +823,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			char temp[256];
 			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", head->modname);
 			INFO_LOG_REPORT(SCEMODULE,temp, ver);
+
+			if (!strcmp(head->modname, "sceMpeg_library")) {
+				__MpegLoadModule(ver);
+			}
 		}
 
 		const u8 *in = ptr;
@@ -926,6 +931,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		char temp[256];
 		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", modinfo->name);
 		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion);
+
+		if (!strcmp(modinfo->name, "sceMpeg_library")) {
+			__MpegLoadModule(modinfo->moduleVersion);
+		}
 	}
 
 	// Check for module blacklist - we don't allow games to load these modules from disc
