@@ -78,6 +78,9 @@ class CtrlDisAsmView
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions, BranchLine& line);
 	void copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm);
+	std::set<std::string> getSelectedLineArguments();
+	void drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments);
+
 public:
 	CtrlDisAsmView(HWND _wnd);
 	~CtrlDisAsmView();
