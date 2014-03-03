@@ -163,6 +163,7 @@ void PopupScreen::CreateViews() {
 	box_->Add(title);
 
 	CreatePopupContents(box_);
+	root_->SetDefaultFocusView(box_);
 
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
