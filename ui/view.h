@@ -328,13 +328,7 @@ public:
 	virtual void ReplaceLayoutParams(LayoutParams *newLayoutParams) { layoutParams_.reset(newLayoutParams); }
 	const Bounds &GetBounds() const { return bounds_; }
 
-	virtual bool SetFocus() {
-		if (CanBeFocused()) {
-			SetFocusedView(this);
-			return true;
-		}
-		return false;
-	}
+	virtual bool SetFocus();
 
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }

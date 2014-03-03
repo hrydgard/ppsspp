@@ -431,7 +431,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	}
 
 	weightZeroSum += spacing_ * (numVisible - 1);
-	
+
 	// Awright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
@@ -1194,7 +1194,11 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 		lock_guard lock(focusLock);
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
-			root->SetFocus();
+			if (root->GetDefaultFocusView()) {
+				root->GetDefaultFocusView()->SetFocus();
+			} else {
+				root->SetFocus();
+			}
 			root->SubviewFocused(GetFocusedView());
 		} else {
 			for (size_t i = 0; i < focusMoves.size(); i++) {

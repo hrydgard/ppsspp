@@ -154,6 +154,15 @@ Point View::GetFocusPosition(FocusDirection dir) {
 	}
 }
 
+bool View::SetFocus() {
+	if (IsFocusMovementEnabled()) {
+		if (CanBeFocused()) {
+			SetFocusedView(this);
+			return true;
+		}
+		return false;
+	}
+}
 
 void Clickable::Click() {
 	UI::EventParams e;
