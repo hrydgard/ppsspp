@@ -106,7 +106,7 @@ void Event::Add(std::function<EventReturn(EventParams&)> func) {
 
 // Call this from input thread or whatever, it doesn't matter
 void Event::Trigger(EventParams &e) {
-	EventTriggered(this, e);	
+	EventTriggered(this, e);
 }
 
 // Call this from UI thread
@@ -160,8 +160,8 @@ bool View::SetFocus() {
 			SetFocusedView(this);
 			return true;
 		}
-		return false;
 	}
+	return false;
 }
 
 void Clickable::Click() {
