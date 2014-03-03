@@ -1,4 +1,5 @@
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPS.h"
@@ -66,6 +67,10 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	// u32 addr = R(rs) + offset;
 	// logBlocks = 1;
 	bool doCheck = false;
+
+	if (!g_Config.bFastMemory) {
+		DISABLE;
+	}
 
 	switch(op >> 26)
 	{
@@ -333,6 +338,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 #endif
 
 void Jit::Comp_FPU2op(MIPSOpcode op) {
+	DISABLE
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -356,6 +362,27 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.MapDirtyIn(fd, fs);
 		FNEG(fpr.R(fd), fpr.R(fs));
 		break;
+
+	case 13: //	FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs));	break;	//trunc.w.s
+		fpr.MapDirtyIn(fd, fs);
+		FRIZ(fpr.R(fd), fpr.R(fs));
+		break;
+		/*
+	case 12: //	FsI(fd) = (int)floorf(F(fs)+0.5f);								break;	//round.w.s
+	case 14: //	FsI(fd) = (int)ceilf (F(fs));									break;	//ceil.w.s
+	case 15: //	FsI(fd) = (int)floorf(F(fs));									break;	//floor.w.s
+	case 32: //	F(fd) = (float)FsI(fs);											break;	//cvt.s.w
+
+	case 36:
+		//switch (currentMIPS->fcr31 & 3)
+		//{
+		//case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
+		//case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
+		//case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
+		//case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
+		//}
+		//break; //cvt.w.s
+		*/
 	default:
 	Comp_Generic(op);
 		break;
@@ -399,11 +426,11 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 
 			// RT = RT | SREG
 			OR(_rt, _rt, SREG);
-		}
-		else if (fs == 0)
-		{
-			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-			LWZ(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr0));
+		} else if (fs == 0) {
+			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		} else {
+			// Unsupported regs are always 0.
+			gpr.SetImm(rt, 0);
 		}
 		return;
 

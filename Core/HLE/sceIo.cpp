@@ -475,6 +475,11 @@ void __IoInit() {
 	if (ioManagerThreadEnabled) {
 		Core_ListenShutdown(&__IoWakeManager);
 		ioManagerThread = new std::thread(&__IoManagerThread);
+#ifdef _XBOX
+		SuspendThread(ioManagerThread->native_handle());
+		XSetThreadProcessor(ioManagerThread->native_handle(), 4);
+		ResumeThread(ioManagerThread->native_handle());
+#endif
 		ioManagerThread->detach();
 	}
 

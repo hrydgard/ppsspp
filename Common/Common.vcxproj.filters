@@ -36,6 +36,7 @@
     <ClInclude Include="Crypto\sha1.h">
       <Filter>Crypto</Filter>
     </ClInclude>
+    <ClInclude Include="ppcEmitter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -65,6 +66,7 @@
     </ClCompile>
     <ClCompile Include="ChunkFile.cpp" />
     <ClCompile Include="ArmThunk.cpp" />
+    <ClCompile Include="ppcEmitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

@@ -19,7 +19,11 @@
 #define _ATOMIC_WIN32_H_
 
 #include "Common.h"
+#ifndef _XBOX
 #include <intrin.h>
+#else
+#include <ppcintrinsics.h>
+#endif
 #include "CommonWindows.h"
 
 // Atomic operations are performed in a single step by the CPU. It is
