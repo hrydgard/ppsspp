@@ -1028,11 +1028,14 @@ void GamePauseScreen::CreateViews() {
 	if (getUMDReplacePermit()) {
 		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
 	}
-	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	Choice *continueChoice = rightColumnItems->Add(new Choice(i->T("Continue")));
+	root_->SetDefaultFocusView(continueChoice);
+	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
+	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
 	UI::EventParams e;
