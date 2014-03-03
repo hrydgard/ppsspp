@@ -362,6 +362,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 			js.afterOp = JitState::AFTER_NONE;
 		}
+		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
+		}
 
 		js.compilerPC += 4;
 		js.numInstructions++;
@@ -539,8 +542,6 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
-
-		js.afterOp = JitState::AFTER_NONE;
 	}
 
 	WriteDowncount();
@@ -577,8 +578,6 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
-
-		js.afterOp = JitState::AFTER_NONE;
 	}
 
 	WriteDowncount();
@@ -620,9 +619,8 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
-	if ((js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) != 0) {
+	if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
 		ABI_CallFunction(&JitMemCheckCleanup);
-		js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
