@@ -1133,7 +1133,7 @@ void TextureCache::SetTexture(bool force) {
 #ifndef USING_GLES2
 		if (i > 0) {
 			int tw = gstate.getTextureWidth(i);
-			int th = gstate.getTextureWidth(i);
+			int th = gstate.getTextureHeight(i);
 			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
 				badMipSizes = true;
 			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
