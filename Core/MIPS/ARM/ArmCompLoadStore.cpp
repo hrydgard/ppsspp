@@ -328,12 +328,14 @@ namespace MIPSComp
 
 				// We can compute the full address at compile time. Kickass.
 				u32 addr = iaddr & 0x3FFFFFFF;
-				// Still flush it, since often these will be in a row.
-				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+
 				if (addr == iaddr && offset == 0) {
 					// It was already safe.  Let's shove it into a reg and use it directly.
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 					addrReg = gpr.R(rs);
 				} else {
+					// In this case, only map rt. rs+offset will be in R0.
+					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
 					gpr.SetRegImm(R0, addr);
 					addrReg = R0;
 				}
