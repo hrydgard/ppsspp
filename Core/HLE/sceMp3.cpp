@@ -181,7 +181,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			break;
 
 		if (packet.stream_index == ctx->audio_stream_index) {
-			avcodec_get_frame_defaults(&frame);
+			av_frame_unref(&frame);
 			got_frame = 0;
 			ret = avcodec_decode_audio4(ctx->decoder_context, &frame, &got_frame, &packet);
 			if (ret < 0) {

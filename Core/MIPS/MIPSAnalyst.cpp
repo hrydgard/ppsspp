@@ -588,7 +588,7 @@ skip:
 
 	const char *LookupHash(u64 hash, int funcsize) {
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
-			if (it->hash == hash && it->size == funcsize) {
+			if (it->hash == hash && (int)it->size == funcsize) {
 				return it->name;
 			}
 		}

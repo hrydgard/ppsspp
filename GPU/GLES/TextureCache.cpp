@@ -1130,6 +1130,7 @@ void TextureCache::SetTexture(bool force) {
 			break;
 		}
 
+#ifndef USING_GLES2
 		if (i > 0) {
 			int tw = gstate.getTextureWidth(i);
 			int th = gstate.getTextureWidth(i);
@@ -1138,6 +1139,7 @@ void TextureCache::SetTexture(bool force) {
 			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
 				badMipSizes = true;
 		}
+#endif
 	}
 
 	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
@@ -1181,7 +1183,7 @@ void TextureCache::SetTexture(bool force) {
 #ifndef USING_GLES2
 		if (badMipSizes) {
 			glGenerateMipmap(GL_TEXTURE_2D);
-		}	else {
+		} else {
 			for (int i = 1; i <= maxLevel; i++) {
 				LoadTextureLevel(*entry, i, replaceImages, dstFmt);
 			}
