@@ -1406,8 +1406,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			u32 newVal = data << 8;
 			if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 				// Bone matrices should NOT flush when software skinning is enabled!
-				// TODO: Also check for morph...
-				if (!g_Config.bSoftwareSkinning) {
+				if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 					Flush();
 					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 				}
@@ -1510,7 +1509,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 }
 
 void GLES_GPU::FastLoadBoneMatrix(u32 target) {
-	if (!g_Config.bSoftwareSkinning) {
+	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		Flush();
 		const int num = gstate.boneMatrixNumber & 0x7F;
 		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
