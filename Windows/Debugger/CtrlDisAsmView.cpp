@@ -406,6 +406,68 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions
 	DeleteObject(pen);
 }
 
+std::set<std::string> CtrlDisAsmView::getSelectedLineArguments() {
+	std::set<std::string> args;
+
+	DisassemblyLineInfo line;
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		manager.getLine(addr, displaySymbols, line);
+		size_t p = 0, nextp = line.params.find(',');
+		while (nextp != line.params.npos) {
+			args.insert(line.params.substr(p, nextp - p));
+			p = nextp + 1;
+			nextp = line.params.find(',', p);
+		}
+		if (p < line.params.size()) {
+			args.insert(line.params.substr(p));
+		}
+	}
+
+	return args;
+}
+
+void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments) {
+	if (line.params.empty()) {
+		return;
+	}
+	// Don't highlight the selected lines.
+	if (isInInterval(selectRangeStart, selectRangeEnd - selectRangeStart, line.info.opcodeAddress)) {
+		TextOutA(hdc, x, y, line.params.c_str(), (int)line.params.size());
+		return;
+	}
+
+	int highlightedColor = 0xaabb00;
+	if (textColor == 0x0000ff) {
+		highlightedColor = 0xaabb77;
+	}
+
+	UINT prevAlign = SetTextAlign(hdc, TA_UPDATECP);
+	MoveToEx(hdc, x, y, NULL);
+
+	size_t p = 0, nextp = line.params.find(',');
+	while (nextp != line.params.npos) {
+		const std::string arg = line.params.substr(p, nextp - p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			SetTextColor(hdc, highlightedColor);
+		}
+		TextOutA(hdc, 0, 0, arg.c_str(), (int)arg.size());
+		SetTextColor(hdc,textColor);
+		p = nextp + 1;
+		nextp = line.params.find(',', p);
+		TextOutA(hdc, 0, 0, ",", 1);
+	}
+	if (p < line.params.size()) {
+		const std::string arg = line.params.substr(p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			SetTextColor(hdc, highlightedColor);
+		}
+		TextOutA(hdc, 0, 0, arg.c_str(), (int)arg.size());
+		SetTextColor(hdc,textColor);
+	}
+
+	SetTextAlign(hdc, prevAlign);
+}
+
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
 	if (!debugger->isAlive()) return;
@@ -420,7 +482,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 
 	HPEN nullPen=CreatePen(0,0,0xffffff);
 	HBRUSH nullBrush=CreateSolidBrush(0xffffff);
-	HBRUSH currentBrush=CreateSolidBrush(0xFFEfE8);
+	HBRUSH currentBrush=CreateSolidBrush(0xffefe8);
 
 	HPEN oldPen=(HPEN)SelectObject(hdc,nullPen);
 	HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
@@ -431,6 +493,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	unsigned int address = windowStart;
 	std::map<u32,int> addressPositions;
 
+	const std::set<std::string> currentArguments = getSelectedLineArguments();
 	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows; i++)
 	{
@@ -466,7 +529,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,backgroundBrush);
 		SelectObject(hdc,backgroundPen);
 		Rectangle(hdc,0,rowY1,rect.right,rowY1+rowHeight);
-		
+
 		SelectObject(hdc,currentBrush);
 		SelectObject(hdc,nullPen);
 
@@ -499,8 +562,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		if (line.params.size() != 0)
-			TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,line.params.c_str(),(int)line.params.size());
+		drawArguments(hdc, line, pixelPositions.argumentsStart, rowY1 + 2, textColor, currentArguments);
 			
 		SelectObject(hdc,boldfont);
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,line.name.c_str(),(int)line.name.size());
