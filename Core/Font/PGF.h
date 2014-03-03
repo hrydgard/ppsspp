@@ -65,11 +65,11 @@ enum Language {
 };
 
 enum FontPixelFormat {
-	PSP_FONT_PIXELFORMAT_4 = 0, // 2 pixels packed in 1 byte (natural order)
+	PSP_FONT_PIXELFORMAT_4     = 0, // 2 pixels packed in 1 byte (natural order)
 	PSP_FONT_PIXELFORMAT_4_REV = 1, // 2 pixels packed in 1 byte (reversed order)
-	PSP_FONT_PIXELFORMAT_8 = 2, // 1 pixel in 1 byte
-	PSP_FONT_PIXELFORMAT_24 = 3, // 1 pixel in 3 bytes (RGB)
-	PSP_FONT_PIXELFORMAT_32 = 4, // 1 pixel in 4 bytes (RGBA)
+	PSP_FONT_PIXELFORMAT_8     = 2, // 1 pixel in 1 byte
+	PSP_FONT_PIXELFORMAT_24    = 3, // 1 pixel in 3 bytes (RGB)
+	PSP_FONT_PIXELFORMAT_32    = 4, // 1 pixel in 4 bytes (RGBA)
 };
 
 
@@ -86,8 +86,8 @@ struct PGFFontStyle {
 	u16_le    fontLanguage;
 	u16_le    fontRegion;
 	u16_le    fontCountry;
-	char   fontName[64];
-	char   fontFileName[64];
+	char      fontName[64];
+	char      fontFileName[64];
 	u32_le    fontAttributes;
 	u32_le    fontExpire;
 };

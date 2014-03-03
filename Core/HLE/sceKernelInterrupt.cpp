@@ -524,23 +524,23 @@ u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 
 
 struct PspIntrHandlerOptionParam {
-	int size;															 //+00
-	u32 entry;													//+04
-	u32 common;												 //+08
-	u32 gp;																		 //+0C
-	u16 intr_code;											//+10
-	u16 sub_count;											//+12
-	u16 intr_level;										 //+14
-	u16 enabled;												//+16
-	u32 calls;													//+18
-	u32 field_1C;											 //+1C
-	u32 total_clock_lo;				 //+20
-	u32 total_clock_hi;				 //+24
-	u32 min_clock_lo;					 //+28
-	u32 min_clock_hi;					 //+2C
-	u32 max_clock_lo;					 //+30
-	u32 max_clock_hi;					 //+34
-} ;		//=38
+	int size;              //+00
+	u32 entry;             //+04
+	u32 common;            //+08
+	u32 gp;                //+0C
+	u16 intr_code;         //+10
+	u16 sub_count;         //+12
+	u16 intr_level;        //+14
+	u16 enabled;           //+16
+	u32 calls;             //+18
+	u32 field_1C;          //+1C
+	u32 total_clock_lo;    //+20
+	u32 total_clock_hi;    //+24
+	u32 min_clock_lo;      //+28
+	u32 min_clock_hi;      //+2C
+	u32 max_clock_lo;      //+30
+	u32 max_clock_hi;      //+34
+};  //=38
 
 void QueryIntrHandlerInfo()
 {

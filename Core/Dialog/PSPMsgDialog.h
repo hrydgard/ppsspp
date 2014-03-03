@@ -76,15 +76,15 @@ private :
 
 	enum Flags
 	{
-		DS_MSG 				= 0x1,
-		DS_ERRORMSG 		= 0x2,
-		DS_YESNO 			= 0x4,
-		DS_DEFNO 			= 0x8,
-		DS_OK 				= 0x10,
-		DS_VALIDBUTTON 		= 0x20,
-		DS_CANCELBUTTON 	= 0x40,
-		DS_NOSOUND			= 0x80,
-		DS_ERROR 			= 0x100
+		DS_MSG          = 0x1,
+		DS_ERRORMSG     = 0x2,
+		DS_YESNO        = 0x4,
+		DS_DEFNO        = 0x8,
+		DS_OK           = 0x10,
+		DS_VALIDBUTTON  = 0x20,
+		DS_CANCELBUTTON = 0x40,
+		DS_NOSOUND      = 0x80,
+		DS_ERROR        = 0x100
 	};
 
 	u32 flag;

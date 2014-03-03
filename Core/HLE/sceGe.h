@@ -19,11 +19,11 @@
 
 #include "Core/HLE/sceKernelThread.h"
 
-#define SCE_GE_LIST_COMPLETED		0
-#define SCE_GE_LIST_QUEUED			1
-#define SCE_GE_LIST_DRAWING			2
-#define SCE_GE_LIST_STALLING		3
-#define SCE_GE_LIST_PAUSED			4
+#define SCE_GE_LIST_COMPLETED  0
+#define SCE_GE_LIST_QUEUED     1
+#define SCE_GE_LIST_DRAWING    2
+#define SCE_GE_LIST_STALLING   3
+#define SCE_GE_LIST_PAUSED     4
 
 
 // typedef void (*PspGeCallback)(int id, void *arg);

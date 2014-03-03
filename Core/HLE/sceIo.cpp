@@ -57,9 +57,9 @@ const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
 const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
-const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR		   = 0x80020323;
+const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR         = 0x80020323;
 
-const int ERROR_PGD_INVALID_HEADER				   = 0x80510204;
+const int ERROR_PGD_INVALID_HEADER                 = 0x80510204;
 
 /*
 
@@ -81,14 +81,14 @@ umd00: block access - umd
 umd01: block access - umd
 */
 
-#define O_RDONLY		0x0001
-#define O_WRONLY		0x0002
-#define O_RDWR			0x0003
-#define O_NBLOCK		0x0010
-#define O_APPEND		0x0100
-#define O_CREAT			0x0200
-#define O_TRUNC			0x0400
-#define O_NOWAIT		0x8000
+#define O_RDONLY        0x0001
+#define O_WRONLY        0x0002
+#define O_RDWR          0x0003
+#define O_NBLOCK        0x0010
+#define O_APPEND        0x0100
+#define O_CREAT         0x0200
+#define O_TRUNC         0x0400
+#define O_NOWAIT        0x8000
 #define O_NPDRM         0x40000000
 
 // chstat
@@ -128,8 +128,8 @@ const int IO_THREAD_MIN_DATA_SIZE = 0;
 #define SCE_STM_FLNK 0x4000
 
 enum {
-	TYPE_DIR=0x10,
-	TYPE_FILE=0x20
+	TYPE_DIR  = 0x10,
+	TYPE_FILE = 0x20
 };
 
 #ifdef __SYMBIAN32__
