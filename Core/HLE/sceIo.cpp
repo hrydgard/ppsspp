@@ -638,7 +638,7 @@ void __IoSchedSync(FileNode *f, int fd, int usec) {
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
 	CoreTiming::ScheduleEvent(usToCycles(usec), syncNotifyEvent, param);
 
-	f->pendingAsyncResult = true;
+	f->pendingAsyncResult = false;
 	f->hasAsyncResult = false;
 }
 
@@ -742,7 +742,17 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
 				return true;
-			} else if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE) {
+			}
+
+			bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
+			if (useThread) {
+				// If there's a pending operation on this file, wait for it to finish and don't overwrite it.
+				useThread = !ioManager.HasOperation(f->handle);
+				if (!useThread) {
+					ioManager.SyncThread();
+				}
+			}
+			if (useThread) {
 				AsyncIOEvent ev = IO_EVENT_READ;
 				ev.handle = f->handle;
 				ev.buf = data;
@@ -754,10 +764,13 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 				return true;
 			}
 		} else {
-			ERROR_LOG_REPORT(SCEIO, "sceIoRead Reading into bad pointer %08x", data_addr);
-			// TODO: Returning 0 because it wasn't being sign-extended in async result before.
-			// What should this do?
-			result = 0;
+			if (size != 0) {
+				// TODO: For some combinations of bad pointer + size, SCE_KERNEL_ERROR_ILLEGAL_ADDR.
+				// Seems like only for kernel RAM.  For most cases, it really is -1.
+				result = -1;
+			} else {
+				result = 0;
+			}
 			return true;
 		}
 	} else {
@@ -854,7 +867,16 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		}
-		if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE) {
+
+		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
+		if (useThread) {
+			// If there's a pending operation on this file, wait for it to finish and don't overwrite it.
+			useThread = !ioManager.HasOperation(f->handle);
+			if (!useThread) {
+				ioManager.SyncThread();
+			}
+		}
+		if (useThread) {
 			AsyncIOEvent ev = IO_EVENT_WRITE;
 			ev.handle = f->handle;
 			ev.buf = (u8 *) data_ptr;
@@ -1004,6 +1026,11 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 
 s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
 	seek = FILEMOVE_BEGIN;
+
+	// Let's make sure this isn't incorrect mid-operation.
+	if (ioManager.HasOperation(f->handle)) {
+		ioManager.SyncThread();
+	}
 
 	s64 newPos = 0;
 	switch (whence) {
