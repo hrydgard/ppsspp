@@ -53,6 +53,17 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/main.h"
 
+// Nvidia drivers >= v302 will check if the application exports a global
+// variable named NvOptimusEnablement to know if it should run the app in high
+// performance graphics mode or using the IGP.
+#ifdef WIN32
+
+extern "C" {
+	__declspec(dllexport) DWORD NvOptimusEnablement = 1;
+}
+
+#endif
+
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
