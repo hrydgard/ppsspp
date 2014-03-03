@@ -27,6 +27,8 @@
 #include "Core/MemMap.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
+#include "Core/ELF/PBPReader.h"
+#include "Core/ELF/ParamSFO.h"
 
 // TODO : improve, look in the file more
 IdentifiedFileType Identify_File(std::string &filename)
@@ -138,6 +140,27 @@ IdentifiedFileType Identify_File(std::string &filename)
 		return FILETYPE_UNKNOWN_ELF;
 	}
 	else if (id == 'PBP\x00') {
+		// Do this PS1 eboot check FIRST before checking other eboot types.
+		// It seems like some are malformed and slip through the PSAR check below.
+		PBPReader pbp(filename.c_str());
+		if (pbp.IsValid()) {
+			if (!pbp.IsELF()) {
+				size_t sfoSize;
+				u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
+				{
+					recursive_mutex _lock;
+					lock_guard lock(_lock);
+					ParamSFOData paramSFO;
+					paramSFO.ReadSFO(sfoData, sfoSize);
+					// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
+					// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
+					if (paramSFO.GetValueString("CATEGORY") == "ME")
+						return FILETYPE_PSP_PS1_PBP;
+				}
+				delete[] sfoData;
+			}
+		}
+
 		if (psar_id == 'MUPN') {
 			return FILETYPE_PSP_ISO_NP;
 		}
