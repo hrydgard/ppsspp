@@ -83,7 +83,7 @@ public:
 	LogTypes::LOG_LEVELS GetLevel() const { return (LogTypes::LOG_LEVELS)level_; }
 
 	void SetLevel(LogTypes::LOG_LEVELS level) {	level_ = level; }
-	bool HasListeners() const { return !m_listeners.empty(); }
+	bool HasListeners() const { return m_hasListeners; }
 
 	// Although not elegant, easy to set with a PopupMultiChoice...
 	int level_;
@@ -94,6 +94,7 @@ private:
 	char m_shortName[32];
 	std::mutex m_listeners_lock;
 	std::set<LogListener*> m_listeners;
+	bool m_hasListeners;
 };
 
 class ConsoleListener;

@@ -172,13 +172,11 @@ void LogManager::LoadConfig(IniFile::Section *section) {
 }
 
 void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args) {
-	std::lock_guard<std::mutex> lk(log_lock_);
-
-	char msg[MAX_MSGLEN * 2];
 	LogChannel *log = log_[type];
-	if (!log || !log->IsEnabled() || level > log->GetLevel() || ! log->HasListeners())
+	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
 		return;
 
+	std::lock_guard<std::mutex> lk(log_lock_);
 	static const char level_to_char[8] = "-NEWIDV";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
@@ -196,7 +194,8 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 		if (fileshort != file)
 			file = fileshort + 1;
 	}
-
+	
+	char msg[MAX_MSGLEN * 2];
 	char *msgPos = msg;
 	if (hleCurrentThreadName != NULL) {
 		msgPos += sprintf(msgPos, "%s %-12.12s %c[%s]: %s:%d ",
@@ -228,7 +227,7 @@ void LogManager::Shutdown() {
 }
 
 LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
-	: enable_(enable) {
+	: enable_(enable), m_hasListeners(false) {
 	strncpy(m_fullName, fullName, 128);
 	strncpy(m_shortName, shortName, 32);
 #if defined(_DEBUG)
@@ -242,11 +241,13 @@ LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
 void LogChannel::AddListener(LogListener *listener) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.insert(listener);
+	m_hasListeners = true;
 }
 
 void LogChannel::RemoveListener(LogListener *listener) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.erase(listener);
+	m_hasListeners = !m_listeners.empty();
 }
 
 void LogChannel::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
