@@ -418,11 +418,11 @@ int GetReplacementFuncIndex(u64 hash, int funcSize) {
 	}
 
 	// TODO: Build a lookup and keep it around
-	for (int i = 0; i < ARRAY_SIZE(entries); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(entries); i++) {
 		if (!entries[i].name)
 			continue;
 		if (!strcmp(name, entries[i].name)) {
-			return i;
+			return (int)i;
 		}
 	}
 	return -1;

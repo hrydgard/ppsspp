@@ -521,7 +521,7 @@ void CWCheatEngine::Run() {
 			case 0xC: // Code stopper
 				if (Memory::IsValidAddress(addr)) { 
 					value = Memory::Read_U32(addr);
-					if (value != arg) {
+					if ((u32)value != arg) {
 						SkipAllCodes();
 					}
 				}

@@ -121,7 +121,7 @@ bool SimpleAT3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 	*outbytes = 0;
 
 	int got_frame = 0;
-	avcodec_get_frame_defaults(frame_);
+	av_frame_unref(frame_);
 
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {

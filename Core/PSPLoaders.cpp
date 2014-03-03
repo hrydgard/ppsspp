@@ -150,7 +150,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 
 	// Bypass Chinese translation patches, see comment above.
-	for (int i = 0; i < ARRAY_SIZE(altBootNames); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(altBootNames); i++) {
 		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
 			bootpath = altBootNames[i];			
 		}
