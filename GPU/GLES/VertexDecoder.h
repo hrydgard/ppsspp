@@ -245,6 +245,18 @@ public:
 	void Jit_PosS16Skin();
 	void Jit_PosFloatSkin();
 
+	void Jit_AnyS8Morph(int srcoff, int dstoff);
+	void Jit_AnyS16Morph(int srcoff, int dstoff);
+	void Jit_AnyFloatMorph(int srcoff, int dstoff);
+
+	void Jit_NormalS8Morph();
+	void Jit_NormalS16Morph();
+	void Jit_NormalFloatMorph();
+
+	void Jit_PosS8Morph();
+	void Jit_PosS16Morph();
+	void Jit_PosFloatMorph();
+
 private:
 	bool CompileStep(const VertexDecoder &dec, int i);
 	void Jit_ApplyWeights();
