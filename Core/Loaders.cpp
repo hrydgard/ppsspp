@@ -154,10 +154,8 @@ IdentifiedFileType Identify_File(std::string &filename)
 					paramSFO.ReadSFO(sfoData, sfoSize);
 					// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
 					// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
-					if (paramSFO.GetValueString("CATEGORY") == "ME") {
-						ERROR_LOG(LOADER, "PS1 EBOOTs are not supported by PPSSPP.");
+					if (paramSFO.GetValueString("CATEGORY") == "ME")
 						return FILETYPE_PSP_PS1_PBP;
-					}
 				}
 				delete[] sfoData;
 			}
