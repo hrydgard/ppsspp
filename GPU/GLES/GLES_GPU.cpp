@@ -1509,6 +1509,18 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	}
 }
 
+void GLES_GPU::FastLoadBoneMatrix(u32 target) {
+	if (!g_Config.bSoftwareSkinning) {
+		Flush();
+		const int num = gstate.boneMatrixNumber & 0x7F;
+		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		if ((num % 12) != 0) {
+			shaderManager_->DirtyUniform((DIRTY_BONEMATRIX0 << (num / 12)) + 1);
+		}
+	}
+	gstate.FastLoadBoneMatrix(target);
+}
+
 void GLES_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();

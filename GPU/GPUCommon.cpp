@@ -736,12 +736,12 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			u32 target = gstate_c.getRelativeAddress(data);
 
 			// Bone matrix optimization - many games will CALL a bone matrix (!).
-			if (g_Config.bSoftwareSkinning && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+			if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 				// Check for the end
 				if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 					  (Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET) {
 					// Yep, pretty sure this is a bone matrix call.
-					gstate.FastLoadBoneMatrix(target);
+					FastLoadBoneMatrix(target);
 					break;
 				}
 			}
@@ -931,6 +931,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
 		break;
 	}
+}
+
+void GPUCommon::FastLoadBoneMatrix(u32 target) {
+	gstate.FastLoadBoneMatrix(target);
 }
 
 struct DisplayListOld {
