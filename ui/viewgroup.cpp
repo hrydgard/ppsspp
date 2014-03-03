@@ -213,15 +213,18 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		ILOG("Contain overlap");
 		return 0.0;
 	}
+	float originSize = 0.0f;
 	switch (direction) {
 	case FOCUS_LEFT:
 		overlap = vertOverlap;
+		originSize = origin->GetBounds().w;
 		if (dirX > 0.0f) {
 			wrongDirection = true;
 		}
 		break;
 	case FOCUS_UP:
 		overlap = horizOverlap;
+		originSize = origin->GetBounds().h;
 		if (dirY > 0.0f) {
 			wrongDirection = true;
 		}
@@ -229,12 +232,14 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		break;
 	case FOCUS_RIGHT:
 		overlap = vertOverlap;
+		originSize = origin->GetBounds().w;
 		if (dirX < 0.0f) {
 			wrongDirection = true;
 		}
 		break;
 	case FOCUS_DOWN:
 		overlap = horizOverlap;
+		originSize = origin->GetBounds().h;
 		if (dirY < 0.0f) {
 			wrongDirection = true;
 		}
@@ -261,10 +266,14 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		}
 	}
 
+	// At large distances, ignore overlap.
+	if (distance > 2 * originSize)
+		overlap = 0;
+
 	if (wrongDirection)
 		return 0.0f;
 	else
-		return 1.0f / distance + overlap*10 + bonus;
+		return 1.0f / distance + overlap * 10 + bonus;
 }
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {

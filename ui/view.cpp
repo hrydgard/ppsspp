@@ -713,8 +713,10 @@ void SliderFloat::Touch(const TouchInput &input) {
 }
 
 void SliderFloat::Clamp() {
-	if (*value_ < minValue_) *value_ = minValue_;
-	else if (*value_ > maxValue_) *value_ = maxValue_;
+	if (*value_ < minValue_)
+		*value_ = minValue_;
+	else if (*value_ > maxValue_)
+		*value_ = maxValue_;
 }
 
 void SliderFloat::Draw(UIContext &dc) {
@@ -736,50 +738,6 @@ void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 	// TODO
 	w = 100;
 	h = 50;
-}
-
-
-/*
-TabStrip::TabStrip()
-	: selected_(0) {
-}
-
-void TabStrip::Touch(const TouchInput &touch) {
-	int tabw = bounds_.w / tabs_.size();
-	int h = 20;
-	if (touch.flags & TOUCH_DOWN) {
-		for (int i = 0; i < MAX_POINTERS; i++) {
-			if (UIRegionHit(i, bounds_.x, bounds_.y, bounds_.w, h, 8)) {
-				selected_ = (touch.x - bounds_.x) / tabw;
-			}
-		}
-		if (selected_ < 0) selected_ = 0;
-		if (selected_ >= (int)tabs_.size()) selected_ = (int)tabs_.size() - 1;
-	}
-}
-
-void TabStrip::Draw(DrawContext &dc) {
-	int tabw = bounds_.w / tabs_.size();
-	int h = 20;
-	for (int i = 0; i < numTabs; i++) {
-		dc.draw->DrawImageStretch(WHITE, x + 1, y + 2, x + tabw - 1, y + h, 0xFF202020);
-		dc.draw->DrawText(font, tabs_[i].title.c_str(), x + tabw/2, y + h/2, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_HCENTER);
-		if (selected_ == i) {
-			float tw, th;
-			ui_draw2d.MeasureText(font, names[i], &tw, &th);
-			// TODO: better image
-			ui_draw2d.DrawImageStretch(WHITE, x + 1, y + h - 6, x + tabw - 1, y + h, tabColors ? tabColors[i] : 0xFFFFFFFF);
-		} else {
-			ui_draw2d.DrawImageStretch(WHITE, x + 1, y + h - 1, x + tabw - 1, y + h, tabColors ? tabColors[i] : 0xFFFFFFFF);
-		}
-		x += tabw;
-	}
-}*/
-
-void Fill(UIContext &dc, const Bounds &bounds, const Drawable &drawable) {
-	if (drawable.type == DRAW_SOLID_COLOR) {
-		
-	}
 }
 
 }  // namespace

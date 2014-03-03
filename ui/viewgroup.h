@@ -20,7 +20,7 @@ struct NeighborResult {
 
 class ViewGroup : public View {
 public:
-	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams), hasDropShadow_(false), clip_(false) {}
+	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams), defaultFocusView_(0), hasDropShadow_(false), clip_(false) {}
 	virtual ~ViewGroup();
 
 	// Pass through external events to children.
@@ -47,6 +47,9 @@ public:
 	virtual bool SubviewFocused(View *view);
 	virtual void RemoveSubview(View *view);
 
+	void SetDefaultFocusView(View *view) { defaultFocusView_ = view; }
+	View *GetDefaultFocusView() { return defaultFocusView_; }
+
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
 
@@ -68,6 +71,7 @@ public:
 protected:
 	recursive_mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
+	View *defaultFocusView_;
 	Drawable bg_;
 	bool hasDropShadow_;
 	bool clip_;

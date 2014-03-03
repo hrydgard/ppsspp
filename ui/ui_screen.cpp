@@ -19,6 +19,9 @@ void UIScreen::DoRecreateViews() {
 		delete root_;
 		root_ = 0;
 		CreateViews();
+		if (root_ && root_->GetDefaultFocusView()) {
+			root_->GetDefaultFocusView()->SetFocus();
+		}
 		recreateViews_ = false;
 	}
 }
