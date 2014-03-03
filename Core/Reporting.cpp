@@ -39,6 +39,7 @@
 
 #include "base/buffer.h"
 #include "thread/thread.h"
+#include "file/zip_read.h"
 
 #include <set>
 #include <stdlib.h>
@@ -334,8 +335,14 @@ namespace Reporting
 
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
-		if (!File::Exists(g_Config.flash0Directory + "/font"))
+#if defined(USING_WIN_UI) || defined(APPLE)
+		if (!File::Exists(g_Config.flash0Directory + "/font/jpn0.pgf"))
 			return false;
+#else
+		FileInfo fo;
+		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
+			return false;
+#endif
 
 		return !everUnsupported;
 	}
