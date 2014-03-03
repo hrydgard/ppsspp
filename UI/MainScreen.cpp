@@ -692,6 +692,7 @@ void MainScreen::CreateViews() {
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
 	tabHolder_ = leftColumn;
+
 	leftColumn->SetClip(true);
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -778,6 +779,7 @@ void MainScreen::CreateViews() {
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);
 	gold->SetIcon(I_ICONGOLD);
 #endif
+	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 
 	if (vertical) {
@@ -793,6 +795,8 @@ void MainScreen::CreateViews() {
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
 	}
+
+	root_->SetDefaultFocusView(tabHolder_);
 
 	I18NCategory *u = GetI18NCategory("Upgrade");
 
