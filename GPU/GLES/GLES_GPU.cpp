@@ -882,7 +882,8 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 					shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 			} else {
-				if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+				// Don't flush when weight count changes, unless morph is enabled.
+				if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (data & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 					// Restore and flush
 					gstate.vertType ^= diff;
 					Flush();
