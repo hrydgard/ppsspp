@@ -71,6 +71,15 @@ inline double atan_fast(double x) {
 	return (x / (1.0 + 0.28 * (x * x)));
 }
 
+template<class T>
+inline T clamp_value(T val, T floor, T cap) {
+	if (val > cap)
+		return cap;
+	else if (val < floor)
+		return floor;
+	else
+		return val;
+}
 
 // linear -> dB conversion
 inline float lin2dB(float lin) {
