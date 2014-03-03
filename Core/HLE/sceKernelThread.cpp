@@ -88,21 +88,21 @@ const char *getWaitTypeName(WaitType type)
 	return "Unknown";
 }
 
-enum {
-	PSP_THREAD_ATTR_KERNEL =           0x00001000,
-	PSP_THREAD_ATTR_VFPU =             0x00004000,
-	PSP_THREAD_ATTR_SCRATCH_SRAM =     0x00008000,   // Save/restore scratch as part of context???
-	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // No filling of 0xff.
-	PSP_THREAD_ATTR_CLEAR_STACK =      0x00200000,   // Clear thread stack when deleted.
-	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // Allocate stack from bottom not top.
-	PSP_THREAD_ATTR_USER =             0x80000000,
-	PSP_THREAD_ATTR_USBWLAN =          0xa0000000,
-	PSP_THREAD_ATTR_VSH =              0xc0000000,
+	enum {
+	PSP_THREAD_ATTR_KERNEL       = 0x00001000,
+	PSP_THREAD_ATTR_VFPU         = 0x00004000,
+	PSP_THREAD_ATTR_SCRATCH_SRAM = 0x00008000, // Save/restore scratch as part of context???
+	PSP_THREAD_ATTR_NO_FILLSTACK = 0x00100000, // No filling of 0xff.
+	PSP_THREAD_ATTR_CLEAR_STACK  = 0x00200000, // Clear thread stack when deleted.
+	PSP_THREAD_ATTR_LOW_STACK    = 0x00400000, // Allocate stack from bottom not top.
+	PSP_THREAD_ATTR_USER         = 0x80000000,
+	PSP_THREAD_ATTR_USBWLAN      = 0xa0000000,
+	PSP_THREAD_ATTR_VSH          = 0xc0000000,
 
 	// TODO: Support more, not even sure what all of these mean.
-	PSP_THREAD_ATTR_USER_MASK =        0xf8f060ff,
-	PSP_THREAD_ATTR_USER_ERASE =       0x78800000,
-	PSP_THREAD_ATTR_SUPPORTED =        (PSP_THREAD_ATTR_KERNEL | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK | PSP_THREAD_ATTR_CLEAR_STACK | PSP_THREAD_ATTR_LOW_STACK | PSP_THREAD_ATTR_USER)
+	PSP_THREAD_ATTR_USER_MASK    = 0xf8f060ff,
+	PSP_THREAD_ATTR_USER_ERASE   = 0x78800000,
+	PSP_THREAD_ATTR_SUPPORTED    = (PSP_THREAD_ATTR_KERNEL | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK | PSP_THREAD_ATTR_CLEAR_STACK | PSP_THREAD_ATTR_LOW_STACK | PSP_THREAD_ATTR_USER)
 };
 
 struct NativeCallback
@@ -190,7 +190,7 @@ struct NativeThread
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
 
 	// Threading stuff
-	u32_le	attr;
+	u32_le attr;
 	u32_le status;
 	u32_le entrypoint;
 	u32_le initialStack;

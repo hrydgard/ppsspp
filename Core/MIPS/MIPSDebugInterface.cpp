@@ -28,12 +28,12 @@
 #include "Core/System.h"
 
 enum ReferenceIndexType {
-	REF_INDEX_PC = 32,
-	REF_INDEX_HI = 33,
-	REF_INDEX_LO = 34,
-	REF_INDEX_FPU = 0x1000,
-	REF_INDEX_FPU_INT = 0x2000,
-	REF_INDEX_VFPU = 0x4000,
+	REF_INDEX_PC       = 32,
+	REF_INDEX_HI       = 33,
+	REF_INDEX_LO       = 34,
+	REF_INDEX_FPU      = 0x1000,
+	REF_INDEX_FPU_INT  = 0x2000,
+	REF_INDEX_VFPU     = 0x4000,
 	REF_INDEX_VFPU_INT = 0x8000,
 	REF_INDEX_IS_FLOAT = REF_INDEX_FPU | REF_INDEX_VFPU,
 };
@@ -254,14 +254,14 @@ const char *MIPSDebugInterface::GetName()
 const char *MIPSDebugInterface::GetRegName(int cat, int index)
 {
 	static const char *regName[32] = {
-		"zero",	"at",	"v0",	"v1",
-		"a0",		"a1",	"a2",	"a3",
-		"t0",		"t1",	"t2",	"t3",
-		"t4",		"t5",	"t6",	"t7",
-		"s0",		"s1",	"s2",	"s3",
-		"s4",		"s5",	"s6",	"s7",
-		"t8",		"t9",	"k0",	"k1",
-		"gp",		"sp",	"fp",	"ra"
+		"zero",  "at",    "v0",    "v1",
+		"a0",    "a1",    "a2",    "a3",
+		"t0",    "t1",    "t2",    "t3",
+		"t4",    "t5",    "t6",    "t7",
+		"s0",    "s1",    "s2",    "s3",
+		"s4",    "s5",    "s6",    "s7",
+		"t8",    "t9",    "k0",    "k1",
+		"gp",    "sp",    "fp",    "ra"
 	};
 
 	// really nasty hack so that this function can be called several times on one line of c++.

@@ -43,21 +43,21 @@
 enum
 {
 	// Do nothing after the syscall.
-	HLE_AFTER_NOTHING = 0x00,
+	HLE_AFTER_NOTHING           = 0x00,
 	// Reschedule immediately after the syscall.
-	HLE_AFTER_RESCHED = 0x01,
+	HLE_AFTER_RESCHED           = 0x01,
 	// Call current thread's callbacks after the syscall.
 	HLE_AFTER_CURRENT_CALLBACKS = 0x02,
 	// Check all threads' callbacks after the syscall.
-	HLE_AFTER_ALL_CALLBACKS = 0x04,
+	HLE_AFTER_ALL_CALLBACKS     = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
 	// Run interrupts (and probably reschedule) after the syscall.
-	HLE_AFTER_RUN_INTERRUPTS = 0x10,
+	HLE_AFTER_RUN_INTERRUPTS    = 0x10,
 	// Switch to CORE_STEPPING after the syscall (for debugging.)
-	HLE_AFTER_DEBUG_BREAK = 0x20,
+	HLE_AFTER_DEBUG_BREAK       = 0x20,
 	// Don't fill temp regs with 0xDEADBEEF.
-	HLE_AFTER_SKIP_DEADBEEF = 0x40,
+	HLE_AFTER_SKIP_DEADBEEF     = 0x40,
 };
 
 typedef std::vector<Syscall> SyscallVector;

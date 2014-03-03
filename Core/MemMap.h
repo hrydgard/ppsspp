@@ -41,7 +41,7 @@ typedef void (*writeFn16)(const u16,const u32);
 typedef void (*writeFn32)(const u32,const u32);
 typedef void (*writeFn64)(const u64,const u32);
 
-typedef void (*readFn8 )(u8&,	const u32);
+typedef void (*readFn8 )(u8&,  const u32);
 typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
@@ -89,15 +89,15 @@ enum
 	// Used if the PSP model is PSP-2000 (Slim).
 	RAM_DOUBLE_SIZE = RAM_NORMAL_SIZE * 2,
 
-	VRAM_SIZE			 = 0x200000,
-	VRAM_MASK			 = VRAM_SIZE - 1,
+	VRAM_SIZE       = 0x200000,
+	VRAM_MASK       = VRAM_SIZE - 1,
 
 	SCRATCHPAD_SIZE = 0x4000,
 	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
 
 #if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
 	// This wraparound should work for PSP too.
-	MEMVIEW32_MASK	= 0x3FFFFFFF,
+	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
 };
 
@@ -430,8 +430,8 @@ inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
 inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
-inline u32 PSP_GetUserMemoryEnd()	{ return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
-inline u32 PSP_GetKernelMemoryEnd()	{ return 0x08400000;}
+inline u32 PSP_GetUserMemoryEnd() { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
+inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
 // game through sceKernelVolatileMemTryLock.
 
