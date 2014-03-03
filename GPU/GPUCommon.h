@@ -88,6 +88,7 @@ protected:
 	int  GetNextListIndex();
 	void ProcessDLQueueInternal();
 	void ReapplyGfxStateInternal();
+	virtual void FastLoadBoneMatrix(u32 target);
 	virtual void ProcessEvent(GPUEvent ev);
 	virtual bool ShouldExitEventLoop() {
 		return coreState != CORE_RUNNING;
