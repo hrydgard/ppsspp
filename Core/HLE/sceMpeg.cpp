@@ -988,7 +988,7 @@ void PostPutAction::run(MipsCall &call) {
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 
-	int packetsAdded = currentMIPS->r[2];
+	int packetsAdded = currentMIPS->r[MIPS_REG_V0];
 	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, ctx);

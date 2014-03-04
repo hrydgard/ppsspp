@@ -3111,21 +3111,21 @@ void ActionAfterMipsCall::run(MipsCall &call) {
 
 void Thread::setReturnValue(u32 retval)
 {
-	if (this->GetUID() == currentThread) {
-		currentMIPS->r[2] = retval;
+	if (GetUID() == currentThread) {
+		currentMIPS->r[MIPS_REG_V0] = retval;
 	} else {
-		context.r[2] = retval;
+		context.r[MIPS_REG_V0] = retval;
 	}
 }
 
 void Thread::setReturnValue(u64 retval)
 {
-	if (this->GetUID() == currentThread) {
-		currentMIPS->r[2] = retval & 0xFFFFFFFF;
-		currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
+	if (GetUID() == currentThread) {
+		currentMIPS->r[MIPS_REG_V0] = retval & 0xFFFFFFFF;
+		currentMIPS->r[MIPS_REG_V1] = (retval >> 32) & 0xFFFFFFFF;
 	} else {
-		context.r[2] = retval & 0xFFFFFFFF;
-		context.r[3] = (retval >> 32) & 0xFFFFFFFF;
+		context.r[MIPS_REG_V0] = retval & 0xFFFFFFFF;
+		context.r[MIPS_REG_V1] = (retval >> 32) & 0xFFFFFFFF;
 	}
 }
 
