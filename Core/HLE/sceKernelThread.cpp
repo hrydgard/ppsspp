@@ -2726,8 +2726,9 @@ int sceKernelSleepThread()
 int sceKernelSleepThreadCB()
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelSleepThreadCB()");
-	hleCheckCurrentCallbacks();
-	return __KernelSleepThread(true);
+	__KernelSleepThread(true);
+	__KernelCheckCallbacks();
+	return 0;
 }
 
 int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
