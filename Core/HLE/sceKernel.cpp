@@ -73,6 +73,7 @@
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
 #include "sceHeap.h"
+#include "sceDmac.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -131,6 +132,7 @@ void __KernelInit()
 	__VaudioInit();
 	__CheatInit();
 	__HeapInit();
+	__DmacInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();

@@ -67,6 +67,8 @@ void __UmdInit()
 	umdStatus = 0;
 	umdErrorStat = 0;
 	driveCBId = 0;
+	umdWaitingThreads.clear();
+	umdPausedWaits.clear();
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
