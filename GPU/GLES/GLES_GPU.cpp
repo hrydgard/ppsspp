@@ -1426,7 +1426,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				if (dst[i] != newVal) {
 					Flush();
 					dst[i] = newVal;
-					shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+					shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 				}
 				if (++i > end) {
 					break;
