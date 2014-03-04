@@ -1274,7 +1274,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
-		// Intentional fallthrough. (?)
+		// Intentional fallthrough - we still need to dirty DIRTY_ALPHACOLORREF for GE_CMD_ALPHATEST.
 
 	case GE_CMD_COLORREF:
 		if (diff)
@@ -1344,11 +1344,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		gstate.viewmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.viewMatrix + (data & 0xF));
+			const int end = 12 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.viewmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
@@ -1362,11 +1388,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_PROJMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.projMatrix + (data & 0xF));
+			const int end = 16 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.projmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
@@ -1380,11 +1432,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
-		gstate.texmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_TGENMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.tgenMatrix + (data & 0xF));
+			const int end = 12 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.texmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
@@ -1398,11 +1476,51 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		gstate.boneMatrixNumber &= 0xFF00007F;
+		{
+			// This is almost always followed by GE_CMD_BONEMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.boneMatrix + (data & 0x7F));
+			const int end = 12 * 8 - (data & 0x7F);
+			int i = 0;
+
+			// If we can't use software skinning, we have to flush and dirty.
+			if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+					const u32 newVal = src[i] << 8;
+					if (dst[i] != newVal) {
+						Flush();
+						dst[i] = newVal;
+					}
+					if (++i > end) {
+						break;
+					}
+				}
+
+				const int numPlusCount = (data & 0x7F) + i;
+				for (int num = data & 0x7F; num < numPlusCount; num += 12) {
+					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+				}
+			} else {
+				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+					dst[i] = src[i] << 8;
+					if (++i > end) {
+						break;
+					}
+				}
+			}
+
+			const int count = i;
+			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((data + count) & 0x7F);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.boneMatrixNumber & 0x7F;
 			u32 newVal = data << 8;
 			if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
