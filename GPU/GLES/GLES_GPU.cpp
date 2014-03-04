@@ -1326,11 +1326,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		gstate.worldmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.worldMatrix + (data & 0xF));
+			const int end = 12 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.worldmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
