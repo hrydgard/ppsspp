@@ -1399,31 +1399,39 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_BONEMATRIXNUMBER:
 		{
-			if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-				Flush();
-			}
-
 			// This is almost always followed by GE_CMD_BONEMATRIXDATA.
 			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
 			u32 *dst = (u32 *)(gstate.boneMatrix + (data & 0x7F));
 			const int end = 12 * 8 - (data & 0x7F);
 			int i = 0;
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				dst[i] = src[i] << 8;
-				if (++i > end) {
-					break;
+
+			// If we can't use software skinning, we have to flush and dirty.
+			if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+					u32 newVal = src[i] << 8;
+					if (dst[i] != newVal) {
+						Flush();
+						dst[i] = newVal;
+					}
+					if (++i > end) {
+						break;
+					}
+				}
+
+				const int numPlusCount = (data & 0x7F) + i;
+				for (int num = data & 0x7F; num < numPlusCount; num += 12) {
+					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+				}
+			} else {
+				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+					dst[i] = src[i] << 8;
+					if (++i > end) {
+						break;
+					}
 				}
 			}
 
 			const int count = i;
-			// Now let's dirty the flags for the loaded matrices.
-			if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-				const int numPlusCount = (data & 0x7F) + count;
-				for (int num = data & 0x7F; num < numPlusCount; num += 12) {
-					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-				}
-			}
-
 			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((data + count) & 0x7F);
 
 			// Skip over the loaded data, it's done now.
