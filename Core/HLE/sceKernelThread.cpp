@@ -2726,7 +2726,6 @@ int sceKernelSleepThread()
 int sceKernelSleepThreadCB()
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelSleepThreadCB()");
-	hleCheckCurrentCallbacks();
 	return __KernelSleepThread(true);
 }
 
