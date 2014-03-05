@@ -2726,7 +2726,8 @@ int sceKernelSleepThread()
 int sceKernelSleepThreadCB()
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelSleepThreadCB()");
-	hleCheckCurrentCallbacks();
+	//Fix Rumble Trucks and Retro Cave Flyer booting
+	hleCheckAllCallbacks();
 	return __KernelSleepThread(true);
 }
 
