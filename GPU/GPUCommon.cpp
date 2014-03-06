@@ -565,8 +565,12 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 
 	gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
 
-	// Exit the runloop and recalculate things.  This isn't common.
-	downcount = 0;
+	// Exit the runloop and recalculate things.  This happens a lot in some games.
+	easy_guard innerGuard(listLock);
+	if (currentList)
+		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - cycleLastPC) / 4;
+	else
+		downcount = 0;
 }
 
 void GPUCommon::ReapplyGfxState() {
