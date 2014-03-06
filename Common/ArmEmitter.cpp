@@ -1026,6 +1026,11 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 {
 	Write32(condition | (op << 20) | (WriteBack << 21) | (dest << 16) | RegList);
 }
+void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
+{
+	ARMReg Dest = SubBase(Vd);
+	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | Double) << 8) | (numregs << Double) );
+}
 void ARMXEmitter::STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {
 	u16 RegList = 0;
@@ -1286,6 +1291,26 @@ void ARMXEmitter::VCMP(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(12, Vd, D4, Vm); }
 void ARMXEmitter::VCMPE(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(13, Vd, D4, Vm); }
 void ARMXEmitter::VCMP(ARMReg Vd){ WriteVFPDataOp(12, Vd, D5, D0); }
 void ARMXEmitter::VCMPE(ARMReg Vd){ WriteVFPDataOp(13, Vd, D5, D0); }
+
+void ARMXEmitter::VLDMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+{
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, dest, false, WriteBack, firstreg, numregs);
+}
+
+void ARMXEmitter::VSTMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+{
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8, dest, false, WriteBack, firstreg, numregs);
+}
+
+void ARMXEmitter::VLDMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+{
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, dest, false, WriteBack, firstreg, numregs);
+}
+
+void ARMXEmitter::VSTMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+{
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10, dest, false, WriteBack, firstreg, numregs);
+}
 
 void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, s16 offset)
 {

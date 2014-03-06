@@ -125,18 +125,61 @@ bool DisasmVFP(uint32_t op, char *text) {
 #else
 	const char *cond = CCFlagsStr[op >> 28];
 	switch ((op >> 24) & 0xF) {
-	case 0xD:
-		// VLDR/VSTR
+	case 0xC:
+		// VLDMIA/VSTMIA
 		{
-			int base = (op >> 16) & 0xF;
-			bool add = (op >> 23) & 1;
-			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
-			int offset = (op & 0xFF) << 2;
-			if (!add) offset = -offset;
-			bool vldr = (op >> 20) & 1;
 			bool single_reg = ((op >> 8) & 0xF) == 10;
+			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
+			int base = (op >> 16) & 0xF;
+			bool load = (op >> 20) & 1;
+			bool writeback = (op >> 21) & 1;
+			int numregs = op & 0xF;
+			bool add = (op >> 23) & 1;
+			if (add && writeback && load && base == 13) {
+				if (single_reg)
+					sprintf(text, "VPOP%s {s%i-s%i}", cond, freg, freg-1+numregs);
+				else
+					sprintf(text, "VPOP%s {d%i-d%i}", cond, freg, freg-1+(numregs/2));
 
-			sprintf(text, "%s%s s%i, [r%i, #%i]", vldr ? "VLDR" : "VSTR", cond, freg, base, offset);
+				return true;
+			}
+			if (single_reg)
+				sprintf(text, "%s%s r%i%s, {s%i-s%i}", load ? "VLDMIA" : "VSTMIA", cond, base, writeback ? "!":"", freg, freg-1+numregs);
+			else
+				sprintf(text, "%s%s r%i%s, {d%i-d%i}", load ? "VLDMIA" : "VSTMIA", cond, base, writeback ? "!":"", freg, freg-1+(numregs/2));
+
+			return true;
+		}
+	case 0xD:
+		// VLDR/VSTR/VLDMDB/VSTMDB
+		{
+			bool single_reg = ((op >> 8) & 0xF) == 10;
+			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
+			int base = (op >> 16) & 0xF;
+			bool load = (op >> 20) & 1;
+			bool add = (op >> 23) & 1;
+			bool writeback = (op >> 21) & 1;
+			if (writeback) { // Multiple
+				int numregs = op & 0xF;
+				if (!add && !load && base == 13) {
+					if (single_reg)
+						sprintf(text, "VPUSH%s {s%i-s%i}", cond, freg, freg-1+numregs);
+					else
+						sprintf(text, "VPUSH%s {d%i-d%i}", cond, freg, freg-1+(numregs/2));
+
+					return true;
+				}
+
+				if (single_reg)
+					sprintf(text, "%s%s r%i, {s%i-s%i}", load ? "VLDMDB" : "VSTMDB", cond, base, freg, freg-1+numregs);
+				else
+					sprintf(text, "%s%s r%i, {d%i-d%i}", load ? "VLDMDB" : "VSTMDB", cond, base, freg, freg-1+(numregs/2));
+			} else {
+				int offset = (op & 0xFF) << 2;
+				if (!add) offset = -offset;
+				sprintf(text, "%s%s s%i, [r%i, #%i]", load ? "VLDR" : "VSTR", cond, freg, base, offset);
+			}
+
 			return true;
 		}
 

@@ -392,6 +392,7 @@ private:
 
 	void WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 op2, bool RegAdd);
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
+	void WriteVRegStoreOp(u32 op, ARMReg dest, bool Double, bool WriteBack, ARMReg firstreg, u8 numregs);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, ARMReg op2);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);
 	void WriteSignedMultiply(u32 Op, u32 Op2, u32 Op3, ARMReg dest, ARMReg r1, ARMReg r2);
@@ -584,6 +585,10 @@ public:
 	void VSUB(IntegerSize size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 
 	// VFP Only
+	void VLDMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VSTMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VLDMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VSTMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
 	void VLDR(ARMReg Dest, ARMReg Base, s16 offset);
 	void VSTR(ARMReg Src,  ARMReg Base, s16 offset);
 	void VCMP(ARMReg Vd, ARMReg Vm);
