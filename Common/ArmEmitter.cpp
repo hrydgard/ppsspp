@@ -490,7 +490,7 @@ void ARMXEmitter::NOP(int count)
 void ARMXEmitter::SETEND(bool BE)
 {
 	//SETEND is non-conditional
-	Write32( 0xF1010000 | (BE << 9));
+	Write32(0xF1010000 | (BE << 9));
 }
 void ARMXEmitter::BKPT(u16 arg)
 {
@@ -535,8 +535,7 @@ FixupBranch ARMXEmitter::B_CC(CCFlags Cond)
 void ARMXEmitter::B_CC(CCFlags Cond, const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - ((intptr_t)(code) + 8);
-	_assert_msg_(JIT, distance > -33554432
-                     && distance <=  33554432,
+	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
                      "B_CC out of range (%p calls %p)", code, fnptr);
 
 	Write32((Cond << 28) | 0x0A000000 | ((distance >> 2) & 0x00FFFFFF));
@@ -554,22 +553,16 @@ FixupBranch ARMXEmitter::BL_CC(CCFlags Cond)
 void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 {
 	ptrdiff_t distance =  ((intptr_t)(code) - 8)  - (intptr_t)branch.ptr;
-	_assert_msg_(JIT, distance > -33554432
-                     && distance <=  33554432,
-                     "SetJumpTarget out of range (%p calls %p)", code,
-					 branch.ptr);
-	if(branch.type == 0) // B
-		*(u32*)branch.ptr = (u32)(branch.condition | (10 << 24) | ((distance >> 2) &
-		0x00FFFFFF)); 
-	else // BL
-		*(u32*)branch.ptr =	(u32)(branch.condition | 0x0B000000 | ((distance >> 2)
-		& 0x00FFFFFF));
+	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	             "SetJumpTarget out of range (%p calls %p)", code, branch.ptr);
+	u32 instr = (u32)(branch.condition | ((distance >> 2) & 0x00FFFFFF));
+	instr |= branch.type ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
+	*(u32*)branch.ptr = instr;
 }
 void ARMXEmitter::B (const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	_assert_msg_(JIT, distance > -33554432
-                     && distance <=  33554432,
+	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
                      "B out of range (%p calls %p)", code, fnptr);
 
 	Write32(condition | 0x0A000000 | ((distance >> 2) & 0x00FFFFFF));
@@ -582,7 +575,7 @@ void ARMXEmitter::B(ARMReg src)
 
 bool ARMXEmitter::BLInRange(const void *fnptr) {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	if (distance <= -33554432 || distance > 33554432)
+	if (distance <= -0x2000000 || distance > 0x2000000)
 		return false;
 	else
 		return true;
@@ -591,8 +584,7 @@ bool ARMXEmitter::BLInRange(const void *fnptr) {
 void ARMXEmitter::BL(const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	_assert_msg_(JIT, distance > -33554432
-                     && distance <=  33554432,
+	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
                      "BL out of range (%p calls %p)", code, fnptr);
 	Write32(condition | 0x0B000000 | ((distance >> 2) & 0x00FFFFFF));
 }
@@ -643,42 +635,42 @@ void ARMXEmitter::WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg 
 // IMM, REG, IMMSREG, RSR 
 // -1 for invalid if the instruction doesn't support that
 const s32 InstOps[][4] = {{16, 0, 0, 0}, // AND(s)
-						  {17, 1, 1, 1}, // EOR(s)
-						  {18, 2, 2, 2}, // SUB(s)
-						  {19, 3, 3, 3}, // RSB(s)
-						  {20, 4, 4, 4}, // ADD(s)
-						  {21, 5, 5, 5}, // ADC(s)
-						  {22, 6, 6, 6}, // SBC(s)
-						  {23, 7, 7, 7}, // RSC(s)
-						  {24, 8, 8, 8}, // TST
-						  {25, 9, 9, 9}, // TEQ
-						  {26, 10, 10, 10}, // CMP
-						  {27, 11, 11, 11}, // CMN
-						  {28, 12, 12, 12}, // ORR(s)
-						  {29, 13, 13, 13}, // MOV(s)
-						  {30, 14, 14, 14}, // BIC(s)
-						  {31, 15, 15, 15}, // MVN(s)
-						  {24, -1, -1, -1}, // MOVW
-						  {26, -1, -1, -1}, // MOVT
-						 }; 
+                         {17, 1, 1, 1}, // EOR(s)
+                         {18, 2, 2, 2}, // SUB(s)
+                         {19, 3, 3, 3}, // RSB(s)
+                         {20, 4, 4, 4}, // ADD(s)
+                         {21, 5, 5, 5}, // ADC(s)
+                         {22, 6, 6, 6}, // SBC(s)
+                         {23, 7, 7, 7}, // RSC(s)
+                         {24, 8, 8, 8}, // TST
+                         {25, 9, 9, 9}, // TEQ
+                         {26, 10, 10, 10}, // CMP
+                         {27, 11, 11, 11}, // CMN
+                         {28, 12, 12, 12}, // ORR(s)
+                         {29, 13, 13, 13}, // MOV(s)
+                         {30, 14, 14, 14}, // BIC(s)
+                         {31, 15, 15, 15}, // MVN(s)
+                         {24, -1, -1, -1}, // MOVW
+                         {26, -1, -1, -1}, // MOVT
+                         }; 
 
 const char *InstNames[] = { "AND",
-							"EOR",
-							"SUB",
-							"RSB",
-							"ADD",
-							"ADC",
-							"SBC",
-							"RSC",
-							"TST",
-							"TEQ",
-							"CMP",
-							"CMN",
-							"ORR",
-							"MOV",
-							"BIC",
-							"MVN"
-						  };
+                            "EOR",
+                            "SUB",
+                            "RSB",
+                            "ADD",
+                            "ADC",
+                            "SBC",
+                            "RSC",
+                            "TST",
+                            "TEQ",
+                            "CMP",
+                            "CMN",
+                            "ORR",
+                            "MOV",
+                            "BIC",
+                            "MVN"
+                            };
 
 void ARMXEmitter::AND (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(0, Rd, Rn, Rm); }
 void ARMXEmitter::ANDS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(0, Rd, Rn, Rm, true); }
