@@ -162,10 +162,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// This step can be NEON-ized but the savings would be miniscule.
 	if (prescaleStep) {
 		MOVI2R(R3, (u32)(&gstate_c.uv), scratchReg);
-		VLDR(fpUscaleReg, R3, 0);
-		VLDR(fpVscaleReg, R3, 4);
-		VLDR(fpUoffsetReg, R3, 8);
-		VLDR(fpVoffsetReg, R3, 12);
+		VLDMIA(R3, false, fpUscaleReg, 4); // fp{Uscale, Yscale, Uoffset, Voffset}Reg = {S0-S4}
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			MOVI2F(fpScratchReg, by128, scratchReg);
 			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
