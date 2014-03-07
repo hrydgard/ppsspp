@@ -740,7 +740,7 @@ void SymbolMap::AddLabel(const char* name, u32 address, int moduleIndex) {
 			auto active = activeLabels.find(address);
 			if (active != activeLabels.end() && active->second.module == moduleIndex) {
 				activeLabels.erase(active);
-				activeLabels.insert(std::make_pair(address, existing->second));
+				activeLabels.insert(std::make_pair(address, label));
 			}
 		}
 	} else {
