@@ -90,6 +90,7 @@ void CheckGLExtensions() {
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
 	const char *versionStr = (const char *)glGetString(GL_VERSION);
+	const char *glslVersionStr = (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
 
 	// Check vendor string to try and guess GPU
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
@@ -153,8 +154,9 @@ void CheckGLExtensions() {
 #if defined(MAY_HAVE_GLES3)
 	// Try to load GLES 3.0 only if "3.0" found in version
 	// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
-	// number of times.
-	if (strstr(versionStr, "3.0") && GL_TRUE == gl3stubInit()) {
+	// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
+	// Really, we should do something much better.
+	if (strstr(versionStr, "3.0") && strstr(glslVersionStr, "3.0") && gl3stubInit()) {
 		gl_extensions.ver[0] = 3;
 		gl_extensions.GLES3 = true;
 		ILOG("Full OpenGL ES 3.0 support detected!\n");
