@@ -1021,7 +1021,7 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
 {
 	ARMReg Dest = SubBase(Vd);
-	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | Double) << 8) | (numregs << Double) );
+	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
 }
 void ARMXEmitter::STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {
@@ -1284,24 +1284,24 @@ void ARMXEmitter::VCMPE(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(13, Vd, D4, Vm); }
 void ARMXEmitter::VCMP(ARMReg Vd){ WriteVFPDataOp(12, Vd, D5, D0); }
 void ARMXEmitter::VCMPE(ARMReg Vd){ WriteVFPDataOp(13, Vd, D5, D0); }
 
-void ARMXEmitter::VLDMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+void ARMXEmitter::VLDMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, dest, false, WriteBack, firstreg, numregs);
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
-void ARMXEmitter::VSTMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+void ARMXEmitter::VSTMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x40 | 0x8, dest, false, WriteBack, firstreg, numregs);
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
-void ARMXEmitter::VLDMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+void ARMXEmitter::VLDMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, dest, false, WriteBack, firstreg, numregs);
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
-void ARMXEmitter::VSTMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs)
+void ARMXEmitter::VSTMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x040 | 0x10, dest, false, WriteBack, firstreg, numregs);
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, s16 offset)

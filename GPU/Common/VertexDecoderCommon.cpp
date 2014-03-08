@@ -51,18 +51,20 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 	if (idx == GE_VTYPE_IDX_8BIT) {
 		const u8 *ind8 = (const u8 *)inds;
 		for (int i = 0; i < count; i++) {
-			if (ind8[i] > upperBound)
-				upperBound = ind8[i];
-			if (ind8[i] < lowerBound)
-				lowerBound = ind8[i];
+			u8 value = ind8[i];
+			if (value > upperBound)
+				upperBound = value;
+			if (value < lowerBound)
+				lowerBound = value;
 		}
 	} else if (idx == GE_VTYPE_IDX_16BIT) {
 		const u16 *ind16 = (const u16*)inds;
 		for (int i = 0; i < count; i++) {
-			if (ind16[i] > upperBound)
-				upperBound = ind16[i];
-			if (ind16[i] < lowerBound)
-				lowerBound = ind16[i];
+			u16 value = ind16[i];
+			if (value > upperBound)
+				upperBound = value;
+			if (value < lowerBound)
+				lowerBound = value;
 		}
 	} else {
 		lowerBound = 0;
@@ -73,8 +75,7 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 }
 
 void PrintDecodedVertex(VertexReader &vtx) {
-	if (vtx.hasNormal())
-	{
+	if (vtx.hasNormal()) {
 		float nrm[3];
 		vtx.ReadNrm(nrm);
 		printf("N: %f %f %f\n", nrm[0], nrm[1], nrm[2]);
