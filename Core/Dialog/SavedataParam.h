@@ -319,6 +319,7 @@ public:
 	std::string GetGameName(const SceUtilitySavedataParam *param) const;
 	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
 	std::string GetFileName(const SceUtilitySavedataParam *param) const;
+	std::string GetKey(const SceUtilitySavedataParam *param) const;
 
 	static std::string GetSpaceText(int size);
 

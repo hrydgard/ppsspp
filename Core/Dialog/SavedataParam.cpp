@@ -282,6 +282,24 @@ std::string SavedataParam::GetFileName(const SceUtilitySavedataParam *param) con
 	return FixedToString(param->fileName, ARRAY_SIZE(param->fileName));
 }
 
+std::string SavedataParam::GetKey(const SceUtilitySavedataParam *param) const
+{
+	static const char* const lut = "0123456789ABCDEF";
+
+	std::string output;
+	if (param->key[0])
+	{
+		output.reserve(2 * sizeof(param->key));
+		for (size_t i = 0; i < sizeof(param->key); ++i)
+		{
+			const unsigned char c = param->key[i];
+			output.push_back(lut[c >> 4]);
+			output.push_back(lut[c & 15]);
+		}
+	}
+	return output;
+}
+
 bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 {
 	if (!param)
