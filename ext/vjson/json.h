@@ -7,8 +7,7 @@
 #include "block_allocator.h"
 #include "file/vfs.h"
 
-enum json_type
-{
+enum json_type {
 	JSON_NULL,
 	JSON_OBJECT,
 	JSON_ARRAY,
@@ -18,8 +17,7 @@ enum json_type
 	JSON_BOOL,
 };
 
-struct json_value
-{
+struct json_value {
 	json_value() {}
 
 	json_value *parent;
@@ -47,7 +45,7 @@ struct json_value
 	const json_value *getDict(const char *child_name) const {
 		return get(child_name, JSON_OBJECT);
 	}
-	const char *getString(const char *child_name) const;
+	const char *getStringOrDie(const char *child_name) const;
 	const char *getString(const char *child_name, const char *default_value) const;
 	bool getStringVector(std::vector<std::string> *vec) const;
 	float getFloat(const char *child_name) const;
@@ -68,7 +66,6 @@ private:
 // low level interface
 json_value *json_parse(char *source, char **error_pos, char **error_desc, int *error_line, block_allocator *allocator);
 void json_print(json_value *value, int ident = 0);
-
 
 // Easy-wrapper
 class JsonReader {
@@ -113,11 +110,4 @@ private:
 	json_value *root_;
 
 	DISALLOW_COPY_AND_ASSIGN(JsonReader);
-};
-
-// TODO: Make this a push/pop interface similar to JsonWriter. Maybe 
-// we can get to the point where reading and writing is near identical or the same code.
-class JsonCursor {
-public:
-
 };
