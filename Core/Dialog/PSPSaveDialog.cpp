@@ -65,6 +65,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	int retval = param.SetPspParam(&request);
 
 	INFO_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x) : Mode = %i", paramAddr, (SceUtilitySavedataType)(u32)param.GetPspParam()->mode);
+	INFO_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x) : Game key (hex): %s", paramAddr, param.GetKey(param.GetPspParam()).c_str());
 
 	yesnoChoice = 1;
 	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
