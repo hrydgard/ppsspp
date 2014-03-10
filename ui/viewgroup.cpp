@@ -658,15 +658,16 @@ void ScrollView::Touch(const TouchInput &input) {
 	}
 	if (input.flags & TOUCH_UP) {
 		float info[4];
-		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info))
+		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info)) {
 			inertia_ = info[1];
+		}
 	}
 
 	TouchInput input2;
 	if (CanScroll() && !IsDragCaptured(input.id)) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
-		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info)) {
+		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
 			ClampScrollPos(pos);
 			scrollPos_ = pos;
@@ -675,6 +676,8 @@ void ScrollView::Touch(const TouchInput &input) {
 		}
 	} else {
 		input2 = input;
+		scrollTarget_ = scrollPos_;
+		scrollToTarget_ = false;
 	}
 
 	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y)) {
@@ -753,7 +756,7 @@ void ScrollView::ClampScrollPos(float &pos) {
 		pos = 0.0f;
 		return;
 	}
-	// Clamp scrollTarget.
+
 	float childHeight = views_[0]->GetBounds().h;
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
 
