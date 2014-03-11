@@ -255,8 +255,7 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 		return;
 	}
 	if (ar[reg].mipsReg != -1) {
-		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
-		{
+		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG) {
 			//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
 			emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 		}
@@ -302,6 +301,32 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+int ArmRegCacheFPU::GetNumARMFPURegs() {
+	if (cpu_info.bNEON)
+		return 32;
+	else
+		return 16;
+}
+
+int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
+	int c = 1;
+	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
+	a++;
+	while (a < maxArmReg) {
+		if (!ar[a].isDirty || ar[a].mipsReg == -1)
+			break;
+		int mipsOffset = GetMipsRegOffset(ar[a].mipsReg);
+		if (mipsOffset != lastMipsOffset + 4) {
+			break;
+		}
+
+		lastMipsOffset = mipsOffset;
+		a++;
+		c++;
+	}
+	return c;
+}
+
 void ArmRegCacheFPU::FlushAll() {
 	// Discard temps!
 	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
@@ -309,76 +334,53 @@ void ArmRegCacheFPU::FlushAll() {
 	}
 
 #if 0
-	// Causes crashes and weird glitches. Really not sure what's going on as the logs look ok.
-	// TODO: VSTMIA requires NEON so we should check for that.
-	int lastARMReg = INVALID_REG;
-	int continuityStartARMReg = INVALID_REG;
-	int continuityStartMIPSReg = -1;
-	for (int r = 0; r < NUM_MIPSFPUREG + 1; r++) {
-		if (r == NUM_MIPSFPUREG)
-			goto drop;
+	
+	// Loop through the ARM registers, then use GetMipsRegOffset to determine if MIPS registers are
+	// sequential. This is necessary because we store VFPU registers in a staggered order to get
+	// columns sequential (most VFPU math in nearly all games is in columns, not rows).
+	
+	int numArmRegs;
+	// We rely on the allocation order being sequental.
+	const ARMReg baseReg = GetMIPSAllocationOrder(numArmRegs)[0];
 
-		if (mr[r].loc == ML_ARMREG) {
-			if (mr[r].reg == (int)INVALID_REG) {
-				ERROR_LOG(JIT, "FlushAll %i: MipsReg had bad ArmReg", r);
+	for (int i = 0; i < numArmRegs; i++) {
+		int a = (baseReg - S0) + i;
+		int m = ar[a].mipsReg;
+
+		if (ar[a].isDirty) {
+			if (m == -1) {
+				ILOG("ARM reg %i is dirty but has no mipsreg", a);
+				continue;
 			}
-			if (ar[mr[r].reg].isDirty) {
-				ar[mr[r].reg].isDirty = false;
-				if (continuityStartARMReg == INVALID_REG) {
-					lastARMReg = mr[r].reg;
-					continuityStartARMReg = mr[r].reg;
-					continuityStartMIPSReg = r;
-					ILOG("Starting continuity: A%i M%i", continuityStartARMReg, continuityStartMIPSReg);
-					// goto drop;
-				} else {
-					if (mr[r].reg != lastARMReg + 1) {
-						// Continuity mismatch - drop.
-						ar[mr[r].reg].mipsReg = -1;
-						mr[r].loc = ML_MEM;
-						mr[r].reg = (int)INVALID_REG;
-						goto drop;
-					}
-					lastARMReg = mr[r].reg;
-				}
+
+			int c = FlushGetSequential(a, GetNumARMFPURegs());
+			if (c == 1) {
+				// ILOG("Got single register: %i (%i)", a, m);
+				emit_->VSTR((ARMReg)(a + S0), CTXREG, GetMipsRegOffset(m));
 			} else {
-				// Continuity dirty mismatch - drop.
-				ar[mr[r].reg].mipsReg = -1;
-				mr[r].loc = ML_MEM;
-				mr[r].reg = (int)INVALID_REG;
-				goto drop;
+				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(m), R1);
+				// ILOG("VSTMIA R0, %i, %i", a, c);
+				emit_->VSTMIA(R0, false, (ARMReg)(S0 + a), c);
 			}
-			ar[mr[r].reg].mipsReg = -1;
-			mr[r].loc = ML_MEM;
-			mr[r].reg = (int)INVALID_REG;
-			continue;
+
+			// Skip past, and mark as non-dirty.
+			for (int j = 0; j < c; j++) {
+				int b = a + j;
+				mr[ar[b].mipsReg].loc = ML_MEM;
+				mr[ar[b].mipsReg].reg = (int)INVALID_REG;
+				ar[a + j].mipsReg = -1;
+				ar[a + j].isDirty = false;
+			}
+			i += c - 1;
 		} else {
-			mr[r].loc = ML_MEM;
-			mr[r].reg = (int)INVALID_REG;
-			goto drop;
-		}
-
-		continue;
-
-		drop:
-		// Continuity ended. See if we have anything to flush.
-		if (lastARMReg != INVALID_REG) {
-			ILOG("Ending continuity at A%i (start: A%i)", lastARMReg, continuityStartARMReg);
-			if (lastARMReg == continuityStartARMReg) {
-				// Single one. Just do a VSTR.
-				ILOG("Writing single ARM reg: A%i (M%i)", continuityStartARMReg, continuityStartMIPSReg);
-				emit_->VSTR((ARMReg)(continuityStartARMReg + S0), CTXREG, GetMipsRegOffset(continuityStartMIPSReg));
-			} else {
-				ILOG("Writing multiple ARM regs : A%i - A%i M%i", continuityStartARMReg, lastARMReg, continuityStartMIPSReg);
-				// VSTMIA!
-				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(continuityStartMIPSReg), R1);
-				int count = lastARMReg - continuityStartARMReg + 1;
-				ILOG("VSTMIA R0, %i, %i", continuityStartARMReg, count);
-				emit_->VSTMIA(R0, false, (ARMReg)(S0 + continuityStartARMReg), count);
+			if (m != -1) {
+				mr[m].loc = ML_MEM;
+				mr[m].reg = (int)INVALID_REG;
 			}
+			ar[a].mipsReg = -1;
+			// already not dirty
 		}
-
-		lastARMReg = INVALID_REG;
-		continuityStartARMReg = INVALID_REG;
 	}
 #else
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
@@ -405,10 +407,11 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	case ML_ARMREG:
 		if (mr[r].reg == (int)INVALID_REG) {
 			ERROR_LOG(JIT, "DiscardR: MipsReg had bad ArmReg");
+		} else {
+			// Note that we DO NOT write it back here. That's the whole point of Discard.
+			ar[mr[r].reg].isDirty = false;
+			ar[mr[r].reg].mipsReg = -1;
 		}
-		// Note that we DO NOT write it back here. That's the whole point of Discard.
-		ar[mr[r].reg].isDirty = false;
-		ar[mr[r].reg].mipsReg = -1;
 		break;
 
 	case ML_MEM:
