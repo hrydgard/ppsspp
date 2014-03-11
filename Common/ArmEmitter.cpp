@@ -2577,8 +2577,6 @@ void ARMXEmitter::VREV16(u32 Size, ARMReg Vd, ARMReg Vm)
 	VREVX(2, Size, Vd, Vm);
 }
 
-// UNTESTED
-
 // See page A8-878 in ARMv7-A Architecture Reference Manual
 
 // Dest is a Q register, Src is a D register.

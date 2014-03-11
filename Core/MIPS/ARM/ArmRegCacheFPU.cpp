@@ -302,6 +302,98 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+void ArmRegCacheFPU::FlushAll() {
+	// Discard temps!
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
+		DiscardR(i);
+	}
+
+#if 0
+	// Causes crashes and weird glitches. Really not sure what's going on as the logs look ok.
+	// TODO: VSTMIA requires NEON so we should check for that.
+	int lastARMReg = INVALID_REG;
+	int continuityStartARMReg = INVALID_REG;
+	int continuityStartMIPSReg = -1;
+	for (int r = 0; r < NUM_MIPSFPUREG + 1; r++) {
+		if (r == NUM_MIPSFPUREG)
+			goto drop;
+
+		if (mr[r].loc == ML_ARMREG) {
+			if (mr[r].reg == (int)INVALID_REG) {
+				ERROR_LOG(JIT, "FlushAll %i: MipsReg had bad ArmReg", r);
+			}
+			if (ar[mr[r].reg].isDirty) {
+				ar[mr[r].reg].isDirty = false;
+				if (continuityStartARMReg == INVALID_REG) {
+					lastARMReg = mr[r].reg;
+					continuityStartARMReg = mr[r].reg;
+					continuityStartMIPSReg = r;
+					ILOG("Starting continuity: A%i M%i", continuityStartARMReg, continuityStartMIPSReg);
+					// goto drop;
+				} else {
+					if (mr[r].reg != lastARMReg + 1) {
+						// Continuity mismatch - drop.
+						ar[mr[r].reg].mipsReg = -1;
+						mr[r].loc = ML_MEM;
+						mr[r].reg = (int)INVALID_REG;
+						goto drop;
+					}
+					lastARMReg = mr[r].reg;
+				}
+			} else {
+				// Continuity dirty mismatch - drop.
+				ar[mr[r].reg].mipsReg = -1;
+				mr[r].loc = ML_MEM;
+				mr[r].reg = (int)INVALID_REG;
+				goto drop;
+			}
+			ar[mr[r].reg].mipsReg = -1;
+			mr[r].loc = ML_MEM;
+			mr[r].reg = (int)INVALID_REG;
+			continue;
+		} else {
+			mr[r].loc = ML_MEM;
+			mr[r].reg = (int)INVALID_REG;
+			goto drop;
+		}
+
+		continue;
+
+		drop:
+		// Continuity ended. See if we have anything to flush.
+		if (lastARMReg != INVALID_REG) {
+			ILOG("Ending continuity at A%i (start: A%i)", lastARMReg, continuityStartARMReg);
+			if (lastARMReg == continuityStartARMReg) {
+				// Single one. Just do a VSTR.
+				ILOG("Writing single ARM reg: A%i (M%i)", continuityStartARMReg, continuityStartMIPSReg);
+				emit_->VSTR((ARMReg)(continuityStartARMReg + S0), CTXREG, GetMipsRegOffset(continuityStartMIPSReg));
+			} else {
+				ILOG("Writing multiple ARM regs : A%i - A%i M%i", continuityStartARMReg, lastARMReg, continuityStartMIPSReg);
+				// VSTMIA!
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(continuityStartMIPSReg), R1);
+				int count = lastARMReg - continuityStartARMReg + 1;
+				ILOG("VSTMIA R0, %i, %i", continuityStartARMReg, count);
+				emit_->VSTMIA(R0, false, (ARMReg)(S0 + continuityStartARMReg), count);
+			}
+		}
+
+		lastARMReg = INVALID_REG;
+		continuityStartARMReg = INVALID_REG;
+	}
+#else
+	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
+		FlushR(i);
+	}
+#endif
+
+	// Sanity check
+	for (int i = 0; i < numARMFpuReg_; i++) {
+		if (ar[i].mipsReg != -1) {
+			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+		}
+	}
+}
+
 void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
@@ -349,23 +441,6 @@ int ArmRegCacheFPU::GetTempR() {
 	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
 	_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
-}
-
-
-void ArmRegCacheFPU::FlushAll() {
-	// Discard temps!
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
-		DiscardR(i);
-	}
-	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		FlushR(i);
-	} 
-	// Sanity check
-	for (int i = 0; i < numARMFpuReg_; i++) {
-		if (ar[i].mipsReg != -1) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
-		}
-	}
 }
 
 int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
