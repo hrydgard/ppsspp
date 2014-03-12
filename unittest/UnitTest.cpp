@@ -297,15 +297,11 @@ bool TestArmEmitter() {
 	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VPADD(F_32, D0, D0, D0);
 	emitter.VMOV(Q14, Q2);
-	u32 instr = *(u32 *)(emitter.GetCodePtr() - 4);
-
-	// WTF?
-	//emitter.VSUB(S4, S5, S6);
-	//RET(CheckLast(emitter, "ee322ac3 VSUB s4, s5, s6"));
-
 
 	emitter.VMOV(S3, S6);
 	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
+	RET(CheckLast(emitter, "f4633a8f VLD2.32 {d19-d20}, [r3]"));
 	return true;
 }
 
@@ -337,9 +333,9 @@ int main(int argc, const char *argv[]) {
 	cpu_info.bVFPv4 = true;
 
 	g_Config.bEnableLogging = true;
-	TestAsin();
+	//TestAsin();
 	TestArmEmitter();
-	TestMathUtil();
-	TestParsers();
+	//TestMathUtil();
+	//TestParsers();
 	return 0;
 }

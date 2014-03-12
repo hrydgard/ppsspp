@@ -273,12 +273,76 @@ bool DisasmVFP(uint32_t op, char *text) {
 	return false;
 }
 
+int GetVd2(uint32_t op) {
+	return ((op >> 18) & 0x10) | ((op >> 12) & 0xF);
+}
 
+const char *GetSizeString(int sz) {
+	switch (sz) {
+	case 0:
+		return "8";
+	case 1:
+		return "16";
+	case 2:
+		return "32";
+	case 3:
+		return "64";
+	default:
+		return "(err)";
+	}
+}
 
+int GetRegCount(int type) {
+	switch (type) {
+	case 7: return 1;
+	case 10: return 2;
+	case 6: return 3;
+	case 4: return 4;
+	default:
+		return 0;
+	}
+}
 
+bool DisasmNeonLDST(uint32_t op, char *text) {
+	bool load = (op >> 21) & 1;
+	int Rn = (op >> 16) & 0xF;
+	int Rm = (op & 0xF);
+	int Vd = GetVd2(op);
+	int sz = (op >> 6) & 3;
+	int regCount = GetRegCount((op >> 8) & 0xF);
 
+	int startReg = Vd;
+	int endReg = Vd + regCount - 1;
 
+	if (startReg == endReg)
+		sprintf(text, "V%s1.%s {d%i}, [r%i]", load ? "LD" : "ST", GetSizeString(sz), startReg, Rn);
+	else 
+		sprintf(text, "V%s1.%s {d%i-d%i}, [r%i]", load ? "LD" : "ST", GetSizeString(sz), startReg, endReg, Rn);
 
+	return true;
+}
+
+bool DisasmNeonF3(uint32_t op, char *text) {
+	sprintf(text, "NEON F3");
+	return true;
+}
+
+bool DisasmNeonF2(uint32_t op, char *text) {
+	sprintf(text, "NEON F2");
+	return true;
+}
+
+bool DisasmNeon(uint32_t op, char *text) {
+	switch (op >> 24) {
+	case 0xF4:
+		return DisasmNeonLDST(op, text);
+	case 0xF3:
+		return DisasmNeonF3(op, text);
+	case 0xF2:
+		return DisasmNeonF2(op, text);
+	}
+	return false;
+}
 
 
 
@@ -595,7 +659,15 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 				break;
 			}
     case 3:
-      /* SWP or MRS/MSR or data processing */
+			if ((instr >> 24) == 0xF3) {
+				if (!DisasmNeon(instr, result.text)) {
+					goto lUndefined;
+					break;
+				}
+				result.undefined = 0;
+				return &result;
+			}
+			/* SWP or MRS/MSR or data processing */
 			// hrydgard addition: MOVW/MOVT
 			if ((instr & 0x0FF00000) == 0x03000000) {
 				mnemonic = "MOVW";
@@ -657,7 +729,15 @@ lMaybeLDRHetc:
       }
 #endif
     case 2:
-      /* data processing */
+			if ((instr >> 24) == 0xF2) {
+				if (!DisasmNeon(instr, result.text)) {
+					goto lUndefined;
+					break;
+				}
+				result.undefined = 0;
+				return &result;
+			}
+			/* data processing */
       { word op21 = instr&(15<<21);
         if ((op21==(2<<21) || (op21==(4<<21)))			/* ADD or SUB */
             && ((instr&(RNbits+Ibit+Sbit))==RN(15)+Ibit)	/* imm, no S */
@@ -692,6 +772,15 @@ lMaybeLDRHetc:
       }
       break;
     case 4:
+			if ((instr >> 24) == 0xF4) {
+				if (!DisasmNeon(instr, result.text)) {
+					goto lUndefined;
+					break;
+				}
+				result.undefined = 0;
+				return &result;
+			}
+			// else fallthrough
     case 5:
     case 6:
     case 7:
@@ -733,12 +822,10 @@ lMaybeLDRHetc:
     case 13:
     case 14:  // FPU
 			{
-				char text[128];
-				if (!DisasmVFP(instr, text)) {
+				if (!DisasmVFP(instr, result.text)) {
 					goto lUndefined;
 					break;
 				}
-				strcpy(result.text, text);
 				result.undefined = 0;
 				return &result;
 			}
