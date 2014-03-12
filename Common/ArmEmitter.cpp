@@ -1618,7 +1618,7 @@ void ARMXEmitter::VADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	bool register_quad = Vd >= Q0;
 
 	if (Size & F_32)
-		Write32((0xF2 << 24) | EncodeVn(Vn) | EncodeVd(Vd) | (0xD0 << 4) | (register_quad << 6) | EncodeVm(Vm));
+		Write32((0xF2 << 24) | EncodeVn(Vn) | EncodeVd(Vd) | (0xD << 8) | (register_quad << 6) | EncodeVm(Vm));
 	else
 		Write32((0xF2 << 24) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) \
 			| (0x8 << 8) | (register_quad << 6) | EncodeVm(Vm));

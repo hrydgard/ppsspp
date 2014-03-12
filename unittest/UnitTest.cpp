@@ -37,6 +37,7 @@
 #include <string>
 
 #include "base/NativeApp.h"
+#include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
 #include "Common/CPUDetect.h"
 #include "ext/disarm.h"
@@ -269,14 +270,30 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "ed4c2a09 VSTR s5, [r12, #-36]"));
 	emitter.VADD(S1, S2, S3);
 	RET(CheckLast(emitter, "ee710a21 VADD s1, s2, s3"));
+	emitter.VADD(D1, D2, D3);
+	RET(CheckLast(emitter, "ee321b03 VADD d1, d2, d3"));
+	emitter.VSUB(S1, S2, S3);
+	RET(CheckLast(emitter, "ee710a61 VSUB s1, s2, s3"));
 	emitter.VMUL(S7, S8, S9);
 	RET(CheckLast(emitter, "ee643a24 VMUL s7, s8, s9"));
+	emitter.VMUL(S0, S5, S10);
+	RET(CheckLast(emitter, "ee220a85 VMUL s0, s5, s10"));
+	emitter.VNMUL(S7, S8, S9);
+	RET(CheckLast(emitter, "ee643a64 VNMUL s7, s8, s9"));
 	emitter.VMLA(S7, S8, S9);
 	RET(CheckLast(emitter, "ee443a24 VMLA s7, s8, s9"));
 	emitter.VNMLA(S7, S8, S9);
 	RET(CheckLast(emitter, "ee543a64 VNMLA s7, s8, s9"));
+	emitter.VNMLS(S7, S8, S9);
+	RET(CheckLast(emitter, "ee543a24 VNMLS s7, s8, s9"));
 	emitter.VABS(S1, S2);
 	RET(CheckLast(emitter, "eef00ac1 VABS s1, s2"));
+	emitter.VMOV(S1, S2);
+	RET(CheckLast(emitter, "eef00a41 VMOV s1, s2"));
+	emitter.VCMP(S1, S2);
+	RET(CheckLast(emitter, "eef40a41 VCMP s1, s2"));
+	emitter.VCMPE(S1, S2);
+	RET(CheckLast(emitter, "eef40ac1 VCMPE s1, s2"));
 	emitter.VSQRT(S1, S2);
 	RET(CheckLast(emitter, "eef10ac1 VSQRT s1, s2"));
 	emitter.VDIV(S1, S2, S3);
@@ -300,8 +317,41 @@ bool TestArmEmitter() {
 
 	emitter.VMOV(S3, S6);
 	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+
+	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
+	emitter.VMOV_immf(Q0, 1.0f);
+	RET(CheckLast(emitter, "eebd0a60 VMOV Q0, 1.0"));
+	emitter.VMOV_immf(Q0, -1.0f);
+	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VPADD(F_32, D0, D0, D0);
+	emitter.VMOV(Q14, Q2);
+
+	emitter.VMOV(S3, S6);
+	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
 	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
-	RET(CheckLast(emitter, "f4633a8f VLD2.32 {d19-d20}, [r3]"));
+	RET(CheckLast(emitter, "f4633a8f VLD1.32 {d19-d20}, [r3]"));
+	emitter.VST1(I_32, D23, R9, 1, ALIGN_NONE, R_PC);
+	RET(CheckLast(emitter, "f449778f VST1.32 {d23}, [r9]"));
+	emitter.VADD(I_8, D3, D4, D19);
+	RET(CheckLast(emitter, "f2043823 VADD.i8 d3, d4, d19"));
+	emitter.VADD(I_32, D3, D4, D19);
+	RET(CheckLast(emitter, "f2243823 VADD.i32 d3, d4, d19"));
+	emitter.VADD(F_32, D3, D4, D19);
+	RET(CheckLast(emitter, "f2043d23 VADD.f32 d3, d4, d19"));
+	emitter.VSUB(I_16, Q5, Q6, Q15);
+	RET(CheckLast(emitter, "f31ca86e VSUB.i16 q5, q6, q15"));
+	emitter.VMUL(F_32, Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f3042d56 VMUL.f32 q1, q2, q3"));
+	emitter.VADD(F_32, Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2042d46 VADD.f32 q1, q2, q3"));
+	emitter.VMLA(F_32, Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2042d56 VMLA.f32 q1, q2, q3"));
+	emitter.VMLS(F_32, Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2242d56 VMLS.f32 q1, q2, q3"));
+	emitter.VMLS(I_16, Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f3142946 VMLS.i16 q1, q2, q3"));
 	return true;
 }
 
@@ -329,11 +379,12 @@ bool TestParsers() {
 int main(int argc, const char *argv[]) {
 	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
 	cpu_info.bNEON = true;
+	cpu_info.bVFP = true;
 	cpu_info.bVFPv3 = true;
 	cpu_info.bVFPv4 = true;
-
 	g_Config.bEnableLogging = true;
 	//TestAsin();
+	//TestSinCos();
 	TestArmEmitter();
 	//TestMathUtil();
 	//TestParsers();
