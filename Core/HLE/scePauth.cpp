@@ -15,10 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "scePauth.h"
 #include "zlib.h"
+#include <stdio.h>
+
+#include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/scePauth.h"
+#include "Core/HLE/HLE.h"
 
 int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {

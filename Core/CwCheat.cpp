@@ -1,11 +1,13 @@
-#include "CwCheat.h"
-#include "../Core/CoreTiming.h"
-#include "../Core/CoreParameter.h"
-#include "StringUtils.h"
+#include "Common/StringUtils.h"
+#include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
-#include "Config.h"
-#include "MIPS/MIPS.h"
+#include "Core/CoreTiming.h"
+#include "Core/CoreParameter.h"
+#include "Core/CwCheat.h"
 #include "Core/Config.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/System.h"
 
 static int CheatEvent = -1;
 std::string gameTitle;
@@ -105,6 +107,29 @@ CWCheatEngine::CWCheatEngine() {
 void CWCheatEngine::Exit() {
 	exit2 = true;
 }
+
+static inline std::vector<std::string> makeCodeParts(const std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
+	std::string currentcode;
+	std::vector<std::string> finalList;
+	char split_char = '\n';
+	char empty = ' ';
+	for (size_t i = 0; i < CodesList.size(); i++) {
+		currentcode = CodesList[i];
+		for (size_t j=0; j < currentcode.length(); j++) {
+			if (currentcode[j] == empty) {
+				currentcode[j] = '\n';
+			}
+		}
+		trim2(currentcode);
+		std::istringstream iss(currentcode);
+		std::string each;
+		while (std::getline(iss, each, split_char)) {
+			finalList.push_back(each);
+		}
+	}
+	return finalList;
+}
+
 void CWCheatEngine::CreateCodeList() { //Creates code list to be used in function GetNextCode
 	initialCodesList = GetCodesList();
 	std::string currentcode, codename;
@@ -144,27 +169,7 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 	}
 	parts = makeCodeParts(codelist);
 }
-inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
-	std::string currentcode;
-	std::vector<std::string> finalList;
-	char split_char = '\n';
-	char empty = ' ';
-	for (size_t i = 0; i < CodesList.size(); i++) {
-		currentcode = CodesList[i];
-		for (size_t j=0; j < currentcode.length(); j++) {
-			if (currentcode[j] == empty) {
-				currentcode[j] = '\n';
-			}
-		}
-		trim2(currentcode);
-		std::istringstream iss(currentcode);
-		std::string each;
-		while (std::getline(iss, each, split_char)) {
-			finalList.push_back(each);
-		}
-	}
-	return finalList;
-}
+
 std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints to Run() which contains the address and value of one cheat.
 	std::string code1;
 	std::string code2;
@@ -258,13 +263,18 @@ void CWCheatEngine::Run() {
 
 			int value;
 			unsigned int comm = code[0];
-			int arg = code[1];
+			u32 arg = code[1];
 			int addr = GetAddress(comm & 0x0FFFFFFF);
 
 			switch (comm >> 28) {
-			case 0: // 8-bit write.
+			case 0: // 8-bit write.But need more check
 				if (Memory::IsValidAddress(addr)){
-					Memory::Write_U8((u8) arg, addr);
+					if (arg < 0x00000100) // 8-bit 
+						Memory::Write_U8((u8) arg, addr);
+					else if (arg < 0x00010000) // 16-bit
+						Memory::Write_U16((u16) arg, addr);
+					else // 32-bit
+						Memory::Write_U32((u32) arg, addr);
 				}
 				break;
 			case 0x1: // 16-bit write
@@ -511,7 +521,7 @@ void CWCheatEngine::Run() {
 			case 0xC: // Code stopper
 				if (Memory::IsValidAddress(addr)) { 
 					value = Memory::Read_U32(addr);
-					if (value != arg) {
+					if ((u32)value != arg) {
 						SkipAllCodes();
 					}
 				}
@@ -558,5 +568,13 @@ void CWCheatEngine::Run() {
 	Exit();
 }
 
+bool CWCheatEngine::HasCheats() {
+	return !parts.empty();
+}
 
+bool CheatsInEffect() {
+	if (!cheatEngine || !cheatsEnabled)
+		return false;
+	return cheatEngine->HasCheats();
+}
 

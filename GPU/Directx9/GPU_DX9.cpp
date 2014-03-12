@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
+
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
@@ -163,13 +165,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE},
-#ifndef USING_GLES2
 	{GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE},
-#else
-	{GE_CMD_LOGICOP, 0},
-	{GE_CMD_LOGICOPENABLE, 0},
-#endif
 
 	// Can probably ignore this one as we don't support AA lines.
 	{GE_CMD_ANTIALIASENABLE, FLAG_FLUSHBEFOREONCHANGE},
@@ -738,8 +735,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -828,8 +827,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -1043,8 +1044,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -1092,7 +1095,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ALPHATEST:
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 		// Intentional fallthrough.
@@ -1231,7 +1234,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	case GE_CMD_LOGICOPENABLE:
 		if (data != 0)
 			ERROR_LOG_REPORT_ONCE(logicOpEnable, G3D, "Unsupported logic op enabled: %x", data);

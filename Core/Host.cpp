@@ -15,6 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Host.h"
+#include <cstring>
+
+#include "Core/Host.h"
+#include "Core/Debugger/SymbolMap.h"
 
 Host *host;
+
+int PMixer::Mix(short *stereoout, int numSamples) {
+	memset(stereoout, 0, numSamples * 2 * sizeof(short));
+	return numSamples;
+}
+
+bool Host::AttemptLoadSymbolMap() {
+	symbolMap.Clear();
+	return false;
+}

@@ -87,36 +87,6 @@ void GameScreen::CreateViews() {
 	UI::SetFocusedView(play);
 }
 
-void DrawBackground(float alpha);
-
-void GameScreen::DrawBackground(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
-	dc.Flush();
-
-	dc.RebindTexture();
-	::DrawBackground(1.0f);
-	dc.Flush();
-
-	if (ginfo && ginfo->pic1Texture) {
-		ginfo->pic1Texture->Bind(0);
-		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
-		dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
-		dc.Flush();
-		dc.RebindTexture();
-	}
-	/*
-	if (ginfo && ginfo->pic0Texture) {
-		ginfo->pic0Texture->Bind(0);
-		// Pic0 is drawn in the bottom right corner, overlaying pic1.
-		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
-		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
-		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 2)) & 0xFFc0c0c0;
-		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,color);
-		ui_draw2d.Flush();
-		dc.RebindTexture();
-	}*/
-}
-
 void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
@@ -235,7 +205,7 @@ UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-bool GameScreen::isRecentGame(std::string gamePath) {
+bool GameScreen::isRecentGame(const std::string &gamePath) {
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*it).c_str(), gamePath.c_str(), "\\","/"))

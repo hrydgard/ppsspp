@@ -85,6 +85,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
+	buffer += sprintf(buffer, "%08x: ", op);
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
 	{

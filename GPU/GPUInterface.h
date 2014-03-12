@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include "Globals.h"
+#include <list>
+#include <string>
+
 #include "GPU/GPUState.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
-#include <list>
-#include <string>
 
 class PointerWrap;
 

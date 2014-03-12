@@ -19,8 +19,11 @@
 #include <limits>
 
 #include "math/math_util.h"
+
 #include "Common.h"
+#include "Common/ChunkFile.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -89,8 +92,7 @@ const float cst_constants[32] = {
 };
 
 
-MIPSState::MIPSState()
-{
+MIPSState::MIPSState() {
 	MIPSComp::jit = 0;
 
 	// Initialize vorder
@@ -101,7 +103,7 @@ MIPSState::MIPSState()
 	// 0x01 0x21 0x41 0x61
 	// 0x02 0x22 0x42 0x62
 	// 0x03 0x23 0x43 0x63
-	
+
 	// 0x04 0x24 0x44 0x64
 	// 0x06 0x26 0x45 0x65
 	// ....
@@ -109,7 +111,7 @@ MIPSState::MIPSState()
 	// the VPU registers are effectively organized like this:
 	// 0x00 0x01 0x02 0x03
 	// 0x04 0x05 0x06 0x07
-	// 0x08 0x09 0x0a 0x0b 
+	// 0x08 0x09 0x0a 0x0b
 	// ....
 
 	// This is because the original indices look like this:
@@ -117,14 +119,14 @@ MIPSState::MIPSState()
 
 	// We will now map 0YYMMMXX to 0MMMXXYY.
 
-	// Advantages: 
+	// Advantages:
 	// * Columns can be flushed and reloaded faster "at once"
 	// * 4x4 Matrices are contiguous in RAM, making them, too, fast-loadable in NEON
 
 	// Disadvantages:
 	// * Extra indirection, can be confusing and slower (interpreter only)
 	// * Flushing and reloading row registers is now slower
-	
+
 	int i = 0;
 	for (int m = 0; m < 8; m++) {
 		for (int y = 0; y < 4; y++) {
@@ -151,6 +153,7 @@ MIPSState::MIPSState()
 		0x6, 0x26, 0x46, 0x66,
 		0x7, 0x27, 0x47, 0x67,
 	};
+
 	for (int i = 0; i < (int)ARRAY_SIZE(firstThirtyTwo); i++) {
 		if (voffset[firstThirtyTwo[i]] != i) {
 			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
@@ -158,23 +161,23 @@ MIPSState::MIPSState()
 	}
 }
 
-MIPSState::~MIPSState()
-{
-	if (MIPSComp::jit)
-	{
+MIPSState::~MIPSState() {
+	Shutdown();
+}
+
+void MIPSState::Shutdown() {
+	if (MIPSComp::jit) {
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
 	}
 }
 
-void MIPSState::Reset()
-{
-	if (MIPSComp::jit)
-	{
-		delete MIPSComp::jit;
-		MIPSComp::jit = 0;
-	}
-		
+void MIPSState::Reset() {
+	Shutdown();
+	Init();
+}
+
+void MIPSState::Init() {
 	if (PSP_CoreParameter().cpuCore == CPU_JIT)
 		MIPSComp::jit = new MIPSComp::Jit(this);
 
@@ -255,18 +258,15 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(debugCount);
 }
 
-void MIPSState::SingleStep()
-{
+void MIPSState::SingleStep() {
 	int cycles = MIPS_SingleStep();
 	currentMIPS->downcount -= cycles;
 	CoreTiming::Advance();
 }
 
 // returns 1 if reached ticks limit
-int MIPSState::RunLoopUntil(u64 globalTicks)
-{
-	switch (PSP_CoreParameter().cpuCore)
-	{
+int MIPSState::RunLoopUntil(u64 globalTicks) {
+	switch (PSP_CoreParameter().cpuCore) {
 	case CPU_JIT:
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
@@ -277,60 +277,35 @@ int MIPSState::RunLoopUntil(u64 globalTicks)
 	return 1;
 }
 
-void MIPSState::WriteFCR(int reg, int value)
-{
-	if (reg == 31)
-	{
+void MIPSState::WriteFCR(int reg, int value) {
+	if (reg == 31) {
 		fcr31 = value & 0x0181FFFF;
 		fpcond = (value >> 23) & 1;
-	}
-	else
-	{
+	} else {
 		WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", reg, value);
 		// MessageBox(0, "Invalid FCR","...",0);
 	}
 	DEBUG_LOG(CPU, "FCR%i written to, value %08x", reg, value);
 }
 
-u32 MIPSState::ReadFCR(int reg)
-{
+u32 MIPSState::ReadFCR(int reg) {
 	DEBUG_LOG(CPU,"FCR%i read",reg);
-	if (reg == 31)
-	{
+	if (reg == 31) {
 		fcr31 = (fcr31 & ~(1<<23)) | ((fpcond & 1)<<23);
 		return fcr31;
-	}
-	else if (reg == 0)
-	{
+	} else if (reg == 0) {
 		return FCR0_VALUE;
-	}
-	else
-	{
+	} else {
 		WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", reg);
 		// MessageBox(0, "Invalid FCR","...",0);
 	}
 	return 0;
 }
 
-void MIPSState::InvalidateICache(u32 address, int length)
-{
+void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
 		MIPSComp::jit->ClearCacheAt(address, length);
-}
-
-
-// Interrupts should be served directly on the running thread.
-void MIPSState::Irq()
-{
-//	if (IRQEnabled())
-	{
-	}
-}
-
-
-void MIPSState::SWI()
-{
 }
 
 const char *MIPSState::DisasmAt(u32 compilerPC) {

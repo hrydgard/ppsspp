@@ -20,23 +20,38 @@
 #include "Common/CPUDetect.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/CwCheat.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/Framebuffer.h"
 
+#ifndef _XBOX
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
+#endif
 
 #include "base/buffer.h"
 #include "thread/thread.h"
+#include "file/zip_read.h"
 
+#include <set>
 #include <stdlib.h>
 #include <cstdarg>
 
+#ifdef _XBOX
+namespace Reporting
+{
+	bool IsEnabled() { return false;}
+	void ReportMessage(const char *message, ...) { }
+}
+#else
 namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
@@ -47,6 +62,12 @@ namespace Reporting
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
+	// Keeps track of report-only-once identifiers.  Since they're always constants, a pointer is okay.
+	static std::set<const char *> logOnceUsed;
+	// Keeps track of whether a harmful setting was ever used.
+	static bool everUnsupported = false;
+	// Support is cached here to avoid checking it on every single request.
+	static bool currentSupported = false;
 
 	enum RequestType
 	{
@@ -188,26 +209,79 @@ namespace Reporting
 #endif
 	}
 
-	int Process(int pos)
+	void Init()
 	{
-		Payload &payload = payloadBuffer[pos];
+		// New game, clean slate.
+		spamProtectionCount = 0;
+		logOnceUsed.clear();
+		everUnsupported = false;
+		currentSupported = IsSupported();
+	}
 
-		std::string gpuPrimary, gpuFull;
-		if (gpu)
-			gpu->GetReportingInfo(gpuPrimary, gpuFull);
+	void Shutdown()
+	{
+		// Just so it can be enabled in the menu again.
+		Init();
+	}
 
-		UrlEncoder postdata;
-		postdata.Add("version", PPSSPP_GIT_VERSION);
+	void DoState(PointerWrap &p)
+	{
+		const int LATEST_VERSION = 1;
+		auto s = p.Section("Reporting", 0, LATEST_VERSION);
+		if (!s || s < LATEST_VERSION) {
+			// Don't report from old savestates, they may "entomb" bugs.
+			everUnsupported = true;
+			return;
+		}
+
+		p.Do(everUnsupported);
+	}
+
+	void UpdateConfig()
+	{
+		currentSupported = IsSupported();
+		if (!currentSupported && PSP_IsInited())
+			everUnsupported = true;
+	}
+
+	bool ShouldLogOnce(const char *identifier)
+	{
+		// True if it wasn't there already -> so yes, log.
+		return logOnceUsed.insert(identifier).second;
+	}
+
+	void AddGameInfo(UrlEncoder &postdata)
+	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
 		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
+		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+	}
+
+	void AddSystemInfo(UrlEncoder &postdata)
+	{
+		std::string gpuPrimary, gpuFull;
+		if (gpu)
+			gpu->GetReportingInfo(gpuPrimary, gpuFull);
+		
+		postdata.Add("version", PPSSPP_GIT_VERSION);
 		postdata.Add("gpu", gpuPrimary);
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
-		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+	}
+
+	void AddConfigInfo(UrlEncoder &postdata)
+	{
 		postdata.Add("pixel_width", PSP_CoreParameter().pixelWidth);
 		postdata.Add("pixel_height", PSP_CoreParameter().pixelHeight);
+
+		g_Config.GetReportingInfo(postdata);
+	}
+
+	void AddGameplayInfo(UrlEncoder &postdata)
+	{
+		// Just to get an idea of how long they played.
 		postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4)
@@ -218,7 +292,18 @@ namespace Reporting
 			postdata.Add("fps", fps);
 		}
 
-		// TODO: Settings, savestate/savedata status, some measure of speed/fps?
+		postdata.Add("savestate_used", SaveState::HasLoadedState());
+	}
+
+	int Process(int pos)
+	{
+		Payload &payload = payloadBuffer[pos];
+
+		UrlEncoder postdata;
+		AddSystemInfo(postdata);
+		AddGameInfo(postdata);
+		AddConfigInfo(postdata);
+		AddGameplayInfo(postdata);
 
 		switch (payload.type)
 		{
@@ -238,15 +323,33 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		// TODO: Numbers to avoid dependency on GLES code.
 		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
 			return false;
-		return true;
+		if (g_Config.bTimerHack)
+			return false;
+		if (CheatsInEffect())
+			return false;
+		// Not sure if we should support locked cpu at all, but definitely not far out values.
+		if (g_Config.iLockedCPUSpeed != 0 && (g_Config.iLockedCPUSpeed < 111 || g_Config.iLockedCPUSpeed > 333))
+			return false;
+
+		// Some users run the exe from a zip or something, and don't have fonts.
+		// This breaks things, but let's not report it since it's confusing.
+#if defined(USING_WIN_UI) || defined(APPLE)
+		if (!File::Exists(g_Config.flash0Directory + "/font/jpn0.pgf"))
+			return false;
+#else
+		FileInfo fo;
+		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
+			return false;
+#endif
+
+		return !everUnsupported;
 	}
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || !IsSupported())
+		if (g_Config.sReportHost.empty() || (!currentSupported && PSP_IsInited()))
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
@@ -294,3 +397,5 @@ namespace Reporting
 	}
 
 }
+
+#endif

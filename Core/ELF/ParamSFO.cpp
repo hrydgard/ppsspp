@@ -15,9 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
-#include <string.h>
-#include "ParamSFO.h"
+#include <cstdio>
+#include <cstring>
+
+#include "Common/CommonTypes.h"
+#include "Common/Log.h"
+#include "Core/ELF/ParamSFO.h"
 
 struct Header
 {
@@ -86,6 +89,8 @@ u8* ParamSFOData::GetValueData(std::string key, unsigned int *size)
 // I'm so sorry Ced but this is highly endian unsafe :(
 bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 {
+	if (size < sizeof(Header))
+		return false;
 	const Header *header = (const Header *)paramsfo;
 	if (header->magic != 0x46535000)
 		return false;
@@ -243,5 +248,20 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	return true;
 
 
+}
+
+void ParamSFOData::ValueData::SetData(const u8* data, int size)
+{
+	if(u_value)
+	{
+		delete[] u_value;
+		u_value = 0;
+	}
+	if(size > 0)
+	{
+		u_value = new u8[size];
+		memcpy(u_value, data, size);
+	}
+	u_size = size;
 }
 

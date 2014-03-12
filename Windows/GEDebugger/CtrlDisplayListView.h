@@ -39,6 +39,10 @@ public:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static CtrlDisplayListView * getFrom(HWND wnd);
 	
+	HWND GetHWND() {
+		return wnd;
+	}
+
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
 	void onMouseDown(WPARAM wParam, LPARAM lParam, int button);

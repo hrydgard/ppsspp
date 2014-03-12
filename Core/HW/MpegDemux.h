@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "Core/HW/BufferQueue.h"
+#include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
+#include "Core/HW/BufferQueue.h"
 
 class MpegDemux
 {
@@ -18,6 +18,10 @@ public:
 
 	// return its framesize
 	int getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2);
+
+	inline int getRemainSize() {
+		return m_len - m_readSize;
+	}
 
 	void DoState(PointerWrap &p);
 

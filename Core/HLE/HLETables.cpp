@@ -67,6 +67,7 @@
 #include "sceUsb.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
+#include "sceMt19937.h"
 
 #define N(s) s
 
@@ -317,5 +318,15 @@ void RegisterAllModules() {
 	{
 		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
+
+	// New modules have to be added at the end, or they will break savestates.
+	Register_LoadExecForKernel();
+	Register_SysMemForKernel();
+	Register_sceMt19937();
+	Register_SysclibForKernel();
+	Register_sceCtrl_driver();
+	Register_sceDisplay_driver();
+
+
 }
 

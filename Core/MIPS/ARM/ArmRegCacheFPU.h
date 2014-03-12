@@ -78,8 +78,7 @@ public:
 	void SpillLockV(MIPSReg r) { SpillLock(r + 32); }
 
 	void ReleaseSpillLocksAndDiscardTemps();
-	void ReleaseSpillLock(int mipsreg)
-	{
+	void ReleaseSpillLock(int mipsreg) {
 		mr[mipsreg].spillLock = false;
 	}
 	void ReleaseSpillLockV(int mipsreg) {
@@ -108,11 +107,14 @@ public:
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
 	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
-	void DiscardV(MIPSReg r) { DiscardR(r + 32);}
+
 	bool IsTempX(ARMReg r) const;
 	MIPSReg GetTempV() { return GetTempR() - 32; }
 	// VFPU registers as single VFP registers.
 	ARMReg V(int vreg) { return R(vreg + 32); }
+	 
+	int FlushGetSequential(int a, int maxArmReg);
+	void FlushAll();
 
 
 	// This one is allowed at any point.
@@ -136,8 +138,6 @@ public:
 	void QLoad4x4(MIPSGPReg regPtr, int vquads[4]);
 	void FlushQWithV(MIPSReg r);
 
-	void FlushAll();
-	
 	// NOTE: These require you to release spill locks manually!
 	void MapRegsAndSpillLockV(int vec, VectorSize vsz, int flags);
 	void MapRegsAndSpillLockV(const u8 *v, VectorSize vsz, int flags);
@@ -161,6 +161,7 @@ private:
 	}
 	// This one WILL get a free quad as long as you haven't spill-locked them all.
 	int QGetFreeQuad(bool preferLow = false);
+	int GetNumARMFPURegs();
 
 	MIPSState *mips_;
 	ARMXEmitter *emit_;

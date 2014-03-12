@@ -17,11 +17,12 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
+
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "Core/MemMap.h"
-#include <vector>
-#include <string>
 
 struct GPUDebugOp {
 	u32 pc;
@@ -182,6 +183,7 @@ struct GPUDebugVertex {
 	float x;
 	float y;
 	float z;
+	u8 c[4];
 };
 
 class GPUDebugInterface {

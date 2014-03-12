@@ -28,12 +28,6 @@
 
 #include <algorithm>
 
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
-#define USE_PAUSE_BUTTON 1
-#else
-#define USE_PAUSE_BUTTON 0
-#endif
-
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
 }
@@ -296,7 +290,7 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
-void InitPadLayout(float globalScale) {
+void InitPadLayout(float xres, float yres, float globalScale) {
 	const float scale = globalScale;
 
 	// PSP buttons (triangle, circle, square, cross)---------------------
@@ -307,13 +301,13 @@ void InitPadLayout(float globalScale) {
 
 	// Position of the circle button (the PSP circle button). It is the farthest to the left
 	float Action_button_spacing = g_Config.fActionButtonSpacing * baseActionButtonSpacing;
-	int Action_button_center_X = dp_xres - Action_button_spacing * 2;
-	int Action_button_center_Y = dp_yres - Action_button_spacing * 2;
+	int Action_button_center_X = xres - Action_button_spacing * 2;
+	int Action_button_center_Y = yres - Action_button_spacing * 2;
 
 	if (g_Config.fActionButtonCenterX == -1.0 || g_Config.fActionButtonCenterY == -1.0) {
 		// Setup defaults
-		g_Config.fActionButtonCenterX = (float)Action_button_center_X / dp_xres;
-		g_Config.fActionButtonCenterY = (float)Action_button_center_Y / dp_yres;
+		g_Config.fActionButtonCenterX = (float)Action_button_center_X / xres;
+		g_Config.fActionButtonCenterY = (float)Action_button_center_Y / yres;
 	}
 
 	//D-PAD (up down left right) (aka PSP cross)----------------------------
@@ -321,25 +315,25 @@ void InitPadLayout(float globalScale) {
 	// TODO: Make configurable
 
 	int D_pad_X = 2.5 * D_pad_Radius * scale;
-	int D_pad_Y = dp_yres - D_pad_Radius * scale;
+	int D_pad_Y = yres - D_pad_Radius * scale;
 	if (g_Config.bShowTouchAnalogStick) {
 		D_pad_Y -= 200 * scale;
 	}
 
 	if (g_Config.fDpadX == -1.0 || g_Config.fDpadY == -1.0 ) {
 		//setup defaults
-		g_Config.fDpadX = (float)D_pad_X / dp_xres;
-		g_Config.fDpadY = (float)D_pad_Y / dp_yres;
+		g_Config.fDpadX = (float)D_pad_X / xres;
+		g_Config.fDpadY = (float)D_pad_Y / yres;
 	}
 
 	//analog stick-------------------------------------------------------
 	//keep the analog stick right below the D pad
 	int analog_stick_X = D_pad_X;
-	int analog_stick_Y = dp_yres - 80 * scale;
+	int analog_stick_Y = yres - 80 * scale;
 
 	if (g_Config.fAnalogStickX == -1.0 || g_Config.fAnalogStickY == -1.0 ) {
-		g_Config.fAnalogStickX = (float)analog_stick_X / dp_xres;
-		g_Config.fAnalogStickY = (float)analog_stick_Y / dp_yres;
+		g_Config.fAnalogStickX = (float)analog_stick_X / xres;
+		g_Config.fAnalogStickY = (float)analog_stick_Y / yres;
 		g_Config.fAnalogStickScale = scale;
 	}
 
@@ -347,30 +341,30 @@ void InitPadLayout(float globalScale) {
 	//space between the bottom keys (space between select, start and un-throttle)
 	const int bottom_key_spacing = 100 * scale;
 
-	int start_key_X = dp_xres / 2 + (bottom_key_spacing) * scale;
-	int start_key_Y = dp_yres - 60 * scale;
+	int start_key_X = xres / 2 + (bottom_key_spacing) * scale;
+	int start_key_Y = yres - 60 * scale;
 
 	if (g_Config.fStartKeyX == -1.0 || g_Config.fStartKeyY == -1.0 ) {
-		g_Config.fStartKeyX = (float)start_key_X / dp_xres;
-		g_Config.fStartKeyY = (float)start_key_Y / dp_yres;
+		g_Config.fStartKeyX = (float)start_key_X / xres;
+		g_Config.fStartKeyY = (float)start_key_Y / yres;
 		g_Config.fStartKeyScale = scale;
 	}
 
-	int select_key_X = dp_xres / 2;
-	int select_key_Y = dp_yres - 60 * scale;
+	int select_key_X = xres / 2;
+	int select_key_Y = yres - 60 * scale;
 
 	if (g_Config.fSelectKeyX == -1.0 || g_Config.fSelectKeyY == -1.0 ) {
-		g_Config.fSelectKeyX = (float)select_key_X / dp_xres;
-		g_Config.fSelectKeyY = (float)select_key_Y / dp_yres;
+		g_Config.fSelectKeyX = (float)select_key_X / xres;
+		g_Config.fSelectKeyY = (float)select_key_Y / yres;
 		g_Config.fSelectKeyScale = scale;
 	}
 
-	int unthrottle_key_X = dp_xres / 2 - (bottom_key_spacing) * scale;
-	int unthrottle_key_Y = dp_yres - 60 * scale;
+	int unthrottle_key_X = xres / 2 - (bottom_key_spacing) * scale;
+	int unthrottle_key_Y = yres - 60 * scale;
 
 	if (g_Config.fUnthrottleKeyX == -1.0 || g_Config.fUnthrottleKeyY == -1.0 ) {
-		g_Config.fUnthrottleKeyX = (float)unthrottle_key_X / dp_xres;
-		g_Config.fUnthrottleKeyY = (float)unthrottle_key_Y / dp_yres;
+		g_Config.fUnthrottleKeyX = (float)unthrottle_key_X / xres;
+		g_Config.fUnthrottleKeyY = (float)unthrottle_key_Y / yres;
 		g_Config.fUnthrottleKeyScale = scale;
 	}
 
@@ -379,35 +373,35 @@ void InitPadLayout(float globalScale) {
 	int l_key_Y = 40 * scale;
 
 	if (g_Config.fLKeyX == -1.0 || g_Config.fLKeyY == -1.0 ) {
-		g_Config.fLKeyX = (float)l_key_X / dp_xres;
-		g_Config.fLKeyY = (float)l_key_Y / dp_yres;
+		g_Config.fLKeyX = (float)l_key_X / xres;
+		g_Config.fLKeyY = (float)l_key_Y / yres;
 		g_Config.fLKeyScale = scale;
 	}
 
-	int r_key_X = dp_xres - 60 * scale;
+	int r_key_X = xres - 60 * scale;
 	int r_key_Y = 40 * scale;
 
 	if (g_Config.fRKeyX == -1.0 || g_Config.fRKeyY == -1.0 ) {
-		g_Config.fRKeyX = (float)r_key_X / dp_xres;
-		g_Config.fRKeyY = (float)r_key_Y / dp_yres;
+		g_Config.fRKeyX = (float)r_key_X / xres;
+		g_Config.fRKeyY = (float)r_key_Y / yres;
 		g_Config.fRKeyScale = scale;
 	}
 };
 
-UI::ViewGroup *CreatePadLayout(bool *pause) {
+UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	//standard coord system
 
 	using namespace UI;
 
 	AnchorLayout *root = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-
+	
 	//PSP buttons (triangle, circle, square, cross)---------------------
 	//space between the PSP buttons (traingle, circle, square and cross)
 	const float Action_button_scale = g_Config.fActionButtonScale;
 	const float Action_button_spacing = g_Config.fActionButtonSpacing * baseActionButtonSpacing;
 	//position of the circle button (the PSP circle button). It is the farthest to the left
-	float Action_button_center_X = g_Config.fActionButtonCenterX * dp_xres;
-	float Action_button_center_Y = g_Config.fActionButtonCenterY * dp_yres;
+	float Action_button_center_X = g_Config.fActionButtonCenterX * xres;
+	float Action_button_center_Y = g_Config.fActionButtonCenterY * yres;
 
 	const float Action_circle_button_X = Action_button_center_X + Action_button_spacing;
 	const float Action_circle_button_Y = Action_button_center_Y;
@@ -424,40 +418,40 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	//D-PAD (up down left right) (aka PSP cross)--------------------------------------------------------------
 	//radius to the D-pad
 
-	float D_pad_X = g_Config.fDpadX * dp_xres;
-	float D_pad_Y = g_Config.fDpadY * dp_yres;
+	float D_pad_X = g_Config.fDpadX * xres;
+	float D_pad_Y = g_Config.fDpadY * yres;
 	float D_pad_scale = g_Config.fDpadScale;
 	float D_pad_spacing = g_Config.fDpadSpacing;
 
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
-	float start_key_X = g_Config.fStartKeyX * dp_xres;
-	float start_key_Y = g_Config.fStartKeyY * dp_yres;
+	float start_key_X = g_Config.fStartKeyX * xres;
+	float start_key_Y = g_Config.fStartKeyY * yres;
 	float start_key_scale = g_Config.fStartKeyScale;
 
-	float select_key_X = g_Config.fSelectKeyX * dp_xres;
-	float select_key_Y = g_Config.fSelectKeyY * dp_yres;
+	float select_key_X = g_Config.fSelectKeyX * xres;
+	float select_key_Y = g_Config.fSelectKeyY * yres;
 	float select_key_scale = g_Config.fSelectKeyScale;
 
-	float unthrottle_key_X = g_Config.fUnthrottleKeyX * dp_xres;
-	float unthrottle_key_Y = g_Config.fUnthrottleKeyY * dp_yres;
+	float unthrottle_key_X = g_Config.fUnthrottleKeyX * xres;
+	float unthrottle_key_Y = g_Config.fUnthrottleKeyY * yres;
 	float unthrottle_key_scale = g_Config.fUnthrottleKeyScale;
 
 	//L and R------------------------------------------------------------
-	float l_key_X = g_Config.fLKeyX * dp_xres;
-	float l_key_Y = g_Config.fLKeyY * dp_yres;
+	float l_key_X = g_Config.fLKeyX * xres;
+	float l_key_Y = g_Config.fLKeyY * yres;
 	float l_key_scale = g_Config.fLKeyScale;
 
-	float r_key_X = g_Config.fRKeyX * dp_xres;
-	float r_key_Y = g_Config.fRKeyY * dp_yres;
+	float r_key_X = g_Config.fRKeyX * xres;
+	float r_key_Y = g_Config.fRKeyY * yres;
 	float r_key_scale = g_Config.fRKeyScale;
 
 	//analog stick-------------------------------------------------------
-	float analog_stick_X = g_Config.fAnalogStickX * dp_xres;
-	float analog_stick_Y = g_Config.fAnalogStickY * dp_yres;
+	float analog_stick_X = g_Config.fAnalogStickX * xres;
+	float analog_stick_Y = g_Config.fAnalogStickY * yres;
 	float analog_stick_scale = g_Config.fAnalogStickScale;
 
-	const int halfW = dp_xres / 2;
+	const int halfW = xres / 2;
 
 	if (g_Config.bShowTouchControls) {
 		int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
@@ -467,11 +461,13 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 		int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 		int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 
-#if USE_PAUSE_BUTTON
-		root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+		if (g_Config.bShowTouchPause)
 #endif
+			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+
 		if (g_Config.bShowTouchCircle)
-		root->Add(new PSPButton(CTRL_CIRCLE, roundImage, I_CIRCLE, Action_button_scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
+			root->Add(new PSPButton(CTRL_CIRCLE, roundImage, I_CIRCLE, Action_button_scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowTouchCross)
 			root->Add(new PSPButton(CTRL_CROSS, roundImage, I_CROSS, Action_button_scale, new AnchorLayoutParams(Action_cross_button_X, Action_cross_button_Y, NONE, NONE, true)));

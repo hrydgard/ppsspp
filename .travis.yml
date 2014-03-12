@@ -52,6 +52,7 @@ install:
       sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq &&
       download_extract https://googledrive.com/host/0B5UBD4wjtpZ-T0Iwa0F3b2JqREE ndk.tar.bz2 &&
       sed -i "s!/SDKs!$(pwd)/SDKs!" SDKs/SymbianSR1Qt474/bin/qt.conf &&
+      sed -i "s!0xF00000!0x1000000!" tools/sbs/lib/config/gcce.xml &&
       cp ffmpeg/symbian/armv6/lib/* SDKs/SymbianSR1Qt474/epoc32/release/armv5/urel/ &&
       export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474 SBS_GCCE463BIN=$(pwd)/tools/gcce4/bin &&
       PATH=$SBS_GCCE463BIN:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$(pwd)/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH;

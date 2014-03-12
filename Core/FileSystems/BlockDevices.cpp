@@ -47,9 +47,9 @@ BlockDevice *constructBlockDevice(const char *filename) {
 FileBlockDevice::FileBlockDevice(FILE *file)
 	: f(file)
 {
-	fseek(f,0,SEEK_END);
-	filesize = ftell(f);
-	fseek(f,0,SEEK_SET);
+	fseek(f, 0, SEEK_END);
+	filesize = ftello(f);
+	fseek(f, 0, SEEK_SET);
 }
 
 FileBlockDevice::~FileBlockDevice()
@@ -59,9 +59,9 @@ FileBlockDevice::~FileBlockDevice()
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
-	fseek(f, blockNumber * GetBlockSize(), SEEK_SET);
-	if(fread(outPtr, 1, 2048, f) != 2048)
-		DEBUG_LOG(LOADER, "Could not read 2048 bytes from block");
+	fseeko(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
+	if (fread(outPtr, 1, 2048, f) != 2048)
+		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
 
 	return true;
 }
@@ -172,13 +172,10 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 
 	int plain = idx & 0x80000000;
 
-	idx = (idx & 0x7FFFFFFF) << indexShift;
-	idx2 = (idx2 & 0x7FFFFFFF) << indexShift;
+	u64 compressedReadPos = (u64)(idx & 0x7FFFFFFF) << indexShift;
+	size_t compressedReadSize = (size_t)(((u64)(idx2 & 0x7FFFFFFF) << indexShift) - compressedReadPos);
 
-	u32 compressedReadPos = idx;
-	u32 compressedReadSize = idx2 - idx;
-
-	fseek(f, compressedReadPos, SEEK_SET);
+	fseeko(f, compressedReadPos, SEEK_SET);
 	u32 readSize = (u32)fread(inbuffer, 1, compressedReadSize, f);
 
 	if (plain)

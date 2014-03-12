@@ -16,11 +16,17 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include <string>
 #include <cstdio>
 #include "Common/CommonTypes.h"
 #include "native/math/expression_parser.h"
 
 struct MemMap;
+
+enum {
+	GPR_SIZE_32,
+	GPR_SIZE_64,
+};
 
 class DebugInterface
 {
@@ -40,7 +46,7 @@ public:
 	virtual void step() {}
 	virtual void runToBreakpoint() {}
 	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
-	virtual const char *getDescription(unsigned int address) {return "";}
+	virtual std::string getDescription(unsigned int address) {return "";}
 	virtual bool initExpression(const char* exp, PostfixExpression& dest) { return false; };
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 

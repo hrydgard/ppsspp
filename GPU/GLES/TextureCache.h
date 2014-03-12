@@ -24,6 +24,7 @@
 #include "TextureScaler.h"
 
 struct VirtualFramebuffer;
+class FramebufferManager;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -56,6 +57,10 @@ public:
 	// are being rendered to. This is barebones so far.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 
+	void SetFramebufferManager(FramebufferManager *fbManager) {
+		framebufferManager_ = fbManager;
+	}
+
 	size_t NumLoadedTextures() const {
 		return cache.size();
 	}
@@ -72,14 +77,16 @@ private:
 
 		enum Status {
 			STATUS_HASHING = 0x00,
-			STATUS_RELIABLE = 0x01,  // cache, don't hash
-			STATUS_UNRELIABLE = 0x02,  // never cache
+			STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
+			STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
 			STATUS_MASK = 0x03,
 
 			STATUS_ALPHA_UNKNOWN = 0x04,
-			STATUS_ALPHA_FULL = 0x00,  // Has no alpha channel, or always full alpha.
-			STATUS_ALPHA_SIMPLE = 0x08,  // Like above, but also has 0 alpha (e.g. 5551.)
+			STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
+			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
 			STATUS_ALPHA_MASK = 0x0c,
+
+			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
 		};
 
 		// Status, but int so we can zero initialize.
@@ -113,13 +120,13 @@ private:
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
-	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
-	void *ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt, int bufw);
+	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
+	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufw = 0);
-	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h);
+	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
@@ -158,5 +165,6 @@ private:
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
+	FramebufferManager *framebufferManager_;
 };
 

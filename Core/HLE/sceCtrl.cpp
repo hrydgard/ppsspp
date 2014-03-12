@@ -446,6 +446,7 @@ int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
+	hleEatCycles(330);
 	if (done != 0)
 	{
 		RETURN(done);
@@ -462,6 +463,7 @@ void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, false);
+	hleEatCycles(330);
 	if (done != 0)
 	{
 		RETURN(done);
@@ -479,6 +481,7 @@ int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, true);
 	DEBUG_LOG(SCECTRL, "%d=sceCtrlPeekBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
+	hleEatCycles(330);
 	return done;
 }
 
@@ -486,6 +489,7 @@ int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, true);
 	DEBUG_LOG(SCECTRL, "%d=sceCtrlPeekBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
+	hleEatCycles(330);
 	return done;
 }
 
@@ -533,4 +537,9 @@ static const HLEFunction sceCtrl[] =
 void Register_sceCtrl()
 {
 	RegisterModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
+}
+
+void Register_sceCtrl_driver()
+{
+	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
 }

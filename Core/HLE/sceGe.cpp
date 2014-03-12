@@ -18,6 +18,7 @@
 #include <map>
 #include <vector>
 
+#include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
@@ -151,7 +152,7 @@ public:
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
 				//	ERROR_LOG(SCEGE, "Weird DL status after signal suspend %x", dl->status);
 				if (newState != PSP_GE_DL_STATE_RUNNING)
-					INFO_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
+					DEBUG_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
 
 				dl->state = PSP_GE_DL_STATE_RUNNING;
 			}
@@ -312,6 +313,7 @@ u32 sceGeEdramGetAddr()
 {
 	u32 retVal = 0x04000000;
 	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetAddr", retVal);
+	hleEatCycles(150);
 	return retVal;
 }
 

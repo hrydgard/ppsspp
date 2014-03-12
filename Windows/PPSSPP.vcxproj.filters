@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
@@ -137,6 +137,15 @@
     <ClCompile Include="GEDebugger\VertexPreview.cpp">
       <Filter>Windows\GE Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="RawInput.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="TouchInputHandler.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="GEDebugger\TabVertices.cpp">
+      <Filter>Windows\GE Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -248,6 +257,15 @@
     <ClInclude Include="..\ios\ViewController.h">
       <Filter>Other Platforms</Filter>
     </ClInclude>
+    <ClInclude Include="RawInput.h">
+      <Filter>Windows\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="TouchInputHandler.h">
+      <Filter>Windows\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="GEDebugger\TabVertices.h">
+      <Filter>Windows\GE Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -298,6 +316,9 @@
     </None>
     <None Include="..\ios\ViewController.mm">
       <Filter>Other Platforms</Filter>
+    </None>
+    <None Include="..\assets\knownfuncs.ini">
+      <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

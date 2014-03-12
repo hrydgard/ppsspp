@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <string>
 #include "CommonTypes.h"
 
 // This bool is the key to having the HD remasters work.
@@ -28,7 +27,7 @@ extern bool g_RemasterMode;
 extern bool g_DoubleTextureCoordinates;
 
 struct HDRemaster {
-	std::string gameID;
+	const char *gameID;
 	u32 MemorySize;
 	bool DoubleTextureCoordinates;
 };

@@ -16,17 +16,22 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include "Core/Util/PPGeDraw.h"
+
+#include "image/zim_load.h"
+#include "image/png_load.h"
+#include "util/text/utf8.h"
+
+#include "Common/ChunkFile.h"
+#include "Core/Host.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MemMap.h"
-#include "image/zim_load.h"
-#include "image/png_load.h"
-#include "util/text/utf8.h"
 #include "Core/System.h"
 
 static u32 atlasPtr;

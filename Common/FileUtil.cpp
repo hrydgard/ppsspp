@@ -20,9 +20,11 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#ifndef _XBOX
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
+#endif
 #include <io.h>
 #include <direct.h>		// getcwd
 #else
@@ -133,6 +135,12 @@ static void StripTailDirSlashes(std::wstring &fname)
 // Returns true if file filename exists
 bool Exists(const std::string &filename)
 {
+	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
+	// Save the old error mode 
+#ifdef _WIN32
+	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
+#endif
+
 	struct stat64 file_info;
 #if defined(_WIN32) && defined(UNICODE)
 	std::wstring copy = ConvertUTF8ToWString(filename);
@@ -145,6 +153,12 @@ bool Exists(const std::string &filename)
 
 	int result = stat64(copy.c_str(), &file_info);
 #endif
+
+	// Set the old error mode
+#ifdef _WIN32
+	SetErrorMode(OldMode);
+#endif
+
 	return (result == 0);
 }
 
@@ -626,6 +640,7 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 std::string GetCurrentDir()
 {
 	char *dir;
+#ifndef _XBOX
 	// Get the current working directory (getcwd uses malloc) 
 	if (!(dir = __getcwd(NULL, 0))) {
 
@@ -636,12 +651,19 @@ std::string GetCurrentDir()
 	std::string strDir = dir;
 	free(dir);
 	return strDir;
+#else
+	return "game:\\";
+#endif
 }
 
 // Sets the current directory to the given directory
 bool SetCurrentDir(const std::string &directory)
 {
+#ifndef _XBOX
 	return __chdir(directory.c_str()) == 0;
+#else
+	return false;
+#endif
 }
 
 const std::string &GetExeDirectory()
@@ -649,6 +671,7 @@ const std::string &GetExeDirectory()
 	static std::string ExePath;
 
 	if (ExePath.empty())
+#ifndef _XBOX
 	{
 #ifdef _WIN32
 		TCHAR program_path[4096] = {0};
@@ -685,6 +708,10 @@ const std::string &GetExeDirectory()
 	}
 
 	return ExePath;
+#else
+	static std::wstring ExePath = L"game:\\";
+	return ExePath;
+#endif
 }
 
 
@@ -777,6 +804,7 @@ bool IOFile::Flush()
 
 bool IOFile::Resize(u64 size)
 {
+#ifndef _XBOX
 	if (!IsOpen() || 0 !=
 #ifdef _WIN32
 		// ector: _chsize sucks, not 64-bit safe
@@ -790,6 +818,10 @@ bool IOFile::Resize(u64 size)
 		m_good = false;
 
 	return m_good;
+#else
+	// TODO: Implement.
+	return false;
+#endif
 }
 
 } // namespace

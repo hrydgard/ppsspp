@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <map>
 #include <vector>
 
 #include "CommonTypes.h"
@@ -31,10 +32,20 @@ const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
 
+enum {
+	ROTATION_AUTO = 0,
+	ROTATION_LOCKED_HORIZONTAL = 1,
+	ROTATION_LOCKED_VERTICAL = 2,
+	ROTATION_LOCKED_HORIZONTAL180 = 3,
+	ROTATION_LOCKED_VERTICAL180 = 4,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
 }
+
+struct UrlEncoder;
 
 struct Config {
 public:
@@ -55,10 +66,13 @@ public:
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
-#if defined(_WIN32) && !defined(USING_QT_UI)
+	bool bDumpDecryptedEboot;
+#if defined(USING_WIN_UI)
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
+	bool bIgnoreWindowsKey;
+	bool bEscapeExitsEmulator;
 #endif
 	// Core
 	bool bIgnoreBadMemAccess;
@@ -72,6 +86,8 @@ public:
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
+	int iScreenRotation;
+
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
 	std::vector<std::string> vPinnedPaths;
@@ -87,8 +103,11 @@ public:
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	bool bPartialStretch;
 	bool bStretchToDisplay;
+	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
+	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bVSync;
 	int iFrameSkip;
+	bool bAutoFrameSkip;
 	bool bFrameSkipUnthrottle;
 
 	int iWindowX;
@@ -97,6 +116,8 @@ public:
 	int iWindowHeight;
 
 	bool bVertexCache;
+	bool bTextureBackoffCache;
+	bool bTextureSecondaryCache;
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
@@ -207,6 +228,10 @@ public:
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
 
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+	bool bShowTouchPause;
+#endif
+
 	bool bHapticFeedback;
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
@@ -245,7 +270,7 @@ public:
 	int iPSPModel;
 	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	bool bBypassOSKWithKeyboard;
 #endif
 
@@ -299,12 +324,16 @@ public:
 
 	void ResetControlLayout();
 
+	void GetReportingInfo(UrlEncoder &data);
+
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;
 	std::string defaultPath_;
 };
+
+std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
 
 // TODO: Find a better place for this.
 extern http::Downloader g_DownloadManager;

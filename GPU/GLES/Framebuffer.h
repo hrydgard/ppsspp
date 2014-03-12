@@ -18,6 +18,8 @@
 #pragma once
 
 #include <list>
+#include <set>
+#include <algorithm>
 
 #include "gfx/gl_common.h"
 #include "gfx_es2/fbo.h"
@@ -56,6 +58,7 @@ struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_render;
 	bool memoryUpdated;
+	bool depthUpdated;
 
 	u32 fb_address;
 	u32 z_address;
@@ -136,6 +139,14 @@ public:
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 
+	void BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
+
+	// For use when texturing from a framebuffer.  May create a duplicate if target.
+	void BindFramebufferColor(VirtualFramebuffer *framebuffer);
+
+	// Just for logging right now.  Might remove/change.
+	void NotifyBlockTransfer(u32 dst, u32 src);
+
 #ifdef USING_GLES2
   void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 #else
@@ -162,6 +173,12 @@ public:
 	}
 	u32 DisplayFramebufAddr() {
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
+	}
+
+	void SetDepthUpdated() {
+		if (currentRenderVfb_) {
+			currentRenderVfb_->depthUpdated = true;
+		}
 	}
 
 	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
@@ -221,6 +238,7 @@ private:
 	bool useBufferedRendering_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+	std::map<std::pair<int, int>, FBO *> renderCopies_;
 
 	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
 
@@ -228,4 +246,6 @@ private:
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 #endif
+
+	std::set<std::pair<u32, u32>> reportedBlits_;
 };

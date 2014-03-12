@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 
 struct SceUtilityNetconfData {
@@ -31,7 +32,7 @@ struct SceUtilityNetconfParam {
 	PSPPointer<SceUtilityNetconfData> NetconfData;
 	int netHotspot;
 	int netHotspotConnected;
-	int netWifiSpot;   
+	int netWifiSpot;
 };
 
 class PSPNetconfDialog: public PSPDialog {
@@ -45,5 +46,6 @@ public:
 	virtual void DoState(PointerWrap &p);
 
 private:
+	void DrawBanner();
 	SceUtilityNetconfParam request;
 };

@@ -39,12 +39,16 @@
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
 #if defined(ARM)
-class ThunkManager : public ArmGen::ARMXCodeBlock
+typedef ArmGen::ARMXEmitter ThunkEmitter;
+typedef ArmGen::ARMXCodeBlock ThunkCodeBlock;
 #else
-class ThunkManager : public Gen::XCodeBlock
+typedef Gen::XEmitter ThunkEmitter;
+typedef Gen::XCodeBlock ThunkCodeBlock;
 #endif
+
+class ThunkManager : public ThunkCodeBlock
 {
-	std::map<void *, const u8 *> thunks;
+	std::map<const void *, const u8 *> thunks;
 
 	const u8 *save_regs;
 	const u8 *load_regs;
@@ -56,19 +60,43 @@ public:
 	~ThunkManager() {
 		Shutdown();
 	}
-	void *ProtectFunction(void *function, int num_params);
+	const void *ProtectFunction(const void *function, int num_params);
 
-	const u8 *GetSaveRegsFunction() const {
-		return save_regs;
+	template <typename Tr>
+	const void *ProtectFunction(Tr (*func)()) {
+		return ProtectFunction((const void *)func, 0);
 	}
-	const u8 *GetLoadRegsFunction() const {
-		return load_regs;
+
+	template <typename Tr, typename T1>
+	const void *ProtectFunction(Tr (*func)(T1)) {
+		return ProtectFunction((const void *)func, 1);
 	}
+
+	template <typename Tr, typename T1, typename T2>
+	const void *ProtectFunction(Tr (*func)(T1, T2)) {
+		return ProtectFunction((const void *)func, 2);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3>
+	const void *ProtectFunction(Tr (*func)(T1, T2, T3)) {
+		return ProtectFunction((const void *)func, 3);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3, typename T4>
+	const void *ProtectFunction(Tr (*func)(T1, T2, T3, T4)) {
+		return ProtectFunction((const void *)func, 4);
+	}
+
+	void Enter(ThunkEmitter *emit, bool withinCall = false);
+	void Leave(ThunkEmitter *emit, bool withinCall = false);
 
 private:
 	void Init();
 	void Shutdown();
 	void Reset();
+
+	int ThunkStackOffset();
+	int ThunkBytesNeeded();
 };
 
 #endif // _THUNK_H_

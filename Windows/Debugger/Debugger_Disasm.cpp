@@ -20,7 +20,6 @@
 #include "Windows/WndMainWindow.h"
 
 #include "Core/Core.h"
-#include "Core/CPU.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -35,6 +34,8 @@
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
+
+static const int numCPUs = 1;
 
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
 const int TEMP_BREAKPOINT_WAIT_MS = 100;
@@ -69,11 +70,35 @@ LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 	return (LRESULT)CallWindowProc((WNDPROC)DefGotoEditProc,hDlg,message,wParam,lParam);
 }
 
+FAR WNDPROC DefFuncListProc;
+
+LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch(message)
+	{
+	case WM_KEYDOWN:
+		if( wParam == VK_RETURN )
+		{
+			SendMessage(GetParent(hDlg),WM_COMMAND,MAKEWPARAM(IDC_FUNCTIONLIST,CBN_DBLCLK),0);
+			SetFocus(hDlg);	// it's more natural to keep the focus when using keyboard controls
+			return 0;
+		}
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+		}
+		break;
+	};
+
+	return (LRESULT)CallWindowProc((WNDPROC)DefFuncListProc,hDlg,message,wParam,lParam);
+}
 
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
 {
 	cpu = _cpu;
-	lastTicks = CoreTiming::GetTicks();
+	lastTicks = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
 	keepStatusBarText = false;
 	hideBottomTabs = false;
 
@@ -95,6 +120,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	int w = g_Config.iDisasmWindowW == -1 ? defaultWidth : g_Config.iDisasmWindowW;
 	int h = g_Config.iDisasmWindowH == -1 ? defaultHeight : g_Config.iDisasmWindowH;
 
+	// init status bar
+	statusBarWnd = CreateWindowEx(0, STATUSCLASSNAME, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, m_hDlg, (HMENU)IDC_DISASMSTATUSBAR, _hInstance, NULL);
+	if (g_Config.bDisplayStatusBar == false)
+	{
+		ShowWindow(statusBarWnd,SW_HIDE);
+	}
+
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
 	ptr->gotoAddr(0x00000000);
@@ -113,6 +145,11 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
 	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)GotoEditProc); 
 	
+	// subclass the function list
+	HWND funcListWnd = GetDlgItem(m_hDlg,IDC_FUNCTIONLIST);
+	DefFuncListProc = (WNDPROC)GetWindowLongPtr(funcListWnd,GWLP_WNDPROC);
+	SetWindowLongPtr(funcListWnd,GWLP_WNDPROC,(LONG_PTR)FuncListProc); 
+
 	// init bottom tabs
 	bottomTabs = new TabControl(GetDlgItem(m_hDlg,IDC_DEBUG_BOTTOMTABS));
 
@@ -133,15 +170,12 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	stackTraceView->loadStackTrace();
 	bottomTabs->AddTab(stackTraceView->GetHandle(),L"Stack frames");
 	
+	moduleList = new CtrlModuleList(GetDlgItem(m_hDlg,IDC_MODULELIST),cpu);
+	moduleList->loadModules();
+	bottomTabs->AddTab(moduleList->GetHandle(),L"Modules");
+
 	bottomTabs->SetShowTabTitles(g_Config.bShowBottomTabTitles);
 	bottomTabs->ShowTab(memHandle);
-
-	// init status bar
-	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, L"", m_hDlg, IDC_DISASMSTATUSBAR);
-	if (g_Config.bDisplayStatusBar == false)
-	{
-		ShowWindow(statusBarWnd,SW_HIDE);
-	}
 	
 	// Actually resize the window to the proper size (after the above setup.)
 	// do it twice so that the window definitely receives a WM_SIZE message with
@@ -153,11 +187,21 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 CDisasm::~CDisasm()
 {
+	DestroyWindow(statusBarWnd);
+
+	delete leftTabs;
+	delete bottomTabs;
+	delete breakpointList;
+	delete threadList;
+	delete stackTraceView;
+	delete moduleList;
 }
 
 void CDisasm::stepInto()
 {
-	if (!Core_IsStepping()) return;
+	if (!PSP_IsInited() || !Core_IsStepping()) {
+		return;
+	}
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
@@ -205,7 +249,9 @@ void CDisasm::stepInto()
 
 void CDisasm::stepOver()
 {
-	if (Core_IsActive()) return;
+	if (!PSP_IsInited() || Core_IsActive()) {
+		return;
+	}
 	
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	lastTicks = CoreTiming::GetTicks();
@@ -253,6 +299,10 @@ void CDisasm::stepOver()
 
 void CDisasm::stepOut()
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
+
 	auto threads = GetThreadsInfo();
 
 	u32 entry, stackTop;
@@ -288,6 +338,10 @@ void CDisasm::stepOut()
 
 void CDisasm::runToLine()
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
+
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	u32 pos = ptr->getSelection();
 
@@ -324,6 +378,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDC_STACKFRAMES:
 			stackTraceView->HandleNotify(lParam);
+			break;
+		case IDC_MODULELIST:
+			moduleList->HandleNotify(lParam);
 			break;
 		case IDC_DEBUG_BOTTOMTABS:
 			bottomTabs->HandleNotify(lParam);
@@ -458,6 +515,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STOPGO:
 				{
+					if (!PSP_IsInited()) {
+						break;
+					}
 					if (!Core_IsStepping())		// stop
 					{
 						ptr->setDontRedraw(false);
@@ -550,6 +610,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
+			if (!PSP_IsInited()) {
+				break;
+			}
 			wchar_t szBuffer[256];
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
@@ -581,7 +644,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_SETSTATUSBARTEXT:
 		if (!keepStatusBarText)
-			SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+			SetWindowText(statusBarWnd, ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
@@ -723,13 +786,14 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	HWND hDlg = m_hDlg;
 
 	// Update Dialog Windows
-	if (_bDebug && globalUIState == UISTATE_INGAME)
+	if (_bDebug && globalUIState == UISTATE_INGAME && PSP_IsInited())
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
 		breakpointList->reloadBreakpoints();
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();
+		moduleList->loadModules();
 		updateThreadLabel(false);
 
 		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
@@ -755,7 +819,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	{
 		updateThreadLabel(true);
 		
-		if (globalUIState == UISTATE_INGAME)
+		if (globalUIState == UISTATE_INGAME && PSP_IsInited())
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
 			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
@@ -812,9 +876,10 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	rl->redraw();						
 	// Update Debug Counter
 	wchar_t tempTicks[24];
-	_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks()-lastTicks);
-	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
-
+	if (PSP_IsInited()) {
+		_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks() - lastTicks);
+		SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
+	}
 	// Update Register Dialog
 	for (int i=0; i<numCPUs; i++)
 		if (memoryWindow[i])

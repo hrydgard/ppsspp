@@ -15,11 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ChunkFile.h"
+#include "Core/FileSystems/FileSystem.h"
 
-#include "CPU.h"
+void PSPFileInfo::DoState(PointerWrap &p) {
+	auto s = p.Section("PSPFileInfo", 1);
+	if (!s)
+		return;
 
-// See the MIPS folder, the real stuff is there.
+	p.Do(name);
+	p.Do(size);
+	p.Do(access);
+	p.Do(exists);
+	p.Do(type);
+	p.Do(atime);
+	p.Do(ctime);
+	p.Do(mtime);
+	p.Do(isOnSectorSystem);
+	p.Do(startSector);
+	p.Do(numSectors);
+	p.Do(sectorSize);
+}
 
-MIPSState *currentCPU = 0;
-
-int numCPUs;

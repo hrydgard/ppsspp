@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstring>
+
 #include "Common/Log.h"
 #include "Common/ChunkFile.h"
 #include "Core/Util/BlockAllocator.h"
@@ -463,6 +465,21 @@ void BlockAllocator::DoState(PointerWrap &p)
 	p.Do(rangeStart_);
 	p.Do(rangeSize_);
 	p.Do(grain_);
+}
+
+BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
+: start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
+{
+	strcpy(tag, "(untitled)");
+}
+
+void BlockAllocator::Block::SetTag(const char *_tag)
+{
+	if (_tag)
+		strncpy(tag, _tag, 32);
+	else
+		strncpy(tag, "---", 32);
+	tag[31] = 0;
 }
 
 void BlockAllocator::Block::DoState(PointerWrap &p)

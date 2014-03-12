@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/CPU.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include <limits>
+#include <stdio.h>
 
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])

@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/display.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
@@ -30,11 +29,14 @@
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
+#include "UI/GameInfoCache.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
+#include "Common/FileUtil.h"
 
 #include "ui_atlas.h"
 
@@ -65,50 +67,88 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-void DrawBackground(float alpha) {
+void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 	static float xbase[100] = {0};
 	static float ybase[100] = {0};
-	static int last_dp_xres = 0;
-	static int last_dp_yres = 0;
-	if (xbase[0] == 0.0f || last_dp_xres != dp_xres || last_dp_yres != dp_yres) {
+	float xres = dc.GetBounds().w;
+	float yres = dc.GetBounds().h;
+	static int last_xres = 0;
+	static int last_yres = 0;
+
+	if (xbase[0] == 0.0f || last_xres != xres || last_yres != yres) {
 		GMRng rng;
 		for (int i = 0; i < 100; i++) {
-			xbase[i] = rng.F() * dp_xres;
-			ybase[i] = rng.F() * dp_yres;
+			xbase[i] = rng.F() * xres;
+			ybase[i] = rng.F() * yres;
 		}
-		last_dp_xres = dp_xres;
-		last_dp_yres = dp_yres;
+		last_xres = xres;
+		last_yres = yres;
 	}
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glClearColor(0.1f,0.2f,0.43f,1.0f);
+	glClearColor(0.1f, 0.2f, 0.43f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	int img = I_BG;
 #ifdef GOLD
 	img = I_BG_GOLD;
 #endif
-	ui_draw2d.DrawImageStretch(img, 0, 0, dp_xres, dp_yres);
+	ui_draw2d.DrawImageStretch(img, dc.GetBounds());
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
-		float x = xbase[i];
-		float y = ybase[i] + 40*cos(i * 7.2 + t * 1.3);
-		float angle = sin(i + t);
+		float x = xbase[i] + dc.GetBounds().x;
+		float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
+		float angle = sinf(i + t);
 		int n = i & 3;
 		ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
 	}
 }
 
+void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, true);
+	dc.Flush();
+
+	if (ginfo) {
+		bool hasPic = false;
+		if (ginfo->pic1Texture) {
+			ginfo->pic1Texture->Bind(0);
+			hasPic = true;
+		} else if (ginfo->pic0Texture) {
+			ginfo->pic0Texture->Bind(0);
+			hasPic = true;
+		}
+		if (hasPic) {
+			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+			dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
+			dc.Flush();
+			dc.RebindTexture();
+		} else {
+			::DrawBackground(dc, 1.0f);
+			dc.RebindTexture();
+			dc.Flush();
+		}
+	}
+}
+
 void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager) {
 	if (!strcmp(message, "clear jit")) {
-		if (MIPSComp::jit) {
+		if (MIPSComp::jit && PSP_IsInited()) {
 			MIPSComp::jit->ClearCache();
 		}
 	}
 }
 
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(1.0f);
+	::DrawBackground(dc, 1.0f);
 	dc.Flush();
+}
+
+void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	DrawGameBackground(dc, gamePath_);
+}
+
+void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
+	DrawGameBackground(dc, gamePath_);
 }
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
@@ -122,7 +162,7 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 }
 
 UI::EventReturn UIScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
+	screenManager()->RecreateAllViews();
 	if (host) {
 		host->UpdateUI();
 	}
@@ -131,7 +171,7 @@ UI::EventReturn UIScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
 }
 
 UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
+	screenManager()->RecreateAllViews();
 	if (host) {
 		host->UpdateUI();
 	}
@@ -140,7 +180,7 @@ UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(1.0f);
+	::DrawBackground(dc);
 	dc.Flush();
 }
 
@@ -178,7 +218,9 @@ void PromptScreen::CreateViews() {
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumnItems);
-	rightColumnItems->Add(new Choice(yesButtonText_))->OnClick.Handle(this, &PromptScreen::OnYes);
+	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
+	yesButton->OnClick.Handle(this, &PromptScreen::OnYes);
+	root_->SetDefaultFocusView(yesButton);
 	if (noButtonText_ != "")
 		rightColumnItems->Add(new Choice(noButtonText_))->OnClick.Handle(this, &PromptScreen::OnNo);
 }
@@ -222,11 +264,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 	langValuesMapping = GetLangValuesMapping();
 
 	std::vector<FileInfo> tempLangs;
-#ifdef ANDROID
-	VFSGetFileListing("assets/lang", &tempLangs, "ini");
-#else
 	VFSGetFileListing("lang", &tempLangs, "ini");
-#endif
 	std::vector<std::string> listing;
 	int selected = -1;
 	int counter = 0;
@@ -285,7 +323,18 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	g_Config.sLanguageIni = code;
 
-	if (i18nrepo.LoadIni(g_Config.sLanguageIni)) {
+	bool iniLoadedSuccessfully = false;
+	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
+	// test new languages without recompiling the entire app, which is a hassle).
+	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+
+	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
+	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
+		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni);
+	else
+		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+
+	if (iniLoadedSuccessfully) {
 		// Dunno what else to do here.
 		if (langValuesMapping.find(code) == langValuesMapping.end()) {
 			// Fallback to English
@@ -335,33 +384,40 @@ void LogoScreen::render() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 
+	const Bounds &bounds = dc.GetBounds();
+
+	float xres = dc.GetBounds().w;
+	float yres = dc.GetBounds().h;
+
 	dc.Begin();
 	float t = (float)frames_ / 60.0f;
 
 	float alpha = t;
-	if (t > 1.0f) alpha = 1.0f;
+	if (t > 1.0f)
+		alpha = 1.0f;
 	float alphaText = alpha;
-	if (t > 2.0f) alphaText = 3.0f - t;
+	if (t > 2.0f)
+		alphaText = 3.0f - t;
 
-	::DrawBackground(alpha);
+	::DrawBackground(dc, alpha);
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
 	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
 #ifdef GOLD
-	dc.Draw()->DrawImage(I_ICONGOLD, (dp_xres / 2) - 120, (dp_yres / 2) - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
-	dc.Draw()->DrawImage(I_ICON, (dp_xres / 2) - 120, (dp_yres / 2) - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #endif
-	dc.Draw()->DrawImage(I_LOGO, (dp_xres / 2) + 40, dp_yres / 2 - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText("www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (boot_filename.size()) {
-		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
 
 	dc.End();
@@ -374,7 +430,9 @@ void CreditsScreen::CreateViews() {
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	root_->Add(new Button(d->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnOK);
+	Button *back = root_->Add(new Button(d->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
+	back->OnClick.Handle(this, &CreditsScreen::OnOK);
+	root_->SetDefaultFocusView(back);
 #ifndef GOLD
 	root_->Add(new Button(c->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 #endif
@@ -534,7 +592,7 @@ void CreditsScreen::render() {
 #endif
 #if defined(USING_QT_UI)
 		"Qt",
-#elif !defined(_WIN32)
+#elif !defined(USING_WIN_UI)
 		"SDL",
 #endif
 		"CMake",
@@ -561,6 +619,7 @@ void CreditsScreen::render() {
 		c->T("info5", "PSP is a trademark by Sony, Inc."),
 	};
 
+
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
 	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
@@ -568,16 +627,17 @@ void CreditsScreen::render() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 	dc.Begin();
+	const Bounds &bounds = dc.GetBounds();
 
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
-	int totalHeight = numItems * itemHeight + dp_yres + 200;
-	int y = dp_yres - (frames_ % totalHeight);
+	int totalHeight = numItems * itemHeight + bounds.h + 200;
+	int y = bounds.y2() - (frames_ % totalHeight);
 	for (int i = 0; i < numItems; i++) {
-		float alpha = linearInOut(y+32, 64, dp_yres - 192, 64);
+		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			dc.DrawText(credits[i], dp_xres/2, y, whiteAlpha(alpha), ALIGN_HCENTER);
+			dc.DrawText(credits[i], dc.GetBounds().centerX(), y, whiteAlpha(alpha), ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;

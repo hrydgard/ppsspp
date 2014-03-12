@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-#include "Globals.h"
+
+#include "Common/CommonTypes.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
 enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_MACRO, DISTYPE_DATA, DISTYPE_OTHER };

@@ -166,7 +166,7 @@ static bool blendColorSimilar(Vec3f a, Vec3f b, float margin = 0.1f) {
 void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
-	if (gstate_c.textureChanged) {
+	if (gstate_c.textureChanged && !gstate.isModeClear()) {
 		if (gstate.isTextureMapEnabled()) {
 			textureCache_->SetTexture();
 		}
@@ -193,7 +193,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
 		float constantAlpha = 1.0f;
-		ReplaceAlphaType replaceAlphaWithStencil = gstate.isStencilTestEnabled() ? ReplaceAlphaWithStencil() : REPLACE_ALPHA_NO;
+		ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
 		if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
@@ -320,12 +320,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
 		}
 
-		// Don't report on Android device (why?)
-#if !defined(USING_GLES2)
 		if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
 			WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
 		}
-#endif
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
 			glstate.blendEquation.set(eqLookup[blendFuncEq]);
@@ -356,6 +353,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
 		glstate.depthWrite.set(gstate.isClearModeDepthMask() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+		if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
+			framebufferManager_->SetDepthUpdated();
+		}
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();
@@ -398,6 +398,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+			framebufferManager_->SetDepthUpdated();
 		} else {
 			glstate.depthTest.disable();
 		}

@@ -17,20 +17,6 @@
 
 #pragma once
 
-#include "../Globals.h"
+#include "HLE.h"
 
-#include "MemMap.h"
-#include "Core.h"
-
-enum
-{
-	GPR_SIZE_32=0,
-	GPR_SIZE_64=1
-};
-
-#define MAX_NUM_CPU 2
-
-class MIPSState;
-
-extern MIPSState *currentCPU;
-extern int numCPUs;
+void Register_sceMt19937();

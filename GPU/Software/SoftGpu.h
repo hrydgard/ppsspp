@@ -55,12 +55,7 @@ public:
 	virtual void ExecuteOp(u32 op, u32 diff);
 
 	virtual void BeginFrame() {}
-	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-		displayFramebuf_ = framebuf;
-		displayStride_ = stride;
-		displayFormat_ = format;
-		host->GPUNotifyDisplay(framebuf, stride, format);
-	}
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	virtual void CopyDisplayToOutput();
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
@@ -86,6 +81,7 @@ public:
 	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer);
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);

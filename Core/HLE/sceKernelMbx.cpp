@@ -121,49 +121,34 @@ struct Mbx : public KernelObject
 	{
 		u32 ptr = nmb.packetListHead;
 
-		if (nmb.numMessages == 991)
+		// Check over the linked list and reset the head.
+		int c = 0;
+		while (true)
 		{
 			u32 next = Memory::Read_U32(nmb.packetListHead);
-			u32 next2 = Memory::Read_U32(next);
-			if (next2 == ptr && next != ptr)
+			if (!Memory::IsValidAddress(next))
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			if (next == ptr)
 			{
-				Memory::Write_U32(next, next);
-				nmb.packetListHead = next;
-			}
-			else
-				nmb.packetListHead = 0;
-		}
-		else
-		{
-			// Check over the linked list and reset the head.
-			int c = 0;
-			while (true)
-			{
-				u32 next = Memory::Read_U32(nmb.packetListHead);
-				if (!Memory::IsValidAddress(next))
-					return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-				if (next == ptr)
+				if (nmb.packetListHead != ptr)
 				{
-					if (nmb.packetListHead != ptr)
-					{
-						next = Memory::Read_U32(next);
-						Memory::Write_U32(next, nmb.packetListHead);
-						nmb.packetListHead = next;
-						break;
-					}
-					else
-					{
-						if (c < nmb.numMessages - 1)
-							return PSP_MBX_ERROR_DUPLICATE_MSG;
-
-						nmb.packetListHead = 0;
-						break;
-					}
+					next = Memory::Read_U32(next);
+					Memory::Write_U32(next, nmb.packetListHead);
+					nmb.packetListHead = next;
+					break;
 				}
+				else
+				{
+					if (c < nmb.numMessages - 1)
+						return PSP_MBX_ERROR_DUPLICATE_MSG;
 
-				nmb.packetListHead = next;
-				c++;
+					nmb.packetListHead = 0;
+					break;
+				}
 			}
+
+			nmb.packetListHead = next;
+			c++;
 		}
 
 		// Tell the receiver about the message.

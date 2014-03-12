@@ -17,10 +17,9 @@
 
 #pragma once
 
-#include "Globals.h"
-#include "Core/MemMap.h"
-#include "Core/CPU.h"
 #include "util/random/rng.h"
+#include "Common/CommonTypes.h"
+#include "Core/MemMap.h"
 
 typedef Memory::Opcode MIPSOpcode;
 
@@ -127,7 +126,10 @@ public:
 	MIPSState();
 	~MIPSState();
 
+	void Init();
+	void Shutdown();
 	void Reset();
+
 	void DoState(PointerWrap &p);
 
 	// MUST start with r and be followed by f!
@@ -164,7 +166,7 @@ public:
 	bool inDelaySlot;
 	int llBit;  // ll/sc
 	u32 temp;  // can be used to save temporaries during calculations when we need more than R0 and R1
-	
+
 	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	// Debug stuff
@@ -182,10 +184,6 @@ public:
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
 	}
 
-	void Irq();
-	void SWI();
-	void Abort();
-
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
@@ -202,7 +200,5 @@ class MIPSDebugInterface;
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
-
-int MIPS_SingleStep();
 
 extern const float cst_constants[32];

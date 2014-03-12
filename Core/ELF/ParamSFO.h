@@ -15,13 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #pragma once
 
+#include <string>
 #include <map>
+#include <vector>
 
 #include "Common/CommonTypes.h"
-#include "../Globals.h"
 
 class ParamSFOData
 {
@@ -62,20 +62,7 @@ private:
 		u8* u_value;
 		unsigned int u_size;
 
-		void SetData(const u8* data, int size)
-		{
-			if(u_value)
-			{
-				delete[] u_value;
-				u_value = 0;
-			}
-			if(size > 0)
-			{
-				u_value = new u8[size];
-				memcpy(u_value, data, size);
-			}
-			u_size = size;
-		}
+		void SetData(const u8* data, int size);
 
 		ValueData()
 		{

@@ -18,6 +18,8 @@
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 
+#include "Common/ChunkFile.h"
+
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
@@ -395,6 +397,7 @@ GLES_GPU::GLES_GPU()
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
+	textureCache_.SetFramebufferManager(&framebufferManager_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -465,6 +468,8 @@ void GLES_GPU::BuildReportingInfo() {
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
 	reportingPrimaryInfo_ = glVendor;
 	reportingFullInfo_ = temp;
+
+	Reporting::UpdateConfig();
 }
 
 void GLES_GPU::DeviceLost() {
@@ -730,7 +735,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 			if (prim > GE_PRIM_RECTANGLES) {
 				ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
 			}
@@ -877,7 +882,8 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 					shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 			} else {
-				if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+				// Don't flush when weight count changes, unless morph is enabled.
+				if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (data & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 					// Restore and flush
 					gstate.vertType ^= diff;
 					Flush();
@@ -891,8 +897,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -968,8 +976,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 		///
@@ -980,8 +990,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -1207,8 +1219,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		if (diff)
+		if (diff) {
 			gstate_c.framebufChanged = true;
+			gstate_c.textureChanged = true;
+		}
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -1256,11 +1270,11 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ALPHATEST:
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
-		// Intentional fallthrough. (?)
+		// Intentional fallthrough - we still need to dirty DIRTY_ALPHACOLORREF for GE_CMD_ALPHATEST.
 
 	case GE_CMD_COLORREF:
 		if (diff)
@@ -1285,10 +1299,9 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	//////////////////////////////////////////////////////////////////
-	//	Z/STENCIL TESTING
+	//	DEPTH TESTING
 	//////////////////////////////////////////////////////////////////
 
-	case GE_CMD_STENCILTESTENABLE:
 	case GE_CMD_ZTESTENABLE:
 	case GE_CMD_ZTEST:
 	case GE_CMD_ZWRITEDISABLE:
@@ -1313,11 +1326,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		gstate.worldmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.worldMatrix + (data & 0xF));
+			const int end = 12 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.worldmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
@@ -1331,11 +1370,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		gstate.viewmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.viewMatrix + (data & 0xF));
+			const int end = 12 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.viewmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
@@ -1349,11 +1414,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_PROJMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.projMatrix + (data & 0xF));
+			const int end = 16 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.projmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
@@ -1367,11 +1458,37 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
-		gstate.texmtxnum &= 0xFF00000F;
+		{
+			// This is almost always followed by GE_CMD_TGENMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.tgenMatrix + (data & 0xF));
+			const int end = 12 - (data & 0xF);
+			int i = 0;
+
+			while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+					shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+				}
+				if (++i > end) {
+					break;
+				}
+			}
+
+			const int count = i;
+			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((data + count) & 0xF);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.texmtxnum & 0xF;
 			u32 newVal = data << 8;
 			if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
@@ -1385,17 +1502,56 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		gstate.boneMatrixNumber &= 0xFF00007F;
+		{
+			// This is almost always followed by GE_CMD_BONEMATRIXDATA.
+			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+			u32 *dst = (u32 *)(gstate.boneMatrix + (data & 0x7F));
+			const int end = 12 * 8 - (data & 0x7F);
+			int i = 0;
+
+			// If we can't use software skinning, we have to flush and dirty.
+			if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+					const u32 newVal = src[i] << 8;
+					if (dst[i] != newVal) {
+						Flush();
+						dst[i] = newVal;
+					}
+					if (++i > end) {
+						break;
+					}
+				}
+
+				const int numPlusCount = (data & 0x7F) + i;
+				for (int num = data & 0x7F; num < numPlusCount; num += 12) {
+					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+				}
+			} else {
+				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+					dst[i] = src[i] << 8;
+					if (++i > end) {
+						break;
+					}
+				}
+			}
+
+			const int count = i;
+			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((data + count) & 0x7F);
+
+			// Skip over the loaded data, it's done now.
+			UpdatePC(currentList->pc, currentList->pc + count * 4);
+			currentList->pc += count * 4;
+		}
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
 		{
+			// Note: it's uncommon to get here now, see above.
 			int num = gstate.boneMatrixNumber & 0x7F;
 			u32 newVal = data << 8;
 			if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 				// Bone matrices should NOT flush when software skinning is enabled!
-				// TODO: Also check for morph...
-				if (!g_Config.bSoftwareSkinning) {
+				if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 					Flush();
 					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 				}
@@ -1406,7 +1562,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		}
 		break;
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	case GE_CMD_ANTIALIASENABLE:
 		if (data != 0)
 			WARN_LOG_REPORT_ONCE(antiAlias, G3D, "Unsupported antialias enabled: %06x", data);
@@ -1416,23 +1572,31 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLodSlope, G3D, "Unsupported texture lod slope: %06x", data);
 		break;
+#endif
 
 	case GE_CMD_TEXLEVEL:
+#ifndef MOBILE_DEVICE
 		if (data == 1)
 			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
 		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
+#endif
 		if (diff)
 			gstate_c.textureChanged = true;
 		break;
-#endif
 
-	// Handled in StateMapping.
+	//////////////////////////////////////////////////////////////////
+	//	STENCIL TESTING
+	//////////////////////////////////////////////////////////////////
+
 	case GE_CMD_STENCILTEST:
+		// Handled in StateMapping.
 		if (diff) {
 			shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
 		}
 		break;
+
+	case GE_CMD_STENCILTESTENABLE:
 	case GE_CMD_STENCILOP:
 		break;
 
@@ -1489,6 +1653,18 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	}
 }
 
+void GLES_GPU::FastLoadBoneMatrix(u32 target) {
+	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		Flush();
+		const int num = gstate.boneMatrixNumber & 0x7F;
+		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		if ((num % 12) != 0) {
+			shaderManager_->DirtyUniform((DIRTY_BONEMATRIX0 << (num / 12)) + 1);
+		}
+	}
+	gstate.FastLoadBoneMatrix(target);
+}
+
 void GLES_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
@@ -1536,16 +1712,35 @@ void GLES_GPU::DoBlockTransfer() {
 		return;
 	}
 	
+	// Check that the last address of both source and dest are valid addresses
+
+	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
+	u32 dstLastAddr = dstBasePtr + ((height - 1 + dstY) * dstStride + (dstX + width - 1)) * bpp;
+
+	if (!Memory::IsValidAddress(srcLastAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
+		return;
+	}
+	if (!Memory::IsValidAddress(dstLastAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
+		return;
+	}
+
 	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 	// entirely by walking a couple of pointers...
+	// GetPointerUnchecked crash in windows 64 bit of issue 2301
 	for (int y = 0; y < height; y++) {
-		const u8 *src = Memory::GetPointerUnchecked(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dst = Memory::GetPointerUnchecked(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+		u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+		u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+
+		const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
+		u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
 		memcpy(dst, src, width * bpp);
 	}
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
+	framebufferManager_.NotifyBlockTransfer(dstBasePtr, srcBasePtr);
 
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
 	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
@@ -1568,7 +1763,7 @@ void GLES_GPU::DoBlockTransfer() {
 		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 #endif

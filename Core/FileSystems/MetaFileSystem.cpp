@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
 #include <algorithm>
+#include <set>
+
+#include "Common/ChunkFile.h"
 #include "Common/StringUtils.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -218,12 +220,17 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 	if ( RealPath(*currentDirectory, inpath, realpath) )
 	{
+		std::string prefix = realpath;
+		size_t prefixPos = realpath.find(':');
+		if (prefixPos != realpath.npos)
+			prefix = NormalizePrefix(realpath.substr(0, prefixPos + 1));
+
 		for (size_t i = 0; i < fileSystems.size(); i++)
 		{
 			size_t prefLen = fileSystems[i].prefix.size();
-			if (strncasecmp(fileSystems[i].prefix.c_str(), realpath.c_str(), prefLen) == 0)
+			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
 			{
-				outpath = realpath.substr(prefLen);
+				outpath = realpath.substr(prefixPos + 1);
 				*system = &(fileSystems[i]);
 
 				VERBOSE_LOG(FILESYS, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
@@ -235,6 +242,20 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 	DEBUG_LOG(FILESYS, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
 	return false;
+}
+
+std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
+	// Let's apply some mapping here since it won't break savestates.
+	if (prefix == "memstick:")
+		prefix = "ms0:";
+	// Seems like umd00: etc. work just fine...
+	if (startsWith(prefix, "umd"))
+		prefix = "umd0:";
+	// Seems like umd00: etc. work just fine...
+	if (startsWith(prefix, "host"))
+		prefix = "host0:";
+
+	return prefix;
 }
 
 void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
@@ -265,7 +286,7 @@ void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
-		if (it->prefix == prefix)
+		if (it->prefix == NormalizePrefix(prefix))
 			return it->system;
 	}
 	return NULL;
@@ -479,6 +500,24 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	}
 }
 
+int MetaFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec)
+{
+	lock_guard guard(lock);
+	IFileSystem *sys = GetHandleOwner(handle);
+	if (sys)
+		return sys->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+	return SCE_KERNEL_ERROR_ERROR;
+}
+
+int MetaFileSystem::DevType(u32 handle)
+{
+	lock_guard guard(lock);
+	IFileSystem *sys = GetHandleOwner(handle);
+	if (sys)
+		return sys->DevType(handle);
+	return SCE_KERNEL_ERROR_ERROR;
+}
+
 void MetaFileSystem::CloseFile(u32 handle)
 {
 	lock_guard guard(lock);
@@ -519,15 +558,15 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 
 int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data) {
 	int error = 0;
-	u32 handle = pspFileSystem.OpenWithError(error, filename, FILEACCESS_READ);
+	u32 handle = OpenWithError(error, filename, FILEACCESS_READ);
 	if (handle == 0)
 		return error;
 
-	size_t dataSize = (size_t)pspFileSystem.GetFileInfo(filename).size;
+	size_t dataSize = (size_t)GetFileInfo(filename).size;
 	data.resize(dataSize);
 
-	size_t result = pspFileSystem.ReadFile(handle, (u8 *)&data[0], dataSize);
-	pspFileSystem.CloseFile(handle);
+	size_t result = ReadFile(handle, (u8 *)&data[0], dataSize);
+	CloseFile(handle);
 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
@@ -537,7 +576,7 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 void MetaFileSystem::DoState(PointerWrap &p)
 {
 	lock_guard guard(lock);
-	
+
 	auto s = p.Section("MetaFileSystem", 1);
 	if (!s)
 		return;

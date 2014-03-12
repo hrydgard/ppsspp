@@ -17,16 +17,14 @@
 
 #pragma once
 
-#include "../Globals.h"
-#include "Core/MemMap.h"
-#include "Core/Host.h"
-#include "Core/FileSystems/MetaFileSystem.h"
+#include "Common/CommonTypes.h"
 #include "Core/CoreParameter.h"
-#include "Core/ELF/ParamSFO.h"
+
+class MetaFileSystem;
+class ParamSFOData;
 
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;
-
 
 // To synchronize the two UIs, we need to know which state we're in.
 enum GlobalUIState {
@@ -44,19 +42,17 @@ enum PSPDirectories {
 	DIRECTORY_GAME,
 	DIRECTORY_SAVEDATA,
 	DIRECTORY_PAUTH,
+	DIRECTORY_DUMP,
 };
 
 extern GlobalUIState globalUIState;
 
-inline static void UpdateUIState(GlobalUIState newState) {
-	// Never leave the EXIT state.
-	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
-		globalUIState = newState;
-		host->UpdateDisassembly();
-	}
-}
+void UpdateUIState(GlobalUIState newState);
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
+bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
+bool PSP_InitUpdate(std::string *error_string);
+bool PSP_IsIniting();
 bool PSP_IsInited();
 void PSP_Shutdown();
 void PSP_RunLoopUntil(u64 globalticks);

@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "DebugInterface.h"
 #include <vector>
+
+#include "Core/Debugger/DebugInterface.h"
 
 struct BreakPointCond
 {
@@ -63,6 +63,7 @@ enum MemCheckCondition
 {
 	MEMCHECK_READ = 0x01,
 	MEMCHECK_WRITE = 0x02,
+	MEMCHECK_WRITE_ONCHANGE = 0x04,
 
 	MEMCHECK_READWRITE = 0x03,
 };
@@ -87,7 +88,15 @@ struct MemCheck
 
 	u32 numHits;
 
+	u32 lastPC;
+	u32 lastAddr;
+	int lastSize;
+
 	void Action(u32 addr, bool write, int size, u32 pc);
+	void JitBefore(u32 addr, bool write, int size, u32 pc);
+	void JitCleanup();
+
+	void Log(u32 addr, bool write, int size, u32 pc);
 
 	bool operator == (const MemCheck &other) const {
 		return start == other.start && end == other.end;
@@ -125,6 +134,10 @@ public:
 	static MemCheck *GetMemCheck(u32 address, int size);
 	static void ExecMemCheck(u32 address, bool write, int size, u32 pc);
 
+	// Executes memchecks but used by the jit.  Cleanup finalizes after jit is done.
+	static void ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc);
+	static void ExecMemCheckJitCleanup();
+
 	static void SetSkipFirst(u32 pc);
 	static u32 CheckSkipFirst();
 
@@ -146,6 +159,7 @@ private:
 	static u64 breakSkipFirstTicks_;
 
 	static std::vector<MemCheck> memChecks_;
+	static std::vector<MemCheck *> cleanupMemChecks_;
 };
 
 

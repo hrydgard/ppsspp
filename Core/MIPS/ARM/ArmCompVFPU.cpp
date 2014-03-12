@@ -358,16 +358,32 @@ namespace MIPSComp
 					skip = B_CC(CC_EQ);
 				}
 
-				for (int i = 0; i < 4; i++)
-					VLDR(fpr.V(vregs[i]), R0, i * 4);
+				bool consecutive = true;
+				for (int i = 0; i < 3 && consecutive; i++)
+					if ((fpr.V(vregs[i]) + 1) != fpr.V(vregs[i+1]))
+						consecutive = false;
+				if (consecutive) {
+					VLDMIA(R0, false, fpr.V(vregs[0]), 4);
+				} else {
+					for (int i = 0; i < 4; i++)
+						VLDR(fpr.V(vregs[i]), R0, i * 4);
+				}
 
 				if (doCheck) {
 					SetJumpTarget(skip);
 					SetCC(CC_AL);
 				}
 #else
-				for (int i = 0; i < 4; i++)
-					VLDR(fpr.V(vregs[i]), R0, i * 4);
+				bool consecutive = true;
+				for (int i = 0; i < 3 && consecutive; i++)
+					if ((fpr.V(vregs[i]) + 1) != fpr.V(vregs[i+1]))
+						consecutive = false;
+				if (consecutive) {
+					VLDMIA(R0, false, fpr.V(vregs[0]), 4);
+				} else {
+					for (int i = 0; i < 4; i++)
+						VLDR(fpr.V(vregs[i]), R0, i * 4);
+				}
 
 				if (doCheck) {
 					SetCC(CC_EQ);
@@ -407,16 +423,32 @@ namespace MIPSComp
 					skip = B_CC(CC_EQ);
 				}
 
-				for (int i = 0; i < 4; i++)
-					VSTR(fpr.V(vregs[i]), R0, i * 4);
+				bool consecutive = true;
+				for (int i = 0; i < 3 && consecutive; i++)
+					if ((fpr.V(vregs[i]) + 1) != fpr.V(vregs[i+1]))
+						consecutive = false;
+				if (consecutive) {
+					VSTMIA(R0, false, fpr.V(vregs[0]), 4);
+				} else {
+					for (int i = 0; i < 4; i++)
+						VSTR(fpr.V(vregs[i]), R0, i * 4);
+				}
 
 				if (doCheck) {
 					SetJumpTarget(skip);
 					SetCC(CC_AL);
 				}
 #else
-				for (int i = 0; i < 4; i++)
-					VSTR(fpr.V(vregs[i]), R0, i * 4);
+				bool consecutive = true;
+				for (int i = 0; i < 3 && consecutive; i++)
+					if ((fpr.V(vregs[i]) + 1) != fpr.V(vregs[i+1]))
+						consecutive = false;
+				if (consecutive) {
+					VSTMIA(R0, false, fpr.V(vregs[0]), 4);
+				} else {
+					for (int i = 0; i < 4; i++)
+						VSTR(fpr.V(vregs[i]), R0, i * 4);
+				}
 
 				if (doCheck) {
 					SetCC(CC_AL);
@@ -662,8 +694,19 @@ namespace MIPSComp
 			}
 		}
 
+		// Map first, then work. This will allow us to use VLDMIA more often
+		// (when we add the appropriate map function) and the instruction ordering
+		// will improve.
+		// Note that mapping like this (instead of first all sregs, first all tregs etc)
+		// reduces the amount of continuous registers a lot :(
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInInV(tempregs[i], sregs[i], tregs[i]);
+			fpr.SpillLockV(tempregs[i]);
+			fpr.SpillLockV(sregs[i]);
+			fpr.SpillLockV(tregs[i]);
+		}
+		
+		for (int i = 0; i < n; i++) {
 			switch (op >> 26) {
 			case 24: //VFPU0
 				switch ((op >> 23)&7) {
@@ -761,6 +804,31 @@ namespace MIPSComp
 			return;
 		}
 
+		// Catch the disabled operations immediately so we don't map registers unnecessarily later.
+		// Move these down to the big switch below as they are implemented.
+		switch ((op >> 16) & 0x1f) {
+		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
+			DISABLE;
+			break;
+		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
+			DISABLE;
+			break;
+		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
+			DISABLE;
+			break;
+		case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
+			DISABLE;
+			break;
+		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
+			DISABLE;
+			break;
+		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
+			DISABLE;
+			break;
+		default:
+			;
+		}
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -790,21 +858,27 @@ namespace MIPSComp
 			t4 = fpr.V(t[2]);
 		}
 
+		// Pre map the registers to get better instruction ordering.
+		// Note that mapping like this (instead of first all sregs, first all tempregs etc)
+		// reduces the amount of continuous registers a lot :(
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			fpr.SpillLockV(tempregs[i]);
+			fpr.SpillLockV(sregs[i]);
+		}
+
 		// Warning: sregs[i] and tempxregs[i] may be the same reg.
 		// Helps for vmov, hurts for vrcp, etc.
-		for (int i = 0; i < n; ++i) {
+		for (int i = 0; i < n; i++) {
 			switch ((op >> 16) & 0x1f) {
 			case 0: // d[i] = s[i]; break; //vmov
 				// Probably for swizzle.
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
 			case 1: // d[i] = fabsf(s[i]); break; //vabs
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				VABS(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
 			case 2: // d[i] = -s[i]; break; //vneg
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				VNEG(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
 
@@ -829,30 +903,15 @@ namespace MIPSComp
 				*/
 
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				MOVI2F(S0, 1.0f, R0);
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				MOVI2F(S0, 1.0f, R0);
 				VSQRT(S1, fpr.V(sregs[i]));
 				VDIV(fpr.V(tempregs[i]), S0, S1);
 				break;
-			case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-				DISABLE;
-				break;
-			case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-				DISABLE;
-				break;
-			case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
-				DISABLE;
-				break;
-			case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
-				DISABLE;
-				break;
 			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				VSQRT(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
 				break;
@@ -860,7 +919,6 @@ namespace MIPSComp
 				// Seems to work well enough but can disable if it becomes a problem.
 				// Should be easy enough to translate to NEON. There we can load all the constants
 				// in one go of course.
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				MOVI2F(S0, 0.0f, R0);
 				VCMP(fpr.V(sregs[i]), S0);       // flags = sign(sregs[i])
 				VMRS_APSR();
@@ -887,17 +945,11 @@ namespace MIPSComp
 				VMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				MOVI2F(S0, -1.0f, R0);
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
-			case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-				DISABLE;
-				break;
-			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
-				DISABLE;
-				break;
 			default:
+				ERROR_LOG(JIT, "case missing in vfpu vv2op");
 				DISABLE;
 				break;
 			}
@@ -1009,8 +1061,8 @@ namespace MIPSComp
 			VMOV(tmp[i], fpr.V(sregs[i]));
 		}
 
-		// This always converts four 32-bit floats in Q0 to four 16-bit floats
-		// in D0. If we are dealing with a pair here, we just ignore the upper two outputs.
+		// This always converts four 16-bit floats in D0 to four 32-bit floats
+		// in Q0. If we are dealing with a pair here, we just ignore the upper two outputs.
 		// There are also a couple of other instructions that do it one at a time but doesn't
 		// seem worth the trouble.
 		VCVTF32F16(Q0, D0);
@@ -1807,8 +1859,7 @@ namespace MIPSComp
 		VMOV(R0, fpr.V(sreg));
 		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
 		gpr.SetRegImm(R0, (u32)(&sincostemp[0]));
-		VLDR(S0, R0, 0);
-		VLDR(S1, R0, 4);
+		VLDMIA(R0, false, S0, 2);
 
 		char what[4] = {'0', '0', '0', '0'};
 		if (((imm >> 2) & 3) == (imm & 3)) {

@@ -26,6 +26,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -98,6 +99,24 @@ u32 JitBreakpoint()
 	}
 
 	return 1;
+}
+
+void JitMemCheck(u32 addr, int size, int isWrite)
+{
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return;
+
+	// Did we already hit one?
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
+		return;
+
+	CBreakPoints::ExecMemCheckJitBefore(addr, isWrite == 1, size, currentMIPS->pc);
+}
+
+void JitMemCheckCleanup()
+{
+	CBreakPoints::ExecMemCheckJitCleanup();
 }
 
 static void JitLogMiss(MIPSOpcode op)
@@ -183,19 +202,19 @@ void Jit::FlushPrefixV()
 {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0)
 	{
-		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
+		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0)
 	{
-		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
+		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0)
 	{
-		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
+		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
@@ -332,7 +351,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
 			// It doesn't really matter either way if we're not rewinding.
 			// CORE_RUNNING is <= CORE_NEXTFRAME.
-			CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
@@ -342,6 +361,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			SetJumpTarget(skipCheck);
 
 			js.afterOp = JitState::AFTER_NONE;
+		}
+		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 		}
 
 		js.compilerPC += 4;
@@ -373,9 +395,9 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
 	else if (jitAddr != (u32)-1)
 	{
 		char temp[1024];
-		const char *label = symbolMap.GetDescription(jitAddr);
-		if (label != NULL)
-			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label);
+		const std::string label = symbolMap.GetDescription(jitAddr);
+		if (!label.empty())
+			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
 		else
 			snprintf(temp, sizeof(temp), "%08x", jitAddr);
 		name = temp;
@@ -463,7 +485,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
-		ABI_CallFunction((void *)entry->replaceFunc);
+		ABI_CallFunction(entry->replaceFunc);
 		// Alternatively, we could inline it here, instead of calling out, if it's a function
 		// we can emit.
 
@@ -488,9 +510,9 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	{
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		if (USE_JIT_MISSMAP)
-			ABI_CallFunctionC((void *)&JitLogMiss, op.encoding);
+			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
-			ABI_CallFunctionC((void *)func, op.encoding);
+			ABI_CallFunctionC(func, op.encoding);
 	}
 	else
 		ERROR_LOG_REPORT(JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
@@ -515,13 +537,11 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
-
-		js.afterOp = JitState::AFTER_NONE;
 	}
 
 	WriteDowncount();
@@ -553,13 +573,11 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
-
-		js.afterOp = JitState::AFTER_NONE;
 	}
 
 	WriteDowncount();
@@ -579,13 +597,13 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		CallProtectedFunction((void *) Memory::GetPointer, R(reg));
+		CallProtectedFunction(Memory::GetPointer, R(reg));
 		CMP(32, R(reg), Imm32(0));
 		FixupBranch skip = J_CC(CC_NE);
 
 		// TODO: "Ignore" this so other threads can continue?
 		if (g_Config.bIgnoreBadMemAccess)
-			CallProtectedFunction((void *) Core_UpdateState, Imm32(CORE_ERROR));
+			CallProtectedFunction(Core_UpdateState, Imm32(CORE_ERROR));
 
 		SUB(32, M(&currentMIPS->downcount), Imm32(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
@@ -601,6 +619,9 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
+	if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+		ABI_CallFunction(&JitMemCheckCleanup);
+	}
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
@@ -611,7 +632,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		SAVE_FLAGS;
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-		ABI_CallFunction((void *)&JitBreakpoint);
+		ABI_CallFunction(&JitBreakpoint);
 
 		// If 0, the conditional breakpoint wasn't taken.
 		CMP(32, R(EAX), Imm32(0));
@@ -808,7 +829,7 @@ bool Jit::JitSafeMem::PrepareSlowWrite()
 		return false;
 }
 
-void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src, int suboffset)
+void Jit::JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg src, int suboffset)
 {
 	if (iaddr_ != (u32) -1)
 		jit_->MOV(32, R(EAX), Imm32((iaddr_ + suboffset) & alignMask_));
@@ -823,7 +844,7 @@ void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src, int suboffset
 	needsCheck_ = true;
 }
 
-bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
+bool Jit::JitSafeMem::PrepareSlowRead(const void *safeFunc)
 {
 	if (!fast_)
 	{
@@ -850,7 +871,7 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 		return false;
 }
 
-void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
+void Jit::JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 {
 	_dbg_assert_msg_(JIT, !fast_, "NextSlowRead() called in fast memory mode?");
 
@@ -891,19 +912,6 @@ void Jit::JitSafeMem::Finish()
 		jit_->SetJumpTarget(*it);
 }
 
-void JitMemCheck(u32 addr, int size, int isWrite)
-{
-	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
-		return;
-
-	// Did we already hit one?
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
-		return;
-
-	CBreakPoints::ExecMemCheck(addr, isWrite == 1, size, currentMIPS->pc);
-}
-
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
 {
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
@@ -915,12 +923,12 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 			return;
 
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
-		jit_->CallProtectedFunction((void *)&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
+		jit_->CallProtectedFunction(&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		jit_->CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 }
 
@@ -956,7 +964,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 			jit_->PUSH(xaddr_);
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
 		jit_->ADD(32, R(xaddr_), Imm32(offset_));
-		jit_->CallProtectedFunction((void *)&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
+		jit_->CallProtectedFunction(&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
 		for (int i = 0; i < 4; ++i)
 			jit_->POP(xaddr_);
 
@@ -968,38 +976,38 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 	if (possible)
 	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		jit_->CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 }
 
-void Jit::CallProtectedFunction(void *func, const OpArg &arg1)
+void Jit::CallProtectedFunction(const void *func, const OpArg &arg1)
 {
 	// We don't regcache RCX, so the below is safe (and also faster, maybe branch prediction?)
 	ABI_CallFunctionA(thunks.ProtectFunction(func, 1), arg1);
 }
 
-void Jit::CallProtectedFunction(void *func, const OpArg &arg1, const OpArg &arg2)
+void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const OpArg &arg2)
 {
 	// We don't regcache RCX/RDX, so the below is safe (and also faster, maybe branch prediction?)
 	ABI_CallFunctionAA(thunks.ProtectFunction(func, 2), arg1, arg2);
 }
 
-void Jit::CallProtectedFunction(void *func, const u32 arg1, const u32 arg2, const u32 arg3)
+void Jit::CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2, const u32 arg3)
 {
 	// On x64, we need to save R8, which is caller saved.
-	ABI_CallFunction((void *)thunks.GetSaveRegsFunction());
+	thunks.Enter(this);
 	ABI_CallFunctionCCC(func, arg1, arg2, arg3);
-	ABI_CallFunction((void *)thunks.GetLoadRegsFunction());
+	thunks.Leave(this);
 }
 
-void Jit::CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, const u32 arg3)
+void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 arg2, const u32 arg3)
 {
 	// On x64, we need to save R8, which is caller saved.
-	ABI_CallFunction((void *)thunks.GetSaveRegsFunction());
+	thunks.Enter(this);
 	ABI_CallFunctionACC(func, arg1, arg2, arg3);
-	ABI_CallFunction((void *)thunks.GetLoadRegsFunction());
+	thunks.Leave(this);
 }
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }

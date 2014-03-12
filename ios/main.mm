@@ -2,6 +2,8 @@
 
 #import <UIKit/UIKit.h>
 #import <string>
+#import <stdio.h>
+#import <stdlib.h>
 
 #import "AppDelegate.h"
 
@@ -19,6 +21,9 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
+	if (!strcmp(command, "finish")) {
+		exit(0);
+	}
 }
 
 void Vibrate(int length_ms) {

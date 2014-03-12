@@ -186,7 +186,7 @@ void GPUgstate::Save(u32_le *ptr) {
 }
 
 void GPUgstate::FastLoadBoneMatrix(u32 addr) {
-	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(addr);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(addr);
 	u32 num = boneMatrixNumber;
 	u32 *dst = (u32 *)(boneMatrix + (num & 0x7F));
 

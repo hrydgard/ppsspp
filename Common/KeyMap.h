@@ -43,6 +43,8 @@ enum {
 	VIRTKEY_REWIND = 0x1000c,
 	VIRTKEY_SAVE_STATE = 0x1000d,
 	VIRTKEY_LOAD_STATE = 0x1000e,
+	VIRTKEY_NEXT_SLOT  = 0x1000f,
+	VIRTKEY_TOGGLE_FULLSCREEN = 0x10010,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -124,7 +126,7 @@ namespace KeyMap {
 
 	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
-	// Use if to translate KeyMap Keys to PSP
+	// Use to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
 	// your platform's keys to KeyMap keys.
 	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
@@ -151,7 +153,6 @@ namespace KeyMap {
 	void SetDefaultKeyMap(DefaultMaps dmap, bool replace);
 
 	void RestoreDefault();
-	void QuickMap(int device);
 
 	void UpdateConfirmCancelKeys();
 

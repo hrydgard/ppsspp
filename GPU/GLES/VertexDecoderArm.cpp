@@ -156,16 +156,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	SetCC(CC_AL);
 
-	PUSH(6, R4, R5, R6, R7, R8, _LR);
+	PUSH(6, R4, R5, R6, R7, R8, R_LR);
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	// This step can be NEON-ized but the savings would be miniscule.
 	if (prescaleStep) {
 		MOVI2R(R3, (u32)(&gstate_c.uv), scratchReg);
-		VLDR(fpUscaleReg, R3, 0);
-		VLDR(fpVscaleReg, R3, 4);
-		VLDR(fpUoffsetReg, R3, 8);
-		VLDR(fpVoffsetReg, R3, 12);
+		VLDMIA(R3, false, fpUscaleReg, 4); // fp{Uscale, Yscale, Uoffset, Voffset}Reg = {S0-S4}
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			MOVI2F(fpScratchReg, by128, scratchReg);
 			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
@@ -247,7 +244,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUBS(counterReg, counterReg, 1);
 	B_CC(CC_NEQ, loopStart);
 
-	POP(6, R4, R5, R6, R7, R8, _PC);
+	POP(6, R4, R5, R6, R7, R8, R_PC);
 
 	FlushLitPool();
 	FlushIcache();
@@ -723,7 +720,7 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	// TODO: SIMD
 	LDRSH(tempReg1, srcReg, dec_->posoff);
 	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
-	LDRSH(tempReg3, srcReg, dec_->posoff + 4);
+	LDRH(tempReg3, srcReg, dec_->posoff + 4);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	for (int i = 0; i < 3; i++) {
 		VMOV(fpScratchReg, tr[i]);

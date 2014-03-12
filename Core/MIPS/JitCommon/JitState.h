@@ -49,13 +49,14 @@ namespace MIPSComp {
 			AFTER_NONE = 0x00,
 			AFTER_CORE_STATE = 0x01,
 			AFTER_REWIND_PC_BAD_STATE = 0x02,
+			AFTER_MEMCHECK_CLEANUP = 0x04,
 		};
 
 		JitState()
-			: prefixSFlag(PREFIX_UNKNOWN),
+			: startDefaultPrefix(true),
+			prefixSFlag(PREFIX_UNKNOWN),
 			prefixTFlag(PREFIX_UNKNOWN),
-			prefixDFlag(PREFIX_UNKNOWN),
-			startDefaultPrefix(true) {}
+			prefixDFlag(PREFIX_UNKNOWN) {}
 
 		u32 compilerPC;
 		u32 blockStart;

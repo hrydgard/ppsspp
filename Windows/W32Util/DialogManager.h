@@ -37,6 +37,7 @@ class DialogManager
 {
 public:
 	static void AddDlg(Dialog *dialog);
+	static void RemoveDlg(Dialog *dialog);
 	static bool IsDialogMessage(LPMSG message);
 	static void EnableAll(BOOL enable);
 	static void DestroyAll();

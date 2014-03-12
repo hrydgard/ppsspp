@@ -19,6 +19,7 @@
 #include "gfx_es2/glsl_program.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
+#include "Core/System.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
@@ -39,6 +40,7 @@ static const char preview_vs[] =
 	"uniform mat4 u_viewproj;\n"
 	"void main() {\n"
 	"  gl_Position = u_viewproj * a_position;\n"
+	"  gl_Position.z = 1.0f;\n"
 	"}\n";
 
 static GLSLProgram *previewProgram = NULL;

@@ -21,7 +21,7 @@ else: QT += multimedia
 
 greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 
-mobile_platform {
+!maemo5:mobile_platform {
 	CONFIG += mobility
 	MOBILITY += sensors
 	symbian: MOBILITY += systeminfo feedback
@@ -53,7 +53,7 @@ win32 {
 	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
 }
 linux {
-	LIBS += -ldl -lrt
+	LIBS += -ldl -lrt -lz
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
@@ -82,6 +82,7 @@ SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/Store.cpp \
 	$$P/UI/GamepadEmu.cpp \
 	$$P/UI/GameInfoCache.cpp \
+	$$P/UI/NativeApp.cpp \
 	$$P/UI/OnScreenDisplay.cpp \
 	$$P/UI/TiltEventProcessor.cpp \
 	$$P/UI/UIShader.cpp \
@@ -112,7 +113,6 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 } else {
 	# Desktop handles the Init separately
 	RESOURCES += $$P/Qt/assets.qrc
-	SOURCES += $$P/UI/NativeApp.cpp
 }
 
 # Packaging
@@ -129,7 +129,7 @@ symbian {
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
 
-contains(MEEGO_EDITION,harmattan) {
+maemo {
 	target.path = /opt/PPSSPP/bin
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications

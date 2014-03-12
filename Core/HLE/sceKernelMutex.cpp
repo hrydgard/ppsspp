@@ -721,7 +721,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	mutex->nm.uid = id;
 	mutex->nm.workarea = workareaPtr;
 	mutex->nm.initialCount = initialCount;
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	workarea->init();
 	workarea->lockLevel = initialCount;
 	if (initialCount == 0)
@@ -777,7 +777,7 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error;
 	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
@@ -800,8 +800,7 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 		return error;
 }
 
-template <typename T>
-bool __KernelLockLwMutex(T workarea, int count, u32 &error)
+bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 &error)
 {
 	if (!error)
 	{
@@ -931,7 +930,7 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -947,7 +946,7 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockLwMutex_600(%08x, %i)", workareaPtr, count);
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -962,7 +961,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -993,7 +992,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
@@ -1024,7 +1023,7 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	if (workarea->uid == -1)
 		return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
@@ -1095,7 +1094,7 @@ int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr)
 	if (!Memory::IsValidAddress(workareaPtr))
 		return -1;
 
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	int error = __KernelReferLwMutexStatus(workarea->uid, infoPtr);
 	if (error >= 0)

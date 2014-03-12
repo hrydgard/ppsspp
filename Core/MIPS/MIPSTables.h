@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
 struct MIPSInfo {
@@ -35,24 +35,24 @@ struct MIPSInfo {
 	u32 value;
 };
 
-#define CONDTYPE_MASK	0x00000007
-#define CONDTYPE_EQ		0x00000001
-#define CONDTYPE_NE		0x00000002
-#define CONDTYPE_LEZ	0x00000003
-#define CONDTYPE_GTZ	0x00000004
-#define CONDTYPE_LTZ	0x00000005
-#define CONDTYPE_GEZ	0x00000006
+#define CONDTYPE_MASK   0x00000007
+#define CONDTYPE_EQ     0x00000001
+#define CONDTYPE_NE     0x00000002
+#define CONDTYPE_LEZ    0x00000003
+#define CONDTYPE_GTZ    0x00000004
+#define CONDTYPE_LTZ    0x00000005
+#define CONDTYPE_GEZ    0x00000006
 
-#define CONDTYPE_FPUFALSE	CONDTYPE_EQ
-#define CONDTYPE_FPUTRUE	CONDTYPE_NE
+#define CONDTYPE_FPUFALSE   CONDTYPE_EQ
+#define CONDTYPE_FPUTRUE    CONDTYPE_NE
 
 // as long as the other flags are checked,
 // there is no way to misinterpret these
 // as CONDTYPE_X
 #define MEMTYPE_MASK    0x00000007
 #define MEMTYPE_BYTE    0x00000001
-#define MEMTYPE_HWORD	  0x00000002
-#define MEMTYPE_WORD	  0x00000003
+#define MEMTYPE_HWORD   0x00000002
+#define MEMTYPE_WORD    0x00000003
 #define MEMTYPE_FLOAT   0x00000004
 #define MEMTYPE_VQUAD   0x00000005
 

@@ -15,13 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Globals.h"
-#include "Common/Common.h"
-#include "Core/FileSystems/ISOFileSystem.h"
-#include "Core/Reporting.h"
 #include <cstring>
 #include <cstdio>
 #include <ctype.h>
+
+#include "Common/Common.h"
+#include "Common/CommonTypes.h"
+#include "Common/ChunkFile.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 
 
 const int sectorSize = 2048;
@@ -188,7 +192,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	entireISO.name = "";
 	entireISO.isDirectory = false;
 	entireISO.startingPosition = 0;
-	entireISO.size = _blockDevice->GetNumBlocks() * _blockDevice->GetBlockSize();
+	entireISO.size = _blockDevice->GetNumBlocks();
 	entireISO.flags = 0;
 	entireISO.parent = NULL;
 
@@ -450,6 +454,71 @@ bool ISOFileSystem::OwnsHandle(u32 handle)
 {
 	EntryMap::iterator iter = entries.find(handle);
 	return (iter != entries.end());
+}
+
+int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	EntryMap::iterator iter = entries.find(handle);
+	if (iter == entries.end()) {
+		ERROR_LOG(FILESYS, "Ioctl on a bad file handle");
+		return SCE_KERNEL_ERROR_BADF;
+	}
+
+	OpenFileEntry &e = iter->second;
+
+	switch (cmd) {
+	// Get ISO9660 volume descriptor (from open ISO9660 file.)
+	case 0x01020001:
+		if (e.isBlockSectorMode) {
+			ERROR_LOG(FILESYS, "Unsupported read volume descriptor command on a umd block device");
+			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+		}
+
+		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
+			WARN_LOG_REPORT(FILESYS, "sceIoIoctl: Invalid out pointer while reading ISO9660 volume descriptor");
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		}
+
+		INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
+		blockDevice->ReadBlock(16, Memory::GetPointer(outdataPtr));
+		return 0;
+
+	// Get ISO9660 path table (from open ISO9660 file.)
+	case 0x01020002:
+		if (e.isBlockSectorMode) {
+			ERROR_LOG(FILESYS, "Unsupported read path table command on a umd block device");
+			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+		}
+
+		VolDescriptor desc;
+		blockDevice->ReadBlock(16, (u8 *)&desc);
+		if (outlen < (u32)desc.pathTableLengthLE) {
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		} else {
+			int block = (u16)desc.firstLETableSectorLE;
+			u32 size = (u32)desc.pathTableLengthLE;
+			u8 *out = Memory::GetPointer(outdataPtr);
+
+			while (size >= 2048) {
+				blockDevice->ReadBlock(block++, out);
+				out += 2048;
+			}
+
+			// The remaining (or, usually, only) partial sector.
+			if (size > 0) {
+				u8 temp[2048];
+				blockDevice->ReadBlock(block, temp);
+				memcpy(out, temp, size);
+			}
+			return 0;
+		}
+	}
+	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
+}
+
+int ISOFileSystem::DevType(u32 handle)
+{
+	EntryMap::iterator iter = entries.find(handle);
+	return iter->second.isBlockSectorMode ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
 }
 
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)

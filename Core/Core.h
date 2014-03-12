@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "Globals.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 
@@ -42,4 +41,4 @@ bool Core_IsInactive();
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
 
-void UpdateScreenScale();
+void UpdateScreenScale(int width, int height);

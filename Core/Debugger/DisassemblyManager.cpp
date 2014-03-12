@@ -15,17 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "DisassemblyManager.h"
-#include "DebugInterface.h"
-#include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSTables.h"
-#include "Common/Common.h"
+#include <string>
+#include <algorithm>
+#include <map>
+
 #include "ext/xxhash.h"
 
-#include <algorithm>
+#include "Common/CommonTypes.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/DisassemblyManager.h"
 
-std::map<u32,DisassemblyEntry*> DisassemblyManager::entries;
+std::map<u32, DisassemblyEntry*> DisassemblyManager::entries;
 DebugInterface* DisassemblyManager::cpu;
 int DisassemblyManager::maxParamChars = 29;
 
@@ -66,14 +70,14 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 			u32 branchTarget;
 			sscanf(disasm+3,"%08x",&branchTarget);
 
-			const char* addressSymbol = symbolMap.GetLabelName(branchTarget);
-			if (addressSymbol != NULL && insertSymbols)
+			const std::string addressSymbol = symbolMap.GetLabelString(branchTarget);
+			if (!addressSymbol.empty() && insertSymbols)
 			{
-				arguments += sprintf(arguments,"%s",addressSymbol);
+				arguments += sprintf(arguments,"%s",addressSymbol.c_str());
 			} else {
 				arguments += sprintf(arguments,"0x%08X",branchTarget);
 			}
-			
+
 			disasm += 3+8;
 			continue;
 		}
@@ -736,16 +740,16 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	dest.type = DISTYPE_MACRO;
 	dest.info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),address);
 
-	const char* addressSymbol;
+	std::string addressSymbol;
 	switch (type)
 	{
 	case MACRO_LI:
 		dest.name = name;
 		
-		addressSymbol = symbolMap.GetLabelName(immediate);
-		if (addressSymbol != NULL && insertSymbols)
+		addressSymbol = symbolMap.GetLabelString(immediate);
+		if (!addressSymbol.empty() && insertSymbols)
 		{
-			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
+			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol.c_str());
 		} else {
 			sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
 		}
@@ -758,10 +762,10 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_MEMORYIMM:
 		dest.name = name;
 
-		addressSymbol = symbolMap.GetLabelName(immediate);
-		if (addressSymbol != NULL && insertSymbols)
+		addressSymbol = symbolMap.GetLabelString(immediate);
+		if (!addressSymbol.empty() && insertSymbols)
 		{
-			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol);
+			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol.c_str());
 		} else {
 			sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
 		}
@@ -952,9 +956,9 @@ void DisassemblyData::createLines()
 			case DATATYPE_WORD:
 				{
 					value = Memory::Read_U32(pos);
-					const char* label = symbolMap.GetLabelName(value);
-					if (label != NULL)
-						sprintf(buffer,"%s",label);
+					const std::string label = symbolMap.GetLabelString(value);
+					if (!label.empty())
+						sprintf(buffer,"%s",label.c_str());
 					else
 						sprintf(buffer,"0x%08X",value);
 					pos += 4;

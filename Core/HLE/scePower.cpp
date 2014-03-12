@@ -61,10 +61,13 @@ void __PowerInit() {
 	volatileMemLocked = false;
 	volatileWaitingThreads.clear();
 
-	if(g_Config.iLockedCPUSpeed > 0) {
+	if (g_Config.iLockedCPUSpeed > 0) {
 		CoreTiming::SetClockFrequencyMHz(g_Config.iLockedCPUSpeed);
 		pllFreq = g_Config.iLockedCPUSpeed;
 		busFreq = g_Config.iLockedCPUSpeed / 2;
+	} else {
+		pllFreq = 222;
+		busFreq = 111;
 	}
 }
 

@@ -6,6 +6,8 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include <algorithm>
 
+static const int numCPUs = 1;
+
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
 const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 8;
@@ -76,6 +78,9 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 		
 		// Continue with window creation.
 		return win != NULL;
+	case WM_NCDESTROY:
+		delete win;
+		break;
 	case WM_SIZE:
 		win->redraw();
 		break;

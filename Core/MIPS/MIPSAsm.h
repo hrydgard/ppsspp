@@ -1,11 +1,10 @@
 #pragma once
-#include "../../Globals.h"
-#include "../Debugger/DebugInterface.h"
-#include "MIPSAsmTables.h"
 
-namespace MIPSAsm
-{
-	
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/MIPS/MIPSAsmTables.h"
+
+namespace MIPSAsm {
+
 bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address, u32& dest);
 
 enum eMipsImmediateType { MIPS_NOIMMEDIATE, MIPS_IMMEDIATE5,

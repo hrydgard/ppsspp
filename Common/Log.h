@@ -96,7 +96,7 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 #endif
 		;
 
-#if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST)
+#if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST) || defined(_WIN32)
 #define MAX_LOGLEVEL DEBUG_LEVEL
 #else
 #ifndef MAX_LOGLEVEL

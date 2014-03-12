@@ -15,6 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <string>
+#include <deque>
+#include <fstream>
+
 #include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
@@ -22,6 +26,7 @@
 #include "../Core/CwCheat.h"
 #include "UI/MiscScreens.h"
 #include "UI/GameSettingsScreen.h"
+
 using namespace UI;
 extern std::string activeCheatFile;
 extern std::string gameTitle;

@@ -22,6 +22,8 @@
 // performance hit, it's not enabled by default, but it's useful for
 // locating performance issues.
 
+#include <cstddef>
+
 #include "Common.h"
 
 #ifdef _WIN32
@@ -436,7 +438,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	// this block or its 'parent', so now that this block has changed, the root block must be destroyed.
 	for (size_t i = 0; i < b->proxyFor.size(); i++) {
 		int proxied_blocknum = GetBlockNumberFromStartAddress(b->proxyFor[i], false);
-		DestroyBlock(block_num, invalidate);
+		DestroyBlock(proxied_blocknum, invalidate);
 	}
 	b->proxyFor.clear();
 	// TODO: Remove from proxyBlockIndices_.

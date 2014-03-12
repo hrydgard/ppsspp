@@ -32,6 +32,7 @@
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GLES/ShaderManager.h"
@@ -307,28 +308,9 @@ static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
 	glUniform4fv(uniform, 1, col);
 }
 
-static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
-	m4x4[0] = m4x3[0];
-	m4x4[1] = m4x3[1];
-	m4x4[2] = m4x3[2];
-	m4x4[3] = 0.0f;
-	m4x4[4] = m4x3[3];
-	m4x4[5] = m4x3[4];
-	m4x4[6] = m4x3[5];
-	m4x4[7] = 0.0f;
-	m4x4[8] = m4x3[6];
-	m4x4[9] = m4x3[7];
-	m4x4[10] = m4x3[8];
-	m4x4[11] = 0.0f;
-	m4x4[12] = m4x3[9];
-	m4x4[13] = m4x3[10];
-	m4x4[14] = m4x3[11];
-	m4x4[15] = 1.0f;
-}
-
 static void SetMatrix4x3(int uniform, const float *m4x3) {
 	float m4x4[16];
-	ConvertMatrix4x3To4x4(m4x3, m4x4);
+	ConvertMatrix4x3To4x4(m4x4, m4x3);
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
@@ -496,7 +478,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		bool allDirty = true;
 		for (int i = 0; i < numBones; i++) {
 			if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-				ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, allBones + 16 * i);
+				ConvertMatrix4x3To4x4(allBones + 16 * i, gstate.boneMatrix + 12 * i);
 			} else {
 				allDirty = false;
 			}
@@ -517,7 +499,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
 		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
+			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
 			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 		}
 	}

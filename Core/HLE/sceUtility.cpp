@@ -15,26 +15,28 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <set>
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
+#include "file/ini_file.h"
+
+#include "Common/ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceUtility.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceUtility.h"
 
-#include "sceCtrl.h"
-#include "../Util/PPGeDraw.h"
-#include "../Dialog/PSPSaveDialog.h"
-#include "../Dialog/PSPMsgDialog.h"
-#include "../Dialog/PSPPlaceholderDialog.h"
-#include "../Dialog/PSPOskDialog.h"
-#include "../Dialog/PSPGamedataInstallDialog.h"
-#include "../Dialog/PSPNetconfDialog.h"
-
-#include "../native/file/ini_file.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Dialog/PSPPlaceholderDialog.h"
+#include "Core/Dialog/PSPOskDialog.h"
+#include "Core/Dialog/PSPGamedataInstallDialog.h"
+#include "Core/Dialog/PSPNetconfDialog.h"
 
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
@@ -120,9 +122,9 @@ int sceUtilitySavedataInitStart(u32 paramAddr)
 	}
 	currentDialogType = UTILITY_DIALOG_SAVEDATA;
 	currentDialogActive = true;
-
-	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	return saveDialog.Init(paramAddr);
+	int ret = saveDialog.Init(paramAddr);
+	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataInitStart(%08x)",ret,paramAddr);
+	return ret;
 }
 
 int sceUtilitySavedataShutdownStart()
@@ -133,9 +135,9 @@ int sceUtilitySavedataShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
-
-	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataShutdownStart()");
-	return saveDialog.Shutdown();
+	int ret = saveDialog.Shutdown();
+	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataShutdownStart()",ret);
+	return ret;
 }
 
 int sceUtilitySavedataGetStatus()
@@ -158,22 +160,22 @@ int sceUtilitySavedataUpdate(int animSpeed)
 		WARN_LOG(SCEUTILITY, "sceUtilitySavedataUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-
-	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataUpdate(%d)", animSpeed);
+	
 	int result = saveDialog.Update(animSpeed);
+	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataUpdate(%d)",result,animSpeed);
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);
 	return result;
 }
 
-#define PSP_AV_MODULE_AVCODEC		0
-#define PSP_AV_MODULE_SASCORE		1
-#define PSP_AV_MODULE_ATRAC3PLUS	2 // Requires PSP_AV_MODULE_AVCODEC loading first
-#define PSP_AV_MODULE_MPEGBASE		3 // Requires PSP_AV_MODULE_AVCODEC loading first
-#define PSP_AV_MODULE_MP3		4
-#define PSP_AV_MODULE_VAUDIO		5
-#define PSP_AV_MODULE_AAC		6
-#define PSP_AV_MODULE_G729		7
+#define PSP_AV_MODULE_AVCODEC     0
+#define PSP_AV_MODULE_SASCORE     1
+#define PSP_AV_MODULE_ATRAC3PLUS  2 // Requires PSP_AV_MODULE_AVCODEC loading first
+#define PSP_AV_MODULE_MPEGBASE    3 // Requires PSP_AV_MODULE_AVCODEC loading first
+#define PSP_AV_MODULE_MP3         4
+#define PSP_AV_MODULE_VAUDIO      5
+#define PSP_AV_MODULE_AAC         6
+#define PSP_AV_MODULE_G729        7
 
 u32 sceUtilityLoadAvModule(u32 module)
 {
@@ -183,13 +185,13 @@ u32 sceUtilityLoadAvModule(u32 module)
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 
-	DEBUG_LOG(SCEUTILITY,"sceUtilityLoadAvModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 u32 sceUtilityUnloadAvModule(u32 module)
 {
-	DEBUG_LOG(SCEUTILITY,"sceUtilityUnloadAvModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
@@ -260,9 +262,9 @@ int sceUtilityMsgDialogInitStart(u32 structAddr)
 	}
 	currentDialogType = UTILITY_DIALOG_MSG;
 	currentDialogActive = true;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogInitStart(%08x)", structAddr);
-	return msgDialog.Init(structAddr);
+	int ret = msgDialog.Init(structAddr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogInitStart(%08x)",ret,structAddr);
+	return ret;
 }
 
 int sceUtilityMsgDialogShutdownStart()
@@ -273,9 +275,9 @@ int sceUtilityMsgDialogShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart()");
-	return msgDialog.Shutdown();
+	int ret = msgDialog.Shutdown();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogShutdownStart()",ret);
+	return ret;
 }
 
 int sceUtilityMsgDialogUpdate(int animSpeed)
@@ -285,9 +287,9 @@ int sceUtilityMsgDialogUpdate(int animSpeed)
 		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-
-	DEBUG_LOG(SCEUTILITY,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
-	return msgDialog.Update(animSpeed);
+	int ret = msgDialog.Update(animSpeed);
+	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilityMsgDialogUpdate(%i)",ret,animSpeed);
+	return ret;
 }
 
 int sceUtilityMsgDialogGetStatus()
@@ -307,13 +309,12 @@ int sceUtilityMsgDialogAbort()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	currentDialogActive = false;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort()");
-	return msgDialog.Abort();
+	int ret = msgDialog.Abort();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogAbort()",ret);
+	return ret;
 }
 
 
@@ -328,9 +329,9 @@ int sceUtilityOskInitStart(u32 oskPtr)
 	}
 	currentDialogType = UTILITY_DIALOG_OSK;
 	currentDialogActive = true;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityOskInitStart(%08x)", oskPtr);
-	return oskDialog.Init(oskPtr);
+	int ret = oskDialog.Init(oskPtr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityOskInitStart(%08x)", ret, oskPtr);
+	return ret;
 }
 
 int sceUtilityOskShutdownStart()
@@ -341,9 +342,9 @@ int sceUtilityOskShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityOskShutdownStart()");
-	return oskDialog.Shutdown();
+	int ret = oskDialog.Shutdown();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskShutdownStart()",ret);
+	return ret;
 }
 
 int sceUtilityOskUpdate(int animSpeed)
@@ -353,9 +354,9 @@ int sceUtilityOskUpdate(int animSpeed)
 		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityOskUpdate(%i)", animSpeed);
-	return oskDialog.Update(animSpeed);
+	int ret = oskDialog.Update(animSpeed);
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskUpdate(%i)",ret,animSpeed);
+	return ret;
 }
 
 int sceUtilityOskGetStatus()
@@ -367,12 +368,6 @@ int sceUtilityOskGetStatus()
 	}
 
 	int status = oskDialog.GetStatus();
-
-	// Seems that 4 is the cancelled status for OSK?
-	if (status == 4)
-	{
-		status = 5;
-	}
 
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
 	return status;
@@ -387,27 +382,28 @@ int sceUtilityNetconfInitStart(u32 paramsAddr)
 	}
 	currentDialogType = UTILITY_DIALOG_NET;
 	currentDialogActive = true;	
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityNetconfInitStart(%08x)", paramsAddr);
-	return netDialog.Init(paramsAddr);
+	int ret = netDialog.Init(paramsAddr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityNetconfInitStart(%08x)",ret,paramsAddr);
+	return ret;
 }
 
 int sceUtilityNetconfShutdownStart(unsigned int unknown)
 {
 	if (currentDialogType != UTILITY_DIALOG_NET) {
-		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStartt(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStart()");
-	return netDialog.Shutdown();
+	int ret = netDialog.Shutdown();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfShutdownStart()",ret);
+	return ret;
 }
 
 int sceUtilityNetconfUpdate(int animSpeed)
 {
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfUpdate(%i)", animSpeed);
-	return netDialog.Update(animSpeed);
+	int ret = netDialog.Update(animSpeed);
+	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityNetconfUpdate(%i)",ret,animSpeed);
+	return ret;
 }
 
 int sceUtilityNetconfGetStatus()
@@ -435,7 +431,7 @@ u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 
 	currentDialogActive = true;
 
 	u32 retval = screenshotDialog.Init();
-	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
 	return retval;
 }
 
@@ -447,9 +443,9 @@ u32 sceUtilityScreenshotShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
-
-	WARN_LOG(SCEUTILITY, "UNTESTED sceUtilityScreenshotShutdownStart()");
-	return screenshotDialog.Shutdown();
+	int ret  = screenshotDialog.Shutdown();
+	WARN_LOG(SCEUTILITY, "UNTESTED %08x=sceUtilityScreenshotShutdownStart()",ret);
+	return ret;
 }
 
 u32 sceUtilityScreenshotUpdate(u32 animSpeed)
@@ -459,9 +455,9 @@ u32 sceUtilityScreenshotUpdate(u32 animSpeed)
 		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityScreenshotUpdate(%d)", animSpeed);
-	return screenshotDialog.Update(animSpeed);
+	int ret = screenshotDialog.Update(animSpeed);
+	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotUpdate(%d)",ret,animSpeed);
+	return ret;
 }
 
 int sceUtilityScreenshotGetStatus()
@@ -473,7 +469,7 @@ int sceUtilityScreenshotGetStatus()
 	}
 
 	u32 retval = screenshotDialog.GetStatus(); 
-	WARN_LOG(SCEUTILITY, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
+	WARN_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
 
@@ -486,9 +482,9 @@ int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 	}
 	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
 	currentDialogActive = true;	
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x)", paramsAddr);
-	return gamedataInstallDialog.Init(paramsAddr);
+	int ret = gamedataInstallDialog.Init(paramsAddr);
+	INFO_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallInitStart(%08x)",ret,paramsAddr);
+	return ret;
 }
 
 int sceUtilityGamedataInstallShutdownStart() {
@@ -509,9 +505,9 @@ int sceUtilityGamedataInstallUpdate(int animSpeed) {
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(%i)", animSpeed);
-	return gamedataInstallDialog.Update(animSpeed);
+	int ret = gamedataInstallDialog.Update(animSpeed);
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallUpdate(%i)",ret,animSpeed);
+	return ret;
 }
 
 int sceUtilityGamedataInstallGetStatus()
@@ -536,9 +532,9 @@ int sceUtilityGamedataInstallAbort()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
-
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallDialogAbort");
-	return gamedataInstallDialog.Abort();
+	int ret = gamedataInstallDialog.Abort();
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallDialogAbort",ret);
+	return ret;
 }
 
 //TODO: should save to config file
@@ -844,42 +840,3 @@ void Register_sceUtility()
 {
 	RegisterModule("sceUtility", ARRAY_SIZE(sceUtility), sceUtility);
 }
-
-std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
-	IniFile mapping;
-	mapping.LoadFromVFS("langregion.ini");
-	std::vector<std::string> keys;
-	mapping.GetKeys("LangRegionNames", keys);
-
-
-	std::map<std::string, int> langCodeMapping;
-	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
-	langCodeMapping["ENGLISH"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	langCodeMapping["FRENCH"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
-	langCodeMapping["SPANISH"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-	langCodeMapping["GERMAN"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
-	langCodeMapping["ITALIAN"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
-	langCodeMapping["DUTCH"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
-	langCodeMapping["PORTUGUESE"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
-	langCodeMapping["RUSSIAN"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
-	langCodeMapping["KOREAN"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
-	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
-	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
-
-	IniFile::Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
-	IniFile::Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
-
-	for (size_t i = 0; i < keys.size(); i++) {
-		std::string langName;
-		langRegionNames->Get(keys[i].c_str(), &langName, "ERROR");
-		std::string langCode;
-		systemLanguage->Get(keys[i].c_str(), &langCode, "ENGLISH");
-		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		if (langCodeMapping.find(langCode) != langCodeMapping.end())
-			iLangCode = langCodeMapping[langCode];
-		langValuesMapping[keys[i]] = std::make_pair(langName, iLangCode);
-	}
-	return langValuesMapping;
-}
-

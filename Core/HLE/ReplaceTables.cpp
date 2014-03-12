@@ -109,6 +109,19 @@ static int Replace_memcpy() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_memcpy16() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 bytes = PARAM(2) * 16;
+	if (bytes != 0) {
+		u8 *dst = Memory::GetPointerUnchecked(destPtr);
+		u8 *src = Memory::GetPointerUnchecked(srcPtr);
+		memmove(dst, src, bytes);
+	}
+	RETURN(destPtr);
+	return 10 + bytes / 4;  // approximation
+}
+
 static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
@@ -348,15 +361,22 @@ static const ReplacementTableEntry entries[] = {
 
 	{ "sinf", &Replace_sinf, 0, 0},
 	{ "cosf", &Replace_cosf, 0, 0},
+
 	{ "tanf", &Replace_tanf, 0, 0},
+
+	/*  These two collide (same hash) and thus can't be replaced :/
 	{ "asinf", &Replace_asinf, 0, 0},
 	{ "acosf", &Replace_acosf, 0, 0},
+	*/
+
 	{ "atanf", &Replace_atanf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
 	{ "atan2f", &Replace_atan2f, 0, 0},
 	{ "floorf", &Replace_floorf, 0, 0},
 	{ "ceilf", &Replace_ceilf, 0, 0},
+
 	{ "memcpy", &Replace_memcpy, 0, 0},
+	{ "memcpy16", &Replace_memcpy16, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
 	{ "strlen", &Replace_strlen, 0, 0},
@@ -364,9 +384,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
-	
+
 	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
-	
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
 	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, 0},
@@ -386,6 +405,8 @@ void Replacement_Shutdown() {
 	replacedInstructions.clear();
 }
 
+// TODO: Do something on load state?
+
 int GetNumReplacementFuncs() {
 	return ARRAY_SIZE(entries);
 }
@@ -397,11 +418,11 @@ int GetReplacementFuncIndex(u64 hash, int funcSize) {
 	}
 
 	// TODO: Build a lookup and keep it around
-	for (int i = 0; i < ARRAY_SIZE(entries); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(entries); i++) {
 		if (!entries[i].name)
 			continue;
 		if (!strcmp(name, entries[i].name)) {
-			return i;
+			return (int)i;
 		}
 	}
 	return -1;
@@ -423,7 +444,7 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 			return;
 		}
 		replacedInstructions[address] = prevInstr;
-		INFO_LOG(HLE, "Replaced %s at %08x", entries[index].name, address);
+		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
 		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
 	}
 }

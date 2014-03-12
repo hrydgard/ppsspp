@@ -22,6 +22,7 @@
 // It currently just runs one test but that can be easily changed.
 
 #include <string>
+#include <fstream>
 #include <sstream>
 #include <iostream>
 

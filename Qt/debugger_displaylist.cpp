@@ -4,14 +4,13 @@
 #include <set>
 #include <QMenu>
 
-#include "Core/CPU.h"
 #include "ui_debugger_displaylist.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GeDisasm.h"
 #include "Core/Host.h"
 #include "base/display.h"
 #include "mainwindow.h"
-#include "QtHost.h"
+#include "UI/HostTypes.h"
 #include "GPU/GLES/VertexDecoder.h"
 #include "ext/glew/GL/glew.h"
 
@@ -1437,24 +1436,19 @@ void Debugger_DisplayList::on_displayList_itemClicked(QTreeWidgetItem *item, int
 
 void Debugger_DisplayList::on_stepBtn_clicked()
 {
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(true);
-	qthost->NextGPUStep();
+	((QtHost*)host)->SetGPUStep(true);
 }
 
 void Debugger_DisplayList::on_runBtn_clicked()
 {
 	ui->displayList->clear();
 	ui->displayListData->clear();
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(false);
-	qthost->NextGPUStep();
+	((QtHost*)host)->SetGPUStep(false);
 }
 
 void Debugger_DisplayList::on_stopBtn_clicked()
 {
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(true);
+	((QtHost*)host)->SetGPUStep(true);
 }
 
 void Debugger_DisplayList::UpdateRenderBuffer()
@@ -1514,9 +1508,7 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 
 void Debugger_DisplayList::on_nextDrawBtn_clicked()
 {
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(true, 1);
-	qthost->NextGPUStep();
+	((QtHost*)host)->SetGPUStep(true, 1);
 }
 
 void Debugger_DisplayList::on_gotoPCBtn_clicked()
@@ -1589,9 +1581,7 @@ void Debugger_DisplayList::on_fboList_itemClicked(QTreeWidgetItem *item, int col
 
 void Debugger_DisplayList::on_nextDLBtn_clicked()
 {
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(true,-1);
-	qthost->NextGPUStep();
+	((QtHost*)host)->SetGPUStep(true,-1);
 }
 
 void Debugger_DisplayList::setCurrentFBO(u32 addr)
@@ -1780,9 +1770,7 @@ void Debugger_DisplayList::on_displayListData_customContextMenuRequested(const Q
 void Debugger_DisplayList::RunToDLPC()
 {
 	u32 addr = displayListDataSelected->text(0).toUInt(0,16);
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(true, 2, addr);
-	qthost->NextGPUStep();
+	((QtHost*)host)->SetGPUStep(true, 2, addr);
 }
 
 void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoint &pos)
@@ -1804,7 +1792,5 @@ void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoi
 void Debugger_DisplayList::RunToDrawTex()
 {
 	u32 addr = textureDataSelected->text(0).toUInt(0,16);
-	QtHost *qthost = (QtHost *)host;
-	qthost->SetGPUStep(true, 3, addr);
-	qthost->NextGPUStep();
+	((QtHost*)host)->SetGPUStep(true, 3, addr);
 }

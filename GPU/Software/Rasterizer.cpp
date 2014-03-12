@@ -18,6 +18,7 @@
 #include "base/basictypes.h"
 
 #include "Common/ThreadPools.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -79,16 +80,16 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 	switch (gstate.getClutPaletteFormat()) {
-	case GE_TFMT_5650:
+	case GE_CMODE_16BIT_BGR5650:
 		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-	case GE_TFMT_5551:
+	case GE_CMODE_16BIT_ABGR5551:
 		return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-	case GE_TFMT_4444:
+	case GE_CMODE_16BIT_ABGR4444:
 		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-	case GE_TFMT_8888:
+	case GE_CMODE_32BIT_ABGR8888:
 		return DecodeRGBA8888(clut[index + clutSharingOffset]);
 
 	default:
@@ -433,7 +434,7 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 	}
 }
 
-static inline bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Vec2<u10>& line1, const Vec2<u10>& line2)
+static inline bool IsRightSideOrFlatBottomLine(const Vec2<fixed16>& vertex, const Vec2<fixed16>& line1, const Vec2<fixed16>& line2)
 {
 	if (line1.y == line2.y) {
 		// just check if vertex is above us => bottom line parallel to x-axis
@@ -836,6 +837,148 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 }
 
 template <bool clearMode>
+inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_rgb, int prim_color_a) {
+	// Depth range test
+	// TODO: Clear mode?
+	if (!gstate.isModeThrough())
+		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
+			return;
+
+	if (gstate.isColorTestEnabled() && !clearMode)
+		if (!ColorTestPassed(prim_color_rgb))
+			return;
+
+	// TODO: Does a need to be clamped?
+	if (gstate.isAlphaTestEnabled() && !clearMode)
+		if (!AlphaTestPassed(prim_color_a))
+			return;
+
+	// In clear mode, it uses the alpha color as stencil.
+	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
+	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
+	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
+		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
+			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+			SetPixelStencil(p.x, p.y, stencil);
+			return;
+		}
+
+		// Also apply depth at the same time.  If disabled, same as passing.
+		if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
+			if (gstate.isStencilTestEnabled()) {
+				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+				SetPixelStencil(p.x, p.y, stencil);
+			}
+			return;
+		} else if (gstate.isStencilTestEnabled()) {
+			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+		}
+
+		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
+			SetPixelDepth(p.x, p.y, z);
+		}
+	} else if (clearMode && gstate.isClearModeDepthMask()) {
+		SetPixelDepth(p.x, p.y, z);
+	}
+
+	// Doubling happens only when texturing is enabled, and after tests.
+	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
+		// TODO: Does this need to be clamped before blending?
+		prim_color_rgb *= 2;
+	}
+
+	if (gstate.isAlphaBlendEnabled() && !clearMode) {
+		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
+		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
+	}
+
+	if (!clearMode)
+		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
+
+	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
+	u32 old_color = GetPixelColor(p.x, p.y);
+
+	// TODO: Is alpha blending still performed if logic ops are enabled?
+	if (gstate.isLogicOpEnabled() && !clearMode) {
+		// Logic ops don't affect stencil.
+		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
+	}
+
+	if (clearMode) {
+		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+	} else {
+		new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+	}
+
+	// TODO: Dither before or inside SetPixelColor
+	SetPixelColor(p.x, p.y, new_color);
+}
+
+inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
+	int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
+	int frac_u, frac_v;
+
+	int texlevel = 0;
+
+	bool bilinear = magFilt != 0;
+	// bilinear = false;
+
+	if (gstate.isModeThrough()) {
+		int u_texel = s * 256;
+		int v_texel = t * 256;
+		frac_u = u_texel & 0xff;
+		frac_v = v_texel & 0xff;
+		u_texel >>= 8;
+		v_texel >>= 8;
+
+		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
+		// texlevel = x
+
+		if (texlevel > maxTexLevel)
+			texlevel = maxTexLevel;
+
+		GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
+		if (bilinear) {
+			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
+			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
+			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
+		}
+	} else {
+		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
+		// texlevel = x
+
+		if (texlevel > maxTexLevel)
+			texlevel = maxTexLevel;
+
+		if (bilinear) {
+			GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u, frac_v);
+		} else {
+			GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
+		}
+	}
+
+	Vec4<int> texcolor;
+	int bufwbits = texbufwidthbits[texlevel];
+	const u8 *tptr = texptr[texlevel];
+	if (!bilinear) {
+		// Nearest filtering only. Round texcoords or just chop bits?
+		texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+	} else {
+		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
+		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
+		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
+		// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
+		Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
+		Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
+		texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
+	}
+	Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
+	prim_color_rgb = out.rgb();
+	prim_color_a = out.a();
+}
+
+template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int minX, int minY, int maxX, int maxY,
@@ -858,6 +1001,14 @@ void DrawTriangleSlice(
 	int maxTexLevel = (gstate.texmode >> 16) & 7;
 	u8 *texptr[8] = {NULL};
 
+	int magFilt = (gstate.texfilter>>8) & 1;
+	if (g_Config.iTexFiltering > 1) {
+		if (g_Config.iTexFiltering == 2) {
+			magFilt = 0;
+		} else if (g_Config.iTexFiltering == 3) {
+			magFilt = 1;
+		}
+	}
 	if ((gstate.texfilter & 4) == 0) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
@@ -933,84 +1084,18 @@ void DrawTriangleSlice(
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
-					int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
-					int frac_u, frac_v;
-
-					int texlevel = 0;
-					
-					int magFilt = (gstate.texfilter>>8) & 1;
-
-					bool bilinear = magFilt != 0;
-					// bilinear = false;
-
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
 						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) * wsum);
 						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) * wsum);
-
-						int u_texel = s * 256;
-						int v_texel = t * 256;
-						frac_u = u_texel & 0xff;
-						frac_v = v_texel & 0xff;
-						u_texel >>= 8;
-						v_texel >>= 8;
-
-						// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
-						// texlevel = x     
-
-						if (texlevel > maxTexLevel)
-							texlevel = maxTexLevel;
-
-						GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
-						if (bilinear) {
-							GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
-							GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
-							GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
-						}
+						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
 						t = t * texScaleV + texOffsetV;
-
-						// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
-						// texlevel = x
-
-						if (texlevel > maxTexLevel)
-							texlevel = maxTexLevel;
-
-						if (bilinear) {
-							GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u, frac_v);
-						} else {
-							GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
-						}
+						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					}
-
-					Vec4<int> texcolor;
-					int bufwbits = texbufwidthbits[texlevel];
-					const u8 *tptr = texptr[texlevel];
-					if (!bilinear) {
-						// Nearest filtering only. Round texcoords or just chop bits?
-						texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
-					} else {
-						Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
-						Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
-						Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
-						Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
-						// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
-						Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
-						Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-						texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
-					}
-					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
-					prim_color_rgb = out.rgb();
-					prim_color_a = out.a();
-				}
-
-				if (gstate.isColorDoublingEnabled() && !clearMode) {
-					// TODO: Do we need to clamp here?
-					prim_color_rgb *= 2;
-					sec_color *= 2;
 				}
 
 				if (!clearMode)
@@ -1024,73 +1109,7 @@ void DrawTriangleSlice(
 				if (!flatZ)
 					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
-				// Depth range test
-				// TODO: Clear mode?
-				if (!gstate.isModeThrough())
-					if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
-						continue;
-
-				if (gstate.isColorTestEnabled() && !clearMode)
-					if (!ColorTestPassed(prim_color_rgb))
-						continue;
-
-				// TODO: Does a need to be clamped?
-				if (gstate.isAlphaTestEnabled() && !clearMode)
-					if (!AlphaTestPassed(prim_color_a))
-						continue;
-
-				// In clear mode, it uses the alpha color as stencil.
-				u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
-				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-				if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
-					if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
-						stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
-						SetPixelStencil(p.x, p.y, stencil);
-						continue;
-					}
-
-					// Also apply depth at the same time.  If disabled, same as passing.
-					if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
-						if (gstate.isStencilTestEnabled()) {
-							stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
-							SetPixelStencil(p.x, p.y, stencil);
-						}
-						continue;
-					} else if (gstate.isStencilTestEnabled()) {
-						stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
-					}
-
-					if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
-						SetPixelDepth(p.x, p.y, z);
-					}
-				} else if (clearMode && gstate.isClearModeDepthMask()) {
-					SetPixelDepth(p.x, p.y, z);
-				}
-
-				if (gstate.isAlphaBlendEnabled() && !clearMode) {
-					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
-				}
-				if (!clearMode)
-					prim_color_rgb = prim_color_rgb.Clamp(0, 255);
-
-				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
-				u32 old_color = GetPixelColor(p.x, p.y);
-
-				// TODO: Is alpha blending still performed if logic ops are enabled?
-				if (gstate.isLogicOpEnabled() && !clearMode) {
-					// Logic ops don't affect stencil.
-					new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
-				}
-
-				if (clearMode) {
-					new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
-				} else {
-					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
-				}
-
-				// TODO: Dither before or inside SetPixelColor
-				SetPixelColor(p.x, p.y, new_color);
+				DrawSinglePixel<clearMode>(p, z, prim_color_rgb, prim_color_a);
 			}
 		}
 	}
@@ -1127,8 +1146,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 }
 
-void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec3<int> sec_color) {
-	// TODO: Texturing, blending etc.
+void DrawPoint(const VertexData &v0)
+{
+	ScreenCoords pos = v0.screenpos;
+	Vec3<int> prim_color_rgb = v0.color0.rgb();
+	int prim_color_a = v0.color0.a();
+	Vec3<int> sec_color = v0.color1;
+	// TODO: UVGenMode?
+	float s = v0.texturecoords.s();
+	float t = v0.texturecoords.t();
+
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 
@@ -1137,11 +1164,49 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 
 	bool clearMode = gstate.isModeClear();
 
-	// TODO: Abstract out texture mapping so we can insert it here. Too big to duplicate.
-	if (gstate.isColorDoublingEnabled() && !clearMode) {
-		// TODO: Do we need to clamp here?
-		prim_color_rgb *= 2;
-		sec_color *= 2;
+	if (gstate.isTextureMapEnabled() && !clearMode) {
+		int texbufwidthbits[8] = {0};
+
+		int maxTexLevel = (gstate.texmode >> 16) & 7;
+		u8 *texptr[8] = {NULL};
+
+		int magFilt = (gstate.texfilter>>8) & 1;
+		if (g_Config.iTexFiltering > 1) {
+			if (g_Config.iTexFiltering == 2) {
+				magFilt = 0;
+			} else if (g_Config.iTexFiltering == 3) {
+				magFilt = 1;
+			}
+		}
+		if ((gstate.texfilter & 4) == 0) {
+			// No mipmapping enabled
+			maxTexLevel = 0;
+		}
+
+		if (gstate.isTextureMapEnabled() && !clearMode) {
+			// TODO: Always using level 0.
+			maxTexLevel = 0;
+			GETextureFormat texfmt = gstate.getTextureFormat();
+			for (int i = 0; i <= maxTexLevel; i++) {
+				u32 texaddr = gstate.getTextureAddress(i);
+				texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+				texptr[i] = Memory::GetPointer(texaddr);
+			}
+		}
+
+		if (gstate.isModeThrough()) {
+			// TODO: Is it really this simple?
+			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+		} else {
+			float texScaleU = getFloat24(gstate.texscaleu);
+			float texScaleV = getFloat24(gstate.texscalev);
+			float texOffsetU = getFloat24(gstate.texoffsetu);
+			float texOffsetV = getFloat24(gstate.texoffsetv);
+
+			s = s * texScaleU + texOffsetU;
+			t = t * texScaleV + texOffsetV;
+			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+		}
 	}
 
 	if (!clearMode)
@@ -1153,77 +1218,11 @@ void DrawPixel(ScreenCoords pos, Vec3<int> prim_color_rgb, int prim_color_a, Vec
 	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 	u16 z = pos.z;
 
-	// Depth range test
-	// TODO: Clear mode?
-	if (!gstate.isModeThrough())
-		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
-			return;
-
-	if (gstate.isColorTestEnabled() && !clearMode)
-		if (!ColorTestPassed(prim_color_rgb))
-			return;
-
-	// TODO: Does a need to be clamped?
-	if (gstate.isAlphaTestEnabled() && !clearMode)
-		if (!AlphaTestPassed(prim_color_a))
-			return;
-
-	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
-	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
-		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
-			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
-			SetPixelStencil(p.x, p.y, stencil);
-			return;
-		}
-
-		// Also apply depth at the same time.  If disabled, same as passing.
-		if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
-			if (gstate.isStencilTestEnabled()) {
-				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
-				SetPixelStencil(p.x, p.y, stencil);
-			}
-			return;
-		} else if (gstate.isStencilTestEnabled()) {
-			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
-		}
-
-		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
-			SetPixelDepth(p.x, p.y, z);
-		}
-	} else if (clearMode && gstate.isClearModeDepthMask()) {
-		SetPixelDepth(p.x, p.y, z);
-	}
-
-	if (gstate.isAlphaBlendEnabled() && !clearMode) {
-		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
-	}
-	if (!clearMode)
-		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
-
-	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
-	u32 old_color = GetPixelColor(p.x, p.y);
-
-	// TODO: Is alpha blending still performed if logic ops are enabled?
-	if (gstate.isLogicOpEnabled() && !clearMode) {
-		// Logic ops don't affect stencil.
-		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
-	}
-
 	if (clearMode) {
-		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
+		DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
 	} else {
-		new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+		DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
 	}
-
-	SetPixelColor(p.x, p.y, new_color);
-}
-
-void DrawPoint(const VertexData &v0)
-{
-	DrawPixel(v0.screenpos, v0.color0.rgb(), v0.color0.a(), v0.color1);
 }
 
 void DrawLine(const VertexData &v0, const VertexData &v1)
@@ -1238,20 +1237,93 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	int steps;
 	if (abs(dx) < abs(dy))
-		steps = dy;
+		steps = abs(dy) / 16;
 	else
-		steps = dx;
+		steps = abs(dx) / 16;
 
 	float xinc = (float)dx / steps;
 	float yinc = (float)dy / steps;
 	float zinc = (float)dz / steps;
 
+	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
+	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
+	bool clearMode = gstate.isModeClear();
+
+	int texbufwidthbits[8] = {0};
+
+	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	u8 *texptr[8] = {NULL};
+
+	int magFilt = (gstate.texfilter>>8) & 1;
+	if (g_Config.iTexFiltering > 1) {
+		if (g_Config.iTexFiltering == 2) {
+			magFilt = 0;
+		} else if (g_Config.iTexFiltering == 3) {
+			magFilt = 1;
+		}
+	}
+	if ((gstate.texfilter & 4) == 0) {
+		// No mipmapping enabled
+		maxTexLevel = 0;
+	}
+
+	if (gstate.isTextureMapEnabled() && !clearMode) {
+		// TODO: Always using level 0.
+		GETextureFormat texfmt = gstate.getTextureFormat();
+		for (int i = 0; i <= maxTexLevel; i++) {
+			u32 texaddr = gstate.getTextureAddress(i);
+			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+			texptr[i] = Memory::GetPointer(texaddr);
+		}
+	}
+
+	float texScaleU = getFloat24(gstate.texscaleu);
+	float texScaleV = getFloat24(gstate.texscalev);
+	float texOffsetU = getFloat24(gstate.texoffsetu);
+	float texOffsetV = getFloat24(gstate.texoffsetv);
+
 	float x = a.x;
 	float y = a.y;
 	float z = a.z;
-	for (; steps >= 0; steps--) {
-		// TODO: interpolate color and UV over line
-		DrawPixel(ScreenCoords(x, y, z), v0.color0.rgb(), v0.color0.a(), v0.color1);
+	const int steps1 = steps == 0 ? 1 : steps;
+	for (int i = 0; i <= steps; i++) {
+		if (x < scissorTL.x || y < scissorTL.y || x >= scissorBR.x || y >= scissorBR.y)
+			continue;
+
+		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
+		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+		// TODO: UVGenMode?
+		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
+		Vec3<int> prim_color_rgb = c0.rgb();
+		int prim_color_a = c0.a();
+		float s = tc.s();
+		float t = tc.t();
+
+		if (gstate.isTextureMapEnabled() && !clearMode) {
+			if (gstate.isModeThrough()) {
+				// TODO: Is it really this simple?
+				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			} else {
+				s = s * texScaleU + texOffsetU;
+				t = t * texScaleV + texOffsetV;
+				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			}
+		}
+
+		if (!clearMode)
+			prim_color_rgb += sec_color;
+
+		ScreenCoords pprime = ScreenCoords(x, y, z);
+
+		// TODO: Fogging
+		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+
+		if (clearMode) {
+			DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
+		} else {
+			DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
+		}
+
 		x = x + xinc;
 		y = y + yinc;
 		z = z + zinc;
@@ -1260,14 +1332,16 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 {
-	buffer.Allocate(gstate.DepthBufStride(), 512, GPU_DBG_FORMAT_8BIT);
+	int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
+	int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT);
 
 	u8 *row = buffer.GetData();
-	for (int y = 0; y < 512; ++y) {
-		for (int x = 0; x < gstate.DepthBufStride(); ++x) {
-			row[x] = GetPixelStencil(x, y);
+	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
+		for (int x = gstate.getRegionX1(); x <= gstate.getRegionX2(); ++x) {
+			row[x - gstate.getRegionX1()] = GetPixelStencil(x, y);
 		}
-		row += gstate.DepthBufStride();
+		row += w;
 	}
 	return true;
 }

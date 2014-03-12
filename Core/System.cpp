@@ -17,7 +17,9 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#ifndef _XBOX
 #include <ShlObj.h>
+#endif
 #include <string>
 #include <codecvt>
 #endif
@@ -33,6 +35,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/PSPMixer.h"
 #include "Core/HLE/HLE.h"
@@ -80,6 +83,14 @@ volatile CoreState coreState = CORE_STEPPING;
 // Note: intentionally not used for CORE_NEXTFRAME.
 volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
+
+void UpdateUIState(GlobalUIState newState) {
+	// Never leave the EXIT state.
+	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
+		globalUIState = newState;
+		host->UpdateDisassembly();
+	}
+}
 
 bool IsAudioInitialised() {
 	return mixer != NULL;
@@ -150,8 +161,7 @@ void CPU_Shutdown();
 
 void CPU_Init() {
 	coreState = CORE_POWERUP;
-	currentCPU = &mipsr4k;
-	numCPUs = 1;
+	currentMIPS = &mipsr4k;
 
 	// Default memory settings
 	// Seems to be the safest place currently..
@@ -227,8 +237,8 @@ void CPU_Shutdown() {
 		mixer = 0;  // deleted in ShutdownSound
 	}
 	pspFileSystem.Shutdown();
+	mipsr4k.Shutdown();
 	Memory::Shutdown();
-	currentCPU = 0;
 }
 
 void CPU_RunLoop() {
@@ -293,20 +303,54 @@ void System_Wake() {
 	}
 }
 
-bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
-	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
+static bool pspIsInited = false;
+static bool pspIsIniting = false;
 
+bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
+	if (pspIsIniting) {
+		return false;
+	}
+
+#if defined(_WIN32) && defined(_M_X64)
+	INFO_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
+#elif defined(_WIN32) && !defined(_M_X64)
+	INFO_LOG(BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
+#else
+	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
+#endif
 	coreParameter = coreParam;
 	coreParameter.errorString = "";
+	pspIsIniting = true;
 
 	if (g_Config.bSeparateCPUThread) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
+#ifdef _XBOX
+		SuspendThread(cpuThread->native_handle());
+		XSetThreadProcessor(cpuThread->native_handle(), 2);
+		ResumeThread(cpuThread->native_handle());
+#endif
 		cpuThread->detach();
-		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	} else {
 		CPU_Init();
+	}
+
+	*error_string = coreParameter.errorString;
+	bool success = coreParameter.fileToStart != "";
+	if (!success) {
+		pspIsIniting = false;
+	}
+	return success;
+}
+
+bool PSP_InitUpdate(std::string *error_string) {
+	if (pspIsInited || !pspIsIniting) {
+		return true;
+	}
+
+	if (g_Config.bSeparateCPUThread && !CPU_IsReady()) {
+		return false;
 	}
 
 	bool success = coreParameter.fileToStart != "";
@@ -318,15 +362,37 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 			*error_string = "Unable to initialize rendering engine.";
 		}
 	}
-	return success;
+	pspIsInited = success;
+	pspIsIniting = false;
+	return true;
+}
+
+bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+	PSP_InitStart(coreParam, error_string);
+
+	if (g_Config.bSeparateCPUThread) {
+		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
+	}
+
+	PSP_InitUpdate(error_string);
+	return pspIsInited;
+}
+
+bool PSP_IsIniting() {
+	return pspIsIniting;
 }
 
 bool PSP_IsInited() {
-	return currentCPU != 0;
+	return pspIsInited;
 }
 
 void PSP_Shutdown() {
-#ifndef USING_GLES2
+	// Do nothing if we never inited.
+	if (!pspIsInited && !pspIsIniting) {
+		return;
+	}
+
+#ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
 		MIPSAnalyst::StoreHashMap();
 	}
@@ -345,6 +411,9 @@ void PSP_Shutdown() {
 	}
 	GPU_Shutdown();
 	host->SetWindowTitle(0);
+	currentMIPS = 0;
+	pspIsInited = false;
+	pspIsIniting = false;
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
@@ -397,6 +466,8 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memCardDirectory + "PSP/SYSTEM/";
 	case DIRECTORY_PAUTH:
 		return g_Config.memCardDirectory + "PAUTH/";
+	case DIRECTORY_DUMP:
+		return g_Config.memCardDirectory + "PSP/SYSTEM/DUMP/";
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
 		ERROR_LOG(FILESYS, "Unknown directory type.");
@@ -404,7 +475,7 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
 	if (!g_Config.memCardDirectory.empty() && !g_Config.flash0Directory.empty())

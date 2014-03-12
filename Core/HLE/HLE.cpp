@@ -15,45 +15,49 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/timeutil.h"
-#include "HLE.h"
 #include <map>
 #include <vector>
 #include <string>
-#include "../MemMap.h"
-#include "../Config.h"
+
+#include "base/timeutil.h"
+
+#include "Core/Config.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-#include "HLETables.h"
-#include "../System.h"
-#include "sceDisplay.h"
-#include "sceIo.h"
-#include "sceAudio.h"
-#include "sceKernelMemory.h"
-#include "sceKernelThread.h"
-#include "sceKernelInterrupt.h"
-#include "../MIPS/MIPSCodeUtils.h"
-#include "../Host.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceIo.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/HLE.h"
 
 enum
 {
 	// Do nothing after the syscall.
-	HLE_AFTER_NOTHING = 0x00,
+	HLE_AFTER_NOTHING           = 0x00,
 	// Reschedule immediately after the syscall.
-	HLE_AFTER_RESCHED = 0x01,
+	HLE_AFTER_RESCHED           = 0x01,
 	// Call current thread's callbacks after the syscall.
 	HLE_AFTER_CURRENT_CALLBACKS = 0x02,
 	// Check all threads' callbacks after the syscall.
-	HLE_AFTER_ALL_CALLBACKS = 0x04,
+	HLE_AFTER_ALL_CALLBACKS     = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
 	// Run interrupts (and probably reschedule) after the syscall.
-	HLE_AFTER_RUN_INTERRUPTS = 0x10,
+	HLE_AFTER_RUN_INTERRUPTS    = 0x10,
 	// Switch to CORE_STEPPING after the syscall (for debugging.)
-	HLE_AFTER_DEBUG_BREAK = 0x20,
+	HLE_AFTER_DEBUG_BREAK       = 0x20,
 	// Don't fill temp regs with 0xDEADBEEF.
-	HLE_AFTER_SKIP_DEADBEEF = 0x40,
+	HLE_AFTER_SKIP_DEADBEEF     = 0x40,
 };
 
 typedef std::vector<Syscall> SyscallVector;
@@ -261,8 +265,9 @@ void hleCheckCurrentCallbacks()
 
 void hleReSchedule(const char *reason)
 {
-	_dbg_assert_msg_(HLE, reason != 0, "hleReSchedule: Expecting a valid reason.");
-	_dbg_assert_msg_(HLE, reason != 0 && strlen(reason) < 256, "hleReSchedule: Not too long reason.");
+#ifdef _DEBUG
+	_dbg_assert_msg_(HLE, reason != 0 && strlen(reason) < 256, "hleReSchedule: Invalid or too long reason.");
+#endif
 
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
 

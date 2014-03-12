@@ -181,7 +181,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			break;
 
 		if (packet.stream_index == ctx->audio_stream_index) {
-			avcodec_get_frame_defaults(&frame);
+			av_frame_unref(&frame);
 			got_frame = 0;
 			ret = avcodec_decode_audio4(ctx->decoder_context, &frame, &got_frame, &packet);
 			if (ret < 0) {
@@ -323,16 +323,21 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 
 	memset(ctx, 0, sizeof(Mp3Context));
 
-	ctx->mp3StreamStart = Memory::Read_U64(mp3Addr);
-	ctx->mp3StreamEnd = Memory::Read_U64(mp3Addr+8);
-	ctx->mp3Buf = Memory::Read_U32(mp3Addr+16);
-	ctx->mp3BufSize = Memory::Read_U32(mp3Addr+20);
-	ctx->mp3PcmBuf = Memory::Read_U32(mp3Addr+24);
-	ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr+28);
-
+	if (!Memory::IsValidAddress(mp3Addr)) {
+		WARN_LOG_REPORT(ME, "sceMp3ReserveMp3Handle(%08x): invalid address", mp3Addr)
+	} else {
+		ctx->mp3StreamStart = Memory::Read_U64(mp3Addr);
+		ctx->mp3StreamEnd = Memory::Read_U64(mp3Addr + 8);
+		ctx->mp3Buf = Memory::Read_U32(mp3Addr + 16);
+		ctx->mp3BufSize = Memory::Read_U32(mp3Addr + 20);
+		ctx->mp3PcmBuf = Memory::Read_U32(mp3Addr + 24);
+		ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr + 28);
+	}
 	ctx->readPosition = ctx->mp3StreamStart;
 	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
-
+	ctx->mp3DecodedBytes = 0;
+	ctx->mp3SumDecodedSamples = 0;
+	ctx->mp3LoopNum = -1;
 	ctx->mp3Channels = 2;
 	ctx->mp3Bitrate = 128;
 	ctx->mp3SamplingRate = 44100;

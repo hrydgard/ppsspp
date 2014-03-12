@@ -317,7 +317,7 @@ public:
 		if (vec_size > 0)
 			DoArray(&x[0], vec_size);
 	}
-	
+
 	// Store deques.
 	template<class T>
 	void Do(std::deque<T *> &x)
@@ -437,6 +437,13 @@ public:
 	void Do(std::wstring &x);
 
 	void Do(tm &t);
+
+	template<typename T, typename F>
+	void Do(swap_struct_t<T, F> &x) {
+		T v = x.swap();
+		Do(v);
+		x = v;
+	}
 
 	template<class T>
 	void DoClass(T &x) {

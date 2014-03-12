@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../GPUState.h"
+#include <algorithm>
 
-#include "Clipper.h"
-#include "Rasterizer.h"
+#include "GPU/GPUState.h"
+
+#include "GPU/Software/Clipper.h"
+#include "GPU/Software/Rasterizer.h"
 
 namespace Clipper {
 
@@ -123,7 +125,18 @@ static inline int CalcClipMask(const ClipCoords& v)
 	}															\
 }
 
-void ProcessQuad(const VertexData& v0, const VertexData& v1)
+static void RotateUVThrough(VertexData &tl, VertexData &tr, VertexData &bl, VertexData &br) {
+	const fixed16 x1 = tl.screenpos.x;
+	const fixed16 x2 = br.screenpos.x;
+	const fixed16 y1 = tl.screenpos.y;
+	const fixed16 y2 = br.screenpos.y;
+
+	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
+		std::swap(bl.texturecoords, tr.texturecoords);
+	}
+}
+
+void ProcessRect(const VertexData& v0, const VertexData& v1)
 {
 	if (!gstate.isModeThrough()) {
 		VertexData buf[4];
@@ -197,6 +210,8 @@ void ProcessQuad(const VertexData& v0, const VertexData& v1)
 			if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
 				bottomright = &buf[i];
 		}
+
+		RotateUVThrough(*topleft, *topright, *bottomleft, *bottomright);
 
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
 		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);

@@ -22,10 +22,10 @@
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class GameSettingsScreen : public UIDialogScreenWithBackground {
+class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(std::string gamePath, std::string gameID = "")
-		: gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
+		: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
 
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
@@ -34,12 +34,11 @@ public:
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
 
 private:
-	std::string gamePath_, gameID_;
+	std::string gameID_;
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
@@ -48,6 +47,7 @@ private:
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
+	UI::CheckBox *frameSkipAuto_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -67,9 +67,13 @@ private:
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
+	UI::EventReturn OnFrameSkipChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
+
+	UI::EventReturn OnScreenRotation(UI::EventParams &e);
+	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;

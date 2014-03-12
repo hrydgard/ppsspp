@@ -556,7 +556,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 }
 
 // The newPC parameter is used for jumps, we don't count cycles between.
-inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
+void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
 	int executed = (currentPC - cycleLastPC) / 4;
 	cyclesExecuted += 2 * executed;
@@ -565,8 +565,12 @@ inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 
 	gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
 
-	// Exit the runloop and recalculate things.  This isn't common.
-	downcount = 0;
+	// Exit the runloop and recalculate things.  This happens a lot in some games.
+	easy_guard innerGuard(listLock);
+	if (currentList)
+		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - cycleLastPC) / 4;
+	else
+		downcount = 0;
 }
 
 void GPUCommon::ReapplyGfxState() {
@@ -736,12 +740,12 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			u32 target = gstate_c.getRelativeAddress(data);
 
 			// Bone matrix optimization - many games will CALL a bone matrix (!).
-			if (g_Config.bSoftwareSkinning && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+			if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 				// Check for the end
 				if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 					  (Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET) {
 					// Yep, pretty sure this is a bone matrix call.
-					gstate.FastLoadBoneMatrix(target);
+					FastLoadBoneMatrix(target);
 					break;
 				}
 			}
@@ -765,7 +769,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		{
 			easy_guard guard(listLock);
 			if (currentList->stackptr == 0) {
-				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
+				DEBUG_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
 				auto &stackEntry = currentList->stack[--currentList->stackptr];
 				gstate_c.offsetAddr = stackEntry.offsetAddr;
@@ -931,6 +935,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
 		break;
 	}
+}
+
+void GPUCommon::FastLoadBoneMatrix(u32 target) {
+	gstate.FastLoadBoneMatrix(target);
 }
 
 struct DisplayListOld {

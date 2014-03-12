@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 #include <windows.h>
 #endif
 
@@ -277,19 +277,23 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
+static void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
+	for (auto i = g_controllerMap[btn].begin(), end = g_controllerMap[btn].end(); i != end; ++i) {
+		keycodes->push_back((keycode_t)i->keyCode);
+	}
+}
+
 void UpdateConfirmCancelKeys() {
 	std::vector<keycode_t> confirmKeys, cancelKeys;
+	std::vector<keycode_t> tabLeft, tabRight;
 
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	for (auto i = g_controllerMap[confirmKey].begin(); i != g_controllerMap[confirmKey].end(); ++i) {
-		confirmKeys.push_back((keycode_t)i->keyCode);
-	}
-
-	for (auto i = g_controllerMap[cancelKey].begin(); i != g_controllerMap[cancelKey].end(); ++i) {
-		cancelKeys.push_back((keycode_t)i->keyCode);
-	}
+	KeyCodesFromPspButton(confirmKey, &confirmKeys);
+	KeyCodesFromPspButton(cancelKey, &cancelKeys);
+	KeyCodesFromPspButton(CTRL_LTRIGGER, &tabLeft);
+	KeyCodesFromPspButton(CTRL_RTRIGGER, &tabRight);
 
 	// Push several hard-coded keys before submitting to native.
 	const keycode_t hardcodedConfirmKeys[] = {
@@ -314,6 +318,7 @@ void UpdateConfirmCancelKeys() {
 	}
 
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
+	SetTabLeftRightKeys(tabLeft, tabRight);
 }
 
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
@@ -331,7 +336,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		{
 			bool azerty = false;
 			bool qwertz = false;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
 			switch ((int)localeId & 0xFFFF) {
@@ -539,6 +544,23 @@ const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_NUMPAD_7, "Num7"},
 	{NKCODE_NUMPAD_8, "Num8"},
 	{NKCODE_NUMPAD_9, "Num9"},
+	
+	{NKCODE_LANGUAGE_SWITCH, "Language"},
+	{NKCODE_MANNER_MODE, "Manner"},
+	{NKCODE_3D_MODE, "3D Mode"},
+	{NKCODE_CONTACTS, "Contacts"},
+	{NKCODE_CALENDAR, "Calendar"},
+	{NKCODE_MUSIC, "Music"},
+	{NKCODE_CALCULATOR, "Calc"},
+	{NKCODE_ZENKAKU_HANKAKU, "Zenkaku"},
+	{NKCODE_EISU, "Eisu"},
+	{NKCODE_MUHENKAN, "Muhenkan"},
+	{NKCODE_HENKAN, "Henkan"},
+	{NKCODE_KATAKANA_HIRAGANA, "Katakana"},
+	{NKCODE_YEN, "Yen"},
+	{NKCODE_RO, "Ro"},
+	{NKCODE_KANA, "Kana"},
+	{NKCODE_ASSIST, "Assist"},
 
 	{NKCODE_EXT_MOUSEBUTTON_1, "MB1"},
 	{NKCODE_EXT_MOUSEBUTTON_2, "MB2"},
@@ -606,11 +628,15 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_PAUSE, "Pause"},
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	{VIRTKEY_REWIND, "Rewind"},
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
+	{VIRTKEY_NEXT_SLOT,  "Next Slot"},
+#if !defined(_WIN32) && !defined(MOBILE_DEVICE)
+	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
+#endif
 
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
@@ -861,7 +887,7 @@ bool IsXperiaPlay(const std::string &name) {
 }
 
 bool IsBlackberryQWERTY(const std::string &name) {
-	return name == "Blackberry10:QWERTY";
+	return name == "Blackberry:QWERTY";
 }
 
 bool HasBuiltinController(const std::string &name) {

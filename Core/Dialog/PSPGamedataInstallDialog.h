@@ -22,7 +22,7 @@
 
 struct SceUtilityGamedataInstallParam {
 	pspUtilityDialogCommon common;
-	u32 unknown1;
+	u32_le unknown1;
 	char gameName[13];
 	char ignore1[3];
 	char dataName[20];
@@ -32,8 +32,8 @@ struct SceUtilityGamedataInstallParam {
 	u8 unknown2;
 	char ignore2[3];
 	char progress[4]; // This is progress value,should be updated.
-	u32 unknownResult1;
-	u32 unknownResult2;
+	u32_le unknownResult1;
+	u32_le unknownResult2;
 	char ignore3[48];
 };
 

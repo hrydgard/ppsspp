@@ -19,22 +19,22 @@
 
 #include "PSPDialog.h"
 
-#define SCE_UTILITY_MSGDIALOG_OPTION_ERROR				0x00000000
-#define SCE_UTILITY_MSGDIALOG_OPTION_TEXT				0x00000001
-#define SCE_UTILITY_MSGDIALOG_OPTION_NOSOUND			0x00000002
-#define SCE_UTILITY_MSGDIALOG_OPTION_YESNO				0x00000010
-#define SCE_UTILITY_MSGDIALOG_OPTION_OK					0x00000020
-#define SCE_UTILITY_MSGDIALOG_OPTION_NOCANCEL			0x00000080
-#define SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO			0x00000100
+#define SCE_UTILITY_MSGDIALOG_OPTION_ERRORSOUND         0x00000000
+#define SCE_UTILITY_MSGDIALOG_OPTION_TEXTSOUND          0x00000001
+#define SCE_UTILITY_MSGDIALOG_OPTION_NOSOUND            0x00000002
+#define SCE_UTILITY_MSGDIALOG_OPTION_YESNO              0x00000010
+#define SCE_UTILITY_MSGDIALOG_OPTION_OK                 0x00000020
+#define SCE_UTILITY_MSGDIALOG_OPTION_NOCANCEL           0x00000080
+#define SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO         0x00000100
 
-#define SCE_UTILITY_MSGDIALOG_SIZE_V1					572
-#define SCE_UTILITY_MSGDIALOG_SIZE_V2					580
-#define SCE_UTILITY_MSGDIALOG_SIZE_V3					708
+#define SCE_UTILITY_MSGDIALOG_SIZE_V1                   572
+#define SCE_UTILITY_MSGDIALOG_SIZE_V2                   580
+#define SCE_UTILITY_MSGDIALOG_SIZE_V3                   708
 
-#define SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED		0x000001B3 // OR of all options coded to display warning
+#define SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED          0x000001B3 // OR of all options coded to display warning
 
-#define SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION			0x80110501
-#define SCE_UTILITY_MSGDIALOG_ERROR_ERRORCODEINVALID	0x80110502
+#define SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION           0x80110501
+#define SCE_UTILITY_MSGDIALOG_ERROR_ERRORCODEINVALID    0x80110502
 
 struct pspMessageDialog
 {
@@ -47,7 +47,8 @@ struct pspMessageDialog
 	u32_le options;
 	u32_le buttonPressed;
 	// End of request V2 (Size 580)
-	s32_le unknown[32];
+	char okayButton[64];
+	char cancelButton[64];
 	// End of request V3 (Size 708)
 };
 
@@ -65,20 +66,25 @@ public:
 
 	int Abort();
 
+protected:
+	virtual bool UseAutoStatus() {
+		return false;
+	}
+
 private :
 	void DisplayMessage(std::string text, bool hasYesNo = false, bool hasOK = false);
 
 	enum Flags
 	{
-		DS_MSG 				= 0x1,
-		DS_ERRORMSG 		= 0x2,
-		DS_YESNO 			= 0x4,
-		DS_DEFNO 			= 0x8,
-		DS_OK 				= 0x10,
-		DS_VALIDBUTTON 		= 0x20,
-		DS_CANCELBUTTON 	= 0x40,
-		DS_NOSOUND			= 0x80,
-		DS_ERROR 			= 0x100
+		DS_MSG          = 0x1,
+		DS_ERRORMSG     = 0x2,
+		DS_YESNO        = 0x4,
+		DS_DEFNO        = 0x8,
+		DS_OK           = 0x10,
+		DS_VALIDBUTTON  = 0x20,
+		DS_CANCELBUTTON = 0x40,
+		DS_NOSOUND      = 0x80,
+		DS_ERROR        = 0x100
 	};
 
 	u32 flag;

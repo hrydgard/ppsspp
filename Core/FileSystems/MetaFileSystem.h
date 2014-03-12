@@ -79,6 +79,8 @@ public:
 		return false;
 	}
 
+	std::string NormalizePrefix(std::string prefix) const;
+
 	// Only possible if a file system is a DirectoryFileSystem or similar.
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	
@@ -102,8 +104,8 @@ public:
 	virtual bool RmDir(const std::string &dirname);
 	virtual int  RenameFile(const std::string &from, const std::string &to);
 	virtual bool RemoveFile(const std::string &filename);
-
-	// TODO: void IoCtl(...)
+	virtual int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
+	virtual int  DevType(u32 handle);
 
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);

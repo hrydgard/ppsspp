@@ -15,9 +15,12 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <cstring>
+
 #include "x64Emitter.h"
 #include "ABI.h"
 #include "CPUDetect.h"
+#include "MemoryUtil.h"
 
 namespace Gen
 {
@@ -1481,12 +1484,33 @@ void XEmitter::LOCK()  { Write8(0xF0); }
 void XEmitter::REP()   { Write8(0xF3); }
 void XEmitter::REPNE() { Write8(0xF2); }
 
-void XEmitter::FWAIT()
-{
+void XEmitter::FWAIT() {
 	Write8(0x9B);
 }
 
 void XEmitter::RTDSC() { Write8(0x0F); Write8(0x31); }
+
+void XCodeBlock::AllocCodeSpace(int size) {
+	region_size = size;
+	region = (u8*)AllocateExecutableMemory(region_size);
+	SetCodePtr(region);
+}
+
+void XCodeBlock::ClearCodeSpace() {
+	// x86/64: 0xCC = breakpoint
+	memset(region, 0xCC, region_size);
+	ResetCodePtr();
+}
+
+void XCodeBlock::FreeCodeSpace() {
+	FreeMemoryPages(region, region_size);
+	region = NULL;
+	region_size = 0;
+}
+
+void XCodeBlock::WriteProtect() {
+	WriteProtectMemory(region, region_size, true);
+}
 
 } // Gen
 

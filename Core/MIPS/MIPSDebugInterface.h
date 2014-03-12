@@ -17,8 +17,9 @@
 
 #pragma once
 
+#include <string>
 #include "MIPS.h"
-#include "../Debugger/DebugInterface.h"
+#include "Core/Debugger/DebugInterface.h"
 
 class MIPSDebugInterface : public DebugInterface
 {
@@ -39,7 +40,7 @@ public:
 	virtual void step() {}
 	virtual void runToBreakpoint();
 	virtual int getColor(unsigned int address);
-	virtual const char *getDescription(unsigned int address);
+	virtual std::string getDescription(unsigned int address);
 	virtual bool initExpression(const char* exp, PostfixExpression& dest);
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest);
 

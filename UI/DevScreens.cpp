@@ -29,6 +29,7 @@
 #include "Common/LogManager.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -338,7 +339,6 @@ void AddressPromptScreen::UpdatePreviewDigits() {
 }
 
 void AddressPromptScreen::key(const KeyInput &key) {
-	int nextDigit = -1;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
 			AddDigit(key.keyCode - NKCODE_0);

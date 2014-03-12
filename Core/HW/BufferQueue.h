@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstring>
 #include "Common/ChunkFile.h"
 
 struct BufferQueue {
@@ -48,7 +49,11 @@ struct BufferQueue {
 	}
 
 	inline int getQueueSize() {
-		return (end + bufQueueSize - start) % bufQueueSize;
+		if (end >= start) {
+			return end - start;
+		} else {
+			return bufQueueSize + end - start;
+		}
 	}
 
 	inline int getRemainSize() {
@@ -62,12 +67,13 @@ struct BufferQueue {
 			return false;
 		if (end + addsize <= bufQueueSize) {
 			memcpy(bufQueue + end, buf, addsize);
+			end += addsize;
 		} else {
-			int size = bufQueueSize - end;
-			memcpy(bufQueue + end, buf, size);
-			memcpy(bufQueue, buf + size, addsize - size);
+			int firstSize = bufQueueSize - end;
+			memcpy(bufQueue + end, buf, firstSize);
+			memcpy(bufQueue, buf + firstSize, addsize - firstSize);
+			end = addsize - firstSize;
 		}
-		end = (end + addsize) % bufQueueSize;
 		return true;
 	}
 
@@ -80,13 +86,20 @@ struct BufferQueue {
 		if (buf) {
 			if (start + bytesgot <= bufQueueSize) {
 				memcpy(buf, bufQueue + start, bytesgot);
+				start += bytesgot;
 			} else {
-				int size = bufQueueSize - start;
-				memcpy(buf, bufQueue + start, size);
-				memcpy(buf + size, bufQueue, bytesgot - size);
+				int firstSize = bufQueueSize - start;
+				memcpy(buf, bufQueue + start, firstSize);
+				memcpy(buf + firstSize, bufQueue, bytesgot - firstSize);
+				start = bytesgot - firstSize;
 			}
+		} else {
+			int firstSize = bufQueueSize - start;
+			if (start + bytesgot <= bufQueueSize)
+				start += bytesgot;
+			else 
+				start = bytesgot - firstSize;
 		}
-		start = (start + bytesgot) % bufQueueSize;
 		return bytesgot;
 	}
 

@@ -169,7 +169,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
-  $(SRC)/Core/CPU.cpp \
   $(SRC)/Core/CwCheat.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Host.cpp \
@@ -235,6 +234,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
+  $(SRC)/Core/HLE/sceMt19937.cpp \
   $(SRC)/Core/HLE/sceParseHttp.cpp \
   $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \
@@ -252,6 +252,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/scePauth.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
+  $(SRC)/Core/FileSystems/FileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \
   $(SRC)/Core/FileSystems/DirectoryFileSystem.cpp \
   $(SRC)/Core/FileSystems/VirtualDiscFileSystem.cpp \

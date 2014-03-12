@@ -28,13 +28,13 @@ inline int Xpose(int v)
 	return v^0x20;
 }
 
-#define VFPU_FLOAT16_EXP_MAX	0x1f
-#define VFPU_SH_FLOAT16_SIGN	15
-#define VFPU_MASK_FLOAT16_SIGN	0x1
-#define VFPU_SH_FLOAT16_EXP	10
-#define VFPU_MASK_FLOAT16_EXP	0x1f
-#define VFPU_SH_FLOAT16_FRAC	0
-#define VFPU_MASK_FLOAT16_FRAC	0x3ff
+#define VFPU_FLOAT16_EXP_MAX    0x1f
+#define VFPU_SH_FLOAT16_SIGN    15
+#define VFPU_MASK_FLOAT16_SIGN  0x1
+#define VFPU_SH_FLOAT16_EXP     10
+#define VFPU_MASK_FLOAT16_EXP   0x1f
+#define VFPU_SH_FLOAT16_FRAC    0
+#define VFPU_MASK_FLOAT16_FRAC  0x3ff
 
 enum VectorSize {
 	V_Single = 1,

@@ -22,13 +22,14 @@
 #include "math/math_util.h"
 
 #include "Common/Common.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -40,14 +41,14 @@
 #define FsI(i) (currentMIPS->fs[i])
 #define PC (currentMIPS->pc)
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS ((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS   ((op>>21) & 0x1F)
+#define _RT   ((op>>16) & 0x1F)
+#define _RD   ((op>>11) & 0x1F)
+#define _FS   ((op>>11) & 0x1F)
+#define _FT   ((op>>16) & 0x1F)
+#define _FD   ((op>>6 ) & 0x1F)
+#define _POS  ((op>>6 ) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
 
 #define HI currentMIPS->hi
 #define LO currentMIPS->lo
@@ -182,8 +183,10 @@ namespace MIPSInt
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
-		if (!g_Config.bIgnoreBadMemAccess) 
-			Core_UpdateState(CORE_STEPPING);
+		if (!g_Config.bIgnoreBadMemAccess) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
 		PC += 4;
 	}
 

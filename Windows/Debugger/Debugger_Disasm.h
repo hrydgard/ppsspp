@@ -9,7 +9,6 @@
 #include "Windows/Debugger/Debugger_Lists.h"
 #include "Windows/Debugger/CPURegsInterface.h"
 #include "Globals.h"
-#include "Core/CPU.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/Breakpoints.h"
 #include <vector>
@@ -27,6 +26,7 @@ private:
 	CtrlBreakpointList* breakpointList;
 	CtrlThreadList* threadList;
 	CtrlStackTraceView* stackTraceView;
+	CtrlModuleList* moduleList;
 	TabControl* leftTabs;
 	TabControl* bottomTabs;
 	std::vector<BreakPoint> displayedBreakPoints_;

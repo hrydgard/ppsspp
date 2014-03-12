@@ -137,7 +137,7 @@ using namespace DX9;
 // that's common between the many vertices of a draw call.
 class Lighter {
 public:
-	Lighter();
+	Lighter(int vertType);
 	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
 
 private:
@@ -152,7 +152,7 @@ private:
 	int materialUpdate_;
 };
 
-Lighter::Lighter() {
+Lighter::Lighter(int vertType) {
 	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
@@ -166,7 +166,8 @@ Lighter::Lighter() {
 	materialSpecular.a = 1.0f;
 	specCoef_ = getFloat24(gstate.materialspecularcoef);
 	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
-	materialUpdate_ = gstate.materialupdate & 7;
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
 }
 
 void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm)
@@ -560,7 +561,7 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 		float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
 		float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
 
-		Lighter lighter;
+		Lighter lighter(vertType);
 		float fog_end = getFloat24(gstate.fog1);
 		float fog_slope = getFloat24(gstate.fog2);
 

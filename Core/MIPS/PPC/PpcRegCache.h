@@ -54,7 +54,7 @@ using namespace PpcGen;
 
 
 // Safe to use this as scratch regs ?
-#define SREG	(R5)
+#define SREG    (R5)
 #define FLAGREG (R18)
 
 // Special MIPS registers: 

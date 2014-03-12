@@ -153,7 +153,7 @@ class MenuAction : public QAction
 
 public:
 	// Add to QMenu
-	MenuAction(QWidget* parent, const char* callback, char* text, QKeySequence key = 0) :
+	MenuAction(QWidget* parent, const char *callback, const char *text, QKeySequence key = 0) :
 		QAction(parent), _text(text), _eventCheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
 	{
 		if (key != (QKeySequence)0) {
@@ -213,8 +213,8 @@ public slots:
 			setEnabled(true);
 	}
 private:
-	char* _text;
-	bool* _eventCheck;
+	const char *_text;
+	bool *_eventCheck;
 	int _stateEnable, _stateDisable;
 	bool _enableStepping;
 };
@@ -241,13 +241,13 @@ class MenuTree : public QMenu
 {
 	Q_OBJECT
 public:
-	MenuTree(QWidget* parent, QMenuBar* menu, char* text) :
+	MenuTree(QWidget* parent, QMenuBar* menu, const char *text) :
 		QMenu(parent), _text(text)
 	{
 		menu->addMenu(this);
 		connect(parent, SIGNAL(retranslate()), this, SLOT(retranslate()));
 	}
-	MenuTree(QWidget* parent, QMenu* menu, char* text) :
+	MenuTree(QWidget* parent, QMenu* menu, const char *text) :
 		QMenu(parent), _text(text)
 	{
 		menu->addMenu(this);
@@ -263,7 +263,7 @@ public slots:
 		setTitle(qApp->translate("MainWindow", _text));
 	}
 private:
-	char* _text;
+	const char *_text;
 };
 
 #endif // MAINWINDOW_H

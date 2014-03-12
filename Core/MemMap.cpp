@@ -27,7 +27,6 @@
 #include "MIPS/JitCommon/JitCommon.h"
 #include "HLE/HLE.h"
 
-#include "Core/CPU.h"
 #include "Core/Core.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -137,10 +136,16 @@ void DoState(PointerWrap &p)
 			g_MemorySize = RAM_NORMAL_SIZE;
 		g_PSPModel = PSP_MODEL_FAT;
 	} else {
+		u32 oldMemorySize = g_MemorySize;
 		p.Do(g_PSPModel);
 		p.DoMarker("PSPModel");
-		if (!g_RemasterMode)
+		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
+			if (oldMemorySize < g_MemorySize) {
+				Shutdown();
+				Init();
+			}
+		}
 	}
 
 	p.DoArray(GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
@@ -171,9 +176,12 @@ void Clear()
 		memset(m_pVRAM, 0, VRAM_SIZE);
 }
 
-Opcode Read_Instruction(u32 address, bool resolveReplacements)
+static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
 {
-	Opcode inst = Opcode(Read_U32(address));
+	if (!MIPS_IS_EMUHACK(inst.encoding)) {
+		return inst;
+	}
+
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
 		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
@@ -189,7 +197,7 @@ Opcode Read_Instruction(u32 address, bool resolveReplacements)
 						return Opcode(op);
 					}
 				} else {
-					ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst);
+					ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst.encoding);
 				}
 			}
 			return inst;
@@ -211,6 +219,18 @@ Opcode Read_Instruction(u32 address, bool resolveReplacements)
 	} else {
 		return inst;
 	}
+}
+
+Opcode Read_Instruction(u32 address, bool resolveReplacements)
+{
+	Opcode inst = Opcode(Read_U32(address));
+	return Read_Instruction(address, resolveReplacements, inst);
+}
+
+Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements)
+{
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
+	return Read_Instruction(address, resolveReplacements, inst);
 }
 
 Opcode Read_Opcode_JIT(u32 address)
@@ -237,7 +257,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode _Value)
 }
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
-{	
+{
 	u8 *ptr = GetPointer(_Address);
 	if (ptr != NULL) {
 		memset(ptr, _iValue, _iLength);
@@ -247,24 +267,9 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 #endif
-}
-
-void GetString(std::string& _string, const u32 em_address)
-{
-	char stringBuffer[2048];
-	char *string = stringBuffer;
-	char c;
-	u32 addr = em_address;
-	while ((c = Read_U8(addr)))
-	{
-		*string++ = c;
-		addr++;
-	}
-	*string++ = '\0';
-	_string = stringBuffer;
 }
 
 const char *GetAddressName(u32 address)

@@ -48,6 +48,7 @@ protected:
 
 private:
 	void bootGame(const std::string &filename);
+	void bootComplete();
 	void processAxis(const AxisInput &axis, int direction);
 
 	void pspKey(int pspKeyCode, int flags);
@@ -63,6 +64,7 @@ private:
 
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
+	bool quit_;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.

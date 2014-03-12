@@ -17,6 +17,8 @@
 
 #include "Common.h"
 
+#include <string.h>
+
 #if defined(__APPLE__) || defined(__SYMBIAN32__)
 #define __thread
 #endif
@@ -31,7 +33,7 @@
 const char* GetLastErrorMsg()
 {
 	static const size_t buff_size = 255;
-
+#ifndef _XBOX
 #ifdef _WIN32
 	static __declspec(thread) char err_str[buff_size] = {};
 
@@ -46,4 +48,7 @@ const char* GetLastErrorMsg()
 #endif
 
 	return err_str;
+#else
+	return "GetLastErrorMsg";
+#endif
 }

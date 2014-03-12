@@ -43,14 +43,14 @@
 #include "math/math_util.h"
 #include "util/text/parsers.h"
 #include "util/text/utf8.h"
-
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/Config.h"
 
-#define EXPECT_TRUE(a) if (!(a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
-#define EXPECT_FALSE(a) if ((a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
-#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf(__FUNCTION__ ":" __LINE__ ": Test Fail\n%f\nvs\n%f\n", a, b); return false; }
-#define EXPECT_EQ_STR(a, b) if (a != b) { printf(__FUNCTION__ ": Test Fail\n%s\nvs\n%s\n", a.c_str(), b.c_str()); return false; }
+#define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
+#define EXPECT_FALSE(a) if ((a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
+#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf("%s:" __LINE__ ": Test Fail\n%f\nvs\n%f\n", __FUNCTION__, a, b); return false; }
+#define EXPECT_EQ_STR(a, b) if (a != b) { printf("%s: Test Fail\n%s\nvs\n%s\n", __FUNCTION__, a.c_str(), b.c_str()); return false; }
 
 #define RET(a) if (!(a)) { return false; }
 
@@ -330,13 +330,13 @@ bool TestParsers() {
 	return true;
 }
 
-int main(int argc, const char *argv[])
-{
+int main(int argc, const char *argv[]) {
 	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
 	cpu_info.bNEON = true;
 	cpu_info.bVFPv3 = true;
 	cpu_info.bVFPv4 = true;
 
+	g_Config.bEnableLogging = true;
 	TestAsin();
 	TestArmEmitter();
 	TestMathUtil();

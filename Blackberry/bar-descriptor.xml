@@ -3,7 +3,7 @@
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
     <filename>PPSSPPBlackberry</filename>
-    <versionNumber>0.9.6</versionNumber>
+    <versionNumber>0.9.72</versionNumber>
     <buildId>1</buildId>
     <description>Playstation Portable emulator.</description>
 
@@ -49,5 +49,4 @@
     <permission>access_shared</permission>
     <permission>use_gamepad</permission>
     <permission>play_audio</permission>
-    <permission>narrow_landscape_exit</permission>
 </qnx>

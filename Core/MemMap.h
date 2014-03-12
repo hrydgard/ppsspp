@@ -6,7 +6,7 @@
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -17,11 +17,11 @@
 
 #pragma once
 
-// Includes
-#include <string>
-#include "Common.h"
-#include "CommonTypes.h"
+#include <cstring>
 
+// Includes
+#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "HDRemaster.h"
 
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
@@ -49,7 +49,7 @@ typedef void (*readFn64)(u64&, const u32);
 namespace Memory
 {
 // Base is a pointer to the base of the memory map. Yes, some MMU tricks
-// are used to set up a full GC or Wii memory map in process memory.  on
+// are used to set up a full GC or Wii memory map in process memory.	on
 // 32-bit, you have to mask your offsets with 0x3FFFFFFF. This means that
 // some things are mirrored too many times, but eh... it works.
 
@@ -95,8 +95,8 @@ enum
 	SCRATCHPAD_SIZE = 0x4000,
 	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
 
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
-  // This wraparound should work for PSP too.
+#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
+	// This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
 };
@@ -140,8 +140,9 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
 
 // Should be used by analyzers, disassemblers etc. Does resolve replacements.
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
+Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
 
-u8  Read_U8(const u32 _Address);
+u8	Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);
 u32 Read_U32(const u32 _Address);
 u64 Read_U64(const u32 _Address);
@@ -170,9 +171,9 @@ void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
 
 inline u32 ReadUnchecked_U32(const u32 address) {
 #if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
-  return *(u32_le *)(base + (address & MEMVIEW32_MASK));
+	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
 #else
-  return *(u32_le *)(base + address);
+	return *(u32_le *)(base + address);
 #endif
 }
 
@@ -220,10 +221,10 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 
 inline float Read_Float(u32 address) 
 {
-  u32 ifloat = Read_U32(address);
-  float f;
-  memcpy(&f, &ifloat, sizeof(float));
-  return f;
+	u32 ifloat = Read_U32(address);
+	float f;
+	memcpy(&f, &ifloat, sizeof(float));
+	return f;
 }
 
 // used by JIT. Return zero-extended 32bit values
@@ -237,19 +238,17 @@ void Write_U64(const u64 data, const u32 address);
 
 inline void Write_Float(float f, u32 address)
 {
-  u32 u;
-  memcpy(&u, &f, sizeof(float));
-  Write_U32(u, address);
+	u32 u;
+	memcpy(&u, &f, sizeof(float));
+	Write_U32(u, address);
 }
 
-// Reads a zero-terminated string from memory at the address.
-void GetString(std::string& _string, const u32 _Address);
 u8* GetPointer(const u32 address);
 bool IsRAMAddress(const u32 address);
 bool IsVRAMAddress(const u32 address);
 
 inline const char* GetCharPointer(const u32 address) {
-  return (const char *)GetPointer(address);
+	return (const char *)GetPointer(address);
 }
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
@@ -307,13 +306,6 @@ void WriteStruct(u32 address, T *ptr)
 {
 	size_t sz = sizeof(*ptr);
 	memcpy(GetPointer(address), ptr, sz);
-}
-
-// Expect this to be some form of auto class on big endian.
-template<class T>
-T *GetStruct(u32 address)
-{
-	return (T *)GetPointer(address);
 }
 
 const char *GetAddressName(u32 address);
@@ -438,8 +430,8 @@ inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
 inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
-inline u32 PSP_GetUserMemoryEnd()  { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
-inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
+inline u32 PSP_GetUserMemoryEnd() { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
+inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
 // game through sceKernelVolatileMemTryLock.
 

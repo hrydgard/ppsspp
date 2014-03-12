@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "UI/MiscScreens.h"
 #include "base/functional.h"
 #include "ui/ui_screen.h"
 
@@ -26,18 +27,17 @@
 // Uses GameInfoCache heavily to implement the functionality.
 // Should possibly merge this with the PauseScreen.
 
-class GameScreen : public UIDialogScreen {
+class GameScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameScreen(std::string gamePath) : gamePath_(gamePath) {}
+	GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
 	virtual void update(InputState &input);
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
-	bool isRecentGame(std::string gamePath);
+	bool isRecentGame(const std::string &gamePath);
 
 private:
 	// Event handlers
@@ -49,8 +49,6 @@ private:
 	UI::EventReturn OnCreateShortcut(UI::EventParams &e);
 	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
 	UI::EventReturn OnShowInFolder(UI::EventParams &e);
-
-	std::string gamePath_;
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextureView *texvGameIcon_;

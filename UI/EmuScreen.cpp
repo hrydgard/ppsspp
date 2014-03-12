@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "android/app-android.h"
+#include "base/display.h"
 #include "base/logging.h"
 
 #include "gfx_es2/glsl_program.h"
@@ -35,6 +36,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -59,26 +61,43 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: booted_(false), gamePath_(filename), invalid_(true), pauseTrigger_(false) {
+	: booted_(false), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
-	booted_ = true;
-	std::string fileToStart = filename;
+	if (PSP_IsIniting()) {
+		std::string error_string;
+		booted_ = PSP_InitUpdate(&error_string);
+		if (booted_) {
+			invalid_ = !PSP_IsInited();
+			if (invalid_) {
+				errorMessage_ = error_string;
+				ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
+				System_SendMessage("event", "failstartgame");
+				return;
+			}
+			bootComplete();
+		}
+		return;
+	}
+
+	invalid_ = true;
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
-	coreParam.fileToStart = fileToStart;
+	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
 	coreParam.startPaused = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+
 	if (g_Config.iInternalResolution == 0) {
-		coreParam.renderWidth = dp_xres;
-		coreParam.renderHeight = dp_yres;
+		coreParam.renderWidth = bounds.w;
+		coreParam.renderHeight = bounds.h;
 	} else {
 		if (g_Config.iInternalResolution < 0)
 			g_Config.iInternalResolution = 1;
@@ -86,34 +105,30 @@ void EmuScreen::bootGame(const std::string &filename) {
 		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
 	}
 
-	coreParam.outputWidth = dp_xres;
-	coreParam.outputHeight = dp_yres;
-	coreParam.pixelWidth = pixel_xres;
-	coreParam.pixelHeight = pixel_yres;
-
 	std::string error_string;
-	if (PSP_Init(coreParam, &error_string)) {
-		invalid_ = false;
-	} else {
+	if (!PSP_InitStart(coreParam, &error_string)) {
+		booted_ = true;
 		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		System_SendMessage("event", "failstartgame");
 		return;
 	}
+}
 
+void EmuScreen::bootComplete() {
 	globalUIState = UISTATE_INGAME;
 	host->BootDone();
 	host->UpdateDisassembly();
 
 	g_gameInfoCache.FlushBGs();
 
-	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
+	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
@@ -139,9 +154,10 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
-	if (result == DR_OK) {
+	if (result == DR_OK || quit_) {
 		screenManager()->switchScreen(new MainScreen());
 		System_SendMessage("event", "exitgame");
+		quit_ = false;
 	}
 	RecreateViews();
 }
@@ -164,7 +180,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 		host->BootDone();
 		host->UpdateDisassembly();
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 		if (g_Config.bAutoRun) {
 			Core_EnableStepping(false);
 		} else {
@@ -185,6 +201,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
 		}
+		Reporting::UpdateConfig();
 		RecreateViews();
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
@@ -276,6 +293,12 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)) {
 			SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0);
 		}
+		break;
+	case VIRTKEY_NEXT_SLOT:
+		SaveState::NextSlot();
+		break;
+	case VIRTKEY_TOGGLE_FULLSCREEN:
+		System_SendMessage("toggle_fullscreen", "");
 		break;
 	}
 }
@@ -429,26 +452,10 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	}
 }
 
-
-// TODO: Get rid of this.
-static const struct { int from, to; } legacy_touch_mapping[12] = {
-	{PAD_BUTTON_A, CTRL_CROSS},
-	{PAD_BUTTON_B, CTRL_CIRCLE},
-	{PAD_BUTTON_X, CTRL_SQUARE},
-	{PAD_BUTTON_Y, CTRL_TRIANGLE},
-	{PAD_BUTTON_START, CTRL_START},
-	{PAD_BUTTON_SELECT, CTRL_SELECT},
-	{PAD_BUTTON_LBUMPER, CTRL_LTRIGGER},
-	{PAD_BUTTON_RBUMPER, CTRL_RTRIGGER},
-	{PAD_BUTTON_UP, CTRL_UP},
-	{PAD_BUTTON_RIGHT, CTRL_RIGHT},
-	{PAD_BUTTON_DOWN, CTRL_DOWN},
-	{PAD_BUTTON_LEFT, CTRL_LEFT},
-};
-
 void EmuScreen::CreateViews() {
-	InitPadLayout();
-	root_ = CreatePadLayout(&pauseTrigger_);
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
+	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -466,10 +473,11 @@ void EmuScreen::update(InputState &input) {
 	UIScreen::update(input);
 
 	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
-	PSP_CoreParameter().outputWidth = dp_xres;
-	PSP_CoreParameter().outputHeight = dp_yres;
-	PSP_CoreParameter().pixelWidth = pixel_xres;
-	PSP_CoreParameter().pixelHeight = pixel_yres;
+	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
+	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	PSP_CoreParameter().pixelWidth = pixel_xres * bounds.w / dp_xres;
+	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 
 	UpdateUIState(UISTATE_INGAME);
 
@@ -479,6 +487,7 @@ void EmuScreen::update(InputState &input) {
 		if (errorMessage_.find("ZIP") != std::string::npos) {
 			screenManager()->push(new InstallZipScreen(gamePath_));
 			errorMessage_ = "";
+			quit_ = true;
 			return;
 		}
 		I18NCategory *g = GetI18NCategory("Error");
@@ -489,23 +498,19 @@ void EmuScreen::update(InputState &input) {
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
 		errorMessage_ = "";
+		quit_ = true;
 		return;
 	}
 
 	if (invalid_)
 		return;
 
-	float leftstick_x = 0.0f;
-	float leftstick_y = 0.0f;
-	float rightstick_x = 0.0f;
-	float rightstick_y = 0.0f;
-
 	// Virtual keys.
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// Apply tilt to left stick
 	// TODO: Make into an axis
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 	/*
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// Get the "base" coordinate system which is setup by the calibration system
@@ -585,6 +590,7 @@ void EmuScreen::render() {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_POWERDOWN)	{
+		PSP_Shutdown();
 		ILOG("SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		invalid_ = true;
@@ -606,15 +612,13 @@ void EmuScreen::render() {
 
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
-	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
-
 	if (root_) {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
 		root_->Draw(*screenManager()->getUIContext());
 	}
 
 	if (!osm.IsEmpty()) {
-		osm.Draw(ui_draw2d);
+		osm.Draw(ui_draw2d, screenManager()->getUIContext()->GetBounds());
 	}
 
 	if (g_Config.bShowDebugStats) {
@@ -643,9 +647,11 @@ void EmuScreen::render() {
 		default:
 			return;
 		}
+
+		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 

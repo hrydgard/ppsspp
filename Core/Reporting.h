@@ -24,19 +24,31 @@
 #define NOTICE_LOG_REPORT(t,...)  { NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); }
 #define INFO_LOG_REPORT(t,...)    { INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
 
-#define DEBUG_LOG_REPORT_ONCE(n,t,...)   { static bool n = false; if (!n) { n = true; DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } }
-#define ERROR_LOG_REPORT_ONCE(n,t,...)   { static bool n = false; if (!n) { n = true; ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } }
-#define WARN_LOG_REPORT_ONCE(n,t,...)    { static bool n = false; if (!n) { n = true; WARN_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } }
-#define NOTICE_LOG_REPORT_ONCE(n,t,...)  { static bool n = false; if (!n) { n = true; NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); } }
-#define INFO_LOG_REPORT_ONCE(n,t,...)    { static bool n = false; if (!n) { n = true; INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } }
+#define DEBUG_LOG_REPORT_ONCE(n,t,...)   { if (Reporting::ShouldLogOnce(#n)) { DEBUG_LOG_REPORT(t, __VA_ARGS__); } }
+#define ERROR_LOG_REPORT_ONCE(n,t,...)   { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG_REPORT(t, __VA_ARGS__); } }
+#define WARN_LOG_REPORT_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG_REPORT(t, __VA_ARGS__); } }
+#define NOTICE_LOG_REPORT_ONCE(n,t,...)  { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG_REPORT(t, __VA_ARGS__); } }
+#define INFO_LOG_REPORT_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG_REPORT(t, __VA_ARGS__); } }
 
-#define ERROR_LOG_ONCE(n,t,...)   { static bool n = false; if (!n) { n = true; ERROR_LOG(t, __VA_ARGS__); } }
-#define WARN_LOG_ONCE(n,t,...)    { static bool n = false; if (!n) { n = true; WARN_LOG(t, __VA_ARGS__); } }
-#define NOTICE_LOG_ONCE(n,t,...)  { static bool n = false; if (!n) { n = true; NOTICE_LOG(t, __VA_ARGS__); } }
-#define INFO_LOG_ONCE(n,t,...)    { static bool n = false; if (!n) { n = true; INFO_LOG(t, __VA_ARGS__); } }
+#define ERROR_LOG_ONCE(n,t,...)   { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG(t, __VA_ARGS__); } }
+#define WARN_LOG_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG(t, __VA_ARGS__); } }
+#define NOTICE_LOG_ONCE(n,t,...)  { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG(t, __VA_ARGS__); } }
+#define INFO_LOG_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG(t, __VA_ARGS__); } }
+
+class PointerWrap;
 
 namespace Reporting
 {
+	// Should be called whenever a new game is loaded/shutdown to forget things.
+	void Init();
+	void Shutdown();
+
+	// Check savestate compatibility, mostly needed on load.
+	void DoState(PointerWrap &p);
+
+	// Should be called whenever the game configuration changes.
+	void UpdateConfig();
+
 	// Returns whether or not the reporting system is currently enabled.
 	bool IsEnabled();
 
@@ -51,4 +63,7 @@ namespace Reporting
 
 	// Report a message string, using the format string as a key.
 	void ReportMessage(const char *message, ...);
+
+	// Returns true if that identifier has not been logged yet.
+	bool ShouldLogOnce(const char *identifier);
 }

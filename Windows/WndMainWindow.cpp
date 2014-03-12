@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@
 #include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
+#include "Windows/InputBox.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -48,6 +49,7 @@
 #include "Core/Config.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -59,14 +61,16 @@
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
+#include "Windows/RawInput.h"
+#include "Windows/TouchInputHandler.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "gfx_es2/gpu_features.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
-#include "Core/HLE/sceUtility.h"
 #include "GPU/Common/PostShader.h"
 
 #include "Core/HLE/sceUmd.h"
@@ -75,7 +79,10 @@
 #include "XPTheme.h"
 #endif
 
-#define ENABLE_TOUCH 0
+#define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
+#define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
+
+static const int numCPUs = 1;
 
 int verysleepy__useSendMessage = 1;
 
@@ -106,18 +113,12 @@ extern InputState input_state;
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
-#ifndef HID_USAGE_PAGE_GENERIC
-#define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
-#endif
-#ifndef HID_USAGE_GENERIC_MOUSE
-#define HID_USAGE_GENERIC_MOUSE        ((USHORT) 0x02)
-#endif
-
 namespace MainWindow
 {
 	HWND hwndMain;
 	HWND hwndDisplay;
 	HWND hwndGameList;
+	TouchInputHandler touchHandler;
 	static HMENU menu;
 
 	static HINSTANCE hInst;
@@ -126,11 +127,11 @@ namespace MainWindow
 	static int prevCursorY = -1;
 	static bool mouseButtonDown = false;
 	static bool hideCursor = false;
-	static void *rawInputBuffer;
-	static size_t rawInputBufferSize;
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
 	static std::vector<std::string> availableShaders;
+	static W32Util::AsyncBrowseDialog *browseDialog;
+	static bool browsePauseAfter;
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -194,7 +195,7 @@ namespace MainWindow
 		}
 	}
 
-	void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
+	static void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
 		rcInner.left = 0;
 		rcInner.top = 0;
 
@@ -209,46 +210,58 @@ namespace MainWindow
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-	void ResizeDisplay(bool displayOSM = true, bool noWindowMovement = false) {
+
+	static void ShowScreenResolution() {
+		I18NCategory *g = GetI18NCategory("Graphics");
+		char message[256];
+		sprintf(message, "%s: %ix%i  %s: %ix%i",
+			g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
+			g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		osm.Show(g->T(message), 2.0f);
+	}
+
+	static void UpdateRenderResolution() {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
-		if (!noWindowMovement) {
-			if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth &&
-				(rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
-				return;
-
-			PSP_CoreParameter().pixelWidth = rc.right - rc.left;
-			PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
-			MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
-		}
-
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
 			zoom = (rc.right - rc.left + 479) / 480;
 
+		// Actually, auto mode should be more granular...
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
-		PSP_CoreParameter().outputWidth = 480 * zoom;
-		PSP_CoreParameter().outputHeight = 272 * zoom;
-		
-		if (displayOSM) {
-			I18NCategory *g = GetI18NCategory("Graphics");
-			char message[256];
-			sprintf(message, "%s: %ix%i  %s: %ix%i",
-				g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
-				g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-			osm.Show(g->T(message), 2.0f);
+	}
+
+	static void ResizeDisplay(bool noWindowMovement = false) {
+		int width = 0, height = 0;
+		RECT rc;
+		GetClientRect(hwndMain, &rc);
+		if (!noWindowMovement) {
+			width = rc.right - rc.left;
+			height = rc.bottom - rc.top;
+			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
+			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
+			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
+			// Need to clean all of this up...
+			PSP_CoreParameter().pixelWidth = width;
+			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		NativeMessageReceived("gpu resized", "");
+		UpdateRenderResolution();
+		
+		if (!noWindowMovement) {
+			UpdateScreenScale(width, height);
+			NativeMessageReceived("gpu resized", "");
+		}
 	}
 
 	void SetWindowSize(int zoom) {
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		ResizeDisplay(true, true);
+		ResizeDisplay(false);
+		ShowScreenResolution();
 	}
 
 	void SetInternalResolution(int res = -1) {
@@ -259,10 +272,15 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 		
+		// Taking auto-texture scaling into account
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		ResizeDisplay(true, true);
+		if (gpu)
+			gpu->Resized();
+
+		UpdateRenderResolution();
+		ShowScreenResolution();
 	}
 
 	void CorrectCursor() {
@@ -302,7 +320,10 @@ namespace MainWindow
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(showOSM, true);
+		ResizeDisplay(true);
+		if (showOSM) {
+			ShowScreenResolution();
+		}
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 	}
@@ -332,10 +353,12 @@ namespace MainWindow
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(showOSM, true);
+		ResizeDisplay(true);
+		if (showOSM) {
+			ShowScreenResolution();
+		}
 
 		ShowOwnedPopups(hwndMain, FALSE);
-		UpdateScreenScale();
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -404,6 +427,10 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 	}
 
 	// These are used as an offset
@@ -421,13 +448,13 @@ namespace MainWindow
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Game Settings submenus
-		SUBMENU_CUSTOM_SHADERS = 9,
-		SUBMENU_RENDERING_RESOLUTION = 10,
-		SUBMENU_WINDOW_SIZE = 11,
-		SUBMENU_RENDERING_MODE = 12,
-		SUBMENU_FRAME_SKIPPING = 13,
-		SUBMENU_TEXTURE_FILTERING = 14,
-		SUBMENU_TEXTURE_SCALING = 15,
+		SUBMENU_CUSTOM_SHADERS = 10,
+		SUBMENU_RENDERING_RESOLUTION = 11,
+		SUBMENU_WINDOW_SIZE = 12,
+		SUBMENU_RENDERING_MODE = 13,
+		SUBMENU_FRAME_SKIPPING = 14,
+		SUBMENU_TEXTURE_FILTERING = 15,
+		SUBMENU_TEXTURE_SCALING = 16,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -589,6 +616,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_RUNONLOAD);
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_GEDEBUGGER,L"\tCtrl+G");
+		TranslateMenuItem(ID_DEBUG_EXTRACTFILE);
 		TranslateMenuItem(ID_DEBUG_LOG, L"\tCtrl+L");
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, L"\tCtrl+M");
 
@@ -596,6 +624,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_LANGUAGE);
 		TranslateMenuItem(ID_OPTIONS_TOPMOST);
 		TranslateMenuItem(ID_OPTIONS_PAUSE_FOCUS);
+		TranslateMenuItem(ID_OPTIONS_IGNOREWINKEY);
 		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(ID_OPTIONS_CONTROLS);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY);
@@ -613,8 +642,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU);
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU);
 		TranslateSubMenu("Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0);
 		// Skip frameskipping 1-8..
 		TranslateSubMenu("Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO);
@@ -706,7 +735,6 @@ namespace MainWindow
 		I18NCategory *g = GetI18NCategory("Graphics");
 		const char *frameskipStr = g->T("Frame Skipping");
 		const char *offStr = g->T("Off");
-		const char *autoStr = g->T("Auto");
 
 		char message[256];
 		memset(message, 0, sizeof(message));
@@ -715,12 +743,8 @@ namespace MainWindow
 		case FRAMESKIP_OFF:
 			sprintf(message, "%s: %s", frameskipStr, offStr);
 			break;
-		case FRAMESKIP_AUTO:
-			sprintf(message, "%s: %s", frameskipStr, autoStr);
-			break;
 		default:
-			//1 means auto, 2 means 1, 3 means 2...
-			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip - 1);
+			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
 			break;
 		}
 
@@ -742,7 +766,6 @@ namespace MainWindow
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
 		hInst = hInstance; // Store instance handle in our global variable.
-
 		RECT rc = DetermineWindowRectangle();
 
 		u32 style = WS_OVERLAPPEDWINDOW;
@@ -790,21 +813,9 @@ namespace MainWindow
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-#if ENABLE_TOUCH
-		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
-#endif
+		touchHandler.registerTouchWindow(hwndDisplay);
 
-		RAWINPUTDEVICE dev[2];
-		memset(dev, 0, sizeof(dev));
-
-		dev[0].usUsagePage = 1;
-		dev[0].usUsage = 6;
-		dev[0].dwFlags = 0;
-
-		dev[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
-		dev[1].usUsage = HID_USAGE_GENERIC_MOUSE;
-		dev[1].dwFlags = 0;
-		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
+		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
 		return TRUE;
@@ -822,60 +833,76 @@ namespace MainWindow
 		DialogManager::AddDlg(memoryWindow[0]);
 	}
 
-	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
-		std::string fn;
-		std::string filter = "All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
+	void DestroyDebugWindows() {
+		DialogManager::RemoveDlg(disasmWindow[0]);
+		if (disasmWindow[0])
+			delete disasmWindow[0];
+		disasmWindow[0] = 0;
 		
-		for (int i=0; i<(int)filter.length(); i++) {
+		DialogManager::RemoveDlg(geDebuggerWindow);
+		if (geDebuggerWindow)
+			delete geDebuggerWindow;
+		geDebuggerWindow = 0;
+		
+		DialogManager::RemoveDlg(memoryWindow[0]);
+		if (memoryWindow[0])
+			delete memoryWindow[0];
+		memoryWindow[0] = 0;
+	}
+
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
+		static std::wstring filter = L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
+		for (int i = 0; i < (int)filter.length(); i++) {
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
-		// Pause if a game is being played.
-		bool isPaused = false;
+		browsePauseAfter = false;
 		if (globalUIState == UISTATE_INGAME) {
-			isPaused = Core_IsStepping();
-			if (!isPaused)
+			browsePauseAfter = Core_IsStepping();
+			if (!browsePauseAfter)
 				Core_EnableStepping(true);
 		}
 
+		W32Util::MakeTopMost(GetHWND(), false);
 		if (browseDirectory) {
-			std::string dir = W32Util::BrowseForFolder(GetHWND(), "Choose directory");
-			if (dir == "") {
-				if (!isPaused)
-					Core_EnableStepping(false);
-			}
-			else {
-				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
-					Core_EnableStepping(false);
-				}
-				
-				dir = ReplaceAll(dir, "\\", "/");
-				NativeMessageReceived("boot", dir.c_str());
-			}
+			browseDialog = new W32Util::AsyncBrowseDialog(GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"Choose directory");
+		} else {
+			browseDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"LoadFile", ConvertUTF8ToWString(defaultPath), filter, L"*.pbp;*.elf;*.iso;*.cso;");
 		}
-		else if (W32Util::BrowseForFileName(true, GetHWND(), L"Load File", defaultPath.size() ? ConvertUTF8ToWString(defaultPath).c_str() : 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn))
-		{
+	}
+
+	void BrowseAndBootDone() {
+		std::string filename;
+		if (!browseDialog->GetResult(filename)) {
+			if (!browsePauseAfter) {
+				Core_EnableStepping(false);
+			}
+		} else {
 			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
-			// Decode the filename with fullpath.
-			std::string fullpath = fn;
-			char drive[MAX_PATH];
-			char dir[MAX_PATH];
-			char fname[MAX_PATH];
-			char ext[MAX_PATH];
-			_splitpath(fullpath.c_str(), drive, dir, fname, ext);
+			// TODO: What is this for / what does it fix?
+			if (browseDialog->GetType() != W32Util::AsyncBrowseDialog::DIR) {
+				// Decode the filename with fullpath.
+				char drive[MAX_PATH];
+				char dir[MAX_PATH];
+				char fname[MAX_PATH];
+				char ext[MAX_PATH];
+				_splitpath(filename.c_str(), drive, dir, fname, ext);
 
-			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			executable = ReplaceAll(executable, "\\", "/");
-			NativeMessageReceived("boot", executable.c_str());
+				filename = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
+			}
+
+			filename = ReplaceAll(filename, "\\", "/");
+			NativeMessageReceived("boot", filename.c_str());
 		}
-		else {
-			if (!isPaused)
-				Core_EnableStepping(false);
-		}
+
+		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
+
+		delete browseDialog;
+		browseDialog = 0;
 	}
 
 	void UmdSwitchAction() {
@@ -917,6 +944,8 @@ namespace MainWindow
 		// and as asynchronous touch events for minimal latency.
 
 		case WM_LBUTTONDOWN:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
@@ -936,11 +965,13 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				SetCapture(hWnd);
-				
+
 			}
 			break;
 
 		case WM_MOUSEMOVE:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
@@ -971,6 +1002,8 @@ namespace MainWindow
 			break;
 
 		case WM_LBUTTONUP:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
@@ -990,37 +1023,10 @@ namespace MainWindow
 			}
 			break;
 
-		// Actual touch! Unfinished...
-
 		case WM_TOUCH:
 			{
-				// TODO: Enabling this section will probably break things on Windows XP.
-				// We probably need to manually fetch pointers to GetTouchInputInfo and CloseTouchInputHandle.
-#if ENABLE_TOUCH
-				UINT inputCount = LOWORD(wParam);
-				TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
-				if (GetTouchInputInfo((HTOUCHINPUT)lParam,
-					inputCount,
-					inputs,
-					sizeof(TOUCHINPUT)))
-				{
-					for (int i = 0; i < inputCount; i++) {
-						// TODO: process inputs here!
-
-					}
-
-					if (!CloseTouchInputHandle((HTOUCHINPUT)lParam))
-					{
-						// Error handling.
-					}
-				}
-				else
-				{
-					// GetLastError() and error handling.
-				}
-				delete [] inputs;
-				return DefWindowProc(hWnd, message, wParam, lParam);
-#endif
+				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
+				return 0;
 			}
 
 		case WM_PAINT:
@@ -1030,28 +1036,6 @@ namespace MainWindow
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		return 0;
-	}
-
-	static int GetTrueVKey(const RAWKEYBOARD &kb) {
-		switch (kb.VKey) {
-		case VK_SHIFT:
-			return MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
-
-		case VK_CONTROL:
-			if (kb.Flags & RI_KEY_E0)
-				return VK_RCONTROL;
-			else
-				return VK_LCONTROL;
-
-		case VK_MENU:
-			if (kb.Flags & RI_KEY_E0)
-				return VK_RMENU;  // Right Alt / AltGr
-			else
-				return VK_LMENU;  // Left Alt
-
-		default:
-			return kb.VKey;
-		}
 	}
 	
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
@@ -1080,25 +1064,18 @@ namespace MainWindow
 				}
 
 				if (wParam == WA_INACTIVE) {
-					// Force-release TAB, which is the most annoying one when alt tabbing
-					// This isn't exactly a correct solution but will fix this annoyance for many.
-					KeyInput key;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					key.keyCode = NKCODE_TAB;
-					key.flags = KEY_UP;
-					NativeKey(key);
+					WindowsRawInput::LoseFocus();
 				}
 			}
 			break;
 
 		case WM_MOVE:
 			SavePosition();
-			ResizeDisplay(false);
 			break;
 
 		case WM_SIZE:
 			SavePosition();
-			ResizeDisplay(false);
+			ResizeDisplay();
 			break;
 
 		case WM_TIMER:
@@ -1222,11 +1199,7 @@ namespace MainWindow
 
 				case ID_FILE_SAVESTATE_NEXT_SLOT:
 				{
-					I18NCategory *sy = GetI18NCategory("System");
-					g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
-					char msg[30];
-					sprintf(msg, "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
-					osm.Show(msg);
+					SaveState::NextSlot();
 					break;
 				}
 
@@ -1248,6 +1221,10 @@ namespace MainWindow
 
 				case ID_OPTIONS_LANGUAGE:
 					NativeMessageReceived("language screen", "");
+					break;
+
+				case ID_OPTIONS_IGNOREWINKEY:
+					g_Config.bIgnoreWindowsKey = !g_Config.bIgnoreWindowsKey;
 					break;
 
 				case ID_OPTIONS_SCREENAUTO: SetInternalResolution(RESOLUTION_AUTO); break;
@@ -1275,6 +1252,10 @@ namespace MainWindow
 
 				case ID_OPTIONS_VSYNC:
 					g_Config.bVSync = !g_Config.bVSync;
+					break;
+
+				case ID_OPTIONS_FRAMESKIP_AUTO:
+					g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 					break;
 
 				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
@@ -1320,7 +1301,6 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
-				case ID_OPTIONS_FRAMESKIP_AUTO: setFrameSkipping(FRAMESKIP_AUTO); break;
 				case ID_OPTIONS_FRAMESKIP_1:    setFrameSkipping(FRAMESKIP_1); break;
 				case ID_OPTIONS_FRAMESKIP_2:    setFrameSkipping(FRAMESKIP_2); break;
 				case ID_OPTIONS_FRAMESKIP_3:    setFrameSkipping(FRAMESKIP_3); break;
@@ -1347,7 +1327,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, L"Load .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn)) {
 						symbolMap.LoadSymbolMap(fn.c_str());
 
 						if (disasmWindow[0])
@@ -1359,7 +1339,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_SAVEMAPFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, L"Save .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn))
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
 
@@ -1376,15 +1356,50 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
-					disasmWindow[0]->Show(true);
+					if (disasmWindow[0])
+						disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_GEDEBUGGER:
-					geDebuggerWindow->Show(true);
+					if (geDebuggerWindow)
+						geDebuggerWindow->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
-					memoryWindow[0]->Show(true);
+					if (memoryWindow[0])
+						memoryWindow[0]->Show(true);
+					break;
+
+				case ID_DEBUG_EXTRACTFILE:
+					{
+						std::string filename;
+						if (!InputBox_GetString(hInst, hwndMain, L"Disc filename", filename, filename)) {
+							break;
+						}
+
+						const char *lastSlash = strrchr(filename.c_str(), '/');
+						if (lastSlash) {
+							fn = lastSlash + 1;
+						} else {
+							fn = "";
+						}
+
+						PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+						if (!info.exists) {
+							MessageBox(hwndMain, L"File does not exist.", L"Sorry",0);
+						} else if (info.type == FILETYPE_DIRECTORY) {
+							MessageBox(hwndMain, L"Cannot extract directories.", L"Sorry",0);
+						} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
+							FILE *fp = fopen(fn.c_str(), "wb");
+							u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
+							u8 buffer[4096];
+							while (pspFileSystem.ReadFile(handle, buffer, sizeof(buffer)) > 0) {
+								fwrite(buffer, sizeof(buffer), 1, fp);
+							}
+							pspFileSystem.CloseFile(handle);
+							fclose(fp);
+						}
+					}
 					break;
 
 				case ID_DEBUG_LOG:
@@ -1475,7 +1490,7 @@ namespace MainWindow
 						// The Menu ID is contained in wParam, so subtract
 						// ID_SHADERS_BASE and an additional 1 off it.
 						u32 index = (wParam - ID_SHADERS_BASE - 1);
-						if (index >= 0 && index < availableShaders.size()) {
+						if (index < availableShaders.size()) {
 							g_Config.sPostShaderName = availableShaders[index];
 
 							NativeMessageReceived("gpu resized", "");
@@ -1491,60 +1506,9 @@ namespace MainWindow
 			break;
 
 		case WM_INPUT:
-			{
-				UINT dwSize;
-				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
-				if (!rawInputBuffer) {
-					rawInputBuffer = malloc(dwSize);
-					rawInputBufferSize = dwSize;
-				}
-				if (dwSize > rawInputBufferSize) {
-					rawInputBuffer = realloc(rawInputBuffer, dwSize);
-				}
-				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
-				RAWINPUT* raw = (RAWINPUT*)rawInputBuffer;
-				if (raw->header.dwType == RIM_TYPEKEYBOARD) {
-					KeyInput key;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
-						key.flags = KEY_DOWN;
-						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
-						if (key.keyCode) {
-							NativeKey(key);
-						}
-					} else if (raw->data.keyboard.Message == WM_KEYUP) {
-						key.flags = KEY_UP;
-						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
-						if (key.keyCode) {
-							NativeKey(key);	
-						}
-					}
-				} else if (raw->header.dwType == RIM_TYPEMOUSE) {
-					mouseDeltaX += raw->data.mouse.lLastX;
-					mouseDeltaY += raw->data.mouse.lLastY;
+			return WindowsRawInput::Process(hWnd, wParam, lParam);
 
-					KeyInput key;
-					key.deviceId = DEVICE_ID_MOUSE;
-
-					int mouseRightBtnPressed = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN;
-					int mouseRightBtnReleased = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP;
-
-					if(mouseRightBtnPressed) {
-						key.flags = KEY_DOWN;
-						key.keyCode = windowsTransTable[VK_RBUTTON];
-						NativeKey(key);
-					}
-					else if(mouseRightBtnReleased) {
-						key.flags = KEY_UP;
-						key.keyCode = windowsTransTable[VK_RBUTTON];
-						NativeKey(key);
-					}
-
-					// TODO : Smooth and translate to an axis every frame.
-					// NativeAxis()
-				}
-			}
-			return 0;
+		// TODO: Could do something useful with WM_INPUT_DEVICE_CHANGE?
 
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
@@ -1599,6 +1563,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 			EmuThread_Stop();
+			WindowsRawInput::Shutdown();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
@@ -1609,10 +1574,13 @@ namespace MainWindow
 			break;
 
 		case WM_USER + 1:
-			disasmWindow[0]->NotifyMapLoaded();
-			memoryWindow[0]->NotifyMapLoaded();
+			if (disasmWindow[0])
+				disasmWindow[0]->NotifyMapLoaded();
+			if (memoryWindow[0])
+				memoryWindow[0]->NotifyMapLoaded();
 
-			disasmWindow[0]->UpdateDialog();
+			if (disasmWindow[0])
+				disasmWindow[0]->UpdateDialog();
 
 			SetForegroundWindow(hwndMain);
 			break;
@@ -1627,17 +1595,23 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_SCREEN:
-			ResizeDisplay(true, true);
+			ResizeDisplay(true);
+			ShowScreenResolution();
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
 			UpdateWindowTitle();
 			break;
 
+		case WM_USER_BROWSE_BOOT_DONE:
+			BrowseAndBootDone();
+			break;
+
 		case WM_MENUSELECT:
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
 			// with corresponding menu items.
 			UpdateMenus();
+			WindowsRawInput::NotifyMenu();
 			break;
 
 		// Turn off the screensaver.
@@ -1670,6 +1644,7 @@ namespace MainWindow
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
@@ -1677,6 +1652,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
+		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 
 		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,
@@ -1734,6 +1710,14 @@ namespace MainWindow
 			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		if (!gl_extensions.OES_texture_npot) {
+			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_GRAYED);
+			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_GRAYED);
+		} else {
+			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
+			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
+		}
+
 		static const int texscalingtypeitems[] = {
 			ID_TEXTURESCALING_XBRZ,
 			ID_TEXTURESCALING_HYBRID,
@@ -1784,7 +1768,6 @@ namespace MainWindow
 
 		static const int frameskipping[] = {
 			ID_OPTIONS_FRAMESKIP_0,
-			ID_OPTIONS_FRAMESKIP_AUTO,
 			ID_OPTIONS_FRAMESKIP_1,
 			ID_OPTIONS_FRAMESKIP_2,
 			ID_OPTIONS_FRAMESKIP_3,

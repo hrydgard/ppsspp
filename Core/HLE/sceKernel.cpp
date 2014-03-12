@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/HLE/HLE.h"
@@ -32,8 +33,6 @@
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-
-#include "util/random/rng.h"
 
 #include "__sceAudio.h"
 #include "sceAtrac.h"
@@ -74,6 +73,7 @@
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
 #include "sceHeap.h"
+#include "sceDmac.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -132,8 +132,10 @@ void __KernelInit()
 	__VaudioInit();
 	__CheatInit();
 	__HeapInit();
+	__DmacInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
+	Reporting::Init();
 
 	// "Internal" PSP libraries
 	__PPGeInit();
@@ -180,6 +182,7 @@ void __KernelShutdown()
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
+	Reporting::Shutdown();
 
 	kernelRunning = false;
 }
@@ -260,6 +263,7 @@ void __KernelDoState(PointerWrap &p)
 
 		__InterruptsDoStateLate(p);
 		__KernelThreadingDoStateLate(p);
+		Reporting::DoState(p);
 	}
 }
 
@@ -342,12 +346,16 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 		if (addr != 0)
 			gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
+	hleEatCycles(190);
 	return 0;
 }
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
 	DEBUG_LOG(CPU,"sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
 	// TODO: Make the JIT hash and compare the touched blocks.
+	if(MIPSComp::jit){
+		MIPSComp::jit->ClearCacheAt(addr, size);
+	}
 	return 0;
 }
 
@@ -359,6 +367,7 @@ int sceKernelDcacheWritebackAll()
 	// Some games seem to use this a lot, it doesn't make sense
 	// to zap the whole texture cache.
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
+	hleEatCycles(3524);
 	return 0;
 }
 
@@ -373,6 +382,7 @@ int sceKernelDcacheWritebackRange(u32 addr, int size)
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
+	hleEatCycles(165);
 	return 0;
 }
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
@@ -386,6 +396,7 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
+	hleEatCycles(165);
 	return 0;
 }
 int sceKernelDcacheWritebackInvalidateAll()
@@ -394,6 +405,7 @@ int sceKernelDcacheWritebackInvalidateAll()
 	NOTICE_LOG(CPU,"sceKernelDcacheInvalidateAll()");
 #endif
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
+	hleEatCycles(1165);
 	return 0;
 }
 
@@ -414,6 +426,11 @@ u32 sceKernelIcacheClearAll()
 #endif
 	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
 	return 0;
+}
+
+void KernelObject::GetQuickInfo(char *ptr, int size)
+{
+	strcpy(ptr, "-");
 }
 
 KernelObjectPool::KernelObjectPool()
@@ -604,13 +621,13 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 }
 
 struct SystemStatus {
-	SceSize size;
-	SceUInt status;
-	SceUInt clockPart1;
-	SceUInt clockPart2;
-	SceUInt perfcounter1;
-	SceUInt perfcounter2;
-	SceUInt perfcounter3;
+	SceSize_le size;
+	SceUInt_le status;
+	SceUInt_le clockPart1;
+	SceUInt_le clockPart2;
+	SceUInt_le perfcounter1;
+	SceUInt_le perfcounter2;
+	SceUInt_le perfcounter3;
 };
 
 int sceKernelReferSystemStatus(u32 statusPtr) {
@@ -739,7 +756,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xaa73c935,WrapV_I<sceKernelExitThread>,"sceKernelExitThread"},
 	{0x809ce29b,WrapV_I<sceKernelExitDeleteThread>,"sceKernelExitDeleteThread"},
 	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
-	{0x293b45b8,WrapI_V<sceKernelGetThreadId>,"sceKernelGetThreadId"},
+	{0x293b45b8,WrapI_V<sceKernelGetThreadId>,				   "sceKernelGetThreadId",				   HLE_NOT_IN_INTERRUPT},
 	{0x3B183E26,WrapI_I<sceKernelGetThreadExitStatus>,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,WrapI_I<sceKernelGetThreadStackFreeSize>,      "sceKernelGetThreadStackFreeSize"},
 	{0xFFC36A14,WrapU_UU<sceKernelReferThreadRunStatus>,"sceKernelReferThreadRunStatus"},
@@ -897,6 +914,30 @@ void Register_LoadExecForUser()
 	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
 
+int LoadExecForKernel_4AC57943(SceUID cbId) 
+{
+	WARN_LOG(SCEKERNEL,"LoadExecForKernel_4AC57943:Not support this patcher");
+	return sceKernelRegisterExitCallback(cbId);//not sure right
+}
+ 
+const HLEFunction LoadExecForKernel[] =
+{
+	{0x4AC57943,&WrapI_I<LoadExecForKernel_4AC57943>,"LoadExecForKernel_4AC57943"},
+	{0xa3d5e142,0, "LoadExecForKernel_a3d5e142"}, 
+};
+ 
+void Register_LoadExecForKernel()
+{
+	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
+}
+
+const HLEFunction SysMemForKernel[] =
+{
+	{0x636c953b,0, "SysMemForKernel_636c953b"},
+	{0xc9805775,0, "SysMemForKernel_c9805775"},
+	{0x1c1fbfe7,0, "SysMemForKernel_1c1fbfe7"},
+};
+
 const HLEFunction ExceptionManagerForKernel[] =
 {
 	{0x3FB264FC, 0, "sceKernelRegisterExceptionHandler"},
@@ -908,6 +949,11 @@ const HLEFunction ExceptionManagerForKernel[] =
 	{0x15ADC862, 0, "sceKernelRegisterNmiHandler"},
 	{0xB15357C9, 0, "sceKernelReleaseNmiHandler"},
 };
+
+void Register_SysMemForKernel()
+{
+	RegisterModule("SysMemForKernel", ARRAY_SIZE(SysMemForKernel), SysMemForKernel);
+}
 
 void Register_ExceptionManagerForKernel()
 {

@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
-#include "Asm.h"
+#include "Core/MIPS/x86/Asm.h"
 
 #if defined(ARM)
 #error DO NOT BUILD X86 JIT ON ARM
@@ -28,8 +28,8 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
-#include "RegCache.h"
-#include "RegCacheFPU.h"
+#include "Core/MIPS/x86/RegCache.h"
+#include "Core/MIPS/x86/RegCacheFPU.h"
 
 namespace MIPSComp
 {
@@ -202,8 +202,16 @@ private:
 	void CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32));
 	void CompShiftImm(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
 	void CompShiftVar(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
-	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc);
-	void CompITypeMemWrite(MIPSOpcode op, u32 bits, void *safeFunc);
+	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), const void *safeFunc);
+	template <typename T>
+	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), T (*safeFunc)(u32 addr)) {
+		CompITypeMemRead(op, bits, mov, (const void *)safeFunc);
+	}
+	void CompITypeMemWrite(MIPSOpcode op, u32 bits, const void *safeFunc);
+	template <typename T>
+	void CompITypeMemWrite(MIPSOpcode op, u32 bits, void (*safeFunc)(T val, u32 addr)) {
+		CompITypeMemWrite(op, bits, (const void *)safeFunc);
+	}
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
 	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
@@ -211,10 +219,30 @@ private:
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
 
-	void CallProtectedFunction(void *func, const OpArg &arg1);
-	void CallProtectedFunction(void *func, const OpArg &arg1, const OpArg &arg2);
-	void CallProtectedFunction(void *func, const u32 arg1, const u32 arg2, const u32 arg3);
-	void CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, const u32 arg3);
+	void CallProtectedFunction(const void *func, const OpArg &arg1);
+	void CallProtectedFunction(const void *func, const OpArg &arg1, const OpArg &arg2);
+	void CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2, const u32 arg3);
+	void CallProtectedFunction(const void *func, const OpArg &arg1, const u32 arg2, const u32 arg3);
+
+	template <typename Tr, typename T1>
+	void CallProtectedFunction(Tr (*func)(T1), const OpArg &arg1) {
+		CallProtectedFunction((const void *)func, arg1);
+	}
+
+	template <typename Tr, typename T1, typename T2>
+	void CallProtectedFunction(Tr (*func)(T1, T2), const OpArg &arg1, const OpArg &arg2) {
+		CallProtectedFunction((const void *)func, arg1, arg2);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3>
+	void CallProtectedFunction(Tr (*func)(T1, T2, T3), const u32 arg1, const u32 arg2, const u32 arg3) {
+		CallProtectedFunction((const void *)func, arg1, arg2, arg3);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3>
+	void CallProtectedFunction(Tr (*func)(T1, T2, T3), const OpArg &arg1, const u32 arg2, const u32 arg3) {
+		CallProtectedFunction((const void *)func, arg1, arg2, arg3);
+	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
 	bool CanContinueBranch() {
@@ -249,12 +277,20 @@ private:
 		// Emit code proceeding a slow write call, returns true if slow write is needed.
 		bool PrepareSlowWrite();
 		// Emit a slow write from src.
-		void DoSlowWrite(void *safeFunc, const OpArg src, int suboffset = 0);
+		void DoSlowWrite(const void *safeFunc, const OpArg src, int suboffset = 0);
+		template <typename T>
+		void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const OpArg src, int suboffset = 0) {
+			DoSlowWrite((const void *)safeFunc, src, suboffset);
+		}
 
 		// Emit code necessary for a memory read, returns true if MOV from src is needed.
 		bool PrepareRead(OpArg &src, int size);
 		// Emit code for a slow read call, and returns true if result is in EAX.
-		bool PrepareSlowRead(void *safeFunc);
+		bool PrepareSlowRead(const void *safeFunc);
+		template <typename T>
+		bool PrepareSlowRead(T (*safeFunc)(u32 addr)) {
+			return PrepareSlowRead((const void *)safeFunc);
+		}
 		
 		// Cleans up final code for the memory access.
 		void Finish();
@@ -264,7 +300,11 @@ private:
 		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
 		OpArg NextFastAddress(int suboffset);
 		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
-		void NextSlowRead(void *safeFunc, int suboffset);
+		void NextSlowRead(const void *safeFunc, int suboffset);
+		template <typename T>
+		void NextSlowRead(T (*safeFunc)(u32 addr), int suboffset) {
+			NextSlowRead((const void *)safeFunc, suboffset);
+		}
 
 	private:
 		enum ReadType {

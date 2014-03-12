@@ -31,6 +31,7 @@
 #include "Common/FileUtil.h"
 #include "Core/System.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/SaveState.h"
 
 #include "UI/EmuScreen.h"
@@ -87,9 +88,36 @@ public:
 	}
 	virtual void Touch(const TouchInput &input) {
 		UI::Clickable::Touch(input);
+		hovering_ = bounds_.Contains(input.x, input.y);
 		if (input.flags & TOUCH_UP) {
 			holdFrameCount_ = 0;
 		}
+	}
+
+	virtual void Key(const KeyInput &key) {
+		std::vector<int> pspKeys;
+		bool showInfo = false;
+
+		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
+			for (auto it = pspKeys.begin(), end = pspKeys.end(); it != end; ++it) {
+				// If the button mapped to triangle, then show the info.
+				if (HasFocus() && (key.flags & KEY_UP) && *it == CTRL_TRIANGLE) {
+					showInfo = true;
+				}
+			}
+		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
+			// If it's the right mouse button, and it's not otherwise mapped, show the info also.
+			if (key.flags & KEY_UP) {
+				showInfo = true;
+			}
+		}
+
+		if (showInfo) {
+			TriggerOnHoldClick();
+			return;
+		}
+
+		Clickable::Key(key);
 	}
 
 	virtual void Update(const InputState &input_state) {
@@ -97,26 +125,31 @@ public:
 			holdFrameCount_++;
 		else
 			holdFrameCount_ = 0;
-		// Hold button for 1.5 seconds to launch the game directly
+		// Hold button for 1.5 seconds to launch the game options
 		if (holdFrameCount_ > 90) {
-			holdFrameCount_ = 0;
-			UI::EventParams e;
-			e.v = this;
-			e.s = gamePath_;
-			down_ = false;
-			OnHoldClick.Trigger(e);
+			TriggerOnHoldClick();
 		}
 	}
 
 	UI::Event OnHoldClick;
 
 private:
+	void TriggerOnHoldClick() {
+		holdFrameCount_ = 0;
+		UI::EventParams e;
+		e.v = this;
+		e.s = gamePath_;
+		down_ = false;
+		OnHoldClick.Trigger(e);
+	}
+
 	bool gridStyle_;
 	std::string gamePath_;
 	std::string title_;
 
 	int holdFrameCount_;
 	bool holdEnabled_;
+	bool hovering_;
 };
 
 void GameButton::Draw(UIContext &dc) {
@@ -559,7 +592,7 @@ bool GameBrowser::IsCurrentPathPinned() {
 }
 
 const std::vector<std::string> GameBrowser::GetPinnedPaths() {
-#ifdef _WIN32
+#ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
 	static const std::string sepChars = "/\\";
@@ -587,7 +620,7 @@ const std::vector<std::string> GameBrowser::GetPinnedPaths() {
 }
 
 const std::string GameBrowser::GetBaseName(const std::string &path) {
-#ifdef _WIN32
+#ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
 	static const std::string sepChars = "/\\";
@@ -659,6 +692,7 @@ void MainScreen::CreateViews() {
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
 	tabHolder_ = leftColumn;
+
 	leftColumn->SetClip(true);
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -745,6 +779,7 @@ void MainScreen::CreateViews() {
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);
 	gold->SetIcon(I_ICONGOLD);
 #endif
+	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 
 	if (vertical) {
@@ -760,6 +795,8 @@ void MainScreen::CreateViews() {
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
 	}
+
+	root_->SetDefaultFocusView(tabHolder_);
 
 	I18NCategory *u = GetI18NCategory("Upgrade");
 
@@ -836,7 +873,7 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 		g_Config.Save();
 		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 	}
-#elif defined(_WIN32)
+#elif defined(USING_WIN_UI)
 	MainWindow::BrowseAndBoot("");
 #endif
 	return UI::EVENT_DONE;
@@ -910,8 +947,16 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	System_SendMessage("event", "exitprogram");
-	NativeShutdown();
+
+	// Request the framework to exit cleanly.
+	System_SendMessage("finish", "");
+
+	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
+#ifdef ANDROID
 	exit(0);
+#endif
+
+	globalUIState = UISTATE_EXIT;
 	return UI::EVENT_DONE;
 }
 
@@ -925,34 +970,6 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 void GamePauseScreen::update(InputState &input) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	UIScreen::update(input);
-}
-
-void DrawBackground(float alpha);
-
-void GamePauseScreen::DrawBackground(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
-	dc.Flush();
-
-	if (ginfo) {
-		bool hasPic = false;
-		if (ginfo->pic1Texture) {
-			ginfo->pic1Texture->Bind(0);
-			hasPic = true;
-		} else if (ginfo->pic0Texture) {
-			ginfo->pic0Texture->Bind(0);
-			hasPic = true;
-		}
-		if (hasPic) {
-			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
-			dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1, color);
-			dc.Flush();
-			dc.RebindTexture();
-		} else {
-			::DrawBackground(1.0f);
-			dc.RebindTexture();
-			dc.Flush();
-		}
-	}
 }
 
 GamePauseScreen::~GamePauseScreen() {
@@ -1015,11 +1032,14 @@ void GamePauseScreen::CreateViews() {
 	if (getUMDReplacePermit()) {
 		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
 	}
-	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	Choice *continueChoice = rightColumnItems->Add(new Choice(i->T("Continue")));
+	root_->SetDefaultFocusView(continueChoice);
+	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
+	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
 	UI::EventParams e;
@@ -1042,6 +1062,7 @@ void GamePauseScreen::onFinish(DialogResult result) {
 	// Do we really always need to "gpu->Resized" here?
 	if (gpu)
 		gpu->Resized();
+	Reporting::UpdateConfig();
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {

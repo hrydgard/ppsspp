@@ -79,6 +79,8 @@
 #define IDD_TABDISPLAYLISTS             251
 #define IDD_GEDBG_TAB_VALUES            252
 #define IDD_DUMPMEMORY                  253
+#define IDD_GEDBG_TAB_VERTICES          254
+#define IDD_GEDBG_TAB_MATRICES          255
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -156,6 +158,9 @@
 #define IDC_GEDBG_FRAMEBUFADDR          1191
 #define IDC_GEDBG_TEXADDR               1192
 #define IDC_GEDBG_FBTABS                1193
+#define IDC_GEDBG_VERTICES              1194
+#define IDC_GEDBG_RAWVERTS              1195
+#define IDC_GEDBG_MATRICES              1196
 
 #define ID_SHADERS_BASE  5000
 
@@ -298,6 +303,9 @@
 #define ID_MEMVIEW_COPYVALUE_16          40142
 #define ID_MEMVIEW_COPYVALUE_32          40143
 #define ID_EMULATION_SWITCH_UMD          40144
+#define ID_DEBUG_EXTRACTFILE             40145
+#define ID_OPTIONS_IGNOREWINKEY          40146
+#define IDC_MODULELIST                   40147
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -309,9 +317,9 @@
 // Next default values for new objects
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        254
-#define _APS_NEXT_COMMAND_VALUE         40144
-#define _APS_NEXT_CONTROL_VALUE         1193
+#define _APS_NEXT_RESOURCE_VALUE        256
+#define _APS_NEXT_COMMAND_VALUE         40148
+#define _APS_NEXT_CONTROL_VALUE         1197
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

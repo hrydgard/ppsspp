@@ -37,6 +37,7 @@ endif()
 
 if(ARM OR SIMULATOR)
 	set(USING_GLES2 ON)
+	set(MOBILE_DEVICE ON)
 else() # Assume x86
 	set(X86 ON)
 endif()
@@ -44,7 +45,7 @@ endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_CONSTANT_MACROS")
-	if (NOT USING_GLES2)
+	if (NOT MOBILE_DEVICE)
 		set(USE_FFMPEG ON)
 	endif()
 endif()
@@ -58,6 +59,11 @@ if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
 
+# Doesn't link on some platforms
+#if(NOT DEFINED UNITTEST)
+#	set(UNITTEST OFF)
+#endif()
+
 # User-editable options (go into CMakeCache.txt)
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
@@ -69,7 +75,9 @@ option(MAEMO "Set to ON if targeting an Maemo (N900) device" ${MAEMO})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
+option(MOBILE_DEVICE "Set to ON when targetting a mobile device" ${MOBILE_DEVICE})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
@@ -139,6 +147,9 @@ if(ARM)
 endif()
 if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
+endif()
+if(MOBILE_DEVICE)
+	add_definitions(-DMOBILE_DEVICE)
 endif()
 
 if(MIPS)
@@ -624,6 +635,9 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
+    if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
+        set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
+    endif()
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
@@ -660,14 +674,10 @@ else()
 	message(FATAL_ERROR "Could not find SDL. Failing.")
 endif()
 
-if(X86)
-	set(nativeExtra ${nativeExtra}
-		native/base/backtrace.cpp
-		native/base/backtrace.h)
-endif()
-
 add_library(native STATIC
 	${nativeExtra}
+	native/base/backtrace.cpp
+	native/base/backtrace.h
 	native/audio/mixer.cpp
 	native/audio/mixer.h
 	native/audio/wav_read.cpp
@@ -916,8 +926,6 @@ endif()
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
-	Core/CPU.cpp
-	Core/CPU.h
 	Core/Config.cpp
 	Core/Config.h
 	Core/Core.cpp
@@ -935,6 +943,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/DebugInterface.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
+	Core/Debugger/DisassemblyManager.cpp
+	Core/Debugger/DisassemblyManager.h
 	Core/Dialog/PSPDialog.cpp
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPGamedataInstallDialog.cpp
@@ -966,6 +976,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileSystems/DirectoryFileSystem.cpp
 	Core/FileSystems/DirectoryFileSystem.h
 	Core/FileSystems/FileSystem.h
+	Core/FileSystems/FileSystem.cpp
 	Core/FileSystems/ISOFileSystem.cpp
 	Core/FileSystems/ISOFileSystem.h
 	Core/FileSystems/MetaFileSystem.cpp
@@ -1058,6 +1069,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceOpenPSID.h
 	Core/HLE/sceP3da.cpp
 	Core/HLE/sceP3da.h
+	Core/HLE/sceMt19937.cpp
+	Core/HLE/sceMt19937.h
 	Core/HLE/sceMd5.cpp
 	Core/HLE/sceMd5.h
 	Core/HLE/sceMp4.cpp
@@ -1360,6 +1373,15 @@ if(HEADLESS)
 	target_link_libraries(PPSSPPHeadless
 		${COCOA_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
+endif()
+
+if(UNITTEST)
+	add_executable(unitTest
+		unittest/UnitTest.cpp
+	)
+	target_link_libraries(unitTest
+		${COCOA_LIBRARY} ${LinkCommon})
+	setup_target_project(unitTest unittest)
 endif()
 
 if (TargetBin)

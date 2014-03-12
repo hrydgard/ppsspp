@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Common/CommonTypes.h"
 
 u32 MIPS_GetNextPC();
 void MIPS_ClearDelaySlot();

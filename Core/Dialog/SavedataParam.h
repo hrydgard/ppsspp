@@ -17,16 +17,19 @@
 
 #pragma once
 
+#include "Common/CommonTypes.h"
+#include "Core/MemMap.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Util/PPGeDraw.h"
-#include "Common/CommonTypes.h"
 
 #undef st_ctime
 #undef st_atime
 #undef st_mtime
+
+struct PSPFileInfo;
 
 enum SceUtilitySavedataType
 {
@@ -135,6 +138,7 @@ struct SceUtilitySavedataIdListInfo
 struct SceUtilitySavedataFileListEntry
 {
 	s32_le st_mode;
+	u32_le st_unk0;
 	u64_le st_size;
 	ScePspDateTime st_ctime;
 	ScePspDateTime st_atime;
@@ -261,59 +265,20 @@ struct SaveFileInfo
 		memset(&modif_time, 0, sizeof(modif_time));
 	}
 
-	void DoState(PointerWrap &p)
-	{
-		auto s = p.Section("SaveFileInfo", 1, 2);
-		if (!s)
-			return;
-
-		p.Do(size);
-		p.Do(saveName);
-		p.Do(idx);
-
-		p.DoArray(title, sizeof(title));
-		p.DoArray(saveTitle, sizeof(saveTitle));
-		p.DoArray(saveDetail, sizeof(saveDetail));
-
-		p.Do(modif_time);
-
-		if (s <= 1) {
-			u32 textureData;
-			int textureWidth;
-			int textureHeight;
-			p.Do(textureData);
-			p.Do(textureWidth);
-			p.Do(textureHeight);
-
-			if (textureData != 0) {
-				// Must be MODE_READ.
-				texture = new PPGeImage("");
-				texture->CompatLoad(textureData, textureWidth, textureHeight);
-			}
-		} else {
-			bool hasTexture = texture != NULL;
-			p.Do(hasTexture);
-			if (hasTexture) {
-				if (p.mode == p.MODE_READ) {
-					texture = new PPGeImage("");
-				}
-				texture->DoState(p);
-			}
-		}
-	}
+	void DoState(PointerWrap &p);
 };
-	
+
 class SavedataParam
 {
 public:
 	SavedataParam();
 
 	static void Init();
-	std::string GetSaveFilePath(SceUtilitySavedataParam* param, int saveId = -1);
-	std::string GetSaveFilePath(SceUtilitySavedataParam* param, const std::string &saveDir);
-	std::string GetSaveDirName(SceUtilitySavedataParam* param, int saveId = -1);
-	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
-	std::string GetSaveDir(SceUtilitySavedataParam* param, const std::string &saveDirName);
+	std::string GetSaveFilePath(const SceUtilitySavedataParam *param, int saveId = -1) const;
+	std::string GetSaveFilePath(const SceUtilitySavedataParam *param, const std::string &saveDir) const;
+	std::string GetSaveDirName(const SceUtilitySavedataParam *param, int saveId = -1) const;
+	std::string GetSaveDir(const SceUtilitySavedataParam *param, int saveId = -1) const;
+	std::string GetSaveDir(const SceUtilitySavedataParam *param, const std::string &saveDirName) const;
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	int DeleteData(SceUtilitySavedataParam* param);
 	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
@@ -326,18 +291,19 @@ public:
 	bool IsInSaveDataList(std::string saveName, int count);
 	bool secureCanSkip(SceUtilitySavedataParam* param, bool secureMode);
 
-	std::string GetGameName(SceUtilitySavedataParam* param);
-	std::string GetSaveName(SceUtilitySavedataParam* param);
-	std::string GetFileName(SceUtilitySavedataParam* param);
+	std::string GetGameName(const SceUtilitySavedataParam *param) const;
+	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
+	std::string GetFileName(const SceUtilitySavedataParam *param) const;
 
 	static std::string GetSpaceText(int size);
 
 	int SetPspParam(SceUtilitySavedataParam* param);
-	SceUtilitySavedataParam* GetPspParam();
+	SceUtilitySavedataParam *GetPspParam();
+	const SceUtilitySavedataParam *GetPspParam() const;
 
 	int GetFilenameCount();
 	const SaveFileInfo& GetFileInfo(int idx);
-	std::string GetFilename(int idx);
+	std::string GetFilename(int idx) const;
 
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);

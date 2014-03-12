@@ -28,7 +28,7 @@
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 #include "base/NativeApp.h"
 #endif
 
@@ -36,6 +36,11 @@
 #include <ctype.h>
 #include <math.h>
 #endif
+
+// These are rough, it seems to take a long time to init, and probably depends on threads.
+// TODO: This takes like 700ms on a PSP but that's annoyingly long.
+const static int OSK_INIT_DELAY_US = 300000;
+const static int OSK_SHUTDOWN_DELAY_US = 40000;
 
 static std::map<std::string, std::pair<std::string, int>> languageMapping;
 
@@ -226,14 +231,14 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input)
 	_string = stringBuffer;
 }
 
-int PSPOskDialog::Init(u32 oskPtr)
-{
+int PSPOskDialog::Init(u32 oskPtr) {
 	// Ignore if already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
 	// Seems like this should crash?
-	if (!Memory::IsValidAddress(oskPtr))
-	{
+	if (!Memory::IsValidAddress(oskPtr)) {
 		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
@@ -256,7 +261,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	if (oskParams->fieldCount != 1)
 		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatusInit(OSK_INIT_DELAY_US);
 	selectedChar = 0;
 	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
 	currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
@@ -279,7 +284,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	languageMapping = GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
-	__CtrlReadLatch();
+	UpdateButtons();
 
 	StartFade(true);
 	return 0;
@@ -706,7 +711,7 @@ void PSPOskDialog::RenderKeyboard()
 
 	std::string buffer;
 
-	u32 FIELDDRAWMAX = 15;
+	static const u32 FIELDDRAWMAX = 16;
 	u32 limit = FieldMaxLength();
 	u32 drawLimit = std::min(FIELDDRAWMAX, limit);   // Field drew length limit.
 
@@ -786,45 +791,31 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
-int PSPOskDialog::NativeKeyboard()
-{
-	switch(status)
-	{
-	case SCE_UTILITY_STATUS_INITIALIZE:
-		status = SCE_UTILITY_STATUS_RUNNING;
-		break;
-
-	case SCE_UTILITY_STATUS_RUNNING:
-		{
-			std::wstring titleText;
-			GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
-
-			std::wstring defaultText;
-			GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
-
-			if(defaultText.empty())
-				defaultText.assign(L"VALUE");
-
-			if(System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) 
-			{
-				u32 maxLength = FieldMaxLength();
-				if (inputChars.length() > maxLength)
-				{
-					ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
-					inputChars.erase(maxLength, std::string::npos);
-				}
-			}
-			status = SCE_UTILITY_STATUS_FINISHED;
-		}
-		break;
-
-	case SCE_UTILITY_STATUS_FINISHED:
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
-		break;
+int PSPOskDialog::NativeKeyboard() {
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
+
+	std::wstring titleText;
+	GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
+
+	std::wstring defaultText;
+	GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
+
+	if (defaultText.empty())
+		defaultText.assign(L"VALUE");
+
+	if (System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) {
+		u32 maxLength = FieldMaxLength();
+		if (inputChars.length() > maxLength) {
+			ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
+			inputChars.erase(maxLength, std::string::npos);
+		}
+	}
+	ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	
 	u16_le *outText = oskParams->fields[0].outtext;
 
@@ -832,8 +823,7 @@ int PSPOskDialog::NativeKeyboard()
 	if (end > inputChars.size())
 		end = inputChars.size() + 1;
 	// Only write the bytes of the output and the null terminator, don't write the rest.
-	for (size_t i = 0; i < end; ++i)
-	{
+	for (size_t i = 0; i < end; ++i) {
 		u16 value = 0;
 		if (i < FieldMaxLength())
 			value = inputChars[i];
@@ -847,8 +837,11 @@ int PSPOskDialog::NativeKeyboard()
 }
 #endif
 
-int PSPOskDialog::Update(int animSpeed)
-{
+int PSPOskDialog::Update(int animSpeed) {
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+
 	int cancelButton = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 	int confirmButton = cancelButton == CTRL_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 	static int cancelBtnFramesHeld = 0;
@@ -860,192 +853,151 @@ int PSPOskDialog::Update(int animSpeed)
 	const int framesHeldThreshold = 10;
 	const int framesHeldRepeatRate = 5;
 
-	buttons = __CtrlPeekButtons();
+	UpdateButtons();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
 	// TODO: Add your platforms here when you have a NativeKeyboard func.
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
 	// The dialog box doesn't work right if in fullscreen.
 	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
 		return NativeKeyboard();
 #endif
 
-	if (status == SCE_UTILITY_STATUS_INITIALIZE)
-	{
-		status = SCE_UTILITY_STATUS_RUNNING;
+	UpdateFade(animSpeed);
+
+	StartDraw();
+	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
+	RenderKeyboard();
+	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
+		PPGeDrawImage(I_CROSS, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CIRCLE, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+	} else {
+		PPGeDrawImage(I_CIRCLE, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CROSS, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 	}
-	else if (status == SCE_UTILITY_STATUS_RUNNING)
-	{		
-		UpdateFade(animSpeed);
 
-		StartDraw();
-		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
-		RenderKeyboard();
-		if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE)
-		{
-			PPGeDrawImage(I_CROSS, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CIRCLE, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		}
-		else
-		{
-			PPGeDrawImage(I_CIRCLE, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawImage(I_CROSS, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		}
+	I18NCategory *d = GetI18NCategory("Dialog");
+	PPGeDrawText(d->T("Select"), 115, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Delete"), 115, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("Select"), 115, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Delete"), 115, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-
-		PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 
-		int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
-		const char *countryCode;
+	int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
+	const char *countryCode;
 
-		if (index >= 0)
-			countryCode = OskKeyboardNames[(currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT].c_str();
-		else
-			countryCode = OskKeyboardNames[OSK_LANGUAGE_COUNT - 1].c_str();
+	if (index >= 0)
+		countryCode = OskKeyboardNames[(currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT].c_str();
+	else
+		countryCode = OskKeyboardNames[OSK_LANGUAGE_COUNT - 1].c_str();
 
-		const char *language = languageMapping[countryCode].first.c_str();
+	const char *language = languageMapping[countryCode].first.c_str();
 
-		if (!strcmp(countryCode, "English Full-width"))
-			language = "English Full-width";
+	if (!strcmp(countryCode, "English Full-width"))
+		language = "English Full-width";
 			
-		countryCode = OskKeyboardNames[currentKeyboardLanguage].c_str();
+	countryCode = OskKeyboardNames[currentKeyboardLanguage].c_str();
 		
-		if (strcmp(countryCode, "ko_KR"))
-		{
-			PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-			PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		}
+	if (strcmp(countryCode, "ko_KR")) {
+		PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	}
 		
-		PPGeDrawText("L", 300, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(language, 315, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("L", 300, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(language, 315, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
-		language = languageMapping[countryCode].first.c_str();
+	countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
+	language = languageMapping[countryCode].first.c_str();
 
-		if (!strcmp(countryCode, "English Full-width"))
-			language = "English Full-width";
+	if (!strcmp(countryCode, "English Full-width"))
+		language = "English Full-width";
 
-		PPGeDrawText("R", 300, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
+	PPGeDrawText("R", 300, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(language, 315, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
 
-		if (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
-		{
-			selectedChar -= numKeyCols[currentKeyboard];
-		}
-		else if (IsButtonPressed(CTRL_DOWN) || IsButtonHeld(CTRL_DOWN, downBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
-		{
+	if (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
+		selectedChar -= numKeyCols[currentKeyboard];
+	} else if (IsButtonPressed(CTRL_DOWN) || IsButtonHeld(CTRL_DOWN, downBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
+		selectedChar += numKeyCols[currentKeyboard];
+	} else if (IsButtonPressed(CTRL_LEFT) || IsButtonHeld(CTRL_LEFT, leftBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
+		selectedChar--;
+		if (((selectedChar + numKeyCols[currentKeyboard]) % numKeyCols[currentKeyboard]) == numKeyCols[currentKeyboard] - 1)
 			selectedChar += numKeyCols[currentKeyboard];
-		}
-		else if (IsButtonPressed(CTRL_LEFT) || IsButtonHeld(CTRL_LEFT, leftBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
-		{
-			selectedChar--;
-			if (((selectedChar + numKeyCols[currentKeyboard]) % numKeyCols[currentKeyboard]) == numKeyCols[currentKeyboard] - 1)
-				selectedChar += numKeyCols[currentKeyboard];
-		}
-		else if (IsButtonPressed(CTRL_RIGHT) || IsButtonHeld(CTRL_RIGHT, rightBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
-		{
-			selectedChar++;
-			if ((selectedChar % numKeyCols[currentKeyboard]) == 0)
-				selectedChar -= numKeyCols[currentKeyboard];
-		}
-
-		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
-
-		if (IsButtonPressed(confirmButton) || IsButtonHeld(confirmButton, confirmBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
-		{
-			inputChars = CombinationString(true);
-		}
-		else if (IsButtonPressed(CTRL_SELECT))
-		{
-			// Select now swaps case.
-			if (currentKeyboard == OskKeyboardCases[currentKeyboardLanguage][UPPERCASE])
-				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
-			else
-				currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][UPPERCASE];
-
-			if(selectedRow >= numKeyRows[currentKeyboard])
-			{
-				selectedRow = numKeyRows[currentKeyboard] - 1;
-			}
-
-			if(selectedExtra >= numKeyCols[currentKeyboard])
-			{
-				selectedExtra = numKeyCols[currentKeyboard] - 1;
-			}
-
-			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
-		}
-		else if (IsButtonPressed(CTRL_RTRIGGER))
-		{
-			// TODO: Limit by allowed keyboards...
-			// RTRIGGER now cycles languages forward.
-			currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT);
-			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
-
-			if (selectedRow >= numKeyRows[currentKeyboard])
-			{
-				selectedRow = numKeyRows[currentKeyboard] - 1;
-			}
-
-			if (selectedExtra >= numKeyCols[currentKeyboard])
-			{
-				selectedExtra = numKeyCols[currentKeyboard] - 1;
-			}
-
-			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
-		}
-		else if (IsButtonPressed(CTRL_LTRIGGER))
-		{
-			// TODO: Limit by allowed keyboards...
-			// LTRIGGER now cycles languages backward.
-			if (currentKeyboardLanguage - 1 >= 0)
-				currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT);
-			else
-				currentKeyboardLanguage = (OskKeyboardLanguage)(OSK_LANGUAGE_COUNT - 1);
-
-			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
-
-			if (selectedRow >= numKeyRows[currentKeyboard])
-			{
-				selectedRow = numKeyRows[currentKeyboard] - 1;
-			}
-
-			if (selectedExtra >= numKeyCols[currentKeyboard])
-			{
-				selectedExtra = numKeyCols[currentKeyboard] - 1;
-			}
-
-			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
-		}
-		else if (IsButtonPressed(cancelButton) || IsButtonHeld(cancelButton, cancelBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate))
-		{
-			if (inputChars.size() > 0)
-			{
-				inputChars.resize(inputChars.size() - 1);
-				if(i_level != 0)
-				{
-					RemoveKorean();
-				}
-			}
-		}
-		else if (IsButtonPressed(CTRL_START))
-		{
-			StartFade(false);
-		}
-		EndDraw();
+	} else if (IsButtonPressed(CTRL_RIGHT) || IsButtonHeld(CTRL_RIGHT, rightBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
+		selectedChar++;
+		if ((selectedChar % numKeyCols[currentKeyboard]) == 0)
+			selectedChar -= numKeyCols[currentKeyboard];
 	}
-	else if (status == SCE_UTILITY_STATUS_FINISHED)
-	{
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
+
+	selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
+
+	if (IsButtonPressed(confirmButton) || IsButtonHeld(confirmButton, confirmBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
+		inputChars = CombinationString(true);
+	} else if (IsButtonPressed(CTRL_SELECT)) {
+		// Select now swaps case.
+		if (currentKeyboard == OskKeyboardCases[currentKeyboardLanguage][UPPERCASE])
+			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+		else
+			currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][UPPERCASE];
+
+		if (selectedRow >= numKeyRows[currentKeyboard]) {
+			selectedRow = numKeyRows[currentKeyboard] - 1;
+		}
+
+		if (selectedExtra >= numKeyCols[currentKeyboard]) {
+			selectedExtra = numKeyCols[currentKeyboard] - 1;
+		}
+
+		selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+	} else if (IsButtonPressed(CTRL_RTRIGGER)) {
+		// TODO: Limit by allowed keyboards...
+		// RTRIGGER now cycles languages forward.
+		currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT);
+		currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+
+		if (selectedRow >= numKeyRows[currentKeyboard]) {
+			selectedRow = numKeyRows[currentKeyboard] - 1;
+		}
+
+		if (selectedExtra >= numKeyCols[currentKeyboard]) {
+			selectedExtra = numKeyCols[currentKeyboard] - 1;
+		}
+
+		selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+	} else if (IsButtonPressed(CTRL_LTRIGGER)) {
+		// TODO: Limit by allowed keyboards...
+		// LTRIGGER now cycles languages backward.
+		if (currentKeyboardLanguage - 1 >= 0)
+			currentKeyboardLanguage = (OskKeyboardLanguage)((currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT);
+		else
+			currentKeyboardLanguage = (OskKeyboardLanguage)(OSK_LANGUAGE_COUNT - 1);
+
+		currentKeyboard = OskKeyboardCases[currentKeyboardLanguage][LOWERCASE];
+
+		if (selectedRow >= numKeyRows[currentKeyboard]) {
+			selectedRow = numKeyRows[currentKeyboard] - 1;
+		}
+
+		if (selectedExtra >= numKeyCols[currentKeyboard]) {
+			selectedExtra = numKeyCols[currentKeyboard] - 1;
+		}
+
+		selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
+	} else if (IsButtonPressed(cancelButton) || IsButtonHeld(cancelButton, cancelBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
+		if (inputChars.size() > 0) {
+			inputChars.resize(inputChars.size() - 1);
+			if (i_level != 0) {
+				RemoveKorean();
+			}
+		}
+	} else if (IsButtonPressed(CTRL_START)) {
+		StartFade(false);
 	}
+	EndDraw();
 
 	u16_le *outText = oskParams->fields[0].outtext;
 	size_t end = oskParams->fields[0].outtextlength;
@@ -1062,16 +1014,18 @@ int PSPOskDialog::Update(int animSpeed)
 
 	oskParams->base.result = 0;
 	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	lastButtons = buttons;
 	return 0;
 }
 
 int PSPOskDialog::Shutdown(bool force)
 {
-	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	PSPDialog::Shutdown();
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(OSK_SHUTDOWN_DELAY_US);
+	}
 
 	return 0;
 }

@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-
 class PointerWrap;
+
+#include "Common/CommonTypes.h"
 
 // Generic allocator thingy. Allocates blocks from a range.
 
@@ -61,18 +61,8 @@ private:
 
 	struct Block
 	{
-		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
-			: start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
-		{
-			strcpy(tag, "(untitled)");
-		}
-		void SetTag(const char *_tag) {
-			if (_tag)
-				strncpy(tag, _tag, 32);
-			else
-				strncpy(tag, "---", 32);
-			tag[31] = 0;
-		}
+		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next);
+		void SetTag(const char *_tag);
 		void DoState(PointerWrap &p);
 		u32 start;
 		u32 size;

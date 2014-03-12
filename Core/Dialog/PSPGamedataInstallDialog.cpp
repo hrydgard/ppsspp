@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPGamedataInstallDialog.h"
-#include "ChunkFile.h"
-#include "../Core/MemMap.h"
+#include "Common/ChunkFile.h"
+#include "Core/MemMap.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Dialog/PSPGamedataInstallDialog.h"
 
 std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
 
@@ -88,7 +89,7 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 			restLength = totalLength;	
 			inhandle = pspFileSystem.OpenFile(fullinFileName, FILEACCESS_READ);
 			if (inhandle != 0) {
-				outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+				outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 				if (outhandle != 0) {
 					while (restLength > 0) {
 						if (restLength < bytesToRead) 

@@ -78,6 +78,7 @@ public:
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
+	virtual void FastLoadBoneMatrix(u32 target);
 
 private:
 	void Flush() {

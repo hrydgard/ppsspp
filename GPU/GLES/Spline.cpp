@@ -28,10 +28,9 @@
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
-u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
-	VertexDecoder *dec = GetVertexDecoder(vertType);
 	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
 
 	// OK, morphing eliminated but bones still remain to be taken care of.
@@ -125,7 +124,12 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 	}
 
 	// Okay, there we are! Return the new type (but keep the index bits)
-	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & GE_VTYPE_IDX_MASK);
+	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
+}
+
+u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+	VertexDecoder *dec = GetVertexDecoder(vertType);
+	return NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
 #define START_OPEN 1
@@ -812,6 +816,8 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	// Simple approximation of the real tesselation factor.
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
 	// like the splines, so we subdivide across the whole "mega-patch".
+	if (num_patches_u == 0) num_patches_u = 1;
+	if (num_patches_v == 0) num_patches_v = 1;
 	int tess_u = gstate.getPatchDivisionU() / num_patches_u;
 	int tess_v = gstate.getPatchDivisionV() / num_patches_v;
 	if (tess_u < 4) tess_u = 4;

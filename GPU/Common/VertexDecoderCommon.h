@@ -95,8 +95,8 @@ public:
 				const float *f = (const float *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
 				if (isThrough()) {
-					// Integer value passed in a float. Wraps and all, required for Monster Hunter.
-					pos[2] = (float)((u16)(s32)pos[2]) * (1.0f / 65535.0f);
+					// Integer value passed in a float. Clamped to 0, 65535.
+					pos[2] = pos[2] > 65535.0f ? 1.0f : (pos[2] < 0.0f ? 0.0f : pos[2] * (1.0f / 65535.0f));
 				}
 				// See https://github.com/hrydgard/ppsspp/pull/3419, something is weird.
 			}
@@ -132,7 +132,7 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
+			ERROR_LOG_REPORT_ONCE(fmtpos, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
 			memset(pos, 0, sizeof(float) * 3);
 			break;
 		}
@@ -144,6 +144,10 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
+				if (isThrough()) {
+					// Integer value passed in a float. Clamped to 0, 65535.
+					pos[2] = pos[2] > 65535.0f ? 65535.0f : (pos[2] < 0.0f ? 0.0f : pos[2]);
+				}
 				// TODO: Does non-through need conversion?
 			}
 			break;
@@ -180,7 +184,7 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
+			ERROR_LOG_REPORT_ONCE(fmtz16, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
 			memset(pos, 0, sizeof(float) * 3);
 			break;
 		}
@@ -211,7 +215,7 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Nrm Format %d", decFmt_.nrmfmt);
+			ERROR_LOG_REPORT_ONCE(fmtnrm, G3D, "Reader: Unsupported Nrm Format %d", decFmt_.nrmfmt);
 			memset(nrm, 0, sizeof(float) * 3);
 			break;
 		}
@@ -259,7 +263,7 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
+			ERROR_LOG_REPORT_ONCE(fmtuv, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
 			memset(uv, 0, sizeof(float) * 2);
 			break;
 		}
@@ -278,7 +282,7 @@ public:
 			memcpy(color, data_ + decFmt_.c0off, 16); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
+			ERROR_LOG_REPORT_ONCE(fmtc0, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
 			memset(color, 0, sizeof(float) * 4);
 			break;
 		}
@@ -301,8 +305,8 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
-			memset(color, 0, sizeof(float) * 4);
+			ERROR_LOG_REPORT_ONCE(fmtc0_8888, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
+			memset(color, 0, sizeof(u8) * 4);
 			break;
 		}
 	}
@@ -321,7 +325,7 @@ public:
 			memcpy(color, data_ + decFmt_.c1off, 12); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c1fmt);
+			ERROR_LOG_REPORT_ONCE(fmtc1, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c1fmt);
 			memset(color, 0, sizeof(float) * 3);
 			break;
 		}
@@ -348,7 +352,7 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
+			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
 			memset(weights, 0, sizeof(float) * 4);
 			break;
 		}
@@ -376,7 +380,7 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
+			ERROR_LOG_REPORT_ONCE(fmtw1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
 			memset(weights + 4, 0, sizeof(float) * 4);
 			break;
 		}

@@ -1,4 +1,5 @@
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPS.h"
@@ -11,14 +12,14 @@
 #include "PpcJit.h"
 
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS   ((op>>21) & 0x1F)
+#define _RT   ((op>>16) & 0x1F)
+#define _RD   ((op>>11) & 0x1F)
+#define _FS   ((op>>11) & 0x1F)
+#define _FT   ((op>>16) & 0x1F)
+#define _FD   ((op>>6 ) & 0x1F)
+#define _POS  ((op>>6 ) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -43,6 +44,7 @@ void Jit::SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset) {
 }
 void Jit::Comp_ITypeMem(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+
 		int offset = (signed short)(op&0xFFFF);
 		bool load = false;
 		int rt = _RT;
@@ -51,6 +53,10 @@ void Jit::Comp_ITypeMem(MIPSOpcode op) {
 		if (((op >> 29) & 1) == 0 && rt == 0) {
 			// Don't load anything into $zr
 			return;
+		}
+
+		if (!g_Config.bFastMemory) {
+			DISABLE;
 		}
 
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
@@ -139,10 +145,8 @@ void Jit::Comp_ITypeMem(MIPSOpcode op) {
 			return ;
 		}
 	}
-}
 
-void Jit::Comp_Cache(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
-	// TODO: Could use this as a hint, and technically required to handle icache, etc.
-	// But right now Int_Cache does nothing, so let's not even call it.
+	void Jit::Comp_Cache(MIPSOpcode op) {
+		DISABLE;
+	}
 }

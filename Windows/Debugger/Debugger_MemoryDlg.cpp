@@ -17,7 +17,7 @@
 RECT CMemoryDlg::slRect;
 
 FAR WNDPROC DefAddressEditProc;
-HWND AddressEditParentHwnd;
+HWND AddressEditParentHwnd = 0;
 
 LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -26,7 +26,8 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 	case WM_KEYDOWN:
 		if( wParam == VK_RETURN )
 		{
-			SendMessage(AddressEditParentHwnd,WM_DEB_GOTOADDRESSEDIT,0,0);
+			if (AddressEditParentHwnd != 0)
+				SendMessage(AddressEditParentHwnd,WM_DEB_GOTOADDRESSEDIT,0,0);
 			return 0;
 		}
 	case WM_KEYUP:

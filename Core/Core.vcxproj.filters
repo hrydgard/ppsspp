@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ELF">
       <UniqueIdentifier>{f34f69bc-5d7c-44d1-90b6-aa20c435b546}</UniqueIdentifier>
@@ -126,6 +126,9 @@
     <ClCompile Include="FileSystems\ISOFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\FileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
     <ClCompile Include="FileSystems\MetaFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
@@ -207,6 +210,9 @@
     <ClCompile Include="HLE\sceP3da.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceMt19937.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceGameUpdate.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -244,9 +250,6 @@
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="CoreTiming.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="CPU.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="Host.cpp">
@@ -663,6 +666,9 @@
     <ClInclude Include="HLE\sceP3da.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceMt19937.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceGameUpdate.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -709,9 +715,6 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="CoreTiming.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="CPU.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Host.h">
@@ -950,6 +953,9 @@
     </ClInclude>
     <ClInclude Include="HLE\ReplaceTables.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\BufferQueue.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

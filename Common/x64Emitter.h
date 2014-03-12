@@ -21,7 +21,6 @@
 #define _DOLPHIN_INTEL_CODEGEN_
 
 #include "Common.h"
-#include "MemoryUtil.h"
 
 #if !defined(_M_IX86) && !defined(_M_X64)
 #error "Don't build this on arm."
@@ -193,8 +192,10 @@ private:
 	u16 indexReg;
 };
 
-inline OpArg M(void *ptr)	    {return OpArg((u64)ptr, (int)SCALE_RIP);}
-inline OpArg R(X64Reg value)	{return OpArg(0, SCALE_NONE, value);}
+inline OpArg M(const void *ptr) {return OpArg((u64)ptr, (int)SCALE_RIP);}
+template <typename T>
+inline OpArg M(const T *ptr)    {return OpArg((u64)(const void *)ptr, (int)SCALE_RIP);}
+inline OpArg R(X64Reg value)    {return OpArg(0, SCALE_NONE, value);}
 inline OpArg MatR(X64Reg value) {return OpArg(0, SCALE_ATREG, value);}
 inline OpArg MDisp(X64Reg value, int offset) {
 	return OpArg((u32)offset, SCALE_ATREG, value);
@@ -675,28 +676,42 @@ public:
 	// Utility functions
 	// The difference between this and CALL is that this aligns the stack
 	// where appropriate.
-	void ABI_CallFunction(void *func);
+	void ABI_CallFunction(const void *func);
 
-	void ABI_CallFunctionC16(void *func, u16 param1);
-	void ABI_CallFunctionCC16(void *func, u32 param1, u16 param2);
+	template <typename T>
+	void ABI_CallFunction(T (*func)()) {
+		ABI_CallFunction((const void *)func);
+	}
+
+	void ABI_CallFunction(const u8 *func) {
+		ABI_CallFunction((const void *)func);
+	}
+
+	void ABI_CallFunctionC16(const void *func, u16 param1);
+	void ABI_CallFunctionCC16(const void *func, u32 param1, u16 param2);
 	
 	// These only support u32 parameters, but that's enough for a lot of uses.
 	// These will destroy the 1 or 2 first "parameter regs".
-	void ABI_CallFunctionC(void *func, u32 param1);
-	void ABI_CallFunctionCC(void *func, u32 param1, u32 param2);
-	void ABI_CallFunctionCCC(void *func, u32 param1, u32 param2, u32 param3);
-	void ABI_CallFunctionCCP(void *func, u32 param1, u32 param2, void *param3);
-	void ABI_CallFunctionCCCP(void *func, u32 param1, u32 param2, u32 param3, void *param4);
-	void ABI_CallFunctionP(void *func, void *param1);
-	void ABI_CallFunctionPPC(void *func, void *param1, void *param2, u32 param3);
-	void ABI_CallFunctionAC(void *func, const Gen::OpArg &arg1, u32 param2);
-	void ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param2, u32 param3);
-	void ABI_CallFunctionA(void *func, const Gen::OpArg &arg1);
-	void ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2);
+	void ABI_CallFunctionC(const void *func, u32 param1);
+	void ABI_CallFunctionCC(const void *func, u32 param1, u32 param2);
+	void ABI_CallFunctionCCC(const void *func, u32 param1, u32 param2, u32 param3);
+	void ABI_CallFunctionCCP(const void *func, u32 param1, u32 param2, void *param3);
+	void ABI_CallFunctionCCCP(const void *func, u32 param1, u32 param2, u32 param3, void *param4);
+	void ABI_CallFunctionP(const void *func, void *param1);
+	void ABI_CallFunctionPPC(const void *func, void *param1, void *param2, u32 param3);
+	void ABI_CallFunctionAC(const void *func, const Gen::OpArg &arg1, u32 param2);
+	void ABI_CallFunctionACC(const void *func, const Gen::OpArg &arg1, u32 param2, u32 param3);
+	void ABI_CallFunctionA(const void *func, const Gen::OpArg &arg1);
+	void ABI_CallFunctionAA(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2);
 
-	// Pass a register as a paremeter.
-	void ABI_CallFunctionR(void *func, Gen::X64Reg reg1);
-	void ABI_CallFunctionRR(void *func, Gen::X64Reg reg1, Gen::X64Reg reg2);
+	// Pass a register as a parameter.
+	void ABI_CallFunctionR(const void *func, Gen::X64Reg reg1);
+	void ABI_CallFunctionRR(const void *func, Gen::X64Reg reg1, Gen::X64Reg reg2);
+
+	template <typename Tr, typename T1>
+	void ABI_CallFunctionC(Tr (*func)(T1), u32 param1) {
+		ABI_CallFunctionC((const void *)func, param1);
+	}
 
 	// A function that doesn't have any control over what it will do to regs,
 	// such as the dispatcher, should be surrounded by these.
@@ -740,29 +755,14 @@ public:
 	virtual ~XCodeBlock() { if (region) FreeCodeSpace(); }
 
 	// Call this before you generate any code.
-	void AllocCodeSpace(int size)
-	{
-		region_size = size;
-		region = (u8*)AllocateExecutableMemory(region_size);
-		SetCodePtr(region);
-	}
+	void AllocCodeSpace(int size);
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace() 
-	{
-		// x86/64: 0xCC = breakpoint
-		memset(region, 0xCC, region_size);
-		ResetCodePtr();
-	}
+	void ClearCodeSpace();
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace()
-	{
-		FreeMemoryPages(region, region_size);
-		region = NULL;
-		region_size = 0;
-	}
+	void FreeCodeSpace();
 
 	bool IsInSpace(const u8 *ptr) const
 	{
@@ -771,10 +771,7 @@ public:
 
 	// Cannot currently be undone. Will write protect the entire code region.
 	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect()
-	{
-		WriteProtectMemory(region, region_size, true);		
-	}
+	void WriteProtect();
 
 	void ResetCodePtr()
 	{

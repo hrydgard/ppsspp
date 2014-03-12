@@ -17,13 +17,14 @@
 
 #pragma once
 
-#include "../../../Globals.h"
+#include "Common/CommonTypes.h"
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/PPC/PpcRegCache.h"
 #include "Core/MIPS/PPC/PpcRegCacheFpu.h"
 
 #include "Core/MIPS/MIPS.h"
+
 #include <ppcEmitter.h>
 
 namespace MIPSComp
@@ -45,9 +46,9 @@ namespace MIPSComp
 	{
 		enum PrefixState
 		{
-			PREFIX_UNKNOWN = 0x00,
-			PREFIX_KNOWN = 0x01,
-			PREFIX_DIRTY = 0x10,
+			PREFIX_UNKNOWN     = 0x00,
+			PREFIX_KNOWN       = 0x01,
+			PREFIX_DIRTY       = 0x10,
 			PREFIX_KNOWN_DIRTY = 0x11,
 		};
 

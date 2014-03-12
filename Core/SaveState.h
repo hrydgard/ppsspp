@@ -29,6 +29,8 @@ namespace SaveState
 
 	void Init();
 
+	// Cycle through the 5 savestate slots
+	void NextSlot();
 	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
 	// Checks whether there's an existing save in the specified slot.
@@ -60,6 +62,9 @@ namespace SaveState
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
+
+	// Returns true if a savestate has been used during this session.
+	bool HasLoadedState();
 
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();
