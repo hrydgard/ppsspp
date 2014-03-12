@@ -174,6 +174,7 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 				INFO_LOG(HLE, "LV.S fastmode!");
+				// TODO: Also look forward and combine multiple loads.
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_NOINIT | MAP_DIRTY);
 				if (offset) {
@@ -217,6 +218,7 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 				INFO_LOG(HLE, "SV.S fastmode!");
+				// TODO: Also look forward and combine multiple stores.
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
 				if (offset) {

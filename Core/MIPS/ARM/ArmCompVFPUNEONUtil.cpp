@@ -90,11 +90,11 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	int constants[4];
 	int constNum[4];
 
-	int abs_mask = (prefix >> 8) & 0xF;
-	int negate_mask = (prefix >> 16) & 0xF;
-	int constants_mask = (prefix >> 12) & 0xF;
-
 	int full_mask = (1 << n) - 1;
+	
+	int abs_mask = (prefix >> 8) & full_mask;
+	int negate_mask = (prefix >> 16) & full_mask;
+	int constants_mask = (prefix >> 12) & full_mask;
 
 	// Decode prefix to keep the rest readable
 	int permuteMask = 0;
@@ -127,10 +127,10 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 					switch (constNum[i]) {
 					case 0:
 					case 1:
-					{
-									float c = constantArray[constNum[i]];
-									VMOV_immf(dest, negate[i] ? -c : c);
-					}
+						{
+							float c = constantArray[constNum[i]];
+							VMOV_immf(dest, negate[i] ? -c : c);
+						}
 						break;
 						// TODO: There are a few more that are doable.
 					default:
@@ -176,7 +176,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 			// Can check for VSWP match?
 
 			// TODO: Cannot do this permutation yet!
-			ERROR_LOG(HLE, "Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
+			ERROR_LOG(HLE, "PREFIXST: Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
 		}
 	}
 
@@ -185,18 +185,44 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	if (abs_mask == full_mask) {
 		// TODO: elide the above VMOV when possible
 		VABS(F_32, ar, ar);
-	} else {
-		// Partial ABS! TODO
-		ERROR_LOG(HLE, "Partial ABS! Cannot do this yet.");
+	} else if (abs_mask != 0) {
+		// Partial ABS!
+		if (abs_mask == 3) {
+			VABS(F_32, D_0(ar), D_0(ar));
+		} else {
+			// Horrifying fallback: Mov to Q0, abs, move back.
+			// TODO: Optimize for lower quads where we don't need to move.
+			VMOV(MatchSize(Q0, ar), ar);
+			for (int i = 0; i < n; i++) {
+				if (abs_mask & (1 << i)) {
+					VABS((ARMReg)(S0 + i), (ARMReg)(S0 + i));
+				}
+			}
+			VMOV(ar, MatchSize(Q0, ar));
+			INFO_LOG(HLE, "PREFIXST: Partial ABS %i/%i! Cannot do this yet.", abs_mask, full_mask);
+		}
 	}
 
 	if (negate_mask == full_mask) {
 		// TODO: elide the above VMOV when possible
 		VNEG(F_32, ar, ar);
-	} else {
+	} else if (negate_mask != 0) {
 		// Partial negate! I guess we build sign bits in another register
 		// and simply XOR.
-		ERROR_LOG(HLE, "Partial Negate! Cannot do this yet.");
+		if (negate_mask == 3) {
+			VNEG(F_32, D_0(ar), D_0(ar));
+		} else {
+			// Horrifying fallback: Mov to Q0, negate, move back.
+			// TODO: Optimize for lower quads where we don't need to move.
+			VMOV(MatchSize(Q0, ar), ar);
+			for (int i = 0; i < n; i++) {
+				if (negate_mask & (1 << i)) {
+					VNEG((ARMReg)(S0 + i), (ARMReg)(S0 + i));
+				}
+			}
+			VMOV(ar, MatchSize(Q0, ar));
+			INFO_LOG(HLE, "PREFIXST: Partial Negate %i/%i! Cannot do this yet.", negate_mask, full_mask);
+		}
 	}
 
 	// Insert constants where requested, and check negate!
@@ -213,16 +239,19 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 Jit::DestARMReg Jit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags) {
 	// Inverted from the actual bits, easier to reason about 1 == write
 	int writeMask = (~(js.prefixD >> 8)) & 0xF;
+	int n = GetNumVectorElements(sz);
+	int full_mask = (1 << n) - 1;
 
 	DestARMReg dest;
 	dest.sz = sz;
-	if (writeMask == 0xF) {
+	if ((writeMask & full_mask) == full_mask) {
 		// No need to apply a write mask.
 		// Let's not make things complicated.
 		dest.rd = fpr.QMapReg(vreg, sz, mapFlags);
 		dest.backingRd = dest.rd;
 	} else {
 		// Allocate a temporary register.
+		ELOG("PREFIXD: Write mask allocated! %i/%i", writeMask, full_mask);
 		dest.rd = fpr.QAllocTemp();
 		dest.backingRd = fpr.QMapReg(vreg, sz, mapFlags & ~MAP_NOINIT);  // Force initialization of the backing reg.
 	}
@@ -235,25 +264,25 @@ void Jit::NEONApplyPrefixD(DestARMReg dest) {
 
 	int sat1_mask = 0;
 	int sat3_mask = 0;
-	int full_mask = 0;
+	int full_mask = (1 << n) - 1;
 	for (int i = 0; i < n; i++) {
 		int sat = (js.prefixD >> (i * 2)) & 3;
 		if (sat == 1)
-			sat1_mask |= i << 1;
+			sat1_mask |= 1 << i;
 		if (sat == 3)
-			sat3_mask |= i << 1;
-		full_mask |= i << 1;
+			sat3_mask |= 1 << i;
 	}
 
 	if (sat1_mask && sat3_mask) {
 		// Why would anyone do this?
-		ELOG("Can't have both sat[0-1] and sat[-1-1] at the same time yet");
+		ELOG("PREFIXD: Can't have both sat[0-1] and sat[-1-1] at the same time yet");
 	}
 
 	if (sat1_mask) {
 		if (sat1_mask != full_mask) {
-			ELOG("Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
+			ELOG("PREFIXD: Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
 		}
+		// TODO: Speed up for singles/pairs by loading both constants into D0/D1
 		ARMReg temp = MatchSize(Q0, dest.rd);
 		VMOV_immf(temp, 1.0);
 		VMIN(F_32, dest.rd, dest.rd, temp);
@@ -263,7 +292,7 @@ void Jit::NEONApplyPrefixD(DestARMReg dest) {
 
 	if (sat3_mask && sat1_mask != full_mask) {
 		if (sat3_mask != full_mask) {
-			ELOG("Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
+			ELOG("PREFIXD: Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
 		}
 		ARMReg temp = MatchSize(Q0, dest.rd);
 		VMOV_immf(temp, 1.0f);
@@ -278,9 +307,16 @@ void Jit::NEONApplyPrefixD(DestARMReg dest) {
 		// What a pain. We can at least shortcut easy cases like half the register.
 		// And we can generate the masks easily with some of the crazy vector imm modes. (bits2bytes for example).
 		// So no need to load them from RAM.
+		int writeMask = (~(js.prefixD >> 8)) & 0xF;
 
-		// TODO
-		VMOV(dest.backingRd, dest.rd);
+		if (writeMask == 3) {
+			ILOG("Doing writemask = 3");
+			VMOV(D_0(dest.rd), D_0(dest.backingRd));
+		} else {
+			// TODO
+			ELOG("PREFIXD: Arbitrary write masks not supported (%i / %i)", writeMask, full_mask);
+			VMOV(dest.backingRd, dest.rd);
+		}
 	}
 }
 
