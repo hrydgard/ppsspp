@@ -321,7 +321,7 @@ bool TestArmEmitter() {
 	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
 	emitter.VMOV_immf(Q0, 1.0f);
-	RET(CheckLast(emitter, "eebd0a60 VMOV Q0, 1.0"));
+	RET(CheckLast(emitter, "f2870f50 VMOV q0, 1.0"));
 	emitter.VMOV_immf(Q0, -1.0f);
 	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
@@ -334,6 +334,11 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f4633a8f VLD1.32 {d19-d20}, [r3]"));
 	emitter.VST1(I_32, D23, R9, 1, ALIGN_NONE, R_PC);
 	RET(CheckLast(emitter, "f449778f VST1.32 {d23}, [r9]"));
+	emitter.VLD1_lane(F_32, D8, R3, 0, ALIGN_NONE, R_PC);
+	RET(CheckLast(emitter, "f4a3880f VLD1.32 {d8[0]}, [r3]"));
+	emitter.VLD1_lane(I_8, D8, R3, 2, ALIGN_NONE, R_PC);
+	RET(CheckLast(emitter, "f4a3804f VLD1.i8 {d8[2]}, [r3]"));
+
 	emitter.VADD(I_8, D3, D4, D19);
 	RET(CheckLast(emitter, "f2043823 VADD.i8 d3, d4, d19"));
 	emitter.VADD(I_32, D3, D4, D19);
