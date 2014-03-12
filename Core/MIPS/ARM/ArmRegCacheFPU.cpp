@@ -333,14 +333,12 @@ void ArmRegCacheFPU::FlushAll() {
 		DiscardR(i);
 	}
 
-#if 0
-	
 	// Loop through the ARM registers, then use GetMipsRegOffset to determine if MIPS registers are
 	// sequential. This is necessary because we store VFPU registers in a staggered order to get
 	// columns sequential (most VFPU math in nearly all games is in columns, not rows).
 	
 	int numArmRegs;
-	// We rely on the allocation order being sequental.
+	// We rely on the allocation order being sequential.
 	const ARMReg baseReg = GetMIPSAllocationOrder(numArmRegs)[0];
 
 	for (int i = 0; i < numArmRegs; i++) {
@@ -357,6 +355,11 @@ void ArmRegCacheFPU::FlushAll() {
 			if (c == 1) {
 				// ILOG("Got single register: %i (%i)", a, m);
 				emit_->VSTR((ARMReg)(a + S0), CTXREG, GetMipsRegOffset(m));
+			} else if (c == 2) {
+				// Probably not worth using VSTMIA for two.
+				int offset = GetMipsRegOffset(m);
+				emit_->VSTR((ARMReg)(a + S0), CTXREG, offset);
+				emit_->VSTR((ARMReg)(a + 1 + S0), CTXREG, offset + 4);
 			} else {
 				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(m), R1);
@@ -382,11 +385,6 @@ void ArmRegCacheFPU::FlushAll() {
 			// already not dirty
 		}
 	}
-#else
-	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		FlushR(i);
-	}
-#endif
 
 	// Sanity check
 	for (int i = 0; i < numARMFpuReg_; i++) {
@@ -427,7 +425,6 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	mr[r].tempLock = false;
 	mr[r].spillLock = false;
 }
-
 
 bool ArmRegCacheFPU::IsTempX(ARMReg r) const {
 	return ar[r - S0].mipsReg >= TEMP0;

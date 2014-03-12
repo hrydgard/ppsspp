@@ -152,7 +152,7 @@ public:
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
 				//	ERROR_LOG(SCEGE, "Weird DL status after signal suspend %x", dl->status);
 				if (newState != PSP_GE_DL_STATE_RUNNING)
-					INFO_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
+					DEBUG_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
 
 				dl->state = PSP_GE_DL_STATE_RUNNING;
 			}
