@@ -234,7 +234,7 @@ bool FileInfo::operator <(const FileInfo &other) const {
 		return false;
 }
 
-size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter) {
+size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter, int flags) {
 	size_t foundEntries = 0;
 	std::set<std::string> filters;
 	std::string tmp;
@@ -292,7 +292,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 			continue;
 
 		// Remove dotfiles (should be made optional?)
-		if (virtualName[0] == '.')
+		if (!(flags & GETFILES_GETHIDDEN) && virtualName[0] == '.')
 			continue;
 
 		FileInfo info;

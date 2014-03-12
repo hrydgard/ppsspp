@@ -326,6 +326,9 @@
     <ClInclude Include="ext\vjson\json.h">
       <Filter>ext\vjson</Filter>
     </ClInclude>
+    <ClInclude Include="gfx_es2\gl3stub.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -771,6 +774,9 @@
     </ClCompile>
     <ClCompile Include="ext\vjson\json.cpp">
       <Filter>ext\vjson</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\gl3stub.c">
+      <Filter>gfx</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
