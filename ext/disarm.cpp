@@ -360,7 +360,7 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 	const char *name = load ? "LD" : "ST";
 	const char *suffix = "";
 	if (Rm == 13)
-		suffix = "+";
+		suffix = "!";
 
 	if ((op & (1 << 23)) == 0) {
 		int sz = (op >> 6) & 3;
@@ -369,7 +369,7 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 		int startReg = Vd;
 		int endReg = Vd + regCount - 1;
 
-		if (Rm != 15) {
+		if (Rm != 15 && Rm != 13) {
 			sprintf(text, "V%s1 - regsum", name);
 		} else {
 			if (startReg == endReg)
@@ -397,7 +397,7 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 	return true;
 }
 
-static bool DisasmArithNeon(uint32_t op, const char *opname, char *text) {
+static bool DisasmArithNeon(uint32_t op, const char *opname, char *text, bool includeSuffix = true) {
 	bool quad = ((op >> 6) & 1);
 	int size = (op >> 20) & 3;
 	int type = (op >> 8) & 0xF;
@@ -405,7 +405,7 @@ static bool DisasmArithNeon(uint32_t op, const char *opname, char *text) {
 	const char *szname = GetISizeString(size);
 	if (type == 0xD)
 		szname = "f32";
-	sprintf(text, "V%s.%s %c%i, %c%i, %c%i", opname, szname, r, GetVd(op, quad, true), r, GetVn(op, quad, true), r, GetVm(op, quad, true));
+	sprintf(text, "V%s%s%s %c%i, %c%i, %c%i", opname, includeSuffix ? "." : "", includeSuffix ? szname : "", r, GetVd(op, quad, true), r, GetVn(op, quad, true), r, GetVm(op, quad, true));
 	return true;
 }
 
@@ -462,23 +462,58 @@ static bool DisasmNeonImmVal(uint32_t op, char *text) {
 	return true;
 }
 
+static bool DisasmNeon2Op(uint32_t op, char *text) {
+	const char *opname = "(unk2op)";
+
+	sprintf(text, "%s", opname);
+	return true;
+}
+
 static bool DisasmNeonF2F3(uint32_t op, char *text) {
 	sprintf(text, "NEON F2");
-	if (((op >> 20) & 0xFFC) == 0xF20 || ((op >> 20) & 0xFFC) == 0xF30) {
+	if (((op >> 20) & 0xFF8) == 0xF20 || ((op >> 20) & 0xFF8) == 0xF30) {
 		const char *opname = "(unk)";
+		bool includeSuffix = true;
+		int temp;
 		switch ((op >> 20) & 0xFF) {
 		case 0x20:
-			if (op & 0x10)
+			temp = (op >> 4) & 0xF1;
+			switch (temp) {
+			case 0x11:
+				opname = "AND";
+				includeSuffix = false;
+				break;
+			case 0xd1:
 				opname = "MLA";
-			else
+				break;
+			case 0x80:
+			case 0xd0:
 				opname = "ADD";
-			return DisasmArithNeon(op, opname, text);
+				break;
+			}
+			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x22:
-			if (op & 0x10)
-				opname = "MLS";
-			else
+			temp = (op >> 4) & 0xF1;
+			switch (temp) {
+			case 0xF0:
+				opname = "MIN";
+				break;
+			case 0x11:
+				opname = "ORR";
+				includeSuffix = false;
+				break;
+			case 0x80:
+			case 0xd0:
 				opname = "ADD";
-			return DisasmArithNeon(op, opname, text);
+				break;
+			case 0xd1:
+				opname = "MLS";
+				break;
+			default:
+				opname = "???";
+				break;
+			}
+			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x31:
 			if (op & 0x100)
 				opname = "MLS";
@@ -486,15 +521,19 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 				opname = "SUB";
 			return DisasmArithNeon(op, opname, text);
 		case 0x30:
+		case 0x34:
 			opname = "MUL";
 			return DisasmArithNeon(op, opname, text);
 		}
 	} else if ((op >> 20) == 0xF28) {
 		// Immediate value ops!
 		return DisasmNeonImmVal(op, text);
+	} else if ((op >> 20) == 0xF3B) {
+		return DisasmNeon2Op(op, text);
 	}
 	return true;
 }
+
 
 static bool DisasmNeon(uint32_t op, char *text) {
 	switch (op >> 24) {

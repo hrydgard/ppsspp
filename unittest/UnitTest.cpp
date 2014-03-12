@@ -354,6 +354,8 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f31ca86e VSUB.i16 q5, q6, q15"));
 	emitter.VMUL(F_32, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f3042d56 VMUL.f32 q1, q2, q3"));
+	emitter.VMUL(F_32, Q13, Q15, Q14);
+	RET(CheckLast(emitter, "f34eadfc VMUL.f32 q13, q15, q14"));
 	emitter.VADD(F_32, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2042d46 VADD.f32 q1, q2, q3"));
 	emitter.VMLA(F_32, Q1, Q2, Q3);
@@ -362,6 +364,20 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f2242d56 VMLS.f32 q1, q2, q3"));
 	emitter.VMLS(I_16, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f3142946 VMLS.i16 q1, q2, q3"));
+
+	emitter.VORR(Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2242156 VORR q1, q2, q3"));
+	emitter.VAND(Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2042156 VAND q1, q2, q3"));
+	emitter.VNEG(F_32, Q1, Q2);
+	RET(CheckLast(emitter, "f3b927c4 VNEG q1, q2"));
+	emitter.VABS(F_32, Q1, Q2);
+	RET(CheckLast(emitter, "f2042156 VABS q1, q2"));
+
+// 	emitter.VMIN(F_32, D3, D4, D19);
+// 	RET(CheckLast(emitter, "f2243f23 VMIN.f32 d3, d4, d19"));
+// 	emitter.VMAX(F_32, D3, D4, D19);
+// 	RET(CheckLast(emitter, "f2243f23 VMAX.f32 d3, d4, d19"));
 	return true;
 }
 
