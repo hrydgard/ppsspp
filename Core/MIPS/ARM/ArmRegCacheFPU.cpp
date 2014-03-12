@@ -747,6 +747,10 @@ bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3, int v4) const {
 	return Consecutive(v1, v2) && Consecutive(v2, v3) && Consecutive(v3, v4);
 }
 
+void ArmRegCacheFPU::QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags) {
+	// TODO
+}
+
 ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	qTime_++;
 

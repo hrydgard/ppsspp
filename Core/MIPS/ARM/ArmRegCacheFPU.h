@@ -116,10 +116,8 @@ public:
 	int FlushGetSequential(int a, int maxArmReg);
 	void FlushAll();
 
-
 	// This one is allowed at any point.
 	void FlushV(MIPSReg r);
-
 
 	// VFPU registers mapped to match NEON quads (and doubles, for pairs and singles)
 	// Here we return the ARM register directly instead of providing a "V" accessor
@@ -131,6 +129,13 @@ public:
 	// Note that we automatically spill-lock EVERY Q REGISTER we map, unlike other types.
 	// Need to explicitly allow spilling to get spilling.
 	ARMReg QMapReg(int vreg, VectorSize sz, int flags);
+
+	// TODO
+	// Maps a matrix as a set of columns (yes, even transposed ones, always columns
+	// as those are faster to load/flush). When possible it will map into consecutive
+	// quad registers, enabling blazing-fast full-matrix loads, transposed or not.
+	void QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags);
+
 	ARMReg QAllocTemp();
 	
 	void QAllowSpill(int quad);
