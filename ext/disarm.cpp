@@ -240,8 +240,21 @@ bool DisasmVFP(uint32_t op, char *text) {
 					return true;
 				}
 			}
+			
+			// Moves between single precision registers and GPRs
 
-			// Arithmetic (buggy!)
+			if (((op >> 20) & 0xFFE) == 0xEE0) {
+				int vd = ((op >> 15) & 0x1E) | ((op >> 7) & 0x1);
+				int src = (op >> 12) & 0xF;
+
+				if (op & (1 << 20))
+					sprintf(text, "VMOV r%i, s%i", src, vd);
+				else
+					sprintf(text, "VMOV s%i, r%i", vd, src);
+				return true;
+			}
+
+			// Arithmetic
 
 			bool quad_reg = (op >> 6) & 1;
 			bool double_reg = (op >> 8) & 1;
@@ -368,7 +381,7 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 		int reg = Vd;
 		int sz = (op >> 10) & 3;
 		int index_align = (op >> 4) & 0xF;
-		int lane;
+		int lane = 0;
 		switch (sz) {
 		case 0: lane = index_align >> 1; break;
 		case 1: lane = index_align >> 2; break;
@@ -381,11 +394,6 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 		}
 	}
 
-	return true;
-}
-
-static bool DisasmNeonF3(uint32_t op, char *text) {
-	sprintf(text, "NEON F3");
 	return true;
 }
 
@@ -445,11 +453,12 @@ static bool DisasmNeonImmVal(uint32_t op, char *text) {
 			case 0xF0: f = -1.0; break;
 			}
 			sprintf(temp, "%1.1f", f);
+			size = "";
 			break;
 		}
 	}
 	char c = quad ? 'q' : 'd';
-	sprintf(text, "V%s %c%i, %s", operation, c, GetVd(op, false, false), temp);
+	sprintf(text, "V%s%s %c%i, %s", operation, size, c, GetVd(op, false, false), temp);
 	return true;
 }
 

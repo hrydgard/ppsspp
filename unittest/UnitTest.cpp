@@ -328,6 +328,11 @@ bool TestArmEmitter() {
 	emitter.VPADD(F_32, D0, D0, D0);
 	emitter.VMOV(Q14, Q2);
 
+	emitter.VMOV(S9, R3);
+	RET(CheckLast(emitter, "ee043a90 VMOV s9, r3"));
+	emitter.VMOV(R9, S3);
+	RET(CheckLast(emitter, "ee119a90 VMOV r9, s3"));
+
 	emitter.VMOV(S3, S6);
 	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
 	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
