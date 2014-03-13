@@ -402,7 +402,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 				}
 			}
 			// Use literal pool for ARMv6.
-			// Disabled for now as it is crashing since Vertex Decoder JIT
+			// Disabled for now as it is crashfing since Vertex Decoder JIT
 //			AddNewLit(val);
 //			LDR(reg, R_PC); // To be backpatched later
 		}
@@ -1491,8 +1491,6 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 	_assert_msg_(JIT, SrcSize == DestSize, "VMOV doesn't support moving different register sizes");
 	if (SrcSize != DestSize) {
 		ELOG("SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
-		u32 *ptr = (u32 *)4;
-		*ptr = 0x1337;
 	}
 
 	Dest = SubBase(Dest);
