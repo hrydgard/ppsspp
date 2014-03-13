@@ -47,29 +47,29 @@ static std::map<std::string, std::pair<std::string, int>> languageMapping;
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
 const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4, 4, 4};
 
-// Japanese(Kana) diacritics
+// Japanese (Kana) diacritics
 static const wchar_t diacritics[2][103] =
 {
 	{L"かがきぎくぐけげこごさざしじすずせぜそぞただちぢつづてでとどはばぱばひびぴびふぶぷぶへべぺべほぼぽぼウヴカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドハバパバヒビピビフブプブヘベペベホボポボ"},
 	{L"はぱばぱひぴびぴふぷぶぷへぱべぱほぽぼぽハパバパヒピビピフプブプヘパベパホポボポ"}
 };
 
-// Korean(Hangul) consonant
+// Korean (Hangul) consonant
 static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 
-// Korean(Hangul) vowels, Some vowels are not used, they will be spaces
+// Korean (Hangul) vowels, Some vowels are not used, they will be spaces
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
-// Korean(Hangul) vowel Combination key
+// Korean (Hangul) vowel Combination key
 const int kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
 
-// Korean(Hangul) last consonant(diacritics)
+// Korean (Hangul) last consonant(diacritics)
 static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
 
-// Korean(Hangul) last consonant Combination key
+// Korean (Hangul) last consonant Combination key
 const int kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
 
-// Korean(Hangul) last consonant Separation key
+// Korean (Hangul) last consonant Separation key
 const int kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
 
 static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
@@ -1000,7 +1000,7 @@ int PSPOskDialog::Update(int animSpeed) {
 		}
 	} else if (IsButtonPressed(CTRL_START)) {
 		StartFade(false);
-	} else if (IsButtonPressed(CTRL_SQUARE)) {
+	} else if (IsButtonPressed(CTRL_SQUARE) && inputChars.size() < FieldMaxLength()) {
 		// Use a regular space if the current keyboard isn't Japanese nor full-width English
 		if (currentKeyboardLanguage != OSK_LANGUAGE_JAPANESE && currentKeyboardLanguage != OSK_LANGUAGE_ENGLISH_FW)
 			inputChars += L" ";
