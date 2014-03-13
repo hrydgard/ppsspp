@@ -50,6 +50,7 @@
 
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+#define DISABLE_UNKNOWN_PREFIX { WLOG("DISABLE: Unknown Prefix in %s", __FUNCTION__); fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
 
 #define _RS MIPS_GET_RS(op)
@@ -75,7 +76,7 @@ static const float zero = 0.0f;
 void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 
 	VectorSize sz = GetVecSize(op);
@@ -396,7 +397,7 @@ void Jit::CompNEON_VVectorInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	// WARNING: No prefix support!
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 	VectorSize sz = GetVecSize(op);
 	DestARMReg vd = NEONMapPrefixD(_VD, sz, MAP_NOINIT | MAP_DIRTY);
@@ -423,7 +424,7 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 void Jit::CompNEON_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 
 	VectorSize sz = GetVecSize(op);
@@ -455,7 +456,7 @@ void Jit::CompNEON_VDot(MIPSOpcode op) {
 void Jit::CompNEON_VScl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 
 	VectorSize sz = GetVecSize(op);
@@ -473,7 +474,7 @@ void Jit::CompNEON_VScl(MIPSOpcode op) {
 void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 
 	// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
@@ -493,7 +494,6 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 		DISABLE;
 		break;
 	}
-
 
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
@@ -524,7 +524,7 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 	case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 		DISABLE;
 		{
-			ARMReg temp2 = MatchSize(fpr.QAllocTemp(), r.vs);
+			ARMReg temp2 = fpr.QAllocTemp(sz);
 			// Needs iterations on NEON. And two temps - which is a problem if vs == vd! Argh!
 			VRECPE(F_32, temp, r.vs);
 			VRECPS(temp2, r.vs, temp);
@@ -540,13 +540,14 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 		break;
 
 	case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
+		DISABLE;
 		// Needs iterations on NEON
 		{
 			if (true) {
 				// Not-very-accurate estimate
 				VRSQRTE(F_32, r.vd, r.vs);
 			} else {
-				ARMReg temp2 = MatchSize(fpr.QAllocTemp(), r.vs);
+				ARMReg temp2 = fpr.QAllocTemp(sz);
 				// TODO: It's likely that some games will require one or two Newton-Raphson
 				// iterations to refine the estimate.
 				VRSQRTE(F_32, temp, r.vs);
@@ -770,7 +771,7 @@ void Jit::CompNEON_Vh2f(MIPSOpcode op) {
 void Jit::CompNEON_Vcst(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 
 	int conNum = (op >> 16) & 0x1f;
@@ -788,7 +789,7 @@ void Jit::CompNEON_Vcst(MIPSOpcode op) {
 void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 	VectorSize sz = GetVecSize(op);
 	// Do any games use these a noticable amount?
@@ -827,7 +828,7 @@ void Jit::CompNEON_VRot(MIPSOpcode op) {
 void Jit::CompNEON_VIdt(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
-		DISABLE;
+		DISABLE_UNKNOWN_PREFIX;
 	}
 
 	VectorSize sz = GetVecSize(op);
@@ -888,9 +889,10 @@ void Jit::CompNEON_Vfim(MIPSOpcode op) {
 void Jit::CompNEON_VCrossQuat(MIPSOpcode op) {
 	// This op does not support prefixes anyway.
 	CONDITIONAL_DISABLE;
-	if (js.HasUnknownPrefix())
-		DISABLE;
-
+	if (js.HasUnknownPrefix()) {
+		DISABLE_UNKNOWN_PREFIX;
+	}
+	
 	VectorSize sz = GetVecSize(op);
 	if (sz != V_Triple) {
 		// Quaternion product. Bleh.
@@ -900,7 +902,7 @@ void Jit::CompNEON_VCrossQuat(MIPSOpcode op) {
 	MappedRegs r = NEONMapDirtyInIn(op, sz, sz, sz, false);
 
 	ARMReg t1 = Q0;
-	ARMReg t2 = fpr.QAllocTemp();
+	ARMReg t2 = fpr.QAllocTemp(V_Triple);
 	
 	// There has to be a faster way to do this. This is not really any better than
 	// scalar.

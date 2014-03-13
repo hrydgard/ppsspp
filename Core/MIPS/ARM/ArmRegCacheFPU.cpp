@@ -299,7 +299,7 @@ void ArmRegCacheFPU::FlushQWithV(MIPSReg r) {
 	// Look for it in all the quads. If it's in any, flush that quad clean.
 	int flushCount = 0;
 	for (int i = 0; i < MAX_ARMQUADS; i++) {
-		if (qr[i].sz = V_Invalid)
+		if (qr[i].sz == V_Invalid)
 			continue;
 
 		int n = qr[i].sz;
@@ -397,7 +397,7 @@ void ArmRegCacheFPU::FlushAll() {
 	}
 
 	// Flush quads!
-	for (int i = 0; i < MAX_ARMQUADS; i++) {
+	for (int i = 4; i < MAX_ARMQUADS; i++) {
 		QFlush(i);
 	}
 
@@ -588,8 +588,10 @@ void ArmRegCacheFPU::QLoad4x4(MIPSGPReg regPtr, int vquads[4]) {
 }
 
 void ArmRegCacheFPU::QFlush(int quad) {
-	if (!MappableQ(quad))
+	if (!MappableQ(quad)) {
+		ERROR_LOG(JIT, "Cannot flush non-mappable quad %i", quad);
 		return;
+	}
 
 	if (qr[quad].isDirty && !qr[quad].isTemp) {
 		ARMReg q = QuadAsQ(quad);
@@ -647,7 +649,8 @@ void ArmRegCacheFPU::QFlush(int quad) {
 			}
 			break;
 		default:
-			;
+			ERROR_LOG(JIT, "Unknown quad size %i", qr[quad].sz);
+			break;
 		}
 
 		qr[quad].isDirty = false;
@@ -663,7 +666,14 @@ void ArmRegCacheFPU::QFlush(int quad) {
 			m.lane = -1;
 			m.reg = -1;
 		}
+
+	} else {
+		if (qr[quad].isTemp) {
+			WARN_LOG(JIT, "Not flushing quad %i; dirty = %i, isTemp = %i", quad, qr[quad].isDirty, qr[quad].isTemp);
+		}
 	}
+
+	qr[quad].isTemp = false;
 	qr[quad].mipsVec = -1;
 	qr[quad].sz = V_Invalid;
 	memset(qr[quad].vregs, 0xFF, 4);
@@ -687,7 +697,9 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 		if (!MappableQ(q))
 			continue;
 
-		if (qr[q].mipsVec == INVALID_REG) {
+		// Don't steal temp quads!
+		if (qr[q].mipsVec == INVALID_REG && !qr[q].isTemp) {
+			INFO_LOG(JIT, "Free quad: %i", q);
 			// Oh yeah! Free quad!
 			return q;
 		}
@@ -701,6 +713,8 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 		if (!MappableQ(q))
 			continue;
 		if (qr[q].spillLock)
+			continue;
+		if (qr[q].isTemp)
 			continue;
 		int score = 0;
 		if (!qr[q].isDirty) {
@@ -723,7 +737,7 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 	}
 }
 
-ARMReg ArmRegCacheFPU::QAllocTemp() {
+ARMReg ArmRegCacheFPU::QAllocTemp(VectorSize sz) {
 	int q = QGetFreeQuad(false);
 	if (q < 0) {
 		ERROR_LOG(JIT, "Failed to allocate temp quad");
@@ -731,8 +745,16 @@ ARMReg ArmRegCacheFPU::QAllocTemp() {
 	}
 	qr[q].spillLock = true;
 	qr[q].isTemp = true;
-	qr[q].sz = V_Quad;
-	return ARMReg(Q0 + q);
+	qr[q].sz = sz;
+	qr[q].isDirty = false;  // doesn't matter
+
+	INFO_LOG(JIT, "Allocated temp quad %i", q);
+
+	if (sz == V_Single || sz == V_Pair) {
+		return D_0(ARMReg(Q0 + q));
+	} else {
+		return ARMReg(Q0 + q);
+	}
 }
 
 bool ArmRegCacheFPU::Consecutive(int v1, int v2) const {
@@ -917,10 +939,10 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		mr[mipsReg].reg = QuadAsQ(quad);
 		mr[mipsReg].lane = i;
 		qr[quad].vregs[i] = vregs[i];
-		qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
 	}
+	qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
 
-	INFO_LOG(JIT, "Mapped quad %i to vfpu %i, sz=%i", quad, vreg, (int)sz);
+	INFO_LOG(JIT, "Mapped quad %i to vfpu %i, sz=%i, dirty=%i", quad, vreg, (int)sz, qr[quad].isDirty);
 	if (sz == V_Single || sz == V_Pair) {
 		return D_0(QuadAsQ(quad));
 	} else {

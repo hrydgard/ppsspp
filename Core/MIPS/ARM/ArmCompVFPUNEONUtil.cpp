@@ -82,13 +82,14 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	if (prefix == 0xE4) {
 		return fpr.QMapReg(mipsReg, sz, mapFlags);
 	}
+
 	int n = GetNumVectorElements(sz);
 
-	int regnum[4];
-	int abs[4];
-	int negate[4];
-	int constants[4];
-	int constNum[4];
+	int regnum[4] = { -1, -1, -1, -1 };
+	int abs[4] = { 0 };
+	int negate[4] = { 0 };
+	int constants[4] = { 0 };
+	int constNum[4] = { 0 };
 
 	int full_mask = (1 << n) - 1;
 	
@@ -112,15 +113,15 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	}
 	abs_mask &= ~constants_mask;
 
-	bool anyPermute = (prefix & permuteMask) == (0xE4 & permuteMask);
+	bool anyPermute = (prefix & permuteMask) != (0xE4 & permuteMask);
 
 	if (constants_mask == full_mask) {
 		// It's all constants! Don't even bother mapping the input register,
 		// just allocate a temp one.
 		// If a single, this can sometimes be done cheaper. But meh.
-		ARMReg ar = fpr.QAllocTemp();
+		ARMReg ar = fpr.QAllocTemp(sz);
 		for (int i = 0; i < n; i++) {
-			if (!(i & 1)) {
+			if ((i & 1) == 0) {
 				if (constNum[i] == constNum[i + 1]) {
 					// Replace two loads with a single immediate when easily possible.
 					ARMReg dest = i & 2 ? D_1(ar) : D_0(ar);
@@ -156,34 +157,57 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	// 4. Negate
 
 	ARMReg inputAR = fpr.QMapReg(mipsReg, sz, mapFlags);
-	ARMReg ar = fpr.QAllocTemp();
+	ARMReg ar = fpr.QAllocTemp(sz);
 
 	if (!anyPermute) {
 		VMOV(ar, inputAR);
 		// No permutations!
 	} else {
-		bool allSame = true;
+		bool allSame = false;
 		for (int i = 1; i < n; i++) {
 			if (regnum[0] == regnum[i])
-				allSame = false;
+				allSame = true;
 		}
+
 		if (allSame) {
 			// Easy, someone is duplicating one value onto all the reg parts.
 			// If this is happening and QMapReg must load, we can combine these two actions
 			// into a VLD1_lane. TODO
 			VDUP(F_32, ar, inputAR, regnum[0]);
 		} else {
-			// Can check for VSWP match?
+			// Do some special cases
+			if (regnum[0] == 1 && regnum[1] == 0) {
+				INFO_LOG(HLE, "PREFIXST: Bottom swap!");
+				// Swap the bottom two. Ugly!
+				VMOV(D0, inputAR);
+				VMOV(S2, S0);
+				VMOV(S0, S1);
+				VMOV(S1, S2);
+				VMOV(ar, D0);
+				regnum[0] = 0;
+				regnum[1] = 1;
+			}
+
+			// TODO: Make a generic fallback using another temp register
+
+			bool match = true;
+			for (int i = 0; i < n; i++) {
+				if (regnum[i] != i)
+					match = false;
+			}
 
 			// TODO: Cannot do this permutation yet!
-			ERROR_LOG(HLE, "PREFIXST: Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
+			if (!match) {
+				ERROR_LOG(HLE, "PREFIXST: Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
+				VMOV(ar, inputAR);
+			}
 		}
 	}
 
 	// ABS
 	// Two methods: If all lanes are "absoluted", it's easy.
 	if (abs_mask == full_mask) {
-		// TODO: elide the above VMOV when possible
+		// TODO: elide the above VMOV (in !anyPermute) when possible
 		VABS(F_32, ar, ar);
 	} else if (abs_mask != 0) {
 		// Partial ABS!
@@ -199,7 +223,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 				}
 			}
 			VMOV(ar, MatchSize(Q0, ar));
-			INFO_LOG(HLE, "PREFIXST: Partial ABS %i/%i! Cannot do this yet.", abs_mask, full_mask);
+			INFO_LOG(HLE, "PREFIXST: Partial ABS %i/%i! Slow fallback generated.", abs_mask, full_mask);
 		}
 	}
 
@@ -221,7 +245,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 				}
 			}
 			VMOV(ar, MatchSize(Q0, ar));
-			INFO_LOG(HLE, "PREFIXST: Partial Negate %i/%i! Cannot do this yet.", negate_mask, full_mask);
+			INFO_LOG(HLE, "PREFIXST: Partial Negate %i/%i! Slow fallback generated.", negate_mask, full_mask);
 		}
 	}
 
@@ -252,7 +276,7 @@ Jit::DestARMReg Jit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags) {
 	} else {
 		// Allocate a temporary register.
 		ELOG("PREFIXD: Write mask allocated! %i/%i", writeMask, full_mask);
-		dest.rd = fpr.QAllocTemp();
+		dest.rd = fpr.QAllocTemp(sz);
 		dest.backingRd = fpr.QMapReg(vreg, sz, mapFlags & ~MAP_NOINIT);  // Force initialization of the backing reg.
 	}
 	return dest;
@@ -344,7 +368,6 @@ Jit::MappedRegs Jit::NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSiz
 Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize) {
 	MappedRegs regs;
 	regs.vs = NEONMapPrefixS(_VS, ssize, 0);
-
 	regs.overlap = GetVectorOverlap(_VD, dsize, _VS, ssize) > 0;
 	regs.vd = NEONMapPrefixD(_VD, dsize, MAP_DIRTY | (regs.overlap ? 0 : MAP_NOINIT));
 	return regs;

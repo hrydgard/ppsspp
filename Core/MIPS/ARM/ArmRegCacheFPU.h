@@ -136,7 +136,7 @@ public:
 	// quad registers, enabling blazing-fast full-matrix loads, transposed or not.
 	void QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags);
 
-	ARMReg QAllocTemp();
+	ARMReg QAllocTemp(VectorSize sz);
 	
 	void QAllowSpill(int quad);
 	void QFlush(int quad);
