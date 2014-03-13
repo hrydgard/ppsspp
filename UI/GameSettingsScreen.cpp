@@ -202,6 +202,7 @@ void GameSettingsScreen::CreateViews() {
 	// Maybe hide this on non-PVR?
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bAlphaMaskHack, gs->T("Alpha Mask Hack (3rd Birthday)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
 	if (PSP_IsInited())
