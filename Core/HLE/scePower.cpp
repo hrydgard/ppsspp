@@ -225,6 +225,10 @@ int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	Memory::Write_U32(0x00400000, psize);
 	volatileMemLocked = true;
 
+	// HACK (or not?) Seems this make take some time. This fixes Crash Tag Team Racing.
+	// TODO: Test properly.
+	hleEatCycles(msToCycles(25));
+
 	return 0;
 }
 
