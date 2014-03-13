@@ -59,6 +59,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
   $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \

@@ -24,6 +24,12 @@
 // TODO: Make a test of nice unittest asserts and count successes etc.
 // Or just integrate with an existing testing framework.
 
+#ifdef _WIN32
+#include <Windows.h>
+#undef R8
+#undef R12
+#endif
+
 
 #include <cstdio>
 #include <cstdlib>
@@ -33,9 +39,13 @@
 #include "base/NativeApp.h"
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
+#include "Common/CPUDetect.h"
 #include "ext/disarm.h"
 #include "math/math_util.h"
 #include "util/text/parsers.h"
+#include "util/text/utf8.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/Config.h"
 
 #define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
@@ -247,12 +257,13 @@ bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	return true;
 }
 
-
 bool TestArmEmitter() {
 	using namespace ArmGen;
-
+	
 	u32 code[512];
 	ARMXEmitter emitter((u8 *)code);
+	emitter.VNEG(S1, S2);
+	RET(CheckLast(emitter, "eef10a41 VNEG s1, s2"));
 	emitter.LDR(R3, R7);
 	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
 	emitter.VLDR(S3, R8, 48);
@@ -281,6 +292,8 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "eef00ac1 VABS s1, s2"));
 	emitter.VMOV(S1, S2);
 	RET(CheckLast(emitter, "eef00a41 VMOV s1, s2"));
+	emitter.VMOV(D1, D2);
+	RET(CheckLast(emitter, "eeb01b42 VMOV d1, d2"));
 	emitter.VCMP(S1, S2);
 	RET(CheckLast(emitter, "eef40a41 VCMP s1, s2"));
 	emitter.VCMPE(S1, S2);
@@ -297,35 +310,46 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "eef1fa10 VMRS APSR"));
 	emitter.VCVT(S0, S1, TO_INT | IS_SIGNED);
 	RET(CheckLast(emitter, "eebd0a60 VCVT ..."));
-
-
-	// WTF?
-	//emitter.VSUB(S4, S5, S6);
-	//RET(CheckLast(emitter, "ee322ac3 VSUB s4, s5, s6"));
-
-
-	emitter.VMOV(S3, S6);
-	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
-
-	/*
-	// These are only implemented in the neon-vfpu branch. will cherrypick later.
 	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
 	emitter.VMOV_immf(Q0, 1.0f);
-	RET(CheckLast(emitter, "eebd0a60 VMOV Q0, 1.0"));
 	emitter.VMOV_immf(Q0, -1.0f);
 	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VPADD(F_32, D0, D0, D0);
 	emitter.VMOV(Q14, Q2);
-	*/
 
 	emitter.VMOV(S3, S6);
 	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+
+	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
+	emitter.VMOV_immf(Q0, 1.0f);
+	RET(CheckLast(emitter, "f2870f50 VMOV q0, 1.0"));
+	emitter.VMOV_immf(Q0, -1.0f);
+	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
+	emitter.VPADD(F_32, D0, D0, D0);
+	emitter.VMOV(Q14, Q2);
+
+	emitter.VMOV(S9, R3);
+	RET(CheckLast(emitter, "ee043a90 VMOV s9, r3"));
+	emitter.VMOV(R9, S3);
+	RET(CheckLast(emitter, "ee119a90 VMOV r9, s3"));
+
+	emitter.VMOV(S3, S6);
+	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+	emitter.VMOV(S25, S21);
+	RET(CheckLast(emitter, "eef0ca6a VMOV s25, s21"));
 	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
 	RET(CheckLast(emitter, "f4633a8f VLD1.32 {d19-d20}, [r3]"));
 	emitter.VST1(I_32, D23, R9, 1, ALIGN_NONE, R_PC);
 	RET(CheckLast(emitter, "f449778f VST1.32 {d23}, [r9]"));
+	emitter.VLD1_lane(F_32, D8, R3, 0, ALIGN_NONE, R_PC);
+	RET(CheckLast(emitter, "f4a3880f VLD1.32 {d8[0]}, [r3]"));
+	emitter.VLD1_lane(I_8, D8, R3, 2, ALIGN_NONE, R_PC);
+	RET(CheckLast(emitter, "f4a3804f VLD1.i8 {d8[2]}, [r3]"));
+
 	emitter.VADD(I_8, D3, D4, D19);
 	RET(CheckLast(emitter, "f2043823 VADD.i8 d3, d4, d19"));
 	emitter.VADD(I_32, D3, D4, D19);
@@ -336,6 +360,8 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f31ca86e VSUB.i16 q5, q6, q15"));
 	emitter.VMUL(F_32, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f3042d56 VMUL.f32 q1, q2, q3"));
+	emitter.VMUL(F_32, Q13, Q15, Q14);
+	RET(CheckLast(emitter, "f34eadfc VMUL.f32 q13, q15, q14"));
 	emitter.VADD(F_32, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2042d46 VADD.f32 q1, q2, q3"));
 	emitter.VMLA(F_32, Q1, Q2, Q3);
@@ -344,6 +370,26 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f2242d56 VMLS.f32 q1, q2, q3"));
 	emitter.VMLS(I_16, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f3142946 VMLS.i16 q1, q2, q3"));
+
+	emitter.VORR(Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2242156 VORR q1, q2, q3"));
+	emitter.VAND(Q1, Q2, Q3);
+	RET(CheckLast(emitter, "f2042156 VAND q1, q2, q3"));
+	emitter.VDUP(F_32, Q14, D30, 1);
+	RET(CheckLast(emitter, "f3fccc6e VDUP.32 q14, d30[1]"));
+	//emitter.VNEG(S1, S2);
+	//RET(CheckLast(emitter, "eef10a60 VNEG.f32 s1, s1"));
+	emitter.VNEG(F_32, Q1, Q2);
+	RET(CheckLast(emitter, "f3b927c4 VNEG.f32 q1, q2"));
+	emitter.VABS(F_32, Q1, Q2);
+	RET(CheckLast(emitter, "f3b92744 VABS.f32 q1, q2"));
+	emitter.VMOV(D26, D30);
+	RET(CheckLast(emitter, "eef0ab6e VMOV d26, d30"));
+
+// 	emitter.VMIN(F_32, D3, D4, D19);
+// 	RET(CheckLast(emitter, "f2243f23 VMIN.f32 d3, d4, d19"));
+// 	emitter.VMAX(F_32, D3, D4, D19);
+// 	RET(CheckLast(emitter, "f2243f23 VMAX.f32 d3, d4, d19"));
 	return true;
 }
 
@@ -369,6 +415,7 @@ bool TestParsers() {
 }
 
 int main(int argc, const char *argv[]) {
+	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
 	cpu_info.bNEON = true;
 	cpu_info.bVFP = true;
 	cpu_info.bVFPv3 = true;

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
@@ -32,7 +33,26 @@ namespace MIPSComp
 
 struct ArmJitOptions
 {
-	ArmJitOptions();
+	ArmJitOptions() {
+		enableBlocklink = true;
+		downcountInRegister = true;
+		useBackJump = false;
+		useForwardJump = false;
+		cachePointers = true;
+		// WARNING: These options don't work properly with cache clearing or jit compare.
+		// Need to find a smart way to handle before enabling.
+		immBranches = false;
+		continueBranches = false;
+		continueJumps = false;
+		continueMaxInstructions = 300;
+
+		useNEONVFPU = true;
+		// useNEONVFPU = false;
+
+		if (!cpu_info.bNEON)
+			useNEONVFPU = false;
+	}
+
 
 	bool useNEONVFPU;
 	bool enableBlocklink;
@@ -227,6 +247,44 @@ private:
 		ApplyPrefixST(regs, js.prefixT, sz);
 	}
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
+
+
+	// For NEON mappings, it will be easier to deal directly in ARM registers.
+
+	ARMReg NEONMapPrefixST(int vfpuReg, VectorSize sz, u32 prefix, int mapFlags);
+	ARMReg NEONMapPrefixS(int vfpuReg, VectorSize sz, int mapFlags) {
+		return NEONMapPrefixST(vfpuReg, sz, js.prefixS, mapFlags);
+	}
+	ARMReg NEONMapPrefixT(int vfpuReg, VectorSize sz, int mapFlags) {
+		return NEONMapPrefixST(vfpuReg, sz, js.prefixT, mapFlags);
+	}
+
+	struct DestARMReg {
+		ARMReg rd;
+		ARMReg backingRd;
+		VectorSize sz;
+
+		operator ARMReg() const { return rd; }
+	};
+
+	struct MappedRegs {
+		ARMReg vs;
+		ARMReg vt;
+		DestARMReg vd;
+		bool overlap;
+	};
+
+	MappedRegs NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize, bool applyPrefixes = true);
+	MappedRegs NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize);
+
+	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);
+	void NEONApplyPrefixD(DestARMReg dest);
+
+
+	// NEON utils
+	void NEONMaskToSize(ARMReg vs, VectorSize sz);
+
+
 
 	// Utils
 	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);

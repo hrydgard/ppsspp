@@ -48,6 +48,11 @@
 #define __FUNCTION__ "(n/a)"
 #endif
 
+
+#ifdef ANDROID
+#define _dbg_assert_msg_ _assert_msg_
+#endif
+
 namespace ArmGen
 {
 
@@ -403,6 +408,45 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 		}
 #endif
 	}
+}
+
+
+static const char *armRegStrings[] = {
+	"r0","r1","r2","r3",
+	"r4","r5","r6","r7",
+	"r8","r9","r10","r11",
+	"r12","r13","r14","PC",
+
+	"s0", "s1", "s2", "s3",
+	"s4", "s5", "s6", "s7",
+	"s8", "s9", "s10", "s11",
+	"s12", "s13", "s14", "s15",
+
+	"s16", "s17", "s18", "s19",
+	"s20", "s21", "s22", "s23",
+	"s24", "s25", "s26", "s27",
+	"s28", "s29", "s30", "s31",
+
+	"d0", "d1", "d2", "d3",
+	"d4", "d5", "d6", "d7",
+	"d8", "d9", "d10", "d11",
+	"d12", "d13", "d14", "d15",
+
+	"d16", "d17", "d18", "d19",
+	"d20", "d21", "d22", "d23",
+	"d24", "d25", "d26", "d27",
+	"d28", "d29", "d30", "d31",
+
+	"q0", "q1", "q2", "q3",
+	"q4", "q5", "q6", "q7",
+	"q8", "q9", "q10", "q11",
+	"q12", "q13", "q14", "q15",
+};
+
+const char *ARMRegAsString(ARMReg reg) {
+	if ((unsigned int)reg > sizeof(armRegStrings)/sizeof(armRegStrings[0]))
+		return "(bad)";
+	return armRegStrings[(int)reg];
 }
 
 void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
@@ -1390,6 +1434,9 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 {
+	if (Dest == Src) {
+		WARN_LOG(JIT, "VMOV %s, %s - same register", ARMRegAsString(Src), ARMRegAsString(Dest));
+	}
 	if (Dest > R15)
 	{
 		if (Src < S0)
@@ -1442,6 +1489,11 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 	bool Quad = DestSize == 4;
 
 	_assert_msg_(JIT, SrcSize == DestSize, "VMOV doesn't support moving different register sizes");
+	if (SrcSize != DestSize) {
+		ELOG("SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
+		u32 *ptr = (u32 *)4;
+		*ptr = 0x1337;
+	}
 
 	Dest = SubBase(Dest);
 	Src = SubBase(Src);
@@ -1896,7 +1948,7 @@ void ARMXEmitter::VHADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	bool register_quad = Vd >= Q0;
 
-	Write32((0xF2 << 24) | ((Size & I_UNSIGNED ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
+	Write32((0xF2 << 24) | (((Size & I_UNSIGNED) ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
 		| EncodeVn(Vn) | EncodeVd(Vd) | (register_quad << 6) | EncodeVm(Vm));
 }
 void ARMXEmitter::VHSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -1907,7 +1959,7 @@ void ARMXEmitter::VHSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	bool register_quad = Vd >= Q0;
 
-	Write32((0xF2 << 24) | ((Size & I_UNSIGNED ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
+	Write32((0xF2 << 24) | (((Size & I_UNSIGNED) ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
 		| EncodeVn(Vn) | EncodeVd(Vd) | (1 << 9) | (register_quad << 6) | EncodeVm(Vm));
 }
 void ARMXEmitter::VMAX(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -1920,7 +1972,7 @@ void ARMXEmitter::VMAX(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	if (Size & F_32)
 		Write32((0xF2 << 24) | EncodeVn(Vn) | EncodeVd(Vd) | (0xF0 << 4) | (register_quad << 6) | EncodeVm(Vm));
 	else
-		Write32((0xF2 << 24) | ((Size & I_UNSIGNED ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
+		Write32((0xF2 << 24) | (((Size & I_UNSIGNED) ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
 			| EncodeVn(Vn) | EncodeVd(Vd) | (0x60 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
 void ARMXEmitter::VMIN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -1933,7 +1985,7 @@ void ARMXEmitter::VMIN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	if (Size & F_32)
 		Write32((0xF2 << 24) | (1 << 21) | EncodeVn(Vn) | EncodeVd(Vd) | (0xF0 << 4) | (register_quad << 6) | EncodeVm(Vm));
 	else
-		Write32((0xF2 << 24) | ((Size & I_UNSIGNED ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
+		Write32((0xF2 << 24) | (((Size & I_UNSIGNED) ? 1 : 0) << 23) | (encodedSize(Size) << 20) \
 			| EncodeVn(Vn) | EncodeVd(Vd) | (0x61 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
 void ARMXEmitter::VMLA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -2461,7 +2513,7 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
 		return 7;
 	case 2:
-		_dbg_assert_msg_(JIT, !((int)align & 3), "align & 3 must be == 0");
+		_dbg_assert_msg_(JIT, !((int)align == 3), "align must be != 3");
 		return 10;
 	case 3:
 		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
@@ -2486,10 +2538,12 @@ void ARMXEmitter::WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int reg
 }
 
 void ARMXEmitter::VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1(true, Size, Vd, Rn, regCount, align, Rm);
 }
 
 void ARMXEmitter::VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1(false, Size, Vd, Rn, regCount, align, Rm);
 }
 
@@ -2519,10 +2573,12 @@ void ARMXEmitter::WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, in
 }
 
 void ARMXEmitter::VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1_lane(true, Size, Vd, Rn, lane, aligned, Rm);
 }
 
 void ARMXEmitter::VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	WriteVLDST1_lane(false, Size, Vd, Rn, lane, aligned, Rm);
 }
 
@@ -2550,6 +2606,151 @@ void ARMXEmitter::VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignme
 			| (align << 4) | Rm);
 }
 */
+
+void ARMXEmitter::WriteVimm(ARMReg Vd, int cmode, u8 imm, int op) {
+	bool register_quad = Vd >= Q0;
+
+	Write32((0xF28 << 20) | ((imm >> 7) << 24) | (((imm >> 4) & 0x7) << 16) | (imm & 0xF) |
+		      EncodeVd(Vd) | (register_quad << 6) | (op << 5) | (1 << 4) | ((cmode & 0xF) << 8));
+}
+
+void ARMXEmitter::VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 0);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 0);
+		break;
+	case VIMMxxxxxxxx:  // replicate the byte
+		if (Size != I_8)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 0);
+		break;
+	case VIMMbits2bytes:
+		if (Size != I_64)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 1);
+		break;
+	default:
+		goto error;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VMOV_imm");
+}
+
+void ARMXEmitter::VMOV_immf(ARMReg Vd, float value) {  // This only works with a select few values. I've hardcoded 1.0f.
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	u8 bits = 0;
+
+	if (value == 0.0f) {
+		VEOR(Vd, Vd, Vd);
+		return;
+	}
+
+	// TODO: Do something more sophisticated here.
+	if (value == 1.5f) {
+		bits = 0x78;
+	} else if (value == 1.0f) {
+		bits = 0x70;
+	} else if (value == -1.0f) {
+		bits = 0xF0;
+	} else {
+		_dbg_assert_msg_(JIT, false, "Invalid floating point immediate");
+	}
+	WriteVimm(Vd, VIMMf000f000, bits, 0);
+}
+
+void ARMXEmitter::VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 0);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 0);
+		break;
+	default:
+		goto error;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VORR_imm");
+}
+
+void ARMXEmitter::VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 1);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type | 1, imm, 1);
+		break;
+	default:
+		goto error;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VBIC_imm");
+}
+
+
+void ARMXEmitter::VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
+	// Only let through the modes that apply.
+	switch (type) {
+	case VIMM___x___x:
+	case VIMM__x___x_:
+	case VIMM_x___x__:
+	case VIMMx___x___:
+		if (Size != I_32)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 1);
+		break;
+	case VIMM_x_x_x_x:
+	case VIMMx_x_x_x_:
+		if (Size != I_16)
+			goto error;
+		WriteVimm(Vd, (int)type, imm, 1);
+		break;
+	default:
+		goto error;
+	}
+	return;
+error:
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in VMVN_imm");
+}
+
 
 void ARMXEmitter::VREVX(u32 size, u32 Size, ARMReg Vd, ARMReg Vm)
 {

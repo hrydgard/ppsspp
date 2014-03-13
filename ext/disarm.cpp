@@ -223,28 +223,43 @@ bool DisasmVFP(uint32_t op, char *text) {
 				return true;
 			}
 
+			bool quad_reg = (op >> 6) & 1;
+			bool double_reg = (op >> 8) & 1;
+			char c = double_reg ? 'd' : 's';
+
 			int part1 = ((op >> 23) & 0x1F);
 			int part2 = ((op >> 9) & 0x7) ;
 			int part3 = ((op >> 20) & 0x3) ;
-			if (part3 == 3 && part2 == 5 && part1 == 0x1D && (op & (1<<6))) {
+			if (part3 == 3 && part2 == 5 && part1 == 0x1D) {
 				// VMOV, VCMP
 				int vn = GetVn(op);
-				if (vn != 1 && vn != 3) {
-					int vm = GetVm(op);
-					int vd = GetVd(op);
+				if (vn != 1 && vn != 2 && vn != 3) {
+					int vm = GetVm(op, false, double_reg);
+					int vd = GetVd(op, false, double_reg);
 
 					const char *name = "VMOV";
 					if (op & 0x40000)
 						name = (op & 0x80) ? "VCMPE" : "VCMP";
-					sprintf(text, "%s%s s%i, s%i", name, cond, vd, vm);
+					sprintf(text, "%s%s %c%i, %c%i", name, cond, c, vd, c, vm);
 					return true;
 				}
 			}
+			
+			// Moves between single precision registers and GPRs
 
-			// Arithmetic (buggy!)
+			if (((op >> 20) & 0xFFE) == 0xEE0) {
+				int vd = ((op >> 15) & 0x1E) | ((op >> 7) & 0x1);
+				int src = (op >> 12) & 0xF;
 
-			bool quad_reg = (op >> 6) & 1;
-			bool double_reg = (op >> 8) & 1;
+				if (op & (1 << 20))
+					sprintf(text, "VMOV r%i, s%i", src, vd);
+				else
+					sprintf(text, "VMOV s%i, r%i", vd, src);
+				return true;
+			}
+
+			// Arithmetic
+
 			int opnum = -1;
 			int opc1 = (op >> 20) & 0xFB;
 			int opc2 = (op >> 4) & 0xAC;
@@ -260,7 +275,6 @@ bool DisasmVFP(uint32_t op, char *text) {
 			}
 			if (opnum < 0)
 				return false;
-			char c = double_reg ? 'd' : 's';
 			switch (opnum) {
 			case 8:
 			case 10:
@@ -343,63 +357,229 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 	int Rn = (op >> 16) & 0xF;
 	int Rm = (op & 0xF);
 	int Vd = GetVd(op, false, true);
-	int sz = (op >> 6) & 3;
-	int regCount = GetRegCount((op >> 8) & 0xF);
 
-	int startReg = Vd;
-	int endReg = Vd + regCount - 1;
+	const char *name = load ? "LD" : "ST";
+	const char *suffix = "";
+	if (Rm == 13)
+		suffix = "!";
 
-	if (startReg == endReg)
-		sprintf(text, "V%s1.%s {d%i}, [r%i]", load ? "LD" : "ST", GetSizeString(sz), startReg, Rn);
-	else
-		sprintf(text, "V%s1.%s {d%i-d%i}, [r%i]", load ? "LD" : "ST", GetSizeString(sz), startReg, endReg, Rn);
+	if ((op & (1 << 23)) == 0) {
+		int sz = (op >> 6) & 3;
+		int regCount = GetRegCount((op >> 8) & 0xF);
+
+		int startReg = Vd;
+		int endReg = Vd + regCount - 1;
+
+		if (Rm != 15 && Rm != 13) {
+			sprintf(text, "V%s1 - regsum", name);
+		} else {
+			if (startReg == endReg)
+				sprintf(text, "V%s1.%s {d%i}, [r%i]%s", name, GetSizeString(sz), startReg, Rn, suffix);
+			else
+				sprintf(text, "V%s1.%s {d%i-d%i}, [r%i]%s", name, GetSizeString(sz), startReg, endReg, Rn, suffix);
+		}
+	} else {
+		int reg = Vd;
+		int sz = (op >> 10) & 3;
+		int index_align = (op >> 4) & 0xF;
+		int lane = 0;
+		switch (sz) {
+		case 0: lane = index_align >> 1; break;
+		case 1: lane = index_align >> 2; break;
+		case 2: lane = index_align >> 3; break;
+		}
+		if (Rm != 15) {
+			sprintf(text, "V%s1 d[0] - regsum", name);
+		} else {
+			sprintf(text, "V%s1.%s {d%i[%i]}, [r%i]%s", name, sz == 2 ? GetSizeString(sz) : GetISizeString(sz), reg, lane, Rn, suffix);
+		}
+	}
 
 	return true;
 }
 
-static bool DisasmNeonF3(uint32_t op, char *text) {
-	sprintf(text, "NEON F3");
+static bool DisasmArithNeon(uint32_t op, const char *opname, char *text, bool includeSuffix = true) {
+	bool quad = ((op >> 6) & 1);
+	int size = (op >> 20) & 3;
+	int type = (op >> 8) & 0xF;
+	char r = quad ? 'q' : 'd';
+	const char *szname = GetISizeString(size);
+	if (type == 0xD)
+		szname = "f32";
+	sprintf(text, "V%s%s%s %c%i, %c%i, %c%i", opname, includeSuffix ? "." : "", includeSuffix ? szname : "", r, GetVd(op, quad, true), r, GetVn(op, quad, true), r, GetVm(op, quad, true));
+	return true;
+}
+
+static bool DisasmNeonImmVal(uint32_t op, char *text) {
+	using namespace ArmGen;
+	int opcode = (op >> 5) & 1;
+	int cmode = (op >> 8) & 0xF;
+	int imm = ((op >> 17) & 0x80) | ((op >> 12) & 0x70) | (op & 0xF);
+	int quad = (op >> 6) & 1;
+	const char *operation = "MOV";
+	const char *size = "(unk)";
+	char temp[256] = "(unk)";
+	switch (cmode) {
+	case VIMM___x___x:
+	case VIMM___x___x + 1:
+		sprintf(temp, "000000%02x_000000%02x", imm, imm);
+		size = ".i32";
+		break;
+	case VIMM__x___x_:
+	case VIMM__x___x_ + 1:
+		sprintf(temp, "0000%02x00_0000%02x00", imm, imm);
+		size = ".i32";
+		break;
+	case VIMM_x___x__:
+	case VIMM_x___x__ + 1:
+		sprintf(temp, "00%02x0000_00%02x0000", imm, imm);
+		size = ".i32";
+		break;
+	case VIMMx___x___:
+	case VIMMx___x___ + 1:
+		sprintf(temp, "%02x000000_%02x000000", imm, imm);
+		size = ".i32";
+		break;
+
+	// TODO: More
+
+	case VIMMf000f000:
+		if (opcode == 0) {
+			// TODO: Do this properly
+			float f = 1337;
+			switch (imm) {
+			case 0: f = 0.0f; break;
+			case 0x78: f = 1.5; break;
+			case 0x70: f = 1.0; break;
+			case 0xF0: f = -1.0; break;
+			}
+			sprintf(temp, "%1.1f", f);
+			size = "";
+			break;
+		}
+	}
+	char c = quad ? 'q' : 'd';
+	sprintf(text, "V%s%s %c%i, %s", operation, size, c, GetVd(op, false, false), temp);
+	return true;
+}
+
+static bool DisasmNeon2Op(uint32_t op, char *text) {
+	const char *opname = "(unk2op)";
+
+	bool quad = (op >> 6) & 1;
+
+	// VNEG, VABS
+	if (op & (1 << 16))
+		opname = "NEG";
+
+	int type = (op >> 6) & 0xF;
+	int sz = (op >> 18) & 3;
+	const char *size = "f32";
+	if (type == 0xE) {
+		opname = "NEG";
+		GetISizeString(sz);
+	} else if (type == 0xD) {
+		opname = "ABS";
+		GetISizeString(sz);
+	}
+
+	int Vd = GetVd(op, quad, false);
+	int Vm = GetVm(op, quad, false);
+	char c = quad ? 'q' : 'c';
+	sprintf(text, "V%s.%s %c%i, %c%i", opname, size, c, Vd, c, Vm);
+	return true;
+}
+
+static bool DisasmVdup(uint32_t op, char *text) {
+	bool quad = (op >> 6) & 1;
+	int imm4 = (op >> 16) & 0xF;
+	int Vd = GetVd(op, quad, false);
+	int Vm = GetVm(op, false, true);
+	char c = quad ? 'q' : 'c';
+	int index = 0;
+	int size = 0;
+	if (imm4 & 1) {
+		index = imm4 >> 1;
+		size = 0;
+	} else if (imm4 & 2) {
+		index = imm4 >> 2;
+		size = 1;
+	} else if (imm4 & 4) {
+		index = imm4 >> 3;
+		size = 2;
+	}
+
+	sprintf(text, "VDUP.%s %c%i, d%i[%i]", GetSizeString(size), c, Vd, Vm, index);
 	return true;
 }
 
 static bool DisasmNeonF2F3(uint32_t op, char *text) {
 	sprintf(text, "NEON F2");
-	if (((op >> 20) & 0xFFC) == 0xF20 || ((op >> 20) & 0xFFC) == 0xF30) {
-		bool quad = ((op >> 6) & 1);
-		int size = (op >> 20) & 3;
-		int type = (op >> 8) & 0xF;
-		char r = quad ? 'q' : 'd';
+	if (((op >> 20) & 0xFF8) == 0xF20 || ((op >> 20) & 0xFF8) == 0xF30) {
 		const char *opname = "(unk)";
+		bool includeSuffix = true;
+		int temp;
 		switch ((op >> 20) & 0xFF) {
 		case 0x20:
-			if (op & 0x10)
+			temp = (op >> 4) & 0xF1;
+			switch (temp) {
+			case 0x11:
+				opname = "AND";
+				includeSuffix = false;
+				break;
+			case 0xd1:
 				opname = "MLA";
-			else
+				break;
+			case 0x80:
+			case 0xd0:
 				opname = "ADD";
-			break;
+				break;
+			}
+			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x22:
-			if (op & 0x10)
-				opname = "MLS";
-			else
+			temp = (op >> 4) & 0xF1;
+			switch (temp) {
+			case 0xF0:
+				opname = "MIN";
+				break;
+			case 0x11:
+				opname = "ORR";
+				includeSuffix = false;
+				break;
+			case 0x80:
+			case 0xd0:
 				opname = "ADD";
-			break;
+				break;
+			case 0xd1:
+				opname = "MLS";
+				break;
+			default:
+				opname = "???";
+				break;
+			}
+			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x31:
 			if (op & 0x100)
 				opname = "MLS";
 			else
 				opname = "SUB";
-			break;
+			return DisasmArithNeon(op, opname, text);
 		case 0x30:
+		case 0x34:
 			opname = "MUL";
-			break;
+			return DisasmArithNeon(op, opname, text);
 		}
-		const char *szname = GetISizeString(size);
-		if (type == 0xD)
-			szname = "f32";
-		sprintf(text, "V%s.%s %c%i, %c%i, %c%i", opname, szname, r, GetVd(op, quad, true), r, GetVn(op, quad, true), r, GetVm(op, quad, true));
+	} else if ((op >> 20) == 0xF28) {
+		// Immediate value ops!
+		return DisasmNeonImmVal(op, text);
+	} else if ((op >> 20) == 0xF3B) {
+		return DisasmNeon2Op(op, text);
+	} else if ((op >> 20) == 0xF3F) {
+		return DisasmVdup(op, text);
 	}
 	return true;
 }
+
 
 static bool DisasmNeon(uint32_t op, char *text) {
 	switch (op >> 24) {
@@ -727,7 +907,7 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 				break;
 			}
     case 3:
-			if (instr >> 24 == 0xF3) {
+			if ((instr >> 24) == 0xF3) {
 				if (!DisasmNeon(instr, result.text)) {
 					goto lUndefined;
 					break;
@@ -797,7 +977,7 @@ lMaybeLDRHetc:
       }
 #endif
     case 2:
-			if (instr >> 24 == 0xF2) {
+			if ((instr >> 24) == 0xF2) {
 				if (!DisasmNeon(instr, result.text)) {
 					goto lUndefined;
 					break;
@@ -840,7 +1020,7 @@ lMaybeLDRHetc:
       }
       break;
     case 4:
-			if (instr >> 24 == 0xF4) {
+			if ((instr >> 24) == 0xF4) {
 				if (!DisasmNeon(instr, result.text)) {
 					goto lUndefined;
 					break;
@@ -848,7 +1028,8 @@ lMaybeLDRHetc:
 				result.undefined = 0;
 				return &result;
 			}
-		case 5:
+			// else fallthrough
+    case 5:
     case 6:
     case 7:
       /* undefined or STR/LDR */
@@ -1236,12 +1417,15 @@ void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord) {
 		sprintf(output, "%s", instr->text);
 	}
 	if (instr->undefined || instr->badbits || instr->oddbits) {
-		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
-		if (instr->badbits) sprintf(output, " [illegal bits %08x]", w);
+		if (instr->undefined) sprintf(output, "%08x\t[undefined instr]", w);
+		if (instr->badbits) sprintf(output, "%08x\t[illegal bits]", w);
 
 		// HUH? LDR and STR gets this a lot
 		// strcat(output, " ? (extra bits)");  
-		if (instr->oddbits) sprintf(temp, " [unexpected bits %08x]", w), strcat(output, temp);
+		if (instr->oddbits) {
+			sprintf(temp, " [unexpected bits %08x]", w);
+			strcat(output, temp);
+		}
 	}
 	// zap tabs
 	while (*output) {

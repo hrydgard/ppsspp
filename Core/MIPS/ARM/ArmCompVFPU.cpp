@@ -179,14 +179,8 @@ namespace MIPSComp
 			if (js.VfpuWriteMask(i))
 				continue;
 
-			// TODO: These clampers are wrong - put this into google
-			// and look at the plot:   abs(x) - abs(x-0.5) + 0.5
-			// It's too steep.
-
-			// Also, they mishandle NaN and Inf.
 			int sat = (js.prefixD >> (i * 2)) & 3;
 			if (sat == 1) {
-				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				
 				MOVI2F(S0, 0.0f, R0);
@@ -327,8 +321,8 @@ namespace MIPSComp
 
 	void Jit::Comp_SVQ(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_SVQ);
+		CONDITIONAL_DISABLE;
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
@@ -509,6 +503,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VIdt(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VIdt);
+
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;

@@ -3,6 +3,9 @@
 
 #include "Common/ArmEmitter.h"
 #include "Common/CPUDetect.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/ARM/ArmJit.h"
 
 static bool functionWasCalled;
 
@@ -69,6 +72,7 @@ void TestCode::Generate()
 	VST1(I_32, D4, R2, 2);
 	VST1(I_32, D6, R3, 2);
 	PLD(R1, 32);
+	VDUP(F_32, Q3, Q8, 1);
 	u32 word = *(u32 *)(GetCodePtr() - 4);
 	ILOG("Instruction Word: %08x", word);
 
@@ -111,13 +115,61 @@ u32 CallPtr(const void *ptr)
 
 extern void DisassembleArm(const u8 *data, int size);
 
+#ifndef _WIN32
+#define OutputDebugStringA puts
+#endif
+
+bool TestRegCache() {
+	using namespace ArmGen;
+	u32 code[512];
+	ARMXEmitter emitter((u8 *)code);
+	MIPSState mips;
+	MIPSComp::ArmJitOptions jo;
+	MIPSComp::JitState js;
+
+	OutputDebugStringA("======START======\n");
+
+	char temp[256];
+	u8 regs[4];
+	GetVectorRegs(regs, V_Quad, 0x20);
+	sprintf(temp, "Vector notation experiment: %i %i %i %i %s", regs[0], regs[1], regs[2], regs[3], GetVectorNotation(0x20, V_Quad));
+	OutputDebugStringA(temp);
+
+	ArmRegCacheFPU fpr(&mips, &js, &jo);
+	MIPSAnalyst::AnalysisResults stats;
+	memset(&stats, 0, sizeof(stats));
+	fpr.SetEmitter(&emitter);
+	fpr.Start(stats);
+	ARMReg rtriple = fpr.QMapReg(0x20, V_Triple, 0);
+	ARMReg rquad = fpr.QMapReg(0x20, V_Quad, MAP_DIRTY);
+	ARMReg rquad2 = fpr.QMapReg(0x21, V_Quad, MAP_DIRTY);
+	emitter.VADD(F_32, Q0, rquad, rquad2);
+	ARMReg rpair3 = fpr.QMapReg(0x26, V_Single, MAP_DIRTY);
+	ARMReg rpair4 = fpr.QMapReg(0x24, V_Single, MAP_DIRTY);
+	emitter.VMUL(F_32, rpair3, rpair3, rpair4);
+	fpr.FlushAll();
+
+	// OutputDebugString the whole thing.
+	const u8 *ptr = (const u8 *)code;
+	for (; ptr < emitter.GetCodePtr(); ptr += 4) {
+		char temp[128];
+		sprintf(temp, "%08x\n", *(const u32 *)ptr);
+		OutputDebugStringA(temp);
+	}
+	OutputDebugStringA("======END======\n");
+
+	return true;
+}
+
 
 void ArmEmitterTest()
 {
 	// Disabled for now.
-	return;
+	//return;
 
 	// If I commit with it enabled by accident, let's not blow up.
+
+#ifdef ARM
 	if (!cpu_info.bNEON)
 		return;
 
@@ -142,5 +194,14 @@ void ArmEmitterTest()
 	for (int i = 0; i < 6; i++) {
 		ILOG("--------------------------");
 	}
+#else
+	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
+	cpu_info.bNEON = true;
+	cpu_info.bVFPv3 = true;
+	cpu_info.bVFPv4 = true;
+#endif
+
+	TestRegCache();
+
 	// DisassembleArm(codeStart, gen.GetCodePtr()-codeStart);
 }

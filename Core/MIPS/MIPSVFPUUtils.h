@@ -36,16 +36,15 @@ inline int Xpose(int v)
 #define VFPU_SH_FLOAT16_FRAC    0
 #define VFPU_MASK_FLOAT16_FRAC  0x3ff
 
-enum VectorSize
-{
-	V_Single,
-	V_Pair,
-	V_Triple,
-	V_Quad,
+enum VectorSize {
+	V_Single = 1,
+	V_Pair = 2,
+	V_Triple = 3,
+	V_Quad = 4,
+	V_Invalid = -1,
 };
 
-enum MatrixSize
-{
+enum MatrixSize {
 	M_2x2,
 	M_3x3,
 	M_4x4,
@@ -60,6 +59,8 @@ void ReadVector(float *rd, VectorSize N, int reg);
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
 
+void GetMatrixVectors(int matrixReg, MatrixSize msize, u8 vecs[4]);
+
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.
 inline int GetMtx(int matrixReg) {
 	return (matrixReg >> 2) & 7;
@@ -69,9 +70,12 @@ VectorSize GetVecSize(MIPSOpcode op);
 MatrixSize GetMtxSize(MIPSOpcode op);
 VectorSize GetHalfVectorSize(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
+VectorSize MatrixVectorSize(MatrixSize sz);
 int GetNumVectorElements(VectorSize sz);
 int GetMatrixSide(MatrixSize sz);
 const char *GetVectorNotation(int reg, VectorSize size);
 const char *GetMatrixNotation(int reg, MatrixSize size);
+
+int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 
 float Float16ToFloat32(unsigned short l);

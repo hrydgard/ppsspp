@@ -520,6 +520,9 @@
     <ClCompile Include="MIPS\PPC\PpcCompReplace.cpp">
       <Filter>MIPS\PPC</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompVFPUNEONUtil.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -956,6 +959,9 @@
     </ClInclude>
     <ClInclude Include="HW\BufferQueue.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmCompVFPUNEONUtil.h">
+      <Filter>MIPS\ARM</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

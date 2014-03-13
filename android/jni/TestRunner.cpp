@@ -40,16 +40,18 @@
 
 
 static const char * const testsToRun[] = {
+	"cpu/vfpu/vector",
+	/*
 	"cpu/cpu_alu/cpu_alu",
 	"cpu/fpu/fpu",
 	"cpu/icache/icache",
 	"cpu/lsu/lsu",
-	"cpu/vfpu/vector",
 	"cpu/vfpu/matrix",
 	"cpu/vfpu/convert",
 	"cpu/vfpu/colors",
 	"cpu/vfpu/prefixes",
 	"cpu/vfpu/gum",
+	*/
 };
 
 static std::string TrimNewlines(const std::string &s) {

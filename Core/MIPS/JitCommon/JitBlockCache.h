@@ -28,12 +28,10 @@
 #if defined(ARM)
 #include "Common/ArmEmitter.h"
 namespace ArmGen { class ARMXEmitter; }
-using namespace ArmGen;
 typedef ArmGen::ARMXCodeBlock CodeBlock;
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
 namespace Gen { class XEmitter; }
-using namespace Gen;
 typedef Gen::XCodeBlock CodeBlock;
 #elif defined(PPC)
 #include "Common/ppcEmitter.h"

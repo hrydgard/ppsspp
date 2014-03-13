@@ -45,7 +45,7 @@ void DisassembleArm(const u8 *data, int size) {
 			int reg0 = (inst & 0x0000F000) >> 12;
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
-				sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				sprintf(temp, "%08x MOV32 %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
 				ILOG("A:   %s", temp);
 				i += 4;
 				continue;
@@ -59,26 +59,8 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-ArmJitOptions::ArmJitOptions() {
-	enableBlocklink = true;
-	downcountInRegister = true;
-	useBackJump = false;
-	useForwardJump = false;
-	cachePointers = true;
-	// WARNING: These options don't work properly with cache clearing or jit compare.
-	// Need to find a smart way to handle before enabling.
-	immBranches = false;
-	continueBranches = false;
-	continueJumps = false;
-	continueMaxInstructions = 300;
-
-	useNEONVFPU = false;  // true
-	if (!cpu_info.bNEON)
-		useNEONVFPU = false;
-}
-
-Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
-{ 
+Jit::Jit(MIPSState *mips)
+	: blocks(mips, this), gpr(mips, &jo), fpr(mips, &js, &jo), mips_(mips) { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
@@ -268,7 +250,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
-		fpr.SetCompilerPC(js.compilerPC);
+		// fpr takes it from jitstate.
 		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
@@ -289,11 +271,15 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 #endif
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800)
-		{
+		if (GetSpaceLeft() < 0x800) {
 			FlushAll();
 			WriteExit(js.compilerPC, js.nextExit++);
 			js.compiling = false;
+		}
+
+		// TEMPORARY
+		if (MIPSGetInfo(inst) & IS_VFPU) {
+			logBlocks = 1;
 		}
 	}
 

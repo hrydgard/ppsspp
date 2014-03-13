@@ -67,6 +67,7 @@ struct RegMIPS {
 #undef MAP_NOINIT
 // Initing is the default so the flag is reversed.
 enum {
+	MAP_READ = 0,
 	MAP_DIRTY = 1,
 	MAP_NOINIT = 2,
 };
@@ -99,6 +100,7 @@ public:
 	ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);
 	ARMReg MapRegAsPointer(MIPSGPReg reg);  // read-only, non-dirty.
 
+	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
 
 	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);

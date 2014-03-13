@@ -251,6 +251,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 	SetCurrentDirectory(modulePath);
+
+
+	std::string app_dir_name, app_nice_name;
+	bool landscape;
+	NativeGetAppInfo(&app_dir_name, &app_nice_name, &landscape);
 	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
 
 #ifndef _DEBUG

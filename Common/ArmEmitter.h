@@ -356,6 +356,20 @@ const u32 I_UNSIGNED = (1 << 5);
 const u32 F_32 = (1 << 6);
 const u32 I_POLYNOMIAL = (1 << 7); // Only used in VMUL/VMULL
 
+enum VIMMMode {
+	VIMM___x___x = 0x0, // 0000 VMOV
+	VIMM__x___x_ = 0x2, // 0010
+	VIMM_x___x__ = 0x4, // 0100
+	VIMMx___x___ = 0x6, // 0110
+	VIMM_x_x_x_x = 0x8, // 1000
+	VIMMx_x_x_x_ = 0xA, // 1010
+	VIMM__x1__x1 = 0xC, // 1100
+	VIMM_x11_x11 = 0xD, // 1101
+	VIMMxxxxxxxx = 0xE, // 1110  // op == 0
+	VIMMf000f000 = 0xF, // 1111  // op == 0     ( really   aBbbbbbc defgh 00000000 00000000 ) where B = NOT b
+	VIMMbits2bytes = 0x1E,   // Bit replication into bytes! Easily created 111111111 00000000 masks!
+};
+
 u32 EncodeVd(ARMReg Vd);
 u32 EncodeVn(ARMReg Vn);
 u32 EncodeVm(ARMReg Vm);
@@ -369,6 +383,22 @@ ARMReg SubBase(ARMReg Reg);
 // VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
 ARMReg DScalar(ARMReg dreg, int subScalar);
 ARMReg QScalar(ARMReg qreg, int subScalar);
+
+const char *ARMRegAsString(ARMReg reg);
+
+// Get the two halves of a Q register.
+inline ARMReg D_0(ARMReg q) {
+	if (q >= Q0 && q <= Q15) {
+		return ARMReg(D0 + (q - Q0) * 2);
+	} else if (q >= D0 && q <= D31) {
+		return q;
+	} else {
+		return INVALID_REG;
+	}
+}
+inline ARMReg D_1(ARMReg q) {
+	return ARMReg(D0 + (q - Q0) * 2 + 1);
+}
 
 enum NEONAlignment {
 	ALIGN_NONE = 0,
@@ -406,6 +436,8 @@ private:
 
 	void WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
 	void WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
+
+	void WriteVimm(ARMReg Vd, int cmode, u8 imm, int op);
 
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
@@ -731,6 +763,16 @@ public:
 	void VREV16(u32 Size, ARMReg Vd, ARMReg Vm);
 
 
+	// NEON immediate instructions
+
+
+	void VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VMOV_immf(ARMReg Vd, float value);  // This only works with a select few values (1.0f and -1.0f).
+
+	void VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+
 	// Widening and narrowing moves
 	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -862,4 +904,4 @@ extern const char *VFPOpNames[16];
 
 }  // namespace
 
-#endif // _DOLPHIN_INTEL_CODEGEN_
+#endif
