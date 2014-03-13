@@ -384,6 +384,8 @@ ARMReg SubBase(ARMReg Reg);
 ARMReg DScalar(ARMReg dreg, int subScalar);
 ARMReg QScalar(ARMReg qreg, int subScalar);
 
+const char *ARMRegAsString(ARMReg reg);
+
 // Get the two halves of a Q register.
 inline ARMReg D_0(ARMReg q) {
 	if (q >= Q0 && q <= Q15) {

@@ -410,6 +410,45 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
+
+static const char *armRegStrings[] = {
+	"r0","r1","r2","r3",
+	"r4","r5","r6","r7",
+	"r8","r9","r10","r11",
+	"r12","r13","r14","PC",
+
+	"s0", "s1", "s2", "s3",
+	"s4", "s5", "s6", "s7",
+	"s8", "s9", "s10", "s11",
+	"s12", "s13", "s14", "s15",
+
+	"s16", "s17", "s18", "s19",
+	"s20", "s21", "s22", "s23",
+	"s24", "s25", "s26", "s27",
+	"s28", "s29", "s30", "s31",
+
+	"d0", "d1", "d2", "d3",
+	"d4", "d5", "d6", "d7",
+	"d8", "d9", "d10", "d11",
+	"d12", "d13", "d14", "d15",
+
+	"d16", "d17", "d18", "d19",
+	"d20", "d21", "d22", "d23",
+	"d24", "d25", "d26", "d27",
+	"d28", "d29", "d30", "d31",
+
+	"q0", "q1", "q2", "q3",
+	"q4", "q5", "q6", "q7",
+	"q8", "q9", "q10", "q11",
+	"q12", "q13", "q14", "q15",
+};
+
+const char *ARMRegAsString(ARMReg reg) {
+	if ((unsigned int)reg > sizeof(armRegStrings)/sizeof(armRegStrings[0]))
+		return "(bad)";
+	return armRegStrings[(int)reg];
+}
+
 void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
 	if (BLInRange(func)) {
 		BL(func);
@@ -1395,6 +1434,9 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 {
+	if (Dest == Src) {
+		WARN_LOG(JIT, "VMOV %s, %s - same register", ARMRegAsString(Src), ARMRegAsString(Dest));
+	}
 	if (Dest > R15)
 	{
 		if (Src < S0)
@@ -1447,6 +1489,11 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 	bool Quad = DestSize == 4;
 
 	_assert_msg_(JIT, SrcSize == DestSize, "VMOV doesn't support moving different register sizes");
+	if (SrcSize != DestSize) {
+		ELOG("SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
+		u32 *ptr = (u32 *)4;
+		*ptr = 0x1337;
+	}
 
 	Dest = SubBase(Dest);
 	Src = SubBase(Src);
