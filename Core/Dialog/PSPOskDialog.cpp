@@ -57,7 +57,7 @@ static const wchar_t diacritics[2][103] =
 // Korean(Hangul) consonant
 static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 
-// Korean(Hangul) vowels, Some vowels are not used, them will be spacing
+// Korean(Hangul) vowels, Some vowels are not used, they will be spaces
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
 // Korean(Hangul) vowel Combination key
@@ -871,6 +871,12 @@ int PSPOskDialog::Update(int animSpeed) {
 	StartDraw();
 	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 	RenderKeyboard();
+
+	I18NCategory *d = GetI18NCategory("Dialog");
+
+	PPGeDrawImage(I_SQUARE, 85, 195, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Space"), 115, 195, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
 	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
 		PPGeDrawImage(I_CROSS, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(I_CIRCLE, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
@@ -879,13 +885,11 @@ int PSPOskDialog::Update(int animSpeed) {
 		PPGeDrawImage(I_CROSS, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 
-	I18NCategory *d = GetI18NCategory("Dialog");
 	PPGeDrawText(d->T("Select"), 115, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText(d->T("Delete"), 115, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-
 
 	int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
 	const char *countryCode;
@@ -996,7 +1000,14 @@ int PSPOskDialog::Update(int animSpeed) {
 		}
 	} else if (IsButtonPressed(CTRL_START)) {
 		StartFade(false);
+	} else if (IsButtonPressed(CTRL_SQUARE)) {
+		// Use a regular space if the current keyboard isn't Japanese nor full-width English
+		if (currentKeyboardLanguage != OSK_LANGUAGE_JAPANESE && currentKeyboardLanguage != OSK_LANGUAGE_ENGLISH_FW)
+			inputChars += L" ";
+		else
+			inputChars += L"　";
 	}
+
 	EndDraw();
 
 	u16_le *outText = oskParams->fields[0].outtext;
