@@ -262,6 +262,8 @@ bool TestArmEmitter() {
 	
 	u32 code[512];
 	ARMXEmitter emitter((u8 *)code);
+	emitter.VNEG(S1, S2);
+	RET(CheckLast(emitter, "eef10a41 VNEG s1, s2"));
 	emitter.LDR(R3, R7);
 	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
 	emitter.VLDR(S3, R8, 48);
@@ -290,6 +292,8 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "eef00ac1 VABS s1, s2"));
 	emitter.VMOV(S1, S2);
 	RET(CheckLast(emitter, "eef00a41 VMOV s1, s2"));
+	emitter.VMOV(D1, D2);
+	RET(CheckLast(emitter, "eeb01b42 VMOV d1, d2"));
 	emitter.VCMP(S1, S2);
 	RET(CheckLast(emitter, "eef40a41 VCMP s1, s2"));
 	emitter.VCMPE(S1, S2);
@@ -335,6 +339,8 @@ bool TestArmEmitter() {
 
 	emitter.VMOV(S3, S6);
 	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+	emitter.VMOV(S25, S21);
+	RET(CheckLast(emitter, "eef0ca6a VMOV s25, s21"));
 	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
 	RET(CheckLast(emitter, "f4633a8f VLD1.32 {d19-d20}, [r3]"));
 	emitter.VST1(I_32, D23, R9, 1, ALIGN_NONE, R_PC);
@@ -369,10 +375,16 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f2242156 VORR q1, q2, q3"));
 	emitter.VAND(Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2042156 VAND q1, q2, q3"));
+	emitter.VDUP(F_32, Q14, D30, 1);
+	RET(CheckLast(emitter, "f3fccc6e VDUP.32 q14, d30[1]"));
+	//emitter.VNEG(S1, S2);
+	//RET(CheckLast(emitter, "eef10a60 VNEG.f32 s1, s1"));
 	emitter.VNEG(F_32, Q1, Q2);
-	RET(CheckLast(emitter, "f3b927c4 VNEG q1, q2"));
+	RET(CheckLast(emitter, "f3b927c4 VNEG.f32 q1, q2"));
 	emitter.VABS(F_32, Q1, Q2);
-	RET(CheckLast(emitter, "f2042156 VABS q1, q2"));
+	RET(CheckLast(emitter, "f3b92744 VABS.f32 q1, q2"));
+	emitter.VMOV(D26, D30);
+	RET(CheckLast(emitter, "eef0ab6e VMOV d26, d30"));
 
 // 	emitter.VMIN(F_32, D3, D4, D19);
 // 	RET(CheckLast(emitter, "f2243f23 VMIN.f32 d3, d4, d19"));
