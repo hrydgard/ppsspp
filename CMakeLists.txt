@@ -420,7 +420,7 @@ if(USE_FFMPEG)
 		)
 	endif()
 
-	if(IOS OR BLACKBERRY)
+	if(IOS OR BLACKBERRY OR MACOSX)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
 	endif()
 
