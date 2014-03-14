@@ -154,8 +154,9 @@ namespace MIPSComp
 
 		if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
 			u32 addr = iaddr & 0x3FFFFFFF;
-			// Must be OK even if rs == rt since we have the value from imm already.
-			gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+			// Need to initialize since this only loads part of the register.
+			// But rs no longer matters (even if rs == rt) since we have the address.
+			gpr.MapReg(rt, load ? MAP_DIRTY : 0);
 			gpr.SetRegImm(R0, addr & ~3);
 
 			u8 shift = (addr & 3) * 8;
