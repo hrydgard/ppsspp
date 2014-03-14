@@ -264,6 +264,13 @@ bool TestArmEmitter() {
 	emitter.SBFX(R0, R8, 5, 9);
 	RET(CheckLast(emitter, "e7a802d8 SBFX r0, r8, #5, #9"));
 
+	emitter.B_CC(CC_NEQ, code + 128);
+	RET(CheckLast(emitter, "1a000079 BNE &000001EC"));
+	emitter.SetJumpTarget(emitter.B_CC(CC_NEQ));
+	RET(CheckLast(emitter, "1affffff BNE &00000004"));
+	emitter.SetJumpTarget(emitter.BL_CC(CC_NEQ));
+	RET(CheckLast(emitter, "1bffffff BLNE &00000004"));
+
 	emitter.VLDR(S3, R8, 48);
 	RET(CheckLast(emitter, "edd81a0c VLDR s3, [r8, #48]"));
 	emitter.VSTR(S5, R12, -36);

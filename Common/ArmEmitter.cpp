@@ -556,7 +556,7 @@ void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
 	             "SetJumpTarget out of range (%p calls %p)", code, branch.ptr);
 	u32 instr = (u32)(branch.condition | ((distance >> 2) & 0x00FFFFFF));
-	instr |= branch.type ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
+	instr |= branch.type == 0 ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
 	*(u32*)branch.ptr = instr;
 }
 void ARMXEmitter::B (const void *fnptr)
