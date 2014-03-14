@@ -139,6 +139,7 @@ public:
 	bool bAlwaysDepthWrite;
 	bool bTimerHack;
 	bool bAlphaMaskHack;
+	bool bDisableBezier;
 	bool bLowQualitySplineBezier;
 	std::string sPostShaderName;  // Off for off.
 

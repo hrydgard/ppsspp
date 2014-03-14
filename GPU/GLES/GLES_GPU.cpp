@@ -765,6 +765,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
+			if (g_Config.bDisableBezier) {
+				break;
+			}
+
 			// This also make skipping drawing very effective.
 			framebufferManager_.SetRenderFrameBuffer();
 			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
