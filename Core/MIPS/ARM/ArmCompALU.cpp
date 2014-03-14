@@ -60,6 +60,11 @@ namespace MIPSComp
 			Operand2 op2;
 			if (TryMakeOperand2(uimm, op2)) {
 				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
+#ifdef HAVE_ARMV7
+			} else if (eval == &EvalAnd && uimm == 0xFFFF) {
+				// This is common (e.g. a cast to a short.)
+				UBFX(gpr.R(rt), gpr.R(rs), 0, 16);
+#endif
 			} else {
 				gpr.SetRegImm(R0, (u32)uimm);
 				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
@@ -115,7 +120,7 @@ namespace MIPSComp
 			}
 			break;
 
-		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
+		case 11: // R(rt) = R(rs) < suimm; break; //sltiu
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) < suimm ? 1 : 0);
