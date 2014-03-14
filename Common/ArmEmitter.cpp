@@ -806,6 +806,11 @@ void ARMXEmitter::UBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
 	Write32(condition | (0x7E0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
 }
 
+void ARMXEmitter::SBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
+{
+	Write32(condition | (0x7A0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
+}
+
 void ARMXEmitter::CLZ(ARMReg rd, ARMReg rm)
 {
 	Write32(condition | (0x16F << 16) | (rd << 12) | (0xF1 << 4) | rm);
@@ -827,6 +832,13 @@ void ARMXEmitter::BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width)
 	u32 msb = (lsb + width - 1);
 	if (msb > 31) msb = 31;
 	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | rn);
+}
+
+void ARMXEmitter::BFC(ARMReg rd, u8 lsb, u8 width)
+{
+	u32 msb = (lsb + width - 1);
+	if (msb > 31) msb = 31;
+	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | 15);
 }
 
 void ARMXEmitter::SXTB (ARMReg dest, ARMReg op2)
