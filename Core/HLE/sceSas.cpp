@@ -173,7 +173,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 	if (loop != 0 && loop != 1) {
-		WARN_LOG_REPORT(SCESAS, "%s: invalid loop mode %d", __FUNCTION__, size);
+		WARN_LOG_REPORT(SCESAS, "%s: invalid loop mode %d", __FUNCTION__, loop);
 		return ERROR_SAS_INVALID_LOOP_POS;
 	}
 
