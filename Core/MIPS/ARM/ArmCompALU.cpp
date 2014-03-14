@@ -109,6 +109,11 @@ namespace MIPSComp
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm ? 1 : 0);
 					break;
+				} else if (simm == 0) {
+					gpr.MapDirtyIn(rt, rs);
+					// Shift to get the sign bit only (for < 0.)
+					LSR(gpr.R(rt), gpr.R(rs), 31);
+					break;
 				}
 				gpr.MapDirtyIn(rt, rs);
 				CMPI2R(gpr.R(rs), simm, R0);
