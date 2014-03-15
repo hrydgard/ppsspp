@@ -15,14 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../HLE/HLE.h"
+#include <cstring>
+#include "Core/HLE/HLE.h"
 
-#include "MIPS.h"
-#include "MIPSDis.h"
-#include "MIPSTables.h"
-#include "MIPSDebugInterface.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSDis.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
-#include "MIPSVFPUUtils.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
