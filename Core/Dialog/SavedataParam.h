@@ -19,17 +19,16 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
-#include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
-#include "Core/System.h"
 #include "Core/Dialog/PSPDialog.h"
-#include "Core/Util/PPGeDraw.h"
 
 #undef st_ctime
 #undef st_atime
 #undef st_mtime
 
+class PPGeImage;
 struct PSPFileInfo;
+typedef u32_le SceSize_le;
 
 enum SceUtilitySavedataType
 {

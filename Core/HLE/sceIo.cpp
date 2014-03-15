@@ -26,6 +26,7 @@
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/HW/AsyncIOManager.h"

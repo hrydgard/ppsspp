@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include "Common/Common.h"
+
+class PointerWrap;
+
 struct PSPTimeval {
 	s32_le tv_sec;
 	s32_le tv_usec;
