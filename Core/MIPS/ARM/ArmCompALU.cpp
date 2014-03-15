@@ -100,7 +100,10 @@ namespace MIPSComp
 					break;
 				}
 				gpr.MapDirtyIn(rt, rs);
-				CMPI2R(gpr.R(rs), simm, R0);
+				if (!TryCMPI2R(gpr.R(rs), simm)) {
+					gpr.SetRegImm(R0, simm);
+					CMP(gpr.R(rs), R0);
+				}
 				SetCC(CC_LT);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_GE);
@@ -116,7 +119,10 @@ namespace MIPSComp
 					break;
 				}
 				gpr.MapDirtyIn(rt, rs);
-				CMPI2R(gpr.R(rs), suimm, R0);
+				if (!TryCMPI2R(gpr.R(rs), suimm)) {
+					gpr.SetRegImm(R0, suimm);
+					CMP(gpr.R(rs), R0);
+				}
 				SetCC(CC_LO);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_HS);
