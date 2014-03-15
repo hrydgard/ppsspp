@@ -9,9 +9,11 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceKernel.h"

@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
-
-#include "sceAudiocodec.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceAudiocodec.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleMp3Dec.h"
 

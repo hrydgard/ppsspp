@@ -19,8 +19,9 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
 #include "Core/Opcode.h"
+
+class PointerWrap;
 
 typedef Memory::Opcode MIPSOpcode;
 

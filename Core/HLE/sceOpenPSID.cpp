@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "sceOpenPSID.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceOpenPSID.h"
+#include "Core/MemMap.h"
 
 int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
 {

@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-
-#include "sceCtrl.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceHprm.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 
 u32 sceHprmPeekCurrentKey(u32 keyAddress) {
 	DEBUG_LOG(HLE,"0=sceHprmPeekCurrentKey(ptr)");

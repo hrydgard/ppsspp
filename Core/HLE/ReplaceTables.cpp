@@ -19,6 +19,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"

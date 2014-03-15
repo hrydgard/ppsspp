@@ -17,8 +17,10 @@
 
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/HW/MediaEngine.h"

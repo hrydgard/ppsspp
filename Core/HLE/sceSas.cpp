@@ -30,8 +30,10 @@
 #include "base/basictypes.h"
 #include "Common/Log.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/SasAudio.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
 #include "Core/HLE/sceSas.h"

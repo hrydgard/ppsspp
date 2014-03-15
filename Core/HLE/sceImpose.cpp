@@ -15,12 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "FunctionWrappers.h"
-#include "../MIPS/MIPS.h"
-#include "../Config.h"
-#include "ChunkFile.h"
-#include "sceUtility.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceUtility.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
