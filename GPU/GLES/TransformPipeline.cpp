@@ -539,10 +539,6 @@ void TransformDrawEngine::DoFlush() {
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
 
-		// Also avoid caching when HW T&L with morph enabled.
-		if (g_Config.bHardwareTransform && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK))
-			useCache = false;
-
 		if (useCache) {
 			u32 id = ComputeFastDCID();
 			auto iter = vai_.find(id);
