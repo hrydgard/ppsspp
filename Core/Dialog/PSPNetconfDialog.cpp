@@ -17,6 +17,7 @@
 
 #include "PSPNetconfDialog.h"
 #include "ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Util/PPGeDraw.h"

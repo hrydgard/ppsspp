@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "HLE.h"
+#include "Common/CommonTypes.h"
 
 void Register_sceMd5();
 

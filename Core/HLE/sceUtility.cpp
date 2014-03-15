@@ -22,8 +22,10 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"

@@ -18,7 +18,9 @@
 
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -27,6 +29,7 @@
 #include "Core/HLE/sceChnnlsv.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HW/MemoryStick.h"
+#include "Core/Util/PPGeDraw.h"
 
 #include "image/png_load.h"
 

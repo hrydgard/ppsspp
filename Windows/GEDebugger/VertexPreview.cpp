@@ -179,8 +179,8 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport(x, y, fw, fh);
-	glScissor(x, y, fw, fh);
+	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
+	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
 	BindPreviewProgram(previewProgram);
 
 	float scale[] = {
@@ -209,8 +209,8 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport(x, y, fw, fh);
-	glScissor(x, y, fw, fh);
+	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
+	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
 	BindPreviewProgram(texPreviewProgram);
 
 	// TODO: Probably there's a better way and place to do this.

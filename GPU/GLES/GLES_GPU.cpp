@@ -37,6 +37,7 @@
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
 
+#include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"

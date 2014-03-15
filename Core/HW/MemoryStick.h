@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/ChunkFile.h"
+#include "Common/CommonTypes.h"
 
 class PointerWrap;
 

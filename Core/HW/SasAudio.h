@@ -22,9 +22,10 @@
 
 #pragma once
 
-#include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
+
+class PointerWrap;
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,

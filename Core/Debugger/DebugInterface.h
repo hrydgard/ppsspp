@@ -17,7 +17,6 @@
 
 #pragma once
 #include <string>
-#include <cstdio>
 #include "Common/CommonTypes.h"
 #include "native/math/expression_parser.h"
 

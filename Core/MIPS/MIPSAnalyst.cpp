@@ -20,6 +20,7 @@
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"

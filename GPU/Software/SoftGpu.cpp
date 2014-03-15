@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"

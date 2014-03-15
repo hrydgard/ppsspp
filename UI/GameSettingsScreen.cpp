@@ -64,7 +64,7 @@ void GameSettingsScreen::CreateViews() {
 	showDebugStats_ = g_Config.bShowDebugStats;
 
 	iAlternateSpeedPercent_ = 3;
-	for (int i = 0; i < ARRAY_SIZE(alternateSpeedTable); i++) {
+	for (int i = 0; i < (int)ARRAY_SIZE(alternateSpeedTable); i++) {
 		if (g_Config.iFpsLimit <= alternateSpeedTable[i]) {
 			iAlternateSpeedPercent_ = i;
 			break;

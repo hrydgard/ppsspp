@@ -17,11 +17,13 @@
 
 #include "native/ext/jpge/jpgd.h"
 
-#include "Common.h"
+#include "Common/Common.h"
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "sceMpeg.h"
+#include "Core/HLE/sceMpeg.h"
 
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
 //#define JPEG_DEBUG

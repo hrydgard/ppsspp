@@ -19,6 +19,8 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MemMap.h"
 
 int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
 	DEBUG_LOG(HLE, "sceZlibDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);

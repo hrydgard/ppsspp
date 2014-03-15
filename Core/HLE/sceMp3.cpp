@@ -20,8 +20,10 @@
 
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
 #ifdef USE_FFMPEG

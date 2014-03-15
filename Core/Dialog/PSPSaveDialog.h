@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "PSPDialog.h"
-#include "SavedataParam.h"
+#include "Core/Dialog/PSPDialog.h"
+#include "Core/Dialog/SavedataParam.h"
 
 #define SCE_UTILITY_SAVEDATA_ERROR_TYPE                 (0x80110300)
 

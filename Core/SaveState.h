@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include <vector>
 
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 
 namespace SaveState
 {
