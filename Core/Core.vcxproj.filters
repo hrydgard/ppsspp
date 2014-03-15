@@ -520,6 +520,9 @@
     <ClCompile Include="MIPS\PPC\PpcCompReplace.cpp">
       <Filter>MIPS\PPC</Filter>
     </ClCompile>
+    <ClCompile Include="HW\SimpleMp3Dec.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -958,6 +961,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HW\BufferQueue.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SimpleMp3Dec.h">
       <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
