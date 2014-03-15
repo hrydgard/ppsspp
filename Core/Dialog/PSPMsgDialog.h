@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "PSPDialog.h"
+#include <string>
+#include "Core/Dialog/PSPDialog.h"
 
 #define SCE_UTILITY_MSGDIALOG_OPTION_ERRORSOUND         0x00000000
 #define SCE_UTILITY_MSGDIALOG_OPTION_TEXTSOUND          0x00000001

@@ -21,6 +21,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
 

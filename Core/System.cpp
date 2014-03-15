@@ -30,6 +30,7 @@
 #include "util/text/utf8.h"
 
 #include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"

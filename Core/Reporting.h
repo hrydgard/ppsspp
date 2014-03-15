@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 #include <string>
 
 #define DEBUG_LOG_REPORT(t,...)   { DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); }

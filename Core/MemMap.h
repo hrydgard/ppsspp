@@ -22,7 +22,6 @@
 // Includes
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "HDRemaster.h"
 #include "Core/Opcode.h"
 
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.

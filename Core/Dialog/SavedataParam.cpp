@@ -18,6 +18,7 @@
 
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"

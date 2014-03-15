@@ -17,8 +17,7 @@
 
 #pragma once
 
-#include "MemMap.h"
-#include "Host.h"
+#include "Core/Host.h"
 
 class PSPMixer : public PMixer
 {

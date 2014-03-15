@@ -17,15 +17,16 @@
 
 #include <algorithm>
 
-#include "Common.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-#include "ChunkFile.h"
+#include "Common/Common.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
+#include "Common/ChunkFile.h"
 
-#include "MemMap.h"
-#include "MIPS/MIPS.h"
-#include "MIPS/JitCommon/JitCommon.h"
-#include "HLE/HLE.h"
+#include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/HLE/HLE.h"
 
 #include "Core/Core.h"
 #include "Core/Debugger/SymbolMap.h"
