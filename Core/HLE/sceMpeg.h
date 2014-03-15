@@ -49,17 +49,8 @@ struct SceMpegAu {
 	u32_le esBuffer;
 	u32_le esSize;
 
-	void read(u32 addr) {
-		Memory::ReadStruct(addr, this);
-		pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
-		dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
-	}
-
-	void write(u32 addr) {
-		pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
-		dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
-		Memory::WriteStruct(addr, this);
-	}
+	void read(u32 addr);
+	void write(u32 addr);
 };
 
 // As native in PSP ram

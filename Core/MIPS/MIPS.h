@@ -19,7 +19,8 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
-#include "Core/MemMap.h"
+#include "Common/ChunkFile.h"
+#include "Core/Opcode.h"
 
 typedef Memory::Opcode MIPSOpcode;
 
@@ -188,9 +189,6 @@ public:
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
 	void InvalidateICache(u32 address, int length = 4);
-
-	// for logging messages only.
-	const char *DisasmAt(u32 compilerPC);
 };
 
 

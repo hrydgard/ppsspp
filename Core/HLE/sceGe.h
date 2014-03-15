@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Core/MemMap.h"
 #include "Core/HLE/sceKernelThread.h"
 
 #define SCE_GE_LIST_COMPLETED  0

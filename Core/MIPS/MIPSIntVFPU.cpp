@@ -17,19 +17,20 @@
 
 // TODO: Test and maybe fix: https://code.google.com/p/jpcsp/source/detail?r=3082#
 
-#include "Core/Core.h"
-#include "Core/Reporting.h"
-#include "math/math_util.h"
-
 #include <cmath>
-
-#include "MIPS.h"
-#include "MIPSInt.h"
-#include "MIPSTables.h"
-#include "MIPSVFPUUtils.h"
-
 #include <limits>
 #include <algorithm>
+
+#include "math/math_util.h"
+
+#include "Core/Core.h"
+#include "Core/Reporting.h"
+#include "Core/MemMap.h"
+
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 #define R(i)   (currentMIPS->r[i])
 #define V(i)   (currentMIPS->v[voffset[i]])
@@ -114,7 +115,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size)
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n) {
-				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, currentMIPS->DisasmAt(currentMIPS->pc));
+				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc));
 				//for (int i = 0; i < 12; i++) {
 				//	ERROR_LOG(CPU, "  vfpuCtrl[%i] = %08x", i, currentMIPS->vfpuCtrl[i]);
 				//}

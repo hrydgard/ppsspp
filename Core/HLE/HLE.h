@@ -18,6 +18,8 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/ChunkFile.h"
+#include "Core/MemMap.h"  // TODO: Try to get rid of this include.
 #include "Core/MIPS/MIPS.h"
 
 typedef void (* HLEFunc)();

@@ -17,6 +17,7 @@
 
 #include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
@@ -1106,4 +1107,10 @@ int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 		return 2;
 	else
 		return 1;
+}
+
+const char *MIPSDisasmAt(u32 compilerPC) {
+	static char temp[256];
+	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
+	return temp;
 }

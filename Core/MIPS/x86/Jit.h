@@ -19,6 +19,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
+#include "Common/ChunkFile.h"
 #include "Core/MIPS/x86/Asm.h"
 
 #if defined(ARM)

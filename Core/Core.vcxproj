@@ -599,6 +599,7 @@
     <ClInclude Include="MIPS\x86\RegCacheFPU.h" />
     <ClInclude Include="MIPS\x86\Jit.h" />
     <ClInclude Include="MIPS\x86\RegCache.h" />
+    <ClInclude Include="Opcode.h" />
     <ClInclude Include="PSPLoaders.h" />
     <ClInclude Include="PSPMixer.h" />
     <ClInclude Include="Reporting.h" />

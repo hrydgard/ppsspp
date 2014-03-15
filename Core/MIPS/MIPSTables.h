@@ -105,6 +105,6 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
-
+const char *MIPSDisasmAt(u32 compilerPC);
 
 void FillMIPSTables();

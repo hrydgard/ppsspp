@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <map>
 #include "Common/ChunkFile.h"
+#include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"

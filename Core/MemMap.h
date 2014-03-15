@@ -23,6 +23,7 @@
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "HDRemaster.h"
+#include "Core/Opcode.h"
 
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
 // This can be a problem when debugging though, as stray memory reads and writes will
@@ -106,32 +107,6 @@ void Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
-
-struct Opcode {
-	Opcode() {
-	}
-
-	explicit Opcode(u32 v) : encoding (v) {
-	}
-
-	u32 operator & (const u32 &arg) const {
-		return encoding & arg;
-	}
-
-	u32 operator >> (const u32 &arg) const {
-		return encoding >> arg;
-	}
-
-	bool operator == (const u32 &arg) const {
-		return encoding == arg;
-	}
-
-	bool operator != (const u32 &arg) const {
-		return encoding != arg;
-	}
-
-	u32 encoding;
-};
 
 // used by JIT to read instructions. Does not resolve replacements.
 Opcode Read_Opcode_JIT(const u32 _Address);
