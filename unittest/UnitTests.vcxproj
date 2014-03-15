@@ -161,6 +161,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\native\ext\glew\glew.c" />
+    <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
     <ClCompile Include="UnitTest.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -182,6 +184,9 @@
     <ProjectReference Include="..\native\native.vcxproj">
       <Project>{c4df647e-80ea-4111-a0a8-218b1b711e18}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\UI\OnScreenDisplay.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

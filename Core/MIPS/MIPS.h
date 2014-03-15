@@ -24,8 +24,7 @@
 
 typedef Memory::Opcode MIPSOpcode;
 
-enum MIPSGPReg
-{
+enum MIPSGPReg {
 	MIPS_REG_ZERO=0,
 	MIPS_REG_COMPILER_SCRATCH=1,
 

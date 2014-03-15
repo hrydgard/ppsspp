@@ -417,10 +417,6 @@ void Jit::CompNEON_VVectorInit(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
-	DISABLE;
-}
-
 void Jit::CompNEON_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
@@ -700,23 +696,107 @@ void Jit::CompNEON_Vmtvc(MIPSOpcode op) {
 	}
 }
 
-void Jit::CompNEON_Vmmov(MIPSOpcode op) {
+void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
 	DISABLE;
 
+	MatrixSize sz = GetMtxSize(op);
+	int n = GetMatrixSide(sz);
+
+	ARMReg cols[4];
+	GetMatrixColumns(_VD, sz, cols);
+
+	switch ((op >> 16) & 0xF) {
+	case 3: // vmidt
+		DISABLE;
+		MOVI2F(S0, 0.0f, R0);
+		MOVI2F(S1, 1.0f, R0);
+		// ...
+		break;
+	case 6: // vmzero
+		for (int i = 0; i < n; i++) {
+			// Zero it out.
+			VMOV_imm(I_32, cols[i], VIMMxxxxxxxx, 0);
+		}
+		// ...
+		break;
+	case 7: // vmone
+		DISABLE;
+		break;
+	}
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
+}
+
+void Jit::CompNEON_Vmmov(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
 	if (_VS == _VD) {
 		// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
 		return;
 	}
 
+	DISABLE;
+
+	bool overlap = GetMatrixOverlap(_VD, _VS, sz);
+
+	if (overlap) {
+		// Too complicated to bother handling in the JIT.
+		DISABLE;
+	}
+
 	// Do we really need to map it all and do VMOVs or can we do more clever things in the regalloc?
+
+	MatrixSize sz = GetMtxSize(op);
+
+	// TODO: Special case for transpose, etc.
+
+	ARMReg s_cols[4], d_cols[4];
+	fpr.QMapMatrix(s_cols, _VS, sz, 0);
+	fpr.QMapMatrix(d_cols, _VD, sz, 0);
+
+	int n = GetMatrixSide(sz);
+	for (int i = 0; i < n; i++) {
+		VMOV(d_cols[i], s_cols[i]);
+	}
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vmmul(MIPSOpcode op) {
 	DISABLE;
+
+	ARMReg s_rows[4], t_cols[4], d_cols[4];
+
+	bool overlap = GetMatrixOverlap(_VD, _VS, sz) || GetMatrixOverlap(_VD, _VT, sz);
+	if (overlap) {
+		// Too complicated to bother handling in the JIT.
+		DISABLE;
+	}
+
+	fpr.QMapMatrix(s_rows, _VS, sz, MAP_MTX_ROWS);
+	fpr.QMapMatrix(t_cols, _VT, sz, 0);
+	fpr.QMapMatrix(d_cols, _VD, sz, MAP_NOINIT | MAP_DIRTY);
+	
+	// TODO: Crunch the numbers here
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vmscl(MIPSOpcode op) {
 	DISABLE;
+
+	bool overlap = GetMatrixOverlap(_VD, _VS, sz);
+	if (overlap) {
+		DISABLE;
+	}
+
+	ARMReg s_cols[4], t, d_cols[4];
+	fpr.QMapMatrix(s_cols, _VS, sz, 0);
+	fpr.QMapMatrix(d_cols, _VS, sz, MAP_NOINIT | MAP_DIRTY);
+	// Also load T
+
+	// TODO: Crunch the numbers here
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vtfm(MIPSOpcode op) {

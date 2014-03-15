@@ -33,6 +33,11 @@ enum {
 	TOTAL_MAPPABLE_MIPSFPUREGS = 32 + 128 + NUM_TEMPS,
 };
 
+enum {
+	MAP_MTX_COLS = 0,  // default
+	MAP_MTX_ROWS = 32,
+};
+
 struct FPURegARM {
 	int mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?

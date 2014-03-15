@@ -30,12 +30,13 @@
 #undef R12
 #endif
 
-
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <string>
+#include <sstream>
 
+#include "base/logging.h"
 #include "base/NativeApp.h"
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
@@ -46,16 +47,34 @@
 #include "util/text/utf8.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Config.h"
+
+struct InputState;
+// Temporary hack around annoying linking error.
+void GL_SwapBuffers() { }
+void NativeUpdate(InputState &input_state) { }
+void NativeRender() { }
+void NativeResized() { }
+
+std::string System_GetProperty(SystemProperty prop) { return ""; }
+void System_SendMessage(const char *command, const char *parameter) {}
+bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 
 #define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
 #define EXPECT_FALSE(a) if ((a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
 #define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf("%s:" __LINE__ ": Test Fail\n%f\nvs\n%f\n", __FUNCTION__, a, b); return false; }
 #define EXPECT_EQ_STR(a, b) if (a != b) { printf("%s: Test Fail\n%s\nvs\n%s\n", __FUNCTION__, a.c_str(), b.c_str()); return false; }
 
-#define RET(a) if (!(a)) { return false; }
+#undef ILOG
+#define ILOG(x, ...) printf(x "\n", __VA_ARGS__)
+#undef ELOG
+#define ELOG(x, ...) printf(x "\n", __VA_ARGS__)
+#undef DLOG
+#define DLOG(x, ...) printf(x "\n", __VA_ARGS__)
 
-std::string System_GetProperty(SystemProperty prop) { return ""; }
+
+#define RET(a) if (!(a)) { return false; }
 
 #define M_PI_2     1.57079632679489661923
 
@@ -414,6 +433,56 @@ bool TestParsers() {
 	return true;
 }
 
+void TestGetMatrix(int matrix, MatrixSize sz) {
+	ILOG("Testing matrix %s", GetMatrixNotation(matrix, sz));
+	u8 fullMatrix[16];
+	
+	u8 cols[4];
+	u8 rows[4];
+	GetMatrixColumns(matrix, sz, cols);
+	GetMatrixRows(matrix, sz, rows);
+
+	GetMatrixRegs(fullMatrix, sz, matrix);
+
+	int n = GetMatrixSide(sz);
+	VectorSize vsz = GetVectorSize(sz);
+	for (int i = 0; i < n; i++) {
+		// int colName = GetColumnName(matrix, sz, i, 0);
+		// int rowName = GetRowName(matrix, sz, i, 0);
+		int colName = cols[i];
+		int rowName = rows[i];
+		ILOG("Column %i: %s", i, GetVectorNotation(colName, vsz));
+		ILOG("Row %i: %s", i, GetVectorNotation(rowName, vsz));
+
+		u8 colRegs[4];
+		u8 rowRegs[4];
+		GetVectorRegs(colRegs, vsz, colName);
+		GetVectorRegs(rowRegs, vsz, rowName);
+
+		// Check that the individual regs are the expected ones.
+		std::stringstream a, b, c, d;
+		for (int j = 0; j < n; j++) {
+			a.clear();
+			b.clear();
+			a << (int)fullMatrix[i * 4 + j] << " ";
+			b << (int)colRegs[j] << " ";
+
+			c.clear();
+			d.clear();
+
+			c << (int)fullMatrix[j * 4 + i] << " ";
+			d << (int)rowRegs[j] << " ";
+		}
+		ILOG("Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		ILOG("Row: %s vs %s", c.str().c_str(), d.str().c_str());
+	}
+}
+
+void TestVFPUUtil() {
+	MatrixSize sz = M_3x3;
+	TestGetMatrix(GetMatrixName(5, sz, 1, 0), sz);
+}
+
 int main(int argc, const char *argv[]) {
 	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
 	cpu_info.bNEON = true;
@@ -424,6 +493,7 @@ int main(int argc, const char *argv[]) {
 	//TestAsin();
 	//TestSinCos();
 	TestArmEmitter();
+	TestVFPUUtil();
 	//TestMathUtil();
 	//TestParsers();
 	return 0;

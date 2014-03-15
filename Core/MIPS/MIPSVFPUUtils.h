@@ -17,14 +17,13 @@
 
 #pragma once
 
-
+#include "Common/CommonTypes.h"
 
 #define _VD (op & 0x7F)
 #define _VS ((op>>8) & 0x7F)
 #define _VT ((op>>16) & 0x7F)
 
-inline int Xpose(int v)
-{
+inline int Xpose(int v) {
 	return v^0x20;
 }
 
@@ -45,9 +44,10 @@ enum VectorSize {
 };
 
 enum MatrixSize {
-	M_2x2,
-	M_3x3,
-	M_4x4,
+	M_2x2 = 2,
+	M_3x3 = 3,
+	M_4x4 = 4,
+	M_Invalid = -1
 };
 
 void ReadMatrix(float *rd, MatrixSize size, int reg);
@@ -58,8 +58,23 @@ void ReadVector(float *rd, VectorSize N, int reg);
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
+ 
+// Translate between vector and matrix size. Possibly we should simply
+// join the two enums, but the type safety is kind of nice.
+VectorSize GetVectorSize(MatrixSize sz);
+MatrixSize GetMatrixSize(VectorSize sz);
 
-void GetMatrixVectors(int matrixReg, MatrixSize msize, u8 vecs[4]);
+// Note that if matrix is a transposed matrix (E format), GetColumn will actually return rows,
+// and vice versa.
+int GetColumnName(int matrix, MatrixSize msize, int column, int offset);
+int GetRowName(int matrix, MatrixSize msize, int row, int offset);
+
+int GetMatrixName(int matrix, MatrixSize msize, int column, int row);
+
+void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]);
+void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]);
+bool GetMatrixOverlap(int m1, int m2, MatrixSize msize);
+
 
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.
 inline int GetMtx(int matrixReg) {

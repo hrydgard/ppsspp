@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <limits>
+#include <stdio.h>
+
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-
-#include <limits>
-#include <stdio.h>
 
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
@@ -73,6 +73,42 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 				index += ((col+j)&3) + ((row+i)&3)*32;
 			regs[j*4 + i] = index;
 		}
+	}
+}
+
+int GetMatrixName(int matrix, MatrixSize msize, int column, int row) {
+	// TODO: Fix
+	return matrix * 4;
+}
+
+int GetColumnName(int matrix, MatrixSize msize, int column, int offset) {
+	return matrix * 4 + column + offset * 32;
+}
+
+int GetRowName(int matrix, MatrixSize msize, int column, int offset) {
+	return matrix * 4 + column + offset * 32;
+}
+
+void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+	int n = GetMatrixSide(msize);
+
+	int col = matrixReg & 3;
+	int row = (matrixReg >> 5) & 2;
+	int transpose = (matrixReg >> 5) & 1;
+
+	for (int i = 0; i < n; i++) {
+		vecs[i] = (transpose << 5) | (row << 5) | (matrixReg & 0x1C) | (i + col);
+	}
+}
+
+void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+	int n = GetMatrixSide(msize);
+	int col = matrixReg & 3;
+	int row = (matrixReg >> 5) & 2;
+	int transpose = ((matrixReg >> 5) & 1) ^ 1;
+
+	for (int i = 0; i < n; i++) {
+		vecs[i] = (transpose << 5) | (row << 5) | (matrixReg & 0x1C) | (i + col);
 	}
 }
 
@@ -186,11 +222,10 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
-	for (int i=0; i<side; i++) {
-		for (int j=0; j<side; j++) {
+	for (int i = 0; i < side; i++) {
+		for (int j = 0; j < side; j++) {
 			// Hm, I wonder if this should affect matrices at all.
-			if (j != side -1 || !currentMIPS->VfpuWriteMask(i))
-			{
+			if (j != side -1 || !currentMIPS->VfpuWriteMask(i))	{
 				int index = mtx * 4;
 				if (transpose)
 					index += ((row+i)&3) + ((col+j)&3)*32;
@@ -268,6 +303,25 @@ VectorSize GetVecSize(MIPSOpcode op)
 	}
 }
 
+VectorSize GetVectorSize(MatrixSize sz) {
+	switch (sz) {
+	case M_2x2: return V_Pair;
+	case M_3x3: return V_Triple;
+	case M_4x4: return V_Quad;
+	default:    return V_Invalid;
+	}
+}
+
+MatrixSize GetMatrixSize(VectorSize sz) {
+	switch (sz) {
+	case V_Single: return M_Invalid;
+	case V_Pair: return M_2x2;
+	case V_Triple: return M_3x3;
+	case V_Quad: return M_4x4;
+	default: return M_Invalid;
+	}
+}
+
 MatrixSize GetMtxSize(MIPSOpcode op)
 {
 	int a = (op>>7)&1;
@@ -303,24 +357,44 @@ int GetMatrixSide(MatrixSize sz)
 	}
 }
 
-void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+// TODO: Optimize
+bool GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 	int n = GetMatrixSide(msize);
-	for (int i = 0; i < n; i++) {
-		// vecs[i] = 
-	}
-}
 
-void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
-	int n = GetMatrixSide(msize);
-	for (int i = 0; i < n; i++) {
-		// vecs[i] = 
+	if (n == 4) {
+		return GetMtx(mtx1) == GetMtx(mtx2);
 	}
+
+	if (mtx1 == mtx2)
+		return true;
+
+	u8 m1[16];
+	u8 m2[16];
+	GetMatrixRegs(m1, msize, mtx1);
+	GetMatrixRegs(m2, msize, mtx2);
+	
+	// Simply do an exhaustive search.
+	for (int x = 0; x < n; x++) {
+		for (int y = 0; y < n; y++) {
+			int val = m1[y * 4 + x];
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					if (m2[a * 4 + b] == val) {
+						return true;
+					}
+				}
+			}
+		}
+	}
+
+	return false;
 }
 
 const char *GetVectorNotation(int reg, VectorSize size)
 {
 	static char hej[4][16];
-	static int yo=0;yo++;yo&=3;
+	static int yo = 0; yo++; yo &= 3;
+
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 	int row = 0;

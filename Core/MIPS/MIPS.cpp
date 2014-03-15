@@ -22,15 +22,15 @@
 
 #include "Common.h"
 #include "Common/ChunkFile.h"
+#include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSInt.h"
-#include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/MIPSDebugInterface.h"
-#include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
-#include "Core/Reporting.h"
+#include "Core/CoreParameter.h"
 #include "Core/System.h"
-#include "Core/HLE/sceDisplay.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #if defined(ARM)
 #include "ARM/ArmJit.h"
@@ -40,7 +40,6 @@
 #include "x86/Jit.h"
 #endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/CoreTiming.h"
 
 MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;
