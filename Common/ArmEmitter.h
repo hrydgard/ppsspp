@@ -795,10 +795,17 @@ public:
 	}
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryADDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryANDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryCMPI2R(ARMReg rs, u32 val);
 	void TSTI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryTSTI2R(ARMReg rs, u32 val);
 	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryORI2R(ARMReg rd, ARMReg rs, u32 val);
+	void EORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryEORI2R(ARMReg rd, ARMReg rs, u32 val);
 };  // class ARMXEmitter
 
 
