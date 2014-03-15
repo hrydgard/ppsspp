@@ -19,6 +19,7 @@
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
 #include "GPU/ge_constants.h"
 
 #include "GPU/Directx9/VertexDecoderDX9.h"

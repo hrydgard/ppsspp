@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/gl_state.h"
+#include "math/math_util.h"
 
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -84,8 +85,7 @@ Lighter::Lighter(int vertType) {
 	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
 }
 
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm)
-{
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm) {
 	Color4 in(colorIn);
 
 	const Color4 *ambient;
@@ -109,8 +109,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
 	Color4 lightSum1(0, 0, 0, 0);
 
-	for (int l = 0; l < 4; l++)
-	{
+	for (int l = 0; l < 4; l++) {
 		// can we skip this light?
 		if (!gstate.isLightChanEnabled(l))
 			continue;
@@ -171,21 +170,18 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		// Better specular
 		// Vec3f toViewer = (viewer - pos).Normalized();
 
-		if (doSpecular)
-		{
+		if (doSpecular) {
 			Vec3f halfVec = (toLight + toViewer);
 			halfVec.Normalize();
 
 			dot = Dot(halfVec, norm);
-			if (dot > 0.0f)
-			{
+			if (dot > 0.0f) {
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
 				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
 			}
 		}
 
-		if (gstate.isLightChanEnabled(l))
-		{
+		if (gstate.isLightChanEnabled(l)) {
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
 			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
 		}
@@ -286,7 +282,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
-#if defined(USING_GLES2)
+#if defined(MOBILE_DEVICE)
 	if (vertexCount > 0x10000/3)
 		vertexCount = 0x10000/3;
 #endif
@@ -311,6 +307,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	Lighter lighter(vertType);
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
+	// Same fixup as in ShaderManager.cpp
+	if (my_isinf(fog_slope)) {
+		// not really sure what a sensible value might be.
+		fog_slope = fog_slope < 0.0f ? -10000.0f : 10000.0f;
+	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	for (int index = 0; index < maxIndex; index++) {

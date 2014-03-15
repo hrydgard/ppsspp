@@ -1,5 +1,6 @@
 #include "Common/CommonWindows.h"
 #include <vector>
+#include <algorithm>
 #include "Windows/W32Util/DialogManager.h"
 
 
@@ -66,6 +67,11 @@ WindowList dialogs;
 void DialogManager::AddDlg(Dialog *dialog)
 {
 	dialogs.push_back(dialog);
+}
+
+void DialogManager::RemoveDlg(Dialog *dialog)
+{
+	dialogs.erase(std::remove(dialogs.begin(), dialogs.end(), dialog), dialogs.end());
 }
 
 

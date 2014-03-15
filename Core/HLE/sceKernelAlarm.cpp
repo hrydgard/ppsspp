@@ -15,12 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "sceKernel.h"
-#include "sceKernelAlarm.h"
-#include "sceKernelInterrupt.h"
-#include "HLE.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelAlarm.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
-#include "ChunkFile.h"
+#include "Core/MemMap.h"
+#include "Common/ChunkFile.h"
 #include <list>
 
 const int NATIVEALARM_SIZE = 20;
@@ -30,6 +31,7 @@ std::list<SceUID> triggeredAlarm;
 struct NativeAlarm
 {
 	SceSize_le size;
+	u32_le pad;
 	u64_le schedule;
 	u32_le handlerPtr;
 	u32_le commonPtr;

@@ -39,12 +39,10 @@ inline float clamp(float f) {
 
 
 Tilt TiltEventProcessor::NormalizeTilt(const Tilt &tilt){
-	//setup the maximum values of the accelerometer manually per-platform
-	//TODO: less hacky way of doing this?
-	#ifdef ANDROID
-		//I obtained these values EXPERIMENTALLY. They may differ device to device.
-		//needs more testing. I'll be testing it on the Nexus 4 once I get mine back.
-		float maxX = 10, maxY = 8;
+	// Normalise the accelerometer manually per-platform, to 'g'
+	#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+		// Values are in metres per second. Divide by 9.8 to get 'g' value
+		float maxX = 9.8f, maxY = 9.8f;
 	#else
 		float maxX = 1.0, maxY = 1.0;
 	#endif

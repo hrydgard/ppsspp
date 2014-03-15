@@ -40,6 +40,7 @@ static const char preview_vs[] =
 	"uniform mat4 u_viewproj;\n"
 	"void main() {\n"
 	"  gl_Position = u_viewproj * a_position;\n"
+	"  gl_Position.z = 1.0f;\n"
 	"}\n";
 
 static GLSLProgram *previewProgram = NULL;
@@ -178,8 +179,8 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport(x, y, fw, fh);
-	glScissor(x, y, fw, fh);
+	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
+	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
 	BindPreviewProgram(previewProgram);
 
 	float scale[] = {
@@ -208,8 +209,8 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport(x, y, fw, fh);
-	glScissor(x, y, fw, fh);
+	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
+	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
 	BindPreviewProgram(texPreviewProgram);
 
 	// TODO: Probably there's a better way and place to do this.

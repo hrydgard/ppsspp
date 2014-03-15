@@ -17,6 +17,7 @@
 
 #include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
@@ -60,11 +61,14 @@ enum MipsEncoding
 	Emu,
 	Rese,
 	NumEncodings,
+
+	Instruc = -1,
+	Inval = -2,
 };
 
 struct MIPSInstruction
 {
-	int altEncoding;
+	MipsEncoding altEncoding;
 	const char *name;
 	MIPSComp::MIPSCompileFunc compile;
 #ifndef FINAL
@@ -75,16 +79,16 @@ struct MIPSInstruction
 	MIPSInfo flags;
 };
 
-#define INVALID {-2}
+#define INVALID {Inval}
 #define INVALID_X_8 INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID
 #define N(a) a
 
 #ifndef FINAL
 #define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {-1, N(name), comp, dis, inter, MIPSInfo(flags)}
+#define INSTR(name, comp, dis, inter, flags) {Instruc, N(name), comp, dis, inter, MIPSInfo(flags)}
 #else
 #define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {-1, comp, inter, flags}
+#define INSTR(name, comp, dis, inter, flags) {Instruc, comp, inter, flags}
 #endif
 
 
@@ -816,36 +820,44 @@ const MIPSInstruction tableEMU[4] = {
 	INVALID,
 };
 
-const int encodingBits[NumEncodings][2] =
-{
-	{26, 6}, //IMME
-	{0,  6}, //Special
-	{0,  6}, //special2
-	{0,  6}, //special3
-	{16, 5}, //RegImm
-	{21, 5}, //Cop0
-	{0,  6}, //Cop0CO
-	{21, 5}, //Cop1
-	{16, 5}, //Cop1BC
-	{0,  6}, //Cop1S
-	{0,  6}, //Cop1W
-	{21, 5}, //Cop2
-	{16, 2}, //Cop2BC2
-	{0,  0}, //Cop2Rese
-	{23, 3}, //VFPU0
-	{23, 3}, //VFPU1
-	{23, 3}, //VFPU3
-	{21, 5}, //VFPU4Jump
-	{16, 5}, //VFPU7
-	{16, 5}, //VFPU4
-	{23, 3}, //VFPU5
-	{21, 5}, //VFPU6
-	{16, 4}, //VFPUMatrix1
-	{16, 5}, //VFPU9
-	{6,  5}, //ALLEGREX0
-	{24, 2}, //EMUHACK
+struct EncodingBitsInfo {
+	EncodingBitsInfo(u8 shift_, u8 maskBits_) : shift(shift_) {
+		mask = (1 << maskBits_) - 1;
+	}
+	u8 shift;
+	u32 mask;
 };
 
+const EncodingBitsInfo encodingBits[NumEncodings] =
+{
+	EncodingBitsInfo(26, 6), //IMME
+	EncodingBitsInfo(0,  6), //Special
+	EncodingBitsInfo(0,  6), //special2
+	EncodingBitsInfo(0,  6), //special3
+	EncodingBitsInfo(16, 5), //RegImm
+	EncodingBitsInfo(21, 5), //Cop0
+	EncodingBitsInfo(0,  6), //Cop0CO
+	EncodingBitsInfo(21, 5), //Cop1
+	EncodingBitsInfo(16, 5), //Cop1BC
+	EncodingBitsInfo(0,  6), //Cop1S
+	EncodingBitsInfo(0,  6), //Cop1W
+	EncodingBitsInfo(21, 5), //Cop2
+	EncodingBitsInfo(16, 2), //Cop2BC2
+	EncodingBitsInfo(0,  0), //Cop2Rese
+	EncodingBitsInfo(23, 3), //VFPU0
+	EncodingBitsInfo(23, 3), //VFPU1
+	EncodingBitsInfo(23, 3), //VFPU3
+	EncodingBitsInfo(21, 5), //VFPU4Jump
+	EncodingBitsInfo(16, 5), //VFPU7
+	EncodingBitsInfo(16, 5), //VFPU4
+	EncodingBitsInfo(23, 3), //VFPU5
+	EncodingBitsInfo(21, 5), //VFPU6
+	EncodingBitsInfo(16, 4), //VFPUMatrix1
+	EncodingBitsInfo(16, 5), //VFPU9
+	EncodingBitsInfo(6,  5), //ALLEGREX0
+	EncodingBitsInfo(24, 2), //EMUHACK
+	EncodingBitsInfo(0,  0), //Rese
+};
 
 const MIPSInstruction *mipsTables[NumEncodings] =
 {
@@ -874,7 +886,8 @@ const MIPSInstruction *mipsTables[NumEncodings] =
 	tableVFPUMatrixSet1,
 	tableVFPU9,
 	tableALLEGREX0,
-	tableEMU
+	tableEMU,
+	0,
 };
 
 
@@ -896,23 +909,18 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op)
 {
 	MipsEncoding encoding = Imme;
 	const MIPSInstruction *instr = &tableImmediate[op>>26];
-	while (instr->altEncoding != -1)
+	while (instr->altEncoding != Instruc)
 	{
-		const MIPSInstruction *table = mipsTables[encoding];
-		int mask = ((1<<encodingBits[encoding][1])-1);
-		int shift = encodingBits[encoding][0];
-		int subop = (op >> shift) & mask;
-		instr = &table[subop];
-		if (encoding == Rese)
-			return 0; //invalid instruction
-		if (!instr)
-			return 0;
-		if (instr->altEncoding == -2)
+		if (instr->altEncoding == Inval)
 		{
 			//ERROR_LOG(CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
 			return 0; //invalid instruction
 		}
-		encoding = (MipsEncoding)instr->altEncoding;
+		encoding = instr->altEncoding;
+
+		const MIPSInstruction *table = mipsTables[encoding];
+		const u32 subop = (op >> encodingBits[encoding].shift) & encodingBits[encoding].mask;
+		instr = &table[subop];
 	}
 	//alright, we have a valid MIPS instruction!
 	return instr;
@@ -1099,4 +1107,10 @@ int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 		return 2;
 	else
 		return 1;
+}
+
+const char *MIPSDisasmAt(u32 compilerPC) {
+	static char temp[256];
+	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
+	return temp;
 }

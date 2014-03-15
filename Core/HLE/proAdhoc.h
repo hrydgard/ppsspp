@@ -5,7 +5,6 @@
 #include "thread/thread.h"
 #include "net/resolve.h"
 
-#include "Common/ChunkFile.h" 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -15,8 +14,13 @@
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceUtility.h"
 
+class PointerWrap;
+
 // Net stuff
-#ifdef _MSC_VER
+#ifdef _XBOX
+#include <winsockx.h>
+typedef int socklen_t;
+#elif defined(_MSC_VER)
 #include <WS2tcpip.h>
 #else
 #include <sys/types.h>

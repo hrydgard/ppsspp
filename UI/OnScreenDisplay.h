@@ -4,6 +4,7 @@
 #include <list>
 
 #include "base/basictypes.h"
+#include "math/geom2d.h"
 #include "Common/StdMutex.h"
 
 class DrawBuffer;
@@ -12,7 +13,7 @@ class OnScreenMessages {
 public:
 	void Show(const std::string &message, float duration_s = 1.0f, uint32_t color = 0xFFFFFF, int icon = -1, bool checkUnique = true);
 	void ShowOnOff(const std::string &message, bool b, float duration_s = 1.0f, uint32_t color = 0xFFFFFF, int icon = -1);
-	void Draw(DrawBuffer &draw);
+	void Draw(DrawBuffer &draw, const Bounds &bounds);
 	bool IsEmpty() const { return messages_.empty(); }
 
 private:

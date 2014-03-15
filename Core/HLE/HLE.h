@@ -20,6 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
+class PointerWrap;
 typedef void (* HLEFunc)();
 
 enum {
@@ -57,19 +58,16 @@ struct Syscall
 	u32 nid;
 };
 
-#define PARAM(n) currentMIPS->r[4+n]
-#define PARAMF(n) currentMIPS->f[12+n]
-#define RETURN(n) currentMIPS->r[2]=n
-#define RETURNF(fl) currentMIPS->f[0]=fl
+#define PARAM(n) currentMIPS->r[MIPS_REG_A0 + n]
+#define PARAM64(n) (currentMIPS->r[MIPS_REG_A0 + n] | ((u64)currentMIPS->r[MIPS_REG_A0 + n + 1] << 32))
+#define PARAMF(n) currentMIPS->f[12 + n]
+#define RETURN(n) currentMIPS->r[MIPS_REG_V0] = n
+#define RETURN64(n) {u64 RETURN64_tmp = n; currentMIPS->r[MIPS_REG_V0] = RETURN64_tmp & 0xFFFFFFFF; currentMIPS->r[MIPS_REG_V1] = RETURN64_tmp >> 32;}
+#define RETURNF(fl) currentMIPS->f[0] = fl
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #endif
-
-#include "FunctionWrappers.h"
-
-
-#define P_INT(n, name) const int name = currentMIPS->r[4+n];
 
 const char *GetFuncName(const char *module, u32 nib);
 const char *GetFuncName(int module, int func);

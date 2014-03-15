@@ -22,15 +22,17 @@
 
 #pragma once
 
-#include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
+
+class PointerWrap;
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
 
-	PSP_SAS_PITCH_MIN = 1,
+	PSP_SAS_PITCH_MIN = 0x0000,
 	PSP_SAS_PITCH_BASE = 0x1000,
+	PSP_SAS_PITCH_BASE_SHIFT = 12,
 	PSP_SAS_PITCH_MAX = 0x4000,
 
 	PSP_SAS_VOL_MAX = 0x1000,
@@ -60,6 +62,9 @@ enum {
 	PSP_SAS_EFFECT_TYPE_ECHO = 6,
 	PSP_SAS_EFFECT_TYPE_DELAY = 7,
 	PSP_SAS_EFFECT_TYPE_PIPE = 8,
+
+	PSP_SAS_OUTPUTMODE_MIXED = 0,
+	PSP_SAS_OUTPUTMODE_RAW = 1,
 };
 
 struct WaveformEffect {
@@ -87,7 +92,7 @@ enum VoiceType {
 class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0), end_(true) {}
-	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
+	void Start(u32 dataPtr, u32 vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
@@ -135,19 +140,24 @@ public:
 	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 
-	void WalkCurve(int type);
+	void WalkCurve(int type, int rate);
 
 	void KeyOn();
 	void KeyOff();
+	void End();
 
 	void Step();
 
 	int GetHeight() const {
-		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
+		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
+	}
+	bool NeedsKeyOn() const {
+		return state_ == STATE_KEYON;
 	}
 	bool HasEnded() const {
 		return state_ == STATE_OFF;
 	}
+
 	int attackRate;
 	int decayRate;
 	int sustainRate;
@@ -161,25 +171,21 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
-	void ComputeDuration();
-
-	// Internal variables that are recomputed on state changes
-	// No need to save in state
-	int rate_;
-	int type_;
-	float invDuration_;
-
+	// Actual PSP values.
 	enum ADSRState {
-		STATE_ATTACK,
-		STATE_DECAY,
-		STATE_SUSTAIN,
-		STATE_RELEASE,
-		STATE_OFF,
+		// Okay, this one isn't a real value but it might be.
+		STATE_KEYON_STEP = -42,
+
+		STATE_KEYON = -2,
+		STATE_OFF = -1,
+		STATE_ATTACK = 0,
+		STATE_DECAY = 1,
+		STATE_SUSTAIN = 2,
+		STATE_RELEASE = 3,
 	};
 	void SetState(ADSRState state);
 
 	ADSRState state_;
-	int steps_;
 	s64 height_;  // s64 to avoid having to care about overflow when calculating. TODO: this should be fine as s32
 };
 
@@ -203,8 +209,6 @@ struct SasVoice {
 			noiseFreq(0),
 			volumeLeft(PSP_SAS_VOL_MAX),
 			volumeRight(PSP_SAS_VOL_MAX),
-			volumeLeftSend(0),
-			volumeRightSend(0),
 			effectLeft(PSP_SAS_VOL_MAX),
 			effectRight(PSP_SAS_VOL_MAX) {
 		memset(resampleHist, 0, sizeof(resampleHist));
@@ -218,6 +222,7 @@ struct SasVoice {
 	void DoState(PointerWrap &p);
 
 	void ReadSamples(s16 *output, int numSamples);
+	bool HaveSamplesEnded();
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
@@ -226,10 +231,11 @@ struct SasVoice {
 	VoiceType type;
 
 	u32 vagAddr;
-	int vagSize;
+	u32 vagSize;
 	u32 pcmAddr;
 	int pcmSize;
 	int pcmIndex;
+	int pcmLoopPos;
 	int sampleRate;
 
 	int sampleFrac;
@@ -241,12 +247,7 @@ struct SasVoice {
 	int volumeLeft;
 	int volumeRight;
 
-	// I am pretty sure that volumeLeftSend and effectLeft really are the same thing (and same for right of course).
-	// We currently have nothing that ever modifies volume*Send.
-	// One game that uses an effect (probably a reverb) is MHU.
-
-	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
-	int volumeRightSend;
+	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int effectLeft;
 	int effectRight;
 	s16 resampleHist[2];

@@ -19,9 +19,11 @@
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "Common/LogManager.h"
 #include "Core/FileSystems/FileSystem.h"
@@ -49,6 +51,7 @@
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
+#include "sceKernelModule.h"
 #include "sceKernelMutex.h"
 #include "sceKernelMbx.h"
 #include "sceKernelMsgPipe.h"
@@ -73,6 +76,7 @@
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
 #include "sceHeap.h"
+#include "sceDmac.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -131,8 +135,10 @@ void __KernelInit()
 	__VaudioInit();
 	__CheatInit();
 	__HeapInit();
+	__DmacInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
+	Reporting::Init();
 
 	// "Internal" PSP libraries
 	__PPGeInit();
@@ -179,6 +185,7 @@ void __KernelShutdown()
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
+	Reporting::Shutdown();
 
 	kernelRunning = false;
 }
@@ -259,6 +266,7 @@ void __KernelDoState(PointerWrap &p)
 
 		__InterruptsDoStateLate(p);
 		__KernelThreadingDoStateLate(p);
+		Reporting::DoState(p);
 	}
 }
 
@@ -348,6 +356,9 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
 	DEBUG_LOG(CPU,"sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
 	// TODO: Make the JIT hash and compare the touched blocks.
+	if(MIPSComp::jit){
+		MIPSComp::jit->ClearCacheAt(addr, size);
+	}
 	return 0;
 }
 
@@ -613,13 +624,13 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 }
 
 struct SystemStatus {
-	SceSize size;
-	SceUInt status;
-	SceUInt clockPart1;
-	SceUInt clockPart2;
-	SceUInt perfcounter1;
-	SceUInt perfcounter2;
-	SceUInt perfcounter3;
+	SceSize_le size;
+	SceUInt_le status;
+	SceUInt_le clockPart1;
+	SceUInt_le clockPart2;
+	SceUInt_le perfcounter1;
+	SceUInt_le perfcounter2;
+	SceUInt_le perfcounter3;
 };
 
 int sceKernelReferSystemStatus(u32 statusPtr) {

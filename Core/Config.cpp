@@ -20,9 +20,12 @@
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
+#ifndef _XBOX
 #include "gfx_es2/gpu_features.h"
+#endif
 #include "net/http_client.h"
 #include "util/text/parsers.h"
+#include "net/url.h"
 
 #include "Common/CPUDetect.h"
 #include "Common/KeyMap.h"
@@ -43,6 +46,559 @@ Config g_Config;
 #ifdef IOS
 extern bool iosCanUseJit;
 #endif
+
+struct ConfigSetting {
+	enum Type {
+		TYPE_TERMINATOR,
+		TYPE_BOOL,
+		TYPE_INT,
+		TYPE_FLOAT,
+		TYPE_STRING,
+	};
+	union Value {
+		bool b;
+		int i;
+		float f;
+		const char *s;
+	};
+	union SettingPtr {
+		bool *b;
+		int *i;
+		float *f;
+		std::string *s;
+	};
+
+	typedef bool (*BoolDefaultCallback)();
+	typedef int (*IntDefaultCallback)();
+	typedef float (*FloatDefaultCallback)();
+	typedef const char *(*StringDefaultCallback)();
+
+	union Callback {
+		BoolDefaultCallback b;
+		IntDefaultCallback i;
+		FloatDefaultCallback f;
+		StringDefaultCallback s;
+	};
+
+	ConfigSetting(bool v)
+		: ini_(""), type_(TYPE_TERMINATOR), report_(false), save_(false) {
+		ptr_.b = NULL;
+		cb_.b = NULL;
+	}
+
+	ConfigSetting(const char *ini, bool *v, bool def, bool save = true)
+		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save) {
+		ptr_.b = v;
+		cb_.b = NULL;
+		default_.b = def;
+	}
+
+	ConfigSetting(const char *ini, int *v, int def, bool save = true)
+		: ini_(ini), type_(TYPE_INT), report_(false), save_(save) {
+		ptr_.i = v;
+		cb_.i = NULL;
+		default_.i = def;
+	}
+
+	ConfigSetting(const char *ini, float *v, float def, bool save = true)
+		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save) {
+		ptr_.f = v;
+		cb_.f = NULL;
+		default_.f = def;
+	}
+
+	ConfigSetting(const char *ini, std::string *v, const char *def, bool save = true)
+		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save) {
+		ptr_.s = v;
+		cb_.s = NULL;
+		default_.s = def;
+	}
+
+	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save = true)
+		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save) {
+		ptr_.b = v;
+		cb_.b = def;
+	}
+
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save = true)
+		: ini_(ini), type_(TYPE_INT), report_(false), save_(save) {
+		ptr_ .i= v;
+		cb_.i = def;
+	}
+
+	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save = true)
+		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save) {
+		ptr_.f = v;
+		cb_.f = def;
+	}
+
+	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, bool save = true)
+		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save) {
+		ptr_.s = v;
+		cb_.s = def;
+	}
+
+	bool HasMore() {
+		return type_ != TYPE_TERMINATOR;
+	}
+
+	bool Get(IniFile::Section *section) {
+		switch (type_) {
+		case TYPE_BOOL:
+			if (cb_.b) {
+				default_.b = cb_.b();
+			}
+			return section->Get(ini_, ptr_.b, default_.b);
+		case TYPE_INT:
+			if (cb_.i) {
+				default_.i = cb_.i();
+			}
+			return section->Get(ini_, ptr_.i, default_.i);
+		case TYPE_FLOAT:
+			if (cb_.f) {
+				default_.f = cb_.f();
+			}
+			return section->Get(ini_, ptr_.f, default_.f);
+		case TYPE_STRING:
+			if (cb_.s) {
+				default_.s = cb_.s();
+			}
+			return section->Get(ini_, ptr_.s, default_.s);
+		default:
+			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			return false;
+		}
+	}
+
+	void Set(IniFile::Section *section) {
+		if (!save_)
+			return;
+
+		switch (type_) {
+		case TYPE_BOOL:
+			return section->Set(ini_, *ptr_.b);
+		case TYPE_INT:
+			return section->Set(ini_, *ptr_.i);
+		case TYPE_FLOAT:
+			return section->Set(ini_, *ptr_.f);
+		case TYPE_STRING:
+			return section->Set(ini_, *ptr_.s);
+		default:
+			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			return;
+		}
+	}
+
+	void Report(UrlEncoder &data, const std::string &prefix) {
+		if (!report_)
+			return;
+
+		switch (type_) {
+		case TYPE_BOOL:
+			return data.Add(prefix + ini_, *ptr_.b);
+		case TYPE_INT:
+			return data.Add(prefix + ini_, *ptr_.i);
+		case TYPE_FLOAT:
+			return data.Add(prefix + ini_, *ptr_.f);
+		case TYPE_STRING:
+			return data.Add(prefix + ini_, *ptr_.s);
+		default:
+			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			return;
+		}
+	}
+
+	const char *ini_;
+	Type type_;
+	bool report_;
+	bool save_;
+	SettingPtr ptr_;
+	Value default_;
+	Callback cb_;
+};
+
+struct ReportedConfigSetting : public ConfigSetting {
+	template <typename T1, typename T2>
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, bool save = true)
+		: ConfigSetting(ini, v, def, save) {
+		report_ = true;
+	}
+};
+
+const char *DefaultLangRegion() {
+	static std::string defaultLangRegion = "en_US";
+	if (g_Config.bFirstRun) {
+		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
+		if (i18nrepo.IniExists(langRegion))
+			defaultLangRegion = langRegion;
+	}
+
+	return defaultLangRegion.c_str();
+}
+
+static int DefaultNumWorkers() {
+	return cpu_info.num_cores;
+}
+
+static bool DefaultJit() {
+#ifdef IOS
+	return iosCanUseJit;
+#else
+	return true;
+#endif
+}
+
+struct ConfigSectionSettings {
+	const char *section;
+	ConfigSetting *settings;
+};
+
+static ConfigSetting generalSettings[] = {
+	ConfigSetting("FirstRun", &g_Config.bFirstRun, true),
+	ConfigSetting("RunCount", &g_Config.iRunCount, 0),
+	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true),
+	ConfigSetting("AutoRun", &g_Config.bAutoRun, true),
+	ConfigSetting("Browse", &g_Config.bBrowse, false),
+	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true),
+	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
+	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
+	ConfigSetting("HomebrewStore", &g_Config.bHomebrewStore, false, false),
+	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
+	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
+
+	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers),
+	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false),
+	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false),
+	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false),
+	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0),
+	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0),
+
+	ConfigSetting("GridView1", &g_Config.bGridView1, true),
+	ConfigSetting("GridView2", &g_Config.bGridView2, true),
+	ConfigSetting("GridView3", &g_Config.bGridView3, false),
+
+	// "default" means let emulator decide, "" means disable.
+	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
+	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false),
+
+#ifdef ANDROID
+	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
+#endif
+
+#if defined(USING_WIN_UI)
+	ConfigSetting("TopMost", &g_Config.bTopMost, false),
+	ConfigSetting("WindowX", &g_Config.iWindowX, -1), // -1 tells us to center the window.
+	ConfigSetting("WindowY", &g_Config.iWindowY, -1),
+	ConfigSetting("WindowWidth", &g_Config.iWindowWidth, 0),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
+	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
+	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false),
+#endif
+	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false),
+	ConfigSetting(false),
+};
+
+static ConfigSetting cpuSettings[] = {
+	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit),
+	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false),
+	ConfigSetting("AtomicAudioLocks", &g_Config.bAtomicAudioLocks, false),
+
+	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true),
+	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
+	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
+
+	ConfigSetting(false),
+};
+
+static int DefaultRenderingMode() {
+	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
+		return 0;  // Non-buffered
+	}
+	return 1;
+}
+
+static int DefaultInternalResolution() {
+	// Auto on Windows, 2x on large screens, 1x elsewhere.
+#if defined(USING_WIN_UI)
+	return 0;
+#else
+	return pixel_xres >= 1024 ? 2 : 1;
+#endif
+}
+
+static bool DefaultPartialStretch() {
+#ifdef BLACKBERRY
+	return pixel_xres < 1.3 * pixel_yres;
+#else
+	return false;
+#endif
+}
+
+static bool DefaultTimerHack() {
+// Has been in use on Symbian since v0.7. Preferred option.
+#ifdef __SYMBIAN32__
+	return true;
+#else
+	return false;
+#endif
+}
+
+static ConfigSetting graphicsSettings[] = {
+	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
+	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
+	ConfigSetting("SoftwareRendering", &g_Config.bSoftwareRendering, false),
+	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true),
+	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true),
+	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1),
+	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution),
+	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0),
+	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false),
+	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0),
+#ifdef _WIN32
+	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false),
+#else
+	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
+#endif
+	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60),
+#ifdef USING_GLES2
+	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 0),
+#else
+	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 8),
+#endif
+	ReportedConfigSetting("VertexCache", &g_Config.bVertexCache, true),
+	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false),
+	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false),
+	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultJit, false),
+
+#ifdef _WIN32
+	ConfigSetting("FullScreen", &g_Config.bFullScreen, false),
+#endif
+
+	// TODO: Replace these settings with a list of options
+	ConfigSetting("PartialStretch", &g_Config.bPartialStretch, &DefaultPartialStretch),
+	ConfigSetting("StretchToDisplay", &g_Config.bStretchToDisplay, false),
+	ConfigSetting("SmallDisplay", &g_Config.bSmallDisplay, false),
+	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false),
+
+	ConfigSetting("TrueColor", &g_Config.bTrueColor, true),
+
+	ReportedConfigSetting("MipMap", &g_Config.bMipMap, true),
+
+	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1),
+	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0),
+	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false),
+	ConfigSetting("VSyncInterval", &g_Config.bVSync, false),
+	ReportedConfigSetting("DisableStencilTest", &g_Config.bDisableStencilTest, false),
+	ReportedConfigSetting("AlwaysDepthWrite", &g_Config.bAlwaysDepthWrite, false),
+
+	// Not really a graphics setting...
+	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack),
+	ReportedConfigSetting("AlphaMaskHack", &g_Config.bAlphaMaskHack, false),
+	ReportedConfigSetting("LowQualitySplineBezier", &g_Config.bLowQualitySplineBezier, false),
+	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
+
+	ConfigSetting(false),
+};
+
+static ConfigSetting soundSettings[] = {
+	ConfigSetting("Enable", &g_Config.bEnableSound, true),
+	ConfigSetting("VolumeBGM", &g_Config.iBGMVolume, 7),
+	ConfigSetting("VolumeSFX", &g_Config.iSFXVolume, 7),
+	ConfigSetting("LowLatency", &g_Config.bLowLatencyAudio, false),
+
+	ConfigSetting(false),
+};
+
+static bool DefaultShowTouchControls() {
+#if defined(MOBILE_DEVICE)
+	std::string name = System_GetProperty(SYSPROP_NAME);
+	if (KeyMap::HasBuiltinController(name)) {
+		return false;
+	} else {
+		return true;
+	}
+#else
+	return false;
+#endif
+}
+
+static const float defaultControlScale = 1.15f;
+
+static ConfigSetting controlSettings[] = {
+	ConfigSetting("HapticFeedback", &g_Config.bHapticFeedback, true),
+	ConfigSetting("ShowTouchCross", &g_Config.bShowTouchCross, true),
+	ConfigSetting("ShowTouchCircle", &g_Config.bShowTouchCircle, true),
+	ConfigSetting("ShowTouchSquare", &g_Config.bShowTouchSquare, true),
+	ConfigSetting("ShowTouchTriangle", &g_Config.bShowTouchTriangle, true),
+	ConfigSetting("ShowTouchStart", &g_Config.bShowTouchStart, true),
+	ConfigSetting("ShowTouchSelect", &g_Config.bShowTouchSelect, true),
+	ConfigSetting("ShowTouchLTrigger", &g_Config.bShowTouchLTrigger, true),
+	ConfigSetting("ShowTouchRTrigger", &g_Config.bShowTouchRTrigger, true),
+	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true),
+	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true),
+	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false),
+#endif
+#if defined(USING_WIN_UI)
+	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false),
+#endif
+	ConfigSetting("ShowTouchControls", &g_Config.bShowTouchControls, &DefaultShowTouchControls),
+	// ConfigSetting("KeyMapping", &g_Config.iMappingMap, 0),
+
+#ifdef MOBILE_DEVICE
+	ConfigSetting("TiltBaseX", &g_Config.fTiltBaseX, 0.0f),
+	ConfigSetting("TiltBaseY", &g_Config.fTiltBaseY, 0.0f),
+	ConfigSetting("InvertTiltX", &g_Config.bInvertTiltX, false),
+	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true),
+	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 100),
+	ConfigSetting("TiltSensitivityY", &g_Config.iTiltSensitivityY, 100),
+	ConfigSetting("DeadzoneRadius", &g_Config.fDeadzoneRadius, 0.2f),
+	ConfigSetting("TiltInputType", &g_Config.iTiltInputType, 0),
+#endif
+
+	ConfigSetting("DisableDpadDiagonals", &g_Config.bDisableDpadDiagonals, false),
+	ConfigSetting("TouchButtonStyle", &g_Config.iTouchButtonStyle, 1),
+	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65),
+
+	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
+	ConfigSetting("ActionButtonSpacing2", &g_Config.fActionButtonSpacing, 1.0f),
+	ConfigSetting("ActionButtonCenterX", &g_Config.fActionButtonCenterX, -1.0f),
+	ConfigSetting("ActionButtonCenterY", &g_Config.fActionButtonCenterY, -1.0f),
+	ConfigSetting("ActionButtonScale", &g_Config.fActionButtonScale, defaultControlScale),
+	ConfigSetting("DPadX", &g_Config.fDpadX, -1.0f),
+	ConfigSetting("DPadY", &g_Config.fDpadY, -1.0f),
+
+	// Note: these will be overwritten if DPadRadius is set.
+	ConfigSetting("DPadScale", &g_Config.fDpadScale, defaultControlScale),
+	ConfigSetting("DPadSpacing", &g_Config.fDpadSpacing, 1.0f),
+	ConfigSetting("StartKeyX", &g_Config.fStartKeyX, -1.0f),
+	ConfigSetting("StartKeyY", &g_Config.fStartKeyY, -1.0f),
+	ConfigSetting("StartKeyScale", &g_Config.fStartKeyScale, defaultControlScale),
+	ConfigSetting("SelectKeyX", &g_Config.fSelectKeyX, -1.0f),
+	ConfigSetting("SelectKeyY", &g_Config.fSelectKeyY, -1.0f),
+	ConfigSetting("SelectKeyScale", &g_Config.fSelectKeyScale, defaultControlScale),
+	ConfigSetting("UnthrottleKeyX", &g_Config.fUnthrottleKeyX, -1.0f),
+	ConfigSetting("UnthrottleKeyY", &g_Config.fUnthrottleKeyY, -1.0f),
+	ConfigSetting("UnthrottleKeyScale", &g_Config.fUnthrottleKeyScale, defaultControlScale),
+	ConfigSetting("LKeyX", &g_Config.fLKeyX, -1.0f),
+	ConfigSetting("LKeyY", &g_Config.fLKeyY, -1.0f),
+	ConfigSetting("LKeyScale", &g_Config.fLKeyScale, defaultControlScale),
+	ConfigSetting("RKeyX", &g_Config.fRKeyX, -1.0f),
+	ConfigSetting("RKeyY", &g_Config.fRKeyY, -1.0f),
+	ConfigSetting("RKeyScale", &g_Config.fRKeyScale, defaultControlScale),
+	ConfigSetting("AnalogStickX", &g_Config.fAnalogStickX, -1.0f),
+	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f),
+	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale),
+
+	ConfigSetting(false),
+};
+
+static ConfigSetting networkSettings[] = {
+	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false),
+
+	ConfigSetting(false),
+};
+
+static int DefaultPSPModel() {
+	// TODO: Can probably default this on, but not sure about its memory differences.
+#if !defined(_M_X64) && !defined(_WIN32) && !defined(__SYMBIAN32__)
+	return PSP_MODEL_FAT;
+#else
+	return PSP_MODEL_SLIM;
+#endif
+}
+
+static int DefaultSystemParamLanguage() {
+	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	if (g_Config.bFirstRun) {
+		// TODO: Be smart about same language, different country
+		auto langValuesMapping = GetLangValuesMapping();
+		if (langValuesMapping.find(g_Config.sLanguageIni) != langValuesMapping.end()) {
+			defaultLang = langValuesMapping[g_Config.sLanguageIni].second;
+		}
+	}
+	return defaultLang;
+}
+
+static ConfigSetting systemParamSettings[] = {
+	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, &DefaultPSPModel),
+	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE),
+	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP"),
+	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost"),
+	ConfigSetting("MacAddress", &g_Config.localMacAddress, "01:02:03:04:05:06"),
+	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage),
+	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR),
+	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD),
+	ConfigSetting("TimeZone", &g_Config.iTimeZone, 0),
+	ConfigSetting("DayLightSavings", &g_Config.bDayLightSavings, (bool)PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD),
+	ReportedConfigSetting("ButtonPreference", &g_Config.iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS),
+	ConfigSetting("LockParentalLevel", &g_Config.iLockParentalLevel, 0),
+	ConfigSetting("WlanAdhocChannel", &g_Config.iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC),
+#if defined(USING_WIN_UI)
+	ConfigSetting("BypassOSKWithKeyboard", &g_Config.bBypassOSKWithKeyboard, false),
+#endif
+	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool)PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF),
+	ReportedConfigSetting("EncryptSave", &g_Config.bEncryptSave, true),
+
+	ConfigSetting(false),
+};
+
+static ConfigSetting debuggerSettings[] = {
+	ConfigSetting("DisasmWindowX", &g_Config.iDisasmWindowX, -1),
+	ConfigSetting("DisasmWindowY", &g_Config.iDisasmWindowY, -1),
+	ConfigSetting("DisasmWindowW", &g_Config.iDisasmWindowW, -1),
+	ConfigSetting("DisasmWindowH", &g_Config.iDisasmWindowH, -1),
+	ConfigSetting("GEWindowX", &g_Config.iGEWindowX, -1),
+	ConfigSetting("GEWindowY", &g_Config.iGEWindowY, -1),
+	ConfigSetting("GEWindowW", &g_Config.iGEWindowW, -1),
+	ConfigSetting("GEWindowH", &g_Config.iGEWindowH, -1),
+	ConfigSetting("ConsoleWindowX", &g_Config.iConsoleWindowX, -1),
+	ConfigSetting("ConsoleWindowY", &g_Config.iConsoleWindowY, -1),
+	ConfigSetting("FontWidth", &g_Config.iFontWidth, 8),
+	ConfigSetting("FontHeight", &g_Config.iFontHeight, 12),
+	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true),
+	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles,true),
+	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false),
+	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
+	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
+
+	ConfigSetting(false),
+};
+
+static ConfigSetting speedHackSettings[] = {
+	ReportedConfigSetting("PrescaleUV", &g_Config.bPrescaleUV, false),
+	ReportedConfigSetting("DisableAlphaTest", &g_Config.bDisableAlphaTest, false),
+
+	ConfigSetting(false),
+};
+
+static ConfigSetting jitSettings[] = {
+	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, false),
+
+	ConfigSetting(false),
+};
+
+static ConfigSetting upgradeSettings[] = {
+	ConfigSetting("UpgradeMessage", &g_Config.upgradeMessage, ""),
+	ConfigSetting("UpgradeVersion", &g_Config.upgradeVersion, ""),
+	ConfigSetting("DismissedVersion", &g_Config.dismissedVersion, ""),
+
+	ConfigSetting(false),
+};
+
+static ConfigSectionSettings sections[] = {
+	{"General", generalSettings},
+	{"CPU", cpuSettings},
+	{"Graphics", graphicsSettings},
+	{"Sound", soundSettings},
+	{"Control", controlSettings},
+	{"Network", networkSettings},
+	{"SystemParam", systemParamSettings},
+	{"Debugger", debuggerSettings},
+	{"SpeedHacks", speedHackSettings},
+	{"JIT", jitSettings},
+	{"Upgrade", upgradeSettings},
+};
 
 Config::Config() { }
 Config::~Config() { }
@@ -98,61 +654,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IniFile::Section *general = iniFile.GetOrCreateSection("General");
-
-	general->Get("FirstRun", &bFirstRun, true);
-	general->Get("RunCount", &iRunCount, 0);
-	iRunCount++;
-	general->Get("Enable Logging", &bEnableLogging, true);
-	general->Get("AutoRun", &bAutoRun, true);
-	general->Get("Browse", &bBrowse, false);
-	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
-	general->Get("CurrentDirectory", &currentDirectory, "");
-	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
-	general->Get("HomebrewStore", &bHomebrewStore, false);
-	general->Get("CheckForNewVersion", &bCheckForNewVersion, true);
-
-	if (!File::Exists(currentDirectory))
-		currentDirectory = "";
-
-	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	std::string defaultLangRegion = "en_US";
-	if (bFirstRun) {
-		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
-		if (i18nrepo.IniExists(langRegion))
-			defaultLangRegion = langRegion;
-		// TODO: Be smart about same language, different country
-		auto langValuesMapping = GetLangValuesMapping();
-		if (!defaultLangRegion.empty()) {
-			if (langValuesMapping.find(defaultLangRegion) != langValuesMapping.end()) {
-				defaultLang = langValuesMapping[defaultLangRegion].second;
-			}
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
+		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+			setting->Get(section);
 		}
 	}
 
-	general->Get("Language", &sLanguageIni, defaultLangRegion.c_str());
-	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
-	general->Get("EnableAutoLoad", &bEnableAutoLoad, false);
-	general->Get("EnableCheats", &bEnableCheats, false);
-	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
-	general->Get("StateSlot", &iCurrentStateSlot, 0);
-	general->Get("RewindFlipFrequency", &iRewindFlipFrequency, 0);
-	general->Get("GridView1", &bGridView1, true);
-	general->Get("GridView2", &bGridView2, true);
-	general->Get("GridView3", &bGridView3, false);
-
-	// "default" means let emulator decide, "" means disable.
-	general->Get("ReportingHost", &sReportHost, "default");
-	general->Get("Recent", recentIsos);
-	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
-#if defined(_WIN32) && !defined(USING_QT_UI)
-	general->Get("TopMost", &bTopMost);
-	general->Get("WindowX", &iWindowX, -1); // -1 tells us to center the window.
-	general->Get("WindowY", &iWindowY, -1);
-	general->Get("WindowWidth", &iWindowWidth, 0);   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
-	general->Get("WindowHeight", &iWindowHeight, 0);
-	general->Get("PauseOnLostFocus", &bPauseOnLostFocus, false);
-#endif
+	iRunCount++;
+	if (!File::Exists(currentDirectory))
+		currentDirectory = "";
 
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 	recent->Get("MaxRecent", &iMaxRecent, 30);
@@ -162,16 +673,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		iMaxRecent = 30;
 
 	recentIsos.clear();
-	for (int i = 0; i < iMaxRecent; i++)
-	{
+	for (int i = 0; i < iMaxRecent; i++) {
 		char keyName[64];
 		std::string fileName;
 
-		sprintf(keyName,"FileName%d",i);
-		if (!recent->Get(keyName,&fileName,"") || fileName.length() == 0) {
-			// just skip it to get the next key
-		}
-		else {
+		sprintf(keyName, "FileName%d", i);
+		if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
 			recentIsos.push_back(fileName);
 		}
 	}
@@ -182,267 +689,47 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		vPinnedPaths.push_back(it->second);
 	}
 
-	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
-#ifdef IOS
-	cpu->Get("Jit", &bJit, iosCanUseJit);
-#else
-	cpu->Get("Jit", &bJit, true);
-#endif
-	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
-	cpu->Get("AtomicAudioLocks", &bAtomicAudioLocks, false);
-
-	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
-	cpu->Get("FastMemoryAccess", &bFastMemory, true);
-	cpu->Get("CPUSpeed", &iLockedCPUSpeed, 0);
-
-	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
-	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
-
-	int renderingModeDefault = 1;  // Buffered
-	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
-		renderingModeDefault = 0;  // Non-buffered
-	}
-
-	graphics->Get("RenderingMode", &iRenderingMode, renderingModeDefault);
-	graphics->Get("SoftwareRendering", &bSoftwareRendering, false);
-	graphics->Get("HardwareTransform", &bHardwareTransform, true);
-	graphics->Get("SoftwareSkinning", &bSoftwareSkinning, true);
-	graphics->Get("TextureFiltering", &iTexFiltering, 1);
-	// Auto on Windows, 2x on large screens, 1x elsewhere.
-#if defined(_WIN32) && !defined(USING_QT_UI)
-	graphics->Get("InternalResolution", &iInternalResolution, 0);
-#else
-	graphics->Get("InternalResolution", &iInternalResolution, pixel_xres >= 1024 ? 2 : 1);
-#endif
-
-	graphics->Get("FrameSkip", &iFrameSkip, 0);
-	graphics->Get("FrameRate", &iFpsLimit, 0);
-#ifdef _WIN32
-	graphics->Get("FrameSkipUnthrottle", &bFrameSkipUnthrottle, false);
-#else
-	graphics->Get("FrameSkipUnthrottle", &bFrameSkipUnthrottle, true);
-#endif
-	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 60);
-#ifdef USING_GLES2
-	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
-#else
-	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
-#endif
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
 	}
-	graphics->Get("VertexCache", &bVertexCache, true);
-	graphics->Get("TextureBackoffCache", &bTextureBackoffCache, false);
-	graphics->Get("TextureSecondaryCache", &bTextureSecondaryCache, false);
-#ifdef IOS
-	graphics->Get("VertexDecJit", &bVertexDecoderJit, iosCanUseJit);
-#else
-	graphics->Get("VertexDecJit", &bVertexDecoderJit, true);
-#endif
-
-#ifdef _WIN32
-	graphics->Get("FullScreen", &bFullScreen, false);
-#endif
-	bool partialStretchDefault = false;
-#ifdef BLACKBERRY
-	partialStretchDefault = pixel_xres < 1.3 * pixel_yres;
-#endif
-	
-	// TODO: Replace these settings with a list of options
-	graphics->Get("PartialStretch", &bPartialStretch, partialStretchDefault);
-	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
-	graphics->Get("SmallDisplay", &bSmallDisplay, false);
-
-	graphics->Get("TrueColor", &bTrueColor, true);
-
-	graphics->Get("MipMap", &bMipMap, true);
-
-	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
-	graphics->Get("TexScalingType", &iTexScalingType, 0);
-	graphics->Get("TexDeposterize", &bTexDeposterize, false);
-	graphics->Get("VSyncInterval", &bVSync, false);
-	graphics->Get("DisableStencilTest", &bDisableStencilTest, false);
-	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
-// Has been in use on Symbian since v0.7. Preferred option.
-#ifdef __SYMBIAN32__
-	graphics->Get("TimerHack", &bTimerHack, true);
-#else
-	graphics->Get("TimerHack", &bTimerHack, false);
-#endif
-	graphics->Get("LowQualitySplineBezier", &bLowQualitySplineBezier, false);
-	graphics->Get("PostShader", &sPostShaderName, "Off");
-
-	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
-	sound->Get("Enable", &bEnableSound, true);
-	sound->Get("VolumeBGM", &iBGMVolume, 7);
-	sound->Get("VolumeSFX", &iSFXVolume, 7);
-	sound->Get("LowLatency", &bLowLatencyAudio, false);
-
-	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
-	control->Get("HapticFeedback", &bHapticFeedback, true);
-	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
-	control->Get("ShowTouchCross", &bShowTouchCross, true);
-	control->Get("ShowTouchCircle", &bShowTouchCircle, true);
-	control->Get("ShowTouchSquare", &bShowTouchSquare, true);
-	control->Get("ShowTouchTriangle", &bShowTouchTriangle, true);
-	control->Get("ShowTouchStart", &bShowTouchStart, true);
-	control->Get("ShowTouchSelect", &bShowTouchSelect, true);
-	control->Get("ShowTouchLTrigger", &bShowTouchLTrigger, true);
-	control->Get("ShowTouchRTrigger", &bShowTouchRTrigger, true);
-	control->Get("ShowAnalogStick", &bShowTouchAnalogStick, true);
-	control->Get("ShowTouchDpad", &bShowTouchDpad, true);
-	control->Get("ShowTouchUnthrottle", &bShowTouchUnthrottle, true);
-#if defined(_WIN32) && !defined(USING_QT_UI)
-	control->Get("IgnoreWindowsKey", &bIgnoreWindowsKey, false);
-#endif
-#if defined(USING_GLES2)
-	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (KeyMap::HasBuiltinController(name)) {
-		control->Get("ShowTouchControls", &bShowTouchControls, false);
-	} else {
-		control->Get("ShowTouchControls", &bShowTouchControls, true);
-	}
-#else
-	control->Get("ShowTouchControls", &bShowTouchControls, false);
-#endif
-	// control->Get("KeyMapping",iMappingMap);
-#ifdef USING_GLES2
-	control->Get("TiltBaseX", &fTiltBaseX, 0);
-	control->Get("TiltBaseY", &fTiltBaseY, 0);
-	control->Get("InvertTiltX", &bInvertTiltX, false);
-	control->Get("InvertTiltY", &bInvertTiltY, true);
-	control->Get("TiltSensitivityX", &iTiltSensitivityX, 100);
-	control->Get("TiltSensitivityY", &iTiltSensitivityY, 100);
-	control->Get("DeadzoneRadius", &fDeadzoneRadius, 0.2);
-	control->Get("TiltInputType", &iTiltInputType, 0);
-
-#endif
-	control->Get("DisableDpadDiagonals", &bDisableDpadDiagonals, false);
-	control->Get("TouchButtonStyle", &iTouchButtonStyle, 1);
-	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
-	//set these to -1 if not initialized. initializing these
-	//requires pixel coordinates which is not known right now.
-	//will be initialized in GamepadEmu::CreatePadLayout
-	float defaultScale = 1.15f;
-	control->Get("ActionButtonSpacing2", &fActionButtonSpacing, 1.0f);
-	control->Get("ActionButtonCenterX", &fActionButtonCenterX, -1.0);
-	control->Get("ActionButtonCenterY", &fActionButtonCenterY, -1.0);
-	control->Get("ActionButtonScale", &fActionButtonScale, defaultScale);
-	control->Get("DPadX", &fDpadX, -1.0);
-	control->Get("DPadY", &fDpadY, -1.0);
 
 	// Check for an old dpad setting
+	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	float f;
 	control->Get("DPadRadius", &f, 0.0f);
 	if (f > 0.0f) {
 		ResetControlLayout();
-	} else {
-		control->Get("DPadScale", &fDpadScale, defaultScale);
-		control->Get("DPadSpacing", &fDpadSpacing, 1.0f);
-		control->Get("StartKeyX", &fStartKeyX, -1.0);
-		control->Get("StartKeyY", &fStartKeyY, -1.0);
-		control->Get("StartKeyScale", &fStartKeyScale, defaultScale);
-		control->Get("SelectKeyX", &fSelectKeyX, -1.0);
-		control->Get("SelectKeyY", &fSelectKeyY, -1.0);
-		control->Get("SelectKeyScale", &fSelectKeyScale, defaultScale);
-		control->Get("UnthrottleKeyX", &fUnthrottleKeyX, -1.0);
-		control->Get("UnthrottleKeyY", &fUnthrottleKeyY, -1.0);
-		control->Get("UnthrottleKeyScale", &fUnthrottleKeyScale, defaultScale);
-		control->Get("LKeyX", &fLKeyX, -1.0);
-		control->Get("LKeyY", &fLKeyY, -1.0);
-		control->Get("LKeyScale", &fLKeyScale, defaultScale);
-		control->Get("RKeyX", &fRKeyX, -1.0);
-		control->Get("RKeyY", &fRKeyY, -1.0);
-		control->Get("RKeyScale", &fRKeyScale, defaultScale);
-		control->Get("AnalogStickX", &fAnalogStickX, -1.0);
-		control->Get("AnalogStickY", &fAnalogStickY, -1.0);
-		control->Get("AnalogStickScale", &fAnalogStickScale, defaultScale);
 	}
 
 	// MIGRATION: For users who had the old static touch layout, aren't I nice?
-	if (fDpadX > 1.0 || fDpadY > 1.0) // Likely the rest are too!
-	{
-		fActionButtonCenterX /= dp_xres;
-		fActionButtonCenterY /= dp_yres;
-		fDpadX /= dp_xres;
-		fDpadY /= dp_yres;
-		fStartKeyX /= dp_xres;
-		fStartKeyY /= dp_yres;
-		fSelectKeyX /= dp_xres;
-		fSelectKeyY /= dp_yres;
-		fUnthrottleKeyX /= dp_xres;
-		fUnthrottleKeyY /= dp_yres;
-		fLKeyX /= dp_xres;
-		fLKeyY /= dp_yres;
-		fRKeyX /= dp_xres;
-		fRKeyY /= dp_yres;
-		fAnalogStickX /= dp_xres;
-		fAnalogStickY /= dp_yres;
+	// We can probably kill this in 0.9.8 or something.
+	if (fDpadX > 1.0 || fDpadY > 1.0) { // Likely the rest are too!
+		float screen_width = dp_xres;
+		float screen_height = dp_yres;
+
+		fActionButtonCenterX /= screen_width;
+		fActionButtonCenterY /= screen_height;
+		fDpadX /= screen_width;
+		fDpadY /= screen_height;
+		fStartKeyX /= screen_width;
+		fStartKeyY /= screen_height;
+		fSelectKeyX /= screen_width;
+		fSelectKeyY /= screen_height;
+		fUnthrottleKeyX /= screen_width;
+		fUnthrottleKeyY /= screen_height;
+		fLKeyX /= screen_width;
+		fLKeyY /= screen_height;
+		fRKeyX /= screen_width;
+		fRKeyY /= screen_height;
+		fAnalogStickX /= screen_width;
+		fAnalogStickY /= screen_height;
 	}
-
-	IniFile::Section *network = iniFile.GetOrCreateSection("Network");
-	network->Get("EnableWlan", &bEnableWlan, false);
-
-	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-	pspConfig->Get("PSPModel", &iPSPModel, PSP_MODEL_SLIM);
-	pspConfig->Get("PSPFirmwareVersion", &iFirmwareVersion, PSP_DEFAULT_FIRMWARE);
-#if !defined(_M_X64) && !defined(_WIN32) && !defined(__SYMBIAN32__)
-	// 32-bit mmap cannot map more than 32MB contiguous
-	iPSPModel = PSP_MODEL_FAT;
-#endif
-	pspConfig->Get("NickName", &sNickName, "PPSSPP");
-	pspConfig->Get("proAdhocServer", &proAdhocServer, "localhost");
-	pspConfig->Get("MacAddress", &localMacAddress, "01:02:03:04:05:06");
-	pspConfig->Get("Language", &iLanguage, defaultLang);
-	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
-	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
-	pspConfig->Get("TimeZone", &iTimeZone, 0);
-	pspConfig->Get("DayLightSavings", &bDayLightSavings, PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
-	pspConfig->Get("ButtonPreference", &iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS);
-	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
-	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
-#if defined(_WIN32) && !defined(USING_QT_UI)
-	pspConfig->Get("BypassOSKWithKeyboard", &bBypassOSKWithKeyboard, false);
-#endif
-	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
-	pspConfig->Get("EncryptSave", &bEncryptSave, true);
-
-	IniFile::Section *debugConfig = iniFile.GetOrCreateSection("Debugger");
-	debugConfig->Get("DisasmWindowX", &iDisasmWindowX, -1);
-	debugConfig->Get("DisasmWindowY", &iDisasmWindowY, -1);
-	debugConfig->Get("DisasmWindowW", &iDisasmWindowW, -1);
-	debugConfig->Get("DisasmWindowH", &iDisasmWindowH, -1);
-	debugConfig->Get("GEWindowX", &iGEWindowX, -1);
-	debugConfig->Get("GEWindowY", &iGEWindowY, -1);
-	debugConfig->Get("GEWindowW", &iGEWindowW, -1);
-	debugConfig->Get("GEWindowH", &iGEWindowH, -1);
-	debugConfig->Get("ConsoleWindowX", &iConsoleWindowX, -1);
-	debugConfig->Get("ConsoleWindowY", &iConsoleWindowY, -1);
-	debugConfig->Get("FontWidth", &iFontWidth, 8);
-	debugConfig->Get("FontHeight", &iFontHeight, 12);
-	debugConfig->Get("DisplayStatusBar", &bDisplayStatusBar, true);
-	debugConfig->Get("ShowBottomTabTitles",&bShowBottomTabTitles,true);
-	debugConfig->Get("ShowDeveloperMenu", &bShowDeveloperMenu, false);
-	debugConfig->Get("SkipDeadbeefFilling", &bSkipDeadbeefFilling, false);
-	debugConfig->Get("FuncHashMap", &bFuncHashMap, false);
-
-	IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
-	speedhacks->Get("PrescaleUV", &bPrescaleUV, false);
-	speedhacks->Get("DisableAlphaTest", &bDisableAlphaTest, false);
-
-	IniFile::Section *jitConfig = iniFile.GetOrCreateSection("JIT");
-	jitConfig->Get("DiscardRegsOnJRRA", &bDiscardRegsOnJRRA, false);
-
-	IniFile::Section *upgrade = iniFile.GetOrCreateSection("Upgrade");
-	upgrade->Get("UpgradeMessage", &upgradeMessage, "");
-	upgrade->Get("UpgradeVersion", &upgradeVersion, "");
-	upgrade->Get("DismissedVersion", &dismissedVersion, "");
 	
 	if (dismissedVersion == upgradeVersion) {
 		upgradeMessage = "";
 	}
 
-	// Check for new version on every 5 runs.
+	// Check for new version on every 10 runs.
 	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
@@ -475,39 +762,15 @@ void Config::Save() {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
 		}
 
-		IniFile::Section *general = iniFile.GetOrCreateSection("General");
-
 		// Need to do this somewhere...
 		bFirstRun = false;
-		general->Set("FirstRun", bFirstRun);
-		general->Set("RunCount", iRunCount);
-		general->Set("Enable Logging", bEnableLogging);
-		general->Set("AutoRun", bAutoRun);
-		general->Set("Browse", bBrowse);
-		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
-		general->Set("CurrentDirectory", currentDirectory);
-		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
-		general->Set("ReportingHost", sReportHost);
-		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
-#if defined(_WIN32) && !defined(USING_QT_UI)
-		general->Set("TopMost", bTopMost);
-		general->Set("WindowX", iWindowX);
-		general->Set("WindowY", iWindowY);
-		general->Set("WindowWidth", iWindowWidth);
-		general->Set("WindowHeight", iWindowHeight);
-		general->Set("PauseOnLostFocus", bPauseOnLostFocus);
-#endif
-		general->Set("Language", sLanguageIni);
-		general->Set("NumWorkerThreads", iNumWorkerThreads);
-		general->Set("EnableAutoLoad", bEnableAutoLoad);
-		general->Set("EnableCheats", bEnableCheats);
-		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
-		general->Set("StateSlot", iCurrentStateSlot);
-		general->Set("RewindFlipFrequency", iRewindFlipFrequency);
-		general->Set("GridView1", bGridView1);
-		general->Set("GridView2", bGridView2);
-		general->Set("GridView3", bGridView3);
-		general->Set("CheckForNewVersion", bCheckForNewVersion);
+
+		for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+			IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
+			for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+				setting->Set(section);
+			}
+		}
 
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
@@ -530,164 +793,8 @@ void Config::Save() {
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 
-		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
-		cpu->Set("Jit", bJit);
-		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
-		cpu->Set("AtomicAudioLocks", bAtomicAudioLocks);
-		cpu->Set("SeparateIOThread", bSeparateIOThread);
-		cpu->Set("FastMemoryAccess", bFastMemory);
-		cpu->Set("CPUSpeed", iLockedCPUSpeed);
-
-		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
-		graphics->Set("ShowFPSCounter", iShowFPSCounter);
-		graphics->Set("RenderingMode", iRenderingMode);
-		graphics->Set("SoftwareRendering", bSoftwareRendering);
-		graphics->Set("HardwareTransform", bHardwareTransform);
-		graphics->Set("SoftwareSkinning", bSoftwareSkinning);
-		graphics->Set("TextureFiltering", iTexFiltering);
-		graphics->Set("InternalResolution", iInternalResolution);
-		graphics->Set("FrameSkip", iFrameSkip);
-		graphics->Set("FrameRate", iFpsLimit);
-		graphics->Set("FrameSkipUnthrottle", bFrameSkipUnthrottle);
-		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
-		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
-		graphics->Set("VertexCache", bVertexCache);
-		graphics->Set("TextureBackoffCache", bTextureBackoffCache);
-		graphics->Set("TextureSecondaryCache", bTextureSecondaryCache);
-#ifdef _WIN32
-		graphics->Set("FullScreen", bFullScreen);
-#endif
-		graphics->Set("PartialStretch", bPartialStretch);
-		graphics->Set("StretchToDisplay", bStretchToDisplay);
-		graphics->Set("SmallDisplay", bSmallDisplay);
-		graphics->Set("TrueColor", bTrueColor);
-		graphics->Set("MipMap", bMipMap);
-		graphics->Set("TexScalingLevel", iTexScalingLevel);
-		graphics->Set("TexScalingType", iTexScalingType);
-		graphics->Set("TexDeposterize", bTexDeposterize);
-		graphics->Set("VSyncInterval", bVSync);
-		graphics->Set("DisableStencilTest", bDisableStencilTest);
-		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
-		graphics->Set("TimerHack", bTimerHack);
-		graphics->Set("LowQualitySplineBezier", bLowQualitySplineBezier);
-		graphics->Set("PostShader", sPostShaderName);
-
-		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
-		sound->Set("Enable", bEnableSound);
-		sound->Set("VolumeBGM", iBGMVolume);
-		sound->Set("VolumeSFX", iSFXVolume);
-		sound->Set("LowLatency", bLowLatencyAudio);
-
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
-		control->Set("HapticFeedback", bHapticFeedback);
-		control->Set("ShowTouchControls", bShowTouchControls);
-		control->Set("ShowTouchCross", bShowTouchCross);
-		control->Set("ShowTouchCircle", bShowTouchCircle);
-		control->Set("ShowTouchSquare", bShowTouchSquare);
-		control->Set("ShowTouchTriangle", bShowTouchTriangle);
-		control->Set("ShowTouchStart", bShowTouchStart);
-		control->Set("ShowTouchSelect", bShowTouchSelect);
-		control->Set("ShowTouchLTrigger", bShowTouchLTrigger);
-		control->Set("ShowTouchRTrigger", bShowTouchRTrigger);
-		control->Set("ShowAnalogStick", bShowTouchAnalogStick);
-		control->Set("ShowTouchUnthrottle", bShowTouchUnthrottle);
-		control->Set("ShowTouchDpad", bShowTouchDpad);
-
-#ifdef USING_GLES2
-		control->Set("TiltBaseX", fTiltBaseX);
-		control->Set("TiltBaseY", fTiltBaseY);
-		control->Set("InvertTiltX", bInvertTiltX);
-		control->Set("InvertTiltY", bInvertTiltY);
-		control->Set("TiltSensitivityX", iTiltSensitivityX);
-		control->Set("TiltSensitivityY", iTiltSensitivityY);
-		control->Set("DeadzoneRadius", fDeadzoneRadius);
-		control->Set("TiltInputType", iTiltInputType);
-#endif
-		control->Set("DisableDpadDiagonals", bDisableDpadDiagonals);
-		control->Set("TouchButtonStyle", iTouchButtonStyle);
-		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
-		control->Set("ActionButtonScale", fActionButtonScale);
-		control->Set("ActionButtonSpacing2", fActionButtonSpacing);
-		control->Set("ActionButtonCenterX", fActionButtonCenterX);
-		control->Set("ActionButtonCenterY", fActionButtonCenterY);
-		control->Set("DPadX", fDpadX);
-		control->Set("DPadY", fDpadY);
-		control->Set("DPadScale", fDpadScale);
-		control->Set("DPadSpacing", fDpadSpacing);
-		control->Set("StartKeyX", fStartKeyX);
-		control->Set("StartKeyY", fStartKeyY);
-		control->Set("StartKeyScale", fStartKeyScale);
-		control->Set("SelectKeyX", fSelectKeyX);
-		control->Set("SelectKeyY", fSelectKeyY);
-		control->Set("SelectKeyScale", fSelectKeyScale);
-		control->Set("UnthrottleKeyX", fUnthrottleKeyX);
-		control->Set("UnthrottleKeyY", fUnthrottleKeyY);
-		control->Set("UnthrottleKeyScale", fUnthrottleKeyScale);
-		control->Set("LKeyX", fLKeyX);
-		control->Set("LKeyY", fLKeyY);
-		control->Set("LKeyScale", fLKeyScale);
-		control->Set("RKeyX", fRKeyX);
-		control->Set("RKeyY", fRKeyY);
-		control->Set("RKeyScale", fRKeyScale);
-		control->Set("AnalogStickX", fAnalogStickX);
-		control->Set("AnalogStickY", fAnalogStickY);
-		control->Set("AnalogStickScale", fAnalogStickScale);
 		control->Delete("DPadRadius");
-#if defined(_WIN32) && !defined(USING_QT_UI)
-		control->Set("IgnoreWindowsKey", bIgnoreWindowsKey);
-#endif
-
-		IniFile::Section *network = iniFile.GetOrCreateSection("Network");
-		network->Set("EnableWlan", bEnableWlan);
-
-		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-		pspConfig->Set("PSPModel", iPSPModel);
-		pspConfig->Set("PSPFirmwareVersion", iFirmwareVersion);
-		pspConfig->Set("NickName", sNickName.c_str());
-		pspConfig->Set("proAdhocServer", proAdhocServer.c_str());
-		pspConfig->Set("MacAddress", localMacAddress.c_str());
-		pspConfig->Set("Language", iLanguage);
-		pspConfig->Set("TimeFormat", iTimeFormat);
-		pspConfig->Set("DateFormat", iDateFormat);
-		pspConfig->Set("TimeZone", iTimeZone);
-		pspConfig->Set("DayLightSavings", bDayLightSavings);
-		pspConfig->Set("ButtonPreference", iButtonPreference);
-		pspConfig->Set("LockParentalLevel", iLockParentalLevel);
-		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
-		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
-		pspConfig->Set("EncryptSave", bEncryptSave);
-#if defined(_WIN32) && !defined(USING_QT_UI)
-		pspConfig->Set("BypassOSKWithKeyboard", bBypassOSKWithKeyboard);
-#endif
-
-		IniFile::Section *debugConfig = iniFile.GetOrCreateSection("Debugger");
-		debugConfig->Set("DisasmWindowX", iDisasmWindowX);
-		debugConfig->Set("DisasmWindowY", iDisasmWindowY);
-		debugConfig->Set("DisasmWindowW", iDisasmWindowW);
-		debugConfig->Set("DisasmWindowH", iDisasmWindowH);
-		debugConfig->Set("GEWindowX", iGEWindowX);
-		debugConfig->Set("GEWindowY", iGEWindowY);
-		debugConfig->Set("GEWindowW", iGEWindowW);
-		debugConfig->Set("GEWindowH", iGEWindowH);
-		debugConfig->Set("ConsoleWindowX", iConsoleWindowX);
-		debugConfig->Set("ConsoleWindowY", iConsoleWindowY);
-		debugConfig->Set("FontWidth", iFontWidth);
-		debugConfig->Set("FontHeight", iFontHeight);
-		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
-		debugConfig->Set("ShowBottomTabTitles",bShowBottomTabTitles);
-		debugConfig->Set("ShowDeveloperMenu", bShowDeveloperMenu);
-		debugConfig->Set("SkipDeadbeefFilling", bSkipDeadbeefFilling);
-		debugConfig->Set("FuncHashMap", bFuncHashMap);
-
-		IniFile::Section *speedhacks = iniFile.GetOrCreateSection("SpeedHacks");
-		speedhacks->Set("PrescaleUV", bPrescaleUV);
-		speedhacks->Set("DisableAlphaTest", bDisableAlphaTest);
-
-		// Save upgrade check state
-		IniFile::Section *upgrade = iniFile.GetOrCreateSection("Upgrade");
-		upgrade->Set("UpgradeMessage", upgradeMessage);
-		upgrade->Set("UpgradeVersion", upgradeVersion);
-		upgrade->Set("DismissedVersion", dismissedVersion);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
@@ -849,31 +956,39 @@ void Config::RestoreDefaults() {
 }
 
 void Config::ResetControlLayout() {
-	float defaultScale = 1.15f;
-	g_Config.fActionButtonScale = defaultScale;
+	g_Config.fActionButtonScale = defaultControlScale;
 	g_Config.fActionButtonSpacing = 1.0f;
 	g_Config.fActionButtonCenterX = -1.0;
 	g_Config.fActionButtonCenterY = -1.0;
-	g_Config.fDpadScale = defaultScale;
+	g_Config.fDpadScale = defaultControlScale;
 	g_Config.fDpadSpacing = 1.0f;
 	g_Config.fDpadX = -1.0;
 	g_Config.fDpadY = -1.0;
 	g_Config.fStartKeyX = -1.0;
 	g_Config.fStartKeyY = -1.0;
-	g_Config.fStartKeyScale = defaultScale; 
+	g_Config.fStartKeyScale = defaultControlScale;
 	g_Config.fSelectKeyX = -1.0;
 	g_Config.fSelectKeyY = -1.0;
-	g_Config.fSelectKeyScale = defaultScale; 
+	g_Config.fSelectKeyScale = defaultControlScale;
 	g_Config.fUnthrottleKeyX = -1.0;
 	g_Config.fUnthrottleKeyY = -1.0;
-	g_Config.fUnthrottleKeyScale = defaultScale; 
+	g_Config.fUnthrottleKeyScale = defaultControlScale;
 	g_Config.fLKeyX = -1.0;
 	g_Config.fLKeyY = -1.0;
-	g_Config.fLKeyScale = defaultScale; 
+	g_Config.fLKeyScale = defaultControlScale;
 	g_Config.fRKeyX = -1.0;
 	g_Config.fRKeyY = -1.0;
-	g_Config.fRKeyScale = defaultScale; 
+	g_Config.fRKeyScale = defaultControlScale;
 	g_Config.fAnalogStickX = -1.0;
 	g_Config.fAnalogStickY = -1.0;
-	g_Config.fAnalogStickScale = defaultScale;
+	g_Config.fAnalogStickScale = defaultControlScale;
+}
+
+void Config::GetReportingInfo(UrlEncoder &data) {
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		const std::string prefix = std::string("config.") + sections[i].section;
+		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+			setting->Report(data, prefix);
+		}
+	}
 }

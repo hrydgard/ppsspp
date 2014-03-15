@@ -7,15 +7,13 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
+#include "base/display.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
-#include "base/display.h"
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
-
-#include "QtHost.h"
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
@@ -27,7 +25,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
-	host = new QtHost(this);
 	emugl = new MainUI(this);
 
 	setCentralWidget(emugl);
@@ -35,8 +32,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	updateMenus();
 
 	SetZoom(g_Config.iInternalResolution);
-
-	SetGameTitle(fileToStart);
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -339,7 +334,7 @@ void MainWindow::fullscrAct()
 
 		showNormal();
 		SetZoom(g_Config.iInternalResolution);
-		InitPadLayout();
+		InitPadLayout(dp_xres, dp_yres);
 		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
@@ -355,7 +350,7 @@ void MainWindow::fullscrAct()
 
 		if (gpu)
 			gpu->Resized();
-		InitPadLayout();
+		InitPadLayout(dp_xres, dp_yres);
 		if (globalUIState == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 

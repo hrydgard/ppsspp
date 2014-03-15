@@ -19,7 +19,9 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
-#include "Core/MemMap.h"
+#include "Core/Opcode.h"
+
+class PointerWrap;
 
 typedef Memory::Opcode MIPSOpcode;
 
@@ -126,7 +128,10 @@ public:
 	MIPSState();
 	~MIPSState();
 
+	void Init();
+	void Shutdown();
 	void Reset();
+
 	void DoState(PointerWrap &p);
 
 	// MUST start with r and be followed by f!
@@ -181,17 +186,10 @@ public:
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
 	}
 
-	void Irq();
-	void SWI();
-	void Abort();
-
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
 	void InvalidateICache(u32 address, int length = 4);
-
-	// for logging messages only.
-	const char *DisasmAt(u32 compilerPC);
 };
 
 
@@ -201,7 +199,5 @@ class MIPSDebugInterface;
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
-
-int MIPS_SingleStep();
 
 extern const float cst_constants[32];

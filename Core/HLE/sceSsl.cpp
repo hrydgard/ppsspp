@@ -15,14 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MemMap.h"
+#include "Common/ChunkFile.h"
 
-#include "sceSsl.h"
+#include "Core/HLE/sceSsl.h"
 
-#define ERROR_SSL_NOT_INIT 0x80435001;
-#define ERROR_SSL_ALREADY_INIT	0x80435020;
-#define ERROR_SSL_OUT_OF_MEMORY 0x80435022;
+#define ERROR_SSL_NOT_INIT          0x80435001;
+#define ERROR_SSL_ALREADY_INIT      0x80435020;
+#define ERROR_SSL_OUT_OF_MEMORY     0x80435022;
 #define ERROR_SSL_INVALID_PARAMETER 0x804351FE;
 
 bool isSslInit;

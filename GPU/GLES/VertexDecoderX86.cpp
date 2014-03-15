@@ -27,11 +27,17 @@ static float MEMORY_ALIGNED16(bones[16 * 8]);
 
 using namespace Gen;
 
+static const float MEMORY_ALIGNED16( by127[4] ) = {
+	1.0f / 127.0f, 1.0f / 127.0f, 1.0f / 127.0f, 1.0f / 127.0f
+};
 static const float MEMORY_ALIGNED16( by128[4] ) = {
 	1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f
 };
 static const float MEMORY_ALIGNED16( by256[4] ) = {
 	1.0f / 256, 1.0f / 256, 1.0f / 256, 1.0f / 256
+};
+static const float MEMORY_ALIGNED16( by32767[4] ) = {
+	1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f,
 };
 static const float MEMORY_ALIGNED16( by32768[4] ) = {
 	1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f,
@@ -125,6 +131,14 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
 	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
 	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
+
+	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
+	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
+	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
+
+	{&VertexDecoder::Step_PosS8Morph, &VertexDecoderJitCache::Jit_PosS8Morph},
+	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
+	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
 };
 
 // TODO: This should probably be global...
@@ -765,6 +779,9 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
+	// This commented out version is likely slightly faster but treats all three as signed, which
+	// appears to be wrong.
+	/*
 	XORPS(XMM3, R(XMM3));
 	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
 	PUNPCKLWD(XMM1, R(XMM3));
@@ -772,6 +789,16 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
 	CVTDQ2PS(XMM3, R(XMM1));
 	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
+	*/
+	MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff));
+	MOVSX(32, 16, tempReg2, MDisp(srcReg, dec_->posoff + 2));
+	MOVZX(32, 16, tempReg3, MDisp(srcReg, dec_->posoff + 4));  // NOTE: MOVZX
+	CVTSI2SS(fpScratchReg, R(tempReg1));
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff), fpScratchReg);
+	CVTSI2SS(fpScratchReg, R(tempReg2));
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 4), fpScratchReg);
+	CVTSI2SS(fpScratchReg, R(tempReg3));
+	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
@@ -826,6 +853,105 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
 	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
+	// TODO: Optimize the first one to skip an ADDPS.
+	XORPS(fpScratchReg, R(fpScratchReg));
+
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		// Okay, first convert to floats.
+		XORPS(fpScratchReg3, R(fpScratchReg3));
+		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		PUNPCKLBW(fpScratchReg2, R(fpScratchReg3));
+		PUNPCKLWD(fpScratchReg2, R(fpScratchReg3));
+		PSLLD(fpScratchReg2, 24);
+		PSRAD(fpScratchReg2, 24); // Ugly sign extension, can be done faster in SSE4
+		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+
+		// Now, It's time to multiply by the weight and 1.0f/127.0f.
+		MOVUPS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
+		MULPS(fpScratchReg3, M(by127));
+		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+
+		MULPS(fpScratchReg2, R(fpScratchReg3));
+		ADDPS(fpScratchReg, R(fpScratchReg2));
+	}
+
+	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
+	// TODO: Optimize the first one to skip an ADDPS.
+	XORPS(fpScratchReg, R(fpScratchReg));
+
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		// Okay, first convert to floats.
+		XORPS(fpScratchReg3, R(fpScratchReg3));
+		MOVQ_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		PUNPCKLWD(fpScratchReg2, R(fpScratchReg3));
+		PSLLD(fpScratchReg2, 16);
+		PSRAD(fpScratchReg2, 16); // Ugly sign extension, can be done faster in SSE4
+		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+
+		// Now, It's time to multiply by the weight and 1.0f/32767.0f.
+		MOVUPS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
+		MULPS(fpScratchReg3, M(by32767));
+		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+
+		MULPS(fpScratchReg2, R(fpScratchReg3));
+		ADDPS(fpScratchReg, R(fpScratchReg2));
+	}
+
+	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
+	// TODO: Optimize the first one to skip an ADDPS.
+	XORPS(fpScratchReg, R(fpScratchReg));
+
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		MOVUPS(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		MOVUPS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
+		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(fpScratchReg2, R(fpScratchReg3));
+		ADDPS(fpScratchReg, R(fpScratchReg2));
+	}
+
+	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_PosS8Morph() {
+	Jit_AnyS8Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Morph() {
+	Jit_AnyS16Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorph() {
+	Jit_AnyFloatMorph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8Morph() {
+	Jit_AnyS8Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Morph() {
+	Jit_AnyS16Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorph() {
+	Jit_AnyFloatMorph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {

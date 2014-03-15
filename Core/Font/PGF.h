@@ -23,8 +23,9 @@
 #include <vector>
 
 #include "Common/Log.h"
-#include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
+
+class PointerWrap;
 
 enum {
 	FONT_FILETYPE_PGF = 0x00,
@@ -65,11 +66,11 @@ enum Language {
 };
 
 enum FontPixelFormat {
-	PSP_FONT_PIXELFORMAT_4 = 0, // 2 pixels packed in 1 byte (natural order)
+	PSP_FONT_PIXELFORMAT_4     = 0, // 2 pixels packed in 1 byte (natural order)
 	PSP_FONT_PIXELFORMAT_4_REV = 1, // 2 pixels packed in 1 byte (reversed order)
-	PSP_FONT_PIXELFORMAT_8 = 2, // 1 pixel in 1 byte
-	PSP_FONT_PIXELFORMAT_24 = 3, // 1 pixel in 3 bytes (RGB)
-	PSP_FONT_PIXELFORMAT_32 = 4, // 1 pixel in 4 bytes (RGBA)
+	PSP_FONT_PIXELFORMAT_8     = 2, // 1 pixel in 1 byte
+	PSP_FONT_PIXELFORMAT_24    = 3, // 1 pixel in 3 bytes (RGB)
+	PSP_FONT_PIXELFORMAT_32    = 4, // 1 pixel in 4 bytes (RGBA)
 };
 
 
@@ -86,8 +87,8 @@ struct PGFFontStyle {
 	u16_le    fontLanguage;
 	u16_le    fontRegion;
 	u16_le    fontCountry;
-	char   fontName[64];
-	char   fontFileName[64];
+	char      fontName[64];
+	char      fontFileName[64];
 	u32_le    fontAttributes;
 	u32_le    fontExpire;
 };
@@ -262,24 +263,25 @@ public:
 	PGF();
 	~PGF();
 
-	void ReadPtr(const u8 *ptr, size_t dataSize);
+	bool ReadPtr(const u8 *ptr, size_t dataSize);
 
-	bool GetCharInfo(int charCode, PGFCharInfo *ci, int altCharCode);
-	void GetFontInfo(PGFFontInfo *fi);
-	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType);
+	bool GetCharInfo(int charCode, PGFCharInfo *ci, int altCharCode, int glyphType = FONT_PGF_CHARGLYPH) const;
+	void GetFontInfo(PGFFontInfo *fi) const;
+	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) const;
 
 	void DoState(PointerWrap &p);
 
 	PGFHeader header;
 
 private:
-	bool GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &glyph);
-	bool GetCharGlyph(int charCode, int glyphType, Glyph &glyph);
+	bool ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph);
+	bool ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph);
+	bool GetCharGlyph(int charCode, int glyphType, Glyph &glyph) const;
 
 	// Unused
 	int GetCharIndex(int charCode, const std::vector<int> &charmapCompressed);
 
-	void SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat);
+	void SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) const;
 
 	PGFHeaderRev3Extra rev3extra;
 

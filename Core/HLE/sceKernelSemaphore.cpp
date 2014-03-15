@@ -19,6 +19,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "Core/HLE/sceKernel.h"
@@ -36,19 +37,19 @@
 struct NativeSemaphore
 {
 	/** Size of the ::SceKernelSemaInfo structure. */
-	SceSize_le 	size;
+	SceSize_le size;
 	/** NUL-terminated name of the semaphore. */
-	char 		name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	/** Attributes. */
-	SceUInt_le 	attr;
+	SceUInt_le attr;
 	/** The initial count the semaphore was created with. */
-	s32_le 		initCount;
+	s32_le initCount;
 	/** The current count. */
-	s32_le 		currentCount;
+	s32_le currentCount;
 	/** The maximum count. */
-	s32_le 		maxCount;
+	s32_le maxCount;
 	/** The number of threads waiting on the semaphore. */
-	s32_le 		numWaitThreads;
+	s32_le numWaitThreads;
 };
 
 
@@ -331,7 +332,22 @@ retry:
 void __KernelSemaTimeout(u64 userdata, int cycleslate)
 {
 	SceUID threadID = (SceUID)userdata;
+	u32 error;
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
+
 	HLEKernel::WaitExecTimeout<Semaphore, WAITTYPE_SEMA>(threadID);
+
+	// If in FIFO mode, that may have cleared another thread to wake up.
+	Semaphore *s = kernelObjects.Get<Semaphore>(uid, error);
+	if (s && (s->ns.attr & PSP_SEMA_ATTR_PRIORITY) == PSP_SEMA_ATTR_FIFO) {
+		bool wokeThreads;
+		std::vector<SceUID>::iterator iter = s->waitingThreads.begin();
+		// Unlock every waiting thread until the first that must still wait.
+		while (iter != s->waitingThreads.end() && __KernelUnlockSemaForThread(s, *iter, error, 0, wokeThreads)) {
+			s->waitingThreads.erase(iter);
+			iter = s->waitingThreads.begin();
+		}
+	}
 }
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)

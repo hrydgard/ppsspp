@@ -20,6 +20,7 @@
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -54,6 +55,8 @@ struct HashMapFunc {
 static std::set<HashMapFunc> hashMap;
 
 static std::string hashmapFileName;
+
+#define MIPSTABLE_IMM_MASK 0xFC000000
 
 namespace MIPSAnalyst {
 	// Only can ever output a single reg.
@@ -116,6 +119,48 @@ namespace MIPSAnalyst {
 	bool IsSyscall(MIPSOpcode op) {
 		// Syscalls look like this: 0000 00-- ---- ---- ---- --00 1100
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
+	}
+
+	static bool IsSWInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xAC000000;
+	}
+	static bool IsSBInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xA0000000;
+	}
+	static bool IsSHInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xA4000000;
+	}
+
+	static bool IsSWLInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xA8000000;
+	}
+	static bool IsSWRInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xB8000000;
+	}
+
+	bool OpWouldChangeMemory(u32 pc, u32 addr) {
+		auto op = Memory::Read_Instruction(pc);
+		int gprMask = 0;
+		// TODO: swl/swr are annoying, not handled yet.
+		if (IsSWInstr(op))
+			gprMask = 0xFFFFFFFF;
+		if (IsSHInstr(op))
+			gprMask = 0x0000FFFF;
+		if (IsSBInstr(op))
+			gprMask = 0x000000FF;
+
+		if (gprMask != 0)
+		{
+			MIPSGPReg reg = MIPS_GET_RT(op);
+			u32 writeVal = currentMIPS->r[reg] & gprMask;
+			u32 prevVal = Memory::Read_U32(addr) & gprMask;
+
+			// TODO: Technically, the break might be for 1 byte in the middle of a sw.
+			return writeVal != prevVal;
+		}
+
+		// TODO: Not handled yet.
+		return true;
 	}
 
 	AnalysisResults Analyze(u32 address) {
@@ -264,6 +309,15 @@ skip:
 		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
 	}
 
+	static bool IsDefaultFunction(const std::string &name) {
+		if (name.empty()) {
+			// Must be I guess?
+			return true;
+		}
+
+		return IsDefaultFunction(name.c_str());
+	}
+
 	static u32 ScanAheadForJumpback(u32 fromAddr, u32 knownStart, u32 knownEnd) {
 		static const u32 MAX_AHEAD_SCAN = 0x1000;
 		// Maybe a bit high... just to make sure we don't get confused by recursive tail recursion.
@@ -284,7 +338,7 @@ skip:
 
 		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
 			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
-			u32 target = GetBranchTargetNoRA(ahead);
+			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
 				target = GetJumpTarget(ahead);
 			}
@@ -305,7 +359,7 @@ skip:
 		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
 			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
 				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
-				u32 target = GetBranchTargetNoRA(behind);
+				u32 target = GetBranchTargetNoRA(behind, behindOp);
 				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
 					target = GetJumpTarget(behind);
 				}
@@ -332,16 +386,22 @@ skip:
 		bool isStraightLeaf = true;
 
 		u32 addr;
+		u32 addrNextSym = 0;
 		for (addr = startAddr; addr <= endAddr; addr += 4) {
 			// Use pre-existing symbol map info if available. May be more reliable.
 			SymbolInfo syminfo;
-			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
+			if (addrNextSym <= addr) {
+				addrNextSym = symbolMap.FindPossibleFunctionAtAfter(addr);
+			}
+			if (addrNextSym <= addr && symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
 				addr = syminfo.address + syminfo.size - 4;
 
 				// We still need to insert the func for hashing purposes.
 				currentFunction.start = syminfo.address;
 				currentFunction.end = syminfo.address + syminfo.size - 4;
+				currentFunction.foundInSymbolMap = true;
 				functions.push_back(currentFunction);
+				currentFunction.foundInSymbolMap = false;
 				currentFunction.start = addr + 4;
 				furthestBranch = 0;
 				looking = false;
@@ -350,7 +410,7 @@ skip:
 			}
 
 			MIPSOpcode op = Memory::Read_Instruction(addr);
-			u32 target = GetBranchTargetNoRA(addr);
+			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
 				isStraightLeaf = false;
 				if (target > furthestBranch) {
@@ -432,7 +492,7 @@ skip:
 
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			iter->size = iter->end - iter->start + 4;
-			if (insertSymbols) {
+			if (insertSymbols && !iter->foundInSymbolMap) {
 				char temp[256];
 				symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 			}
@@ -516,20 +576,20 @@ skip:
 				continue;
 			}
 			// Functions with default names aren't very interesting either.
-			const char *name = symbolMap.GetLabelName(f.start);
+			const std::string name = symbolMap.GetLabelString(f.start);
 			if (IsDefaultFunction(name)) {
 				continue;
 			}
 
 			HashMapFunc mf = { "", f.hash, f.size };
-			strncpy(mf.name, name, sizeof(mf.name) - 1);
+			strncpy(mf.name, name.c_str(), sizeof(mf.name) - 1);
 			hashMap.insert(mf);
 		}
 	}
 
 	const char *LookupHash(u64 hash, int funcsize) {
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
-			if (it->hash == hash && it->size == funcsize) {
+			if (it->hash == hash && (int)it->size == funcsize) {
 				return it->name;
 			}
 		}
@@ -584,10 +644,10 @@ skip:
 				if (f.hash == mf->hash && f.size == mf->size) {
 					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 
-					const char *existingLabel = symbolMap.GetLabelName(f.start);
+					std::string existingLabel = symbolMap.GetLabelString(f.start);
 					char defaultLabel[256];
 					// If it was renamed, keep it.  Only change the name if it's still the default.
-					if (existingLabel == NULL || !strcmp(existingLabel, DefaultFunctionName(defaultLabel, f.start))) {
+					if (existingLabel.empty() || existingLabel == DefaultFunctionName(defaultLabel, f.start)) {
 						symbolMap.SetLabelName(mf->name, f.start);
 					}
 				}

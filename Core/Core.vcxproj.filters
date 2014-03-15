@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ELF">
       <UniqueIdentifier>{f34f69bc-5d7c-44d1-90b6-aa20c435b546}</UniqueIdentifier>
@@ -208,6 +208,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceP3da.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceMt19937.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceGameUpdate.cpp">
@@ -517,6 +520,9 @@
     <ClCompile Include="MIPS\PPC\PpcCompReplace.cpp">
       <Filter>MIPS\PPC</Filter>
     </ClCompile>
+    <ClCompile Include="HW\SimpleMp3Dec.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -663,6 +669,9 @@
     <ClInclude Include="HLE\sceP3da.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceMt19937.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceGameUpdate.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -718,6 +727,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="MemMap.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Opcode.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="PSPLoaders.h">
@@ -949,6 +961,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HW\BufferQueue.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SimpleMp3Dec.h">
       <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>

@@ -24,7 +24,12 @@
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
-const float FONT_SCALE = 0.65f;
+static const float FONT_SCALE = 0.65f;
+
+// These are rough, it seems to take a long time to init, and probably depends on threads.
+// TODO: This takes like 700ms on a PSP but that's annoyingly long.
+const static int MSG_INIT_DELAY_US = 300000;
+const static int MSG_SHUTDOWN_DELAY_US = 26000;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -35,11 +40,10 @@ PSPMsgDialog::PSPMsgDialog()
 PSPMsgDialog::~PSPMsgDialog() {
 }
 
-int PSPMsgDialog::Init(unsigned int paramAddr)
-{
+int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
-	{
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
 		return 0;
 	}
 
@@ -54,7 +58,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	Memory::Memcpy(&messageDialog,paramAddr,size);
 
 	// debug info
-	int optionsNotCoded = ((messageDialog.options | SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED) ^ SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED);
+	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
 	if(optionsNotCoded)
 	{
 		ERROR_LOG_REPORT(SCEUTILITY, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
@@ -70,7 +74,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	}
 	else if(size == SCE_UTILITY_MSGDIALOG_SIZE_V2 && messageDialog.type == 1)
 	{
-		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXT |
+		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXTSOUND |
 				SCE_UTILITY_MSGDIALOG_OPTION_YESNO |
 				SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO;
 		if (((messageDialog.options | validOp) ^ validOp) != 0)
@@ -83,6 +87,11 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	{
 		if((messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO) &&
 				!(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_YESNO))
+		{
+			flag |= DS_ERROR;
+			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
+		}
+		if (messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED)
 		{
 			flag |= DS_ERROR;
 			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
@@ -124,9 +133,9 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 		strncpy(msgText, messageDialog.string, 512);
 	}
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatusInit(MSG_INIT_DELAY_US);
 
-	lastButtons = __CtrlPeekButtons();
+	UpdateButtons();
 	StartFade(true);
 	return 0;
 }
@@ -204,22 +213,16 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPMsgDialog::Update(int animSpeed)
-{
-	if (status != SCE_UTILITY_STATUS_RUNNING)
-	{
-		return 0;
+int PSPMsgDialog::Update(int animSpeed) {
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if ((flag & DS_ERROR))
-	{
-		status = SCE_UTILITY_STATUS_FINISHED;
-	}
-	else
-	{
+	if ((flag & DS_ERROR)) {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+	} else {
+		UpdateButtons();
 		UpdateFade(animSpeed);
-
-		buttons = __CtrlPeekButtons();
 
 		okButtonImg = I_CIRCLE;
 		cancelButtonImg = I_CROSS;
@@ -245,10 +248,10 @@ int PSPMsgDialog::Update(int animSpeed)
 			DisplayMessage(msgText, (flag & DS_YESNO) != 0, (flag & DS_OK) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayButtons(DS_BUTTON_OK);
+			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : NULL);
 
 		if (flag & DS_CANCELBUTTON)
-			DisplayButtons(DS_BUTTON_CANCEL);
+			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : NULL);
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
@@ -275,22 +278,33 @@ int PSPMsgDialog::Update(int animSpeed)
 
 		EndDraw();
 
-		lastButtons = buttons;
+		messageDialog.result = 0;
 	}
 
-	Memory::Memcpy(messageDialogAddr,&messageDialog,messageDialog.common.size);
+	Memory::Memcpy(messageDialogAddr, &messageDialog ,messageDialog.common.size);
 	return 0;
 }
 
-int PSPMsgDialog::Abort()
-{
-	// TODO: Probably not exactly the same?
-	return PSPDialog::Shutdown();
+int PSPMsgDialog::Abort() {
+	// Katekyoushi Hitman Reborn! Battle Arena expects this to fail when not running.
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	} else {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		return 0;
+	}
 }
 
-int PSPMsgDialog::Shutdown(bool force)
-{
-	return PSPDialog::Shutdown();
+int PSPMsgDialog::Shutdown(bool force) {
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(MSG_SHUTDOWN_DELAY_US);
+	}
+
+	return 0;
 }
 
 void PSPMsgDialog::DoState(PointerWrap &p)

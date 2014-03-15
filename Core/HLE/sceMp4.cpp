@@ -16,13 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
 
 
 u32 sceMp4Init()
 {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Init()");
-  	return 0;
+	return 0;
 }
 
 u32 sceMp4Finish()
@@ -133,6 +134,84 @@ u32 sceMp4SearchSyncSampleNum()
 	return 0;
 }
 
+u32 sceAacInit()
+{
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit()");
+	return 0;
+}
+
+u32 sceAacExit()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacExit()");
+	return 0;
+}
+
+u32 sceAacInitResource()
+{
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource()");
+	return 0;
+}
+
+u32 sceAacTermResource()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacTermResource()");
+	return 0;
+}
+
+u32 sceAacDecode()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacDecode()");
+	return 0;
+}
+
+u32 sceAacGetLoopNum()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacGetLoopNum()");
+	return 0;
+}
+
+u32 sceAacSetLoopNum()
+{
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacSetLoopNum()");
+	return 0;
+}
+
+u32 sceAacCheckStreamDataNeeded()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacCheckStreamDataNeeded()");
+	return 0;
+}
+
+u32 sceAacNotifyAddStreamData()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacNotifyAddStreamData()");
+	return 0;
+}
+
+u32 sceAacGetInfoToAddStreamData()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacGetInfoToAddStreamData()");
+	return 0;
+}
+
+u32 sceAacGetMaxOutputSample()
+{
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacGetMaxOutputSample()");
+	return 0;
+}
+
+u32 sceAacGetSumDecodedSample()
+{
+	ERROR_LOG(ME, "UNIMPL sceAacGetSumDecodedSample()");
+	return 0;
+}
+
+u32 sceAacResetPlayPosition()
+{
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacResetPlayPosition()");
+	return 0;
+}
+
 const HLEFunction sceMp4[] =
 {
 	{0x68651CBC, WrapU_V<sceMp4Init>, "sceMp4Init"},
@@ -178,19 +257,19 @@ const HLEFunction sceMp4[] =
 
 // 395
 const HLEFunction sceAac[] = {
-	{0xE0C89ACA, 0, "sceAacInit"},
-	{0x33B8C009, 0, "sceAacExit"},
-	{0x5CFFC57C, 0, "sceAacInitResource"},
-	{0x23D35CAE, 0, "sceAacTermResource"},
-	{0x7E4CFEE4, 0, "sceAacDecode"},
-	{0x523347D9, 0, "sceAacGetLoopNum"},
-	{0xBBDD6403, 0, "sceAacSetLoopNum"},
-	{0xD7C51541, 0, "sceAacCheckStreamDataNeeded"},
-	{0xAC6DCBE3, 0, "sceAacNotifyAddStreamData"},
-	{0x02098C69, 0, "sceAacGetInfoToAddStreamData"},
-	{0x6DC7758A, 0, "sceAacGetMaxOutputSample"},
-	{0x506BF66C, 0, "sceAacGetSumDecodedSample"},
-	{0xD2DA2BBA, 0, "sceAacResetPlayPosition"},
+	{0xE0C89ACA, WrapU_V<sceAacInit>, "sceAacInit"},
+	{0x33B8C009, WrapU_V<sceAacExit>, "sceAacExit"},
+	{0x5CFFC57C, WrapU_V<sceAacInitResource>, "sceAacInitResource"},
+	{0x23D35CAE, WrapU_V<sceAacTermResource>, "sceAacTermResource"},
+	{0x7E4CFEE4, WrapU_V<sceAacDecode>, "sceAacDecode"},
+	{0x523347D9, WrapU_V<sceAacGetLoopNum>, "sceAacGetLoopNum"},
+	{0xBBDD6403, WrapU_V<sceAacSetLoopNum>, "sceAacSetLoopNum"},
+	{0xD7C51541, WrapU_V<sceAacCheckStreamDataNeeded>, "sceAacCheckStreamDataNeeded"},
+	{0xAC6DCBE3, WrapU_V<sceAacNotifyAddStreamData>, "sceAacNotifyAddStreamData"},
+	{0x02098C69, WrapU_V<sceAacGetInfoToAddStreamData>, "sceAacGetInfoToAddStreamData"},
+	{0x6DC7758A, WrapU_V<sceAacGetMaxOutputSample>, "sceAacGetMaxOutputSample"},
+	{0x506BF66C, WrapU_V<sceAacGetSumDecodedSample>, "sceAacGetSumDecodedSample"},
+	{0xD2DA2BBA, WrapU_V<sceAacResetPlayPosition>, "sceAacResetPlayPosition"},
 };
 
 void Register_sceMp4()

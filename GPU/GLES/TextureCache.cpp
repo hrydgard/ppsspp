@@ -915,7 +915,7 @@ void TextureCache::SetTexture(bool force) {
 		// Validate the texture still matches the cache entry.
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		match &= host->GPUAllowTextureCache(texaddr);
 #endif
 
@@ -1031,7 +1031,7 @@ void TextureCache::SetTexture(bool force) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1060,7 +1060,7 @@ void TextureCache::SetTexture(bool force) {
 		}
 	}
 
-	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetUserMemoryBase()) {
+	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
 	}
 
@@ -1121,6 +1121,7 @@ void TextureCache::SetTexture(bool force) {
 	lastBoundTexture = entry->texture;
 
 	// Adjust maxLevel to actually present levels..
+	bool badMipSizes = false;
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
@@ -1128,6 +1129,17 @@ void TextureCache::SetTexture(bool force) {
 			maxLevel = i - 1;
 			break;
 		}
+
+#ifndef USING_GLES2
+		if (i > 0) {
+			int tw = gstate.getTextureWidth(i);
+			int th = gstate.getTextureHeight(i);
+			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
+				badMipSizes = true;
+			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
+				badMipSizes = true;
+		}
+#endif
 	}
 
 	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
@@ -1169,11 +1181,15 @@ void TextureCache::SetTexture(bool force) {
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
 #ifndef USING_GLES2
+		if (badMipSizes) {
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else {
 			for (int i = 1; i <= maxLevel; i++) {
 				LoadTextureLevel(*entry, i, replaceImages, dstFmt);
 			}
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+		}
 #else 
 			glGenerateMipmap(GL_TEXTURE_2D);
 #endif
@@ -1414,7 +1430,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if ((g_Config.iTexScalingLevel != 1 || !gl_extensions.EXT_unpack_subimage) && w != bufw) {
+	if (!(g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1447,7 +1463,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	return finalBuf;
 }
 
-void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h) {
+void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;
@@ -1456,22 +1472,28 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-				u32 a = p[i] & 0x000F000F;
-				hitZeroAlpha |= a ^ 0x000F000F;
-				if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
+			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
+				for (int i = 0; i < (w + 1) / 2; ++i) {
+					u32 a = p[i] & 0x000F000F;
+					hitZeroAlpha |= a ^ 0x000F000F;
+					if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
+						hitSomeAlpha = 1;
+						break;
+					}
 				}
+				p += stride/2;
 			}
 		}
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-				u32 a = p[i] & 0x00010001;
-				hitZeroAlpha |= a ^ 0x00010001;
+			for (int y = 0; y < h; ++y) {
+				for (int i = 0; i < (w + 1) / 2; ++i) {
+					u32 a = p[i] & 0x00010001;
+					hitZeroAlpha |= a ^ 0x00010001;
+				}
+				p += stride/2;
 			}
 		}
 		break;
@@ -1483,13 +1505,16 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 	default:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < w * h; ++i) {
-				u32 a = p[i] & 0xFF000000;
-				hitZeroAlpha |= a ^ 0xFF000000;
-				if (a != 0xFF000000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
+			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
+				for (int i = 0; i < w; ++i) {
+					u32 a = p[i] & 0xFF000000;
+					hitZeroAlpha |= a ^ 0xFF000000;
+					if (a != 0xFF000000 && a != 0) {
+						hitSomeAlpha = 1;
+						break;
+					}
 				}
+				p += stride;
 			}
 		}
 		break;
@@ -1531,15 +1556,20 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 
 	int scaleFactor;
-	//Auto-texture scale upto 5x rendering resolution
+	// Auto-texture scale upto 5x rendering resolution
 	if (g_Config.iTexScalingLevel == 0) {
-#ifndef USING_GLES2
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, g_Config.iInternalResolution);
+		scaleFactor = g_Config.iInternalResolution;
+		if (scaleFactor == 0) {
+			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
+		}
+
+#ifndef MOBILE_DEVICE
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, scaleFactor);
 		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
 			scaleFactor = 2;
 		}
 #else
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, g_Config.iInternalResolution);
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, scaleFactor);
 #endif
 	} else {
 		scaleFactor = g_Config.iTexScalingLevel;
@@ -1554,7 +1584,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
 	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
-		CheckAlpha(entry, pixelData, dstFmt, w, h);
+		CheckAlpha(entry, pixelData, dstFmt, useUnpack ? bufw : w, w, h);
 	else
 		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 

@@ -68,6 +68,7 @@ struct InputState;
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
+void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 void System_SendMessage(const char *command, const char *parameter) {}
@@ -311,8 +312,6 @@ int main(int argc, const char* argv[])
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
-	coreParameter.outputWidth = 480;
-	coreParameter.outputHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
 	coreParameter.unthrottle = true;
@@ -344,6 +343,8 @@ int main(int argc, const char* argv[])
 	g_Config.bFrameSkipUnthrottle = false;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
+	g_Config.iBGMVolume = MAX_CONFIG_VOLUME;
+	g_Config.iSFXVolume = MAX_CONFIG_VOLUME;
 
 #ifdef _WIN32
 	InitSysDirectories();

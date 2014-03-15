@@ -20,6 +20,7 @@
 #include <map>
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Common/ChunkFile.h"
 
@@ -328,35 +329,36 @@ void InterruptState::clear()
 // Returns true if anything was executed.
 bool __RunOnePendingInterrupt()
 {
-	if (inInterrupt || !interruptsEnabled)
-	{
+	bool needsThreadReturn = false;
+
+	if (inInterrupt || !interruptsEnabled) {
 		// Already in an interrupt! We'll keep going when it's done.
 		return false;
 	}
 	// Can easily prioritize between different kinds of interrupts if necessary.
 retry:
-	if (!pendingInterrupts.empty())
-	{
-		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
-		// To avoid "injecting" return values into our saved state, we context switch here.
-		SceUID savedThread = __KernelGetCurThread();
-		if (__KernelSwitchOffThread("interrupt"))
-			threadBeforeInterrupt = savedThread;
-
+	if (!pendingInterrupts.empty()) {
 		PendingInterrupt pend = pendingInterrupts.front();
 
 		IntrHandler* handler = intrHandlers[pend.intr];
-		if(handler == NULL)
-		{
+		if (handler == NULL) {
 			WARN_LOG(SCEINTC, "Ignoring interrupt");
 			pendingInterrupts.pop_front();
 			goto retry;
 		}
 
+		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
+		// To avoid "injecting" return values into our saved state, we context switch here.
+		SceUID savedThread = __KernelGetCurThread();
+		if (__KernelSwitchOffThread("interrupt")) {
+			threadBeforeInterrupt = savedThread;
+			needsThreadReturn = true;
+		}
+
 		intState.save();
 		inInterrupt = true;
 
-		if(!handler->run(pend)) {
+		if (!handler->run(pend)) {
 			pendingInterrupts.pop_front();
 			inInterrupt = false;
 			goto retry;
@@ -364,9 +366,9 @@ retry:
 
 		currentMIPS->r[MIPS_REG_RA] = __KernelInterruptReturnAddress();
 		return true;
-	}
-	else
-	{
+	} else {
+		if (needsThreadReturn)
+			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 		// DEBUG_LOG(SCEINTC, "No more interrupts!");
 		return false;
 	}
@@ -523,23 +525,23 @@ u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 
 
 struct PspIntrHandlerOptionParam {
-	int size;															 //+00
-	u32 entry;													//+04
-	u32 common;												 //+08
-	u32 gp;																		 //+0C
-	u16 intr_code;											//+10
-	u16 sub_count;											//+12
-	u16 intr_level;										 //+14
-	u16 enabled;												//+16
-	u32 calls;													//+18
-	u32 field_1C;											 //+1C
-	u32 total_clock_lo;				 //+20
-	u32 total_clock_hi;				 //+24
-	u32 min_clock_lo;					 //+28
-	u32 min_clock_hi;					 //+2C
-	u32 max_clock_lo;					 //+30
-	u32 max_clock_hi;					 //+34
-} ;		//=38
+	int size;              //+00
+	u32 entry;             //+04
+	u32 common;            //+08
+	u32 gp;                //+0C
+	u16 intr_code;         //+10
+	u16 sub_count;         //+12
+	u16 intr_level;        //+14
+	u16 enabled;           //+16
+	u32 calls;             //+18
+	u32 field_1C;          //+1C
+	u32 total_clock_lo;    //+20
+	u32 total_clock_hi;    //+24
+	u32 min_clock_lo;      //+28
+	u32 min_clock_hi;      //+2C
+	u32 max_clock_lo;      //+30
+	u32 max_clock_hi;      //+34
+};  //=38
 
 void QueryIntrHandlerInfo()
 {
@@ -583,7 +585,7 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 				*dstp++ = *srcp++;
 		}
 	}
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
 #endif
@@ -610,11 +612,65 @@ const HLEFunction Kernel_Library[] =
 	{0xfa835cde,WrapI_I<sceKernelGetTlsAddr>, "sceKernelGetTlsAddr"},
 };
 
+u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+	return dst;
+}
+
+u32 sysclib_strcat(u32 dst, u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
+	strcat((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+	return dst;
+}
+
+int sysclib_strcmp(u32 dst, u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
+	return strcmp((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+}
+
+u32 sysclib_strcpy(u32 dst, u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
+	strcpy((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
+	return dst;
+}
+
+u32 sysclib_strlen(u32 src) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
+	return (u32)strlen(Memory::GetCharPointer(src));
+}
+
+int sysclib_memcmp(u32 dst, u32 src, u32 size) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
+}
+
+int sysclib_sprintf(u32 dst, u32 fmt) {
+	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
+	// TODO
+	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
+}
+
+const HLEFunction SysclibForKernel[] =
+{
+	{0xAB7592FF, WrapU_UUU<sysclib_memcpy>, "memcpy"},
+	{0x476FD94A, WrapU_UU<sysclib_strcat>, "strcat"},
+	{0xC0AB8932, WrapI_UU<sysclib_strcmp>, "strcmp"},
+	{0xEC6F1CF2, WrapU_UU<sysclib_strcpy>, "strcpy"},
+	{0x52DF196C, WrapU_U<sysclib_strlen>, "strlen"},
+	{0x81D0D1F7, WrapI_UUU<sysclib_memcmp>, "memcmp"},
+	{0x7661e728, WrapI_UU<sysclib_sprintf>, "sprintf"},
+};
+
 void Register_Kernel_Library()
 {
 	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
 }
 
+void Register_SysclibForKernel()
+{
+	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
+}
 
 const HLEFunction InterruptManager[] =
 {

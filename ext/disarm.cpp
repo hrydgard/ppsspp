@@ -92,26 +92,39 @@ static const char *CCFlagsStr[] = {
 };
 
 int GetVd(uint32_t op, bool quad = false, bool dbl = false) {
+	int val;
 	if (!quad && !dbl) {
-		return ((op >> 22) & 1) | ((op >> 11) & 0x1E);
+		val = ((op >> 22) & 1) | ((op >> 11) & 0x1E);
+	} else {
+		val = ((op >> 18) & 0x10) | ((op >> 12) & 0xF);
 	}
-	return 0;
+	if (quad)
+		val >>= 1;
+	return val;
 }
 
 int GetVn(uint32_t op, bool quad = false, bool dbl = false) {
+	int val;
 	if (!quad && !dbl) {
-		return ((op >> 7) & 1) | ((op >> 15) & 0x1E);
-	} else if (dbl) {
-		return ((op >> 16) & 0xF) | ((op >> 3) & 0x10);
+		val = ((op >> 7) & 1) | ((op >> 15) & 0x1E);
+	} else {
+		val = ((op >> 16) & 0xF) | ((op >> 3) & 0x10);
 	}
-	return 0;
+	if (quad)
+		val >>= 1;
+	return val;
 }
 
 int GetVm(uint32_t op, bool quad = false, bool dbl = false) {
+	int val;
 	if (!quad && !dbl) {
-		return ((op >> 5) & 1) | ((op << 1) & 0x1E);
+		val = ((op >> 5) & 1) | ((op << 1) & 0x1E);
+	} else {
+		val = ((op >> 1) & 0x10) | (op & 0xF);
 	}
-	return 0;
+	if (quad)
+		val >>= 1;
+	return val;
 }
 
 
@@ -125,18 +138,61 @@ bool DisasmVFP(uint32_t op, char *text) {
 #else
 	const char *cond = CCFlagsStr[op >> 28];
 	switch ((op >> 24) & 0xF) {
-	case 0xD:
-		// VLDR/VSTR
+	case 0xC:
+		// VLDMIA/VSTMIA
 		{
-			int base = (op >> 16) & 0xF;
-			bool add = (op >> 23) & 1;
-			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
-			int offset = (op & 0xFF) << 2;
-			if (!add) offset = -offset;
-			bool vldr = (op >> 20) & 1;
 			bool single_reg = ((op >> 8) & 0xF) == 10;
+			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
+			int base = (op >> 16) & 0xF;
+			bool load = (op >> 20) & 1;
+			bool writeback = (op >> 21) & 1;
+			int numregs = op & 0xF;
+			bool add = (op >> 23) & 1;
+			if (add && writeback && load && base == 13) {
+				if (single_reg)
+					sprintf(text, "VPOP%s {s%i-s%i}", cond, freg, freg-1+numregs);
+				else
+					sprintf(text, "VPOP%s {d%i-d%i}", cond, freg, freg-1+(numregs/2));
 
-			sprintf(text, "%s%s s%i, [r%i, #%i]", vldr ? "VLDR" : "VSTR", cond, freg, base, offset);
+				return true;
+			}
+			if (single_reg)
+				sprintf(text, "%s%s r%i%s, {s%i-s%i}", load ? "VLDMIA" : "VSTMIA", cond, base, writeback ? "!":"", freg, freg-1+numregs);
+			else
+				sprintf(text, "%s%s r%i%s, {d%i-d%i}", load ? "VLDMIA" : "VSTMIA", cond, base, writeback ? "!":"", freg, freg-1+(numregs/2));
+
+			return true;
+		}
+	case 0xD:
+		// VLDR/VSTR/VLDMDB/VSTMDB
+		{
+			bool single_reg = ((op >> 8) & 0xF) == 10;
+			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
+			int base = (op >> 16) & 0xF;
+			bool load = (op >> 20) & 1;
+			bool add = (op >> 23) & 1;
+			bool writeback = (op >> 21) & 1;
+			if (writeback) { // Multiple
+				int numregs = op & 0xF;
+				if (!add && !load && base == 13) {
+					if (single_reg)
+						sprintf(text, "VPUSH%s {s%i-s%i}", cond, freg, freg-1+numregs);
+					else
+						sprintf(text, "VPUSH%s {d%i-d%i}", cond, freg, freg-1+(numregs/2));
+
+					return true;
+				}
+
+				if (single_reg)
+					sprintf(text, "%s%s r%i, {s%i-s%i}", load ? "VLDMDB" : "VSTMDB", cond, base, freg, freg-1+numregs);
+				else
+					sprintf(text, "%s%s r%i, {d%i-d%i}", load ? "VLDMDB" : "VSTMDB", cond, base, freg, freg-1+(numregs/2));
+			} else {
+				int offset = (op & 0xFF) << 2;
+				if (!add) offset = -offset;
+				sprintf(text, "%s%s s%i, [r%i, #%i]", load ? "VLDR" : "VSTR", cond, freg, base, offset);
+			}
+
 			return true;
 		}
 
@@ -171,12 +227,16 @@ bool DisasmVFP(uint32_t op, char *text) {
 			int part2 = ((op >> 9) & 0x7) ;
 			int part3 = ((op >> 20) & 0x3) ;
 			if (part3 == 3 && part2 == 5 && part1 == 0x1D && (op & (1<<6))) {
-				// VMOV
+				// VMOV, VCMP
 				int vn = GetVn(op);
 				if (vn != 1 && vn != 3) {
 					int vm = GetVm(op);
 					int vd = GetVd(op);
-					sprintf(text, "VMOV%s s%i, s%i", cond, vd, vm);
+
+					const char *name = "VMOV";
+					if (op & 0x40000)
+						name = (op & 0x80) ? "VCMPE" : "VCMP";
+					sprintf(text, "%s%s s%i, s%i", name, cond, vd, vm);
 					return true;
 				}
 			}
@@ -189,13 +249,18 @@ bool DisasmVFP(uint32_t op, char *text) {
 			int opc1 = (op >> 20) & 0xFB;
 			int opc2 = (op >> 4) & 0xAC;
 			for (int i = 0; i < 16; i++) {
-				if (ArmGen::VFPOps[i][0].opc1 == opc1 && ArmGen::VFPOps[i][0].opc2 == opc2) {
+				// What the hell?
+				int fixed_opc2 = opc2;
+				if (!(ArmGen::VFPOps[i][0].opc2 & 0x8))
+					fixed_opc2 &= 0xA7;
+				if (ArmGen::VFPOps[i][0].opc1 == opc1 && ArmGen::VFPOps[i][0].opc2 == fixed_opc2) {
 					opnum = i;
 					break;
 				}
 			}
 			if (opnum < 0)
 				return false;
+			char c = double_reg ? 'd' : 's';
 			switch (opnum) {
 			case 8:
 			case 10:
@@ -208,8 +273,9 @@ bool DisasmVFP(uint32_t op, char *text) {
 					int vd = GetVd(op, quad_reg, double_reg);
 					int vn = GetVn(op, quad_reg, true);
 					int vm = GetVm(op, quad_reg, double_reg);
-					if (opnum == 8 && vn == 0x11) opnum += 3;
-					sprintf(text, "%s%s s%i, s%i", ArmGen::VFPOpNames[opnum], cond, vd, vm);
+					if (opnum == 8 && vn == 0x11)
+						opnum += 3;
+					sprintf(text, "%s%s %c%i, %c%i", ArmGen::VFPOpNames[opnum], cond, c, vd, c, vm);
 					return true;
 				}
 			default:
@@ -218,7 +284,7 @@ bool DisasmVFP(uint32_t op, char *text) {
 					int vd = GetVd(op, quad_reg, double_reg);
 					int vn = GetVn(op, quad_reg, double_reg);
 					int vm = GetVm(op, quad_reg, double_reg);
-					sprintf(text, "%s%s s%i, s%i, s%i", ArmGen::VFPOpNames[opnum], cond, vd, vn, vm);
+					sprintf(text, "%s%s %c%i, %c%i, %c%i", ArmGen::VFPOpNames[opnum], cond, c, vd, c, vn, c, vm);
 					return true;
 				}
 			}
@@ -230,12 +296,121 @@ bool DisasmVFP(uint32_t op, char *text) {
 	return false;
 }
 
+static const char *GetSizeString(int sz) {
+	switch (sz) {
+	case 0:
+		return "8";
+	case 1:
+		return "16";
+	case 2:
+		return "32";
+	case 3:
+		return "64";
+	default:
+		return "(err)";
+	}
+}
 
+static const char *GetISizeString(int sz) {
+	switch (sz) {
+	case 0:
+		return "i8";
+	case 1:
+		return "i16";
+	case 2:
+		return "i32";
+	case 3:
+		return "i64";
+	default:
+		return "(err)";
+	}
+}
 
+static int GetRegCount(int type) {
+	switch (type) {
+	case 7: return 1;
+	case 10: return 2;
+	case 6: return 3;
+	case 4: return 4;
+	default:
+		return 0;
+	}
+}
 
+// VLD1 / VST1
+static bool DisasmNeonLDST(uint32_t op, char *text) {
+	bool load = (op >> 21) & 1;
+	int Rn = (op >> 16) & 0xF;
+	int Rm = (op & 0xF);
+	int Vd = GetVd(op, false, true);
+	int sz = (op >> 6) & 3;
+	int regCount = GetRegCount((op >> 8) & 0xF);
 
+	int startReg = Vd;
+	int endReg = Vd + regCount - 1;
 
+	if (startReg == endReg)
+		sprintf(text, "V%s1.%s {d%i}, [r%i]", load ? "LD" : "ST", GetSizeString(sz), startReg, Rn);
+	else
+		sprintf(text, "V%s1.%s {d%i-d%i}, [r%i]", load ? "LD" : "ST", GetSizeString(sz), startReg, endReg, Rn);
 
+	return true;
+}
+
+static bool DisasmNeonF3(uint32_t op, char *text) {
+	sprintf(text, "NEON F3");
+	return true;
+}
+
+static bool DisasmNeonF2F3(uint32_t op, char *text) {
+	sprintf(text, "NEON F2");
+	if (((op >> 20) & 0xFFC) == 0xF20 || ((op >> 20) & 0xFFC) == 0xF30) {
+		bool quad = ((op >> 6) & 1);
+		int size = (op >> 20) & 3;
+		int type = (op >> 8) & 0xF;
+		char r = quad ? 'q' : 'd';
+		const char *opname = "(unk)";
+		switch ((op >> 20) & 0xFF) {
+		case 0x20:
+			if (op & 0x10)
+				opname = "MLA";
+			else
+				opname = "ADD";
+			break;
+		case 0x22:
+			if (op & 0x10)
+				opname = "MLS";
+			else
+				opname = "ADD";
+			break;
+		case 0x31:
+			if (op & 0x100)
+				opname = "MLS";
+			else
+				opname = "SUB";
+			break;
+		case 0x30:
+			opname = "MUL";
+			break;
+		}
+		const char *szname = GetISizeString(size);
+		if (type == 0xD)
+			szname = "f32";
+		sprintf(text, "V%s.%s %c%i, %c%i, %c%i", opname, szname, r, GetVd(op, quad, true), r, GetVn(op, quad, true), r, GetVm(op, quad, true));
+	}
+	return true;
+}
+
+static bool DisasmNeon(uint32_t op, char *text) {
+	switch (op >> 24) {
+	case 0xF4:
+		return DisasmNeonLDST(op, text);
+	case 0xF2:
+	case 0xF3:
+		return DisasmNeonF2F3(op, text);
+	}
+	return false;
+}
 
 
 
@@ -552,7 +727,15 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 				break;
 			}
     case 3:
-      /* SWP or MRS/MSR or data processing */
+			if (instr >> 24 == 0xF3) {
+				if (!DisasmNeon(instr, result.text)) {
+					goto lUndefined;
+					break;
+				}
+				result.undefined = 0;
+				return &result;
+			}
+			/* SWP or MRS/MSR or data processing */
 			// hrydgard addition: MOVW/MOVT
 			if ((instr & 0x0FF00000) == 0x03000000) {
 				mnemonic = "MOVW";
@@ -614,7 +797,15 @@ lMaybeLDRHetc:
       }
 #endif
     case 2:
-      /* data processing */
+			if (instr >> 24 == 0xF2) {
+				if (!DisasmNeon(instr, result.text)) {
+					goto lUndefined;
+					break;
+				}
+				result.undefined = 0;
+				return &result;
+			}
+			/* data processing */
       { word op21 = instr&(15<<21);
         if ((op21==(2<<21) || (op21==(4<<21)))			/* ADD or SUB */
             && ((instr&(RNbits+Ibit+Sbit))==RN(15)+Ibit)	/* imm, no S */
@@ -649,7 +840,15 @@ lMaybeLDRHetc:
       }
       break;
     case 4:
-    case 5:
+			if (instr >> 24 == 0xF4) {
+				if (!DisasmNeon(instr, result.text)) {
+					goto lUndefined;
+					break;
+				}
+				result.undefined = 0;
+				return &result;
+			}
+		case 5:
     case 6:
     case 7:
       /* undefined or STR/LDR */
@@ -690,12 +889,10 @@ lMaybeLDRHetc:
     case 13:
     case 14:  // FPU
 			{
-				char text[128];
-				if (!DisasmVFP(instr, text)) {
+				if (!DisasmVFP(instr, result.text)) {
 					goto lUndefined;
 					break;
 				}
-				strcpy(result.text, text);
 				result.undefined = 0;
 				return &result;
 			}

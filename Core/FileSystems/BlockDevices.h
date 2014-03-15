@@ -63,7 +63,7 @@ public:
 
 private:
 	FILE *f;
-	size_t filesize;
+	u64 filesize;
 };
 
 

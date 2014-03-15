@@ -102,8 +102,8 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 {
 	ScreenCoords ret;
-	ret.x = (((u32)coords.x * 16 + gstate.getOffsetX16()));
-	ret.y = (((u32)coords.y * 16 + gstate.getOffsetY16()));
+	ret.x = (u32)coords.x * 16 + gstate.getOffsetX16();
+	ret.y = (u32)coords.y * 16 + gstate.getOffsetY16();
 	ret.z = coords.z;
 	return ret;
 }
@@ -534,22 +534,42 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 		const SimpleVertex &vert = simpleVertices[i];
 
 		if (gstate.isModeThrough()) {
-			vertices[i].u = vert.uv[0];
-			vertices[i].v = vert.uv[1];
+			if (gstate.vertType & GE_VTYPE_TC_MASK) {
+				vertices[i].u = vert.uv[0];
+				vertices[i].v = vert.uv[1];
+			} else {
+				vertices[i].u = 0.0f;
+				vertices[i].v = 0.0f;
+			}
 			vertices[i].x = vert.pos.x;
 			vertices[i].y = vert.pos.y;
 			vertices[i].z = vert.pos.z;
+			if (gstate.vertType & GE_VTYPE_COL_MASK) {
+				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+			} else {
+				memset(vertices[i].c, 0, sizeof(vertices[i].c));
+			}
 		} else {
 			float clipPos[4];
 			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
 			ScreenCoords screenPos = ClipToScreen(clipPos);
 			DrawingCoords drawPos = ScreenToDrawing(screenPos);
 
-			vertices[i].u = vert.uv[0];
-			vertices[i].v = vert.uv[1];
+			if (gstate.vertType & GE_VTYPE_TC_MASK) {
+				vertices[i].u = vert.uv[0];
+				vertices[i].v = vert.uv[1];
+			} else {
+				vertices[i].u = 0.0f;
+				vertices[i].v = 0.0f;
+			}
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
 			vertices[i].z = 1.0;
+			if (gstate.vertType & GE_VTYPE_COL_MASK) {
+				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+			} else {
+				memset(vertices[i].c, 0, sizeof(vertices[i].c));
+			}
 		}
 	}
 

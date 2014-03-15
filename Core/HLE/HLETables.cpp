@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "HLETables.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/HLE/FunctionWrappers.h"
 
 #include "sceAtrac.h"
 #include "sceAudio.h"
@@ -67,6 +67,7 @@
 #include "sceUsb.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
+#include "sceMt19937.h"
 
 #define N(s) s
 
@@ -259,8 +260,6 @@ void RegisterAllModules() {
 	Register_ThreadManForUser();
 	Register_ThreadManForKernel();
 	Register_LoadExecForUser();
-	Register_LoadExecForKernel();
-	Register_SysMemForKernel();
 	Register_UtilsForKernel();
 	Register_SysMemUserForUser();
 	Register_InterruptManager();
@@ -319,5 +318,15 @@ void RegisterAllModules() {
 	{
 		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
+
+	// New modules have to be added at the end, or they will break savestates.
+	Register_LoadExecForKernel();
+	Register_SysMemForKernel();
+	Register_sceMt19937();
+	Register_SysclibForKernel();
+	Register_sceCtrl_driver();
+	Register_sceDisplay_driver();
+
+
 }
 

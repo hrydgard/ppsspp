@@ -17,15 +17,16 @@
 
 #include <algorithm>
 
-#include "Common.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-#include "ChunkFile.h"
+#include "Common/Common.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
+#include "Common/ChunkFile.h"
 
-#include "MemMap.h"
-#include "MIPS/MIPS.h"
-#include "MIPS/JitCommon/JitCommon.h"
-#include "HLE/HLE.h"
+#include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/HLE/HLE.h"
 
 #include "Core/Core.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -176,9 +177,12 @@ void Clear()
 		memset(m_pVRAM, 0, VRAM_SIZE);
 }
 
-Opcode Read_Instruction(u32 address, bool resolveReplacements)
+static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
 {
-	Opcode inst = Opcode(Read_U32(address));
+	if (!MIPS_IS_EMUHACK(inst.encoding)) {
+		return inst;
+	}
+
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
 		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
@@ -218,6 +222,18 @@ Opcode Read_Instruction(u32 address, bool resolveReplacements)
 	}
 }
 
+Opcode Read_Instruction(u32 address, bool resolveReplacements)
+{
+	Opcode inst = Opcode(Read_U32(address));
+	return Read_Instruction(address, resolveReplacements, inst);
+}
+
+Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements)
+{
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
+	return Read_Instruction(address, resolveReplacements, inst);
+}
+
 Opcode Read_Opcode_JIT(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
@@ -252,7 +268,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 #endif
 }

@@ -2,13 +2,12 @@
 #include "UI/ui_atlas.h"
 
 #include "base/colorutil.h"
-#include "base/display.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 
 OnScreenMessages osm;
 
-void OnScreenMessages::Draw(DrawBuffer &draw) {
+void OnScreenMessages::Draw(DrawBuffer &draw, const Bounds &bounds) {
 	// First, clean out old messages.
 	std::lock_guard<std::recursive_mutex> guard(mutex_);
 
@@ -34,9 +33,9 @@ restart:
 		// Messages that are wider than the screen are left-aligned instead of centered.
 		float tw, th;
 		draw.MeasureText(UBUNTU24, iter->text.c_str(), &tw, &th);
-		float x = dp_xres / 2;
+		float x = bounds.centerX();
 		int align = ALIGN_TOP | ALIGN_HCENTER;
-		if (tw > dp_xres) {
+		if (tw > bounds.w) {
 			align = ALIGN_TOP | ALIGN_LEFT;
 			x = 2;
 		}

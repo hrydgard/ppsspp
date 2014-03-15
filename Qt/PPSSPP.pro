@@ -82,6 +82,7 @@ SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/Store.cpp \
 	$$P/UI/GamepadEmu.cpp \
 	$$P/UI/GameInfoCache.cpp \
+	$$P/UI/NativeApp.cpp \
 	$$P/UI/OnScreenDisplay.cpp \
 	$$P/UI/TiltEventProcessor.cpp \
 	$$P/UI/UIShader.cpp \
@@ -112,7 +113,6 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 } else {
 	# Desktop handles the Init separately
 	RESOURCES += $$P/Qt/assets.qrc
-	SOURCES += $$P/UI/NativeApp.cpp
 }
 
 # Packaging

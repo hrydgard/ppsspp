@@ -205,8 +205,8 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 {
 	if (displaySymbols)
 	{
-		const char* addressSymbol = symbolMap.GetLabelName(address);
-		if (addressSymbol != NULL)
+		const std::string addressSymbol = symbolMap.GetLabelString(address);
+		if (!addressSymbol.empty())
 		{
 			for (int k = 0; addressSymbol[k] != 0; k++)
 			{
@@ -406,6 +406,68 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions
 	DeleteObject(pen);
 }
 
+std::set<std::string> CtrlDisAsmView::getSelectedLineArguments() {
+	std::set<std::string> args;
+
+	DisassemblyLineInfo line;
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		manager.getLine(addr, displaySymbols, line);
+		size_t p = 0, nextp = line.params.find(',');
+		while (nextp != line.params.npos) {
+			args.insert(line.params.substr(p, nextp - p));
+			p = nextp + 1;
+			nextp = line.params.find(',', p);
+		}
+		if (p < line.params.size()) {
+			args.insert(line.params.substr(p));
+		}
+	}
+
+	return args;
+}
+
+void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments) {
+	if (line.params.empty()) {
+		return;
+	}
+	// Don't highlight the selected lines.
+	if (isInInterval(selectRangeStart, selectRangeEnd - selectRangeStart, line.info.opcodeAddress)) {
+		TextOutA(hdc, x, y, line.params.c_str(), (int)line.params.size());
+		return;
+	}
+
+	int highlightedColor = 0xaabb00;
+	if (textColor == 0x0000ff) {
+		highlightedColor = 0xaabb77;
+	}
+
+	UINT prevAlign = SetTextAlign(hdc, TA_UPDATECP);
+	MoveToEx(hdc, x, y, NULL);
+
+	size_t p = 0, nextp = line.params.find(',');
+	while (nextp != line.params.npos) {
+		const std::string arg = line.params.substr(p, nextp - p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			SetTextColor(hdc, highlightedColor);
+		}
+		TextOutA(hdc, 0, 0, arg.c_str(), (int)arg.size());
+		SetTextColor(hdc,textColor);
+		p = nextp + 1;
+		nextp = line.params.find(',', p);
+		TextOutA(hdc, 0, 0, ",", 1);
+	}
+	if (p < line.params.size()) {
+		const std::string arg = line.params.substr(p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			SetTextColor(hdc, highlightedColor);
+		}
+		TextOutA(hdc, 0, 0, arg.c_str(), (int)arg.size());
+		SetTextColor(hdc,textColor);
+	}
+
+	SetTextAlign(hdc, prevAlign);
+}
+
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
 	if (!debugger->isAlive()) return;
@@ -420,7 +482,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 
 	HPEN nullPen=CreatePen(0,0,0xffffff);
 	HBRUSH nullBrush=CreateSolidBrush(0xffffff);
-	HBRUSH currentBrush=CreateSolidBrush(0xFFEfE8);
+	HBRUSH currentBrush=CreateSolidBrush(0xffefe8);
 
 	HPEN oldPen=(HPEN)SelectObject(hdc,nullPen);
 	HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
@@ -431,6 +493,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	unsigned int address = windowStart;
 	std::map<u32,int> addressPositions;
 
+	const std::set<std::string> currentArguments = getSelectedLineArguments();
 	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows; i++)
 	{
@@ -466,7 +529,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,backgroundBrush);
 		SelectObject(hdc,backgroundPen);
 		Rectangle(hdc,0,rowY1,rect.right,rowY1+rowHeight);
-		
+
 		SelectObject(hdc,currentBrush);
 		SelectObject(hdc,nullPen);
 
@@ -499,8 +562,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		if (line.params.size() != 0)
-			TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,line.params.c_str(),(int)line.params.size());
+		drawArguments(hdc, line, pixelPositions.argumentsStart, rowY1 + 2, textColor, currentArguments);
 			
 		SelectObject(hdc,boldfont);
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,line.name.c_str(),(int)line.name.size());
@@ -915,7 +977,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				{
 					char name[256];
 					std::string newname;
-					strncpy_s(name, symbolMap.GetLabelName(funcBegin),_TRUNCATE);
+					strncpy_s(name, symbolMap.GetLabelString(funcBegin).c_str(),_TRUNCATE);
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
 						symbolMap.SetLabelName(newname.c_str(),funcBegin);
 						u32 funcSize = symbolMap.GetFunctionSize(curAddress);
@@ -1048,10 +1110,10 @@ void CtrlDisAsmView::updateStatusBarText()
 					// TODO: Could also be a float...
 					{
 						u32 data = Memory::Read_U32(line.info.dataAddress);
-						const char* addressSymbol = symbolMap.GetLabelName(data);
-						if (addressSymbol)
+						const std::string addressSymbol = symbolMap.GetLabelString(data);
+						if (!addressSymbol.empty())
 						{
-							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
+							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
 						} else {
 							sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
 						}
@@ -1066,12 +1128,12 @@ void CtrlDisAsmView::updateStatusBarText()
 
 		if (line.info.isBranch)
 		{
-			const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
-			if (addressSymbol == NULL)
+			const std::string addressSymbol = symbolMap.GetLabelString(line.info.branchTarget);
+			if (addressSymbol.empty())
 			{
 				sprintf(text,"%08X",line.info.branchTarget);
 			} else {
-				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol);
+				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol.c_str());
 			}
 		}
 	} else if (line.type == DISTYPE_DATA)
@@ -1081,14 +1143,14 @@ void CtrlDisAsmView::updateStatusBarText()
 			start = curAddress;
 
 		u32 diff = curAddress-start;
-		const char* label = symbolMap.GetLabelName(start);
+		const std::string label = symbolMap.GetLabelString(start);
 
-		if (label != NULL)
+		if (!label.empty())
 		{
 			if (diff != 0)
-				sprintf(text,"%08X (%s) + %08X",start,label,diff);
+				sprintf(text,"%08X (%s) + %08X",start,label.c_str(),diff);
 			else
-				sprintf(text,"%08X (%s)",start,label);
+				sprintf(text,"%08X (%s)",start,label.c_str());
 		} else {
 			if (diff != 0)
 				sprintf(text,"%08X + %08X",start,diff);
@@ -1204,7 +1266,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 
-		if (info.isBranch && symbolMap.GetLabelName(info.branchTarget) == NULL)
+		if (info.isBranch && symbolMap.GetLabelString(info.branchTarget).empty())
 		{
 			if (branchAddresses.find(info.branchTarget) == branchAddresses.end())
 			{
@@ -1236,7 +1298,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 		}
 
 		if (line.info.isBranch && !line.info.isBranchToRegister
-			&& symbolMap.GetLabelName(line.info.branchTarget) == NULL
+			&& symbolMap.GetLabelString(line.info.branchTarget).empty()
 			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
 		{
 			sprintf(buffer,"pos_%08X",line.info.branchTarget);
@@ -1273,7 +1335,7 @@ void CtrlDisAsmView::disassembleToFile()
 	ofn.lpstrFile = fileName ;
 	ofn.lpstrFile[0] = '\0';
 	ofn.nMaxFile = sizeof( fileName );
-	ofn.lpstrFilter = L"All files";
+	ofn.lpstrFilter = L"All Files\0*.*\0\0";
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = NULL ;
 	ofn.nMaxFileTitle = 0 ;

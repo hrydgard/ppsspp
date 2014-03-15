@@ -21,10 +21,28 @@
 #include "Core/HW/AsyncIOManager.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 
+bool AsyncIOManager::HasOperation(u32 handle) {
+	if (resultsPending_.find(handle) != resultsPending_.end()) {
+		return true;
+	}
+	if (results_.find(handle) != results_.end()) {
+		return true;
+	}
+	return false;
+}
+
 void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
 	lock_guard guard(resultsLock_);
-	resultsPending_.insert(ev.handle);
+	if (!resultsPending_.insert(ev.handle).second) {
+		ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+	}
 	ScheduleEvent(ev);
+}
+
+void AsyncIOManager::Shutdown() {
+	lock_guard guard(resultsLock_);
+	resultsPending_.clear();
+	results_.clear();
 }
 
 bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
@@ -66,7 +84,7 @@ void AsyncIOManager::ProcessEvent(AsyncIOEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG(SCEIO, "Unsupported IO event type");
+		ERROR_LOG_REPORT(SCEIO, "Unsupported IO event type");
 	}
 }
 

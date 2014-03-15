@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include <vector>
 
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 
 namespace SaveState
 {
@@ -62,6 +63,9 @@ namespace SaveState
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
+
+	// Returns true if a savestate has been used during this session.
+	bool HasLoadedState();
 
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();

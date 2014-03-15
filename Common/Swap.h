@@ -85,6 +85,7 @@ public:
 		return *this;
 	}
 
+	operator unsigned long() const { return (unsigned long)swap(); }
 	operator long() const { return (long)swap(); }	
 	operator s8() const { return (s8)swap(); }
 	operator u8() const { return (u8)swap(); }
@@ -243,6 +244,14 @@ public:
 	// logical
 	swapped_t operator !() const {
 		return !swap();
+	}
+	
+	bool operator ||(const swapped_t  & b) const {
+		return swap() || b.swap();
+	}
+	template <typename S>
+	bool operator ||(const S & b) const {
+		return swap() || b;
 	}
 
 	// bitmath

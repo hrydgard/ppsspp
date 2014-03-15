@@ -22,7 +22,7 @@
 // Includes
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "HDRemaster.h"
+#include "Core/Opcode.h"
 
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
 // This can be a problem when debugging though, as stray memory reads and writes will
@@ -41,7 +41,7 @@ typedef void (*writeFn16)(const u16,const u32);
 typedef void (*writeFn32)(const u32,const u32);
 typedef void (*writeFn64)(const u64,const u32);
 
-typedef void (*readFn8 )(u8&,	const u32);
+typedef void (*readFn8 )(u8&,  const u32);
 typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
@@ -89,15 +89,15 @@ enum
 	// Used if the PSP model is PSP-2000 (Slim).
 	RAM_DOUBLE_SIZE = RAM_NORMAL_SIZE * 2,
 
-	VRAM_SIZE			 = 0x200000,
-	VRAM_MASK			 = VRAM_SIZE - 1,
+	VRAM_SIZE       = 0x200000,
+	VRAM_MASK       = VRAM_SIZE - 1,
 
 	SCRATCHPAD_SIZE = 0x4000,
 	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
 
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
 	// This wraparound should work for PSP too.
-	MEMVIEW32_MASK	= 0x3FFFFFFF,
+	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
 };
 
@@ -107,32 +107,6 @@ void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
 
-struct Opcode {
-	Opcode() {
-	}
-
-	explicit Opcode(u32 v) : encoding (v) {
-	}
-
-	u32 operator & (const u32 &arg) const {
-		return encoding & arg;
-	}
-
-	u32 operator >> (const u32 &arg) const {
-		return encoding >> arg;
-	}
-
-	bool operator == (const u32 &arg) const {
-		return encoding == arg;
-	}
-
-	bool operator != (const u32 &arg) const {
-		return encoding != arg;
-	}
-
-	u32 encoding;
-};
-
 // used by JIT to read instructions. Does not resolve replacements.
 Opcode Read_Opcode_JIT(const u32 _Address);
 // used by JIT. Reads in the "Locked cache" mode
@@ -140,6 +114,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
 
 // Should be used by analyzers, disassemblers etc. Does resolve replacements.
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
+Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
 
 u8	Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);
@@ -307,13 +282,6 @@ void WriteStruct(u32 address, T *ptr)
 	memcpy(GetPointer(address), ptr, sz);
 }
 
-// Expect this to be some form of auto class on big endian.
-template<class T>
-T *GetStruct(u32 address)
-{
-	return (T *)GetPointer(address);
-}
-
 const char *GetAddressName(u32 address);
 
 };
@@ -436,8 +404,8 @@ inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
 inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
-inline u32 PSP_GetUserMemoryEnd()	{ return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
-inline u32 PSP_GetKernelMemoryEnd()	{ return 0x08400000;}
+inline u32 PSP_GetUserMemoryEnd() { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
+inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
 // game through sceKernelVolatileMemTryLock.
 

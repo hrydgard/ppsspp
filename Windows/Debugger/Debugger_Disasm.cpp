@@ -120,6 +120,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	int w = g_Config.iDisasmWindowW == -1 ? defaultWidth : g_Config.iDisasmWindowW;
 	int h = g_Config.iDisasmWindowH == -1 ? defaultHeight : g_Config.iDisasmWindowH;
 
+	// init status bar
+	statusBarWnd = CreateWindowEx(0, STATUSCLASSNAME, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, m_hDlg, (HMENU)IDC_DISASMSTATUSBAR, _hInstance, NULL);
+	if (g_Config.bDisplayStatusBar == false)
+	{
+		ShowWindow(statusBarWnd,SW_HIDE);
+	}
+
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
 	ptr->gotoAddr(0x00000000);
@@ -163,15 +170,12 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	stackTraceView->loadStackTrace();
 	bottomTabs->AddTab(stackTraceView->GetHandle(),L"Stack frames");
 	
+	moduleList = new CtrlModuleList(GetDlgItem(m_hDlg,IDC_MODULELIST),cpu);
+	moduleList->loadModules();
+	bottomTabs->AddTab(moduleList->GetHandle(),L"Modules");
+
 	bottomTabs->SetShowTabTitles(g_Config.bShowBottomTabTitles);
 	bottomTabs->ShowTab(memHandle);
-
-	// init status bar
-	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, L"", m_hDlg, IDC_DISASMSTATUSBAR);
-	if (g_Config.bDisplayStatusBar == false)
-	{
-		ShowWindow(statusBarWnd,SW_HIDE);
-	}
 	
 	// Actually resize the window to the proper size (after the above setup.)
 	// do it twice so that the window definitely receives a WM_SIZE message with
@@ -183,6 +187,14 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 CDisasm::~CDisasm()
 {
+	DestroyWindow(statusBarWnd);
+
+	delete leftTabs;
+	delete bottomTabs;
+	delete breakpointList;
+	delete threadList;
+	delete stackTraceView;
+	delete moduleList;
 }
 
 void CDisasm::stepInto()
@@ -366,6 +378,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDC_STACKFRAMES:
 			stackTraceView->HandleNotify(lParam);
+			break;
+		case IDC_MODULELIST:
+			moduleList->HandleNotify(lParam);
 			break;
 		case IDC_DEBUG_BOTTOMTABS:
 			bottomTabs->HandleNotify(lParam);
@@ -595,6 +610,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
+			if (!PSP_IsInited()) {
+				break;
+			}
 			wchar_t szBuffer[256];
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
@@ -626,7 +644,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_SETSTATUSBARTEXT:
 		if (!keepStatusBarText)
-			SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+			SetWindowText(statusBarWnd, ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
@@ -775,6 +793,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		breakpointList->reloadBreakpoints();
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();
+		moduleList->loadModules();
 		updateThreadLabel(false);
 
 		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");

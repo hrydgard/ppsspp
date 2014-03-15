@@ -26,10 +26,10 @@
 
 #include <map>
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MpegDemux.h"
 
+class PointerWrap;
 struct SimpleAT3;
 
 #ifdef USE_FFMPEG

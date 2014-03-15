@@ -31,7 +31,9 @@
 #include "Core/MIPS/MIPS.h"
 
 #ifdef _WIN32
+#ifndef _XBOX
 #include "Windows/OpenGLBase.h"
+#endif
 #include "Windows/InputDevice.h"
 #endif
 
@@ -102,16 +104,20 @@ void Core_WaitInactive(int milliseconds) {
 	}
 }
 
-void UpdateScreenScale() {
-	dp_xres = PSP_CoreParameter().pixelWidth;
-	dp_yres = PSP_CoreParameter().pixelHeight;
-	pixel_xres = PSP_CoreParameter().pixelWidth;
-	pixel_yres = PSP_CoreParameter().pixelHeight;
+void UpdateScreenScale(int width, int height) {
+	dp_xres = width;
+	dp_yres = height;
+	pixel_xres = width;
+	pixel_yres = height;
 	g_dpi = 72;
 	g_dpi_scale = 1.0f;
+#ifdef __SYMBIAN32__
+	dp_xres *= 1.4f;
+	dp_yres *= 1.4f;
+	g_dpi_scale = 1.4f;
+#endif
 #ifdef _WIN32
-	if (pixel_xres < 480 + 80)
-	{
+	if (pixel_xres < 480 + 80) {
 		dp_xres *= 2;
 		dp_yres *= 2;
 		g_dpi_scale = 2.0f;
@@ -119,10 +125,10 @@ void UpdateScreenScale() {
 	else
 #endif
 	pixel_in_dps = (float)pixel_xres / dp_xres;
+	NativeResized();
 }
 
 static inline void UpdateRunLoop() {
-	UpdateScreenScale();
 	{
 		{
 #ifdef _WIN32
@@ -139,14 +145,16 @@ static inline void UpdateRunLoop() {
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
 	}
-	NativeRender();
+	if (globalUIState != UISTATE_EXIT) {
+		NativeRender();
+	}
 }
 
 void Core_RunLoop() {
 	while ((globalUIState != UISTATE_INGAME || !PSP_IsInited()) && globalUIState != UISTATE_EXIT) {
 		time_update();
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		double startTime = time_now_d();
 		UpdateRunLoop();
 
@@ -165,7 +173,7 @@ void Core_RunLoop() {
 	while (!coreState && globalUIState == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 		if (!Core_IsStepping()) {
 			GL_SwapBuffers();
 		}
@@ -199,7 +207,7 @@ void Core_Run()
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
 #endif
-#if !defined(USING_QT_UI) || defined(USING_GLES2)
+#if !defined(USING_QT_UI) || defined(MOBILE_DEVICE)
 	while (true)
 #endif
 	{
@@ -210,7 +218,7 @@ reswitch:
 				return;
 			}
 			Core_RunLoop();
-#if defined(USING_QT_UI) && !defined(USING_GLES2)
+#if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
 			return;
 #else
 			continue;
@@ -247,7 +255,7 @@ reswitch:
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->SendCoreWait(false);
 #endif
-#if defined(USING_QT_UI) && !defined(USING_GLES2)
+#if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
 			if (coreState != CORE_STEPPING)
 				return;
 #endif

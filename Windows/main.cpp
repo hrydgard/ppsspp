@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <WinNls.h>
+#include <math.h>
+
 #include "Common/CommonWindows.h"
 
 #include "file/vfs.h"
@@ -51,12 +53,22 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/main.h"
 
+// Nvidia drivers >= v302 will check if the application exports a global
+// variable named NvOptimusEnablement to know if it should run the app in high
+// performance graphics mode or using the IGP.
+extern "C" {
+	__declspec(dllexport) DWORD NvOptimusEnablement = 1;
+}
+
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 static std::string langRegion;
 static std::string osName;
+
+typedef BOOL(WINAPI *isProcessDPIAwareProc)();
+typedef BOOL(WINAPI *setProcessDPIAwareProc)();
 
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -180,7 +192,7 @@ void EnableCrashingOnCrashes()
   } 
 }
 
-bool System_InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
+bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
 {
 	std::string out;
 	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
@@ -200,8 +212,34 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 	}
 }
 
+void MakePPSSPPDPIAware()
+{
+	isProcessDPIAwareProc isDPIAwareProc = (isProcessDPIAwareProc) 
+		GetProcAddress(GetModuleHandle(TEXT("User32.dll")), "IsProcessDPIAware");
+
+	setProcessDPIAwareProc setDPIAwareProc = (setProcessDPIAwareProc)
+		GetProcAddress(GetModuleHandle(TEXT("User32.dll")), "SetProcessDPIAware");
+
+	// If we're not DPI aware, make it so, but do it safely.
+	if (isDPIAwareProc != nullptr) {
+		if (!isDPIAwareProc()) {
+			if (setDPIAwareProc != nullptr)
+				setDPIAwareProc();
+		}
+	}
+}
+
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
+	// Windows Vista and above: alert Windows that PPSSPP is DPI aware,
+	// so that we don't flicker in fullscreen on some PCs.
+	MakePPSSPPDPIAware();
+
+	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
+#ifdef _M_X64
+	_set_FMA3_enable(0);
+#endif
+
 	EnableCrashingOnCrashes();
 
 	wchar_t modulePath[MAX_PATH];
@@ -297,6 +335,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 			if (!strncmp(__argv[i], "--windowed", strlen("--windowed")))
 				g_Config.bFullScreen = false;
+
+			if (!strncmp(__argv[i], "--escapeexitsemu", strlen("--escapeexitsemu")))
+				g_Config.bEscapeExitsEmulator = true;
 		}
 	}
 #ifdef _DEBUG
@@ -333,7 +374,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CtrlRegisterList::init();
 	CGEDebugger::Init();
 
-	DialogManager::AddDlg(memoryWindow[0] = new CMemoryDlg(_hInstance, hwndMain, currentDebugMIPS));
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
 	host = new WindowsHost(hwndMain, hwndDisplay);
@@ -370,7 +410,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			accel = hAccelTable;
 			break;
 		case WINDOW_CPUDEBUGGER:
-			wnd = disasmWindow[0]->GetDlgHandle();
+			wnd = disasmWindow[0] ? disasmWindow[0]->GetDlgHandle() : 0;
 			accel = hDebugAccelTable;
 			break;
 		case WINDOW_GEDEBUGGER:
@@ -395,6 +435,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	EmuThread_Stop();
 
+	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
 	delete host;

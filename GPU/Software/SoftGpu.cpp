@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
@@ -620,7 +621,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				memcpy(dst, src, width * bpp);
 			}
 
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 #endif

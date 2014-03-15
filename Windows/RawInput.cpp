@@ -51,6 +51,8 @@
 #define HID_USAGE_GENERIC_MULTIAXIS    ((USHORT) 0x07)
 #endif
 
+extern InputState input_state;
+
 namespace WindowsRawInput {
 	static std::set<int> keyboardKeysDown;
 	static void *rawInputBuffer;
@@ -116,6 +118,11 @@ namespace WindowsRawInput {
 			return;
 		}
 
+		if (g_Config.bEscapeExitsEmulator && raw->data.keyboard.VKey == VK_ESCAPE) {
+			DestroyWindow(MainWindow::GetHWND());
+			return;
+		}
+
 		KeyInput key;
 		key.deviceId = DEVICE_ID_KEYBOARD;
 
@@ -147,6 +154,12 @@ namespace WindowsRawInput {
 			return;
 		}
 
+		TouchInput touch;
+		touch.id = 0;
+		touch.flags = TOUCH_MOVE;
+		touch.x = input_state.pointer_x[0];
+		touch.y = input_state.pointer_y[0];
+
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
 
@@ -156,10 +169,12 @@ namespace WindowsRawInput {
 		if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
 			key.flags = KEY_DOWN;
 			key.keyCode = windowsTransTable[VK_RBUTTON];
+			NativeTouch(touch);
 			NativeKey(key);
 		} else if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
 			key.flags = KEY_UP;
 			key.keyCode = windowsTransTable[VK_RBUTTON];
+			NativeTouch(touch);
 			NativeKey(key);
 		}
 

@@ -406,15 +406,13 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 		spline_knot(n, spatch.type_u, knot_u);
 		spline_knot(m, spatch.type_v, knot_v);
 
-		int patch_div_s = gstate.getPatchDivisionU();
-		int patch_div_t = gstate.getPatchDivisionV();
-
 		// Increase tesselation based on the size. Should be approximately right?
 		// JPCSP is wrong at least because their method results in square loco roco.
-		patch_div_s = (spatch.count_u - 3) * patch_div_s / 3;
-		patch_div_t = (spatch.count_v - 3) * patch_div_t / 3;
-		if (patch_div_s == 0) patch_div_s = 1;
-		if (patch_div_t == 0) patch_div_t = 1;
+		int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU() / 3;
+		int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV() / 3;
+
+		if (patch_div_s <= 0) patch_div_s = 1;
+		if (patch_div_t <= 0) patch_div_t = 1;
 
 		// TODO: Remove this cap when spline_s has been optimized. 
 		if (patch_div_s > 64) patch_div_s = 64;
@@ -816,6 +814,8 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	// Simple approximation of the real tesselation factor.
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
 	// like the splines, so we subdivide across the whole "mega-patch".
+	if (num_patches_u == 0) num_patches_u = 1;
+	if (num_patches_v == 0) num_patches_v = 1;
 	int tess_u = gstate.getPatchDivisionU() / num_patches_u;
 	int tess_v = gstate.getPatchDivisionV() / num_patches_v;
 	if (tess_u < 4) tess_u = 4;

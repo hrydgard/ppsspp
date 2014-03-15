@@ -17,15 +17,14 @@ namespace MainWindow
 
 	enum {
 		FRAMESKIP_OFF = 0,
-		FRAMESKIP_AUTO = 1,
-		FRAMESKIP_1 = 2,
-		FRAMESKIP_2 = 3,
-		FRAMESKIP_3 = 4,
-		FRAMESKIP_4 = 5,
-		FRAMESKIP_5 = 6,
-		FRAMESKIP_6 = 7,
-		FRAMESKIP_7 = 8,
-		FRAMESKIP_8 = 9,
+		FRAMESKIP_1 = 1,
+		FRAMESKIP_2 = 2,
+		FRAMESKIP_3 = 3,
+		FRAMESKIP_4 = 4,
+		FRAMESKIP_5 = 5,
+		FRAMESKIP_6 = 6,
+		FRAMESKIP_7 = 7,
+		FRAMESKIP_8 = 8,
 		FRAMESKIP_MAX = FRAMESKIP_8,
 
 		RESOLUTION_AUTO = 0,
@@ -52,6 +51,7 @@ namespace MainWindow
 	void Init(HINSTANCE hInstance);
 	BOOL Show(HINSTANCE hInstance, int nCmdShow);
 	void CreateDebugWindows();
+	void DestroyDebugWindows();
 	void Close();
 	void UpdateMenus();
 	void UpdateCommands();

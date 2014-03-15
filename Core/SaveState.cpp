@@ -203,6 +203,7 @@ namespace SaveState
 	static bool needsProcess = false;
 	static std::vector<Operation> pending;
 	static std::recursive_mutex mutex;
+	static bool hasLoadedState = false;
 
 	// TODO: Should this be configurable?
 	static const int REWIND_NUM_STATES = 20;
@@ -430,9 +431,14 @@ namespace SaveState
 		rewindStates.Save();
 	}
 
+	bool HasLoadedState()
+	{
+		return hasLoadedState;
+	}
+
 	void Process()
 	{
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
 #endif
@@ -474,6 +480,7 @@ namespace SaveState
 				if (result == CChunkFileReader::ERROR_NONE) {
 					osm.Show(s->T("Loaded State"), 2.0);
 					callbackResult = true;
+					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					osm.Show(i18nLoadFailure, 2.0);
@@ -513,12 +520,14 @@ namespace SaveState
 				if (result == CChunkFileReader::ERROR_NONE) {
 					osm.Show(s->T("Loaded State"), 2.0);
 					callbackResult = true;
+					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleFailure()) {
 						// Well, we did rewind, even if too much...
 						osm.Show(s->T("Loaded State"), 2.0);
 						callbackResult = true;
+						hasLoadedState = true;
 					} else {
 						osm.Show(i18nLoadFailure, 2.0);
 						callbackResult = false;
@@ -547,5 +556,7 @@ namespace SaveState
 
 		std::lock_guard<std::recursive_mutex> guard(mutex);
 		rewindStates.Clear();
+
+		hasLoadedState = false;
 	}
 }

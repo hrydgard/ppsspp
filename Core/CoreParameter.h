@@ -51,10 +51,6 @@ struct CoreParameter {
 	int renderWidth;
 	int renderHeight;
 
-	// Virtual (dpi-adjusted) output resolution
-	int outputWidth;
-	int outputHeight;
-
 	// Actual pixel output resolution (for use by glViewport and the like)
 	int pixelWidth;
 	int pixelHeight;

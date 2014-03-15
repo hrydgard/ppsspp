@@ -37,6 +37,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -88,6 +89,7 @@ static int numSkippedFrames;
 static bool hasSetMode;
 static int resumeMode;
 static int holdMode;
+static int brightnessLevel;
 static int mode;
 static int width;
 static int height;
@@ -149,6 +151,7 @@ void __DisplayInit() {
 	mode = 0;
 	resumeMode = 0;
 	holdMode = 0;
+	brightnessLevel = 100;
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
@@ -178,7 +181,6 @@ void __DisplayInit() {
 	lastNumFlips = 0;
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
-	fpsHistoryValid = 0;
 
 	InitGfxState();
 
@@ -186,7 +188,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 3);
+	auto s = p.Section("sceDisplay", 1, 4);
 	if (!s)
 		return;
 
@@ -207,6 +209,9 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(mode);
 	p.Do(resumeMode);
 	p.Do(holdMode);
+	if (s >= 4) {
+		p.Do(brightnessLevel);
+	}
 	p.Do(width);
 	p.Do(height);
 	WaitVBlankInfo wvi(0);
@@ -422,8 +427,30 @@ enum {
 	FPS_LIMIT_CUSTOM = 1,
 };
 
+// Start out assuming we'll go at 59.94 NTSC.
+static float timestepSmooth[8] = {
+	1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f,
+	1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f,
+};
+static int timestepNext = 0;
+
+static float CalculateSmoothTimestep(float lastTimestep) {
+	// Straight up ignore timesteps that would cause sub-10 fps speeds.
+	if (lastTimestep < 1.001f / 10.0f) {
+		timestepSmooth[timestepNext] = lastTimestep;
+	}
+	timestepNext = (timestepNext + 1) % ARRAY_SIZE(timestepSmooth);
+
+	float summed = 0.0f;
+	for (size_t i = 0; i < ARRAY_SIZE(timestepSmooth); ++i) {
+		summed += timestepSmooth[i];
+	}
+	return summed / (float)ARRAY_SIZE(timestepSmooth);
+}
+
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
+void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
+	float timestep = CalculateSmoothTimestep(lastTimestep);
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = !PSP_CoreParameter().unthrottle;
 	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0)
@@ -458,14 +485,14 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	if (g_Config.iFrameSkip == 1 || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
-		// 1 == autoframeskip
+	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
+		// autoframeskip
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
-	} else if (g_Config.iFrameSkip > 1)	{
-		// Other values = fixed frameskip
-		if (numSkippedFrames >= g_Config.iFrameSkip - 1)
+	} else if (g_Config.iFrameSkip >= 1)	{
+		// fixed frameskip
+		if (numSkippedFrames >= g_Config.iFrameSkip)
 			skipFrame = false;
 		else
 			skipFrame = true;
@@ -543,7 +570,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
-	if (gpu->FramebufferDirty()) {
+	// But, let's flip at least once every 10 frames if possible, since there may be sound effects.
+	if (gpu->FramebufferDirty() || (g_Config.iRenderingMode != 0 && numVBlanksSinceFlip >= 10)) {
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
 			CalculateFPS();
 		}
@@ -566,12 +594,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 		int maxFrameskip = 8;
 		if (throttle) {
-			if (g_Config.iFrameSkip == 1) {
-				// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
-				maxFrameskip = 4;
-			} else {
-				maxFrameskip = g_Config.iFrameSkip - 1;
-			}
+			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
+			maxFrameskip = g_Config.iFrameSkip;
 		}
 		if (numSkippedFrames >= maxFrameskip) {
 			skipFrame = false;
@@ -875,7 +899,15 @@ u32 sceDisplaySetResumeMode(u32 rMode) {
 }
 
 u32 sceDisplayGetBrightness(u32 levelAddr) {
-	ERROR_LOG(SCEDISPLAY,"UNIMPL sceDisplayGetBrightness(%08x)", levelAddr);
+	ERROR_LOG(SCEDISPLAY,"sceDisplayGetBrightness(%08x)", levelAddr);
+	if (Memory::IsValidAddress(levelAddr))
+		Memory::Write_U32(brightnessLevel, levelAddr);
+	return 0;
+}
+
+u32 sceDisplaySetBrightness(u32 bLevel) {
+	ERROR_LOG(SCEDISPLAY,"sceDisplaySetBrightness(%08x)", bLevel);
+	brightnessLevel = bLevel;
 	return 0;
 }
 
@@ -906,10 +938,15 @@ const HLEFunction sceDisplay[] = {
 	{0xBF79F646,WrapU_U<sceDisplayGetResumeMode>,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,WrapU_U<sceDisplayGetBrightness>,"sceDisplayGetBrightness"},
+	{0x9E3C6DC6,WrapU_U<sceDisplaySetBrightness>,"sceDisplaySetBrightness"},
 	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,WrapU_V<sceDisplayIsVsync>,"sceDisplayIsVsync"},
 };
 
 void Register_sceDisplay() {
 	RegisterModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
+}
+
+void Register_sceDisplay_driver() {
+	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
 }

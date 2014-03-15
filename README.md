@@ -2,6 +2,7 @@ PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
+
 Additional code by many contributors, see the Credits screen
 
 Originally released under the GPL 2.0 (and later) in November 2012
@@ -17,6 +18,24 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 0.9.7.1
+---------------------
+* Some critical bugfixes (rotation, haptic feedback on Android, etc)
+
+What's new in 0.9.7
+-------------------
+* Several scheduling and audio fixes, fixing black screens in Yu Gi Oh games among other things.
+* Screen rotation and immersive mode support on Android
+* Large improvements to the software renderer (still not really playable, but looks right more
+  often than not)
+* New VPL allocator and bugfixes, fixing Pangya Golf performance problems.
+* Some mpeg/video playback fixes, fixing Parappa The Rapper and others. Some issues remain.
+* Fix save state bugs causing incompatibility between 32 and 64-bit platforms.
+* Symbol map/debugger improvements
+* Depth buffer copy, fixing Jeanne D'arc. May cause minor slowdowns though, this will be worked
+  around in the future.
+* MsgDialog fixes. Saving fixed in numerous games.
+* Initial multitouch support on Windows 8 for on-screen controls.
 
 What's new in 0.9.6
 -------------------
@@ -56,6 +75,7 @@ What's new in 0.9.5
 * Accurate system information for mobile devices.
 * Qt audio has been fixed.
 * Analog controller support for Blackberry.
+
 
 ADHOC SUPPORT (by Igor Calabria)
 ================================

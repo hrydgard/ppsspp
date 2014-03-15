@@ -17,7 +17,10 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#ifndef _XBOX
+ // timeval already defined in xtl.h
 #include <Winsock2.h>
+#endif
 #else
 #include <sys/time.h>
 #endif
@@ -27,9 +30,11 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
@@ -201,7 +206,7 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 	t.second = local->tm_sec;
 }
 
-u64 __RtcPspTimeToTicks(ScePspDateTime &pt)
+u64 __RtcPspTimeToTicks(const ScePspDateTime &pt)
 {
 	tm local;
 	local.tm_year = pt.year - 1900;
@@ -232,7 +237,7 @@ u64 __RtcPspTimeToTicks(ScePspDateTime &pt)
 	return result + tickOffset;
 }
 
-bool __RtcValidatePspTime(ScePspDateTime &t)
+bool __RtcValidatePspTime(const ScePspDateTime &t)
 {
 	return t.year > 0 && t.year <= 9999;
 }
@@ -672,7 +677,7 @@ int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
 	DEBUG_LOG(SCERTC, "sceRtcSetWin32FileTime(%08x, %lld)", datePtr, win32Time);
 
 	u64 ticks = (win32Time / 10) + rtcFiletimeOffset;
-	auto pspTime = Memory::GetStruct<ScePspDateTime>(datePtr);
+	auto pspTime = PSPPointer<ScePspDateTime>::Create(datePtr);
 	__RtcTicksToPspTime(*pspTime, ticks);
 	return 0;
 }
@@ -689,7 +694,7 @@ int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 	if (!Memory::IsValidAddress(win32TimePtr))
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 
-	auto pspTime = Memory::GetStruct<ScePspDateTime>(datePtr);
+	auto pspTime = PSPPointer<const ScePspDateTime>::Create(datePtr);
 	u64 result = __RtcPspTimeToTicks(*pspTime);
 
 	if (!__RtcValidatePspTime(*pspTime) || result < rtcFiletimeOffset)

@@ -333,7 +333,6 @@ bool CMipsInstruction::Validate()
 				SetAssembleError("Immediate value %02X out of range",Vars.OriginalImmediate);
 				return false;
 			}
-			break;
 			Vars.Immediate &= 0x1F;
 			break;
 		case MIPS_IMMEDIATE16:

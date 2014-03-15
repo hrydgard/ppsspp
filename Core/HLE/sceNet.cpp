@@ -20,8 +20,10 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -36,16 +38,20 @@ static bool netApctlInited;
 const size_t MAX_APCTL_HANDLERS = 32;
 
 enum {
-	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
+	ERROR_NET_BUFFER_TOO_SMALL           = 0x80400706,
 
-	ERROR_NET_INET_ALREADY_INITIALIZED           = 0x80410201,
+	ERROR_NET_INET_ALREADY_INITIALIZED   = 0x80410201,
 
-	ERROR_NET_RESOLVER_BAD_ID                    = 0x80410408,
-	ERROR_NET_RESOLVER_ALREADY_STOPPED           = 0x8041040a,
-	ERROR_NET_RESOLVER_INVALID_HOST              = 0x80410414,
+	ERROR_NET_RESOLVER_BAD_ID            = 0x80410408,
+	ERROR_NET_RESOLVER_ALREADY_STOPPED   = 0x8041040a,
+	ERROR_NET_RESOLVER_INVALID_HOST      = 0x80410414,
 
-	ERROR_NET_APCTL_ALREADY_INITIALIZED          = 0x80410a01,
-	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
+	ERROR_NET_APCTL_ALREADY_INITIALIZED  = 0x80410a01,
+	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS = 0x80410b12,
+};
+
+enum {
+	PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST = 5,
 };
 
 struct ProductStruct {
@@ -352,6 +358,14 @@ int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
 	return -1;
 }
 
+int sceNetApctlDisconnect() {
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
+	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
+	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
+	return 0;
+}
+
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, WrapU_UUUUU<sceNetInit>, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
@@ -413,7 +427,7 @@ const HLEFunction sceNetInet[] = {
 
 const HLEFunction sceNetApctl[] = {
 	{0xCFB957C6, 0, "sceNetApctlConnect"},
-	{0x24fe91a1, 0, "sceNetApctlDisconnect"},
+	{0x24fe91a1, &WrapI_V<sceNetApctlDisconnect>, "sceNetApctlDisconnect" },
 	{0x5deac81b, 0, "sceNetApctlGetState"},
 	{0x8abadd51, WrapU_UU<sceNetApctlAddHandler>, "sceNetApctlAddHandler"},
 	{0xe2f91f9b, WrapI_V<sceNetApctlInit>, "sceNetApctlInit"},

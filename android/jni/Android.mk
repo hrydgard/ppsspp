@@ -161,6 +161,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/SimpleAT3Dec.cpp \
+  $(SRC)/Core/HW/SimpleMp3Dec.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
@@ -234,6 +235,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
+  $(SRC)/Core/HLE/sceMt19937.cpp \
   $(SRC)/Core/HLE/sceParseHttp.cpp \
   $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \

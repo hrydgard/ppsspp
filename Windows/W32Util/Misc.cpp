@@ -21,7 +21,7 @@ namespace W32Util
 
 		GetWindowRect(hwnd, &rect);
 		GetWindowRect(hwndParent, &rectP);
-        
+
 		width  = rect.right  - rect.left;
 		height = rect.bottom - rect.top;
 
@@ -30,7 +30,7 @@ namespace W32Util
 
 		screenwidth  = GetSystemMetrics(SM_CXSCREEN);
 		screenheight = GetSystemMetrics(SM_CYSCREEN);
-    
+
 		//make sure that the dialog box never moves outside of
 		//the screen
 		if(x < 0) x = 0;
@@ -61,20 +61,24 @@ namespace W32Util
 
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {
 		std::wstring wtext = ConvertUTF8ToWString(text);
+		return CopyTextToClipboard(hwnd, wtext);
+	}
+
+	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext) {
 		OpenClipboard(hwnd);
 		EmptyClipboard();
-		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t)); 
-		if (hglbCopy == NULL) { 
-			CloseClipboard(); 
-			return FALSE; 
-		} 
+		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t));
+		if (hglbCopy == NULL) {
+			CloseClipboard();
+			return FALSE;
+		}
 
-		// Lock the handle and copy the text to the buffer. 
+		// Lock the handle and copy the text to the buffer.
 
-		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy); 
-		wcscpy(lptstrCopy, wtext.c_str()); 
-		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character 
-		GlobalUnlock(hglbCopy); 
+		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy);
+		wcscpy(lptstrCopy, wtext.c_str());
+		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character
+		GlobalUnlock(hglbCopy);
 		SetClipboardData(CF_UNICODETEXT, hglbCopy);
 		CloseClipboard();
 		return TRUE;
@@ -90,8 +94,9 @@ namespace W32Util
 
 
 
-GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _columns, int _columnCount)
-	: handle(hwnd), columns(_columns),columnCount(_columnCount),valid(false)
+GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
+	: handle(hwnd), columns(def.columns),columnCount(def.columnCount),valid(false),
+	inResizeColumns(false),updating(false)
 {
 	DWORD style = GetWindowLong(handle,GWL_STYLE) | LVS_REPORT;
 	SetWindowLong(handle, GWL_STYLE, style);
@@ -99,12 +104,14 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _
 	SetWindowLongPtr(handle,GWLP_USERDATA,(LONG_PTR)this);
 	oldProc = (WNDPROC) SetWindowLongPtr(handle,GWLP_WNDPROC,(LONG_PTR)wndProc);
 
-	SendMessage(handle, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
+	auto exStyle = LVS_EX_FULLROWSELECT;
+	if (def.checkbox)
+		exStyle |= LVS_EX_CHECKBOXES;
+	SendMessage(handle, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, exStyle);
 
 	LVCOLUMN lvc; 
 	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
 	lvc.iSubItem = 0;
-	lvc.fmt = LVCFMT_LEFT;
 	
 	RECT rect;
 	GetClientRect(handle,&rect);
@@ -113,8 +120,17 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewColumn* _
 	for (int i = 0; i < columnCount; i++) {
 		lvc.cx = columns[i].size * totalListSize;
 		lvc.pszText = columns[i].name;
+
+		if (columns[i].flags & GLVC_CENTERED)
+			lvc.fmt = LVCFMT_CENTER;
+		else
+			lvc.fmt = LVCFMT_LEFT;
+
 		ListView_InsertColumn(handle, i, &lvc);
 	}
+
+	if (def.columnOrder != NULL)
+		ListView_SetColumnOrderArray(handle,columnCount,def.columnOrder);
 
 	SetSendInvalidRows(false);
 	valid = true;
@@ -153,10 +169,27 @@ void GenericListControl::HandleNotify(LPARAM lParam)
 		dispInfo->item.pszText = stringBuffer;
 		return;
 	}
+	 
+	// handle checkboxes
+	if (mhdr->code == LVN_ITEMCHANGED && updating == false)
+	{
+		NMLISTVIEW* item = (NMLISTVIEW*) lParam;
+		if (item->iItem != -1 && (item->uChanged & LVIF_STATE) != 0)
+		{
+			// image is 1 if unchcked, 2 if checked
+			int oldImage = (item->uOldState & LVIS_STATEIMAGEMASK) >> 12;
+			int newImage = (item->uNewState & LVIS_STATEIMAGEMASK) >> 12;
+			if (oldImage != newImage)
+				OnToggle(item->iItem,newImage == 2);
+		}
+
+		return;
+	}
 }
 
 void GenericListControl::Update()
 {
+	updating = true;
 	int newRows = GetRowCount();
 
 	int items = ListView_GetItemCount(handle);
@@ -184,18 +217,32 @@ void GenericListControl::Update()
 
 	InvalidateRect(handle,NULL,true);
 	UpdateWindow(handle);
+	updating = false;
+}
+
+
+void GenericListControl::SetCheckState(int item, bool state)
+{
+	updating = true;
+	ListView_SetCheckState(handle,item,state ? TRUE : FALSE);
+	updating = false;
 }
 
 void GenericListControl::ResizeColumns()
 {
-	RECT rect;
-	GetClientRect(handle,&rect);
+	if (inResizeColumns)
+		return;
+	inResizeColumns = true;
 
-	int totalListSize = rect.right-rect.left;
+	RECT rect;
+	GetClientRect(handle, &rect);
+
+	int totalListSize = rect.right - rect.left;
 	for (int i = 0; i < columnCount; i++)
 	{
-		ListView_SetColumnWidth(handle,i,columns[i].size * totalListSize);
+		ListView_SetColumnWidth(handle, i, columns[i].size * totalListSize);
 	}
+	inResizeColumns = false;
 }
 
 LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -211,9 +258,75 @@ LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam,
 	case WM_SIZE:
 		list->ResizeColumns();
 		break;
+
+	case WM_KEYDOWN:
+		switch (wParam)
+		{
+		case VK_INSERT:
+		case 'C':
+			if (KeyDownAsync(VK_CONTROL))
+				list->ProcessCopy();
+			break;
+
+		case 'A':
+			if (KeyDownAsync(VK_CONTROL))
+				list->SelectAll();
+			break;
+		}
+		break;
 	}
 
 	return (LRESULT)CallWindowProc((WNDPROC)list->oldProc,hwnd,msg,wParam,lParam);
+}
+
+void GenericListControl::ProcessCopy()
+{
+	int start = GetSelectedIndex();
+	int size;
+	if (start == -1)
+		size = GetRowCount();
+	else
+		size = ListView_GetSelectedCount(handle);
+
+	CopyRows(start, size);
+}
+
+void GenericListControl::CopyRows(int start, int size)
+{
+	std::wstring data;
+
+	if (start == 0 && size == GetRowCount())
+	{
+		// Let's also copy the header if everything is selected.
+		for (int c = 0; c < columnCount; ++c)
+		{
+			data.append(columns[c].name);
+			if (c < columnCount - 1)
+				data.append(L"\t");
+			else
+				data.append(L"\r\n");
+		}
+	}
+
+	for (int r = start; r < start + size; ++r)
+	{
+		for (int c = 0; c < columnCount; ++c)
+		{
+			stringBuffer[0] = 0;
+			GetColumnText(stringBuffer, r, c);
+			data.append(stringBuffer);
+			if (c < columnCount - 1)
+				data.append(L"\t");
+			else
+				data.append(L"\r\n");
+		}
+	}
+	W32Util::CopyTextToClipboard(handle, data);
+}
+
+void GenericListControl::SelectAll()
+{
+	ListView_SetItemState(handle, -1, LVIS_SELECTED, LVIS_SELECTED);
 }
 
 int GenericListControl::GetSelectedIndex()

@@ -25,7 +25,11 @@ const GenericListViewColumn displayListStackColumns[3] = {
 	{ L"Offset", 0.33f },
 };
 
-CtrlDisplayListStack::CtrlDisplayListStack(HWND hwnd): GenericListControl(hwnd,displayListStackColumns,DLS_COLUMNCOUNT)
+GenericListViewDef displayListStackListDef = {
+	displayListStackColumns,	ARRAY_SIZE(displayListStackColumns),	NULL,	false
+};
+
+CtrlDisplayListStack::CtrlDisplayListStack(HWND hwnd): GenericListControl(hwnd,displayListStackListDef)
 {
 	list.stackptr = 0;
 	Update();
@@ -73,7 +77,11 @@ const GenericListViewColumn allDisplayListsColumns[ADL_COLUMNCOUNT] = {
 	{ L"Interrupted", 0.15f },
 };
 
-CtrlAllDisplayLists::CtrlAllDisplayLists(HWND hwnd): GenericListControl(hwnd,allDisplayListsColumns,ADL_COLUMNCOUNT)
+GenericListViewDef allDisplayListsListDef = {
+	allDisplayListsColumns,	ARRAY_SIZE(allDisplayListsColumns),	NULL,	false
+};
+
+CtrlAllDisplayLists::CtrlAllDisplayLists(HWND hwnd): GenericListControl(hwnd,allDisplayListsListDef)
 {
 	Update();
 }

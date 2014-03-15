@@ -87,6 +87,7 @@ namespace MIPSAnalyst
 		bool isStraightLeaf;
 		bool hasHash;
 		bool usesVFPU;
+		bool foundInSymbolMap;
 		char name[64];
 	};
 
@@ -124,6 +125,8 @@ namespace MIPSAnalyst
 	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsSyscall(MIPSOpcode op);
+
+	bool OpWouldChangeMemory(u32 pc, u32 addr);
 
 	void Shutdown();
 	

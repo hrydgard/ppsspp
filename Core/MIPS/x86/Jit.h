@@ -31,6 +31,8 @@
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
+class PointerWrap;
+
 namespace MIPSComp
 {
 

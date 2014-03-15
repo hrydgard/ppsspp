@@ -32,10 +32,20 @@ const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
 
+enum {
+	ROTATION_AUTO = 0,
+	ROTATION_LOCKED_HORIZONTAL = 1,
+	ROTATION_LOCKED_VERTICAL = 2,
+	ROTATION_LOCKED_HORIZONTAL180 = 3,
+	ROTATION_LOCKED_VERTICAL180 = 4,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
 }
+
+struct UrlEncoder;
 
 struct Config {
 public:
@@ -56,11 +66,13 @@ public:
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
-#if defined(_WIN32) && !defined(USING_QT_UI)
+	bool bDumpDecryptedEboot;
+#if defined(USING_WIN_UI)
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
+	bool bEscapeExitsEmulator;
 #endif
 	// Core
 	bool bIgnoreBadMemAccess;
@@ -74,6 +86,8 @@ public:
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
+	int iScreenRotation;
+
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
 	std::vector<std::string> vPinnedPaths;
@@ -90,8 +104,10 @@ public:
 	bool bPartialStretch;
 	bool bStretchToDisplay;
 	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
+	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bVSync;
 	int iFrameSkip;
+	bool bAutoFrameSkip;
 	bool bFrameSkipUnthrottle;
 
 	int iWindowX;
@@ -122,6 +138,7 @@ public:
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bTimerHack;
+	bool bAlphaMaskHack;
 	bool bLowQualitySplineBezier;
 	std::string sPostShaderName;  // Off for off.
 
@@ -212,6 +229,10 @@ public:
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
 
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+	bool bShowTouchPause;
+#endif
+
 	bool bHapticFeedback;
 
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
@@ -250,7 +271,7 @@ public:
 	int iPSPModel;
 	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	bool bBypassOSKWithKeyboard;
 #endif
 
@@ -303,6 +324,8 @@ public:
 	void DismissUpgrade();
 
 	void ResetControlLayout();
+
+	void GetReportingInfo(UrlEncoder &data);
 
 private:
 	std::string iniFilename_;

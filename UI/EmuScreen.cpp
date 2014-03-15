@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "android/app-android.h"
+#include "base/display.h"
 #include "base/logging.h"
 
 #include "gfx_es2/glsl_program.h"
@@ -35,6 +36,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -59,7 +61,7 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: booted_(false), gamePath_(filename), invalid_(true), pauseTrigger_(false) {
+	: booted_(false), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -91,20 +93,17 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+
 	if (g_Config.iInternalResolution == 0) {
-		coreParam.renderWidth = dp_xres;
-		coreParam.renderHeight = dp_yres;
+		coreParam.renderWidth = bounds.w;
+		coreParam.renderHeight = bounds.h;
 	} else {
 		if (g_Config.iInternalResolution < 0)
 			g_Config.iInternalResolution = 1;
 		coreParam.renderWidth = 480 * g_Config.iInternalResolution;
 		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
 	}
-
-	coreParam.outputWidth = dp_xres;
-	coreParam.outputHeight = dp_yres;
-	coreParam.pixelWidth = pixel_xres;
-	coreParam.pixelHeight = pixel_yres;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
@@ -129,7 +128,7 @@ void EmuScreen::bootComplete() {
 
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
@@ -155,9 +154,10 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
-	if (result == DR_OK) {
+	if (result == DR_OK || quit_) {
 		screenManager()->switchScreen(new MainScreen());
 		System_SendMessage("event", "exitgame");
+		quit_ = false;
 	}
 	RecreateViews();
 }
@@ -180,7 +180,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 		host->BootDone();
 		host->UpdateDisassembly();
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 		if (g_Config.bAutoRun) {
 			Core_EnableStepping(false);
 		} else {
@@ -201,6 +201,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
 		}
+		Reporting::UpdateConfig();
 		RecreateViews();
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
@@ -452,8 +453,9 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 }
 
 void EmuScreen::CreateViews() {
-	InitPadLayout();
-	root_ = CreatePadLayout(&pauseTrigger_);
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
+	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -471,10 +473,11 @@ void EmuScreen::update(InputState &input) {
 	UIScreen::update(input);
 
 	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
-	PSP_CoreParameter().outputWidth = dp_xres;
-	PSP_CoreParameter().outputHeight = dp_yres;
-	PSP_CoreParameter().pixelWidth = pixel_xres;
-	PSP_CoreParameter().pixelHeight = pixel_yres;
+	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
+	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	PSP_CoreParameter().pixelWidth = pixel_xres * bounds.w / dp_xres;
+	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 
 	UpdateUIState(UISTATE_INGAME);
 
@@ -484,6 +487,7 @@ void EmuScreen::update(InputState &input) {
 		if (errorMessage_.find("ZIP") != std::string::npos) {
 			screenManager()->push(new InstallZipScreen(gamePath_));
 			errorMessage_ = "";
+			quit_ = true;
 			return;
 		}
 		I18NCategory *g = GetI18NCategory("Error");
@@ -494,6 +498,7 @@ void EmuScreen::update(InputState &input) {
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
 		errorMessage_ = "";
+		quit_ = true;
 		return;
 	}
 
@@ -505,7 +510,7 @@ void EmuScreen::update(InputState &input) {
 
 	// Apply tilt to left stick
 	// TODO: Make into an axis
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 	/*
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// Get the "base" coordinate system which is setup by the calibration system
@@ -585,6 +590,7 @@ void EmuScreen::render() {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_POWERDOWN)	{
+		PSP_Shutdown();
 		ILOG("SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		invalid_ = true;
@@ -612,7 +618,7 @@ void EmuScreen::render() {
 	}
 
 	if (!osm.IsEmpty()) {
-		osm.Draw(ui_draw2d);
+		osm.Draw(ui_draw2d, screenManager()->getUIContext()->GetBounds());
 	}
 
 	if (g_Config.bShowDebugStats) {
@@ -641,9 +647,11 @@ void EmuScreen::render() {
 		default:
 			return;
 		}
+
+		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 

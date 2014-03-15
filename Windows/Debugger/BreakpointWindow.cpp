@@ -148,7 +148,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 
 		if (cpu->parseExpression(exp,size) == false)
 		{
-			sprintf(errorMessage,"Invalid expression \"%s\".",exp);
+			sprintf(errorMessage,"Invalid expression \"%s\".",str);
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
@@ -182,10 +182,13 @@ void BreakpointWindow::addBreakpoint()
 	if (memory)
 	{
 		// add memcheck
-		MemCheckCondition cond;
-		if (read && write) cond = MEMCHECK_READWRITE;
-		else if (read) cond = MEMCHECK_READ;
-		else cond = MEMCHECK_WRITE;
+		int cond = 0;
+		if (read)
+			cond |= MEMCHECK_READ;
+		if (write)
+			cond |= MEMCHECK_WRITE;
+		if (onChange)
+			cond |= MEMCHECK_WRITE_ONCHANGE;
 
 		MemCheckResult result;
 		if (log && enabled) result = MEMCHECK_BOTH;
@@ -193,7 +196,7 @@ void BreakpointWindow::addBreakpoint()
 		else if (enabled) result = MEMCHECK_BREAK;
 		else result = MEMCHECK_IGNORE;
 
-		CBreakPoints::AddMemCheck(address,address+size,cond,result);
+		CBreakPoints::AddMemCheck(address, address + size, (MemCheckCondition)cond, result);
 	} else {
 		// add breakpoint
 		CBreakPoints::AddBreakPoint(address,false);
@@ -218,23 +221,9 @@ void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)
 {
 	memory = true;
 
-	switch (memcheck.cond)
-	{
-	case MEMCHECK_READWRITE:
-		read = write = true;
-		break;
-	case MEMCHECK_READ:
-		read = true;
-		write = false;
-		break;
-	case MEMCHECK_WRITE:
-		read = false;
-		write = true;
-		break;
-	default:
-		read = write = false;
-		break;
-	}
+	read = (memcheck.cond & MEMCHECK_READ) != 0;
+	write = (memcheck.cond & MEMCHECK_WRITE) != 0;
+	onChange = (memcheck.cond & MEMCHECK_WRITE_ONCHANGE) != 0;
 
 	switch (memcheck.result)
 	{

@@ -16,11 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
-#include "sceKernelMemory.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceHeap.h"
-#include "../Util/BlockAllocator.h"
+#include "Core/Util/BlockAllocator.h"
 #include <map>
 
 struct Heap {

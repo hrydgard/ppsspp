@@ -28,7 +28,13 @@
 #include "Core/HW/MemoryStick.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 
-const float FONT_SCALE = 0.55f;
+const static float FONT_SCALE = 0.55f;
+
+// These are rough, it seems to take at least 100ms or so to init, and shutdown depends on threads.
+// Some games seem to required slightly longer delays to work, so we try 200ms as a compromise.
+const static int SAVEDATA_INIT_DELAY_US = 200000;
+const static int SAVEDATA_SHUTDOWN_DELAY_US = 2000;
+
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
@@ -44,8 +50,8 @@ PSPSaveDialog::~PSPSaveDialog() {
 int PSPSaveDialog::Init(int paramAddr)
 {
 	// Ignore if already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)	{
-		ERROR_LOG(SCEUTILITY,"A save request is already running !");
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	
@@ -56,7 +62,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	Memory::Memcpy(&request, requestAddr, size);
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 
-	u32 retval = param.SetPspParam(&request);
+	int retval = param.SetPspParam(&request);
 
 	INFO_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x) : Mode = %i", paramAddr, (SceUtilitySavedataType)(u32)param.GetPspParam()->mode);
 
@@ -167,16 +173,20 @@ int PSPSaveDialog::Init(int paramAddr)
 		{
 			ERROR_LOG_REPORT(SCEUTILITY, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->common.result = 0;
-			status = SCE_UTILITY_STATUS_INITIALIZE;
+			ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
 			display = DS_NONE;
 			return 0; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
 		}
 		break;
 	}
 
-	status = (int)retval < 0 ? SCE_UTILITY_STATUS_SHUTDOWN : SCE_UTILITY_STATUS_INITIALIZE;
+	if (retval < 0) {
+		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
+	} else {
+		ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
+	}
 
-	lastButtons = __CtrlPeekButtons();
+	UpdateButtons();
 	StartFade(true);
 
 	/*INFO_LOG(SCEUTILITY,"Dump Param :");
@@ -213,7 +223,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	return retval;
 }
 
-const std::string PSPSaveDialog::GetSelectedSaveDirName()
+const std::string PSPSaveDialog::GetSelectedSaveDirName() const
 {
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{
@@ -236,7 +246,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 
 	// TODO: Maybe also SINGLEDELETE/etc?
 
-	// SZIES ignores saveName it seems.
+	// SIZES ignores saveName it seems.
 
 	default:
 		return param.GetSaveDirName(param.GetPspParam(), currentSelectedSave);
@@ -534,19 +544,16 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 
 int PSPSaveDialog::Update(int animSpeed)
 {
-	switch (status) {
-	case SCE_UTILITY_STATUS_FINISHED:
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
-		break;
-	default:
-		break;
-	}
-
-	if (status != SCE_UTILITY_STATUS_RUNNING)
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	if (!param.GetPspParam()) {
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
+		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
+		return 0;
+	}
+
+	if (pendingStatus != SCE_UTILITY_STATUS_RUNNING) {
+		// We're actually done, we're just waiting to tell the game that.
 		return 0;
 	}
 
@@ -561,7 +568,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		param.SetPspParam(&request);
 	}
 
-	buttons = __CtrlPeekButtons();
+	UpdateButtons();
 	UpdateFade(animSpeed);
 
 	okButtonImg = I_CIRCLE;
@@ -770,7 +777,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
 
-			if (IsButtonPressed(cancelButtonFlag)) {
+			// Allow OK to be pressed as well to confirm the save.
+			// The PSP only allows cancel, but that's generally not great UX.
+			// Allowing this here makes it quicker for most users to get into the actual game.
+			if (IsButtonPressed(cancelButtonFlag) || IsButtonPressed(okButtonFlag)) {
 				param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_SUCCESS;
 				// Set the save to use for autosave and autoload
 				param.SetSelectedSave(param.GetFileInfo(currentSelectedSave).idx);
@@ -896,7 +906,7 @@ int PSPSaveDialog::Update(int animSpeed)
 						param.GetPspParam()->common.result = 0;
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 				case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
@@ -904,20 +914,20 @@ int PSPSaveDialog::Update(int animSpeed)
 						param.GetPspParam()->common.result = 0;
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
 					param.GetPspParam()->common.result = param.GetSizes(param.GetPspParam());
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 					param.GetList(param.GetPspParam());
 					param.GetPspParam()->common.result = 0;
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_FILES:
 					param.GetPspParam()->common.result = param.GetFilesList(param.GetPspParam());
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 					{
@@ -929,13 +939,13 @@ int PSPSaveDialog::Update(int animSpeed)
 							param.GetPspParam()->common.result = 0;
 						else
 							param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-						status = SCE_UTILITY_STATUS_FINISHED;
+						ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 					}
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 					DEBUG_LOG(SCEUTILITY, "sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
 					param.GetPspParam()->common.result = param.DeleteData(param.GetPspParam());
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				//case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
 				case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
@@ -943,7 +953,7 @@ int PSPSaveDialog::Update(int animSpeed)
 						param.GetPspParam()->common.result = 0;
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				// TODO: Should reset the directory's other files.
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
@@ -952,7 +962,7 @@ int PSPSaveDialog::Update(int animSpeed)
 						param.GetPspParam()->common.result = 0;
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
@@ -960,7 +970,7 @@ int PSPSaveDialog::Update(int animSpeed)
 						param.GetPspParam()->common.result = 0;
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
@@ -972,22 +982,20 @@ int PSPSaveDialog::Update(int animSpeed)
 					}
 					else
 						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA; // not sure if correct code
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 				default:
-					status = SCE_UTILITY_STATUS_FINISHED;
+					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 				break;
 			}
 		}
 		break;
 		default:
-			status = SCE_UTILITY_STATUS_FINISHED;
+			ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 		break;
 	}
 
-	lastButtons = buttons;
-
-	if (status == SCE_UTILITY_STATUS_FINISHED)
+	if (status == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size);
 	
 	return 0;
@@ -995,10 +1003,13 @@ int PSPSaveDialog::Update(int animSpeed)
 
 int PSPSaveDialog::Shutdown(bool force)
 {
-	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	PSPDialog::Shutdown();
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
+	}
 	param.SetPspParam(0);
 
 	return 0;

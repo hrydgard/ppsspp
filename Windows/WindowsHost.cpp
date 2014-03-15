@@ -104,6 +104,7 @@ bool WindowsHost::InitGL(std::string *error_message)
 void WindowsHost::ShutdownGL()
 {
 	GL_Shutdown();
+	PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message)
@@ -241,14 +242,17 @@ static std::string SymbolMapFilename(const char *currentFilename, char* ext)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	bool result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+	bool result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+	// Load the old-style map file.
+	if (!result1)
+		result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
 	bool result2 = symbolMap.LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
 	return result1 || result2;
 }
 
 void WindowsHost::SaveSymbolMap()
 {
-	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 }
 
 bool WindowsHost::IsDebuggingEnabled()

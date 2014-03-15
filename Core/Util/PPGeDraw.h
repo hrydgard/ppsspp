@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
 #include "ppge_atlas.h"
 #include "Common/CommonTypes.h"
 
@@ -46,18 +48,18 @@ void PPGeEnd();
 void PPGeBindTexture();
 
 enum {
-	PPGE_ALIGN_LEFT = 0,
-	PPGE_ALIGN_RIGHT = 16,
-	PPGE_ALIGN_TOP = 0,
-	PPGE_ALIGN_BOTTOM = 1,
-	PPGE_ALIGN_HCENTER = 4,
-	PPGE_ALIGN_VCENTER = 8,
-	PPGE_ALIGN_VBASELINE = 32,  // text only, possibly not yet working
+	PPGE_ALIGN_LEFT        = 0,
+	PPGE_ALIGN_RIGHT       = 16,
+	PPGE_ALIGN_TOP         = 0,
+	PPGE_ALIGN_BOTTOM      = 1,
+	PPGE_ALIGN_HCENTER     = 4,
+	PPGE_ALIGN_VCENTER     = 8,
+	PPGE_ALIGN_VBASELINE   = 32,  // text only, possibly not yet working
 
-	PPGE_ALIGN_CENTER = PPGE_ALIGN_HCENTER | PPGE_ALIGN_VCENTER,
-	PPGE_ALIGN_TOPLEFT = PPGE_ALIGN_TOP | PPGE_ALIGN_LEFT,
-	PPGE_ALIGN_TOPRIGHT = PPGE_ALIGN_TOP | PPGE_ALIGN_RIGHT,
-	PPGE_ALIGN_BOTTOMLEFT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_LEFT,
+	PPGE_ALIGN_CENTER      = PPGE_ALIGN_HCENTER | PPGE_ALIGN_VCENTER,
+	PPGE_ALIGN_TOPLEFT     = PPGE_ALIGN_TOP | PPGE_ALIGN_LEFT,
+	PPGE_ALIGN_TOPRIGHT    = PPGE_ALIGN_TOP | PPGE_ALIGN_RIGHT,
+	PPGE_ALIGN_BOTTOMLEFT  = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_LEFT,
 	PPGE_ALIGN_BOTTOMRIGHT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_RIGHT,
 };
 
@@ -67,10 +69,10 @@ enum {
 };
 
 enum {
-	PPGE_LINE_NONE = 0,
+	PPGE_LINE_NONE         = 0,
 	PPGE_LINE_USE_ELLIPSIS = 1, // use ellipses in too long words
-	PPGE_LINE_WRAP_WORD = 2,
-	PPGE_LINE_WRAP_CHAR = 4,
+	PPGE_LINE_WRAP_WORD    = 2,
+	PPGE_LINE_WRAP_CHAR    = 4,
 };
 
 // Get the metrics of the bounding box of the text without changing the buffer or state.

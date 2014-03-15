@@ -29,6 +29,7 @@
 #include "FileSystems/VirtualDiscFileSystem.h"
 
 #include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -103,6 +104,30 @@ void InitMemoryForGameISO(std::string fileToStart) {
 	}
 }
 
+
+// Chinese translators like to rename EBOOT.BIN and replace it with some kind of stub
+// that probably loads a plugin and then launches the actual game. These stubs don't work in PPSSPP.
+// No idea why they are doing this, but it works to just bypass it. They could stop
+// inventing new filenames though...
+static const char *altBootNames[] = {
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.OLD",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.DAT",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.BI",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.LLD",
+	"disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.123",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN",
+	"disc0:/PSP_GAME/SYSDIR/BOOT0.OLD",
+	"disc0:/PSP_GAME/SYSDIR/BOOT1.OLD",
+	"disc0:/PSP_GAME/SYSDIR/BINOT.BIN",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.FRY",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.Z.Y",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.LEI",
+	"disc0:/PSP_GAME/SYSDIR/EBOOT.DNR",
+	"disc0:/PSP_GAME/SYSDIR/DBZ2.BIN",
+	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
+};
+
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {
 	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
@@ -124,51 +149,20 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
-	// bypass patchers
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.OLD";
+
+	// Bypass Chinese translation patches, see comment above.
+	for (size_t i = 0; i < ARRAY_SIZE(altBootNames); i++) {
+		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
+			bootpath = altBootNames[i];			
+		}
 	}
-	// bypass another patchers
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.DAT").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.DAT";
+
+	// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
+	std::string id = g_paramSFO.GetValueString("DISC_ID");
+	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
+		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
 	}
-	// bypass more patchers
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.BI").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.BI";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.LLD").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.LLD";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.123").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.123";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/BOOT0.OLD").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT0.OLD";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/BOOT1.OLD").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT1.OLD";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/BINOT.BIN").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/BINOT.BIN";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.FRY").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.FRY";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.Z.Y").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.Z.Y";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.LEI").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.LEI";
-	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.DNR").exists) {
-		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.DNR";
-	}
+
 
 	bool hasEncrypted = false;
 	u32 fd;

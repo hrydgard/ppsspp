@@ -18,7 +18,9 @@
 #include <vector>
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 
@@ -61,10 +63,13 @@ void __PowerInit() {
 	volatileMemLocked = false;
 	volatileWaitingThreads.clear();
 
-	if(g_Config.iLockedCPUSpeed > 0) {
+	if (g_Config.iLockedCPUSpeed > 0) {
 		CoreTiming::SetClockFrequencyMHz(g_Config.iLockedCPUSpeed);
 		pllFreq = g_Config.iLockedCPUSpeed;
 		busFreq = g_Config.iLockedCPUSpeed / 2;
+	} else {
+		pllFreq = 222;
+		busFreq = 111;
 	}
 }
 
@@ -221,6 +226,12 @@ int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	Memory::Write_U32(0x08400000, paddr);
 	Memory::Write_U32(0x00400000, psize);
 	volatileMemLocked = true;
+
+	// HACK: This fixes Crash Tag Team Racing.
+	// Should only wait 1200 cycles though according to Unknown's testing,
+	// and with that it's still broken. So it's not this, unfortunately.
+	// Leaving it in for the 0.9.8 release anyway.
+	hleEatCycles(500000);
 
 	return 0;
 }

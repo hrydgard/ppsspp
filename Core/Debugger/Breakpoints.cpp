@@ -19,6 +19,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 #include <cstdio>
@@ -27,10 +28,17 @@ std::vector<BreakPoint> CBreakPoints::breakPoints_;
 u32 CBreakPoints::breakSkipFirstAt_ = 0;
 u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 std::vector<MemCheck> CBreakPoints::memChecks_;
+std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
 
-MemCheck::MemCheck(void)
+MemCheck::MemCheck()
 {
-	numHits=0;
+	numHits = 0;
+}
+
+void MemCheck::Log(u32 addr, bool write, int size, u32 pc)
+{
+	if (result & MEMCHECK_LOG)
+		NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr).c_str(), pc, symbolMap.GetDescription(pc).c_str());
 }
 
 void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
@@ -40,14 +48,56 @@ void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 	{
 		++numHits;
 
-		if (result & MEMCHECK_LOG)
-			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
+		Log(addr, write, size, pc);
 		if (result & MEMCHECK_BREAK)
 		{
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
 		}
 	}
+}
+
+void MemCheck::JitBefore(u32 addr, bool write, int size, u32 pc)
+{
+	int mask = MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE;
+	if (write && (cond & mask) == mask)
+	{
+		lastAddr = addr;
+		lastPC = pc;
+		lastSize = size;
+
+		// We have to break to find out if it changed.
+		Core_EnableStepping(true);
+	}
+	else
+	{
+		lastAddr = 0;
+		Action(addr, write, size, pc);
+	}
+}
+
+void MemCheck::JitCleanup()
+{
+	if (lastAddr == 0 || lastPC == 0)
+		return;
+
+	// Here's the tricky part: would this have changed memory?
+	// Note that it did not actually get written.
+	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr);
+	if (changed)
+	{
+		++numHits;
+		Log(lastAddr, true, lastSize, lastPC);
+	}
+
+	// Resume if it should not have gone to stepping, or if it did not change.
+	if ((!(result & MEMCHECK_BREAK) || !changed) && coreState == CORE_STEPPING)
+	{
+		CBreakPoints::SetSkipFirst(lastPC);
+		Core_EnableStepping(false);
+	}
+	else
+		host->SetDebugMode(true);
 }
 
 size_t CBreakPoints::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
@@ -198,6 +248,9 @@ BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
 
 void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result)
 {
+	// This will ruin any pending memchecks.
+	cleanupMemChecks_.clear();
+
 	size_t mc = FindMemCheck(start, end);
 	if (mc == INVALID_MEMCHECK)
 	{
@@ -220,6 +273,9 @@ void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCh
 
 void CBreakPoints::RemoveMemCheck(u32 start, u32 end)
 {
+	// This will ruin any pending memchecks.
+	cleanupMemChecks_.clear();
+
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK)
 	{
@@ -241,6 +297,9 @@ void CBreakPoints::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, Me
 
 void CBreakPoints::ClearAllMemChecks()
 {
+	// This will ruin any pending memchecks.
+	cleanupMemChecks_.clear();
+
 	if (!memChecks_.empty())
 	{
 		memChecks_.clear();
@@ -281,6 +340,24 @@ void CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc)
 	auto check = GetMemCheck(address, size);
 	if (check)
 		check->Action(address, write, size, pc);
+}
+
+void CBreakPoints::ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc)
+{
+	auto check = GetMemCheck(address, size);
+	if (check) {
+		check->JitBefore(address, write, size, pc);
+		cleanupMemChecks_.push_back(check);
+	}
+}
+
+void CBreakPoints::ExecMemCheckJitCleanup()
+{
+	for (auto it = cleanupMemChecks_.begin(), end = cleanupMemChecks_.end(); it != end; ++it) {
+		auto check = *it;
+		check->JitCleanup();
+	}
+	cleanupMemChecks_.clear();
 }
 
 void CBreakPoints::SetSkipFirst(u32 pc)

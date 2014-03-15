@@ -46,9 +46,9 @@ namespace MIPSComp
 	{
 		enum PrefixState
 		{
-			PREFIX_UNKNOWN = 0x00,
-			PREFIX_KNOWN = 0x01,
-			PREFIX_DIRTY = 0x10,
+			PREFIX_UNKNOWN     = 0x00,
+			PREFIX_KNOWN       = 0x01,
+			PREFIX_DIRTY       = 0x10,
 			PREFIX_KNOWN_DIRTY = 0x11,
 		};
 

@@ -20,7 +20,10 @@
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
-#include "proAdhoc.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/proAdhoc.h"
+#include "Core/MemMap.h"
 
 enum {
 	ERROR_NET_ADHOC_INVALID_SOCKET_ID            = 0x80410701,
@@ -79,10 +82,10 @@ enum {
 };
 
 enum {
-	PSP_ADHOC_POLL_READY_TO_SEND = 1,
+	PSP_ADHOC_POLL_READY_TO_SEND  = 1,
 	PSP_ADHOC_POLL_DATA_AVAILABLE = 2,
-	PSP_ADHOC_POLL_CAN_CONNECT = 4,
-	PSP_ADHOC_POLL_CAN_ACCEPT = 8,
+	PSP_ADHOC_POLL_CAN_CONNECT    = 4,
+	PSP_ADHOC_POLL_CAN_ACCEPT     = 8,
 };
 
 const size_t MAX_ADHOCCTL_HANDLERS = 32;
@@ -1256,7 +1259,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 
 	SceNetEtherAddr * addr = NULL;
 	if (Memory::IsValidAddress(peerMacAddrPtr)) {
-		addr = Memory::GetStruct<SceNetEtherAddr>(peerMacAddrPtr);
+		addr = PSPPointer<SceNetEtherAddr>::Create(peerMacAddrPtr);
 	}
 	uint16_t * port = NULL;
 	if (Memory::IsValidAddress(peerPortPtr)) {

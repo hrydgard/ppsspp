@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "../Core/Host.h"
+#include "Core/Host.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #define HEADLESSHOST_CLASS HeadlessHost
 
@@ -44,7 +45,7 @@ public:
 	virtual void BootDone() {}
 
 	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
+	virtual bool AttemptLoadSymbolMap() { symbolMap.Clear(); return false; }
 
 	virtual bool ShouldSkipUI() { return true; }
 

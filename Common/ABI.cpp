@@ -514,7 +514,7 @@ void XEmitter::ABI_PushAllCalleeSavedRegsAndAdjustStack() {
 	PUSH(R15);
 	ABI_AlignStack(0);
 
-	// Do this after aligning, beacuse before it's offset by 8.
+	// Do this after aligning, because before it's offset by 8.
 	SUB(64, R(RSP), Imm32(XMM_STACK_SPACE));
 	for (int i = 0; i < 16; ++i)
 		MOVAPS(MDisp(RSP, i * 16), (X64Reg)(XMM0 + i));

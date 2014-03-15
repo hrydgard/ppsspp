@@ -30,6 +30,7 @@
 #include "Core/HLE/sceKernelTime.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
+#include "Core/MemMap.h"
 
 // The time when the game started.
 static time_t start_time;
@@ -59,7 +60,7 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 	u64 t = CoreTiming::GetGlobalTimeUs();
 	if (Memory::IsValidAddress(sysclockPtr)) 
 		Memory::Write_U64(t, sysclockPtr);
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetSystemTime(out:%16llx)", t);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelGetSystemTime(out:%16llx)", t);
 	hleEatCycles(265);
 	hleReSchedule("system time");
 	return 0;

@@ -15,19 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "FunctionWrappers.h"
-#include "../MIPS/MIPS.h"
-#include "../Config.h"
-#include "ChunkFile.h"
-#include "sceUtility.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceUtility.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
 
-#define	PSP_IMPOSE_BATTICON_NONE		0x80000000
-#define	PSP_IMPOSE_BATTICON_VISIBLE		0x00000000
-#define	PSP_IMPOSE_BATTICON_BLINK		0x00000001
+#define	PSP_IMPOSE_BATTICON_NONE    0x80000000
+#define	PSP_IMPOSE_BATTICON_VISIBLE 0x00000000
+#define	PSP_IMPOSE_BATTICON_BLINK   0x00000001
 
 static u32 language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 static u32 buttonValue = PSP_SYSTEMPARAM_BUTTON_CIRCLE;

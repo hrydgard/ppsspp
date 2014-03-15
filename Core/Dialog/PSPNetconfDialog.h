@@ -19,7 +19,6 @@
 
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/MemMap.h"
-#include "Core/System.h"
 
 struct SceUtilityNetconfData {
 	char groupName[8];
@@ -46,5 +45,6 @@ public:
 	virtual void DoState(PointerWrap &p);
 
 private:
+	void DrawBanner();
 	SceUtilityNetconfParam request;
 };

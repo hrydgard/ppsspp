@@ -220,12 +220,17 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 	if ( RealPath(*currentDirectory, inpath, realpath) )
 	{
+		std::string prefix = realpath;
+		size_t prefixPos = realpath.find(':');
+		if (prefixPos != realpath.npos)
+			prefix = NormalizePrefix(realpath.substr(0, prefixPos + 1));
+
 		for (size_t i = 0; i < fileSystems.size(); i++)
 		{
 			size_t prefLen = fileSystems[i].prefix.size();
-			if (strncasecmp(fileSystems[i].prefix.c_str(), realpath.c_str(), prefLen) == 0)
+			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
 			{
-				outpath = realpath.substr(prefLen);
+				outpath = realpath.substr(prefixPos + 1);
 				*system = &(fileSystems[i]);
 
 				VERBOSE_LOG(FILESYS, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
@@ -237,6 +242,20 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 	DEBUG_LOG(FILESYS, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
 	return false;
+}
+
+std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
+	// Let's apply some mapping here since it won't break savestates.
+	if (prefix == "memstick:")
+		prefix = "ms0:";
+	// Seems like umd00: etc. work just fine...
+	if (startsWith(prefix, "umd"))
+		prefix = "umd0:";
+	// Seems like umd00: etc. work just fine...
+	if (startsWith(prefix, "host"))
+		prefix = "host0:";
+
+	return prefix;
 }
 
 void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
@@ -267,7 +286,7 @@ void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
-		if (it->prefix == prefix)
+		if (it->prefix == NormalizePrefix(prefix))
 			return it->system;
 	}
 	return NULL;

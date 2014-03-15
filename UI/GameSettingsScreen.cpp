@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
@@ -47,12 +49,6 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/Framebuffer.h"
 
-#ifdef _WIN32
-namespace MainWindow {
-	extern HWND hwndMain;
-}
-#endif
-
 #ifdef IOS
 extern bool iosCanUseJit;
 #endif
@@ -68,7 +64,7 @@ void GameSettingsScreen::CreateViews() {
 	showDebugStats_ = g_Config.bShowDebugStats;
 
 	iAlternateSpeedPercent_ = 3;
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < (int)ARRAY_SIZE(alternateSpeedTable); i++) {
 		if (g_Config.iFpsLimit <= alternateSpeedTable[i]) {
 			iAlternateSpeedPercent_ = i;
 			break;
@@ -98,6 +94,7 @@ void GameSettingsScreen::CreateViews() {
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 
 	root_->Add(tabHolder);
+	root_->SetDefaultFocusView(tabHolder);
 
 	// TODO: These currently point to global settings, not game specific ones.
 
@@ -110,12 +107,15 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
+	PopupMultiChoice *rm = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
+	rm->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
-	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()));
+	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnFrameSkipChange);
+	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gs->T("Auto FrameSkip")));
+	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
 	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
@@ -133,11 +133,12 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bSmallDisplay, gs->T("Small Display")));
 	if (pixel_xres < pixel_yres * 1.3) // Smaller than 4:3
 		graphicsSettings->Add(new CheckBox(&g_Config.bPartialStretch, gs->T("Partial Vertical Stretch")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
+#ifdef ANDROID
+	graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gs->T("Immersive Mode")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+#endif
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Performance")));
-
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
 #else
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
@@ -148,6 +149,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
+	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gs->T("Software Skinning")));
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
@@ -168,7 +170,7 @@ void GameSettingsScreen::CreateViews() {
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
 	static const char *texScaleLevelsPOT[] = {"Auto", "Off", "2x", "4x"};
 #else
@@ -200,6 +202,7 @@ void GameSettingsScreen::CreateViews() {
 	// Maybe hide this on non-PVR?
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bAlphaMaskHack, gs->T("Alpha Mask Hack (3rd Birthday)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
 	if (PSP_IsInited())
@@ -223,7 +226,7 @@ void GameSettingsScreen::CreateViews() {
 		dump->SetEnabled(false);
 
 	// We normally use software rendering to debug so put it in debugging.
-	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)"))); 
+	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 	if (PSP_IsInited())
 		softwareGPU->SetEnabled(false);
 
@@ -254,7 +257,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(c->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 
-#if defined(USING_GLES2)
+#if defined(MOBILE_DEVICE)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons"};
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, c->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), c, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
@@ -268,6 +271,16 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+	// On systems that aren't Symbian, iOS, and Meego Harmattan, offer to let the user see this button.
+	// Some Windows touch devices don't have a back button or other button to call up the menu.
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
+
+	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
+	enablePauseBtn->SetEnabled(!PSP_IsInited());
+#endif
+
 	CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
 	disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
 	View *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
@@ -276,7 +289,7 @@ void GameSettingsScreen::CreateViews() {
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, c->T("Ignore Windows Key")));
 #endif
@@ -297,7 +310,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default) (unstable)"), screenManager()));
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, s->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (0 = off, mem hog)"), screenManager()));
 #endif
 
@@ -307,6 +320,13 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
 	systemSettings->Add(new ItemHeader(s->T("General")));
+
+#ifdef ANDROID
+	static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
+	PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, c->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), c, screenManager()));
+	rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
+#endif
+
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, s->T("VersionCheck", "Check for new versions of PPSSPP")));
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
@@ -335,7 +355,7 @@ void GameSettingsScreen::CreateViews() {
 #if defined(_WIN32) || defined(USING_QT_UI)
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
-#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(USING_GLES2))
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	// Screenshot functionality is not yet available on non-Windows/non-Qt
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, s->T("Screenshots as PNG")));
 #endif
@@ -348,14 +368,31 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
+UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
+	System_SendMessage("rotate", "");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
+	System_SendMessage("immersive", "");
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	// We do not want to report when rendering mode is Framebuffer to memory - so many issues
 	// are caused by that (framebuffer copies overwriting display lists, etc).
+	Reporting::UpdateConfig();
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
 	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnFrameSkipChange(UI::EventParams &e) {
+	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
+
 	return UI::EVENT_DONE;
 }
 
@@ -380,6 +417,7 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
 	}
+	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 
@@ -390,41 +428,11 @@ UI::EventReturn GameSettingsScreen::OnShaderChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void DrawBackground(float alpha);
-
 UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 	if (gpu) {
 		gpu->DumpNextFrame();
 	}
 	return UI::EVENT_DONE;
-}
-
-void GameSettingsScreen::DrawBackground(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
-	dc.Flush();
-
-	dc.RebindTexture();
-	::DrawBackground(1.0f);
-	dc.Flush();
-
-	if (ginfo && ginfo->pic1Texture) {
-		ginfo->pic1Texture->Bind(0);
-		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
-		dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
-		dc.Flush();
-		dc.RebindTexture();
-	}
-	/*
-	if (ginfo && ginfo->pic0Texture) {
-		ginfo->pic0Texture->Bind(0);
-		// Pic0 is drawn in the bottom right corner, overlaying pic1.
-		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
-		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
-		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 2)) & 0xFFc0c0c0;
-		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,color);
-		ui_draw2d.Flush();
-		dc.RebindTexture();
-	}*/
 }
 
 void GameSettingsScreen::update(InputState &input) {
@@ -433,9 +441,7 @@ void GameSettingsScreen::update(InputState &input) {
 	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
 	if (g_Config.bShowDebugStats != showDebugStats_) {
 		// This affects the jit.
-		if (MIPSComp::jit) {
-			MIPSComp::jit->ClearCache();
-		}
+		NativeMessageReceived("clear jit", "");
 		g_Config.bShowDebugStats = showDebugStats_;
 	}
 }
@@ -457,6 +463,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	}
 
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
+	Reporting::UpdateConfig();
 	g_Config.Save();
 
 	host->UpdateUI();
@@ -496,7 +503,7 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
-	RecreateViews();
+	screenManager()->RecreateAllViews();
 
 	if (host) {
 		host->UpdateUI();
@@ -516,6 +523,7 @@ UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
 	}
+	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
@@ -571,6 +579,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
+	list->Add(new CheckBox(&g_Config.bDumpDecryptedEboot, de->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 
 	Choice *cpuTests = new Choice(de->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);

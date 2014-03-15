@@ -63,8 +63,7 @@ public:
 	void SpillLockV(MIPSReg r) { SpillLock(r + 32); }
 
 	void ReleaseSpillLocksAndDiscardTemps();
-	void ReleaseSpillLock(int mipsreg)
-	{
+	void ReleaseSpillLock(int mipsreg) {
 		mr[mipsreg].spillLock = false;
 	}
 	void ReleaseSpillLockV(int mipsreg) {
@@ -91,13 +90,12 @@ public:
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
 	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
-	void FlushV(MIPSReg r) { FlushR(r + 32); }
-	void DiscardV(MIPSReg r) { DiscardR(r + 32);}
 	bool IsTempX(ARMReg r) const;
 
 	MIPSReg GetTempR();
 	MIPSReg GetTempV() { return GetTempR() - 32; }
 	 
+	int FlushGetSequential(int a, int maxArmReg);
 	void FlushAll();
 
 	ARMReg R(int preg); // Returns a cached register
@@ -121,6 +119,7 @@ public:
 	int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
 	}
+	int GetNumARMFPURegs();
 
 private:
 	MIPSState *mips_;

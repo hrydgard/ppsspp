@@ -62,6 +62,7 @@
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
+#include "Windows/TouchInputHandler.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "gfx_es2/gpu_features.h"
@@ -78,7 +79,8 @@
 #include "XPTheme.h"
 #endif
 
-#define ENABLE_TOUCH 0
+#define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
+#define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
 
 static const int numCPUs = 1;
 
@@ -116,6 +118,7 @@ namespace MainWindow
 	HWND hwndMain;
 	HWND hwndDisplay;
 	HWND hwndGameList;
+	TouchInputHandler touchHandler;
 	static HMENU menu;
 
 	static HINSTANCE hInst;
@@ -192,7 +195,7 @@ namespace MainWindow
 		}
 	}
 
-	void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
+	static void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
 		rcInner.left = 0;
 		rcInner.top = 0;
 
@@ -207,46 +210,58 @@ namespace MainWindow
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-	void ResizeDisplay(bool displayOSM = true, bool noWindowMovement = false) {
+
+	static void ShowScreenResolution() {
+		I18NCategory *g = GetI18NCategory("Graphics");
+		char message[256];
+		sprintf(message, "%s: %ix%i  %s: %ix%i",
+			g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
+			g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		osm.Show(g->T(message), 2.0f);
+	}
+
+	static void UpdateRenderResolution() {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
-		if (!noWindowMovement) {
-			if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth &&
-				(rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
-				return;
-
-			PSP_CoreParameter().pixelWidth = rc.right - rc.left;
-			PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
-			MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
-		}
-
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
 			zoom = (rc.right - rc.left + 479) / 480;
 
+		// Actually, auto mode should be more granular...
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
-		PSP_CoreParameter().outputWidth = 480 * zoom;
-		PSP_CoreParameter().outputHeight = 272 * zoom;
-		
-		if (displayOSM) {
-			I18NCategory *g = GetI18NCategory("Graphics");
-			char message[256];
-			sprintf(message, "%s: %ix%i  %s: %ix%i",
-				g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
-				g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-			osm.Show(g->T(message), 2.0f);
+	}
+
+	static void ResizeDisplay(bool noWindowMovement = false) {
+		int width = 0, height = 0;
+		RECT rc;
+		GetClientRect(hwndMain, &rc);
+		if (!noWindowMovement) {
+			width = rc.right - rc.left;
+			height = rc.bottom - rc.top;
+			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
+			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
+			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
+			// Need to clean all of this up...
+			PSP_CoreParameter().pixelWidth = width;
+			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		NativeMessageReceived("gpu resized", "");
+		UpdateRenderResolution();
+		
+		if (!noWindowMovement) {
+			UpdateScreenScale(width, height);
+			NativeMessageReceived("gpu resized", "");
+		}
 	}
 
 	void SetWindowSize(int zoom) {
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		ResizeDisplay(true, true);
+		ResizeDisplay(false);
+		ShowScreenResolution();
 	}
 
 	void SetInternalResolution(int res = -1) {
@@ -257,10 +272,15 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 		
+		// Taking auto-texture scaling into account
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		ResizeDisplay(true, true);
+		if (gpu)
+			gpu->Resized();
+
+		UpdateRenderResolution();
+		ShowScreenResolution();
 	}
 
 	void CorrectCursor() {
@@ -300,7 +320,10 @@ namespace MainWindow
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(showOSM, true);
+		ResizeDisplay(true);
+		if (showOSM) {
+			ShowScreenResolution();
+		}
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 	}
@@ -330,10 +353,12 @@ namespace MainWindow
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(showOSM, true);
+		ResizeDisplay(true);
+		if (showOSM) {
+			ShowScreenResolution();
+		}
 
 		ShowOwnedPopups(hwndMain, FALSE);
-		UpdateScreenScale();
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -402,6 +427,10 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 	}
 
 	// These are used as an offset
@@ -613,8 +642,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU);
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU);
 		TranslateSubMenu("Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0);
 		// Skip frameskipping 1-8..
 		TranslateSubMenu("Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO);
@@ -706,7 +735,6 @@ namespace MainWindow
 		I18NCategory *g = GetI18NCategory("Graphics");
 		const char *frameskipStr = g->T("Frame Skipping");
 		const char *offStr = g->T("Off");
-		const char *autoStr = g->T("Auto");
 
 		char message[256];
 		memset(message, 0, sizeof(message));
@@ -715,12 +743,8 @@ namespace MainWindow
 		case FRAMESKIP_OFF:
 			sprintf(message, "%s: %s", frameskipStr, offStr);
 			break;
-		case FRAMESKIP_AUTO:
-			sprintf(message, "%s: %s", frameskipStr, autoStr);
-			break;
 		default:
-			//1 means auto, 2 means 1, 3 means 2...
-			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip - 1);
+			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
 			break;
 		}
 
@@ -789,9 +813,7 @@ namespace MainWindow
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-#if ENABLE_TOUCH
-		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
-#endif
+		touchHandler.registerTouchWindow(hwndDisplay);
 
 		WindowsRawInput::Init();
 
@@ -809,6 +831,23 @@ namespace MainWindow
 
 		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(memoryWindow[0]);
+	}
+
+	void DestroyDebugWindows() {
+		DialogManager::RemoveDlg(disasmWindow[0]);
+		if (disasmWindow[0])
+			delete disasmWindow[0];
+		disasmWindow[0] = 0;
+		
+		DialogManager::RemoveDlg(geDebuggerWindow);
+		if (geDebuggerWindow)
+			delete geDebuggerWindow;
+		geDebuggerWindow = 0;
+		
+		DialogManager::RemoveDlg(memoryWindow[0]);
+		if (memoryWindow[0])
+			delete memoryWindow[0];
+		memoryWindow[0] = 0;
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
@@ -905,6 +944,8 @@ namespace MainWindow
 		// and as asynchronous touch events for minimal latency.
 
 		case WM_LBUTTONDOWN:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
@@ -924,11 +965,13 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				SetCapture(hWnd);
-				
+
 			}
 			break;
 
 		case WM_MOUSEMOVE:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
@@ -959,6 +1002,8 @@ namespace MainWindow
 			break;
 
 		case WM_LBUTTONUP:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
@@ -978,37 +1023,10 @@ namespace MainWindow
 			}
 			break;
 
-		// Actual touch! Unfinished...
-
 		case WM_TOUCH:
 			{
-				// TODO: Enabling this section will probably break things on Windows XP.
-				// We probably need to manually fetch pointers to GetTouchInputInfo and CloseTouchInputHandle.
-#if ENABLE_TOUCH
-				UINT inputCount = LOWORD(wParam);
-				TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
-				if (GetTouchInputInfo((HTOUCHINPUT)lParam,
-					inputCount,
-					inputs,
-					sizeof(TOUCHINPUT)))
-				{
-					for (int i = 0; i < inputCount; i++) {
-						// TODO: process inputs here!
-
-					}
-
-					if (!CloseTouchInputHandle((HTOUCHINPUT)lParam))
-					{
-						// Error handling.
-					}
-				}
-				else
-				{
-					// GetLastError() and error handling.
-				}
-				delete [] inputs;
-				return DefWindowProc(hWnd, message, wParam, lParam);
-#endif
+				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
+				return 0;
 			}
 
 		case WM_PAINT:
@@ -1053,12 +1071,11 @@ namespace MainWindow
 
 		case WM_MOVE:
 			SavePosition();
-			ResizeDisplay(false);
 			break;
 
 		case WM_SIZE:
 			SavePosition();
-			ResizeDisplay(false);
+			ResizeDisplay();
 			break;
 
 		case WM_TIMER:
@@ -1237,6 +1254,10 @@ namespace MainWindow
 					g_Config.bVSync = !g_Config.bVSync;
 					break;
 
+				case ID_OPTIONS_FRAMESKIP_AUTO:
+					g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
+					break;
+
 				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
 				case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
 				case ID_TEXTURESCALING_2X:  setTexScalingMultiplier(TEXSCALING_2X); break;
@@ -1280,7 +1301,6 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
-				case ID_OPTIONS_FRAMESKIP_AUTO: setFrameSkipping(FRAMESKIP_AUTO); break;
 				case ID_OPTIONS_FRAMESKIP_1:    setFrameSkipping(FRAMESKIP_1); break;
 				case ID_OPTIONS_FRAMESKIP_2:    setFrameSkipping(FRAMESKIP_2); break;
 				case ID_OPTIONS_FRAMESKIP_3:    setFrameSkipping(FRAMESKIP_3); break;
@@ -1307,7 +1327,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, L"Load .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn)) {
 						symbolMap.LoadSymbolMap(fn.c_str());
 
 						if (disasmWindow[0])
@@ -1319,7 +1339,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_SAVEMAPFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, L"Save .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn))
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
 
@@ -1336,15 +1356,18 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
-					disasmWindow[0]->Show(true);
+					if (disasmWindow[0])
+						disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_GEDEBUGGER:
-					geDebuggerWindow->Show(true);
+					if (geDebuggerWindow)
+						geDebuggerWindow->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
-					memoryWindow[0]->Show(true);
+					if (memoryWindow[0])
+						memoryWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_EXTRACTFILE:
@@ -1366,7 +1389,7 @@ namespace MainWindow
 							MessageBox(hwndMain, L"File does not exist.", L"Sorry",0);
 						} else if (info.type == FILETYPE_DIRECTORY) {
 							MessageBox(hwndMain, L"Cannot extract directories.", L"Sorry",0);
-						} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"0All files\0*.*\0\0", L"", fn)) {
+						} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
 							FILE *fp = fopen(fn.c_str(), "wb");
 							u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 							u8 buffer[4096];
@@ -1467,7 +1490,7 @@ namespace MainWindow
 						// The Menu ID is contained in wParam, so subtract
 						// ID_SHADERS_BASE and an additional 1 off it.
 						u32 index = (wParam - ID_SHADERS_BASE - 1);
-						if (index >= 0 && index < availableShaders.size()) {
+						if (index < availableShaders.size()) {
 							g_Config.sPostShaderName = availableShaders[index];
 
 							NativeMessageReceived("gpu resized", "");
@@ -1551,10 +1574,13 @@ namespace MainWindow
 			break;
 
 		case WM_USER + 1:
-			disasmWindow[0]->NotifyMapLoaded();
-			memoryWindow[0]->NotifyMapLoaded();
+			if (disasmWindow[0])
+				disasmWindow[0]->NotifyMapLoaded();
+			if (memoryWindow[0])
+				memoryWindow[0]->NotifyMapLoaded();
 
-			disasmWindow[0]->UpdateDialog();
+			if (disasmWindow[0])
+				disasmWindow[0]->UpdateDialog();
 
 			SetForegroundWindow(hwndMain);
 			break;
@@ -1569,7 +1595,8 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_SCREEN:
-			ResizeDisplay(true, true);
+			ResizeDisplay(true);
+			ShowScreenResolution();
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
@@ -1617,6 +1644,7 @@ namespace MainWindow
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
@@ -1740,7 +1768,6 @@ namespace MainWindow
 
 		static const int frameskipping[] = {
 			ID_OPTIONS_FRAMESKIP_0,
-			ID_OPTIONS_FRAMESKIP_AUTO,
 			ID_OPTIONS_FRAMESKIP_1,
 			ID_OPTIONS_FRAMESKIP_2,
 			ID_OPTIONS_FRAMESKIP_3,

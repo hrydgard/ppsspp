@@ -17,6 +17,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 
@@ -89,7 +90,7 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 			restLength = totalLength;	
 			inhandle = pspFileSystem.OpenFile(fullinFileName, FILEACCESS_READ);
 			if (inhandle != 0) {
-				outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+				outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 				if (outhandle != 0) {
 					while (restLength > 0) {
 						if (restLength < bytesToRead) 

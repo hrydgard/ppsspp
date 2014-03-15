@@ -20,11 +20,11 @@
 #include <string>
 #include <vector>
 
+#include "Common/CommonTypes.h"
+#include "Core/HLE/sceKernel.h"
+
 // There's a good description of the thread scheduling rules in:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java
-
-#include "sceKernelModule.h"
-#include "HLE.h"
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
@@ -73,30 +73,30 @@ struct SceKernelSysClock {
 // remember to update the waitTypeNames array in sceKernelThread.cpp when changing these
 enum WaitType
 {
-	WAITTYPE_NONE = 0,
-	WAITTYPE_SLEEP = 1,
-	WAITTYPE_DELAY = 2,
-	WAITTYPE_SEMA  = 3,
-	WAITTYPE_EVENTFLAG = 4,
-	WAITTYPE_MBX = 5,
-	WAITTYPE_VPL = 6,
-	WAITTYPE_FPL = 7,
-	WAITTYPE_MSGPIPE = 8, // fake
-	WAITTYPE_THREADEND = 9,
+	WAITTYPE_NONE         = 0,
+	WAITTYPE_SLEEP        = 1,
+	WAITTYPE_DELAY        = 2,
+	WAITTYPE_SEMA         = 3,
+	WAITTYPE_EVENTFLAG    = 4,
+	WAITTYPE_MBX          = 5,
+	WAITTYPE_VPL          = 6,
+	WAITTYPE_FPL          = 7,
+	WAITTYPE_MSGPIPE      = 8,  // fake
+	WAITTYPE_THREADEND    = 9,
 	WAITTYPE_AUDIOCHANNEL = 10, // this is fake, should be replaced with 8 eventflags   ( ?? )
-	WAITTYPE_UMD = 11,           // this is fake, should be replaced with 1 eventflag    ( ?? )
-	WAITTYPE_VBLANK = 12,           // fake
-	WAITTYPE_MUTEX = 13,
-	WAITTYPE_LWMUTEX = 14,
-	WAITTYPE_CTRL = 15,
-	WAITTYPE_IO = 16,
-	WAITTYPE_GEDRAWSYNC = 17,
-	WAITTYPE_GELISTSYNC = 18,
-	WAITTYPE_MODULE = 19,
-	WAITTYPE_HLEDELAY = 20,
-	WAITTYPE_TLSPL = 21,
-	WAITTYPE_VMEM = 22,
-	WAITTYPE_ASYNCIO = 23,
+	WAITTYPE_UMD          = 11, // this is fake, should be replaced with 1 eventflag    ( ?? )
+	WAITTYPE_VBLANK       = 12, // fake
+	WAITTYPE_MUTEX        = 13,
+	WAITTYPE_LWMUTEX      = 14,
+	WAITTYPE_CTRL         = 15,
+	WAITTYPE_IO           = 16,
+	WAITTYPE_GEDRAWSYNC   = 17,
+	WAITTYPE_GELISTSYNC   = 18,
+	WAITTYPE_MODULE       = 19,
+	WAITTYPE_HLEDELAY     = 20,
+	WAITTYPE_TLSPL        = 21,
+	WAITTYPE_VMEM         = 22,
+	WAITTYPE_ASYNCIO      = 23,
 
 	NUM_WAITTYPES
 };
@@ -281,11 +281,11 @@ public:
 enum ThreadStatus
 {
 	THREADSTATUS_RUNNING = 1,
-	THREADSTATUS_READY = 2,
-	THREADSTATUS_WAIT = 4,
+	THREADSTATUS_READY   = 2,
+	THREADSTATUS_WAIT    = 4,
 	THREADSTATUS_SUSPEND = 8,
 	THREADSTATUS_DORMANT = 16,
-	THREADSTATUS_DEAD = 32,
+	THREADSTATUS_DEAD    = 32,
 
 	THREADSTATUS_WAITSUSPEND = THREADSTATUS_WAIT | THREADSTATUS_SUSPEND
 };

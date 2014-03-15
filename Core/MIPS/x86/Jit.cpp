@@ -22,6 +22,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/Core.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -99,6 +100,24 @@ u32 JitBreakpoint()
 	}
 
 	return 1;
+}
+
+void JitMemCheck(u32 addr, int size, int isWrite)
+{
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return;
+
+	// Did we already hit one?
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
+		return;
+
+	CBreakPoints::ExecMemCheckJitBefore(addr, isWrite == 1, size, currentMIPS->pc);
+}
+
+void JitMemCheckCleanup()
+{
+	CBreakPoints::ExecMemCheckJitCleanup();
 }
 
 static void JitLogMiss(MIPSOpcode op)
@@ -344,6 +363,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 			js.afterOp = JitState::AFTER_NONE;
 		}
+		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
+		}
 
 		js.compilerPC += 4;
 		js.numInstructions++;
@@ -374,9 +396,9 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
 	else if (jitAddr != (u32)-1)
 	{
 		char temp[1024];
-		const char *label = symbolMap.GetDescription(jitAddr);
-		if (label != NULL)
-			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label);
+		const std::string label = symbolMap.GetDescription(jitAddr);
+		if (!label.empty())
+			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
 		else
 			snprintf(temp, sizeof(temp), "%08x", jitAddr);
 		name = temp;
@@ -521,8 +543,6 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
-
-		js.afterOp = JitState::AFTER_NONE;
 	}
 
 	WriteDowncount();
@@ -559,8 +579,6 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
-
-		js.afterOp = JitState::AFTER_NONE;
 	}
 
 	WriteDowncount();
@@ -602,6 +620,9 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
+	if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+		ABI_CallFunction(&JitMemCheckCleanup);
+	}
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
@@ -892,19 +913,6 @@ void Jit::JitSafeMem::Finish()
 		jit_->SetJumpTarget(*it);
 }
 
-void JitMemCheck(u32 addr, int size, int isWrite)
-{
-	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
-		return;
-
-	// Did we already hit one?
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
-		return;
-
-	CBreakPoints::ExecMemCheck(addr, isWrite == 1, size, currentMIPS->pc);
-}
-
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
 {
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
@@ -921,7 +929,7 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 }
 
@@ -971,7 +979,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
 }
 
@@ -990,17 +998,17 @@ void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const OpArg
 void Jit::CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2, const u32 arg3)
 {
 	// On x64, we need to save R8, which is caller saved.
-	ABI_CallFunction(thunks.GetSaveRegsFunction());
+	thunks.Enter(this);
 	ABI_CallFunctionCCC(func, arg1, arg2, arg3);
-	ABI_CallFunction(thunks.GetLoadRegsFunction());
+	thunks.Leave(this);
 }
 
 void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 arg2, const u32 arg3)
 {
 	// On x64, we need to save R8, which is caller saved.
-	ABI_CallFunction(thunks.GetSaveRegsFunction());
+	thunks.Enter(this);
 	ABI_CallFunctionACC(func, arg1, arg2, arg3);
-	ABI_CallFunction(thunks.GetLoadRegsFunction());
+	thunks.Leave(this);
 }
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }

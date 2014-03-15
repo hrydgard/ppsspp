@@ -46,7 +46,7 @@ SimpleAT3::SimpleAT3()
 	: codec_(0),
 		codecCtx_(0),
 		swrCtx_(0) {
-	frame_ = avcodec_alloc_frame();
+	frame_ = av_frame_alloc();
 
 	codec_ = avcodec_find_decoder(AV_CODEC_ID_ATRAC3P);
 	if (!codec_) {
@@ -101,7 +101,7 @@ SimpleAT3::SimpleAT3()
 
 SimpleAT3::~SimpleAT3() {
 	if (frame_)
-		avcodec_free_frame(&frame_);
+		av_frame_free(&frame_);
 	if (codecCtx_)
 		avcodec_close(codecCtx_);
 	codecCtx_ = 0;
@@ -121,7 +121,7 @@ bool SimpleAT3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 	*outbytes = 0;
 
 	int got_frame = 0;
-	avcodec_get_frame_defaults(frame_);
+	av_frame_unref(frame_);
 
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {

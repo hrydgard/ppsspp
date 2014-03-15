@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "MIPS.h"
-#include "MIPSTables.h"
-#include "MIPSCodeUtils.h"
-#include "../Host.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/Host.h"
+#include "Core/MemMap.h"
 
 namespace MIPSCodeUtils
 {
@@ -67,6 +68,11 @@ namespace MIPSCodeUtils
 	u32 GetBranchTargetNoRA(u32 addr)
 	{
 		MIPSOpcode op = Memory::Read_Instruction(addr);
+		return GetBranchTargetNoRA(addr, op);
+	}
+
+	u32 GetBranchTargetNoRA(u32 addr, MIPSOpcode op)
+	{
 		if (op != 0)
 		{
 			MIPSInfo info = MIPSGetInfo(op);

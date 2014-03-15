@@ -1,5 +1,6 @@
 // TODO: Add license
 
+#include <cstring>
 #include "util/text/parsers.h"
 #include "proAdhoc.h" 
 
@@ -480,7 +481,9 @@ int getActivePeerCount(void) {
 }
 
 int getLocalIp(sockaddr_in * SocketAddress){
-#ifdef _MSC_VER
+#ifdef _XBOX
+	return -1;
+#elif defined(_MSC_VER)
 	// Get local host name
 	char szHostName[128] = "";
 
@@ -522,6 +525,9 @@ int getPTPSocketCount(void) {
 }
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
+#ifdef _XBOX
+	return -1;
+#else
   int iResult = 0;
 #ifdef _MSC_VER
   WSADATA data;
@@ -541,27 +547,30 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(27312); // Maybe read this from config too
 
-  // Resolve dns 
-  addrinfo * resultAddr;
+	// Resolve dns
+	addrinfo * resultAddr;
     addrinfo * ptr;
     in_addr serverIp;
-  iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
-  if(iResult !=  0){
-    ERROR_LOG(SCENET, "Dns error\n");
-    return iResult;
+	serverIp.s_addr = INADDR_NONE;
+
+	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
+	if (iResult != 0) {
+		ERROR_LOG(SCENET, "Dns error\n");
+		return iResult;
 	}
-	for(ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next){
-		switch(ptr->ai_family){
+	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
+		switch (ptr->ai_family) {
 		case AF_INET:
 			serverIp = ((sockaddr_in *)ptr->ai_addr)->sin_addr;
+			break;
 		}
 	}
 	server_addr.sin_addr = serverIp;
 	iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
-	if(iResult == SOCKET_ERROR){
+	if (iResult == SOCKET_ERROR) {
 		ERROR_LOG(SCENET,"Socket error");
-    return iResult;
-  }
+		return iResult;
+	}
   memset(&parameter,0,sizeof(parameter));
   strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
   parameter.channel = 1; // Fake Channel 1
@@ -582,6 +591,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
   }else{
     return -1;
   }
+#endif
 }
 
 int isBroadcastMAC(const SceNetEtherAddr * addr) {

@@ -28,6 +28,8 @@ namespace W32Util
 		// For a file (OPEN or SAVE.)
 		AsyncBrowseDialog(Type type, HWND parent, UINT completeMsg, std::wstring title, std::wstring initialFolder, std::wstring filter, std::wstring extension);
 
+		~AsyncBrowseDialog();
+
 		bool GetResult(std::string &filename);
 		Type GetType() {
 			return type_;

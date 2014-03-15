@@ -34,6 +34,10 @@
 #endif
 #endif
 
+#ifdef IOS
+void* globalbase=NULL;
+#endif
+
 #ifdef ANDROID
 
 // Hopefully this ABI will never change...
@@ -104,7 +108,7 @@ std::string ram_temp_file = "/home/user/gc_mem.tmp";
 #else
 std::string ram_temp_file = "/tmp/gc_mem.tmp";
 #endif
-#else
+#elif !defined(_XBOX)
 SYSTEM_INFO sysInfo;
 #endif
 
@@ -112,7 +116,11 @@ SYSTEM_INFO sysInfo;
 // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
 #ifdef _WIN32
 size_t roundup(size_t x) {
+#ifndef _XBOX
 	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
+#else
+	int gran = 0x10000; // 64k in 360
+#endif
 	return (x + gran - 1) & ~(gran - 1);
 }
 #else
@@ -125,8 +133,10 @@ size_t roundup(size_t x) {
 void MemArena::GrabLowMemSpace(size_t size)
 {
 #ifdef _WIN32
+#ifndef _XBOX
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
 	GetSystemInfo(&sysInfo);
+#endif
 #elif defined(ANDROID)
 	// Use ashmem so we don't have to allocate a file on disk!
 	fd = ashmem_create_region("PPSSPP_RAM", size);
@@ -172,9 +182,16 @@ void MemArena::ReleaseSpace()
 void *MemArena::CreateView(s64 offset, size_t size, void *base)
 {
 #ifdef _WIN32
+#ifdef _XBOX
+    size = roundup(size);
+	// use 64kb pages
+    void * ptr = VirtualAlloc(NULL, size, MEM_COMMIT|MEM_LARGE_PAGES, PAGE_READWRITE);
+    return ptr;
+#else
 	size = roundup(size);
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
 	return ptr;
+#endif
 #else
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
 // Do not sync memory to underlying file. Linux has this by default.
@@ -198,7 +215,9 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 void MemArena::ReleaseView(void* view, size_t size)
 {
 #ifdef _WIN32
+#ifndef _XBOX
 	UnmapViewOfFile(view);
+#endif
 #elif defined(__SYMBIAN32__)
 	memmap->Decommit(((int)view - (int)memmap->Base()) & 0x3FFFFFFF, size);
 #else
@@ -230,13 +249,28 @@ u8* MemArena::Find4GBBase()
 	}
 	return base;
 #else
-	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
-		MAP_ANON | MAP_SHARED, -1, 0);
-	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
-		return 0;
-	}
-	munmap(base, 0x10000000);
+#ifdef IOS
+    void* base = NULL;
+    if (globalbase==NULL){
+        base = mmap(0, 0x08000000, PROT_READ | PROT_WRITE,
+                    MAP_ANON | MAP_SHARED, -1, 0);
+        if (base == MAP_FAILED) {
+            PanicAlert("Failed to map 128 MB of memory space: %s", strerror(errno));
+            return 0;
+        }
+        munmap(base, 0x08000000);
+        globalbase=base;
+    }
+    else{base=globalbase;}
+#else
+    void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
+                      MAP_ANON | MAP_SHARED, -1, 0);
+    if (base == MAP_FAILED) {
+        PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
+        return 0;
+    }
+    munmap(base, 0x10000000);
+#endif
 	return static_cast<u8*>(base);
 #endif
 #endif
@@ -256,6 +290,10 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 	// We just mimic the popular BAT setup.
 	size_t position = 0;
 	size_t last_position = 0;
+
+#if defined(_XBOX)
+	void *ptr;
+#endif
 
 	// Zero all the pointers to be sure.
 	for (int i = 0; i < num_views; i++)
@@ -281,6 +319,12 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 			arena->memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
 		}
 		*(view.out_ptr) = (u8*)((int)arena->memmap->Base() + view.virtual_address & 0x3FFFFFFF);
+#elif defined(_XBOX)
+			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
+			//arena->memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
+			ptr = VirtualAlloc(base + (view.virtual_address & 0x3FFFFFFF), view.size, MEM_COMMIT, PAGE_READWRITE);
+		}
+		*(view.out_ptr) = (u8*)base + (view.virtual_address & 0x3FFFFFFF);
 #else
 			*(view.out_ptr_low) = (u8*)arena->CreateView(position, view.size);
 			if (!*view.out_ptr_low)
@@ -364,8 +408,16 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
 		return 0;
 	}
-#else
-#ifdef _WIN32
+#elif defined(_XBOX)
+	// Reserve 256MB
+	u8 *base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE|MEM_LARGE_PAGES, PAGE_READWRITE);
+	if (!Memory_TryBase(base, views, num_views, flags, arena))
+	{
+		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
+		exit(0);
+		return 0;
+	}
+#elif defined(_WIN32)
 	// Try a whole range of possible bases. Return once we got a valid one.
 	u32 max_base_addr = 0x7FFF0000 - 0x10000000;
 	u8 *base = NULL;
@@ -399,8 +451,6 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
 		return 0;
 	}
-#endif
-
 #endif
 	if (base_attempts)
 		PanicAlert("No possible memory base pointer found!");

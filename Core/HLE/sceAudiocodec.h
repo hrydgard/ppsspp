@@ -19,16 +19,16 @@
 
 typedef struct 
 {
-	s32 unk0;
-	s32 unk4;
-	s32 err; // 8
-	s32 edramAddr; // 12
-	s32 neededMem; // 16
-	s32 unk20;
-	u32 inBuf; // 24
-	s32 unk28;
-	u32 outBuf; // 32
-	s32 unk36;
+	s32_le unk0;
+	s32_le unk4;
+	s32_le err; // 8
+	s32_le edramAddr; // 12
+	s32_le neededMem; // 16
+	s32_le unk20;
+	u32_le inBuf; // 24
+	s32_le unk28;
+	u32_le outBuf; // 32
+	s32_le unk36;
 	s8 unk40;
 	s8 unk41;
 	s8 unk42;
@@ -37,21 +37,21 @@ typedef struct
 	s8 unk45;
 	s8 unk46;
 	s8 unk47;
-	s32 unk48;
-	s32 unk52;
-	s32 unk56;
-	s32 unk60;
-	s32 unk64;
-	s32 unk68;
-	s32 unk72;
-	s32 unk76;
-	s32 unk80;
-	s32 unk84;
-	s32 unk88;
-	s32 unk92;
-	s32 unk96;
-	s32 unk100;
-	u32 allocMem; // 104
+	s32_le unk48;
+	s32_le unk52;
+	s32_le unk56;
+	s32_le unk60;
+	s32_le unk64;
+	s32_le unk68;
+	s32_le unk72;
+	s32_le unk76;
+	s32_le unk80;
+	s32_le unk84;
+	s32_le unk88;
+	s32_le unk92;
+	s32_le unk96;
+	s32_le unk100;
+	u32_le allocMem; // 104
 	// make sure the size is 128
 	u8 unk[20];
 } SceAudiocodecCodec;

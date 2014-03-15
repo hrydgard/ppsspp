@@ -42,6 +42,7 @@ enum PSPDirectories {
 	DIRECTORY_GAME,
 	DIRECTORY_SAVEDATA,
 	DIRECTORY_PAUTH,
+	DIRECTORY_DUMP,
 };
 
 extern GlobalUIState globalUIState;

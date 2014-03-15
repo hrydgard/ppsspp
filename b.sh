@@ -4,7 +4,7 @@ BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
 if [ ! -z "$BB_OS" ]; then
 	CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=Blackberry/bb.toolchain.cmake -DBLACKBERRY=${BB_OS} ${CMAKE_ARGS}"
 	BUILD_EXT="-bb"
-	DEBUG_ARGS="-devMode -debugToken ${HOME}/debugtoken.bar"
+	DEBUG_ARGS="-devMode -debugToken ${QNX_CONFIGURATION}/../debugtoken.bar"
 	BB_PACKAGE=1
 fi
 
@@ -47,7 +47,7 @@ if [ "$BUILD_EXT" == "-ios" ]; then
 elif [ "$BUILD_EXT" == "-android" ]; then
 	echo "Building for Android"
 elif [ "$BUILD_EXT" == "-bb" ]; then
-    echo "Building for Blackberry ${BB_OS}"
+	echo "Building for Blackberry ${BB_OS}"
 else
 	echo "Building for native host."
 fi

@@ -24,6 +24,7 @@
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
@@ -46,8 +47,10 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 
@@ -213,6 +216,7 @@ public:
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
+			symbolMap.UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 	}
 	const char *GetName() {return nm.name;}
@@ -232,7 +236,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		auto s = p.Section("Module", 1, 2);
+		auto s = p.Section("Module", 1, 3);
 		if (!s)
 			return;
 
@@ -250,6 +254,11 @@ public:
 				nm.status = MODULE_STATUS_STOPPED;
 		}
 
+		if (s >= 3) {
+			p.Do(textStart);
+			p.Do(textEnd);
+		}
+
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
 		FuncSymbolExport fsx = {{0}};
@@ -261,6 +270,12 @@ public:
 		VarSymbolImport vsi = {{0}};
 		p.Do(importedVars, vsi);
 		RebuildImpExpModuleNames();
+
+		if (p.mode == p.MODE_READ) {
+			char moduleName[29] = {0};
+			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
+			symbolMap.AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+		}
 	}
 
 	// We don't do this in the destructor to avoid annoying messages on game shutdown.
@@ -367,7 +382,7 @@ public:
 };
 
 void AfterModuleEntryCall::run(MipsCall &call) {
-	Memory::Write_U32(retValAddr, currentMIPS->r[2]);
+	Memory::Write_U32(retValAddr, currentMIPS->r[MIPS_REG_V0]);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -415,12 +430,16 @@ void __KernelModuleInit()
 
 void __KernelModuleDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelModule", 1);
+	auto s = p.Section("sceKernelModule", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
+
+	if (s >= 2) {
+		p.Do(loadedModules);
+	}
 }
 
 void __KernelModuleShutdown()
@@ -703,6 +722,85 @@ void Module::Cleanup() {
 	}
 }
 
+void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
+	if (!decryptedEbootDataPtr) {
+		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid pointer");
+		return;
+	}
+
+	if (length == 0) {
+		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid length");
+		return;
+	}
+
+	const std::string filenameToDumpTo = g_paramSFO.GetValueString("DISC_ID") + ".BIN";
+	const std::string dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
+	const std::string fullPath = dumpDirectory + filenameToDumpTo;
+
+	// If the file already exists, don't dump it again.
+	if (File::Exists(fullPath)) {
+		INFO_LOG(SCEMODULE, "Decrypted EBOOT.BIN already exists for this game, skipping dump.");
+		return;
+	}
+
+	// Make sure the dump directory exists before continuing.
+	if (!File::Exists(dumpDirectory)) {
+		if (!File::CreateDir(dumpDirectory)) {
+			ERROR_LOG(SCEMODULE, "Unable to create directory for EBOOT dumping, aborting.");
+			return;
+		}
+	}
+
+	FILE *decryptedEbootFile = fopen(fullPath.c_str(), "wb");
+	if (!decryptedEbootFile) {
+		ERROR_LOG(SCEMODULE, "Unable to write decrypted EBOOT.");
+		return;
+	}
+
+	const size_t lengthToWrite = length;
+
+	fwrite(decryptedEbootDataPtr, sizeof(u8), lengthToWrite, decryptedEbootFile);
+	fclose(decryptedEbootFile);
+	INFO_LOG(SCEMODULE, "Successfully wrote decrypted EBOOT to %s", fullPath.c_str());
+}
+
+static bool IsHLEVersionedModule(const char *name) {
+	// TODO: Only some of these are currently known to be versioned.
+	// Potentially only sceMpeg_library matters.
+	// For now, we're just reporting version numbers.
+	for (size_t i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
+		if (!strncmp(name, blacklistedModules[i], 28)) {
+			return true;
+		}
+	}
+	static const char *otherModules[] = {
+		"sceAvcodec_driver",
+		"sceAudiocodec_Driver",
+		"sceAudiocodec",
+		"sceVideocodec_Driver",
+		"sceVideocodec",
+		"sceMpegbase_Driver",
+		"sceMpegbase",
+		"scePsmf_library",
+		"scePsmfP_library",
+		"scePsmfPlayer",
+		"sceSAScore",
+		"sceCcc_Library",
+		"SceParseHTTPheader_Library",
+		"SceParseURI_Library",
+		// Guessing.
+		"sceJpeg",
+		"sceJpeg_library",
+		"sceJpeg_Library",
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(otherModules); i++) {
+		if (!strncmp(name, otherModules[i], 28)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
@@ -720,6 +818,18 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (*magic == 0x5053507e) { // "~PSP"
 		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
+
+		if (IsHLEVersionedModule(head->modname)) {
+			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
+			char temp[256];
+			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", head->modname);
+			INFO_LOG_REPORT(SCEMODULE,temp, ver);
+
+			if (!strcmp(head->modname, "sceMpeg_library")) {
+				__MpegLoadModule(ver);
+			}
+		}
+
 		const u8 *in = ptr;
 		u32 size = head->elf_size;
 		if (head->psp_size > size)
@@ -736,7 +846,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			*error_string = "Missing key";
 			delete [] newptr;
 			module->isFake = true;
-			strncpy(module->nm.name, head->modname, 28);
+			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 			return module;
@@ -747,6 +857,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		} else {
 			// TODO: Is this right?
 			module->nm.bss_size = head->bss_size;
+
+			// If we've made it this far, it should be safe to dump.
+			if (g_Config.bDumpDecryptedEboot) {
+				INFO_LOG(SCEMODULE, "Dumping derypted EBOOT.BIN to file.");
+				const u32 dumpLength = ret;
+				__SaveDecryptedEbootToStorageMedia(ptr, dumpLength);
+			}
 		}
 	}
 
@@ -805,13 +922,27 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		module->nm.data_size += reader.GetSegmentDataSize(i);
 	}
 	module->nm.gp_value = modinfo->gp;
-	strncpy(module->nm.name, modinfo->name, 28);
+	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
+
+	// Let's also get a truncated version.
+	char moduleName[29] = {0};
+	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
+
+	if (IsHLEVersionedModule(modinfo->name)) {
+		char temp[256];
+		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", modinfo->name);
+		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion);
+
+		if (!strcmp(modinfo->name, "sceMpeg_library")) {
+			__MpegLoadModule(modinfo->moduleVersion);
+		}
+	}
 
 	// Check for module blacklist - we don't allow games to load these modules from disc
 	// as we have HLE implementations and the originals won't run in the emu because they
 	// directly access hardware or for other reasons.
 	for (u32 i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
-		if (strcmp(modinfo->name, blacklistedModules[i]) == 0) {
+		if (strncmp(modinfo->name, blacklistedModules[i], ARRAY_SIZE(modinfo->name)) == 0) {
 			*error_string = "Blacklisted";
 			if (newptr)
 			{
@@ -822,6 +953,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			return module;
 		}
 	}
+
+	symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
 
 	SectionID textSection = reader.GetSectionByName(".text");
 
@@ -835,7 +968,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
 		module->nm.data_size -= textSize;
 
-#if !defined(USING_GLES2)
+#if !defined(MOBILE_DEVICE)
 		bool gotSymbols = reader.LoadSymbols();
 		MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
 #else
@@ -923,7 +1056,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			for (int i = 0; i < entry->numFuncs; ++i) {
 				// This is the id of the import.
 				func.nid = nidDataPtr[i];
-				// This is the address to write the j abnd delay slot to.
+				// This is the address to write the j and delay slot to.
 				func.stubAddr = entry->firstSymAddr + i * 8;
 				module->ImportFunc(func);
 			}
@@ -996,7 +1129,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (textSection == -1) {
 		u32 textStart = reader.GetVaddr();
 		u32 textEnd = firstImportStubAddr - 4;
-#if !defined(USING_GLES2)
+#if !defined(MOBILE_DEVICE)
 		bool gotSymbols = reader.LoadSymbols();
 		MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
 #else
@@ -1034,7 +1167,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			continue;
 		}
 
-		u32_le variableCount = ent->size <= 4 ? ent->vcount : std::max((u32)ent->vcount , (u32)ent->vcountNew);
+		u32 variableCount = ent->size <= 4 ? ent->vcount : std::max((u32)ent->vcount , (u32)ent->vcountNew);
 		const char *name;
 		if (Memory::IsValidAddress(ent->name)) {
 			name = Memory::GetCharPointer(ent->name);
@@ -1437,11 +1570,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
 
+	if (flags != 0) {
+		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported flags: %08x", flags);
+	}
 	SceKernelLMOption *lmoption = 0;
 	int position = 0;
 	// TODO: Use position to decide whether to load high or low
 	if (optionAddr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
+		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 
 	Module *module = 0;
@@ -1459,10 +1596,18 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 			return -1;
 		}
 
-		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
-		// Let's just act as if it worked.
-		NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
-		return 1;
+		if (info.name == "BOOT.BIN")
+		{
+			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name)
+			return __KernelLoadExec(name, 0, &error_string);
+		}
+		else
+		{
+			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
+			// Let's just act as if it worked.
+			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name)
+			return 1;
+		}
 	}
 
 	if (lmoption) {
@@ -1623,7 +1768,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	// TODO: Need to test how this really works.  Let's assume it's an override.
 	if (Memory::IsValidAddress(optionAddr))
 	{
-		auto options = Memory::GetStruct<SceKernelSMOption>(optionAddr);
+		auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 		// TODO: Check how size handling actually works.
 		if (options->size != 0 && options->priority != 0)
 			priority = options->priority;
@@ -1702,7 +1847,7 @@ u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp,
 
 		// TODO: Need to test how this really works.  Let's assume it's an override.
 		if (Memory::IsValidAddress(optionAddr)) {
-			auto options = Memory::GetStruct<SceKernelSMOption>(optionAddr);
+			auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 			// TODO: Check how size handling actually works.
 			if (options->size != 0 && options->priority != 0)
 				priority = options->priority;
@@ -1848,9 +1993,13 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 		ERROR_LOG(SCEMODULE,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
 		return error;
 	}
+	if (flags != 0) {
+		WARN_LOG_REPORT(LOADER, "sceKernelLoadModuleByID: unsupported flags: %08x", flags);
+	}
 	SceKernelLMOption *lmoption = 0;
 	if (lmoptionPtr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+		WARN_LOG_REPORT(LOADER, "sceKernelLoadModuleByID: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 	u32 pos = (u32) pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
 	size_t size = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
@@ -1897,9 +2046,13 @@ u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 
 SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
 {
+	if (flags != 0) {
+		WARN_LOG_REPORT(LOADER, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);
+	}
 	SceKernelLMOption *lmoption = 0;
 	if (lmoptionPtr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+		WARN_LOG_REPORT(LOADER, "sceKernelLoadModuleBufferUsbWlan: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 	std::string error_string;
 	Module *module = 0;

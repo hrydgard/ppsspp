@@ -33,6 +33,7 @@
 #include "ext/jpge/jpge.h"
 #endif
 
+#include "base/display.h"
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "base/NativeApp.h"
@@ -70,6 +71,7 @@
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
 #include "UIShader.h"
+#include "HostTypes.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
@@ -99,7 +101,6 @@ Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
-std::string game_title;
 
 #ifdef IOS
 bool iosCanUseJit;
@@ -108,21 +109,22 @@ bool iosCanUseJit;
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;
-recursive_mutex pendingMutex;
-static bool isMessagePending;
-static std::string pendingMessage;
-static std::string pendingValue;
+
+struct PendingMessage {
+	std::string msg;
+	std::string value;
+};
+
+static recursive_mutex pendingMutex;
+static std::vector<PendingMessage> pendingMessages;
 static UIContext *uiContext;
 
 std::thread *graphicsLoadThread;
 
-class AndroidLogger : public LogListener
-{
+class AndroidLogger : public LogListener {
 public:
-	void Log(LogTypes::LOG_LEVELS level, const char *msg)
-	{
-		switch (level)
-		{
+	void Log(LogTypes::LOG_LEVELS level, const char *msg) {
+		switch (level) {
 		case LogTypes::LVERBOSE:
 		case LogTypes::LDEBUG:
 		case LogTypes::LINFO:
@@ -139,44 +141,6 @@ public:
 			ILOG("%s", msg);
 			break;
 		}
-	}
-};
-
-
-// TODO: Get rid of this junk
-class NativeHost : public Host
-{
-public:
-	NativeHost() {
-		// hasRendered = false;
-	}
-
-	virtual void UpdateUI() {}
-
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
-
-	virtual void SetDebugMode(bool mode) { }
-
-	virtual bool InitGL(std::string *error_message) { return true; }
-	virtual void ShutdownGL() {}
-
-	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound();
-
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {}
-
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
-	virtual void ResetSymbolMap() {}
-	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
-	virtual void SetWindowTitle(const char *message) {
-		if (message)
-			game_title = message;
-		else
-			game_title = "";
 	}
 };
 
@@ -202,6 +166,23 @@ void NativeHost::ShutdownSound() {
 	g_mixer = 0;
 }
 
+#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
+void QtHost::InitSound(PMixer *mixer) { g_mixer = mixer; }
+void QtHost::ShutdownSound() { g_mixer = 0; }
+#endif
+
+std::string NativeQueryConfig(std::string query) {
+	if (query == "screenRotation") {
+		char temp[128];
+		sprintf(temp, "%i", g_Config.iScreenRotation);
+		return temp;
+	} else if (query == "immersiveMode") {
+		return g_Config.bImmersiveMode ? "1" : "0";
+	} else {
+		return "";
+	}
+}
+
 int NativeMix(short *audio, int num_samples) {
 	if (g_mixer) {
 		num_samples = g_mixer->Mix(audio, num_samples);
@@ -211,6 +192,7 @@ int NativeMix(short *audio, int num_samples) {
 	return num_samples;
 }
 
+// This is called before NativeInit so we do a little bit of initialization here.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape) {
 	*app_nice_name = "PPSSPP";
 	*app_dir_name = "ppsspp";
@@ -233,8 +215,7 @@ void NativeInit(int argc, const char *argv[],
 	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
-	isMessagePending = false;
-
+	pendingMessages.clear();
 #ifdef IOS
 	user_data_path += "/";
 #endif
@@ -253,7 +234,9 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	VFSRegister("", new DirectoryAssetReader(savegame_directory));
 
+#if defined(MOBILE_DEVICE) || !defined(USING_QT_UI)
 	host = new NativeHost();
+#endif
 
 #if defined(ANDROID)
 	g_Config.internalDataDirectory = savegame_directory;
@@ -373,8 +356,16 @@ void NativeInit(int argc, const char *argv[],
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 #endif
+	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
+	// test new languages without recompiling the entire app, which is a hassle).
+	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
 
-	i18nrepo.LoadIni(g_Config.sLanguageIni);
+	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
+	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
+		i18nrepo.LoadIni(g_Config.sLanguageIni);
+	else
+		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+
 	I18NCategory *d = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
@@ -400,6 +391,12 @@ void NativeInit(int argc, const char *argv[],
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
+
+#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
+	MainWindow* mainWindow = new MainWindow(0);
+	mainWindow->show();
+	host = new QtHost(mainWindow);
+#endif
 }
 
 void NativeInitGraphics() {
@@ -486,6 +483,7 @@ void NativeInitGraphics() {
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
+
 	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -523,14 +521,19 @@ void TakeScreenshot() {
 	// First, find a free filename.
 	int i = 0;
 
-	char temp[256];
+	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	if (gameId.empty()) {
+		gameId = "MENU";
+	}
+
+	char filename[256];
 	while (i < 10000){
-		if(g_Config.bScreenshotsAsPNG)
-			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.png", g_Config.memCardDirectory.c_str(), i);
+		if (g_Config.bScreenshotsAsPNG)
+			sprintf(filename, "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
 		else
-			sprintf(temp, "%s/PSP/SCREENSHOT/screen%05d.jpg", g_Config.memCardDirectory.c_str(), i);
+			sprintf(filename, "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
 		FileInfo info;
-		if (!getFileInfo(temp, &info))
+		if (!getFileInfo(filename, &info))
 			break;
 		i++;
 	}
@@ -553,22 +556,22 @@ void TakeScreenshot() {
 		png.format = PNG_FORMAT_RGB;
 		png.width = pixel_xres;
 		png.height = pixel_yres;
-		png_image_write_to_file(&png, temp, 0, flipbuffer, pixel_xres * 3, NULL);
+		png_image_write_to_file(&png, filename, 0, flipbuffer, pixel_xres * 3, NULL);
 		png_image_free(&png);
 	} else {
 		jpge::params params;
 		params.m_quality = 90;
-		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 3, flipbuffer, params);
+		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
 
 	delete [] buffer;
 	delete [] flipbuffer;
 
-	osm.Show(temp);
+	osm.Show(filename);
 #endif
 }
 
-void DrawDownloadsOverlay(UIContext &ctx) {
+void DrawDownloadsOverlay(UIContext &dc) {
 	// Thin bar at the top of the screen like Chrome.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (progress.empty()) {
@@ -582,16 +585,16 @@ void DrawDownloadsOverlay(UIContext &ctx) {
 		0xFF777777,
 	};
 
-	ctx.Begin();
+	dc.Begin();
 	int h = 5;
 	for (size_t i = 0; i < progress.size(); i++) {
-		float barWidth = 10 + (dp_xres - 10) * progress[i];
+		float barWidth = 10 + (dc.GetBounds().w - 10) * progress[i];
 		Bounds bounds(0, h * i, barWidth, h);
 		UI::Drawable solid(colors[i & 3]);
-		ctx.FillRect(solid, bounds);
+		dc.FillRect(solid, bounds);
 	}
-	ctx.End();
-	ctx.Flush();
+	dc.End();
+	dc.Flush();
 }
 
 void NativeRender() {
@@ -607,8 +610,13 @@ void NativeRender() {
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.Restore();
 
+	float xres = dp_xres;
+	float yres = dp_yres;
+
+	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
+	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+
 	glsl_bind(UIShader_Get());
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
@@ -627,10 +635,10 @@ void NativeRender() {
 void NativeUpdate(InputState &input) {
 	{
 		lock_guard lock(pendingMutex);
-		if (isMessagePending) {
-			screenManager->sendMessage(pendingMessage.c_str(), pendingValue.c_str());
-			isMessagePending = false;
+		for (size_t i = 0; i < pendingMessages.size(); i++) {
+			screenManager->sendMessage(pendingMessages[i].msg.c_str(), pendingMessages[i].value.c_str());
 		}
+		pendingMessages.clear();
 	}
 
 	g_DownloadManager.Update();
@@ -734,10 +742,8 @@ void NativeAxis(const AxisInput &key) {
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
 	
-
 	//now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
-
 
 	//now send the appropriate tilt event
 	switch (g_Config.iTiltInputType) {
@@ -759,14 +765,19 @@ void NativeAxis(const AxisInput &key) {
 void NativeMessageReceived(const char *message, const char *value) {
 	// We can only have one message queued.
 	lock_guard lock(pendingMutex);
-	if (!isMessagePending) {
-		pendingMessage = message;
-		pendingValue = value;
-		isMessagePending = true;
-	}
+	PendingMessage pendingMessage;
+	pendingMessage.msg = message;
+	pendingMessage.value = value;
+	pendingMessages.push_back(pendingMessage);
 }
 
 void NativeResized() {
+	if (uiContext) {
+		// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
+		// The UI now supports any offset but not the EmuScreen yet.
+		uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+		// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
+	}
 }
 
 void NativeShutdown() {
@@ -785,11 +796,14 @@ void NativeShutdown() {
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif
+
+	ILOG("NativeShutdown called");
+
+	System_SendMessage("finish", "");
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
 #ifdef ANDROID
-	ILOG("NativeShutdown called");
 	exit(0);
 #endif
 

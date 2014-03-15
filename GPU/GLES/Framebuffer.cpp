@@ -226,13 +226,30 @@ void FramebufferManager::CompileDraw2DProgram() {
 				// user shader experiments.
 				ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
 				// let's show the first line of the error string as an OSM.
+				std::set<std::string> blacklistedLines;
+				// These aren't useful to show, skip to the first interesting line.
+				blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
+				blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
+				blacklistedLines.insert("Compile failed.");
+				blacklistedLines.insert("");
+
+				std::string firstLine;
+				size_t start = 0;
 				for (size_t i = 0; i < errorString.size(); i++) {
 					if (errorString[i] == '\n') {
-						errorString = errorString.substr(0, i);
-						break;
+						firstLine = errorString.substr(start, i - start);
+						if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
+							break;
+						}
+						start = i + 1;
+						firstLine.clear();
 					}
 				}
-				osm.Show("Post-shader error: " + errorString + " ...", 10.0f, 0xFF3090FF);
+				if (!firstLine.empty()) {
+					osm.Show("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+				} else {
+					osm.Show("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+				}
 				usePostShader_ = false;
 			} else {
 				glsl_bind(postShaderProgram_);
@@ -744,7 +761,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
-		vfb->memoryUpdated = false; 
+		vfb->memoryUpdated = false;
+		vfb->depthUpdated = false;
 
 		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
@@ -907,7 +925,13 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	if (!sourceframebuffer || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
 	}
-	
+
+	// If depth wasn't updated, then we're at least "two degrees" away from the data.
+	// This is an optimization: it probably doesn't need to be copied in this case.
+	if (!sourceframebuffer->depthUpdated) {
+		return;
+	}
+
 	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
 		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
 		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
@@ -923,6 +947,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
 				glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
 			}
 #endif
 		}
@@ -1512,6 +1537,12 @@ void FramebufferManager::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		int zoom = g_Config.iInternalResolution;
+		if (zoom == 0) // auto mode
+			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+
+		PSP_CoreParameter().renderWidth = 480 * zoom;
+		PSP_CoreParameter().renderHeight = 272 * zoom;
 		resized_ = false;
 	}
 
@@ -1661,7 +1692,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 void FramebufferManager::NotifyBlockTransfer(u32 dst, u32 src) {
-#ifndef USING_GLES2
+#ifndef MOBILE_DEVICE
 	if (!reportedBlits_.insert(std::make_pair(dst, src)).second) {
 		// Already reported/checked.
 		return;

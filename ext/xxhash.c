@@ -1,6 +1,6 @@
 /*
 xxHash - Fast Hash algorithm
-Copyright (C) 2012-2013, Yann Collet.
+Copyright (C) 2012-2014, Yann Collet.
 BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
 
 Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ You can contact the author at :
 // For others CPU, the compiler will be more cautious, and insert extra code to ensure aligned access is respected.
 // If you know your target CPU supports unaligned memory access, you want to force this option manually to improve performance.
 // You can also enable this parameter if you know your input data will always be aligned (boundaries of 4, for U32).
-#if defined(ARM) || defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#if !defined(IOS) && (defined(ARM) || defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64))
 #  define XXH_USE_UNALIGNED_ACCESS 1
 #endif
 
@@ -68,12 +68,12 @@ You can contact the author at :
 #endif
 
 #ifdef _MSC_VER    // Visual Studio
-#  define forceinline static __forceinline
+#  define FORCE_INLINE static __forceinline
 #else 
 #  ifdef __GNUC__
-#    define forceinline static inline __attribute__((always_inline))
+#    define FORCE_INLINE static inline __attribute__((always_inline))
 #  else
-#    define forceinline static inline
+#    define FORCE_INLINE static inline
 #  endif
 #endif
 
@@ -85,11 +85,11 @@ You can contact the author at :
 // Modify the local functions below should you wish to use some other memory related routines
 // for malloc(), free()
 #include <stdlib.h>
-forceinline void* XXH_malloc(size_t s) { return malloc(s); }
-forceinline void  XXH_free  (void* p)  { free(p); }
+FORCE_INLINE void* XXH_malloc(size_t s) { return malloc(s); }
+FORCE_INLINE void  XXH_free  (void* p)  { free(p); }
 // for memcpy()
 #include <string.h>
-forceinline void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
+FORCE_INLINE void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
 
 //**************************************
@@ -189,7 +189,7 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 //****************************
 typedef enum { XXH_aligned, XXH_unaligned } XXH_alignment;
 
-forceinline U32 XXH_readLE32_align(const U32* ptr, XXH_endianess endian, XXH_alignment align)
+FORCE_INLINE U32 XXH_readLE32_align(const U32* ptr, XXH_endianess endian, XXH_alignment align)
 { 
     if (align==XXH_unaligned)
         return endian==XXH_littleEndian ? A32(ptr) : XXH_swap32(A32(ptr)); 
@@ -197,13 +197,13 @@ forceinline U32 XXH_readLE32_align(const U32* ptr, XXH_endianess endian, XXH_ali
         return endian==XXH_littleEndian ? *ptr : XXH_swap32(*ptr); 
 }
 
-forceinline U32 XXH_readLE32(const U32* ptr, XXH_endianess endian) { return XXH_readLE32_align(ptr, endian, XXH_unaligned); }
+FORCE_INLINE U32 XXH_readLE32(const U32* ptr, XXH_endianess endian) { return XXH_readLE32_align(ptr, endian, XXH_unaligned); }
 
 
 //****************************
 // Simple Hash Functions
 //****************************
-forceinline U32 XXH32_endian_align(const void* input, int len, U32 seed, XXH_endianess endian, XXH_alignment align)
+FORCE_INLINE U32 XXH32_endian_align(const void* input, int len, U32 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
@@ -273,7 +273,7 @@ U32 XXH32(const void* input, int len, U32 seed)
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
 #  if !defined(XXH_USE_UNALIGNED_ACCESS)
-    if ((((size_t)input) & 3))   // Input is aligned, let's leverage the speed advantage
+    if (!(((size_t)input) & 3))   // Input is aligned, let's leverage the speed advantage
     {
         if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
             return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
@@ -336,7 +336,7 @@ void* XXH32_init (U32 seed)
 }
 
 
-forceinline XXH_errorcode XXH32_update_endian (void* state_in, const void* input, int len, XXH_endianess endian)
+FORCE_INLINE XXH_errorcode XXH32_update_endian (void* state_in, const void* input, int len, XXH_endianess endian)
 {
     struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
     const BYTE* p = (const BYTE*)input;
@@ -412,7 +412,7 @@ XXH_errorcode XXH32_update (void* state_in, const void* input, int len)
 
 
 
-forceinline U32 XXH32_intermediateDigest_endian (void* state_in, XXH_endianess endian)
+FORCE_INLINE U32 XXH32_intermediateDigest_endian (void* state_in, XXH_endianess endian)
 {
     struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
     const BYTE * p = (const BYTE*)state->memory;
