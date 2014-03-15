@@ -23,6 +23,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "Common/LogManager.h"
 #include "Core/FileSystems/FileSystem.h"
@@ -50,6 +51,7 @@
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
+#include "sceKernelModule.h"
 #include "sceKernelMutex.h"
 #include "sceKernelMbx.h"
 #include "sceKernelMsgPipe.h"

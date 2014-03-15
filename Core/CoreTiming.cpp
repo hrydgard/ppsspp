@@ -19,15 +19,16 @@
 #include <vector>
 #include <cstdio>
 
-#include "MsgHandler.h"
-#include "StdMutex.h"
-#include "Atomics.h"
-#include "CoreTiming.h"
-#include "Core.h"
-#include "Config.h"
-#include "HLE/sceKernelThread.h"
-#include "../Common/ChunkFile.h"
-#include "HLE/sceDisplay.h"
+#include "Common/MsgHandler.h"
+#include "Common/StdMutex.h"
+#include "Common/Atomics.h"
+#include "Core/CoreTiming.h"
+#include "Core/Core.h"
+#include "Core/Config.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/MIPS/MIPS.h"
+#include "Common/ChunkFile.h"
 
 int CPU_HZ = 222000000;
 
