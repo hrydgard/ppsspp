@@ -145,11 +145,13 @@ int sceUtilitySavedataGetStatus()
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
 		DEBUG_LOG(SCEUTILITY, "sceUtilitySavedataGetStatus(): wrong dialog type");
+		hleEatCycles(200);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
 	int status = saveDialog.GetStatus();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilitySavedataGetStatus()", status);
+	hleEatCycles(200);
 	return status;
 }
 
