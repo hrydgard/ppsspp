@@ -796,6 +796,8 @@ public:
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	bool TryADDI2R(ARMReg rd, ARMReg rs, u32 val);
+	void SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TrySUBI2R(ARMReg rd, ARMReg rs, u32 val);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	bool TryANDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);

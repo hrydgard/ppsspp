@@ -183,7 +183,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool symmetric, bool useMOV)
+	void Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric)
 	{
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
@@ -192,17 +192,16 @@ namespace MIPSComp
 
 		if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
 			MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
-			u32 rhsImm = gpr.IsImm(rs) ? gpr.GetImm(rs) : gpr.GetImm(rt);
-			Operand2 op2;
-			// TODO: AND could be reversed, OR/EOR could use multiple ops (maybe still cheaper.)
-			if (TryMakeOperand2(rhsImm, op2)) {
-				gpr.MapDirtyIn(rd, lhs);
-				// MOV can avoid the ALU so might be faster?
-				if (!useMOV || rhsImm != 0)
-					(this->*arith)(gpr.R(rd), gpr.R(lhs), op2);
-				else if (rd != lhs)
-					MOV(gpr.R(rd), gpr.R(lhs));
+			MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
+			u32 rhsImm = gpr.GetImm(rhs);
+			gpr.MapDirtyIn(rd, lhs);
+			if ((this->*tryArithI2R)(gpr.R(rd), gpr.R(lhs), rhsImm)) {
 				return;
+			}
+			// If rd is rhs, we may have lost it in the MapDirtyIn().  lhs was kept.
+			if (rd == rhs) {
+				// Luckily, it was just an imm.
+				gpr.SetImm(rhs, rhsImm);
 			}
 		} else if (gpr.IsImm(rs) && !symmetric) {
 			Operand2 op2;
@@ -288,21 +287,21 @@ namespace MIPSComp
 		case 32: //R(rd) = R(rs) + R(rt);           break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
 			// We optimize out 0 as an operand2 ADD.
-			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd, true, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &ARMXEmitter::TryADDI2R, &EvalAdd, true);
 			break;
 
 		case 34: //R(rd) = R(rs) - R(rt);           break; //sub
 		case 35: //R(rd) = R(rs) - R(rt);           break; //subu
-			CompType3(rd, rs, rt, &ARMXEmitter::SUB, &EvalSub, false, false);
+			CompType3(rd, rs, rt, &ARMXEmitter::SUB, &ARMXEmitter::TrySUBI2R, &EvalSub, false);
 			break;
 		case 36: //R(rd) = R(rs) & R(rt);           break; //and
-			CompType3(rd, rs, rt, &ARMXEmitter::AND, &EvalAnd, true, false);
+			CompType3(rd, rs, rt, &ARMXEmitter::AND, &ARMXEmitter::TryANDI2R, &EvalAnd, true);
 			break;
 		case 37: //R(rd) = R(rs) | R(rt);           break; //or
-			CompType3(rd, rs, rt, &ARMXEmitter::ORR, &EvalOr, true, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::ORR, &ARMXEmitter::TryORI2R, &EvalOr, true);
 			break;
 		case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
-			CompType3(rd, rs, rt, &ARMXEmitter::EOR, &EvalEor, true, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::EOR, &ARMXEmitter::TryEORI2R, &EvalEor, true);
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor

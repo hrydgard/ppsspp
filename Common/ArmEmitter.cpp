@@ -204,6 +204,20 @@ bool ARMXEmitter::TryADDI2R(ARMReg rd, ARMReg rs, u32 val)
 	}
 }
 
+void ARMXEmitter::SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TrySUBI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		SUB(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TrySUBI2R(ARMReg rd, ARMReg rs, u32 val)
+{
+	// Just add a negative.
+	return TryADDI2R(rd, rs, (u32)-(s32)val);
+}
+
 void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
 	if (!TryANDI2R(rd, rs, val)) {
