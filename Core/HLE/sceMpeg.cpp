@@ -83,6 +83,18 @@ static const s64 UNKNOWN_TIMESTAMP = -1;
 // At least 2048 bytes of MPEG data is provided when analysing the MPEG header
 static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 
+void SceMpegAu::read(u32 addr) {
+	Memory::ReadStruct(addr, this);
+	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
+}
+
+void SceMpegAu::write(u32 addr) {
+	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
+	Memory::WriteStruct(addr, this);
+}
+
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(maxAheadTimestamp, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }

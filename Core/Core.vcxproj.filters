@@ -729,6 +729,9 @@
     <ClInclude Include="MemMap.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Opcode.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="PSPLoaders.h">
       <Filter>Core</Filter>
     </ClInclude>

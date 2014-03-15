@@ -22,6 +22,7 @@
 #include "ext/xxhash.h"
 
 #include "Common/CommonTypes.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
