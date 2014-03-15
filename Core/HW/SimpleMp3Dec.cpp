@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/HW/SimpleMP3Dec.h"
+#include "Core/HW/SimpleMp3Dec.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 
