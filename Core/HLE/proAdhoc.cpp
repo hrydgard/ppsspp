@@ -1,5 +1,6 @@
 // TODO: Add license
 
+#include <cstring>
 #include "util/text/parsers.h"
 #include "proAdhoc.h" 
 
