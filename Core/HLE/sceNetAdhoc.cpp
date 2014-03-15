@@ -20,6 +20,7 @@
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
+#include "Common/ChunkFile.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/MemMap.h"

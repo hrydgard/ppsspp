@@ -4,8 +4,9 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
 #include "Core/HW/BufferQueue.h"
+
+class PointerWrap;
 
 class MpegDemux
 {

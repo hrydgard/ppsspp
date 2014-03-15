@@ -5,7 +5,6 @@
 #include "thread/thread.h"
 #include "net/resolve.h"
 
-#include "Common/ChunkFile.h" 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -14,6 +13,8 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceUtility.h"
+
+class PointerWrap;
 
 // Net stuff
 #ifdef _XBOX

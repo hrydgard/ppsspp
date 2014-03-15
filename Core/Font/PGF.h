@@ -23,8 +23,9 @@
 #include <vector>
 
 #include "Common/Log.h"
-#include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
+
+class PointerWrap;
 
 enum {
 	FONT_FILETYPE_PGF = 0x00,
