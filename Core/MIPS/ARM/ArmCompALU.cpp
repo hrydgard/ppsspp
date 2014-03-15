@@ -50,23 +50,14 @@ namespace MIPSComp
 	static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 	static u32 EvalSub(u32 a, u32 b) { return a - b; }
 
-	void Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
+	void Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b))
 	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
 		} else {
 			gpr.MapDirtyIn(rt, rs);
-			// Special case when uimm can be represented as an Operand2
-			Operand2 op2;
-			if (TryMakeOperand2(uimm, op2)) {
-				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
-#ifdef HAVE_ARMV7
-			} else if (eval == &EvalAnd && uimm == 0xFFFF) {
-				// This is common (e.g. a cast to a short.)
-				UBFX(gpr.R(rt), gpr.R(rs), 0, 16);
-#endif
-			} else {
-				gpr.SetRegImm(R0, (u32)uimm);
+			if (!(this->*tryArithI2R)(gpr.R(rt), gpr.R(rs), uimm)) {
+				gpr.SetRegImm(R0, uimm);
 				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
 			}
 		}
@@ -90,19 +81,12 @@ namespace MIPSComp
 		{
 		case 8:	// same as addiu?
 		case 9:	// R(rt) = R(rs) + simm; break;	//addiu
-			{
-				if (gpr.IsImm(rs)) {
-					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-				} else {
-					gpr.MapDirtyIn(rt, rs);
-					ADDI2R(gpr.R(rt), gpr.R(rs), simm, R0);
-				}
-				break;
-			}
+			CompImmLogic(rs, rt, simm, &ARMXEmitter::ADD, &ARMXEmitter::TryADDI2R, &EvalAdd);
+			break;
 
-		case 12: CompImmLogic(rs, rt, uimm, &ARMXEmitter::AND, &EvalAnd); break;
-		case 13: CompImmLogic(rs, rt, uimm, &ARMXEmitter::ORR, &EvalOr); break;
-		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &EvalEor); break;
+		case 12: CompImmLogic(rs, rt, uimm, &ARMXEmitter::AND, &ARMXEmitter::TryANDI2R, &EvalAnd); break;
+		case 13: CompImmLogic(rs, rt, uimm, &ARMXEmitter::ORR, &ARMXEmitter::TryORI2R, &EvalOr); break;
+		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &ARMXEmitter::TryEORI2R, &EvalEor); break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 			{
