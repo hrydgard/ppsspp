@@ -228,6 +228,27 @@ bool ARMXEmitter::TryANDI2R(ARMReg rd, ARMReg rs, u32 val)
 		}
 		return true;
 	} else {
+#ifdef HAVE_ARMV7
+		// Check if we have a single pattern of sequential bits.
+		int seq = -1;
+		for (int i = 0; i < 32; ++i) {
+			if (((val >> i) & 1) == 0) {
+				if (seq == -1) {
+					// The width is all bits previous to this, set to 1.
+					seq = i;
+				}
+			} else if (seq != -1) {
+				// Uh oh, more than one sequence.
+				seq = -2;
+			}
+		}
+
+		if (seq > 0) {
+			UBFX(rd, rs, 0, seq);
+			return true;
+		}
+#endif
+
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
 			u8 bits = RotR(val, i) & 0xFF;
