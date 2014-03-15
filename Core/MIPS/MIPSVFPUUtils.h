@@ -69,7 +69,7 @@ MatrixSize GetMatrixSize(VectorSize sz);
 int GetColumnName(int matrix, MatrixSize msize, int column, int offset);
 int GetRowName(int matrix, MatrixSize msize, int row, int offset);
 
-int GetMatrixName(int matrix, MatrixSize msize, int column, int row);
+int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transposed);
 
 void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]);
 void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]);

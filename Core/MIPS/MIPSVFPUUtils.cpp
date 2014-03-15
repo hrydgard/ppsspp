@@ -76,9 +76,38 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 	}
 }
 
-int GetMatrixName(int matrix, MatrixSize msize, int column, int row) {
+int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transposed) {
 	// TODO: Fix
-	return matrix * 4;
+	int name = matrix * 4 | (transposed << 5);
+	switch (msize) {
+	case M_4x4:
+		if (row || column) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid row %i or column %i for size %i", row, column, msize);
+		}
+		break;
+	
+	case M_3x3:
+		if (row & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid row %i for size %i", row, msize);
+		}
+		if (column & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid col %i for size %i", column, msize);
+		}
+		name |= (row << 6) | column;
+		break;
+
+	case M_2x2:
+		if (row & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid row %i for size %i", row, msize);
+		}
+		if (column & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid col %i for size %i", column, msize);
+		}
+		name |= (row << 5) | column;
+		break;
+	}
+
+	return name;
 }
 
 int GetColumnName(int matrix, MatrixSize msize, int column, int offset) {
@@ -105,10 +134,13 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 	int n = GetMatrixSide(msize);
 	int col = matrixReg & 3;
 	int row = (matrixReg >> 5) & 2;
+
+	int swappedCol = row ? (msize == M_3x3 ? 1 : 2) : 0;
+	int swappedRow = col ? 2 : 0;
 	int transpose = ((matrixReg >> 5) & 1) ^ 1;
 
 	for (int i = 0; i < n; i++) {
-		vecs[i] = (transpose << 5) | (row << 5) | (matrixReg & 0x1C) | (i + col);
+		vecs[i] = (transpose << 5) | (swappedRow << 5) | (matrixReg & 0x1C) | (i + swappedCol);
 	}
 }
 

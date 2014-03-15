@@ -474,13 +474,17 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 			d << (int)rowRegs[j] << " ";
 		}
 		ILOG("Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		if (a.str() != b.str())
+			ILOG("WRONG!");
 		ILOG("Row: %s vs %s", c.str().c_str(), d.str().c_str());
+		if (c.str() != d.str())
+			ILOG("WRONG!");
 	}
 }
 
 void TestVFPUUtil() {
 	MatrixSize sz = M_3x3;
-	TestGetMatrix(GetMatrixName(5, sz, 1, 0), sz);
+	TestGetMatrix(GetMatrixName(5, sz, 0, 1, false), sz);
 }
 
 int main(int argc, const char *argv[]) {
