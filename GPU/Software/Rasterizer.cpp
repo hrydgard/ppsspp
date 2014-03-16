@@ -607,7 +607,7 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color)
 	return new_color;
 }
 
-static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor)
+static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor)
 {
 	Vec3<int> out_rgb;
 	int out_a;
@@ -616,16 +616,16 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 	switch (gstate.getTextureFunction()) {
 	case GE_TEXFUNC_MODULATE:
-		out_rgb = prim_color_rgb * texcolor.rgb() / 255;
-		out_a = (rgba) ? (prim_color_a * texcolor.a() / 255) : prim_color_a;
+		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+		out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
 		break;
 
 	case GE_TEXFUNC_DECAL:
 	{
 		int t = (rgba) ? texcolor.a() : 255;
 		int invt = (rgba) ? 255 - t : 0;
-		out_rgb = (prim_color_rgb * invt + texcolor.rgb() * t) / 255;
-		out_a = prim_color_a;
+		out_rgb = (prim_color.rgb() * invt + texcolor.rgb() * t) / 255;
+		out_a = prim_color.a();
 		break;
 	}
 
@@ -633,22 +633,22 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	{
 		const Vec3<int> const255(255, 255, 255);
 		const Vec3<int> texenv(gstate.getTextureEnvColR(), gstate.getTextureEnvColG(), gstate.getTextureEnvColB());
-		out_rgb = ((const255 - texcolor.rgb()) * prim_color_rgb + texcolor.rgb() * texenv) / 255;
-		out_a = prim_color_a * ((rgba) ? texcolor.a() : 255) / 255;
+		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv) / 255;
+		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
 		break;
 	}
 
 	case GE_TEXFUNC_REPLACE:
 		out_rgb = texcolor.rgb();
-		out_a = (rgba) ? texcolor.a() : prim_color_a;
+		out_a = (rgba) ? texcolor.a() : prim_color.a();
 		break;
 
 	case GE_TEXFUNC_ADD:
-		out_rgb = prim_color_rgb + texcolor.rgb();
+		out_rgb = prim_color.rgb() + texcolor.rgb();
 		if (out_rgb.r() > 255) out_rgb.r() = 255;
 		if (out_rgb.g() > 255) out_rgb.g() = 255;
 		if (out_rgb.b() > 255) out_rgb.b() = 255;
-		out_a = prim_color_a * ((rgba) ? texcolor.a() : 255) / 255;
+		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
 		break;
 
 	default:
@@ -804,35 +804,35 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 	}
 }
 
-static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int source_a, const Vec4<int> dst)
+static inline Vec3<int> AlphaBlendingResult(const Vec4<int>& source, const Vec4<int> dst)
 {
-	Vec3<int> srcfactor = GetSourceFactor(source_a, dst);
-	Vec3<int> dstfactor = GetDestFactor(source_rgb, source_a, dst);
+	Vec3<int> srcfactor = GetSourceFactor(source.a(), dst);
+	Vec3<int> dstfactor = GetDestFactor(source.rgb(), source.a(), dst);
 
 	switch (gstate.getBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
-		return (source_rgb * srcfactor + dst.rgb() * dstfactor) / 255;
+		return (source.rgb() * srcfactor + dst.rgb() * dstfactor) / 255;
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT:
-		return (source_rgb * srcfactor - dst.rgb() * dstfactor) / 255;
+		return (source.rgb() * srcfactor - dst.rgb() * dstfactor) / 255;
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-		return (dst.rgb() * dstfactor - source_rgb * srcfactor) / 255;
+		return (dst.rgb() * dstfactor - source.rgb() * srcfactor) / 255;
 
 	case GE_BLENDMODE_MIN:
-		return Vec3<int>(std::min(source_rgb.r(), dst.r()),
-						std::min(source_rgb.g(), dst.g()),
-						std::min(source_rgb.b(), dst.b()));
+		return Vec3<int>(std::min(source.r(), dst.r()),
+						std::min(source.g(), dst.g()),
+						std::min(source.b(), dst.b()));
 
 	case GE_BLENDMODE_MAX:
-		return Vec3<int>(std::max(source_rgb.r(), dst.r()),
-						std::max(source_rgb.g(), dst.g()),
-						std::max(source_rgb.b(), dst.b()));
+		return Vec3<int>(std::max(source.r(), dst.r()),
+						std::max(source.g(), dst.g()),
+						std::max(source.b(), dst.b()));
 
 	case GE_BLENDMODE_ABSDIFF:
-		return Vec3<int>(::abs(source_rgb.r() - dst.r()),
-						::abs(source_rgb.g() - dst.g()),
-						::abs(source_rgb.b() - dst.b()));
+		return Vec3<int>(::abs(source.r() - dst.r()),
+						::abs(source.g() - dst.g()),
+						::abs(source.b() - dst.b()));
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", gstate.getBlendEq());
@@ -841,7 +841,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 }
 
 template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_rgb, int prim_color_a) {
+inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec4<int> prim_color) {
 	// Depth range test
 	// TODO: Clear mode?
 	if (!gstate.isModeThrough())
@@ -849,16 +849,16 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 			return;
 
 	if (gstate.isColorTestEnabled() && !clearMode)
-		if (!ColorTestPassed(prim_color_rgb))
+		if (!ColorTestPassed(prim_color.rgb()))
 			return;
 
 	// TODO: Does a need to be clamped?
 	if (gstate.isAlphaTestEnabled() && !clearMode)
-		if (!AlphaTestPassed(prim_color_a))
+		if (!AlphaTestPassed(prim_color.a()))
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
+	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(p.x, p.y);
 	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
 		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
@@ -888,18 +888,21 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 	// Doubling happens only when texturing is enabled, and after tests.
 	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
 		// TODO: Does this need to be clamped before blending?
-		prim_color_rgb *= 2;
+		prim_color.r() <<= 1;
+		prim_color.g() <<= 1;
+		prim_color.b() <<= 1;
 	}
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
+		// We can discard the vertex alpha at this point.
+		prim_color = Vec4<int>(AlphaBlendingResult(prim_color, dst), 0);
 	}
 
 	if (!clearMode)
-		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
+		prim_color = prim_color.Clamp(0, 255);
 
-	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
+	u32 new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
 	u32 old_color = GetPixelColor(p.x, p.y);
 
 	// TODO: Is alpha blending still performed if logic ops are enabled?
@@ -918,7 +921,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
+inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
 	int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
 	int frac_u, frac_v;
 
@@ -1001,9 +1004,8 @@ inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s
 		texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
 #endif
 	}
-	Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
-	prim_color_rgb = out.rgb();
-	prim_color_a = out.a();
+	Vec4<int> out = GetTextureFunctionOutput(prim_color, texcolor);
+	prim_color = out;
 }
 
 #if defined(_M_SSE)
@@ -1131,18 +1133,14 @@ void DrawTriangleSlice(
 
 				float wsum = 1.0f / (w0 + w1 + w2);
 
-				Vec3<int> prim_color_rgb(0, 0, 0);
-				int prim_color_a = 0;
-				Vec3<int> sec_color(0, 0, 0);
+				Vec4<int> prim_color;
+				Vec3<int> sec_color;
 				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
 					// TODO: Is that the correct way to interpolate?
-					const Vec4<int> prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum);
-					prim_color_rgb = prim_color.rgb();
-					prim_color_a = prim_color.a();
+					prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum);
 					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum);
 				} else {
-					prim_color_rgb = v2.color0.rgb();
-					prim_color_a = v2.color0.a();
+					prim_color = v2.color0;
 					sec_color = v2.color1;
 				}
 
@@ -1150,18 +1148,18 @@ void DrawTriangleSlice(
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
 						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum);
-						ApplyTexturing(prim_color_rgb, prim_color_a, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
+						ApplyTexturing(prim_color, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
 						t = t * texScaleV + texOffsetV;
-						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+						ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					}
 				}
 
 				if (!clearMode)
-					prim_color_rgb += sec_color;
+					prim_color += Vec4<int>(sec_color, 0);
 
 				// TODO: Fogging
 
@@ -1171,7 +1169,7 @@ void DrawTriangleSlice(
 				if (!flatZ)
 					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
-				DrawSinglePixel<clearMode>(p, z, prim_color_rgb, prim_color_a);
+				DrawSinglePixel<clearMode>(p, z, prim_color);
 			}
 		}
 	}
@@ -1218,8 +1216,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 void DrawPoint(const VertexData &v0)
 {
 	ScreenCoords pos = v0.screenpos;
-	Vec3<int> prim_color_rgb = v0.color0.rgb();
-	int prim_color_a = v0.color0.a();
+	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
 	// TODO: UVGenMode?
 	float s = v0.texturecoords.s();
@@ -1265,7 +1262,7 @@ void DrawPoint(const VertexData &v0)
 
 		if (gstate.isModeThrough()) {
 			// TODO: Is it really this simple?
-			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 		} else {
 			float texScaleU = getFloat24(gstate.texscaleu);
 			float texScaleV = getFloat24(gstate.texscalev);
@@ -1274,12 +1271,12 @@ void DrawPoint(const VertexData &v0)
 
 			s = s * texScaleU + texOffsetU;
 			t = t * texScaleV + texOffsetV;
-			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 		}
 	}
 
 	if (!clearMode)
-		prim_color_rgb += sec_color;
+		prim_color += Vec4<int>(sec_color, 0);
 
 	ScreenCoords pprime = pos;
 
@@ -1288,9 +1285,9 @@ void DrawPoint(const VertexData &v0)
 	u16 z = pos.z;
 
 	if (clearMode) {
-		DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
+		DrawSinglePixel<true>(p, z, prim_color);
 	} else {
-		DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
+		DrawSinglePixel<false>(p, z, prim_color);
 	}
 }
 
@@ -1363,24 +1360,23 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
 		// TODO: UVGenMode?
 		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-		Vec3<int> prim_color_rgb = c0.rgb();
-		int prim_color_a = c0.a();
+		Vec4<int> prim_color = c0;
 		float s = tc.s();
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
 			if (gstate.isModeThrough()) {
 				// TODO: Is it really this simple?
-				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+				ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 			} else {
 				s = s * texScaleU + texOffsetU;
 				t = t * texScaleV + texOffsetV;
-				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+				ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 			}
 		}
 
 		if (!clearMode)
-			prim_color_rgb += sec_color;
+			prim_color += Vec4<int>(sec_color, 0);
 
 		ScreenCoords pprime = ScreenCoords(x, y, z);
 
@@ -1388,9 +1384,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
 		if (clearMode) {
-			DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
+			DrawSinglePixel<true>(p, z, prim_color);
 		} else {
-			DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
+			DrawSinglePixel<false>(p, z, prim_color);
 		}
 
 		x = x + xinc;
