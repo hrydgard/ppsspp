@@ -1125,9 +1125,8 @@ void DrawTriangleSlice(
 				if (gstate.isTextureMapEnabled() && !clearMode) {
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
-						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) * wsum);
-						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) * wsum);
-						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum);
+						ApplyTexturing(prim_color_rgb, prim_color_a, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
