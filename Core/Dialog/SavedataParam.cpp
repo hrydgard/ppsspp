@@ -907,7 +907,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 	{
 		int total_size = 0;
 		total_size += getSizeNormalized(1); // SFO;
-		total_size += getSizeNormalized(param->dataSize); // Save Data
+		total_size += getSizeNormalized((u32)param->dataSize == 0 ? 1 : (u32)param->dataSize); // Save Data
 		total_size += getSizeNormalized(param->icon0FileData.size);
 		total_size += getSizeNormalized(param->icon1FileData.size);
 		total_size += getSizeNormalized(param->pic1FileData.size);
