@@ -36,6 +36,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/VertexDecoder.h"
 
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -1866,7 +1867,7 @@ bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &
 }
 
 bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
+	if (transformDraw_.GetVertexDecoderJitCache()->IsInSpace(ptr)) {
 		name = "VertexDecoderJit";
 		return true;
 	}

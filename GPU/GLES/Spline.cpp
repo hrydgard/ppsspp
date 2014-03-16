@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "GPU/Math3D.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/GLES/VertexDecoder.h"
 
 // Here's how to evaluate them fast:
 // http://and-what-happened.blogspot.se/2012/07/evaluating-b-splines-aka-basis-splines.html

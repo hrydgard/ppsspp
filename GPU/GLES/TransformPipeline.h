@@ -21,7 +21,6 @@
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/GLES/VertexDecoder.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -29,8 +28,11 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+class VertexDecoder;
+class VertexDecoderJitCache;
 
 struct DecVtxFormat;
+struct TransformedVertex;
 
 // States transitions:
 // On creation: DRAWN_NEW
@@ -128,8 +130,8 @@ public:
 		DoFlush();
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		return decJitCache_->IsInSpace(ptr);
+	VertexDecoderJitCache *GetVertexDecoderJitCache() {
+		return decJitCache_;
 	}
 
 	// Really just for convenience to share with softgpu.

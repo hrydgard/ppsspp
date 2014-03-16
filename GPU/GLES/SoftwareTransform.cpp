@@ -22,6 +22,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/TransformPipeline.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
