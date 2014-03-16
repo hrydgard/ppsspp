@@ -1986,7 +1986,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		u8 pgd_header[0x90];
 		u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 
-		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
+		if (Memory::IsValidAddress(indataPtr) && inlen == 16 && indataPtr < 3399000000) {
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
 			key_ptr = keybuf;
 		}else{
