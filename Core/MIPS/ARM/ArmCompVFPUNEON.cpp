@@ -511,13 +511,34 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 		break;
 
 	case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-		DISABLE;
+		if (IsD(r.vd)) {
+			VMOV_immf(D0, 0.0f);
+			VMOV_immf(D1, 1.0f);
+			VMAX(F_32, r.vd, r.vs, D0);
+			VMIN(F_32, r.vd, r.vd, D1);
+		} else {
+			VMOV_immf(Q0, 1.0f);
+			VMIN(F_32, r.vd, r.vs, Q0);
+			VMOV_immf(Q0, 0.0f);
+			VMAX(F_32, r.vd, r.vd, Q0);
+		}
 		break;
 	case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-		DISABLE;
+		if (IsD(r.vd)) {
+			VMOV_immf(D0, -1.0f);
+			VMOV_immf(D1, 1.0f);
+			VMAX(F_32, r.vd, r.vs, D0);
+			VMIN(F_32, r.vd, r.vd, D1);
+		} else {
+			VMOV_immf(Q0, 1.0f);
+			VMIN(F_32, r.vd, r.vs, Q0);
+			VMOV_immf(Q0, -1.0f);
+			VMAX(F_32, r.vd, r.vd, Q0);
+		}
 		break;
 
 	case 16: // d[i] = 1.0f / s[i]; break; //vrcp
+		// Can just fallback to VFP and use VDIV.
 		DISABLE;
 		{
 			ARMReg temp2 = fpr.QAllocTemp(sz);
@@ -700,28 +721,52 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	DISABLE;
 
-	MatrixSize sz = GetMtxSize(op);
-	int n = GetMatrixSide(sz);
+	MatrixSize msz = GetMtxSize(op);
+	int n = GetMatrixSide(msz);
 
 	ARMReg cols[4];
-	GetMatrixColumns(_VD, sz, cols);
+	fpr.QMapMatrix(cols, _VD, msz, MAP_NOINIT | MAP_DIRTY);
 
 	switch ((op >> 16) & 0xF) {
-	case 3: // vmidt
-		DISABLE;
+	case 3:  // vmidt
 		MOVI2F(S0, 0.0f, R0);
 		MOVI2F(S1, 1.0f, R0);
-		// ...
+		MOVI2F(S2, 1.0f, R0);
+		MOVI2F(S3, 0.0f, R0);
+		switch (msz) {
+		case M_2x2:
+			VMOV(cols[0], D0);
+			VMOV(cols[1], D1);
+			break;
+		case M_3x3:
+			VMOV(D_0(cols[0]), D0);
+			VMOV_imm(I_32, D_1(cols[0]), VIMMxxxxxxxx, 0);
+			VMOV(D_0(cols[1]), D1);
+			VMOV_imm(I_32, D_1(cols[1]), VIMMxxxxxxxx, 0);
+			VMOV_imm(I_32, D_0(cols[2]), VIMMxxxxxxxx, 0);
+			VMOV(D_1(cols[2]), D0);
+			break;
+		case M_4x4:
+			VMOV(D_0(cols[0]), D0);
+			VMOV_imm(I_32, D_1(cols[0]), VIMMxxxxxxxx, 0);
+			VMOV(D_0(cols[1]), D1);
+			VMOV_imm(I_32, D_1(cols[1]), VIMMxxxxxxxx, 0);
+			VMOV_imm(I_32, D_0(cols[2]), VIMMxxxxxxxx, 0);
+			VMOV(D_1(cols[2]), D0);
+			VMOV_imm(I_32, D_0(cols[3]), VIMMxxxxxxxx, 0);
+			VMOV(D_1(cols[3]), D1);
+			break;
+		}
 		break;
 	case 6: // vmzero
 		for (int i = 0; i < n; i++) {
-			// Zero it out.
-			VMOV_imm(I_32, cols[i], VIMMxxxxxxxx, 0);
+			VMOV_immf(cols[i], 0.0f);
 		}
-		// ...
 		break;
 	case 7: // vmone
-		DISABLE;
+		for (int i = 0; i < n; i++) {
+			VMOV_immf(cols[i], 1.0f);
+		}
 		break;
 	}
 
@@ -737,24 +782,20 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 
 	DISABLE;
 
-	bool overlap = GetMatrixOverlap(_VD, _VS, sz);
+	MatrixSize msz = GetMtxSize(op);
 
-	if (overlap) {
+	MatrixOverlapType overlap = GetMatrixOverlap(_VD, _VS, msz);
+	if (overlap != OVERLAP_NONE) {
 		// Too complicated to bother handling in the JIT.
+		// TODO: Special case for in-place (and other) transpose, etc.
 		DISABLE;
 	}
-
-	// Do we really need to map it all and do VMOVs or can we do more clever things in the regalloc?
-
-	MatrixSize sz = GetMtxSize(op);
-
-	// TODO: Special case for transpose, etc.
-
+	
 	ARMReg s_cols[4], d_cols[4];
-	fpr.QMapMatrix(s_cols, _VS, sz, 0);
-	fpr.QMapMatrix(d_cols, _VD, sz, 0);
+	fpr.QMapMatrix(s_cols, _VS, msz, 0);
+	fpr.QMapMatrix(d_cols, _VD, msz, MAP_DIRTY | MAP_NOINIT);
 
-	int n = GetMatrixSide(sz);
+	int n = GetMatrixSide(msz);
 	for (int i = 0; i < n; i++) {
 		VMOV(d_cols[i], s_cols[i]);
 	}
@@ -763,44 +804,98 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_Vmmul(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
 	ARMReg s_rows[4], t_cols[4], d_cols[4];
 
-	bool overlap = GetMatrixOverlap(_VD, _VS, sz) || GetMatrixOverlap(_VD, _VT, sz);
+	MatrixSize msz = GetMtxSize(op);
+	int n = GetMatrixSide(msz);
+
+	bool overlap = GetMatrixOverlap(_VD, _VS, msz) || GetMatrixOverlap(_VD, _VT, msz);
 	if (overlap) {
-		// Too complicated to bother handling in the JIT.
+		// Later
 		DISABLE;
 	}
 
-	fpr.QMapMatrix(s_rows, _VS, sz, MAP_MTX_ROWS);
-	fpr.QMapMatrix(t_cols, _VT, sz, 0);
-	fpr.QMapMatrix(d_cols, _VD, sz, MAP_NOINIT | MAP_DIRTY);
+	DISABLE;
+
+	fpr.QMapMatrix(s_rows, _VS, msz, 0);
+	fpr.QMapMatrix(t_cols, _VT, msz, 0);
+	fpr.QMapMatrix(d_cols, _VD, msz, MAP_NOINIT | MAP_DIRTY);
 	
-	// TODO: Crunch the numbers here
+	// TODO: This is probably wrong.
+	for (int i = 0; i < n; i++) {
+		VMUL_scalar(F_32, d_cols[i], s_rows[i], XScalar(t_cols[0], 0));
+		for (int j = 1; j < n; j++) {
+			VMLA_scalar(F_32, d_cols[i], s_rows[i], XScalar(t_cols[j], 1));
+		}
+	}
 
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vmscl(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
-	bool overlap = GetMatrixOverlap(_VD, _VS, sz);
+	MatrixSize msz = GetMtxSize(op);
+
+	bool overlap = GetMatrixOverlap(_VD, _VS, msz);
 	if (overlap) {
 		DISABLE;
 	}
+	DISABLE;
+
+	int n = GetMatrixSide(msz);
 
 	ARMReg s_cols[4], t, d_cols[4];
-	fpr.QMapMatrix(s_cols, _VS, sz, 0);
-	fpr.QMapMatrix(d_cols, _VS, sz, MAP_NOINIT | MAP_DIRTY);
-	// Also load T
+	fpr.QMapMatrix(s_cols, _VS, msz, 0);
+	fpr.QMapMatrix(d_cols, _VD, msz, MAP_NOINIT | MAP_DIRTY);
+	t = fpr.QMapReg(_VT, V_Single, 0);
+	VMOV(D0, t);
+	for (int i = 0; i < n; i++) {
+		VMUL_scalar(F_32, d_cols[i], s_cols[i], DScalar(D0, 0));
+	}
 
 	// TODO: Crunch the numbers here
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vtfm(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
+	if (_VT == _VD) {
+		DISABLE;
+	}
+
 	DISABLE;
+	VectorSize sz = GetVecSize(op);
+	MatrixSize msz = GetMtxSize(op);
+	int n = GetNumVectorElements(sz);
+	int ins = (op >> 23) & 7;
+
+	bool homogenous = false;
+	if (n == ins) {
+		n++;
+		sz = (VectorSize)((int)(sz)+1);
+		msz = (MatrixSize)((int)(msz)+1);
+		homogenous = true;
+	}
+	// Otherwise, n should already be ins + 1.
+	else if (n != ins + 1) {
+		DISABLE;
+	}
+
+	ARMReg s_cols[4], t, d;
+	fpr.QMapMatrix(s_cols, _VS, msz, 0);
+	t = fpr.QMapReg(_VT, sz, 0);
+	d = fpr.QMapReg(_VD, sz, MAP_DIRTY | MAP_NOINIT);
+	
+	// ...
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_VHdp(MIPSOpcode op) {
@@ -902,7 +997,21 @@ void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_VRot(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix()) {
+		DISABLE_UNKNOWN_PREFIX;
+	}
+
 	DISABLE;
+
+	int vd = _VD;
+	int vs = _VS;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	// ...
 }
 
 void Jit::CompNEON_VIdt(MIPSOpcode op) {
@@ -925,8 +1034,11 @@ void Jit::CompNEON_VIdt(MIPSOpcode op) {
 			VAND(vd, vd, D0);
 		}
 		break;
+	case V_Triple:
 	case V_Quad:
 		{
+			// TODO: This can be optimized.
+
 			VEOR(vd, vd, vd);
 			ARMReg dest = (_VD & 2) ? D_1(vd) : D_0(vd);
 			VMOV_immf(dest, 1.0f);
@@ -958,11 +1070,37 @@ void Jit::CompNEON_Vcmov(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_Viim(MIPSOpcode op) {
-	DISABLE;
+	u8 dreg;
+	GetVectorRegs(&dreg, V_Single, _VT);
+
+	DestARMReg vd = NEONMapPrefixD(_VD, V_Single, MAP_NOINIT | MAP_DIRTY);
+
+	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
+	// TODO: Optimize for low registers.
+	MOVI2F(S0, (float)imm, R0);
+	VMOV(vd.rd, D0);
+
+	NEONApplyPrefixD(vd);
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vfim(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
+	DestARMReg vd = NEONMapPrefixD(_VD, V_Single, MAP_NOINIT | MAP_DIRTY);
+
+	FP16 half;
+	half.u = op & 0xFFFF;
+	FP32 fval = half_to_float_fast5(half);
+	// TODO: Optimize for low registers.
+	MOVI2F(S0, (float)fval.f, R0);
+	VMOV(vd.rd, D0);
+
+	NEONApplyPrefixD(vd);
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 // https://code.google.com/p/bullet/source/browse/branches/PhysicsEffects/include/vecmath/neon/vectormath_neon_assembly_implementations.S?r=2488

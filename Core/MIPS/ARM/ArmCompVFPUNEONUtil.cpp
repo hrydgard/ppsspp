@@ -306,23 +306,34 @@ void Jit::NEONApplyPrefixD(DestARMReg dest) {
 		if (sat1_mask != full_mask) {
 			ELOG("PREFIXD: Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
 		}
-		// TODO: Speed up for singles/pairs by loading both constants into D0/D1
-		ARMReg temp = MatchSize(Q0, dest.rd);
-		VMOV_immf(temp, 1.0);
-		VMIN(F_32, dest.rd, dest.rd, temp);
-		VMOV_immf(temp, 0.0);
-		VMAX(F_32, dest.rd, dest.rd, temp);
+		if (IsD(dest.rd)) {
+			VMOV_immf(D0, 0.0);
+			VMOV_immf(D1, 1.0);
+			VMAX(F_32, dest.rd, dest.rd, D0);
+			VMIN(F_32, dest.rd, dest.rd, D1);
+		} else {
+			VMOV_immf(Q0, 1.0);
+			VMIN(F_32, dest.rd, dest.rd, Q0);
+			VMOV_immf(Q0, 0.0);
+			VMAX(F_32, dest.rd, dest.rd, Q0);
+		}
 	}
 
 	if (sat3_mask && sat1_mask != full_mask) {
 		if (sat3_mask != full_mask) {
 			ELOG("PREFIXD: Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
 		}
-		ARMReg temp = MatchSize(Q0, dest.rd);
-		VMOV_immf(temp, 1.0f);
-		VMIN(F_32, dest.rd, dest.rd, temp);
-		VMOV_immf(temp, -1.0f);
-		VMAX(F_32, dest.rd, dest.rd, temp);
+		if (IsD(dest.rd)) {
+			VMOV_immf(D0, 0.0);
+			VMOV_immf(D1, 1.0);
+			VMAX(F_32, dest.rd, dest.rd, D0);
+			VMIN(F_32, dest.rd, dest.rd, D1);
+		} else {
+			VMOV_immf(Q0, 1.0);
+			VMIN(F_32, dest.rd, dest.rd, Q0);
+			VMOV_immf(Q0, -1.0);
+			VMAX(F_32, dest.rd, dest.rd, Q0);
+		}
 	}
 
 	// Check for actual mask operation (unrelated to the "masks" above).

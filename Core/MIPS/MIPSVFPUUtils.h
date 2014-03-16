@@ -73,7 +73,15 @@ int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transp
 
 void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]);
 void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]);
-bool GetMatrixOverlap(int m1, int m2, MatrixSize msize);
+
+enum MatrixOverlapType {
+	OVERLAP_NONE = 0,
+	OVERLAP_PARTIAL = 1,
+	OVERLAP_EQUAL = 2,
+	// Transposed too?  (same space but transposed)
+};
+
+MatrixOverlapType GetMatrixOverlap(int m1, int m2, MatrixSize msize);
 
 
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.

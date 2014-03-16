@@ -6,14 +6,6 @@
 namespace MIPSComp {
 
 
-inline bool IsQ(ARMReg r) {
-	return r >= Q0 && r <= Q15;
-}
-
-inline bool IsD(ARMReg r) {
-	return r >= D0 && r <= D31;
-}
-
 inline ARMReg MatchSize(ARMReg x, ARMReg target) {
 	if (IsQ(target) && IsQ(x))
 		return x;

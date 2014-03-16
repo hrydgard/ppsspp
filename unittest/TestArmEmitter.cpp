@@ -155,9 +155,9 @@ bool TestArmEmitter() {
 	emitter.VMLA_scalar(F_32, Q1, Q2, DScalar(D7, 0));
 	RET(CheckLast(emitter, "f3a42147 VMLA.f32 q1, q2, d7[0]"));
 
-	// 	emitter.VMIN(F_32, D3, D4, D19);
-	// 	RET(CheckLast(emitter, "f2243f23 VMIN.f32 d3, d4, d19"));
-	// 	emitter.VMAX(F_32, D3, D4, D19);
-	// 	RET(CheckLast(emitter, "f2243f23 VMAX.f32 d3, d4, d19"));
+	emitter.VMIN(F_32, D3, D4, D19);
+	RET(CheckLast(emitter, "f2243f23 VMIN.f32 d3, d4, d19"));
+	emitter.VMAX(F_32, Q3, Q4, Q9);
+	RET(CheckLast(emitter, "f2086f62 VMAX.f32 q3, q4, q9"));
 	return true;
 }

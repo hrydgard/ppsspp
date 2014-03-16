@@ -771,7 +771,13 @@ bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3, int v4) const {
 }
 
 void ArmRegCacheFPU::QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags) {
-	// TODO
+	u8 vregs[4];
+	GetMatrixColumns(matrix, mz, vregs);
+	int n = GetMatrixSide(mz);
+	VectorSize vsz = GetVectorSize(mz);
+	for (int i = 0; i < n; i++) {
+		QMapReg(vregs[i], vsz, 0);
+	}
 }
 
 ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {

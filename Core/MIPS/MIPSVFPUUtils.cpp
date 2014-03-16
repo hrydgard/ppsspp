@@ -378,10 +378,8 @@ VectorSize MatrixVectorSize(MatrixSize sz) {
 	}
 }
 
-int GetMatrixSide(MatrixSize sz)
-{
-	switch (sz)
-	{
+int GetMatrixSide(MatrixSize sz) {
+	switch (sz) {
 	case M_2x2: return 2;
 	case M_3x3: return 3;
 	case M_4x4: return 4;
@@ -390,15 +388,11 @@ int GetMatrixSide(MatrixSize sz)
 }
 
 // TODO: Optimize
-bool GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
+MatrixOverlapType GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 	int n = GetMatrixSide(msize);
 
-	if (n == 4) {
-		return GetMtx(mtx1) == GetMtx(mtx2);
-	}
-
 	if (mtx1 == mtx2)
-		return true;
+		return OVERLAP_EQUAL;
 
 	u8 m1[16];
 	u8 m2[16];
@@ -412,14 +406,14 @@ bool GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 			for (int a = 0; a < n; a++) {
 				for (int b = 0; b < n; b++) {
 					if (m2[a * 4 + b] == val) {
-						return true;
+						return OVERLAP_PARTIAL;
 					}
 				}
 			}
 		}
 	}
 
-	return false;
+	return OVERLAP_NONE;
 }
 
 const char *GetVectorNotation(int reg, VectorSize size)

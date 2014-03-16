@@ -379,10 +379,24 @@ u32 encodedSize(u32 value);
 // Subtracts the base from the register to give us the real one
 ARMReg SubBase(ARMReg Reg);
 
+inline bool IsQ(ARMReg r) {
+	return r >= Q0 && r <= Q15;
+}
+
+inline bool IsD(ARMReg r) {
+	return r >= D0 && r <= D31;
+}
+
 // See A.7.1 in the ARMv7-A
 // VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
 ARMReg DScalar(ARMReg dreg, int subScalar);
 ARMReg QScalar(ARMReg qreg, int subScalar);
+inline ARMReg XScalar(ARMReg reg, int subScalar) {
+	if (IsQ(reg))
+		return QScalar(reg, subScalar);
+	else
+		return DScalar(reg, subScalar);
+}
 
 const char *ARMRegAsString(ARMReg reg);
 
