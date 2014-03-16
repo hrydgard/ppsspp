@@ -404,9 +404,13 @@ static bool DisasmArithNeon(uint32_t op, const char *opname, char *text, bool in
 	int type = (op >> 8) & 0xF;
 	char r = quad ? 'q' : 'd';
 	const char *szname = GetISizeString(size);
-	if (type == 0xD)
+	if (type == 0xD || type == 0xF)
 		szname = "f32";
-	sprintf(text, "V%s%s%s %c%i, %c%i, %c%i", opname, includeSuffix ? "." : "", includeSuffix ? szname : "", r, GetVd(op, quad, true), r, GetVn(op, quad, true), r, GetVm(op, quad, true));
+
+	int Vd = GetVd(op, quad, true);
+	int Vn = GetVn(op, quad, true);
+	int Vm = GetVm(op, quad, true);
+	sprintf(text, "V%s%s%s %c%i, %c%i, %c%i", opname, includeSuffix ? "." : "", includeSuffix ? szname : "", r, Vd, r, Vn, r, Vm);
 	return true;
 }
 
@@ -560,6 +564,9 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 			case 0x80:
 			case 0xd0:
 				opname = "ADD";
+				break;
+			case 0xF0:
+				opname = "MAX";
 				break;
 			}
 			return DisasmArithNeon(op, opname, text, includeSuffix);
