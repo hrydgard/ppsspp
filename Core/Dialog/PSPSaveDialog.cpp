@@ -64,7 +64,9 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	int retval = param.SetPspParam(&request);
 
-	INFO_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x) : Mode = %i", paramAddr, (SceUtilitySavedataType)(u32)param.GetPspParam()->mode);
+	const u32 mode = (u32)param.GetPspParam()->mode;
+	const char *modeName = mode < ARRAY_SIZE(utilitySavedataTypeNames) ? utilitySavedataTypeNames[mode] : "UNKNOWN";
+	INFO_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x) - %s (%d)", paramAddr, modeName, mode);
 
 	yesnoChoice = 1;
 	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
