@@ -236,10 +236,22 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	}	
 }
 
-static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, const u8 *srcptr, int texbufwidthbits)
+struct Nearest4 {
+	MEMORY_ALIGNED16(u32 v[4]);
+
+	operator u32() const {
+		return v[0];
+	}
+};
+
+template <int N>
+inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufwidthbits)
 {
-	if (!srcptr)
-		return 0;
+	Nearest4 res;
+	if (!srcptr) {
+		memset(res.v, 0, sizeof(res.v));
+		return res;
+	}
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 
@@ -247,69 +259,96 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, const
 
 	switch (texfmt) {
 	case GE_TFMT_4444:
-		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGBA4444(*(const u16*)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGBA4444(*(const u16 *)src);
+		}
+		return res;
 	
 	case GE_TFMT_5551:
-		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGBA5551(*(const u16*)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGBA5551(*(const u16 *)src);
+		}
+		return res;
 
 	case GE_TFMT_5650:
-		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGB565(*(const u16*)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGB565(*(const u16 *)src);
+		}
+		return res;
 
 	case GE_TFMT_8888:
-		srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
-		return DecodeRGBA8888(*(const u32 *)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGBA8888(*(const u32 *)src);
+		}
+		return res;
 
 	case GE_TFMT_CLUT32:
-		{
-			srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
-			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
+			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_CLUT16:
-		{
-			srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-			u16 val = srcptr[0] + (srcptr[1] << 8);
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			u16 val = src[0] + (src[1] << 8);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_CLUT8:
-		{
-			srcptr += GetPixelDataOffset<8>(texbufwidthbits, u, v);
-			u8 val = *srcptr;
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbits, u[i], v[i]);
+			u8 val = *src;
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_CLUT4:
-		{
-			srcptr += GetPixelDataOffset<4>(texbufwidthbits, u, v);
-			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbits, u[i], v[i]);
+			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_DXT1:
-		{
-			const DXT1Block *block = (const DXT1Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+		for (int i = 0; i < N; ++i) {
+			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4);
-			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
 		}
+		return res;
+
 	case GE_TFMT_DXT3:
-		{
-			const DXT3Block *block = (const DXT3Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+		for (int i = 0; i < N; ++i) {
+			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4);
-			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
 		}
+		return res;
+
 	case GE_TFMT_DXT5:
-		{
-			const DXT5Block *block = (const DXT5Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+		for (int i = 0; i < N; ++i) {
+			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4);
-			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
 		}
+		return res;
+
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
-		return 0;
+		memset(res.v, 0, sizeof(res.v));
+		return res;
 	}
 }
 
@@ -969,21 +1008,17 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 	const u8 *tptr = texptr[texlevel];
 	if (!bilinear) {
 		// Nearest filtering only. Round texcoords or just chop bits?
-		texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+		texcolor = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr, bufwbits));
 	} else {
 #if defined(_M_SSE)
-		MEMORY_ALIGNED16(u32 tc[2]);
-		MEMORY_ALIGNED16(u32 bc[2]);
-		tc[0] = SampleNearest(texlevel, u[0], v[0], tptr, bufwbits);
-		tc[1] = SampleNearest(texlevel, u[1], v[1], tptr, bufwbits);
-		bc[0] = SampleNearest(texlevel, u[2], v[2], tptr, bufwbits);
-		bc[1] = SampleNearest(texlevel, u[3], v[3], tptr, bufwbits);
+		Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbits);
 
 		const __m128i z = _mm_setzero_si128();
 
-		__m128i tvec = _mm_unpacklo_epi8(_mm_load_si128((const __m128i *)tc), z);
+		__m128i cvec = _mm_load_si128((const __m128i *)c.v);
+		__m128i tvec = _mm_unpacklo_epi8(cvec, z);
 		tvec = _mm_mullo_epi16(tvec, _mm_set1_epi16(0x100 - frac_v));
-		__m128i bvec = _mm_unpacklo_epi8(_mm_load_si128((const __m128i *)bc), z);
+		__m128i bvec = _mm_unpackhi_epi8(cvec, z);
 		bvec = _mm_mullo_epi16(bvec, _mm_set1_epi16(frac_v));
 
 		// This multiplies the left and right sides.  We shift right after, although this may round down...
@@ -994,10 +1029,11 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 		__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
 		texcolor = Vec4<int>(_mm_unpacklo_epi16(res, z));
 #else
-		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
-		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
-		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
-		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
+		Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbits);
+		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
+		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
+		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
+		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(nearest.v[3]);
 		// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
 		Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
 		Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
@@ -1425,7 +1461,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer)
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest(0, x, y, texptr, texbufwidthbits);
+			row[x] = SampleNearest<1>(0, &x, &y, texptr, texbufwidthbits);
 		}
 		row += w;
 	}
