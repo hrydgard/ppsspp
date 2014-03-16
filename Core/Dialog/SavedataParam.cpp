@@ -871,16 +871,27 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 	{
 		const std::string gameName(param->msData->gameName, strnlen(param->msData->gameName, sizeof(param->msData->gameName)));
 		const std::string saveName(param->msData->saveName, strnlen(param->msData->saveName, sizeof(param->msData->saveName)));
-		std::string path = GetSaveFilePath(param, gameName + saveName);
+		// TODO: How should <> be handled?
+		std::string path = GetSaveFilePath(param, gameName + (saveName == "<>" ? "" : saveName));
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
-		if(finfo.exists)
+		if (finfo.exists)
 		{
-			// TODO : fill correctly with the total save size, be aware of crypted file size
-			param->msData->info.usedClusters = 1;
-			param->msData->info.usedSpaceKB = 0x20;
-			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));	// "32 KB" // 8 u8
-			param->msData->info.usedSpace32KB = 0x20;
-			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));	// "32 KB" // 8 u8
+			param->msData->info.usedClusters = 0;
+			auto listing = pspFileSystem.GetDirListing(path);
+			for (auto it = listing.begin(), end = listing.end(); it != end; ++it) {
+				param->msData->info.usedClusters += (it->size + (u32)MemoryStick_SectorSize() - 1) / (u32)MemoryStick_SectorSize();
+			}
+
+			// The usedSpaceKB value is definitely based on clusters, not bytes or even KB.
+			// Fieldrunners expects 736 KB, even though the files add up to ~600 KB.
+			int total_size = param->msData->info.usedClusters * (u32)MemoryStick_SectorSize();
+			param->msData->info.usedSpaceKB = total_size / 0x400;
+			std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
+			strncpy(param->msData->info.usedSpaceStr, spaceTxt.c_str(), sizeof(param->msData->info.usedSpaceStr));
+
+			// TODO: What does this mean, then?  Seems to be the same.
+			param->msData->info.usedSpace32KB = param->msData->info.usedSpaceKB;
+			strncpy(param->msData->info.usedSpace32Str, spaceTxt.c_str(), sizeof(param->msData->info.usedSpace32Str));
 		}
 		else
 		{
