@@ -1202,10 +1202,17 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
 	int range = (maxY - minY) / 16 + 1;
-	if (gstate.isModeClear())
-		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
-	else
-		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+	if (gstate.isModeClear()) {
+		if (range >= 24)
+			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+		else
+			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+	} else {
+		if (range >= 24)
+			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+		else
+			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+	}
 }
 
 void DrawPoint(const VertexData &v0)
