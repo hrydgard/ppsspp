@@ -30,6 +30,10 @@
 
 #include <algorithm>
 
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
 
@@ -978,6 +982,46 @@ inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s
 	prim_color_a = out.a();
 }
 
+#if defined(_M_SSE)
+static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
+	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
+	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
+	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
+	return _mm_mul_ps(v, _mm_set_ps1(wsum));
+}
+
+static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
+	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+}
+#endif
+
+// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
+// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
+
+static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE)
+	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE)
+	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE)
+	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
+#else
+	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
+#endif
+}
+
 template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
@@ -1067,16 +1111,11 @@ void DrawTriangleSlice(
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
 				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
-					// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
-					// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 					// TODO: Is that the correct way to interpolate?
-					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 +
-									v1.color0.rgb().Cast<float>() * w1 +
-									v2.color0.rgb().Cast<float>() * w2) * wsum).Cast<int>();
-					prim_color_a = (int)(((float)v0.color0.a() * w0 + (float)v1.color0.a() * w1 + (float)v2.color0.a() * w2) * wsum);
-					sec_color = ((v0.color1.Cast<float>() * w0 +
-									v1.color1.Cast<float>() * w1 +
-									v2.color1.Cast<float>() * w2) * wsum).Cast<int>();
+					const Vec4<int> prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum);
+					prim_color_rgb = prim_color.rgb();
+					prim_color_a = prim_color.a();
+					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum);
 				} else {
 					prim_color_rgb = v2.color0.rgb();
 					prim_color_a = v2.color0.a();
