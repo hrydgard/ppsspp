@@ -893,17 +893,17 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec4<int> prim_color)
 		prim_color.b() <<= 1;
 	}
 
+	const u32 old_color = GetPixelColor(p.x, p.y);
+	u32 new_color;
+
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
-		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-		// We can discard the vertex alpha at this point.
-		prim_color = Vec4<int>(AlphaBlendingResult(prim_color, dst), 0);
+		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+		new_color = Vec4<int>(AlphaBlendingResult(prim_color, dst).Clamp(0, 255), stencil).ToRGBA();
+	} else {
+		if (!clearMode)
+			prim_color = prim_color.Clamp(0, 255);
+		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
 	}
-
-	if (!clearMode)
-		prim_color = prim_color.Clamp(0, 255);
-
-	u32 new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
-	u32 old_color = GetPixelColor(p.x, p.y);
 
 	// TODO: Is alpha blending still performed if logic ops are enabled?
 	if (gstate.isLogicOpEnabled() && !clearMode) {
