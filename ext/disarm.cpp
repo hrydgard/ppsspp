@@ -495,7 +495,7 @@ static bool DisasmVdup(uint32_t op, char *text) {
 	int imm4 = (op >> 16) & 0xF;
 	int Vd = GetVd(op, quad, false);
 	int Vm = GetVm(op, false, true);
-	char c = quad ? 'q' : 'c';
+	char c = quad ? 'q' : 'd';
 	int index = 0;
 	int size = 0;
 	if (imm4 & 1) {
@@ -510,6 +510,33 @@ static bool DisasmVdup(uint32_t op, char *text) {
 	}
 
 	sprintf(text, "VDUP.%s %c%i, d%i[%i]", GetSizeString(size), c, Vd, Vm, index);
+	return true;
+}
+
+static bool DisasmNeonVecScalar(uint32_t op, char *text) {
+	bool quad = (op >> 24) & 1;
+
+	int Vd = GetVd(op, quad, true);
+	int Vn = GetVn(op, quad, true);
+	int Vm = GetVm(op, false, false);
+	
+	char c = quad ? 'q' : 'd';
+
+	const char *opname = "(unk)";
+	const char *size = "f32";
+
+	switch ((op >> 4) & 0xFF) {
+	case 0x94:
+		opname = "VMUL";
+		break;
+	case 0x14:
+		opname = "VMLA";
+		break;
+	}
+
+	int part = Vm & 1;
+	int reg = Vm >> 1;
+	sprintf(text, "%s.%s %c%i, %c%i, d%i[%i]", opname, size, c, Vd, c, Vn, reg, part);
 	return true;
 }
 
@@ -572,6 +599,8 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 	} else if ((op >> 20) == 0xF28) {
 		// Immediate value ops!
 		return DisasmNeonImmVal(op, text);
+	} else if ((op >> 20) == 0xF3A || (op >> 20) == 0xF2A) {
+		return DisasmNeonVecScalar(op, text);
 	} else if ((op >> 20) == 0xF3B) {
 		return DisasmNeon2Op(op, text);
 	} else if ((op >> 20) == 0xF3F) {

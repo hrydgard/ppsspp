@@ -163,6 +163,7 @@
   <ItemGroup>
     <ClCompile Include="..\native\ext\glew\glew.c" />
     <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
+    <ClCompile Include="TestArmEmitter.cpp" />
     <ClCompile Include="UnitTest.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -187,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\UI\OnScreenDisplay.h" />
+    <ClInclude Include="UnitTest.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
