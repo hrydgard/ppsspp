@@ -754,7 +754,7 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
 
 	case GE_SRCBLEND_FIXA:
-		return Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
+		return Vec3<int>::FromRGB(gstate.getFixA());
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
@@ -796,7 +796,7 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
 
 	case GE_DSTBLEND_FIXB:
-		return Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
+		return Vec3<int>::FromRGB(gstate.getFixB());
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
