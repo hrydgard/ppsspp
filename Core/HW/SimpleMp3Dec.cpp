@@ -27,6 +27,8 @@ extern "C" {
 #include <libavutil/samplefmt.h>
 }
 
+#endif  // USE_FFMPEG
+
 struct SimpleMP3 {
 public:
 	SimpleMP3();
@@ -36,16 +38,19 @@ public:
 	bool IsOK() const { return codec_ != 0; }
 
 private:
+#ifdef USE_FFMPEG
 	AVFrame *frame_;
 	AVCodec *codec_;
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
+#endif  // USE_FFMPEG
 };
 
 SimpleMP3::SimpleMP3()
 : codec_(0),
 codecCtx_(0),
 swrCtx_(0) {
+#ifdef USE_FFMPEG
 	frame_ = av_frame_alloc();
 
 	codec_ = avcodec_find_decoder(AV_CODEC_ID_MP3);
@@ -63,6 +68,7 @@ swrCtx_(0) {
 
 	codecCtx_->channels = 2;
 	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
+	codecCtx_->sample_rate = 44100;
 
 	AVDictionary *opts = 0;
 	av_dict_set(&opts, "channels", "2", 0);
@@ -97,9 +103,11 @@ swrCtx_(0) {
 		codec_ = 0;
 		return;
 	}
+#endif  // USE_FFMPEG
 }
 
 SimpleMP3::~SimpleMP3() {
+#ifdef USE_FFMPEG
 	if (frame_)
 		av_frame_free(&frame_);
 	if (codecCtx_)
@@ -108,6 +116,7 @@ SimpleMP3::~SimpleMP3() {
 	codec_ = 0;
 	if (swrCtx_)
 		swr_free(&swrCtx_);
+#endif  // USE_FFMPEG
 }
 
 // Input is a single MP3 packet.
@@ -122,7 +131,7 @@ bool SimpleMP3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 
 	int got_frame = 0;
 	av_frame_unref(frame_);
-
+	
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {
 		ERROR_LOG(ME, "Error decoding Mp3 frame");
@@ -131,19 +140,14 @@ bool SimpleMP3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 	}
 
 	if (got_frame) {
-		int data_size = av_samples_get_buffer_size(
-			NULL,
-			codecCtx_->channels,
-			frame_->nb_samples,
-			codecCtx_->sample_fmt, 1);
-		int numSamples = frame_->nb_samples;
-		int swrRet = swr_convert(swrCtx_, &outbuf, numSamples, (const u8 **)frame_->extended_data, numSamples);
+		// convert audio from AV_SAMPLE_FMT_S16P to AV_SAMPLE_FMT_S16
+		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		if (swrRet < 0) {
 			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
 			return false;
 		}
 		// We always convert to stereo.
-		__AdjustBGMVolume((s16 *)outbuf, numSamples * 2);
+		__AdjustBGMVolume((s16 *)outbuf, frame_->nb_samples * 2);
 	}
 
 	return true;
@@ -154,9 +158,6 @@ bool SimpleMP3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 #endif  // USE_FFMPEG
 }
 
-#endif  // USE_FFMPEG
-
-// "C" wrapper
 
 SimpleMP3 *MP3Create() {
 #ifdef USE_FFMPEG
@@ -181,7 +182,7 @@ bool MP3Decode(SimpleMP3 *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t 
 #else
 	*outbytes = 0;
 	return true;
-#endif
+#endif // USE_FFMPEG
 }
 
 void MP3Close(SimpleMP3 **ctx) {
