@@ -1040,8 +1040,7 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 		texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
 #endif
 	}
-	Vec4<int> out = GetTextureFunctionOutput(prim_color, texcolor);
-	prim_color = out;
+	prim_color = GetTextureFunctionOutput(prim_color, texcolor);
 }
 
 #if defined(_M_SSE)
@@ -1194,8 +1193,15 @@ void DrawTriangleSlice(
 					}
 				}
 
-				if (!clearMode)
+				if (!clearMode) {
+					// TODO: Tried making Vec4 do this, but things got slower.
+#if defined(_M_SSE)
+					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
+					prim_color.ivec = _mm_add_epi32(prim_color.ivec, sec);
+#else
 					prim_color += Vec4<int>(sec_color, 0);
+#endif
+				}
 
 				// TODO: Fogging
 
