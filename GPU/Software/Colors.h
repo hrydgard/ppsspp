@@ -49,11 +49,16 @@ static inline u32 DecodeRGB565(u16 src)
 
 static inline u32 DecodeRGBA8888(u32 src)
 {
+#if 1
+	return src;
+#else
+	// This is the order of the bits.
 	u8 r = src & 0xFF;
 	u8 g = (src >> 8) & 0xFF;
 	u8 b = (src >> 16) & 0xFF;
 	u8 a = (src >> 24) & 0xFF;
 	return (a << 24) | (b << 16) | (g << 8) | r;
+#endif
 }
 
 static inline u16 RGBA8888To565(u32 value)
