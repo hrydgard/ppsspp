@@ -1105,10 +1105,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
-	Core/HW/SimpleAT3Dec.cpp
-	Core/HW/SimpleAT3Dec.h
-	Core/HW/SimpleMp3Dec.cpp
-	Core/HW/SimpleMp3Dec.h
+	Core/HW/SimpleAudioDec.cpp
+	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp
