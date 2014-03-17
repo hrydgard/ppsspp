@@ -51,17 +51,12 @@ struct AudioCodecContext {
 	u32_le audioSamplesPerFrame;  // 9
 	u32_le inDataSizeAgain;  // 10  ??
 }; 
-
-SimpleMP3* mp3;
+// Create a mp3 decoder, once is enough.
+SimpleMP3* mp3 = MP3Create();
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (codec == PSP_CODEC_MP3){
-		// Initialize MP3 audio decoder.
-		mp3 = MP3Create();
-		DEBUG_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
-		return 0;
-	}
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	// Do nothing here
+	INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
@@ -71,7 +66,7 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		return -1;
 	}
 	if (codec == PSP_CODEC_MP3){
-		//Use SimpleMp3Dec to decode Mp3 audio
+		// Use SimpleMp3Dec to decode Mp3 audio
 		// Get AudioCodecContext
 		AudioCodecContext* ctx = new AudioCodecContext;
 		Memory::ReadStruct(ctxPtr, ctx);
@@ -79,6 +74,8 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		// Decode Mp3 audio
 		MP3Decode(mp3, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
 		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		// Delete AudioCondecContext
+		delete(ctx);
 		return 0;
 	}
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
