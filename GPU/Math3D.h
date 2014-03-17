@@ -348,6 +348,169 @@ public:
 };
 
 template<typename T>
+class Vec3Packed
+{
+public:
+	union
+	{
+		struct
+		{
+			T x,y,z;
+		};
+	};
+
+	T* AsArray() { return &x; }
+	const T* AsArray() const { return &x; }
+
+	Vec3Packed() {}
+	Vec3Packed(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
+	Vec3Packed(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
+	Vec3Packed(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
+
+	template<typename T2>
+	Vec3Packed<T2> Cast() const
+	{
+		return Vec3Packed<T2>((T2)x, (T2)y, (T2)z);
+	}
+
+	// Only implemented for T=int and T=float
+	static Vec3Packed FromRGB(unsigned int rgb);
+	unsigned int ToRGB() const; // alpha bits set to zero
+
+	static Vec3Packed AssignToAll(const T& f)
+	{
+		return Vec3Packed<T>(f, f, f);
+	}
+
+	void Write(T a[3])
+	{
+		a[0] = x; a[1] = y; a[2] = z;
+	}
+
+	Vec3Packed operator +(const Vec3Packed &other) const
+	{
+		return Vec3Packed(x+other.x, y+other.y, z+other.z);
+	}
+	void operator += (const Vec3Packed &other)
+	{
+		x+=other.x; y+=other.y; z+=other.z;
+	}
+	Vec3Packed operator -(const Vec3Packed &other) const
+	{
+		return Vec3Packed(x-other.x, y-other.y, z-other.z);
+	}
+	void operator -= (const Vec3Packed &other)
+	{
+		x-=other.x; y-=other.y; z-=other.z;
+	}
+	Vec3Packed operator -() const
+	{
+		return Vec3Packed(-x,-y,-z);
+	}
+	Vec3Packed operator * (const Vec3Packed &other) const
+	{
+		return Vec3Packed(x*other.x, y*other.y, z*other.z);
+	}
+	template<typename V>
+	Vec3Packed operator * (const V& f) const
+	{
+		return Vec3Packed(x*f,y*f,z*f);
+	}
+	template<typename V>
+	void operator *= (const V& f)
+	{
+		x*=f; y*=f; z*=f;
+	}
+	template<typename V>
+	Vec3Packed operator / (const V& f) const
+	{
+		return Vec3Packed(x/f,y/f,z/f);
+	}
+	template<typename V>
+	void operator /= (const V& f)
+	{
+		*this = *this / f;
+	}
+
+	T Length2() const
+	{
+		return x*x + y*y + z*z;
+	}
+
+	Vec3Packed Clamp(const T &l, const T &h) const
+	{
+		return Vec3Packed(VecClamp(x, l, h), VecClamp(y, l, h), VecClamp(z, l, h));
+	}
+
+	// Only implemented for T=float
+	float Length() const;
+	void SetLength(const float l);
+	Vec3Packed WithLength(const float l) const;
+	float Distance2To(Vec3Packed &other);
+	Vec3Packed Normalized() const;
+	float Normalize(); // returns the previous length, which is often useful
+
+	T& operator [] (int i) //allow vector[2] = 3   (vector.z=3)
+	{
+		return *((&x) + i);
+	}
+	T operator [] (const int i) const
+	{
+		return *((&x) + i);
+	}
+
+	void SetZero()
+	{
+		x=0; y=0; z=0;
+	}
+
+	// Common aliases: UVW (texel coordinates), RGB (colors), STQ (texture coordinates)
+	T& u() { return x; }
+	T& v() { return y; }
+	T& w() { return z; }
+
+	T& r() { return x; }
+	T& g() { return y; }
+	T& b() { return z; }
+
+	T& s() { return x; }
+	T& t() { return y; }
+	T& q() { return z; }
+
+	const T& u() const { return x; }
+	const T& v() const { return y; }
+	const T& w() const { return z; }
+
+	const T& r() const { return x; }
+	const T& g() const { return y; }
+	const T& b() const { return z; }
+
+	const T& s() const { return x; }
+	const T& t() const { return y; }
+	const T& q() const { return z; }
+
+	// swizzlers - create a subvector of specific components
+	// e.g. Vec2 uv() { return Vec2(x,y); }
+	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
+#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, a4, b4) \
+	_DEFINE_SWIZZLER2(a, b, a##b); \
+	_DEFINE_SWIZZLER2(a, b, a2##b2); \
+	_DEFINE_SWIZZLER2(a, b, a3##b3); \
+	_DEFINE_SWIZZLER2(a, b, a4##b4); \
+	_DEFINE_SWIZZLER2(b, a, b##a); \
+	_DEFINE_SWIZZLER2(b, a, b2##a2); \
+	_DEFINE_SWIZZLER2(b, a, b3##a3); \
+	_DEFINE_SWIZZLER2(b, a, b4##a4);
+
+	DEFINE_SWIZZLER2(x, y, r, g, u, v, s, t);
+	DEFINE_SWIZZLER2(x, z, r, b, u, w, s, q);
+	DEFINE_SWIZZLER2(y, z, g, b, v, w, t, q);
+#undef DEFINE_SWIZZLER2
+#undef _DEFINE_SWIZZLER2
+};
+
+template<typename T>
 class Vec4
 {
 public:
@@ -629,6 +792,7 @@ private:
 }; // namespace Math3D
 
 typedef Math3D::Vec3<float> Vec3f;
+typedef Math3D::Vec3Packed<float> Vec3Packedf;
 typedef Math3D::Vec4<float> Vec4f;
 
 
@@ -719,6 +883,12 @@ template<typename T>
 inline Vec3<T> Cross(const Vec3<T>& a, const Vec3<T>& b)
 {
 	return Vec3<T>(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
+}
+
+template<typename T>
+inline Vec3Packed<T> Cross(const Vec3Packed<T>& a, const Vec3Packed<T>& b)
+{
+	return Vec3Packed<T>(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
 }
 
 }; // namespace Math3D
