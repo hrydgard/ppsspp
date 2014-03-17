@@ -45,8 +45,7 @@
 #include "math/math_util.h"
 #include "util/text/parsers.h"
 #include "util/text/utf8.h"
-#include "Core/MIPS/ARM/ArmJit.h"
-#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Config.h"
 

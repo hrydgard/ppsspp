@@ -1,4 +1,8 @@
 #include "Common/ArmEmitter.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "ext/disarm.h"
 
 #include "UnitTest.h"
@@ -10,6 +14,17 @@ bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	ArmDis(0, instr, disasm);
 	EXPECT_EQ_STR(std::string(disasm), std::string(comp));
 	return true;
+}
+
+void DisassembleARMBetween(const u8 *start, const u8 *end) {
+	while (start < end) {
+		char disasm[512];
+		uint32_t instr;
+		memcpy(&instr, start, 4);
+		ArmDis(0, instr, disasm);
+		printf("%s\n", disasm);
+		start += 4;
+	}
 }
 
 bool TestArmEmitter() {
@@ -126,8 +141,12 @@ bool TestArmEmitter() {
 	emitter.VMLS(I_16, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f3142946 VMLS.i16 q1, q2, q3"));
 
+	emitter.VEOR(Q0, Q1, Q2);
+	RET(CheckLast(emitter, "f3020154 VEOR q0, q1, q2"));
 	emitter.VORR(Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2242156 VORR q1, q2, q3"));
+	emitter.VORR(D1, D2, D3);
+	RET(CheckLast(emitter, "f2221113 VORR d1, d2, d3"));
 	emitter.VAND(Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2042156 VAND q1, q2, q3"));
 	emitter.VDUP(F_32, Q14, D30, 1);
@@ -159,5 +178,41 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f2243f23 VMIN.f32 d3, d4, d19"));
 	emitter.VMAX(F_32, Q3, Q4, Q9);
 	RET(CheckLast(emitter, "f2086f62 VMAX.f32 q3, q4, q9"));
+
+	//emitter.VMOV(S1, 112);
+	//RET(CheckLast(emitter, "eef70a00 VMOV.f32 s1, #112"));
+
+
+	const u8 *codeStart = emitter.GetCodePtr();
+
+	MIPSState mips;
+	MIPSComp::JitState js;
+	MIPSComp::ArmJitOptions jo;
+	ArmRegCacheFPU fpr(&mips, &js, &jo);
+	fpr.SetEmitter(&emitter);
+	int C000 = GetColumnName(0, M_4x4, 0, 0);
+	int C010 = GetColumnName(0, M_4x4, 1, 0);
+	int C020 = GetColumnName(0, M_4x4, 2, 0);
+	int C030 = GetColumnName(0, M_4x4, 3, 0);
+	int R000 = GetRowName(0, M_4x4, 0, 0);
+	printf("Col 000: %s\n", GetVectorNotation(C000, V_Quad));
+	printf("Row 000: %s\n", GetVectorNotation(R000, V_Quad));
+	
+	MIPSAnalyst::AnalysisResults results;
+	memset(&results, 0, sizeof(results));
+
+	fpr.Start(results);
+	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
+	fpr.QMapReg(C010, V_Quad, MAP_DIRTY);
+	fpr.QMapReg(C020, V_Quad, MAP_DIRTY);
+	fpr.QMapReg(C030, V_Quad, MAP_DIRTY);
+	emitter.ORR(R0, R0, R0);
+	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
+	fpr.FlushAll();
+
+	const u8 *codeEnd = emitter.GetCodePtr();
+
+	DisassembleARMBetween(codeStart, codeEnd);
+
 	return true;
 }
