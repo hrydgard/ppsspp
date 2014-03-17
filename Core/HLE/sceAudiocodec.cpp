@@ -20,26 +20,7 @@
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Core/HW/SimpleMp3Dec.h"
-
-enum {
-	PSP_CODEC_AT3PLUS = 0x00001000,
-	PSP_CODEC_AT3 = 0x00001001,
-	PSP_CODEC_MP3 = 0x00001002,
-	PSP_CODEC_AAC = 0x00001003,
-};
-
-static const char *const codecNames[4] = {
-	"AT3+", "AT3", "MP3", "AAC",
-};
-
-static const char *GetCodecName(int codec) {
-	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
-		return codecNames[codec - PSP_CODEC_AT3PLUS];
-	}	else {
-		return "(unk)";
-	}
-}
+#include "Core/HW/SimpleAudioDec.h"
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024
 // Should probably store the EDRAM get/release status somewhere within here, etc.
@@ -51,17 +32,17 @@ struct AudioCodecContext {
 	u32_le audioSamplesPerFrame;  // 9
 	u32_le inDataSizeAgain;  // 10  ??
 }; 
-
-SimpleMP3* mp3;
+// Pointer to audio decoder
+SimpleAudio* audio;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (codec == PSP_CODEC_MP3){
-		// Initialize MP3 audio decoder.
-		mp3 = MP3Create();
-		DEBUG_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	if (isValideCodec(codec)){
+		// Create audio decoder for given audio codec.
+		audio = AudioCreate(codec);
+		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;
 	}
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(codec), codec);
 	return 0;
 }
 
@@ -70,15 +51,17 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
 	}
-	if (codec == PSP_CODEC_MP3){
-		//Use SimpleMp3Dec to decode Mp3 audio
+	if (isValideCodec(codec)){
+		// Use SimpleAudioDec to decode audio
 		// Get AudioCodecContext
 		AudioCodecContext* ctx = new AudioCodecContext;
 		Memory::ReadStruct(ctxPtr, ctx);
 		int outbytes = 0;
-		// Decode Mp3 audio
-		MP3Decode(mp3, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
+		// Decode audio
+		AudioDecode(audio, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
 		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		// Delete AudioCodecContext
+		delete(ctx);
 		return 0;
 	}
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
@@ -100,8 +83,10 @@ int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 	return 0;
 }
 
-int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int codec) {
-	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
+	AudioClose(&audio);
+	//id is not always a codec, so what is should be exactly? 
+	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
 }
 
