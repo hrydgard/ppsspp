@@ -565,11 +565,23 @@ void VertexDecoderJitCache::Jit_Color8888() {
 }
 
 static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
-
+static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 void VertexDecoderJitCache::Jit_Color4444() {
 	// Needs benchmarking. A bit wasteful by only using 1 SSE lane.
 #if 0
+	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->coloff));
+	PUNPCKLBW(fpScratchReg, R(fpScratchReg));
+	PAND(fpScratchReg, M(color4444mask));
+	MOVSS(fpScratchReg2, R(fpScratchReg));
+	MOVSS(fpScratchReg3, R(fpScratchReg));
+	PSRLW(fpScratchReg2, 4);
+	PSLLW(fpScratchReg3, 4);
+	POR(fpScratchReg, R(fpScratchReg2));
+	POR(fpScratchReg, R(fpScratchReg3));
+	MOVD_xmm(MDisp(dstReg, dec_->decFmt.c0off), fpScratchReg);
+	return;
+#elif 0
 	// Alternate approach
 	MOVD_xmm(XMM3, MDisp(srcReg, dec_->coloff));
 	MOVAPS(XMM2, R(XMM3));
@@ -592,34 +604,30 @@ void VertexDecoderJitCache::Jit_Color4444() {
 
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->coloff));
 
-	// 0000ABGR, copy R and double forwards.
+	// Pick out A and B, and space them out by a nibble.
+	MOV(32, R(tempReg2), R(tempReg1));
 	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg3), Imm32(0x0000000F));
-	MOV(32, R(tempReg2), R(tempReg3));
+	AND(32, R(tempReg2), Imm32(0x0000F000));
+	AND(32, R(tempReg3), Imm32(0x00000F00));
+	SHL(32, R(tempReg2), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// Now grab R and G.
+	MOV(32, R(tempReg3), R(tempReg1));
+	AND(32, R(tempReg1), Imm32(0x0000000F));
+	AND(32, R(tempReg3), Imm32(0x000000F0));
+
+	// Currently: 000A0B00, so let's shift once so G is spaced out.
+	SHL(32, R(tempReg2), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg3));
+
+	// Now: 00A0B0G0, so shift it once more to add R at the bottom.
+	SHL(32, R(tempReg2), Imm8(4));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	// Now we just need to duplicate the nibbles.
+	MOV(32, R(tempReg3), R(tempReg2));
 	SHL(32, R(tempReg3), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg3));
-
-	// tempReg1 -> 00ABGR00, then double G backwards.
-	SHL(32, R(tempReg1), Imm8(8));
-	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg3), Imm32(0x0000F000));
-	OR(32, R(tempReg2), R(tempReg3));
-	SHR(32, R(tempReg3), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg3));
-
-	// Now do B forwards again (still 00ABGR00.)
-	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg3), Imm32(0x000F0000));
-	OR(32, R(tempReg2), R(tempReg3));
-	SHL(32, R(tempReg3), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg3));
-
-	// tempReg1 -> ABGR0000, then double A backwards.
-	SHL(32, R(tempReg1), Imm8(8));
-	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg3), Imm32(0xF0000000));
-	OR(32, R(tempReg2), R(tempReg3));
-	SHR(32, R(tempReg3), Imm8(4));
 	OR(32, R(tempReg2), R(tempReg3));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
