@@ -22,7 +22,16 @@ namespace Math3D {
 template<>
 float Vec2<float>::Length() const
 {
+#if defined(_M_SSE)
+	float ret;
+	__m128 sq = _mm_mul_ps(vec, vec);
+	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
+	const __m128 res = _mm_add_ss(sq, r2);
+	_mm_store_ps(&ret, _mm_sqrt_ss(res));
+	return ret;
+#else
 	return sqrtf(Length2());
+#endif
 }
 
 template<>
@@ -88,7 +97,17 @@ unsigned int Vec3<int>::ToRGB() const
 template<>
 float Vec3<float>::Length() const
 {
+#if defined(_M_SSE)
+	float ret;
+	__m128 sq = _mm_mul_ps(vec, vec);
+	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
+	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
+	const __m128 res = _mm_add_ss(sq, _mm_add_ss(r2, r3));
+	_mm_store_ps(&ret, _mm_sqrt_ss(res));
+	return ret;
+#else
 	return sqrtf(Length2());
+#endif
 }
 
 template<>
@@ -156,7 +175,16 @@ unsigned int Vec4<int>::ToRGBA() const
 template<>
 float Vec4<float>::Length() const
 {
+#if defined(_M_SSE)
+	float ret;
+	__m128 sq = _mm_mul_ps(vec, vec);
+	const __m128 r2 = _mm_add_ps(sq, _mm_movehl_ps(sq, sq));
+	const __m128 res = _mm_add_ss(r2, _mm_shuffle_ps(r2, r2, _MM_SHUFFLE(0, 0, 0, 1)));
+	_mm_store_ps(&ret, _mm_sqrt_ss(res));
+	return ret;
+#else
 	return sqrtf(Length2());
+#endif
 }
 
 template<>
