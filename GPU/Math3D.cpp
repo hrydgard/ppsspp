@@ -73,7 +73,7 @@ Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
 	__m128i z = _mm_setzero_si128();
 	__m128i c = _mm_cvtsi32_si128(rgb);
 	c = _mm_unpacklo_epi16(_mm_unpacklo_epi8(c, z), z);
-	return Vec3<float>(_mm_cvtepi32_ps(c));
+	return Vec3<float>(_mm_mul_ps(_mm_cvtepi32_ps(c), _mm_set_ps1(1.0f / 255.0f)));
 #else
 	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
 				((rgb >> 8) & 0xFF) * (1.0f/255.0f),
@@ -240,7 +240,7 @@ Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
 	__m128i z = _mm_setzero_si128();
 	__m128i c = _mm_cvtsi32_si128(rgba);
 	c = _mm_unpacklo_epi16(_mm_unpacklo_epi8(c, z), z);
-	return Vec4<float>(_mm_cvtepi32_ps(c));
+	return Vec4<float>(_mm_mul_ps(_mm_cvtepi32_ps(c), _mm_set_ps1(1.0f / 255.0f)));
 #else
 	return Vec4((rgba & 0xFF) * (1.0f/255.0f),
 				((rgba >> 8) & 0xFF) * (1.0f/255.0f),
