@@ -131,7 +131,7 @@ bool SimpleMP3::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes)
 
 	int got_frame = 0;
 	av_frame_unref(frame_);
-	
+
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {
 		ERROR_LOG(ME, "Error decoding Mp3 frame");
