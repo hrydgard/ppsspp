@@ -593,15 +593,28 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 			}
 			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x31:
-			if (op & 0x100)
-				opname = "MLS";
-			else
-				opname = "SUB";
+			temp = (op >> 4) & 0xF1;
+			switch (temp) {
+			default:
+				if (op & 0x100)
+					opname = "MLS";
+				else
+					opname = "SUB";
+				break;
+			}
 			return DisasmArithNeon(op, opname, text);
 		case 0x30:
 		case 0x34:
-			opname = "MUL";
-			return DisasmArithNeon(op, opname, text);
+			temp = (op >> 4) & 0xF1;
+			switch (temp) {
+			case 0x11:
+				opname = "EOR";
+				includeSuffix = false;
+				break;
+			default:
+				opname = "MUL";
+			}
+			return DisasmArithNeon(op, opname, text, includeSuffix);
 		}
 	} else if ((op >> 20) == 0xF28) {
 		// Immediate value ops!
