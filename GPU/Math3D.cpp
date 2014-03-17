@@ -98,7 +98,7 @@ template<>
 unsigned int Vec3<float>::ToRGB() const
 {
 #if defined(_M_SSE)
-	__m128i c = _mm_cvtps_epi32(vec);
+	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
@@ -200,7 +200,7 @@ template<>
 unsigned int Vec4<float>::ToRGBA() const
 {
 #if defined(_M_SSE)
-	__m128i c = _mm_cvtps_epi32(vec);
+	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #else
