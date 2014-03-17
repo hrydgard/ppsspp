@@ -304,20 +304,21 @@ void ArmRegCacheFPU::FlushQWithV(MIPSReg r) {
 			continue;
 
 		int n = qr[i].sz;
+		bool flushThis = false;
 		for (int j = 0; j < n; j++) {
 			if (qr[i].vregs[j] == r) {
-				QFlush(i);
-				flushCount++;
+				flushThis = true;
 			}
+		}
+
+		if (flushThis) {
+			QFlush(i);
+			flushCount++;
 		}
 	}
 
 	if (flushCount > 1) {
-		ERROR_LOG(JIT, "ERROR: More than one quad was flushed to flush reg %i", r);
-	}
-
-	if (flushCount == 0) {
-		FlushR(r + 32);
+		WARN_LOG(JIT, "ERROR: More than one quad was flushed to flush reg %i", r);
 	}
 }
 
@@ -372,6 +373,7 @@ int ArmRegCacheFPU::GetNumARMFPURegs() {
 		return 16;
 }
 
+// Scalar only. Need a similar one for sequential Q vectors.
 int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
 	int c = 1;
 	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
@@ -398,10 +400,10 @@ void ArmRegCacheFPU::FlushAll() {
 	}
 
 	// Flush quads!
+	// These could also use sequential detection.
 	for (int i = 4; i < MAX_ARMQUADS; i++) {
 		QFlush(i);
 	}
-
 
 	// Loop through the ARM registers, then use GetMipsRegOffset to determine if MIPS registers are
 	// sequential. This is necessary because we store VFPU registers in a staggered order to get
@@ -685,16 +687,15 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 	int quad = -1;
 
 	int start = 0;
-	int end = 16;
-	int incr = 1;
 
 	if (!preferLow) {
-		start = MAX_ARMQUADS - 1;
-		end = -1;
-		incr = -1;
+		start = 8;
 	}
 
-	for (int q = start; q != end; q += incr) {
+	int end = ((start - 1) & 15);
+
+	for (int q = start; q != end; q++) {
+		q &= 15;
 		if (!MappableQ(q))
 			continue;
 
@@ -710,20 +711,20 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 	// sort of age.
 	int bestQuad = -1;
 	int bestScore = -1;
-	for (int q = start; q != end; q += incr) {
+	for (int q = start; q != end; q++) {
+		q &= 15;
 		if (!MappableQ(q))
 			continue;
 		if (qr[q].spillLock)
 			continue;
 		if (qr[q].isTemp)
 			continue;
+
 		int score = 0;
 		if (!qr[q].isDirty) {
 			score += 5;
 		}
-		// To shake things up, add part of the current address to the score.
-		int noise = 0; //(((u32)(uintptr_t)emit_->GetCodePtr()) >> 2) & 0xF;
-		score += noise;
+
 		if (score > bestScore) {
 			bestQuad = q;
 			bestScore = score;
@@ -734,6 +735,8 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 		ERROR_LOG(JIT, "Failed finding a free quad. Things will now go haywire!");
 		return -1;
 	} else {
+		INFO_LOG(JIT, "Kicked out %i", bestQuad);
+		QFlush(bestQuad);
 		return bestQuad;
 	}
 }
@@ -773,10 +776,13 @@ bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3, int v4) const {
 void ArmRegCacheFPU::QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags) {
 	u8 vregs[4];
 	GetMatrixColumns(matrix, mz, vregs);
+
+	// TODO: Zap existing mappings, reserve 4 consecutive regs, then do a fast load.
+
 	int n = GetMatrixSide(mz);
 	VectorSize vsz = GetVectorSize(mz);
 	for (int i = 0; i < n; i++) {
-		QMapReg(vregs[i], vsz, 0);
+		regs[i] = QMapReg(vregs[i], vsz, flags);
 	}
 }
 
@@ -794,32 +800,56 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	for (int q = 0; q < 16; q++) {
 		if (!MappableQ(q))
 			continue;
-		
+
+		// Check if completely there already. If so, just transfer dirty flag and exit.
+		if (vreg == qr[q].mipsVec && sz == qr[q].sz) {
+			INFO_LOG(JIT, "Quad already mapped: %i : %i (size %i)", q, vreg, sz);
+			qr[q].isDirty = qr[q].isDirty || (flags & MAP_DIRTY);
+
+			// Sanity check vregs
+			for (int i = 0; i < n; i++) {
+				if (vregs[i] != qr[q].vregs[i]) {
+					ERROR_LOG(JIT, "Sanity check failed: %i vs %i", vregs[i], qr[q].vregs[i]);
+				}
+			}
+
+			return (ARMReg)(Q0 + q);
+		}
+
 		// Skip unmapped quads.
 		if (qr[q].sz == V_Invalid)
 			continue;
 
+		int origN = GetNumVectorElements(qr[q].sz);
+
 		// Compare subregs to what's already in this register.
 		int matchCount = 0;
-		for (int i = 0; i < n; i++) {
+		for (int i = 0; i < n && i < origN; i++) {
 			if (qr[q].vregs[i] == vregs[i])
 				matchCount++;
 			else
 				break;
 		}
 
-		// Old was shorter!
+		// There was an old reg, and it was shorter!
 		if (matchCount > 0 && matchCount < n) {
+			INFO_LOG(JIT, "Short match: %i/%i (%i).", matchCount, n, vreg);
+
+			// Flush the whole vector to be safe.
+
 			// If the missing elements are elsewhere, they NEED to be flushed out.
 			for (int i = matchCount; i < n; i++) {
-				FlushQWithV(vregs[i]);
+				INFO_LOG(JIT, "FlushQWithV: %i", qr[q].vregs[i]);
+				FlushQWithV(qr[q].vregs[i]);
 			}
 
-			// OK, let's extend by loading the missing elements.
-			for (int i = matchCount; i < n; i++) {
-				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[i]), R1);
-				emit_->VLD1_lane(F_32, QuadAsQ(q), R0, i, true);
-				qr[q].vregs[i] = vregs[i];
+			if ((flags & MAP_NOINIT) == 0) {
+				// OK, let's extend by loading the missing elements.
+				for (int i = matchCount; i < n; i++) {
+					emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[i]), R1);
+					emit_->VLD1_lane(F_32, QuadAsQ(q), R0, i, true);
+					qr[q].vregs[i] = vregs[i];
+				}
 			}
 			matchCount = n;
 		} else if (matchCount == n) {
@@ -830,6 +860,9 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 				}
 			}
 		}
+
+		// Must have found where we want it.
+		break;
 
 		// TODO: Check for longer too.
 		// We have this already! Just check that it isn't longer
@@ -844,7 +877,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		}*/
 
 		// TODO: Check for other types of overlap and do the clever thing.
-
+		
 		if (matchCount == n) {
 			if (flags & MAP_DIRTY) {
 				qr[q].isDirty = true;
@@ -865,7 +898,8 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	}
 
 	// Map singles low, to hopefully end up below the scalar limit.
-	int quad = QGetFreeQuad(sz == V_Single);
+	bool preferLow = sz == V_Single;
+	int quad = QGetFreeQuad(preferLow);
 
 	// If parts of our register are elsewhere, and we are dirty, we need to flush them
 	// before we reload in a new location.
@@ -878,16 +912,14 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		}
 	}
 
-	// Flush out anything left behind in our new fresh quad.
-	QFlush(quad);
-
 	qr[quad].sz = sz;
 	qr[quad].mipsVec = vreg;
 
 	if (!(flags & MAP_NOINIT)) {
 		// Okay, now we will try to load the whole thing in one go. This is possible
 		// if it's a row and easy if it's a single.
-		// Unfortunately rows are rare, columns are common.
+		// Rows are rare, columns are common - but thanks to our register reordering,
+		// columns are actually in-order in memory.
 		switch (sz) {
 		case V_Single:
 			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
@@ -948,6 +980,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		qr[quad].vregs[i] = vregs[i];
 	}
 	qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
+	qr[quad].spillLock = true;
 
 	INFO_LOG(JIT, "Mapped quad %i to vfpu %i, sz=%i, dirty=%i", quad, vreg, (int)sz, qr[quad].isDirty);
 	if (sz == V_Single || sz == V_Pair) {

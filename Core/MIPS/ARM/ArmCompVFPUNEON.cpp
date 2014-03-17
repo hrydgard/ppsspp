@@ -277,7 +277,8 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 	case 54: //lv.q
 		{
 			// Check for four-in-a-row
-			u32 ops[4] = {op.encoding, 
+			const u32 ops[4] = {
+				op.encoding, 
 				Memory::Read_Instruction(js.compilerPC + 4).encoding,
 				Memory::Read_Instruction(js.compilerPC + 8).encoding,
 				Memory::Read_Instruction(js.compilerPC + 12).encoding
@@ -288,6 +289,8 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 				if (offsets[1] == offset + 16 && offsets[2] == offsets[1] + 16 && offsets[3] == offsets[2] + 16 &&
 					  rss[0] == rss[1] && rss[1] == rss[2] && rss[2] == rss[3]) {
 					int vts[4] = {MIPS_GET_VQVT(op.encoding), MIPS_GET_VQVT(ops[1]), MIPS_GET_VQVT(ops[2]), MIPS_GET_VQVT(ops[3])};
+					// Also check the destination registers!
+
 					// Detected four consecutive ones!
 					// gpr.MapRegAsPointer(rs);
 					// fpr.QLoad4x4(vts[4], rs, offset);
@@ -340,8 +343,28 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 
 	case 62: //sv.q
 		{
-			// TODO: Check next few instructions for more than one sv.q. We can optimize
-			// full matrix stores quite a bit, I think.
+			const u32 ops[4] = {
+				op.encoding,
+				Memory::Read_Instruction(js.compilerPC + 4).encoding,
+				Memory::Read_Instruction(js.compilerPC + 8).encoding,
+				Memory::Read_Instruction(js.compilerPC + 12).encoding
+			};
+			if (g_Config.bFastMemory && (ops[1] >> 26) == 54 && (ops[2] >> 26) == 54 && (ops[3] >> 26) == 54) {
+				int offsets[4] = { offset, (s16)(ops[1] & 0xFFFC), (s16)(ops[2] & 0xFFFC), (s16)(ops[3] & 0xFFFC) };
+				int rss[4] = { MIPS_GET_RS(op), MIPS_GET_RS(ops[1]), MIPS_GET_RS(ops[2]), MIPS_GET_RS(ops[3]) };
+				if (offsets[1] == offset + 16 && offsets[2] == offsets[1] + 16 && offsets[3] == offsets[2] + 16 &&
+					rss[0] == rss[1] && rss[1] == rss[2] && rss[2] == rss[3]) {
+					int vts[4] = { MIPS_GET_VQVT(op.encoding), MIPS_GET_VQVT(ops[1]), MIPS_GET_VQVT(ops[2]), MIPS_GET_VQVT(ops[3]) };
+					// Also check the destination registers!
+
+					// Detected four consecutive ones!
+					// gpr.MapRegAsPointer(rs);
+					// fpr.QLoad4x4(vts[4], rs, offset);
+					INFO_LOG(JIT, "Matrix store detected! TODO: optimize");
+					// break;
+				}
+			}
+						 
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && offset < 0x400-16 && offset > -0x400-16) {
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Quad, 0);
@@ -404,16 +427,17 @@ void Jit::CompNEON_VVectorInit(MIPSOpcode op) {
 
 	switch ((op >> 16) & 0xF) {
 	case 6:  // vzero
-		VEOR(vd, vd, vd);
+		VEOR(vd.rd, vd.rd, vd.rd);
 		break;
 	case 7:  // vone
-		VMOV_immf(vd, 1.0f);
+		VMOV_immf(vd.rd, 1.0f);
 		break;
 	default:
 		DISABLE;
 		break;
 	}
 	NEONApplyPrefixD(vd);
+
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
@@ -719,7 +743,6 @@ void Jit::CompNEON_Vmtvc(MIPSOpcode op) {
 
 void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-	DISABLE;
 
 	MatrixSize msz = GetMtxSize(op);
 	int n = GetMatrixSide(msz);
@@ -729,10 +752,10 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 
 	switch ((op >> 16) & 0xF) {
 	case 3:  // vmidt
-		MOVI2F(S0, 0.0f, R0);
-		MOVI2F(S1, 1.0f, R0);
-		MOVI2F(S2, 1.0f, R0);
-		MOVI2F(S3, 0.0f, R0);
+		MOVI2F(S0, 1.0f, R0);
+		MOVI2F(S1, 0.0f, R0);
+		MOVI2F(S2, 0.0f, R0);
+		MOVI2F(S3, 1.0f, R0);
 		switch (msz) {
 		case M_2x2:
 			VMOV(cols[0], D0);
@@ -760,7 +783,7 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 		break;
 	case 6: // vmzero
 		for (int i = 0; i < n; i++) {
-			VMOV_immf(cols[i], 0.0f);
+			VEOR(cols[i], cols[i], cols[i]);
 		}
 		break;
 	case 7: // vmone
@@ -843,7 +866,7 @@ void Jit::CompNEON_Vmscl(MIPSOpcode op) {
 	if (overlap) {
 		DISABLE;
 	}
-	DISABLE;
+	// DISABLE;
 
 	int n = GetMatrixSide(msz);
 

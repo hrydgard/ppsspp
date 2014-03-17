@@ -115,7 +115,7 @@ int GetColumnName(int matrix, MatrixSize msize, int column, int offset) {
 }
 
 int GetRowName(int matrix, MatrixSize msize, int column, int offset) {
-	return matrix * 4 + column + offset * 32;
+	return 0x20 | (matrix * 4 + column + offset * 32);
 }
 
 void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]) {
