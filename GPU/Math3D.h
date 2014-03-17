@@ -18,6 +18,11 @@
 #pragma once
 
 #include <cmath>
+#include "Common/Common.h"
+
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
 
 namespace Math3D {
 
@@ -36,9 +41,16 @@ template<typename T>
 class Vec2
 {
 public:
-	struct
+	union
 	{
-		T x,y;
+		struct
+		{
+			T x,y;
+		};
+#if defined(_M_SSE)
+		__m128i ivec;
+		__m128 vec;
+#endif
 	};
 
 	T* AsArray() { return &x; }
@@ -47,6 +59,10 @@ public:
 	Vec2() {}
 	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
 	Vec2(const T& _x, const T& _y) : x(_x), y(_y) {}
+#if defined(_M_SSE)
+	Vec2(const __m128 &_vec) : vec(_vec) {}
+	Vec2(const __m128i &_ivec) : ivec(_ivec) {}
+#endif
 
 	template<typename T2>
 	Vec2<T2> Cast() const
@@ -164,9 +180,16 @@ template<typename T>
 class Vec3
 {
 public:
-	struct
+	union
 	{
-		T x,y,z;
+		struct
+		{
+			T x,y,z;
+		};
+#if defined(_M_SSE)
+		__m128i ivec;
+		__m128 vec;
+#endif
 	};
 
 	T* AsArray() { return &x; }
@@ -176,6 +199,10 @@ public:
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
+#if defined(_M_SSE)
+	Vec3(const __m128 &_vec) : vec(_vec) {}
+	Vec3(const __m128i &_ivec) : ivec(_ivec) {}
+#endif
 
 	template<typename T2>
 	Vec3<T2> Cast() const
@@ -324,9 +351,16 @@ template<typename T>
 class Vec4
 {
 public:
-	struct
+	union
 	{
-		T x,y,z,w;
+		struct
+		{
+			T x,y,z,w;
+		};
+#if defined(_M_SSE)
+		__m128i ivec;
+		__m128 vec;
+#endif
 	};
 
 	T* AsArray() { return &x; }
@@ -337,6 +371,10 @@ public:
 	Vec4(const T& _x, const T& _y, const T& _z, const T& _w) : x(_x), y(_y), z(_z), w(_w) {}
 	Vec4(const Vec2<T>& _xy, const T& _z, const T& _w) : x(_xy.x), y(_xy.y), z(_z), w(_w) {}
 	Vec4(const Vec3<T>& _xyz, const T& _w) : x(_xyz.x), y(_xyz.y), z(_xyz.z), w(_w) {}
+#if defined(_M_SSE)
+	Vec4(const __m128 &_vec) : vec(_vec) {}
+	Vec4(const __m128i &_ivec) : ivec(_ivec) {}
+#endif
 
 	template<typename T2>
 	Vec4<T2> Cast() const
