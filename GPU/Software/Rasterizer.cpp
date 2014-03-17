@@ -773,7 +773,7 @@ static inline bool AlphaTestPassed(int alpha)
 	return true;
 }
 
-static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
+static inline Vec3<int> GetSourceFactor(const Vec4<int>& source, const Vec4<int>& dst)
 {
 	switch (gstate.getBlendFuncA()) {
 	case GE_SRCBLEND_DSTCOLOR:
@@ -783,10 +783,18 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec3<int>::AssignToAll(255) - dst.rgb();
 
 	case GE_SRCBLEND_SRCALPHA:
-		return Vec3<int>::AssignToAll(source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
+#else
+		return Vec3<int>::AssignToAll(source.a());
+#endif
 
 	case GE_SRCBLEND_INVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
+#else
+		return Vec3<int>::AssignToAll(255 - source.a());
+#endif
 
 	case GE_SRCBLEND_DSTALPHA:
 		return Vec3<int>::AssignToAll(dst.a());
@@ -795,10 +803,10 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec3<int>::AssignToAll(255 - dst.a());
 
 	case GE_SRCBLEND_DOUBLESRCALPHA:
-		return Vec3<int>::AssignToAll(2 * source_a);
+		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source_a);
+		return Vec3<int>::AssignToAll(255 - 2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
@@ -816,20 +824,28 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 	}
 }
 
-static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a, const Vec4<int>& dst)
+static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& dst)
 {
 	switch (gstate.getBlendFuncB()) {
 	case GE_DSTBLEND_SRCCOLOR:
-		return source_rgb;
+		return source.rgb();
 
 	case GE_DSTBLEND_INVSRCCOLOR:
-		return Vec3<int>::AssignToAll(255) - source_rgb;
+		return Vec3<int>::AssignToAll(255) - source.rgb();
 
 	case GE_DSTBLEND_SRCALPHA:
-		return Vec3<int>::AssignToAll(source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
+#else
+		return Vec3<int>::AssignToAll(source.a());
+#endif
 
 	case GE_DSTBLEND_INVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
+#else
+		return Vec3<int>::AssignToAll(255 - source.a());
+#endif
 
 	case GE_DSTBLEND_DSTALPHA:
 		return Vec3<int>::AssignToAll(dst.a());
@@ -838,10 +854,10 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 		return Vec3<int>::AssignToAll(255 - dst.a());
 
 	case GE_DSTBLEND_DOUBLESRCALPHA:
-		return Vec3<int>::AssignToAll(2 * source_a);
+		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source_a);
+		return Vec3<int>::AssignToAll(255 - 2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
@@ -860,18 +876,42 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 
 static inline Vec3<int> AlphaBlendingResult(const Vec4<int>& source, const Vec4<int> dst)
 {
-	Vec3<int> srcfactor = GetSourceFactor(source.a(), dst);
-	Vec3<int> dstfactor = GetDestFactor(source.rgb(), source.a(), dst);
+	Vec3<int> srcfactor = GetSourceFactor(source, dst);
+	Vec3<int> dstfactor = GetDestFactor(source, dst);
 
 	switch (gstate.getBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
+	{
+#if defined(_M_SSE)
+		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
+		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_add_ps(s, d), _mm_set_ps1(255.0f))));
+#else
 		return (source.rgb() * srcfactor + dst.rgb() * dstfactor) / 255;
+#endif
+	}
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT:
+	{
+#if defined(_M_SSE)
+		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
+		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(s, d), _mm_set_ps1(255.0f))));
+#else
 		return (source.rgb() * srcfactor - dst.rgb() * dstfactor) / 255;
+#endif
+	}
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+	{
+#if defined(_M_SSE)
+		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
+		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(d, s), _mm_set_ps1(255.0f))));
+#else
 		return (dst.rgb() * dstfactor - source.rgb() * srcfactor) / 255;
+#endif
+	}
 
 	case GE_BLENDMODE_MIN:
 		return Vec3<int>(std::min(source.r(), dst.r()),
@@ -952,7 +992,14 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec4<int> prim_color)
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+#if defined(_M_SSE)
+		const Vec3<int> blended = AlphaBlendingResult(prim_color, dst);
+		const __m128i blended16 = _mm_packs_epi32(blended.ivec, blended.ivec);
+		new_color = _mm_cvtsi128_si32(_mm_packus_epi16(blended16, blended16));
+		new_color = (stencil << 24) | (new_color & 0x00FFFFFF);
+#else
 		new_color = Vec4<int>(AlphaBlendingResult(prim_color, dst).Clamp(0, 255), stencil).ToRGBA();
+#endif
 	} else {
 		if (!clearMode)
 			prim_color = prim_color.Clamp(0, 255);
