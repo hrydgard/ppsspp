@@ -655,9 +655,24 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, co
 
 	switch (gstate.getTextureFunction()) {
 	case GE_TEXFUNC_MODULATE:
+	{
+#if defined(_M_SSE)
+		// We can be accurate up to 24 bit integers, should be enough.
+		const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
+		const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
+		out_rgb.ivec = _mm_cvtps_epi32(_mm_div_ps(_mm_mul_ps(p, t), _mm_set_ps1(255.0f)));
+
+		if (rgba) {
+			return Vec4<int>(out_rgb.ivec);
+		} else {
+			out_a = prim_color.a();
+		}
+#else
 		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
 		out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
+#endif
 		break;
+	}
 
 	case GE_TEXFUNC_DECAL:
 	{
