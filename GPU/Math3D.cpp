@@ -168,6 +168,72 @@ float Vec3<float>::Normalize()
 }
 
 template<>
+Vec3Packed<float> Vec3Packed<float>::FromRGB(unsigned int rgb)
+{
+	return Vec3Packed((rgb & 0xFF) * (1.0f/255.0f),
+				((rgb >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgb >> 16) & 0xFF) * (1.0f/255.0f));
+}
+
+template<>
+Vec3Packed<int> Vec3Packed<int>::FromRGB(unsigned int rgb)
+{
+	return Vec3Packed(rgb & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 16) & 0xFF);
+}
+
+template<>
+unsigned int Vec3Packed<float>::ToRGB() const
+{
+	return ((unsigned int)(r()*255.f)) +
+			((unsigned int)(g()*255.f*256.f)) +
+			((unsigned int)(b()*255.f*256.f*256.f));
+}
+
+template<>
+unsigned int Vec3Packed<int>::ToRGB() const
+{
+	return (r()&0xFF) | ((g()&0xFF)<<8) | ((b()&0xFF)<<16);
+}
+
+template<>
+float Vec3Packed<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec3Packed<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+Vec3Packed<float> Vec3Packed<float>::WithLength(const float l) const
+{
+	return (*this) * l / Length();
+}
+
+template<>
+float Vec3Packed<float>::Distance2To(Vec3Packed<float> &other)
+{
+	return Vec3Packed<float>(other-(*this)).Length2();
+}
+
+template<>
+Vec3Packed<float> Vec3Packed<float>::Normalized() const
+{
+	return (*this) / Length();
+}
+
+template<>
+float Vec3Packed<float>::Normalize()
+{
+	float len = Length();
+	(*this) = (*this)/len;
+	return len;
+}
+
+template<>
 Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
 {
 #if defined(_M_SSE)

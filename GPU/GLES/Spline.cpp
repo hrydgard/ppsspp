@@ -80,16 +80,16 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 			float weights[8];
 			reader.ReadWeights(weights);
 			// Skinning
-			Vec3f psum(0,0,0);
-			Vec3f nsum(0,0,0);
+			Vec3Packedf psum(0,0,0);
+			Vec3Packedf nsum(0,0,0);
 			for (int w = 0; w < numBoneWeights; w++) {
 				if (weights[w] != 0.0f) {
 					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix+w*12);
-					Vec3f tpos(bpos);
+					Vec3Packedf tpos(bpos);
 					psum += tpos * weights[w];
 
 					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix+w*12);
-					Vec3f tnorm(bnrm);
+					Vec3Packedf tnorm(bnrm);
 					nsum += tnorm * weights[w];
 				}
 			}
@@ -288,11 +288,11 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-Vec3f Bernstein3D(const Vec3f p0, const Vec3f p1, const Vec3f p2, const Vec3f p3, float x) {
+Vec3Packedf Bernstein3D(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
 }
 
-Vec3f Bernstein3DDerivative(const Vec3f p0, const Vec3f p1, const Vec3f p2, const Vec3f p3, float x) {
+Vec3Packedf Bernstein3DDerivative(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 
@@ -379,7 +379,7 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 				// Generate normal if lighting is enabled (otherwise there's no point).
 				// This is a really poor quality algorithm, we get facet normals.
 				if (gstate.isLightingEnabled()) {
-					Vec3f norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
+					Vec3Packedf norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
 					norm.Normalize();
 					if (gstate.patchfacing & 1)
 						norm *= -1.0f;
@@ -503,8 +503,8 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 					int r = std::min(patch_div_s, u + 1);
 					int b = std::min(patch_div_t, v + 1);
 
-					const Vec3f &right = vertices[v * (patch_div_s + 1) + r].pos - vertices[v * (patch_div_s + 1) + l].pos;
-					const Vec3f &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
+					const Vec3Packedf &right = vertices[v * (patch_div_s + 1) + r].pos - vertices[v * (patch_div_s + 1) + l].pos;
+					const Vec3Packedf &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
 
 					vertices[v * (patch_div_s + 1) + u].nrm = Cross(right, down).Normalized();
 					if (gstate.patchfacing & 1) {
@@ -570,7 +570,7 @@ void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const B
 				// Generate normal if lighting is enabled (otherwise there's no point).
 				// This is a really poor quality algorithm, we get facet normals.
 				if (gstate.isLightingEnabled()) {
-					Vec3f norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
+					Vec3Packedf norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
 					norm.Normalize();
 					if (gstate.patchfacing & 1)
 						norm *= -1.0f;
@@ -591,10 +591,10 @@ void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const B
 		// First compute all the vertices and put them in an array
 		SimpleVertex *vertices = new SimpleVertex[(tess_u + 1) * (tess_v + 1)];
 
-		Vec3f *horiz = new Vec3f[(tess_u + 1) * 4];
-		Vec3f *horiz2 = horiz + (tess_u + 1) * 1;
-		Vec3f *horiz3 = horiz + (tess_u + 1) * 2;
-		Vec3f *horiz4 = horiz + (tess_u + 1) * 3;
+		Vec3Packedf *horiz = new Vec3Packedf[(tess_u + 1) * 4];
+		Vec3Packedf *horiz2 = horiz + (tess_u + 1) * 1;
+		Vec3Packedf *horiz3 = horiz + (tess_u + 1) * 2;
+		Vec3Packedf *horiz4 = horiz + (tess_u + 1) * 3;
 
 		// Precompute the horizontal curves to we only have to evaluate the vertical ones.
 		for (int i = 0; i < tess_u + 1; i++) {
@@ -615,20 +615,20 @@ void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const B
 				float bv = v;
 
 				// TODO: Should be able to precompute the four curves per U, then just Bernstein per V. Will benefit large tesselation factors.
-				const Vec3f &pos1 = horiz[tile_u];
-				const Vec3f &pos2 = horiz2[tile_u];
-				const Vec3f &pos3 = horiz3[tile_u];
-				const Vec3f &pos4 = horiz4[tile_u];
+				const Vec3Packedf &pos1 = horiz[tile_u];
+				const Vec3Packedf &pos2 = horiz2[tile_u];
+				const Vec3Packedf &pos3 = horiz3[tile_u];
+				const Vec3Packedf &pos4 = horiz4[tile_u];
 
 				SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
 				if (computeNormals) {
-					Vec3f derivU1 = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, bu);
-					Vec3f derivU2 = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, bu);
-					Vec3f derivU3 = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, bu);
-					Vec3f derivU4 = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, bu);
-					Vec3f derivU = Bernstein3D(derivU1, derivU2, derivU3, derivU4, bv);
-					Vec3f derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
+					Vec3Packedf derivU1 = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, bu);
+					Vec3Packedf derivU2 = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, bu);
+					Vec3Packedf derivU3 = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, bu);
+					Vec3Packedf derivU4 = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, bu);
+					Vec3Packedf derivU = Bernstein3D(derivU1, derivU2, derivU3, derivU4, bv);
+					Vec3Packedf derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
 					// TODO: Interpolate normals instead of generating them, if available?
 					vert.nrm = Cross(derivU, derivV).Normalized();
