@@ -433,9 +433,6 @@
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="HW\SimpleAT3Dec.cpp">
-      <Filter>HW</Filter>
-    </ClCompile>
     <ClCompile Include="HW\MpegDemux.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -519,9 +516,6 @@
     </ClCompile>
     <ClCompile Include="MIPS\PPC\PpcCompReplace.cpp">
       <Filter>MIPS\PPC</Filter>
-    </ClCompile>
-    <ClCompile Include="HW\SimpleMp3Dec.cpp">
-      <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HW\SimpleAudioDec.cpp">
       <Filter>HW</Filter>
@@ -888,9 +882,6 @@
     <ClInclude Include="Cwcheat.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="HW\SimpleAT3Dec.h">
-      <Filter>HW</Filter>
-    </ClInclude>
     <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
     </ClInclude>
@@ -964,9 +955,6 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HW\BufferQueue.h">
-      <Filter>HW</Filter>
-    </ClInclude>
-    <ClInclude Include="HW\SimpleMp3Dec.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HW\SimpleAudioDec.h">
