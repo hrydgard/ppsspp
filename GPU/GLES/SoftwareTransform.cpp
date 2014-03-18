@@ -53,7 +53,7 @@ inline float clamp(float in, float min, float max) {
 class Lighter {
 public:
 	Lighter(int vertType);
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
+	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &normal);
 
 private:
 	Color4 globalAmbient;
@@ -85,7 +85,7 @@ Lighter::Lighter(int vertType) {
 	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
 }
 
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm) {
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &norm) {
 	Color4 in(colorIn);
 
 	const Color4 *ambient;
