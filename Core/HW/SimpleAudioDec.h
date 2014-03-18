@@ -58,4 +58,4 @@ static const char *GetCodecName(int codec) {
 		return "(unk)";
 	}
 };
-bool isValideCodec(int codec);
+bool isValidCodec(int codec);
