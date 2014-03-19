@@ -42,7 +42,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, c->T("Deadzone Radius"), screenManager()));
 
 	settings->Add(new ItemHeader(c->T("Calibration")));
-	InfoItem *calibrationInfo = new InfoItem("To calibrate, keep device on a flat surface and press calibrate.", "");
+	InfoItem *calibrationInfo = new InfoItem(c->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");
 	settings->Add(calibrationInfo);
 
 	Choice *calibrate = new Choice(c->T("Calibrate D-Pad"));
