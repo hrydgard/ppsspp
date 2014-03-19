@@ -1050,28 +1050,32 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
-	// TODO: Optimize the first one to skip an ADDPS.
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 
+	// Sum into fpScratchReg.
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
 		XORPS(fpScratchReg3, R(fpScratchReg3));
-		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLBW(fpScratchReg2, R(fpScratchReg3));
-		PUNPCKLWD(fpScratchReg2, R(fpScratchReg3));
-		PSLLD(fpScratchReg2, 24);
-		PSRAD(fpScratchReg2, 24); // Ugly sign extension, can be done faster in SSE4
-		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		PUNPCKLBW(reg, R(fpScratchReg3));
+		PUNPCKLWD(reg, R(fpScratchReg3));
+		PSLLD(reg, 24);
+		PSRAD(reg, 24); // Ugly sign extension, can be done faster in SSE4
+		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/127.0f.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
 		MULSS(fpScratchReg3, M(by127));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 
-		MULPS(fpScratchReg2, R(fpScratchReg3));
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
@@ -1079,27 +1083,31 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
-	// TODO: Optimize the first one to skip an ADDPS.
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 
+	// Sum into fpScratchReg.
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
 		XORPS(fpScratchReg3, R(fpScratchReg3));
-		MOVQ_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLWD(fpScratchReg2, R(fpScratchReg3));
-		PSLLD(fpScratchReg2, 16);
-		PSRAD(fpScratchReg2, 16); // Ugly sign extension, can be done faster in SSE4
-		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+		MOVQ_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		PUNPCKLWD(reg, R(fpScratchReg3));
+		PSLLD(reg, 16);
+		PSRAD(reg, 16); // Ugly sign extension, can be done faster in SSE4
+		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/32767.0f.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
 		MULSS(fpScratchReg3, M(by32767));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 
-		MULPS(fpScratchReg2, R(fpScratchReg3));
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
@@ -1107,17 +1115,21 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
-	// TODO: Optimize the first one to skip an ADDPS.
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 
+	// Sum into fpScratchReg.
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		MOVUPS(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		MOVUPS(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
-		MULPS(fpScratchReg2, R(fpScratchReg3));
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
