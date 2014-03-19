@@ -257,6 +257,11 @@ public:
 	void Jit_PosS16Morph();
 	void Jit_PosFloatMorph();
 
+	void Jit_Color8888Morph();
+	void Jit_Color4444Morph();
+	void Jit_Color565Morph();
+	void Jit_Color5551Morph();
+
 private:
 	bool CompileStep(const VertexDecoder &dec, int i);
 	void Jit_ApplyWeights();

@@ -655,6 +655,7 @@ public:
 	void PMOVMSKB(X64Reg dest, OpArg arg);
 	void PSHUFB(X64Reg dest, OpArg arg);
 
+	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
 	void PSHUFLW(X64Reg dest, OpArg arg, u8 shuffle);
 
 	void PSRLW(X64Reg reg, int shift);

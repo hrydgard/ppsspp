@@ -1476,6 +1476,7 @@ void XEmitter::PMINUB(X64Reg dest, OpArg arg)   {WriteSSEOp(64, 0xDA, true, dest
 
 void XEmitter::PMOVMSKB(X64Reg dest, OpArg arg)    {WriteSSEOp(64, 0xD7, true, dest, arg); }
 
+void XEmitter::PSHUFD(X64Reg regOp, OpArg arg, u8 shuffle)    {WriteSSEOp(64, 0x70, true, regOp, arg, 1); Write8(shuffle);}
 void XEmitter::PSHUFLW(X64Reg regOp, OpArg arg, u8 shuffle)   {WriteSSEOp(64, 0x70, false, regOp, arg, 1); Write8(shuffle);}
 
 // Prefixes
