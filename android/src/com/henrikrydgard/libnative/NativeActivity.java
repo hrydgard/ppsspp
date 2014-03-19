@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.Vibrator;
 import android.text.InputType;
 import android.util.DisplayMetrics;
@@ -42,6 +43,7 @@ import android.view.KeyEvent;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -304,10 +306,10 @@ public class NativeActivity extends Activity {
 			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
 			Log.i(TAG, "Setting immersive mode");
 		}
-		if (mGLSurfaceView != null) {
-			mGLSurfaceView.setSystemUiVisibility(flags);
+		if (getWindow().getDecorView() != null) {
+			getWindow().getDecorView().setSystemUiVisibility(flags);
 		} else {
-			Log.e(TAG, "updateSystemUiVisibility: GLSurfaceView not yet created, ignoring");
+			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring");
 		}
 	}
 	
@@ -371,13 +373,28 @@ public class NativeActivity extends Activity {
         
 		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
-        setContentView(mGLSurfaceView);
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            updateSystemUiVisibility();
-        }
+		setContentView(mGLSurfaceView);
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			updateSystemUiVisibility();
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+				setupSystemUiCallback();
+			}
+		}
     }
 
+    @TargetApi(19)
+	void setupSystemUiCallback() {
+        getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
+            @Override
+            public void onSystemUiVisibilityChange(int visibility) {
+                if (visibility == 0) {
+                	updateSystemUiVisibility();
+                }
+            }
+        });
+    }
+    
     @Override
     protected void onStop() {
     	super.onStop(); 
