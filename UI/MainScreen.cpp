@@ -55,6 +55,11 @@
 #include "Windows/WndMainWindow.h"
 #endif
 
+#ifdef ANDROID_NDK_PROFILER
+#include <stdlib.h>
+#include "android/android-ndk-profiler/prof.h"
+#endif
+
 #ifdef USING_QT_UI
 #include <QFileDialog>
 #include <QFile>
@@ -953,6 +958,9 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 
 	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
 #ifdef ANDROID
+#ifdef ANDROID_NDK_PROFILER
+	moncleanup();
+#endif
 	exit(0);
 #endif
 
