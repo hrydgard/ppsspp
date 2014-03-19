@@ -927,9 +927,9 @@ inline unsigned int Vec3<float>::ToRGB() const
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
-	return ((unsigned int)(r()*255.f)) +
-			((unsigned int)(g()*255.f*256.f)) +
-			((unsigned int)(b()*255.f*256.f*256.f));
+	return ((unsigned int)(r()*255.f) << 0) |
+			((unsigned int)(g()*255.f) << 8) |
+			((unsigned int)(b()*255.f) << 16);
 #endif
 }
 
@@ -981,10 +981,10 @@ inline unsigned int Vec4<float>::ToRGBA() const
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #else
-	return ((unsigned int)(r()*255.f)) +
-			((unsigned int)(g()*255.f*256.f)) +
-			((unsigned int)(b()*255.f*256.f*256.f)) +
-			((unsigned int)(a()*255.f*256.f*256.f*256.f));
+	return ((unsigned int)(r()*255.f) << 0) |
+			((unsigned int)(g()*255.f) << 8) |
+			((unsigned int)(b()*255.f) << 16) |
+			((unsigned int)(a()*255.f) << 24);
 #endif
 }
 
