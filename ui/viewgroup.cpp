@@ -253,16 +253,16 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 
 	// Add a small bonus if the views are the same size. This prioritizes moving to the next item
 	// upwards in a scroll view instead of moving up to the top bar.
-	float bonus = 0.0f;
+	float distanceBonus = 0.0f;
 	if (vertical) {
 		float widthDifference = origin->GetBounds().w - destination->GetBounds().w;
 		if (widthDifference == 0) {
-			bonus = 1;
+			distanceBonus = 40;
 		}
 	} else {
 		float heightDifference = origin->GetBounds().h - destination->GetBounds().h;
 		if (heightDifference == 0) {
-			bonus = 1;
+			distanceBonus = 40;
 		}
 	}
 
@@ -273,7 +273,7 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 	if (wrongDirection)
 		return 0.0f;
 	else
-		return 1.0f / distance + overlap * 10 + bonus;
+		return 10.0f / std::max(1.0f, distance - distanceBonus) + overlap;
 }
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
