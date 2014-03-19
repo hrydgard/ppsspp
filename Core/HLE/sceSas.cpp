@@ -161,7 +161,6 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 }
 
 u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
-	DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -182,7 +181,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	}
 
 	if (!Memory::IsValidAddress(vagAddr)) {
-		ERROR_LOG(SCESAS, "Ignoring invalid VAG audio address %08x", vagAddr);
+		ERROR_LOG(SCESAS, "%s: Ignoring invalid VAG audio address %08x", __FUNCTION__, vagAddr);
 		return 0;
 	}
 
@@ -193,6 +192,9 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 		// Needs more rigorous testing perhaps, but this fixes issue https://github.com/hrydgard/ppsspp/issues/5652
 		// while being fairly low risk to other games.
 		size = 0;
+		DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i) : HACK: Negative size changed to 0", core, voiceNum, vagAddr, size, loop);
+	} else {
+		DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
