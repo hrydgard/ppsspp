@@ -36,7 +36,7 @@ struct AudioCodecContext {
 SimpleAudio* audio;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (isValidCodec(codec)){
+	if (isValideCodec(codec)){
 		// Create audio decoder for given audio codec.
 		audio = AudioCreate(codec);
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
@@ -51,7 +51,7 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
 	}
-	if (isValidCodec(codec)){
+	if (isValideCodec(codec)){
 		// Use SimpleAudioDec to decode audio
 		// Get AudioCodecContext
 		AudioCodecContext* ctx = new AudioCodecContext;
@@ -84,8 +84,8 @@ int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 }
 
 int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
-	AudioClose(&audio);
 	//id is not always a codec, so what is should be exactly? 
+	//AudioClose(&audio); can not be used here, since it will crash some games.
 	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
 }

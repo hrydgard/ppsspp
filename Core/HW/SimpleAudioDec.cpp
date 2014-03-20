@@ -95,53 +95,23 @@ swrCtx_(0) {
 	codec_ = avcodec_find_decoder(audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID_Audio (Audio). Update your submodule.");
+		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID for audio (%s). Update your submodule.",GetCodecName(audioType));
 		return;
 	}
-
+	// Allocate codec context
 	codecCtx_ = avcodec_alloc_context3(codec_);
 	if (!codecCtx_) {
 		ERROR_LOG(ME, "Failed to allocate a codec context");
 		return;
 	}
-
-	codecCtx_->channels = 2;
-	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
-	codecCtx_->sample_rate = 44100;
-
+	// Open codec
 	AVDictionary *opts = 0;
-	av_dict_set(&opts, "channels", "2", 0);
-	av_dict_set(&opts, "sample_rate", "44100", 0);
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
 		ERROR_LOG(ME, "Failed to open codec");
 		return;
 	}
 
 	av_dict_free(&opts);
-
-	// Initializing the sample rate convert. We only really use it to convert float output
-	// into int.
-	int wanted_channels = 2;
-	int64_t wanted_channel_layout = av_get_default_channel_layout(wanted_channels);
-	int64_t dec_channel_layout = av_get_default_channel_layout(2);
-
-	swrCtx_ = swr_alloc_set_opts(
-		swrCtx_,
-		wanted_channel_layout,
-		AV_SAMPLE_FMT_S16,
-		codecCtx_->sample_rate,
-		dec_channel_layout,
-		codecCtx_->sample_fmt,
-		codecCtx_->sample_rate,
-		0,
-		NULL);
-
-	if (!swrCtx_ || swr_init(swrCtx_) < 0) {
-		ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
-		avcodec_close(codecCtx_);
-		codec_ = 0;
-		return;
-	}
 #endif  // USE_FFMPEG
 }
 
@@ -178,8 +148,30 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		return false;
 	}
 
+	// Initializing the sample rate convert. We only really use it to convert float output into int.
+	int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo
+	int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
+
+	swrCtx_ = swr_alloc_set_opts(
+		swrCtx_,
+		wanted_channel_layout,
+		AV_SAMPLE_FMT_S16,
+		codecCtx_->sample_rate,
+		dec_channel_layout,
+		codecCtx_->sample_fmt,
+		codecCtx_->sample_rate,
+		0,
+		NULL);
+
+	if (!swrCtx_ || swr_init(swrCtx_) < 0) {
+		ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
+		avcodec_close(codecCtx_);
+		codec_ = 0;
+		return false;
+	}
+
 	if (got_frame) {
-		// convert audio from AV_SAMPLE_FMT_S16P to AV_SAMPLE_FMT_S16
+		// convert audio to AV_SAMPLE_FMT_S16
 		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		if (swrRet < 0) {
 			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
