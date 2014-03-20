@@ -42,8 +42,10 @@ static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in register
 // The rest will be dumped to bones as on x86.
 
 
+static const float by127 = 1.0f / 127.0f;
 static const float by128 = 1.0f / 128.0f;
 static const float by256 = 1.0f / 256.0f;
+static const float by32767 = 1.0f / 32767.0f;
 static const float by32768 = 1.0f / 32768.0f;
 
 using namespace ArmGen;
@@ -129,6 +131,14 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
 	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
 	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
+
+	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
+	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
+	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
+
+	{&VertexDecoder::Step_PosS8Morph, &VertexDecoderJitCache::Jit_PosS8Morph},
+	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
+	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
 };
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
@@ -918,6 +928,175 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 	VLDR(src[1], srcReg, dec_->posoff + 4);
 	VLDR(src[2], srcReg, dec_->posoff + 8);
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
+	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
+	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
+
+	MOVI2F(S13, by127, scratchReg);
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		if (cpu_info.bNEON) {
+			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);
+			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
+			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S12, S12, S13);
+
+			if (first) {
+				first = false;
+				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			} else {
+				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			}
+		} else {
+			LDRSB(scratchReg, tempReg1, 0);
+			LDRSB(scratchReg2, tempReg1, 1);
+			LDRSB(scratchReg3, tempReg1, 2);
+			VMOV(fpScratchReg, scratchReg);
+			VMOV(fpScratchReg2, scratchReg2);
+			VMOV(fpScratchReg3, scratchReg3);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+			VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT | IS_SIGNED);
+			VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT | IS_SIGNED);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S12, S12, S13);
+
+			if (first) {
+				first = false;
+				VMUL(S8, fpScratchReg, S12);
+				VMUL(S9, fpScratchReg2, S12);
+				VMUL(S10, fpScratchReg3, S12);
+			} else {
+				VMLA(S8, fpScratchReg, S12);
+				VMLA(S9, fpScratchReg2, S12);
+				VMLA(S10, fpScratchReg3, S12);
+			}
+		}
+	}
+
+	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
+	VSTMIA(tempReg1, false, S8, 3);
+}
+
+void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
+	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
+	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
+
+	MOVI2F(S13, by32767, scratchReg);
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		if (cpu_info.bNEON) {
+			VLD1(I_32, neonScratchReg, tempReg1, 1, ALIGN_NONE);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
+			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S12, S12, S13);
+
+			if (first) {
+				first = false;
+				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			} else {
+				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			}
+		} else {
+			LDRSH(scratchReg, tempReg1, 0);
+			LDRSH(scratchReg2, tempReg1, 2);
+			LDRSH(scratchReg3, tempReg1, 4);
+			VMOV(fpScratchReg, scratchReg);
+			VMOV(fpScratchReg2, scratchReg2);
+			VMOV(fpScratchReg3, scratchReg3);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
+			VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT | IS_SIGNED);
+			VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT | IS_SIGNED);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S12, S12, S13);
+
+			if (first) {
+				first = false;
+				VMUL(S8, fpScratchReg, S12);
+				VMUL(S9, fpScratchReg2, S12);
+				VMUL(S10, fpScratchReg3, S12);
+			} else {
+				VMLA(S8, fpScratchReg, S12);
+				VMLA(S9, fpScratchReg2, S12);
+				VMLA(S10, fpScratchReg3, S12);
+			}
+		}
+	}
+
+	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
+	VSTMIA(tempReg1, false, S8, 3);
+}
+
+void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
+	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
+	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		VLDMIA(tempReg1, false, fpScratchReg, 3);
+		ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+		VLDR(S12, tempReg2, sizeof(float) * n);
+
+		if (first) {
+			first = false;
+			if (cpu_info.bNEON) {
+				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			} else {
+				VMUL(S8, fpScratchReg, S12);
+				VMUL(S9, fpScratchReg2, S12);
+				VMUL(S10, fpScratchReg3, S12);
+			}
+		} else {
+			if (cpu_info.bNEON) {
+				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			} else {
+				VMLA(S8, fpScratchReg, S12);
+				VMLA(S9, fpScratchReg2, S12);
+				VMLA(S10, fpScratchReg3, S12);
+			}
+		}
+	}
+
+	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
+	VSTMIA(tempReg1, false, S8, 3);
+}
+
+void VertexDecoderJitCache::Jit_PosS8Morph() {
+	Jit_AnyS8Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Morph() {
+	Jit_AnyS16Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorph() {
+	Jit_AnyFloatMorph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8Morph() {
+	Jit_AnyS8Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Morph() {
+	Jit_AnyS16Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorph() {
+	Jit_AnyFloatMorph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
