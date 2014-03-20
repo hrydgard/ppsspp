@@ -148,7 +148,7 @@ static GLenum blendColor2Func(u32 fix) {
 	if (fix == 0)
 		return GL_ZERO;
 
-	Vec3f fix3 = Vec3f::FromRGB(fix);
+	const Vec3f fix3 = Vec3f::FromRGB(fix);
 	if (fix3.x >= 0.99 && fix3.y >= 0.99 && fix3.z >= 0.99)
 		return GL_ONE;
 	else if (fix3.x <= 0.01 && fix3.y <= 0.01 && fix3.z <= 0.01)
@@ -156,8 +156,8 @@ static GLenum blendColor2Func(u32 fix) {
 	return GL_INVALID_ENUM;
 }
 
-static bool blendColorSimilar(Vec3f a, Vec3f b, float margin = 0.1f) {
-	Vec3f diff = a - b;
+static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margin = 0.1f) {
+	const Vec3f diff = a - b;
 	if (fabsf(diff.x) <= margin && fabsf(diff.y) <= margin && fabsf(diff.z) <= margin)
 		return true;
 	return false;

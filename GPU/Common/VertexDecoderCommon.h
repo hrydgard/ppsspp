@@ -67,8 +67,14 @@ struct TransformedVertex
 {
 	float x, y, z, fog;     // in case of morph, preblend during decode
 	float u; float v; float w;   // scaled by uscale, vscale, if there
-	u8 color0[4];   // prelit
-	u8 color1[4];   // prelit
+	union {
+		u8 color0[4];   // prelit
+		u32 color0_32;
+	};
+	union {
+		u8 color1[4];   // prelit
+		u32 color1_32;
+	};
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);

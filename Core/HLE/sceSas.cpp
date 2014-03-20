@@ -166,6 +166,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+
 	if (size == 0 || ((u32)size & 0xF) != 0) {
 		if (size == 0) {
 			DEBUG_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
@@ -180,17 +181,26 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	}
 
 	if (!Memory::IsValidAddress(vagAddr)) {
-		ERROR_LOG(SCESAS, "Ignoring invalid VAG audio address %08x", vagAddr);
+		ERROR_LOG(SCESAS, "%s: Ignoring invalid VAG audio address %08x", __FUNCTION__, vagAddr);
 		return 0;
 	}
 
-	DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
+	if (size < 0) {
+		// POSSIBLE HACK
+		// SetVoice with negative sizes returns OK (0) unlike SetVoicePCM, but should not
+		// play any audio, it seems. So let's bail and not do anything.
+		// Needs more rigorous testing perhaps, but this fixes issue https://github.com/hrydgard/ppsspp/issues/5652
+		// while being fairly low risk to other games.
+		size = 0;
+		DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i) : HACK: Negative size changed to 0", core, voiceNum, vagAddr, size, loop);
+	} else {
+		DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
+	}
 
-	//Real VAG header is 0x30 bytes behind the vagAddr
 	SasVoice &v = sas->voices[voiceNum];
 	u32 prevVagAddr = v.vagAddr;
 	v.type = VOICETYPE_VAG;
-	v.vagAddr = vagAddr;
+	v.vagAddr = vagAddr;  // Real VAG header is 0x30 bytes behind the vagAddr
 	v.vagSize = size;
 	v.loop = loop ? true : false;
 	v.ChangedParams(vagAddr == prevVagAddr);

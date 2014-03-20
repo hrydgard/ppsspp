@@ -714,7 +714,7 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, co
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
 }
 
-static inline bool ColorTestPassed(Vec3<int> color)
+static inline bool ColorTestPassed(const Vec3<int> &color)
 {
 	const u32 mask = gstate.getColorTestMask();
 	const u32 c = color.ToRGB() & mask;
@@ -874,7 +874,7 @@ static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& 
 	}
 }
 
-static inline Vec3<int> AlphaBlendingResult(const Vec4<int>& source, const Vec4<int> dst)
+static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 {
 	Vec3<int> srcfactor = GetSourceFactor(source, dst);
 	Vec3<int> dstfactor = GetDestFactor(source, dst);
@@ -935,7 +935,8 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int>& source, const Vec4<
 }
 
 template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec4<int> prim_color) {
+inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &color_in) {
+	Vec4<int> prim_color = color_in;
 	// Depth range test
 	// TODO: Clear mode?
 	if (!gstate.isModeThrough())
