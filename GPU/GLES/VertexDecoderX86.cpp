@@ -711,24 +711,28 @@ void VertexDecoderJitCache::Jit_Color5551() {
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	PXOR(fpScratchReg4, R(fpScratchReg4));
 
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
-		PUNPCKLBW(fpScratchReg2, R(fpScratchReg4));
-		PUNPCKLWD(fpScratchReg2, R(fpScratchReg4));
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
+		PUNPCKLBW(reg, R(fpScratchReg4));
+		PUNPCKLWD(reg, R(fpScratchReg4));
 
-		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+		CVTDQ2PS(reg, R(reg));
 
 		// And now the weight.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
-		MULPS(fpScratchReg2, R(fpScratchReg3));
+		MULPS(reg, R(fpScratchReg3));
 
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// Pack back into a u32.
@@ -743,34 +747,38 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	PXOR(fpScratchReg4, R(fpScratchReg4));
 	MOVDQA(XMM5, M(color4444mask));
 	MOVAPS(XMM6, M(byColor4444));
 
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
-		PUNPCKLBW(fpScratchReg2, R(fpScratchReg2));
-		PAND(fpScratchReg2, R(XMM5));
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
+		PUNPCKLBW(reg, R(reg));
+		PAND(reg, R(XMM5));
+		MOVSS(fpScratchReg3, R(reg));
 		PSLLW(fpScratchReg3, 4);
-		POR(fpScratchReg2, R(fpScratchReg3));
-		PSRLW(fpScratchReg2, 4);
+		POR(reg, R(fpScratchReg3));
+		PSRLW(reg, 4);
 
-		PUNPCKLBW(fpScratchReg2, R(fpScratchReg4));
-		PUNPCKLWD(fpScratchReg2, R(fpScratchReg4));
+		PUNPCKLBW(reg, R(fpScratchReg4));
+		PUNPCKLWD(reg, R(fpScratchReg4));
 
-		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
-		MULPS(fpScratchReg2, R(XMM6));
+		CVTDQ2PS(reg, R(reg));
+		MULPS(reg, R(XMM6));
 
 		// And now the weight.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
-		MULPS(fpScratchReg2, R(fpScratchReg3));
+		MULPS(reg, R(fpScratchReg3));
 
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// Pack back into a u32.
@@ -787,46 +795,50 @@ static const u32 MEMORY_ALIGNED16(color565Mask[4]) = { 0x0000f800, 0x000007e0, 0
 static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 1.0f, 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, };
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	MOV(32, R(tempReg2), Imm32(1));
 	MOVDQA(XMM5, M(color565Mask));
 	MOVAPS(XMM6, M(byColor565));
 
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg3;
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
 		// Spread it out into each lane.
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
 		PAND(fpScratchReg, R(XMM5));
 
 		// Alpha - start with 1.
-		MOVD_xmm(fpScratchReg3, R(tempReg2));
+		MOVD_xmm(reg, R(tempReg2));
 
 		// Blue first.
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
-		PSRLD(fpScratchReg3, 6);
-		PSHUFD(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(3, 0, 0, 0));
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 6);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 0, 0, 0));
 
 		// Green, let's shift it into the right lane first.
 		PSRLDQ(fpScratchReg2, 4);
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
-		PSRLD(fpScratchReg3, 5);
-		PSHUFD(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(3, 2, 0, 0));
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 2, 0, 0));
 
 		// Last one, red.
 		PSRLDQ(fpScratchReg2, 4);
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
+		MOVSS(reg, R(fpScratchReg2));
 
-		CVTDQ2PS(fpScratchReg3, R(fpScratchReg3));
-		MULPS(fpScratchReg3, R(XMM6));
+		CVTDQ2PS(reg, R(reg));
+		MULPS(reg, R(XMM6));
 
 		// And now the weight.
 		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
-		MULPS(fpScratchReg3, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg2));
 
-		ADDPS(fpScratchReg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg3));
+		} else {
+			first = false;
+		}
 	}
 
 	// Pack back into a u32.
@@ -843,48 +855,52 @@ static const u32 MEMORY_ALIGNED16(color5551Mask[4]) = { 0x00008000, 0x00007c00, 
 static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 1.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, };
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	MOVDQA(XMM5, M(color5551Mask));
 	MOVAPS(XMM6, M(byColor5551));
 
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg3;
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
 		// Spread it out into each lane.
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
 		PAND(fpScratchReg, R(XMM5));
 
 		// Alpha first.
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
-		PSRLD(fpScratchReg3, 5);
-		PSHUFD(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(0, 0, 0, 0));
 
 		// Blue, let's shift it into the right lane first.
 		PSRLDQ(fpScratchReg2, 4);
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
-		PSRLD(fpScratchReg3, 5);
-		PSHUFD(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(3, 0, 0, 0));
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 0, 0, 0));
 
 		// Green.
 		PSRLDQ(fpScratchReg2, 4);
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
-		PSRLD(fpScratchReg3, 5);
-		PSHUFD(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(3, 2, 0, 0));
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 2, 0, 0));
 
 		// Last one, red.
 		PSRLDQ(fpScratchReg2, 4);
-		MOVSS(fpScratchReg3, R(fpScratchReg2));
+		MOVSS(reg, R(fpScratchReg2));
 
-		CVTDQ2PS(fpScratchReg3, R(fpScratchReg3));
-		MULPS(fpScratchReg3, R(XMM6));
+		CVTDQ2PS(reg, R(reg));
+		MULPS(reg, R(XMM6));
 
 		// And now the weight.
 		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
-		MULPS(fpScratchReg3, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg2));
 
-		ADDPS(fpScratchReg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg3));
+		} else {
+			first = false;
+		}
 	}
 
 	// Pack back into a u32.
