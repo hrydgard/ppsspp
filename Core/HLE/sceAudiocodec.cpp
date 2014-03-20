@@ -36,7 +36,7 @@ struct AudioCodecContext {
 SimpleAudio* audio;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (isValideCodec(codec)){
+	if (isValidCodec(codec)){
 		// Create audio decoder for given audio codec.
 		audio = AudioCreate(codec);
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
@@ -51,7 +51,7 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
 	}
-	if (isValideCodec(codec)){
+	if (isValidCodec(codec)){
 		// Use SimpleAudioDec to decode audio
 		// Get AudioCodecContext
 		AudioCodecContext* ctx = new AudioCodecContext;
