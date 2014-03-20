@@ -747,11 +747,13 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	PXOR(fpScratchReg4, R(fpScratchReg4));
+	MOVDQA(XMM5, M(color4444mask));
+	MOVAPS(XMM6, M(byColor4444));
 
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
 		PUNPCKLBW(fpScratchReg2, R(fpScratchReg2));
-		PAND(fpScratchReg2, M(color4444mask));
+		PAND(fpScratchReg2, R(XMM5));
 		MOVSS(fpScratchReg3, R(fpScratchReg2));
 		PSLLW(fpScratchReg3, 4);
 		POR(fpScratchReg2, R(fpScratchReg3));
@@ -761,7 +763,7 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		PUNPCKLWD(fpScratchReg2, R(fpScratchReg4));
 
 		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
-		MULPS(fpScratchReg2, M(byColor4444));
+		MULPS(fpScratchReg2, R(XMM6));
 
 		// And now the weight.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
@@ -789,12 +791,14 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	MOV(32, R(tempReg2), Imm32(1));
+	MOVDQA(XMM5, M(color565Mask));
+	MOVAPS(XMM6, M(byColor565));
 
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
 		// Spread it out into each lane.
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
-		PAND(fpScratchReg, M(color565Mask));
+		PAND(fpScratchReg, R(XMM5));
 
 		// Alpha - start with 1.
 		MOVD_xmm(fpScratchReg3, R(tempReg2));
@@ -815,7 +819,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		MOVSS(fpScratchReg3, R(fpScratchReg2));
 
 		CVTDQ2PS(fpScratchReg3, R(fpScratchReg3));
-		MULPS(fpScratchReg3, M(byColor565));
+		MULPS(fpScratchReg3, R(XMM6));
 
 		// And now the weight.
 		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
@@ -842,12 +846,14 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 	XORPS(fpScratchReg, R(fpScratchReg));
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	MOVDQA(XMM5, M(color5551Mask));
+	MOVAPS(XMM6, M(byColor5551));
 
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
 		// Spread it out into each lane.
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
-		PAND(fpScratchReg, M(color5551Mask));
+		PAND(fpScratchReg, R(XMM5));
 
 		// Alpha first.
 		MOVSS(fpScratchReg3, R(fpScratchReg2));
@@ -871,7 +877,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		MOVSS(fpScratchReg3, R(fpScratchReg2));
 
 		CVTDQ2PS(fpScratchReg3, R(fpScratchReg3));
-		MULPS(fpScratchReg3, M(byColor565));
+		MULPS(fpScratchReg3, R(XMM6));
 
 		// And now the weight.
 		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
@@ -1051,23 +1057,24 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	PXOR(fpScratchReg4, R(fpScratchReg4));
+	MOVAPS(XMM5, M(by127));
 
 	// Sum into fpScratchReg.
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
-		XORPS(fpScratchReg3, R(fpScratchReg3));
 		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLBW(reg, R(fpScratchReg3));
-		PUNPCKLWD(reg, R(fpScratchReg3));
+		PUNPCKLBW(reg, R(fpScratchReg4));
+		PUNPCKLWD(reg, R(fpScratchReg4));
 		PSLLD(reg, 24);
 		PSRAD(reg, 24); // Ugly sign extension, can be done faster in SSE4
 		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/127.0f.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
-		MULSS(fpScratchReg3, M(by127));
+		MULSS(fpScratchReg3, R(XMM5));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 
 		MULPS(reg, R(fpScratchReg3));
@@ -1084,22 +1091,23 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	PXOR(fpScratchReg4, R(fpScratchReg4));
+	MOVAPS(XMM5, M(by32767));
 
 	// Sum into fpScratchReg.
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
-		XORPS(fpScratchReg3, R(fpScratchReg3));
 		MOVQ_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLWD(reg, R(fpScratchReg3));
+		PUNPCKLWD(reg, R(fpScratchReg4));
 		PSLLD(reg, 16);
 		PSRAD(reg, 16); // Ugly sign extension, can be done faster in SSE4
 		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/32767.0f.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
-		MULSS(fpScratchReg3, M(by32767));
+		MULSS(fpScratchReg3, R(XMM5));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 
 		MULPS(reg, R(fpScratchReg3));
