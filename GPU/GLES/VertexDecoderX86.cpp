@@ -718,8 +718,12 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
-		PUNPCKLBW(reg, R(fpScratchReg4));
-		PUNPCKLWD(reg, R(fpScratchReg4));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBD(reg, R(reg));
+		} else {
+			PUNPCKLBW(reg, R(fpScratchReg4));
+			PUNPCKLWD(reg, R(fpScratchReg4));
+		}
 
 		CVTDQ2PS(reg, R(reg));
 
@@ -763,8 +767,12 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		POR(reg, R(fpScratchReg3));
 		PSRLW(reg, 4);
 
-		PUNPCKLBW(reg, R(fpScratchReg4));
-		PUNPCKLWD(reg, R(fpScratchReg4));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBD(reg, R(reg));
+		} else {
+			PUNPCKLBW(reg, R(fpScratchReg4));
+			PUNPCKLWD(reg, R(fpScratchReg4));
+		}
 
 		CVTDQ2PS(reg, R(reg));
 		MULPS(reg, R(XMM6));
@@ -957,10 +965,14 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVD_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	PUNPCKLBW(XMM1, R(XMM3));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 24);
-	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXBD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLBW(XMM1, R(XMM3));
+		PUNPCKLWD(XMM1, R(XMM3));
+		PSLLD(XMM1, 24);
+		PSRAD(XMM1, 24);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by128));
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
@@ -970,9 +982,12 @@ void VertexDecoderJitCache::Jit_NormalS8Skin() {
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 16);
-	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXWD(XMM1, R(XMM1));
+	} else {
+		PSLLD(XMM1, 16);
+		PSRAD(XMM1, 16);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
@@ -1045,10 +1060,14 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 void VertexDecoderJitCache::Jit_PosS8Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVD_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	PUNPCKLBW(XMM1, R(XMM3));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 24);
-	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXBD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLBW(XMM1, R(XMM3));
+		PUNPCKLWD(XMM1, R(XMM3));
+		PSLLD(XMM1, 24);
+		PSRAD(XMM1, 24);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by128));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
@@ -1057,9 +1076,13 @@ void VertexDecoderJitCache::Jit_PosS8Skin() {
 void VertexDecoderJitCache::Jit_PosS16Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 16);
-	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXWD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLWD(XMM1, R(XMM3));
+		PSLLD(XMM1, 16);
+		PSRAD(XMM1, 16);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
@@ -1082,10 +1105,14 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
 		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLBW(reg, R(fpScratchReg4));
-		PUNPCKLWD(reg, R(fpScratchReg4));
-		PSLLD(reg, 24);
-		PSRAD(reg, 24); // Ugly sign extension, can be done faster in SSE4
+		if (cpu_info.bSSE4_1) {
+			PMOVSXBD(reg, R(reg));
+		} else {
+			PUNPCKLBW(reg, R(fpScratchReg4));
+			PUNPCKLWD(reg, R(fpScratchReg4));
+			PSLLD(reg, 24);
+			PSRAD(reg, 24);
+		}
 		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/127.0f.
@@ -1116,9 +1143,13 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
 		MOVQ_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLWD(reg, R(fpScratchReg4));
-		PSLLD(reg, 16);
-		PSRAD(reg, 16); // Ugly sign extension, can be done faster in SSE4
+		if (cpu_info.bSSE4_1) {
+			PMOVSXWD(reg, R(reg));
+		} else {
+			PUNPCKLWD(reg, R(fpScratchReg4));
+			PSLLD(reg, 16);
+			PSRAD(reg, 16);
+		}
 		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/32767.0f.
