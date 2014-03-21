@@ -2613,7 +2613,7 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
 		return 6;
 	case 4:
-		return 4;
+		return 2;
 	default:
 		_dbg_assert_msg_(JIT, false, "Invalid number of registers passed to vector load/store");
 		return 0;
