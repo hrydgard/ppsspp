@@ -180,6 +180,7 @@
     <None Include="README.md" />
     <None Include="tools\CMakeLists.txt" />
     <None Include="ui\CMakeLists.txt" />
+    <None Include="math\fast\fast_matrix_neon.S" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="android\app-android.h" />
@@ -264,6 +265,8 @@
     <ClInclude Include="math\lin\quat.h" />
     <ClInclude Include="math\lin\vec3.h" />
     <ClInclude Include="math\math_util.h" />
+    <ClInclude Include="math\fast\fast_math.h" />
+    <ClInclude Include="math\fast\fast_matrix.h" />
     <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\resolve.h" />
@@ -743,6 +746,9 @@
     <ClCompile Include="math\lin\quat.cpp" />
     <ClCompile Include="math\lin\vec3.cpp" />
     <ClCompile Include="math\math_util.cpp" />
+    <ClCompile Include="math\fast\fast_math.c" />
+    <ClCompile Include="math\fast\fast_matrix.c" />
+    <ClCompile Include="math\fast\fast_matrix_sse.c" />
     <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\resolve.cpp" />

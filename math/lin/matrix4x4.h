@@ -7,10 +7,15 @@ class Quaternion;
 
 class Matrix4x4 {
 public:
-	float xx, xy, xz, xw;
-	float yx, yy, yz, yw;
-	float zx, zy, zz, zw;
-	float wx, wy, wz, ww;
+	union {
+		struct {
+			float xx, xy, xz, xw;
+			float yx, yy, yz, yw;
+			float zx, zy, zz, zw;
+			float wx, wy, wz, ww;
+		};
+		float m[16];
+	};
 
 	const Vec3 right() const {return Vec3(xx, xy, xz);}
 	const Vec3 up()		const {return Vec3(yx, yy, yz);}

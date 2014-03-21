@@ -4,6 +4,7 @@
 
 #include "math/lin/vec3.h"
 #include "math/lin/quat.h"
+#include "math/fast/fast_matrix.h"
 
 #ifdef _WIN32
 #undef far
@@ -12,28 +13,6 @@
 
 // See http://code.google.com/p/oolongengine/source/browse/trunk/Oolong+Engine2/Math/neonmath/neon_matrix_impl.cpp?spec=svn143&r=143	when we need speed
 // no wait. http://code.google.com/p/math-neon/
-
-void matrix_mul_4x4(Matrix4x4 &res, const Matrix4x4 &inA, const Matrix4x4 &inB) {
-	res.xx = inA.xx*inB.xx + inA.xy*inB.yx + inA.xz*inB.zx + inA.xw*inB.wx;
-	res.xy = inA.xx*inB.xy + inA.xy*inB.yy + inA.xz*inB.zy + inA.xw*inB.wy;
-	res.xz = inA.xx*inB.xz + inA.xy*inB.yz + inA.xz*inB.zz + inA.xw*inB.wz;
-	res.xw = inA.xx*inB.xw + inA.xy*inB.yw + inA.xz*inB.zw + inA.xw*inB.ww;
-
-	res.yx = inA.yx*inB.xx + inA.yy*inB.yx + inA.yz*inB.zx + inA.yw*inB.wx;
-	res.yy = inA.yx*inB.xy + inA.yy*inB.yy + inA.yz*inB.zy + inA.yw*inB.wy;
-	res.yz = inA.yx*inB.xz + inA.yy*inB.yz + inA.yz*inB.zz + inA.yw*inB.wz;
-	res.yw = inA.yx*inB.xw + inA.yy*inB.yw + inA.yz*inB.zw + inA.yw*inB.ww;
-
-	res.zx = inA.zx*inB.xx + inA.zy*inB.yx + inA.zz*inB.zx + inA.zw*inB.wx;
-	res.zy = inA.zx*inB.xy + inA.zy*inB.yy + inA.zz*inB.zy + inA.zw*inB.wy;
-	res.zz = inA.zx*inB.xz + inA.zy*inB.yz + inA.zz*inB.zz + inA.zw*inB.wz;
-	res.zw = inA.zx*inB.xw + inA.zy*inB.yw + inA.zz*inB.zw + inA.zw*inB.ww;
-
-	res.wx = inA.wx*inB.xx + inA.wy*inB.yx + inA.wz*inB.zx + inA.ww*inB.wx;
-	res.wy = inA.wx*inB.xy + inA.wy*inB.yy + inA.wz*inB.zy + inA.ww*inB.wy;
-	res.wz = inA.wx*inB.xz + inA.wy*inB.yz + inA.wz*inB.zz + inA.ww*inB.wz;
-	res.ww = inA.wx*inB.xw + inA.wy*inB.yw + inA.wz*inB.zw + inA.ww*inB.ww;
-}
 
 Matrix4x4 Matrix4x4::simpleInverse() const {
 	Matrix4x4 out;
@@ -73,7 +52,7 @@ Matrix4x4 Matrix4x4::transpose() const
 Matrix4x4 Matrix4x4::operator * (const Matrix4x4 &other) const 
 {
 	Matrix4x4 temp;
-	matrix_mul_4x4(temp, *this, other);
+	fast_matrix_mul_4x4(temp.m, this->m, other.m);
 	return temp;
 }
 

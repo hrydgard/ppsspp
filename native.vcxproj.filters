@@ -22,6 +22,9 @@
     <None Include="ext\libzip\Android.mk">
       <Filter>ext\libzip</Filter>
     </None>
+    <None Include="math\fast\fast_matrix_neon.S">
+      <Filter>math\fast</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -328,6 +331,12 @@
     </ClInclude>
     <ClInclude Include="gfx_es2\gl3stub.h">
       <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="math\fast\fast_math.h">
+      <Filter>math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="math\fast\fast_matrix.h">
+      <Filter>math\fast</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -778,6 +787,15 @@
     <ClCompile Include="gfx_es2\gl3stub.c">
       <Filter>gfx</Filter>
     </ClCompile>
+    <ClCompile Include="math\fast\fast_math.c">
+      <Filter>math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="math\fast\fast_matrix.c">
+      <Filter>math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="math\fast\fast_matrix_sse.c">
+      <Filter>math\fast</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -854,6 +872,9 @@
     </Filter>
     <Filter Include="ext\vjson">
       <UniqueIdentifier>{c6910d82-73d3-4d97-ac9c-bcc03265b1bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="math\fast">
+      <UniqueIdentifier>{5ce64c0e-98e4-4411-86cc-aacaf2f60b21}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
