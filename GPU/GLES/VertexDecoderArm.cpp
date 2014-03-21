@@ -141,6 +141,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
 
 	{&VertexDecoder::Step_Color8888Morph, &VertexDecoderJitCache::Jit_Color8888Morph},
+	{&VertexDecoder::Step_Color4444Morph, &VertexDecoderJitCache::Jit_Color4444Morph},
+	{&VertexDecoder::Step_Color565Morph, &VertexDecoderJitCache::Jit_Color565Morph},
+	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
 };
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
@@ -683,12 +686,14 @@ void VertexDecoderJitCache::Jit_Color5551() {
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
+	// TODO: Test.
+	const bool useNEON = false;//cpu_info.bNEON;
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		if (cpu_info.bNEON) {
+		if (useNEON) {
 			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
@@ -719,6 +724,88 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 			VCVT(fpScratchReg4, fpScratchReg4, TO_FLOAT);
 
 			VLDR(S12, tempReg2, sizeof(float) * n);
+
+			if (first) {
+				first = false;
+				VMUL(S8, fpScratchReg, S12);
+				VMUL(S9, fpScratchReg2, S12);
+				VMUL(S10, fpScratchReg3, S12);
+				VMUL(S11, fpScratchReg4, S12);
+			} else {
+				VMLA(S8, fpScratchReg, S12);
+				VMLA(S9, fpScratchReg2, S12);
+				VMLA(S10, fpScratchReg3, S12);
+				VMLA(S11, fpScratchReg4, S12);
+			}
+		}
+	}
+
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color4444Morph() {
+	// TODO: Test.
+	const bool useNEON = false;//cpu_info.bNEON;
+	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
+	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
+
+	MOVI2F(S13, 255.0f / 15.0f, scratchReg);
+
+	if (useNEON) {
+		MOVI2R(scratchReg, 0xFC04FC04);
+		VMOV(S16, scratchReg);
+		VMOV(S17, S16);
+		MOVI2R(scratchReg, 0x00FC00FC);
+		VMOV(S18, scratchReg);
+		VMOV(S19, S18);
+	}
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		if (useNEON) {
+			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+			// TODO: Not sure if VZIP d2, d2 is safe.
+			VMOV(D7, neonScratchReg);
+			VZIP(I_8, neonScratchReg, D7);
+			// Shift against walls and then back to get R, G, B, A spaced by 1.
+			VSHL(I_8, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_8, neonScratchReg, neonScratchReg, D9);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S12, S12, S13);
+
+			if (first) {
+				first = false;
+				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			} else {
+				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+			}
+		} else {
+			LDRB(scratchReg, tempReg1, 0);
+			ANDI2R(scratchReg2, scratchReg, 0x000F, scratchReg3);
+			VMOV(fpScratchReg, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 4));
+			VMOV(fpScratchReg2, scratchReg2);
+
+			LDRB(scratchReg, tempReg1, 1);
+			ANDI2R(scratchReg2, scratchReg, 0x000F, scratchReg3);
+			VMOV(fpScratchReg3, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 4));
+			VMOV(fpScratchReg4, scratchReg2);
+
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+			VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+			VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT);
+			VCVT(fpScratchReg4, fpScratchReg4, TO_FLOAT);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
 			VMUL(S12, S12, S13);
 
 			if (first) {
@@ -732,6 +819,116 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 				VMLA(S9, fpScratchReg2, S12);
 				VMLA(S10, fpScratchReg3, S12);
 				VMLA(S11, fpScratchReg4, S12);
+			}
+		}
+	}
+
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color565Morph() {
+	// TODO: Implement.
+	const bool useNEON = false;//cpu_info.bNEON;
+	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
+	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
+
+	MOVI2F(S14, 255.0f / 31.0f, scratchReg);
+	MOVI2F(S15, 255.0f / 63.0f, scratchReg);
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		if (useNEON) {
+			// ...
+		} else {
+			LDRH(scratchReg, tempReg1, 0);
+			ANDI2R(scratchReg2, scratchReg, 0x001F, scratchReg3);
+			VMOV(fpScratchReg, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 6));
+			ANDI2R(scratchReg2, scratchReg2, 0x003F, scratchReg3);
+			VMOV(fpScratchReg2, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 11));
+			VMOV(fpScratchReg3, scratchReg2);
+
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+			VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+			VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S13, S12, S15);
+			VMUL(S12, S12, S14);
+
+			if (first) {
+				first = false;
+				VMUL(S8, fpScratchReg, S12);
+				VMUL(S9, fpScratchReg2, S13);
+				VMUL(S10, fpScratchReg3, S12);
+			} else {
+				VMLA(S8, fpScratchReg, S12);
+				VMLA(S9, fpScratchReg2, S13);
+				VMLA(S10, fpScratchReg3, S12);
+			}
+		}
+	}
+
+	if (!cpu_info.bNEON) {
+		MOVI2F(S11, 255.0f, scratchReg);
+	}
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color5551Morph() {
+	// TODO: Implement.
+	const bool useNEON = false;//cpu_info.bNEON;
+	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
+	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
+
+	MOVI2F(S14, 255.0f / 31.0f, scratchReg);
+	MOVI2F(S15, 255.0f, scratchReg);
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		if (useNEON) {
+			// ...
+		} else {
+			LDRH(scratchReg, tempReg1, 0);
+			ANDI2R(scratchReg2, scratchReg, 0x001F, scratchReg3);
+			VMOV(fpScratchReg, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 5));
+			ANDI2R(scratchReg2, scratchReg2, 0x001F, scratchReg3);
+			VMOV(fpScratchReg2, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 10));
+			ANDI2R(scratchReg2, scratchReg2, 0x001F, scratchReg3);
+			VMOV(fpScratchReg3, scratchReg2);
+
+			MOV(scratchReg2, Operand2(scratchReg, ST_LSR, 15));
+			VMOV(fpScratchReg4, scratchReg2);
+
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+			VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+			VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+			VCVT(fpScratchReg3, fpScratchReg3, TO_FLOAT);
+			VCVT(fpScratchReg4, fpScratchReg4, TO_FLOAT);
+
+			VLDR(S12, tempReg2, sizeof(float) * n);
+			VMUL(S13, S12, S15);
+			VMUL(S12, S12, S14);
+
+			if (first) {
+				first = false;
+				VMUL(S8, fpScratchReg, S12);
+				VMUL(S9, fpScratchReg2, S12);
+				VMUL(S10, fpScratchReg3, S12);
+				VMUL(S11, fpScratchReg4, S13);
+			} else {
+				VMLA(S8, fpScratchReg, S12);
+				VMLA(S9, fpScratchReg2, S12);
+				VMLA(S10, fpScratchReg3, S12);
+				VMLA(S11, fpScratchReg4, S13);
 			}
 		}
 	}
