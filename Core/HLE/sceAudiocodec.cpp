@@ -34,14 +34,22 @@ struct AudioCodecContext {
 }; 
 
 struct AudioInfo{
-	SimpleAudio * decoder=NULL; // pointer to audio decoder
+	SimpleAudio * decoder; // pointer to audio decoder
 	u32 ctxPtr;
 	int codec;
+	AudioInfo(){
+		decoder = NULL;
+	};
 };
 struct AudioCell{
-	AudioCell* prevcell=NULL;
-	AudioInfo* currval=NULL;
-	AudioCell* nextcell=NULL;
+	AudioCell* prevcell;
+	AudioInfo* currval;
+	AudioCell* nextcell;
+	AudioCell(){
+		prevcell = NULL;
+		currval = NULL;
+		nextcell = NULL;
+	};
 };
 
 class AudioList {
