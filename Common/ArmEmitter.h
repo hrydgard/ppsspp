@@ -741,6 +741,8 @@ public:
 	// Widening and narrowing moves
 	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm);
 
 	// Vector VCVT
 	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);
