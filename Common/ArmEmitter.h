@@ -591,6 +591,12 @@ public:
 	void VSTMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
 	void VLDMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
 	void VSTMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VPUSH(ARMReg firstvreg, int numvregs) {
+		VSTMDB(R_SP, true, firstvreg, numvregs);
+	}
+	void VPOP(ARMReg firstvreg, int numvregs) {
+		VLDMIA(R_SP, true, firstvreg, numvregs);
+	}
 	void VLDR(ARMReg Dest, ARMReg Base, s16 offset);
 	void VSTR(ARMReg Src,  ARMReg Base, s16 offset);
 	void VCMP(ARMReg Vd, ARMReg Vm);
