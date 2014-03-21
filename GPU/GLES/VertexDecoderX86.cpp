@@ -739,13 +739,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
@@ -789,13 +783,7 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 // Intentionally in reverse order.
@@ -849,13 +837,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 // Intentionally in reverse order.
@@ -911,13 +893,15 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		}
 	}
 
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff) {
 	// Pack back into a u32.
 	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
