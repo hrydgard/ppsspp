@@ -696,7 +696,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
-			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, true);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
@@ -745,6 +745,9 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
+// First is the left shift, second is the right shift (against walls, to get the RGBA values.)
+static const s16 MEMORY_ALIGNED16(color4444Shift[2][4]) = {{12, 8, 4, 0}, {-12, -12, -12, -12}};
+
 void VertexDecoderJitCache::Jit_Color4444Morph() {
 	// TODO: Test.
 	const bool useNEON = false;//NEONMorphing;
@@ -754,21 +757,14 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	MOVI2F(S13, 255.0f / 15.0f, scratchReg);
 
 	if (useNEON) {
-		MOVI2R(scratchReg, 0xFC04FC04);
-		VMOV(S16, scratchReg);
-		VMOV(S17, S16);
-		MOVI2R(scratchReg, 0x00FC00FC);
-		VMOV(S18, scratchReg);
-		VMOV(S19, S18);
+		MOVP2R(scratchReg, color4444Shift);
+		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
 	}
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
-			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
-			// TODO: Not sure if VZIP d2, d2 is safe.
-			VMOV(D7, neonScratchReg);
-			VZIP(I_8, neonScratchReg, D7);
+			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
 			// Shift against walls and then back to get R, G, B, A spaced by 1.
 			VSHL(I_8, neonScratchReg, neonScratchReg, D8);
 			VSHL(I_8, neonScratchReg, neonScratchReg, D9);
@@ -828,6 +824,10 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
+// First is the left shift, second is the right shift (against walls, to get the RGBA values.)
+static const s16 MEMORY_ALIGNED16(color565Shift[2][4]) = {{11, 5, 0, 0}, {-11, -10, -11, 0}};
+static const float MEMORY_ALIGNED16(byColor565[4]) = {255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 0.0f};
+
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	// TODO: Test.
 	const bool useNEON = false;//NEONMorphing;
@@ -835,18 +835,11 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	if (useNEON) {
-		MOVI2R(scratchReg, 0x0005000B);
-		VMOV(S16, scratchReg);
-		MOVI2R(scratchReg, 0x00000000);
-		VMOV(S17, scratchReg);
-		MOVI2R(scratchReg, 0x00F600F5);
-		VMOV(S18, scratchReg);
-		// Don't care about the fourth slot.
-		VMOV(S19, S18);
+		MOVP2R(scratchReg, color565Shift);
+		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
 
-		MOVI2F(S20, 255.0f / 31.0f, scratchReg);
-		MOVI2F(S21, 255.0f / 63.0f, scratchReg);
-		VMOV(S22, S20);
+		MOVI2R(scratchReg2, (char *)byColor565 - (char *)color565Shift);
+		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
 		MOVI2F(S15, 255.0f / 63.0f, scratchReg);
@@ -855,7 +848,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
-			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, false);
+			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
 			VSHL(I_16, neonScratchReg, neonScratchReg, D8);
 			VSHL(I_16, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
@@ -909,6 +902,10 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
+// First is the left shift, second is the right shift (against walls, to get the RGBA values.)
+static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, -11, -11, -10}};
+static const float MEMORY_ALIGNED16(byColor5551[4]) = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
+
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	// TODO: Test.
 	const bool useNEON = false;//NEONMorphing;
@@ -916,18 +913,11 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	if (useNEON) {
-		MOVI2R(scratchReg, 0x0006000B);
-		VMOV(S16, scratchReg);
-		MOVI2R(scratchReg, 0x00000001);
-		VMOV(S17, scratchReg);
-		MOVI2R(scratchReg, 0x00F500F5);
-		VMOV(S18, scratchReg);
-		MOVI2R(scratchReg, 0x00F100F5);
-		VMOV(S19, scratchReg);
+		MOVP2R(scratchReg, color5551Shift);
+		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
 
-		MOVI2F(S20, 255.0f / 31.0f, scratchReg);
-		MOVI2F(S21, 255.0f / 63.0f, scratchReg);
-		VMOV(S22, S20);
+		MOVI2R(scratchReg2, (char *)byColor5551 - (char *)color5551Shift);
+		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
 		MOVI2F(S15, 255.0f, scratchReg);
@@ -936,7 +926,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
-			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, false);
+			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
 			VSHL(I_16, neonScratchReg, neonScratchReg, D8);
 			VSHL(I_16, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
@@ -1003,7 +993,7 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff) {
 		VCVT(I_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 		VQMOVN(I_32 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
 		VQMOVN(I_16 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
-		VST1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+		VST1_lane(I_32, neonScratchReg, tempReg1, 0, true);
 	} else {
 		VCVT(S8, S8, TO_INT);
 		VCVT(S9, S9, TO_INT);
