@@ -1489,7 +1489,8 @@ void ARMXEmitter::VMSR(ARMReg Rt) {
 void ARMXEmitter::VMOV(ARMReg Dest, Operand2 op2)
 {
 	_assert_msg_(JIT, cpu_info.bVFPv3, "VMOV #imm requires VFPv3");
-	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (0xA << 8) | op2.Imm8VFP());
+	int sz = Dest >= D0 ? (1 << 8) : 0;
+	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (5 << 9) | sz | op2.Imm8VFP());
 }
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
@@ -2431,7 +2432,7 @@ void ARMXEmitter::VRSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Write32((0xF3 << 24) | (1 << 23) | ((encodedSize(Size) - 1) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | \
 			(0x60 << 4) | EncodeVm(Vm));
 }
-void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
