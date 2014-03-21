@@ -138,8 +138,6 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	packet.data = static_cast<uint8_t *>(inbuf);
 	packet.size = inbytes;
 
-	*outbytes = 0;
-
 	int got_frame = 0;
 	av_frame_unref(frame_);
 	
@@ -149,30 +147,29 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		// TODO: cleanup
 		return false;
 	}
-
-	// Initializing the sample rate convert. We only really use it to convert float output into int.
-	int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo
-	int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
-
-	swrCtx_ = swr_alloc_set_opts(
-		swrCtx_,
-		wanted_channel_layout,
-		AV_SAMPLE_FMT_S16,
-		codecCtx_->sample_rate,
-		dec_channel_layout,
-		codecCtx_->sample_fmt,
-		codecCtx_->sample_rate,
-		0,
-		NULL);
-
-	if (!swrCtx_ || swr_init(swrCtx_) < 0) {
-		ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
-		avcodec_close(codecCtx_);
-		codec_ = 0;
-		return false;
-	}
-
 	if (got_frame) {
+		// Initializing the sample rate convert. We will use it to convert float output into int.
+		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
+		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
+
+		swrCtx_ = swr_alloc_set_opts(
+			swrCtx_,
+			wanted_channel_layout,
+			AV_SAMPLE_FMT_S16,
+			codecCtx_->sample_rate,
+			dec_channel_layout,
+			codecCtx_->sample_fmt,
+			codecCtx_->sample_rate,
+			0,
+			NULL);
+
+		if (!swrCtx_ || swr_init(swrCtx_) < 0) {
+			ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
+			avcodec_close(codecCtx_);
+			codec_ = 0;
+			return false;
+		}
+
 		// convert audio to AV_SAMPLE_FMT_S16
 		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		if (swrRet < 0) {
@@ -211,7 +208,7 @@ SimpleAudio *AudioCreate(int audioType) {
 
 bool AudioDecode(SimpleAudio *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t *outbuf) {
 #ifdef USE_FFMPEG
-	return ctx->Decode(inbuf, inbytes, outbuf, outbytes);
+	return ctx->Decode(inbuf, inbytes, outbuf, outbytes);	
 #else
 	*outbytes = 0;
 	return true;

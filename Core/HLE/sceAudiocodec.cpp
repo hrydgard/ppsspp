@@ -32,13 +32,115 @@ struct AudioCodecContext {
 	u32_le audioSamplesPerFrame;  // 9
 	u32_le inDataSizeAgain;  // 10  ??
 }; 
-// Pointer to audio decoder
-SimpleAudio* audio;
+
+struct AudioInfo{
+	SimpleAudio * decoder=NULL; // pointer to audio decoder
+	u32 ctxPtr;
+	int codec;
+};
+struct AudioCell{
+	AudioCell* prevcell=NULL;
+	AudioInfo* currval=NULL;
+	AudioCell* nextcell=NULL;
+};
+
+class AudioList {
+public:
+	AudioCell* head;
+	AudioCell* current;
+	AudioCell* tail;
+	int count;
+
+	AudioList(){
+		head = new AudioCell;
+		tail = new AudioCell;
+		current = head;
+		head->nextcell = tail;
+		count = 0;
+	}
+
+	~AudioList(){
+		clear();
+	}
+
+	void push(AudioInfo* info){
+		current = new AudioCell;
+		current->currval = info;
+		current->nextcell = head;
+		head->prevcell = current;
+		head = current;
+		count++;
+		INFO_LOG(ME, "New audio %08x start, we are playing %d audios in the same time", info->ctxPtr, count);
+	};
+
+	AudioInfo* pop_front(){
+		current = head;
+		head = head->nextcell;
+		head->prevcell = NULL;
+		count--;
+		return current->currval;
+	};
+
+	AudioInfo* pop(u32 ctxPtr){
+		current = head;
+		for (int i = 0; i < count; i++)
+		{
+			if (current->currval->ctxPtr == ctxPtr){
+				if (current->prevcell == NULL){
+					//head
+					head = current->nextcell;
+					head->prevcell = NULL;
+				}
+				else{
+					// pop this cell
+					current->prevcell->nextcell = current->nextcell;
+					current->nextcell->prevcell = current->prevcell;
+				}
+				count--;
+				return current->currval;
+			}
+			current = current->nextcell;
+		}
+		return NULL;
+	};
+
+	AudioInfo* find(u32 ctxPtr){
+		current = head;
+		for (int i = 0; i < count; i++)
+		{
+			if (current->currval->ctxPtr == ctxPtr){
+				return current->currval;
+			}
+			current = current->nextcell;
+		}
+		ERROR_LOG(ME, "Cannot find audio context %08x in AudioList", ctxPtr);
+		return NULL;
+	};
+
+	
+	void clear(){
+		for (int i = 0; i < count; i++)
+		{
+			current = head;
+			head = head->nextcell;
+			free(current);
+		}
+	};
+};
+
+// AudioList is a queue to storing current playing audios.
+// AudioInfo is point to a new audio's decoder created in sceAudiocodecInit.
+AudioList audioQueue;
+AudioInfo* newaudio;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	if (isValidCodec(codec)){
 		// Create audio decoder for given audio codec.
-		audio = AudioCreate(codec);
+		newaudio = new AudioInfo;
+		newaudio->decoder = AudioCreate(codec);
+		newaudio->ctxPtr = ctxPtr;
+		newaudio->codec = codec;
+		audioQueue.push(newaudio);	
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;
 	}
@@ -57,9 +159,13 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		AudioCodecContext* ctx = new AudioCodecContext;
 		Memory::ReadStruct(ctxPtr, ctx);
 		int outbytes = 0;
-		// Decode audio
-		AudioDecode(audio, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
-		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		// search decoder in AudioList
+		auto audiodecoder = audioQueue.find(ctxPtr)->decoder;
+		if (audiodecoder != NULL){
+			// Decode audio
+			AudioDecode(audiodecoder, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
+			DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		}
 		// Delete AudioCodecContext
 		delete(ctx);
 		return 0;
@@ -84,8 +190,14 @@ int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 }
 
 int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
-	//id is not always a codec, so what is should be exactly? 
-	//AudioClose(&audio); can not be used here, since it will crash some games.
+	//id is not always a codec, so what is should be? 
+	auto info = audioQueue.pop(ctxPtr);
+	if (info != NULL){ 
+		AudioClose(&info->decoder); 
+		free(info);
+		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
+		return 0;
+	}
 	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
 }
