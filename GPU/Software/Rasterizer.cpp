@@ -1110,7 +1110,8 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 	prim_color = GetTextureFunctionOutput(prim_color, texcolor);
 }
 
-#if defined(_M_SSE)
+// Only OK on x64 where our stack is aligned
+#if defined(_M_SSE) && !defined(_M_IX86)
 static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
 	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
 	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
@@ -1127,7 +1128,7 @@ static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __
 // Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 
 static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE)
+#if defined(_M_SSE) && !defined(_M_IX86)
 	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
 #else
 	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
@@ -1135,7 +1136,7 @@ static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, co
 }
 
 static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE)
+#if defined(_M_SSE) && !defined(_M_IX86)
 	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
 #else
 	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
@@ -1143,7 +1144,7 @@ static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, co
 }
 
 static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE)
+#if defined(_M_SSE) && !defined(_M_IX86)
 	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
 #else
 	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
