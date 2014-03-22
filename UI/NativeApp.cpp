@@ -213,9 +213,7 @@ void NativeInit(int argc, const char *argv[],
 	monstartup("ppsspp_jni.so");
 #endif
 
-#ifdef ANDROID
 	InitFastMath(cpu_info.bNEON);
-#endif
 
 	bool skipLogo = false;
 	EnableFZ();
