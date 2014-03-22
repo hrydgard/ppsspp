@@ -164,10 +164,18 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 
 void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
+	if (!TryADDI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		ADD(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryADDI2R(ARMReg rd, ARMReg rs, u32 val)
+{
 	if (val == 0) {
 		if (rd != rs)
 			MOV(rd, rs);
-		return;
+		return true;
 	}
 	Operand2 op2;
 	bool negated;
@@ -176,6 +184,7 @@ void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 			ADD(rd, rs, op2);
 		else
 			SUB(rd, rs, op2);
+		return true;
 	} else {
 		// Try 16-bit additions and subtractions - easy to test for.
 		// Should also try other rotations...
@@ -183,31 +192,77 @@ void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 			// Decompose into two additions.
 			ADD(rd, rs, Operand2((u8)(val >> 8), 12));   // rotation right by 12*2 == rotation left by 8
 			ADD(rd, rd, Operand2((u8)(val), 0));
+			return true;
 		} else if ((((u32)-(s32)val) & 0xFFFF0000) == 0) {
 			val = (u32)-(s32)val;
 			SUB(rd, rs, Operand2((u8)(val >> 8), 12));
 			SUB(rd, rd, Operand2((u8)(val), 0));
+			return true;
 		} else {
-			MOVI2R(scratch, val);
-			ADD(rd, rs, scratch);
+			return false;
 		}
 	}
 }
 
+void ARMXEmitter::SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TrySUBI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		SUB(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TrySUBI2R(ARMReg rd, ARMReg rs, u32 val)
+{
+	// Just add a negative.
+	return TryADDI2R(rd, rs, (u32)-(s32)val);
+}
+
 void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryANDI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		AND(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryANDI2R(ARMReg rd, ARMReg rs, u32 val)
 {
 	Operand2 op2;
 	bool inverse;
 	if (val == 0) {
 		// Avoid the ALU, may improve pipeline.
 		MOV(rd, 0);
+		return true;
 	} else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
 		if (!inverse) {
 			AND(rd, rs, op2);
 		} else {
 			BIC(rd, rs, op2);
 		}
+		return true;
 	} else {
+#ifdef HAVE_ARMV7
+		// Check if we have a single pattern of sequential bits.
+		int seq = -1;
+		for (int i = 0; i < 32; ++i) {
+			if (((val >> i) & 1) == 0) {
+				if (seq == -1) {
+					// The width is all bits previous to this, set to 1.
+					seq = i;
+				}
+			} else if (seq != -1) {
+				// Uh oh, more than one sequence.
+				seq = -2;
+			}
+		}
+
+		if (seq > 0) {
+			UBFX(rd, rs, 0, seq);
+			return true;
+		}
+#endif
+
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
 			u8 bits = RotR(val, i) & 0xFF;
@@ -221,31 +276,37 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		// The worst case is 4 (e.g. 0x55555555.)
 #ifdef HAVE_ARMV7
 		if (ops > 3) {
-			MOVI2R(scratch, val);
-			AND(rd, rs, scratch);
-		} else
+			return false;
+		}
 #endif
-		{
-			bool first = true;
-			for (int i = 0; i < 32; i += 2) {
-				u8 bits = RotR(val, i) & 0xFF;
-				if ((bits & 3) != 3) {
-					u8 rotation = i == 0 ? 0 : 16 - i / 2;
-					if (first) {
-						BIC(rd, rs, Operand2(~bits, rotation));
-						first = false;
-					} else {
-						BIC(rd, rd, Operand2(~bits, rotation));
-					}
-					// Well, we took care of these other bits while we were at it.
-					i += 8 - 2;
+		bool first = true;
+		for (int i = 0; i < 32; i += 2) {
+			u8 bits = RotR(val, i) & 0xFF;
+			if ((bits & 3) != 3) {
+				u8 rotation = i == 0 ? 0 : 16 - i / 2;
+				if (first) {
+					BIC(rd, rs, Operand2(~bits, rotation));
+					first = false;
+				} else {
+					BIC(rd, rd, Operand2(~bits, rotation));
 				}
+				// Well, we took care of these other bits while we were at it.
+				i += 8 - 2;
 			}
 		}
+		return true;
 	}
 }
 
 void ARMXEmitter::CMPI2R(ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryCMPI2R(rs, val)) {
+		MOVI2R(scratch, val);
+		CMP(rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryCMPI2R(ARMReg rs, u32 val)
 {
 	Operand2 op2;
 	bool negated;
@@ -254,24 +315,40 @@ void ARMXEmitter::CMPI2R(ARMReg rs, u32 val, ARMReg scratch)
 			CMP(rs, op2);
 		else
 			CMN(rs, op2);
+		return true;
 	} else {
-		MOVI2R(scratch, val);
-		CMP(rs, scratch);
+		return false;
 	}
 }
 
 void ARMXEmitter::TSTI2R(ARMReg rs, u32 val, ARMReg scratch)
 {
-	Operand2 op2;
-	if (TryMakeOperand2(val, op2)) {
-		TST(rs, op2);
-	} else {
+	if (!TryTSTI2R(rs, val)) {
 		MOVI2R(scratch, val);
 		TST(rs, scratch);
 	}
 }
 
+bool ARMXEmitter::TryTSTI2R(ARMReg rs, u32 val)
+{
+	Operand2 op2;
+	if (TryMakeOperand2(val, op2)) {
+		TST(rs, op2);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryORI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		ORR(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryORI2R(ARMReg rd, ARMReg rs, u32 val)
 {
 	Operand2 op2;
 	if (val == 0) {
@@ -279,8 +356,10 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		if (rd != rs) {
 			MOV(rd, rs);
 		}
+		return true;
 	} else if (TryMakeOperand2(val, op2)) {
 		ORR(rd, rs, op2);
+		return true;
 	} else {
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
@@ -295,30 +374,53 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		// The worst case is 4 (e.g. 0x55555555.)  But MVN can make it 2.  Not sure if better.
 		bool inversed;
 		if (TryMakeOperand2_AllowInverse(val, op2, &inversed) && ops >= 3) {
-			MVN(scratch, op2);
-			ORR(rd, rs, scratch);
+			return false;
 #ifdef HAVE_ARMV7
 		} else if (ops > 3) {
-			MOVI2R(scratch, val);
-			ORR(rd, rs, scratch);
+			return false;
 #endif
-		} else {
-			bool first = true;
-			for (int i = 0; i < 32; i += 2) {
-				u8 bits = RotR(val, i) & 0xFF;
-				if ((bits & 3) != 0) {
-					u8 rotation = i == 0 ? 0 : 16 - i / 2;
-					if (first) {
-						ORR(rd, rs, Operand2(bits, rotation));
-						first = false;
-					} else {
-						ORR(rd, rd, Operand2(bits, rotation));
-					}
-					// Well, we took care of these other bits while we were at it.
-					i += 8 - 2;
+		}
+
+		bool first = true;
+		for (int i = 0; i < 32; i += 2) {
+			u8 bits = RotR(val, i) & 0xFF;
+			if ((bits & 3) != 0) {
+				u8 rotation = i == 0 ? 0 : 16 - i / 2;
+				if (first) {
+					ORR(rd, rs, Operand2(bits, rotation));
+					first = false;
+				} else {
+					ORR(rd, rd, Operand2(bits, rotation));
 				}
+				// Well, we took care of these other bits while we were at it.
+				i += 8 - 2;
 			}
 		}
+		return true;
+	}
+}
+
+void ARMXEmitter::EORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryEORI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		EOR(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryEORI2R(ARMReg rd, ARMReg rs, u32 val)
+{
+	Operand2 op2;
+	if (val == 0) {
+		if (rd != rs) {
+			MOV(rd, rs);
+		}
+		return true;
+	} else if (TryMakeOperand2(val, op2)) {
+		EOR(rd, rs, op2);
+		return true;
+	} else {
+		return false;
 	}
 }
 
@@ -556,7 +658,7 @@ void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
 	             "SetJumpTarget out of range (%p calls %p)", code, branch.ptr);
 	u32 instr = (u32)(branch.condition | ((distance >> 2) & 0x00FFFFFF));
-	instr |= branch.type ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
+	instr |= branch.type == 0 ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
 	*(u32*)branch.ptr = instr;
 }
 void ARMXEmitter::B (const void *fnptr)
@@ -806,6 +908,11 @@ void ARMXEmitter::UBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
 	Write32(condition | (0x7E0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
 }
 
+void ARMXEmitter::SBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
+{
+	Write32(condition | (0x7A0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
+}
+
 void ARMXEmitter::CLZ(ARMReg rd, ARMReg rm)
 {
 	Write32(condition | (0x16F << 16) | (rd << 12) | (0xF1 << 4) | rm);
@@ -827,6 +934,13 @@ void ARMXEmitter::BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width)
 	u32 msb = (lsb + width - 1);
 	if (msb > 31) msb = 31;
 	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | rn);
+}
+
+void ARMXEmitter::BFC(ARMReg rd, u8 lsb, u8 width)
+{
+	u32 msb = (lsb + width - 1);
+	if (msb > 31) msb = 31;
+	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | 15);
 }
 
 void ARMXEmitter::SXTB (ARMReg dest, ARMReg op2)

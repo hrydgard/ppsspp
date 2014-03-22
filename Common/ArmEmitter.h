@@ -538,7 +538,9 @@ public:
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
 	void BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width);
+	void BFC(ARMReg rd, u8 lsb, u8 width);
 	void UBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
+	void SBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
 	void CLZ(ARMReg rd, ARMReg rm);
 	void PLD(ARMReg rd, int offset, bool forWrite = false);
 
@@ -793,10 +795,19 @@ public:
 	}
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryADDI2R(ARMReg rd, ARMReg rs, u32 val);
+	void SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TrySUBI2R(ARMReg rd, ARMReg rs, u32 val);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryANDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryCMPI2R(ARMReg rs, u32 val);
 	void TSTI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryTSTI2R(ARMReg rs, u32 val);
 	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryORI2R(ARMReg rd, ARMReg rs, u32 val);
+	void EORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryEORI2R(ARMReg rd, ARMReg rs, u32 val);
 };  // class ARMXEmitter
 
 
