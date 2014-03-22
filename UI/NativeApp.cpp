@@ -48,6 +48,7 @@
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
+#include "math/fast/fast_math.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "ui/ui.h"
@@ -56,6 +57,7 @@
 #include "ui/view.h"
 #include "util/text/utf8.h"
 
+#include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Core/Config.h"
@@ -209,6 +211,10 @@ void NativeInit(int argc, const char *argv[],
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
 	monstartup("ppsspp_jni.so");
+#endif
+
+#ifdef ANDROID
+	InitFastMath(cpu_info.bNEON);
 #endif
 
 	bool skipLogo = false;
