@@ -426,21 +426,17 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
-	if (NEONSkinning && dec_->nweights <= 4) {
-		// Most common cases.
+	if (NEONSkinning) {
 		// Weight is first so srcReg is correct.
 		switch (dec_->nweights) {
 		case 1: LDRB(scratchReg2, srcReg, 0); break;
 		case 2: LDRH(scratchReg2, srcReg, 0); break;
 		case 3:
-			LDR(scratchReg2, srcReg, 0);
-			ANDI2R(scratchReg2, scratchReg2, 0xFFFFFF, scratchReg);
-			break;
 		case 4:
 			VLD1_lane(I_32, neonScratchReg, srcReg, 0, false);
 			break;
 		}
-		if (dec_->nweights != 4) {
+		if (dec_->nweights == 1 || dec_->nweights == 2) {
 			VMOV_neon(I_32, neonScratchReg, scratchReg2, 0);
 		}
 		// This can be represented as a constant.
@@ -449,8 +445,26 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 		VMUL(F_32, neonWeightRegsQ[0], neonScratchRegQ, Q3);
+
+		if (dec_->nweights > 4) {
+			ADD(tempReg1, srcReg, 4 * sizeof(u8));
+			switch (dec_->nweights) {
+			case 5: LDRB(scratchReg2, tempReg1, 0); break;
+			case 6: LDRH(scratchReg2, tempReg1, 0); break;
+			case 7:
+			case 8:
+				VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+				break;
+			}
+			if (dec_->nweights == 5 || dec_->nweights == 6) {
+				VMOV_neon(I_32, neonScratchReg, scratchReg2, 0);
+			}
+			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+			VMUL(F_32, neonWeightRegsQ[1], neonScratchRegQ, Q3);
+		}
 	} else {
-		// Fallback and non-neon
 		for (int j = 0; j < dec_->nweights; j++) {
 			LDRB(tempReg1, srcReg, dec_->weightoff + j);
 			VMOV(fpScratchReg, tempReg1);
@@ -463,27 +477,41 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
-	if (NEONSkinning && dec_->nweights <= 4) {
-		// Most common cases.
+	if (NEONSkinning) {
 		switch (dec_->nweights) {
-		case 1: LDRH(scratchReg, srcReg, 0); break;
+		case 1:
+			LDRH(scratchReg, srcReg, 0);
+			VMOV_neon(I_32, neonScratchReg, scratchReg, 0);
+			break;
 		case 2: VLD1_lane(I_32, neonScratchReg, srcReg, 0, false); break;
 		case 3:
-			LDR(scratchReg, srcReg, 0);
-			LDRH(scratchReg2, srcReg, 4);
-			break;
 		case 4:
 			VLD1(I_32, neonScratchReg, srcReg, 1, ALIGN_NONE);
 			break;
-		}
-		if (dec_->nweights != 2 && dec_->nweights != 4) {
-			VMOV(neonScratchReg, scratchReg, scratchReg2);
 		}
 		// This can be represented as a constant.
 		VMOV_neon(F_32, Q3, by32768);
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 		VMUL(F_32, neonWeightRegsQ[0], neonScratchRegQ, Q3);
+
+		if (dec_->nweights > 4) {
+			ADD(tempReg1, srcReg, 4 * sizeof(u16));
+			switch (dec_->nweights) {
+			case 5:
+				LDRH(scratchReg, tempReg1, 0);
+				VMOV_neon(I_32, neonScratchReg, scratchReg, 0);
+				break;
+			case 6: VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false); break;
+			case 7:
+			case 8:
+				VLD1(I_32, neonScratchReg, srcReg, 1, ALIGN_NONE);
+				break;
+			}
+			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
+			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+			VMUL(F_32, neonWeightRegsQ[1], neonScratchRegQ, Q3);
+		}
 	} else {
 		// Fallback and non-neon
 		for (int j = 0; j < dec_->nweights; j++) {
@@ -505,25 +533,11 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 	// Weights are always first, so we can use srcReg directly.
 
 	if (NEONSkinning) {
-		switch (dec_->nweights) {
-		case 1: VLD1_lane(F_32, neonWeightRegsD[0], srcReg, 0, true); break;
-		case 2: VLD1(F_32, neonWeightRegsD[0], srcReg, 1, ALIGN_NONE); break;
-		case 3:
-			// TODO: Do we really need to skip the 4th lanes?  8/16 seem so careful to do that...
-			VLD1(F_32, neonWeightRegsD[0], srcReg, 1, ALIGN_NONE);
-			VLD1_lane(F_32, neonWeightRegsD[1], srcReg, 0, true);
-			break;
-		case 4: VLD1(F_32, neonWeightRegsD[0], srcReg, 2, ALIGN_NONE); break;
-		case 5:
-			VLD1(F_32, neonWeightRegsD[0], srcReg, 2, ALIGN_NONE);
-			VLD1_lane(F_32, neonWeightRegsD[2], srcReg, 0, true);
-			break;
-		case 6: VLD1(F_32, neonWeightRegsD[0], srcReg, 3, ALIGN_NONE); break;
-		case 7:
-			VLD1(F_32, neonWeightRegsD[0], srcReg, 3, ALIGN_NONE);
-			VLD1_lane(F_32, neonWeightRegsD[3], srcReg, 0, true);
-			break;
-		case 8: VLD1(F_32, neonWeightRegsD[0], srcReg, 4, ALIGN_NONE); break;
+		if (dec_->nweights == 1) {
+			VLD1_lane(F_32, neonWeightRegsD[0], srcReg, 0, true);
+		} else {
+			// We over-read by one float but this is not a tragedy.
+			VLDMIA(srcReg, false, neonWeightRegsD[0], (dec_->nweights + 1) / 2);
 		}
 	} else {
 		VLDMIA(srcReg, false, weightRegs[0], dec_->nweights);
