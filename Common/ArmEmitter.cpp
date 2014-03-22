@@ -1488,13 +1488,79 @@ void ARMXEmitter::VMSR(ARMReg Rt) {
 	Write32(condition | (0xEE << 20) | (1 << 16) | (Rt << 12) | 0xA10);
 }
 
-// VFP and ASIMD
 void ARMXEmitter::VMOV(ARMReg Dest, Operand2 op2)
 {
 	_assert_msg_(JIT, cpu_info.bVFPv3, "VMOV #imm requires VFPv3");
 	int sz = Dest >= D0 ? (1 << 8) : 0;
 	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (5 << 9) | sz | op2.Imm8VFP());
 }
+
+void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, u32 imm)
+{
+	_assert_msg_(JIT, cpu_info.bNEON, "VMOV_neon #imm requires NEON");
+	_assert_msg_(JIT, Vd >= D0, "VMOV_neon #imm must target a double or quad");
+	bool register_quad = Vd >= Q0;
+
+	int cmode = 0;
+	int op = 0;
+	Operand2 op2(0, TYPE_IMM);
+
+	u32 imm8 = imm & 0xFF;
+	imm8 = imm8 | (imm8 << 8) | (imm8 << 16) | (imm8 << 24);
+
+	if (Size == I_8) {
+		imm = imm8;
+	} else if (Size == I_16) {
+		imm &= 0xFFFF;
+		imm = imm | (imm << 16);
+	}
+
+	if ((imm & 0x000000FF) == imm) {
+		op = 0;
+		cmode = 0 << 1;
+		op2 = Operand2(imm, TYPE_IMM);
+	} else if ((imm & 0x0000FF00) == imm) {
+		op = 0;
+		cmode = 1 << 1;
+		op2 = Operand2(imm >> 8, TYPE_IMM);
+	} else if ((imm & 0x00FF0000) == imm) {
+		op = 0;
+		cmode = 2 << 1;
+		op2 = Operand2(imm >> 16, TYPE_IMM);
+	} else if ((imm & 0xFF000000) == imm) {
+		op = 0;
+		cmode = 3 << 1;
+		op2 = Operand2(imm >> 24, TYPE_IMM);
+	} else if ((imm & 0x00FF00FF) == imm && (imm >> 16) == (imm & 0x00FF)) {
+		op = 0;
+		cmode = 4 << 1;
+		op2 = Operand2(imm & 0xFF, TYPE_IMM);
+	} else if ((imm & 0xFF00FF00) == imm && (imm >> 16) == (imm & 0xFF00)) {
+		op = 0;
+		cmode = 5 << 1;
+		op2 = Operand2(imm & 0xFF, TYPE_IMM);
+	} else if ((imm & 0x0000FFFF) == (imm | 0x000000FF)) {
+		op = 0;
+		cmode = (6 << 1) | 0;
+		op2 = Operand2(imm >> 8, TYPE_IMM);
+	} else if ((imm & 0x00FFFFFF) == (imm | 0x0000FFFF)) {
+		op = 0;
+		cmode = (6 << 1) | 1;
+		op2 = Operand2(imm >> 16, TYPE_IMM);
+	} else if (imm == imm8) {
+		op = 0;
+		cmode = (7 << 1) | 0;
+		op2 = Operand2(imm & 0xFF, TYPE_IMM);
+	} else {
+		// TODO: Float constant form aBbbbbbcdefgh0000000000000000000.
+		// TODO: 64-bit constant form (FF or 00 all bytes.)
+		_assert_msg_(JIT, false, "VMOV_neon #imm invalid constant value");
+	}
+
+	// No condition allowed.
+	Write32((15 << 28) | (0x28 << 20) | EncodeVd(Vd) | (cmode << 8) | (register_quad << 6) | (op << 5) | (1 << 4) | op2.Imm8ASIMD());
+}
+
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
 	_assert_msg_(JIT, Src < S0, "This VMOV doesn't support SRC other than ARM Reg");

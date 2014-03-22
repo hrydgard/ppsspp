@@ -698,9 +698,19 @@ public:
 	void VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORN(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
-  inline void VMOV_neon(ARMReg Dest, ARMReg Src) {
-    VORR(Dest, Src, Src);
-  }
+	inline void VMOV_neon(ARMReg Dest, ARMReg Src) {
+		VORR(Dest, Src, Src);
+	}
+	void VMOV_neon(u32 Size, ARMReg Vd, u32 imm);
+	void VMOV_neon(u32 Size, ARMReg Vd, float imm) {
+		_dbg_assert_msg_(JIT, Size == F_32, "Expecting F_32 immediate for VMOV_neon float arg.");
+		union {
+			float f;
+			u32 u;
+		} val;
+		val.f = imm;
+		VMOV_neon(I_32, Vd, val.u);
+	}
 
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
