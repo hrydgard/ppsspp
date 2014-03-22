@@ -57,6 +57,32 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE         = 22,
 };
 
+static const char *const utilitySavedataTypeNames[] = {
+	"AUTOLOAD",
+	"AUTOSAVE",
+	"LOAD",
+	"SAVE",
+	"LISTLOAD",
+	"LISTSAVE",
+	"DELETE",
+	"LISTDELETE",
+	"SIZES",
+	"AUTODELETE",
+	"SINGLEDELETE",
+	"LIST",
+	"FILES",
+	"MAKEDATASECURE",
+	"MAKEDATA",
+	"READDATASECURE",
+	"READDATA",
+	"WRITEDATASECURE",
+	"WRITEDATA",
+	"ERASESECURE",
+	"ERASE",
+	"DELETEDATA",
+	"GETSIZE",
+};
+
 enum SceUtilitySavedataFocus
 {
 	SCE_UTILITY_SAVEDATA_FOCUS_NAME       = 0, // specified by saveName[]
