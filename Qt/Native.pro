@@ -91,6 +91,8 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/expression_parser.cpp \
 	$$P/native/math/math_util.cpp \
 	$$P/native/math/lin/*.cpp \
+	$$P/native/math/fast/fast_math.c \
+	$$P/native/math/fast/fast_matrix.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
 	$$P/native/thread/*.cpp \
