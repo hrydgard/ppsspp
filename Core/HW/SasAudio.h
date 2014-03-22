@@ -146,7 +146,7 @@ public:
 	void KeyOff();
 	void End();
 
-	void Step();
+	inline void Step();
 
 	int GetHeight() const {
 		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;

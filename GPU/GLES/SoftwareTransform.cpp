@@ -489,7 +489,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3f lightpos1 = Vec3f(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
 
 					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
-					uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;
+					uv[1] = (1.0f + Dot(lightpos1, normal))/2.0f;
 					uv[2] = 1.0f;
 				}
 				break;
