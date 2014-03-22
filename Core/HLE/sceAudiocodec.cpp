@@ -21,6 +21,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
+#include "Common/ChunkFile.h"
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024
 // Should probably store the EDRAM get/release status somewhere within here, etc.
@@ -40,6 +41,11 @@ struct AudioInfo{
 	AudioInfo(){
 		decoder = NULL;
 	};
+	~AudioInfo(){
+		if (decoder)
+			AudioClose(&decoder);
+	}
+
 };
 struct AudioCell{
 	AudioCell* prevcell;
@@ -50,6 +56,14 @@ struct AudioCell{
 		currval = NULL;
 		nextcell = NULL;
 	};
+	~AudioCell(){
+		if (prevcell)
+			delete prevcell;
+		if (currval)
+			delete currval;
+		if (nextcell)
+			delete nextcell;
+	};
 };
 
 class AudioList {
@@ -58,6 +72,10 @@ public:
 	AudioCell* current;
 	AudioCell* tail;
 	int count;
+
+	// for savestate
+	int* codec_;
+	u32* ctxPtr_;
 
 	AudioList(){
 		head = new AudioCell;
@@ -69,6 +87,9 @@ public:
 
 	~AudioList(){
 		clear();
+		delete head;
+		delete tail;
+		delete current;
 	}
 
 	void push(AudioInfo* info){
@@ -134,21 +155,60 @@ public:
 			free(current);
 		}
 	};
+
+	void DoState(PointerWrap &p){
+		auto s = p.Section("AudioList", 0, 1);
+		if (!s)
+			return;
+
+		p.Do(count);
+		if (p.mode == p.MODE_WRITE){
+			// write savestate
+			free(codec_);
+			free(ctxPtr_);
+			codec_ = (int*)malloc(count*sizeof(int));
+			ctxPtr_ = (u32*)malloc(count*sizeof(u32));
+			current = head;
+			for (int i = 0; i < count; i++){
+				codec_[i] = current->currval->codec;
+				ctxPtr_[i] = current->currval->ctxPtr;
+				current = current->nextcell;
+			}
+			p.DoArray(codec_, sizeof(codec_));
+			p.DoArray(ctxPtr_, sizeof(ctxPtr_));
+		}
+		if (p.mode == p.MODE_READ){
+			// read savestate
+			free(codec_);
+			free(ctxPtr_);
+			codec_ = (int*)malloc(count*sizeof(int));
+			ctxPtr_ = (u32*)malloc(count*sizeof(u32));
+			p.DoArray(codec_, count);
+			p.DoArray(ctxPtr_, count);
+			auto c = count;
+			AudioList();
+			for (int i = 0; i < c; i++){
+				auto newaudio = new AudioInfo;
+				newaudio->codec = codec_[i];
+				newaudio->ctxPtr = ctxPtr_[i];
+				newaudio->decoder = AudioCreate(codec_[i]);
+				push(newaudio);
+			}
+		}
+	};
 };
 
 // AudioList is a queue to storing current playing audios.
-// AudioInfo is point to a new audio's decoder created in sceAudiocodecInit.
 AudioList audioQueue;
-AudioInfo* newaudio;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	if (isValidCodec(codec)){
-		// Create audio decoder for given audio codec.
-		newaudio = new AudioInfo;
-		newaudio->decoder = AudioCreate(codec);
-		newaudio->ctxPtr = ctxPtr;
+		// Create audio decoder for given audio codec and put it into AudioList
+		auto newaudio = new AudioInfo;
 		newaudio->codec = codec;
-		audioQueue.push(newaudio);	
+		newaudio->ctxPtr = ctxPtr;
+		newaudio->decoder = AudioCreate(codec);
+		audioQueue.push(newaudio);		
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;
 	}
@@ -164,7 +224,7 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	if (isValidCodec(codec)){
 		// Use SimpleAudioDec to decode audio
 		// Get AudioCodecContext
-		AudioCodecContext* ctx = new AudioCodecContext;
+		auto ctx = new AudioCodecContext;
 		Memory::ReadStruct(ctxPtr, ctx);
 		int outbytes = 0;
 		// search decoder in AudioList
@@ -201,13 +261,21 @@ int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	//id is not always a codec, so what is should be? 
 	auto info = audioQueue.pop(ctxPtr);
 	if (info != NULL){ 
-		AudioClose(&info->decoder); 
+		info->~AudioInfo();
 		free(info);
 		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 		return 0;
 	}
 	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
+}
+
+void __sceAudioCodecDoState(PointerWrap &p){
+	auto s = p.Section("sceAudioCodec", 0, 1);
+	if (!s)
+		return;
+
+	p.Do(audioQueue);
 }
 
 const HLEFunction sceAudiocodec[] = {
@@ -223,4 +291,13 @@ const HLEFunction sceAudiocodec[] = {
 void Register_sceAudiocodec()
 {
 	RegisterModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
+}
+
+void __sceAudiocodecDoState(PointerWrap &p){
+	auto s = p.Section("AudioList", 0, 1);
+	if (!s)
+		return;
+
+	audioQueue.DoState(p);
+	//p.Do(audioQueue);
 }

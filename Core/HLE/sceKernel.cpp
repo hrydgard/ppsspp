@@ -257,6 +257,8 @@ void __KernelDoState(PointerWrap &p)
 
 		__PPGeDoState(p);
 		__CheatDoState(p);
+		__sceAudiocodecDoState(p);
+
 	}
 
 	{
