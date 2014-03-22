@@ -1658,10 +1658,12 @@ void GLES_GPU::FastLoadBoneMatrix(u32 target) {
 	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		Flush();
 		const int num = gstate.boneMatrixNumber & 0x7F;
-		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		if ((num % 12) != 0) {
-			shaderManager_->DirtyUniform((DIRTY_BONEMATRIX0 << (num / 12)) + 1);
+		int mtxNum = num / 12;
+		uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+		if ((num - 12 * mtxNum) != 0) {
+			uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 		}
+		shaderManager_->DirtyUniform(uniformsToDirty);
 	}
 	gstate.FastLoadBoneMatrix(target);
 }
