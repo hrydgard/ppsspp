@@ -488,9 +488,7 @@ namespace MIPSComp
 			return;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
-		// A rotate will be the same even if >= 32.
-		if (shiftType != ST_ROR)
-			AND(R0, gpr.R(rs), Operand2(0x1F));
+		AND(R0, gpr.R(rs), Operand2(0x1F));
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
 	}
 
