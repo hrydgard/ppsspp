@@ -1117,8 +1117,8 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
 	if (NEONSkinning) {
 		ADD(scratchReg, srcReg, dec_->nrmoff);
+		MOVI2F(S15, 1.0f/128.0f, scratchReg2);
 		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
-		MOVI2F(S15, 1.0f/128.0f, scratchReg);
 		VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 16-bit
 		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
@@ -1144,8 +1144,8 @@ void VertexDecoderJitCache::Jit_NormalS8Skin() {
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
 	if (NEONSkinning) {
 		ADD(scratchReg, srcReg, dec_->nrmoff);
+		MOVI2F(S15, 1.0f/32768, scratchReg2);
 		VLD1(I_32, neonScratchReg, scratchReg, 1, ALIGN_NONE);
-		MOVI2F(S15, 1.0f/32768, scratchReg);
 		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 		VMUL_scalar(F_32, srcNEON, neonScratchReg, QScalar(Q3, 3));  // S15
@@ -1219,8 +1219,8 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 void VertexDecoderJitCache::Jit_PosS8Skin() {
 	if (NEONSkinning) {
 		ADD(scratchReg, srcReg, dec_->posoff);
+		MOVI2F(S15, 1.0f/128.0f, scratchReg2);
 		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
-		MOVI2F(S15, 1.0f/128.0f, scratchReg);
 		VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 16-bit
 		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
@@ -1246,8 +1246,8 @@ void VertexDecoderJitCache::Jit_PosS8Skin() {
 void VertexDecoderJitCache::Jit_PosS16Skin() {
 	if (NEONSkinning) {
 		ADD(scratchReg, srcReg, dec_->posoff);
+		MOVI2F(S15, 1.0f/32768, scratchReg2);
 		VLD1(I_32, neonScratchReg, scratchReg, 1, ALIGN_NONE);
-		MOVI2F(S15, 1.0f/32768, scratchReg);
 		VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 		VMUL_scalar(F_32, srcNEON, neonScratchReg, QScalar(Q3, 3));  // S15

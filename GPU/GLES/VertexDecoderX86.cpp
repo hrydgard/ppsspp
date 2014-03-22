@@ -361,11 +361,7 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(XMM1, R(tempReg1));
@@ -399,11 +395,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(XMM1, R(tempReg1));
@@ -437,11 +429,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVSS(XMM1, MDisp(srcReg, dec_->weightoff + j * 4));
 		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
