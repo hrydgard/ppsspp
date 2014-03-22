@@ -702,13 +702,15 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLDR(S12, tempReg2, sizeof(float) * n);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 
 			if (first) {
 				first = false;
-				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
-				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMLA(F_32, Q2, neonScratchRegQ, Q3);
 			}
 		} else {
 			LDRB(scratchReg, tempReg1, 0);
@@ -755,10 +757,10 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	MOVI2F(S13, 255.0f / 15.0f, scratchReg);
-
 	if (useNEON) {
 		MOVP2R(scratchReg, color4444Shift);
 		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
+		VDUP(F_32, D10, D6, 1);
 	}
 
 	bool first = true;
@@ -773,14 +775,16 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLDR(S12, tempReg2, sizeof(float) * n);
-			VMUL(S12, S12, S13);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
 				first = false;
-				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
-				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMLA(F_32, Q2, neonScratchRegQ, Q3);
 			}
 		} else {
 			LDRB(scratchReg, tempReg1, 0);
@@ -836,9 +840,8 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 
 	if (useNEON) {
 		MOVP2R(scratchReg, color565Shift);
-		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
-
 		MOVI2R(scratchReg2, (char *)byColor565 - (char *)color565Shift);
+		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
 		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
@@ -855,12 +858,14 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLDR(S12, tempReg2, sizeof(float) * n);
-			VMUL_scalar(F_32, Q3, Q5, QScalar(Q3, 0));
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
 				first = false;
 				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
 				VMLA(F_32, Q2, neonScratchRegQ, Q3);
 			}
@@ -914,9 +919,8 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 
 	if (useNEON) {
 		MOVP2R(scratchReg, color5551Shift);
-		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
-
 		MOVI2R(scratchReg2, (char *)byColor5551 - (char *)color5551Shift);
+		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
 		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
@@ -933,12 +937,14 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLDR(S12, tempReg2, sizeof(float) * n);
-			VMUL_scalar(F_32, Q3, Q5, QScalar(Q3, 0));
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
 				first = false;
 				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
 				VMLA(F_32, Q2, neonScratchRegQ, Q3);
 			}
@@ -1278,6 +1284,9 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	MOVI2F(S13, by127, scratchReg);
+	if (NEONMorphing) {
+		VDUP(F_32, D10, D6, 1);
+	}
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1288,14 +1297,16 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLDR(S12, tempReg2, sizeof(float) * n);
-			VMUL(S12, S12, S13);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
 				first = false;
-				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
-				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMLA(F_32, Q2, neonScratchRegQ, Q3);
 			}
 		} else {
 			LDRSB(scratchReg, tempReg1, 0);
@@ -1334,6 +1345,9 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	MOVI2F(S13, by32767, scratchReg);
+	if (NEONMorphing) {
+		VDUP(F_32, D10, D6, 1);
+	}
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1343,14 +1357,16 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLDR(S12, tempReg2, sizeof(float) * n);
-			VMUL(S12, S12, S13);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
 				first = false;
-				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
-				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMLA(F_32, Q2, neonScratchRegQ, Q3);
 			}
 		} else {
 			LDRSH(scratchReg, tempReg1, 0);
@@ -1390,14 +1406,15 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		VLDMIA(tempReg1, false, fpScratchReg, 3);
+		// Load an extra float to stay in NEON mode.
+		VLD1(F_32, neonScratchRegQ, tempReg1, 2, ALIGN_NONE);
 		ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
-		VLDR(S12, tempReg2, sizeof(float) * n);
+		VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 
 		if (first) {
 			first = false;
 			if (NEONMorphing) {
-				VMUL_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				VMUL(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
 				VMUL(S8, fpScratchReg, S12);
 				VMUL(S9, fpScratchReg2, S12);
@@ -1405,7 +1422,11 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 			}
 		} else {
 			if (NEONMorphing) {
-				VMLA_scalar(F_32, Q2, neonScratchRegQ, QScalar(Q3, 0));
+				if (cpu_info.bVFPv4) {
+					VFMA(F_32, Q2, neonScratchRegQ, Q3);
+				} else {
+					VMLA(F_32, Q2, neonScratchRegQ, Q3);
+				}
 			} else {
 				VMLA(S8, fpScratchReg, S12);
 				VMLA(S9, fpScratchReg2, S12);
