@@ -133,32 +133,44 @@ bool ARMXEmitter::TrySetValue_TwoOp(ARMReg reg, u32 val)
 	return true;
 }
 
+bool TryMakeFloatIMM8(u32 val, Operand2 &op2)
+{
+	if ((val & 0x0007FFFF) == 0)
+	{
+		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
+		bool bit6 = (val & 0x40000000) == 0x40000000;
+		bool canEncode = true;
+		for (u32 mask = 0x20000000; mask >= 0x02000000; mask >>= 1)
+		{
+			if (((val & mask) == mask) == bit6)
+				canEncode = false;
+		}
+		if (canEncode)
+		{
+			u32 imm8 = (val & 0x80000000) >> 24; // sign bit
+			imm8 |= (!bit6 << 6);
+			imm8 |= (val & 0x01F80000) >> 19;
+			op2 = IMM(imm8);
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 {
 	union {float f; u32 u;} conv;
 	conv.f = negate ? -val : val;
 	// Try moving directly first if mantisse is empty
-	if (cpu_info.bVFPv3 && ((conv.u & 0x7FFFF) == 0))
+	Operand2 op2;
+	if (cpu_info.bVFPv3 && TryMakeFloatIMM8(conv.u, op2))
+		VMOV(dest, op2);
+	else
 	{
-		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
-		bool bit6 = (conv.u & 0x40000000) == 0x40000000;
-		bool canEncode = true;
-		for (u32 mask = 0x20000000; mask >= 0x02000000; mask >>= 1)
-		{
-			if (((conv.u & mask) == mask) == bit6)
-				canEncode = false;
-		}
-		if (canEncode)
-		{
-			u32 imm8 = (conv.u & 0x80000000) >> 24; // sign bit
-			imm8 |= (!bit6 << 6);
-			imm8 |= (conv.u & 0x01F80000) >> 19;
-			VMOV(dest, IMM(imm8));
-			return;
-		}
+		MOVI2R(tempReg, conv.u);
+		VMOV(dest, tempReg);
 	}
-	MOVI2R(tempReg, conv.u);
-	VMOV(dest, tempReg);
 	// Otherwise, possible to use a literal pool and VLDR directly (+- 1020)
 }
 
@@ -1503,7 +1515,7 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, u32 imm)
 
 	int cmode = 0;
 	int op = 0;
-	Operand2 op2(0, TYPE_IMM);
+	Operand2 op2 = IMM(0);
 
 	u32 imm8 = imm & 0xFF;
 	imm8 = imm8 | (imm8 << 8) | (imm8 << 16) | (imm8 << 24);
@@ -1518,43 +1530,62 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, u32 imm)
 	if ((imm & 0x000000FF) == imm) {
 		op = 0;
 		cmode = 0 << 1;
-		op2 = Operand2(imm, TYPE_IMM);
+		op2 = IMM(imm);
 	} else if ((imm & 0x0000FF00) == imm) {
 		op = 0;
 		cmode = 1 << 1;
-		op2 = Operand2(imm >> 8, TYPE_IMM);
+		op2 = IMM(imm >> 8);
 	} else if ((imm & 0x00FF0000) == imm) {
 		op = 0;
 		cmode = 2 << 1;
-		op2 = Operand2(imm >> 16, TYPE_IMM);
+		op2 = IMM(imm >> 16);
 	} else if ((imm & 0xFF000000) == imm) {
 		op = 0;
 		cmode = 3 << 1;
-		op2 = Operand2(imm >> 24, TYPE_IMM);
+		op2 = IMM(imm >> 24);
 	} else if ((imm & 0x00FF00FF) == imm && (imm >> 16) == (imm & 0x00FF)) {
 		op = 0;
 		cmode = 4 << 1;
-		op2 = Operand2(imm & 0xFF, TYPE_IMM);
+		op2 = IMM(imm & 0xFF);
 	} else if ((imm & 0xFF00FF00) == imm && (imm >> 16) == (imm & 0xFF00)) {
 		op = 0;
 		cmode = 5 << 1;
-		op2 = Operand2(imm & 0xFF, TYPE_IMM);
+		op2 = IMM(imm & 0xFF);
 	} else if ((imm & 0x0000FFFF) == (imm | 0x000000FF)) {
 		op = 0;
 		cmode = (6 << 1) | 0;
-		op2 = Operand2(imm >> 8, TYPE_IMM);
+		op2 = IMM(imm >> 8);
 	} else if ((imm & 0x00FFFFFF) == (imm | 0x0000FFFF)) {
 		op = 0;
 		cmode = (6 << 1) | 1;
-		op2 = Operand2(imm >> 16, TYPE_IMM);
+		op2 = IMM(imm >> 16);
 	} else if (imm == imm8) {
 		op = 0;
 		cmode = (7 << 1) | 0;
-		op2 = Operand2(imm & 0xFF, TYPE_IMM);
+		op2 = IMM(imm & 0xFF);
+	} else if (TryMakeFloatIMM8(imm, op2)) {
+		op = 0;
+		cmode = (7 << 1) | 1;
 	} else {
-		// TODO: Float constant form aBbbbbbcdefgh0000000000000000000.
-		// TODO: 64-bit constant form (FF or 00 all bytes.)
-		_assert_msg_(JIT, false, "VMOV_neon #imm invalid constant value");
+		// 64-bit constant form - technically we could take a u64.
+		bool canEncode = true;
+		u8 imm8 = 0;
+		for (int i = 0, i8 = 0; i < 32; i += 8, ++i8) {
+			u8 b = (imm >> i) & 0xFF;
+			if (b == 0xFF) {
+				imm8 |= 1 << i8;
+			} else if (b != 0x00) {
+				canEncode = false;
+			}
+		}
+		if (canEncode) {
+			// We don't want zeros in the second lane.
+			op = 1;
+			cmode = 7 << 1;
+			op2 = IMM(imm8 | (imm8 << 4));
+		} else {
+			_assert_msg_(JIT, false, "VMOV_neon #imm invalid constant value");
+		}
 	}
 
 	// No condition allowed.
