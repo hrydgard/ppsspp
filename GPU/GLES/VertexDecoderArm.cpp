@@ -181,7 +181,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// Keep the scale/offset in a few fp registers if we need it.
 	// This step can be NEON-ized but the savings would be miniscule.
 	if (prescaleStep) {
-		MOVI2R(R3, (u32)(&gstate_c.uv), scratchReg);
+		MOVP2R(R3, &gstate_c.uv);
 		VLDMIA(R3, false, fpUscaleReg, 4); // fp{Uscale, Yscale, Uoffset, Voffset}Reg = {S0-S4}
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			MOVI2F(fpScratchReg, by128, scratchReg);
@@ -391,11 +391,11 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			}
 		}
 	} else {
-		MOVI2R(tempReg2, (u32)skinMatrix, scratchReg);
+		MOVP2R(tempReg2, skinMatrix);
 		// This approach saves a few stores but accesses the matrices in a more
 		// sparse order.
 		const float *bone = &gstate.boneMatrix[0];
-		MOVI2R(tempReg1, (u32)bone, scratchReg);
+		MOVP2R(tempReg1, bone);
 		for (int i = 0; i < 12; i++) {
 			VLDR(fpScratchReg3, tempReg1, i * 4);
 			VMUL(fpScratchReg3, fpScratchReg3, weightRegs[0]);
@@ -477,10 +477,12 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
-	// TODO: NEON-ize (barely worth)
-	for (int j = 0; j < dec_->nweights; j++) {
-		VLDR(weightRegs[j], srcReg, dec_->weightoff + j * 4);
+	for (int i = 1; i < dec_->nweights; ++i) {
+		_dbg_assert_msg_(JIT, weightRegs[i - 1] + 1 == weightRegs[i], "VertexDecoder weightRegs must be in order.");
 	}
+
+	ADD(tempReg1, srcReg, dec_->weightoff);
+	VLDMIA(tempReg1, false, weightRegs[0], dec_->nweights);
 	Jit_ApplyWeights();
 }
 
@@ -549,7 +551,6 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
 		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
 	} else {
-		// TODO: SIMD
 		LDRB(tempReg1, srcReg, dec_->tcoff);
 		LDRB(tempReg2, srcReg, dec_->tcoff + 1);
 		VMOV(fpScratchReg, tempReg1);
@@ -602,7 +603,6 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 		VADD(F_32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
 		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
 	} else {
-		// TODO: SIMD
 		VLDR(fpScratchReg, srcReg, dec_->tcoff);
 		VLDR(fpScratchReg2, srcReg, dec_->tcoff + 4);
 		VMUL(fpScratchReg, fpScratchReg, fpUscaleReg);
@@ -1035,42 +1035,48 @@ void VertexDecoderJitCache::Jit_NormalS16() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	// Might not be aligned to 4, so we can't use LDMIA.
-	// Actually - not true: This will always be aligned. TODO
-	LDR(tempReg1, srcReg, dec_->nrmoff);
-	LDR(tempReg2, srcReg, dec_->nrmoff + 4);
-	LDR(tempReg3, srcReg, dec_->nrmoff + 8);
-	// But this is always aligned to 4 so we're safe.
+	ADD(scratchReg, srcReg, dec_->nrmoff);
+	LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 	ADD(scratchReg, dstReg, dec_->decFmt.nrmoff);
 	STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 }
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
+	_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScrathRegs must be in order.");
+	_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScrathRegs must be in order.");
+
 	// TODO: SIMD
 	LDRSB(tempReg1, srcReg, dec_->posoff);
 	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
 	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
+	static const ARMReg fr[3] = { fpScratchReg, fpScratchReg2, fpScratchReg3 };
+	ADD(scratchReg, dstReg, dec_->decFmt.posoff);
 	for (int i = 0; i < 3; i++) {
-		VMOV(fpScratchReg, tr[i]);
-		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
-		VSTR(fpScratchReg, dstReg, dec_->decFmt.posoff + i * 4);
+		VMOV(fr[i], tr[i]);
+		VCVT(fr[i], fr[i], TO_FLOAT | IS_SIGNED);
 	}
+	VSTMIA(scratchReg, false, fr[0], 3);
 }
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
+	_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScrathRegs must be in order.");
+	_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScrathRegs must be in order.");
+
 	// TODO: SIMD
 	LDRSH(tempReg1, srcReg, dec_->posoff);
 	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
 	LDRH(tempReg3, srcReg, dec_->posoff + 4);
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
+	static const ARMReg fr[3] = { fpScratchReg, fpScratchReg2, fpScratchReg3 };
+	ADD(scratchReg, dstReg, dec_->decFmt.posoff);
 	for (int i = 0; i < 3; i++) {
-		VMOV(fpScratchReg, tr[i]);
-		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT | IS_SIGNED);
-		VSTR(fpScratchReg, dstReg, dec_->decFmt.posoff + i * 4);
+		VMOV(fr[i], tr[i]);
+		VCVT(fr[i], fr[i], TO_FLOAT | IS_SIGNED);
 	}
+	VSTMIA(scratchReg, false, fr[0], 3);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
@@ -1095,10 +1101,8 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	LDR(tempReg1, srcReg, dec_->posoff);
-	LDR(tempReg2, srcReg, dec_->posoff + 4);
-	LDR(tempReg3, srcReg, dec_->posoff + 8);
-	// But this is always aligned to 4 so we're safe.
+	ADD(scratchReg, srcReg, dec_->posoff);
+	LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 	ADD(scratchReg, dstReg, dec_->decFmt.posoff);
 	STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
 }
@@ -1157,9 +1161,12 @@ void VertexDecoderJitCache::Jit_NormalS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloatSkin() {
-	VLDR(src[0], srcReg, dec_->nrmoff);
-	VLDR(src[1], srcReg, dec_->nrmoff + 4);
-	VLDR(src[2], srcReg, dec_->nrmoff + 8);
+	for (int i = 1; i < 3; ++i) {
+		_dbg_assert_msg_(JIT, src[i - 1] + 1 == src[i], "VertexDecoder src regs must be in order.");
+	}
+
+	ADD(tempReg1, srcReg, dec_->nrmoff);
+	VLDMIA(tempReg1, false, src[0], 3);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -1175,28 +1182,30 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 		}
 		VST1(F_32, accNEON, scratchReg, 2);
 	} else {
-		MOVI2R(tempReg1, (u32)skinMatrix, scratchReg);
+		_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScrathRegs must be in order.");
+		_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScrathRegs must be in order.");
+
+		MOVP2R(tempReg1, skinMatrix);
+		VLDMIA(tempReg1, true, fpScratchReg, 3);
 		for (int i = 0; i < 3; i++) {
-			VLDR(fpScratchReg, tempReg1, 4 * i);
-			VMUL(acc[i], fpScratchReg, src[0]);
+			VMUL(acc[i], ARMReg(fpScratchReg + i), src[0]);
 		}
+		VLDMIA(tempReg1, true, fpScratchReg, 3);
 		for (int i = 0; i < 3; i++) {
-			VLDR(fpScratchReg, tempReg1, 12 + 4 * i);
-			VMLA(acc[i], fpScratchReg, src[1]);
+			VMLA(acc[i], ARMReg(fpScratchReg + i), src[1]);
 		}
+		VLDMIA(tempReg1, true, fpScratchReg, 3);
 		for (int i = 0; i < 3; i++) {
-			VLDR(fpScratchReg, tempReg1, 24 + 4 * i);
-			VMLA(acc[i], fpScratchReg, src[2]);
+			VMLA(acc[i], ARMReg(fpScratchReg + i), src[2]);
 		}
 		if (pos) {
+			VLDMIA(tempReg1, true, fpScratchReg, 3);
 			for (int i = 0; i < 3; i++) {
-				VLDR(fpScratchReg, tempReg1, 36 + 4 * i);
-				VADD(acc[i], acc[i], fpScratchReg);
+				VADD(acc[i], acc[i], ARMReg(fpScratchReg + i));
 			}
 		}
-		for (int i = 0; i < 3; i++) {
-			VSTR(acc[i], dstReg, outOff + i * 4);
-		}
+		ADD(tempReg1, dstReg, outOff);
+		VSTMIA(tempReg1, false, acc[0], 3);
 	}
 }
 
@@ -1254,9 +1263,12 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	VLDR(src[0], srcReg, dec_->posoff);
-	VLDR(src[1], srcReg, dec_->posoff + 4);
-	VLDR(src[2], srcReg, dec_->posoff + 8);
+	for (int i = 1; i < 3; ++i) {
+		_dbg_assert_msg_(JIT, src[i - 1] + 1 == src[i], "VertexDecoder src regs must be in order.");
+	}
+
+	ADD(tempReg1, srcReg, dec_->posoff);
+	VLDMIA(tempReg1, false, src[0], 3);
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
