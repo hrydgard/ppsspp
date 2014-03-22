@@ -387,6 +387,14 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			// not really sure what a sensible value might be.
 			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
 		}
+		if (my_isnan(fogcoef[1]))	{
+			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+			// Just put the fog far away at a large finite distance.
+			// Infinities and NaNs are rather unpredictable in shaders on many GPUs
+			// so it's best to just make it a sane calculation.
+			fogcoef[0] = 100000.0f;
+			fogcoef[1] = 1.0f;
+		}
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
