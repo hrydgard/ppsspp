@@ -1156,6 +1156,20 @@ void XEmitter::WriteSSEOp(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg a
 	arg.WriteRest(this, extrabytes);
 }
 
+void XEmitter::WriteSSEOp2(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg arg, int extrabytes)
+{
+	if (size == 64 && packed)
+		Write8(0x66); //this time, override goes upwards
+	if (!packed)
+		Write8(size == 64 ? 0xF2 : 0xF3);
+	arg.operandReg = regOp;
+	arg.WriteRex(this, 0, 0);
+	Write8(0x0F);
+	Write8(0x38);
+	Write8(sseOp);
+	arg.WriteRest(this, extrabytes);
+}
+
 void XEmitter::MOVD_xmm(X64Reg dest, const OpArg &arg) {WriteSSEOp(64, 0x6E, true, dest, arg, 0);}
 void XEmitter::MOVD_xmm(const OpArg &arg, X64Reg src) {WriteSSEOp(64, 0x7E, true, src, arg, 0);}
 
@@ -1351,6 +1365,48 @@ void XEmitter::PUNPCKLWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(64, 0x61, tr
 void XEmitter::PUNPCKLDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(64, 0x62, true, dest, arg);}
 //void PUNPCKLQDQ(X64Reg dest, OpArg arg) {WriteSSEOp(64, 0x60, true, dest, arg);}
 
+void XEmitter::PMOVSXBW(X64Reg dest, const OpArg &arg) {
+	if (!cpu_info.bSSE4_1) {
+		PanicAlert("Trying to use PMOVSXBW on a system that doesn't support it. Bad programmer.");
+	}
+	WriteSSEOp2(64, 0x20, true, dest, arg);
+}
+
+void XEmitter::PMOVSXBD(X64Reg dest, const OpArg &arg) {
+	if (!cpu_info.bSSE4_1) {
+		PanicAlert("Trying to use PMOVSXBD on a system that doesn't support it. Bad programmer.");
+	}
+	WriteSSEOp2(64, 0x21, true, dest, arg);
+}
+
+void XEmitter::PMOVSXWD(X64Reg dest, const OpArg &arg) {
+	if (!cpu_info.bSSE4_1) {
+		PanicAlert("Trying to use PMOVSXWD on a system that doesn't support it. Bad programmer.");
+	}
+	WriteSSEOp2(64, 0x23, true, dest, arg);
+}
+
+void XEmitter::PMOVZXBW(X64Reg dest, const OpArg &arg) {
+	if (!cpu_info.bSSE4_1) {
+		PanicAlert("Trying to use PMOVSXBW on a system that doesn't support it. Bad programmer.");
+	}
+	WriteSSEOp2(64, 0x30, true, dest, arg);
+}
+
+void XEmitter::PMOVZXBD(X64Reg dest, const OpArg &arg) {
+	if (!cpu_info.bSSE4_1) {
+		PanicAlert("Trying to use PMOVSXBD on a system that doesn't support it. Bad programmer.");
+	}
+	WriteSSEOp2(64, 0x31, true, dest, arg);
+}
+
+void XEmitter::PMOVZXWD(X64Reg dest, const OpArg &arg) {
+	if (!cpu_info.bSSE4_1) {
+		PanicAlert("Trying to use PMOVSXWD on a system that doesn't support it. Bad programmer.");
+	}
+	WriteSSEOp2(64, 0x33, true, dest, arg);
+}
+
 void XEmitter::PSRLW(X64Reg reg, int shift) {
 	WriteSSEOp(64, 0x71, true, (X64Reg)2, R(reg));
 	Write8(shift);
@@ -1418,13 +1474,7 @@ void XEmitter::PSHUFB(X64Reg dest, OpArg arg) {
 	if (!cpu_info.bSSSE3) {
 		PanicAlert("Trying to use PSHUFB on a system that doesn't support it. Bad programmer.");
 	}
-	Write8(0x66);
-	arg.operandReg = dest;
-	arg.WriteRex(this, 0, 0);
-	Write8(0x0f);
-	Write8(0x38);
-	Write8(0x00);
-	arg.WriteRest(this, 0);
+	WriteSSEOp2(64, 0x00, true, dest, arg);
 }
 
 void XEmitter::PAND(X64Reg dest, OpArg arg)     {WriteSSEOp(64, 0xDB, true, dest, arg);}
@@ -1476,6 +1526,7 @@ void XEmitter::PMINUB(X64Reg dest, OpArg arg)   {WriteSSEOp(64, 0xDA, true, dest
 
 void XEmitter::PMOVMSKB(X64Reg dest, OpArg arg)    {WriteSSEOp(64, 0xD7, true, dest, arg); }
 
+void XEmitter::PSHUFD(X64Reg regOp, OpArg arg, u8 shuffle)    {WriteSSEOp(64, 0x70, true, regOp, arg, 1); Write8(shuffle);}
 void XEmitter::PSHUFLW(X64Reg regOp, OpArg arg, u8 shuffle)   {WriteSSEOp(64, 0x70, false, regOp, arg, 1); Write8(shuffle);}
 
 // Prefixes
