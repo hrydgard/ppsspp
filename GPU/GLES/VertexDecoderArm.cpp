@@ -35,12 +35,16 @@ static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in register
 // Q0: Texture scaling parameters
 // Q1: Temp storage
 // Q2: Vector-by-matrix accumulator
-// Q3: Unused
+// Q3: Unused (multiplier temp when morphing)
 //
-// We'll use Q4-Q7 as the "matrix accumulator".
+// When skinning, we'll use Q4-Q7 as the "matrix accumulator".
 // First two matrices will be preloaded into Q8-Q11 and Q12-Q15 to reduce
 // memory bandwidth requirements.
 // The rest will be dumped to bones as on x86.
+//
+// When morphing, we never skin.  So we're free to use Q4+.
+// Q4 is for color shift values, and Q5 is a secondary multipler inside the morph.
+// TODO: Maybe load all morph weights to Q6+ to avoid memory access?
 
 
 static const float by127 = 1.0f / 127.0f;
@@ -197,7 +201,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
 	int boneCount = 0;
-	if (NEONSkinning && dec.weighttype && g_Config.bSoftwareSkinning) {
+	if (NEONSkinning && dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
 		// Copying from R3 to R4
 		MOVP2R(R3, gstate.boneMatrix);
 		MOVP2R(R4, bones);
@@ -246,7 +250,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	}
 
 	JumpTarget loopStart = GetCodePtr();
-	// Preload data cache ahead of reading. TODO: Experiment with the offset.
+	// Preload data cache ahead of reading. This offset seems pretty good.
 	PLD(srcReg, 64);
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
@@ -1276,17 +1280,18 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	MOVI2F(S13, by127, scratchReg);
-	if (NEONMorphing) {
+	if (useNEON) {
 		VDUP(F_32, D10, D6, 1);
 	}
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		if (NEONMorphing) {
+		if (useNEON) {
 			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);
@@ -1337,17 +1342,18 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	MOVI2F(S13, by32767, scratchReg);
-	if (NEONMorphing) {
+	if (useNEON) {
 		VDUP(F_32, D10, D6, 1);
 	}
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		if (NEONMorphing) {
+		if (useNEON) {
 			VLD1(I_32, neonScratchReg, tempReg1, 1, ALIGN_NONE);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
