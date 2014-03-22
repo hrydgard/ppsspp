@@ -616,6 +616,8 @@ public:
 	void VMOV(ARMReg Dest, Operand2 op2);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
+	// Either Vd, Rt, Rt2 or Rt, Rt2, Vd.
+	void VMOV(ARMReg Dest, ARMReg Src1, ARMReg Src2);
 	void VCVT(ARMReg Dest, ARMReg Src, int flags);
 
 	// NEON, need to check for this (supported if VFP4 is supported)
@@ -711,6 +713,7 @@ public:
 		val.f = imm;
 		VMOV_neon(I_32, Vd, val.u);
 	}
+	void VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane);
 
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -805,6 +808,7 @@ public:
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
+	void MOVI2F_neon(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
 	// Load pointers without casting
 	template <class T> void MOVP2R(ARMReg reg, T *val) {
