@@ -30,6 +30,7 @@ static float MEMORY_ALIGNED16(skinMatrix[12]);
 
 // Will be used only in NEON mode.
 static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in registers
+static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
 
 // NEON register allocation:
 // Q0: Texture scaling parameters
@@ -205,19 +206,20 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		// Copying from R3 to R4
 		MOVP2R(R3, gstate.boneMatrix);
 		MOVP2R(R4, bones);
-		MOVI2F(fpScratchReg, 0.0f, scratchReg);
+		MOVP2R(R5, boneMask);
+		VLD1(F_32, Q3, R5, 2, ALIGN_128);
 		for (int i = 0; i < 8; i++) {
 			VLD1(F_32, Q4, R3, 2);  // Load 128 bits even though we just want 96
-			VMOV(S19, fpScratchReg);
+			VMUL(F_32, Q4, Q4, Q3);
 			ADD(R3, R3, 12);
 			VLD1(F_32, Q5, R3, 2);
-			VMOV(S23, fpScratchReg);
+			VMUL(F_32, Q5, Q5, Q3);
 			ADD(R3, R3, 12);
 			VLD1(F_32, Q6, R3, 2);
-			VMOV(S27, fpScratchReg);
+			VMUL(F_32, Q6, Q6, Q3);
 			ADD(R3, R3, 12);
 			VLD1(F_32, Q7, R3, 2);
-			VMOV(S31, fpScratchReg);
+			VMUL(F_32, Q7, Q7, Q3);
 			ADD(R3, R3, 12);
 			// First two matrices are in registers.
 			if (i == 0) {
