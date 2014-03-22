@@ -20,6 +20,8 @@
 #include <cmath>
 #include "Common/Common.h"
 
+#include "math/fast/fast_matrix.h"
+
 #if defined(_M_SSE)
 #include <emmintrin.h>
 #endif
@@ -828,10 +830,7 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 }
 
 inline void Matrix4ByMatrix4(float out[16], const float a[16], const float b[16]) {
-	Vec4ByMatrix44(out, a, b);
-	Vec4ByMatrix44(out + 4, a + 4, b);
-	Vec4ByMatrix44(out + 8, a + 8, b);
-	Vec4ByMatrix44(out + 12, a + 12, b);
+	fast_matrix_mul_4x4(out, b, a);
 }
 
 inline void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
