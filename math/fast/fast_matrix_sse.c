@@ -3,7 +3,8 @@
 #include "fast_matrix.h"
 
 void fast_matrix_mul_4x4_sse(float *dest, const float *a, const float *b) {
-	for (int i = 0; i < 16; i += 4) {
+	int i;
+	for (i = 0; i < 16; i += 4) {
 		__m128 a_col_1 = _mm_loadu_ps(a);
 		__m128 a_col_2 = _mm_loadu_ps(&a[4]);
 		__m128 a_col_3 = _mm_loadu_ps(&a[8]);
