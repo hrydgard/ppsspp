@@ -54,6 +54,8 @@ LOCAL_SRC_FILES :=\
     i18n/i18n.cpp \
     input/gesture_detector.cpp \
     input/input_state.cpp \
+    math/fast/fast_math.c \
+    math/fast/fast_matrix.c \
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \
@@ -107,10 +109,15 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    math/fast/fast_matrix_neon.S.neon
+
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
 else ifeq ($(TARGET_ARCH_ABI),x86)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    math/fast/fast_matrix_sse.c
 endif
 
 include $(BUILD_STATIC_LIBRARY)
