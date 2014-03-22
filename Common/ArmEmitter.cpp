@@ -1134,6 +1134,7 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 }
 void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
 {
+	_dbg_assert_msg_(JIT, !WriteBack || Rn != R_PC, "VLDM/VSTM cannot use WriteBack with PC (PC is deprecated anyway.)");
 	ARMReg Dest = SubBase(Vd);
 	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
 }
@@ -1410,11 +1411,13 @@ void ARMXEmitter::VSTMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvr
 
 void ARMXEmitter::VLDMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
+	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VLDMDB");
 	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VSTMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
+	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VSTMDB");
 	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
