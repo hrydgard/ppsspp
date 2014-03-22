@@ -184,18 +184,28 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	}
 
 	// Keep the scale/offset in a few fp registers if we need it.
-	// This step can be NEON-ized but the savings would be miniscule.
 	if (prescaleStep) {
 		MOVP2R(R3, &gstate_c.uv);
-		VLDMIA(R3, false, fpUscaleReg, 4); // fp{Uscale, Yscale, Uoffset, Voffset}Reg = {S0-S4}
-		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MOVI2F(fpScratchReg, by128, scratchReg);
-			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
-			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
-		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MOVI2F(fpScratchReg, by32768, scratchReg);
-			VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
-			VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
+		if (cpu_info.bNEON) {
+			VLD1(F_32, neonUVScaleReg, R3, 2, ALIGN_NONE);
+			if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+				VMOV_neon(F_32, neonScratchReg, by128);
+				VMUL(F_32, neonUVScaleReg, neonUVScaleReg, neonScratchReg);
+			} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+				VMOV_neon(F_32, neonScratchReg, by32768);
+				VMUL(F_32, neonUVScaleReg, neonUVScaleReg, neonScratchReg);
+			}
+		} else {
+			VLDMIA(R3, false, fpUscaleReg, 4); // fp{Uscale, Yscale, Uoffset, Voffset}Reg = {S0-S4}
+			if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+				MOVI2F(fpScratchReg, by128, scratchReg);
+				VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
+				VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
+			} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+				MOVI2F(fpScratchReg, by32768, scratchReg);
+				VMUL(fpUscaleReg, fpUscaleReg, fpScratchReg);
+				VMUL(fpVscaleReg, fpVscaleReg, fpScratchReg);
+			}
 		}
 	}
 
