@@ -338,7 +338,8 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 }
 
 static const ARMReg weightRegs[8] = { S8, S9, S10, S11, S12, S13, S14, S15 };
-static const ARMReg neonWeightRegs[2] = { Q2, Q3 };
+static const ARMReg neonWeightRegsD[4] = { D4, D5, D6, D7 };
+static const ARMReg neonWeightRegsQ[2] = { Q2, Q3 };
 
 void VertexDecoderJitCache::Jit_ApplyWeights() {
 	if (NEONSkinning) {
@@ -350,24 +351,24 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 		for (int i = 0; i < dec_->nweights; i++) {
 			switch (i) {
 			case 0:
-				VMUL_scalar(F_32, Q4, Q8, QScalar(neonWeightRegs[0], 0));
-				VMUL_scalar(F_32, Q5, Q9, QScalar(neonWeightRegs[0], 0));
-				VMUL_scalar(F_32, Q6, Q10, QScalar(neonWeightRegs[0], 0));
-				VMUL_scalar(F_32, Q7, Q11, QScalar(neonWeightRegs[0], 0));
+				VMUL_scalar(F_32, Q4, Q8, QScalar(neonWeightRegsQ[0], 0));
+				VMUL_scalar(F_32, Q5, Q9, QScalar(neonWeightRegsQ[0], 0));
+				VMUL_scalar(F_32, Q6, Q10, QScalar(neonWeightRegsQ[0], 0));
+				VMUL_scalar(F_32, Q7, Q11, QScalar(neonWeightRegsQ[0], 0));
 				break;
 			case 1:
 				// Krait likes VDUP + VFMA better than VMLA, and it's easy to do here.
 				if (cpu_info.bVFPv4) {
-					VDUP(F_32, Q1, neonWeightRegs[i >> 2], i & 1);
+					VDUP(F_32, Q1, neonWeightRegsQ[i >> 2], i & 1);
 					VFMA(F_32, Q4, Q12, Q1);
 					VFMA(F_32, Q5, Q13, Q1);
 					VFMA(F_32, Q6, Q14, Q1);
 					VFMA(F_32, Q7, Q15, Q1);
 				} else {
-					VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegs[0], 1));
-					VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegs[0], 1));
-					VMLA_scalar(F_32, Q6, Q14, QScalar(neonWeightRegs[0], 1));
-					VMLA_scalar(F_32, Q7, Q15, QScalar(neonWeightRegs[0], 1));
+					VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegsQ[0], 1));
+					VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegsQ[0], 1));
+					VMLA_scalar(F_32, Q6, Q14, QScalar(neonWeightRegsQ[0], 1));
+					VMLA_scalar(F_32, Q7, Q15, QScalar(neonWeightRegsQ[0], 1));
 				}
 				break;
 			default:
@@ -377,21 +378,21 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 				if (dec_->nweights <= 4) {
 					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
 					VLD1(F_32, Q3, scratchReg, 2, ALIGN_128, REG_UPDATE);
-					VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
-					VMLA_scalar(F_32, Q5, Q3, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegsQ[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q5, Q3, QScalar(neonWeightRegsQ[i >> 2], i & 3));
 					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
 					VLD1(F_32, Q3, scratchReg, 2, ALIGN_128, REG_UPDATE);
-					VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
-					VMLA_scalar(F_32, Q7, Q3, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegsQ[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q7, Q3, QScalar(neonWeightRegsQ[i >> 2], i & 3));
 				} else {
 					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-					VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q4, Q1, QScalar(neonWeightRegsQ[i >> 2], i & 3));
 					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-					VMLA_scalar(F_32, Q5, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q5, Q1, QScalar(neonWeightRegsQ[i >> 2], i & 3));
 					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-					VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q6, Q1, QScalar(neonWeightRegsQ[i >> 2], i & 3));
 					VLD1(F_32, Q1, scratchReg, 2, ALIGN_128, REG_UPDATE);
-					VMLA_scalar(F_32, Q7, Q1, QScalar(neonWeightRegs[i >> 2], i & 3));
+					VMLA_scalar(F_32, Q7, Q1, QScalar(neonWeightRegsQ[i >> 2], i & 3));
 				}
 				break;
 			}
@@ -426,15 +427,18 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 			ANDI2R(scratchReg2, scratchReg2, 0xFFFFFF, scratchReg);
 			break;
 		case 4:
-			LDR(scratchReg2, srcReg, 0);
+			VLD1_lane(I_32, neonScratchReg, srcReg, 0, false);
 			break;
 		}
-		VMOV(fpScratchReg, scratchReg2);
-		MOVI2F(S12, by128, scratchReg);
+		if (dec_->nweights != 4) {
+			VMOV_neon(I_32, neonScratchReg, scratchReg2, 0);
+		}
+		// This can be represented as a constant.
+		VMOV_neon(F_32, Q3, by128);
 		VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
-		VMUL_scalar(F_32, neonWeightRegs[0], neonScratchRegQ, DScalar(D6, 0));
+		VMUL(F_32, neonWeightRegsQ[0], neonScratchRegQ, Q3);
 	} else {
 		// Fallback and non-neon
 		for (int j = 0; j < dec_->nweights; j++) {
@@ -453,22 +457,23 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 		// Most common cases.
 		switch (dec_->nweights) {
 		case 1: LDRH(scratchReg, srcReg, 0); break;
-		case 2: LDR(scratchReg, srcReg, 0); break;
+		case 2: VLD1_lane(I_32, neonScratchReg, srcReg, 0, false); break;
 		case 3:
 			LDR(scratchReg, srcReg, 0);
 			LDRH(scratchReg2, srcReg, 4);
 			break;
 		case 4:
-			LDR(scratchReg, srcReg, 0);
-			LDR(scratchReg2, srcReg, 4);
+			VLD1(I_32, neonScratchReg, srcReg, 1, ALIGN_NONE);
 			break;
 		}
-		VMOV(fpScratchReg, scratchReg);
-		VMOV(fpScratchReg2, scratchReg2);
-		MOVI2F(S12, by32768, scratchReg);
+		if (dec_->nweights != 2 && dec_->nweights != 4) {
+			VMOV(neonScratchReg, scratchReg, scratchReg2);
+		}
+		// This can be represented as a constant.
+		VMOV_neon(F_32, Q3, by32768);
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
-		VMUL_scalar(F_32, neonWeightRegs[0], neonScratchRegQ, DScalar(D6, 0));
+		VMUL(F_32, neonWeightRegsQ[0], neonScratchRegQ, Q3);
 	} else {
 		// Fallback and non-neon
 		for (int j = 0; j < dec_->nweights; j++) {
@@ -487,8 +492,32 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		_dbg_assert_msg_(JIT, weightRegs[i - 1] + 1 == weightRegs[i], "VertexDecoder weightRegs must be in order.");
 	}
 
-	ADD(tempReg1, srcReg, dec_->weightoff);
-	VLDMIA(tempReg1, false, weightRegs[0], dec_->nweights);
+	// Weights are always first, so we can use srcReg directly.
+
+	if (NEONSkinning) {
+		switch (dec_->nweights) {
+		case 1: VLD1_lane(F_32, neonWeightRegsD[0], srcReg, 0, true); break;
+		case 2: VLD1(F_32, neonWeightRegsD[0], srcReg, 1, ALIGN_NONE); break;
+		case 3:
+			// TODO: Do we really need to skip the 4th lanes?  8/16 seem so careful to do that...
+			VLD1(F_32, neonWeightRegsD[0], srcReg, 1, ALIGN_NONE);
+			VLD1_lane(F_32, neonWeightRegsD[1], srcReg, 0, true);
+			break;
+		case 4: VLD1(F_32, neonWeightRegsD[0], srcReg, 2, ALIGN_NONE); break;
+		case 5:
+			VLD1(F_32, neonWeightRegsD[0], srcReg, 2, ALIGN_NONE);
+			VLD1_lane(F_32, neonWeightRegsD[2], srcReg, 0, true);
+			break;
+		case 6: VLD1(F_32, neonWeightRegsD[0], srcReg, 3, ALIGN_NONE); break;
+		case 7:
+			VLD1(F_32, neonWeightRegsD[0], srcReg, 3, ALIGN_NONE);
+			VLD1_lane(F_32, neonWeightRegsD[3], srcReg, 0, true);
+			break;
+		case 8: VLD1(F_32, neonWeightRegsD[0], srcReg, 4, ALIGN_NONE); break;
+		}
+	} else {
+		VLDMIA(srcReg, false, weightRegs[0], dec_->nweights);
+	}
 	Jit_ApplyWeights();
 }
 
