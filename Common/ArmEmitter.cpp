@@ -1984,8 +1984,9 @@ void ARMXEmitter::VEXT(ARMReg Vd, ARMReg Vn, ARMReg Vm, u8 index)
 	Write32((0xF2 << 24) | (0xB << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (index & 0xF) \
 		| (register_quad << 6) | EncodeVm(Vm));
 }
-void ARMXEmitter::VFMA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
+void ARMXEmitter::VFMA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
+	_dbg_assert_msg_(JIT, Size == F_32, "Passed invalid size to FP-only NEON instruction");
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	_dbg_assert_msg_(JIT, cpu_info.bVFPv4, "Can't use " __FUNCTION__ " when CPU doesn't support it");
@@ -1993,8 +1994,9 @@ void ARMXEmitter::VFMA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	Write32((0xF2 << 24) | EncodeVn(Vn) | EncodeVd(Vd) | (0xC1 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
-void ARMXEmitter::VFMS(ARMReg Vd, ARMReg Vn, ARMReg Vm)
+void ARMXEmitter::VFMS(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
+	_dbg_assert_msg_(JIT, Size == F_32, "Passed invalid size to FP-only NEON instruction");
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 	_dbg_assert_msg_(JIT, cpu_info.bVFPv4, "Can't use " __FUNCTION__ " when CPU doesn't support it");
