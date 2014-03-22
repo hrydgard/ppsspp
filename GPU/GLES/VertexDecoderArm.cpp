@@ -688,8 +688,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
-	// TODO: Test.
-	const bool useNEON = false;//NEONMorphing;
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
@@ -751,8 +750,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 static const s16 MEMORY_ALIGNED16(color4444Shift[2][4]) = {{12, 8, 4, 0}, {-12, -12, -12, -12}};
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
-	// TODO: Test.
-	const bool useNEON = false;//NEONMorphing;
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
@@ -833,8 +831,7 @@ static const s16 MEMORY_ALIGNED16(color565Shift[2][4]) = {{11, 5, 0, 0}, {-11, -
 static const float MEMORY_ALIGNED16(byColor565[4]) = {255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 0.0f};
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
-	// TODO: Test.
-	const bool useNEON = false;//NEONMorphing;
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
@@ -912,8 +909,7 @@ static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, 
 static const float MEMORY_ALIGNED16(byColor5551[4]) = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
-	// TODO: Test.
-	const bool useNEON = false;//NEONMorphing;
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
