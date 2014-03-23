@@ -24,6 +24,7 @@
 #include <codecvt>
 #endif
 
+#include "math/math_util.h"
 #include "native/thread/thread.h"
 #include "native/thread/threadutil.h"
 #include "native/base/mutex.h"
@@ -244,6 +245,8 @@ void CPU_Shutdown() {
 
 void CPU_RunLoop() {
 	setCurrentThreadName("CPUThread");
+	FPU_SetFastMode();
+
 	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
 		ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
 		return;

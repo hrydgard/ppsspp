@@ -215,8 +215,14 @@ void NativeInit(int argc, const char *argv[],
 
 	InitFastMath(cpu_info.bNEON);
 
+	// Sets both FZ and DefaultNaN on ARM, flipping some ARM implementations into "RunFast" mode for VFP.
+	// http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
+	// Do we need to do this on all threads?
+	// Also, the FZ thing may actually be a little bit dangerous, I'm not sure how compliant the MIPS
+	// CPU is with denormal handling. Needs testing. Default-NAN should be reasonably safe though.
+	FPU_SetFastMode();
+
 	bool skipLogo = false;
-	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
 	pendingMessages.clear();
@@ -404,6 +410,8 @@ void NativeInit(int argc, const char *argv[],
 }
 
 void NativeInitGraphics() {
+	FPU_SetFastMode();
+
 	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
