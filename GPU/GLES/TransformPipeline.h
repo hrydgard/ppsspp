@@ -207,6 +207,7 @@ private:
 
 	int decimationCounter_;
 	int decodeCounter_;
+	u32 dcid_;
 
 	UVScale *uvScale;
 };

@@ -78,6 +78,7 @@ static const X64Reg fpScaleOffsetReg = XMM0;
 static const X64Reg fpScratchReg = XMM1;
 static const X64Reg fpScratchReg2 = XMM2;
 static const X64Reg fpScratchReg3 = XMM3;
+static const X64Reg fpScratchReg4 = XMM4;
 
 // We're gonna keep the current skinning matrix in 4 XMM regs. Fortunately we easily
 // have space for that now.
@@ -139,6 +140,11 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS8Morph, &VertexDecoderJitCache::Jit_PosS8Morph},
 	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
 	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
+
+	{&VertexDecoder::Step_Color8888Morph, &VertexDecoderJitCache::Jit_Color8888Morph},
+	{&VertexDecoder::Step_Color4444Morph, &VertexDecoderJitCache::Jit_Color4444Morph},
+	{&VertexDecoder::Step_Color565Morph, &VertexDecoderJitCache::Jit_Color565Morph},
+	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
 };
 
 // TODO: This should probably be global...
@@ -704,6 +710,216 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
 }
 
+void VertexDecoderJitCache::Jit_Color8888Morph() {
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	PXOR(fpScratchReg4, R(fpScratchReg4));
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBD(reg, R(reg));
+		} else {
+			PUNPCKLBW(reg, R(fpScratchReg4));
+			PUNPCKLWD(reg, R(fpScratchReg4));
+		}
+
+		CVTDQ2PS(reg, R(reg));
+
+		// And now the weight.
+		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
+		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(reg, R(fpScratchReg3));
+
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
+	}
+
+	// Pack back into a u32.
+	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
+	PACKSSDW(fpScratchReg, R(fpScratchReg));
+	PACKUSWB(fpScratchReg, R(fpScratchReg));
+	MOVD_xmm(R(tempReg1), fpScratchReg);
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+}
+
+static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
+
+void VertexDecoderJitCache::Jit_Color4444Morph() {
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	PXOR(fpScratchReg4, R(fpScratchReg4));
+	MOVDQA(XMM5, M(color4444mask));
+	MOVAPS(XMM6, M(byColor4444));
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
+		PUNPCKLBW(reg, R(reg));
+		PAND(reg, R(XMM5));
+		MOVSS(fpScratchReg3, R(reg));
+		PSLLW(fpScratchReg3, 4);
+		POR(reg, R(fpScratchReg3));
+		PSRLW(reg, 4);
+
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBD(reg, R(reg));
+		} else {
+			PUNPCKLBW(reg, R(fpScratchReg4));
+			PUNPCKLWD(reg, R(fpScratchReg4));
+		}
+
+		CVTDQ2PS(reg, R(reg));
+		MULPS(reg, R(XMM6));
+
+		// And now the weight.
+		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
+		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(reg, R(fpScratchReg3));
+
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
+	}
+
+	// Pack back into a u32.
+	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
+	PACKSSDW(fpScratchReg, R(fpScratchReg));
+	PACKUSWB(fpScratchReg, R(fpScratchReg));
+	MOVD_xmm(R(tempReg1), fpScratchReg);
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+}
+
+// Intentionally in reverse order.
+static const u32 MEMORY_ALIGNED16(color565Mask[4]) = { 0x0000f800, 0x000007e0, 0x0000001f, 0x00000000, };
+static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 1.0f, 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, };
+
+void VertexDecoderJitCache::Jit_Color565Morph() {
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	MOV(32, R(tempReg2), Imm32(1));
+	MOVDQA(XMM5, M(color565Mask));
+	MOVAPS(XMM6, M(byColor565));
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg3;
+		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
+		// Spread it out into each lane.
+		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
+		PAND(fpScratchReg, R(XMM5));
+
+		// Alpha - start with 1.
+		MOVD_xmm(reg, R(tempReg2));
+
+		// Blue first.
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 6);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 0, 0, 0));
+
+		// Green, let's shift it into the right lane first.
+		PSRLDQ(fpScratchReg2, 4);
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 2, 0, 0));
+
+		// Last one, red.
+		PSRLDQ(fpScratchReg2, 4);
+		MOVSS(reg, R(fpScratchReg2));
+
+		CVTDQ2PS(reg, R(reg));
+		MULPS(reg, R(XMM6));
+
+		// And now the weight.
+		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
+		SHUFPS(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(reg, R(fpScratchReg2));
+
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg3));
+		} else {
+			first = false;
+		}
+	}
+
+	// Pack back into a u32.
+	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
+	PACKSSDW(fpScratchReg, R(fpScratchReg));
+	PACKUSWB(fpScratchReg, R(fpScratchReg));
+	MOVD_xmm(R(tempReg1), fpScratchReg);
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+}
+
+// Intentionally in reverse order.
+static const u32 MEMORY_ALIGNED16(color5551Mask[4]) = { 0x00008000, 0x00007c00, 0x000003e0, 0x0000001f, };
+static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 1.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, };
+
+void VertexDecoderJitCache::Jit_Color5551Morph() {
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	MOVDQA(XMM5, M(color5551Mask));
+	MOVAPS(XMM6, M(byColor5551));
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg3;
+		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
+		// Spread it out into each lane.
+		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
+		PAND(fpScratchReg, R(XMM5));
+
+		// Alpha first.
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(0, 0, 0, 0));
+
+		// Blue, let's shift it into the right lane first.
+		PSRLDQ(fpScratchReg2, 4);
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 0, 0, 0));
+
+		// Green.
+		PSRLDQ(fpScratchReg2, 4);
+		MOVSS(reg, R(fpScratchReg2));
+		PSRLD(reg, 5);
+		PSHUFD(reg, R(reg), _MM_SHUFFLE(3, 2, 0, 0));
+
+		// Last one, red.
+		PSRLDQ(fpScratchReg2, 4);
+		MOVSS(reg, R(fpScratchReg2));
+
+		CVTDQ2PS(reg, R(reg));
+		MULPS(reg, R(XMM6));
+
+		// And now the weight.
+		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
+		SHUFPS(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(reg, R(fpScratchReg2));
+
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg3));
+		} else {
+			first = false;
+		}
+	}
+
+	// Pack back into a u32.
+	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
+	PACKSSDW(fpScratchReg, R(fpScratchReg));
+	PACKUSWB(fpScratchReg, R(fpScratchReg));
+	MOVD_xmm(R(tempReg1), fpScratchReg);
+
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+}
+
 // Copy 3 bytes and then a zero. Might as well copy four.
 void VertexDecoderJitCache::Jit_NormalS8() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
@@ -749,10 +965,14 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVD_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	PUNPCKLBW(XMM1, R(XMM3));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 24);
-	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXBD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLBW(XMM1, R(XMM3));
+		PUNPCKLWD(XMM1, R(XMM3));
+		PSLLD(XMM1, 24);
+		PSRAD(XMM1, 24);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by128));
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
@@ -762,9 +982,12 @@ void VertexDecoderJitCache::Jit_NormalS8Skin() {
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 16);
-	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXWD(XMM1, R(XMM1));
+	} else {
+		PSLLD(XMM1, 16);
+		PSRAD(XMM1, 16);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
@@ -837,10 +1060,14 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 void VertexDecoderJitCache::Jit_PosS8Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVD_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	PUNPCKLBW(XMM1, R(XMM3));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 24);
-	PSRAD(XMM1, 24); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXBD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLBW(XMM1, R(XMM3));
+		PUNPCKLWD(XMM1, R(XMM3));
+		PSLLD(XMM1, 24);
+		PSRAD(XMM1, 24);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by128));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
@@ -849,9 +1076,13 @@ void VertexDecoderJitCache::Jit_PosS8Skin() {
 void VertexDecoderJitCache::Jit_PosS16Skin() {
 	XORPS(XMM3, R(XMM3));
 	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 16);
-	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
+	if (cpu_info.bSSE4_1) {
+		PMOVSXWD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLWD(XMM1, R(XMM3));
+		PSLLD(XMM1, 16);
+		PSRAD(XMM1, 16);
+	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
@@ -864,28 +1095,37 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
-	// TODO: Optimize the first one to skip an ADDPS.
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	PXOR(fpScratchReg4, R(fpScratchReg4));
+	MOVAPS(XMM5, M(by127));
 
+	// Sum into fpScratchReg.
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
-		XORPS(fpScratchReg3, R(fpScratchReg3));
-		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLBW(fpScratchReg2, R(fpScratchReg3));
-		PUNPCKLWD(fpScratchReg2, R(fpScratchReg3));
-		PSLLD(fpScratchReg2, 24);
-		PSRAD(fpScratchReg2, 24); // Ugly sign extension, can be done faster in SSE4
-		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+		MOVD_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		if (cpu_info.bSSE4_1) {
+			PMOVSXBD(reg, R(reg));
+		} else {
+			PUNPCKLBW(reg, R(fpScratchReg4));
+			PUNPCKLWD(reg, R(fpScratchReg4));
+			PSLLD(reg, 24);
+			PSRAD(reg, 24);
+		}
+		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/127.0f.
-		MOVUPS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
-		MULPS(fpScratchReg3, M(by127));
+		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
+		MULSS(fpScratchReg3, R(XMM5));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 
-		MULPS(fpScratchReg2, R(fpScratchReg3));
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
@@ -893,27 +1133,36 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
-	// TODO: Optimize the first one to skip an ADDPS.
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	PXOR(fpScratchReg4, R(fpScratchReg4));
+	MOVAPS(XMM5, M(by32767));
 
+	// Sum into fpScratchReg.
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
 		// Okay, first convert to floats.
-		XORPS(fpScratchReg3, R(fpScratchReg3));
-		MOVQ_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		PUNPCKLWD(fpScratchReg2, R(fpScratchReg3));
-		PSLLD(fpScratchReg2, 16);
-		PSRAD(fpScratchReg2, 16); // Ugly sign extension, can be done faster in SSE4
-		CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+		MOVQ_xmm(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		if (cpu_info.bSSE4_1) {
+			PMOVSXWD(reg, R(reg));
+		} else {
+			PUNPCKLWD(reg, R(fpScratchReg4));
+			PSLLD(reg, 16);
+			PSRAD(reg, 16);
+		}
+		CVTDQ2PS(reg, R(reg));
 
 		// Now, It's time to multiply by the weight and 1.0f/32767.0f.
-		MOVUPS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
-		MULPS(fpScratchReg3, M(by32767));
+		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
+		MULSS(fpScratchReg3, R(XMM5));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 
-		MULPS(fpScratchReg2, R(fpScratchReg3));
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
@@ -921,17 +1170,21 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
-	// TODO: Optimize the first one to skip an ADDPS.
-	XORPS(fpScratchReg, R(fpScratchReg));
-
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 
+	// Sum into fpScratchReg.
+	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		MOVUPS(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + srcoff));
-		MOVUPS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		MOVUPS(reg, MDisp(srcReg, dec_->onesize_ * n + srcoff));
+		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
-		MULPS(fpScratchReg2, R(fpScratchReg3));
-		ADDPS(fpScratchReg, R(fpScratchReg2));
+		MULPS(reg, R(fpScratchReg3));
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
 	}
 
 	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...

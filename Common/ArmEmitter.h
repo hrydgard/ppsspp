@@ -722,7 +722,7 @@ public:
 	void VRSQRTE(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VRSQRTS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VRSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn);
 	void VSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -741,6 +741,8 @@ public:
 	// Widening and narrowing moves
 	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm);
 
 	// Vector VCVT
 	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);

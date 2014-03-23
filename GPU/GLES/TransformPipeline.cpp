@@ -323,6 +323,19 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
+
+	u32 dhash = dcid_;
+	dhash ^= (u32)(uintptr_t)dc.verts;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)(uintptr_t)dc.inds;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)dc.vertType;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)dc.vertexCount;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)dc.prim;
+	dcid_ = dhash;
+
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {
@@ -463,22 +476,6 @@ u32 TransformDrawEngine::ComputeHash() {
 	return fullhash;
 }
 
-u32 TransformDrawEngine::ComputeFastDCID() {
-	u32 hash = 0;
-	for (int i = 0; i < numDrawCalls; i++) {
-		hash ^= (u32)(uintptr_t)drawCalls[i].verts;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)(uintptr_t)drawCalls[i].inds;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].vertType;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].vertexCount;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].prim;
-	}
-	return hash;
-}
-
 enum { VAI_KILL_AGE = 120 };
 
 void TransformDrawEngine::ClearTrackedVertexArrays() {
@@ -540,7 +537,7 @@ void TransformDrawEngine::DoFlush() {
 			useCache = false;
 
 		if (useCache) {
-			u32 id = ComputeFastDCID();
+			u32 id = dcid_;
 			auto iter = vai_.find(id);
 			VertexArrayInfo *vai;
 			if (iter != vai_.end()) {
@@ -729,6 +726,7 @@ rotateVBO:
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
 	decodeCounter_ = 0;
+	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 
 #ifndef MOBILE_DEVICE
