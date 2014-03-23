@@ -172,8 +172,8 @@ public:
 			if (count > 0){
 				// AudioList is nonempty
 				auto c = count;
-				AudioList::clear(); // clear and prepare to read variables
-				AudioList::AudioList(); // reinitialization
+				clear(); // clear and prepare to read variables
+				AudioList(); // reinitialization
 				codec_ = new int[count];
 				ctxPtr_ = new u32[count];
 				p.DoArray(codec_, ARRAY_SIZE(codec_));
