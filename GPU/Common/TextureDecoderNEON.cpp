@@ -84,7 +84,8 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 			// Okay, do the memory hashing.
 			"QuickTexHashNEON_next:\n"
 			"pld [%2, #0xc0]\n"
-			"vldmia %2!, {d16-d23}\n"
+			"vld1.32 {d16, d17, d18, d19}, [%2, :128]!\n"
+			"vld1.32 {d20, d21, d22, d23}, [%2, :128]!\n"
 			"vmla.i32 q0, q1, q8\n"
 			"vmul.i32 q11, q11, q1\n"
 			"veor.i32 q0, q0, q9\n"
@@ -117,4 +118,35 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	}
 
 	return check;
+}
+
+void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
+	__builtin_prefetch(texptr, 0, 0);
+	__builtin_prefetch(ydestp, 1, 1);
+
+	const u32 *src = (const u32 *)texptr;
+	for (int by = 0; by < byc; by++) {
+		u32 *xdest = ydestp;
+		for (int bx = 0; bx < bxc; bx++) {
+			u32 *dest = xdest;
+			for (int n = 0; n < 2; n++) {
+				// Textures are always 16-byte aligned so this is fine.
+				uint32x4_t temp1 = vld1q_u32(src);
+				uint32x4_t temp2 = vld1q_u32(src + 4);
+				uint32x4_t temp3 = vld1q_u32(src + 8);
+				uint32x4_t temp4 = vld1q_u32(src + 12);
+				vst1q_u32(dest, temp1);
+				dest += pitch;
+				vst1q_u32(dest, temp2);
+				dest += pitch;
+				vst1q_u32(dest, temp3);
+				dest += pitch;
+				vst1q_u32(dest, temp4);
+				dest += pitch;
+				src += 16;
+			}
+			xdest += 4;
+		}
+		ydestp += (rowWidth * 8) / 4;
+	}
 }

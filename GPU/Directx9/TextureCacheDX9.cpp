@@ -58,7 +58,7 @@ TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	// glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	maxAnisotropyLevel = 16;
-	SetupQuickTexHash();
+	SetupTextureDecoder();
 #ifdef _XBOX
 	// TODO: Maybe not?  This decimates more often, but it may be speed harmful if unnecessary.
 	lowMemoryMode_ = true;
@@ -286,21 +286,9 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 
 	u32 ydest = 0;
 	if (rowWidth >= 16) {
-		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
 		u32 *ydestp = tmpTexBuf32.data();
-		for (int by = 0; by < byc; by++) {
-			u32 *xdest = ydestp;
-			for (int bx = 0; bx < bxc; bx++) {
-				u32 *dest = xdest;
-				for (int n = 0; n < 8; n++) {
-					memcpy(dest, src, 16);
-					dest += pitch;
-					src += 4;
-				}
-				xdest += 4;
-			}
-			ydestp += (rowWidth * 8) / 4;
-		}
+		// The most common one, so it gets an optimized implementation.
+		DoUnswizzleTex16(Memory::GetPointer(texaddr), ydestp, bxc, byc, pitch, rowWidth);
 	} else if (rowWidth == 8) {
 		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
 		for (int by = 0; by < byc; by++) {
