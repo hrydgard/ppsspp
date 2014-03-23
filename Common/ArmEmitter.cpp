@@ -1436,24 +1436,24 @@ void ARMXEmitter::VCMPE(ARMReg Vd){ WriteVFPDataOp(13, Vd, D5, D0); }
 
 void ARMXEmitter::VLDMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VSTMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x40 | 0x8, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VLDMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
 	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VLDMDB");
-	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VSTMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
 	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VSTMDB");
-	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, s16 offset)
