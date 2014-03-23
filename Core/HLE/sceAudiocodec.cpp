@@ -20,26 +20,8 @@
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Core/HW/SimpleMp3Dec.h"
-
-enum {
-	PSP_CODEC_AT3PLUS = 0x00001000,
-	PSP_CODEC_AT3 = 0x00001001,
-	PSP_CODEC_MP3 = 0x00001002,
-	PSP_CODEC_AAC = 0x00001003,
-};
-
-static const char *const codecNames[4] = {
-	"AT3+", "AT3", "MP3", "AAC",
-};
-
-static const char *GetCodecName(int codec) {
-	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
-		return codecNames[codec - PSP_CODEC_AT3PLUS];
-	}	else {
-		return "(unk)";
-	}
-}
+#include "Core/HW/SimpleAudioDec.h"
+#include "Common/ChunkFile.h"
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024
 // Should probably store the EDRAM get/release status somewhere within here, etc.
@@ -50,18 +32,43 @@ struct AudioCodecContext {
 	u32_le outDataPtr;  // 8
 	u32_le audioSamplesPerFrame;  // 9
 	u32_le inDataSizeAgain;  // 10  ??
-}; 
+};
 
-SimpleMP3* mp3;
+// audioList is to store current playing audios.
+std::list<SimpleAudio *> audioList;
+
+// find the audio decoder for corresponding ctxPtr in audioList
+SimpleAudio * findDecoder(u32 ctxPtr){
+	for (std::list<SimpleAudio *>::iterator it = audioList.begin(); it != audioList.end(); it++){
+		if ((*it)->ctxPtr == ctxPtr){
+			return (*it);
+		}
+	}
+	return NULL;
+}
+
+// remove decoder from audioList
+bool removeDecoder(u32 ctxPtr){
+	for (std::list<SimpleAudio *>::iterator it = audioList.begin(); it != audioList.end(); it++){
+		if ((*it)->ctxPtr == ctxPtr){
+			audioList.erase(it);
+			return true;
+		}
+	}
+	return false;
+}
+
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (codec == PSP_CODEC_MP3){
-		// Initialize MP3 audio decoder.
-		mp3 = MP3Create();
-		DEBUG_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	if (isValidCodec(codec)){
+		// Create audio decoder for given audio codec and push it into AudioList
+		auto decoder = new SimpleAudio(ctxPtr, codec);
+		audioList.push_front(decoder);
+		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		DEBUG_LOG(ME, "Number of playing audios : %d", audioList.size());
 		return 0;
 	}
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(codec), codec);
 	return 0;
 }
 
@@ -70,15 +77,24 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
 	}
-	if (codec == PSP_CODEC_MP3){
-		//Use SimpleMp3Dec to decode Mp3 audio
+	if (isValidCodec(codec)){
+		// Use SimpleAudioDec to decode audio
 		// Get AudioCodecContext
-		AudioCodecContext* ctx = new AudioCodecContext;
+		auto ctx = new AudioCodecContext;
 		Memory::ReadStruct(ctxPtr, ctx);
 		int outbytes = 0;
-		// Decode Mp3 audio
-		MP3Decode(mp3, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
+		// find a decoder in audioList
+		auto decoder = findDecoder(ctxPtr);
+		if (decoder == NULL){
+			// create a decoder, this is possible when loadstate
+			decoder = new SimpleAudio(ctxPtr, codec);
+			audioList.push_front(decoder);
+		}
+		// Decode audio
+		AudioDecode(decoder, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
 		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		// Delete AudioCodecContext
+		delete(ctx);
 		return 0;
 	}
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
@@ -100,22 +116,32 @@ int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 	return 0;
 }
 
-int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int codec) {
-	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
+	//id is not always a codec, so what is should be? 
+	if (removeDecoder(ctxPtr)){
+		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
+		return 0;
+	}
+	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
 }
 
 const HLEFunction sceAudiocodec[] = {
-	{0x70A703F8, WrapI_UI<sceAudiocodecDecode>, "sceAudiocodecDecode"},
-	{0x5B37EB1D, WrapI_UI<sceAudiocodecInit>, "sceAudiocodecInit"},
-	{0x8ACA11D5, WrapI_UI<sceAudiocodecGetInfo>, "sceAudiocodecGetInfo"},
-	{0x3A20A200, WrapI_UI<sceAudiocodecGetEDRAM>, "sceAudiocodecGetEDRAM" },
-	{0x29681260, WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM" },
-	{0x9D3F790C, WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem" },
-	{0x59176a0f, 0, "sceAudiocodec_59176A0F"},
+	{ 0x70A703F8, WrapI_UI<sceAudiocodecDecode>, "sceAudiocodecDecode" },
+	{ 0x5B37EB1D, WrapI_UI<sceAudiocodecInit>, "sceAudiocodecInit" },
+	{ 0x8ACA11D5, WrapI_UI<sceAudiocodecGetInfo>, "sceAudiocodecGetInfo" },
+	{ 0x3A20A200, WrapI_UI<sceAudiocodecGetEDRAM>, "sceAudiocodecGetEDRAM" },
+	{ 0x29681260, WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM" },
+	{ 0x9D3F790C, WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem" },
+	{ 0x59176a0f, 0, "sceAudiocodec_59176A0F" },
 };
 
 void Register_sceAudiocodec()
 {
 	RegisterModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
+}
+
+void resetAudioList(){
+	audioList.clear();
+	INFO_LOG(ME, "Audio playing list is reset");
 }
