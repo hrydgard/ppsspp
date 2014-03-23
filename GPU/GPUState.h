@@ -441,6 +441,7 @@ struct GPUStateCache
 
 	bool textureChanged;
 	bool textureFullAlpha;
+	bool vertexFullAlpha;
 	bool framebufChanged;
 
 	int skipDrawReason;

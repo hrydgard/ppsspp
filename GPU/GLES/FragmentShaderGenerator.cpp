@@ -71,12 +71,24 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_NOTEQUAL:
 	case GE_COMP_GREATER:
 		{
-			return (!gstate.isStencilTestEnabled() && 
+#if 0
+			// Easy way to check the values in the debugger without ruining && early-out
+			bool doTextureAlpha = gstate.isTextureAlphaUsed();
+			bool stencilTest = gstate.isStencilTestEnabled();
+			bool depthTest = gstate.isDepthTestEnabled();
+			GEComparison depthTestFunc = gstate.getDepthTestFunction();
+			int alphaRef = gstate.getAlphaTestRef();
+			int blendA = gstate.getBlendFuncA();
+			bool blendEnabled = gstate.isAlphaBlendEnabled();
+			int blendB = gstate.getBlendFuncA();
+#endif
+			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
+					(!gstate.isStencilTestEnabled() &&
 				  !gstate.isDepthTestEnabled() && 
 					gstate.getAlphaTestRef() == 0 &&
 					gstate.isAlphaBlendEnabled() &&
 					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && 
-					safeDestFactors[(int)gstate.getBlendFuncB()]);
+					safeDestFactors[(int)gstate.getBlendFuncB()]));
 		}
 
 	case GE_COMP_LEQUAL:

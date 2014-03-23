@@ -265,6 +265,11 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
+
+		// TODO: Add functionality to VertexDecoder to scan for non-full alpha in the two other formats,
+		// which are quite common.
+		int colorType = vertTypeID & GE_VTYPE_COL_MASK;
+		gstate_c.vertexFullAlpha = colorType == GE_VTYPE_COL_NONE || colorType == GE_VTYPE_COL_565;
 	}
 }
 
