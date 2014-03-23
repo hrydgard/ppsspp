@@ -175,7 +175,7 @@ void MediaEngine::closeMedia() {
 }
 
 void MediaEngine::DoState(PointerWrap &p){
-	auto s = p.Section("MediaEngine", 1, 2);
+	auto s = p.Section("MediaEngine", 1, 3);
 	if (!s)
 		return;
 
@@ -213,7 +213,7 @@ void MediaEngine::DoState(PointerWrap &p){
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
-	if (s > 3){
+	if (s >= 3){
 		p.Do(m_audioType);
 	}
 	else{
