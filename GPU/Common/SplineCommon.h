@@ -24,6 +24,6 @@
 struct SimpleVertex {
 	float uv[2];
 	u8 color[4];
-	Vec3f nrm;
-	Vec3f pos;
+	Vec3Packedf nrm;
+	Vec3Packedf pos;
 };

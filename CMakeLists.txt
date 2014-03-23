@@ -610,6 +610,16 @@ endif()
 	
 set(nativeExtra)
 set(nativeExtraLibs)
+
+if(ARM)
+	set(nativeExtra ${nativeExtra}
+    native/math/fast/fast_matrix_neon.S)
+else()
+	set(nativeExtra ${nativeExtra}
+    native/math/fast/fast_matrix_sse.c)
+endif()
+
+
 if(ANDROID)
 	set(nativeExtra ${nativeExtra}
 		native/base/NativeApp.h
@@ -768,6 +778,8 @@ add_library(native STATIC
 	native/input/keycodes.h
 	native/input/input_state.h
 	native/input/input_state.cpp
+	native/math/fast/fast_math.c
+	native/math/fast/fast_matrix.c
 	native/math/curves.cpp
 	native/math/curves.h
 	native/math/expression_parser.cpp
@@ -1108,6 +1120,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePauth.h
 	Core/HW/SimpleAT3Dec.cpp
 	Core/HW/SimpleAT3Dec.h
+	Core/HW/SimpleMp3Dec.cpp
+	Core/HW/SimpleMp3Dec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp

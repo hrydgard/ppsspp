@@ -66,7 +66,7 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
-	SetupQuickTexHash();
+	SetupTextureDecoder();
 }
 
 TextureCache::~TextureCache() {
@@ -295,21 +295,9 @@ void *TextureCache::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPix
 
 	u32 ydest = 0;
 	if (rowWidth >= 16) {
-		const u32 *src = (const u32 *) texptr;
 		u32 *ydestp = tmpTexBuf32.data();
-		for (int by = 0; by < byc; by++) {
-			u32 *xdest = ydestp;
-			for (int bx = 0; bx < bxc; bx++) {
-				u32 *dest = xdest;
-				for (int n = 0; n < 8; n++) {
-					memcpy(dest, src, 16);
-					dest += pitch;
-					src += 4;
-				}
-				xdest += 4;
-			}
-			ydestp += (rowWidth * 8) / 4;
-		}
+		// The most common one, so it gets an optimized implementation.
+		DoUnswizzleTex16(texptr, ydestp, bxc, byc, pitch, rowWidth);
 	} else if (rowWidth == 8) {
 		const u32 *src = (const u32 *) texptr;
 		for (int by = 0; by < byc; by++) {
@@ -1198,7 +1186,9 @@ void TextureCache::SetTexture(bool force) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
 #elif defined(MAY_HAVE_GLES3)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+			if (gl_extensions.GLES3) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+			}
 #endif
 	}
 

@@ -251,8 +251,6 @@ bool TestAsin() {
 	return true;
 }
 
-
-
 bool TestMathUtil() {
 	EXPECT_FALSE(my_isinf(1.0));
 	volatile float zero = 0.0f;

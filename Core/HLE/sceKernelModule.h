@@ -17,8 +17,10 @@
 
 #pragma once
 
-#include "sceKernel.h"
-#include "HLE.h"
+#include <string>
+#include "Core/HLE/sceKernel.h"
+
+class PointerWrap;
 
 KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);

@@ -30,6 +30,7 @@
 #include "Core/HLE/sceKernelTime.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
+#include "Core/MemMap.h"
 
 // The time when the game started.
 static time_t start_time;

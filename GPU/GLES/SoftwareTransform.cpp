@@ -54,7 +54,7 @@ inline float clamp(float in, float min, float max) {
 class Lighter {
 public:
 	Lighter(int vertType);
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
+	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &normal);
 
 private:
 	Color4 globalAmbient;
@@ -86,7 +86,7 @@ Lighter::Lighter(int vertType) {
 	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
 }
 
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm) {
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &norm) {
 	Color4 in(colorIn);
 
 	const Color4 *ambient;
@@ -319,8 +319,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		reader.Goto(index);
 
 		float v[3] = {0, 0, 0};
-		float c0[4] = {1, 1, 1, 1};
-		float c1[4] = {0, 0, 0, 0};
+		Vec4f c0 = Vec4f(1, 1, 1, 1);
+		Vec4f c1 = Vec4f(0, 0, 0, 0);
 		float uv[3] = {0, 0, 1};
 		float fogCoef = 1.0f;
 
@@ -328,15 +328,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.ReadPos(v);
 			if (reader.hasColor0()) {
-				reader.ReadColor0(c0);
-				for (int j = 0; j < 4; j++) {
-					c1[j] = 0.0f;
-				}
+				reader.ReadColor0(&c0.x);
+				// c1 is already 0.
 			} else {
-				c0[0] = gstate.getMaterialAmbientR() / 255.f;
-				c0[1] = gstate.getMaterialAmbientG() / 255.f;
-				c0[2] = gstate.getMaterialAmbientB() / 255.f;
-				c0[3] = gstate.getMaterialAmbientA() / 255.f;
+				c0 = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 			}
 
 			if (reader.hasUV()) {
@@ -390,18 +385,15 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			}
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
-			float unlitColor[4] = {1, 1, 1, 1};
+			Vec4f unlitColor = Vec4f(1, 1, 1, 1);
 			if (reader.hasColor0()) {
-				reader.ReadColor0(unlitColor);
+				reader.ReadColor0(&unlitColor.x);
 			} else {
-				unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
-				unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
-				unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
-				unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
+				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 			}
 			float litColor0[4];
 			float litColor1[4];
-			lighter.Light(litColor0, litColor1, unlitColor, out, normal);
+			lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, normal);
 
 			if (gstate.isLightingEnabled()) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
@@ -425,15 +417,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c0[j] = unlitColor[j];
 					}
 				} else {
-					c0[0] = gstate.getMaterialAmbientR() / 255.f;
-					c0[1] = gstate.getMaterialAmbientG() / 255.f;
-					c0[2] = gstate.getMaterialAmbientB() / 255.f;
-					c0[3] = gstate.getMaterialAmbientA() / 255.f;
+					c0 = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 				}
 				if (lmode) {
-					for (int j = 0; j < 4; j++) {
-						c1[j] = 0.0f;
-					}
+					// c1 is already 0.
 				}
 			}
 
@@ -503,7 +490,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3f lightpos1 = Vec3f(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
 
 					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
-					uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;
+					uv[1] = (1.0f + Dot(lightpos1, normal))/2.0f;
 					uv[2] = 1.0f;
 				}
 				break;
@@ -529,12 +516,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		if (gstate_c.flipTexture) {
 			transformed[index].v = 1.0f - transformed[index].v;
 		}
-		for (int i = 0; i < 4; i++) {
-			transformed[index].color0[i] = c0[i] * 255.0f;
-		}
-		for (int i = 0; i < 3; i++) {
-			transformed[index].color1[i] = c1[i] * 255.0f;
-		}
+		transformed[index].color0_32 = c0.ToRGBA();
+		transformed[index].color1_32 = c1.ToRGBA();
 	}
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and

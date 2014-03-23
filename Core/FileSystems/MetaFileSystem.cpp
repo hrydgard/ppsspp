@@ -136,11 +136,14 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	}
 
 	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
+	// Hot Pixel don't like this (prevent booting)
+	/*
 	if (inAfterColon == "/")
 	{
 		outPath = prefix + inAfterColon;
 		return true;
 	}
+	*/
 
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{

@@ -50,18 +50,14 @@ namespace MIPSComp
 	static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 	static u32 EvalSub(u32 a, u32 b) { return a - b; }
 
-	void Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
+	void Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b))
 	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
 		} else {
 			gpr.MapDirtyIn(rt, rs);
-			// Special case when uimm can be represented as an Operand2
-			Operand2 op2;
-			if (TryMakeOperand2(uimm, op2)) {
-				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
-			} else {
-				gpr.SetRegImm(R0, (u32)uimm);
+			if (!(this->*tryArithI2R)(gpr.R(rt), gpr.R(rs), uimm)) {
+				gpr.SetRegImm(R0, uimm);
 				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
 			}
 		}
@@ -85,28 +81,29 @@ namespace MIPSComp
 		{
 		case 8:	// same as addiu?
 		case 9:	// R(rt) = R(rs) + simm; break;	//addiu
-			{
-				if (gpr.IsImm(rs)) {
-					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-				} else {
-					gpr.MapDirtyIn(rt, rs);
-					ADDI2R(gpr.R(rt), gpr.R(rs), simm, R0);
-				}
-				break;
-			}
+			CompImmLogic(rs, rt, simm, &ARMXEmitter::ADD, &ARMXEmitter::TryADDI2R, &EvalAdd);
+			break;
 
-		case 12: CompImmLogic(rs, rt, uimm, &ARMXEmitter::AND, &EvalAnd); break;
-		case 13: CompImmLogic(rs, rt, uimm, &ARMXEmitter::ORR, &EvalOr); break;
-		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &EvalEor); break;
+		case 12: CompImmLogic(rs, rt, uimm, &ARMXEmitter::AND, &ARMXEmitter::TryANDI2R, &EvalAnd); break;
+		case 13: CompImmLogic(rs, rt, uimm, &ARMXEmitter::ORR, &ARMXEmitter::TryORI2R, &EvalOr); break;
+		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &ARMXEmitter::TryEORI2R, &EvalEor); break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm ? 1 : 0);
 					break;
+				} else if (simm == 0) {
+					gpr.MapDirtyIn(rt, rs);
+					// Shift to get the sign bit only (for < 0.)
+					LSR(gpr.R(rt), gpr.R(rs), 31);
+					break;
 				}
 				gpr.MapDirtyIn(rt, rs);
-				CMPI2R(gpr.R(rs), simm, R0);
+				if (!TryCMPI2R(gpr.R(rs), simm)) {
+					gpr.SetRegImm(R0, simm);
+					CMP(gpr.R(rs), R0);
+				}
 				SetCC(CC_LT);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_GE);
@@ -115,14 +112,17 @@ namespace MIPSComp
 			}
 			break;
 
-		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
+		case 11: // R(rt) = R(rs) < suimm; break; //sltiu
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) < suimm ? 1 : 0);
 					break;
 				}
 				gpr.MapDirtyIn(rt, rs);
-				CMPI2R(gpr.R(rs), suimm, R0);
+				if (!TryCMPI2R(gpr.R(rs), suimm)) {
+					gpr.SetRegImm(R0, suimm);
+					CMP(gpr.R(rs), R0);
+				}
 				SetCC(CC_LO);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_HS);
@@ -189,7 +189,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool symmetric, bool useMOV)
+	void Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric)
 	{
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
@@ -198,17 +198,16 @@ namespace MIPSComp
 
 		if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
 			MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
-			u32 rhsImm = gpr.IsImm(rs) ? gpr.GetImm(rs) : gpr.GetImm(rt);
-			Operand2 op2;
-			// TODO: AND could be reversed, OR/EOR could use multiple ops (maybe still cheaper.)
-			if (TryMakeOperand2(rhsImm, op2)) {
-				gpr.MapDirtyIn(rd, lhs);
-				// MOV can avoid the ALU so might be faster?
-				if (!useMOV || rhsImm != 0)
-					(this->*arith)(gpr.R(rd), gpr.R(lhs), op2);
-				else if (rd != lhs)
-					MOV(gpr.R(rd), gpr.R(lhs));
+			MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
+			u32 rhsImm = gpr.GetImm(rhs);
+			gpr.MapDirtyIn(rd, lhs);
+			if ((this->*tryArithI2R)(gpr.R(rd), gpr.R(lhs), rhsImm)) {
 				return;
+			}
+			// If rd is rhs, we may have lost it in the MapDirtyIn().  lhs was kept.
+			if (rd == rhs) {
+				// Luckily, it was just an imm.
+				gpr.SetImm(rhs, rhsImm);
 			}
 		} else if (gpr.IsImm(rs) && !symmetric) {
 			Operand2 op2;
@@ -294,21 +293,21 @@ namespace MIPSComp
 		case 32: //R(rd) = R(rs) + R(rt);           break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
 			// We optimize out 0 as an operand2 ADD.
-			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd, true, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &ARMXEmitter::TryADDI2R, &EvalAdd, true);
 			break;
 
 		case 34: //R(rd) = R(rs) - R(rt);           break; //sub
 		case 35: //R(rd) = R(rs) - R(rt);           break; //subu
-			CompType3(rd, rs, rt, &ARMXEmitter::SUB, &EvalSub, false, false);
+			CompType3(rd, rs, rt, &ARMXEmitter::SUB, &ARMXEmitter::TrySUBI2R, &EvalSub, false);
 			break;
 		case 36: //R(rd) = R(rs) & R(rt);           break; //and
-			CompType3(rd, rs, rt, &ARMXEmitter::AND, &EvalAnd, true, false);
+			CompType3(rd, rs, rt, &ARMXEmitter::AND, &ARMXEmitter::TryANDI2R, &EvalAnd, true);
 			break;
 		case 37: //R(rd) = R(rs) | R(rt);           break; //or
-			CompType3(rd, rs, rt, &ARMXEmitter::ORR, &EvalOr, true, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::ORR, &ARMXEmitter::TryORI2R, &EvalOr, true);
 			break;
 		case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
-			CompType3(rd, rs, rt, &ARMXEmitter::EOR, &EvalEor, true, true);
+			CompType3(rd, rs, rt, &ARMXEmitter::EOR, &ARMXEmitter::TryEORI2R, &EvalEor, true);
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor

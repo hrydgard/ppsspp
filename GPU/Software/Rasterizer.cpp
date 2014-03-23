@@ -30,6 +30,10 @@
 
 #include <algorithm>
 
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
 
@@ -232,10 +236,22 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	}	
 }
 
-static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, const u8 *srcptr, int texbufwidthbits)
+struct Nearest4 {
+	MEMORY_ALIGNED16(u32 v[4]);
+
+	operator u32() const {
+		return v[0];
+	}
+};
+
+template <int N>
+inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufwidthbits)
 {
-	if (!srcptr)
-		return 0;
+	Nearest4 res;
+	if (!srcptr) {
+		memset(res.v, 0, sizeof(res.v));
+		return res;
+	}
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 
@@ -243,69 +259,96 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v, const
 
 	switch (texfmt) {
 	case GE_TFMT_4444:
-		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGBA4444(*(const u16*)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGBA4444(*(const u16 *)src);
+		}
+		return res;
 	
 	case GE_TFMT_5551:
-		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGBA5551(*(const u16*)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGBA5551(*(const u16 *)src);
+		}
+		return res;
 
 	case GE_TFMT_5650:
-		srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-		return DecodeRGB565(*(const u16*)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGB565(*(const u16 *)src);
+		}
+		return res;
 
 	case GE_TFMT_8888:
-		srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
-		return DecodeRGBA8888(*(const u32 *)srcptr);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
+			res.v[i] = DecodeRGBA8888(*(const u32 *)src);
+		}
+		return res;
 
 	case GE_TFMT_CLUT32:
-		{
-			srcptr += GetPixelDataOffset<32>(texbufwidthbits, u, v);
-			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
+			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_CLUT16:
-		{
-			srcptr += GetPixelDataOffset<16>(texbufwidthbits, u, v);
-			u16 val = srcptr[0] + (srcptr[1] << 8);
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			u16 val = src[0] + (src[1] << 8);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_CLUT8:
-		{
-			srcptr += GetPixelDataOffset<8>(texbufwidthbits, u, v);
-			u8 val = *srcptr;
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbits, u[i], v[i]);
+			u8 val = *src;
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_CLUT4:
-		{
-			srcptr += GetPixelDataOffset<4>(texbufwidthbits, u, v);
-			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
-			return LookupColor(gstate.transformClutIndex(val), level);
+		for (int i = 0; i < N; ++i) {
+			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbits, u[i], v[i]);
+			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
+		return res;
+
 	case GE_TFMT_DXT1:
-		{
-			const DXT1Block *block = (const DXT1Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+		for (int i = 0; i < N; ++i) {
+			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4);
-			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
 		}
+		return res;
+
 	case GE_TFMT_DXT3:
-		{
-			const DXT3Block *block = (const DXT3Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+		for (int i = 0; i < N; ++i) {
+			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4);
-			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
 		}
+		return res;
+
 	case GE_TFMT_DXT5:
-		{
-			const DXT5Block *block = (const DXT5Block *)srcptr + (v / 4) * (texbufwidthbits / 8 / 4) + (u / 4);
+		for (int i = 0; i < N; ++i) {
+			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4);
-			return DecodeRGBA8888(data[4 * (v % 4) + (u % 4)]);
+			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
 		}
+		return res;
+
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
-		return 0;
+		memset(res.v, 0, sizeof(res.v));
+		return res;
 	}
 }
 
@@ -603,7 +646,7 @@ static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color)
 	return new_color;
 }
 
-static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor)
+static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor)
 {
 	Vec3<int> out_rgb;
 	int out_a;
@@ -612,16 +655,31 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 	switch (gstate.getTextureFunction()) {
 	case GE_TEXFUNC_MODULATE:
-		out_rgb = prim_color_rgb * texcolor.rgb() / 255;
-		out_a = (rgba) ? (prim_color_a * texcolor.a() / 255) : prim_color_a;
+	{
+#if defined(_M_SSE)
+		// We can be accurate up to 24 bit integers, should be enough.
+		const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
+		const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
+		out_rgb.ivec = _mm_cvtps_epi32(_mm_div_ps(_mm_mul_ps(p, t), _mm_set_ps1(255.0f)));
+
+		if (rgba) {
+			return Vec4<int>(out_rgb.ivec);
+		} else {
+			out_a = prim_color.a();
+		}
+#else
+		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+		out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
+#endif
 		break;
+	}
 
 	case GE_TEXFUNC_DECAL:
 	{
 		int t = (rgba) ? texcolor.a() : 255;
 		int invt = (rgba) ? 255 - t : 0;
-		out_rgb = (prim_color_rgb * invt + texcolor.rgb() * t) / 255;
-		out_a = prim_color_a;
+		out_rgb = (prim_color.rgb() * invt + texcolor.rgb() * t) / 255;
+		out_a = prim_color.a();
 		break;
 	}
 
@@ -629,22 +687,22 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	{
 		const Vec3<int> const255(255, 255, 255);
 		const Vec3<int> texenv(gstate.getTextureEnvColR(), gstate.getTextureEnvColG(), gstate.getTextureEnvColB());
-		out_rgb = ((const255 - texcolor.rgb()) * prim_color_rgb + texcolor.rgb() * texenv) / 255;
-		out_a = prim_color_a * ((rgba) ? texcolor.a() : 255) / 255;
+		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv) / 255;
+		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
 		break;
 	}
 
 	case GE_TEXFUNC_REPLACE:
 		out_rgb = texcolor.rgb();
-		out_a = (rgba) ? texcolor.a() : prim_color_a;
+		out_a = (rgba) ? texcolor.a() : prim_color.a();
 		break;
 
 	case GE_TEXFUNC_ADD:
-		out_rgb = prim_color_rgb + texcolor.rgb();
+		out_rgb = prim_color.rgb() + texcolor.rgb();
 		if (out_rgb.r() > 255) out_rgb.r() = 255;
 		if (out_rgb.g() > 255) out_rgb.g() = 255;
 		if (out_rgb.b() > 255) out_rgb.b() = 255;
-		out_a = prim_color_a * ((rgba) ? texcolor.a() : 255) / 255;
+		out_a = prim_color.a() * ((rgba) ? texcolor.a() : 255) / 255;
 		break;
 
 	default:
@@ -656,7 +714,7 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
 }
 
-static inline bool ColorTestPassed(Vec3<int> color)
+static inline bool ColorTestPassed(const Vec3<int> &color)
 {
 	const u32 mask = gstate.getColorTestMask();
 	const u32 c = color.ToRGB() & mask;
@@ -715,7 +773,7 @@ static inline bool AlphaTestPassed(int alpha)
 	return true;
 }
 
-static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
+static inline Vec3<int> GetSourceFactor(const Vec4<int>& source, const Vec4<int>& dst)
 {
 	switch (gstate.getBlendFuncA()) {
 	case GE_SRCBLEND_DSTCOLOR:
@@ -725,10 +783,18 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec3<int>::AssignToAll(255) - dst.rgb();
 
 	case GE_SRCBLEND_SRCALPHA:
-		return Vec3<int>::AssignToAll(source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
+#else
+		return Vec3<int>::AssignToAll(source.a());
+#endif
 
 	case GE_SRCBLEND_INVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
+#else
+		return Vec3<int>::AssignToAll(255 - source.a());
+#endif
 
 	case GE_SRCBLEND_DSTALPHA:
 		return Vec3<int>::AssignToAll(dst.a());
@@ -737,10 +803,10 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec3<int>::AssignToAll(255 - dst.a());
 
 	case GE_SRCBLEND_DOUBLESRCALPHA:
-		return Vec3<int>::AssignToAll(2 * source_a);
+		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source_a);
+		return Vec3<int>::AssignToAll(255 - 2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
@@ -750,7 +816,7 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
 
 	case GE_SRCBLEND_FIXA:
-		return Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
+		return Vec3<int>::FromRGB(gstate.getFixA());
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
@@ -758,20 +824,28 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 	}
 }
 
-static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a, const Vec4<int>& dst)
+static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& dst)
 {
 	switch (gstate.getBlendFuncB()) {
 	case GE_DSTBLEND_SRCCOLOR:
-		return source_rgb;
+		return source.rgb();
 
 	case GE_DSTBLEND_INVSRCCOLOR:
-		return Vec3<int>::AssignToAll(255) - source_rgb;
+		return Vec3<int>::AssignToAll(255) - source.rgb();
 
 	case GE_DSTBLEND_SRCALPHA:
-		return Vec3<int>::AssignToAll(source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
+#else
+		return Vec3<int>::AssignToAll(source.a());
+#endif
 
 	case GE_DSTBLEND_INVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - source_a);
+#if defined(_M_SSE)
+		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
+#else
+		return Vec3<int>::AssignToAll(255 - source.a());
+#endif
 
 	case GE_DSTBLEND_DSTALPHA:
 		return Vec3<int>::AssignToAll(dst.a());
@@ -780,10 +854,10 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 		return Vec3<int>::AssignToAll(255 - dst.a());
 
 	case GE_DSTBLEND_DOUBLESRCALPHA:
-		return Vec3<int>::AssignToAll(2 * source_a);
+		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source_a);
+		return Vec3<int>::AssignToAll(255 - 2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
@@ -792,7 +866,7 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
 
 	case GE_DSTBLEND_FIXB:
-		return Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
+		return Vec3<int>::FromRGB(gstate.getFixB());
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
@@ -800,35 +874,59 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 	}
 }
 
-static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int source_a, const Vec4<int> dst)
+static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 {
-	Vec3<int> srcfactor = GetSourceFactor(source_a, dst);
-	Vec3<int> dstfactor = GetDestFactor(source_rgb, source_a, dst);
+	Vec3<int> srcfactor = GetSourceFactor(source, dst);
+	Vec3<int> dstfactor = GetDestFactor(source, dst);
 
 	switch (gstate.getBlendEq()) {
 	case GE_BLENDMODE_MUL_AND_ADD:
-		return (source_rgb * srcfactor + dst.rgb() * dstfactor) / 255;
+	{
+#if defined(_M_SSE)
+		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
+		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_add_ps(s, d), _mm_set_ps1(255.0f))));
+#else
+		return (source.rgb() * srcfactor + dst.rgb() * dstfactor) / 255;
+#endif
+	}
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT:
-		return (source_rgb * srcfactor - dst.rgb() * dstfactor) / 255;
+	{
+#if defined(_M_SSE)
+		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
+		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(s, d), _mm_set_ps1(255.0f))));
+#else
+		return (source.rgb() * srcfactor - dst.rgb() * dstfactor) / 255;
+#endif
+	}
 
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-		return (dst.rgb() * dstfactor - source_rgb * srcfactor) / 255;
+	{
+#if defined(_M_SSE)
+		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
+		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(d, s), _mm_set_ps1(255.0f))));
+#else
+		return (dst.rgb() * dstfactor - source.rgb() * srcfactor) / 255;
+#endif
+	}
 
 	case GE_BLENDMODE_MIN:
-		return Vec3<int>(std::min(source_rgb.r(), dst.r()),
-						std::min(source_rgb.g(), dst.g()),
-						std::min(source_rgb.b(), dst.b()));
+		return Vec3<int>(std::min(source.r(), dst.r()),
+						std::min(source.g(), dst.g()),
+						std::min(source.b(), dst.b()));
 
 	case GE_BLENDMODE_MAX:
-		return Vec3<int>(std::max(source_rgb.r(), dst.r()),
-						std::max(source_rgb.g(), dst.g()),
-						std::max(source_rgb.b(), dst.b()));
+		return Vec3<int>(std::max(source.r(), dst.r()),
+						std::max(source.g(), dst.g()),
+						std::max(source.b(), dst.b()));
 
 	case GE_BLENDMODE_ABSDIFF:
-		return Vec3<int>(::abs(source_rgb.r() - dst.r()),
-						::abs(source_rgb.g() - dst.g()),
-						::abs(source_rgb.b() - dst.b()));
+		return Vec3<int>(::abs(source.r() - dst.r()),
+						::abs(source.g() - dst.g()),
+						::abs(source.b() - dst.b()));
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", gstate.getBlendEq());
@@ -837,7 +935,8 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 }
 
 template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_rgb, int prim_color_a) {
+inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &color_in) {
+	Vec4<int> prim_color = color_in;
 	// Depth range test
 	// TODO: Clear mode?
 	if (!gstate.isModeThrough())
@@ -845,16 +944,16 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 			return;
 
 	if (gstate.isColorTestEnabled() && !clearMode)
-		if (!ColorTestPassed(prim_color_rgb))
+		if (!ColorTestPassed(prim_color.rgb()))
 			return;
 
 	// TODO: Does a need to be clamped?
 	if (gstate.isAlphaTestEnabled() && !clearMode)
-		if (!AlphaTestPassed(prim_color_a))
+		if (!AlphaTestPassed(prim_color.a()))
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
-	u8 stencil = clearMode ? prim_color_a : GetPixelStencil(p.x, p.y);
+	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(p.x, p.y);
 	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
 		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
@@ -884,19 +983,33 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 	// Doubling happens only when texturing is enabled, and after tests.
 	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
 		// TODO: Does this need to be clamped before blending?
-		prim_color_rgb *= 2;
+		prim_color.r() <<= 1;
+		prim_color.g() <<= 1;
+		prim_color.b() <<= 1;
 	}
+
+	const u32 old_color = GetPixelColor(p.x, p.y);
+	u32 new_color;
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
-		Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-		prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
+		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+#if defined(_M_SSE)
+		// ToRGBA() on SSE automatically clamps.
+		new_color = AlphaBlendingResult(prim_color, dst).ToRGB();
+		new_color |= stencil << 24;
+#else
+		new_color = Vec4<int>(AlphaBlendingResult(prim_color, dst).Clamp(0, 255), stencil).ToRGBA();
+#endif
+	} else {
+#if defined(_M_SSE)
+		new_color = Vec3<int>(prim_color.ivec).ToRGB();
+		new_color |= stencil << 24;
+#else
+		if (!clearMode)
+			prim_color = prim_color.Clamp(0, 255);
+		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
+#endif
 	}
-
-	if (!clearMode)
-		prim_color_rgb = prim_color_rgb.Clamp(0, 255);
-
-	u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), stencil).ToRGBA();
-	u32 old_color = GetPixelColor(p.x, p.y);
 
 	// TODO: Is alpha blending still performed if logic ops are enabled?
 	if (gstate.isLogicOpEnabled() && !clearMode) {
@@ -914,7 +1027,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, Vec3<int> prim_color_
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
+inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
 	int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
 	int frac_u, frac_v;
 
@@ -962,20 +1075,80 @@ inline void ApplyTexturing(Vec3<int> &prim_color_rgb, int &prim_color_a, float s
 	const u8 *tptr = texptr[texlevel];
 	if (!bilinear) {
 		// Nearest filtering only. Round texcoords or just chop bits?
-		texcolor = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
+		texcolor = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr, bufwbits));
 	} else {
-		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[0], v[0], tptr, bufwbits));
-		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[1], v[1], tptr, bufwbits));
-		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[2], v[2], tptr, bufwbits));
-		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(SampleNearest(texlevel, u[3], v[3], tptr, bufwbits));
+#if defined(_M_SSE)
+		Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbits);
+
+		const __m128i z = _mm_setzero_si128();
+
+		__m128i cvec = _mm_load_si128((const __m128i *)c.v);
+		__m128i tvec = _mm_unpacklo_epi8(cvec, z);
+		tvec = _mm_mullo_epi16(tvec, _mm_set1_epi16(0x100 - frac_v));
+		__m128i bvec = _mm_unpackhi_epi8(cvec, z);
+		bvec = _mm_mullo_epi16(bvec, _mm_set1_epi16(frac_v));
+
+		// This multiplies the left and right sides.  We shift right after, although this may round down...
+		__m128i rowmult = _mm_set_epi16(frac_u, frac_u, frac_u, frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u);
+		__m128i tmp = _mm_mulhi_epu16(_mm_add_epi16(tvec, bvec), rowmult);
+
+		// Now we need to add the left and right sides together.
+		__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
+		texcolor = Vec4<int>(_mm_unpacklo_epi16(res, z));
+#else
+		Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbits);
+		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
+		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
+		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
+		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(nearest.v[3]);
 		// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
 		Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
 		Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
 		texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
+#endif
 	}
-	Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
-	prim_color_rgb = out.rgb();
-	prim_color_a = out.a();
+	prim_color = GetTextureFunctionOutput(prim_color, texcolor);
+}
+
+// Only OK on x64 where our stack is aligned
+#if defined(_M_SSE) && !defined(_M_IX86)
+static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
+	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
+	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
+	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
+	return _mm_mul_ps(v, _mm_set_ps1(wsum));
+}
+
+static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
+	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+}
+#endif
+
+// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
+// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
+
+static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
+#else
+	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
+#endif
 }
 
 template <bool clearMode>
@@ -1063,43 +1236,40 @@ void DrawTriangleSlice(
 
 				float wsum = 1.0f / (w0 + w1 + w2);
 
-				Vec3<int> prim_color_rgb(0, 0, 0);
-				int prim_color_a = 0;
-				Vec3<int> sec_color(0, 0, 0);
+				Vec4<int> prim_color;
+				Vec3<int> sec_color;
 				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
-					// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
-					// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 					// TODO: Is that the correct way to interpolate?
-					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 +
-									v1.color0.rgb().Cast<float>() * w1 +
-									v2.color0.rgb().Cast<float>() * w2) * wsum).Cast<int>();
-					prim_color_a = (int)(((float)v0.color0.a() * w0 + (float)v1.color0.a() * w1 + (float)v2.color0.a() * w2) * wsum);
-					sec_color = ((v0.color1.Cast<float>() * w0 +
-									v1.color1.Cast<float>() * w1 +
-									v2.color1.Cast<float>() * w2) * wsum).Cast<int>();
+					prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum);
+					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum);
 				} else {
-					prim_color_rgb = v2.color0.rgb();
-					prim_color_a = v2.color0.a();
+					prim_color = v2.color0;
 					sec_color = v2.color1;
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
-						float s = ((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) * wsum);
-						float t = ((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) * wsum);
-						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum);
+						ApplyTexturing(prim_color, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
 						t = t * texScaleV + texOffsetV;
-						ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+						ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					}
 				}
 
-				if (!clearMode)
-					prim_color_rgb += sec_color;
+				if (!clearMode) {
+					// TODO: Tried making Vec4 do this, but things got slower.
+#if defined(_M_SSE)
+					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
+					prim_color.ivec = _mm_add_epi32(prim_color.ivec, sec);
+#else
+					prim_color += Vec4<int>(sec_color, 0);
+#endif
+				}
 
 				// TODO: Fogging
 
@@ -1109,7 +1279,7 @@ void DrawTriangleSlice(
 				if (!flatZ)
 					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
 
-				DrawSinglePixel<clearMode>(p, z, prim_color_rgb, prim_color_a);
+				DrawSinglePixel<clearMode>(p, z, prim_color);
 			}
 		}
 	}
@@ -1140,17 +1310,23 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
 	int range = (maxY - minY) / 16 + 1;
-	if (gstate.isModeClear())
-		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
-	else
-		GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+	if (gstate.isModeClear()) {
+		if (range >= 24)
+			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+		else
+			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+	} else {
+		if (range >= 24)
+			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
+		else
+			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+	}
 }
 
 void DrawPoint(const VertexData &v0)
 {
 	ScreenCoords pos = v0.screenpos;
-	Vec3<int> prim_color_rgb = v0.color0.rgb();
-	int prim_color_a = v0.color0.a();
+	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
 	// TODO: UVGenMode?
 	float s = v0.texturecoords.s();
@@ -1196,7 +1372,7 @@ void DrawPoint(const VertexData &v0)
 
 		if (gstate.isModeThrough()) {
 			// TODO: Is it really this simple?
-			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 		} else {
 			float texScaleU = getFloat24(gstate.texscaleu);
 			float texScaleV = getFloat24(gstate.texscalev);
@@ -1205,12 +1381,12 @@ void DrawPoint(const VertexData &v0)
 
 			s = s * texScaleU + texOffsetU;
 			t = t * texScaleV + texOffsetV;
-			ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 		}
 	}
 
 	if (!clearMode)
-		prim_color_rgb += sec_color;
+		prim_color += Vec4<int>(sec_color, 0);
 
 	ScreenCoords pprime = pos;
 
@@ -1219,9 +1395,9 @@ void DrawPoint(const VertexData &v0)
 	u16 z = pos.z;
 
 	if (clearMode) {
-		DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
+		DrawSinglePixel<true>(p, z, prim_color);
 	} else {
-		DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
+		DrawSinglePixel<false>(p, z, prim_color);
 	}
 }
 
@@ -1294,24 +1470,23 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
 		// TODO: UVGenMode?
 		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-		Vec3<int> prim_color_rgb = c0.rgb();
-		int prim_color_a = c0.a();
+		Vec4<int> prim_color = c0;
 		float s = tc.s();
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
 			if (gstate.isModeThrough()) {
 				// TODO: Is it really this simple?
-				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+				ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 			} else {
 				s = s * texScaleU + texOffsetU;
 				t = t * texScaleV + texOffsetV;
-				ApplyTexturing(prim_color_rgb, prim_color_a, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+				ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 			}
 		}
 
 		if (!clearMode)
-			prim_color_rgb += sec_color;
+			prim_color += Vec4<int>(sec_color, 0);
 
 		ScreenCoords pprime = ScreenCoords(x, y, z);
 
@@ -1319,9 +1494,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
 		if (clearMode) {
-			DrawSinglePixel<true>(p, z, prim_color_rgb, prim_color_a);
+			DrawSinglePixel<true>(p, z, prim_color);
 		} else {
-			DrawSinglePixel<false>(p, z, prim_color_rgb, prim_color_a);
+			DrawSinglePixel<false>(p, z, prim_color);
 		}
 
 		x = x + xinc;
@@ -1360,7 +1535,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer)
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest(0, x, y, texptr, texbufwidthbits);
+			row[x] = SampleNearest<1>(0, &x, &y, texptr, texbufwidthbits);
 		}
 		row += w;
 	}

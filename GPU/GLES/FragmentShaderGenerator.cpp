@@ -56,11 +56,7 @@ const bool safeDestFactors[16] = {
 };
 
 static bool IsAlphaTestTriviallyTrue() {
-	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
-	int alphaTestRef = gstate.getAlphaTestRef();
-	int alphaTestMask = gstate.getAlphaTestMask();
-
-	switch (alphaTestFunc) {
+	switch (gstate.getAlphaTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -68,28 +64,40 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 
 	case GE_COMP_GEQUAL:
-		return alphaTestRef == 0;
+		return gstate.getAlphaTestRef() == 0;
 
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
 	case GE_COMP_NOTEQUAL:
 	case GE_COMP_GREATER:
 		{
-			bool depthTest = gstate.isDepthTestEnabled();
+#if 0
+			// Easy way to check the values in the debugger without ruining && early-out
+			bool doTextureAlpha = gstate.isTextureAlphaUsed();
 			bool stencilTest = gstate.isStencilTestEnabled();
-			GEBlendSrcFactor src = gstate.getBlendFuncA();
-			GEBlendDstFactor dst = gstate.getBlendFuncB();
-			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
-				return true;
-			return false;
+			bool depthTest = gstate.isDepthTestEnabled();
+			GEComparison depthTestFunc = gstate.getDepthTestFunction();
+			int alphaRef = gstate.getAlphaTestRef();
+			int blendA = gstate.getBlendFuncA();
+			bool blendEnabled = gstate.isAlphaBlendEnabled();
+			int blendB = gstate.getBlendFuncA();
+#endif
+			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
+					(!gstate.isStencilTestEnabled() &&
+				  !gstate.isDepthTestEnabled() && 
+					gstate.getAlphaTestRef() == 0 &&
+					gstate.isAlphaBlendEnabled() &&
+					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && 
+					safeDestFactors[(int)gstate.getBlendFuncB()]));
 		}
 
 	case GE_COMP_LEQUAL:
-		return alphaTestRef == 255;
+		return gstate.getAlphaTestRef() == 255;
 
 	case GE_COMP_EQUAL:
 	case GE_COMP_LESS:
 		return false;
+
 	default:
 		return false;
 	}
@@ -202,8 +210,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 }
 
 static bool IsColorTestTriviallyTrue() {
-	GEComparison colorTestFunc = gstate.getColorTestFunction();
-	switch (colorTestFunc) {
+	switch (gstate.getColorTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -235,6 +242,8 @@ static bool CanDoubleSrcBlendMode() {
 
 	// One side should be doubled.  Let's check the other side.
 	// LittleBigPlanet, for example, uses 2.0 * src, 1.0 - src, which can't double.
+	// Persona 2 uses the same function, which is the reason for its darkness. It only ever passes
+	// 1.0 as src alpha though, so in effect it's a color doubling.
 	switch (funcB) {
 	case GE_DSTBLEND_SRCALPHA:
 	case GE_DSTBLEND_INVSRCALPHA:
@@ -244,7 +253,6 @@ static bool CanDoubleSrcBlendMode() {
 		return true;
 	}
 }
-
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.

@@ -1,6 +1,7 @@
 #include "scePspNpDrm_user.h"
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen);
 

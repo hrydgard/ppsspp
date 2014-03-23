@@ -19,6 +19,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
+#include "Core/MemMap.h"
 
 // For easy parameter parsing and return value processing.
 

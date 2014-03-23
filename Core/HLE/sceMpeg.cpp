@@ -21,8 +21,10 @@
 #include <algorithm>
 
 #include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

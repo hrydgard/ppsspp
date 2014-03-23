@@ -331,6 +331,7 @@ struct GPUgstate
 	unsigned int getMaterialAmbientG() const { return (materialambient>>8)&0xFF; }
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
 	unsigned int getMaterialAmbientA() const { return materialalpha&0xFF; }
+	unsigned int getMaterialAmbientRGBA() const { return (materialambient & 0x00FFFFFF) | (materialalpha << 24); }
 	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
 	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
 	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
@@ -440,6 +441,7 @@ struct GPUStateCache
 
 	bool textureChanged;
 	bool textureFullAlpha;
+	bool vertexFullAlpha;
 	bool framebufChanged;
 
 	int skipDrawReason;

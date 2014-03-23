@@ -25,6 +25,7 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"

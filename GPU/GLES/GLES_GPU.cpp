@@ -38,6 +38,7 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/VertexDecoder.h"
 
+#include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -1341,7 +1342,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 					dst[i] = newVal;
 					shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 				}
-				if (++i > end) {
+				if (++i >= end) {
 					break;
 				}
 			}
@@ -1385,7 +1386,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 					dst[i] = newVal;
 					shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 				}
-				if (++i > end) {
+				if (++i >= end) {
 					break;
 				}
 			}
@@ -1429,7 +1430,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 					dst[i] = newVal;
 					shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 				}
-				if (++i > end) {
+				if (++i >= end) {
 					break;
 				}
 			}
@@ -1473,7 +1474,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 					dst[i] = newVal;
 					shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 				}
-				if (++i > end) {
+				if (++i >= end) {
 					break;
 				}
 			}
@@ -1518,7 +1519,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 						Flush();
 						dst[i] = newVal;
 					}
-					if (++i > end) {
+					if (++i >= end) {
 						break;
 					}
 				}
@@ -1530,7 +1531,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			} else {
 				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
 					dst[i] = src[i] << 8;
-					if (++i > end) {
+					if (++i >= end) {
 						break;
 					}
 				}
@@ -1658,10 +1659,12 @@ void GLES_GPU::FastLoadBoneMatrix(u32 target) {
 	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		Flush();
 		const int num = gstate.boneMatrixNumber & 0x7F;
-		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		if ((num % 12) != 0) {
-			shaderManager_->DirtyUniform((DIRTY_BONEMATRIX0 << (num / 12)) + 1);
+		int mtxNum = num / 12;
+		uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+		if ((num - 12 * mtxNum) != 0) {
+			uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 		}
+		shaderManager_->DirtyUniform(uniformsToDirty);
 	}
 	gstate.FastLoadBoneMatrix(target);
 }

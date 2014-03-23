@@ -629,7 +629,6 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 	return true;
 }
 
-
 static bool DisasmNeon(uint32_t op, char *text) {
 	switch (op >> 24) {
 	case 0xF4:
@@ -640,28 +639,6 @@ static bool DisasmNeon(uint32_t op, char *text) {
 	}
 	return false;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1444,13 +1421,13 @@ lPling:
 }
 
 static const char * reg_names[16] = {
-  "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-  "r8", "r9", "r10", "r11", "ip", "sp", "lr", "pc"
+	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+	"r8", "r9", "r10", "r11", "ip", "sp", "lr", "pc"
 };
 
 static sDisOptions options = {
-  disopt_CommaSpace,
-  reg_names
+	disopt_CommaSpace,
+	reg_names
 };
 
 const char *ArmRegName(int r) {

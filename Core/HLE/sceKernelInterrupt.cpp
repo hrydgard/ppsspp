@@ -20,6 +20,7 @@
 #include <map>
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Common/ChunkFile.h"
 

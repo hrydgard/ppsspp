@@ -226,8 +226,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 			}
 			if (safe.PrepareSlowRead(&Memory::Read_U32))
 			{
-				MOV(32, M(&ssLoadStoreTemp), R(EAX));
-				MOVSS(fpr.VX(vt), M(&ssLoadStoreTemp));
+				MOVD_xmm(fpr.VX(vt), R(EAX));
 			}
 			safe.Finish();
 
@@ -366,8 +365,7 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 				for (int i = 0; i < 4; i++)
 				{
 					safe.NextSlowRead(&Memory::Read_U32, i * 4);
-					MOV(32, M(&ssLoadStoreTemp), R(EAX));
-					MOVSS(fpr.VX(vregs[i]), M(&ssLoadStoreTemp));
+					MOVD_xmm(fpr.VX(vregs[i]), R(EAX));
 				}
 			}
 			safe.Finish();

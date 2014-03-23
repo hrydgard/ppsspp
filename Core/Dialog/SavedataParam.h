@@ -19,17 +19,16 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
-#include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
-#include "Core/System.h"
 #include "Core/Dialog/PSPDialog.h"
-#include "Core/Util/PPGeDraw.h"
 
 #undef st_ctime
 #undef st_atime
 #undef st_mtime
 
+class PPGeImage;
 struct PSPFileInfo;
+typedef u32_le SceSize_le;
 
 enum SceUtilitySavedataType
 {
@@ -56,6 +55,32 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_ERASE           = 20,
 	SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA      = 21,
 	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE         = 22,
+};
+
+static const char *const utilitySavedataTypeNames[] = {
+	"AUTOLOAD",
+	"AUTOSAVE",
+	"LOAD",
+	"SAVE",
+	"LISTLOAD",
+	"LISTSAVE",
+	"DELETE",
+	"LISTDELETE",
+	"SIZES",
+	"AUTODELETE",
+	"SINGLEDELETE",
+	"LIST",
+	"FILES",
+	"MAKEDATASECURE",
+	"MAKEDATA",
+	"READDATASECURE",
+	"READDATA",
+	"WRITEDATASECURE",
+	"WRITEDATA",
+	"ERASESECURE",
+	"ERASE",
+	"DELETEDATA",
+	"GETSIZE",
 };
 
 enum SceUtilitySavedataFocus
@@ -294,6 +319,7 @@ public:
 	std::string GetGameName(const SceUtilitySavedataParam *param) const;
 	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
 	std::string GetFileName(const SceUtilitySavedataParam *param) const;
+	std::string GetKey(const SceUtilitySavedataParam *param) const;
 
 	static std::string GetSpaceText(int size);
 

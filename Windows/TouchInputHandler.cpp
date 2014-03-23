@@ -43,7 +43,7 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 			inputs,
 			sizeof(TOUCHINPUT)))
 		{
-			for (int i = 0; i < inputCount; i++) {
+			for (UINT i = 0; i < inputCount; i++) {
 				int id = 0;
 
 				//here we map the windows touch id to the ppsspp internal touch id
@@ -64,7 +64,7 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 					}
 					//finding first free internal touch id and map this windows id to an internal id
 					bool *first_free = std::find(input_state.pointer_down, input_state.pointer_down + MAX_POINTERS, false);
-					id = (first_free - input_state.pointer_down) / sizeof(bool);
+					id = (int)(first_free - input_state.pointer_down) / (int)sizeof(bool);
 					touchTranslate[inputs[i].dwID] = id;
 				}
 

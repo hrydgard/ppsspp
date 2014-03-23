@@ -19,7 +19,6 @@
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "Core/Config.h"
 
 class PointerWrap;
 

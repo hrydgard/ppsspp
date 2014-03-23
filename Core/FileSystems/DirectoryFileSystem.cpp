@@ -833,11 +833,14 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	std::string fullName = GetLocalPath(filename);
 	INFO_LOG(FILESYS,"Getting VFS file info %s (%s)", fullName.c_str(), filename.c_str());
 	FileInfo fo;
-	VFSGetFileInfo(fullName.c_str(), &fo);
-	x.exists = fo.exists;
-	if (x.exists) {
-		x.size = fo.size;
-		x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+	if (VFSGetFileInfo(fullName.c_str(), &fo)) {
+		x.exists = fo.exists;
+		if (x.exists) {
+			x.size = fo.size;
+			x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+		}
+	} else {
+		x.exists = false;
 	}
 	INFO_LOG(FILESYS,"Got VFS file info: size = %i", (int)x.size);
 	return x;

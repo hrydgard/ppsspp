@@ -24,6 +24,7 @@
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"

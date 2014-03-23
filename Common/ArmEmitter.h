@@ -584,7 +584,9 @@ public:
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
 	void BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width);
+	void BFC(ARMReg rd, u8 lsb, u8 width);
 	void UBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
+	void SBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
 	void CLZ(ARMReg rd, ARMReg rm);
 	void PLD(ARMReg rd, int offset, bool forWrite = false);
 
@@ -679,8 +681,6 @@ public:
 	void VADDHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VADDL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VADDW(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VAND(ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VBIC(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VBIF(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VBIT(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VBSL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -699,10 +699,9 @@ public:
 	void VCNT(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index);
 	void VDUP(u32 Size, ARMReg Vd, ARMReg Rt);
-	void VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VEXT(ARMReg Vd, ARMReg Vn, ARMReg Vm, u8 index);
-	void VFMA(ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VFMS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VFMA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VFMS(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VHADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VHSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMAX(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -739,9 +738,17 @@ public:
 	void VQRDMULH_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	*/
 
-	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
+  // Vector bitwise. These don't have an element size for obvious reasons.
+	void VAND(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VBIC(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORN(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+  inline void VMOV_neon(ARMReg Dest, ARMReg Src) {
+    VORR(Dest, Src, Src);
+  }
+
+	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VPADDL(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -761,7 +768,7 @@ public:
 	void VRSQRTE(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VRSQRTS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VRSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn);
 	void VSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -790,6 +797,8 @@ public:
 	// Widening and narrowing moves
 	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm);
 
 	// Vector VCVT
 	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);
@@ -849,10 +858,19 @@ public:
 	}
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryADDI2R(ARMReg rd, ARMReg rs, u32 val);
+	void SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TrySUBI2R(ARMReg rd, ARMReg rs, u32 val);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryANDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryCMPI2R(ARMReg rs, u32 val);
 	void TSTI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryTSTI2R(ARMReg rs, u32 val);
 	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryORI2R(ARMReg rd, ARMReg rs, u32 val);
+	void EORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryEORI2R(ARMReg rd, ARMReg rs, u32 val);
 };  // class ARMXEmitter
 
 

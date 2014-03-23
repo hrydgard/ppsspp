@@ -169,7 +169,7 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int collectedVerts;
+	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
@@ -209,6 +209,7 @@ private:
 
 	int decimationCounter_;
 	int decodeCounter_;
+	u32 dcid_;
 
 	UVScale *uvScale;
 };

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Common/Common.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -112,10 +113,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			if (safe.PrepareRead(src, 4))
 				MOVSS(fpr.RX(ft), src);
 			if (safe.PrepareSlowRead(&Memory::Read_U32))
-			{
-				MOV(32, M(&ssLoadStoreTemp), R(EAX));
-				MOVSS(fpr.RX(ft), M(&ssLoadStoreTemp));
-			}
+				MOVD_xmm(fpr.RX(ft), R(EAX));
 			safe.Finish();
 
 			gpr.UnlockAll();
@@ -154,8 +152,6 @@ static const u64 MEMORY_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x0000
 static const u64 MEMORY_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
-static u32 ssCompareTemp;
-
 void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 {
 	MOVSS(XMM0, fpr.R(lhs));
@@ -167,9 +163,8 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 	{
 		MOVSS(XMM0, fpr.R(lhs));
 		CMPUNORDSS(XMM0, fpr.R(rhs));
-		MOVSS(M(&ssCompareTemp), XMM0);
 
-		MOV(32, R(EAX), M(&ssCompareTemp));
+		MOVD_xmm(R(EAX), XMM0);
 		OR(32, M(&currentMIPS->fpcond), R(EAX));
 	}
 }

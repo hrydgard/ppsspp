@@ -263,6 +263,7 @@ private:
 	void WriteBitTest(int bits, OpArg &dest, OpArg &index, int ext);
 	void WriteMXCSR(OpArg arg, int ext);
 	void WriteSSEOp(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg arg, int extrabytes = 0);
+	void WriteSSEOp2(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg arg, int extrabytes = 0);
 	void WriteNormalOp(XEmitter *emit, int bits, NormalOp op, const OpArg &a1, const OpArg &a2);
 
 protected:
@@ -604,6 +605,13 @@ public:
 	void PUNPCKLWD(X64Reg dest, const OpArg &arg);
 	void PUNPCKLDQ(X64Reg dest, const OpArg &arg);
 
+	void PMOVSXBW(X64Reg dest, const OpArg &arg);
+	void PMOVSXBD(X64Reg dest, const OpArg &arg);
+	void PMOVSXWD(X64Reg dest, const OpArg &arg);
+	void PMOVZXBW(X64Reg dest, const OpArg &arg);
+	void PMOVZXBD(X64Reg dest, const OpArg &arg);
+	void PMOVZXWD(X64Reg dest, const OpArg &arg);
+
 	void PAND(X64Reg dest, OpArg arg);
 	void PANDN(X64Reg dest, OpArg arg);   
 	void PXOR(X64Reg dest, OpArg arg);    
@@ -655,6 +663,7 @@ public:
 	void PMOVMSKB(X64Reg dest, OpArg arg);
 	void PSHUFB(X64Reg dest, OpArg arg);
 
+	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
 	void PSHUFLW(X64Reg dest, OpArg arg, u8 shuffle);
 
 	void PSRLW(X64Reg reg, int shift);

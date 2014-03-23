@@ -20,7 +20,9 @@
 #include "util/text/shiftjis.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
 
 typedef PSPPointer<char> PSPCharPointer;

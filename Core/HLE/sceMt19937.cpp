@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
 u32 sceMt19937Init(u32 mt19937Addr, u32 seed)

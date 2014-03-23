@@ -19,7 +19,6 @@
 
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/MemMap.h"
-#include "Core/System.h"
 
 struct SceUtilityNetconfData {
 	char groupName[8];

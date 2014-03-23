@@ -20,11 +20,13 @@
 #include "file/file_util.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"

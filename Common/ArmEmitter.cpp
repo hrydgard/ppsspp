@@ -163,10 +163,18 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 
 void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
+	if (!TryADDI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		ADD(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryADDI2R(ARMReg rd, ARMReg rs, u32 val)
+{
 	if (val == 0) {
 		if (rd != rs)
 			MOV(rd, rs);
-		return;
+		return true;
 	}
 	Operand2 op2;
 	bool negated;
@@ -175,6 +183,7 @@ void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 			ADD(rd, rs, op2);
 		else
 			SUB(rd, rs, op2);
+		return true;
 	} else {
 		// Try 16-bit additions and subtractions - easy to test for.
 		// Should also try other rotations...
@@ -182,31 +191,77 @@ void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 			// Decompose into two additions.
 			ADD(rd, rs, Operand2((u8)(val >> 8), 12));   // rotation right by 12*2 == rotation left by 8
 			ADD(rd, rd, Operand2((u8)(val), 0));
+			return true;
 		} else if ((((u32)-(s32)val) & 0xFFFF0000) == 0) {
 			val = (u32)-(s32)val;
 			SUB(rd, rs, Operand2((u8)(val >> 8), 12));
 			SUB(rd, rd, Operand2((u8)(val), 0));
+			return true;
 		} else {
-			MOVI2R(scratch, val);
-			ADD(rd, rs, scratch);
+			return false;
 		}
 	}
 }
 
+void ARMXEmitter::SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TrySUBI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		SUB(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TrySUBI2R(ARMReg rd, ARMReg rs, u32 val)
+{
+	// Just add a negative.
+	return TryADDI2R(rd, rs, (u32)-(s32)val);
+}
+
 void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryANDI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		AND(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryANDI2R(ARMReg rd, ARMReg rs, u32 val)
 {
 	Operand2 op2;
 	bool inverse;
 	if (val == 0) {
 		// Avoid the ALU, may improve pipeline.
 		MOV(rd, 0);
+		return true;
 	} else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
 		if (!inverse) {
 			AND(rd, rs, op2);
 		} else {
 			BIC(rd, rs, op2);
 		}
+		return true;
 	} else {
+#ifdef HAVE_ARMV7
+		// Check if we have a single pattern of sequential bits.
+		int seq = -1;
+		for (int i = 0; i < 32; ++i) {
+			if (((val >> i) & 1) == 0) {
+				if (seq == -1) {
+					// The width is all bits previous to this, set to 1.
+					seq = i;
+				}
+			} else if (seq != -1) {
+				// Uh oh, more than one sequence.
+				seq = -2;
+			}
+		}
+
+		if (seq > 0) {
+			UBFX(rd, rs, 0, seq);
+			return true;
+		}
+#endif
+
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
 			u8 bits = RotR(val, i) & 0xFF;
@@ -220,31 +275,37 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		// The worst case is 4 (e.g. 0x55555555.)
 #ifdef HAVE_ARMV7
 		if (ops > 3) {
-			MOVI2R(scratch, val);
-			AND(rd, rs, scratch);
-		} else
+			return false;
+		}
 #endif
-		{
-			bool first = true;
-			for (int i = 0; i < 32; i += 2) {
-				u8 bits = RotR(val, i) & 0xFF;
-				if ((bits & 3) != 3) {
-					u8 rotation = i == 0 ? 0 : 16 - i / 2;
-					if (first) {
-						BIC(rd, rs, Operand2(~bits, rotation));
-						first = false;
-					} else {
-						BIC(rd, rd, Operand2(~bits, rotation));
-					}
-					// Well, we took care of these other bits while we were at it.
-					i += 8 - 2;
+		bool first = true;
+		for (int i = 0; i < 32; i += 2) {
+			u8 bits = RotR(val, i) & 0xFF;
+			if ((bits & 3) != 3) {
+				u8 rotation = i == 0 ? 0 : 16 - i / 2;
+				if (first) {
+					BIC(rd, rs, Operand2(~bits, rotation));
+					first = false;
+				} else {
+					BIC(rd, rd, Operand2(~bits, rotation));
 				}
+				// Well, we took care of these other bits while we were at it.
+				i += 8 - 2;
 			}
 		}
+		return true;
 	}
 }
 
 void ARMXEmitter::CMPI2R(ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryCMPI2R(rs, val)) {
+		MOVI2R(scratch, val);
+		CMP(rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryCMPI2R(ARMReg rs, u32 val)
 {
 	Operand2 op2;
 	bool negated;
@@ -253,24 +314,40 @@ void ARMXEmitter::CMPI2R(ARMReg rs, u32 val, ARMReg scratch)
 			CMP(rs, op2);
 		else
 			CMN(rs, op2);
+		return true;
 	} else {
-		MOVI2R(scratch, val);
-		CMP(rs, scratch);
+		return false;
 	}
 }
 
 void ARMXEmitter::TSTI2R(ARMReg rs, u32 val, ARMReg scratch)
 {
-	Operand2 op2;
-	if (TryMakeOperand2(val, op2)) {
-		TST(rs, op2);
-	} else {
+	if (!TryTSTI2R(rs, val)) {
 		MOVI2R(scratch, val);
 		TST(rs, scratch);
 	}
 }
 
+bool ARMXEmitter::TryTSTI2R(ARMReg rs, u32 val)
+{
+	Operand2 op2;
+	if (TryMakeOperand2(val, op2)) {
+		TST(rs, op2);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryORI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		ORR(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryORI2R(ARMReg rd, ARMReg rs, u32 val)
 {
 	Operand2 op2;
 	if (val == 0) {
@@ -278,8 +355,10 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		if (rd != rs) {
 			MOV(rd, rs);
 		}
+		return true;
 	} else if (TryMakeOperand2(val, op2)) {
 		ORR(rd, rs, op2);
+		return true;
 	} else {
 		int ops = 0;
 		for (int i = 0; i < 32; i += 2) {
@@ -294,30 +373,53 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		// The worst case is 4 (e.g. 0x55555555.)  But MVN can make it 2.  Not sure if better.
 		bool inversed;
 		if (TryMakeOperand2_AllowInverse(val, op2, &inversed) && ops >= 3) {
-			MVN(scratch, op2);
-			ORR(rd, rs, scratch);
+			return false;
 #ifdef HAVE_ARMV7
 		} else if (ops > 3) {
-			MOVI2R(scratch, val);
-			ORR(rd, rs, scratch);
+			return false;
 #endif
-		} else {
-			bool first = true;
-			for (int i = 0; i < 32; i += 2) {
-				u8 bits = RotR(val, i) & 0xFF;
-				if ((bits & 3) != 0) {
-					u8 rotation = i == 0 ? 0 : 16 - i / 2;
-					if (first) {
-						ORR(rd, rs, Operand2(bits, rotation));
-						first = false;
-					} else {
-						ORR(rd, rd, Operand2(bits, rotation));
-					}
-					// Well, we took care of these other bits while we were at it.
-					i += 8 - 2;
+		}
+
+		bool first = true;
+		for (int i = 0; i < 32; i += 2) {
+			u8 bits = RotR(val, i) & 0xFF;
+			if ((bits & 3) != 0) {
+				u8 rotation = i == 0 ? 0 : 16 - i / 2;
+				if (first) {
+					ORR(rd, rs, Operand2(bits, rotation));
+					first = false;
+				} else {
+					ORR(rd, rd, Operand2(bits, rotation));
 				}
+				// Well, we took care of these other bits while we were at it.
+				i += 8 - 2;
 			}
 		}
+		return true;
+	}
+}
+
+void ARMXEmitter::EORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	if (!TryEORI2R(rd, rs, val)) {
+		MOVI2R(scratch, val);
+		EOR(rd, rs, scratch);
+	}
+}
+
+bool ARMXEmitter::TryEORI2R(ARMReg rd, ARMReg rs, u32 val)
+{
+	Operand2 op2;
+	if (val == 0) {
+		if (rd != rs) {
+			MOV(rd, rs);
+		}
+		return true;
+	} else if (TryMakeOperand2(val, op2)) {
+		EOR(rd, rs, op2);
+		return true;
+	} else {
+		return false;
 	}
 }
 
@@ -594,7 +696,7 @@ void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
 	             "SetJumpTarget out of range (%p calls %p)", code, branch.ptr);
 	u32 instr = (u32)(branch.condition | ((distance >> 2) & 0x00FFFFFF));
-	instr |= branch.type ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
+	instr |= branch.type == 0 ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
 	*(u32*)branch.ptr = instr;
 }
 void ARMXEmitter::B (const void *fnptr)
@@ -844,6 +946,11 @@ void ARMXEmitter::UBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
 	Write32(condition | (0x7E0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
 }
 
+void ARMXEmitter::SBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
+{
+	Write32(condition | (0x7A0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
+}
+
 void ARMXEmitter::CLZ(ARMReg rd, ARMReg rm)
 {
 	Write32(condition | (0x16F << 16) | (rd << 12) | (0xF1 << 4) | rm);
@@ -865,6 +972,13 @@ void ARMXEmitter::BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width)
 	u32 msb = (lsb + width - 1);
 	if (msb > 31) msb = 31;
 	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | rn);
+}
+
+void ARMXEmitter::BFC(ARMReg rd, u8 lsb, u8 width)
+{
+	u32 msb = (lsb + width - 1);
+	if (msb > 31) msb = 31;
+	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | 15);
 }
 
 void ARMXEmitter::SXTB (ARMReg dest, ARMReg op2)
@@ -1058,6 +1172,7 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 }
 void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
 {
+	_dbg_assert_msg_(JIT, !WriteBack || Rn != R_PC, "VLDM/VSTM cannot use WriteBack with PC (PC is deprecated anyway.)");
 	ARMReg Dest = SubBase(Vd);
 	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
 }
@@ -1334,11 +1449,13 @@ void ARMXEmitter::VSTMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvr
 
 void ARMXEmitter::VLDMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
+	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VLDMDB");
 	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VSTMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
+	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VSTMDB");
 	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, false, WriteBack, firstvreg, numvregs);
 }
 
@@ -1413,7 +1530,8 @@ void ARMXEmitter::VMSR(ARMReg Rt) {
 void ARMXEmitter::VMOV(ARMReg Dest, Operand2 op2)
 {
 	_assert_msg_(JIT, cpu_info.bVFPv3, "VMOV #imm requires VFPv3");
-	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (0xA << 8) | op2.Imm8VFP());
+	int sz = Dest >= D0 ? (1 << 8) : 0;
+	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (5 << 9) | sz | op2.Imm8VFP());
 }
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
@@ -1914,8 +2032,9 @@ void ARMXEmitter::VEXT(ARMReg Vd, ARMReg Vn, ARMReg Vm, u8 index)
 	Write32((0xF2 << 24) | (0xB << 20) | EncodeVn(Vn) | EncodeVd(Vd) | (index & 0xF) \
 		| (register_quad << 6) | EncodeVm(Vm));
 }
-void ARMXEmitter::VFMA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
+void ARMXEmitter::VFMA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
+	_dbg_assert_msg_(JIT, Size == F_32, "Passed invalid size to FP-only NEON instruction");
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bVFPv4, "Can't use %s when CPU doesn't support it", __FUNCTION__);
@@ -1923,8 +2042,9 @@ void ARMXEmitter::VFMA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	Write32((0xF2 << 24) | EncodeVn(Vn) | EncodeVd(Vd) | (0xC1 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
-void ARMXEmitter::VFMS(ARMReg Vd, ARMReg Vn, ARMReg Vm)
+void ARMXEmitter::VFMS(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
+	_dbg_assert_msg_(JIT, Size == F_32, "Passed invalid size to FP-only NEON instruction");
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bVFPv4, "Can't use %s when CPU doesn't support it", __FUNCTION__);
@@ -2359,7 +2479,7 @@ void ARMXEmitter::VRSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Write32((0xF3 << 24) | (1 << 23) | ((encodedSize(Size) - 1) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | \
 			(0x60 << 4) | EncodeVm(Vm));
 }
-void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
@@ -2481,10 +2601,39 @@ void ARMXEmitter::VMOVN(u32 Size, ARMReg Vd, ARMReg Vm)
 	_dbg_assert_msg_(JIT, Vm >= Q0, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, Vd >= D0 && Vd <= D31, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, (Size & I_8) == 0, "%s cannot narrow from I_8", __FUNCTION__);
 
-	bool register_quad = Vd >= Q0;
+	// For consistency with assembler syntax and VMOVL - encode one size down.
+	int halfSize = encodedSize(Size) - 1;
 
-	Write32((0xF3B << 20) | (encodedSize(Size) << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | EncodeVm(Vm));
+	Write32((0xF3B << 20) | (halfSize << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | EncodeVm(Vm));
+}
+
+void ARMXEmitter::VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vm >= Q0, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0 && Vd <= D31, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, (Size & (I_UNSIGNED | I_SIGNED)) != 0, "Must specify I_SIGNED or I_UNSIGNED in %s NEON", __FUNCTION__);
+	_dbg_assert_msg_(JIT, (Size & I_8) == 0, "%s cannot narrow from I_8", __FUNCTION__);
+
+	int halfSize = encodedSize(Size) - 1;
+	int op = (1 << 7) | (Size & I_UNSIGNED ? 1 << 6 : 0);
+
+	Write32((0xF3B << 20) | (halfSize << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | op | EncodeVm(Vm));
+}
+
+void ARMXEmitter::VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vm >= Q0, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vd >= D0 && Vd <= D31, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, (Size & I_8) == 0, "%s cannot narrow from I_8", __FUNCTION__);
+
+	int halfSize = encodedSize(Size) - 1;
+	int op = (1 << 6);
+
+	Write32((0xF3B << 20) | (halfSize << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | op | EncodeVm(Vm));
 }
 
 void ARMXEmitter::VCVT(u32 Size, ARMReg Vd, ARMReg Vm)
@@ -2511,7 +2660,7 @@ static int RegCountToType(int nRegs, NEONAlignment align) {
 		_dbg_assert_msg_(JIT, !((int)align & 1), "align & 1 must be == 0");
 		return 6;
 	case 4:
-		return 4;
+		return 2;
 	default:
 		_dbg_assert_msg_(JIT, false, "Invalid number of registers passed to vector load/store");
 		return 0;

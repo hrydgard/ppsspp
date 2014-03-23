@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
-
-#include "sceAudiocodec.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceAudiocodec.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/HW/SimpleMp3Dec.h"
 
 enum {
 	PSP_CODEC_AT3PLUS = 0x00001000,
@@ -48,19 +50,38 @@ struct AudioCodecContext {
 	u32_le outDataPtr;  // 8
 	u32_le audioSamplesPerFrame;  // 9
 	u32_le inDataSizeAgain;  // 10  ??
-};
+}; 
+
+SimpleMP3* mp3;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
+	if (codec == PSP_CODEC_MP3){
+		// Initialize MP3 audio decoder.
+		mp3 = MP3Create();
+		DEBUG_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		return 0;
+	}
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
 int sceAudiocodecDecode(u32 ctxPtr, int codec) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
-	if (!ctxPtr) {
+	if (!ctxPtr){
+		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
 	}
-	auto ctx = PSPPointer<AudioCodecContext>::Create(ctxPtr);
+	if (codec == PSP_CODEC_MP3){
+		//Use SimpleMp3Dec to decode Mp3 audio
+		// Get AudioCodecContext
+		AudioCodecContext* ctx = new AudioCodecContext;
+		Memory::ReadStruct(ctxPtr, ctx);
+		int outbytes = 0;
+		// Decode Mp3 audio
+		MP3Decode(mp3, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
+		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		return 0;
+	}
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 

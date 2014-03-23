@@ -20,6 +20,7 @@
 // Thanks to the JPCSP project! This sceFont implementation is basically a C++ take on JPCSP's font code.
 // Some parts, especially in this file, were simply copied, so I guess this really makes this file GPL3.
 
+#include "Common/ChunkFile.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Font/PGF.h"

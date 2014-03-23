@@ -17,13 +17,14 @@
 
 #include <algorithm>
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "sceKernel.h"
-#include "sceKernelInterrupt.h"
-#include "sceKernelMemory.h"
-#include "sceKernelVTimer.h"
-#include "HLE.h"
-#include "ChunkFile.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelVTimer.h"
+#include "Core/HLE/HLE.h"
+#include "Common/ChunkFile.h"
 
 static int vtimerTimer = -1;
 static SceUID runningVTimer = 0;
