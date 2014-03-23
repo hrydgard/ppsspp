@@ -1074,6 +1074,7 @@ int sceKernelPrintf(const char *formatString)
 			break;
 		}
 
+		const char *s;
 		switch (format[i])
 		{
 		case '%':
@@ -1082,7 +1083,8 @@ int sceKernelPrintf(const char *formatString)
 			break;
 
 		case 's':
-			result += Memory::GetCharPointer(PARAM(param++));
+			s = Memory::GetCharPointer(PARAM(param++));
+			result += s ? s : "(null)";
 			++i;
 			break;
 
@@ -1112,6 +1114,12 @@ int sceKernelPrintf(const char *formatString)
 				result += tempStr;
 				i += 3;
 			}
+			break;
+
+		case 'p':
+			snprintf(tempStr, sizeof(tempStr), "%08x", PARAM(param++));
+			result += tempStr;
+			++i;
 			break;
 
 		default:
