@@ -642,26 +642,24 @@ void VertexDecoderJitCache::Jit_Color565() {
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
-	LDRH(tempReg1, srcReg, dec_->coloff);
+	LDRSH(tempReg1, srcReg, dec_->coloff);
 
 	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
-	ANDI2R(tempReg3, tempReg1, 0x07E0, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x03E0, scratchReg);
 	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 3));
-	ANDI2R(tempReg3, tempReg1, 0xF800, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x7C00, scratchReg);
 	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 6));
 
 	// Expand 5 -> 8.
 	LSR(tempReg3, tempReg2, 2);
 	// Clean up the bits that were shifted right.
-	BIC(tempReg3, tempReg1, AssumeMakeOperand2(0x000000F8));
+	BIC(tempReg3, tempReg3, AssumeMakeOperand2(0x000000F8));
 	BIC(tempReg3, tempReg3, AssumeMakeOperand2(0x0000F800));
 	ORR(tempReg2, tempReg3, Operand2(tempReg2, ST_LSL, 3));
 
-	// Now we just need alpha.
-	TSTI2R(tempReg1, 0x8000, scratchReg);
-	SetCC(CC_NEQ);
-	ORI2R(tempReg2, tempReg2, 0xFF000000, scratchReg);
-	SetCC(CC_AL);
+	// Now we just need alpha.  Since we loaded as signed, it'll be extended.
+	ANDI2R(tempReg1, tempReg1, 0xFF000000, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg1);
 
 	STR(tempReg2, dstReg, dec_->decFmt.c0off);
 }
