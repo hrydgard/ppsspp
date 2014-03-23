@@ -3,8 +3,7 @@
 
 #if defined(__ARM_ARCH_7A__) && !defined(BLACKBERRY)
 
-void EnableFZ()
-{
+void EnableFZ() {
 	int x;
 	asm(
 		"fmrx %[result],FPSCR \r\n"
@@ -14,9 +13,24 @@ void EnableFZ()
 	);
 	//printf("ARM FPSCR: %08x\n",x);
 }
+
+void FPU_SetFastMode() {
+	int x;
+	asm(
+		"fmrx %[result],FPSCR \r\n"
+		"orr %[result],%[result],#50331648 \r\n"   // 3 << 24
+		"fmxr FPSCR,%[result]"
+		:[result] "=r" (x) : :
+		);
+	//printf("ARM FPSCR: %08x\n",x);
+}
+
 #else
-void EnableFZ()
-{
+
+void EnableFZ() {
 	// TODO
 }
+
+void FPU_SetFastMode() {}
+
 #endif

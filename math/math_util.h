@@ -93,31 +93,31 @@ inline float dB2lin(float dB) {
 	return expf(dB * DB_2_LOG);
 }
 
+union FP32 {
+	uint32_t u;
+	float f;
+};
+
+struct FP16 {
+	uint16_t u;
+};
+
 inline bool my_isinf(float f) {
-	union {
-		float f;
-		uint32_t u;
-	} f2u;
+	FP32 f2u;
 	f2u.f = f;
 	return f2u.u == 0x7f800000 ||
 		f2u.u == 0xff800000;
 }
 
 inline bool my_isnan(float f) {
-	union {
-		float f;
-		uint32_t u;
-	} f2u;
+	FP32 f2u;
 	f2u.f = f;
 	// NaNs have non-zero mantissa
 	return ((f2u.u & 0x7F800000) == 0x7F800000) && (f2u.u & 0x7FFFFF);
 }
 
 inline bool my_isnanorinf(float f) {
-	union {
-		float f;
-		uint32_t u;
-	} f2u;
+	FP32 f2u;
 	f2u.f = f;
 	// NaNs have non-zero mantissa, infs have zero mantissa. That is, we just ignore the mantissa here.
 	return ((f2u.u & 0x7F800000) == 0x7F800000);
@@ -141,15 +141,6 @@ inline double round_ieee_754(double d) {
 		return i;
 	return i + 1.0f;
 }
-
-union FP32 {
-	uint32_t u;
-	float f;
-};
-
-struct FP16 {
-	uint16_t u;
-};
 
 // magic code from ryg: http://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
 // See also SSE2 version: https://gist.github.com/rygorous/2144712
@@ -211,3 +202,11 @@ inline uint16_t ShrinkToHalf(float full) {
 
 // FPU control.
 void EnableFZ();
+
+// Enable both FZ and Default-NaN. Is documented to flip some ARM implementation into a "run-fast" mode
+// where they can schedule VFP instructions on the NEON unit (these implementations have
+// very slow VFP units).
+// http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
+void FPU_SetFastMode();
+
+
