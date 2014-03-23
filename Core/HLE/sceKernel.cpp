@@ -77,6 +77,7 @@
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
+#include "sceAudiocodec.h"
 
 #include "../Util/PPGeDraw.h"
 
