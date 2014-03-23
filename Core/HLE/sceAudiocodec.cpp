@@ -41,6 +41,9 @@ struct AudioInfo{
 	AudioInfo(){
 		decoder = NULL;
 	};
+	AudioInfo(u32 ctxPtr, int codec):ctxPtr(ctxPtr),codec(codec){
+		decoder = AudioCreate(codec);
+	};
 	~AudioInfo(){
 		if (decoder)
 			AudioClose(&decoder);
@@ -55,14 +58,6 @@ struct AudioCell{
 		prevcell = NULL;
 		currval = NULL;
 		nextcell = NULL;
-	};
-	~AudioCell(){
-		if (prevcell)
-			delete prevcell;
-		if (currval)
-			delete currval;
-		if (nextcell)
-			delete nextcell;
 	};
 };
 
@@ -87,9 +82,6 @@ public:
 
 	~AudioList(){
 		clear();
-		delete head;
-		delete tail;
-		delete current;
 	}
 
 	void push(AudioInfo* info){
@@ -152,7 +144,7 @@ public:
 		{
 			current = head;
 			head = head->nextcell;
-			free(current);
+			delete(current);
 		}
 	};
 
@@ -162,52 +154,46 @@ public:
 			return;
 
 		p.Do(count);
-		if (p.mode == p.MODE_WRITE){
+		if (p.mode == p.MODE_WRITE && count > 0){
 			// write savestate
-			free(codec_);
-			free(ctxPtr_);
-			codec_ = (int*)malloc(count*sizeof(int));
-			ctxPtr_ = (u32*)malloc(count*sizeof(u32));
 			current = head;
+			codec_ = new int[count];
+			ctxPtr_ = new u32[count];
 			for (int i = 0; i < count; i++){
 				codec_[i] = current->currval->codec;
 				ctxPtr_[i] = current->currval->ctxPtr;
 				current = current->nextcell;
 			}
-			p.DoArray(codec_, sizeof(codec_));
-			p.DoArray(ctxPtr_, sizeof(ctxPtr_));
+			p.DoArray(codec_, ARRAY_SIZE(codec_));
+			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
 		}
 		if (p.mode == p.MODE_READ){
 			// read savestate
-			free(codec_);
-			free(ctxPtr_);
-			codec_ = (int*)malloc(count*sizeof(int));
-			ctxPtr_ = (u32*)malloc(count*sizeof(u32));
-			p.DoArray(codec_, count);
-			p.DoArray(ctxPtr_, count);
-			auto c = count;
-			AudioList();
-			for (int i = 0; i < c; i++){
-				auto newaudio = new AudioInfo;
-				newaudio->codec = codec_[i];
-				newaudio->ctxPtr = ctxPtr_[i];
-				newaudio->decoder = AudioCreate(codec_[i]);
-				push(newaudio);
+			if (count > 0){
+				// AudioList is nonempty
+				auto c = count;
+				AudioList::clear(); // clear and prepare to read variables
+				AudioList::AudioList(); // reinitialization
+				codec_ = new int[count];
+				ctxPtr_ = new u32[count];
+				p.DoArray(codec_, ARRAY_SIZE(codec_));
+				p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
+				for (int i = 0; i < c; i++){
+					auto newaudio = new AudioInfo(ctxPtr_[i], codec_[i]);
+					push(newaudio);
+				}
 			}
 		}
 	};
 };
 
-// AudioList is a queue to storing current playing audios.
+// AudioList is a queue to store current playing audios.
 AudioList audioQueue;
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	if (isValidCodec(codec)){
 		// Create audio decoder for given audio codec and put it into AudioList
-		auto newaudio = new AudioInfo;
-		newaudio->codec = codec;
-		newaudio->ctxPtr = ctxPtr;
-		newaudio->decoder = AudioCreate(codec);
+		auto newaudio = new AudioInfo (ctxPtr, codec);
 		audioQueue.push(newaudio);		
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;
@@ -262,20 +248,12 @@ int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	auto info = audioQueue.pop(ctxPtr);
 	if (info != NULL){ 
 		info->~AudioInfo();
-		free(info);
+		delete info;
 		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 		return 0;
 	}
 	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
-}
-
-void __sceAudioCodecDoState(PointerWrap &p){
-	auto s = p.Section("sceAudioCodec", 0, 1);
-	if (!s)
-		return;
-
-	p.Do(audioQueue);
 }
 
 const HLEFunction sceAudiocodec[] = {
@@ -298,6 +276,5 @@ void __sceAudiocodecDoState(PointerWrap &p){
 	if (!s)
 		return;
 
-	audioQueue.DoState(p);
-	//p.Do(audioQueue);
+	p.Do(audioQueue);
 }
