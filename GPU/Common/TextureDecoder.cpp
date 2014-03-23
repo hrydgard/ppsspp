@@ -105,16 +105,65 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 	return check;
 }
 
+void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
+#ifdef _M_SSE
+	const __m128i *src = (const __m128i *)texptr;
+	for (int by = 0; by < byc; by++) {
+		__m128i *xdest = (__m128i *)ydestp;
+		for (int bx = 0; bx < bxc; bx++) {
+			__m128i *dest = xdest;
+			for (int n = 0; n < 2; n++) {
+				// Textures are always 16-byte aligned so this is fine.
+				__m128i temp1 = _mm_load_si128(src);
+				__m128i temp2 = _mm_load_si128(src + 1);
+				__m128i temp3 = _mm_load_si128(src + 2);
+				__m128i temp4 = _mm_load_si128(src + 3);
+				_mm_store_si128(dest, temp1);
+				dest += pitch >> 2;
+				_mm_store_si128(dest, temp2);
+				dest += pitch >> 2;
+				_mm_store_si128(dest, temp3);
+				dest += pitch >> 2;
+				_mm_store_si128(dest, temp4);
+				dest += pitch >> 2;
+				src += 4;
+			}
+			xdest ++;
+		}
+		ydestp += (rowWidth * 8) / 4;
+	}
+#else
+	const u32 *src = (const u32 *)texptr;
+	for (int by = 0; by < byc; by++) {
+		u32 *xdest = ydestp;
+		for (int bx = 0; bx < bxc; bx++) {
+			u32 *dest = xdest;
+			for (int n = 0; n < 8; n++) {
+				memcpy(dest, src, 16);
+				dest += pitch;
+				src += 4;
+			}
+			xdest += 4;
+		}
+		ydestp += (rowWidth * 8) / 4;
+	}
+#endif
+}
+
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
+UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
 
 // This has to be done after CPUDetect has done its magic.
-void SetupQuickTexHash() {
+void SetupTextureDecoder() {
 #ifdef ARMV7
-	if (cpu_info.bNEON)
+	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
+		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
+	}
 #elif _M_SSE
-	if (cpu_info.bSSE2)
+	if (cpu_info.bSSE2) {
 		DoQuickTexHash = &QuickTexHashSSE2;
+	}
 #endif
 }
 

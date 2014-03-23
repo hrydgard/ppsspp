@@ -66,7 +66,7 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
-	SetupQuickTexHash();
+	SetupTextureDecoder();
 }
 
 TextureCache::~TextureCache() {
@@ -285,51 +285,6 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	}
 }
 
-static void Unswizzle16(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
-#ifdef _M_SSE
-	const __m128i *src = (const __m128i *)texptr;
-	for (int by = 0; by < byc; by++) {
-		__m128i *xdest = (__m128i *)ydestp;
-		for (int bx = 0; bx < bxc; bx++) {
-			__m128i *dest = xdest;
-			for (int n = 0; n < 2; n++) {
-				// Textures are always 16-byte aligned so this is fine.
-				__m128i temp1 = _mm_load_si128(src);
-				__m128i temp2 = _mm_load_si128(src + 1);
-				__m128i temp3 = _mm_load_si128(src + 2);
-				__m128i temp4 = _mm_load_si128(src + 3);
-				_mm_store_si128(dest, temp1);
-				dest += pitch >> 2;
-				_mm_store_si128(dest, temp2);
-				dest += pitch >> 2;
-				_mm_store_si128(dest, temp3);
-				dest += pitch >> 2;
-				_mm_store_si128(dest, temp4);
-				dest += pitch >> 2;
-				src += 4;
-			}
-			xdest ++;
-		}
-		ydestp += (rowWidth * 8) / 4;
-	}
-#else
-	const u32 *src = (const u32 *)texptr;
-	for (int by = 0; by < byc; by++) {
-		u32 *xdest = ydestp;
-		for (int bx = 0; bx < bxc; bx++) {
-			u32 *dest = xdest;
-			for (int n = 0; n < 8; n++) {
-				memcpy(dest, src, 16);
-				dest += pitch;
-				src += 4;
-			}
-			xdest += 4;
-		}
-		ydestp += (rowWidth * 8) / 4;
-	}
-#endif
-}
-
 void *TextureCache::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level) {
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
@@ -342,7 +297,7 @@ void *TextureCache::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPix
 	if (rowWidth >= 16) {
 		u32 *ydestp = tmpTexBuf32.data();
 		// The most common one, so it gets an optimized implementation.
-		Unswizzle16(texptr, ydestp, bxc, byc, pitch, rowWidth);
+		DoUnswizzleTex16(texptr, ydestp, bxc, byc, pitch, rowWidth);
 	} else if (rowWidth == 8) {
 		const u32 *src = (const u32 *) texptr;
 		for (int by = 0; by < byc; by++) {

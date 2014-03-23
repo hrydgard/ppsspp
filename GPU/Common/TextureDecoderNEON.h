@@ -18,3 +18,4 @@
 #include "GPU/Common/TextureDecoder.h"
 
 u32 QuickTexHashNEON(const void *checkp, u32 size);
+void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
