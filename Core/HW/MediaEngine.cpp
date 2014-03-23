@@ -206,15 +206,18 @@ void MediaEngine::DoState(PointerWrap &p){
 	p.Do(m_videopts);
 	p.Do(m_audiopts);
 
-	if (s >= 3) {
+	if (s >= 2) {
 		p.Do(m_firstTimeStamp);
 		p.Do(m_lastTimeStamp);
 	}
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
-	if (s > 2){
+	if (s > 3){
 		p.Do(m_audioType);
+	}
+	else{
+		m_audioType = PSP_CODEC_AT3PLUS;
 	}
 }
 
