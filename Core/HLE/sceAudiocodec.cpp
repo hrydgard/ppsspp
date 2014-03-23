@@ -85,11 +85,14 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		int outbytes = 0;
 		// find a decoder in audioList
 		auto decoder = findDecoder(ctxPtr);
-		if (decoder != NULL){
-			// Decode audio
-			AudioDecode(decoder, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
-			DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		if (decoder == NULL){
+			// create a decoder, this is possible when loadstate
+			decoder = new SimpleAudio(ctxPtr, codec);
+			audioList.push_front(decoder);
 		}
+		// Decode audio
+		AudioDecode(decoder, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
+		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		// Delete AudioCodecContext
 		delete(ctx);
 		return 0;
@@ -136,45 +139,6 @@ const HLEFunction sceAudiocodec[] = {
 void Register_sceAudiocodec()
 {
 	RegisterModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
-}
-
-void __sceAudiocodecDoState(PointerWrap &p){
-	auto s = p.Section("AudioList", 0, 1);
-	if (!s)
-		return;
-
-	/*
-	auto count = (int)audioList.size();
-	p.Do(count);
-	if (p.mode == p.MODE_WRITE && count > 0){
-		// savestate if audioList is nonempty
-		auto codec_ = new int[count];
-		auto ctxPtr_ = new u32[count];
-		int i = 0;
-		for (std::list<SimpleAudio *>::iterator it = audioList.begin(); it != audioList.end(); it++){
-			codec_[i] = (*it)->audioType;
-			ctxPtr_[i] = (*it)->ctxPtr;
-			i++;
-		}
-		p.DoArray(codec_, count);
-		p.DoArray(ctxPtr_, count);
-		delete[] codec_;
-		delete[] ctxPtr_;
-	}
-	if (p.mode == p.MODE_READ && count > 0){
-		// loadstate if audioList is nonempty
-		auto codec_ = new int[count];
-		auto ctxPtr_ = new u32[count];
-		p.DoArray(codec_, count);
-		p.DoArray(ctxPtr_, count);
-		for (int i = 0; i < count; i++){
-			auto decoder = new SimpleAudio(ctxPtr_[i], codec_[i]);
-			audioList.push_front(decoder);
-		}
-		delete[] codec_;
-		delete[] ctxPtr_;
-	}
-	*/
 }
 
 void resetAudioList(){
