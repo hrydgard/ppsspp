@@ -20,7 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
-#include "Core/HW/SimpleAT3Dec.h"
+#include "Core/HW/SimpleAudioDec.h"
 
 #include <algorithm>
 
@@ -152,6 +152,7 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 
 	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
+	m_audioType = PSP_CODEC_AT3PLUS; // in movie, we use only AT3+ audio
 	g_iNumVideos++;
 }
 
@@ -168,7 +169,7 @@ void MediaEngine::closeMedia() {
 		delete m_demux;
 	m_pdata = 0;
 	m_demux = 0;
-	AT3Close(&m_audioContext);
+	AudioClose(&m_audioContext);
 	m_isVideoEnd = false;
 	m_noAudioData = false;
 }
@@ -212,6 +213,9 @@ void MediaEngine::DoState(PointerWrap &p){
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
+	if (s > 2){
+		p.Do(m_audioType);
+	}
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
@@ -279,7 +283,7 @@ bool MediaEngine::openContext() {
 		return false;
 
 	setVideoDim();
-	m_audioContext = AT3Create();
+	m_audioContext = AudioCreate(m_audioType);
 	m_isVideoEnd = false;
 	m_noAudioData = false;
 	m_mpegheaderReadPos++;
@@ -734,8 +738,8 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int outbytes = 0;
 
 	if (m_audioContext != NULL) {
-		if (!AT3Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
-			ERROR_LOG(ME, "AT3 decode failed during video playback");
+		if (!AudioDecode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
+			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 	}
 
