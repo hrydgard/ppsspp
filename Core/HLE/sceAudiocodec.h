@@ -57,5 +57,4 @@ typedef struct
 } SceAudiocodecCodec;
 
 void Register_sceAudiocodec();
-
-void __sceAudiocodecDoState(PointerWrap &p);
+void resetAudioList();

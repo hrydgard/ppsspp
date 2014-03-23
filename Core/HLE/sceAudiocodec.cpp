@@ -65,6 +65,7 @@ int sceAudiocodecInit(u32 ctxPtr, int codec) {
 		auto decoder = new SimpleAudio(ctxPtr, codec);
 		audioList.push_front(decoder);
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		DEBUG_LOG(ME, "Number of playing audios : %d", audioList.size());
 		return 0;
 	}
 	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(codec), codec);
@@ -142,6 +143,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 	if (!s)
 		return;
 
+	/*
 	auto count = (int)audioList.size();
 	p.Do(count);
 	if (p.mode == p.MODE_WRITE && count > 0){
@@ -172,4 +174,10 @@ void __sceAudiocodecDoState(PointerWrap &p){
 		delete[] codec_;
 		delete[] ctxPtr_;
 	}
+	*/
+}
+
+void resetAudioList(){
+	audioList.clear();
+	INFO_LOG(ME, "Audio playing list is reset");
 }
