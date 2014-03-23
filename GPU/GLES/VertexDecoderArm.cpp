@@ -506,7 +506,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 			case 6: VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false); break;
 			case 7:
 			case 8:
-				VLD1(I_32, neonScratchReg, srcReg, 1, ALIGN_NONE);
+				VLD1(I_32, neonScratchReg, tempReg1, 1, ALIGN_NONE);
 				break;
 			}
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
@@ -537,7 +537,7 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		if (dec_->nweights == 1) {
 			VLD1_lane(F_32, neonWeightRegsD[0], srcReg, 0, true);
 		} else {
-			// We over-read by one float but this is not a tragedy.
+			// We may over-read by one float but this is not a tragedy.
 			VLDMIA(srcReg, false, neonWeightRegsD[0], (dec_->nweights + 1) / 2);
 		}
 	} else {
