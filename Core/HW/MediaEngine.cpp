@@ -206,7 +206,7 @@ void MediaEngine::DoState(PointerWrap &p){
 	p.Do(m_videopts);
 	p.Do(m_audiopts);
 
-	if (s >= 2) {
+	if (s >= 3) {
 		p.Do(m_firstTimeStamp);
 		p.Do(m_lastTimeStamp);
 	}
