@@ -137,9 +137,7 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 
 	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
 	if (inAfterColon == "/")
-	{
 		outPath = prefix + inAfterColon;
-	}
 
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
