@@ -919,7 +919,7 @@ inline Vec3<int> Vec3<int>::FromRGB(unsigned int rgb)
 }
 
 template<>
-inline unsigned int Vec3<float>::ToRGB() const
+__forceinline unsigned int Vec3<float>::ToRGB() const
 {
 #if defined(_M_SSE)
 	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
@@ -933,7 +933,7 @@ inline unsigned int Vec3<float>::ToRGB() const
 }
 
 template<>
-inline unsigned int Vec3<int>::ToRGB() const
+__forceinline unsigned int Vec3<int>::ToRGB() const
 {
 #if defined(_M_SSE)
 	__m128i c16 = _mm_packs_epi32(ivec, ivec);
@@ -973,7 +973,7 @@ inline Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
 }
 
 template<>
-inline unsigned int Vec4<float>::ToRGBA() const
+__forceinline unsigned int Vec4<float>::ToRGBA() const
 {
 #if defined(_M_SSE)
 	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
@@ -988,7 +988,7 @@ inline unsigned int Vec4<float>::ToRGBA() const
 }
 
 template<>
-inline unsigned int Vec4<int>::ToRGBA() const
+__forceinline unsigned int Vec4<int>::ToRGBA() const
 {
 #if defined(_M_SSE)
 	__m128i c16 = _mm_packs_epi32(ivec, ivec);
