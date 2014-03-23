@@ -135,6 +135,16 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 		inAfterColon = inPath.substr(inColon + 1);
 	}
 
+	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
+	// Hot Pixel don't like this (prevent booting)
+	/*
+	if (inAfterColon == "/")
+	{
+		outPath = prefix + inAfterColon;
+		return true;
+	}
+	*/
+
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
 		WARN_LOG(FILESYS, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
