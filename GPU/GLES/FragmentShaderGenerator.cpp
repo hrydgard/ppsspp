@@ -271,6 +271,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -301,6 +302,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			// 3 bits
 			id->d[0] |= ReplaceAlphaWithStencilType() << 21;
 		}
+
+		if (computeAbsdiff) {
+			id->d[0] |= (computeAbsdiff & 1) << 24;
+		}
+
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
@@ -377,6 +383,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -551,6 +558,10 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
+	}
+
+	if (computeAbsdiff && gl_extensions.EXT_shader_framebuffer_fetch) {
+		WRITE(p, "  gl_FragColor.rgb = abs(v.rgb - gl_LastFragData[0].rgb);\n");
 	}
 
 	switch (stencilToAlpha) {
