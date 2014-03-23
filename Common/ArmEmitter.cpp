@@ -1819,6 +1819,7 @@ void ARMXEmitter::VAND(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, !(Vd == Vn && Vn == Vm), "All operands the same for %s is a nop", __FUNCTION__);
 	// _dbg_assert_msg_(JIT, !(Size & F_32), "%s doesn't support float.", __FUNCTION__);
 	bool register_quad = Vd >= Q0;
 
@@ -2226,6 +2227,7 @@ void ARMXEmitter::VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, !(Vd == Vn && Vn == Vm), "All operands the same for %s is a nop", __FUNCTION__);
 
 	bool register_quad = Vd >= Q0;
 

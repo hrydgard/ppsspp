@@ -794,11 +794,19 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	GetVectorRegs(vregs, sz, vreg);
 	GetVectorRegs(regsQuad, V_Quad, vreg);   // Same but as quad.
 
+	// First, find quads to flush. These are quads that i
+	std::vector<int> quadsToFlush;
+
 	// Let's check if they are all mapped in a quad somewhere.
+	// At the same time, check for the quad already being mapped.
 	// Later we can check for possible transposes as well.
 	int n = GetNumVectorElements(sz);
 	for (int q = 0; q < 16; q++) {
 		if (!MappableQ(q))
+			continue;
+
+		// Skip unmapped quads.
+		if (qr[q].sz == V_Invalid)
 			continue;
 
 		// Check if completely there already. If so, just transfer dirty flag and exit.
@@ -816,85 +824,24 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 			return (ARMReg)(Q0 + q);
 		}
 
-		// Skip unmapped quads.
-		if (qr[q].sz == V_Invalid)
-			continue;
-
+		// Check for any overlap. Overlap == flush.
 		int origN = GetNumVectorElements(qr[q].sz);
-
-		// Compare subregs to what's already in this register.
-		int matchCount = 0;
-		for (int i = 0; i < n && i < origN; i++) {
-			if (qr[q].vregs[i] == vregs[i])
-				matchCount++;
-			else
-				break;
-		}
-
-		// There was an old reg, and it was shorter!
-		if (matchCount > 0 && matchCount < n) {
-			INFO_LOG(JIT, "Short match: %i/%i (%i).", matchCount, n, vreg);
-
-			// Flush the whole vector to be safe.
-
-			// If the missing elements are elsewhere, they NEED to be flushed out.
-			for (int i = matchCount; i < n; i++) {
-				INFO_LOG(JIT, "FlushQWithV: %i", qr[q].vregs[i]);
-				FlushQWithV(qr[q].vregs[i]);
-			}
-
-			if ((flags & MAP_NOINIT) == 0) {
-				// OK, let's extend by loading the missing elements.
-				for (int i = matchCount; i < n; i++) {
-					emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[i]), R1);
-					emit_->VLD1_lane(F_32, QuadAsQ(q), R0, i, true);
-					qr[q].vregs[i] = vregs[i];
-				}
-			}
-			matchCount = n;
-		} else if (matchCount == n) {
-			if (qr[q].sz > sz) {
-				// Discard overshooting elements for now
-				for (int j = n; j < GetNumVectorElements(qr[q].sz); j++) {
-					FlushV(qr[q].vregs[j]);
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < origN; b++) {
+				if (vregs[a] == qr[q].vregs[b]) {
+					quadsToFlush.push_back(q);
+					goto doubleBreak;
 				}
 			}
 		}
+	doubleBreak:
+		;
+	}
 
-		// Must have found where we want it.
-		break;
-
-		// TODO: Check for longer too.
-		// We have this already! Just check that it isn't longer
-		// than necessary. We need to wipe stray extra regs if we intend to write (only! TODO - but must then wipe when changing to dirty)
-		// If we only return a D, might not actually need to wipe the upper two.
-		// But for now, let's keep it simple.
-		/*
-		for (int j = n; j < 4; j++) {
-			if (ar[r + j].mipsReg == regsQuad[j]) {
-				FlushR(ar[r + j].mipsReg);
-			}
-		}*/
-
-		// TODO: Check for other types of overlap and do the clever thing.
-		
-		if (matchCount == n) {
-			if (flags & MAP_DIRTY) {
-				qr[q].isDirty = true;
-			}
-			qr[q].sz = sz;
-			switch (sz) {
-			case V_Single:
-			case V_Pair:
-				return QuadAsD(q);
-			case V_Triple:
-			case V_Quad:
-				return QuadAsQ(q);
-			case V_Invalid:
-				ERROR_LOG(JIT, "V_Invalid in QMapReg");
-				break;
-			}
-		}
+	// We didn't find the extra register, but we got a list of regs to flush. Flush 'em.
+	// Here we can check for opportunities to do a "transpose-flush" of row vectors, etc.
+	for (size_t i = 0; i < quadsToFlush.size(); i++) {
+		QFlush(quadsToFlush[i]);
 	}
 
 	// Map singles low, to hopefully end up below the scalar limit.
