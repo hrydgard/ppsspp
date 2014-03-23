@@ -158,6 +158,13 @@ bool TryMakeFloatIMM8(u32 val, Operand2 &op2)
 	return false;
 }
 
+void ARMXEmitter::MOVI2FR(ARMReg dest, float val, bool negate)
+{
+	union {float f; u32 u;} conv;
+	conv.f = negate ? -val : val;
+	MOVI2R(dest, conv.u);
+}
+
 void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 {
 	union {float f; u32 u;} conv;
@@ -2146,7 +2153,7 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 		sizeEncoded = 0;
 
 	Write32((0xEE << 24) | (0x8 << 20) | ((sizeEncoded & 2) << 21) | (register_quad << 21) \
-		| ((Vd & 0xF) << 16) | (Rt << 12) | (0xD1 << 4) | ((Vd & 0x10) << 3) | (1 << 4));
+		| ((Vd & 0xF) << 16) | (Rt << 12) | (0xD1 << 4) | ((Vd & 0x10) << 3) | ((sizeEncoded & 1) << 5));
 }
 void ARMXEmitter::VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {

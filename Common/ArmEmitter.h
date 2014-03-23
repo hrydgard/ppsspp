@@ -807,6 +807,7 @@ public:
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
+	void MOVI2FR(ARMReg dest, float val, bool negate = false);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 	void MOVI2F_neon(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
