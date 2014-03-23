@@ -20,7 +20,17 @@
 #include <cmath>
 
 #include "base/basictypes.h"
+#include "Core/HW/MediaEngine.h"
 
+#ifdef USE_FFMPEG
+
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
+#include <libavutil/samplefmt.h>
+}
+
+#endif  // USE_FFMPEG
 
 // Wraps FFMPEG in a nice interface that's drop-in compatible with
 // the old one. Decodes packet by packet - does NOT demux. That's done by
@@ -33,7 +43,30 @@
 // However, it will be maintained as a part of FFMPEG so that's the way we'll go
 // for simplicity and sanity.
 
-struct SimpleAudio;
+struct SimpleAudio {
+public:
+	SimpleAudio(int);
+	SimpleAudio(u32, int);
+	~SimpleAudio();
+
+	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
+	bool IsOK() const { return codec_ != 0; }
+
+	u32 ctxPtr;
+	int audioType;
+
+private:
+#ifdef USE_FFMPEG
+	AVFrame *frame_;
+	AVCodec *codec_;
+	AVCodecContext  *codecCtx_;
+	SwrContext      *swrCtx_;
+	AVCodecID audioCodecId; // AV_CODEC_ID_XXX
+
+	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
+#endif  // USE_FFMPEG
+};
+
 
 enum {
 	PSP_CODEC_AT3PLUS = 0x00001000,

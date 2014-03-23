@@ -29,26 +29,6 @@ extern "C" {
 
 #endif  // USE_FFMPEG
 
-struct SimpleAudio {
-public:
-	SimpleAudio(int);
-	~SimpleAudio();
-
-	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
-	bool IsOK() const { return codec_ != 0; }
-
-private:
-#ifdef USE_FFMPEG
-	AVFrame *frame_;
-	AVCodec *codec_;
-	AVCodecContext  *codecCtx_;
-	SwrContext      *swrCtx_;
-	AVCodecID audioCodecId; // AV_CODEC_ID_XXX
-
-	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
-#endif  // USE_FFMPEG
-};
-
 bool SimpleAudio::GetAudioCodecID(int audioType){
 #ifdef USE_FFMPEG
 	
@@ -83,6 +63,48 @@ SimpleAudio::SimpleAudio(int audioType)
 : codec_(0),
 codecCtx_(0),
 swrCtx_(0) {
+	SimpleAudio::audioType = audioType;
+#ifdef USE_FFMPEG
+		frame_ = av_frame_alloc();
+
+	// Get Audio Codec ID
+	if (!GetAudioCodecID(audioType)){
+		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
+		return;
+	}
+	// Find decoder
+	codec_ = avcodec_find_decoder(audioCodecId);
+	if (!codec_) {
+		// Eh, we shouldn't even have managed to compile. But meh.
+		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID for audio (%s). Update your submodule.", GetCodecName(audioType));
+		return;
+	}
+	// Allocate codec context
+	codecCtx_ = avcodec_alloc_context3(codec_);
+	if (!codecCtx_) {
+		ERROR_LOG(ME, "Failed to allocate a codec context");
+		return;
+	}
+	codecCtx_->channels = 2;
+	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
+	// Open codec
+	AVDictionary *opts = 0;
+	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
+		ERROR_LOG(ME, "Failed to open codec");
+		return;
+	}
+
+	av_dict_free(&opts);
+#endif  // USE_FFMPEG
+}
+
+
+SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
+: codec_(0),
+codecCtx_(0),
+swrCtx_(0) {
+	SimpleAudio::ctxPtr = ctxPtr;
+	SimpleAudio::audioType = audioType;
 #ifdef USE_FFMPEG
 	frame_ = av_frame_alloc();
 
@@ -196,6 +218,23 @@ SimpleAudio *AudioCreate(int audioType) {
 	InitFFmpeg();
 
 	SimpleAudio *Audio = new SimpleAudio(audioType);
+	if (!Audio->IsOK()) {
+		delete Audio;
+		return 0;
+	}
+	return Audio;
+#else
+	return 0;
+#endif  // USE_FFMPEG
+}
+
+SimpleAudio *AudioCreate(u32 ctxPtr, int audioType) {
+#ifdef USE_FFMPEG
+	avcodec_register_all();
+	av_register_all();
+	InitFFmpeg();
+
+	SimpleAudio *Audio = new SimpleAudio(ctxPtr, audioType);
 	if (!Audio->IsOK()) {
 		delete Audio;
 		return 0;

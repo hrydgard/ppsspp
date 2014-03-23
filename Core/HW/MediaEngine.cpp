@@ -213,7 +213,9 @@ void MediaEngine::DoState(PointerWrap &p){
 
 	p.Do(m_isVideoEnd);
 	p.Do(m_noAudioData);
-	p.Do(m_audioType);
+	if (s > 2){
+		p.Do(m_audioType);
+	}
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
