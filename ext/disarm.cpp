@@ -650,6 +650,8 @@ static char * num(char * op, word w) {
  *
  *  ADDED BY HRYDGARD:
  *   ^        16-bit immediate
+ *   >        5-bit immediate at 11..7 (lsb)
+ *   <        5-bit immediate at 20..16 with +1 or -lsb if bit 6 set
  *
  * NB that / takes note of bit 22, too, and does its own ! when
  * appropriate.
@@ -851,13 +853,41 @@ lMaybeLDRHetc:
 		case 5:
     case 6:
     case 7:
-      /* undefined or STR/LDR */
-      if ((instr&Ibit) && (instr&(1<<4))) goto lUndefined;	/* "class A" */
-      mnemonic = "STR\0LDR"  + ((instr&Lbit) >> 18);
-      format   = "3,/";
-      if (instr&Bbit) *flagp++='B';
-      if ((instr&(Wbit+Pbit))==Wbit) *flagp++='T';
-      poss_tt = target_Data;
+      /* STR/LDR/BFI/BFC/UBFX/SBFX or undefined */
+      if ((instr&Ibit) && (instr&(1<<4))) {
+        switch ((instr >> 21) & 7) {
+        case 5:
+        case 7:
+          /* SBFX/UBFX */
+          if (((instr>>4) & 7) != 5) {
+            goto lUndefined;
+          }
+          mnemonic = (instr & (1 << 22)) ? "UBFX" : "SBFX";
+          format = "3,0,>,<";
+          break;
+        case 6:
+          /* BFI/BFC */
+          if (((instr>>4) & 7) != 1) {
+            goto lUndefined;
+          }
+          if ((instr & 15) == 15) {
+            mnemonic = "BFC";
+            format = "3,>,<";
+          } else {
+            mnemonic = "BFI";
+            format = "3,0,>,<";
+          }
+          break;
+        default:
+          goto lUndefined;    /* "class A" */
+        }
+      } else {
+        mnemonic = "STR\0LDR"  + ((instr&Lbit) >> 18);
+        format   = "3,/";
+        if (instr&Bbit) *flagp++='B';
+        if ((instr&(Wbit+Pbit))==Wbit) *flagp++='T';
+        poss_tt = target_Data;
+      }
       break;
     case 8:
     case 9:
@@ -1197,6 +1227,18 @@ lPling:
             break;
           case ';':
             op = reg(op, 'p', instr>>8);
+            break;
+          case '>':
+            *op++='#';
+            op = num(op, (instr >> 7) & 31);
+            break;
+          case '<':
+            *op++='#';
+            if (instr & (1 << 6)) {
+              op = num(op, ((instr >> 16) & 31) + 1);
+            } else {
+              op = num(op, ((instr >> 16) & 31) + 1 - ((instr >> 7) & 31));
+            }
             break;
           default:
             if (c<=5)

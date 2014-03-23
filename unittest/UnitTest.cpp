@@ -255,6 +255,22 @@ bool TestArmEmitter() {
 	ARMXEmitter emitter((u8 *)code);
 	emitter.LDR(R3, R7);
 	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
+	emitter.BFI(R3, R7, 5, 9);
+	RET(CheckLast(emitter, "e7cd3297 BFI r3, r7, #5, #9"));
+	emitter.BFC(R4, 5, 9);
+	RET(CheckLast(emitter, "e7cd429f BFC r4, #5, #9"));
+	emitter.UBFX(R4, R9, 5, 9);
+	RET(CheckLast(emitter, "e7e842d9 UBFX r4, r9, #5, #9"));
+	emitter.SBFX(R0, R8, 5, 9);
+	RET(CheckLast(emitter, "e7a802d8 SBFX r0, r8, #5, #9"));
+
+	emitter.B_CC(CC_NEQ, code + 128);
+	RET(CheckLast(emitter, "1a000079 BNE &000001EC"));
+	emitter.SetJumpTarget(emitter.B_CC(CC_NEQ));
+	RET(CheckLast(emitter, "1affffff BNE &00000004"));
+	emitter.SetJumpTarget(emitter.BL_CC(CC_NEQ));
+	RET(CheckLast(emitter, "1bffffff BLNE &00000004"));
+
 	emitter.VLDR(S3, R8, 48);
 	RET(CheckLast(emitter, "edd81a0c VLDR s3, [r8, #48]"));
 	emitter.VSTR(S5, R12, -36);

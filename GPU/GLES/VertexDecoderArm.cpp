@@ -330,10 +330,10 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 				// Krait likes VDUP + VFMA better than VMLA, and it's easy to do here.
 				if (cpu_info.bVFPv4) {
 					VDUP(F_32, Q1, neonWeightRegs[i >> 2], i & 1);
-					VFMA(Q4, Q12, Q1);
-					VFMA(Q5, Q13, Q1);
-					VFMA(Q6, Q14, Q1);
-					VFMA(Q7, Q15, Q1);
+					VFMA(F_32, Q4, Q12, Q1);
+					VFMA(F_32, Q5, Q13, Q1);
+					VFMA(F_32, Q6, Q14, Q1);
+					VFMA(F_32, Q7, Q15, Q1);
 				} else {
 					VMLA_scalar(F_32, Q4, Q12, QScalar(neonWeightRegs[0], 1));
 					VMLA_scalar(F_32, Q5, Q13, QScalar(neonWeightRegs[0], 1));
