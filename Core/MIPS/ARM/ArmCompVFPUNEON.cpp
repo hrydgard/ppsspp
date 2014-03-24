@@ -752,6 +752,7 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 
 	switch ((op >> 16) & 0xF) {
 	case 3:  // vmidt
+		// There has to be a better way to synthesize: 1.0, 0.0, 0.0, 1.0 in a quad
 		VEOR(D0, D0, D0);
 		VMOV_immf(D1, 1.0f);
 		VTRN(F_32, D0, D1);
