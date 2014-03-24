@@ -312,6 +312,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// not really sure what a sensible value might be.
 		fog_slope = fog_slope < 0.0f ? -10000.0f : 10000.0f;
 	}
+	if (my_isnan(fog_slope))	{
+		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+		// Just put the fog far away at a large finite distance.
+		// Infinities and NaNs are rather unpredictable in shaders on many GPUs
+		// so it's best to just make it a sane calculation.
+		fog_end = 100000.0f;
+		fog_slope = 1.0f;
+	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	for (int index = 0; index < maxIndex; index++) {
