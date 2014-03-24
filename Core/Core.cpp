@@ -129,22 +129,13 @@ void UpdateScreenScale(int width, int height) {
 }
 
 static inline void UpdateRunLoop() {
+	NativeUpdate(input_state);
+
 	{
-		{
-#ifdef _WIN32
-			lock_guard guard(input_state.lock);
-			input_state.pad_buttons = 0;
-			input_state.pad_lstick_x = 0;
-			input_state.pad_lstick_y = 0;
-			input_state.pad_rstick_x = 0;
-			input_state.pad_rstick_y = 0;
-			host->PollControllers(input_state);
-			UpdateInputState(&input_state);
-#endif
-		}
-		NativeUpdate(input_state);
+		lock_guard guard(input_state.lock);
 		EndInputState(&input_state);
 	}
+
 	if (globalUIState != UISTATE_EXIT) {
 		NativeRender();
 	}
