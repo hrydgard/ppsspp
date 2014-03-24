@@ -265,11 +265,6 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
-
-		// TODO: Add functionality to VertexDecoder to scan for non-full alpha in the two other formats,
-		// which are quite common.
-		int colorType = vertTypeID & GE_VTYPE_COL_MASK;
-		gstate_c.vertexFullAlpha = colorType == GE_VTYPE_COL_NONE || colorType == GE_VTYPE_COL_565;
 	}
 }
 
@@ -566,6 +561,8 @@ void TransformDrawEngine::DoFlush() {
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
+					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
+
 					goto rotateVBO;
 				}
 
@@ -645,6 +642,8 @@ void TransformDrawEngine::DoFlush() {
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
+
+					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
@@ -665,6 +664,8 @@ void TransformDrawEngine::DoFlush() {
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
+
+					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
@@ -717,6 +718,7 @@ rotateVBO:
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 	} else {
 		DecodeVerts();
+
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
@@ -737,6 +739,7 @@ rotateVBO:
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
+	gstate_c.vertexFullAlpha = true;
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();

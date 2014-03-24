@@ -556,6 +556,11 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 void VertexDecoderJitCache::Jit_Color8888() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+
+	CMP(32, R(tempReg1), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_GE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
@@ -625,6 +630,11 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	OR(32, R(tempReg2), R(tempReg3));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
+
+	CMP(32, R(tempReg2), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_AE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
@@ -696,6 +706,11 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	OR(32, R(tempReg2), R(tempReg1));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
+
+	CMP(32, R(tempReg2), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_AE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
@@ -890,6 +905,13 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff) {
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
 	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
+
+	// TODO: May be a faster way to do this without the MOVD.
+	MOVD_xmm(R(tempReg1), fpScratchReg);
+	CMP(32, R(tempReg1), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_AE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
