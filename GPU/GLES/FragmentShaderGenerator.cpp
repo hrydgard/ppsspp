@@ -64,6 +64,8 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 
 	case GE_COMP_GEQUAL:
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+			return true;  // If alpha is full, it doesn't matter what the ref value is.
 		return gstate.getAlphaTestRef() == 0;
 
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
