@@ -61,7 +61,8 @@ static const ARMReg tempReg2 = R4;
 static const ARMReg tempReg3 = R5;
 static const ARMReg scratchReg = R6;
 static const ARMReg scratchReg2 = R7;
-static const ARMReg scratchReg3 = R12;
+static const ARMReg scratchReg3 = R8;
+static const ARMReg fullAlphaReg = R12;
 static const ARMReg srcReg = R0;
 static const ARMReg dstReg = R1;
 static const ARMReg counterReg = R2;
@@ -262,6 +263,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		// TODO: Preload scale factors
 	}
 
+	if (dec.col) {
+		// Or LDB and skip the conditional?  This is probably cheaper.
+		MOV(fullAlphaReg, 0xFF);
+	}
+
 	JumpTarget loopStart = GetCodePtr();
 	// Preload data cache ahead of reading. This offset seems pretty good.
 	PLD(srcReg, 64);
@@ -280,6 +286,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	ADDI2R(dstReg, dstReg, dec.decFmt.stride, scratchReg);
 	SUBS(counterReg, counterReg, 1);
 	B_CC(CC_NEQ, loopStart);
+
+	if (dec.col) {
+		MOVP2R(tempReg, &gstate_c.textureFullAlpha);
+		CMP(fullAlphaReg, 0);
+		SetCC(CC_EQ);
+		STRB(fullAlphaReg, tempReg, 0);
+		SetCC(CC_AL);
+	}
 
 	if (NEONSkinning || NEONMorphing) {
 		VPOP(D8, 8);
@@ -664,7 +678,12 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 
 void VertexDecoderJitCache::Jit_Color8888() {
 	LDR(tempReg1, srcReg, dec_->coloff);
+	// Set flags to determine if alpha != 0xFF.
+	MVNS(tempReg2, Operand2(tempReg1, ST_ASR, 24));
 	STR(tempReg1, dstReg, dec_->decFmt.c0off);
+	SetCC(CC_NEQ);
+	MOV(fullAlphaReg, 0);
+	SetCC(CC_AL);
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -679,10 +698,16 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	ANDI2R(tempReg3, tempReg1, 0xF000, scratchReg);
 	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 12));
 
-	// And saturate.
+	// And expand to 8 bits.
 	ORR(tempReg1, tempReg2, Operand2(tempReg2, ST_LSL, 4));
 
 	STR(tempReg1, dstReg, dec_->decFmt.c0off);
+
+	// Set flags to determine if alpha != 0xFF.
+	MVNS(tempReg2, Operand2(tempReg1, ST_ASR, 24));
+	SetCC(CC_NEQ);
+	MOV(fullAlphaReg, 0);
+	SetCC(CC_AL);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
@@ -706,7 +731,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 	ORR(tempReg3, tempReg3, Operand2(tempReg1, ST_LSR, 4));
 	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 8));
 
-	// Add in full alpha.
+	// Add in full alpha.  No need to update fullAlphaReg.
 	ORI2R(tempReg1, tempReg2, 0xFF000000, scratchReg);
 
 	STR(tempReg1, dstReg, dec_->decFmt.c0off);
@@ -731,8 +756,13 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	// Now we just need alpha.  Since we loaded as signed, it'll be extended.
 	ANDI2R(tempReg1, tempReg1, 0xFF000000, scratchReg);
 	ORR(tempReg2, tempReg2, tempReg1);
-
+	
+	// Set flags to determine if alpha != 0xFF.
+	MVNS(tempReg3, Operand2(tempReg1, ST_ASR, 24));
 	STR(tempReg2, dstReg, dec_->decFmt.c0off);
+	SetCC(CC_NEQ);
+	MOV(fullAlphaReg, 0);
+	SetCC(CC_AL);
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
@@ -957,7 +987,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	} else {
 		VMOV(S11, tempReg3);
 	}
-	Jit_WriteMorphColor(dec_->decFmt.c0off);
+	Jit_WriteMorphColor(dec_->decFmt.c0off, false);
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
@@ -1045,13 +1075,16 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 }
 
 // Expects RGBA color in S8 - S11, which is Q2.
-void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff) {
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (NEONMorphing) {
 		ADDI2R(tempReg1, dstReg, outOff, scratchReg);
 		VCVT(I_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 		VQMOVN(I_32 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
 		VQMOVN(I_16 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
 		VST1_lane(I_32, neonScratchReg, tempReg1, 0, true);
+		if (checkAlpha) {
+			VMOV_neon(I_32, scratchReg, neonScratchReg, 0);
+		}
 	} else {
 		VCVT(S8, S8, TO_INT);
 		VCVT(S9, S9, TO_INT);
@@ -1065,6 +1098,14 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff) {
 		ORR(scratchReg, scratchReg, Operand2(scratchReg3, ST_LSL, 16));
 		ORR(scratchReg, scratchReg, Operand2(tempReg3, ST_LSL, 24));
 		STR(scratchReg, dstReg, outOff);
+	}
+
+	// Set flags to determine if alpha != 0xFF.
+	if (checkAlpha) {
+		MVNS(tempReg2, Operand2(scratchReg, ST_ASR, 24));
+		SetCC(CC_NEQ);
+		MOV(fullAlphaReg, 0);
+		SetCC(CC_AL);
 	}
 }
 
