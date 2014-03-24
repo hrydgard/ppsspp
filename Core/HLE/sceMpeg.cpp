@@ -356,10 +356,10 @@ void __MpegDoState(PointerWrap &p) {
 
 	if (s < 2) {
 		int oldLastMpeg = -1;
-		bool oldIsMpegAnaltized = false;
+		bool oldIsMpegAnalyzed = false;
 		p.Do(oldLastMpeg);
 		p.Do(streamIdGen);
-		p.Do(oldIsMpegAnaltized);
+		p.Do(oldIsMpegAnalyzed);
 		// Let's assume the oldest version.
 		mpegLibVersion = 0x0101;
 	} else {
