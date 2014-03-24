@@ -161,10 +161,12 @@ bool GL_Init(HWND window, std::string *error_message) {
 			"Please check that your GPU is compatible with OpenGL 2.0.If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\n"
 			"Visit the forums at http://forums.ppsspp.org for more information.\n\n";
 
+		std::wstring versionDetected = ConvertUTF8ToWString(glVersion + "\n\n");
 		std::wstring error = ConvertUTF8ToWString(err->T("InsufficientOpenGLDriver", defaultError));
 		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
+		std::wstring combined = versionDetected + error;
 
-		MessageBox(hWnd, error.c_str(), title.c_str(), MB_ICONERROR);
+		MessageBox(hWnd, combined.c_str(), title.c_str(), MB_ICONERROR);
 
 		// Avoid further error messages. Let's just bail, it's safe, and we can't continue.
 		ExitProcess(0);
