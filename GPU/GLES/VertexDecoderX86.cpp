@@ -361,11 +361,7 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(XMM1, R(tempReg1));
@@ -399,11 +395,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(XMM1, R(tempReg1));
@@ -437,11 +429,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVSS(XMM1, MDisp(srcReg, dec_->weightoff + j * 4));
 		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
@@ -739,13 +727,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
@@ -789,13 +771,7 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 // Intentionally in reverse order.
@@ -849,13 +825,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 // Intentionally in reverse order.
@@ -911,13 +881,15 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		}
 	}
 
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff) {
 	// Pack back into a u32.
 	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
@@ -1000,6 +972,7 @@ void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
+	DEBUG_LOG_REPORT_ONCE(vertexS8Through, G3D, "Using S8 positions in throughmode");
 	// TODO: SIMD
 	for (int i = 0; i < 3; i++) {
 		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
