@@ -182,6 +182,7 @@ void Jit::Compile(u32 em_address) {
 		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", js.compilerPC - 4);
 		js.LogPrefix();
 
+		return;
 		js.startDefaultPrefix = false;
 
 		// Our assumptions are all wrong so it's clean-slate time.

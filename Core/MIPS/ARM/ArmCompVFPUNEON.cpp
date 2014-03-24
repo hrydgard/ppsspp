@@ -259,6 +259,7 @@ void Jit::CompNEON_SV(MIPSOpcode op) {
 		}
 		break;
 	}
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 inline int MIPS_GET_VQVT(u32 op) {
@@ -471,6 +472,7 @@ void Jit::CompNEON_VDot(MIPSOpcode op) {
 	}
 
 	NEONApplyPrefixD(r.vd);
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_VScl(MIPSOpcode op) {
@@ -485,10 +487,11 @@ void Jit::CompNEON_VScl(MIPSOpcode op) {
 	ARMReg temp = MatchSize(Q0, r.vt);
 
 	// TODO: VMUL_scalar directly when possible
-	VMOV(temp, r.vt);
+	VMOV_neon(temp, r.vt);
 	VMUL_scalar(F_32, r.vd, r.vs, DScalar(Q0, 0));
 
 	NEONApplyPrefixD(r.vd);
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_VV2Op(MIPSOpcode op) {
@@ -525,7 +528,7 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 	switch ((op >> 16) & 0x1f) {
 	case 0: // d[i] = s[i]; break; //vmov
 		// Probably for swizzle.
-		VMOV(r.vd, r.vs);
+		VMOV_neon(r.vd, r.vs);
 		break;
 	case 1: // d[i] = fabsf(s[i]); break; //vabs
 		VABS(F_32, r.vd, r.vs);
@@ -613,11 +616,11 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 		break;
 	case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
 		// Let's just defer to VFP for now. Better than calling the interpreter for sure.
-		VMOV(MatchSize(Q0, r.vs), r.vs);
+		VMOV_neon(MatchSize(Q0, r.vs), r.vs);
 		for (int i = 0; i < n; i++) {
 			VSQRT((ARMReg)(S0 + i), (ARMReg)(S0 + i));
 		}
-		VMOV(MatchSize(Q0, r.vd), r.vd);
+		VMOV_neon(MatchSize(Q0, r.vd), r.vd);
 		break;
 	case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 		DISABLE;
@@ -654,7 +657,7 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 				ARMReg r = fpr.QMapReg(imm, V_Single, MAP_READ);
 				gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 				// TODO: Gotta be a faster way
-				VMOV(MatchSize(Q0, r), r);
+				VMOV_neon(MatchSize(Q0, r), r);
 				VMOV(gpr.R(rt), S0);
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				// In case we have a saved prefix.
@@ -682,7 +685,7 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 			ARMReg r = fpr.QMapReg(imm, V_Single, MAP_DIRTY | MAP_NOINIT);
 			if (gpr.IsMapped(rt)) {
 				VMOV(S0, gpr.R(rt));
-				VMOV(r, MatchSize(Q0, r));
+				VMOV_neon(r, MatchSize(Q0, r));
 			} else {
 				ADDI2R(R0, CTXREG, gpr.GetMipsRegOffset(rt), R1);
 				VLD1_lane(F_32, r, R0, 0, true);
@@ -966,8 +969,6 @@ void Jit::CompNEON_Vi2f(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_Vh2f(MIPSOpcode op) {
-	DISABLE;
-
 	if (!cpu_info.bHalf) {
 		// No hardware support for half-to-float, fallback to interpreter
 		// TODO: Translate the fast SSE solution to standard integer/VFP stuff
@@ -977,9 +978,26 @@ void Jit::CompNEON_Vh2f(MIPSOpcode op) {
 
 	VectorSize sz = GetVecSize(op);
 
-	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
-	DestARMReg vd = NEONMapPrefixD(_VD, sz, MAP_DIRTY | (vd == vs ? 0 : MAP_NOINIT));
+	VectorSize outsize = V_Pair;
+	switch (sz) {
+	case V_Single:
+		outsize = V_Pair;
+		break;
+	case V_Pair:
+		outsize = V_Quad;
+		break;
+	default:
+		ERROR_LOG(JIT, "Vh2f: Must be pair or quad");
+		break;
+	}
 
+	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
+	DestARMReg vd = NEONMapPrefixD(_VD, outsize, MAP_DIRTY | (vd == vs ? 0 : MAP_NOINIT));
+
+	VCVTF32F16(vd.rd, vs);
+
+	NEONApplyPrefixD(vd);
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vcst(MIPSOpcode op) {
@@ -1033,6 +1051,7 @@ void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
 		DISABLE;
 		break;
 	}
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_VRot(MIPSOpcode op) {
@@ -1051,6 +1070,7 @@ void Jit::CompNEON_VRot(MIPSOpcode op) {
 	int n = GetNumVectorElements(sz);
 
 	// ...
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_VIdt(MIPSOpcode op) {
@@ -1108,17 +1128,14 @@ void Jit::CompNEON_Vcmov(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_Viim(MIPSOpcode op) {
-	u8 dreg;
-	GetVectorRegs(&dreg, V_Single, _VT);
-
-	DestARMReg vd = NEONMapPrefixD(_VD, V_Single, MAP_NOINIT | MAP_DIRTY);
+	DestARMReg vt = NEONMapPrefixD(_VT, V_Single, MAP_NOINIT | MAP_DIRTY);
 
 	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 	// TODO: Optimize for low registers.
 	MOVI2F(S0, (float)imm, R0);
-	VMOV_neon(vd.rd, D0);
+	VMOV_neon(vt.rd, D0);
 
-	NEONApplyPrefixD(vd);
+	NEONApplyPrefixD(vt);
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
@@ -1128,16 +1145,16 @@ void Jit::CompNEON_Vfim(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	DestARMReg vd = NEONMapPrefixD(_VD, V_Single, MAP_NOINIT | MAP_DIRTY);
+	DestARMReg vt = NEONMapPrefixD(_VT, V_Single, MAP_NOINIT | MAP_DIRTY);
 
 	FP16 half;
 	half.u = op & 0xFFFF;
 	FP32 fval = half_to_float_fast5(half);
 	// TODO: Optimize for low registers.
 	MOVI2F(S0, (float)fval.f, R0);
-	VMOV_neon(vd.rd, D0);
+	VMOV_neon(vt.rd, D0);
 
-	NEONApplyPrefixD(vd);
+	NEONApplyPrefixD(vt);
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 

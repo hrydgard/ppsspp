@@ -610,35 +610,35 @@ void ArmRegCacheFPU::QFlush(int quad) {
 		switch (qr[quad].sz) {
 		case V_Single:
 			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
-			emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+			emit_->VST1_lane(F_32, q, R0, 0, true);
 			// WARN_LOG(JIT, "S: Falling back to individual flush: pc=%08x", js_->compilerPC);
 			break;
 		case V_Pair:
 			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1])) {
 				// Can combine, it's a column!
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
-				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+				emit_->VST1(F_32, q, R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
 			} else {
 				// WARN_LOG(JIT, "P: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->VST1_lane(F_32, q, R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->VST1_lane(F_32, q, R0, 1, true);
 			}
 			break;
 		case V_Triple:
 			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1], qr[quad].vregs[2])) {
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
 				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+				emit_->VST1_lane(F_32, q, R0, 2, true);
 			} else {
 				// WARN_LOG(JIT, "T: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->VST1_lane(F_32, q, R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->VST1_lane(F_32, q, R0, 1, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[2]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+				emit_->VST1_lane(F_32, q, R0, 2, true);
 			}
 			break;
 		case V_Quad:
@@ -648,13 +648,13 @@ void ArmRegCacheFPU::QFlush(int quad) {
 			} else {
 				// WARN_LOG(JIT, "Q: Falling back to individual flush: pc=%08x", js_->compilerPC);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->VST1_lane(F_32, q, R0, 0, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->VST1_lane(F_32, q, R0, 1, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[2]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+				emit_->VST1_lane(F_32, q, R0, 2, true);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[3]), R1);
-				emit_->VST1_lane(F_32, QuadAsQ(quad), R0, 3, true);
+				emit_->VST1_lane(F_32, q, R0, 3, true);
 			}
 			break;
 		default:
@@ -792,18 +792,9 @@ void ArmRegCacheFPU::QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int fla
 ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	qTime_++;
 
-	u8 vregs[4];
-	u8 regsQuad[4];
-	GetVectorRegs(vregs, sz, vreg);
-	GetVectorRegs(regsQuad, V_Quad, vreg);   // Same but as quad.
-
-	// First, find quads to flush. These are quads that i
-	std::vector<int> quadsToFlush;
-
-	// Let's check if they are all mapped in a quad somewhere.
-	// At the same time, check for the quad already being mapped.
-	// Later we can check for possible transposes as well.
 	int n = GetNumVectorElements(sz);
+	u8 vregs[4];
+	GetVectorRegs(vregs, sz, vreg);
 
 	// Range of registers to consider
 	int start = 0;
@@ -821,7 +812,12 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		count = 8;
 	}
 
+	// Let's check if they are all mapped in a quad somewhere.
+	// At the same time, check for the quad already being mapped.
+	// Later we can check for possible transposes as well.
+
 	// First just loop over all registers. If it's here and not in range, or overlapped, kick.
+	std::vector<int> quadsToFlush;
 	for (int i = 0; i < 16; i++) {
 		int q = (i + start) & 15;
 		if (!MappableQ(q))
