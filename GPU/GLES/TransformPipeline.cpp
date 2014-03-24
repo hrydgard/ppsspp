@@ -526,12 +526,12 @@ void TransformDrawEngine::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShader *program = shaderManager_->ApplyShader(prim, lastVType_);
+	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_);
 
 	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 	int maxIndex = 0;
 
-	if (program->useHWTransform_) {
+	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;
@@ -699,7 +699,9 @@ rotateVBO:
 
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
+
 		if (useElements) {
 #if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
@@ -715,6 +717,7 @@ rotateVBO:
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 	} else {
 		DecodeVerts();
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
 		// Undo the strip optimization, not supported by the SW code yet.

@@ -223,15 +223,13 @@ int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	// Volatile RAM is always at 0x08400000 and is of size 0x00400000.
 	// It's always available in the emu.
 	// TODO: Should really reserve this properly!
-	Memory::Write_U32(0x08400000, paddr);
-	Memory::Write_U32(0x00400000, psize);
+	if (Memory::IsValidAddress(paddr)) {
+		Memory::Write_U32(0x08400000, paddr);
+	}
+	if (Memory::IsValidAddress(psize)) {
+		Memory::Write_U32(0x00400000, psize);
+	}
 	volatileMemLocked = true;
-
-	// HACK: This fixes Crash Tag Team Racing.
-	// Should only wait 1200 cycles though according to Unknown's testing,
-	// and with that it's still broken. So it's not this, unfortunately.
-	// Leaving it in for the 0.9.8 release anyway.
-	hleEatCycles(500000);
 
 	return 0;
 }
@@ -241,6 +239,11 @@ int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 
 	switch (error) {
 	case 0:
+		// HACK: This fixes Crash Tag Team Racing.
+		// Should only wait 1200 cycles though according to Unknown's testing,
+		// and with that it's still broken. So it's not this, unfortunately.
+		// Leaving it in for the 0.9.8 release anyway.
+		hleEatCycles(500000);
 		DEBUG_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
@@ -308,6 +311,11 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 
 	switch (error) {
 	case 0:
+		// HACK: This fixes Crash Tag Team Racing.
+		// Should only wait 1200 cycles though according to Unknown's testing,
+		// and with that it's still broken. So it's not this, unfortunately.
+		// Leaving it in for the 0.9.8 release anyway.
+		hleEatCycles(500000);
 		DEBUG_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 

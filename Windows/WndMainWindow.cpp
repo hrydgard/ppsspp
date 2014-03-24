@@ -1563,6 +1563,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 			EmuThread_Stop();
+			InputDevice::StopPolling();
 			WindowsRawInput::Shutdown();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);

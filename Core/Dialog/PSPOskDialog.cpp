@@ -246,7 +246,7 @@ int PSPOskDialog::Init(u32 oskPtr) {
 	oskParams = oskPtr;
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
 	{
-		ERROR_LOG(SCEUTILITY, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid size %d", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.

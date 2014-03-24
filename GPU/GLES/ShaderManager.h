@@ -47,6 +47,7 @@ public:
 	void stop();
 	void UpdateUniforms(u32 vertType);
 
+	Shader *vs_;
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
 
@@ -167,7 +168,12 @@ public:
 	~ShaderManager();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	LinkedShader *ApplyShader(int prim, u32 vertType);
+
+	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
+	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
+	Shader *ApplyVertexShader(int prim, u32 vertType);
+	LinkedShader *ApplyFragmentShader(Shader *vs, int prim, u32 vertType);
+
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
@@ -192,6 +198,10 @@ private:
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	LinkedShaderCache linkedShaderCache_;
+
+	FragmentShaderID FSID_;
+	bool lastShaderSame_;
+
 	FragmentShaderID lastFSID_;
 	VertexShaderID lastVSID_;
 

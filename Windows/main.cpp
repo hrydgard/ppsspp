@@ -388,6 +388,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// Emu thread is always running!
 	EmuThread_Start();
+	InputDevice::BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	HACCEL hDebugAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_DEBUGACCELS);
@@ -438,6 +439,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	VFSShutdown();
 
+	InputDevice::StopPolling();
 	EmuThread_Stop();
 
 	MainWindow::DestroyDebugWindows();

@@ -103,6 +103,14 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
 
+x86 {
+	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
+}
+arm:!symbian {
+	SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
+}
+
+
 HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/base/backtrace.h \
 	$$P/native/base/basictypes.h \
@@ -137,5 +145,6 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/random/*.h \
 	$$P/native/util/text/utf8.h \
 	$$P/native/util/text/parsers.h
+
 INCLUDEPATH += $$P/native
 

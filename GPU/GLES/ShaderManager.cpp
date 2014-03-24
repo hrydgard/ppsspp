@@ -82,7 +82,7 @@ Shader::~Shader() {
 LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	program = glCreateProgram();
-
+	vs_ = vs;
 	glAttachShader(program, vs->shader);
 	glAttachShader(program, fs->shader);
 
@@ -605,8 +605,7 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	lastShader_ = 0;
 }
 
-
-LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
+Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	// This doesn't work - we miss some events that really do need to dirty the prescale.
 	// like changing the texmapmode.
 	// if (g_Config.bPrescaleUV)
@@ -622,18 +621,20 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
 	VertexShaderID VSID;
-	FragmentShaderID FSID;
 	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
-	ComputeFragmentShaderID(&FSID);
+	ComputeFragmentShaderID(&FSID_);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
+	if (lastShader_ != 0 && VSID == lastVSID_ && FSID_ == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType);
-		return lastShader_;	// Already all set.
+		lastShaderSame_ = true;
+		return lastShader_->vs_;	// Already all set.
+	} else {
+		lastShaderSame_ = false;
 	}
 
 	lastVSID_ = VSID;
-	lastFSID_ = FSID;
+	lastFSID_ = FSID_;
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
 	Shader *vs;
@@ -660,14 +661,20 @@ LinkedShader *ShaderManager::ApplyShader(int prim, u32 vertType) {
 	} else {
 		vs = vsIter->second;
 	}
+	return vs;
+}
 
-	FSCache::iterator fsIter = fsCache_.find(FSID);
+LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
+	if (lastShaderSame_)
+		return lastShader_;
+
+	FSCache::iterator fsIter = fsCache_.find(FSID_);
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
-		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, useHWTransform);
-		fsCache_[FSID] = fs;
+		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
+		fsCache_[FSID_] = fs;
 	} else {
 		fs = fsIter->second;
 	}

@@ -637,6 +637,12 @@ public:
 	void VSTMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
 	void VLDMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
 	void VSTMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VPUSH(ARMReg firstvreg, int numvregs) {
+		VSTMDB(R_SP, true, firstvreg, numvregs);
+	}
+	void VPOP(ARMReg firstvreg, int numvregs) {
+		VLDMIA(R_SP, true, firstvreg, numvregs);
+	}
 	void VLDR(ARMReg Dest, ARMReg Base, s16 offset);
 	void VSTR(ARMReg Src,  ARMReg Base, s16 offset);
 	void VCMP(ARMReg Vd, ARMReg Vm);
@@ -662,6 +668,8 @@ public:
 	void VMOV(ARMReg Dest, Operand2 op2);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
+	// Either Vd, Rt, Rt2 or Rt, Rt2, Vd.
+	void VMOV(ARMReg Dest, ARMReg Src1, ARMReg Src2);
 	void VCVT(ARMReg Dest, ARMReg Src, int flags);
 
 	// NEON, need to check for this (supported if VFP4 is supported)
@@ -744,9 +752,20 @@ public:
 	void VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORN(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
-  inline void VMOV_neon(ARMReg Dest, ARMReg Src) {
-    VORR(Dest, Src, Src);
-  }
+	inline void VMOV_neon(ARMReg Dest, ARMReg Src) {
+		VORR(Dest, Src, Src);
+	}
+	void VMOV_neon(u32 Size, ARMReg Vd, u32 imm);
+	void VMOV_neon(u32 Size, ARMReg Vd, float imm) {
+		_dbg_assert_msg_(JIT, Size == F_32, "Expecting F_32 immediate for VMOV_neon float arg.");
+		union {
+			float f;
+			u32 u;
+		} val;
+		val.f = imm;
+		VMOV_neon(I_32, Vd, val.u);
+	}
+	void VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane);
 
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -850,7 +869,9 @@ public:
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
+	void MOVI2FR(ARMReg dest, float val, bool negate = false);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
+	void MOVI2F_neon(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
 	// Load pointers without casting
 	template <class T> void MOVP2R(ARMReg reg, T *val) {
