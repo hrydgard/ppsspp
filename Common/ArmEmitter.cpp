@@ -2153,7 +2153,7 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 		sizeEncoded = 0;
 
 	Write32((0xEE << 24) | (0x8 << 20) | ((sizeEncoded & 2) << 21) | (register_quad << 21) \
-		| ((Vd & 0xF) << 16) | (Rt << 12) | (0xD1 << 4) | ((Vd & 0x10) << 3) | ((sizeEncoded & 1) << 5));
+		| ((Vd & 0xF) << 16) | (Rt << 12) | (0xB1 << 4) | ((Vd & 0x10) << 3) | ((sizeEncoded & 1) << 5));
 }
 void ARMXEmitter::VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
