@@ -71,6 +71,13 @@ static bool IsAlphaTestTriviallyTrue() {
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
 	case GE_COMP_NOTEQUAL:
+		if ((gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) && gstate.getAlphaTestRef() == 255) {
+			// Likely to be rare. Let's just have the alpha test take care of this instead of adding
+			// complicated code to discard the draw or whatnot.
+			return false;
+		}
+		// Fallthrough on purpose
+
 	case GE_COMP_GREATER:
 		{
 #if 0
