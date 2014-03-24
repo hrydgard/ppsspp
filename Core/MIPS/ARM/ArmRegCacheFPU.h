@@ -34,8 +34,13 @@ enum {
 };
 
 enum {
-	MAP_MTX_COLS = 0,  // default
-	MAP_MTX_ROWS = 32,
+	MAP_MTX_TRANSPOSED = 16,
+	MAP_PREFER_LOW = 16,
+	MAP_PREFER_HIGH = 32,
+
+	// Force is not yet correctly implemented, if the reg is already mapped it will not move
+	MAP_FORCE_LOW = 64,  // Only map Q0-Q7  (and probably not Q0-Q3 as they are S registers so that leaves Q8-Q15)
+	MAP_FORCE_HIGH = 128,  // Only map Q8-Q15
 };
 
 struct FPURegARM {
@@ -146,7 +151,7 @@ public:
 	void QAllowSpill(int quad);
 	void QFlush(int quad);
 	void QLoad4x4(MIPSGPReg regPtr, int vquads[4]);
-	void FlushQWithV(MIPSReg r);
+	//void FlushQWithV(MIPSReg r);
 
 	// NOTE: These require you to release spill locks manually!
 	void MapRegsAndSpillLockV(int vec, VectorSize vsz, int flags);
@@ -170,7 +175,7 @@ private:
 		return GetMipsRegOffset(r + 32);
 	}
 	// This one WILL get a free quad as long as you haven't spill-locked them all.
-	int QGetFreeQuad(bool preferLow = false);
+	int QGetFreeQuad(int start, int count, const char *reason);
 	int GetNumARMFPURegs();
 
 	MIPSState *mips_;

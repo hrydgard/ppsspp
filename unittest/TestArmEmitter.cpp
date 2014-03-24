@@ -134,6 +134,8 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f34eadfc VMUL.f32 q13, q15, q14"));
 	emitter.VADD(F_32, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2042d46 VADD.f32 q1, q2, q3"));
+	emitter.VADD(F_32, Q11, Q11, Q10);
+	RET(CheckLast(emitter, "f2466de4 VADD.f32, Q11, Q11, Q10"));
 	emitter.VMLA(F_32, Q1, Q2, Q3);
 	RET(CheckLast(emitter, "f2042d56 VMLA.f32 q1, q2, q3"));
 	emitter.VMLS(F_32, Q1, Q2, Q3);
@@ -165,6 +167,9 @@ bool TestArmEmitter() {
 	emitter.VMOV(D26, D30);
 	RET(CheckLast(emitter, "eef0ab6e VMOV d26, d30"));
 
+	emitter.VMUL_scalar(F_32, Q12, Q8, DScalar(D0, 0));
+	RET(CheckLast(emitter, "f3e089c0 VMUL.f32 q12, q8, d0[0]"));
+
 	emitter.VMUL_scalar(F_32, Q1, Q2, DScalar(D7, 0));
 	RET(CheckLast(emitter, "f3a42947 VMUL.f32 q1, q2, d7[0]"));
 
@@ -195,6 +200,9 @@ bool TestArmEmitter() {
 	int C020 = GetColumnName(0, M_4x4, 2, 0);
 	int C030 = GetColumnName(0, M_4x4, 3, 0);
 	int R000 = GetRowName(0, M_4x4, 0, 0);
+	int R001 = GetRowName(0, M_4x4, 1, 0);
+	int R002 = GetRowName(0, M_4x4, 2, 0);
+	int R003 = GetRowName(0, M_4x4, 3, 0);
 	printf("Col 000: %s\n", GetVectorNotation(C000, V_Quad));
 	printf("Row 000: %s\n", GetVectorNotation(R000, V_Quad));
 	
@@ -208,6 +216,16 @@ bool TestArmEmitter() {
 	fpr.QMapReg(C030, V_Quad, MAP_DIRTY);
 	emitter.ORR(R0, R0, R0);
 	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
+	fpr.FlushAll();
+
+	fpr.Start(results);
+	emitter.ORR(R0, R0, R0);
+	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
+	fpr.QMapReg(R001, V_Quad, MAP_DIRTY);
+	fpr.QMapReg(R002, V_Quad, MAP_DIRTY);
+	fpr.QMapReg(R003, V_Quad, MAP_DIRTY);
+	emitter.ORR(R0, R0, R0);
+	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
 	fpr.FlushAll();
 
 	const u8 *codeEnd = emitter.GetCodePtr();

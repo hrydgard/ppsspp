@@ -531,9 +531,11 @@ static bool DisasmNeonVecScalar(uint32_t op, char *text) {
 
 	switch ((op >> 4) & 0xFF) {
 	case 0x94:
+	case 0x9C:
 		opname = "VMUL";
 		break;
 	case 0x14:
+	case 0x1C:
 		opname = "VMLA";
 		break;
 	}
@@ -619,7 +621,7 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 	} else if ((op >> 20) == 0xF28) {
 		// Immediate value ops!
 		return DisasmNeonImmVal(op, text);
-	} else if ((op >> 20) == 0xF3A || (op >> 20) == 0xF2A) {
+	} else if ((op >> 20) == 0xF3E || (op >> 20) == 0xF2E || (op >> 20) == 0xF3A || (op >> 20) == 0xF2A) {
 		return DisasmNeonVecScalar(op, text);
 	} else if ((op >> 20) == 0xF3B) {
 		return DisasmNeon2Op(op, text);

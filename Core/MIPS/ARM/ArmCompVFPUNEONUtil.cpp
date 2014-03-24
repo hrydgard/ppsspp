@@ -178,12 +178,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 			// Do some special cases
 			if (regnum[0] == 1 && regnum[1] == 0) {
 				INFO_LOG(HLE, "PREFIXST: Bottom swap!");
-				// Swap the bottom two. Ugly!
-				VMOV(D0, inputAR);
-				VMOV(S2, S0);
-				VMOV(S0, S1);
-				VMOV(S1, S2);
-				VMOV(ar, D0);
+				VREV64(I_32, ar, inputAR);
 				regnum[0] = 0;
 				regnum[1] = 1;
 			}
@@ -382,6 +377,29 @@ Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize 
 	regs.overlap = GetVectorOverlap(_VD, dsize, _VS, ssize) > 0;
 	regs.vd = NEONMapPrefixD(_VD, dsize, MAP_DIRTY | (regs.overlap ? 0 : MAP_NOINIT));
 	return regs;
+}
+
+// Requires quad registers.
+void Jit::NEONTranspose4x4(ARMReg cols[4]) {
+	// 0123   _\  0426
+	// 4567    /  1537
+	VTRN(F_32, cols[0], cols[1]);   
+
+	// 89ab   _\  8cae
+	// cdef    /  9dbf
+	VTRN(F_32, cols[2], cols[3]);
+
+	//  04[26]       048c
+	//  15 37   ->    1537
+	// [8c]ae       26ae
+	//  9d bf         9dbf
+	VSWP(D_1(cols[0]), D_0(cols[2]));
+
+	//  04 8c       048c
+	//  15[37]   ->  159d
+	//  26 ae       26ae
+	// [9d]bf       37bf
+	VSWP(D_1(cols[1]), D_0(cols[3]));
 }
 
 }  // namespace MIPSComp

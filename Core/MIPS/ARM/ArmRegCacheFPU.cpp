@@ -296,6 +296,7 @@ void ArmRegCacheFPU::FlushV(MIPSReg r) {
 	FlushR(r + 32);
 }
 
+/*
 void ArmRegCacheFPU::FlushQWithV(MIPSReg r) {
 	// Look for it in all the quads. If it's in any, flush that quad clean.
 	int flushCount = 0;
@@ -321,6 +322,7 @@ void ArmRegCacheFPU::FlushQWithV(MIPSReg r) {
 		WARN_LOG(JIT, "ERROR: More than one quad was flushed to flush reg %i", r);
 	}
 }
+*/
 
 void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
@@ -597,6 +599,8 @@ void ArmRegCacheFPU::QFlush(int quad) {
 	}
 
 	if (qr[quad].isDirty && !qr[quad].isTemp) {
+		INFO_LOG(JIT, "Flushing Q%i (%s)", quad, GetVectorNotation(qr[quad].mipsVec, qr[quad].sz));
+
 		ARMReg q = QuadAsQ(quad);
 		// Unlike reads, when writing to the register file we need to be careful to write the correct
 		// number of floats.
@@ -682,26 +686,19 @@ void ArmRegCacheFPU::QFlush(int quad) {
 	memset(qr[quad].vregs, 0xFF, 4);
 }
 
-int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
+int ArmRegCacheFPU::QGetFreeQuad(int start, int count, const char *reason) {
 	// Search for a free quad. A quad is free if the first register in it is free.
 	int quad = -1;
+	
+	for (int i = 0; i < count; i++) {
+		int q = (i + start) & 15;
 
-	int start = 0;
-
-	if (!preferLow) {
-		start = 8;
-	}
-
-	int end = ((start - 1) & 15);
-
-	for (int q = start; q != end; q++) {
-		q &= 15;
 		if (!MappableQ(q))
 			continue;
 
 		// Don't steal temp quads!
-		if (qr[q].mipsVec == INVALID_REG && !qr[q].isTemp) {
-			INFO_LOG(JIT, "Free quad: %i", q);
+		if (qr[q].mipsVec == (int)INVALID_REG && !qr[q].isTemp) {
+			// INFO_LOG(JIT, "Free quad: %i", q);
 			// Oh yeah! Free quad!
 			return q;
 		}
@@ -711,8 +708,9 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 	// sort of age.
 	int bestQuad = -1;
 	int bestScore = -1;
-	for (int q = start; q != end; q++) {
-		q &= 15;
+	for (int i = 0; i < count; i++) {
+		int q = (i + start) & 15;
+
 		if (!MappableQ(q))
 			continue;
 		if (qr[q].spillLock)
@@ -735,14 +733,14 @@ int ArmRegCacheFPU::QGetFreeQuad(bool preferLow) {
 		ERROR_LOG(JIT, "Failed finding a free quad. Things will now go haywire!");
 		return -1;
 	} else {
-		INFO_LOG(JIT, "Kicked out %i", bestQuad);
+		INFO_LOG(JIT, "No register found in %i and the next %i, kicked out %i (%s)", start, count, bestQuad, reason ? reason : "no reason");
 		QFlush(bestQuad);
 		return bestQuad;
 	}
 }
 
 ARMReg ArmRegCacheFPU::QAllocTemp(VectorSize sz) {
-	int q = QGetFreeQuad(false);
+	int q = QGetFreeQuad(8, 16, "allocating temporary");  // Prefer high quads as temps
 	if (q < 0) {
 		ERROR_LOG(JIT, "Failed to allocate temp quad");
 		q = 0;
@@ -775,10 +773,13 @@ bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3, int v4) const {
 
 void ArmRegCacheFPU::QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags) {
 	u8 vregs[4];
-	GetMatrixColumns(matrix, mz, vregs);
+	if (flags & MAP_MTX_TRANSPOSED) {
+		GetMatrixRows(matrix, mz, vregs);
+	} else {
+		GetMatrixColumns(matrix, mz, vregs);
+	}
 
 	// TODO: Zap existing mappings, reserve 4 consecutive regs, then do a fast load.
-
 	int n = GetMatrixSide(mz);
 	VectorSize vsz = GetVectorSize(mz);
 	for (int i = 0; i < n; i++) {
@@ -801,7 +802,26 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	// At the same time, check for the quad already being mapped.
 	// Later we can check for possible transposes as well.
 	int n = GetNumVectorElements(sz);
-	for (int q = 0; q < 16; q++) {
+
+	// Range of registers to consider
+	int start = 0;
+	int count = 16;
+
+	if (flags & MAP_PREFER_HIGH) {
+		start = 8;
+	} else if (flags & MAP_PREFER_LOW) {
+		start = 4;
+	} else if (flags & MAP_FORCE_LOW) {
+		start = 4;
+		count = 4;
+	} else if (flags & MAP_FORCE_HIGH) {
+		start = 8;
+		count = 8;
+	}
+
+	// First just loop over all registers. If it's here and not in range, or overlapped, kick.
+	for (int i = 0; i < 16; i++) {
+		int q = (i + start) & 15;
 		if (!MappableQ(q))
 			continue;
 
@@ -809,19 +829,26 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 		if (qr[q].sz == V_Invalid)
 			continue;
 
-		// Check if completely there already. If so, just transfer dirty flag and exit.
+		// Check if completely there already. If so, set spill-lock, transfer dirty flag and exit.
 		if (vreg == qr[q].mipsVec && sz == qr[q].sz) {
-			INFO_LOG(JIT, "Quad already mapped: %i : %i (size %i)", q, vreg, sz);
-			qr[q].isDirty = qr[q].isDirty || (flags & MAP_DIRTY);
+			if (i < count) {
+				INFO_LOG(JIT, "Quad already mapped: %i : %i (size %i)", q, vreg, sz);
+				qr[q].isDirty = qr[q].isDirty || (flags & MAP_DIRTY);
+				qr[q].spillLock = true;
 
-			// Sanity check vregs
-			for (int i = 0; i < n; i++) {
-				if (vregs[i] != qr[q].vregs[i]) {
-					ERROR_LOG(JIT, "Sanity check failed: %i vs %i", vregs[i], qr[q].vregs[i]);
+				// Sanity check vregs
+				for (int i = 0; i < n; i++) {
+					if (vregs[i] != qr[q].vregs[i]) {
+						ERROR_LOG(JIT, "Sanity check failed: %i vs %i", vregs[i], qr[q].vregs[i]);
+					}
 				}
-			}
 
-			return (ARMReg)(Q0 + q);
+				return (ARMReg)(Q0 + q);
+			} else {
+				INFO_LOG(JIT, "Quad out of range %i (count = %i), needs moving. For now we flush.", start, count);
+				quadsToFlush.push_back(q);
+				continue;
+			}
 		}
 
 		// Check for any overlap. Overlap == flush.
@@ -840,13 +867,15 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 
 	// We didn't find the extra register, but we got a list of regs to flush. Flush 'em.
 	// Here we can check for opportunities to do a "transpose-flush" of row vectors, etc.
+	if (!quadsToFlush.empty()) {
+		ILOG("New mapping %s collided with %i quads, flushing them.", GetVectorNotation(vreg, sz), (int)quadsToFlush.size());
+	}
 	for (size_t i = 0; i < quadsToFlush.size(); i++) {
 		QFlush(quadsToFlush[i]);
 	}
 
-	// Map singles low, to hopefully end up below the scalar limit.
-	bool preferLow = sz == V_Single;
-	int quad = QGetFreeQuad(preferLow);
+	// Find where we want to map it, obeying the constraints we gave.
+	int quad = QGetFreeQuad(start, count, "mapping");
 
 	// If parts of our register are elsewhere, and we are dirty, we need to flush them
 	// before we reload in a new location.
@@ -929,7 +958,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
 	qr[quad].spillLock = true;
 
-	INFO_LOG(JIT, "Mapped quad %i to vfpu %i, sz=%i, dirty=%i", quad, vreg, (int)sz, qr[quad].isDirty);
+	INFO_LOG(JIT, "Mapped Q%i to vfpu %i (%s), sz=%i, dirty=%i", quad, vreg, GetVectorNotation(vreg, sz), (int)sz, qr[quad].isDirty);
 	if (sz == V_Single || sz == V_Pair) {
 		return D_0(QuadAsQ(quad));
 	} else {

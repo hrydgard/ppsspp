@@ -752,32 +752,34 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 
 	switch ((op >> 16) & 0xF) {
 	case 3:  // vmidt
-		MOVI2F(S0, 1.0f, R0);
-		MOVI2F(S1, 0.0f, R0);
-		MOVI2F(S2, 0.0f, R0);
-		MOVI2F(S3, 1.0f, R0);
+		VEOR(D0, D0, D0);
+		VMOV_immf(D1, 1.0f);
+		VTRN(F_32, D0, D1);
+		VREV64(I_32, D0, D0);
 		switch (msz) {
 		case M_2x2:
-			VMOV(cols[0], D0);
-			VMOV(cols[1], D1);
+			VMOV_neon(cols[0], D0);
+			VMOV_neon(cols[1], D1);
 			break;
 		case M_3x3:
-			VMOV(D_0(cols[0]), D0);
-			VMOV_imm(I_32, D_1(cols[0]), VIMMxxxxxxxx, 0);
-			VMOV(D_0(cols[1]), D1);
-			VMOV_imm(I_32, D_1(cols[1]), VIMMxxxxxxxx, 0);
-			VMOV_imm(I_32, D_0(cols[2]), VIMMxxxxxxxx, 0);
-			VMOV(D_1(cols[2]), D0);
+			VMOV_neon(D_0(cols[0]), D0);
+			VMOV_imm(I_8, D_1(cols[0]), VIMMxxxxxxxx, 0);
+			VMOV_neon(D_0(cols[1]), D1);
+			VMOV_imm(I_8, D_1(cols[1]), VIMMxxxxxxxx, 0);
+			VMOV_imm(I_8, D_0(cols[2]), VIMMxxxxxxxx, 0);
+			VMOV_neon(D_1(cols[2]), D0);
 			break;
 		case M_4x4:
-			VMOV(D_0(cols[0]), D0);
-			VMOV_imm(I_32, D_1(cols[0]), VIMMxxxxxxxx, 0);
-			VMOV(D_0(cols[1]), D1);
-			VMOV_imm(I_32, D_1(cols[1]), VIMMxxxxxxxx, 0);
-			VMOV_imm(I_32, D_0(cols[2]), VIMMxxxxxxxx, 0);
-			VMOV(D_1(cols[2]), D0);
-			VMOV_imm(I_32, D_0(cols[3]), VIMMxxxxxxxx, 0);
-			VMOV(D_1(cols[3]), D1);
+			VMOV_neon(D_0(cols[0]), D0);
+			VMOV_imm(I_8, D_1(cols[0]), VIMMxxxxxxxx, 0);
+			VMOV_neon(D_0(cols[1]), D1);
+			VMOV_imm(I_8, D_1(cols[1]), VIMMxxxxxxxx, 0);
+			VMOV_imm(I_8, D_0(cols[2]), VIMMxxxxxxxx, 0);
+			VMOV_neon(D_1(cols[2]), D0);
+			VMOV_imm(I_8, D_0(cols[3]), VIMMxxxxxxxx, 0);
+			VMOV_neon(D_1(cols[3]), D1);
+
+			// NEONTranspose4x4(cols);
 			break;
 		}
 		break;
@@ -803,8 +805,6 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 		return;
 	}
 
-	DISABLE;
-
 	MatrixSize msz = GetMtxSize(op);
 
 	MatrixOverlapType overlap = GetMatrixOverlap(_VD, _VS, msz);
@@ -820,7 +820,7 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 
 	int n = GetMatrixSide(msz);
 	for (int i = 0; i < n; i++) {
-		VMOV(d_cols[i], s_cols[i]);
+		VMOV_neon(d_cols[i], s_cols[i]);
 	}
 
 	fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -829,28 +829,36 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 void Jit::CompNEON_Vmmul(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
-	ARMReg s_rows[4], t_cols[4], d_cols[4];
-
 	MatrixSize msz = GetMtxSize(op);
 	int n = GetMatrixSide(msz);
 
 	bool overlap = GetMatrixOverlap(_VD, _VS, msz) || GetMatrixOverlap(_VD, _VT, msz);
 	if (overlap) {
-		// Later
+		// Later. Fortunately, the VFPU also seems to prohibit overlap for matrix mul.
+		ILOG("Matrix overlap, ignoring.");
 		DISABLE;
 	}
 
-	DISABLE;
+	// Having problems with 2x2s for some reason.
+	if (msz == M_2x2) {
+		DISABLE;
+	}
 
-	fpr.QMapMatrix(s_rows, _VS, msz, 0);
-	fpr.QMapMatrix(t_cols, _VT, msz, 0);
-	fpr.QMapMatrix(d_cols, _VD, msz, MAP_NOINIT | MAP_DIRTY);
+	ARMReg s_cols[4], t_cols[4], d_cols[4];
+
+	// For some reason, vmmul is encoded with the first matrix (S) transposed from the real meaning.
+	fpr.QMapMatrix(t_cols, _VT, msz, MAP_FORCE_LOW);  // Need to see if we can avoid having to force it low in some sane way. Will need crazy prediction logic for loads otherwise.
+	fpr.QMapMatrix(s_cols, Xpose(_VS), msz, MAP_PREFER_HIGH);
+	fpr.QMapMatrix(d_cols, _VD, msz, MAP_PREFER_HIGH | MAP_NOINIT | MAP_DIRTY);
 	
-	// TODO: This is probably wrong.
+	// TODO: Getting there but still getting wrong results.
 	for (int i = 0; i < n; i++) {
-		VMUL_scalar(F_32, d_cols[i], s_rows[i], XScalar(t_cols[0], 0));
-		for (int j = 1; j < n; j++) {
-			VMLA_scalar(F_32, d_cols[i], s_rows[i], XScalar(t_cols[j], 1));
+		for (int j = 0; j < n; j++) {
+			if (i == 0) {
+				VMUL_scalar(F_32, d_cols[j], s_cols[i], XScalar(t_cols[j], i));
+			} else {
+				VMLA_scalar(F_32, d_cols[j], s_cols[i], XScalar(t_cols[j], i));
+			}
 		}
 	}
 
@@ -866,20 +874,19 @@ void Jit::CompNEON_Vmscl(MIPSOpcode op) {
 	if (overlap) {
 		DISABLE;
 	}
-	// DISABLE;
 
 	int n = GetMatrixSide(msz);
 
 	ARMReg s_cols[4], t, d_cols[4];
 	fpr.QMapMatrix(s_cols, _VS, msz, 0);
 	fpr.QMapMatrix(d_cols, _VD, msz, MAP_NOINIT | MAP_DIRTY);
+
 	t = fpr.QMapReg(_VT, V_Single, 0);
-	VMOV(D0, t);
+	VMOV_neon(D0, t);
 	for (int i = 0; i < n; i++) {
 		VMUL_scalar(F_32, d_cols[i], s_cols[i], DScalar(D0, 0));
 	}
 
-	// TODO: Crunch the numbers here
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
@@ -893,7 +900,6 @@ void Jit::CompNEON_Vtfm(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	DISABLE;
 	VectorSize sz = GetVecSize(op);
 	MatrixSize msz = GetMtxSize(op);
 	int n = GetNumVectorElements(sz);
@@ -912,11 +918,20 @@ void Jit::CompNEON_Vtfm(MIPSOpcode op) {
 	}
 
 	ARMReg s_cols[4], t, d;
-	fpr.QMapMatrix(s_cols, _VS, msz, 0);
-	t = fpr.QMapReg(_VT, sz, 0);
-	d = fpr.QMapReg(_VD, sz, MAP_DIRTY | MAP_NOINIT);
+	t = fpr.QMapReg(_VT, sz, MAP_FORCE_LOW);
+	fpr.QMapMatrix(s_cols, Xpose(_VS), msz, MAP_PREFER_HIGH);
+	d = fpr.QMapReg(_VD, sz, MAP_DIRTY | MAP_NOINIT | MAP_PREFER_HIGH);
 	
-	// ...
+	VMUL_scalar(F_32, d, s_cols[0], XScalar(t, 0));
+	for (int i = 1; i < n; i++) {
+		if (homogenous && i == n - 1) {
+			VADD(F_32, d, d, s_cols[i]);
+		} else {
+			VMLA_scalar(F_32, d, s_cols[i], XScalar(t, i));
+		}
+	}
+
+	// VTFM does not have prefix support.
 
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
@@ -990,7 +1005,7 @@ void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
 		DISABLE_UNKNOWN_PREFIX;
 	}
 	VectorSize sz = GetVecSize(op);
-	// Do any games use these a noticable amount?
+	// Do any games use these a noticeable amount?
 	switch ((op >> 16) & 31) {
 	case 6:  // vfad
 		{
@@ -1061,7 +1076,6 @@ void Jit::CompNEON_VIdt(MIPSOpcode op) {
 	case V_Quad:
 		{
 			// TODO: This can be optimized.
-
 			VEOR(vd, vd, vd);
 			ARMReg dest = (_VD & 2) ? D_1(vd) : D_0(vd);
 			VMOV_immf(dest, 1.0f);
@@ -1101,7 +1115,7 @@ void Jit::CompNEON_Viim(MIPSOpcode op) {
 	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 	// TODO: Optimize for low registers.
 	MOVI2F(S0, (float)imm, R0);
-	VMOV(vd.rd, D0);
+	VMOV_neon(vd.rd, D0);
 
 	NEONApplyPrefixD(vd);
 	fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -1120,7 +1134,7 @@ void Jit::CompNEON_Vfim(MIPSOpcode op) {
 	FP32 fval = half_to_float_fast5(half);
 	// TODO: Optimize for low registers.
 	MOVI2F(S0, (float)fval.f, R0);
-	VMOV(vd.rd, D0);
+	VMOV_neon(vd.rd, D0);
 
 	NEONApplyPrefixD(vd);
 	fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -1151,8 +1165,8 @@ void Jit::CompNEON_VCrossQuat(MIPSOpcode op) {
 	// d18, d19 (q9) = t1 = r.vt
 	// d16, d17 (q8) = t2 = r.vs
 	// d20, d21 (q10) = t
-	VMOV(t1, r.vs);
-	VMOV(t2, r.vt);
+	VMOV_neon(t1, r.vs);
+	VMOV_neon(t2, r.vt);
 	VTRN(F_32, D_0(t2), D_1(t2));    //	vtrn.32 d18,d19			@  q9 = <x2,z2,y2,w2> = d18,d19
 	VREV64(F_32, D_0(t1), D_0(t1));  // vrev64.32 d16,d16		@  q8 = <y1,x1,z1,w1> = d16,d17
 	VREV64(F_32, D_0(t2), D_0(t2));   // vrev64.32 d18,d18		@  q9 = <z2,x2,y2,w2> = d18,d19

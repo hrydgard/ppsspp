@@ -283,6 +283,7 @@ private:
 
 	// NEON utils
 	void NEONMaskToSize(ARMReg vs, VectorSize sz);
+	void NEONTranspose4x4(ARMReg cols[4]);
 
 
 
