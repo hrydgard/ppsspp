@@ -103,7 +103,12 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
 
-contains(QMAKE_TARGET.arch, x86): SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
+x86 {
+	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
+}
+arm:!symbian {
+	SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
+}
 
 
 HEADERS +=  $$P/native/audio/*.h \
