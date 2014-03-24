@@ -368,7 +368,7 @@ void __DisplayGetDebugStats(char stats[2048]) {
 
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 
-	sprintf(stats,
+	snprintf(stats, 2047,
 		"Frames: %i\n"
 		"DL processing time: %0.2f ms\n"
 		"Kernel processing time: %0.2f ms\n"
@@ -417,7 +417,7 @@ void __DisplayGetDebugStats(char stats[2048]) {
 		gpuStats.numFragmentShaders,
 		gpuStats.numShaders
 		);
-
+	stats[2047] = '\0';
 	gpuStats.ResetFrame();
 	kernelStats.ResetFrame();
 }
