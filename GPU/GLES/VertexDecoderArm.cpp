@@ -430,15 +430,12 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	if (NEONSkinning) {
 		// Weight is first so srcReg is correct.
 		switch (dec_->nweights) {
-		case 1: LDRB(scratchReg2, srcReg, 0); break;
-		case 2: LDRH(scratchReg2, srcReg, 0); break;
-		case 3:
-		case 4:
+		case 1: VLD1_lane(I_8, neonScratchReg, srcReg, 0, false); break;
+		case 2: VLD1_lane(I_16, neonScratchReg, srcReg, 0, false); break;
+		default:
+			// For 3, we over read, for over 4, we read more later.
 			VLD1_lane(I_32, neonScratchReg, srcReg, 0, false);
 			break;
-		}
-		if (dec_->nweights == 1 || dec_->nweights == 2) {
-			VMOV_neon(I_32, neonScratchReg, scratchReg2, 0);
 		}
 		// This can be represented as a constant.
 		VMOV_neon(F_32, Q3, by128);
@@ -450,15 +447,12 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 		if (dec_->nweights > 4) {
 			ADD(tempReg1, srcReg, 4 * sizeof(u8));
 			switch (dec_->nweights) {
-			case 5: LDRB(scratchReg2, tempReg1, 0); break;
-			case 6: LDRH(scratchReg2, tempReg1, 0); break;
+			case 5: VLD1_lane(I_8, neonScratchReg, tempReg1, 0, false); break;
+			case 6: VLD1_lane(I_16, neonScratchReg, tempReg1, 0, false); break;
 			case 7:
 			case 8:
 				VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
 				break;
-			}
-			if (dec_->nweights == 5 || dec_->nweights == 6) {
-				VMOV_neon(I_32, neonScratchReg, scratchReg2, 0);
 			}
 			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
@@ -480,13 +474,10 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	if (NEONSkinning) {
 		switch (dec_->nweights) {
-		case 1:
-			LDRH(scratchReg, srcReg, 0);
-			VMOV_neon(I_32, neonScratchReg, scratchReg, 0);
-			break;
+		case 1: VLD1_lane(I_16, neonScratchReg, srcReg, 0, true); break;
 		case 2: VLD1_lane(I_32, neonScratchReg, srcReg, 0, false); break;
-		case 3:
-		case 4:
+		default:
+			// For 3, we over read, for over 4, we read more later.
 			VLD1(I_32, neonScratchReg, srcReg, 1, ALIGN_NONE);
 			break;
 		}
@@ -499,10 +490,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 		if (dec_->nweights > 4) {
 			ADD(tempReg1, srcReg, 4 * sizeof(u16));
 			switch (dec_->nweights) {
-			case 5:
-				LDRH(scratchReg, tempReg1, 0);
-				VMOV_neon(I_32, neonScratchReg, scratchReg, 0);
-				break;
+			case 5: VLD1_lane(I_16, neonScratchReg, tempReg1, 0, true); break;
 			case 6: VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false); break;
 			case 7:
 			case 8:

@@ -1634,7 +1634,7 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane)
 		_assert_msg_(JIT, false, "VMOV_neon unsupported size");
 	}
 
-	if (Vd < S0 && Rt >= D0)
+	if (Vd < S0 && Rt >= D0 && Rt < Q0)
 	{
 		// Oh, reading to reg, our params are backwards.
 		ARMReg Src = Rt;
@@ -1645,7 +1645,7 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane)
 
 		Write32(condition | (0xE1 << 20) | U | (opc1 << 21) | EncodeVn(Src) | (Dest << 12) | (0xB << 8) | (opc2 << 5) | (1 << 4));
 	}
-	else if (Rt < S0 && Vd >= D0)
+	else if (Rt < S0 && Vd >= D0 && Vd < Q0)
 	{
 		ARMReg Src = Rt;
 		ARMReg Dest = Vd;
