@@ -54,7 +54,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RCX;
 static const X64Reg dstReg = RDX;
 static const X64Reg counterReg = R8;
-static const OpArg hasAlphaArg = R(R14);
+static const OpArg fullAlphaArg = R(R14);
 #else
 static const X64Reg tempReg1 = RAX;
 static const X64Reg tempReg2 = R9;
@@ -62,7 +62,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RDI;
 static const X64Reg dstReg = RSI;
 static const X64Reg counterReg = RDX;
-static const OpArg hasAlphaArg = R(R14);
+static const OpArg fullAlphaArg = R(R14);
 #endif
 #else
 static const X64Reg tempReg1 = EAX;
@@ -72,7 +72,7 @@ static const X64Reg srcReg = ESI;
 static const X64Reg dstReg = EDI;
 static const X64Reg counterReg = ECX;
 static u32 hasAlphaValue;
-static const OpArg hasAlphaArg = M(&hasAlphaValue);
+static const OpArg fullAlphaArg = M(&hasAlphaValue);
 #endif
 
 // XMM0-XMM5 are volatile on Windows X64
@@ -239,7 +239,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	}
 
 	if (dec.col) {
-		MOV(32, hasAlphaArg, Imm32(0));
+		MOV(32, fullAlphaArg, Imm32(0xFF));
 	}
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
@@ -257,9 +257,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUB(32, R(counterReg), Imm8(1));
 	J_CC(CC_NZ, loopStart, true);
 
-	// TODO: Do something with hasAlphaArg from EAX.
+	// TODO: Do something with fullAlphaArg from EAX.
 	if (dec.col) {
-		//MOV(32, R(EAX), hasAlphaArg);
+		//MOV(32, R(EAX), fullAlphaArg);
 	}
 
 	MOVUPS(XMM4, MDisp(ESP, 0));
@@ -569,7 +569,7 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 void VertexDecoderJitCache::Jit_Color8888() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
-	// TODO: hasAlphaArg.
+	// TODO: fullAlphaArg.
 }
 
 static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
@@ -639,7 +639,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	OR(32, R(tempReg2), R(tempReg3));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
-	// TODO: hasAlphaArg.
+	// TODO: fullAlphaArg.
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
@@ -676,7 +676,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 	OR(32, R(tempReg2), R(tempReg1));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
-	// Never has alpha, no need to update hasAlphaArg.
+	// Never has alpha, no need to update fullAlphaArg.
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
@@ -712,7 +712,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	OR(32, R(tempReg2), R(tempReg1));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
-	// TODO: hasAlphaArg.
+	// TODO: fullAlphaArg.
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
@@ -908,7 +908,7 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
 	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
 	if (checkAlpha) {
-		// TODO: hasAlphaArg.
+		// TODO: fullAlphaArg.
 	}
 }
 

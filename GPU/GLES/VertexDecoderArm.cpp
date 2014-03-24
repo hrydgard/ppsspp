@@ -62,7 +62,7 @@ static const ARMReg tempReg3 = R5;
 static const ARMReg scratchReg = R6;
 static const ARMReg scratchReg2 = R7;
 static const ARMReg scratchReg3 = R8;
-static const ARMReg hasAlphaReg = R12;
+static const ARMReg fullAlphaReg = R12;
 static const ARMReg srcReg = R0;
 static const ARMReg dstReg = R1;
 static const ARMReg counterReg = R2;
@@ -264,7 +264,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	}
 
 	if (dec.col) {
-		MOV(hasAlphaReg, 0);
+		// Or LDB and skip the conditional?  This is probably cheaper.
+		MOV(fullAlphaReg, 0xFF);
 	}
 
 	JumpTarget loopStart = GetCodePtr();
@@ -286,9 +287,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	SUBS(counterReg, counterReg, 1);
 	B_CC(CC_NEQ, loopStart);
 
-	// TODO: Do something with hasAlphaReg.
 	if (dec.col) {
-
+		MOVP2R(tempReg, &gstate_c.textureFullAlpha);
+		CMP(fullAlphaReg, 0);
+		SetCC(CC_EQ);
+		STRB(fullAlphaReg, tempReg, 0);
+		SetCC(CC_AL);
 	}
 
 	if (NEONSkinning || NEONMorphing) {
@@ -678,7 +682,7 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	MVNS(tempReg2, Operand2(tempReg1, ST_ASR, 24));
 	STR(tempReg1, dstReg, dec_->decFmt.c0off);
 	SetCC(CC_NEQ);
-	ORR(hasAlphaReg, hasAlphaReg, IMM(1));
+	MOV(fullAlphaReg, 0);
 	SetCC(CC_AL);
 }
 
@@ -702,7 +706,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	// Set flags to determine if alpha != 0xFF.
 	MVNS(tempReg2, Operand2(tempReg1, ST_ASR, 24));
 	SetCC(CC_NEQ);
-	ORR(hasAlphaReg, hasAlphaReg, IMM(1));
+	MOV(fullAlphaReg, 0);
 	SetCC(CC_AL);
 }
 
@@ -727,7 +731,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 	ORR(tempReg3, tempReg3, Operand2(tempReg1, ST_LSR, 4));
 	ORR(tempReg2, tempReg2, Operand2(tempReg3, ST_LSL, 8));
 
-	// Add in full alpha.  No need to update hasAlphaReg.
+	// Add in full alpha.  No need to update fullAlphaReg.
 	ORI2R(tempReg1, tempReg2, 0xFF000000, scratchReg);
 
 	STR(tempReg1, dstReg, dec_->decFmt.c0off);
@@ -757,7 +761,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	MVNS(tempReg3, Operand2(tempReg1, ST_ASR, 24));
 	STR(tempReg2, dstReg, dec_->decFmt.c0off);
 	SetCC(CC_NEQ);
-	ORR(hasAlphaReg, hasAlphaReg, IMM(1));
+	MOV(fullAlphaReg, 0);
 	SetCC(CC_AL);
 }
 
@@ -1100,7 +1104,7 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (checkAlpha) {
 		MVNS(tempReg2, Operand2(scratchReg, ST_ASR, 24));
 		SetCC(CC_NEQ);
-		ORR(hasAlphaReg, hasAlphaReg, IMM(1));
+		MOV(fullAlphaReg, 0);
 		SetCC(CC_AL);
 	}
 }
