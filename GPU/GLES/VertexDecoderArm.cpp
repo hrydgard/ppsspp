@@ -288,10 +288,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	B_CC(CC_NEQ, loopStart);
 
 	if (dec.col) {
-		MOVP2R(tempReg, &gstate_c.textureFullAlpha);
+		MOVP2R(tempReg1, &gstate_c.textureFullAlpha);
 		CMP(fullAlphaReg, 0);
 		SetCC(CC_EQ);
-		STRB(fullAlphaReg, tempReg, 0);
+		STRB(fullAlphaReg, tempReg1, 0);
 		SetCC(CC_AL);
 	}
 
