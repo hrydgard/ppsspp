@@ -26,12 +26,12 @@
 #include "Core/CoreTiming.h"
 
 #include "helper/dx_state.h"
-#include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/StateMappingDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
@@ -1042,7 +1042,7 @@ u32 TransformDrawEngineDX9::ComputeHash() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
 			vertexCount = std::min((int)drawCalls[i].vertexCount, 500);
-			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * vertexCount, 0x1DE8CAC4);
+			fullhash += DoReliableHash((const char *)drawCalls[i].verts, vertexSize * vertexCount, 0x1DE8CAC4);
 		} else {
 			
 			vertexCount = std::min((int)drawCalls[i].vertexCount, 500);
@@ -1050,10 +1050,10 @@ u32 TransformDrawEngineDX9::ComputeHash() {
 
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
+			fullhash += DoReliableHash((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
 				vertexSize * indicesCount, 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * vertexCount, 0x955FD1CA);
+			fullhash += DoReliableHash((const char *)drawCalls[i].inds, indexSize * vertexCount, 0x955FD1CA);
 		}
 	}
 

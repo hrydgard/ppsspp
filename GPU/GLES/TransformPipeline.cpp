@@ -73,12 +73,12 @@
 #include "Core/CoreTiming.h"
 
 #include "native/gfx_es2/gl_state.h"
-#include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -86,7 +86,6 @@
 #include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
-#include "GPU/Common/SplineCommon.h"
 
 extern const GLuint glprim[8] = {
 	GL_POINTS,
@@ -449,7 +448,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 		if (!dc.inds) {
-			fullhash += XXH32((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
+			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
 		} else {
 			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 			int j = i + 1;
@@ -464,16 +463,16 @@ u32 TransformDrawEngine::ComputeHash() {
 			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += XXH32((const char *)dc.verts + vertexSize * indexLowerBound,
+			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
 				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += XXH32((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
 			i = lastMatch;
 		}
 	}
 	if (uvScale) {
-		fullhash += XXH32(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
+		fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 	}
 
 	return fullhash;
