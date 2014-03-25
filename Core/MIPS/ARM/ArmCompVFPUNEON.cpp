@@ -1196,6 +1196,7 @@ void Jit::CompNEON_Vcmp(MIPSOpcode op) {
 	}
 
 	// Preload the pointer to our magic mask
+	static const u32 collectorBits[4] = { 1, 2, 4, 8 };
 	MOVP2R(R1, &collectorBits);
 
 	// Do the compare
@@ -1264,7 +1265,6 @@ void Jit::CompNEON_Vcmp(MIPSOpcode op) {
 	// Somehow collect the bits into a mask.
 	
 	// Collect the bits. Where's my PMOVMSKB? :(
-	static const u32 collectorBits[4] = { 1, 2, 4, 8 };
 	VLD1(I_32, Q0, R1, n < 2 ? 1 : 2);
 	VAND(Q0, Q0, res);
 	VPADD(I_32, Q0, Q0, Q0);
