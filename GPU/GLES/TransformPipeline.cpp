@@ -609,6 +609,7 @@ void TransformDrawEngine::DoFlush() {
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
+						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
@@ -635,14 +636,13 @@ void TransformDrawEngine::DoFlush() {
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
+						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					}
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
-
-					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
