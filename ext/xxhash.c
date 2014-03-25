@@ -223,6 +223,9 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, int len, U32 seed, XXH_en
 
         do
         {
+#if defined(ARM) && defined(__GNUC__)
+            __builtin_prefetch(p + 0xc0, 0, 0);
+#endif
             v1 += XXH_readLE32_align((const U32*)p, endian, align) * PRIME32_2; v1 = XXH_rotl32(v1, 13); v1 *= PRIME32_1; p+=4;
             v2 += XXH_readLE32_align((const U32*)p, endian, align) * PRIME32_2; v2 = XXH_rotl32(v2, 13); v2 *= PRIME32_1; p+=4;
             v3 += XXH_readLE32_align((const U32*)p, endian, align) * PRIME32_2; v3 = XXH_rotl32(v3, 13); v3 *= PRIME32_1; p+=4;
