@@ -30,6 +30,9 @@ extern QuickTexHashFunc DoQuickTexHash;
 typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
 extern UnswizzleTex16Func DoUnswizzleTex16;
 
+typedef u32 (*ReliableHashFunc)(const void *input, int len, u32 seed);
+extern ReliableHashFunc DoReliableHash;
+
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
 

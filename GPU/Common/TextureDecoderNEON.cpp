@@ -146,3 +146,100 @@ void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 p
 		ydestp += (rowWidth * 8) / 4;
 	}
 }
+
+// NOTE: This is just a NEON version of xxhash.
+// GCC sucks at making things NEON and can't seem to handle it.
+
+#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
+# include <stdint.h>
+  typedef uint8_t  BYTE;
+  typedef uint16_t U16;
+  typedef uint32_t U32;
+  typedef  int32_t S32;
+  typedef uint64_t U64;
+#else
+  typedef unsigned char      BYTE;
+  typedef unsigned short     U16;
+  typedef unsigned int       U32;
+  typedef   signed int       S32;
+  typedef unsigned long long U64;
+#endif
+
+#define PRIME32_1   2654435761U
+#define PRIME32_2   2246822519U
+#define PRIME32_3   3266489917U
+#define PRIME32_4    668265263U
+#define PRIME32_5    374761393U
+
+#if defined(_MSC_VER)
+#  define XXH_rotl32(x,r) _rotl(x,r)
+#else
+#  define XXH_rotl32(x,r) ((x << r) | (x >> (32 - r)))
+#endif
+
+u32 ReliableHashNEON(const void *input, int len, u32 seed) {
+	const u8 *p = (const u8 *)input;
+	const u8 *const bEnd = p + len;
+	U32 h32;
+
+#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+	if (p==NULL) { len=0; p=(const BYTE*)(size_t)16; }
+#endif
+
+	if (len>=16)
+	{
+		const BYTE* const limit = bEnd - 16;
+		U32 v1 = seed + PRIME32_1 + PRIME32_2;
+		U32 v2 = seed + PRIME32_2;
+		U32 v3 = seed + 0;
+		U32 v4 = seed - PRIME32_1;
+
+		uint32x4_t prime32_1q = vdupq_n_u32(PRIME32_1);
+		uint32x4_t prime32_2q = vdupq_n_u32(PRIME32_2);
+		uint32x4_t vq = vcombine_u32(vcreate_u32(v1 | ((U64)v2 << 32)), vcreate_u32(v3 | ((U64)v4 << 32)));
+
+		do
+		{
+			__builtin_prefetch(p + 0xc0, 0, 0);
+			vq = vmlaq_u32(vq, vld1q_u32((const U32*)p), prime32_2q);
+			vq = vorrq_u32(vshlq_n_u32(vq, 13), vshrq_n_u32(vq, 32 - 13));
+			p += 16;
+			vq = vmulq_u32(vq, prime32_1q);
+		} while (p<=limit);
+
+		v1 = vgetq_lane_u32(vq, 0);
+		v2 = vgetq_lane_u32(vq, 1);
+		v3 = vgetq_lane_u32(vq, 2);
+		v4 = vgetq_lane_u32(vq, 3);
+
+		h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+	}
+	else
+	{
+		h32  = seed + PRIME32_5;
+	}
+
+	h32 += (U32) len;
+
+	while (p<=bEnd-4)
+	{
+		h32 += *(const U32*)p * PRIME32_3;
+		h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
+		p+=4;
+	}
+
+	while (p<bEnd)
+	{
+		h32 += (*p) * PRIME32_5;
+		h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
+		p++;
+	}
+
+	h32 ^= h32 >> 15;
+	h32 *= PRIME32_2;
+	h32 ^= h32 >> 13;
+	h32 *= PRIME32_3;
+	h32 ^= h32 >> 16;
+
+	return h32;
+}

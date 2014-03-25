@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ext/xxhash.h"
 #include "Common/CPUDetect.h"
 #include "GPU/Common/TextureDecoder.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
@@ -152,6 +153,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
+ReliableHashFunc DoReliableHash = &XXH32;
 
 // This has to be done after CPUDetect has done its magic.
 void SetupTextureDecoder() {
@@ -159,6 +161,10 @@ void SetupTextureDecoder() {
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
+#ifndef IOS
+		// Not sure if this is safe on iOS, it's had issues with xxhash.
+		DoReliableHash = &ReliableHashNEON;
+#endif
 	}
 #elif _M_SSE
 	if (cpu_info.bSSE2) {
