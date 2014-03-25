@@ -806,9 +806,6 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		
-		if(g_Config.bFullScreen)
-			_ViewFullScreen(hwndMain);
-		
 		ShowWindow(hwndMain, nCmdShow);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
@@ -818,6 +815,10 @@ namespace MainWindow
 		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
+
+		if (g_Config.bFullScreen)
+			_ViewFullScreen(hwndMain);
+
 		return TRUE;
 	}
 
