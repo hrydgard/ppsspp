@@ -45,6 +45,10 @@ struct TransformedVertex;
 // DRAWN_ONCE -> death
 // DRAWN_RELIABLE -> death
 
+enum {
+	VAI_FLAG_VERTEXFULLALPHA = 1,
+};
+
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -59,6 +63,7 @@ public:
 		lastFrame = gpuStats.numFlips;
 		numVerts = 0;
 		drawsUntilNextFullHash = 0;
+		flags = 0;
 	}
 	~VertexArrayInfo();
 
@@ -87,6 +92,7 @@ public:
 	int numFrames;
 	int lastFrame;  // So that we can forget.
 	u16 drawsUntilNextFullHash;
+	u8 flags;
 };
 
 // Handles transform, lighting and drawing.

@@ -399,11 +399,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			} else {
 				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 			}
-			float litColor0[4];
-			float litColor1[4];
-			lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, normal);
 
 			if (gstate.isLightingEnabled()) {
+				float litColor0[4];
+				float litColor1[4];
+				lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, normal);
+
 				// Don't ignore gstate.lmode - we should send two colors in that case
 				for (int j = 0; j < 4; j++) {
 					c0[j] = litColor0[j];

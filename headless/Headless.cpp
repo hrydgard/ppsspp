@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 
+#include "file/zip_read.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -13,6 +14,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
+#include "Core/SaveState.h"
 #include "Log.h"
 #include "LogManager.h"
 #include "base/NativeApp.h"
@@ -198,6 +200,7 @@ int main(int argc, const char* argv[])
 	bool useJit = true;
 	bool autoCompare = false;
 	bool verbose = false;
+	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPU_NULL;
 	
 	std::vector<std::string> testFilenames;
@@ -252,6 +255,8 @@ int main(int argc, const char* argv[])
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
+		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
+			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
 		{
 			printUsage(argv[0], NULL);
@@ -345,6 +350,8 @@ int main(int argc, const char* argv[])
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.iBGMVolume = MAX_CONFIG_VOLUME;
 	g_Config.iSFXVolume = MAX_CONFIG_VOLUME;
+	g_Config.bSoftwareSkinning = true;
+	g_Config.bVertexDecoderJit = true;
 
 #ifdef _WIN32
 	InitSysDirectories();
@@ -368,6 +375,19 @@ int main(int argc, const char* argv[])
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
+
+#ifdef ANDROID
+	// For some reason the debugger installs it with this name?
+	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+	}
+	if (File::Exists("/data/app/org.ppsspp.ppsspp.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+	}
+#endif
+
+	if (stateToLoad != NULL)
+		SaveState::Load(stateToLoad);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
