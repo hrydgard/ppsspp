@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 
+#include "file/zip_read.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -374,6 +375,16 @@ int main(int argc, const char* argv[])
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
+
+#ifdef ANDROID
+	// For some reason the debugger installs it with this name?
+	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+	}
+	if (File::Exists("/data/app/org.ppsspp.ppsspp.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+	}
+#endif
 
 	if (stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
