@@ -768,6 +768,7 @@ public:
 	void VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane);
 
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VMVN(ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VPADDL(u32 Size, ARMReg Vd, ARMReg Vm);

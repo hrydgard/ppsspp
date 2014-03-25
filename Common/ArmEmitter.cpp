@@ -2388,6 +2388,17 @@ void ARMXEmitter::VMUL_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	// Unsigned support missing
 }
 
+void ARMXEmitter::VMVN(ARMReg Vd, ARMReg Vm)
+{
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+
+	bool register_quad = Vd >= Q0;
+
+	Write32((0xF3B << 20)	| \
+		EncodeVd(Vd) | (0xB << 7) | (register_quad << 6) | EncodeVm(Vm));
+}
+
 void ARMXEmitter::VNEG(u32 Size, ARMReg Vd, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
