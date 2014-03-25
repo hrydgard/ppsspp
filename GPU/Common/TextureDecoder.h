@@ -24,6 +24,16 @@
 
 void SetupTextureDecoder();
 
+#ifdef _M_SSE
+u32 QuickTexHashSSE2(const void *checkp, u32 size);
+#define DoQuickTexHash QuickTexHashSSE2
+
+void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
+#define DoUnswizzleTex16 DoUnswizzleTex16Basic
+
+#include "ext/xxhash.h"
+#define DoReliableHash XXH32
+#else
 typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
 extern QuickTexHashFunc DoQuickTexHash;
 
@@ -32,6 +42,7 @@ extern UnswizzleTex16Func DoUnswizzleTex16;
 
 typedef u32 (*ReliableHashFunc)(const void *input, int len, u32 seed);
 extern ReliableHashFunc DoReliableHash;
+#endif
 
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
