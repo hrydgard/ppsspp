@@ -849,7 +849,6 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 		jitted_(ptr_, decoded_, count);
 	} else {
 		// Interpret the decode steps
-		// TODO: Init gstate_c.vertexFullAlpha here?  Or in Setup?  When is it reset?
 		for (; count; count--) {
 			for (int i = 0; i < numSteps_; i++) {
 				((*this).*steps_[i])();
