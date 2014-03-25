@@ -475,6 +475,19 @@ void Jit::CompNEON_VDot(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
+
+void Jit::CompNEON_VHdp(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE_UNKNOWN_PREFIX;
+	}
+	
+	DISABLE;
+
+	// Similar to VDot but the last component is only s instead of s * t.
+	// A bit tricky on NEON...
+}
+
 void Jit::CompNEON_VScl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
@@ -940,10 +953,6 @@ void Jit::CompNEON_Vtfm(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VHdp(MIPSOpcode op) {
-	DISABLE;
-}
-
 void Jit::CompNEON_VCrs(MIPSOpcode op) {
 	DISABLE;
 }
@@ -965,7 +974,29 @@ void Jit::CompNEON_Vf2i(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_Vi2f(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
 	DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	int imm = (op >> 16) & 0x1f;
+	const float mult = 1.0f / (float)(1UL << imm);
+
+	MappedRegs regs = NEONMapDirtyIn(op, sz, sz);
+
+	MOVI2F_neon(MatchSize(Q0, regs.vd), mult, R0);
+	
+	VCVT(F_32, regs.vd, regs.vs);
+	VMUL(F_32, regs.vd, regs.vd, Q0);
+
+	NEONApplyPrefixD(regs.vd);
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Vh2f(MIPSOpcode op) {
@@ -1120,14 +1151,185 @@ void Jit::CompNEON_VIdt(MIPSOpcode op) {
 }
 
 void Jit::CompNEON_Vcmp(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	// Not a chance that this works on the first try :P
 	DISABLE;
+	
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	VCondition cond = (VCondition)(op & 0xF);
+
+	MappedRegs regs = NEONMapInIn(op, sz, sz);
+
+	ARMReg vs = regs.vs, vt = regs.vt;
+	ARMReg res = fpr.QAllocTemp(sz);
+
+	// Some, we just fall back to the interpreter.
+	// ES is just really equivalent to (value & 0x7F800000) == 0x7F800000.
+	switch (cond) {
+	case VC_EI: // c = my_isinf(s[i]); break;
+	case VC_NI: // c = !my_isinf(s[i]); break;
+		DISABLE;
+	case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+	case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+	case VC_EN: // c = my_isnan(s[i]); break;
+	case VC_NN: // c = !my_isnan(s[i]); break;
+		// if (_VS != _VT)
+			DISABLE;
+		break;
+
+	case VC_EZ:
+	case VC_NZ:
+		VMOV_immf(Q0, 0.0f);
+		break;
+	default:
+		;
+	}
+	
+	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
+	for (int i = 0; i < n; i++) {
+		affected_bits |= 1 << i;
+	}
+
+	// Preload the pointer to our magic mask
+	MOVP2R(R1, &collectorBits);
+
+	// Do the compare
+	MOVI2R(R0, 0);
+	CCFlags flag = CC_AL;
+
+	bool oneIsFalse = false;
+	switch (cond) {
+	case VC_FL: // c = 0;
+		break;
+
+	case VC_TR: // c = 1
+		MOVI2R(R0, affected_bits);
+		break;
+
+	case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+	case VC_NS: // c = !(my_isnan(s[i]) || my_isinf(s[i])); break;
+		DISABLE;  // TODO: these shouldn't be that hard
+		break;
+
+	case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
+	case VC_NN: // c = !my_isnan(s[i]); break;
+		DISABLE;  // TODO: these shouldn't be that hard
+		break;
+
+	case VC_EQ: // c = s[i] == t[i]
+		VCEQ(F_32, res, vs, vt);
+		break;
+
+	case VC_LT: // c = s[i] < t[i]
+		VCLT(F_32, res, vs, vt);
+		break;
+
+	case VC_LE: // c = s[i] <= t[i]; 
+		VCLE(F_32, res, vs, vt);
+		break;
+
+	case VC_NE: // c = s[i] != t[i]
+		VCEQ(F_32, res, vs, vt);
+		oneIsFalse = true;
+		break;
+
+	case VC_GE: // c = s[i] >= t[i]
+		VCGE(F_32, res, vs, vt);
+		break;
+
+	case VC_GT: // c = s[i] > t[i]
+		VCGT(F_32, res, vs, vt);
+		break;
+
+	case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
+		VCEQ(F_32, res, vs);
+		break;
+
+	case VC_NZ: // c = s[i] != 0
+		VCEQ(F_32, res, vs);
+		oneIsFalse = true;
+		break;
+
+	default:
+		DISABLE;
+	}
+	if (oneIsFalse) {
+		VMVN(res, res);
+	}
+	// Somehow collect the bits into a mask.
+	
+	// Collect the bits. Where's my PMOVMSKB? :(
+	static const u32 collectorBits[4] = { 1, 2, 4, 8 };
+	VLD1(I_32, Q0, R1, n < 2 ? 1 : 2);
+	VAND(Q0, Q0, res);
+	VPADD(I_32, Q0, Q0, Q0);
+	VPADD(I_32, D0, D0, D0);
+	// OK, bits now in S0.
+	VMOV(R0, S0);
+	// Zap irrelevant bits (V_Single, V_Triple)
+	AND(R0, R0, affected_bits);
+
+	// TODO: Now, how in the world do we generate the component OR and AND bits without burning tens of ALU instructions?? Lookup-table?
+
+	gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY);
+	BIC(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), affected_bits);
+	ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), R0);
 }
 
 void Jit::CompNEON_Vcmov(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
 	DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
+	DestARMReg vd = NEONMapPrefixD(_VD, sz, MAP_DIRTY);
+	int tf = (op >> 19) & 1;
+	int imm3 = (op >> 16) & 7;
+
+	if (imm3 < 6) {
+		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+		gpr.MapReg(MIPS_REG_VFPUCC);
+		TST(gpr.R(MIPS_REG_VFPUCC), 1 << imm3);
+		FixupBranch skip = B_CC(CC_NEQ);
+		VMOV_neon(vd, vs);
+		SetJumpTarget(skip);
+	} else {
+		// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
+		// This is the nasty one! Need to expand those bits into a full NEON register somehow.
+		DISABLE;
+		/*
+		gpr.MapReg(MIPS_REG_VFPUCC);
+		for (int i = 0; i < n; i++) {
+			TST(gpr.R(MIPS_REG_VFPUCC), 1 << i);
+			SetCC(tf ? CC_EQ : CC_NEQ);
+			VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+			SetCC(CC_AL);
+		}
+		*/
+	}
+
+	NEONApplyPrefixD(vd);
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 void Jit::CompNEON_Viim(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
 	DestARMReg vt = NEONMapPrefixD(_VT, V_Single, MAP_NOINIT | MAP_DIRTY);
 
 	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
@@ -1204,10 +1406,25 @@ void Jit::CompNEON_VCrossQuat(MIPSOpcode op) {
 
 void Jit::CompNEON_Vsgn(MIPSOpcode op) {
 	DISABLE;
+
+	// This will be a bunch of bit magic.
 }
 
 void Jit::CompNEON_Vocp(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	MappedRegs regs = NEONMapDirtyIn(op, sz, sz);
+	MOVI2F_neon(Q0, 1.0f, R0);
+	VSUB(F_32, regs.vd, Q0, regs.vs);
+	NEONApplyPrefixD(regs.vd);
+
+	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
 }

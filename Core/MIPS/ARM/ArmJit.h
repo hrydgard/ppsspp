@@ -275,7 +275,8 @@ private:
 	};
 
 	MappedRegs NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize, bool applyPrefixes = true);
-	MappedRegs NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize);
+	MappedRegs NEONMapInIn(MIPSOpcode op, VectorSize ssize, VectorSize tsize, bool applyPrefixes = true);
+	MappedRegs NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, bool applyPrefixes = true);
 
 	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);
 	void NEONApplyPrefixD(DestARMReg dest);

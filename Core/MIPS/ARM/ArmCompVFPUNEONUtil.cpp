@@ -371,7 +371,21 @@ Jit::MappedRegs Jit::NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSiz
 	return regs;
 }
 
-Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize) {
+Jit::MappedRegs Jit::NEONMapInIn(MIPSOpcode op, VectorSize ssize, VectorSize tsize, bool applyPrefixes) {
+	MappedRegs regs;
+	if (applyPrefixes) {
+		regs.vs = NEONMapPrefixS(_VS, ssize, 0);
+		regs.vt = NEONMapPrefixT(_VT, tsize, 0);
+	} else {
+		regs.vs = fpr.QMapReg(_VS, ssize, 0);
+		regs.vt = fpr.QMapReg(_VT, ssize, 0);
+	}
+	regs.vd.rd = INVALID_REG;
+	regs.vd.sz = V_Invalid;
+	return regs;
+}
+
+Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, bool applyPrefixes) {
 	MappedRegs regs;
 	regs.vs = NEONMapPrefixS(_VS, ssize, 0);
 	regs.overlap = GetVectorOverlap(_VD, dsize, _VS, ssize) > 0;
