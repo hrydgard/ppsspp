@@ -1656,6 +1656,13 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 
+		// Disable Vertex Cache when HW T&L is disabled.
+		if (!g_Config.bHardwareTransform) {
+			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_GRAYED);
+		} else {
+			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_ENABLED);
+		}
+		
 		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,
 			ID_OPTIONS_SCREEN1X,
