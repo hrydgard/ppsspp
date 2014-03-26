@@ -100,16 +100,16 @@ void Jit::GenerateFixedCode()
 	//   * r2-r4
 	// Really starting to run low on registers already though...
 
-	MOVI2R(R11, (u32)Memory::base);
-	MOVI2R(R10, (u32)mips_);
-	MOVI2R(R9, (u32)GetBasePtr());
+	MOVP2R(R11, Memory::base);
+	MOVP2R(R10, mips_);
+	MOVP2R(R9, GetBasePtr());
 	RestoreDowncount();
 	MovFromPC(R0);
 	outerLoopPCInR0 = GetCodePtr();
 	MovToPC(R0);
 	outerLoop = GetCodePtr();
 		SaveDowncount();
-		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
+		QuickCallFunction(R0, &CoreTiming::Advance);
 		RestoreDowncount();
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
 

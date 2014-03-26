@@ -809,7 +809,10 @@ public:
 	void VMRS(ARMReg Rt);
 	void VMSR(ARMReg Rt);
 
-	void QuickCallFunction(ARMReg scratchreg, void *func);
+	void QuickCallFunction(ARMReg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(ARMReg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
+	}
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
