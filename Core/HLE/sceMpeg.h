@@ -77,3 +77,6 @@ void __MpegShutdown();
 void __MpegLoadModule(int version);
 
 void Register_sceMpeg();
+
+void Register_sceMpegbase();
+
