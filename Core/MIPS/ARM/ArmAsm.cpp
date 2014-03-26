@@ -20,9 +20,9 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
-#include "MemoryUtil.h"
-
-#include "ArmEmitter.h"
+#include "Common/MemoryUtil.h"
+#include "Common/CPUDetect.h"
+#include "Common/ArmEmitter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
@@ -84,6 +84,7 @@ void Jit::GenerateFixedCode()
 	SetCC(CC_AL);
 
 	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, R_LR);
+
 	// Take care to 8-byte align stack for function calls.
 	// We are misaligned here because of an odd number of args for PUSH.
 	// It's not like x86 where you need to account for an extra 4 bytes
@@ -103,6 +104,12 @@ void Jit::GenerateFixedCode()
 	MOVP2R(R11, Memory::base);
 	MOVP2R(R10, mips_);
 	MOVP2R(R9, GetBasePtr());
+
+	// Doing this down here for better pipelining, just in case.
+	if (cpu_info.bNEON) {
+		VPUSH(D8, 8);
+	}
+
 	RestoreDowncount();
 	MovFromPC(R0);
 	outerLoopPCInR0 = GetCodePtr();
@@ -183,6 +190,12 @@ void Jit::GenerateFixedCode()
 
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
+
+	// Doing this above the downcount for better pipelining (slightly.)
+	if (cpu_info.bNEON) {
+		VPOP(D8, 8);
+	}
+
 	SaveDowncount();
 
 	ADD(R_SP, R_SP, 4);
