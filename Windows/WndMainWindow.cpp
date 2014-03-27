@@ -806,9 +806,6 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		
-		if(g_Config.bFullScreen)
-			_ViewFullScreen(hwndMain);
-		
 		ShowWindow(hwndMain, nCmdShow);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
@@ -818,6 +815,10 @@ namespace MainWindow
 		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
+
+		if (g_Config.bFullScreen)
+			_ViewFullScreen(hwndMain);
+
 		return TRUE;
 	}
 
@@ -1563,6 +1564,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 			EmuThread_Stop();
+			InputDevice::StopPolling();
 			WindowsRawInput::Shutdown();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);
@@ -1654,6 +1656,13 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 
+		// Disable Vertex Cache when HW T&L is disabled.
+		if (!g_Config.bHardwareTransform) {
+			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_GRAYED);
+		} else {
+			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_ENABLED);
+		}
+		
 		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,
 			ID_OPTIONS_SCREEN1X,

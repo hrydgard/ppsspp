@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ext/xxhash.h"
 #include "Common/CPUDetect.h"
 #include "GPU/Common/TextureDecoder.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
@@ -25,7 +26,7 @@
 #ifdef _M_SSE
 #include <xmmintrin.h>
 
-static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
+u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	u32 check = 0;
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
@@ -150,8 +151,11 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #endif
 }
 
+#ifndef _M_SSE
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
+ReliableHashFunc DoReliableHash = &XXH32;
+#endif
 
 // This has to be done after CPUDetect has done its magic.
 void SetupTextureDecoder() {
@@ -159,10 +163,10 @@ void SetupTextureDecoder() {
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
-	}
-#elif _M_SSE
-	if (cpu_info.bSSE2) {
-		DoQuickTexHash = &QuickTexHashSSE2;
+#ifndef IOS
+		// Not sure if this is safe on iOS, it's had issues with xxhash.
+		DoReliableHash = &ReliableHashNEON;
+#endif
 	}
 #endif
 }

@@ -133,33 +133,68 @@ bool ARMXEmitter::TrySetValue_TwoOp(ARMReg reg, u32 val)
 	return true;
 }
 
+bool TryMakeFloatIMM8(u32 val, Operand2 &op2)
+{
+	if ((val & 0x0007FFFF) == 0)
+	{
+		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
+		bool bit6 = (val & 0x40000000) == 0x40000000;
+		bool canEncode = true;
+		for (u32 mask = 0x20000000; mask >= 0x02000000; mask >>= 1)
+		{
+			if (((val & mask) == mask) == bit6)
+				canEncode = false;
+		}
+		if (canEncode)
+		{
+			u32 imm8 = (val & 0x80000000) >> 24; // sign bit
+			imm8 |= (!bit6 << 6);
+			imm8 |= (val & 0x01F80000) >> 19;
+			op2 = IMM(imm8);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void ARMXEmitter::MOVI2FR(ARMReg dest, float val, bool negate)
+{
+	union {float f; u32 u;} conv;
+	conv.f = negate ? -val : val;
+	MOVI2R(dest, conv.u);
+}
+
 void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 {
 	union {float f; u32 u;} conv;
 	conv.f = negate ? -val : val;
 	// Try moving directly first if mantisse is empty
-	if (cpu_info.bVFPv3 && ((conv.u & 0x7FFFF) == 0))
+	Operand2 op2;
+	if (cpu_info.bVFPv3 && TryMakeFloatIMM8(conv.u, op2))
+		VMOV(dest, op2);
+	else
 	{
-		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
-		bool bit6 = (conv.u & 0x40000000) == 0x40000000;
-		bool canEncode = true;
-		for (u32 mask = 0x20000000; mask >= 0x02000000; mask >>= 1)
-		{
-			if (((conv.u & mask) == mask) == bit6)
-				canEncode = false;
-		}
-		if (canEncode)
-		{
-			u32 imm8 = (conv.u & 0x80000000) >> 24; // sign bit
-			imm8 |= (!bit6 << 6);
-			imm8 |= (conv.u & 0x01F80000) >> 19;
-			VMOV(dest, IMM(imm8));
-			return;
-		}
+		MOVI2R(tempReg, conv.u);
+		VMOV(dest, tempReg);
 	}
-	MOVI2R(tempReg, conv.u);
-	VMOV(dest, tempReg);
 	// Otherwise, possible to use a literal pool and VLDR directly (+- 1020)
+}
+
+void ARMXEmitter::MOVI2F_neon(ARMReg dest, float val, ARMReg tempReg, bool negate)
+{
+	union {float f; u32 u;} conv;
+	conv.f = negate ? -val : val;
+	// Try moving directly first if mantisse is empty
+	Operand2 op2;
+	if (cpu_info.bVFPv3 && TryMakeFloatIMM8(conv.u, op2))
+		VMOV_neon(F_32, dest, conv.u);
+	else
+	{
+		MOVI2R(tempReg, conv.u);
+		VDUP(F_32, dest, tempReg);
+	}
+	// Otherwise, possible to use a literal pool and VLD1 directly (+- 1020)
 }
 
 void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
@@ -507,11 +542,11 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
-void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
+void ARMXEmitter::QuickCallFunction(ARMReg reg, const void *func) {
 	if (BLInRange(func)) {
 		BL(func);
 	} else {
-		MOVI2R(reg, (u32)(uintptr_t)(func));
+		MOVP2R(reg, func);
 		BL(reg);
 	}
 }
@@ -1135,8 +1170,7 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
 {
 	_dbg_assert_msg_(JIT, !WriteBack || Rn != R_PC, "VLDM/VSTM cannot use WriteBack with PC (PC is deprecated anyway.)");
-	ARMReg Dest = SubBase(Vd);
-	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
+	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | EncodeVd(Vd) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
 }
 void ARMXEmitter::STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {
@@ -1401,24 +1435,24 @@ void ARMXEmitter::VCMPE(ARMReg Vd){ WriteVFPDataOp(13, Vd, D5, D0); }
 
 void ARMXEmitter::VLDMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8 | 1, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VSTMIA(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
-	WriteVRegStoreOp(0x80 | 0x40 | 0x8, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x40 | 0x8, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VLDMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
 	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VLDMDB");
-	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10 | 1, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VSTMDB(ARMReg ptr, bool WriteBack, ARMReg firstvreg, int numvregs)
 {
 	_dbg_assert_msg_(JIT, WriteBack, "Writeback is required for VSTMDB");
-	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, false, WriteBack, firstvreg, numvregs);
+	WriteVRegStoreOp(0x80 | 0x040 | 0x10, ptr, firstvreg >= D0, WriteBack, firstvreg, numvregs);
 }
 
 void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, s16 offset)
@@ -1488,13 +1522,161 @@ void ARMXEmitter::VMSR(ARMReg Rt) {
 	Write32(condition | (0xEE << 20) | (1 << 16) | (Rt << 12) | 0xA10);
 }
 
-// VFP and ASIMD
 void ARMXEmitter::VMOV(ARMReg Dest, Operand2 op2)
 {
 	_assert_msg_(JIT, cpu_info.bVFPv3, "VMOV #imm requires VFPv3");
 	int sz = Dest >= D0 ? (1 << 8) : 0;
 	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (5 << 9) | sz | op2.Imm8VFP());
 }
+
+void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, u32 imm)
+{
+	_assert_msg_(JIT, cpu_info.bNEON, "VMOV_neon #imm requires NEON");
+	_assert_msg_(JIT, Vd >= D0, "VMOV_neon #imm must target a double or quad");
+	bool register_quad = Vd >= Q0;
+
+	int cmode = 0;
+	int op = 0;
+	Operand2 op2 = IMM(0);
+
+	u32 imm8 = imm & 0xFF;
+	imm8 = imm8 | (imm8 << 8) | (imm8 << 16) | (imm8 << 24);
+
+	if (Size == I_8) {
+		imm = imm8;
+	} else if (Size == I_16) {
+		imm &= 0xFFFF;
+		imm = imm | (imm << 16);
+	}
+
+	if ((imm & 0x000000FF) == imm) {
+		op = 0;
+		cmode = 0 << 1;
+		op2 = IMM(imm);
+	} else if ((imm & 0x0000FF00) == imm) {
+		op = 0;
+		cmode = 1 << 1;
+		op2 = IMM(imm >> 8);
+	} else if ((imm & 0x00FF0000) == imm) {
+		op = 0;
+		cmode = 2 << 1;
+		op2 = IMM(imm >> 16);
+	} else if ((imm & 0xFF000000) == imm) {
+		op = 0;
+		cmode = 3 << 1;
+		op2 = IMM(imm >> 24);
+	} else if ((imm & 0x00FF00FF) == imm && (imm >> 16) == (imm & 0x00FF)) {
+		op = 0;
+		cmode = 4 << 1;
+		op2 = IMM(imm & 0xFF);
+	} else if ((imm & 0xFF00FF00) == imm && (imm >> 16) == (imm & 0xFF00)) {
+		op = 0;
+		cmode = 5 << 1;
+		op2 = IMM(imm & 0xFF);
+	} else if ((imm & 0x0000FFFF) == (imm | 0x000000FF)) {
+		op = 0;
+		cmode = (6 << 1) | 0;
+		op2 = IMM(imm >> 8);
+	} else if ((imm & 0x00FFFFFF) == (imm | 0x0000FFFF)) {
+		op = 0;
+		cmode = (6 << 1) | 1;
+		op2 = IMM(imm >> 16);
+	} else if (imm == imm8) {
+		op = 0;
+		cmode = (7 << 1) | 0;
+		op2 = IMM(imm & 0xFF);
+	} else if (TryMakeFloatIMM8(imm, op2)) {
+		op = 0;
+		cmode = (7 << 1) | 1;
+	} else {
+		// 64-bit constant form - technically we could take a u64.
+		bool canEncode = true;
+		u8 imm8 = 0;
+		for (int i = 0, i8 = 0; i < 32; i += 8, ++i8) {
+			u8 b = (imm >> i) & 0xFF;
+			if (b == 0xFF) {
+				imm8 |= 1 << i8;
+			} else if (b != 0x00) {
+				canEncode = false;
+			}
+		}
+		if (canEncode) {
+			// We don't want zeros in the second lane.
+			op = 1;
+			cmode = 7 << 1;
+			op2 = IMM(imm8 | (imm8 << 4));
+		} else {
+			_assert_msg_(JIT, false, "VMOV_neon #imm invalid constant value");
+		}
+	}
+
+	// No condition allowed.
+	Write32((15 << 28) | (0x28 << 20) | EncodeVd(Vd) | (cmode << 8) | (register_quad << 6) | (op << 5) | (1 << 4) | op2.Imm8ASIMD());
+}
+
+void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane)
+{
+	_assert_msg_(JIT, cpu_info.bNEON, "VMOV_neon requires NEON");
+
+	int opc1 = 0;
+	int opc2 = 0;
+
+	switch (Size & ~(I_SIGNED | I_UNSIGNED))
+	{
+	case I_8: opc1 = 2 | (lane >> 2); opc2 = lane & 3; break;
+	case I_16: opc1 = lane >> 1; opc2 = 1 | ((lane & 1) << 1); break;
+	case I_32:
+	case F_32:
+		opc1 = lane & 1;
+		break;
+	default:
+		_assert_msg_(JIT, false, "VMOV_neon unsupported size");
+	}
+
+	if (Vd < S0 && Rt >= D0 && Rt < Q0)
+	{
+		// Oh, reading to reg, our params are backwards.
+		ARMReg Src = Rt;
+		ARMReg Dest = Vd;
+
+		_dbg_assert_msg_(JIT, (Size & (I_UNSIGNED | I_SIGNED | F_32)) != 0, "Must specify I_SIGNED or I_UNSIGNED in VMOV, unless F_32");
+		int U = (Size & I_UNSIGNED) ? (1 << 23) : 0;
+
+		Write32(condition | (0xE1 << 20) | U | (opc1 << 21) | EncodeVn(Src) | (Dest << 12) | (0xB << 8) | (opc2 << 5) | (1 << 4));
+	}
+	else if (Rt < S0 && Vd >= D0 && Vd < Q0)
+	{
+		ARMReg Src = Rt;
+		ARMReg Dest = Vd;
+		Write32(condition | (0xE0 << 20) | (opc1 << 21) | EncodeVn(Dest) | (Src << 12) | (0xB << 8) | (opc2 << 5) | (1 << 4));
+	}
+	else
+		_assert_msg_(JIT, false, "VMOV_neon unsupported arguments (Dx -> Rx or Rx -> Dx)");
+}
+
+void ARMXEmitter::VMOV(ARMReg Vd, ARMReg Rt, ARMReg Rt2)
+{
+	_assert_msg_(JIT, cpu_info.bVFP | cpu_info.bNEON, "VMOV_neon requires VFP or NEON");
+
+	if (Vd < S0 && Rt < S0 && Rt2 >= D0)
+	{
+		// Oh, reading to regs, our params are backwards.
+		ARMReg Src = Rt2;
+		ARMReg Dest1 = Vd;
+		ARMReg Dest2 = Rt;
+		Write32(condition | (0xC5 << 20) | (Dest2 << 16) | (Dest1 << 12) | (0xB << 8) | EncodeVm(Src) | (1 << 4));
+	}
+	else if (Vd >= D0 && Rt < S0 && Rt2 < S0)
+	{
+		ARMReg Dest = Vd;
+		ARMReg Src1 = Rt;
+		ARMReg Src2 = Rt2;
+		Write32(condition | (0xC4 << 20) | (Src2 << 16) | (Src1 << 12) | (0xB << 8) | EncodeVm(Dest) | (1 << 4));
+	}
+	else
+		_assert_msg_(JIT, false, "VMOV_neon requires either Dm, Rt, Rt2 or Rt, Rt2, Dm.");
+}
+
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
 	_assert_msg_(JIT, Src < S0, "This VMOV doesn't support SRC other than ARM Reg");
@@ -1939,6 +2121,7 @@ void ARMXEmitter::VCNT(u32 Size, ARMReg Vd, ARMReg Vm)
 void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Vm >= D0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -1955,7 +2138,7 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index)
 void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 {
 	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to " __FUNCTION__);
-	_dbg_assert_msg_(JIT, Rt < D0, "Pass invalid register to " __FUNCTION__);
+	_dbg_assert_msg_(JIT, Rt < S0, "Pass invalid register to " __FUNCTION__);
 	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use " __FUNCTION__ " when CPU doesn't support it");
 
 	bool register_quad = Vd >= Q0;
@@ -1969,7 +2152,7 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 		sizeEncoded = 0;
 
 	Write32((0xEE << 24) | (0x8 << 20) | ((sizeEncoded & 2) << 21) | (register_quad << 21) \
-		| ((Vd & 0xF) << 16) | (Rt << 12) | (0xD1 << 4) | ((Vd & 0x10) << 3) | (1 << 4));
+		| ((Vd & 0xF) << 16) | (Rt << 12) | (0xB1 << 4) | ((Vd & 0x10) << 3) | ((sizeEncoded & 1) << 5));
 }
 void ARMXEmitter::VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {

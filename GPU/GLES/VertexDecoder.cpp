@@ -219,6 +219,7 @@ void VertexDecoder::Step_Color565() const
 	c[1] = Convert6To8((cdata>>5) & 0x3f);
 	c[2] = Convert5To8((cdata>>11) & 0x1f);
 	c[3] = 255;
+	// Always full alpha.
 }
 
 void VertexDecoder::Step_Color5551() const
@@ -229,6 +230,7 @@ void VertexDecoder::Step_Color5551() const
 	c[1] = Convert5To8((cdata>>5) & 0x1f);
 	c[2] = Convert5To8((cdata>>10) & 0x1f);
 	c[3] = (cdata >> 15) ? 255 : 0;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] != 0;
 }
 
 void VertexDecoder::Step_Color4444() const
@@ -237,6 +239,7 @@ void VertexDecoder::Step_Color4444() const
 	u16 cdata = *(u16*)(ptr_ + coloff);
 	for (int j = 0; j < 4; j++)
 		c[j] = Convert4To8((cdata >> (j * 4)) & 0xF);
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color8888() const
@@ -244,6 +247,7 @@ void VertexDecoder::Step_Color8888() const
 	u8 *c = decoded_ + decFmt.c0off;
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
 	memcpy(c, cdata, sizeof(u8) * 4);
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color565Morph() const
@@ -262,6 +266,7 @@ void VertexDecoder::Step_Color565Morph() const
 		c[i] = (u8)col[i];
 	}
 	c[3] = 255;
+	// Always full alpha.
 }
 
 void VertexDecoder::Step_Color5551Morph() const
@@ -280,6 +285,7 @@ void VertexDecoder::Step_Color5551Morph() const
 	for (int i = 0; i < 4; i++) {
 		c[i] = (u8)col[i];
 	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color4444Morph() const
@@ -296,6 +302,7 @@ void VertexDecoder::Step_Color4444Morph() const
 	for (int i = 0; i < 4; i++) {
 		c[i] = (u8)col[i];
 	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color8888Morph() const
@@ -312,6 +319,7 @@ void VertexDecoder::Step_Color8888Morph() const
 	for (int i = 0; i < 4; i++) {
 		c[i] = (u8)(col[i]);
 	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_NormalS8() const

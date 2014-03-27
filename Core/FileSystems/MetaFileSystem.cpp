@@ -133,17 +133,14 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	{
 		prefix = inPath.substr(0, inColon + 1);
 		inAfterColon = inPath.substr(inColon + 1);
-	}
 
-	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
-	// Hot Pixel don't like this (prevent booting)
-	/*
-	if (inAfterColon == "/")
-	{
-		outPath = prefix + inAfterColon;
-		return true;
+		// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
+		if (inAfterColon == "/")
+		{
+			outPath = prefix + inAfterColon;
+			return true;
+		}
 	}
-	*/
 
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{

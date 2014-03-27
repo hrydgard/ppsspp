@@ -266,5 +266,6 @@ private:
 	bool CompileStep(const VertexDecoder &dec, int i);
 	void Jit_ApplyWeights();
 	void Jit_WriteMatrixMul(int outOff, bool pos);
+	void Jit_WriteMorphColor(int outOff, bool checkAlpha = true);
 	const VertexDecoder *dec_;
 };

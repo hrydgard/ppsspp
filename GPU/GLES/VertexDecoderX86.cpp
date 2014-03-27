@@ -187,7 +187,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
-				prescaleStep = true;
+			prescaleStep = true;
 		}
 	}
 
@@ -361,11 +361,7 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(XMM1, R(tempReg1));
@@ -399,11 +395,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(XMM1, R(tempReg1));
@@ -437,11 +429,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
-#ifdef _M_X64
-	MOV(PTRBITS, R(tempReg2), Imm64((uintptr_t)&bones));
-#else
-	MOV(PTRBITS, R(tempReg2), Imm32((uintptr_t)&bones));
-#endif
+	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 	for (int j = 0; j < dec_->nweights; j++) {
 		MOVSS(XMM1, MDisp(srcReg, dec_->weightoff + j * 4));
 		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
@@ -568,6 +556,11 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 void VertexDecoderJitCache::Jit_Color8888() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->coloff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+
+	CMP(32, R(tempReg1), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_GE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
@@ -637,6 +630,11 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	OR(32, R(tempReg2), R(tempReg3));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
+
+	CMP(32, R(tempReg2), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_AE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
@@ -673,6 +671,7 @@ void VertexDecoderJitCache::Jit_Color565() {
 	OR(32, R(tempReg2), R(tempReg1));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
+	// Never has alpha, no need to update fullAlphaArg.
 }
 
 void VertexDecoderJitCache::Jit_Color5551() {
@@ -708,6 +707,11 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	OR(32, R(tempReg2), R(tempReg1));
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
+
+	CMP(32, R(tempReg2), Imm32(0xFF000000));
+	FixupBranch skip = J_CC(CC_AE, false);
+	MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+	SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
@@ -739,13 +743,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
@@ -789,13 +787,7 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 // Intentionally in reverse order.
@@ -849,13 +841,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		}
 	}
 
-	// Pack back into a u32.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
-	PACKSSDW(fpScratchReg, R(fpScratchReg));
-	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	Jit_WriteMorphColor(dec_->decFmt.c0off, false);
 }
 
 // Intentionally in reverse order.
@@ -911,13 +897,24 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		}
 	}
 
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	// Pack back into a u32.
 	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(R(tempReg1), fpScratchReg);
+	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
 
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
+	// TODO: May be a faster way to do this without the MOVD.
+	if (checkAlpha) {
+		MOVD_xmm(R(tempReg1), fpScratchReg);
+		CMP(32, R(tempReg1), Imm32(0xFF000000));
+		FixupBranch skip = J_CC(CC_AE, false);
+		MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
+		SetJumpTarget(skip);
+	}
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.
@@ -1000,6 +997,7 @@ void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
+	DEBUG_LOG_REPORT_ONCE(vertexS8Through, G3D, "Using S8 positions in throughmode");
 	// TODO: SIMD
 	for (int i = 0; i < 3; i++) {
 		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
@@ -1010,17 +1008,6 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	// This commented out version is likely slightly faster but treats all three as signed, which
-	// appears to be wrong.
-	/*
-	XORPS(XMM3, R(XMM3));
-	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	PUNPCKLWD(XMM1, R(XMM3));
-	PSLLD(XMM1, 16);
-	PSRAD(XMM1, 16); // Ugly sign extension, can be done faster in SSE4
-	CVTDQ2PS(XMM3, R(XMM1));
-	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
-	*/
 	MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff));
 	MOVSX(32, 16, tempReg2, MDisp(srcReg, dec_->posoff + 2));
 	MOVZX(32, 16, tempReg3, MDisp(srcReg, dec_->posoff + 4));  // NOTE: MOVZX

@@ -286,6 +286,7 @@ public:
 		p.Do(numInternalFonts);
 		if (numInternalFonts != (int)internalFonts.size()) {
 			ERROR_LOG(SCEFONT, "Unable to load state: different internal font count.");
+			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
 

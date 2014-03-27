@@ -35,6 +35,12 @@ const static float FONT_SCALE = 0.55f;
 const static int SAVEDATA_INIT_DELAY_US = 200000;
 const static int SAVEDATA_SHUTDOWN_DELAY_US = 2000;
 
+// These are the only sizes which are allowed.
+// TODO: We should test what the different behavior is for each.
+const static int SAVEDATA_DIALOG_SIZE_V1 = 1480;
+const static int SAVEDATA_DIALOG_SIZE_V2 = 1500;
+const static int SAVEDATA_DIALOG_SIZE_V3 = 1536;
+
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
@@ -59,6 +65,10 @@ int PSPSaveDialog::Init(int paramAddr)
 	int size = Memory::Read_U32(requestAddr);
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different save request format
+	if (size != SAVEDATA_DIALOG_SIZE_V1 && size != SAVEDATA_DIALOG_SIZE_V2 && size != SAVEDATA_DIALOG_SIZE_V3) {
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilitySavedataInitStart: invalid size %d", size);
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
 	Memory::Memcpy(&request, requestAddr, size);
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 

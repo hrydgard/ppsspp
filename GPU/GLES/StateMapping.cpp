@@ -536,8 +536,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
-		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+		float zScale = getFloat24(gstate.viewportz1) / 65536.0f;
+		float zOff = getFloat24(gstate.viewportz2) / 65536.0f;
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);

@@ -73,12 +73,12 @@
 #include "Core/CoreTiming.h"
 
 #include "native/gfx_es2/gl_state.h"
-#include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -86,7 +86,6 @@
 #include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
-#include "GPU/Common/SplineCommon.h"
 
 extern const GLuint glprim[8] = {
 	GL_POINTS,
@@ -265,11 +264,6 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
-
-		// TODO: Add functionality to VertexDecoder to scan for non-full alpha in the two other formats,
-		// which are quite common.
-		int colorType = vertTypeID & GE_VTYPE_COL_MASK;
-		gstate_c.vertexFullAlpha = colorType == GE_VTYPE_COL_NONE || colorType == GE_VTYPE_COL_565;
 	}
 }
 
@@ -454,7 +448,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 		if (!dc.inds) {
-			fullhash += XXH32((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
+			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
 		} else {
 			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 			int j = i + 1;
@@ -469,16 +463,16 @@ u32 TransformDrawEngine::ComputeHash() {
 			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += XXH32((const char *)dc.verts + vertexSize * indexLowerBound,
+			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
 				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += XXH32((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
 			i = lastMatch;
 		}
 	}
 	if (uvScale) {
-		fullhash += XXH32(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
+		fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 	}
 
 	return fullhash;
@@ -526,12 +520,12 @@ void TransformDrawEngine::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShader *program = shaderManager_->ApplyShader(prim, lastVType_);
+	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_);
 
 	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 	int maxIndex = 0;
 
-	if (program->useHWTransform_) {
+	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;
@@ -566,6 +560,8 @@ void TransformDrawEngine::DoFlush() {
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
+					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
+
 					goto rotateVBO;
 				}
 
@@ -613,6 +609,7 @@ void TransformDrawEngine::DoFlush() {
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
+						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
@@ -639,6 +636,7 @@ void TransformDrawEngine::DoFlush() {
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
+						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					}
 					vbo = vai->vbo;
 					ebo = vai->ebo;
@@ -665,6 +663,8 @@ void TransformDrawEngine::DoFlush() {
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
+
+					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
@@ -698,8 +698,16 @@ rotateVBO:
 		}
 
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		if (gstate.isModeThrough()) {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+		} else {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+		}
 
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
+
 		if (useElements) {
 #if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
@@ -715,6 +723,14 @@ rotateVBO:
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 	} else {
 		DecodeVerts();
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		if (gstate.isModeThrough()) {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+		} else {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+		}
+
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
 		// Undo the strip optimization, not supported by the SW code yet.
@@ -734,6 +750,7 @@ rotateVBO:
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
+	gstate_c.vertexFullAlpha = true;
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();

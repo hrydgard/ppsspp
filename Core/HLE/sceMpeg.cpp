@@ -356,10 +356,10 @@ void __MpegDoState(PointerWrap &p) {
 
 	if (s < 2) {
 		int oldLastMpeg = -1;
-		bool oldIsMpegAnaltized = false;
+		bool oldIsMpegAnalyzed = false;
 		p.Do(oldLastMpeg);
 		p.Do(streamIdGen);
-		p.Do(oldIsMpegAnaltized);
+		p.Do(oldIsMpegAnalyzed);
 		// Let's assume the oldest version.
 		mpegLibVersion = 0x0101;
 	} else {
@@ -1793,3 +1793,24 @@ void Register_sceMpeg()
 {
 	RegisterModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
+
+u32 sceMpegbase_BEA18F91(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
+{
+	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x, %08x, %08x, %08x, %08x, %08x)", unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	return 0;
+}
+
+const HLEFunction sceMpegbase[] =
+{
+	{ 0xBEA18F91, WrapU_UUUUUU<sceMpegbase_BEA18F91>, "sceMpegbase_BEA18F91" },
+	{ 0x492B5E4B, 0, "sceMpegBaseCscInit" },
+	{ 0x0530BE4E, 0, "sceMpegbase_0530BE4E" },
+	{ 0x91929A21, 0, "sceMpegBaseCscAvc" },
+	{ 0x304882E1, 0, "sceMpegBaseCscAvcRange" },
+	{ 0x7AC0321A, 0, "sceMpegBaseYCrCbCopy" }
+};
+
+void Register_sceMpegbase()
+{
+	RegisterModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
+};
