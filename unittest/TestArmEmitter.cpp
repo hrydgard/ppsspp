@@ -107,6 +107,9 @@ bool TestArmEmitter() {
 	emitter.VMOV(R9, S3);
 	RET(CheckLast(emitter, "ee119a90 VMOV r9, s3"));
 
+	emitter.VMVN(Q1, Q13);
+	RET(CheckLast(emitter, "f3b025ea VMVN q1, q3"));
+
 	emitter.VMOV(S3, S6);
 	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
 	emitter.VMOV(S25, S21);

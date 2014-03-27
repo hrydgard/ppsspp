@@ -535,7 +535,6 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 
 	// Weights are always first, so we can use srcReg directly.
 	if (NEONSkinning) {
-		// if (false) because this path breaks Daxter. VLDMIA with d registers doesn't seem to work as expected.
 		if (dec_->nweights == 1) {
 			VLD1_lane(F_32, neonWeightRegsD[0], srcReg, 0, true);
 		} else {
