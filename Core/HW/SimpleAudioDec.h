@@ -20,6 +20,17 @@
 #include <cmath>
 
 #include "base/basictypes.h"
+#include "Core/HW/MediaEngine.h"
+
+#ifdef USE_FFMPEG
+
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
+#include <libavutil/samplefmt.h>
+}
+
+#endif  // USE_FFMPEG
 
 // Wraps FFMPEG in a nice interface that's drop-in compatible with
 // the old one. Decodes packet by packet - does NOT demux. That's done by
@@ -32,8 +43,52 @@
 // However, it will be maintained as a part of FFMPEG so that's the way we'll go
 // for simplicity and sanity.
 
-struct SimpleAT3;
+struct SimpleAudio {
+public:
+	SimpleAudio(int);
+	SimpleAudio(u32, int);
+	~SimpleAudio();
 
-SimpleAT3 *AT3Create();
-bool AT3Decode(SimpleAT3 *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t* outbuf);
-void AT3Close(SimpleAT3 **ctx);
+	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
+	bool IsOK() const { return codec_ != 0; }
+
+	u32 ctxPtr;
+	int audioType;
+
+private:
+#ifdef USE_FFMPEG
+	AVFrame *frame_;
+	AVCodec *codec_;
+	AVCodecContext  *codecCtx_;
+	SwrContext      *swrCtx_;
+	AVCodecID audioCodecId; // AV_CODEC_ID_XXX
+
+	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
+#endif  // USE_FFMPEG
+};
+
+
+enum {
+	PSP_CODEC_AT3PLUS = 0x00001000,
+	PSP_CODEC_AT3 = 0x00001001,
+	PSP_CODEC_MP3 = 0x00001002,
+	PSP_CODEC_AAC = 0x00001003,
+};
+
+static const char *const codecNames[4] = {
+	"AT3+", "AT3", "MP3", "AAC",
+};
+
+
+SimpleAudio *AudioCreate(int audioType);
+bool AudioDecode(SimpleAudio *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t* outbuf);
+void AudioClose(SimpleAudio **ctx);
+static const char *GetCodecName(int codec) {
+	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
+		return codecNames[codec - PSP_CODEC_AT3PLUS];
+	}
+	else {
+		return "(unk)";
+	}
+};
+bool isValidCodec(int codec);
