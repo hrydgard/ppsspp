@@ -39,6 +39,7 @@
 #include "__sceAudio.h"
 #include "sceAtrac.h"
 #include "sceAudio.h"
+#include "sceAudiocodec.h"
 #include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
@@ -136,6 +137,7 @@ void __KernelInit()
 	__CheatInit();
 	__HeapInit();
 	__DmacInit();
+	__AudioCodecInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -159,6 +161,7 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__AudioCodecShutdown();
 	__NetShutdown();
 	__NetAdhocShutdown();
 	__FontShutdown();

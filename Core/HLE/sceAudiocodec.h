@@ -56,6 +56,8 @@ typedef struct
 	u8 unk[20];
 } SceAudiocodecCodec;
 
+void __AudioCodecInit();
+void __AudioCodecShutdown();
 void Register_sceAudiocodec();
 void resetAudioList();
 void __sceAudiocodecDoState(PointerWrap &p);
