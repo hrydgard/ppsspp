@@ -58,3 +58,4 @@ typedef struct
 
 void Register_sceAudiocodec();
 void resetAudioList();
+void __sceAudiocodecDoState(PointerWrap &p);

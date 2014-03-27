@@ -35,7 +35,7 @@ struct AudioCodecContext {
 };
 
 // audioList is to store current playing audios.
-std::list<SimpleAudio *> audioList;
+static std::list<SimpleAudio *> audioList;
 
 // find the audio decoder for corresponding ctxPtr in audioList
 SimpleAudio * findDecoder(u32 ctxPtr){
@@ -85,14 +85,11 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		int outbytes = 0;
 		// find a decoder in audioList
 		auto decoder = findDecoder(ctxPtr);
-		if (decoder == NULL){
-			// create a decoder, this is possible when loadstate
-			decoder = new SimpleAudio(ctxPtr, codec);
-			audioList.push_front(decoder);
+		if (decoder != NULL){
+			// Decode audio
+			AudioDecode(decoder, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
+			DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		}
-		// Decode audio
-		AudioDecode(decoder, Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &outbytes, Memory::GetPointer(ctx->outDataPtr));
-		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		// Delete AudioCodecContext
 		delete(ctx);
 		return 0;
@@ -117,7 +114,6 @@ int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 }
 
 int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
-	//id is not always a codec, so what is should be? 
 	if (removeDecoder(ctxPtr)){
 		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 		return 0;
@@ -139,6 +135,45 @@ const HLEFunction sceAudiocodec[] = {
 void Register_sceAudiocodec()
 {
 	RegisterModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
+}
+
+void __sceAudiocodecDoState(PointerWrap &p){
+	auto s = p.Section("AudioList", 0, 1);
+	if (!s)
+		return;
+
+	auto count = (int)audioList.size();
+	p.Do(count);
+	if (count > 0){
+		if (p.mode == p.MODE_READ){
+			// loadstate if audioList is nonempty
+			auto codec_ = new int[count];
+			auto ctxPtr_ = new u32[count];
+			p.DoArray(codec_, ARRAY_SIZE(codec_));
+			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
+			for (int i = 0; i < count; i++){
+				auto decoder = new SimpleAudio(ctxPtr_[i], codec_[i]);
+				audioList.push_front(decoder);
+			}
+			delete[] codec_;
+			delete[] ctxPtr_;
+		}
+		else{
+			// savestate if audioList is nonempty
+			auto codec_ = new int[count];
+			auto ctxPtr_ = new u32[count];
+			int i = 0;
+			for (std::list<SimpleAudio *>::iterator it = audioList.begin(); it != audioList.end(); it++){
+				codec_[i] = (*it)->audioType;
+				ctxPtr_[i] = (*it)->ctxPtr;
+				i++;
+			}
+			p.DoArray(codec_, ARRAY_SIZE(codec_));
+			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
+			delete[] codec_;
+			delete[] ctxPtr_;
+		}
+	}
 }
 
 void resetAudioList(){
