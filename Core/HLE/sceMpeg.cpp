@@ -1807,7 +1807,7 @@ u32 sceMpegbase_BEA18F91(u32 p)
 	SceMpegLLI lli;
 	Memory::ReadStruct(p, &lli);
 	//TODO:  
-	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x)", p);
+	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x) pSrc %08x , pDst %08x, Next %08x, iSize %08x", p, lli.pSrc, lli.pDst ,lli.Next, lli.iSize);
 	return 0;
 }
 
