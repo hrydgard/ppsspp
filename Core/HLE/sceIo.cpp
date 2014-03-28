@@ -155,6 +155,7 @@ struct SceIoDirEnt {
 	SceIoStat d_stat;
 	char d_name[256];
 	u32_le d_private;
+	u32_le d_dummy;
 };
 #ifndef __SYMBIAN32__
 struct dirent {
@@ -1937,7 +1938,30 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
-		entry->d_private = 0xC0DEBABE;
+		//entry->d_private = 0xC0DEBABE;
+		// write d_private
+		if (Memory::IsValidAddress(entry->d_private)){
+			if (sceKernelGetCompiledSdkVersion() <= 0x0307FFFF){
+				// d_private is pointing to an area of unknown size
+				// - [0..12] "8.3" file name (null-terminated)
+				// - [13..???] long file name (null-terminated)
+				
+				GetShortPathName((LPCWSTR)entry->d_name, (LPWSTR)Memory::GetPointer(entry->d_private), 13);
+				memcpy((void*)Memory::GetPointer(entry->d_private + 13), (void*)entry->d_name, 256);
+			}
+			else {
+				// d_private is pointing to an area of total size 1044
+				// - [0..3] size of area
+				// - [4..19] "8.3" file name (null-terminated)
+				// - [20..???] long file name (null-terminated)
+				auto size = Memory::Read_U32(entry->d_private);
+				if (size >= 1044) {
+					auto pcadd = Memory::GetPointer(entry->d_private);
+					GetShortPathName((LPCWSTR)entry->d_name, (LPWSTR)Memory::GetPointer(entry->d_private + 4), 13);
+					memcpy((void*)Memory::GetPointer(entry->d_private + 20), (void*)entry->d_name, 1024);
+				}
+			}
+		}
 		DEBUG_LOG(SCEIO, "sceIoDread( %d %08x ) = %s", id, dirent_addr, entry->d_name);
 
 		// TODO: Improve timing.  Only happens on the *first* entry read, ms and umd.
