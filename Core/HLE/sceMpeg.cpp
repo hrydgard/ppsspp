@@ -1794,13 +1794,20 @@ void Register_sceMpeg()
 	RegisterModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
 
-u32 sceMpegbase_BEA18F91(u32 SceMpegLLI)
+struct SceMpegLLI
 {
-	u32 pSrc = Memory::Read_U32(SceMpegLLI);
-	u32 pDst = Memory::Read_U32(SceMpegLLI + 4);
-	u32 Next = Memory::Read_U32(SceMpegLLI + 8);
-	int iSize = Memory::Read_U32(SceMpegLLI + 12);
-	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(pSrc %i ,pDst %i,Next %i,iSize %i)", pSrc, pDst, Next, iSize);
+	u32 pSrc;
+	u32 pDst;
+	u32 Next;
+	int iSize;
+};
+
+u32 sceMpegbase_BEA18F91(u32 p)
+{
+	SceMpegLLI lli;
+	Memory::ReadStruct(p, &lli);
+	//TODO:  
+	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x)", p);
 	return 0;
 }
 
