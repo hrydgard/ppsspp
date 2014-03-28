@@ -1939,14 +1939,19 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
 		//entry->d_private = 0xC0DEBABE;
-		// write d_private
+		// write d_private for supporting Custom BGM
+		// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
 		if (Memory::IsValidAddress(entry->d_private)){
 			if (sceKernelGetCompiledSdkVersion() <= 0x0307FFFF){
 				// d_private is pointing to an area of unknown size
 				// - [0..12] "8.3" file name (null-terminated)
 				// - [13..???] long file name (null-terminated)
-				
+#ifdef _WINBASE_
 				GetShortPathName((LPCWSTR)entry->d_name, (LPWSTR)Memory::GetPointer(entry->d_private), 13);
+#else
+				// use first 13 caracters of the long file name as short file name
+				memcpy((void*)Memory::GetPointer(entry->d_private), (void*)entry->d_name, 13);
+#endif
 				memcpy((void*)Memory::GetPointer(entry->d_private + 13), (void*)entry->d_name, 256);
 			}
 			else {
@@ -1956,8 +1961,12 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 				// - [20..???] long file name (null-terminated)
 				auto size = Memory::Read_U32(entry->d_private);
 				if (size >= 1044) {
-					auto pcadd = Memory::GetPointer(entry->d_private);
+#ifdef _WINBASE_
 					GetShortPathName((LPCWSTR)entry->d_name, (LPWSTR)Memory::GetPointer(entry->d_private + 4), 13);
+#else
+					// use first 13 caracters of the long file name as short file name
+					memcpy((void*)Memory::GetPointer(entry->d_private + 4), (void*)entry->d_name, 13);
+#endif
 					memcpy((void*)Memory::GetPointer(entry->d_private + 20), (void*)entry->d_name, 1024);
 				}
 			}
