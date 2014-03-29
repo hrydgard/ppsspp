@@ -88,6 +88,7 @@ SimpleAudio::SimpleAudio(int audioType)
 	}
 	codecCtx_->channels = 2;
 	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
+	codecCtx_->sample_rate = 44100;
 	// Open codec
 	AVDictionary *opts = 0;
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
@@ -129,6 +130,7 @@ SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
 	}
 	codecCtx_->channels = 2;
 	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
+	codecCtx_->sample_rate = 44100;
 	// Open codec
 	AVDictionary *opts = 0;
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
