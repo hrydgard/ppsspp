@@ -276,14 +276,15 @@ static bool CanDoubleSrcBlendMode() {
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
-	memset(&id->d[0], 0, sizeof(id->d));
+	int id0 = 0;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
-		id->d[0] = 1;
+		id0 = 1;
 	} else {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
+		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool alphaToColorDoubling = AlphaToColorDoubling();
 		bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
@@ -297,35 +298,42 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 
-		// id->d[0] |= (gstate.isModeClear() & 1);
+		// id0 |= (gstate.isModeClear() & 1);
 		if (gstate.isTextureMapEnabled()) {
-			id->d[0] |= 1 << 1;
-			id->d[0] |= gstate.getTextureFunction() << 2;
-			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
+			id0 |= 1 << 1;
+			id0 |= gstate.getTextureFunction() << 2;
+			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
 
-		id->d[0] |= (lmode & 1) << 7;
-		id->d[0] |= enableAlphaTest << 8;
-		if (enableAlphaTest)
-			id->d[0] |= gstate.getAlphaTestFunction() << 9;
-		id->d[0] |= enableColorTest << 12;
-		if (enableColorTest)
-			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
-		id->d[0] |= (enableFog & 1) << 15;
-		id->d[0] |= (doTextureProjection & 1) << 16;
-		id->d[0] |= (enableColorDoubling & 1) << 17;
-		id->d[0] |= (enableAlphaDoubling & 1) << 18;
-		id->d[0] |= (stencilToAlpha) << 19;
+		// 6 is free.
+
+		id0 |= (lmode & 1) << 7;
+		if (enableAlphaTest) {
+			id0 |= 1 << 8;
+			id0 |= gstate.getAlphaTestFunction() << 9;
+		}
+		if (enableColorTest) {
+			id0 |= 1 << 12;
+			id0 |= gstate.getColorTestFunction() << 13;	 // color test func
+		}
+		id0 |= (enableFog & 1) << 15;
+		id0 |= (doTextureProjection & 1) << 16;
+		id0 |= (enableColorDoubling & 1) << 17;
+		id0 |= (enableAlphaDoubling & 1) << 18;
+		id0 |= (stencilToAlpha) << 19;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id->d[0] |= ReplaceAlphaWithStencilType() << 21;
+			id0 |= ReplaceAlphaWithStencilType() << 21;
 		}
+		id0 |= (alphaTestAgainstZero & 1) << 24;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 	}
+
+	id->d[0] = id0;
 }
 
 // Missing: Z depth range
@@ -391,6 +399,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
+	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool alphaToColorDoubling = AlphaToColorDoubling();
 	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
@@ -429,7 +438,7 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
 	}
 
-	if (enableAlphaTest) {
+	if (enableAlphaTest && !alphaTestAgainstZero) {
 		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
@@ -535,9 +544,18 @@ void GenerateFragmentShader(char *buffer) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+				if (alphaTestAgainstZero) {
+					// When testing against 0 (extremely common), we can avoid some math.
+					// 0.002 is approximately half of 1.0 / 255.0.
+					if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
+						WRITE(p, "  if (v.a < 0.002) discard;\n");
+					} else {
+						// Anything else is a test for == 0.  Happens sometimes, actually...
+						WRITE(p, "  if (v.a > 0.002) discard;\n");
+					}
+				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					// Work around bad PVR driver problem where equality check + discard just doesn't work.
-					if (alphaTestFunc != 3)
+					if (alphaTestFunc != GE_COMP_NOTEQUAL)
 						WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else {
 					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
