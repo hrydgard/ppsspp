@@ -60,12 +60,13 @@ bool SimpleAudio::GetAudioCodecID(int audioType){
 }
 
 SimpleAudio::SimpleAudio(int audioType)
-: codec_(0),
-codecCtx_(0),
-swrCtx_(0) {
-	SimpleAudio::audioType = audioType;
+: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType){
 #ifdef USE_FFMPEG
-		frame_ = av_frame_alloc();
+	avcodec_register_all();
+	av_register_all();
+	InitFFmpeg();
+	
+	frame_ = av_frame_alloc();
 
 	// Get Audio Codec ID
 	if (!GetAudioCodecID(audioType)){
@@ -100,12 +101,12 @@ swrCtx_(0) {
 
 
 SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
-: codec_(0),
-codecCtx_(0),
-swrCtx_(0) {
-	SimpleAudio::ctxPtr = ctxPtr;
-	SimpleAudio::audioType = audioType;
+: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType){
 #ifdef USE_FFMPEG
+	avcodec_register_all();
+	av_register_all();
+	InitFFmpeg();
+
 	frame_ = av_frame_alloc();
 
 	// Get Audio Codec ID
@@ -210,40 +211,6 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 #endif  // USE_FFMPEG
 }
 
-
-SimpleAudio *AudioCreate(int audioType) {
-#ifdef USE_FFMPEG
-	avcodec_register_all();
-	av_register_all();
-	InitFFmpeg();
-
-	SimpleAudio *Audio = new SimpleAudio(audioType);
-	if (!Audio->IsOK()) {
-		delete Audio;
-		return 0;
-	}
-	return Audio;
-#else
-	return 0;
-#endif  // USE_FFMPEG
-}
-
-SimpleAudio *AudioCreate(u32 ctxPtr, int audioType) {
-#ifdef USE_FFMPEG
-	avcodec_register_all();
-	av_register_all();
-	InitFFmpeg();
-
-	SimpleAudio *Audio = new SimpleAudio(ctxPtr, audioType);
-	if (!Audio->IsOK()) {
-		delete Audio;
-		return 0;
-	}
-	return Audio;
-#else
-	return 0;
-#endif  // USE_FFMPEG
-}
 
 bool AudioDecode(SimpleAudio *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t *outbuf) {
 #ifdef USE_FFMPEG

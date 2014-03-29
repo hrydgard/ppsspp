@@ -286,7 +286,7 @@ bool MediaEngine::openContext() {
 		return false;
 
 	setVideoDim();
-	m_audioContext = AudioCreate(m_audioType);
+	m_audioContext = new SimpleAudio(m_audioType);
 	m_isVideoEnd = false;
 	m_noAudioData = false;
 	m_mpegheaderReadPos++;

@@ -79,8 +79,6 @@ static const char *const codecNames[4] = {
 	"AT3+", "AT3", "MP3", "AAC",
 };
 
-
-SimpleAudio *AudioCreate(int audioType);
 bool AudioDecode(SimpleAudio *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t* outbuf);
 void AudioClose(SimpleAudio **ctx);
 static const char *GetCodecName(int codec) {
