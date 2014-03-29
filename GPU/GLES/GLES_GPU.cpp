@@ -410,6 +410,7 @@ GLES_GPU::GLES_GPU()
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
+	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
