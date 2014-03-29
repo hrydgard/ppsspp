@@ -18,6 +18,8 @@
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 #include "GPU/GLES/VertexDecoder.h"
 
 extern void DisassembleArm(const u8 *data, int size);
