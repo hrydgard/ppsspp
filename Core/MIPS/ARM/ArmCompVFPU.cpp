@@ -1293,7 +1293,8 @@ namespace MIPSComp
 
 		u8 sregs[4], dregs[4], treg;
 		GetVectorRegsPrefixS(sregs, sz, _VS);
-		GetVectorRegs(&treg, V_Single, _VT);
+		// TODO: Prefixes seem strange...
+		GetVectorRegsPrefixT(&treg, V_Single, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
 		// Move to S0 early, so we don't have to worry about overlap with scale.
