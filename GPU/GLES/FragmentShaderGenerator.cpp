@@ -286,7 +286,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool alphaToColorDoubling = AlphaToColorDoubling();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled() || alphaToColorDoubling;
+		bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
