@@ -234,14 +234,33 @@ static bool IsColorTestTriviallyTrue() {
 	}
 }
 
-static bool AlphaToColorDoubling() {
+static bool CanDoubleSrcBlendMode() {
 	if (!gstate.isAlphaBlendEnabled()) {
 		return false;
 	}
-	// 2x alpha in the source function = source color doubling.
-	// We don't really need to care about the dest alpha function - sure we can't handle
-	// the doubling dest ones, but there's nothing we can do about that.
-	return (gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA);
+
+	int funcA = gstate.getBlendFuncA();
+	int funcB = gstate.getBlendFuncB();
+	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
+		funcB = funcA;
+		funcA = gstate.getBlendFuncB();
+	}
+	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
+		return false;
+	}
+
+	// One side should be doubled.  Let's check the other side.
+	// LittleBigPlanet, for example, uses 2.0 * src, 1.0 - src, which can't double.
+	// Persona 2 uses the same function, which is the reason for its darkness. It only ever passes
+	// 1.0 as src alpha though, so in effect it's a color doubling.
+	switch (funcB) {
+	case GE_DSTBLEND_SRCALPHA:
+	case GE_DSTBLEND_INVSRCALPHA:
+		return false;
+
+	default:
+		return true;
+	}
 }
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
@@ -256,8 +275,9 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled() || AlphaToColorDoubling();
+		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
+		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
@@ -283,6 +303,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
+		id->d[0] |= (enableAlphaDoubling & 1) << 18;
 		id->d[0] |= (stencilToAlpha) << 19;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
@@ -360,12 +381,9 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-
-	// If alpha doubling is enabled, we double the color value instead. Otherwise alpha 255 doubled will have no effect.
-	// TODO: Why the texturemapenabled check?
-	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || AlphaToColorDoubling();
-
+	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
+	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
@@ -529,8 +547,12 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		// Color doubling happens after the color test.
-		if (enableColorDoubling) {
+		if (enableColorDoubling && enableAlphaDoubling) {
+			WRITE(p, "  v = v * 2.0;\n");
+		} else if (enableColorDoubling) {
 			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+		} else if (enableAlphaDoubling) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 
 		if (enableFog) {
