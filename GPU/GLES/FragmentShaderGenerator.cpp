@@ -235,6 +235,9 @@ static bool IsColorTestTriviallyTrue() {
 }
 
 static bool AlphaToColorDoubling() {
+	if (!gstate.isAlphaBlendEnabled()) {
+		return false;
+	}
 	// 2x alpha in the source function and full alpha = source color doubling.
 	// If we see this, we don't really need to care about the dest alpha function - sure we can't handle
 	// the doubling dest ones, but there's nothing we can do about that.
