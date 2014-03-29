@@ -577,6 +577,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	shaderManager_->DirtyLastShader();  // dirty lastShader_
 }
 
+
 VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	VirtualFramebuffer *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -658,6 +659,10 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 		prevPrevDisplayFramebuf_ = 0;
 
 	delete v;
+}
+
+void FramebufferManager::RebindFramebuffer() {
+	fbo_bind_as_render_target(currentRenderVfb_->fbo);
 }
 
 void FramebufferManager::DoSetRenderFrameBuffer() {

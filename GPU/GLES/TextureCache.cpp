@@ -850,29 +850,66 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		framebufferManager_->BindFramebufferColor(entry->framebuffer);
-
 		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
-			GLuint program = depalShaderCache_->GetDepalettizeShader(entry->framebuffer->format);
-			glUseProgram(program);
-
 			// Check if we can handle the current setup
 
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBufConverted_);
-			glActiveTexture(1);
-			glBindTexture(GL_TEXTURE_2D, clutTexture);
-			glActiveTexture(0);
 
 			if (!entry->depalFBO) {
 				entry->depalFBO = fbo_create(entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight, 1, false, FBO_8888);
 			}
 			fbo_bind_as_render_target(entry->depalFBO);
+			glViewport(0, 0, entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight);
 
-			// ...
+			static const float pos[12] = {
+				-1, -1, -1,
+				 1, -1, -1,
+				 1,  1, -1,
+				-1,  1, -1
+			};
+			static const float uv[8] = {
+				0, 0,
+				1, 0,
+				1, 1,
+				0, 1,
+			};
+			static const GLubyte indices[4] = { 0, 1, 3, 2 };
 
+			GLuint program = depalShaderCache_->GetDepalettizeShader(entry->framebuffer->format);
+			glUseProgram(program);
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glEnableVertexAttribArray(0);
+			glEnableVertexAttribArray(1);
+
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, clutTexture);
+			glActiveTexture(GL_TEXTURE0);
+
+			framebufferManager_->BindFramebufferColor(entry->framebuffer);
+
+			glstate.blend.disable();
+			glstate.colorMask.set(true, true, true, true);
+			glstate.scissorTest.disable();
+			glstate.cullFace.disable();
+			glstate.depthTest.disable();
+			glstate.viewport.set(0, 0, entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight);
+
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, pos);
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8, uv);
+			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+
+			/*
+			glDisableVertexAttribArray(0);
+			glDisableVertexAttribArray(1);
+			*/
 			fbo_bind_color_as_texture(entry->depalFBO, 0);
+			glstate.Restore();
+			framebufferManager_->RebindFramebuffer();
+		} else {
+			framebufferManager_->BindFramebufferColor(entry->framebuffer);
 		}
-
 
 		// Keep the framebuffer alive.
 		entry->framebuffer->last_frame_used = gpuStats.numFlips;

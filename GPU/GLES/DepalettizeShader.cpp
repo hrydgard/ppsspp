@@ -1,4 +1,4 @@
-// Copyright (c) 2014- PPSSPP Project.
+﻿// Copyright (c) 2014- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
 
 #include <map>
 
+#define SHADERLOG
+
+#include "base/logging.h"
 #include "Common/Log.h"
 #include "DepalettizeShader.h"
 #include "GPU/GPUState.h"
@@ -24,6 +27,7 @@
 
 static const char *depalVShader =
 "#version 100\n"
+"precision highp float;\n"
 "// Depal shader\n"
 "attribute vec4 a_position;\n"
 "attribute vec2 a_texcoord0;\n"
@@ -82,11 +86,12 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 #define WRITE p+=sprintf
 
 	WRITE(p, "#version 100\n");
-	WRITE(p, "varying vec2 texcoord0;\n");
+	WRITE(p, "precision mediump float;\n");
+	WRITE(p, "varying vec2 v_texcoord0;\n");
 	WRITE(p, "uniform sampler2D tex;\n");
 	WRITE(p, "uniform sampler2D pal;\n");
 	WRITE(p, "void main() {\n");
-	WRITE(p, "  vec4 index = texture2D(tex);\n");
+	WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
 
 	char lookupMethod[128] = "index.r";
 	char offset[128] = "";
@@ -97,6 +102,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 	int shift = gstate.getClutIndexShift();
 	int mask = gstate.getClutIndexMask();
 
+	float multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
@@ -121,6 +127,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			default:
 			case 12: strcpy(lookupMethod, "index.a"); break;
 			}
+			multiplier = 1.0f / 15.0f;
 		} else {
 			// Ugh
 		}
@@ -133,6 +140,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			default:
 			case 11: strcpy(lookupMethod, "index.b"); break;
 			}
+			multiplier = 1.0f / 31.0f;
 		} else {
 			// Ugh
 		}
@@ -156,8 +164,13 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 		sprintf(offset, " + %.0f", (float)clutBase / 255.0f);   // 256?
 	}
 
-	WRITE(p, "  vec4 color = texture2D(pal, vec2(%s%s, 0.0));\n", lookupMethod, offset);
-	WRITE(p, "  gl_Color = color;\n");
+	if (true) {
+		
+		WRITE(p, "  gl_FragColor = vec4(index.r);\n", lookupMethod, offset);
+		//WRITE(p, "  gl_FragColor = vec4(index) + texture2D(pal, vec2(v_texcoord0.x, 0));\n", lookupMethod, offset);
+	} else {
+		WRITE(p, "  gl_FragColor = texture2D(pal, vec2((%s * %f)%s, 0.0));\n", lookupMethod, multiplier, offset);
+	}
 	WRITE(p, "}\n");
 }
 
@@ -175,7 +188,6 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 	
 	DepalTexture *tex = new DepalTexture();
 	glGenTextures(1, &tex->texture);
-	glActiveTexture(1);
 	glBindTexture(GL_TEXTURE_2D, tex->texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, 0, components, 256, 1, 0, components, dstFmt, (void *)rawClut);
@@ -183,7 +195,6 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glActiveTexture(0);
 
 	texCache_[clutID] = tex;
 	return tex->texture;
@@ -213,13 +224,19 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 		return shader->second->program;
 	}
 
-	char buffer[2048];
+	char *buffer = new char[2048];
 
 	GenerateDepalShader(buffer, pixelFormat);
 
-	GLuint fragShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader_, 1, &depalVShader, 0);
-	glCompileShader(vertexShader_);
+	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+	const char *buf = buffer;
+	glShaderSource(fragShader, 1, &buf, 0);
+	glCompileShader(fragShader);
+
+	CheckShaderCompileSuccess(fragShader, buffer);
+
+	delete[] buffer;
 
 	GLuint program = glCreateProgram();
 	glAttachShader(program, vertexShader_);

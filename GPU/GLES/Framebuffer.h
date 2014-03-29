@@ -201,6 +201,8 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
+	void RebindFramebuffer();
+
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
