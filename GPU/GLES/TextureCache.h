@@ -25,6 +25,7 @@
 
 struct VirtualFramebuffer;
 class FramebufferManager;
+class DepalShaderCache;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -60,6 +61,9 @@ public:
 	void SetFramebufferManager(FramebufferManager *fbManager) {
 		framebufferManager_ = fbManager;
 	}
+	void SetDepalShaderCache(DepalShaderCache *dpCache) {
+		depalShaderCache_ = dpCache;
+	}
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
@@ -87,6 +91,8 @@ private:
 			STATUS_ALPHA_MASK = 0x0c,
 
 			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
+			STATUS_DEPALETTIZE = 0x20,
+			STATUS_DEPALETTIZE_DIRTY = 0x40
 		};
 
 		// Status, but int so we can zero initialize.
@@ -94,6 +100,7 @@ private:
 		u32 addr;
 		u32 hash;
 		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
+		FBO *depalFBO;
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;
@@ -132,6 +139,7 @@ private:
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
 	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
+	bool AttachFramebufferCLUT(TextureCache::TexCacheEntry *entry, VirtualFramebuffer *framebuffer, u32 address);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry);
 
@@ -166,5 +174,7 @@ private:
 
 	int decimationCounter_;
 	FramebufferManager *framebufferManager_;
+	DepalShaderCache *depalShaderCache_;
 };
 
+GLenum getClutDestFormat(GEPaletteFormat format);

@@ -26,6 +26,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/DepalettizeShader.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -108,6 +109,9 @@ void TextureCache::Decimate() {
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
+			if (iter->second.depalFBO) {
+				fbo_destroy(iter->second.depalFBO);
+			}
 			cache.erase(iter++);
 		} else {
 			++iter;
@@ -119,6 +123,9 @@ void TextureCache::Decimate() {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				glDeleteTextures(1, &iter->second.texture);
+				if (iter->second.depalFBO) {
+					fbo_destroy(iter->second.depalFBO);
+				}
 				secondCache.erase(iter++);
 			} else {
 				++iter;
@@ -203,7 +210,18 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 	}
 }
 
-inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
+bool TextureCache::AttachFramebufferCLUT(TextureCache::TexCacheEntry *entry, VirtualFramebuffer *framebuffer, u32 address) {
+	GLuint program = depalShaderCache_->GetDepalettizeShader(framebuffer->format);
+	if (program) {
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = -1;
+		entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
+		return true;
+	}
+	return false;
+}
+
+void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		// Apply to non-buffered and buffered mode only.
@@ -226,22 +244,31 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
 			return;
 
-		// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
-		const bool compatFormat = framebuffer->format == entry->format
-			|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
-			|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
+		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
+		bool clutSuccess = false;
+		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) || (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
+			clutSuccess = AttachFramebufferCLUT(entry, framebuffer, address);
+		}
 
-		// Is it at least the right stride?
-		if (framebuffer->fb_stride == entry->bufw && compatFormat) {
-			if (framebuffer->format != entry->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-				// TODO: Use an FBO to translate the palette?
-				AttachFramebufferValid(entry, framebuffer);
-			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
-				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
-				// TODO: Keep track of the y offset.
-				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-				AttachFramebufferInvalid(entry, framebuffer);
+		if (!clutSuccess) {
+			// This is either normal or we failed to generate a shader to depalettize
+			const bool compatFormat = framebuffer->format == entry->format ||
+				(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
+				(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+			// Is it at least the right stride?
+			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
+				if (framebuffer->format != entry->format) {
+					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+					// TODO: Use an FBO to translate the palette?
+					AttachFramebufferValid(entry, framebuffer);
+				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+					WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
+					// TODO: Keep track of the y offset.
+					// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
+					AttachFramebufferInvalid(entry, framebuffer);
+				}
 			}
 		}
 	}
@@ -658,6 +685,7 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
+// TODO: Unused, remove?
 static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 	// CLUTs always come in multiples of 32 bytes, can't load them any other way.
 	_dbg_assert_msg_(G3D, (bytes & 31) == 0, "CLUT should always have a multiple of 32 bytes.");
@@ -823,6 +851,28 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		framebufferManager_->BindFramebufferColor(entry->framebuffer);
+
+		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
+			GLuint program = depalShaderCache_->GetDepalettizeShader(entry->framebuffer->format);
+			glUseProgram(program);
+
+			// Check if we can handle the current setup
+
+			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBufConverted_);
+			glActiveTexture(1);
+			glBindTexture(GL_TEXTURE_2D, clutTexture);
+			glActiveTexture(0);
+
+			if (!entry->depalFBO) {
+				entry->depalFBO = fbo_create(entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight, 1, false, FBO_8888);
+			}
+			fbo_bind_as_render_target(entry->depalFBO);
+
+			// ...
+
+			fbo_bind_color_as_texture(entry->depalFBO, 0);
+		}
+
 
 		// Keep the framebuffer alive.
 		entry->framebuffer->last_frame_used = gpuStats.numFlips;
@@ -1060,6 +1110,7 @@ void TextureCache::SetTexture(bool force) {
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
+	entry->depalFBO = 0;
 
 	entry->dim = gstate.getTextureDimension(0);
 	entry->bufw = bufw;

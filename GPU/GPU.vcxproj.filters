@@ -162,6 +162,9 @@
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="GLES\DepalettizeShader.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -300,6 +303,9 @@
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GLES\VertexDecoderX86.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\DepalettizeShader.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>

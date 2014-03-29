@@ -26,6 +26,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/DepalettizeShader.h"
 
 class ShaderManager;
 class LinkedShader;
@@ -94,6 +95,7 @@ private:
 
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
+	DepalShaderCache depalShaderCache_;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
 
