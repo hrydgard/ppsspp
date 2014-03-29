@@ -260,6 +260,10 @@ static bool CanDoubleSrcBlendMode() {
 	// LittleBigPlanet, for example, uses 2.0 * src, 1.0 - src, which can't double.
 	// Persona 2 uses the same function, which is the reason for its darkness. It only ever passes
 	// 1.0 as src alpha though, so in effect it's a color doubling.
+	if (funcA == GE_SRCBLEND_DOUBLESRCALPHA && funcB == GE_DSTBLEND_INVSRCALPHA) {
+		ERROR_LOG_REPORT_ONCE(HLE, "Unsupported blending mode: 2.0 * src, 1.0 - src");
+	}
+	
 	switch (funcB) {
 	case GE_DSTBLEND_SRCALPHA:
 	case GE_DSTBLEND_INVSRCALPHA:
