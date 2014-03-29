@@ -234,6 +234,13 @@ static bool IsColorTestTriviallyTrue() {
 	}
 }
 
+static bool AlphaToColorDoubling() {
+	// 2x alpha in the source function and full alpha = source color doubling.
+	// If we see this, we don't really need to care about the dest alpha function - sure we can't handle
+	// the doubling dest ones, but there's nothing we can do about that.
+	return (gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA) && (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()));
+}
+
 static bool CanDoubleSrcBlendMode() {
 	if (!gstate.isAlphaBlendEnabled()) {
 		return false;
@@ -275,9 +282,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled();
+		bool alphaToColorDoubling = AlphaToColorDoubling();
+		bool enableColorDoubling = gstate.isColorDoublingEnabled() || alphaToColorDoubling;
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
+		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
@@ -381,9 +389,10 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
+	bool alphaToColorDoubling = AlphaToColorDoubling();
+	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
+	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
