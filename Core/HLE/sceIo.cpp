@@ -1945,7 +1945,7 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 				// d_private is pointing to an area of unknown size
 				// - [0..12] "8.3" file name (null-terminated), seems could be leave empty.
 				// - [13..???] long file name (null-terminated)
-				memcpy((void*)Memory::GetPointer(entry->d_private + 13), (void*)entry->d_name, 256);
+				strncpy((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 			}
 			else {
 				// d_private is pointing to an area of total size 1044
@@ -1954,7 +1954,7 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 				// - [20..???] long file name (null-terminated)
 				auto size = Memory::Read_U32(entry->d_private);
 				if (size >= 1044) {
-					memcpy((void*)Memory::GetPointer(entry->d_private + 20), (void*)entry->d_name, 1024);
+					strncpy((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 				}
 			}
 		}
