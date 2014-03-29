@@ -1078,22 +1078,22 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (NEONMorphing) {
 		ADDI2R(tempReg1, dstReg, outOff, scratchReg);
-		VCVT(I_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
-		VQMOVN(I_32 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
-		VQMOVN(I_16 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
-		VST1_lane(I_32, neonScratchReg, tempReg1, 0, true);
+		VCVT(I_32 | I_UNSIGNED, Q2, Q2);
+		VQMOVN(I_32 | I_UNSIGNED, D4, Q2);
+		VQMOVN(I_16 | I_UNSIGNED, D4, Q2);
+		VST1_lane(I_32, D4, tempReg1, 0, true);
 		if (checkAlpha) {
-			VMOV_neon(I_32, scratchReg, neonScratchReg, 0);
+			VMOV_neon(I_32, scratchReg, D4, 0);
 		}
 	} else {
 		VCVT(S8, S8, TO_INT);
 		VCVT(S9, S9, TO_INT);
 		VCVT(S10, S10, TO_INT);
 		VCVT(S11, S11, TO_INT);
-		VMOV(scratchReg, fpScratchReg);
-		VMOV(scratchReg2, fpScratchReg2);
-		VMOV(scratchReg3, fpScratchReg3);
-		VMOV(tempReg3, fpScratchReg4);
+		VMOV(scratchReg, S8);
+		VMOV(scratchReg2, S9);
+		VMOV(scratchReg3, S10);
+		VMOV(tempReg3, S11);
 		ORR(scratchReg, scratchReg, Operand2(scratchReg2, ST_LSL, 8));
 		ORR(scratchReg, scratchReg, Operand2(scratchReg3, ST_LSL, 16));
 		ORR(scratchReg, scratchReg, Operand2(tempReg3, ST_LSL, 24));
