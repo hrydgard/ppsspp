@@ -48,6 +48,18 @@ inline u8 Convert6To8(u8 v)
 	return (v << 2) | (v >> 4);
 }
 
+static inline u8 clamp_u8(int i) {
+#ifdef ARM
+	asm("usat %0, #8, %1" : "=r"(i) : "r"(i));
+#else
+	if (i > 255)
+		return 255;
+	if (i < 0)
+		return 0;
+#endif
+	return i;
+}
+
 static inline s16 clamp_s16(int i) {
 #ifdef ARM
 	asm("ssat %0, #16, %1" : "=r"(i) : "r"(i));

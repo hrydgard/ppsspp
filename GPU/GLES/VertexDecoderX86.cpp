@@ -902,7 +902,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 }
 
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
-	// Pack back into a u32.
+	// Pack back into a u32, with saturation.
 	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
