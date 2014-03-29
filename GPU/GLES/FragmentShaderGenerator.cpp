@@ -276,10 +276,10 @@ static bool CanDoubleSrcBlendMode() {
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
-	memset(&id->d[0], 0, sizeof(id->d));
+	int id0 = 0;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
-		id->d[0] = 1;
+		id0 = 1;
 	} else {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
@@ -298,36 +298,42 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 
-		// id->d[0] |= (gstate.isModeClear() & 1);
+		// id0 |= (gstate.isModeClear() & 1);
 		if (gstate.isTextureMapEnabled()) {
-			id->d[0] |= 1 << 1;
-			id->d[0] |= gstate.getTextureFunction() << 2;
-			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
+			id0 |= 1 << 1;
+			id0 |= gstate.getTextureFunction() << 2;
+			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
 
-		id->d[0] |= (lmode & 1) << 7;
-		id->d[0] |= enableAlphaTest << 8;
-		if (enableAlphaTest)
-			id->d[0] |= gstate.getAlphaTestFunction() << 9;
-		id->d[0] |= enableColorTest << 12;
-		if (enableColorTest)
-			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
-		id->d[0] |= (enableFog & 1) << 15;
-		id->d[0] |= (doTextureProjection & 1) << 16;
-		id->d[0] |= (enableColorDoubling & 1) << 17;
-		id->d[0] |= (enableAlphaDoubling & 1) << 18;
-		id->d[0] |= (stencilToAlpha) << 19;
+		// 6 is free.
+
+		id0 |= (lmode & 1) << 7;
+		if (enableAlphaTest) {
+			id0 |= 1 << 8;
+			id0 |= gstate.getAlphaTestFunction() << 9;
+		}
+		if (enableColorTest) {
+			id0 |= 1 << 12;
+			id0 |= gstate.getColorTestFunction() << 13;	 // color test func
+		}
+		id0 |= (enableFog & 1) << 15;
+		id0 |= (doTextureProjection & 1) << 16;
+		id0 |= (enableColorDoubling & 1) << 17;
+		id0 |= (enableAlphaDoubling & 1) << 18;
+		id0 |= (stencilToAlpha) << 19;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id->d[0] |= ReplaceAlphaWithStencilType() << 21;
+			id0 |= ReplaceAlphaWithStencilType() << 21;
 		}
-		id->d[0] |= (alphaTestAgainstZero & 1) << 24;
+		id0 |= (alphaTestAgainstZero & 1) << 24;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 	}
+
+	id->d[0] = id0;
 }
 
 // Missing: Z depth range
