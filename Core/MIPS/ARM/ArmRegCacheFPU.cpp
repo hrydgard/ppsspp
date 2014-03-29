@@ -363,9 +363,9 @@ void ArmRegCacheFPU::FlushAll() {
 				emit_->VSTR((ARMReg)(a + 1 + S0), CTXREG, offset + 4);
 			} else {
 				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
-				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(m), R1);
+				emit_->ADDI2R(SCRATCHREG1, CTXREG, GetMipsRegOffset(m), SCRATCHREG2);
 				// ILOG("VSTMIA R0, %i, %i", a, c);
-				emit_->VSTMIA(R0, false, (ARMReg)(S0 + a), c);
+				emit_->VSTMIA(SCRATCHREG1, false, (ARMReg)(S0 + a), c);
 			}
 
 			// Skip past, and mark as non-dirty.

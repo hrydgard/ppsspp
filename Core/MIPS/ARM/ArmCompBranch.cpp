@@ -218,8 +218,8 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool
 	// Take the branch
 	if (andLink)
 	{
-		gpr.SetRegImm(R0, js.compilerPC + 8);
-		STR(R0, CTXREG, MIPS_REG_RA * 4);
+		gpr.SetRegImm(SCRATCHREG1, js.compilerPC + 8);
+		STR(SCRATCHREG1, CTXREG, MIPS_REG_RA * 4);
 	}
 
 	WriteExit(targetAddr, js.nextExit++);
@@ -551,6 +551,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	if (quickFunc)
 	{
 		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallInfo(op));
+		// Already flushed, so R1 is safe.
 		QuickCallFunction(R1, quickFunc);
 	}
 	else
