@@ -19,6 +19,8 @@
 
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 #include "GPU/GLES/VertexDecoder.h"
 
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
