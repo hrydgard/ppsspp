@@ -578,7 +578,7 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	ctx->bufferWrite += size;
 
 	if (ctx->bufferWrite >= ctx->mp3BufSize)
-		ctx->bufferWrite -= ctx->mp3BufSize;
+		ctx->bufferWrite %= ctx->mp3BufSize;
 
 	if (ctx->readPosition >= ctx->mp3StreamEnd && ctx->mp3LoopNum != 0) {
 		ctx->readPosition = ctx->mp3StreamStart;
