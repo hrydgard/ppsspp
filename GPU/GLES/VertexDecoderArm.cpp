@@ -774,12 +774,12 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, true);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
-
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 
 			if (first) {
 				first = false;
@@ -845,15 +845,15 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
-			// Shift against walls and then back to get R, G, B, A spaced by 1.
-			VSHL(I_8, neonScratchReg, neonScratchReg, D8);
-			VSHL(I_8, neonScratchReg, neonScratchReg, D9);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
+			// Shift against walls and then back to get R, G, B, A in each 16-bit lane.
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
-			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -918,9 +918,9 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 
 	if (useNEON) {
 		MOVP2R(scratchReg, color565Shift);
-		MOVI2R(scratchReg2, (char *)byColor565 - (char *)color565Shift);
+		MOVP2R(scratchReg2, byColor565);
 		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
-		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
+		VLD1(F_32, D10, scratchReg2, 2, ALIGN_128);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
 		MOVI2F(S15, 255.0f / 63.0f, scratchReg);
@@ -930,13 +930,14 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D8);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D9);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -991,7 +992,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, -11, -11, -10}};
+static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, -11, -11, -15}};
 static const float MEMORY_ALIGNED16(byColor5551[4]) = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
@@ -1001,9 +1002,9 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 
 	if (useNEON) {
 		MOVP2R(scratchReg, color5551Shift);
-		MOVI2R(scratchReg2, (char *)byColor5551 - (char *)color5551Shift);
+		MOVP2R(scratchReg2, byColor5551);
 		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
-		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
+		VLD1(F_32, D10, scratchReg2, 2, ALIGN_128);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
 		MOVI2F(S15, 255.0f, scratchReg);
@@ -1013,13 +1014,14 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D8);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D9);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
