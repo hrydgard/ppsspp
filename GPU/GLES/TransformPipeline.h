@@ -21,7 +21,6 @@
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/GLES/VertexDecoder.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -29,6 +28,9 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+class VertexDecoder;
+class VertexDecoderJitCache;
+struct TransformedVertex;
 
 struct DecVtxFormat;
 
@@ -134,9 +136,7 @@ public:
 		DoFlush();
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		return decJitCache_->IsInSpace(ptr);
-	}
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	// Really just for convenience to share with softgpu.
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);

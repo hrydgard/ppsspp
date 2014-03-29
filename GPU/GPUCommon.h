@@ -23,7 +23,7 @@ public:
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);
-	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads);
+	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads);
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
 	}

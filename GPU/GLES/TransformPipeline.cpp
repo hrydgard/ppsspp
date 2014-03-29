@@ -843,6 +843,10 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 	return true;
 }
 
+bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
+}
+
 // TODO: Probably move this to common code (with normalization?)
 
 static Vec3f ClipToScreen(const Vec4f& coords) {

@@ -1031,9 +1031,9 @@ void GPUCommon::InterruptEnd(int listid) {
 }
 
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
-void GPUCommon::SyncEnd(WaitType waitType, int listid, bool wokeThreads) {
+void GPUCommon::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
 	easy_guard guard(listLock);
-	if (waitType == WAITTYPE_GEDRAWSYNC && wokeThreads)
+	if (waitType == GPU_SYNC_DRAW && wokeThreads)
 	{
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
 			if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {

@@ -173,7 +173,7 @@ void __GeExecuteSync(u64 userdata, int cyclesLate)
 	int listid = userdata >> 32;
 	WaitType waitType = (WaitType) (userdata & 0xFFFFFFFF);
 	bool wokeThreads = __GeTriggerWait(waitType, listid);
-	gpu->SyncEnd(waitType, listid, wokeThreads);
+	gpu->SyncEnd(waitType == WAITTYPE_GELISTSYNC ? GPU_SYNC_LIST : GPU_SYNC_DRAW, listid, wokeThreads);
 }
 
 void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
