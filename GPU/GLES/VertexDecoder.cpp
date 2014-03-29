@@ -263,7 +263,12 @@ void VertexDecoder::Step_Color565Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 3; i++) {
-		c[i] = (u8)col[i];
+		if (col[i] >= 255.0f)
+			c[i] = 255;
+		else if (col[i] <= 0.0f)
+			c[i] = 0;
+		else
+			c[i] = (u8)col[i];
 	}
 	c[3] = 255;
 	// Always full alpha.
@@ -283,7 +288,12 @@ void VertexDecoder::Step_Color5551Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)col[i];
+		if (col[i] >= 255.0f)
+			c[i] = 255;
+		else if (col[i] <= 0.0f)
+			c[i] = 0;
+		else
+			c[i] = (u8)col[i];
 	}
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
@@ -300,7 +310,12 @@ void VertexDecoder::Step_Color4444Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)col[i];
+		if (col[i] >= 255.0f)
+			c[i] = 255;
+		else if (col[i] <= 0.0f)
+			c[i] = 0;
+		else
+			c[i] = (u8)col[i];
 	}
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
@@ -317,7 +332,12 @@ void VertexDecoder::Step_Color8888Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)(col[i]);
+		if (col[i] >= 255.0f)
+			c[i] = 255;
+		else if (col[i] <= 0.0f)
+			c[i] = 0;
+		else
+			c[i] = (u8)(col[i]);
 	}
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
