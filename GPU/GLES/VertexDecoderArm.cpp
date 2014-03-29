@@ -1412,12 +1412,13 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -1457,7 +1458,12 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	}
 
 	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
-	VSTMIA(tempReg1, false, S8, 3);
+	if (useNEON) {
+		// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+		VSTMIA(tempReg1, false, D4, 2);
+	} else {
+		VSTMIA(tempReg1, false, S8, 3);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
@@ -1476,11 +1482,12 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1(I_32, neonScratchReg, tempReg1, 1, ALIGN_NONE);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -1520,36 +1527,47 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	}
 
 	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
-	VSTMIA(tempReg1, false, S8, 3);
+	if (useNEON) {
+		// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+		VSTMIA(tempReg1, false, D4, 2);
+	} else {
+		VSTMIA(tempReg1, false, S8, 3);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		// Load an extra float to stay in NEON mode.
-		VLD1(F_32, neonScratchRegQ, tempReg1, 2, ALIGN_NONE);
-		ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
-		VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+		if (useNEON) {
+			// Load an extra float to stay in NEON mode.
+			VLD1(F_32, neonScratchRegQ, tempReg1, 2, ALIGN_NONE);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 
-		if (first) {
-			first = false;
-			if (NEONMorphing) {
+			if (first) {
+				first = false;
 				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
+				VMLA(F_32, Q2, neonScratchRegQ, Q3);
+			}
+		} else {
+			// Load an extra float to stay in NEON mode.
+			VLDMIA(tempReg1, false, fpScratchReg, 3);
+			// Using VLDMIA to get writeback.
+			VLDMIA(tempReg2, true, S12, 1);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+
+			if (first) {
+				first = false;
 				VMUL(S8, fpScratchReg, S12);
 				VMUL(S9, fpScratchReg2, S12);
 				VMUL(S10, fpScratchReg3, S12);
-			}
-		} else {
-			if (NEONMorphing) {
-				if (cpu_info.bVFPv4) {
-					VFMA(F_32, Q2, neonScratchRegQ, Q3);
-				} else {
-					VMLA(F_32, Q2, neonScratchRegQ, Q3);
-				}
 			} else {
 				VMLA(S8, fpScratchReg, S12);
 				VMLA(S9, fpScratchReg2, S12);
@@ -1559,7 +1577,12 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 	}
 
 	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
-	VSTMIA(tempReg1, false, S8, 3);
+	if (useNEON) {
+		// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+		VSTMIA(tempReg1, false, D4, 2);
+	} else {
+		VSTMIA(tempReg1, false, S8, 3);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Morph() {
