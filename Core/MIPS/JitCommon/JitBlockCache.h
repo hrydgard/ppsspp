@@ -77,7 +77,10 @@ struct JitBlock {
 #ifdef USE_VTUNE
 	char blockName[32];
 #endif
-	std::vector<u32> proxyFor;
+
+	// By having a pointer, we avoid a constructor/destructor being generated and dog slow
+	// performance in debug.
+	std::vector<u32> *proxyFor;
 
 	bool IsPureProxy() const {
 		return originalFirstOpcode.encoding == 0;
