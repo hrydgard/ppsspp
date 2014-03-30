@@ -127,7 +127,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			default:
 			case 12: strcpy(lookupMethod, "index.a"); break;
 			}
-			multiplier = 1.0f / 15.0f;
+			multiplier = (1.0f / 16.0f) * 255.0f / 256.0f;  // Need the fudge factor to not "wrap"...
 		} else {
 			// Ugh
 		}
@@ -135,12 +135,11 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 	case GE_FORMAT_565:
 		if ((mask & 0x3f) == 0x3F) {
 			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); break;
-			case 5: strcpy(lookupMethod, "index.g"); break;
+			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
+			case 5: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 64.0f; break;
 			default:
-			case 11: strcpy(lookupMethod, "index.b"); break;
+			case 11: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
 			}
-			multiplier = 1.0f / 31.0f;
 		} else {
 			// Ugh
 		}
@@ -148,11 +147,11 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 	case GE_FORMAT_5551:
 		if ((mask & 0x1F) == 0x1F) {
 			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); break;
-			case 4: strcpy(lookupMethod, "index.g"); break;
-			case 8: strcpy(lookupMethod, "index.b"); break;
+			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
+			case 4: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 32.0f; break;
+			case 8: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
 			default:
-			case 15: strcpy(lookupMethod, "index.a"); break;
+			case 15: strcpy(lookupMethod, "index.a"); multiplier = 1.0f / 128.0f; break;
 			}
 		} else {
 			// Ugh
@@ -164,13 +163,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 		sprintf(offset, " + %.0f", (float)clutBase / 255.0f);   // 256?
 	}
 
-	if (true) {
-		
-		WRITE(p, "  gl_FragColor = vec4(index.r);\n", lookupMethod, offset);
-		//WRITE(p, "  gl_FragColor = vec4(index) + texture2D(pal, vec2(v_texcoord0.x, 0));\n", lookupMethod, offset);
-	} else {
-		WRITE(p, "  gl_FragColor = texture2D(pal, vec2((%s * %f)%s, 0.0));\n", lookupMethod, multiplier, offset);
-	}
+	WRITE(p, "  gl_FragColor = texture2D(pal, vec2((%s * %f)%s, 0.0));\n", lookupMethod, multiplier, offset);
 	WRITE(p, "}\n");
 }
 
@@ -191,6 +184,7 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 	glBindTexture(GL_TEXTURE_2D, tex->texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, 0, components, 256, 1, 0, components, dstFmt, (void *)rawClut);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -251,8 +245,8 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	GLint u_tex = glGetUniformLocation(program, "tex");
 	GLint u_pal = glGetUniformLocation(program, "pal");
 
-	glUniform1d(u_tex, 0);
-	glUniform1d(u_pal, 1);
+	glUniform1i(u_tex, 0);
+	glUniform1i(u_pal, 1);
 
 	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
