@@ -660,7 +660,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 	delete v;
 }
 
-void FramebufferManager::SetRenderFrameBuffer() {
+void FramebufferManager::DoSetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
 		currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
