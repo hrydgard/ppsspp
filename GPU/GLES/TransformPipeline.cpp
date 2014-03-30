@@ -279,12 +279,13 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	int cost = 20;
 	if (gstate.isLightingEnabled()) {
 		cost += 10;
+
+		for (int i = 0; i < 4; i++) {
+			if (gstate.isLightChanEnabled(i))
+				cost += 10;
+		}
 	}
 
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
 	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
 		cost += 20;
 	}
