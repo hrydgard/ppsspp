@@ -83,14 +83,6 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 	char *p = buffer;
 #define WRITE p+=sprintf
 
-	WRITE(p, "#version 100\n");
-	WRITE(p, "precision mediump float;\n");
-	WRITE(p, "varying vec2 v_texcoord0;\n");
-	WRITE(p, "uniform sampler2D tex;\n");
-	WRITE(p, "uniform sampler2D pal;\n");
-	WRITE(p, "void main() {\n");
-	WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
-
 	char lookupMethod[128] = "index.r";
 	char offset[128] = "";
 
@@ -104,13 +96,16 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 	// pixelformat is the format of the texture we are sampling.
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
-		if (mask == 0xFF) {
+		if ((mask & 0xF) == 0xF) {
 			switch (shift) {  // bgra?
 			case 0: strcpy(lookupMethod, "index.r"); break;
+			case 4: strcpy(lookupMethod, "index.r"); multiplier = (1.0f / 16.0f); break;
 			case 8: strcpy(lookupMethod, "index.g"); break;
+			case 12: strcpy(lookupMethod, "index.g"); multiplier = (1.0f / 16.0f); break;
 			case 16: strcpy(lookupMethod, "index.b"); break;
-			default:
+			case 20: strcpy(lookupMethod, "index.b"); multiplier = (1.0f / 16.0f); break;
 			case 24: strcpy(lookupMethod, "index.a"); break;
+			case 28: strcpy(lookupMethod, "index.a"); multiplier = (1.0f / 16.0f); break;
 			}
 		} else {
 			// Ugh
@@ -122,7 +117,6 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			case 0: strcpy(lookupMethod, "index.r"); break;
 			case 4: strcpy(lookupMethod, "index.g"); break;
 			case 8: strcpy(lookupMethod, "index.b"); break;
-			default:
 			case 12: strcpy(lookupMethod, "index.a"); break;
 			}
 			multiplier = (1.0f / 16.0f) * 255.0f / 256.0f;  // Need the fudge factor to not "wrap"...
@@ -135,7 +129,6 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			switch (shift) {  // bgra?
 			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
 			case 5: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 64.0f; break;
-			default:
 			case 11: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
 			}
 		} else {
@@ -148,7 +141,6 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
 			case 4: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 32.0f; break;
 			case 8: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
-			default:
 			case 15: strcpy(lookupMethod, "index.a"); multiplier = 1.0f / 128.0f; break;
 			}
 		} else {
@@ -161,6 +153,13 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 		sprintf(offset, " + %.0f", (float)clutBase / 255.0f);   // 256?
 	}
 
+	WRITE(p, "#version 100\n");
+	WRITE(p, "precision mediump float;\n");
+	WRITE(p, "varying vec2 v_texcoord0;\n");
+	WRITE(p, "uniform sampler2D tex;\n");
+	WRITE(p, "uniform sampler2D pal;\n");
+	WRITE(p, "void main() {\n");
+	WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
 	WRITE(p, "  gl_FragColor = texture2D(pal, vec2((%s * %f)%s, 0.0));\n", lookupMethod, multiplier, offset);
 	WRITE(p, "}\n");
 }
