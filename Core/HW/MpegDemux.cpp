@@ -27,7 +27,8 @@ MpegDemux::MpegDemux(int size, int offset) : m_audioStream(size) {
 	m_readSize = 0;
 }
 
-MpegDemux::~MpegDemux(void) {
+MpegDemux::~MpegDemux() {
+	delete [] m_buf;
 }
 
 void MpegDemux::DoState(PointerWrap &p) {
