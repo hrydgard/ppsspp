@@ -119,7 +119,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 			case 8: strcpy(lookupMethod, "index.b"); break;
 			case 12: strcpy(lookupMethod, "index.a"); break;
 			}
-			multiplier = (1.0f / 16.0f) * 255.0f / 256.0f;  // Need the fudge factor to not "wrap"...
+			multiplier = 1.0f / 16.0f;
 		} else {
 			// Ugh
 		}
@@ -149,9 +149,8 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 		break;
 	}
 
-	if (clutBase != 0) {
-		sprintf(offset, " + %.0f", (float)clutBase / 255.0f);   // 256?
-	}
+	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
+	sprintf(offset, " + %f", (float)clutBase / 255.0f - 0.5f / 256.0f);   // 256?
 
 	WRITE(p, "#version 100\n");
 	WRITE(p, "precision mediump float;\n");
@@ -192,14 +191,14 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 }
 
 void DepalShaderCache::Clear() {
-	for (auto shader : cache_) {
-		glDeleteShader(shader.second->fragShader);
-		glDeleteProgram(shader.second->program);
-		delete shader.second;
+	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
+		glDeleteShader(shader->second->fragShader);
+		glDeleteProgram(shader->second->program);
+		delete shader->second;
 	}
-	for (auto tex : texCache_) {
-		glDeleteTextures(1, &tex.second->texture);
-		delete tex.second;
+	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
+		glDeleteTextures(1, &tex->second->texture);
+		delete tex->second;
 	}
 }
 
@@ -226,8 +225,6 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	glCompileShader(fragShader);
 
 	CheckShaderCompileSuccess(fragShader, buffer);
-
-	delete[] buffer;
 
 	GLuint program = glCreateProgram();
 	glAttachShader(program, vertexShader_);
@@ -256,6 +253,8 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
 			delete[] buf;	// we're dead!
 		}
+
+		delete[] buffer;
 		return 0;
 	}
 
@@ -264,6 +263,8 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	depal->fragShader = fragShader;
 
 	cache_[id] = depal;
-	
+
+	delete[] buffer;
+
 	return depal->program;
 }

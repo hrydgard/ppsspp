@@ -685,38 +685,6 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-// TODO: Unused, remove?
-static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
-	// CLUTs always come in multiples of 32 bytes, can't load them any other way.
-	_dbg_assert_msg_(G3D, (bytes & 31) == 0, "CLUT should always have a multiple of 32 bytes.");
-
-	const u32 prime = 2246822519U;
-	u32 hash = 0;
-#ifdef _M_SSE
-	if ((((u32)(intptr_t)clut) & 0xf) == 0) {
-		__m128i cursor = _mm_set1_epi32(0);
-		const __m128i mult = _mm_set1_epi32(prime);
-		const __m128i *p = (const __m128i *)clut;
-		for (u32 i = 0; i < bytes / 16; ++i) {
-			cursor = _mm_add_epi32(cursor, _mm_mul_epu32(_mm_load_si128(&p[i]), mult));
-		}
-		// Add the four parts into the low i32.
-		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
-		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
-		hash = _mm_cvtsi128_si32(cursor);
-	} else {
-#else
-	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
-	{
-#endif
-		for (const u32 *p = (u32 *)clut, *end = (u32 *)(clut + bytes); p < end; ) {
-			hash += *p++ * prime;
-		}
-	}
-
-	return hash;
-}
-
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
@@ -851,16 +819,11 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
-			// Check if we can handle the current setup
-
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBufConverted_);
-
 			if (!entry->depalFBO) {
 				entry->depalFBO = fbo_create(entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight, 1, false, FBO_8888);
 			}
 			fbo_bind_as_render_target(entry->depalFBO);
-			glViewport(0, 0, entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight);
-
 			static const float pos[12] = {
 				-1, -1, -1,
 				 1, -1, -1,
@@ -889,12 +852,13 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 
 			framebufferManager_->BindFramebufferColor(entry->framebuffer);
 
-			glstate.blend.disable();
-			glstate.colorMask.set(true, true, true, true);
-			glstate.scissorTest.disable();
-			glstate.cullFace.disable();
-			glstate.depthTest.disable();
-			glstate.viewport.set(0, 0, entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight);
+			glDisable(GL_BLEND);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glDisable(GL_SCISSOR_TEST);
+			glDisable(GL_CULL_FACE);
+			glDisable(GL_DEPTH_TEST);
+			glDisable(GL_STENCIL_TEST);
+			glViewport(0, 0, entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight);
 
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, pos);
 			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8, uv);
