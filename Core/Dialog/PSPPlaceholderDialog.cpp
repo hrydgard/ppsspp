@@ -40,7 +40,8 @@ int PSPPlaceholderDialog::Update(int animSpeed)
 	}
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{
-		status = SCE_UTILITY_STATUS_FINISHED;
+		//Check with JPCSPTrace log of Dream Club Portable
+		status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
 	}
 	else if (status == SCE_UTILITY_STATUS_FINISHED)
 	{

@@ -460,7 +460,7 @@ u32 sceUtilityScreenshotUpdate(u32 animSpeed)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	int ret = screenshotDialog.Update(animSpeed);
-	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotUpdate(%d)",ret,animSpeed);
+	WARN_LOG(SCEUTILITY, " %08x=sceUtilityScreenshotUpdate(%d)", ret, animSpeed);
 	return ret;
 }
 
