@@ -46,6 +46,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/GPUState.cpp \
 	$$P/GPU/Math3D.cpp \
 	$$P/GPU/Null/NullGpu.cpp \
+	$$P/GPU/GLES/DepalettizeShader.cpp \
 	$$P/GPU/GLES/FragmentShaderGenerator.cpp \
 	$$P/GPU/GLES/Framebuffer.cpp \
 	$$P/GPU/GLES/GLES_GPU.cpp \
