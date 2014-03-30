@@ -115,6 +115,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 
 	float multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
+	bool formatOK = true;
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
 		if ((mask & 0xF) == 0xF) {
@@ -127,9 +128,11 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			case 20: strcpy(lookupMethod, "index.b"); multiplier = (1.0f / 16.0f); break;
 			case 24: strcpy(lookupMethod, "index.a"); break;
 			case 28: strcpy(lookupMethod, "index.a"); multiplier = (1.0f / 16.0f); break;
+			default:
+				formatOK = false;
 			}
 		} else {
-			ERROR_LOG_ONCE(depal8888, G3D, "8888 depal unsupported: %i %02x", shift, mask);
+			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_4444:
@@ -139,10 +142,12 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			case 4: strcpy(lookupMethod, "index.g"); break;
 			case 8: strcpy(lookupMethod, "index.b"); break;
 			case 12: strcpy(lookupMethod, "index.a"); break;
+			default:
+				formatOK = false;
 			}
 			multiplier = 1.0f / 16.0f;
 		} else {
-			ERROR_LOG_ONCE(depal4444, G3D, "4444 depal unsupported: %i %02x", shift, mask);
+			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_565:
@@ -151,9 +156,11 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
 			case 5: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 64.0f; break;
 			case 11: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
+			default:
+				formatOK = false;
 			}
 		} else {
-			ERROR_LOG_ONCE(depal565, G3D, "565 depal unsupported: %i %02x", shift, mask);
+			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_5551:
@@ -163,11 +170,17 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			case 5: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 32.0f; break;
 			case 10: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
 			case 15: strcpy(lookupMethod, "index.a"); multiplier = 1.0f / 256.0f; break;
+			default:
+				formatOK = false;
 			}
 		} else {
-			ERROR_LOG_ONCE(depal5551, G3D, "5551 depal unsupported: %i %02x", shift, mask);
+			formatOK = false;
 		}
 		break;
+	}
+
+	if (!formatOK) {
+		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x", pixelFormat, shift, mask);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
