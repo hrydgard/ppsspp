@@ -19,6 +19,7 @@
 
 #include "base/logging.h"
 #include "Common/Log.h"
+#include "Core/Reporting.h"
 #include "DepalettizeShader.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
@@ -128,7 +129,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			case 28: strcpy(lookupMethod, "index.a"); multiplier = (1.0f / 16.0f); break;
 			}
 		} else {
-			// Ugh
+			ERROR_LOG_ONCE(depal8888, G3D, "8888 depal unsupported: %i %02x", shift, mask);
 		}
 		break;
 	case GE_FORMAT_4444:
@@ -141,7 +142,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			}
 			multiplier = 1.0f / 16.0f;
 		} else {
-			// Ugh
+			ERROR_LOG_ONCE(depal4444, G3D, "4444 depal unsupported: %i %02x", shift, mask);
 		}
 		break;
 	case GE_FORMAT_565:
@@ -152,19 +153,19 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			case 11: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
 			}
 		} else {
-			// Ugh
+			ERROR_LOG_ONCE(depal565, G3D, "565 depal unsupported: %i %02x", shift, mask);
 		}
 		break;
 	case GE_FORMAT_5551:
 		if ((mask & 0x1F) == 0x1F) {
 			switch (shift) {  // bgra?
 			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
-			case 4: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 32.0f; break;
-			case 8: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
-			case 15: strcpy(lookupMethod, "index.a"); multiplier = 1.0f / 128.0f; break;
+			case 5: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 32.0f; break;
+			case 10: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
+			case 15: strcpy(lookupMethod, "index.a"); multiplier = 1.0f / 256.0f; break;
 			}
 		} else {
-			// Ugh
+			ERROR_LOG_ONCE(depal5551, G3D, "5551 depal unsupported: %i %02x", shift, mask);
 		}
 		break;
 	}
@@ -220,10 +221,12 @@ void DepalShaderCache::Clear() {
 		glDeleteProgram(shader->second->program);
 		delete shader->second;
 	}
+	cache_.clear();
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
 		glDeleteTextures(1, &tex->second->texture);
 		delete tex->second;
 	}
+	texCache_.clear();
 }
 
 void DepalShaderCache::Decimate() {
