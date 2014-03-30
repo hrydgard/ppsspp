@@ -17,8 +17,6 @@
 
 #include <map>
 
-#define SHADERLOG
-
 #include "base/logging.h"
 #include "Common/Log.h"
 #include "DepalettizeShader.h"
