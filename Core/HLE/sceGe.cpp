@@ -171,9 +171,9 @@ public:
 void __GeExecuteSync(u64 userdata, int cyclesLate)
 {
 	int listid = userdata >> 32;
-	WaitType waitType = (WaitType) (userdata & 0xFFFFFFFF);
-	bool wokeThreads = __GeTriggerWait(waitType, listid);
-	gpu->SyncEnd(waitType == WAITTYPE_GELISTSYNC ? GPU_SYNC_LIST : GPU_SYNC_DRAW, listid, wokeThreads);
+	GPUSyncType type = (GPUSyncType) (userdata & 0xFFFFFFFF);
+	bool wokeThreads = __GeTriggerWait(type, listid);
+	gpu->SyncEnd(type, listid, wokeThreads);
 }
 
 void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
@@ -250,11 +250,11 @@ void __GeShutdown()
 }
 
 // Warning: may be called from the GPU thread.
-bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
+bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks)
 {
-	u64 userdata = (u64)id << 32 | (u64) waitType;
+	u64 userdata = (u64)id << 32 | (u64) type;
 	s64 future = atTicks - CoreTiming::GetTicks();
-	if (waitType == WAITTYPE_GEDRAWSYNC)
+	if (type == GPU_SYNC_DRAW)
 	{
 		s64 left = CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
 		if (left > future)
@@ -272,34 +272,39 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 	return true;
 }
 
-void __GeWaitCurrentThread(WaitType type, SceUID waitId, const char *reason)
+void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason)
 {
-	if (type == WAITTYPE_GEDRAWSYNC)
+	WaitType waitType;
+	if (type == GPU_SYNC_DRAW) {
 		drawWaitingThreads.push_back(__KernelGetCurThread());
-	else if (type == WAITTYPE_GELISTSYNC)
+		waitType = WAITTYPE_GEDRAWSYNC;
+	} else if (type == GPU_SYNC_LIST) {
 		listWaitingThreads[waitId].push_back(__KernelGetCurThread());
-	else
+		waitType = WAITTYPE_GELISTSYNC;
+	} else {
 		ERROR_LOG_REPORT(SCEGE, "__GeWaitCurrentThread: bad wait type");
+		return;
+	}
 
-	__KernelWaitCurThread(type, waitId, 0, 0, false, reason);
+	__KernelWaitCurThread(waitType, waitId, 0, 0, false, reason);
 }
 
-bool __GeTriggerWait(WaitType type, SceUID waitId, WaitingThreadList &waitingThreads)
+bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitingThreads)
 {
 	// TODO: Do they ever get a result other than 0?
 	bool wokeThreads = false;
 	for (auto it = waitingThreads.begin(), end = waitingThreads.end(); it != end; ++it)
-		wokeThreads |= HLEKernel::ResumeFromWait(*it, type, waitId, 0);
+		wokeThreads |= HLEKernel::ResumeFromWait(*it, waitType, waitId, 0);
 	waitingThreads.clear();
 	return wokeThreads;
 }
 
-bool __GeTriggerWait(WaitType type, SceUID waitId)
+bool __GeTriggerWait(GPUSyncType type, SceUID waitId)
 {
-	if (type == WAITTYPE_GEDRAWSYNC)
-		return __GeTriggerWait(type, waitId, drawWaitingThreads);
-	else if (type == WAITTYPE_GELISTSYNC)
-		return __GeTriggerWait(type, waitId, listWaitingThreads[waitId]);
+	if (type == GPU_SYNC_DRAW)
+		return __GeTriggerWait(WAITTYPE_GEDRAWSYNC, waitId, drawWaitingThreads);
+	else if (type == GPU_SYNC_LIST)
+		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
 		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
 	return false;

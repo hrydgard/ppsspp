@@ -12,6 +12,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
@@ -84,7 +85,7 @@ u32 GPUCommon::DrawSync(int mode) {
 		}
 
 		if (drawCompleteTicks > CoreTiming::GetTicks()) {
-			__GeWaitCurrentThread(WAITTYPE_GEDRAWSYNC, 1, "GeDrawSync");
+			__GeWaitCurrentThread(GPU_SYNC_DRAW, 1, "GeDrawSync");
 		} else {
 			for (int i = 0; i < DisplayListMaxCount; ++i) {
 				if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
@@ -165,7 +166,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 	}
 
 	if (dl.waitTicks > CoreTiming::GetTicks()) {
-		__GeWaitCurrentThread(WAITTYPE_GELISTSYNC, listid, "GeListSync");
+		__GeWaitCurrentThread(GPU_SYNC_LIST, listid, "GeListSync");
 	}
 	return PSP_GE_LIST_COMPLETED;
 }
@@ -313,7 +314,7 @@ u32 GPUCommon::DequeueList(int listid) {
 		dlQueue.remove(listid);
 
 	dl.waitTicks = 0;
-	__GeTriggerWait(WAITTYPE_GELISTSYNC, listid);
+	__GeTriggerWait(GPU_SYNC_LIST, listid);
 
 	CheckDrawSync();
 
@@ -675,7 +676,7 @@ void GPUCommon::ProcessDLQueueInternal() {
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
-	__GeTriggerSync(WAITTYPE_GEDRAWSYNC, 1, drawCompleteTicks);
+	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
 	UpdateTickEstimate(0);
 }
@@ -915,7 +916,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				} else {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);
-					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);
+					__GeTriggerSync(GPU_SYNC_LIST, currentList->id, currentList->waitTicks);
 					if (currentList->started && currentList->context.IsValid()) {
 						gstate.Restore(currentList->context);
 						ReapplyGfxStateInternal();
@@ -1020,7 +1021,7 @@ void GPUCommon::InterruptEnd(int listid) {
 			ReapplyGfxState();
 		}
 		dl.waitTicks = 0;
-		__GeTriggerWait(WAITTYPE_GELISTSYNC, listid);
+		__GeTriggerWait(GPU_SYNC_LIST, listid);
 	}
 
 	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)

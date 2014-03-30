@@ -10,7 +10,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceKernel.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceUtility.h"
 
