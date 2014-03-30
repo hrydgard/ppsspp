@@ -41,7 +41,10 @@ int PSPPlaceholderDialog::Update(int animSpeed)
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{
 		//Check with JPCSPTrace log of Dream Club Portable
-		status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
+		//But break Project Divx extand and Kenka Banchou Bros when take screenshot
+		//They are not call sceUtilityScreenshotContStart;
+		//status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
+		status = SCE_UTILITY_STATUS_FINISHED;
 	}
 	else if (status == SCE_UTILITY_STATUS_FINISHED)
 	{
