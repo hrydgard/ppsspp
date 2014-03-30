@@ -879,6 +879,8 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 	if (!psmfplayer) {
 		// TODO: This is the wrong data.  PsmfPlayer needs a new interface.
 		psmfplayer = new PsmfPlayer(psmfPlayerDataAddr);
+		if (psmfPlayerMap.find(psmfPlayer) != psmfPlayerMap.end())
+			delete psmfPlayerMap[psmfPlayer];
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
@@ -1086,6 +1088,8 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	if (!psmfplayer) {
 		psmfplayer = new PsmfPlayer(psmfPlayerData);
+		if (psmfPlayerMap.find(psmfPlayer) != psmfPlayerMap.end())
+			delete psmfPlayerMap[psmfPlayer];
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
