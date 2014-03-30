@@ -800,6 +800,13 @@ u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLe
 
 	DEBUG_LOG(SCEFONT, "sceFontOpenUserMemory(%08x, %08x, %08x, %08x)", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
 	const u8 *fontData = Memory::GetPointer(memoryFontAddrPtr);
+	// Games are able to overstate the size of a font.  Let's avoid crashing when we memcpy() it.
+	// Unsigned 0xFFFFFFFF is treated as max, but that's impossible, so let's clamp to 64MB.
+	if (memoryFontLength > 0x03FFFFFF)
+		memoryFontLength = 0x03FFFFFF;
+	while (!Memory::IsValidAddress(memoryFontAddrPtr + memoryFontLength - 1)) {
+		--memoryFontLength;
+	}
 	Font *f = new Font(fontData, memoryFontLength);
 	LoadedFont *font = fontLib->OpenFont(f, FONT_OPEN_USERBUFFER, *errorCode);
 	if (font) {
