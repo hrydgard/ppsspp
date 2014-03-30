@@ -470,6 +470,11 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 		Memory::Write_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
 	}
 	MpegContext *ctx = new MpegContext;
+	if (mpegMap.find(mpegHandle) != mpegMap.end()) {
+		WARN_LOG_REPORT(HLE, "Replacing existing mpeg context at %08x", mpegAddr);
+		// Otherwise, it would leak.
+		delete mpegMap[mpegHandle];
+	}
 	mpegMap[mpegHandle] = ctx;
 
 	// Initialize mpeg values.

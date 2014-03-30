@@ -159,6 +159,8 @@ struct Atrac {
 		p.Do(has_data_buf);
 		if (has_data_buf) {
 			if (p.mode == p.MODE_READ) {
+				if (data_buf)
+					delete [] data_buf;
 				data_buf = new u8[first.filesize];
 			}
 			p.DoArray(data_buf, first.filesize);
@@ -600,8 +602,10 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 				av_init_packet(&packet);
 				int got_frame, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-					if (packet.stream_index != atrac->audio_stream_index)
+					if (packet.stream_index != atrac->audio_stream_index) {
+						av_free_packet(&packet);
 						continue;
+					}
 
 					got_frame = 0;
 					int bytes_in_packet = packet.size;
@@ -611,6 +615,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						// Let's try the next frame.
 					} else if (avret < 0) {
 						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
+						av_free_packet(&packet);
 						atrac->failedDecode = true;
 						// No need to free the packet if decode_audio4 fails.
 						// Avoid getting stuck in a loop (Virtua Tennis)
@@ -1770,8 +1775,10 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			av_init_packet(&packet);
 			int got_frame, avret;
 			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-				if (packet.stream_index != atrac->audio_stream_index)
+				if (packet.stream_index != atrac->audio_stream_index) {
+					av_free_packet(&packet);
 					continue;
+				}
 
 				got_frame = 0;
 				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
