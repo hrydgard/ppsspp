@@ -23,13 +23,33 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
 
-static const char *depalVShader =
+#ifdef _WIN32
+#define SHADERLOG
+#endif
+
+static const char *depalVShader100 =
+#ifdef USING_GLES
 "#version 100\n"
 "precision highp float;\n"
-"// Depal shader\n"
+#endif
 "attribute vec4 a_position;\n"
 "attribute vec2 a_texcoord0;\n"
 "varying vec2 v_texcoord0;\n"
+"void main() {\n"
+"  v_texcoord0 = a_texcoord0;\n"
+"  gl_Position = a_position;\n"
+"}\n";
+
+static const char *depalVShader300 =
+#ifdef USING_GLES
+"#version 300 es\n"
+"precision highp float;\n"
+#else
+"#version 330\n"
+#endif
+"in vec4 a_position;\n"
+"in vec2 a_texcoord0;\n"
+"out vec2 v_texcoord0;\n"
 "void main() {\n"
 "  v_texcoord0 = a_texcoord0;\n"
 "  gl_Position = a_position;\n"
@@ -66,10 +86,10 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 DepalShaderCache::DepalShaderCache() {
 	// Pre-build the vertex program
 	vertexShader_ = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader_, 1, &depalVShader, 0);
+	glShaderSource(vertexShader_, 1, &depalVShader100, 0);
 	glCompileShader(vertexShader_);
 
-	if (CheckShaderCompileSuccess(vertexShader_, depalVShader)) {
+	if (CheckShaderCompileSuccess(vertexShader_, depalVShader100)) {
 		// ...
 	}
 }
@@ -79,7 +99,7 @@ DepalShaderCache::~DepalShaderCache() {
 	glDeleteShader(vertexShader_);
 }
 
-void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
+void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	char *p = buffer;
 #define WRITE p+=sprintf
 
@@ -150,10 +170,14 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat) {
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
-	sprintf(offset, " + %f", (float)clutBase / 255.0f - 0.5f / 256.0f);   // 256?
+	sprintf(offset, " + %f", (float)clutBase / 256.0f - 0.5f / 256.0f);
 
+#ifdef USING_GLES
 	WRITE(p, "#version 100\n");
 	WRITE(p, "precision mediump float;\n");
+#else
+	WRITE(p, "#version 110\n");
+#endif
 	WRITE(p, "varying vec2 v_texcoord0;\n");
 	WRITE(p, "uniform sampler2D tex;\n");
 	WRITE(p, "uniform sampler2D pal;\n");
@@ -216,7 +240,7 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 
 	char *buffer = new char[2048];
 
-	GenerateDepalShader(buffer, pixelFormat);
+	GenerateDepalShader100(buffer, pixelFormat);
 
 	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -248,10 +272,14 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 		GLint bufLength = 0;
 		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
 		if (bufLength) {
-			char* buf = new char[bufLength];
-			glGetProgramInfoLog(program, bufLength, NULL, buf);
-			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
-			delete[] buf;	// we're dead!
+			char* errorbuf = new char[bufLength];
+			glGetProgramInfoLog(program, bufLength, NULL, errorbuf);
+#ifdef SHADERLOG
+			OutputDebugStringUTF8(buffer);
+			OutputDebugStringUTF8(errorbuf);
+#endif
+			ERROR_LOG(G3D, "Could not link program:\n %s  \n\n %s", errorbuf, buf);
+			delete[] errorbuf;	// we're dead!
 		}
 
 		delete[] buffer;
