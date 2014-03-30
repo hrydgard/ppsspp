@@ -886,7 +886,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBufConverted_);
 			if (!entry->depalFBO) {
-				entry->depalFBO = fbo_create(entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight, 1, false, FBO_8888);
+				entry->depalFBO = fbo_create(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, 1, false, FBO_8888);
 			}
 			fbo_bind_as_render_target(entry->depalFBO);
 			static const float pos[12] = {
@@ -923,7 +923,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glDisable(GL_CULL_FACE);
 			glDisable(GL_DEPTH_TEST);
 			glDisable(GL_STENCIL_TEST);
-			glViewport(0, 0, entry->framebuffer->bufferWidth, entry->framebuffer->bufferHeight);
+			glViewport(0, 0, entry->framebuffer->renderWidth, entry->framebuffer->renderHeight);
 
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, pos);
 			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8, uv);
