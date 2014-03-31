@@ -127,6 +127,19 @@ struct StreamInfo {
 	bool needsReset;
 };
 
+// Video source
+static u32 pVideoSource;
+static int m_nbpackets;
+static int iSize;
+
+struct SceMpegLLI
+{
+	u32 pSrc;
+	u32 pDst;
+	u32 Next;
+	int iSize;
+};
+
 typedef std::map<u32, StreamInfo> StreamInfoMap;
 
 // Internal structure
@@ -690,8 +703,129 @@ int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 	return 0;
 }
 
+static int writetimes = 0;
+static void SaveFrame(AVFrame *pFrame, int width, int height)
+{
+	FILE *pFile;
+	char szFilename[] = "frame.ppm";
+	int y;
+
+	pFile = fopen(szFilename, "a+b");
+	if (!pFile)
+		return;
+	if (writetimes == 0){
+		fprintf(pFile, "P6\n%d %d\n255\n", width, height);
+	}
+	for (y = 0; y < height; y++)
+		fwrite(pFrame->data[0] + y * pFrame->linesize[0], 1, width * 3, pFile);
+
+	writetimes++;
+	fclose(pFile);
+}
+
+bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, MpegContext * ctx, u32 outbuff){
+#if 0
+	if (Memory::IsValidAddress(pVideoSource)){
+		ringbuffer->packetsRead = m_nbpackets;
+	}
+	return false;
+#endif
+	if (Memory::IsValidAddress(pVideoSource) && Memory::IsValidAddress(outbuff)){
+		SceMpegLLI lli;
+		auto p = pVideoSource;
+		Memory::ReadStruct(pVideoSource, &lli);
+
+		if (ctx->mediaengine->m_pFormatCtx == NULL){
+			ringbuffer->packetsRead = m_nbpackets;
+			// Create H264 video codec and codec context 
+			auto pCodec = avcodec_find_decoder(CODEC_ID_H264);
+			if (pCodec == NULL){
+				WARN_LOG(ME, "decodePmpVideo can not find H264 codec, please update ffmpeg");
+				return false;
+			}
+			auto pCodecCtx = avcodec_alloc_context3(pCodec);
+			// pmp file size
+			pCodecCtx->width = 480;
+			pCodecCtx->height = 272;
+			ctx->mediaengine->m_desHeight = pCodecCtx->height;
+			ctx->mediaengine->m_desWidth = pCodecCtx->width;
+
+			// open video codec
+			if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0){
+				WARN_LOG(ME, "decodePmpVideo can not open audio codec");
+				return false;
+			}
+
+			// initialize ctx->mediaengine->m_pFrame and ctx->mediaengine->m_pFrameRGB
+			ctx->mediaengine->m_pFrame = avcodec_alloc_frame();
+			ctx->mediaengine->m_pFrameRGB = avcodec_alloc_frame();
+			auto pFrame = ctx->mediaengine->m_pFrame;
+			auto pFrameRGB = ctx->mediaengine->m_pFrameRGB;
+
+			// get RGB24 picture required space
+			auto numBytes = avpicture_get_size(PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height);
+			// allocate buff and hook it with pFrameRGB
+			u8 *buffer = Memory::GetPointer(outbuff);
+			//outbuff = (u8*)av_malloc(numBytes);
+			avpicture_fill((AVPicture *)pFrameRGB, buffer, PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height);
+
+			// initialize packet
+			AVPacket packet = { 0 };
+			av_init_packet(&packet);
+			packet.data = (uint8_t *)Memory::GetPointer(lli.pSrc);
+			packet.size = lli.iSize;
+
+			int got_picture = 0;
+			// decode video frame
+			avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
+
+			if (got_picture){
+				SwsContext *img_convert_ctx = NULL;
+				img_convert_ctx = sws_getCachedContext(
+					img_convert_ctx,
+					pCodecCtx->width,
+					pCodecCtx->height,
+					pCodecCtx->pix_fmt,
+					pCodecCtx->width,
+					pCodecCtx->height,
+					PIX_FMT_RGB24,
+					SWS_BICUBIC,
+					NULL, NULL, NULL);
+
+				if (!img_convert_ctx) {
+					ERROR_LOG(ME, "Cannot initialize sws conversion context");
+					return false;
+				}
+				// Convert to RGB24
+				int swsRet = sws_scale(img_convert_ctx, (const uint8_t* const*)pFrame->data,
+					pFrame->linesize, 0, pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
+				if (swsRet < 0){
+					ERROR_LOG(ME, "sws_scale: Error while converting %d", swsRet);
+					return false;
+				}
+				// write to ppm file to have a check
+				//SaveFrame(pFrameRGB, pCodecCtx->width, pCodecCtx->height);
+			}
+			//av_free_packet(&packet);
+			//av_free(pFrameRGB);
+			//av_free(pFrame);
+			//avcodec_close(pCodecCtx);
+			return true;
+		}
+	}
+// not a pmp video, return false
+return false;
+}
+
+
 u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
 {
+	WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
+	auto pc_mpeg = Memory::GetPointer(mpeg); // mpeg ctx
+	auto pc_au = Memory::GetPointer(auAddr); // audio addr
+	auto pc_buffer = Memory::GetPointer(bufferAddr); // output buffer
+	auto pc_init = Memory::GetPointer(initAddr); // no use
+
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): bad mpeg handle", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
@@ -709,10 +843,24 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
+	
+	SceMpegRingBuffer rr;
+	Memory::ReadStruct(ctx->mpegRingbufferAddr, &rr);
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
 	if (!ringbuffer.IsValid()) {
 		ERROR_LOG(ME, "Bogus mpegringbufferaddr");
 		return -1;
+	}
+	
+	u32 buffer = Memory::Read_U32(bufferAddr);
+	u32 init = Memory::Read_U32(initAddr);
+	DEBUG_LOG(ME, "*buffer = %08x, *init = %08x", buffer, init);
+
+	// try to check and decode pmp video
+	bool ispmp = false;
+	if (decodePmpVideo(ringbuffer, ctx, buffer)){
+		INFO_LOG(ME, "Using ffmpeg to decode pmp video");
+		ispmp = true;
 	}
 
 	if (ringbuffer->packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
@@ -720,11 +868,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
-	DEBUG_LOG(ME, "*buffer = %08x, *init = %08x", buffer, init);
-
-	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
+	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode) || ispmp) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
 		gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
 		ctx->avc.avcFrameStatus = 1;
@@ -1799,19 +1943,24 @@ void Register_sceMpeg()
 	RegisterModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
 
-struct SceMpegLLI
-{
-	u32 pSrc;
-	u32 pDst;
-	u32 Next;
-	int iSize;
-};
-
 u32 sceMpegbase_BEA18F91(u32 p)
 {
+	pVideoSource = p;
+	m_nbpackets = 0;
 	SceMpegLLI lli;
-	Memory::ReadStruct(p, &lli);
+	while (1){
+		Memory::ReadStruct(p, &lli);
+		auto pc_pSrc = Memory::GetPointer(lli.pSrc);
+		m_nbpackets++;
+		if (lli.Next == 0){
+			break;
+		}
+		p = p + sizeof(SceMpegLLI);
+	}
+	// m_nbpackets is always one in various games.
+
 	//TODO:  
+	
 	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x) pSrc %08x , pDst %08x, Next %08x, iSize %08x", p, lli.pSrc, lli.pDst ,lli.Next, lli.iSize);
 	return 0;
 }
