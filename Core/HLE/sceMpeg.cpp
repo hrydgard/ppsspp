@@ -343,7 +343,7 @@ void __MpegInit() {
 	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
-#ifdef USING_FFMPEG
+#ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
 #endif
