@@ -466,7 +466,7 @@ void MemoryMap_Shutdown(const MemoryView *views, int num_views, u32 flags, MemAr
 		SKIP(flags, views[i].flags);
 		if (views[i].out_ptr_low && *views[i].out_ptr_low)
 			arena->ReleaseView(*views[i].out_ptr_low, views[i].size);
-		if (*views[i].out_ptr && (views[i].out_ptr_low && *views[i].out_ptr != *views[i].out_ptr_low))
+		if (*views[i].out_ptr && (!views[i].out_ptr_low || *views[i].out_ptr != *views[i].out_ptr_low))
 			arena->ReleaseView(*views[i].out_ptr, views[i].size);
 		*views[i].out_ptr = NULL;
 		if (views[i].out_ptr_low)
