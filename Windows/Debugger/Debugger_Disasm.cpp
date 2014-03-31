@@ -127,6 +127,17 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 		ShowWindow(statusBarWnd,SW_HIDE);
 	}
 
+	// set it to use two parts
+	RECT statusBarRect;
+	GetClientRect(statusBarWnd,&statusBarRect);
+	
+	int parts[2];
+	parts[1] = statusBarRect.right-statusBarRect.left;
+	parts[0] = parts[1]*2./3.;
+
+	SendMessage(statusBarWnd, SB_SETPARTS, (WPARAM) 2, (LPARAM) parts);
+
+	// init other controls
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
 	ptr->gotoAddr(0x00000000);
@@ -492,6 +503,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						}
 					}
 					break;
+				case CBN_SELCHANGE:
+					{
+						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
+						int n = ListBox_GetCurSel(lb);
+
+						wchar_t buffer[512];
+						ListBox_GetText(lb,n,buffer);
+						SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM) buffer);
+					}
 				};
 				break;
 
@@ -644,7 +664,17 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_SETSTATUSBARTEXT:
 		if (!keepStatusBarText)
-			SetWindowText(statusBarWnd, ConvertUTF8ToWString((const char *)lParam).c_str());
+		{
+			if (wParam == 0)
+			{
+				// erase the second part if the first is set
+				SendMessage(statusBarWnd,SB_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)L"");
+			} else if (wParam == 1)
+			{
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+			}
+		}
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
