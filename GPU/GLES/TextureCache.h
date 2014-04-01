@@ -72,7 +72,6 @@ public:
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, GPUgstate state);
 
-private:
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
 	// Must stay a POD.
 	struct TexCacheEntry {
@@ -92,7 +91,8 @@ private:
 
 			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
 			STATUS_DEPALETTIZE = 0x20,
-			STATUS_DEPALETTIZE_DIRTY = 0x40
+			STATUS_DEPALETTIZE_DIRTY = 0x40,
+			STATUS_TEXPARAM_DIRTY = 0x80
 		};
 
 		// Status, but int so we can zero initialize.
@@ -126,6 +126,7 @@ private:
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
+private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);

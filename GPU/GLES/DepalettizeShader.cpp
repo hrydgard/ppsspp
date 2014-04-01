@@ -123,17 +123,21 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 	WRITE(p, "void main() {\n");
 	WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
 
+	int mask = gstate.getClutIndexMask();
+	int shift = gstate.getClutIndexShift();
+	int offset = gstate.getClutIndexStartPos();
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	// Unfortunately sampling turned our texture into floating point. To avoid this, might be able
 	// to declare them as isampler2D objects, but these require integer textures, which needs more work.
 	// Anyhow, we simply work around this by converting back to integer. Hopefully there will be no loss of precision.
 	// Use the mask to skip reading some components.
-	int shiftedMask = gstate.getClutIndexMask() << gstate.getClutIndexShift();
+	int shiftedMask = mask << shift;
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
-		if (shiftedMask & 0xFF) WRITE(p, "  int r = int(index.r * 15.99);\n"); else WRITE(p, "  int r = 0;\n");
-		if (shiftedMask & 0xFF00) WRITE(p, "  int g = int(index.g * 15.99);\n"); else WRITE(p, "  int g = 0;\n");
-		if (shiftedMask & 0xFF0000) WRITE(p, "  int b = int(index.b * 15.99);\n"); else WRITE(p, "  int b = 0;\n");
-		if (shiftedMask & 0xFF000000) WRITE(p, "  int a = int(index.a * 15.99);\n"); else WRITE(p, "  int a = 0;\n");
+		if (shiftedMask & 0xFF) WRITE(p, "  int r = int(index.r * 255.99);\n"); else WRITE(p, "  int r = 0;\n");
+		if (shiftedMask & 0xFF00) WRITE(p, "  int g = int(index.g * 255.99);\n"); else WRITE(p, "  int g = 0;\n");
+		if (shiftedMask & 0xFF0000) WRITE(p, "  int b = int(index.b * 255.99);\n"); else WRITE(p, "  int b = 0;\n");
+		if (shiftedMask & 0xFF000000) WRITE(p, "  int a = int(index.a * 255.99);\n"); else WRITE(p, "  int a = 0;\n");
 		WRITE(p, "  int color = (a << 24) | (b << 16) | (g << 8) | (r);\n");
 		break;
 	case GE_FORMAT_4444:
@@ -158,12 +162,11 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		break;
 	}
 	float texturePixels = 256;
-	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888)
 		texturePixels = 512;
 
-	WRITE(p, "  color = ((color >> %i) & 0x%02x) + %i;\n", gstate.getClutIndexShift(), gstate.getClutIndexMask(), gstate.getClutIndexStartPos());
-	WRITE(p, "  fragColor0 = texture2D(pal, vec2(float(color) / %f, 0.0));\n", texturePixels);
+	WRITE(p, "  color = ((color >> %i) & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
+	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) - 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
 
@@ -356,7 +359,10 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	glBindAttribLocation(program, 1, "a_texcoord0");
 
 	if (useGL3) {
+		// This call is not really necessary, I think.
+#ifndef MOBILE_DEVICE
 		glBindFragDataLocation(program, 0, "fragColor0");
+#endif
 	}
 
 	glLinkProgram(program);
