@@ -157,8 +157,13 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		WRITE(p, "int color = (a << 15) | (b << 10) | (g << 5) | (r);");
 		break;
 	}
-	WRITE(p, "  color = (color >> %i) & 0x%02x;\n", gstate.getClutIndexShift(), gstate.getClutIndexMask());
-	WRITE(p, "  fragColor0 = texture2D(pal, vec2(float(color) / 256.0f, 0.0));\n");
+	float texturePixels = 256;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	if (clutFormat != GE_CMODE_32BIT_ABGR8888)
+		texturePixels = 512;
+
+	WRITE(p, "  color = ((color >> %i) & 0x%02x) + %i;\n", gstate.getClutIndexShift(), gstate.getClutIndexMask(), gstate.getClutIndexStartPos());
+	WRITE(p, "  fragColor0 = texture2D(pal, vec2(float(color) / %f, 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
 
@@ -240,12 +245,18 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 		break;
 	}
 
+	float texturePixels = 256.f;
+	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
+		texturePixels = 512.f;
+		multiplier *= 0.5f;
+	}
+
 	if (!formatOK) {
-		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x", pixelFormat, shift, mask);
+		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x offset=%i", pixelFormat, shift, mask, offset);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
-	sprintf(offset, " + %f", (float)clutBase / 256.0f - 0.5f / 256.0f);
+	sprintf(offset, " + %f", (float)clutBase / texturePixels - 0.5f / texturePixels);
 
 #ifdef USING_GLES
 	WRITE(p, "#version 100\n");
@@ -275,13 +286,14 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 		return oldtex->second->texture;
 	}
 
-	GLuint dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
+	GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
+	GLuint dstFmt = getClutDestFormat(palFormat);
 	
 	DepalTexture *tex = new DepalTexture();
 	glGenTextures(1, &tex->texture);
 	glBindTexture(GL_TEXTURE_2D, tex->texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	glTexImage2D(GL_TEXTURE_2D, 0, components, 256, 1, 0, components, dstFmt, (void *)rawClut);
+	glTexImage2D(GL_TEXTURE_2D, 0, components, palFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512, 1, 0, components, dstFmt, (void *)rawClut);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
