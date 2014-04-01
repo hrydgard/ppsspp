@@ -661,14 +661,6 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 }
 
 void FramebufferManager::DoSetRenderFrameBuffer() {
-	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_render = gpuStats.numFlips;
-		currentRenderVfb_->dirtyAfterDisplay = true;
-		if (!gstate_c.skipDrawReason)
-			currentRenderVfb_->reallyDirtyAfterDisplay = true;
-		return;
-	}
-
 	/*
 	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && currentRenderVfb_) {
 		// Hack is enabled, and there was a previous framebuffer.
