@@ -80,14 +80,19 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 		return false;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
+#ifdef SHADERLOG
+		OutputDebugStringUTF8(code);
+#endif
 		return true;
 	}
 }
 
 DepalShaderCache::DepalShaderCache() {
 	// Pre-build the vertex program
+	bool useGL3 = gl_extensions.GLES3;
+
 	vertexShader_ = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader_, 1, &depalVShader100, 0);
+	glShaderSource(vertexShader_, 1, useGL3 ? &depalVShader300 : &depalVShader100, 0);
 	glCompileShader(vertexShader_);
 
 	if (CheckShaderCompileSuccess(vertexShader_, depalVShader100)) {
@@ -100,9 +105,65 @@ DepalShaderCache::~DepalShaderCache() {
 	glDeleteShader(vertexShader_);
 }
 
+#define WRITE p+=sprintf
+
+void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
+	char *p = buffer;
+#ifdef USING_GLES
+	WRITE(p, "#version 300 es\n");
+	WRITE(p, "precision mediump float;\n");
+#else
+	WRITE(p, "#version 330\n");
+#endif
+	WRITE(p, "in vec2 v_texcoord0;\n");
+	WRITE(p, "out vec4 fragColor0;\n");
+	WRITE(p, "uniform sampler2D tex;\n");
+	WRITE(p, "uniform sampler2D pal;\n");
+
+	WRITE(p, "void main() {\n");
+	WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
+
+	// Unfortunately sampling turned our texture into floating point. To avoid this, might be able
+	// to declare them as isampler2D objects, but these require integer textures, which needs more work.
+	// Anyhow, we simply work around this by converting back to integer. Hopefully there will be no loss of precision.
+	// Use the mask to skip reading some components.
+	int shiftedMask = gstate.getClutIndexMask() << gstate.getClutIndexShift();
+	switch (pixelFormat) {
+	case GE_FORMAT_8888:
+		if (shiftedMask & 0xFF) WRITE(p, "  int r = int(index.r * 15.99);\n"); else WRITE(p, "  int r = 0;\n");
+		if (shiftedMask & 0xFF00) WRITE(p, "  int g = int(index.g * 15.99);\n"); else WRITE(p, "  int g = 0;\n");
+		if (shiftedMask & 0xFF0000) WRITE(p, "  int b = int(index.b * 15.99);\n"); else WRITE(p, "  int b = 0;\n");
+		if (shiftedMask & 0xFF000000) WRITE(p, "  int a = int(index.a * 15.99);\n"); else WRITE(p, "  int a = 0;\n");
+		WRITE(p, "  int color = (a << 24) | (b << 16) | (g << 8) | (r);\n");
+		break;
+	case GE_FORMAT_4444:
+		if (shiftedMask & 0xF) WRITE(p, "  int r = int(index.r * 15.99);\n"); else WRITE(p, "  int r = 0;\n");
+		if (shiftedMask & 0xF0) WRITE(p, "  int g = int(index.g * 15.99);\n"); else WRITE(p, "  int g = 0;\n");
+		if (shiftedMask & 0xF00) WRITE(p, "  int b = int(index.b * 15.99);\n"); else WRITE(p, "  int b = 0;\n");
+		if (shiftedMask & 0xF000) WRITE(p, "  int a = int(index.a * 15.99);\n"); else WRITE(p, "  int a = 0;\n");
+		WRITE(p, "  int color = (a << 12) | (b << 8) | (g << 4) | (r);\n");
+		break;
+	case GE_FORMAT_565:
+		if (shiftedMask & 0x1F) WRITE(p, "  int r = int(index.r * 31.99);\n"); else WRITE(p, "  int r = 0;\n");
+		if (shiftedMask & 0x7E0) WRITE(p, "  int g = int(index.g * 63.99);\n"); else WRITE(p, "  int g = 0;\n");
+		if (shiftedMask & 0xF800) WRITE(p, "  int b = int(index.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
+		WRITE(p, "  int color = (b << 11) | (g << 5) | (r);");
+		break;
+	case GE_FORMAT_5551:
+		if (shiftedMask & 0x1F) WRITE(p, "  int r = int(index.r * 31.99);\n"); else WRITE(p, "  int r = 0;\n");
+		if (shiftedMask & 0x3E0) WRITE(p, "  int g = int(index.g * 31.99);\n"); else WRITE(p, "  int g = 0;\n");
+		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(index.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
+		if (shiftedMask & 0xF800) WRITE(p, "  int a = int(index.a);\n"); else WRITE(p, "  int a = 0;\n");
+		WRITE(p, "int color = (a << 15) | (b << 10) | (g << 5) | (r);");
+		break;
+	}
+	WRITE(p, "  color = (color >> %i) & 0x%02x;\n", gstate.getClutIndexShift(), gstate.getClutIndexMask());
+	WRITE(p, "  fragColor0 = texture2D(pal, vec2(float(color) / 256.0f, 0.0));\n");
+	WRITE(p, "}\n");
+}
+
 void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	char *p = buffer;
-#define WRITE p+=sprintf
 
 	char lookupMethod[128] = "index.r";
 	char offset[128] = "";
@@ -201,6 +262,9 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	WRITE(p, "}\n");
 }
 
+#undef WRITE
+
+
 u32 DepalShaderCache::GenerateShaderID(GEBufferFormat pixelFormat) {
 	return (gstate.clutformat & 0xFFFFFF) | (pixelFormat << 24);
 }
@@ -249,6 +313,8 @@ void DepalShaderCache::Decimate() {
 GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	u32 id = GenerateShaderID(pixelFormat);
 
+	bool useGL3 = gl_extensions.GLES3;
+
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
 		return shader->second->program;
@@ -256,7 +322,11 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 
 	char *buffer = new char[2048];
 
-	GenerateDepalShader100(buffer, pixelFormat);
+	if (useGL3) {
+		GenerateDepalShader300(buffer, pixelFormat);
+	} else {
+		GenerateDepalShader100(buffer, pixelFormat);
+	}
 
 	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -272,6 +342,10 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	
 	glBindAttribLocation(program, 0, "a_position");
 	glBindAttribLocation(program, 1, "a_texcoord0");
+
+	if (useGL3) {
+		glBindFragDataLocation(program, 0, "fragColor0");
+	}
 
 	glLinkProgram(program);
 	glUseProgram(program);
