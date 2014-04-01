@@ -2,12 +2,12 @@
 set LOGFILE=ppsspplog.txt
 
 del "%LOGFILE%" 2> NUL
-if exist PPSSPPDebug64.exe (
-    PPSSPPDebug64.exe --log="%LOGFILE%"
+if exist PPSSPPWindows64.exe (
+    start PPSSPPWindows64.exe --log="%LOGFILE%" -d
     goto exit
 )
-if exist PPSSPPDebug.exe (
-    PPSSPPDebug.exe --log="%LOGFILE%"
+if exist PPSSPPWindows.exe (
+    start PPSSPPWindows.exe --log="%LOGFILE%" -d
     goto exit
 )
 
