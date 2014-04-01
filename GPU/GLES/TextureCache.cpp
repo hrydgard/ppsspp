@@ -73,8 +73,16 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
+
+	// Aren't these way too big?
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
+
+	// Zap these so that reads from uninitialized parts of the CLUT look the same in
+	// release and debug
+	memset(clutBufConverted_, 0, 4096 * sizeof(u32));
+	memset(clutBufRaw_, 0, 4096 * sizeof(u32));
+
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	SetupTextureDecoder();
 }
@@ -208,6 +216,7 @@ inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
 	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
+		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
@@ -217,6 +226,7 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
+		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
@@ -258,8 +268,11 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		bool clutSuccess = false;
-		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) || (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
+		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
+			   (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
 			clutSuccess = AttachFramebufferCLUT(entry, framebuffer, address);
+		} else if (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) {
+			ERROR_LOG_REPORT_ONCE(fourEightBit, G3D, "4 and 8-bit CLUT format not supported for framebuffers");
 		}
 
 		if (!clutSuccess) {
@@ -269,16 +282,20 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 				(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
 
 			// Is it at least the right stride?
-			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
-				if (framebuffer->format != entry->format) {
-					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-					// TODO: Use an FBO to translate the palette?
-					AttachFramebufferValid(entry, framebuffer);
-				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
-					WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
-					// TODO: Keep track of the y offset.
-					// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-					AttachFramebufferInvalid(entry, framebuffer);
+			if (framebuffer->fb_stride == entry->bufw) {
+				if (compatFormat) {
+					if (framebuffer->format != entry->format) {
+						WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+						// TODO: Use an FBO to translate the palette?
+						AttachFramebufferValid(entry, framebuffer);
+					} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+						WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
+						// TODO: Keep track of the y offset.
+						// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
+						AttachFramebufferInvalid(entry, framebuffer);
+					}
+				} else {
+					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				}
 			}
 		}
@@ -522,6 +539,11 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.isTexCoordClampedS();
 	bool tClamp = gstate.isTexCoordClampedT();
 
+	if (entry.status & TexCacheEntry::STATUS_TEXPARAM_DIRTY) {
+		entry.status &= ~TexCacheEntry::STATUS_TEXPARAM_DIRTY;
+		force = true;
+	}
+
 	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
 
 	if (entry.maxLevel == 0) {
@@ -605,7 +627,6 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
-	// TODO: NEON.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
@@ -628,6 +649,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 			int i = sseChunks * 8 / 2;
 #else
 			int i = 0;
+			// TODO: NEON.
 #endif
 			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
@@ -660,6 +682,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 			int i = sseChunks * 8 / 2;
 #else
 			int i = 0;
+			// TODO: NEON.
 #endif
 			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
@@ -689,6 +712,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 			int i = sseChunks * 8 / 2;
 #else
 			int i = 0;
+			// TODO: NEON.
 #endif
 			for (; i < (numPixels + 1) / 2; i++) {
 				u32 c = src[i];
@@ -817,7 +841,8 @@ void TextureCache::UpdateCurrentClut() {
 				clutAlphaLinear_ = false;
 				break;
 			}
-			// Alpha 0 doesn't matter.
+			// Alpha 0 doesn't matter. 
+			// TODO: Well, depending on blend mode etc, it can actually matter, although unlikely.
 			if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
 				clutAlphaLinear_ = false;
 				break;
@@ -884,7 +909,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
-			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBufConverted_);
+			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
 			if (!entry->depalFBO) {
 				entry->depalFBO = fbo_create(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, 1, false, FBO_8888);
 			}
@@ -916,6 +941,9 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glActiveTexture(GL_TEXTURE0);
 
 			framebufferManager_->BindFramebufferColor(entry->framebuffer);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			entry->status |= TexCacheEntry::STATUS_TEXPARAM_DIRTY;
 
 			glDisable(GL_BLEND);
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
