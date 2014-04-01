@@ -34,10 +34,6 @@ class PointerWrap;
 struct SimpleAudio;
 
 #ifdef USE_FFMPEG
-extern "C" {
-#include <libswscale/swscale.h>
-}
-
 struct SwsContext;
 struct AVFrame;
 struct AVIOContext;
