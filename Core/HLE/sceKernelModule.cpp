@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <set>
 
+#include "ext/minitrace.h"
 #include "native/base/stringutil.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
@@ -802,6 +803,8 @@ static bool IsHLEVersionedModule(const char *name) {
 }
 
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
+	MTR_SCOPE_FUNC();
+
 	Module *module = new Module;
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());

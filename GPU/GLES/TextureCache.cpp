@@ -1171,6 +1171,7 @@ void TextureCache::SetTexture(bool force) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
+
 	LoadTextureLevel(*entry, 0, replaceImages, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable

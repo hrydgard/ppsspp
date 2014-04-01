@@ -451,6 +451,8 @@ static float CalculateSmoothTimestep(float lastTimestep) {
 
 // Let's collect all the throttling and frameskipping logic here.
 void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
+	MTR_SCOPE_FUNC(); // TODO: Should invert this so we get blocks when we're not in here... the CPU thread view is a bit confusing now in multithreaded.
+
 	float timestep = CalculateSmoothTimestep(lastTimestep);
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = !PSP_CoreParameter().unthrottle;
@@ -461,8 +463,6 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
-
-	
 
 	if (!throttle && g_Config.bFrameSkipUnthrottle) {
 		doFrameSkip = true;

@@ -19,6 +19,7 @@
 #include <limits>
 
 #include "math/math_util.h"
+#include "ext/minitrace.h"
 
 #include "Common.h"
 #include "Common/ChunkFile.h"

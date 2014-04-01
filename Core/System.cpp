@@ -249,8 +249,9 @@ void CPU_Shutdown() {
 }
 
 void CPU_RunLoop() {
-	MTR_SCOPE_FUNC();
 	setCurrentThreadName("CPUThread");
+	MTR_META_THREAD_NAME("CPUThread");
+
 	FPU_SetFastMode();
 
 	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {

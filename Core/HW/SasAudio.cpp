@@ -528,7 +528,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
-	MTR_SCOPE_FUNC();
+	MTR_SCOPE_FUNC_LIMIT_MS(2);
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
