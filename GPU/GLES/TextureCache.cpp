@@ -1138,6 +1138,31 @@ void TextureCache::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
+
+	int scaleFactor;
+	// Auto-texture scale upto 5x rendering resolution
+	if (g_Config.iTexScalingLevel == 0) {
+		scaleFactor = g_Config.iInternalResolution;
+		if (scaleFactor == 0) {
+			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
+		}
+
+#ifndef MOBILE_DEVICE
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, scaleFactor);
+		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
+			scaleFactor = 2;
+		}
+#else
+		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, scaleFactor);
+#endif
+	} else {
+		scaleFactor = g_Config.iTexScalingLevel;
+	}
+
+	// Don't scale the PPGe texture.
+	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
+		scaleFactor = 1;
+
 #if defined(MAY_HAVE_GLES3)
 	if (gl_extensions.GLES3 && maxLevel > 0) {
 		// glTexStorage2D requires the use of sized formats.
@@ -1152,7 +1177,7 @@ void TextureCache::SetTexture(bool force) {
 			break;
 		}
 		// TODO: This may cause bugs, since it hard-sets the texture w/h, and we might try to reuse it later with a different size.
-		glTexStorage2D(GL_TEXTURE_2D, maxLevel + 1, storageFmt, w, h);
+		glTexStorage2D(GL_TEXTURE_2D, maxLevel + 1, storageFmt, w * scaleFactor, h * scaleFactor);
 		// Make sure we don't use glTexImage2D after glTexStorage2D.
 		replaceImages = true;
 	}
@@ -1164,7 +1189,8 @@ void TextureCache::SetTexture(bool force) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-	LoadTextureLevel(*entry, 0, replaceImages, dstFmt);
+
+	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
@@ -1173,22 +1199,22 @@ void TextureCache::SetTexture(bool force) {
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 			for (int i = 1; i <= maxLevel; i++) {
-				LoadTextureLevel(*entry, i, replaceImages, dstFmt);
+				LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
 			}
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 		}
 #else 
-			glGenerateMipmap(GL_TEXTURE_2D);
+  	glGenerateMipmap(GL_TEXTURE_2D);
 #endif
 	} else {
 #ifndef USING_GLES2
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
 #elif defined(MAY_HAVE_GLES3)
-			if (gl_extensions.GLES3) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-			}
+    if (gl_extensions.GLES3) {
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    }
 #endif
 	}
 
@@ -1518,7 +1544,7 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 		entry.status |= TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
-void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, GLenum dstFmt) {
+void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -1544,30 +1570,6 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	}
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
-
-	int scaleFactor;
-	// Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		if (scaleFactor == 0) {
-			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
-		}
-
-#ifndef MOBILE_DEVICE
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, scaleFactor);
-		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
-			scaleFactor = 2;
-		}
-#else
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, scaleFactor);
-#endif
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
-
-	// Don't scale the PPGe texture.
-	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
-		scaleFactor = 1;
 
 	u32 *pixelData = (u32 *)finalBuf;
 	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
