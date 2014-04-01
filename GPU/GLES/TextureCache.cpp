@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "ext/minitrace.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -75,6 +76,7 @@ TextureCache::~TextureCache() {
 }
 
 void TextureCache::Clear(bool delete_them) {
+	MTR_SCOPE_FUNC();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	lastBoundTexture = -1;
 	if (delete_them) {
@@ -96,6 +98,7 @@ void TextureCache::Clear(bool delete_them) {
 
 // Removes old textures.
 void TextureCache::Decimate() {
+	MTR_SCOPE_FUNC();
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -286,6 +289,7 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 }
 
 void *TextureCache::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level) {
+	MTR_SCOPE_FUNC();
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
@@ -342,6 +346,7 @@ void *TextureCache::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPix
 }
 
 void *TextureCache::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw) {
+	MTR_SCOPE_FUNC();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	int length = bufw * h;
@@ -1047,6 +1052,8 @@ void TextureCache::SetTexture(bool force) {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 		}
 	}
+	
+	MTR_SCOPE(__FILE__, "CreateTexture");
 
 	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);

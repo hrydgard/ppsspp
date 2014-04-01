@@ -32,6 +32,8 @@
 
 #include <algorithm>
 
+#include "ext/minitrace.h"
+
 #include "util/text/utf8.h"
 #include "zlib.h"
 #include "Common/CommonTypes.h"
@@ -60,6 +62,8 @@ void SymbolMap::Clear() {
 }
 
 bool SymbolMap::LoadSymbolMap(const char *filename) {
+	MTR_SCOPE_FUNC_S("filename", filename);
+
 	Clear();  // let's not recurse the lock
 
 	lock_guard guard(lock_);
@@ -181,6 +185,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 }
 
 void SymbolMap::SaveSymbolMap(const char *filename) const {
+	MTR_SCOPE_FUNC_S("filename", filename);
 	lock_guard guard(lock_);
 
 	// Don't bother writing a blank file.
@@ -398,6 +403,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 }
 
 void SymbolMap::AddModule(const char *name, u32 address, u32 size) {
+	MTR_SCOPE_FUNC_S("modulename", name);
 	lock_guard guard(lock_);
 
 	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {

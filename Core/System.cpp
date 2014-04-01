@@ -30,6 +30,8 @@
 #include "native/base/mutex.h"
 #include "util/text/utf8.h"
 
+#include "ext/minitrace.h"
+
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 
@@ -163,6 +165,7 @@ void CPU_WaitStatus(condition_variable &cond, bool (*pred)()) {
 void CPU_Shutdown();
 
 void CPU_Init() {
+	MTR_SCOPE_FUNC();
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -226,6 +229,7 @@ void CPU_Init() {
 }
 
 void CPU_Shutdown() {
+	MTR_SCOPE_FUNC();
 	if (g_Config.bAutoSaveSymbolMap) {
 		host->SaveSymbolMap();
 	}
@@ -245,6 +249,7 @@ void CPU_Shutdown() {
 }
 
 void CPU_RunLoop() {
+	MTR_SCOPE_FUNC();
 	setCurrentThreadName("CPUThread");
 	FPU_SetFastMode();
 
@@ -312,6 +317,7 @@ static bool pspIsInited = false;
 static bool pspIsIniting = false;
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
+	MTR_SCOPE_FUNC();
 	if (pspIsIniting) {
 		return false;
 	}
@@ -350,6 +356,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 }
 
 bool PSP_InitUpdate(std::string *error_string) {
+	MTR_SCOPE_FUNC();
 	if (pspIsInited || !pspIsIniting) {
 		return true;
 	}
@@ -373,6 +380,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+	MTR_SCOPE_FUNC();
 	PSP_InitStart(coreParam, error_string);
 
 	if (g_Config.bSeparateCPUThread) {
@@ -392,6 +400,8 @@ bool PSP_IsInited() {
 }
 
 void PSP_Shutdown() {
+	MTR_SCOPE_FUNC();
+
 	// Do nothing if we never inited.
 	if (!pspIsInited && !pspIsIniting) {
 		return;
@@ -451,6 +461,7 @@ void PSP_RunLoopUntil(u64 globalticks) {
 }
 
 void PSP_RunLoopFor(int cycles) {
+	MTR_SCOPE_FUNC();
 	PSP_RunLoopUntil(CoreTiming::GetTicks() + cycles);
 }
 

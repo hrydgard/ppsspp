@@ -57,6 +57,8 @@
 #include "ui/view.h"
 #include "util/text/utf8.h"
 
+#include "ext/minitrace.h"
+
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
@@ -207,6 +209,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 
 void NativeInit(int argc, const char *argv[],
 								const char *savegame_directory, const char *external_directory, const char *installID) {
+	MTR_SCOPE_FUNC();
+
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -410,6 +414,7 @@ void NativeInit(int argc, const char *argv[],
 }
 
 void NativeInitGraphics() {
+	MTR_SCOPE_FUNC();
 	FPU_SetFastMode();
 
 	CheckGLExtensions();
@@ -507,6 +512,7 @@ void NativeInitGraphics() {
 }
 
 void NativeShutdownGraphics() {
+	MTR_SCOPE_FUNC();
 	screenManager->deviceLost();
 
 	g_gameInfoCache.Clear();
@@ -526,6 +532,7 @@ void NativeShutdownGraphics() {
 }
 
 void TakeScreenshot() {
+	MTR_SCOPE_FUNC();
 	g_TakeScreenshot = false;
 #ifdef _WIN32
 	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
@@ -610,6 +617,7 @@ void DrawDownloadsOverlay(UIContext &dc) {
 }
 
 void NativeRender() {
+	MTR_SCOPE_FUNC();
 	g_GameManager.Update();
 
 	glstate.depthWrite.set(GL_TRUE);
@@ -645,6 +653,7 @@ void NativeRender() {
 }
 
 void NativeUpdate(InputState &input) {
+	MTR_SCOPE_FUNC();
 	{
 		lock_guard lock(pendingMutex);
 		for (size_t i = 0; i < pendingMessages.size(); i++) {
@@ -658,6 +667,7 @@ void NativeUpdate(InputState &input) {
 }
 
 void NativeDeviceLost() {
+	MTR_SCOPE_FUNC();
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 	gl_lost();
@@ -678,12 +688,14 @@ bool NativeIsAtTopLevel() {
 }
 
 void NativeTouch(const TouchInput &touch) {
+	MTR_SCOPE_FUNC();
 	if (screenManager)
 		screenManager->touch(touch);
 }
 
 void NativeKey(const KeyInput &key) {
 	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
+	MTR_SCOPE_FUNC();
 	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);
@@ -793,6 +805,7 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
+	MTR_SCOPE_FUNC();
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;

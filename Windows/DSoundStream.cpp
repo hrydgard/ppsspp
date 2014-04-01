@@ -1,8 +1,10 @@
-#include "native/thread/threadutil.h"
-#include "Common/CommonWindows.h"
 #include <dsound.h>
 
-#include "dsoundstream.h"	
+#include "ext/minitrace.h"
+#include "native/thread/threadutil.h"
+
+#include "Common/CommonWindows.h"
+#include "DSoundStream.h"	
 
 namespace DSound
 {
@@ -71,6 +73,7 @@ namespace DSound
 												 char* soundData, // Start of our data.
 												 DWORD dwSoundBytes) // Size of block to copy.
 	{ 
+		MTR_SCOPE_FUNC();
 		void *ptr1, *ptr2;
 		DWORD numBytes1, numBytes2; 
 		// Obtain memory address of write block. This will be in two parts if the block wraps around.
@@ -114,6 +117,8 @@ namespace DSound
 	unsigned int WINAPI soundThread(void *)
 	{
 		setCurrentThreadName("DSoundThread");
+		MTR_META_THREAD_NAME("DSoundThread");
+
 		currentPos = 0;
 		lastPos = 0;
 		//writeDataToBuffer(0,realtimeBuffer,bufferSize);

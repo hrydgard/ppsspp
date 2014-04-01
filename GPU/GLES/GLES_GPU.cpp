@@ -17,7 +17,7 @@
 
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
-
+#include "ext/minitrace.h"
 #include "Common/ChunkFile.h"
 
 #include "Core/Debugger/Breakpoints.h"
@@ -615,6 +615,7 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
+	MTR_SCOPE_FUNC_LIMIT_MS(2);
 	const u8 *commandFlags = commandFlags_;
 	for (; downcount > 0; --downcount) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer

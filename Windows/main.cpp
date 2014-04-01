@@ -29,6 +29,7 @@
 #include "Core/SaveState.h"
 #include "Windows/EmuThread.h"
 #include "ext/disarm.h"
+#include "ext/minitrace.h"
 
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
@@ -252,7 +253,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 	SetCurrentDirectory(modulePath);
 	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
+	
+	mtr_init("trace.json");
+	mtr_register_sigint_handler();
+	MTR_META_THREAD_NAME("Main Thread");
 
+	MTR_BEGIN(__FILE__, "Preinit");
 #ifndef _DEBUG
 	bool showLog = false;
 #else
@@ -360,6 +366,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (debugLogLevel)
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
+	MTR_END(__FILE__, "Preinit");
+
 	//Windows, API init stuff
 	INITCOMMONCONTROLSEX comm;
 	comm.dwSize = sizeof(comm);
@@ -450,5 +458,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	delete host;
 	g_Config.Save();
 	LogManager::Shutdown();
+	mtr_shutdown();
 	return 0;
 }

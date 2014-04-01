@@ -25,6 +25,7 @@
 // and move everything into native...
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "ext/minitrace.h"
 
 #ifndef _XBOX
 #include "gfx_es2/gl_state.h"
@@ -527,6 +528,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
+
+	MTR_INSTANT_FUNC();
 
 	DEBUG_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
 

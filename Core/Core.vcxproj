@@ -165,6 +165,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\minitrace.c" />
     <ClCompile Include="..\ext\disarm.cpp" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
@@ -431,6 +432,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\minitrace.h" />
     <ClInclude Include="..\ext\disarm.h" />
     <ClInclude Include="..\ext\snappy\snappy-internal.h" />
     <ClInclude Include="..\ext\snappy\snappy-sinksource.h" />

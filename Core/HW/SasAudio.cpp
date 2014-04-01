@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
+
+#include "ext/minitrace.h"
 #include "Globals.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceAtrac.h"
@@ -526,6 +528,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
+	MTR_SCOPE_FUNC();
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {

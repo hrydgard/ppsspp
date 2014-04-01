@@ -3,9 +3,13 @@
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "base/mutex.h"
+#include "thread/threadutil.h"
+
+#include "ext/minitrace.h"
+
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "../Globals.h"
+#include "Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/resource.h"
@@ -15,7 +19,6 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "thread/threadutil.h"
 
 #include <tchar.h>
 #include <process.h>
@@ -45,12 +48,14 @@ unsigned int WINAPI TheThread(void *);
 
 void EmuThread_Start()
 {
+	MTR_SCOPE_FUNC();
 	lock_guard guard(emuThreadLock);
 	emuThread = (HANDLE)_beginthreadex(0, 0, &TheThread, 0, 0, 0);
 }
 
 void EmuThread_Stop()
 {
+	MTR_SCOPE_FUNC();
 	// Already stopped?
 	{
 		lock_guard guard(emuThreadLock);
@@ -80,6 +85,8 @@ bool EmuThread_Ready()
 
 unsigned int WINAPI TheThread(void *)
 {
+	MTR_META_THREAD_NAME("EmuThread");
+
 	_InterlockedExchange(&emuThreadReady, THREAD_INIT);
 
 	setCurrentThreadName("EmuThread");

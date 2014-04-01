@@ -387,6 +387,9 @@
     <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\minitrace.c">
+      <Filter>Ext</Filter>
+    </ClCompile>
     <ClCompile Include="..\ext\disarm.cpp">
       <Filter>Ext</Filter>
     </ClCompile>
@@ -908,6 +911,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\MIPSStackWalk.h">
       <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\minitrace.h">
+      <Filter>Ext</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\disarm.h">
       <Filter>Ext</Filter>

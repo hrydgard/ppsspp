@@ -24,6 +24,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/fbo.h"
 
+#include "ext/minitrace.h"
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
@@ -65,6 +66,8 @@ EmuScreen::EmuScreen(const std::string &filename)
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
+	MTR_SCOPE_FUNC();
+
 	if (PSP_IsIniting()) {
 		std::string error_string;
 		booted_ = PSP_InitUpdate(&error_string);
@@ -117,6 +120,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 }
 
 void EmuScreen::bootComplete() {
+	MTR_SCOPE_FUNC();
+
 	globalUIState = UISTATE_INGAME;
 	host->BootDone();
 	host->UpdateDisassembly();
