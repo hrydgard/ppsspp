@@ -1205,16 +1205,16 @@ void TextureCache::SetTexture(bool force) {
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 		}
 #else 
-  	glGenerateMipmap(GL_TEXTURE_2D);
+		glGenerateMipmap(GL_TEXTURE_2D);
 #endif
 	} else {
 #ifndef USING_GLES2
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0);
 #elif defined(MAY_HAVE_GLES3)
-    if (gl_extensions.GLES3) {
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    }
+		if (gl_extensions.GLES3) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		}
 #endif
 	}
 
