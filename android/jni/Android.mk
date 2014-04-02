@@ -104,6 +104,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/UI/ui_atlas.cpp \
   $(SRC)/UI/OnScreenDisplay.cpp \
+  $(SRC)/ext/minitrace.c \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/amctrl.c \

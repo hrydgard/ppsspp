@@ -333,6 +333,11 @@ add_library(vjson STATIC
 	native/ext/vjson/block_allocator.h
 )
 
+add_library(minitrace STATIC
+	ext/minitrace.c
+	ext/minitrace.h
+)
+
 add_library(rg_etc1 STATIC
 	native/ext/rg_etc1/rg_etc1.cpp
 	native/ext/rg_etc1/rg_etc1.h)
@@ -1187,7 +1192,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
+target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash minitrace
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 

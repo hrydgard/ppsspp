@@ -65,7 +65,8 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/Common/PostShader.cpp \
 	$$P/ext/libkirk/*.c \ # Kirk
 	$$P/ext/xxhash.c \ # xxHash
-	$$P/ext/xbrz/*.cpp # XBRZ
+	$$P/ext/xbrz/*.cpp # XBRZ \
+  $$P/ext/minitrace.c
 
 !x86:!symbian: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 
@@ -88,7 +89,8 @@ HEADERS += $$P/Core/*.h \
 	$$P/GPU/Common/*.h \
 	$$P/GPU/*.h \
 	$$P/ext/libkirk/*.h \
-	$$P/ext/xbrz/*.h
+	$$P/ext/xbrz/*.h \
+  $$P/ext/*.h
 
 win32: INCLUDEPATH += $$P/ffmpeg/WindowsInclude
 
