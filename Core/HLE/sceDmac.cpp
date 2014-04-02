@@ -75,7 +75,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-	if (dst + size >= 0x80000000 || src + size >= 0x80000000) {
+	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size == 0xFFFFFFFF) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
 		return 0x80000023;
 	}
@@ -100,7 +100,7 @@ u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-	if (dst + size >= 0x80000000 || src + size >= 0x80000000) {
+	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size == 0xFFFFFFFF) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
 		return 0x80000023;
 	}
