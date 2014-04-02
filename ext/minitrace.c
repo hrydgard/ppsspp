@@ -53,7 +53,7 @@ static int is_tracing = 0;
 static int64_t time_offset;
 static int first_line = 1;
 static FILE *f;
-static __thread int cur_thread_id;  // Thread local storage
+static __thread int cur_thread_id;	// Thread local storage
 static pthread_mutex_t mutex;
 
 #define STRING_POOL_SIZE 100
@@ -158,7 +158,7 @@ void mtr_init(const char *json_file) {
 }
 
 void mtr_shutdown() {
-  int i;
+	int i;
 #ifndef MTR_ENABLED
 	return;
 #endif
@@ -179,7 +179,7 @@ void mtr_shutdown() {
 }
 
 const char *mtr_pool_string(const char *str) {
-  int i;
+	int i;
 	for (i = 0; i < STRING_POOL_SIZE; i++) {
 		if (!str_pool[i]) {
 			str_pool[i] = malloc(strlen(str) + 1);
@@ -213,7 +213,7 @@ void mtr_flush() {
 	return;
 #endif
 	int i = 0;
-  int old_tracing;
+	int old_tracing;
 	char linebuf[1024];
 	char arg_buf[256];
 	char id_buf[256];
@@ -222,7 +222,7 @@ void mtr_flush() {
 
 	pthread_mutex_lock(&mutex);
 	old_tracing = is_tracing;
-	is_tracing = 0;  // Stop logging even if using interlocked increments instead of the mutex. Can cause data loss.
+	is_tracing = 0;	// Stop logging even if using interlocked increments instead of the mutex. Can cause data loss.
 
 	for (i = 0; i < count; i++) {
 		raw_event_t *raw = &buffer[i];
@@ -287,7 +287,7 @@ void mtr_flush() {
 }
 
 void internal_mtr_raw_event(const char *category, const char *name, char ph, void *id) {
-  double ts;
+	double ts;
 #ifndef MTR_ENABLED
 	return;
 #endif
@@ -298,7 +298,7 @@ void internal_mtr_raw_event(const char *category, const char *name, char ph, voi
 		cur_thread_id = get_cur_thread_id();
 	}
 
-#if 0 && _WIN32  // TODO: This needs testing
+#if 0 && _WIN32	// TODO: This needs testing
 	int bufPos = InterlockedIncrement(&count);
 	raw_event_t *ev = &buffer[count - 1];
 #else
@@ -325,7 +325,7 @@ void internal_mtr_raw_event(const char *category, const char *name, char ph, voi
 }
 
 void internal_mtr_raw_event_arg(const char *category, const char *name, char ph, void *id, mtr_arg_type arg_type, const char *arg_name, void *arg_value) {
-  double ts;
+	double ts;
 #ifndef MTR_ENABLED
 	return;
 #endif
@@ -336,7 +336,7 @@ void internal_mtr_raw_event_arg(const char *category, const char *name, char ph,
 	}
 	ts = mtr_time_s();
 
-#if 0 && _WIN32  // TODO: This needs testing
+#if 0 && _WIN32	// TODO: This needs testing
 	int bufPos = InterlockedIncrement(&count);
 	raw_event_t *ev = &buffer[count - 1];
 #else
