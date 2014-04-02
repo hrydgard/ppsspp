@@ -65,7 +65,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/Common/PostShader.cpp \
 	$$P/ext/libkirk/*.c \ # Kirk
 	$$P/ext/xxhash.c \ # xxHash
-	$$P/ext/xbrz/*.cpp # XBRZ \
+	$$P/ext/xbrz/*.cpp \ # XBRZ
   $$P/ext/minitrace.c
 
 !x86:!symbian: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp

@@ -158,6 +158,7 @@ void mtr_init(const char *json_file) {
 }
 
 void mtr_shutdown() {
+  int i;
 #ifndef MTR_ENABLED
 	return;
 #endif
@@ -169,7 +170,7 @@ void mtr_shutdown() {
 	f = 0;
 	free(buffer);
 	buffer = 0;
-	for (int i = 0; i < STRING_POOL_SIZE; i++) {
+	for (i = 0; i < STRING_POOL_SIZE; i++) {
 		if (str_pool[i]) {
 			free(str_pool[i]);
 			str_pool[i] = 0;
@@ -178,7 +179,8 @@ void mtr_shutdown() {
 }
 
 const char *mtr_pool_string(const char *str) {
-	for (int i = 0; i < STRING_POOL_SIZE; i++) {
+  int i;
+	for (i = 0; i < STRING_POOL_SIZE; i++) {
 		if (!str_pool[i]) {
 			str_pool[i] = malloc(strlen(str) + 1);
 			strcpy(str_pool[i], str);
@@ -211,6 +213,7 @@ void mtr_flush() {
 	return;
 #endif
 	int i = 0;
+  int old_tracing;
 	char linebuf[1024];
 	char arg_buf[256];
 	char id_buf[256];
@@ -218,7 +221,7 @@ void mtr_flush() {
 
 
 	pthread_mutex_lock(&mutex);
-	int old_tracing = is_tracing;
+	old_tracing = is_tracing;
 	is_tracing = 0;  // Stop logging even if using interlocked increments instead of the mutex. Can cause data loss.
 
 	for (i = 0; i < count; i++) {
@@ -284,12 +287,13 @@ void mtr_flush() {
 }
 
 void internal_mtr_raw_event(const char *category, const char *name, char ph, void *id) {
+  double ts;
 #ifndef MTR_ENABLED
 	return;
 #endif
 	if (!is_tracing || count >= INTERNAL_MINITRACE_BUFFER_SIZE)
 		return;
-	double ts = mtr_time_s();
+	ts = mtr_time_s();
 	if (!cur_thread_id) {
 		cur_thread_id = get_cur_thread_id();
 	}
@@ -321,6 +325,7 @@ void internal_mtr_raw_event(const char *category, const char *name, char ph, voi
 }
 
 void internal_mtr_raw_event_arg(const char *category, const char *name, char ph, void *id, mtr_arg_type arg_type, const char *arg_name, void *arg_value) {
+  double ts;
 #ifndef MTR_ENABLED
 	return;
 #endif
@@ -329,7 +334,7 @@ void internal_mtr_raw_event_arg(const char *category, const char *name, char ph,
 	if (!cur_thread_id) {
 		cur_thread_id = get_cur_thread_id();
 	}
-	double ts = mtr_time_s();
+	ts = mtr_time_s();
 
 #if 0 && _WIN32  // TODO: This needs testing
 	int bufPos = InterlockedIncrement(&count);
