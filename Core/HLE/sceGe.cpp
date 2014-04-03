@@ -421,7 +421,7 @@ int sceGeBreak(u32 mode, u32 unknownPtr)
 	if ((int)unknownPtr < 0 || (int)unknownPtr + 16 < 0)
 	{
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
-		return 0x80000023;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 	else if (unknownPtr != 0)
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
