@@ -30,7 +30,7 @@ enum
 	SCE_KERNEL_ERROR_ALREADY                          = 0x80000020,
 	SCE_KERNEL_ERROR_BUSY                             = 0x80000021,
 	SCE_KERNEL_ERROR_OUT_OF_MEMORY                    = 0x80000022,
-        SCE_KERNEL_ERROR_PRIV_REQUIRED                    = 0x80000023,
+	SCE_KERNEL_ERROR_PRIV_REQUIRED                    = 0x80000023,
 	SCE_KERNEL_ERROR_INVALID_ID                       = 0x80000100,
 	SCE_KERNEL_ERROR_INVALID_NAME                     = 0x80000101,
 	SCE_KERNEL_ERROR_INVALID_INDEX                    = 0x80000102,
