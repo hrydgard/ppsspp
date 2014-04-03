@@ -218,11 +218,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-#ifdef _M_X64
-		MOV(64, R(tempReg1), Imm64((u64)(&gstate_c.uv)));
-#else
-		MOV(32, R(tempReg1), Imm32((u32)(&gstate_c.uv)));
-#endif
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.uv));
 		MOVSS(fpScaleOffsetReg, MDisp(tempReg1, 0));
 		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
 		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
