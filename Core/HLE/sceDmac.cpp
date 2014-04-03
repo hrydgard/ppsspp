@@ -78,7 +78,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return SCE_ERROR_PRIV_REQUIRED;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
@@ -103,7 +103,7 @@ u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return SCE_ERROR_PRIV_REQUIRED;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {

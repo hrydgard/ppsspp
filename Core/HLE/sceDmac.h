@@ -19,10 +19,6 @@
 
 class PointerWrap;
 
-enum {
-	SCE_ERROR_PRIV_REQUIRED = 0x80000023,
-};
-
 void __DmacInit();
 void __DmacDoState(PointerWrap &p);
 
