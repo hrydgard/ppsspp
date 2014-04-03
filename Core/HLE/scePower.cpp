@@ -46,10 +46,10 @@ const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
 
 const int POWER_CB_AUTO = -1;
 
-/* These are the callback slots for user mode applications. */
+// These are the callback slots for user mode applications.
 const int numberOfCBPowerSlots = 16;
 
-/* These are the callback slots for kernel mode applications. */
+// These are the callback slots for kernel mode applications.
 const int numberOfCBPowerSlotsPrivate = 32;
 
 static bool volatileMemLocked;
