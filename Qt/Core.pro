@@ -31,6 +31,8 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/Util/*.cpp \
 	$$P/ext/libkirk/*.c # Kirk
 
+!x86:!symbian: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
+
 HEADERS += $$P/Core/*.h \
 	$$P/Core/Debugger/*.h \
 	$$P/Core/Dialog/*.h \

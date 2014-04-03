@@ -31,6 +31,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
+#include "GPU/GLES/DisplayListCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/GLES/Framebuffer.h"
@@ -405,6 +406,8 @@ GLES_GPU::GLES_GPU()
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
 
+	jitCache_ = new DisplayListCache(this);
+
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
@@ -449,6 +452,7 @@ GLES_GPU::~GLES_GPU() {
 	depalShaderCache_.Clear();
 	delete shaderManager_;
 	glstate.SetVSyncInterval(0);
+	delete jitCache_;
 }
 
 // Let's avoid passing nulls into snprintf().
@@ -599,6 +603,12 @@ void GLES_GPU::BeginFrameInternal() {
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	framebufferManager_.BeginFrame();
+
+	jitCache_->DecimateLists();
+}
+
+inline bool GLES_GPU::TryEnterJit(DisplayList &list) {
+	return jitCache_->Execute(list.pc, downcount);
 }
 
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -668,6 +678,10 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
+	if (TryEnterJit(list)) {
+		return;
+	}
+
 	const CommandInfo *cmdInfo = cmdInfo_;
 	for (; downcount > 0; --downcount) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
@@ -2221,6 +2235,10 @@ bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &
 bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
 		name = "VertexDecoderJit";
+		return true;
+	}
+	if (jitCache_->IsInSpace(ptr)) {
+		name = "DisplayListJit";
 		return true;
 	}
 	return false;
