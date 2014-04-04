@@ -479,7 +479,7 @@ static const GLuint MagFiltGL[2] = {
 // TODO: Dirty-check this against the current texture.
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
-	int magFilt = (gstate.texfilter>>8) & 1;
+	int magFilt = (gstate.texfilter >> 8) & 1;
 	bool sClamp = gstate.isTexCoordClampedS();
 	bool tClamp = gstate.isTexCoordClampedT();
 
@@ -489,8 +489,8 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		// Enforce no mip filtering, for safety.
 		minFilt &= 1; // no mipmaps yet
 	} else {
-		// TODO: Is this a signed value? Which direction?
-		float lodBias = 0.0; // -(float)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
+		// It is a signed 8 bit 4.4 fixed point value
+		s8 lodBias = (s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 		if (force || entry.lodBias != lodBias) {
 #ifndef USING_GLES2
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
