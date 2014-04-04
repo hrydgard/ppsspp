@@ -191,9 +191,9 @@ u32 sceAacExit()
 	return 0;
 }
 
-u32 sceAacInitResource()
+u32 sceAacInitResource(u32 numberIds)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource(%i)", numberIds);
 	return 0;
 }
 
@@ -304,7 +304,7 @@ const HLEFunction sceMp4[] =
 const HLEFunction sceAac[] = {
 	{0xE0C89ACA, WrapU_UUUU<sceAacInit>, "sceAacInit"},
 	{0x33B8C009, WrapU_V<sceAacExit>, "sceAacExit"},
-	{0x5CFFC57C, WrapU_V<sceAacInitResource>, "sceAacInitResource"},
+	{0x5CFFC57C, WrapU_U<sceAacInitResource>, "sceAacInitResource"},
 	{0x23D35CAE, WrapU_V<sceAacTermResource>, "sceAacTermResource"},
 	{0x7E4CFEE4, WrapU_UU<sceAacDecode>, "sceAacDecode"},
 	{0x523347D9, WrapU_V<sceAacGetLoopNum>, "sceAacGetLoopNum"},
