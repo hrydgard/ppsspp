@@ -155,6 +155,14 @@ SimpleAudio::~SimpleAudio() {
 #endif  // USE_FFMPEG
 }
 
+void SaveAudio(uint8_t *outbuf, int size){
+	FILE * pf;
+	pf = fopen("dump.pcm", "ab+");
+
+	fwrite(outbuf, size, 1, pf);
+	fclose(pf);
+}
+
 // Input is a single Audio packet.
 bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
@@ -201,8 +209,14 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
 			return false;
 		}
+		// each sample occupies 2 bytes, and the stereo mode has 2 channels
+		*outbytes = swrRet * 2 * 2;
 		// We always convert to stereo.
 		__AdjustBGMVolume((s16 *)outbuf, frame_->nb_samples * 2);
+		
+		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
+		//SaveAudio(outbuf, *outbytes);
+		//INFO_LOG(ME, "size of audio frame %d, size of output pcm %d", inbytes, *outbytes);
 	}
 
 	return true;
