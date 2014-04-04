@@ -85,7 +85,6 @@
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/GLES_GPU.h"
 
 extern const GLuint glprim[8] = {
 	GL_POINTS,

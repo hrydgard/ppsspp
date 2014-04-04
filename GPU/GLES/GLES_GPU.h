@@ -32,6 +32,16 @@ class ShaderManager;
 class LinkedShader;
 class DisplayListCache;
 
+enum {
+	FLAG_FLUSHBEFORE = 1,
+	FLAG_FLUSHBEFOREONCHANGE = 2,
+	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
+	FLAG_EXECUTEONCHANGE = 8,  // unused for now. not sure if checking for this will be more expensive than doing it.
+	FLAG_ANY_EXECUTE = 4 | 8,
+	FLAG_READS_PC = 16,
+	FLAG_WRITES_PC = 32,
+};
+
 class GLES_GPU : public GPUCommon {
 public:
 	GLES_GPU();

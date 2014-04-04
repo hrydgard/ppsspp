@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/timeutil.h"
-
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/DisplayListCache.h"
@@ -52,16 +50,6 @@ void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
 void DisplayListCache::DoFlush(GLES_GPU *g) {
 	g->transformDraw_.Flush();
 }
-
-enum {
-	FLAG_FLUSHBEFORE = 1,
-	FLAG_FLUSHBEFOREONCHANGE = 2,
-	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
-	FLAG_EXECUTEONCHANGE = 8,  // unused for now. not sure if checking for this will be more expensive than doing it.
-	FLAG_ANY_EXECUTE = 4 | 8,
-	FLAG_READS_PC = 16,
-	FLAG_WRITES_PC = 32,
-};
 
 #ifdef _M_X64
 #define PTRBITS 64
@@ -118,14 +106,13 @@ JittedDisplayListEntry DisplayListCache::Compile(u32 &pc, int &downcount) {
 
 	std::vector<FixupBranch> fixups;
 
-	int ops = 0;
 	while (downcount > 0) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
 		const u32 op = *(const u32 *)(Memory::base + pc);
 		const u32 cmd = op >> 24;
 
 #ifdef _M_X64
-		MOV(32, R(opReg), MatR(R12));
+		MOV(32, R(opReg), MatR(pcReg));
 #else
 		MOV(32, R(EAX), pcArg);
 		MOV(32, R(opReg), MDisp(EAX, (u32)Memory::base));

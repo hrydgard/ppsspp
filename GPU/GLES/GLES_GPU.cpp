@@ -43,16 +43,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-enum {
-	FLAG_FLUSHBEFORE = 1,
-	FLAG_FLUSHBEFOREONCHANGE = 2,
-	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
-	FLAG_EXECUTEONCHANGE = 8,
-	FLAG_ANY_EXECUTE = 4 | 8,
-	FLAG_READS_PC = 16,
-	FLAG_WRITES_PC = 32,
-};
-
 struct CommandTableEntry {
 	u8 cmd;
 	u8 flags;

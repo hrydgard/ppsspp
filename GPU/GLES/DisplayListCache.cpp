@@ -18,7 +18,6 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/DisplayListCache.h"
-#include "GPU/GLES/GLES_GPU.h"
 
 // TODO: Do based on op count instead?  Does this make sense?
 const int MAX_COMPILED_PER_FRAME = 3;
