@@ -858,7 +858,7 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, MpegContext * ctx)
 
 			// decode video frame
 			auto len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
-			WARN_LOG(ME, "got_picture %d", got_picture);
+			DEBUG_LOG(ME, "got_picture %d", got_picture);
 			if (got_picture){
 				SwsContext *img_convert_ctx = NULL;
 				img_convert_ctx = sws_getContext(
@@ -946,7 +946,6 @@ void __VideoPmpDoState(PointerWrap &p){
 
 u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
 {
-	WARN_LOG(ME, "mpeg context: %08x", mpeg);
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): bad mpeg handle", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
@@ -972,7 +971,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	
 	u32 buffer = Memory::Read_U32(bufferAddr);
 	u32 init = Memory::Read_U32(initAddr);
-	WARN_LOG(ME, "video: bufferAddr = %08x, *buffer = %08x, *init = %08x", bufferAddr, buffer, init);
+	DEBUG_LOG(ME, "video: bufferAddr = %08x, *buffer = %08x, *init = %08x", bufferAddr, buffer, init);
 
 	// check and decode pmp video
 	bool ispmp = false;
