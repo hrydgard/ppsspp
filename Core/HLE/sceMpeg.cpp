@@ -818,14 +818,14 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, MpegContext * ctx)
 	// the current video is pmp iff pmp_videoSource is a valide addresse
 	if (Memory::IsValidAddress(pmp_videoSource)){
 		// We should initialize pmp codec for each pmp context
-		if (isContextExist((int)ctx) == false){
+		if (isContextExist(reinterpret_cast<int>(ctx)) == false){
 			auto ret = InitPmp(ctx);
 			if (!ret){
 				ERROR_LOG(ME, "Pmp video initialization failed");
 				return false;
 			}
 			// add the initialized context into ContextList
-			pmp_ContextList.push_front((u32)ctx);
+			pmp_ContextList.push_front(reinterpret_cast<int>(ctx));
 		}
 
 		ringbuffer->packetsRead = pmp_nBlocks;
