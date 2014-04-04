@@ -644,6 +644,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 			entry.startSector = fileList[fileIndex].firstBlock;
 		myVector.push_back(entry);
 	}
+	FindClose(hFind);
 #else
 	dirent *dirp;
 	std::string localPath = GetLocalPath(path);

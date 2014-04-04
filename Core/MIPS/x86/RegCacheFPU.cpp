@@ -40,6 +40,7 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 
 	memcpy(xregs, xregsInitial, sizeof(xregs));
 	memcpy(regs, regsInitial, sizeof(regs));
+	pendingFlush = false;
 }
 
 void FPURegCache::SetupInitialRegs() {
@@ -115,6 +116,7 @@ void FPURegCache::ReleaseSpillLocks() {
 }
 
 void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
+	pendingFlush = true;
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - load - imm");
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
@@ -176,6 +178,7 @@ bool FPURegCache::IsTempX(X64Reg xr) {
 }
 
 int FPURegCache::GetTempR() {
+	pendingFlush = true;
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (!regs[r].away && !regs[r].tempLocked) {
 			regs[r].tempLocked = true;
@@ -188,6 +191,9 @@ int FPURegCache::GetTempR() {
 }
 
 void FPURegCache::Flush() {
+	if (!pendingFlush) {
+		return;
+	}
 	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
@@ -204,6 +210,7 @@ void FPURegCache::Flush() {
 			}
 		}
 	}
+	pendingFlush = false;
 }
 
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
@@ -244,6 +251,7 @@ const int *FPURegCache::GetAllocationOrder(int &count) {
 }
 
 X64Reg FPURegCache::GetFreeXReg() {
+	pendingFlush = true;
 	int aCount;
 	const int *aOrder = GetAllocationOrder(aCount);
 	for (int i = 0; i < aCount; i++) {
@@ -284,4 +292,5 @@ void FPURegCache::GetState(FPURegCacheState &state) const {
 void FPURegCache::RestoreState(const FPURegCacheState state) {
 	memcpy(regs, state.regs, sizeof(regs));
 	memcpy(xregs, state.xregs, sizeof(xregs));
+	pendingFlush = true;
 }

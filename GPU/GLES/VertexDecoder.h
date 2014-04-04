@@ -26,8 +26,6 @@
 #endif
 
 #include "Globals.h"
-#include "Core/Reporting.h"
-#include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class VertexDecoder;

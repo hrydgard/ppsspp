@@ -138,14 +138,18 @@ JitBlock *JitBlockCache::GetBlock(int no) {
 int JitBlockCache::AllocateBlock(u32 startAddress) {
 	JitBlock &b = blocks_[num_blocks_];
 
+	b.proxyFor = 0;
 	// If there's an existing pure proxy block at the address, we need to ditch it and create a new one,
 	// taking over the proxied blocks.
 	int num = GetBlockNumberFromStartAddress(startAddress, false);
 	if (num >= 0) {
 		if (blocks_[num].IsPureProxy()) {
 			blocks_[num].invalid = true;
-			b.proxyFor = blocks_[num].proxyFor;
-			blocks_[num].proxyFor.clear();
+			b.proxyFor = new std::vector<u32>();
+			*b.proxyFor = *blocks_[num].proxyFor;
+			blocks_[num].proxyFor->clear();
+			delete blocks_[num].proxyFor;
+			blocks_[num].proxyFor = 0;
 		}
 	}
 
@@ -167,7 +171,10 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	int num = GetBlockNumberFromStartAddress(startAddress, false);
 	if (num != -1) {
 		INFO_LOG(HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
-		blocks_[num].proxyFor.push_back(rootAddress);
+		if (!blocks_[num].proxyFor) {
+			blocks_[num].proxyFor = new std::vector<u32>();
+		}
+		blocks_[num].proxyFor->push_back(rootAddress);
 	}
 
 	JitBlock &b = blocks_[num_blocks_];
@@ -283,7 +290,7 @@ int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly)
 			// Wasn't an emu hack op, look through proxyBlockIndices_.
 			for (size_t i = 0; i < proxyBlockIndices_.size(); i++) {
 				int blockIndex = proxyBlockIndices_[i];
-				if (blocks_[blockIndex].originalAddress == addr && !blocks_[blockIndex].proxyFor.empty() && !blocks_[blockIndex].invalid)
+				if (blocks_[blockIndex].originalAddress == addr && !blocks_[blockIndex].proxyFor && !blocks_[blockIndex].invalid)
 					return blockIndex;
 			}
 		}
@@ -436,11 +443,15 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	// Follow a block proxy chain.
 	// Destroy the block that transitively has this as a proxy. Likely the root block once inlined
 	// this block or its 'parent', so now that this block has changed, the root block must be destroyed.
-	for (size_t i = 0; i < b->proxyFor.size(); i++) {
-		int proxied_blocknum = GetBlockNumberFromStartAddress(b->proxyFor[i], false);
-		DestroyBlock(proxied_blocknum, invalidate);
+	if (b->proxyFor) {
+		for (size_t i = 0; i < b->proxyFor->size(); i++) {
+			int proxied_blocknum = GetBlockNumberFromStartAddress((*b->proxyFor)[i], false);
+			DestroyBlock(proxied_blocknum, invalidate);
+		}
+		b->proxyFor->clear();
+		delete b->proxyFor;
+		b->proxyFor = 0;
 	}
-	b->proxyFor.clear();
 	// TODO: Remove from proxyBlockIndices_.
 
 	// TODO: Handle the case when there's a proxy block and a regular JIT block at the same location.

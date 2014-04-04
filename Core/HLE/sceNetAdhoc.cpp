@@ -22,6 +22,7 @@
 // All credit goes to him!
 #include "Common/ChunkFile.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/MemMap.h"
 

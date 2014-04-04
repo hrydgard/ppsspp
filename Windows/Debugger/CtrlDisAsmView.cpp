@@ -1160,6 +1160,12 @@ void CtrlDisAsmView::updateStatusBarText()
 	}
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+
+	const std::string label = symbolMap.GetLabelString(line.info.opcodeAddress);
+	if (!label.empty())
+	{
+		SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,1,(LPARAM)label.c_str());
+	}
 }
 
 u32 CtrlDisAsmView::yToAddress(int y)

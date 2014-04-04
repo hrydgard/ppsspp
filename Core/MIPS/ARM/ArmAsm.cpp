@@ -92,8 +92,6 @@ void Jit::GenerateFixedCode()
 	SUB(R_SP, R_SP, 4);
 	// Now we are correctly aligned and plan to stay that way.
 
-	// TODO: R12 should be usable for regalloc but will get thrashed by C code.
-
 	// Fixed registers, these are always kept when in Jit context.
 	// R8 is used to hold flags during delay slots. Not always needed.
 	// R13 cannot be used as it's the stack pointer.

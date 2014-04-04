@@ -669,6 +669,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		if (!retval)
 			break;
 	}
+	FindClose(hFind);
 #else
 	dirent *dirp;
 	std::string localPath = GetLocalPath(path);

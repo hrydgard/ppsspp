@@ -48,35 +48,44 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 	switch (event.type) {
 	case SDL_JOYAXISMOTION:
 		{
-			AxisInput axis;
-			axis.axisId = SDLJoyAxisMap[event.jaxis.axis];
-			// 1.2 to try to approximate the PSP's clamped rectangular range.
-			axis.value = 1.2 * event.jaxis.value / 32767.0f;
-			if (axis.value > 1.0f) axis.value = 1.0f;
-			if (axis.value < -1.0f) axis.value = -1.0f;
-			axis.deviceId = DEVICE_ID_PAD_0;
-			axis.flags = 0;
-			NativeAxis(axis);
+			std::map<int, int>::const_iterator i = SDLJoyAxisMap.find(event.jaxis.axis);
+			if (i != SDLJoyAxisMap.end()) {
+				AxisInput axis;
+				axis.axisId = i->second;
+				// 1.2 to try to approximate the PSP's clamped rectangular range.
+				axis.value = 1.2 * event.jaxis.value / 32767.0f;
+				if (axis.value > 1.0f) axis.value = 1.0f;
+				if (axis.value < -1.0f) axis.value = -1.0f;
+				axis.deviceId = DEVICE_ID_PAD_0;
+				axis.flags = 0;
+				NativeAxis(axis);
+			}
 			break;
 		}
 
 	case SDL_JOYBUTTONDOWN:
 		{
-			KeyInput key;
-			key.flags = KEY_DOWN;
-			key.keyCode = SDLJoyButtonMap[event.jbutton.button];
-			key.deviceId = DEVICE_ID_PAD_0;
-			NativeKey(key);
+			std::map<int, int>::const_iterator i = SDLJoyButtonMap.find(event.jbutton.button);
+			if (i != SDLJoyButtonMap.end()) {
+				KeyInput key;
+				key.flags = KEY_DOWN;
+				key.keyCode = i->second;
+				key.deviceId = DEVICE_ID_PAD_0;
+				NativeKey(key);
+			}
 			break;
 		}
 
 	case SDL_JOYBUTTONUP:
 		{
-			KeyInput key;
-			key.flags = KEY_UP;
-			key.keyCode = SDLJoyButtonMap[event.jbutton.button];
-			key.deviceId = DEVICE_ID_PAD_0;
-			NativeKey(key);
+			std::map<int, int>::const_iterator i = SDLJoyButtonMap.find(event.jbutton.button);
+			if (i != SDLJoyButtonMap.end()) {
+				KeyInput key;
+				key.flags = KEY_UP;
+				key.keyCode = i->second;
+				key.deviceId = DEVICE_ID_PAD_0;
+				NativeKey(key);
+			}
 			break;
 		}
 

@@ -122,6 +122,8 @@ public:
 	int GetNumARMFPURegs();
 
 private:
+	void SetupInitialRegs();
+
 	MIPSState *mips_;
 	ARMXEmitter *emit_;
 	u32 compilerPC_;
@@ -136,4 +138,9 @@ private:
 	FPURegARM ar[MAX_ARMFPUREG];
 	FPURegMIPS mr[NUM_MIPSFPUREG];
 	FPURegMIPS *vr;
+
+	bool pendingFlush;
+	bool initialReady;
+	FPURegARM arInitial[MAX_ARMFPUREG];
+	FPURegMIPS mrInitial[NUM_MIPSFPUREG];
 };

@@ -343,7 +343,7 @@ void __MpegInit() {
 	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
-#ifdef USING_FFMPEG
+#ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
 #endif
@@ -470,6 +470,11 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 		Memory::Write_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
 	}
 	MpegContext *ctx = new MpegContext;
+	if (mpegMap.find(mpegHandle) != mpegMap.end()) {
+		WARN_LOG_REPORT(HLE, "Replacing existing mpeg context at %08x", mpegAddr);
+		// Otherwise, it would leak.
+		delete mpegMap[mpegHandle];
+	}
 	mpegMap[mpegHandle] = ctx;
 
 	// Initialize mpeg values.
@@ -1794,15 +1799,26 @@ void Register_sceMpeg()
 	RegisterModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
 
-u32 sceMpegbase_BEA18F91(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
+struct SceMpegLLI
 {
-	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x, %08x, %08x, %08x, %08x, %08x)", unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	u32 pSrc;
+	u32 pDst;
+	u32 Next;
+	int iSize;
+};
+
+u32 sceMpegbase_BEA18F91(u32 p)
+{
+	SceMpegLLI lli;
+	Memory::ReadStruct(p, &lli);
+	//TODO:  
+	ERROR_LOG(ME, "UNIMPL sceMpegbase_BEA18F91(%08x) pSrc %08x , pDst %08x, Next %08x, iSize %08x", p, lli.pSrc, lli.pDst ,lli.Next, lli.iSize);
 	return 0;
 }
 
 const HLEFunction sceMpegbase[] =
 {
-	{ 0xBEA18F91, WrapU_UUUUUU<sceMpegbase_BEA18F91>, "sceMpegbase_BEA18F91" },
+	{ 0xBEA18F91, WrapU_U<sceMpegbase_BEA18F91>, "sceMpegbase_BEA18F91" },
 	{ 0x492B5E4B, 0, "sceMpegBaseCscInit" },
 	{ 0x0530BE4E, 0, "sceMpegbase_0530BE4E" },
 	{ 0x91929A21, 0, "sceMpegBaseCscAvc" },

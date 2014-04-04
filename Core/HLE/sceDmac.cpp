@@ -16,10 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Core/HLE/sceDmac.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "GPU/GPUInterface.h"
@@ -74,9 +76,9 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-	if (dst + size >= 0x80000000 || src + size >= 0x80000000) {
+	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
 		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return 0x80000023;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
@@ -99,9 +101,9 @@ u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-	if (dst + size >= 0x80000000 || src + size >= 0x80000000) {
+	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return 0x80000023;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {

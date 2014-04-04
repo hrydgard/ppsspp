@@ -267,34 +267,6 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 	}
 }
 
-int TransformDrawEngine::EstimatePerVertexCost() {
-	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-	// runs in parallel with transform.
-
-	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-	// went too fast and starts doing all the work over again).
-
-	int cost = 20;
-	if (gstate.isLightingEnabled()) {
-		cost += 10;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
-	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-		cost += 20;
-	}
-	if (dec_ && dec_->morphcount > 1) {
-		cost += 5 * dec_->morphcount;
-	}
-
-	return cost;
-}
-
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
@@ -841,6 +813,10 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 	}
 
 	return true;
+}
+
+bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: Probably move this to common code (with normalization?)

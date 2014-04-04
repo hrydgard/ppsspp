@@ -21,6 +21,7 @@
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TransformPipeline.h"
 

@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "base/colorutil.h"
+#include "base/display.h"
 #include "base/timeutil.h"
 #include "file/path.h"
 #include "gfx_es2/draw_buffer.h"
@@ -689,7 +690,7 @@ void MainScreen::CreateViews() {
 	using namespace UI;
 
 	// Vertical mode is not finished.
-	bool vertical = false;  // dp_yres > dp_xres;
+	bool vertical = dp_yres > dp_xres;
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 

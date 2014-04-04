@@ -163,6 +163,7 @@ private:
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
 
+	bool pendingFlush;
 	bool initialReady;
 	MIPSCachedFPReg regsInitial[NUM_MIPS_FPRS];
 	X64CachedFPReg xregsInitial[NUM_X_FPREGS];
