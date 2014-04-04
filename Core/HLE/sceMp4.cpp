@@ -137,8 +137,7 @@ u32 sceMp4SearchSyncSampleNum()
 
 u32 sceAacInit(u32 parameters, u32 unknown1, u32 unknown2, u32 unknown3)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacInit(parameters %08x, unknown1 %08x, unknown2 %08x, unknown3 %08x)", unknown1, unknown2, unknown3);
-//	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit(parameters %08x, unknown1 %08x, unknown2 %08x, unknown3 %08x)", unknown1, unknown2, unknown3);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit(parameters %08x, unknown1 %08x, unknown2 %08x, unknown3 %08x)", unknown1, unknown2, unknown3);
 	if (!Memory::IsValidAddress(parameters))
 		return ERROR_AAC_INVALID_ADDRESS;
 	long startPos = (long)Memory::Read_U32(parameters) << 32 | Memory::Read_U32(parameters + 4);      // Audio data frame start position.
