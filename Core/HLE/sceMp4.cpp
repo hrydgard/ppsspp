@@ -140,9 +140,9 @@ u32 sceAacInit(u32 parameters, u32 unknown1, u32 unknown2, u32 unknown3)
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit(parameters %08x, unknown1 %08x, unknown2 %08x, unknown3 %08x)", unknown1, unknown2, unknown3);
 	if (!Memory::IsValidAddress(parameters))
 		return ERROR_AAC_INVALID_ADDRESS;
-	long startPos = (long)Memory::Read_U32(parameters) << 32 | Memory::Read_U32(parameters + 4);      // Audio data frame start position.
-	long endPos = (long)Memory::Read_U32(parameters + 8) << 32 | Memory::Read_U32(parameters + 12);   // Audio data frame end position.
-	int bufferAddr = (long)Memory::Read_U32(parameters + 16);                                         // Input AAC data buffer.	
+	u64 startPos = (u64)Memory::Read_U32(parameters) << 32 | Memory::Read_U32(parameters + 4);        // Audio data frame start position.
+	u64 endPos = (u64)Memory::Read_U32(parameters + 8) << 32 | Memory::Read_U32(parameters + 12);     // Audio data frame end position.
+	int bufferAddr = Memory::Read_U32(parameters + 16);                                               // Input AAC data buffer.	
 	int bufferSize = Memory::Read_U32(parameters + 20);                                               // Input AAC data buffer size.
 	int outputAddr = Memory::Read_U32(parameters + 24);                                               // Output PCM data buffer.
 	int outputSize = Memory::Read_U32(parameters + 28);                                               // Output PCM data buffer size.
@@ -166,6 +166,7 @@ u32 sceAacInit(u32 parameters, u32 unknown1, u32 unknown2, u32 unknown3)
 	}
 
 	/*
+	To Do: Need translate the below code from JPCSP
 	int id = -1;
 	for (int i = 0; i < ids.length; i++) {
 	if (!ids[i].isInit()) {
