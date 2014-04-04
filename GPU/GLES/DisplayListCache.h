@@ -29,6 +29,7 @@
 #include "Globals.h"
 
 class GLES_GPU;
+class TransformDrawEngine;
 
 typedef u32 (*JittedDisplayListEntry)(u32 *pc);
 
@@ -53,11 +54,12 @@ private:
 	void Initialize();
 	JittedDisplayListEntry Compile(u32 &pc, int &downcount);
 
-	static void DoFlush(GLES_GPU *g);
+	static void DoFlush(TransformDrawEngine *t);
 	static void DoExecuteOp(GLES_GPU *g, u32 op, u32 diff);
 
 	void JitLoadPC();
 	void JitStorePC();
+	inline void JitFlush(u32 diff = 0, bool onChange = false);
 
 	void Jit_Generic(u32 op);
 	void Jit_Vaddr(u32 op);

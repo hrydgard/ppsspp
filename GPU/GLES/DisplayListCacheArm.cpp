@@ -43,8 +43,8 @@ void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
 	g->ExecuteOpInternal(op, diff);
 }
 
-void DisplayListCache::DoFlush(GLES_GPU *g) {
-	g->transformDraw_.Flush();
+void DisplayListCache::DoFlush(TransformDrawEngine *t) {
+	t->DoFlush();
 }
 
 static const ARMReg pcReg = R4;
@@ -135,24 +135,34 @@ void DisplayListCache::JitStorePC() {
 	STR(R1, pcAddrReg, 0);
 }
 
+inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
+	if (diff || !onChange) {
+		gpu_->transformDraw_.Flush();
+	}
+
+	if (onChange) {
+		CMP(diffReg, 0);
+		// TODO: Or would a B_CC be cheaper?  Skip 5 instructions...
+		SetCC(CC_NEQ);
+	}
+
+	MOVP2R(R0, &gpu_->transformDraw_);
+	LDR(R1, R0, offsetof(TransformDrawEngine, numDrawCalls));
+	CMP(R1, 0);
+	SetCC(CC_NEQ);
+	QuickCallFunction(R3, &DoFlush);
+	SetCC(CC_AL);
+}
+
 void DisplayListCache::Jit_Generic(u32 op) {
 	const u32 cmd = op >> 24;
 	const u32 diff = op ^ gstate.cmdmem[cmd];
 	const u8 cmdFlags = gpu_->commandFlags_[cmd];
 
-	if (cmdFlags & (FLAG_FLUSHBEFORE | FLAG_FLUSHBEFOREONCHANGE)) {
-		FixupBranch changedSkip;
-		if (!(cmdFlags & FLAG_FLUSHBEFORE)) {
-			CMP(diffReg, 0);
-			changedSkip = B_CC(CC_EQ);
-		}
-		gpu_->PreExecuteOp(op, diff);
-		// TODO: Inline numDrawCalls check?  Move to func?
-		MOV(R0, gpuAddrReg);
-		QuickCallFunction(R3, &DoFlush);
-		if (!(cmdFlags & FLAG_FLUSHBEFORE)) {
-			SetJumpTarget(changedSkip);
-		}
+	if (cmdFlags & FLAG_FLUSHBEFORE) {
+		JitFlush();
+	} else if (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) {
+		JitFlush(diff, true);
 	}
 
 	gstate.cmdmem[cmd] = op;

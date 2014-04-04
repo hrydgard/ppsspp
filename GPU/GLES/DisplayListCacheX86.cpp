@@ -47,8 +47,8 @@ void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
 	g->ExecuteOpInternal(op, diff);
 }
 
-void DisplayListCache::DoFlush(GLES_GPU *g) {
-	g->transformDraw_.Flush();
+void DisplayListCache::DoFlush(TransformDrawEngine *t) {
+	t->DoFlush();
 }
 
 #ifdef _M_X64
@@ -178,23 +178,37 @@ void DisplayListCache::JitStorePC() {
 #endif
 }
 
+inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
+	if (diff || !onChange) {
+		gpu_->transformDraw_.Flush();
+	}
+
+	FixupBranch skip1;
+	if (onChange) {
+		CMP(32, R(diffReg), Imm32(0));
+		skip1 = J_CC(CC_E);
+	}
+
+	MOV(PTRBITS, R(RCX), ImmPtr(&gpu_->transformDraw_));
+	CMP(32, MDisp(RCX, offsetof(TransformDrawEngine, numDrawCalls)), Imm32(0));
+	FixupBranch skip2 = J_CC(CC_E);
+	ABI_CallFunctionR((const void *)&DoFlush, RCX);
+	SetJumpTarget(skip2);
+
+	if (onChange) {
+		SetJumpTarget(skip1);
+	}
+}
+
 void DisplayListCache::Jit_Generic(u32 op) {
 	const u32 cmd = op >> 24;
 	const u32 diff = op ^ gstate.cmdmem[cmd];
 	const u8 cmdFlags = gpu_->commandFlags_[cmd];
 
-	if (cmdFlags & (FLAG_FLUSHBEFORE | FLAG_FLUSHBEFOREONCHANGE)) {
-		FixupBranch changedSkip;
-		if (!(cmdFlags & FLAG_FLUSHBEFORE)) {
-			CMP(32, R(diffReg), Imm32(0));
-			changedSkip = J_CC(CC_Z);
-		}
-		gpu_->PreExecuteOp(op, diff);
-		// TODO: Inline numDrawCalls check?  Move to func?
-		ABI_CallFunctionP((const void *)&DoFlush, gpu_);
-		if (!(cmdFlags & FLAG_FLUSHBEFORE)) {
-			SetJumpTarget(changedSkip);
-		}
+	if (cmdFlags & FLAG_FLUSHBEFORE) {
+		JitFlush();
+	} else if (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) {
+		JitFlush(diff, true);
 	}
 
 	gstate.cmdmem[cmd] = op;
