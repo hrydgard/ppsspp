@@ -89,7 +89,7 @@ static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 static u32 pmp_videoSource = 0; //pointer to the video source (SceMpegLLi structure) 
 static int pmp_nBlocks = 0; //number of blocks received in the last sceMpegbase_BEA18F91 call
 static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decoded and will be played
-static std::list<int> pmp_ContextList; //list of pmp media contexts
+static std::list<void *> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
 
 #ifdef USE_FFMPEG 
@@ -732,8 +732,8 @@ static void SaveFrame(AVFrame *pFrame, int width, int height)
 }
 
 // check the existence of pmp media context 
-bool isContextExist(int ctx){
-	for (std::list<int>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
+bool isContextExist(void* ctx){
+	for (std::list<void*>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
 		if (*it == ctx){
 			return true;
 		}
@@ -818,14 +818,14 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, MpegContext * ctx)
 	// the current video is pmp iff pmp_videoSource is a valide addresse
 	if (Memory::IsValidAddress(pmp_videoSource)){
 		// We should initialize pmp codec for each pmp context
-		if (isContextExist(reinterpret_cast<int>(ctx)) == false){
+		if (isContextExist((void*)ctx) == false){
 			auto ret = InitPmp(ctx);
 			if (!ret){
 				ERROR_LOG(ME, "Pmp video initialization failed");
 				return false;
 			}
 			// add the initialized context into ContextList
-			pmp_ContextList.push_front(reinterpret_cast<int>(ctx));
+			pmp_ContextList.push_front((void*)ctx);
 		}
 
 		ringbuffer->packetsRead = pmp_nBlocks;
