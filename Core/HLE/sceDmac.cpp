@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
-#include "Core/HLE/sceDmac.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
