@@ -157,7 +157,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		if (shiftedMask & 0x1F) WRITE(p, "  int r = int(index.r * 31.99);\n"); else WRITE(p, "  int r = 0;\n");
 		if (shiftedMask & 0x3E0) WRITE(p, "  int g = int(index.g * 31.99);\n"); else WRITE(p, "  int g = 0;\n");
 		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(index.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
-		if (shiftedMask & 0xF800) WRITE(p, "  int a = int(index.a);\n"); else WRITE(p, "  int a = 0;\n");
+		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(index.a);\n"); else WRITE(p, "  int a = 0;\n");
 		WRITE(p, "int color = (a << 15) | (b << 10) | (g << 5) | (r);");
 		break;
 	}
