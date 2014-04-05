@@ -328,6 +328,14 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 
 	if (!Memory::IsValidAddress(mp3Addr)) {
 		WARN_LOG_REPORT(ME, "sceMp3ReserveMp3Handle(%08x): invalid address", mp3Addr)
+	} else if (mp3Addr == 0) {
+		WARN_LOG_REPORT(ME, "sceMp3ReserveMp3Handle(%08x): zero address", mp3Addr)
+		ctx->mp3StreamStart = 0;
+		ctx->mp3StreamEnd = 0;
+		ctx->mp3Buf = 0;
+		ctx->mp3BufSize = 0;
+		ctx->mp3PcmBuf = 0;
+		ctx->mp3PcmBufSize = 0;
 	} else {
 		ctx->mp3StreamStart = Memory::Read_U64(mp3Addr);
 		ctx->mp3StreamEnd = Memory::Read_U64(mp3Addr + 8);
@@ -336,6 +344,7 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 		ctx->mp3PcmBuf = Memory::Read_U32(mp3Addr + 24);
 		ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr + 28);
 	}
+
 	ctx->readPosition = ctx->mp3StreamStart;
 	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
 	ctx->mp3DecodedBytes = 0;
