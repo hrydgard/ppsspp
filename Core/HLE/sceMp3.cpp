@@ -443,7 +443,8 @@ int sceMp3Init(u32 mp3) {
 	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
 	ctx->mp3Channels = ctx->decoder_context->channels;
 	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
-
+	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%ikHz, bitrate=%ikbps", ctx->mp3Channels, ctx->mp3SamplingRate, ctx->mp3Bitrate);
+	
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
 #endif
 
