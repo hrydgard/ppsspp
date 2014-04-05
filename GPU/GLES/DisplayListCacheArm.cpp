@@ -75,13 +75,16 @@ JittedDisplayListEntry DisplayListCache::Compile(u32 &pc, int &downcount) {
 
 	std::vector<FixupBranch> fixups;
 
+	int ops = 0;
 	while (downcount > 0) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
 		const u32 op = *(const u32 *)(Memory::base + pc);
 		const u32 cmd = op >> 24;
 
-		// TODO: Tweak offset
-		PLD(pcReg, 64);
+		if ((ops % 32) == 0) {
+			PLD(pcReg, 128);
+		}
+		++ops;
 
 		LDR(diffReg, gstateReg, cmd * 4);
 		LDR(opReg, pcReg, 0);
@@ -142,7 +145,6 @@ inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
 
 	if (onChange) {
 		CMP(diffReg, 0);
-		// TODO: Or would a B_CC be cheaper?  Skip 5 instructions...
 		SetCC(CC_NEQ);
 	}
 
