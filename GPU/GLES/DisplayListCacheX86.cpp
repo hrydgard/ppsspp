@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/DisplayListCache.h"
 #include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/ShaderManager.h"
 
 #define DISABLE { return Jit_Generic(op); }
 #define CONDITIONAL_DISABLE
@@ -35,12 +37,18 @@ void DisplayListCache::Initialize() {
 	}
 #endif
 
+	// TODO: Flush when bSoftwareSkinning changed?  Need some mechanics.
+
+	// TODO: Move to common?
 	for (int i = 0; i < 256; ++i) {
 		cmds_[i] = &DisplayListCache::Jit_Generic;
 	}
 
+	cmds_[GE_CMD_NOP] = &DisplayListCache::Jit_Nop;
 	cmds_[GE_CMD_VADDR] = &DisplayListCache::Jit_Vaddr;
+	cmds_[GE_CMD_IADDR] = &DisplayListCache::Jit_Iaddr;
 	cmds_[GE_CMD_PRIM] = &DisplayListCache::Jit_Prim;
+	cmds_[GE_CMD_VERTEXTYPE] = &DisplayListCache::Jit_VertexType;
 }
 
 void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
@@ -82,6 +90,10 @@ static const X64Reg pcAddrReg = EBP;
 static inline OpArg MCmdState(u32 cmd) {
 	return M(&gstate.cmdmem[cmd]);
 }
+#endif
+
+#ifdef LOG_JIT_MISS
+static std::map<u32, int> commonCmds;
 #endif
 
 JittedDisplayListEntry DisplayListCache::Compile(u32 &pc, int &downcount) {
@@ -156,6 +168,26 @@ JittedDisplayListEntry DisplayListCache::Compile(u32 &pc, int &downcount) {
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
+#ifdef LOG_JIT_MISS
+	int highest = 0;
+	u32 highestCmd = 0;
+	int highest2 = 0;
+	u32 highest2Cmd = 0;
+	for (auto it = commonCmds.begin(), end = commonCmds.end(); it != end; ++it) {
+		if (it->second > highest) {
+			highest2 = highest;
+			highest2Cmd = highestCmd;
+			highest = it->second;
+			highestCmd = it->first;
+		} else if (it->second > highest2) {
+			highest2 = it->second;
+			highest2Cmd = it->first;
+		}
+	}
+	commonCmds.clear();
+	NOTICE_LOG(G3D, "Top 2 GE commands: %02x (%d), %02x (%d)", highestCmd, highest, highest2Cmd, highest2);
+#endif
+
 	return (JittedDisplayListEntry)start;
 }
 
@@ -178,8 +210,8 @@ void DisplayListCache::JitStorePC() {
 #endif
 }
 
-inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
-	if (diff || !onChange) {
+inline void DisplayListCache::JitFlush(u32 diff, bool onChange, bool exec) {
+	if (exec) {
 		gpu_->transformDraw_.Flush();
 	}
 
@@ -200,15 +232,30 @@ inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
 	}
 }
 
+void DisplayListCache::JitDirtyUniform(u32 what, bool exec) {
+	if (exec) {
+		gpu_->shaderManager_->DirtyUniform(what);
+	}
+
+	MOV(PTRBITS, R(RAX), ImmPtr(&gpu_->shaderManager_->globalDirty_));
+	OR(32, MatR(RAX), Imm32(what));
+}
+
 void DisplayListCache::Jit_Generic(u32 op) {
 	const u32 cmd = op >> 24;
 	const u32 diff = op ^ gstate.cmdmem[cmd];
 	const u8 cmdFlags = gpu_->commandFlags_[cmd];
 
+#ifdef LOG_JIT_MISS
+	if (cmdFlags != 0) {
+		commonCmds[cmd]++;
+	}
+#endif
+
 	if (cmdFlags & FLAG_FLUSHBEFORE) {
 		JitFlush();
 	} else if (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) {
-		JitFlush(diff, true);
+		JitFlush(diff, true, diff != 0);
 	}
 
 	gstate.cmdmem[cmd] = op;
@@ -234,6 +281,11 @@ void DisplayListCache::Jit_Generic(u32 op) {
 	}
 }
 
+void DisplayListCache::Jit_Nop(u32 op) {
+	CONDITIONAL_DISABLE;
+	// Do nothing.
+}
+
 void DisplayListCache::Jit_Vaddr(u32 op) {
 	CONDITIONAL_DISABLE;
 
@@ -251,6 +303,54 @@ void DisplayListCache::Jit_Vaddr(u32 op) {
 	ADD(32, R(ECX), R(EAX));
 	AND(32, R(ECX), Imm32(0x0FFFFFFF));
 	MOV(32, M(&gstate_c.vertexAddr), R(ECX));
+}
+
+void DisplayListCache::Jit_Iaddr(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	gstate_c.indexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
+
+	// TODO: Update cmdmem also?
+
+	MOV(32, R(EAX), M(&gstate.base));
+	AND(32, R(EAX), Imm32(0x000F0000));
+	SHL(32, R(EAX), Imm8(8));
+	MOV(32, R(EDX), R(opReg));
+	AND(32, R(EDX), Imm32(0x00FFFFFF));
+	OR(32, R(EAX), R(EDX));
+	MOV(32, R(ECX), M(&gstate_c.offsetAddr));
+	ADD(32, R(ECX), R(EAX));
+	AND(32, R(ECX), Imm32(0x0FFFFFFF));
+	MOV(32, M(&gstate_c.indexAddr), R(ECX));
+}
+
+void DisplayListCache::Jit_VertexType(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	const u32 cmd = op >> 24;
+	const u32 diff = op ^ gstate.cmdmem[cmd];
+
+	if (g_Config.bSoftwareSkinning) {
+		TEST(32, R(diffReg), Imm32(~GE_VTYPE_WEIGHTCOUNT_MASK));
+		FixupBranch diffPassed = J_CC(CC_NZ);
+		TEST(32, R(opReg), Imm32(GE_VTYPE_MORPHCOUNT_MASK));
+		FixupBranch morphFailed = J_CC(CC_Z);
+
+		SetJumpTarget(diffPassed);
+		JitFlush(0, false, (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) != 0 || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0);
+
+		SetJumpTarget(morphFailed);
+	} else {
+		JitFlush(diff, true, diff != 0);
+	}
+
+	gstate.cmdmem[cmd] = op;
+	MOV(32, MCmdState(cmd), R(opReg));
+
+	TEST(32, R(diffReg), Imm32(GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK));
+	FixupBranch skip = J_CC(CC_Z);
+	JitDirtyUniform(DIRTY_UVSCALEOFFSET, (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) != 0);
+	SetJumpTarget(skip);
 }
 
 void DisplayListCache::Jit_Prim(u32 op) {

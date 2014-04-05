@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/DisplayListCache.h"
 #include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/ShaderManager.h"
 
 #define DISABLE { return Jit_Generic(op); }
 #define CONDITIONAL_DISABLE
@@ -35,8 +37,11 @@ void DisplayListCache::Initialize() {
 		cmds_[i] = &DisplayListCache::Jit_Generic;
 	}
 
+	cmds_[GE_CMD_NOP] = &DisplayListCache::Jit_Nop;
 	cmds_[GE_CMD_VADDR] = &DisplayListCache::Jit_Vaddr;
+	cmds_[GE_CMD_IADDR] = &DisplayListCache::Jit_Iaddr;
 	cmds_[GE_CMD_PRIM] = &DisplayListCache::Jit_Prim;
+	cmds_[GE_CMD_VERTEXTYPE] = &DisplayListCache::Jit_VertexType;
 }
 
 void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
@@ -138,8 +143,8 @@ void DisplayListCache::JitStorePC() {
 	STR(R1, pcAddrReg, 0);
 }
 
-inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
-	if (diff || !onChange) {
+inline void DisplayListCache::JitFlush(u32 diff, bool onChange, bool exec) {
+	if (exec) {
 		gpu_->transformDraw_.Flush();
 	}
 
@@ -156,6 +161,17 @@ inline void DisplayListCache::JitFlush(u32 diff, bool onChange) {
 	SetCC(CC_AL);
 }
 
+void DisplayListCache::JitDirtyUniform(u32 what, bool exec) {
+	if (exec) {
+		gpu_->shaderManager_->DirtyUniform(what);
+	}
+
+	MOVP2R(R0, &gpu_->shaderManager_->globalDirty_);
+	LDR(R1, R0, 0);
+	ORI2R(R1, R1, what, R_IP);
+	STR(R1, R0, 0);
+}
+
 void DisplayListCache::Jit_Generic(u32 op) {
 	const u32 cmd = op >> 24;
 	const u32 diff = op ^ gstate.cmdmem[cmd];
@@ -164,7 +180,7 @@ void DisplayListCache::Jit_Generic(u32 op) {
 	if (cmdFlags & FLAG_FLUSHBEFORE) {
 		JitFlush();
 	} else if (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) {
-		JitFlush(diff, true);
+		JitFlush(diff, true, diff != 0);
 	}
 
 	gstate.cmdmem[cmd] = op;
@@ -193,6 +209,11 @@ void DisplayListCache::Jit_Generic(u32 op) {
 	}
 }
 
+void DisplayListCache::Jit_Nop(u32 op) {
+	CONDITIONAL_DISABLE;
+	// Do nothing.
+}
+
 void DisplayListCache::Jit_Vaddr(u32 op) {
 	CONDITIONAL_DISABLE;
 
@@ -210,6 +231,54 @@ void DisplayListCache::Jit_Vaddr(u32 op) {
 	ADD(R1, R1, R2);
 	ANDI2R(R1, R1, 0x0FFFFFFF, R2);
 	STR(R1, R3, offsetof(GPUStateCache, vertexAddr));
+}
+
+void DisplayListCache::Jit_Iaddr(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	gstate_c.indexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
+
+	// TODO: Update cmdmem also?
+
+	LDR(R1, gstateReg, offsetof(GPUgstate, base));
+	ANDI2R(R2, opReg, 0x00FFFFFF, R2);
+	ANDI2R(R1, R1, 0x000F0000, R2);
+	ORR(R1, R2, Operand2(R1, ST_LSL, 8));
+
+	MOVP2R(R3, &gstate_c);
+	LDR(R2, R3, offsetof(GPUStateCache, offsetAddr));
+	ADD(R1, R1, R2);
+	ANDI2R(R1, R1, 0x0FFFFFFF, R2);
+	STR(R1, R3, offsetof(GPUStateCache, indexAddr));
+}
+
+void DisplayListCache::Jit_VertexType(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	const u32 cmd = op >> 24;
+	const u32 diff = op ^ gstate.cmdmem[cmd];
+
+	if (g_Config.bSoftwareSkinning) {
+		TSTI2R(diffReg, ~GE_VTYPE_WEIGHTCOUNT_MASK, R0);
+		SetCC(CC_NEQ);
+		TSTI2R(opReg, GE_VTYPE_MORPHCOUNT_MASK, R0);
+		FixupBranch skip = B_CC(CC_NEQ);
+		SetCC(CC_AL);
+
+		JitFlush(0, false, (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) != 0 || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0);
+
+		SetJumpTarget(skip);
+	} else {
+		JitFlush(diff, true, diff != 0);
+	}
+
+	gstate.cmdmem[cmd] = op;
+	STR(opReg, gstateReg, cmd * 4);
+
+	TSTI2R(diffReg, GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK, R0);
+	SetCC(CC_NEQ);
+	JitDirtyUniform(DIRTY_UVSCALEOFFSET, (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) != 0);
+	SetCC(CC_AL);
 }
 
 void DisplayListCache::Jit_Prim(u32 op) {

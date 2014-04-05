@@ -59,11 +59,15 @@ private:
 
 	void JitLoadPC();
 	void JitStorePC();
-	inline void JitFlush(u32 diff = 0, bool onChange = false);
+	inline void JitFlush(u32 diff = 0, bool onChange = false, bool exec = true);
+	void JitDirtyUniform(u32 what, bool exec = true);
 
 	void Jit_Generic(u32 op);
+	void Jit_Nop(u32 op);
 	void Jit_Vaddr(u32 op);
+	void Jit_Iaddr(u32 op);
 	void Jit_Prim(u32 op);
+	void Jit_VertexType(u32 op);
 
 	typedef void (DisplayListCache::*JitCmd)(u32 op);
 	JitCmd cmds_[256];
