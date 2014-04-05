@@ -124,6 +124,7 @@ public:
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
+	inline void SetupVertexDecoderInternal(u32 vertType);
 
 	// This requires a SetupVertexDecoder call first.
 	int EstimatePerVertexCost() {
