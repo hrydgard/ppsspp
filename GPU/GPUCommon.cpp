@@ -559,17 +559,19 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 // The newPC parameter is used for jumps, we don't count cycles between.
 void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
-	int executed = (currentPC - cycleLastPC) / 4;
+	u32 executed = (currentPC - cycleLastPC) / 4;
 	cyclesExecuted += 2 * executed;
-	gpuStats.otherGPUCycles += 2 * executed;
-	cycleLastPC = newPC == 0 ? currentPC : newPC;
+	cycleLastPC = currentPC;
 
-	gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
+	if (g_Config.bShowDebugStats) {
+		gpuStats.otherGPUCycles += 2 * executed;
+		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
+	}
 
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
 	easy_guard innerGuard(listLock);
 	if (currentList)
-		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - cycleLastPC) / 4;
+		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - currentPC) / 4;
 	else
 		downcount = 0;
 }
