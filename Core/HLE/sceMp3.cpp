@@ -364,13 +364,15 @@ int sceMp3TermResource() {
 int __Mp3InitContext(Mp3Context *ctx) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
-	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
-	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
+	u8 *avio_buffer = (u8*)(av_malloc(ctx->mp3BufSize));
+
+	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, (void*)ctx, readFunc, NULL, NULL);
 	ctx->avformat_context = avformat_alloc_context();
 	ctx->avformat_context->pb = ctx->avio_context;
 
 	int ret;
-	if ((ret = avformat_open_input(&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
+	// Load audio buffer
+	if ((ret = avformat_open_input((AVFormatContext**)&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
 		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
 		return -1;
 	}
@@ -381,17 +383,20 @@ int __Mp3InitContext(Mp3Context *ctx) {
 	}
 
 	AVCodec *dec;
-
-	/* select the audio stream */
+	// Select the audio stream
 	ret = av_find_best_stream(ctx->avformat_context, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
 	if (ret < 0) {
-		ERROR_LOG(ME, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
+		if (ret == AVERROR_DECODER_NOT_FOUND) {
+			ERROR_LOG(HLE, "av_find_best_stream: No appropriate decoder found");
+		} else {
+			ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
+		}
 		return -1;
 	}
 	ctx->audio_stream_index = ret;
 	ctx->decoder_context = ctx->avformat_context->streams[ctx->audio_stream_index]->codec;
 
-	/* init the audio decoder */
+	// Init the audio decoder
 	if ((ret = avcodec_open2(ctx->decoder_context, dec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
