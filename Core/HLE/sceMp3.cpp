@@ -433,12 +433,7 @@ int sceMp3Init(u32 mp3) {
 	}
 
 	// Read in the header and swap the endian
-	int header = Memory::Read_U32(ctx->mp3Buf);
-	header = (header >> 24) |
-		((header<<8) & 0x00FF0000) |
-		((header>>8) & 0x0000FF00) |
-		(header << 24);
-
+	int header = bswap32(Memory::Read_U32(ctx->mp3Buf));
 	ctx->mp3Version = ((header >> 19) & 0x3);
 
 #ifdef USE_FFMPEG
