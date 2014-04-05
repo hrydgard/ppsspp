@@ -40,8 +40,6 @@ extern "C" {
 }
 #endif
 
-static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
-
 struct Mp3Context;
 int __Mp3InitContext(Mp3Context *ctx);
 
@@ -150,7 +148,6 @@ void __Mp3DoState(PointerWrap &p) {
 	p.Do(mp3Map);
 }
 
-/* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
@@ -597,7 +594,6 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 	}
 
 	mp3Map.erase(mp3Map.find(mp3));
-
 	delete ctx;
 
 	return 0;
