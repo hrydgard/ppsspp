@@ -561,7 +561,7 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
 	u32 executed = (currentPC - cycleLastPC) / 4;
 	cyclesExecuted += 2 * executed;
-	cycleLastPC = currentPC;
+	cycleLastPC = newPC;
 
 	if (g_Config.bShowDebugStats) {
 		gpuStats.otherGPUCycles += 2 * executed;
@@ -571,7 +571,7 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
 	easy_guard innerGuard(listLock);
 	if (currentList)
-		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - currentPC) / 4;
+		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
 	else
 		downcount = 0;
 }
