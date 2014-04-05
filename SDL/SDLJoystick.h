@@ -34,7 +34,7 @@ private:
 	void fillMapping()
 	{
 		// This is just a standard mapping that matches the X360 controller on MacOSX. Names will probably be all wrong
-        // on other controllers.
+		// on other controllers.
 
 		//TODO: C++11 aggregate initialization
 		//would remove runtime overhead completely
@@ -77,7 +77,7 @@ private:
 		SDLJoyButtonMap[12] = NKCODE_BUTTON_3;
 		SDLJoyButtonMap[13] = NKCODE_BUTTON_4;
 		SDLJoyButtonMap[14] = NKCODE_BUTTON_1;
-        SDLJoyButtonMap[15] = NKCODE_BUTTON_11;
+		SDLJoyButtonMap[15] = NKCODE_BUTTON_11;
 
 		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
 		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
