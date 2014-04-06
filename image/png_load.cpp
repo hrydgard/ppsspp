@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <libpng16/png.h>
+#include "libpng16/png.h"
 
 #include "png_load.h"
 #include "base/logging.h"

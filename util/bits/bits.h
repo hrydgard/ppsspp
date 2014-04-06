@@ -1,5 +1,5 @@
 #ifndef _UTIL_BITS_BITS
-#define _UTil_BITS_BITS
+#define _UTIL_BITS_BITS
 
 #include "base/basictypes.h"
 
