@@ -89,7 +89,7 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 
 DepalShaderCache::DepalShaderCache() {
 	// Pre-build the vertex program
-	bool useGL3 = gl_extensions.GLES3;
+	bool useGL3 = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
 
 	vertexShader_ = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShader_, 1, useGL3 ? &depalVShader300 : &depalVShader100, 0);
@@ -328,7 +328,7 @@ void DepalShaderCache::Decimate() {
 GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	u32 id = GenerateShaderID(pixelFormat);
 
-	bool useGL3 = gl_extensions.GLES3;
+	bool useGL3 = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
