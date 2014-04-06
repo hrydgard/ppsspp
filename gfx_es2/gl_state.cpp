@@ -125,7 +125,7 @@ void CheckGLExtensions() {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	ILOG("GPU Vendor : %s ; GL version str: %s", cvendor, versionStr ? versionStr : "N/A");
+	ILOG("GPU Vendor : %s ; GL version str: %s ; GLSL version str: %s", cvendor, versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
 
 #ifndef USING_GLES2
 	char buffer[64] = {0};

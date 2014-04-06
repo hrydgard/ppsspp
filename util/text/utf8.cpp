@@ -261,7 +261,7 @@ int hex_digit(char c)
    returns number of input characters processed */
 int u8_read_escape_sequence(const char *str, uint32_t *dest)
 {
-  uint32_t ch;
+  long ch;
   char digs[9]="\0\0\0\0\0\0\0\0";
   int dno=0, i=1;
 
