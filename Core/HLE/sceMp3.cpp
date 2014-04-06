@@ -372,7 +372,7 @@ int __Mp3InitContext(Mp3Context *ctx) {
 
 	int ret;
 	// Load audio buffer
-	if ((ret = avformat_open_input((AVFormatContext**)&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
+	if ((ret = avformat_open_input(&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
 		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
 		return -1;
 	}
