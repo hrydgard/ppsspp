@@ -118,10 +118,9 @@ struct Mp3Context {
 	int mp3Version;
 #ifdef USE_FFMPEG
 	AVFormatContext *avformat_context;
-	AVIOContext	*avio_context;
+	AVIOContext	  *avio_context;
 	AVCodecContext  *decoder_context;
 	SwrContext      *resampler_context;
-	AVFrame         *frame;
 	int audio_stream_index;
 #endif
 };
@@ -169,7 +168,10 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #else
 
-	AVPacket packet = {0};
+	AVFrame frame;
+	memset(&frame, 0, sizeof(frame));
+	AVPacket packet;
+	memset(&packet, 0, sizeof(packet));
 	av_init_packet(&packet);
 	int got_frame = 0, ret;
 	static int audio_frame_count = 0;
@@ -179,8 +181,9 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			break;
 
 		if (packet.stream_index == ctx->audio_stream_index) {
+			av_frame_unref(&frame);
 			got_frame = 0;
-			ret = avcodec_decode_audio4(ctx->decoder_context, ctx->frame, &got_frame, &packet);
+			ret = avcodec_decode_audio4(ctx->decoder_context, &frame, &got_frame, &packet);
 			if (ret < 0) {
 				ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", ret);
 				continue;
@@ -201,15 +204,15 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 				}
 				*/
 
-				int decoded = av_samples_get_buffer_size(NULL, ctx->frame->channels, ctx->frame->nb_samples, (AVSampleFormat)ctx->frame->format, 1);
+				int decoded = av_samples_get_buffer_size(NULL, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
 
 				u8* out = Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded);
-				ret = swr_convert(ctx->resampler_context, &out, ctx->frame->nb_samples, (const u8**)ctx->frame->extended_data, ctx->frame->nb_samples);
+				ret = swr_convert(ctx->resampler_context, &out, frame.nb_samples, (const u8**)frame.extended_data, frame.nb_samples);
 				if (ret < 0) {
 					ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
 					return -1;
 				}
-				__AdjustBGMVolume((s16 *)out, ctx->frame->nb_samples * ctx->frame->channels);
+				__AdjustBGMVolume((s16 *)out, frame.nb_samples * frame.channels);
 
 				//av_samples_copy(&audio_dst_data, frame.data, 0, 0, frame.nb_samples, frame.channels, (AVSampleFormat)frame.format);
 
@@ -418,11 +421,8 @@ int __Mp3InitContext(Mp3Context *ctx) {
 		return -1;
 	}
 
-	// alloc audio frame
-	ctx->frame = av_frame_alloc();
-
-#endif
 	return 0;
+#endif
 }
 
 int sceMp3Init(u32 mp3) {
@@ -448,7 +448,6 @@ int sceMp3Init(u32 mp3) {
 	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
 	ctx->mp3Channels = ctx->decoder_context->channels;
 	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
-
 	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%ikHz, bitrate=%ikbps", ctx->mp3Channels, ctx->mp3SamplingRate, ctx->mp3Bitrate);
 	
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
