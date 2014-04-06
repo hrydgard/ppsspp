@@ -29,17 +29,16 @@ inline void Crash() { __asm { int 3 }; }
 
 #else
 
-#if defined(ARM) || defined(MIPS)
+#if defined(_M_IX86) || defined(_M_X64)
+inline void Crash() {
+	PrintBacktraceToStderr();
+	asm("int $0x3");
+}
+#else
 inline void Crash() {
 	PrintBacktraceToStderr();
 	char *p = (char *)1337;
 	*p = 1;
-}
-#else
-// TODO: 64-bit version
-inline void Crash() {
-	PrintBacktraceToStderr();
-	asm("int $0x3");
 }
 #endif
 
