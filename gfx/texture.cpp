@@ -256,7 +256,7 @@ bool Texture::LoadXOR() {
 }
 
 
-#if !defined(USING_GLES2)
+#if !defined(USING_GLES2) || defined(IOS)
 
 // Allocates using new[], doesn't free.
 uint8_t *ETC1ToRGBA(uint8_t *etc1, int width, int height) {
@@ -322,12 +322,14 @@ bool Texture::LoadZIM(const char *filename) {
 			int data_h = height[l];
 			if (data_w < 4) data_w = 4;
 			if (data_h < 4) data_h = 4;
-#if defined(USING_GLES2)
+#if defined(USING_GLES2) && !defined(IOS)
 			int compressed_image_bytes = data_w * data_h / 2;
 			glCompressedTexImage2D(GL_TEXTURE_2D, l, GL_ETC1_RGB8_OES, width[l], height[l], 0, compressed_image_bytes, image_data[l]);
 			GL_CHECK();
 #else
 			// TODO: OpenGL 4.3+ accepts ETC1 so we should not have to do this anymore on those cards.
+			// Also, iOS does not have support for ETC1 compressed textures so we just decompress.
+			// TODO: Use PVR texture compression on iOS.
 			image_data[l] = ETC1ToRGBA(image_data[l], data_w, data_h);
 			glTexImage2D(GL_TEXTURE_2D, l, GL_RGBA, width[l], height[l], 0,
 				GL_RGBA, GL_UNSIGNED_BYTE, image_data[l]);
