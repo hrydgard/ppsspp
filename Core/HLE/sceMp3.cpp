@@ -40,8 +40,6 @@ extern "C" {
 }
 #endif
 
-static const int MP3_BITRATES[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 };
-
 struct Mp3Context;
 int __Mp3InitContext(Mp3Context *ctx);
 
@@ -195,7 +193,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		got_frame = 0;
 		ret = avcodec_decode_audio4(ctx->decoder_context, frame, &got_frame, &packet);
 		if (ret < 0) {
-			ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio, return %d", ret);
+			ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio, return %8x", ret);
 			return -1;
 		}
 		if (got_frame) {
@@ -208,7 +206,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			// convert to S16, stereo, PCM
 			ret = swr_convert(ctx->resampler_context, &out, frame->nb_samples, (const u8**)frame->extended_data, frame->nb_samples);
 			if (ret < 0) {
-				ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
+				ERROR_LOG(ME, "swr_convert: Error while converting %8x", ret);
 				return -1;
 			}
 			// always stereo
@@ -230,6 +228,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	av_free_packet(&packet);
 #endif
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
+	hleDelayResult(0, "sceMp3 decode", 2000);
 	return bytesdecoded;
 }
 
@@ -264,6 +263,7 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 
 // this function will full fill buf of length buf_size, if it is not full filled, then it will read again
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
+	// because, due to the existence of FF_INPUT_BUFFER_PADDING_SIZE, we must leave enough space for it
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
 	DEBUG_LOG(ME, "Callback readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
 
@@ -272,19 +272,13 @@ static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	if (ctx->bufferWrite < ctx->mp3StreamEnd){
 		// if we still have available buffer to be decoded
 		if (ctx->bufferAvailable > 0){
-			int rest = ctx->bufferRead - ctx->bufferWrite; // this is the data in mp3Buf that been decoded
+			int rest = ctx->bufferRead - ctx->bufferWrite; // this is the data in mp3Buf that not been decoded
 			ctx->bufferAvailable += rest; // we have to re-read the rest part, so add it into available buffer 
 			ctx->bufferRead -= rest;  // remove the rest part in the readed buffer.
-			if (buf_size > ctx->bufferAvailable){
-				// if the occupied available buffer is smaller than required, we read all rest available buffer
-				toread = ctx->bufferAvailable;
-			}
-			else{
-				// if occupied available buffer is larger than required, we will full fill the buf
-				toread = buf_size;
-			}
+			toread = std::min(buf_size - FF_INPUT_BUFFER_PADDING_SIZE, ctx->bufferAvailable - FF_INPUT_BUFFER_PADDING_SIZE);
 			// read from mp3Buff into buf
-			memcpy(buf, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), toread);
+			memcpy(buf, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
+			memset(buf + toread, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 			ctx->bufferRead += toread;
 			ctx->bufferAvailable -= toread;
 		}
@@ -324,14 +318,6 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	ctx->bufferAvailable = 0; // occupied buffer size in mp3Buf
 	ctx->bufferRead = 0; // total size of buffer read from mp3Buf into ffmpeg
 	ctx->bufferWrite = 0; // total size of buffer decoded in ffmpeg. 
-	// we still don't know the following information, so these will be initialized later
-	// ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
-	// ctx->mp3Channels = 2;
-	// ctx->mp3Bitrate = 128;
-	// ctx->mp3SamplingRate = 44100;
-	// ctx->mp3LoopNum = -1; 
-
-	auto pc_mp3buff = Memory::GetPointer(ctx->mp3Buf);
 
 	if (mp3Map.find(mp3Addr) != mp3Map.end()) {
 		delete mp3Map[mp3Addr];
@@ -355,7 +341,7 @@ int sceMp3TermResource() {
 int __Mp3InitContext(Mp3Context *ctx) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
-	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
+	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE));
 	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
 	ctx->avformat_context = avformat_alloc_context();
 	ctx->avformat_context->pb = ctx->avio_context;
@@ -391,7 +377,7 @@ int __Mp3InitContext(Mp3Context *ctx) {
 	// set parameters according to decoder_context
 	ctx->mp3Channels = ctx->decoder_context->channels;
 	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
-	ctx->mp3Bitrate = ctx->decoder_context->bit_rate;
+	ctx->mp3Bitrate = ctx->decoder_context->bit_rate/1000;
 	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / (2 * ctx->mp3Channels); // upper bound of samples number in pcm buffer
 
 	// always convert to PCM S16, 44100, stereo 
@@ -441,12 +427,6 @@ int sceMp3Init(u32 mp3) {
 	int ret = __Mp3InitContext(ctx);
 	if (ret != 0)
 		return ret;
-
-	// Let's just grab this info from FFMPEG, it seems more reliable than the code above.
-
-	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
-	ctx->mp3Channels = ctx->decoder_context->channels;
-	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
 
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
 #endif
