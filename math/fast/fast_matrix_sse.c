@@ -1,3 +1,5 @@
+#if defined(_M_IX86) || defined(_M_X64)
+
 #include <emmintrin.h>
 
 #include "fast_matrix.h"
@@ -17,3 +19,5 @@ void fast_matrix_mul_4x4_sse(float *dest, const float *a, const float *b) {
 		_mm_storeu_ps(&dest[i], r_col);
 	}
 }
+
+#endif
