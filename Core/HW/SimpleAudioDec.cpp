@@ -211,16 +211,6 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 #endif  // USE_FFMPEG
 }
 
-
-bool AudioDecode(SimpleAudio *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t *outbuf) {
-#ifdef USE_FFMPEG
-	return ctx->Decode(inbuf, inbytes, outbuf, outbytes);
-#else
-	*outbytes = 0;
-	return true;
-#endif // USE_FFMPEG
-}
-
 void AudioClose(SimpleAudio **ctx) {
 #ifdef USE_FFMPEG
 	delete *ctx;

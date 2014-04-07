@@ -264,20 +264,17 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	// because, due to the existence of FF_INPUT_BUFFER_PADDING_SIZE, we must leave enough space for it
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
-	DEBUG_LOG(ME, "Callback readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
+	WARN_LOG(ME, "Callback readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
 
 	int toread = 0;
 	// we will fill buffer if we have not decoded all mp3 file
 	if (ctx->bufferWrite < ctx->mp3StreamEnd){
 		// if we still have available buffer to be decoded
 		if (ctx->bufferAvailable > 0){
-			int rest = ctx->bufferRead - ctx->bufferWrite; // this is the data in mp3Buf that not been decoded
-			ctx->bufferAvailable += rest; // we have to re-read the rest part, so add it into available buffer 
-			ctx->bufferRead -= rest;  // remove the rest part in the readed buffer.
 			toread = std::min(buf_size - FF_INPUT_BUFFER_PADDING_SIZE, ctx->bufferAvailable - FF_INPUT_BUFFER_PADDING_SIZE);
 			// read from mp3Buff into buf
-			memcpy(buf, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
-			memset(buf + toread, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+			memcpy(buf + ctx->bufferRead, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
+			memset(buf + toread + ctx->bufferRead, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 			ctx->bufferRead += toread;
 			ctx->bufferAvailable -= toread;
 		}
@@ -340,8 +337,8 @@ int sceMp3TermResource() {
 int __Mp3InitContext(Mp3Context *ctx) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
-	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE));
-	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
+	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE)); // ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE
+	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE, 0, ctx, readFunc, NULL, NULL); //ctx->mp3BufSize
 	ctx->avformat_context = avformat_alloc_context();
 	ctx->avformat_context->pb = ctx->avio_context;
 
