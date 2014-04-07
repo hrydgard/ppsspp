@@ -164,17 +164,15 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	Memory::Memset(ctx->mp3PcmBuf, 0, ctx->mp3PcmBufSize);
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #else
-
 	AVFrame * frame = av_frame_alloc();
-	AVPacket packet = { 0 };
+	AVPacket packet;
 	av_init_packet(&packet);
-	int got_frame = 1, ret;
-	static int audio_frame_count = 0;
+	int got_frame, ret;
 	// in order to avoid latency, we decode frame by frame
 	ret = av_read_frame(ctx->avformat_context, &packet);
 	if (ret < 0){
-		// if the all file is decoded, we just return zero
-		if (packet.pos >= ctx->mp3StreamEnd){
+		// if the all file is read, and we can not get a frame, then we return zero
+		if (ctx->readPosition >= ctx->mp3StreamEnd){
 			return 0;
 		}
 		else
@@ -260,19 +258,19 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 
 // this function will full fill buf of length buf_size, if it is not full filled, then it will read again
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
-	// because, due to the existence of FF_INPUT_BUFFER_PADDING_SIZE, we must leave enough space for it
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
-	INFO_LOG(ME, "Callback ffmpeg readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
+	DEBUG_LOG(ME, "Callback ffmpeg readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
 
 	int toread = 0;
-	// we will fill buffer if we have not decoded all mp3 file
-	if (ctx->bufferWrite < ctx->mp3StreamEnd){
+	// we will fill buffer if we have not read full mp3 file
+	if (ctx->bufferRead < ctx->mp3StreamEnd){
 		// if we still have available buffer in mp3Buf
 		if (ctx->bufferAvailable > 0){
-			toread = std::min(buf_size - FF_INPUT_BUFFER_PADDING_SIZE, ctx->bufferAvailable - FF_INPUT_BUFFER_PADDING_SIZE);
+			toread = std::min(buf_size, ctx->bufferAvailable + FF_INPUT_BUFFER_PADDING_SIZE);
 			// read from mp3Buff into buf
-			memcpy(buf, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
-			memset(buf + toread, 0, FF_INPUT_BUFFER_PADDING_SIZE); // add padding into end
+			memcpy(buf, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread - FF_INPUT_BUFFER_PADDING_SIZE);
+			// add padding into end, ffmpeg have alread load more space than buf_size with initial value 0xcd for padding
+			memset(buf + toread - FF_INPUT_BUFFER_PADDING_SIZE, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 			ctx->bufferRead += toread;
 			ctx->bufferAvailable -= toread;
 		}
