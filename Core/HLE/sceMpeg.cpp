@@ -1012,6 +1012,9 @@ void __VideoPmpShutdown() {
 	}
 	pmp_queue.clear();
 	pmp_ContextList.clear();
+	if (pmpframes){
+		delete pmpframes;
+	}
 #endif
 }
 
@@ -1516,6 +1519,7 @@ u32 sceMpegFinish()
 		//return ERROR_MPEG_NOT_YET_INIT;
 	} else {
 		INFO_LOG(ME, "sceMpegFinish(...)");
+		__VideoPmpShutdown();
 	}
 	isMpegInit = false;
 	//__MpegFinish();
