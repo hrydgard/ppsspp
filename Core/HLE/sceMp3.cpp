@@ -152,8 +152,6 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	//return number of bytes write into output pcm buffer, < 0 on error.
 	// For same latency reason, when all frames have been decoded, we can not return 0 immedialty
 	// we must waiting for the last part of voice until we have no longer frames.
-	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
-
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
@@ -175,7 +173,6 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	// in order to avoid latency, we decode frame by frame
 	ret = av_read_frame(ctx->avformat_context, &packet);
 	if (ret < 0){
-		hleDelayResult(0, "mp3 decode", 1000);
 		// if the all file is decoded, we just return zero
 		if (ctx->bufferWrite >= ctx->mp3StreamEnd){
 			return 0;
@@ -227,7 +224,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	av_free_packet(&packet);
 #endif
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
-	hleDelayResult(0, "sceMp3 decode", 2000);
+	hleDelayResult(0, "sceMp3 decode", 200);
+	DEBUG_LOG(ME, "% 08x = sceMp3Decode(% 08x, % 08x)", bytesdecoded, mp3, outPcmPtr);
 	return bytesdecoded;
 }
 
@@ -273,8 +271,8 @@ static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 		if (ctx->bufferAvailable > 0){
 			toread = std::min(buf_size - FF_INPUT_BUFFER_PADDING_SIZE, ctx->bufferAvailable - FF_INPUT_BUFFER_PADDING_SIZE);
 			// read from mp3Buff into buf
-			memcpy(buf + ctx->bufferRead, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
-			memset(buf + toread + ctx->bufferRead, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+			memcpy(buf, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
+			memset(buf + toread, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 			ctx->bufferRead += toread;
 			ctx->bufferAvailable -= toread;
 		}
