@@ -242,8 +242,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		fclose(file);
 	}
 	#endif
-	// 2 bytes per channel and we always two channels per mp3 so it is 2 * 2
-	ctx->mp3SumDecodedSamples += bytesdecoded / 2 * 2;
+	// 2 bytes per channel and we have frame.channels in mp3 source
+	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * frame.channels);
 
 	return bytesdecoded;
 }
