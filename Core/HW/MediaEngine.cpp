@@ -473,7 +473,7 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
 	m_pFrameRGB->linesize[0] = getPixelFormatBytes(videoPixelMode) * m_desWidth;
 
-	AVPacket packet = {0};
+	AVPacket packet;
 	av_init_packet(&packet);
 	int frameFinished;
 	bool bGetFrame = false;

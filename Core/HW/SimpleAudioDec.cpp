@@ -156,7 +156,7 @@ SimpleAudio::~SimpleAudio() {
 // Input is a single Audio packet.
 bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
-	AVPacket packet = { 0 };
+	AVPacket packet;
 	av_init_packet(&packet);
 	packet.data = static_cast<uint8_t *>(inbuf);
 	packet.size = inbytes;

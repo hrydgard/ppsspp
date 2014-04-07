@@ -598,7 +598,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample);
-				AVPacket packet = {0};
+				AVPacket packet;
 				av_init_packet(&packet);
 				int got_frame, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
@@ -1771,7 +1771,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		atrac->SeekToSample(atrac->currentSample);
 
 		if (!atrac->failedDecode) {
-			AVPacket packet = {0};
+			AVPacket packet;
 			av_init_packet(&packet);
 			int got_frame, avret;
 			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {

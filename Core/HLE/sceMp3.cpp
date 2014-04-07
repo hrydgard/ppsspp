@@ -171,7 +171,6 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	AVFrame frame;
 	memset(&frame, 0, sizeof(frame));
 	AVPacket packet;
-	memset(&packet, 0, sizeof(packet));
 	av_init_packet(&packet);
 	int got_frame = 0, ret;
 	static int audio_frame_count = 0;
