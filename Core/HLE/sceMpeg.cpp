@@ -89,7 +89,7 @@ static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 static u32 pmp_videoSource = 0; //pointer to the video source (SceMpegLLi structure) 
 static int pmp_nBlocks = 0; //number of blocks received in the last sceMpegbase_BEA18F91 call
 static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decoded and will be played
-static std::list<void *> pmp_ContextList; //list of pmp media contexts
+static std::list<u32> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
 
 #ifdef USE_FFMPEG 
@@ -732,9 +732,9 @@ static void SaveFrame(AVFrame *pFrame, int width, int height)
 }
 
 // check the existence of pmp media context 
-bool isContextExist(void* ctx){
-	for (std::list<void*>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
-		if (*it == ctx){
+bool isContextExist(u32 ctxAddr){
+	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
+		if (*it == ctxAddr){
 			return true;
 		}
 	}
@@ -814,18 +814,19 @@ bool InitPmp(MpegContext * ctx){
 }
 
 // decode pmp video to RGBA format
-bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, MpegContext * ctx){
+bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 	// the current video is pmp iff pmp_videoSource is a valide addresse
+	auto ctx = getMpegCtx(pmpctxAddr);
 	if (Memory::IsValidAddress(pmp_videoSource)){
 		// We should initialize pmp codec for each pmp context
-		if (isContextExist((void*)ctx) == false){
+		if (isContextExist(pmpctxAddr) == false){
 			auto ret = InitPmp(ctx);
 			if (!ret){
 				ERROR_LOG(ME, "Pmp video initialization failed");
 				return false;
 			}
 			// add the initialized context into ContextList
-			pmp_ContextList.push_front((void*)ctx);
+			pmp_ContextList.push_front(pmpctxAddr);
 		}
 
 		ringbuffer->packetsRead = pmp_nBlocks;
@@ -975,7 +976,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	// check and decode pmp video
 	bool ispmp = false;
-	if (decodePmpVideo(ringbuffer, ctx)){
+	if (decodePmpVideo(ringbuffer, mpeg)){
 		DEBUG_LOG(ME, "Using ffmpeg to decode pmp video");
 		ispmp = true;
 	}
