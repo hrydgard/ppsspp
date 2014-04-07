@@ -733,8 +733,8 @@ static void SaveFrame(AVFrame *pFrame, int width, int height)
 
 // check the existence of pmp media context 
 bool isContextExist(u32 ctxAddr){
-	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
-		if (*it == ctxAddr){
+	for (auto it : pmp_ContextList){
+		if (it == ctxAddr){
 			return true;
 		}
 	}
@@ -753,15 +753,12 @@ bool InitPmp(MpegContext * ctx){
 	ctx->mpegFirstTimestamp = 0;
 	ctx->mpegLastTimestamp = 0;
 
-	// want output pixel format
-	/*case GE_CMODE_16BIT_BGR5650:
-	return AV_PIX_FMT_BGR565LE;
-	case GE_CMODE_16BIT_ABGR5551:
-	return AV_PIX_FMT_BGR555LE;
-	case GE_CMODE_16BIT_ABGR4444:
-	return AV_PIX_FMT_BGR444LE;
-	case GE_CMODE_32BIT_ABGR8888:
-	return AV_PIX_FMT_RGBA;*/
+	// wanted output pixel format
+	// reference values for fix_fmt:
+	// GE_CMODE_16BIT_BGR5650 <--> AV_PIX_FMT_BGR565LE 
+	// GE_CMODE_16BIT_ABGR5551 <--> AV_PIX_FMT_BGR555LE;
+	// GE_CMODE_16BIT_ABGR4444 <--> AV_PIX_FMT_BGR444LE;
+	// GE_CMODE_32BIT_ABGR8888 <--> AV_PIX_FMT_RGBA;
 	pmp_want_pix_fmt = PIX_FMT_RGBA;
 
 	// Create H264 video codec
@@ -795,10 +792,10 @@ bool InitPmp(MpegContext * ctx){
 	}
 
 	// initialize ctx->mediaengine->m_pFrame and ctx->mediaengine->m_pFrameRGB
-	if (mediaengine->m_pFrame == NULL){
+	if (!mediaengine->m_pFrame){
 		mediaengine->m_pFrame = avcodec_alloc_frame();
 	}
-	if (mediaengine->m_pFrameRGB == NULL){
+	if (!mediaengine->m_pFrameRGB){
 		mediaengine->m_pFrameRGB = avcodec_alloc_frame();
 	}
 
@@ -813,6 +810,8 @@ bool InitPmp(MpegContext * ctx){
 #endif
 }
 
+// This class H264Frames is used for collecting small pieces of frames into larger frames for ffmpeg to decode
+// Basically, this will avoid incomplete frame decoding issue and improve much better the video quality. 
 class H264Frames{
 public:
 	int size;
@@ -845,7 +844,7 @@ public:
 
 	void add(u8* str, int sz){
 		int newsize = size + sz;
-		auto newstream = new u8[newsize];
+		u8* newstream = new u8[newsize];
 		// join two streams
 		memcpy(newstream, stream, size);
 		memcpy(newstream + size, str, sz);
@@ -873,7 +872,7 @@ public:
 		else{
 			// we remove the front part
 			size -= pos;
-			auto str = new u8[size];
+			u8* str = new u8[size];
 			memcpy(str, stream + pos, size);
 			delete[] stream;
 			stream = str;
@@ -883,7 +882,7 @@ public:
 #define FF_INPUT_BUFFER_PADDING_SIZE 16
 #endif
 	void addpadding(){
-		auto str = new u8[size + FF_INPUT_BUFFER_PADDING_SIZE];
+		u8* str = new u8[size + FF_INPUT_BUFFER_PADDING_SIZE];
 		memcpy(str, stream, size);
 		memset(str + size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 		size += FF_INPUT_BUFFER_PADDING_SIZE;
@@ -893,16 +892,16 @@ public:
 };
 
 // collect pmp video frames
-static H264Frames *pmpframes = new H264Frames();
+static H264Frames *pmpframes;
 
 // decode pmp video to RGBA format
 bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
-	// the current video is pmp iff pmp_videoSource is a valide addresse
-	auto ctx = getMpegCtx(pmpctxAddr);
+	// the current video is pmp iff pmp_videoSource is a valid addresse
+	MpegContext* ctx = getMpegCtx(pmpctxAddr);
 	if (Memory::IsValidAddress(pmp_videoSource)){
 		// We should initialize pmp codec for each pmp context
 		if (isContextExist(pmpctxAddr) == false){
-			auto ret = InitPmp(ctx);
+			bool ret = InitPmp(ctx);
 			if (!ret){
 				ERROR_LOG(ME, "Pmp video initialization failed");
 				return false;
@@ -913,10 +912,14 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 
 		ringbuffer->packetsRead = pmp_nBlocks;
 
-		auto mediaengine = ctx->mediaengine;
-		auto pFrame = mediaengine->m_pFrame;
-		auto pFrameRGB = mediaengine->m_pFrameRGB;
+		MediaEngine* mediaengine = ctx->mediaengine;
+		AVFrame* pFrame = mediaengine->m_pFrame;
+		AVFrame* pFrameRGB = mediaengine->m_pFrameRGB;
 		auto pCodecCtx = mediaengine->m_pCodecCtxs[0];
+
+		// pmpframes could be destroied when close a video to load another one 
+		if (!pmpframes)
+			pmpframes = new H264Frames;
 
 		// joint all blocks into H264Frames
 		SceMpegLLI lli;
@@ -947,7 +950,7 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 		avpicture_fill((AVPicture *)pFrameRGB, mediaengine->m_buffer, pmp_want_pix_fmt, pCodecCtx->width, pCodecCtx->height);
 
 		// decode video frame
-		auto len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
+		int len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
 		DEBUG_LOG(ME, "got_picture %d", got_picture);
 		if (got_picture){
 			SwsContext *img_convert_ctx = NULL;
@@ -1002,6 +1005,7 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 
 void __VideoPmpInit() {
 	pmp_oldStateLoaded = false;
+	pmpframes = new H264Frames();
 }
 
 void __VideoPmpShutdown() {
@@ -1012,9 +1016,8 @@ void __VideoPmpShutdown() {
 	}
 	pmp_queue.clear();
 	pmp_ContextList.clear();
-	if (pmpframes){
-		delete pmpframes;
-	}
+	delete pmpframes;
+	pmpframes = NULL;
 #endif
 }
 
