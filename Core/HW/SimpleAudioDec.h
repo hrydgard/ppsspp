@@ -79,7 +79,6 @@ static const char *const codecNames[4] = {
 	"AT3+", "AT3", "MP3", "AAC",
 };
 
-bool AudioDecode(SimpleAudio *ctx, void* inbuf, int inbytes, int *outbytes, uint8_t* outbuf);
 void AudioClose(SimpleAudio **ctx);
 static const char *GetCodecName(int codec) {
 	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
