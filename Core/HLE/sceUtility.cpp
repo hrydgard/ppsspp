@@ -424,18 +424,18 @@ int sceUtilityNetconfGetStatus()
 
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
-u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
+u32 sceUtilityScreenshotInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x): wrong dialog type", unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotInitStart(%08x): wrong dialog type", paramAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
 	currentDialogActive = true;
 
 	u32 retval = screenshotDialog.Init();
-	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	WARN_LOG_REPORT(SCEUTILITY, "%08x=sceUtilityScreenshotInitStart(%08x)", retval, paramAddr);
 	return retval;
 }
 
@@ -448,7 +448,7 @@ u32 sceUtilityScreenshotShutdownStart()
 	}
 	currentDialogActive = false;
 	int ret  = screenshotDialog.Shutdown();
-	WARN_LOG(SCEUTILITY, "UNTESTED %08x=sceUtilityScreenshotShutdownStart()",ret);
+	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotShutdownStart()",ret);
 	return ret;
 }
 
@@ -460,7 +460,7 @@ u32 sceUtilityScreenshotUpdate(u32 animSpeed)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	int ret = screenshotDialog.Update(animSpeed);
-	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotUpdate(%d)",ret,animSpeed);
+	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotUpdate(%d)", ret, animSpeed);
 	return ret;
 }
 
@@ -473,8 +473,20 @@ int sceUtilityScreenshotGetStatus()
 	}
 
 	u32 retval = screenshotDialog.GetStatus(); 
-	WARN_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityScreenshotGetStatus()", retval);
+	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
+}
+
+u32 sceUtilityScreenshotContStart(u32 paramAddr)
+{
+	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
+	{
+		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotUpdate(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	u32 ret = screenshotDialog.ContStart();
+	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotContStart(%08x)", ret, paramAddr);
+	return ret;
 }
 
 int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
@@ -762,11 +774,11 @@ const HLEFunction sceUtility[] =
 	{0x2a2b3de0, &WrapU_U<sceUtilityLoadModule>, "sceUtilityLoadModule"},
 	{0xe49bfe92, &WrapU_U<sceUtilityUnloadModule>, "sceUtilityUnloadModule"},
 
-	{0x0251B134, &WrapU_UUUUUU<sceUtilityScreenshotInitStart>, "sceUtilityScreenshotInitStart"},
+	{0x0251B134, &WrapU_U<sceUtilityScreenshotInitStart>, "sceUtilityScreenshotInitStart"},
 	{0xF9E0008C, &WrapU_V<sceUtilityScreenshotShutdownStart>, "sceUtilityScreenshotShutdownStart"},
 	{0xAB083EA9, &WrapU_U<sceUtilityScreenshotUpdate>, "sceUtilityScreenshotUpdate"},
 	{0xD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>, "sceUtilityScreenshotGetStatus"},
-	{0x86A03A27, 0, "sceUtilityScreenshotContStart"},
+	{0x86A03A27, &WrapU_U<sceUtilityScreenshotContStart>, "sceUtilityScreenshotContStart"},
 
 	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
 	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},

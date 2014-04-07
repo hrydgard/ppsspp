@@ -313,8 +313,8 @@ void MediaEngine::closeContext()
 	m_pCodecCtxs.clear();
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
-	if (m_sws_ctx != NULL)
-		sws_freeContext(m_sws_ctx);
+	sws_freeContext(m_sws_ctx);
+	m_sws_ctx = NULL;
 	m_pIOContext = 0;
 #endif
 	m_buffer = 0;
@@ -414,9 +414,7 @@ bool MediaEngine::setVideoDim(int width, int height)
 	// Allocate video frame
 	m_pFrame = av_frame_alloc();
 
-	if (m_sws_ctx != NULL) {
-		sws_freeContext(m_sws_ctx);
-	}
+	sws_freeContext(m_sws_ctx);
 	m_sws_ctx = NULL;
 	m_sws_fmt = -1;
 	updateSwsFormat(GE_CMODE_32BIT_ABGR8888);
@@ -475,7 +473,7 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
 	m_pFrameRGB->linesize[0] = getPixelFormatBytes(videoPixelMode) * m_desWidth;
 
-	AVPacket packet;
+	AVPacket packet = {0};
 	av_init_packet(&packet);
 	int frameFinished;
 	bool bGetFrame = false;

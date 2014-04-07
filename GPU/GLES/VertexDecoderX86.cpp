@@ -811,8 +811,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
 		PAND(fpScratchReg2, R(XMM5));
 
-		// Alpha - start with 1.
-		MOVD_xmm(reg, R(tempReg2));
+		// Alpha handled in Jit_WriteMorphColor.
 
 		// Blue first.
 		MOVSS(reg, R(fpScratchReg2));
@@ -908,16 +907,20 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
+	MOVD_xmm(R(tempReg1), fpScratchReg);
 
 	// TODO: May be a faster way to do this without the MOVD.
 	if (checkAlpha) {
-		MOVD_xmm(R(tempReg1), fpScratchReg);
 		CMP(32, R(tempReg1), Imm32(0xFF000000));
 		FixupBranch skip = J_CC(CC_AE, false);
 		MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
 		SetJumpTarget(skip);
+	} else {
+		// Force alpha to full if we're not checking it.
+		OR(32, R(tempReg1), Imm32(0xFF000000));
 	}
+
+	MOV(32, MDisp(dstReg, outOff), R(tempReg1));
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.

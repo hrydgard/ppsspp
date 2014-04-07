@@ -301,9 +301,10 @@ bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitin
 
 bool __GeTriggerWait(GPUSyncType type, SceUID waitId)
 {
-	if (type == GPU_SYNC_DRAW)
+	// We check for the old type for old savestate compatibility.
+	if (type == GPU_SYNC_DRAW || type == WAITTYPE_GEDRAWSYNC)
 		return __GeTriggerWait(WAITTYPE_GEDRAWSYNC, waitId, drawWaitingThreads);
-	else if (type == GPU_SYNC_LIST)
+	else if (type == GPU_SYNC_LIST || type == WAITTYPE_GELISTSYNC)
 		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
 		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
@@ -420,7 +421,7 @@ int sceGeBreak(u32 mode, u32 unknownPtr)
 	if ((int)unknownPtr < 0 || (int)unknownPtr + 16 < 0)
 	{
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
-		return 0x80000023;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 	else if (unknownPtr != 0)
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");

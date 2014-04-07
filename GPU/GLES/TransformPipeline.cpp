@@ -255,9 +255,13 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 }
 
 void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+	SetupVertexDecoderInternal(vertType);
+}
+
+inline void TransformDrawEngine::SetupVertexDecoderInternal(u32 vertType) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
@@ -265,34 +269,6 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
 	}
-}
-
-int TransformDrawEngine::EstimatePerVertexCost() {
-	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-	// runs in parallel with transform.
-
-	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-	// went too fast and starts doing all the work over again).
-
-	int cost = 20;
-	if (gstate.isLightingEnabled()) {
-		cost += 10;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
-	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-		cost += 20;
-	}
-	if (dec_ && dec_->morphcount > 1) {
-		cost += 5 * dec_->morphcount;
-	}
-
-	return cost;
 }
 
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
@@ -308,7 +284,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	}
 	prevPrim_ = prim;
 
-	SetupVertexDecoder(vertType);
+	SetupVertexDecoderInternal(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
 
@@ -401,33 +377,45 @@ void TransformDrawEngine::DecodeVertsStep() {
 
 		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
 		//    Expand the lower and upper bounds as we go.
-		int j = i + 1;
 		int lastMatch = i;
-		while (j < numDrawCalls) {
-			if (drawCalls[j].verts != dc.verts)
-				break;
-			if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-				break;
+		const int total = numDrawCalls;
+		if (uvScale) {
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
+				if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+					break;
 
-			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-			lastMatch = j;
-			j++;
-		}
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
+			}
+		} else {
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
 
-		// 2. Loop through the drawcalls, translating indices as we go.
-		for (j = i; j <= lastMatch; j++) {
-			switch (indexType) {
-			case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-				break;
-			case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-				break;
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
 			}
 		}
 
-		int vertexCount = indexUpperBound - indexLowerBound + 1;
+		// 2. Loop through the drawcalls, translating indices as we go.
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		}
+
+		const int vertexCount = indexUpperBound - indexLowerBound + 1;
 		// 3. Decode that range of vertex data.
 		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
 			dc.verts, indexLowerBound, indexUpperBound);

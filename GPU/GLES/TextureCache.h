@@ -123,7 +123,7 @@ private:
 	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, GLenum dstFmt);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufw = 0);
 	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h);

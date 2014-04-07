@@ -40,8 +40,6 @@ extern "C" {
 }
 #endif
 
-static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
-
 struct Mp3Context;
 int __Mp3InitContext(Mp3Context *ctx);
 
@@ -150,7 +148,6 @@ void __Mp3DoState(PointerWrap &p) {
 	p.Do(mp3Map);
 }
 
-/* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
@@ -245,8 +242,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		fclose(file);
 	}
 	#endif
-	// 2 bytes per channel and we always two channels per mp3 so it is 2 * 2
-	ctx->mp3SumDecodedSamples += bytesdecoded / 2 * 2;
+	// 2 bytes per channel and we have frame.channels in mp3 source
+	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * frame.channels);
 
 	return bytesdecoded;
 }
@@ -367,12 +364,14 @@ int sceMp3TermResource() {
 int __Mp3InitContext(Mp3Context *ctx) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
-	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
-	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
+	u8 *avio_buffer = (u8*)(av_malloc(ctx->mp3BufSize));
+
+	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, (void*)ctx, readFunc, NULL, NULL);
 	ctx->avformat_context = avformat_alloc_context();
 	ctx->avformat_context->pb = ctx->avio_context;
 
 	int ret;
+	// Load audio buffer
 	if ((ret = avformat_open_input(&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
 		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
 		return -1;
@@ -384,17 +383,20 @@ int __Mp3InitContext(Mp3Context *ctx) {
 	}
 
 	AVCodec *dec;
-
-	/* select the audio stream */
+	// Select the audio stream
 	ret = av_find_best_stream(ctx->avformat_context, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
 	if (ret < 0) {
-		ERROR_LOG(ME, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
+		if (ret == AVERROR_DECODER_NOT_FOUND) {
+			ERROR_LOG(HLE, "av_find_best_stream: No appropriate decoder found");
+		} else {
+			ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
+		}
 		return -1;
 	}
 	ctx->audio_stream_index = ret;
 	ctx->decoder_context = ctx->avformat_context->streams[ctx->audio_stream_index]->codec;
 
-	/* init the audio decoder */
+	// Init the audio decoder
 	if ((ret = avcodec_open2(ctx->decoder_context, dec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
@@ -433,12 +435,7 @@ int sceMp3Init(u32 mp3) {
 	}
 
 	// Read in the header and swap the endian
-	int header = Memory::Read_U32(ctx->mp3Buf);
-	header = (header >> 24) |
-		((header<<8) & 0x00FF0000) |
-		((header>>8) & 0x0000FF00) |
-		(header << 24);
-
+	int header = bswap32(Memory::Read_U32(ctx->mp3Buf));
 	ctx->mp3Version = ((header >> 19) & 0x3);
 
 #ifdef USE_FFMPEG
@@ -451,7 +448,8 @@ int sceMp3Init(u32 mp3) {
 	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
 	ctx->mp3Channels = ctx->decoder_context->channels;
 	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
-
+	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%ikHz, bitrate=%ikbps", ctx->mp3Channels, ctx->mp3SamplingRate, ctx->mp3Bitrate);
+	
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
 #endif
 
@@ -602,7 +600,6 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 	}
 
 	mp3Map.erase(mp3Map.find(mp3));
-
 	delete ctx;
 
 	return 0;
