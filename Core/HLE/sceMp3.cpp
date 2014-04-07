@@ -64,6 +64,9 @@ struct Mp3Context {
 		if (resampler_context != NULL) {
 			swr_free(&resampler_context);
 		}
+		if (frame != NULL) {
+			av_frame_free(&frame);
+		}
 #endif
 	}
 
@@ -160,7 +163,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	if (ctx->bufferAvailable == 0 || ctx->readPosition >= ctx->mp3StreamEnd) {
 		return 0;
 	}
-	int bytesdecoded = 0;
+	int mp3DecodedSamples = 0;
 	Memory::Memset(ctx->mp3PcmBuf, 0, ctx->mp3PcmBufSize);
 
 #ifdef USE_FFMPEG
@@ -184,15 +187,15 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 
 		if (got_frame) {
 			int decoded = av_samples_get_buffer_size(NULL, ctx->frame->channels, ctx->frame->nb_samples, (AVSampleFormat)ctx->frame->format, 1);
-			u8* out = Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded);
+			u8* out = Memory::GetPointer(ctx->mp3PcmBuf);
 			ret = swr_convert(ctx->resampler_context, &out, ctx->frame->nb_samples, (const u8**)ctx->frame->extended_data, ctx->frame->nb_samples);
 			if (ret < 0) {
 				ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
 				return -1;
 			}
 			__AdjustBGMVolume((s16 *)out, ctx->frame->nb_samples * ctx->frame->channels);
-			// 2 bytes per channel and bytesdecoded always returns 1200
-			bytesdecoded += decoded / ctx->frame->channels * 2;
+			// 2 bytes per channel and mp3DecodedSamples always returns 0x1200 for every sceMp3Decode call
+			mp3DecodedSamples += decoded / ctx->frame->channels * 2;
 		}
 		av_free_packet(&packet);
 		if (got_frame)
@@ -203,9 +206,9 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 #endif // USE_FFMPEG
 
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
-	ctx->mp3SumDecodedSamples += bytesdecoded;
+	ctx->mp3SumDecodedSamples += mp3DecodedSamples;
 
-	DEBUG_LOG(ME, "%08x = sceMp3Decode(%08x,%08x)", bytesdecoded, mp3, outPcmPtr);
+	DEBUG_LOG(ME, "%08x = sceMp3Decode(%08x,%08x)", mp3DecodedSamples, mp3, outPcmPtr);
 
 	#if 0 && defined(_DEBUG)
 	char fileName[256];
@@ -224,7 +227,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	}
 	#endif
 
-	return bytesdecoded;
+	return mp3DecodedSamples;
 }
 
 int sceMp3ResetPlayPosition(u32 mp3) {
