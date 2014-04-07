@@ -174,7 +174,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	ret = av_read_frame(ctx->avformat_context, &packet);
 	if (ret < 0){
 		// if the all file is decoded, we just return zero
-		if (ctx->bufferWrite >= ctx->mp3StreamEnd){
+		if (packet.pos >= ctx->mp3StreamEnd){
 			return 0;
 		}
 		else
@@ -262,25 +262,29 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	// because, due to the existence of FF_INPUT_BUFFER_PADDING_SIZE, we must leave enough space for it
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
-	WARN_LOG(ME, "Callback readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
+	INFO_LOG(ME, "Callback ffmpeg readFunc(ctx=%08x,buf=%08x,buf_size=%08x)", ctx, buf, buf_size);
 
 	int toread = 0;
 	// we will fill buffer if we have not decoded all mp3 file
 	if (ctx->bufferWrite < ctx->mp3StreamEnd){
-		// if we still have available buffer to be decoded
+		// if we still have available buffer in mp3Buf
 		if (ctx->bufferAvailable > 0){
 			toread = std::min(buf_size - FF_INPUT_BUFFER_PADDING_SIZE, ctx->bufferAvailable - FF_INPUT_BUFFER_PADDING_SIZE);
 			// read from mp3Buff into buf
 			memcpy(buf, Memory::GetPointer(ctx->mp3Buf + ctx->bufferRead), toread);
-			memset(buf + toread, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+			memset(buf + toread, 0, FF_INPUT_BUFFER_PADDING_SIZE); // add padding into end
 			ctx->bufferRead += toread;
 			ctx->bufferAvailable -= toread;
 		}
+		else{
+			// if no available buffer, we do nothing here and just waiting for mp3Buf being recharged. 
+			// bufferAvailable will be reset when new mp3Buf is recharged
+			return 0;
+		}
 
-		// if no available buffer, we do nothing here and just waiting for new filled mp3Buf, 
-		// bufferAvailable will be recharged when new mp3Buf is filled
-
-		// in order to avoid recall this function to read again when buf is still not been full filled, we return buf_size to fake it. 
+		// in order to avoid recalling this function to read again and again when buf is not been full filled, we return buf_size to fake it. 
+		// in fact, if you haven't full fill the buf, that means you have either read all mp3 file or have no available mp3Buf
+		// and on both of the two cases, you don't need to read anymore. So just return buf_size is OK. 
 		return buf_size;
 	}
 	else
@@ -335,8 +339,8 @@ int sceMp3TermResource() {
 int __Mp3InitContext(Mp3Context *ctx) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
-	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE)); // ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE
-	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize + FF_INPUT_BUFFER_PADDING_SIZE, 0, ctx, readFunc, NULL, NULL); //ctx->mp3BufSize
+	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize)); // sould include FF_INPUT_BUFFER_PADDING_SIZE
+	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL); //ctx->mp3BufSize
 	ctx->avformat_context = avformat_alloc_context();
 	ctx->avformat_context->pb = ctx->avio_context;
 
