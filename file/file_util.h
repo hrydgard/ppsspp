@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include <inttypes.h>
+
 // Whole-file reading/writing
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename);
 bool readFileToString(bool text_file, const char *filename, std::string &str);
@@ -18,7 +20,7 @@ struct FileInfo {
 	bool exists;
 	bool isDirectory;
 	bool isWritable;
-	size_t size;
+	uint64_t size;
 
 	bool operator <(const FileInfo &other) const;
 };

@@ -86,11 +86,11 @@ bool writeDataToFile(bool text_file, const void* data, const unsigned int size, 
 uint64_t GetSize(FILE *f)
 {
 	// can't use off_t here because it can be 32-bit
-	uint64_t pos = ftell(f);
+	size_t pos = ftell(f);
 	if (fseek(f, 0, SEEK_END) != 0) {
 		return 0;
 	}
-	uint64_t size = ftell(f);
+	size_t size = ftell(f);
 	// Reset the seek position to where it was when we started.
 	if ((size != pos) && (fseek(f, pos, SEEK_SET) != 0)) {
 		// Should error here

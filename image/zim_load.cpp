@@ -50,8 +50,6 @@ int ezuncompress(unsigned char* pDest, long* pnDestLen, const unsigned char* pSr
 	return nExtraChunks ? Z_BUF_ERROR : Z_OK;
 }
 
-static const char magic[5] = "ZIMG";
-
 static unsigned int log2i(unsigned int val) {
 	unsigned int ret = -1;
 	while (val != 0) {
