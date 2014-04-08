@@ -17,4 +17,9 @@
 
 #pragma once
 
+enum {
+	ERROR_AAC_INVALID_ADDRESS = 0x80691002,
+	ERROR_AAC_INVALID_PARAMETER = 0x80691003,
+};
+
 void Register_sceMp4();

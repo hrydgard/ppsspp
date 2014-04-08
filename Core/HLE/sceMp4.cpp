@@ -18,6 +18,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/sceMp4.h"
 
 
 u32 sceMp4Init()
@@ -134,9 +135,38 @@ u32 sceMp4SearchSyncSampleNum()
 	return 0;
 }
 
-u32 sceAacInit()
+u32 sceAacInit(u32 parameters, u32 unknown1, u32 unknown2, u32 unknown3)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit(parameters %08x, unknown1 %08x, unknown2 %08x, unknown3 %08x)", unknown1, unknown2, unknown3);
+	if (!Memory::IsValidAddress(parameters))
+		return ERROR_AAC_INVALID_ADDRESS;
+	u64 startPos = (u64)Memory::Read_U32(parameters) << 32 | Memory::Read_U32(parameters + 4);        // Audio data frame start position.
+	u64 endPos = (u64)Memory::Read_U32(parameters + 8) << 32 | Memory::Read_U32(parameters + 12);     // Audio data frame end position.
+	int bufferAddr = Memory::Read_U32(parameters + 16);                                               // Input AAC data buffer.	
+	int bufferSize = Memory::Read_U32(parameters + 20);                                               // Input AAC data buffer size.
+	int outputAddr = Memory::Read_U32(parameters + 24);                                               // Output PCM data buffer.
+	int outputSize = Memory::Read_U32(parameters + 28);                                               // Output PCM data buffer size.
+	int freq = Memory::Read_U32(parameters + 32);                                                     // Frequency.
+ 	int reserved = Memory::Read_U32(parameters + 36);                                                 // Always null.	
+ 	if (bufferAddr == 0 || outputAddr == 0) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS %08x", bufferAddr);
+		return ERROR_AAC_INVALID_ADDRESS;
+	}
+	if (startPos < 0 || startPos > endPos) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %i", startPos);
+		return ERROR_AAC_INVALID_PARAMETER;
+	}
+	if (bufferSize < 8192 || outputSize < 8192 || reserved != 0) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i reserved %i", bufferSize, outputSize, reserved);
+		return ERROR_AAC_INVALID_PARAMETER;
+	}
+	if (freq != 44100 && freq != 32000 && freq != 48000 && freq != 24000) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID freq %i", freq);
+		return ERROR_AAC_INVALID_PARAMETER;
+	}
+
+	//To Do
+
 	return 0;
 }
 
@@ -146,9 +176,9 @@ u32 sceAacExit()
 	return 0;
 }
 
-u32 sceAacInitResource()
+u32 sceAacInitResource(u32 numberIds)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource(%i)", numberIds);
 	return 0;
 }
 
@@ -158,9 +188,9 @@ u32 sceAacTermResource()
 	return 0;
 }
 
-u32 sceAacDecode()
+u32 sceAacDecode(u32 id, u32 bufferAddress)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacDecode()");
+	ERROR_LOG(ME, "UNIMPL sceAacDecode(id %i, bufferAddress %08x)", id, bufferAddress);
 	return 0;
 }
 
@@ -176,9 +206,9 @@ u32 sceAacSetLoopNum()
 	return 0;
 }
 
-u32 sceAacCheckStreamDataNeeded()
+u32 sceAacCheckStreamDataNeeded(u32 id)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacCheckStreamDataNeeded()");
+	ERROR_LOG(ME, "UNIMPL sceAacCheckStreamDataNeeded(%i)", id);
 	return 0;
 }
 
@@ -200,9 +230,9 @@ u32 sceAacGetMaxOutputSample()
 	return 0;
 }
 
-u32 sceAacGetSumDecodedSample()
+u32 sceAacGetSumDecodedSample(u32 id)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacGetSumDecodedSample()");
+	ERROR_LOG(ME, "UNIMPL sceAacGetSumDecodedSample(%i)", id);
 	return 0;
 }
 
@@ -257,18 +287,18 @@ const HLEFunction sceMp4[] =
 
 // 395
 const HLEFunction sceAac[] = {
-	{0xE0C89ACA, WrapU_V<sceAacInit>, "sceAacInit"},
+	{0xE0C89ACA, WrapU_UUUU<sceAacInit>, "sceAacInit"},
 	{0x33B8C009, WrapU_V<sceAacExit>, "sceAacExit"},
-	{0x5CFFC57C, WrapU_V<sceAacInitResource>, "sceAacInitResource"},
+	{0x5CFFC57C, WrapU_U<sceAacInitResource>, "sceAacInitResource"},
 	{0x23D35CAE, WrapU_V<sceAacTermResource>, "sceAacTermResource"},
-	{0x7E4CFEE4, WrapU_V<sceAacDecode>, "sceAacDecode"},
+	{0x7E4CFEE4, WrapU_UU<sceAacDecode>, "sceAacDecode"},
 	{0x523347D9, WrapU_V<sceAacGetLoopNum>, "sceAacGetLoopNum"},
 	{0xBBDD6403, WrapU_V<sceAacSetLoopNum>, "sceAacSetLoopNum"},
-	{0xD7C51541, WrapU_V<sceAacCheckStreamDataNeeded>, "sceAacCheckStreamDataNeeded"},
+	{0xD7C51541, WrapU_U<sceAacCheckStreamDataNeeded>, "sceAacCheckStreamDataNeeded"},
 	{0xAC6DCBE3, WrapU_V<sceAacNotifyAddStreamData>, "sceAacNotifyAddStreamData"},
 	{0x02098C69, WrapU_V<sceAacGetInfoToAddStreamData>, "sceAacGetInfoToAddStreamData"},
 	{0x6DC7758A, WrapU_V<sceAacGetMaxOutputSample>, "sceAacGetMaxOutputSample"},
-	{0x506BF66C, WrapU_V<sceAacGetSumDecodedSample>, "sceAacGetSumDecodedSample"},
+	{0x506BF66C, WrapU_U<sceAacGetSumDecodedSample>, "sceAacGetSumDecodedSample"},
 	{0xD2DA2BBA, WrapU_V<sceAacResetPlayPosition>, "sceAacResetPlayPosition"},
 };
 
