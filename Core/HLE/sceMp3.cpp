@@ -243,6 +243,9 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	}
 	#endif
 	// 2 bytes per channel and we have frame.channels in mp3 source
+	// learn japanese v0.9 frame.channels = 0
+	if (frame.channels == 0)
+		frame.channels = 2;
 	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * frame.channels);
 
 	return bytesdecoded;
