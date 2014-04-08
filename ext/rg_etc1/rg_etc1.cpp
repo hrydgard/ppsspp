@@ -1878,8 +1878,8 @@ done:
          
    static uint etc1_decode_value(uint diff, uint inten, uint selector, uint packed_c)
    {
-      const uint limit = diff ? 32 : 16; limit;
-      RG_ETC1_ASSERT((diff < 2) && (inten < 8) && (selector < 4) && (packed_c < limit));
+      //const uint limit = diff ? 32 : 16; limit;
+      //RG_ETC1_ASSERT((diff < 2) && (inten < 8) && (selector < 4) && (packed_c < limit));
       int c;
       if (diff)
          c = (packed_c >> 2) | (packed_c << 3);
@@ -1940,7 +1940,7 @@ done:
    // For random 888 inputs, MSE results are better than Erricson's ETC1 packer in "slow" mode ~9.5% of the time, is slightly worse only ~.01% of the time, and is equal the rest of the time.
    static uint64 pack_etc1_block_solid_color(etc1_block& block, const uint8* pColor, etc1_pack_params& pack_params)
    {
-      pack_params;
+      // pack_params;
       RG_ETC1_ASSERT(g_etc1_inverse_lookup[0][255]);
             
       static uint s_next_comp[4] = { 1, 2, 0, 1 };
@@ -2032,7 +2032,7 @@ found_perfect_match:
    {
       RG_ETC1_ASSERT(g_etc1_inverse_lookup[0][255]);
 
-      pack_params;
+      //pack_params;
       static uint s_next_comp[4] = { 1, 2, 0, 1 };
 
       uint best_error = cUINT32_MAX, best_i = 0;
