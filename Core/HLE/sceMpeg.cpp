@@ -733,8 +733,8 @@ static void SaveFrame(AVFrame *pFrame, int width, int height)
 
 // check the existence of pmp media context 
 bool isContextExist(u32 ctxAddr){
-	for (auto it : pmp_ContextList){
-		if (it == ctxAddr){
+	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
+		if (*it == ctxAddr){
 			return true;
 		}
 	}
