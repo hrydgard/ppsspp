@@ -165,23 +165,7 @@ u32 sceAacInit(u32 parameters, u32 unknown1, u32 unknown2, u32 unknown3)
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
-	/*
-	To Do: Need translate the below code from JPCSP
-	int id = -1;
-	for (int i = 0; i < ids.length; i++) {
-	if (!ids[i].isInit()) {
-	id = i;
-	break;
-	}
-	}
-	if (id < 0) {
-	return SceKernelErrors.ERROR_AAC_NO_MORE_FREE_ID;
-	}
-
-	ids[id].init(bufferAddr, bufferSize, outputAddr, outputSize);
-
-	return id;
-	*/
+	//To Do
 
 	return 0;
 }
