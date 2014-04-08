@@ -1803,7 +1803,7 @@ namespace rg_etc1
          {
             if (block_inten[0] > m_pSorted_luma[n - 1])
             {
-               const uint min_error = labs(block_inten[0] - m_pSorted_luma[n - 1]);
+               const uint min_error = (uint)(labs(block_inten[0] - m_pSorted_luma[n - 1]));
                if (min_error >= trial_solution.m_error)
                   continue;
             }
@@ -1817,7 +1817,7 @@ namespace rg_etc1
          {
             if (m_pSorted_luma[0] > block_inten[3])
             {
-               const uint min_error = labs(m_pSorted_luma[0] - block_inten[3]);
+               const uint min_error = (uint)(labs(m_pSorted_luma[0] - block_inten[3]));
                if (min_error >= trial_solution.m_error)
                   continue;
             }
@@ -1909,7 +1909,7 @@ done:
                   for (uint packed_c = 0; packed_c < limit; packed_c++)
                   {
                      int v = etc1_decode_value(diff, inten, selector, packed_c);
-                     uint err = labs(v - static_cast<int>(color));
+                     uint err = (uint)labs(v - static_cast<int>(color));
                      if (err < best_error)
                      {
                         best_error = err;

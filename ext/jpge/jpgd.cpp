@@ -874,7 +874,7 @@ void *jpeg_decoder::alloc(size_t nSize, bool zero)
   }
   if (!rv)
   {
-    int capacity = JPGD_MAX(32768 - 256, (nSize + 2047) & ~2047);
+    int capacity = (int)JPGD_MAX(32768 - 256, (nSize + 2047) & ~2047);
     mem_block *b = (mem_block*)jpgd_malloc(sizeof(mem_block) + capacity);
     if (!b) { stop_decoding(JPGD_NOTENOUGHMEM); }
     b->m_pNext = m_pMem_blocks; m_pMem_blocks = b;

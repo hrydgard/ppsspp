@@ -308,7 +308,7 @@ int u8_read_escape_sequence(const char *str, uint32_t *dest)
     if (dno > 0)
       ch = strtol(digs, NULL, 16);
   }
-  *dest = ch;
+  *dest = (uint32_t)ch;
 
   return i;
 }

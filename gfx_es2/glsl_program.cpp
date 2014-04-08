@@ -264,7 +264,10 @@ void glsl_destroy(GLSLProgram *program) {
 }
 
 void glsl_bind(const GLSLProgram *program) {
-	glUseProgram(program->program_);
+	if (program)
+		glUseProgram(program->program_);
+	else
+		glUseProgram(0);
 }
 
 void glsl_unbind() {
