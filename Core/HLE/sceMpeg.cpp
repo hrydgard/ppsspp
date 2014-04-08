@@ -754,7 +754,7 @@ bool InitPmp(MpegContext * ctx){
 	ctx->mpegLastTimestamp = 0;
 
 	// wanted output pixel format
-	// reference values for fix_fmt:
+	// reference values for pix_fmt:
 	// GE_CMODE_16BIT_BGR5650 <--> AV_PIX_FMT_BGR565LE 
 	// GE_CMODE_16BIT_ABGR5551 <--> AV_PIX_FMT_BGR555LE;
 	// GE_CMODE_16BIT_ABGR4444 <--> AV_PIX_FMT_BGR444LE;
