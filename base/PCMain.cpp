@@ -440,6 +440,7 @@ int main(int argc, char *argv[]) {
 	int set_xres = -1;
 	int set_yres = -1;
 
+	int set_ipad = 0;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
@@ -461,6 +462,9 @@ int main(int argc, char *argv[]) {
 			set_dpi = -2;
 		if (!strcmp(argv[i],"--scale"))
 			set_scale = -2;
+	
+		if (!strcmp(argv[i],"--ipad"))
+			set_ipad = 1;
 	}
 #endif
 	if (mode & SDL_FULLSCREEN) {
@@ -481,6 +485,10 @@ int main(int argc, char *argv[]) {
 
 	set_dpi = 1.0f / set_dpi;
 
+	if (set_ipad) {
+		pixel_xres = 1024;
+		pixel_yres = 768;
+	}
 	if (!landscape) {
 		std::swap(pixel_xres, pixel_yres);
 	}
