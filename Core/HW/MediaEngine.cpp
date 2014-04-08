@@ -742,7 +742,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int outbytes = 0;
 
 	if (m_audioContext != NULL) {
-		if (!AudioDecode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
+		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 	}

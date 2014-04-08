@@ -80,3 +80,6 @@ void Register_sceMpeg();
 
 void Register_sceMpegbase();
 
+void __VideoPmpInit();
+void __VideoPmpDoState(PointerWrap &p);
+void __VideoPmpShutdown();
