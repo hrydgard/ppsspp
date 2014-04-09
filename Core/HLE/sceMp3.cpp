@@ -171,6 +171,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		av_init_packet(&packet);
 
 		if ((ret = av_read_frame(ctx->avformat_context, &packet)) < 0){
+			av_free_packet(&packet);
 			if (ctx->mp3LoopNum == 0) return 0; // nothing to decode
 			else break;// need loop
 		}
