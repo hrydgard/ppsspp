@@ -191,7 +191,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 					ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
 					return -1;
 				}
-				__AdjustBGMVolume((s16 *)out, frame->nb_samples * frame->channels);
+				// always convert to stereo pcm 
+				__AdjustBGMVolume((s16 *)out, frame->nb_samples * 2);
 
 				// the decoded size
 				bytesdecoded += decoded;
