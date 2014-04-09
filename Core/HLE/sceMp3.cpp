@@ -283,6 +283,7 @@ static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	if (ctx->bufferAvailable == 0) {
 		ctx->bufferRead = 0;
 		ctx->bufferWrite = 0;
+		return res;
 		// if the mp3 file have not been all decoded, we should not stop but continue
 		// we can control the loop times here. If the mp3 file has been fully decoded, then return zero to stop, return buf_size to loop.
 		int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart);
@@ -290,10 +291,10 @@ static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 			return buf_size; // always looping
 		} 
 		else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // loop more than once
-				return 0; // stop looping 
+				return res; // playing till the res is 0 
 		}
 		else if (ctx->mp3LoopNum == 0 && looped >= 1){ // only loop once
-			return 0; // stop looping
+			return res; // playing till the res is 0
 		}
 		else{
 			return buf_size; // continue playing
