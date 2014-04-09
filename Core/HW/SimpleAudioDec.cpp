@@ -88,6 +88,7 @@ SimpleAudio::SimpleAudio(int audioType)
 	}
 	codecCtx_->channels = 2;
 	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
+	codecCtx_->sample_rate = 44100;
 	// Open codec
 	AVDictionary *opts = 0;
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
@@ -129,6 +130,7 @@ SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
 	}
 	codecCtx_->channels = 2;
 	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
+	codecCtx_->sample_rate = 44100;
 	// Open codec
 	AVDictionary *opts = 0;
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
@@ -153,10 +155,17 @@ SimpleAudio::~SimpleAudio() {
 #endif  // USE_FFMPEG
 }
 
-// Input is a single Audio packet.
+void SaveAudio(const char filename[], uint8_t *outbuf, int size){
+	FILE * pf;
+	pf = fopen(filename, "ab+");
+
+	fwrite(outbuf, size, 1, pf);
+	fclose(pf);
+}
+
 bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
-	AVPacket packet = { 0 };
+	AVPacket packet;
 	av_init_packet(&packet);
 	packet.data = static_cast<uint8_t *>(inbuf);
 	packet.size = inbytes;
@@ -179,7 +188,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 			swrCtx_,
 			wanted_channel_layout,
 			AV_SAMPLE_FMT_S16,
-			codecCtx_->sample_rate,
+			44100,
 			dec_channel_layout,
 			codecCtx_->sample_fmt,
 			codecCtx_->sample_rate,
@@ -192,17 +201,24 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 			codec_ = 0;
 			return false;
 		}
-
 		// convert audio to AV_SAMPLE_FMT_S16
 		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		if (swrRet < 0) {
 			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
 			return false;
 		}
+		swr_free(&swrCtx_);
+		// output samples per frame, we should *2 since we have two channels
+		int outSamples = swrRet * 2;
+
+		// each sample occupies 2 bytes
+		*outbytes = outSamples * 2;
 		// We always convert to stereo.
 		__AdjustBGMVolume((s16 *)outbuf, frame_->nb_samples * 2);
-	}
 
+		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
+		// SaveAudio("dump.pcm", outbuf, *outbytes);
+	}
 	return true;
 #else
 	// Zero bytes output. No need to memset.
@@ -224,3 +240,4 @@ bool isValidCodec(int codec){
 	}
 	return false;
 }
+
