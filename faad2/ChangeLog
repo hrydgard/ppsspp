@@ -1,0 +1,7 @@
+2009-02-02 - Version 2.7
+	* DAB+ support
+	* Use public headers internally to prevent duplicate declarations
+	* Explicitly typedef all types as signed
+	* Made sure MAIN prediction can't be started after the first frame
+	* Lot's of compilation issues solved
+	* Bugfix in SBR envelope border calculation

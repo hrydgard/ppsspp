@@ -97,7 +97,7 @@
     <OutDir>..\</OutDir>
     <TargetName>PPSSPPDebug</TargetName>
     <IncludePath>..\dx9sdk\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;$(WindowsSDK_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;$(WindowsSDK_LibraryPath_x86);</LibraryPath>
+    <LibraryPath>..\faad2\lib\x86;..\dx9sdk\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;$(WindowsSDK_LibraryPath_x86)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>PPSSPPDebug64</TargetName>
@@ -116,7 +116,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FAAD;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -131,7 +131,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;comctl32.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;comctl32.lib;d3d9.lib;..\faad2\lib\libfaad.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
@@ -183,7 +183,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FAAD;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -200,7 +200,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;comctl32.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;comctl32.lib;d3d9.lib;..\faad2\lib\libfaad.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>

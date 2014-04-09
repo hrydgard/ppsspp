@@ -1,0 +1,85 @@
+.TH FAAD "1" "October 2006" "faad 2.5" ""
+.SH NAME
+faad \(em Process an Advanced Audio Codec stream
+
+.SH "SYNOPSIS"
+.B faad 
+[options] [\-w | \-o <output_filename> | \-a <output_filename>] input_filename
+
+.SH "DESCRIPTION"
+This utility provides a command line interface to libfaad2. This program reads in MPEG\(hy4 AAC files, processes, and outputs them in either Microsoft WAV, MPEG\(hy4 AAC ADTS, or standard PCM formats.
+
+.SH "OPTIONS"
+.TP
+.BI \-a " <filename>" ", \-\^\-adtsout" " <filename>"
+Sets the processing to output to the specified file in MPEG\(hy4 AAC ADTS format 
+.TP
+.BI \-b " <number>" ", \-\^\-bits" " <number>"
+Set the output (individual) sample format. The number takes one of the following values:
+.RS
+.RS
+1: 16\(hybit PCM data (default).
+.br
+2: 24\(hybit PCM data.
+.br
+3: 32\(hybit PCM data.
+.br
+4: 32\(hybit floating\hy(point data.
+.br
+5: 64\(hybit floating\hy(point data.
+.RE
+.RE
+.TP
+.B \-d ", \-\^\-downmix"
+Set the processing to downsample from 5.1 (surround sound and bass) channels to 2 channels (stereo). 
+.TP
+.BI \-f " <number>" ", \-\^\-format" " <number>"
+Set the output file format. The number takes one of the following values:
+.RS
+.RS
+1: Microsoft WAV format (default).
+.br
+2: Raw PCM data.
+.RE
+.RE
+.TP
+.BI \-g
+Set the processing to not perform gapless decoding.
+.TP
+.B \-h ", \-\^\-help"
+Shows a usage summary.
+.TP
+.B \-i ", \-\^\-info"
+Shows information about the about the input file.
+.TP
+.BI \-l " <number>" ", \-\^\-objecttype" " <number>"
+Sets the MPEG\hy(4 profile and object type for the processing to use. The number takes one of the following values:
+.RS
+.RS
+1: Main object type.
+.br
+2: Low Complexity (LC) object type (default).
+.br
+4: Long Term Prediction (LTP) object type.
+.br
+23: Low Delay (LD) object type.
+.RE
+.RE
+.TP
+.BI \-o " <filename>" ", \-\^\-outfile" " <number>"
+Sets the filename for processing output.
+.TP
+.B \-q ", \-\^\-quiet"
+Quiet \- Suppresses status messages during processing.
+.TP
+.B \-t ", \-\^\-oldformat"
+Sets the processing to use the old MPEG\(hy4 AAC ADTS format when outputting in said format.
+.TP
+.B \-w ", \-\^\-stdio"
+Sets the processing output to be sent to the standard out.
+
+.SH "AUTHOR"
+Matthew W. S. Bell <matthew (at) bells23.org.uk>
+
+.SH "SEE ALSO"
+\fBfaac\fP(1)

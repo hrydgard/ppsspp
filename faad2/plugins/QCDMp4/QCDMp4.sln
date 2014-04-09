@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QCDMp4", "QCDMp4.vcproj", "{2D8F479D-A591-4502-9456-398425D5F834}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2398BB2F-FFF9-490B-B4CC-863F2D21AE46} = {2398BB2F-FFF9-490B-B4CC-863F2D21AE46}
+		{8CAC9E26-BAA5-45A4-8721-E3170B3F8F49} = {8CAC9E26-BAA5-45A4-8721-E3170B3F8F49}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libfaad", "..\..\libfaad\libfaad.vcproj", "{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp4v2_st", "..\..\common\mp4v2\libmp4v2_st60.vcproj", "{2398BB2F-FFF9-490B-B4CC-863F2D21AE46}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp4av_st", "..\..\common\mp4av\libmp4av_st.vcproj", "{8CAC9E26-BAA5-45A4-8721-E3170B3F8F49}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2D8F479D-A591-4502-9456-398425D5F834}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2D8F479D-A591-4502-9456-398425D5F834}.Debug|Win32.Build.0 = Debug|Win32
+		{2D8F479D-A591-4502-9456-398425D5F834}.Release|Win32.ActiveCfg = Release|Win32
+		{2D8F479D-A591-4502-9456-398425D5F834}.Release|Win32.Build.0 = Release|Win32
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}.Release|Win32.ActiveCfg = Release|Win32
+		{2398BB2F-FFF9-490B-B4CC-863F2D21AE46}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2398BB2F-FFF9-490B-B4CC-863F2D21AE46}.Release|Win32.ActiveCfg = Release|Win32
+		{8CAC9E26-BAA5-45A4-8721-E3170B3F8F49}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8CAC9E26-BAA5-45A4-8721-E3170B3F8F49}.Release|Win32.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

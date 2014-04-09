@@ -110,7 +110,7 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		if (decoder != NULL){
 			// Decode audio
 			decoder->Decode(Memory::GetPointer(ctx.inDataPtr), ctx.inDataSize, Memory::GetPointer(ctx.outDataPtr), &outbytes);
-			DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+			INFO_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		}
 		return 0;
 	}
