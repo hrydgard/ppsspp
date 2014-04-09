@@ -823,6 +823,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG_REPORT(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
+					// Technically, this ought to trigger an interrupt, but it won't do anything.
+					// Triggering here can cause incorrect rescheduling, which breaks 3rd Birthday.
+					// However, this is likely a bug in how GE signal interrupts are handled.
+					trigger = false;
 					currentList->signal = behaviour;
 					DEBUG_LOG(G3D, "Signal with Sync. signal/end: %04x %04x", signal, enddata);
 					break;
