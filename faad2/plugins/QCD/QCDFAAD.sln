@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QCDFAAD", "QCDFAAD.vcproj", "{71955EB0-4F77-462B-A844-2BA56E74B87E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114} = {BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libfaad", "..\..\libfaad\libfaad.vcproj", "{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{71955EB0-4F77-462B-A844-2BA56E74B87E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{71955EB0-4F77-462B-A844-2BA56E74B87E}.Debug|Win32.Build.0 = Debug|Win32
+		{71955EB0-4F77-462B-A844-2BA56E74B87E}.Release|Win32.ActiveCfg = Release|Win32
+		{71955EB0-4F77-462B-A844-2BA56E74B87E}.Release|Win32.Build.0 = Release|Win32
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}.Debug|Win32.Build.0 = Debug|Win32
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}.Release|Win32.ActiveCfg = Release|Win32
+		{BC3EFE27-9015-4C9C-AD3C-72B3B7ED2114}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

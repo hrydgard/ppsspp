@@ -98,6 +98,10 @@ SimpleAudio::SimpleAudio(int audioType)
 
 	av_dict_free(&opts);
 #endif  // USE_FFMPEG
+#ifdef FAAD
+	//open faad decoder
+	faad_decoder = NeAACDecOpen();
+#endif // FAAD
 }
 
 
@@ -140,6 +144,10 @@ SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
 
 	av_dict_free(&opts);
 #endif  // USE_FFMPEG
+#ifdef FAAD
+	//open faad decoder
+	faad_decoder = NeAACDecOpen();
+#endif // FAAD
 }
 
 SimpleAudio::~SimpleAudio() {
@@ -153,6 +161,11 @@ SimpleAudio::~SimpleAudio() {
 	if (swrCtx_)
 		swr_free(&swrCtx_);
 #endif  // USE_FFMPEG
+#ifdef FAAD
+	//close faad decoder
+	NeAACDecClose(faad_decoder);
+	delete[] pcm_buff;
+#endif
 }
 
 void SaveAudio(const char filename[], uint8_t *outbuf, int size){
@@ -163,7 +176,82 @@ void SaveAudio(const char filename[], uint8_t *outbuf, int size){
 	fclose(pf);
 }
 
+void SimpleAudio::Resample(u8* inbuf, int in_samples, int64_t in_channel_layout, AVSampleFormat in_sample_fmt, int in_sample_rate, u8* outbuf, int out_samples){
+	// Initializing the sample rate convert. We will use it to convert float output into int.
+	swrCtx_ = swr_alloc_set_opts(
+		NULL,
+		AV_CH_LAYOUT_STEREO,
+		AV_SAMPLE_FMT_S16,
+		44100,
+		in_channel_layout,
+		in_sample_fmt,
+		in_sample_rate,
+		0,
+		NULL);
+
+	if (!swrCtx_ || swr_init(swrCtx_) < 0) {
+		ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
+		swr_free(&swrCtx_);
+		return;
+	}
+	// convert audio to PCM S16LE 44100 stereo
+	int swrRet = swr_convert(swrCtx_, &outbuf, out_samples, (const u8**)&inbuf, in_samples);
+	if (swrRet < 0) {
+		swr_free(&swrCtx_); 
+		ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
+		return;
+	}
+	swr_free(&swrCtx_);
+}
+
 bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
+#ifdef FAAD
+	// use faad to decode aac audio
+	if (audioType == PSP_CODEC_AAC){
+		unsigned long samplerate;
+		u8 channels;
+		NeAACDecFrameInfo frame_info;
+
+		// config faad output
+		faad_config = NeAACDecGetCurrentConfiguration(faad_decoder);
+		//faad_config->defSampleRate = 44100;
+		faad_config->outputFormat = FAAD_FMT_16BIT;
+		if (!NeAACDecSetConfiguration(faad_decoder, faad_config))
+		{
+			DEBUG_LOG(ME, "FAAD: unable to set faad config");
+			return false;
+		}
+
+		//initialize decoder
+		NeAACDecInit(faad_decoder, (u8*)inbuf, inbytes, &samplerate, &channels);
+		DEBUG_LOG(ME, "AAC: samplerate %d, channels %d", samplerate, channels);
+
+		//decode AAC to PCM
+		//outbuf = (u8*)NeAACDecDecode(faad_decoder, &frame_info, (u8*)inbuf, inbytes);
+
+		pcm_buff = (u8*)NeAACDecDecode(faad_decoder, &frame_info, (u8*)inbuf, inbytes);
+		if (frame_info.error > 0)
+		{
+			ERROR_LOG(ME,"FAAD: Decode error %s", NeAACDecGetErrorMessage(frame_info.error));
+			return false;
+		}
+		*outbytes = frame_info.channels * frame_info.samples;
+		INFO_LOG(ME, "FAAD: ouput pcm samples: %08x",frame_info.samples);
+#if 1
+		if (frame_info.samples > 0){
+			// resampling
+			int64_t channel_layout=2;
+			if (channels == 1)
+				channel_layout = AV_CH_LAYOUT_MONO;
+			if (channels == 2)
+				channel_layout = AV_CH_LAYOUT_STEREO;
+			Resample(pcm_buff, frame_info.samples, channel_layout, AV_SAMPLE_FMT_S16, frame_info.samplerate, outbuf, frame_info.samples);
+		}
+#endif
+		//SaveAudio("dump.pcm", outbuf, *outbytes);
+		return true;
+	}
+#endif
 #ifdef USE_FFMPEG
 	AVPacket packet;
 	av_init_packet(&packet);
@@ -217,7 +305,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		__AdjustBGMVolume((s16 *)outbuf, frame_->nb_samples * 2);
 
 		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
-		// SaveAudio("dump.pcm", outbuf, *outbytes);
+		 SaveAudio("dump.pcm", outbuf, *outbytes);
 	}
 	return true;
 #else
@@ -240,4 +328,3 @@ bool isValidCodec(int codec){
 	}
 	return false;
 }
-
