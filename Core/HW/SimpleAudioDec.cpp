@@ -226,9 +226,9 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		DEBUG_LOG(ME, "AAC: samplerate %d, channels %d", samplerate, channels);
 
 		//decode AAC to PCM
-		outbuf = (u8*)NeAACDecDecode(faad_decoder, &frame_info, (u8*)inbuf, inbytes);
+		//outbuf = (u8*)NeAACDecDecode(faad_decoder, &frame_info, (u8*)inbuf, inbytes);
 
-		//pcm_buff = (u8*)NeAACDecDecode(faad_decoder, &frame_info, (u8*)inbuf, inbytes);
+		pcm_buff = (u8*)NeAACDecDecode(faad_decoder, &frame_info, (u8*)inbuf, inbytes);
 		if (frame_info.error > 0)
 		{
 			ERROR_LOG(ME,"FAAD: Decode error %s", NeAACDecGetErrorMessage(frame_info.error));
@@ -244,7 +244,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 				channel_layout = AV_CH_LAYOUT_MONO;
 			if (channels == 2)
 				channel_layout = AV_CH_LAYOUT_STEREO;
-			Resample(pcm_buff, frame_info.samples, channel_layout, AV_SAMPLE_FMT_DBL, frame_info.samplerate, outbuf, frame_info.samples);
+			Resample(pcm_buff, frame_info.samples, channel_layout, AV_SAMPLE_FMT_S16, frame_info.samplerate, outbuf, frame_info.samples);
 		}
 #endif
 		SaveAudio("dump.pcm", outbuf, *outbytes);
