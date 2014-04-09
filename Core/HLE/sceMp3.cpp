@@ -162,12 +162,11 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	Memory::Memset(ctx->mp3PcmBuf, 0, ctx->mp3PcmBufSize);
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #else
-
+	AVFrame *frame = av_frame_alloc();
 	int got_frame = 0, ret;
 	static int audio_frame_count = 0;
 
 	while (!got_frame) {
-		AVFrame *frame = av_frame_alloc();
 		AVPacket packet;
 		av_init_packet(&packet);
 
@@ -204,8 +203,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			}
 		}
 		av_free_packet(&packet);
-		av_free(frame);
 	}
+	av_frame_free(&frame);
 	// if no decoded output, we don't need to play
 	if (bytesdecoded > 0){
 		Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
