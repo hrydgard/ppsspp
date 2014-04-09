@@ -172,10 +172,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 
 		if ((ret = av_read_frame(ctx->avformat_context, &packet)) < 0){
 			av_free_packet(&packet);
-			if (ctx->mp3LoopNum == 0) return 0; // nothing to decode
-			else break;// need loop
+			break;
 		}
-
 		if (packet.stream_index == ctx->audio_stream_index) {
 			av_frame_unref(frame);
 			got_frame = 0;
@@ -285,8 +283,19 @@ static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 		ctx->bufferRead = 0;
 		ctx->bufferWrite = 0;
 		// if the mp3 file have not been all decoded, we should not stop but continue
-		if (ctx->mp3DecodedBytes <= ctx->mp3StreamEnd - ctx->mp3StreamStart){
-			return buf_size; // fake the reture value as we have full filled the ffmpeg's buffer
+		// we can control the loop times here. If the mp3 file has been fully decoded, then return zero to stop, return buf_size to loop.
+		int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart);
+		if (ctx->mp3LoopNum == -1){ // loop all the time
+			return buf_size; // always looping
+		} 
+		else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // loop more than once
+				return 0; // stop looping 
+		}
+		else if (ctx->mp3LoopNum == 0 && looped >= 1){ // only loop once
+			return 0; // stop looping
+		}
+		else{
+			return buf_size; // continue playing
 		}
 	}
 
@@ -575,10 +584,8 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	if (ctx->bufferWrite >= ctx->mp3BufSize)
 		ctx->bufferWrite %= ctx->mp3BufSize;
 
-	if (ctx->readPosition >= ctx->mp3StreamEnd && ctx->mp3LoopNum != 0) {
+	if (ctx->readPosition >= ctx->mp3StreamEnd) {
 		ctx->readPosition = ctx->mp3StreamStart;
-		if (ctx->mp3LoopNum > 0)
-			ctx->mp3LoopNum--;
 	}
 	return 0;
 }
