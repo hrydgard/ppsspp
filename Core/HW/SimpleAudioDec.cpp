@@ -164,6 +164,7 @@ SimpleAudio::~SimpleAudio() {
 #ifdef FAAD
 	//close faad decoder
 	NeAACDecClose(faad_decoder);
+	delete[] pcm_buff;
 #endif
 }
 
@@ -247,7 +248,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 			Resample(pcm_buff, frame_info.samples, channel_layout, AV_SAMPLE_FMT_S16, frame_info.samplerate, outbuf, frame_info.samples);
 		}
 #endif
-		SaveAudio("dump.pcm", outbuf, *outbytes);
+		//SaveAudio("dump.pcm", outbuf, *outbytes);
 		return true;
 	}
 #endif

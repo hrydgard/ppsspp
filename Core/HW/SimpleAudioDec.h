@@ -55,8 +55,6 @@ public:
 
 	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
 	bool IsOK() const { return codec_ != 0; }
-	void SimpleAudio::Resample(u8* inbuff, int in_samples, int64_t in_channel_layout, AVSampleFormat in_sample_fmt, int in_sample_rate, u8* outbuff, int out_samples);
-	void FAADInit();
 
 	u32 ctxPtr;
 	int audioType;
@@ -70,6 +68,8 @@ private:
 	AVCodecID audioCodecId; // AV_CODEC_ID_XXX
 
 	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
+
+	void Resample(u8* inbuff, int in_samples, int64_t in_channel_layout, AVSampleFormat in_sample_fmt, int in_sample_rate, u8* outbuff, int out_samples);
 #endif  // USE_FFMPEG
 
 #ifdef FAAD
@@ -77,6 +77,8 @@ private:
 	NeAACDecHandle faad_decoder = 0;
 	NeAACDecConfigurationPtr faad_config;
 	u8* pcm_buff = new u8[BUFFER_MAX_LEN];
+
+	void FAADInit();
 #endif
 };
 

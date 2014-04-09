@@ -86,7 +86,8 @@
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
     <Lib>
-      <AdditionalDependencies>..\faad2\lib\libfaad.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Lib>
