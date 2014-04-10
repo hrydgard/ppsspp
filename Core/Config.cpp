@@ -397,7 +397,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
 	// audio hacks
-	ReportedConfigSetting("FixSampleRate", &g_Config.bFixSampleRate, false),
 	ReportedConfigSetting("FFmpegCallback", &g_Config.bFFmpegCallback, false),
 
 	ConfigSetting(false),
