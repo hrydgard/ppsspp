@@ -263,49 +263,81 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
-	int res = 0;
-	static int pbufpos = 0;
-	// if we still have available data in mp3Buf
-	if (ctx->bufferAvailable) {
-		// Maximum bytes we can read
-		int to_read = std::min(ctx->bufferAvailable, buf_size - pbufpos);
 
-		// Don't read past the end of mp3Buf if loops
-		to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
+	if (!g_Config.bFFmpegCallback){
+		// old callback method
+		int res = 0;
+		while (ctx->bufferAvailable && buf_size) {
+			// Maximum bytes we can read
+			int to_read = std::min(ctx->bufferAvailable, buf_size);
 
-		// we will fill the ffmpeg's buffer from the current position
-		memcpy(buf + pbufpos, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
+			// Don't read past the end if the buffer loops
+			to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
+			memcpy(buf + res, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
 
-		ctx->bufferRead += to_read;
-		// if mp3Buf is full read, we reset the read position to its begining
-		if (ctx->bufferRead == ctx->mp3BufSize)
+			ctx->bufferRead += to_read;
+			if (ctx->bufferRead == ctx->mp3BufSize)
+				ctx->bufferRead = 0;
+			ctx->bufferAvailable -= to_read;
+			buf_size -= to_read;
+			res += to_read;
+		}
+
+		if (ctx->bufferAvailable == 0) {
 			ctx->bufferRead = 0;
-		ctx->bufferAvailable -= to_read;
-		pbufpos += to_read;
-		// if ffmpeg buffer is full charged, we reset pointer to its begining
-		if (pbufpos == buf_size)
-			pbufpos = 0;
-		res = to_read;
-	} // otherwise, we have no data in mp3Buf
-	else {
-		ctx->bufferRead = 0;
-		ctx->bufferWrite = 0;
-		// if the mp3 file have not been all decoded, we should not stop but continue
-		// we can control the loops here. If the mp3 file has been fully decoded, then return zero to stop loops, return buf_size to continue loops.
-		int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart); // number of time we have looped
-		if (ctx->mp3LoopNum == -1){ // if loop all the time
-			return res == 0 ? buf_size : res; // always looping
+			ctx->bufferWrite = 0;
 		}
-		else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // if loop more than once
-			return 0; // stop playing immediately when number of loops reached 
-		}
-		else if (ctx->mp3LoopNum == 0 && looped == 0){ // only play once and still not stopped
-			// if res == 0, i.e. we have copied everything from mp3Buff to ffmpeg, but the decoding still not finished (maybe due to latency).
-			// Thus we can not return 0 to stop playing, we must return buf_size until the decoding is finishes (i.e., looped == 1).
-			return res == 0 ? buf_size : res;
-		}
+		return res;
 	}
-	return res;
+	else{
+		// new call back method, for fixing issues as 
+		// 1. control loops and buffer copies.
+		// 2. Miku custom BGM playing
+		// 3. lost last voice
+		int res = 0;
+		static int pbufpos = 0;
+		// if we still have available data in mp3Buf
+		if (ctx->bufferAvailable) {
+			// Maximum bytes we can read
+			int to_read = std::min(ctx->bufferAvailable, buf_size - pbufpos);
+
+			// Don't read past the end of mp3Buf if loops
+			to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
+
+			// we will fill the ffmpeg's buffer from the current position
+			memcpy(buf + pbufpos, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
+
+			ctx->bufferRead += to_read;
+			// if mp3Buf is full read, we reset the read position to its begining
+			if (ctx->bufferRead == ctx->mp3BufSize)
+				ctx->bufferRead = 0;
+			ctx->bufferAvailable -= to_read;
+			pbufpos += to_read;
+			// if ffmpeg buffer is full charged, we reset pointer to its begining
+			if (pbufpos == buf_size)
+				pbufpos = 0;
+			res = to_read;
+		} // otherwise, we have no data in mp3Buf
+		else {
+			ctx->bufferRead = 0;
+			ctx->bufferWrite = 0;
+			// if the mp3 file have not been all decoded, we should not stop but continue
+			// we can control the loops here. If the mp3 file has been fully decoded, then return zero to stop loops, return buf_size to continue loops.
+			int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart); // number of time we have looped
+			if (ctx->mp3LoopNum == -1){ // if loop all the time
+				return res == 0 ? buf_size : res; // always looping
+			}
+			else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // if loop more than once
+				return 0; // stop playing immediately when number of loops reached 
+			}
+			else if (ctx->mp3LoopNum == 0 && looped == 0){ // only play once and still not stopped
+				// if res == 0, i.e. we have copied everything from mp3Buff to ffmpeg, but the decoding still not finished (maybe due to latency).
+				// Thus we can not return 0 to stop playing, we must return buf_size until the decoding is finishes (i.e., looped == 1).
+				return res == 0 ? buf_size : res;
+			}
+		}
+		return res;
+	}
 }
 
 u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
@@ -393,11 +425,16 @@ int __Mp3InitContext(Mp3Context *ctx) {
 		return -1;
 	}
 
+	int want_sample_rate = ctx->decoder_context->sample_rate;
+	if (g_Config.bFixSampleRate){
+		// audio hack to fix resampled pcm sample rate to 44100 (for voice speed issue as "Hanayaka Nari Wa ga Ichizoku")
+		want_sample_rate = 44100;
+	}
 	// always convert to PCM S16LE, 44100Hz, stereo
 	ctx->resampler_context = swr_alloc_set_opts(NULL,
 		AV_CH_LAYOUT_STEREO,
 		AV_SAMPLE_FMT_S16,
-		44100,
+		want_sample_rate,
 		ctx->decoder_context->channel_layout,
 		ctx->decoder_context->sample_fmt,
 		ctx->decoder_context->sample_rate,
@@ -472,14 +509,13 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
-
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
+	DEBUG_LOG(ME, "%08x = sceMp3GetSumDecodedSample(%08X)", ctx->mp3SumDecodedSamples, mp3);
 	return ctx->mp3SumDecodedSamples;
 }
 
