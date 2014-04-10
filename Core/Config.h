@@ -148,6 +148,10 @@ public:
 	int iSFXVolume;
 	int iBGMVolume;
 
+	// Sound hack
+	bool bFixSampleRate;
+	bool bFFmpegCallback;
+
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;

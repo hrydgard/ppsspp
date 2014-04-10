@@ -46,7 +46,7 @@ int __Mp3InitContext(Mp3Context *ctx);
 struct Mp3Context {
 	Mp3Context()
 #ifdef USE_FFMPEG
-		: avformat_context(NULL), avio_context(NULL), resampler_context(NULL) {
+	: avformat_context(NULL), avio_context(NULL), resampler_context(NULL) {
 #else
 	{
 #endif
@@ -149,83 +149,71 @@ void __Mp3DoState(PointerWrap &p) {
 }
 
 int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
-	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
-
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
-	// Nothing to decode
-	if (ctx->bufferAvailable == 0 || ctx->readPosition >= ctx->mp3StreamEnd) {
-		return 0;
-	}
 	int bytesdecoded = 0;
+	int bytespcm = 0;
 
 #ifndef USE_FFMPEG
 	Memory::Memset(ctx->mp3PcmBuf, 0, ctx->mp3PcmBufSize);
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #else
-
-	AVFrame frame;
-	memset(&frame, 0, sizeof(frame));
-	AVPacket packet;
-	av_init_packet(&packet);
+	AVFrame *frame = av_frame_alloc();
 	int got_frame = 0, ret;
 	static int audio_frame_count = 0;
 
 	while (!got_frame) {
-		if ((ret = av_read_frame(ctx->avformat_context, &packet)) < 0)
-			break;
+		AVPacket packet;
+		av_init_packet(&packet);
 
+		if ((ret = av_read_frame(ctx->avformat_context, &packet)) < 0){
+			av_free_packet(&packet);
+			break;
+		}
 		if (packet.stream_index == ctx->audio_stream_index) {
-			av_frame_unref(&frame);
+			av_frame_unref(frame);
 			got_frame = 0;
-			ret = avcodec_decode_audio4(ctx->decoder_context, &frame, &got_frame, &packet);
+			ret = avcodec_decode_audio4(ctx->decoder_context, frame, &got_frame, &packet);
 			if (ret < 0) {
 				ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", ret);
 				continue;
 			}
 			if (got_frame) {
-				//char buf[1024] = "";
-				//av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
-				//DEBUG_LOG(ME, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
-
-				/*
-				u8 *audio_dst_data;
-				int audio_dst_linesize;
-
-				ret = av_samples_alloc(&audio_dst_data, &audio_dst_linesize, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
-				if (ret < 0) {
-					ERROR_LOG(ME, "av_samples_alloc: Could not allocate audio buffer %d", ret);
-					return -1;
-				}
-				*/
-
-				int decoded = av_samples_get_buffer_size(NULL, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
+				int decoded = av_samples_get_buffer_size(NULL, frame->channels, frame->nb_samples, (AVSampleFormat)frame->format, 1);
 
 				u8* out = Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded);
-				ret = swr_convert(ctx->resampler_context, &out, frame.nb_samples, (const u8**)frame.extended_data, frame.nb_samples);
+				ret = swr_convert(ctx->resampler_context, &out, frame->nb_samples, (const u8**)frame->extended_data, frame->nb_samples);
 				if (ret < 0) {
 					ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
-					return -1;
+					av_free_packet(&packet);
+					break;
 				}
-				__AdjustBGMVolume((s16 *)out, frame.nb_samples * frame.channels);
+				// always convert to stereo pcm 
+				int num_channels = 2;
+				__AdjustBGMVolume((s16 *)out, frame->nb_samples * num_channels);
 
-				//av_samples_copy(&audio_dst_data, frame.data, 0, 0, frame.nb_samples, frame.channels, (AVSampleFormat)frame.format);
-
-				//memcpy(Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded), audio_dst_data, decoded);
+				// the decoded size
 				bytesdecoded += decoded;
-				// av_freep(&audio_dst_data[0]);
+				// the output pcm size, ret is number of output samples per channel, each sample 2 bytes 
+				bytespcm += ret * 2 * num_channels;
+				// the decoded source data size, always increasing even for looping
+				ctx->mp3DecodedBytes = packet.pos;
 			}
 		}
 		av_free_packet(&packet);
+	} // end while
+	av_frame_free(&frame);
+	// if no decoded output, we don't need to play
+	if (bytesdecoded > 0){
+		Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 	}
-	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #endif
 
-	#if 0 && defined(_DEBUG)
+#if 0 && defined(_DEBUG)
 	char fileName[256];
 	sprintf(fileName, "out.wav", mp3);
 
@@ -240,14 +228,13 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 
 		fclose(file);
 	}
-	#endif
-	// 2 bytes per channel and we have frame.channels in mp3 source
-	// learn japanese v0.9 frame.channels = 0
-	if (frame.channels == 0)
-		frame.channels = 2;
-	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * frame.channels);
+#endif
 
-	return bytesdecoded;
+	// 2 bytes per sample per channel and we have ctx->mp3Channels in mp3 source
+	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * ctx->mp3Channels);
+
+	DEBUG_LOG(ME, "%08x = sceMp3Decode(%08x,%08x)", bytespcm, mp3, outPcmPtr);
+	return bytespcm;
 }
 
 int sceMp3ResetPlayPosition(u32 mp3) {
@@ -278,45 +265,80 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
 
-	int res = 0;
-	while (ctx->bufferAvailable && buf_size) {
-		// Maximum bytes we can read
-		int to_read = std::min(ctx->bufferAvailable, buf_size);
+	if (!g_Config.bFFmpegCallback){
+		// old callback method
+		int res = 0;
+		while (ctx->bufferAvailable && buf_size) {
+			// Maximum bytes we can read
+			int to_read = std::min(ctx->bufferAvailable, buf_size);
 
-		// Don't read past the end if the buffer loops
-		to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
-		memcpy(buf + res, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
+			// Don't read past the end if the buffer loops
+			to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
+			memcpy(buf + res, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
 
-		ctx->bufferRead += to_read;
-		if (ctx->bufferRead == ctx->mp3BufSize)
-			ctx->bufferRead = 0;
-		ctx->bufferAvailable -= to_read;
-		buf_size -= to_read;
-		res += to_read;
-	}
-
-	if (ctx->bufferAvailable == 0) {
-		ctx->bufferRead = 0;
-		ctx->bufferWrite = 0;
-	}
-
-#if 0 && defined(_DEBUG)
-	char fileName[256];
-	sprintf(fileName, "out.mp3");
-
-	FILE * file = fopen(fileName, "a+b");
-	if (file) {
-		if (!Memory::IsValidAddress(ctx->mp3Buf)) {
-			ERROR_LOG(ME, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
+			ctx->bufferRead += to_read;
+			if (ctx->bufferRead == ctx->mp3BufSize)
+				ctx->bufferRead = 0;
+			ctx->bufferAvailable -= to_read;
+			buf_size -= to_read;
+			res += to_read;
 		}
 
-		fwrite(buf, 1, res, file);
-
-		fclose(file);
+		if (ctx->bufferAvailable == 0) {
+			ctx->bufferRead = 0;
+			ctx->bufferWrite = 0;
+		}
+		return res;
 	}
-#endif
+	else{
+		// new call back method, for fixing issues as 
+		// 1. control loops and buffer copies.
+		// 2. Miku custom BGM playing
+		// 3. lost last voice
+		int res = 0;
+		static int pbufpos = 0;
+		// if we still have available data in mp3Buf
+		if (ctx->bufferAvailable) {
+			// Maximum bytes we can read
+			int to_read = std::min(ctx->bufferAvailable, buf_size - pbufpos);
 
-	return res;
+			// Don't read past the end of mp3Buf if loops
+			to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
+
+			// we will fill the ffmpeg's buffer from the current position
+			memcpy(buf + pbufpos, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
+
+			ctx->bufferRead += to_read;
+			// if mp3Buf is full read, we reset the read position to its begining
+			if (ctx->bufferRead == ctx->mp3BufSize)
+				ctx->bufferRead = 0;
+			ctx->bufferAvailable -= to_read;
+			pbufpos += to_read;
+			// if ffmpeg buffer is full charged, we reset pointer to its begining
+			if (pbufpos == buf_size)
+				pbufpos = 0;
+			res = to_read;
+		} // otherwise, we have no data in mp3Buf
+		else {
+			ctx->bufferRead = 0;
+			ctx->bufferWrite = 0;
+			// if the mp3 file have not been all decoded, we should not stop but continue
+			// we can control the loops here. If the mp3 file has been fully decoded, then return zero to stop loops, return buf_size to continue loops.
+			int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart); // number of time we have looped
+			if (ctx->mp3LoopNum == -1){ // if loop all the time
+				return res == 0 ? buf_size : res; // always looping
+			}
+			else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // if loop more than once
+				return 0; // stop playing immediately when number of loops reached 
+			}
+			else if (ctx->mp3LoopNum == 0 && looped == 0){ // only play once and still not stopped
+				// if res == 0, i.e. we have copied everything from mp3Buff to ffmpeg, but the decoding still not finished (maybe due to latency).
+				// Thus we can not return 0 to stop playing, we must return buf_size until the decoding is finishes (i.e., looped == 1).
+				return res == 0 ? buf_size : res;
+			}
+		}
+		return res;
+	}
 }
 
 u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
@@ -336,10 +358,10 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 		ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr + 28);
 	}
 	ctx->readPosition = ctx->mp3StreamStart;
-	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
+	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4;
 	ctx->mp3DecodedBytes = 0;
 	ctx->mp3SumDecodedSamples = 0;
-	ctx->mp3LoopNum = -1;
+	ctx->mp3LoopNum = 0;
 	ctx->mp3Channels = 2;
 	ctx->mp3Bitrate = 128;
 	ctx->mp3SamplingRate = 44100;
@@ -404,10 +426,16 @@ int __Mp3InitContext(Mp3Context *ctx) {
 		return -1;
 	}
 
+	int want_sample_rate = ctx->decoder_context->sample_rate;
+	if (g_Config.bFixSampleRate){
+		// audio hack to fix resampled pcm sample rate to 44100 (for voice speed issue as "Hanayaka Nari Wa ga Ichizoku")
+		want_sample_rate = 44100;
+	}
+	// always convert to PCM S16LE, stereo. The sample rate is chosen according audio hack setting on UI.
 	ctx->resampler_context = swr_alloc_set_opts(NULL,
-		ctx->decoder_context->channel_layout,
+		AV_CH_LAYOUT_STEREO,
 		AV_SAMPLE_FMT_S16,
-		ctx->decoder_context->sample_rate,
+		want_sample_rate,
 		ctx->decoder_context->channel_layout,
 		ctx->decoder_context->sample_fmt,
 		ctx->decoder_context->sample_rate,
@@ -482,14 +510,13 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
-
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
+	DEBUG_LOG(ME, "%08x = sceMp3GetSumDecodedSample(%08X)", ctx->mp3SumDecodedSamples, mp3);
 	return ctx->mp3SumDecodedSamples;
 }
 
@@ -584,10 +611,8 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	if (ctx->bufferWrite >= ctx->mp3BufSize)
 		ctx->bufferWrite %= ctx->mp3BufSize;
 
-	if (ctx->readPosition >= ctx->mp3StreamEnd && ctx->mp3LoopNum != 0) {
+	if (ctx->readPosition >= ctx->mp3StreamEnd) {
 		ctx->readPosition = ctx->mp3StreamStart;
-		if (ctx->mp3LoopNum > 0)
-			ctx->mp3LoopNum--;
 	}
 	return 0;
 }
@@ -656,30 +681,30 @@ u32 sceMp3LowLevelDecode() {
 }
 
 const HLEFunction sceMp3[] = {
-	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
-	{0x0DB149F4,WrapI_UI<sceMp3NotifyAddStreamData>,"sceMp3NotifyAddStreamData"},
-	{0x2A368661,WrapI_U<sceMp3ResetPlayPosition>,"sceMp3ResetPlayPosition"},
-	{0x354D27EA,WrapI_U<sceMp3GetSumDecodedSample>,"sceMp3GetSumDecodedSample"},
-	{0x35750070,WrapI_V<sceMp3InitResource>,"sceMp3InitResource"},
-	{0x3C2FA058,WrapI_V<sceMp3TermResource>,"sceMp3TermResource"},
-	{0x3CEF484F,WrapI_UI<sceMp3SetLoopNum>,"sceMp3SetLoopNum"},
-	{0x44E07129,WrapI_U<sceMp3Init>,"sceMp3Init"},
-	{0x732B042A,WrapU_V<sceMp3EndEntry>,"sceMp3EndEntry"},
-	{0x7F696782,WrapI_U<sceMp3GetMp3ChannelNum>,"sceMp3GetMp3ChannelNum"},
-	{0x87677E40,WrapI_U<sceMp3GetBitRate>,"sceMp3GetBitRate"},
-	{0x87C263D1,WrapI_U<sceMp3GetMaxOutputSample>,"sceMp3GetMaxOutputSample"},
-	{0x8AB81558,WrapU_V<sceMp3StartEntry>,"sceMp3StartEntry"},
-	{0x8F450998,WrapI_U<sceMp3GetSamplingRate>,"sceMp3GetSamplingRate"},
-	{0xA703FE0F,WrapI_UUUU<sceMp3GetInfoToAddStreamData>,"sceMp3GetInfoToAddStreamData"},
-	{0xD021C0FB,WrapI_UU<sceMp3Decode>,"sceMp3Decode"},
-	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
-	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
-	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,WrapU_U<sceMp3GetMPEGVersion>,"sceMp3GetMPEGVersion"},
-	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
-	{0x0840e808,WrapU_UI<sceMp3ResetPlayPositionByFrame>,"sceMp3ResetPlayPositionByFrame"},
-	{0x1b839b83,WrapU_V<sceMp3LowLevelInit>,"sceMp3LowLevelInit"},
-	{0xe3ee2c81,WrapU_V<sceMp3LowLevelDecode>,"sceMp3LowLevelDecode"}
+	{ 0x07EC321A, WrapU_U<sceMp3ReserveMp3Handle>, "sceMp3ReserveMp3Handle" },
+	{ 0x0DB149F4, WrapI_UI<sceMp3NotifyAddStreamData>, "sceMp3NotifyAddStreamData" },
+	{ 0x2A368661, WrapI_U<sceMp3ResetPlayPosition>, "sceMp3ResetPlayPosition" },
+	{ 0x354D27EA, WrapI_U<sceMp3GetSumDecodedSample>, "sceMp3GetSumDecodedSample" },
+	{ 0x35750070, WrapI_V<sceMp3InitResource>, "sceMp3InitResource" },
+	{ 0x3C2FA058, WrapI_V<sceMp3TermResource>, "sceMp3TermResource" },
+	{ 0x3CEF484F, WrapI_UI<sceMp3SetLoopNum>, "sceMp3SetLoopNum" },
+	{ 0x44E07129, WrapI_U<sceMp3Init>, "sceMp3Init" },
+	{ 0x732B042A, WrapU_V<sceMp3EndEntry>, "sceMp3EndEntry" },
+	{ 0x7F696782, WrapI_U<sceMp3GetMp3ChannelNum>, "sceMp3GetMp3ChannelNum" },
+	{ 0x87677E40, WrapI_U<sceMp3GetBitRate>, "sceMp3GetBitRate" },
+	{ 0x87C263D1, WrapI_U<sceMp3GetMaxOutputSample>, "sceMp3GetMaxOutputSample" },
+	{ 0x8AB81558, WrapU_V<sceMp3StartEntry>, "sceMp3StartEntry" },
+	{ 0x8F450998, WrapI_U<sceMp3GetSamplingRate>, "sceMp3GetSamplingRate" },
+	{ 0xA703FE0F, WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData" },
+	{ 0xD021C0FB, WrapI_UU<sceMp3Decode>, "sceMp3Decode" },
+	{ 0xD0A56296, WrapI_U<sceMp3CheckStreamDataNeeded>, "sceMp3CheckStreamDataNeeded" },
+	{ 0xD8F54A51, WrapI_U<sceMp3GetLoopNum>, "sceMp3GetLoopNum" },
+	{ 0xF5478233, WrapI_U<sceMp3ReleaseMp3Handle>, "sceMp3ReleaseMp3Handle" },
+	{ 0xAE6D2027, WrapU_U<sceMp3GetMPEGVersion>, "sceMp3GetMPEGVersion" },
+	{ 0x3548AEC8, WrapU_U<sceMp3GetFrameNum>, "sceMp3GetFrameNum" },
+	{ 0x0840e808, WrapU_UI<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame" },
+	{ 0x1b839b83, WrapU_V<sceMp3LowLevelInit>, "sceMp3LowLevelInit" },
+	{ 0xe3ee2c81, WrapU_V<sceMp3LowLevelDecode>, "sceMp3LowLevelDecode" }
 };
 
 void Register_sceMp3() {
