@@ -365,7 +365,8 @@ u32 sceAudioOutput2Release(){
 u32 sceAudioSetFrequency(u32 freq) {
 	if (freq == 44100 || freq == 48000) {
 		INFO_LOG(SCEAUDIO, "sceAudioSetFrequency(%08x)", freq);
-		__AudioSetOutputFrequency(freq);
+		// ignore feq setting since we want only playing in 44100 Hz
+		//__AudioSetOutputFrequency(freq);
 		return 0;
 	} else {
 		ERROR_LOG(SCEAUDIO, "sceAudioSetFrequency(%08x) - invalid frequency (must be 44.1 or 48 khz)", freq);
@@ -396,7 +397,8 @@ u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 		chans[PSP_AUDIO_CHANNEL_SRC].reserved = true;
 		chans[PSP_AUDIO_CHANNEL_SRC].sampleCount = sampleCount;
 		chans[PSP_AUDIO_CHANNEL_SRC].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
-		__AudioSetOutputFrequency(freq);
+		// just ignore freq setting since we always want 44100 Hz
+		//__AudioSetOutputFrequency(freq);
 	}
 	return 0;
 }

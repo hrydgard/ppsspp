@@ -49,6 +49,11 @@ u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 		ERROR_LOG(SCEAUDIO, "sceVaudioChReserve(%i, %i, %i) - channel already reserved", sampleCount, freq, format);
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	}
+	//resampling from 48000 Hz mp3 to 44100 Hz will lost samples, so we reset the sampleCount for this situation.
+	if (sampleCount == 1152 && freq == 48000){
+		sampleCount = 1058;
+		freq = 44100;
+	}
 	DEBUG_LOG(SCEAUDIO, "sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
 	chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = true;
 	chans[PSP_AUDIO_CHANNEL_VAUDIO].sampleCount = sampleCount;
@@ -56,7 +61,8 @@ u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 	chans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = 0;
 	chans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = 0;
 	vaudioReserved = true;
-	__AudioSetOutputFrequency(freq);
+	// let's ignore freq setting since we want only playing in 44100 Hz
+	//__AudioSetOutputFrequency(freq);
 	return 0;
 }
 

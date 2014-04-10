@@ -250,7 +250,6 @@ void GameSettingsScreen::CreateViews() {
 
 	// Audio Hacks
 	audioSettings->Add(new ItemHeader(gs->T("Audio Hacks")));
-	audioSettings->Add(new CheckBox(&g_Config.bFixSampleRate, gs->T("Mp3 Sample Rate fixed to 44100Hz (fast voice)")));
 	audioSettings->Add(new CheckBox(&g_Config.bFFmpegCallback, gs->T("Fix mp3 loop issues (e.g Miku)")));
 
 	// Control

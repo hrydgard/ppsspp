@@ -149,7 +149,6 @@ public:
 	int iBGMVolume;
 
 	// Sound hack
-	bool bFixSampleRate;
 	bool bFFmpegCallback;
 
 	// UI
