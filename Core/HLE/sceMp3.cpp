@@ -262,9 +262,53 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 
 static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
-
 	int res = 0;
-	while (ctx->bufferAvailable && buf_size) {
+	static int pbufpos = 0;
+	// if we still have available data in mp3Buf
+	if (ctx->bufferAvailable) {
+		// Maximum bytes we can read
+		int to_read = std::min(ctx->bufferAvailable, buf_size - pbufpos);
+
+		// Don't read past the end of mp3Buf if loops
+		to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
+
+		// we will fill the ffmpeg's buffer from the current position
+		memcpy(buf + pbufpos, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
+
+		ctx->bufferRead += to_read;
+		// if mp3Buf is full read, we reset the read position to its begining
+		if (ctx->bufferRead == ctx->mp3BufSize)
+			ctx->bufferRead = 0;
+		ctx->bufferAvailable -= to_read;
+		pbufpos += to_read;
+		// if ffmpeg buffer is full charged, we reset pointer to its begining
+		if (pbufpos == buf_size)
+			pbufpos = 0;
+		res = to_read;
+	} // otherwise, we have no data in mp3Buf
+	else {
+		ctx->bufferRead = 0;
+		ctx->bufferWrite = 0;
+		// if the mp3 file have not been all decoded, we should not stop but continue
+		// we can control the loops here. If the mp3 file has been fully decoded, then return zero to stop loops, return buf_size to continue loops.
+		int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart); // number of time we have looped
+		if (ctx->mp3LoopNum == -1){ // if loop all the time
+			return res == 0 ? buf_size : res; // always looping
+		}
+		else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // if loop more than once
+			return 0; // stop playing immediately when number of loops reached 
+		}
+		else if (ctx->mp3LoopNum == 0 && looped == 0){ // only play once and still not stopped
+			// if res == 0, i.e. we have copied everything from mp3Buff to ffmpeg, but the decoding still not finished (maybe due to latency).
+			// Thus we can not return 0 to stop playing, we must return buf_size until the decoding is finishes (i.e., looped == 1).
+			return res == 0 ? ctx->mp3BufSize : res;
+		}
+	}
+	return res;
+}
+
+	/*
+		while (ctx->bufferAvailable && buf_size) {
 		// Maximum bytes we can read
 		int to_read = std::min(ctx->bufferAvailable, buf_size);
 
@@ -287,37 +331,20 @@ static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 		// we can control the loop times here. If the mp3 file has been fully decoded, then return zero to stop, return buf_size to loop.
 		int looped = ctx->mp3DecodedBytes / (ctx->mp3StreamEnd - ctx->mp3StreamStart);
 		if (ctx->mp3LoopNum == -1){ // loop all the time
-			return buf_size; // always looping
+			return res == 0 ? ctx->mp3BufSize : res; // always looping
 		} 
 		else if (ctx->mp3LoopNum > 0 && ctx->mp3LoopNum - looped < -1){ // loop more than once
-				return res; // playing till the res is 0 
+				return 0; // stop playing immediately when number of loops reached 
 		}
-		else if (ctx->mp3LoopNum == 0 && looped >= 1){ // only loop once
-			return res; // playing till the res is 0
-		}
-		else{
-			return buf_size; // continue playing
+		else if (ctx->mp3LoopNum == 0 && looped == 0){ // only play once and still not stopped
+			// if res == 0, i.e. we have copied everything from mp3Buff to ffmpeg, but the decoding still not finished due to latency.
+			// Thus we can not return 0 to stop playing, we must return buf_size until the decoding is finishes (looped!=0).
+			return res == 0 ? ctx->mp3BufSize : res; 
 		}
 	}
+	*/
 
-#if 0 && defined(_DEBUG)
-	char fileName[256];
-	sprintf(fileName, "out.mp3");
 
-	FILE * file = fopen(fileName, "a+b");
-	if (file) {
-		if (!Memory::IsValidAddress(ctx->mp3Buf)) {
-			ERROR_LOG(ME, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
-		}
-
-		fwrite(buf, 1, res, file);
-
-		fclose(file);
-	}
-#endif
-
-	return res;
-}
 
 u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	DEBUG_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
