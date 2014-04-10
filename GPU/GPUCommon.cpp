@@ -808,21 +808,30 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 				switch (behaviour) {
 				case PSP_GE_SIGNAL_HANDLER_SUSPEND:
+					// Suspend the list, and call the signal handler.  When it's done, resume.
+					// Before sdkver 0x02000010, listsync should return paused.
 					if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
 						currentList->state = PSP_GE_DL_STATE_PAUSED;
 					currentList->signal = behaviour;
 					DEBUG_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_CONTINUE:
+					// Resume the list right away, then call the handler.
 					currentList->signal = behaviour;
 					DEBUG_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_PAUSE:
+					// Pause the list instead of ending at the next FINISH.
+					// Call the handler with the PAUSE signal value at that FINISH.
+					// Technically, this ought to trigger an interrupt, but it won't do anything.
+					// But right now, signal is always reset by interrupts, so that causes pause to not work.
+					trigger = false;
 					currentList->state = PSP_GE_DL_STATE_PAUSED;
 					currentList->signal = behaviour;
 					ERROR_LOG_REPORT(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
+					// Acts as a memory barrier, never calls any user code.
 					// Technically, this ought to trigger an interrupt, but it won't do anything.
 					// Triggering here can cause incorrect rescheduling, which breaks 3rd Birthday.
 					// However, this is likely a bug in how GE signal interrupts are handled.
