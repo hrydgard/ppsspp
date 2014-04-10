@@ -431,7 +431,7 @@ int __Mp3InitContext(Mp3Context *ctx) {
 		// audio hack to fix resampled pcm sample rate to 44100 (for voice speed issue as "Hanayaka Nari Wa ga Ichizoku")
 		want_sample_rate = 44100;
 	}
-	// always convert to PCM S16LE, 44100Hz, stereo
+	// always convert to PCM S16LE, stereo. The sample rate is chosen according audio hack setting on UI.
 	ctx->resampler_context = swr_alloc_set_opts(NULL,
 		AV_CH_LAYOUT_STEREO,
 		AV_SAMPLE_FMT_S16,
