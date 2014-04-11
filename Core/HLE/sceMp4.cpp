@@ -51,8 +51,8 @@ public:
 	~AACCtx(){
 		if (decoder){
 			AudioClose(&decoder);
+			decoder = NULL;
 		}
-		decoder = NULL;
 	};
 
 	void DoState(PointerWrap &p) {
@@ -106,7 +106,6 @@ void __AACDoState(PointerWrap &p) {
 
 u32 sceMp4Init()
 {
-	// nothing to do here
 	INFO_LOG(ME, "sceMp4Init()");
 	return 0;
 }
@@ -220,11 +219,11 @@ u32 sceMp4SearchSyncSampleNum()
 }
 
 
-// sceAAc module start from here
+// sceAac module starts from here
 
 u32 sceAacExit(u32 id)
 {
-	DEBUG_LOG(ME, "sceAacExit(id %i)", id);
+	INFO_LOG(ME, "sceAacExit(id %i)", id);
 	if (aacMap.find(id) != aacMap.end()) {
 		delete aacMap[id];
 		aacMap.erase(id);
@@ -236,9 +235,9 @@ u32 sceAacExit(u32 id)
 	return 0;
 }
 
-u32 sceAacInit(u32 id, u32 unknown1, u32 unknown2, u32 unknown3)
+u32 sceAacInit(u32 id)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit(id %08x, unknown1 %08x, unknown2 %08x, unknown3 %08x)", id, unknown1, unknown2, unknown3);
+	INFO_LOG(ME, "UNIMPL sceAacInit(%08x)", id);
 	if (!Memory::IsValidAddress(id)){
 		ERROR_LOG(ME, "sceAacInit() AAC Invalid id address %08x", id);
 		return ERROR_AAC_INVALID_ADDRESS;
@@ -390,7 +389,7 @@ u32 sceAacSetLoopNum(u32 id, int loop)
 int sceAacCheckStreamDataNeeded(u32 id)
 {
 	// return 1 to read more data stream, 0 don't read, <0 error
-	INFO_LOG(ME, "sceAacCheckStreamDataNeeded(%i)", id);
+	DEBUG_LOG(ME, "sceAacCheckStreamDataNeeded(%i)", id);
 
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
@@ -408,7 +407,7 @@ int sceAacCheckStreamDataNeeded(u32 id)
 u32 sceAacNotifyAddStreamData(u32 id, int size)
 {
 	// check how many bytes we have read from source file
-	INFO_LOG(ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
+	DEBUG_LOG(ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
 
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
@@ -435,7 +434,7 @@ u32 sceAacNotifyAddStreamData(u32 id, int size)
 u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 {
 	// read from stream position srcPos of size bytes into buff
-	INFO_LOG(ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
+	DEBUG_LOG(ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
 
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
@@ -536,7 +535,7 @@ const HLEFunction sceMp4[] =
 
 // 395
 const HLEFunction sceAac[] = {
-	{0xE0C89ACA, WrapU_UUUU<sceAacInit>, "sceAacInit"},
+	{0xE0C89ACA, WrapU_U<sceAacInit>, "sceAacInit"},
 	{0x33B8C009, WrapU_U<sceAacExit>, "sceAacExit"},
 	{0x5CFFC57C, WrapU_U<sceAacInitResource>, "sceAacInitResource"},
 	{0x23D35CAE, WrapU_V<sceAacTermResource>, "sceAacTermResource"},
