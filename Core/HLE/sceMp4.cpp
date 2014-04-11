@@ -271,7 +271,7 @@ u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
-	WARN_LOG(ME, "startPos %x endPos %x AACbuf %08x AACbufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
+	DEBUG_LOG(ME, "startPos %x endPos %x AACbuf %08x AACbufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
 		aac->startPos, aac->endPos, aac->AACBuf, aac->AACBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
 
 	aac->Channels = 2;
@@ -364,7 +364,7 @@ u32 sceAacDecode(u32 id, u32 pcmAddr)
 
 u32 sceAacGetLoopNum(u32 id)
 {
-	DEBUG_LOG(ME, "sceAacGetLoopNum(id %i)", id);
+	INFO_LOG(ME, "sceAacGetLoopNum(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
@@ -375,7 +375,7 @@ u32 sceAacGetLoopNum(u32 id)
 
 u32 sceAacSetLoopNum(u32 id, int loop)
 {
-	DEBUG_LOG(ME, "sceAacSetLoopNum(id %i,loop %d)", id,loop);
+	INFO_LOG(ME, "sceAacSetLoopNum(id %i,loop %d)", id, loop);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
@@ -442,7 +442,7 @@ u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 		return -1;
 	}
 
-	// we can recharge aacBuf from its begining, and all aacBuf will be copied into frames
+	// we can recharge aacBuf from its begining
 	if (Memory::IsValidAddress(buff))
 		Memory::Write_U32(ctx->AACBuf, buff);
 	if (Memory::IsValidAddress(size))
@@ -479,7 +479,7 @@ u32 sceAacGetSumDecodedSample(u32 id)
 
 u32 sceAacResetPlayPosition(u32 id)
 {
-	DEBUG_LOG(ME, "sceAacResetPlayPosition(id %i)", id);
+	INFO_LOG(ME, "sceAacResetPlayPosition(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
