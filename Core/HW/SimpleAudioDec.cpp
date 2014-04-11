@@ -60,7 +60,7 @@ bool SimpleAudio::GetAudioCodecID(int audioType){
 }
 
 SimpleAudio::SimpleAudio(int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType){
+: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0){
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
@@ -102,7 +102,7 @@ SimpleAudio::SimpleAudio(int audioType)
 
 
 SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType){
+: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0){
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
@@ -148,10 +148,9 @@ SimpleAudio::~SimpleAudio() {
 		av_frame_free(&frame_);
 	if (codecCtx_)
 		avcodec_close(codecCtx_);
+	frame_ = 0;
 	codecCtx_ = 0;
 	codec_ = 0;
-	if (swrCtx_)
-		swr_free(&swrCtx_);
 #endif  // USE_FFMPEG
 }
 
@@ -169,16 +168,23 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	av_init_packet(&packet);
 	packet.data = static_cast<uint8_t *>(inbuf);
 	packet.size = inbytes;
-
+	
 	int got_frame = 0;
 	av_frame_unref(frame_);
 	
+	*outbytes = 0;
+	srcPos = 0;
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {
 		ERROR_LOG(ME, "Error decoding Audio frame");
 		// TODO: cleanup
 		return false;
 	}
+	av_free_packet(&packet);
+
+	// get bytes consumed in source
+	srcPos = len;
+
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
 		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
@@ -209,7 +215,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		}
 		swr_free(&swrCtx_);
 		// output samples per frame, we should *2 since we have two channels
-		int outSamples = swrRet * 2;
+		outSamples = swrRet * 2;
 
 		// each sample occupies 2 bytes
 		*outbytes = outSamples * 2;
@@ -225,6 +231,14 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	*outbytes = 0;
 	return true;
 #endif  // USE_FFMPEG
+}
+
+int SimpleAudio::getOutSamples(){
+	return outSamples;
+}
+
+int SimpleAudio::getSourcePos(){
+	return srcPos;
 }
 
 void AudioClose(SimpleAudio **ctx) {

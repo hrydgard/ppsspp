@@ -51,9 +51,13 @@ public:
 
 	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
 	bool IsOK() const { return codec_ != 0; }
+	int getOutSamples();
+	int getSourcePos();
 
 	u32 ctxPtr;
 	int audioType;
+	int outSamples; // output samples per frame
+	int srcPos; // source position after decode 
 
 private:
 #ifdef USE_FFMPEG
