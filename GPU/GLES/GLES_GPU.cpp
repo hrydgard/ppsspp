@@ -1581,12 +1581,6 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 #endif
 
 	case GE_CMD_TEXLEVEL:
-#ifndef MOBILE_DEVICE
-		if (data == 1)
-			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
-		else if (data != 0)
-			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
-#endif
 		if (diff)
 			gstate_c.textureChanged = true;
 		break;
