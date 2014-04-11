@@ -21,6 +21,7 @@
 
 #include "base/basictypes.h"
 #include "Core/HW/MediaEngine.h"
+#include "Core/HLE/sceAudio.h"
 
 #ifdef USE_FFMPEG
 
@@ -53,11 +54,14 @@ public:
 	bool IsOK() const { return codec_ != 0; }
 	int getOutSamples();
 	int getSourcePos();
+	bool ResetCodecCtx(int channels, int samplerate);
+	void setResampleFrequency(int freq);
 
 	u32 ctxPtr;
 	int audioType;
 	int outSamples; // output samples per frame
 	int srcPos; // source position after decode 
+	int wanted_resample_freq; // wanted resampling rate/frequency
 
 private:
 #ifdef USE_FFMPEG
@@ -108,6 +112,7 @@ public:
 	int BitRate;
 	int SamplingRate;
 	int Channels;
+	int Version;
 
 	// audio settings
 	u32 SumDecodedSamples;
@@ -147,6 +152,7 @@ public:
 	int sceAuGetBitRate();
 	int sceAuGetSamplingRate();
 	u32 sceAuResetPlayPositionByFrame(int position);
+	int sceAuGetVersion();
 
 	void DoState(PointerWrap &p) {
 		auto s = p.Section("AuContext", 1);

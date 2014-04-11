@@ -27,22 +27,6 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
-static const int ID3 = 0x49443300;
-
-#ifdef USE_FFMPEG
-#ifndef PRId64
-#define PRId64  "%llu" 
-#endif
-
-extern "C" {
-#include <libavutil/opt.h>
-#include <libavformat/avformat.h>
-//#include <libavutil/timestamp.h>     // iOS build is not happy with this one.
-#include <libswresample/swresample.h>
-#include <libavutil/samplefmt.h>
-}
-#endif
-
 static std::map<u32, AuCtx *> mp3Map;
 
 AuCtx *getMp3Ctx(u32 mp3) {
@@ -121,6 +105,7 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	DEBUG_LOG(ME, "startPos %x endPos %x mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
 		Au->startPos, Au->endPos, Au->AuBuf, Au->AuBufSize, Au->PCMBuf, Au->PCMBufSize);
 
+	Au->audioType = PSP_CODEC_MP3;
 	Au->Channels = 2;
 	Au->SumDecodedSamples = 0;
 	Au->MaxOutputSample = Au->PCMBufSize / 4;
@@ -130,7 +115,7 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	Au->readPos = Au->startPos;
 
 	// create Au decoder
-	Au->decoder = new SimpleAudio(PSP_CODEC_MP3);
+	Au->decoder = new SimpleAudio(Au->audioType);
 
 	// close the audio if mp3Addr already exist.
 	if (mp3Map.find(mp3Addr) != mp3Map.end()) {
@@ -155,6 +140,86 @@ int sceMp3TermResource() {
 	return 0;
 }
 
+int __CalculateMp3Channels(int bitval) {
+	if (bitval == 0 || bitval == 1 || bitval == 2) { // Stereo / Joint Stereo / Dual Channel.
+		return 2;
+	}
+	else if (bitval == 3) { // Mono.
+		return 1;
+	}
+	else {
+		return -1;
+	}
+}
+
+int __CalculateMp3SampleRates(int bitval, int mp3version) {
+	if (mp3version == 3) { // MPEG Version 1
+		int valuemapping[] = { 44100, 48000, 32000, -1 };
+		return valuemapping[bitval];
+	}
+	else if (mp3version == 2) { // MPEG Version 2
+		int valuemapping[] = { 22050, 24000, 16000, -1 };
+		return valuemapping[bitval];
+	}
+	else if (mp3version == 0) { // MPEG Version 2.5
+		int valuemapping[] = { 11025, 12000, 8000, -1 };
+		return valuemapping[bitval];
+	}
+	else {
+		return -1;
+	}
+}
+
+int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
+	if (mp3version == 3) { // MPEG Version 1
+		if (mp3layer == 3) { // Layer I
+			int valuemapping[] = { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1 };
+			return valuemapping[bitval];
+		}
+		else if (mp3layer == 2) { // Layer II
+			int valuemapping[] = { 0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, -1 };
+			return valuemapping[bitval];
+		}
+		else if (mp3layer == 1) { // Layer III
+			int valuemapping[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1 };
+			return valuemapping[bitval];
+		}
+		else {
+			return -1;
+		}
+	}
+	else if (mp3version == 2 || mp3version == 0) { // MPEG Version 2 or 2.5
+		if (mp3layer == 3) { // Layer I
+			int valuemapping[] = { 0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, -1 };
+			return valuemapping[bitval];
+		}
+		else if (mp3layer == 1 || mp3layer == 2) { // Layer II or III
+			int valuemapping[] = { 0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, -1 };
+			return valuemapping[bitval];
+		}
+		else {
+			return -1;
+		}
+	}
+	else {
+		return -1;
+	}
+}
+
+int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
+	int header = bswap32(Memory::Read_U32(ctx->AuBuf));
+	// ID3 tag , can be seen in Hanayaka Nari Wa ga Ichizoku.
+	static const int ID3 = 0x49443300;
+	if ((header & 0xFFFFFF00) == ID3) {
+		*isID3 = true;
+		int size = bswap32(Memory::Read_U32(ctx->AuBuf + ctx->startPos + 6));
+		// Highest bit of each byte has to be ignored (format: 0x7F7F7F7F)
+		size = (size & 0x7F) | ((size & 0x7F00) >> 1) | ((size & 0x7F0000) >> 2) | ((size & 0x7F000000) >> 3);
+		header = bswap32(Memory::Read_U32(ctx->AuBuf + ctx->startPos + 10 + size));
+	}
+	return header;
+}
+
 int sceMp3Init(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
 
@@ -164,12 +229,35 @@ int sceMp3Init(u32 mp3) {
 		return -1;
 	}
 
-	// TODO
-	// if startPos == 0, we have to read the header part of mp3 and get some information
-	// and move startPos to stream data position. Decode from header will not success.
-	if (ctx->startPos == 0){
-		
-		
+	// Parse the Mp3 header
+	bool isID3 = false;
+	int header = __ParseMp3Header(ctx, &isID3);
+	int layer = (header >> 17) & 0x3;
+	ctx->Version = ((header >> 19) & 0x3);
+	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, ctx->Version);
+	ctx->Channels = __CalculateMp3Channels((header >> 6) & 0x3);
+	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, ctx->Version, layer);
+	ctx->freq = ctx->SamplingRate;
+
+	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+
+	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
+	if (ctx->freq == 48000){
+		ctx->decoder->setResampleFrequency(ctx->freq);
+	}
+
+	// For mp3 file, if ID3 tag is detected, we must move startPos and writePos to 0x400 (stream start position), and reduce the available buffer size by 0x400
+	// this is very important for ID3 tag mp3, since our universal audio decoder is for decoding stream part only.
+	if (isID3){
+		// if get ID3 tage, we will decode from 0x400
+		ctx->startPos = 0x400;
+		ctx->writePos = 0x400;
+		ctx->AuBufAvailable -= 0x400;
+	}
+	else{
+		// if no ID3 tag, we will decode from the begining of the file
+		ctx->startPos = 0;
+		ctx->writePos = 0;
 	}
 
 	return 0;
@@ -199,7 +287,7 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
+	DEBUG_LOG_REPORT(ME, "sceMp3GetSumDecodedSample(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -288,7 +376,6 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 		return -1;
 	}
 
-
 	delete ctx;
 	mp3Map.erase(mp3);
 
@@ -311,14 +398,14 @@ u32 sceMp3GetFrameNum(u32 mp3) {
 }
 
 u32 sceMp3GetMPEGVersion(u32 mp3) {
-	ERROR_LOG(ME, "UNIMPL sceMp3GetMPEGVersion(%08x)", mp3);
+	INFO_LOG(ME, "sceMp3GetMPEGVersion(%08x)", mp3);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
-	return 0;
+	return ctx->sceAuGetVersion();
 }
 
 u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {

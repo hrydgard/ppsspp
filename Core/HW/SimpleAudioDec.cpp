@@ -61,7 +61,7 @@ bool SimpleAudio::GetAudioCodecID(int audioType){
 }
 
 SimpleAudio::SimpleAudio(int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0){
+: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0), wanted_resample_freq(44100){
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
@@ -103,7 +103,7 @@ SimpleAudio::SimpleAudio(int audioType)
 
 
 SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0){
+: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0), wanted_resample_freq(44100){
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
@@ -136,11 +136,41 @@ SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
 	AVDictionary *opts = 0;
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
 		ERROR_LOG(ME, "Failed to open codec");
+		av_dict_free(&opts);
 		return;
 	}
 
 	av_dict_free(&opts);
 #endif  // USE_FFMPEG
+}
+
+bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
+#ifdef USE_FFMPEG
+	if (codecCtx_)
+		avcodec_close(codecCtx_);
+
+	// Find decoder
+	codec_ = avcodec_find_decoder(audioCodecId);
+	if (!codec_) {
+		// Eh, we shouldn't even have managed to compile. But meh.
+		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
+		return false;
+	}
+
+	codecCtx_->channels = channels;
+	codecCtx_->channel_layout = channels==2?AV_CH_LAYOUT_STEREO:AV_CH_LAYOUT_MONO;
+	codecCtx_->sample_rate = samplerate;
+	// Open codec
+	AVDictionary *opts = 0;
+	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
+		ERROR_LOG(ME, "Failed to open codec");
+		av_dict_free(&opts);
+		return false;
+	}
+	av_dict_free(&opts);
+	return true;
+#endif
+	return false;
 }
 
 SimpleAudio::~SimpleAudio() {
@@ -195,7 +225,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 			swrCtx_,
 			wanted_channel_layout,
 			AV_SAMPLE_FMT_S16,
-			44100,
+			wanted_resample_freq,
 			dec_channel_layout,
 			codecCtx_->sample_fmt,
 			codecCtx_->sample_rate,
@@ -242,6 +272,10 @@ int SimpleAudio::getSourcePos(){
 	return srcPos;
 }
 
+void SimpleAudio::setResampleFrequency(int freq){
+	wanted_resample_freq = freq;
+}
+
 void AudioClose(SimpleAudio **ctx) {
 #ifdef USE_FFMPEG
 	delete *ctx;
@@ -269,7 +303,6 @@ u32 AuCtx::sceAuDecode(u32 pcmAddr)
 
 	auto inbuff = Memory::GetPointer(AuBuf);
 	auto outbuf = Memory::GetPointer(PCMBuf);
-	memset(outbuf, 0, PCMBufSize);
 	u32 outpcmbufsize = 0;
 
 	// move inbuff to writePos of buffer
@@ -287,7 +320,6 @@ u32 AuCtx::sceAuDecode(u32 pcmAddr)
 				readPos -= AuBufAvailable;
 			}
 			AuBufAvailable = 0;
-			//break;
 		}
 		// count total output pcm size 
 		outpcmbufsize += pcmframesize;
@@ -306,60 +338,17 @@ u32 AuCtx::sceAuDecode(u32 pcmAddr)
 
 	Memory::Write_U32(PCMBuf, pcmAddr);
 
-	return outpcmbufsize;
-}
-
-/*
-// return output pcm size, <0 error
-u32 AuCtx::sceAuDecode(u32 pcmAddr)
-{
-	if (!Memory::IsValidAddress(pcmAddr)){
-		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
-		return -1;
+	// if we got zero pcm, and we still haven't reach endPos. 
+	// some game like "Miku" will stop playing if we return 0, but some others will recharge buffer.
+	// so we did a hack here, clear output buff and just return a nonzero value to continue 
+	if (outpcmbufsize == 0 && readPos < endPos){
+		// clear output buffer will avoid noise
+		memset(outbuf, 0, PCMBufSize);
+		return FF_INPUT_BUFFER_PADDING_SIZE; // return a padding size seems very good and almost unsensible latency.
 	}
-
-	auto inbuff = Memory::GetPointer(AuBuf);
-	auto outbuf = Memory::GetPointer(PCMBuf);
-	memset(outbuf, 0, PCMBufSize);
-	u32 outpcmbufsize = 0;
-
-	// move inbuff to writePos of buffer
-	inbuff += writePos;
-
-	// decode frames in AuBuf and output into PCMBuf if it is not exceed
-	if (AuBufAvailable > 0 && outpcmbufsize < PCMBufSize){
-		int pcmframesize;
-		// decode
-		decoder->Decode(inbuff, AuBufAvailable, outbuf, &pcmframesize);
-		if (pcmframesize == 0){
-			// no output pcm, we have either no data or no enough data to decode
-			// move back audio source readPos to the begin of the last incomplete frame if we not start looping and reset available AuBuf
-			if (readPos > startPos) { // this means we are not begin to loop yet
-				readPos -= AuBufAvailable;
-			}
-			AuBufAvailable = 0;
-			//break;
-		}
-		// count total output pcm size 
-		outpcmbufsize += pcmframesize;
-		// count total output samples
-		SumDecodedSamples += decoder->getOutSamples();
-		// move inbuff position to next frame
-		int srcPos = decoder->getSourcePos();
-		inbuff += srcPos;
-		// decrease available AuBuf
-		AuBufAvailable -= srcPos;
-		// modify the writePos value
-		writePos += srcPos;
-		// move outbuff position to the current end of output 
-		outbuf += pcmframesize;
-	}
-
-	Memory::Write_U32(PCMBuf, pcmAddr);
 
 	return outpcmbufsize;
 }
-*/
 
 u32 AuCtx::sceAuGetLoopNum()
 {
@@ -446,4 +435,8 @@ int AuCtx::sceAuGetSamplingRate(){
 u32 AuCtx::sceAuResetPlayPositionByFrame(int position){
 	readPos = position;
 	return 0;
+}
+
+int AuCtx::sceAuGetVersion(){
+	return Version;
 }
