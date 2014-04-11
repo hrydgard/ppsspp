@@ -344,7 +344,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 }
 
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	INFO_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
+	DEBUG_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -356,7 +356,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 }
 
 int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	INFO_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+	DEBUG_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {

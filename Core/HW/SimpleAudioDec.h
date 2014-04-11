@@ -60,7 +60,7 @@ public:
 	u32 ctxPtr;
 	int audioType;
 	int outSamples; // output samples per frame
-	int srcPos; // source position after decode 
+	int srcPos; // bytes consumed in source during the last decoding
 	int wanted_resample_freq; // wanted resampling rate/frequency
 
 private:
@@ -155,7 +155,7 @@ public:
 	int sceAuGetVersion();
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("AuContext", 1);
+		auto s = p.Section("AuContext", 0, 1);
 		if (!s)
 			return;
 

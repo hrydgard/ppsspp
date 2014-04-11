@@ -69,7 +69,7 @@ SimpleAudio::SimpleAudio(int audioType)
 
 	frame_ = av_frame_alloc();
 
-	// Get Audio Codec ctx
+	// Get Audio Codec ID
 	if (!GetAudioCodecID(audioType)){
 		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
 		return;
@@ -78,7 +78,7 @@ SimpleAudio::SimpleAudio(int audioType)
 	codec_ = avcodec_find_decoder(audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
+		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID for audio (%s). Update your submodule.", GetCodecName(audioType));
 		return;
 	}
 	// Allocate codec context
@@ -204,17 +204,13 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	av_frame_unref(frame_);
 
 	*outbytes = 0;
-	srcPos = 0;
-	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
-	if (len < 0) {
+	srcPos = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
+	if (srcPos < 0) {
 		ERROR_LOG(ME, "Error decoding Audio frame");
 		// TODO: cleanup
 		return false;
 	}
 	av_free_packet(&packet);
-
-	// get bytes consumed in source
-	srcPos = len;
 
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
