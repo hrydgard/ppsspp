@@ -1316,7 +1316,7 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_EXIT:
-					DestroyWindow(hWnd);
+					PostMessage(hwndMain, WM_CLOSE, 0, 0);
 					break;
 
 				case ID_DEBUG_RUNONLOAD:
