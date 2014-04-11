@@ -251,12 +251,12 @@ u32 sceAacInit(u32 id)
 	aac->PCMBufSize = Memory::Read_U32(id + 28);        // Output PCM data buffer size.
 	aac->freq = Memory::Read_U32(id + 32);              // Frequency.
 	if (aac->AACBuf == 0 || aac->PCMBuf == 0) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS %08x", aac->AACBuf);
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS AACBuf %08x PCMBuf %08x", aac->AACBuf, aac->PCMBuf);
 		delete aac;
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 	if (aac->startPos < 0 || aac->startPos > aac->endPos) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %i", aac->startPos);
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %i endPos %i", aac->startPos, aac->endPos);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
