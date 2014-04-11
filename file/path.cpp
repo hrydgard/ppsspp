@@ -39,9 +39,6 @@ void PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 
 // TODO: Support paths like "../../hello"
 void PathBrowser::Navigate(const std::string &path) {
-	if (path[0] == '!')
-		return;
-
 	if (path == ".")
 		return;
 	if (path == "..") {
