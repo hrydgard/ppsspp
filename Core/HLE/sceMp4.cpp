@@ -442,7 +442,7 @@ u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 		return -1;
 	}
 
-	// we can recharge aacBuf from its begining, and all aacBuf will be copied into frames
+	// we can recharge aacBuf from its begining
 	if (Memory::IsValidAddress(buff))
 		Memory::Write_U32(ctx->AACBuf, buff);
 	if (Memory::IsValidAddress(size))
