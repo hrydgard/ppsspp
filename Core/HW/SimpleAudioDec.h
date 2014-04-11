@@ -51,9 +51,13 @@ public:
 
 	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
 	bool IsOK() const { return codec_ != 0; }
+	int getOutSamples();
+	int getSourcePos();
 
 	u32 ctxPtr;
 	int audioType;
+	int outSamples; // output samples per frame
+	int srcPos; // source position after decode 
 
 private:
 #ifdef USE_FFMPEG
@@ -67,7 +71,7 @@ private:
 #endif  // USE_FFMPEG
 };
 
-
+// audioType
 enum {
 	PSP_CODEC_AT3PLUS = 0x00001000,
 	PSP_CODEC_AT3 = 0x00001001,
@@ -89,3 +93,90 @@ static const char *GetCodecName(int codec) {
 	}
 };
 bool isValidCodec(int codec);
+
+
+class AuCtx{
+public:
+	// Au source informations
+	u64 startPos;
+	u64 endPos;
+	u32 AuBuf;
+	u32 AuBufSize;
+	u32 PCMBuf;
+	u32 PCMBufSize;
+	int freq;
+	int BitRate;
+	int SamplingRate;
+	int Channels;
+
+	// audio settings
+	u32 SumDecodedSamples;
+	int LoopNum;
+	u32 MaxOutputSample;
+	
+	// Au decoder
+	SimpleAudio *decoder;
+
+	// Au type
+	int audioType;
+
+	// buffers informations
+	int AuBufAvailable; // the available buffer of AuBuf to be able to recharge data
+	int readPos; // read position in audio source file
+	int writePos; // write position in AuBuf, i.e. the size of bytes decoded in AuBuf.
+
+	AuCtx() :decoder(NULL){};
+	~AuCtx(){
+		if (decoder){
+			AudioClose(&decoder);
+			decoder = NULL;
+		}
+	};
+
+	u32 sceAuExit();
+	u32 sceAuDecode(u32 pcmAddr);
+	u32 sceAuGetLoopNum();
+	u32 sceAuSetLoopNum(int loop);
+	int sceAuCheckStreamDataNeeded();
+	u32 sceAuNotifyAddStreamData(int size);
+	u32 sceAuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos);
+	u32 sceAuGetMaxOutputSample();
+	u32 sceAuGetSumDecodedSample();
+	u32 sceAuResetPlayPosition();
+	int sceAuGetChannelNum();
+	int sceAuGetBitRate();
+	int sceAuGetSamplingRate();
+	u32 sceAuResetPlayPositionByFrame(int position);
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("AuContext", 1);
+		if (!s)
+			return;
+
+		p.Do(startPos);
+		p.Do(endPos);
+		p.Do(AuBuf);
+		p.Do(AuBufSize);
+		p.Do(PCMBuf);
+		p.Do(PCMBufSize);
+		p.Do(freq);
+		p.Do(SumDecodedSamples);
+		p.Do(LoopNum);
+		p.Do(Channels);
+		p.Do(MaxOutputSample);
+		p.Do(AuBufAvailable);
+		p.Do(readPos);
+		p.Do(writePos);
+		p.Do(audioType);
+		p.Do(BitRate);
+		p.Do(SamplingRate);
+
+		if (p.mode == p.MODE_READ){
+			decoder = new SimpleAudio(audioType);
+		}
+	};
+};
+
+
+
+

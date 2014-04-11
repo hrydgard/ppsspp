@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
@@ -31,7 +32,7 @@ extern "C" {
 
 bool SimpleAudio::GetAudioCodecID(int audioType){
 #ifdef USE_FFMPEG
-	
+
 	switch (audioType)
 	{
 	case PSP_CODEC_AAC:
@@ -60,15 +61,15 @@ bool SimpleAudio::GetAudioCodecID(int audioType){
 }
 
 SimpleAudio::SimpleAudio(int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType){
+: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0){
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
 	InitFFmpeg();
-	
+
 	frame_ = av_frame_alloc();
 
-	// Get Audio Codec ID
+	// Get Audio Codec ctx
 	if (!GetAudioCodecID(audioType)){
 		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
 		return;
@@ -77,7 +78,7 @@ SimpleAudio::SimpleAudio(int audioType)
 	codec_ = avcodec_find_decoder(audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID for audio (%s). Update your submodule.", GetCodecName(audioType));
+		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
 		return;
 	}
 	// Allocate codec context
@@ -102,7 +103,7 @@ SimpleAudio::SimpleAudio(int audioType)
 
 
 SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType){
+: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0){
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
@@ -110,7 +111,7 @@ SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
 
 	frame_ = av_frame_alloc();
 
-	// Get Audio Codec ID
+	// Get Audio Codec ctx
 	if (!GetAudioCodecID(audioType)){
 		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
 		return;
@@ -119,7 +120,7 @@ SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
 	codec_ = avcodec_find_decoder(audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID for audio (%s). Update your submodule.",GetCodecName(audioType));
+		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
 		return;
 	}
 	// Allocate codec context
@@ -148,10 +149,9 @@ SimpleAudio::~SimpleAudio() {
 		av_frame_free(&frame_);
 	if (codecCtx_)
 		avcodec_close(codecCtx_);
+	frame_ = 0;
 	codecCtx_ = 0;
 	codec_ = 0;
-	if (swrCtx_)
-		swr_free(&swrCtx_);
 #endif  // USE_FFMPEG
 }
 
@@ -172,13 +172,20 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 
 	int got_frame = 0;
 	av_frame_unref(frame_);
-	
+
+	*outbytes = 0;
+	srcPos = 0;
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {
 		ERROR_LOG(ME, "Error decoding Audio frame");
 		// TODO: cleanup
 		return false;
 	}
+	av_free_packet(&packet);
+
+	// get bytes consumed in source
+	srcPos = len;
+
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
 		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
@@ -209,7 +216,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		}
 		swr_free(&swrCtx_);
 		// output samples per frame, we should *2 since we have two channels
-		int outSamples = swrRet * 2;
+		outSamples = swrRet * 2;
 
 		// each sample occupies 2 bytes
 		*outbytes = outSamples * 2;
@@ -227,6 +234,14 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 #endif  // USE_FFMPEG
 }
 
+int SimpleAudio::getOutSamples(){
+	return outSamples;
+}
+
+int SimpleAudio::getSourcePos(){
+	return srcPos;
+}
+
 void AudioClose(SimpleAudio **ctx) {
 #ifdef USE_FFMPEG
 	delete *ctx;
@@ -241,3 +256,194 @@ bool isValidCodec(int codec){
 	return false;
 }
 
+
+// sceAu module starts from here
+
+// return output pcm size, <0 error
+u32 AuCtx::sceAuDecode(u32 pcmAddr)
+{
+	if (!Memory::IsValidAddress(pcmAddr)){
+		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
+		return -1;
+	}
+
+	auto inbuff = Memory::GetPointer(AuBuf);
+	auto outbuf = Memory::GetPointer(PCMBuf);
+	memset(outbuf, 0, PCMBufSize);
+	u32 outpcmbufsize = 0;
+
+	// move inbuff to writePos of buffer
+	inbuff += writePos;
+
+	// decode frames in AuBuf and output into PCMBuf if it is not exceed
+	if (AuBufAvailable > 0 && outpcmbufsize < PCMBufSize){
+		int pcmframesize;
+		// decode
+		decoder->Decode(inbuff, AuBufAvailable, outbuf, &pcmframesize);
+		if (pcmframesize == 0){
+			// no output pcm, we have either no data or no enough data to decode
+			// move back audio source readPos to the begin of the last incomplete frame if we not start looping and reset available AuBuf
+			if (readPos > startPos) { // this means we are not begin to loop yet
+				readPos -= AuBufAvailable;
+			}
+			AuBufAvailable = 0;
+			//break;
+		}
+		// count total output pcm size 
+		outpcmbufsize += pcmframesize;
+		// count total output samples
+		SumDecodedSamples += decoder->getOutSamples();
+		// move inbuff position to next frame
+		int srcPos = decoder->getSourcePos();
+		inbuff += srcPos;
+		// decrease available AuBuf
+		AuBufAvailable -= srcPos;
+		// modify the writePos value
+		writePos += srcPos;
+		// move outbuff position to the current end of output 
+		outbuf += pcmframesize;
+	}
+
+	Memory::Write_U32(PCMBuf, pcmAddr);
+
+	return outpcmbufsize;
+}
+
+/*
+// return output pcm size, <0 error
+u32 AuCtx::sceAuDecode(u32 pcmAddr)
+{
+	if (!Memory::IsValidAddress(pcmAddr)){
+		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
+		return -1;
+	}
+
+	auto inbuff = Memory::GetPointer(AuBuf);
+	auto outbuf = Memory::GetPointer(PCMBuf);
+	memset(outbuf, 0, PCMBufSize);
+	u32 outpcmbufsize = 0;
+
+	// move inbuff to writePos of buffer
+	inbuff += writePos;
+
+	// decode frames in AuBuf and output into PCMBuf if it is not exceed
+	if (AuBufAvailable > 0 && outpcmbufsize < PCMBufSize){
+		int pcmframesize;
+		// decode
+		decoder->Decode(inbuff, AuBufAvailable, outbuf, &pcmframesize);
+		if (pcmframesize == 0){
+			// no output pcm, we have either no data or no enough data to decode
+			// move back audio source readPos to the begin of the last incomplete frame if we not start looping and reset available AuBuf
+			if (readPos > startPos) { // this means we are not begin to loop yet
+				readPos -= AuBufAvailable;
+			}
+			AuBufAvailable = 0;
+			//break;
+		}
+		// count total output pcm size 
+		outpcmbufsize += pcmframesize;
+		// count total output samples
+		SumDecodedSamples += decoder->getOutSamples();
+		// move inbuff position to next frame
+		int srcPos = decoder->getSourcePos();
+		inbuff += srcPos;
+		// decrease available AuBuf
+		AuBufAvailable -= srcPos;
+		// modify the writePos value
+		writePos += srcPos;
+		// move outbuff position to the current end of output 
+		outbuf += pcmframesize;
+	}
+
+	Memory::Write_U32(PCMBuf, pcmAddr);
+
+	return outpcmbufsize;
+}
+*/
+
+u32 AuCtx::sceAuGetLoopNum()
+{
+	return LoopNum;
+}
+
+u32 AuCtx::sceAuSetLoopNum(int loop)
+{
+	LoopNum = loop;
+	return 0;
+}
+
+// return 1 to read more data stream, 0 don't read
+int AuCtx::sceAuCheckStreamDataNeeded()
+{
+	// if we have no available Au buffer, and the current read position in source file is not the end of stream, then we can read
+	if (AuBufAvailable == 0 && readPos < endPos){
+		return 1;
+	}
+	return 0;
+}
+
+// check how many bytes we have read from source file
+u32 AuCtx::sceAuNotifyAddStreamData(int size)
+{
+	readPos += size;
+	AuBufAvailable += size;
+	writePos = 0;
+
+	if (readPos >= endPos && LoopNum != 0){
+		// if we need loop, reset readPos
+		readPos = startPos;
+		// reset LoopNum
+		if (LoopNum > 0){
+			LoopNum--;
+		}
+	}
+
+	return 0;
+}
+
+// read from stream position srcPos of size bytes into buff
+u32 AuCtx::sceAuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
+{
+	// we can recharge AuBuf from its begining
+	if (Memory::IsValidAddress(buff))
+		Memory::Write_U32(AuBuf, buff);
+	if (Memory::IsValidAddress(size))
+		Memory::Write_U32(AuBufSize, size);
+	if (Memory::IsValidAddress(srcPos))
+		Memory::Write_U32(readPos, srcPos);
+
+	return 0;
+}
+
+u32 AuCtx::sceAuGetMaxOutputSample()
+{
+	return MaxOutputSample;
+}
+
+u32 AuCtx::sceAuGetSumDecodedSample()
+{
+	return SumDecodedSamples;
+}
+
+u32 AuCtx::sceAuResetPlayPosition()
+{
+	readPos = startPos;
+	return 0;
+}
+
+int AuCtx::sceAuGetChannelNum(){
+	return Channels;
+}
+
+int AuCtx::sceAuGetBitRate(){
+	return BitRate;
+}
+
+int AuCtx::sceAuGetSamplingRate(){
+	return SamplingRate;
+}
+
+u32 AuCtx::sceAuResetPlayPositionByFrame(int position){
+	readPos = position;
+	return 0;
+}
