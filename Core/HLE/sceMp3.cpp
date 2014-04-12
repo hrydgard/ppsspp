@@ -197,7 +197,6 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	Au->MaxOutputSample = Au->PCMBufSize / 4;
 	Au->LoopNum = -1;
 	Au->AuBufAvailable = 0;
-	Au->MaxOutputSample = 0;
 	Au->readPos = Au->startPos;
 
 	// create Au decoder
