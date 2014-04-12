@@ -933,6 +933,11 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 	} else if (result >= 0) {
 		DEBUG_LOG(SCEIO, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
 		if (__KernelIsDispatchEnabled()) {
+			// If we wrote to stdout, return an error (even though we did log it) rather than delaying.
+			// On actual hardware, it would just return this... we just want the log output.
+			if (__IsInInterrupt()) {
+				return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			}
 			return hleDelayResult(result, "io write", us);
 		} else {
 			return result;
