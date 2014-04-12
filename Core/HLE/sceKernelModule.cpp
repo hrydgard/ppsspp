@@ -212,7 +212,7 @@ enum NativeModuleStatus {
 
 class Module : public KernelObject {
 public:
-	Module() : memoryBlockAddr(0), isFake(false) {}
+	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
