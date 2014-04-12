@@ -823,7 +823,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					// But right now, signal is always reset by interrupts, so that causes pause to not work.
 					trigger = false;
 					currentList->signal = behaviour;
-					ERROR_LOG_REPORT(G3D, "Signal with Pause. signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Pause. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
 					// Acts as a memory barrier, never calls any user code.
