@@ -330,9 +330,6 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 		return SCE_KERNEL_ERROR_ALREADY;
 
 	dl.stall = newstall & 0x0FFFFFFF;
-
-	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 	
 	guard.unlock();
 	ProcessDLQueue();
@@ -349,8 +346,8 @@ u32 GPUCommon::Continue() {
 	{
 		if (!isbreak)
 		{
-			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-				return 0x80000021;
+			// TODO: Supposedly this returns SCE_KERNEL_ERROR_BUSY in some case, previously it had
+			// currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE, but it doesn't reproduce.
 
 			currentList->state = PSP_GE_DL_STATE_RUNNING;
 			currentList->signal = PSP_GE_SIGNAL_NONE;
@@ -457,9 +454,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	easy_guard guard(listLock);
 
-	// TODO: This has to be right... but it freezes right now?
-	//if (list.state == PSP_GE_DL_STATE_PAUSED)
-	//	return false;
+	if (list.state == PSP_GE_DL_STATE_PAUSED)
+		return false;
 	currentList = &list;
 
 	if (!list.started && list.context.IsValid()) {
@@ -813,7 +809,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
 						currentList->state = PSP_GE_DL_STATE_PAUSED;
 					currentList->signal = behaviour;
-					DEBUG_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_CONTINUE:
 					// Resume the list right away, then call the handler.
@@ -826,9 +822,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					// Technically, this ought to trigger an interrupt, but it won't do anything.
 					// But right now, signal is always reset by interrupts, so that causes pause to not work.
 					trigger = false;
-					currentList->state = PSP_GE_DL_STATE_PAUSED;
 					currentList->signal = behaviour;
-					ERROR_LOG_REPORT(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					ERROR_LOG_REPORT(G3D, "Signal with Pause. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
 					// Acts as a memory barrier, never calls any user code.
@@ -909,6 +904,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		case GE_CMD_FINISH:
 			switch (currentList->signal) {
 			case PSP_GE_SIGNAL_HANDLER_PAUSE:
+				currentList->state = PSP_GE_DL_STATE_PAUSED;
 				if (currentList->interruptsEnabled) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 						currentList->pendingInterrupt = true;
@@ -1038,9 +1034,6 @@ void GPUCommon::InterruptEnd(int listid) {
 		dl.waitTicks = 0;
 		__GeTriggerWait(GPU_SYNC_LIST, listid);
 	}
-
-	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 
 	guard.unlock();
 	ProcessDLQueue();

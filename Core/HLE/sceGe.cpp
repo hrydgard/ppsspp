@@ -110,7 +110,7 @@ public:
 		SubIntrHandler* handler = get(subintr);
 		if (handler != NULL)
 		{
-			DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
+			DEBUG_LOG(CPU, "Entering GE interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
 			u32 data = dl->subIntrToken;
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
@@ -161,8 +161,6 @@ public:
 		default:
 			break;
 		}
-
-		dl->signal = PSP_GE_SIGNAL_NONE;
 
 		gpu->InterruptEnd(intrdata.listid);
 	}
