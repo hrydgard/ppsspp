@@ -58,4 +58,6 @@ int GetReplacementFuncIndex(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(int index);
 
 void WriteReplaceInstruction(u32 address, u64 hash, int size);
+void RestoreReplacedInstruction(u32 address);
+void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
 bool GetReplacedOpAt(u32 address, u32 *op);

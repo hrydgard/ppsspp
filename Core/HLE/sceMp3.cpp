@@ -26,6 +26,8 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
+static const int ID3 = 0x49443300;
+
 #ifdef USE_FFMPEG
 #ifndef PRId64
 #define PRId64  "%llu" 
@@ -241,11 +243,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		fclose(file);
 	}
 	#endif
-	// 2 bytes per channel and we have frame.channels in mp3 source
-	// learn japanese v0.9 frame.channels = 0
-	if (frame.channels == 0)
-		frame.channels = 2;
-	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * frame.channels);
+	// 2 bytes per channel and we use ctx->mp3Channels here 
+	ctx->mp3SumDecodedSamples += bytesdecoded / (2 * ctx->mp3Channels);
 
 	return bytesdecoded;
 }
@@ -340,9 +339,6 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	ctx->mp3DecodedBytes = 0;
 	ctx->mp3SumDecodedSamples = 0;
 	ctx->mp3LoopNum = -1;
-	ctx->mp3Channels = 2;
-	ctx->mp3Bitrate = 128;
-	ctx->mp3SamplingRate = 44100;
 
 	if (mp3Map.find(mp3Addr) != mp3Map.end()) {
 		delete mp3Map[mp3Addr];
@@ -427,6 +423,72 @@ int __Mp3InitContext(Mp3Context *ctx) {
 #endif
 }
 
+int __CalculateMp3Channels(int bitval) {
+	if (bitval == 0 || bitval == 1 || bitval == 2) { // Stereo / Joint Stereo / Dual Channel.
+		return 2;
+	} else if (bitval == 3) { // Mono.
+		return 1;
+	} else {
+		return -1;
+	}
+}
+
+int __CalculateMp3SampleRates(int bitval, int mp3version) {
+	if (mp3version == 3) { // MPEG Version 1
+		int valuemapping[] = { 44100, 48000, 32000, -1 };
+		return valuemapping[bitval];
+	} else if (mp3version == 2) { // MPEG Version 2
+		int valuemapping[] = { 22050, 24000, 16000, -1 };
+		return valuemapping[bitval];
+	} else if (mp3version == 0) { // MPEG Version 2.5
+		int valuemapping[] = { 11025, 12000, 8000, -1 };
+		return valuemapping[bitval];
+	} else {
+		return -1;
+	}
+}
+
+int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
+	if (mp3version == 3) { // MPEG Version 1
+		if (mp3layer == 3) { // Layer I
+			int valuemapping[] = { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1 };
+			return valuemapping[bitval];
+		} else if (mp3layer == 2) { // Layer II
+			int valuemapping[] = { 0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, -1 };
+			return valuemapping[bitval];
+		} else if (mp3layer == 1) { // Layer III
+			int valuemapping[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1 };
+			return valuemapping[bitval];
+		} else {
+			return -1;
+		}
+	} else if (mp3version == 2 || mp3version == 0) { // MPEG Version 2 or 2.5
+		if (mp3layer == 3) { // Layer I
+			int valuemapping[] = { 0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, -1 };
+			return valuemapping[bitval];
+		} else if (mp3layer == 1 || mp3layer == 2) { // Layer II or III
+			int valuemapping[] = { 0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, -1 };
+			return valuemapping[bitval];
+		} else {
+			return -1;
+		}
+	} else {
+		return -1;
+	}
+}
+
+int __ParseMp3Header(Mp3Context *ctx) {
+	int header = bswap32(Memory::Read_U32(ctx->mp3Buf));
+	// ID3 tag , can be seen in Hanayaka Nari Wa ga Ichizoku.
+	if ((header & 0xFFFFFF00) == ID3) {
+		int size = bswap32(Memory::Read_U32(ctx->mp3Buf + ctx->mp3StreamStart + 6));
+		// Highest bit of each byte has to be ignored (format: 0x7F7F7F7F)
+		size = (size & 0x7F) | ((size & 0x7F00) >> 1) | ((size & 0x7F0000) >> 2) | ((size & 0x7F000000) >> 3);
+		header = bswap32(Memory::Read_U32(ctx->mp3Buf + ctx->mp3StreamStart + 10 + size));
+	}
+	return header;
+}
+
 int sceMp3Init(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
 
@@ -436,22 +498,20 @@ int sceMp3Init(u32 mp3) {
 		return -1;
 	}
 
-	// Read in the header and swap the endian
-	int header = bswap32(Memory::Read_U32(ctx->mp3Buf));
+	// Parse the Mp3 header
+	int header = __ParseMp3Header(ctx);
+	int layer = (header >> 17) & 0x3;
 	ctx->mp3Version = ((header >> 19) & 0x3);
+	ctx->mp3SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, ctx->mp3Version);
+	ctx->mp3Channels = __CalculateMp3Channels((header >> 6) & 0x3);
+	ctx->mp3Bitrate = __CalculateMp3Bitrates((header >> 12) & 0xF, ctx->mp3Version, layer);
+
+	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%ikHz, bitrate=%ikbps", ctx->mp3Channels, ctx->mp3SamplingRate, ctx->mp3Bitrate);
 
 #ifdef USE_FFMPEG
 	int ret = __Mp3InitContext(ctx);
 	if (ret != 0)
-		return ret;
-
-	// Let's just grab this info from FFMPEG, it seems more reliable than the code above.
-
-	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
-	ctx->mp3Channels = ctx->decoder_context->channels;
-	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
-	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%ikHz, bitrate=%ikbps", ctx->mp3Channels, ctx->mp3SamplingRate, ctx->mp3Bitrate);
-	
+		return ret;	
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
 #endif
 

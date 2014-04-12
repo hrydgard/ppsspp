@@ -450,6 +450,31 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 	}
 }
 
+void RestoreReplacedInstruction(u32 address) {
+	const u32 curInstr = Memory::Read_U32(address);
+	if (MIPS_IS_REPLACEMENT(curInstr)) {
+		Memory::Write_U32(replacedInstructions[address], address);
+	}
+	INFO_LOG(HLE, "Restored replaced func at %08x", address);
+	replacedInstructions.erase(address);
+}
+
+void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
+	const auto start = replacedInstructions.lower_bound(startAddr);
+	const auto end = replacedInstructions.upper_bound(endAddr);
+	int restored = 0;
+	for (auto it = start; it != end; ++it) {
+		const u32 addr = it->first;
+		const u32 curInstr = Memory::Read_U32(addr);
+		if (MIPS_IS_REPLACEMENT(curInstr)) {
+			Memory::Write_U32(it->second, addr);
+			++restored;
+		}
+	}
+	INFO_LOG(HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
+	replacedInstructions.erase(start, end);
+}
+
 bool GetReplacedOpAt(u32 address, u32 *op) {
 	u32 instr = Memory::Read_Opcode_JIT(address).encoding;
 	if (MIPS_IS_REPLACEMENT(instr)) {
