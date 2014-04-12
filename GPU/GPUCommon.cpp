@@ -920,11 +920,11 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 			default:
 				currentList->subIntrToken = prev & 0xFFFF;
-				currentList->state = PSP_GE_DL_STATE_COMPLETED;
 				UpdateState(GPUSTATE_DONE);
 				if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 					currentList->pendingInterrupt = true;
 				} else {
+					currentList->state = PSP_GE_DL_STATE_COMPLETED;
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);
 					__GeTriggerSync(GPU_SYNC_LIST, currentList->id, currentList->waitTicks);

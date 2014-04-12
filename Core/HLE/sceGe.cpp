@@ -107,6 +107,12 @@ public:
 			}
 		}
 
+		// Set the list as complete once the interrupt starts.
+		// In other words, not before another interrupt finishes.
+		if (dl->signal != PSP_GE_SIGNAL_HANDLER_PAUSE && cmd == GE_CMD_FINISH) {
+			dl->state = PSP_GE_DL_STATE_COMPLETED;
+		}
+
 		SubIntrHandler* handler = get(subintr);
 		if (handler != NULL)
 		{
