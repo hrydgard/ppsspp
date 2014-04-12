@@ -375,8 +375,6 @@ skip:
 		return furthestJumpbackAddr;
 	}
 
-	void ReplaceFunctions();
-
 	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
 		AnalyzedFunction currentFunction = {startAddr};
 

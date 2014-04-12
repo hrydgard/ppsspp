@@ -440,6 +440,10 @@ void __KernelModuleDoState(PointerWrap &p)
 	if (s >= 2) {
 		p.Do(loadedModules);
 	}
+
+	if (g_Config.bFuncHashMap) {
+		MIPSAnalyst::ReplaceFunctions();
+	}
 }
 
 void __KernelModuleShutdown()
