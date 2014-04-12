@@ -322,14 +322,13 @@ u32 sceAacDecode(u32 id, u32 pcmAddr)
 
 	auto inbuff = Memory::GetPointer(ctx->AACBuf);
 	auto outbuf = Memory::GetPointer(ctx->PCMBuf);
-	memset(outbuf, 0, ctx->PCMBufSize);
 	u32 outpcmbufsize = 0;
 
 	// move inbuff to writePos of buffer
 	inbuff += ctx->writePos;
 
-	// decode frames in aacBuf and output into PCMBuf if it is not exceed
-	while (ctx->aacBufAvailable > 0 && outpcmbufsize < ctx->PCMBufSize){
+	// decode one frame in aacBuf and output into PCMBuf. Don't use while here, it could lead to latency in playing. 
+	if (ctx->aacBufAvailable > 0){
 		int pcmframesize;
 		// decode
 		ctx->decoder->Decode(inbuff, ctx->aacBufAvailable, outbuf, &pcmframesize);
@@ -340,7 +339,6 @@ u32 sceAacDecode(u32 id, u32 pcmAddr)
 				ctx->readPos -= ctx->aacBufAvailable;
 			}
 			ctx->aacBufAvailable = 0;
-			break;
 		}
 		// count total output pcm size 
 		outpcmbufsize += pcmframesize;
@@ -359,6 +357,11 @@ u32 sceAacDecode(u32 id, u32 pcmAddr)
 
 	Memory::Write_U32(ctx->PCMBuf, pcmAddr);
 
+	// if we have no output but readPos is not the end of audio stream, we will clear pcm outbuf and return nonzero value to continue.
+	if (outpcmbufsize == 0 && ctx->readPos < ctx->endPos){
+		memset(outbuf, 0, ctx->PCMBufSize);
+		return FF_INPUT_BUFFER_PADDING_SIZE;
+	}
 	return outpcmbufsize;
 }
 
