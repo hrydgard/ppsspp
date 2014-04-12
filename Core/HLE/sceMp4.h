@@ -23,3 +23,5 @@ enum {
 };
 
 void Register_sceMp4();
+void __AACShutdown();
+void __AACDoState(PointerWrap &p);

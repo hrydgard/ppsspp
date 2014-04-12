@@ -559,6 +559,8 @@ skip:
 			}
 		}
 
+		RestoreReplacedInstructions(startAddr, endAddr);
+
 		// TODO: Also wipe them from hash->function map
 	}
 
