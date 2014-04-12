@@ -63,6 +63,7 @@ private:
 	void JitDirtyUniform(u32 what, bool exec = true);
 
 	void Jit_Generic(u32 op);
+	void Jit_GenericDirty(u32 op);
 	void Jit_Nop(u32 op);
 	void Jit_Vaddr(u32 op);
 	void Jit_Iaddr(u32 op);
@@ -71,6 +72,7 @@ private:
 
 	typedef void (DisplayListCache::*JitCmd)(u32 op);
 	JitCmd cmds_[256];
+	u32 dirtyFlags_[256];
 
 	int compiledThisFrame_;
 	int compiledFlips_;

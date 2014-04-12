@@ -32,16 +32,6 @@ void DisplayListCache::Initialize() {
 	AllocCodeSpace(1024 * 1024 * 4);
 	BKPT(0);
 	BKPT(0);
-
-	for (int i = 0; i < 256; ++i) {
-		cmds_[i] = &DisplayListCache::Jit_Generic;
-	}
-
-	cmds_[GE_CMD_NOP] = &DisplayListCache::Jit_Nop;
-	cmds_[GE_CMD_VADDR] = &DisplayListCache::Jit_Vaddr;
-	cmds_[GE_CMD_IADDR] = &DisplayListCache::Jit_Iaddr;
-	cmds_[GE_CMD_PRIM] = &DisplayListCache::Jit_Prim;
-	cmds_[GE_CMD_VERTEXTYPE] = &DisplayListCache::Jit_VertexType;
 }
 
 void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
@@ -207,6 +197,10 @@ void DisplayListCache::Jit_Generic(u32 op) {
 			SetJumpTarget(changedSkip);
 		}
 	}
+}
+
+void DisplayListCache::Jit_GenericDirty(u32 op) {
+	DISABLE;
 }
 
 void DisplayListCache::Jit_Nop(u32 op) {

@@ -18,12 +18,56 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/DisplayListCache.h"
+#include "GPU/GLES/ShaderManager.h"
 
 // TODO: Do based on op count instead?  Does this make sense?
 const int MAX_COMPILED_PER_FRAME = 3;
 const static int OLD_FLIPS = 90;
 
+struct UniformDirtyTableEntry {
+	u8 cmd;
+	u32 flag;
+};
+
+static const UniformDirtyTableEntry dirtyTable[] = {
+	{GE_CMD_FOGCOLOR, DIRTY_FOGCOLOR},
+	{GE_CMD_FOG1, DIRTY_FOGCOEF},
+	{GE_CMD_FOG2, DIRTY_FOGCOEF},
+	{GE_CMD_TEXMAPMODE, DIRTY_UVSCALEOFFSET},
+	{GE_CMD_AMBIENTCOLOR, DIRTY_AMBIENT},
+	{GE_CMD_AMBIENTALPHA, DIRTY_AMBIENT},
+	{GE_CMD_MATERIALDIFFUSE, DIRTY_MATDIFFUSE},
+	{GE_CMD_MATERIALEMISSIVE, DIRTY_MATEMISSIVE},
+	{GE_CMD_MATERIALAMBIENT, DIRTY_MATAMBIENTALPHA},
+	{GE_CMD_MATERIALALPHA, DIRTY_MATAMBIENTALPHA},
+	{GE_CMD_MATERIALSPECULAR, DIRTY_MATSPECULAR},
+	{GE_CMD_MATERIALSPECULARCOEF, DIRTY_MATSPECULAR},
+	{GE_CMD_COLORTEST, DIRTY_COLORMASK},
+	{GE_CMD_COLORTESTMASK, DIRTY_COLORMASK},
+	{GE_CMD_ALPHATEST, DIRTY_ALPHACOLORREF},
+	{GE_CMD_COLORREF, DIRTY_ALPHACOLORREF},
+	{GE_CMD_TEXENVCOLOR, DIRTY_TEXENV},
+	{GE_CMD_STENCILTEST, DIRTY_STENCILREPLACEVALUE},
+};
+
 DisplayListCache::DisplayListCache(GLES_GPU *gpu) : gpu_(gpu) {
+	for (int i = 0; i < 256; ++i) {
+		cmds_[i] = &DisplayListCache::Jit_Generic;
+	}
+
+	cmds_[GE_CMD_NOP] = &DisplayListCache::Jit_Nop;
+	cmds_[GE_CMD_VADDR] = &DisplayListCache::Jit_Vaddr;
+	cmds_[GE_CMD_IADDR] = &DisplayListCache::Jit_Iaddr;
+	cmds_[GE_CMD_PRIM] = &DisplayListCache::Jit_Prim;
+	cmds_[GE_CMD_VERTEXTYPE] = &DisplayListCache::Jit_VertexType;
+
+	memset(dirtyFlags_, 0, sizeof(dirtyFlags_));
+	for (size_t i = 0; i < ARRAY_SIZE(dirtyTable); ++i) {
+		const UniformDirtyTableEntry &entry = dirtyTable[i];
+		dirtyFlags_[entry.cmd] = entry.flag;
+		cmds_[entry.cmd] = &DisplayListCache::Jit_GenericDirty;
+	}
+
 	Initialize();
 }
 

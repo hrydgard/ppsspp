@@ -38,17 +38,6 @@ void DisplayListCache::Initialize() {
 #endif
 
 	// TODO: Flush when bSoftwareSkinning changed?  Need some mechanics.
-
-	// TODO: Move to common?
-	for (int i = 0; i < 256; ++i) {
-		cmds_[i] = &DisplayListCache::Jit_Generic;
-	}
-
-	cmds_[GE_CMD_NOP] = &DisplayListCache::Jit_Nop;
-	cmds_[GE_CMD_VADDR] = &DisplayListCache::Jit_Vaddr;
-	cmds_[GE_CMD_IADDR] = &DisplayListCache::Jit_Iaddr;
-	cmds_[GE_CMD_PRIM] = &DisplayListCache::Jit_Prim;
-	cmds_[GE_CMD_VERTEXTYPE] = &DisplayListCache::Jit_VertexType;
 }
 
 void DisplayListCache::DoExecuteOp(GLES_GPU *g, u32 op, u32 diff) {
@@ -270,7 +259,7 @@ void DisplayListCache::Jit_Generic(u32 op) {
 		if (cmdFlags & FLAG_READS_PC) {
 			JitStorePC();
 		}
-		gpu_->ExecuteOp(op, diff);
+		gpu_->ExecuteOpInternal(op, diff);
 		ABI_CallFunctionPAA((const void *)&DoExecuteOp, gpu_, R(opReg), R(diffReg));
 		if (cmdFlags & FLAG_WRITES_PC) {
 			JitLoadPC();
@@ -279,6 +268,28 @@ void DisplayListCache::Jit_Generic(u32 op) {
 			SetJumpTarget(changedSkip);
 		}
 	}
+}
+
+void DisplayListCache::Jit_GenericDirty(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	const u32 cmd = op >> 24;
+	const u32 diff = op ^ gstate.cmdmem[cmd];
+	const u8 cmdFlags = gpu_->commandFlags_[cmd];
+
+	if (cmdFlags & FLAG_FLUSHBEFORE) {
+		JitFlush();
+	} else if (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) {
+		JitFlush(diff, true, diff != 0);
+	}
+
+	gstate.cmdmem[cmd] = op;
+	MOV(32, MCmdState(cmd), R(opReg));
+
+	CMP(32, R(diffReg), Imm32(0));
+	FixupBranch skip = J_CC(CC_Z);
+	JitDirtyUniform(dirtyFlags_[cmd], diff != 0);
+	SetJumpTarget(skip);
 }
 
 void DisplayListCache::Jit_Nop(u32 op) {
