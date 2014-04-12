@@ -138,21 +138,21 @@ public:
 		}
 	};
 
-	u32 sceAuExit();
-	u32 sceAuDecode(u32 pcmAddr);
-	u32 sceAuGetLoopNum();
-	u32 sceAuSetLoopNum(int loop);
-	int sceAuCheckStreamDataNeeded();
-	u32 sceAuNotifyAddStreamData(int size);
-	u32 sceAuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos);
-	u32 sceAuGetMaxOutputSample();
-	u32 sceAuGetSumDecodedSample();
-	u32 sceAuResetPlayPosition();
-	int sceAuGetChannelNum();
-	int sceAuGetBitRate();
-	int sceAuGetSamplingRate();
-	u32 sceAuResetPlayPositionByFrame(int position);
-	int sceAuGetVersion();
+	u32 AuExit();
+	u32 AuDecode(u32 pcmAddr);
+	u32 AuGetLoopNum();
+	u32 AuSetLoopNum(int loop);
+	int AuCheckStreamDataNeeded();
+	u32 AuNotifyAddStreamData(int size);
+	u32 AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos);
+	u32 AuGetMaxOutputSample();
+	u32 AuGetSumDecodedSample();
+	u32 AuResetPlayPosition();
+	int AuGetChannelNum();
+	int AuGetBitRate();
+	int AuGetSamplingRate();
+	u32 AuResetPlayPositionByFrame(int position);
+	int AuGetVersion();
 
 	void DoState(PointerWrap &p) {
 		auto s = p.Section("AuContext", 0, 1);

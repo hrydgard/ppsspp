@@ -27,7 +27,62 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
+
+struct Mp3Context {
+public:
+
+	int mp3StreamStart;
+	int mp3StreamEnd;
+	u32 mp3Buf;
+	int mp3BufSize;
+	u32 mp3PcmBuf;
+	int mp3PcmBufSize;
+
+	int readPosition;
+
+	int bufferRead;
+	int bufferWrite;
+	int bufferAvailable;
+
+	int mp3DecodedBytes;
+	int mp3LoopNum;
+	int mp3MaxSamples;
+	int mp3SumDecodedSamples;
+
+	int mp3Channels;
+	int mp3Bitrate;
+	int mp3SamplingRate;
+	int mp3Version;
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("Mp3Context", 1);
+		if (!s)
+			return;
+
+		p.Do(mp3StreamStart);
+		p.Do(mp3StreamEnd);
+		p.Do(mp3Buf);
+		p.Do(mp3BufSize);
+		p.Do(mp3PcmBuf);
+		p.Do(mp3PcmBufSize);
+		p.Do(readPosition);
+		p.Do(bufferRead);
+		p.Do(bufferWrite);
+		p.Do(bufferAvailable);
+		p.Do(mp3DecodedBytes);
+		p.Do(mp3LoopNum);
+		p.Do(mp3MaxSamples);
+		p.Do(mp3SumDecodedSamples);
+		p.Do(mp3Channels);
+		p.Do(mp3Bitrate);
+		p.Do(mp3SamplingRate);
+		p.Do(mp3Version);
+	};
+};
+
+static std::map<u32, Mp3Context *> mp3Map_old;
 static std::map<u32, AuCtx *> mp3Map;
+
 
 AuCtx *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
@@ -43,11 +98,42 @@ void __Mp3Shutdown() {
 }
 
 void __Mp3DoState(PointerWrap &p) {
-	auto s = p.Section("sceMp3", 0, 1);
+	auto s = p.Section("sceMp3", 0, 2);
 	if (!s)
 		return;
 
-	p.Do(mp3Map);
+	if (s >= 2){
+		p.Do(mp3Map);
+	}
+	if (s <= 1 && p.mode == p.MODE_READ){
+		p.Do(mp3Map_old); // read old map
+		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
+			auto mp3 = new AuCtx;
+			u32 id = it->first;
+			auto mp3_old = it->second;
+			mp3->AuBuf = mp3_old->mp3Buf;
+			mp3->AuBufSize = mp3_old->mp3BufSize;
+			mp3->PCMBuf = mp3_old->mp3PcmBuf;
+			mp3->PCMBufSize = mp3_old->mp3PcmBufSize;
+			mp3->BitRate = mp3_old->mp3Bitrate;
+			mp3->Channels = mp3_old->mp3Channels;
+			mp3->endPos = mp3_old->mp3StreamEnd;
+			mp3->startPos = mp3_old->mp3StreamStart;
+			mp3->LoopNum = mp3_old->mp3LoopNum;
+			mp3->SamplingRate = mp3_old->mp3SamplingRate;
+			mp3->freq = mp3->SamplingRate;
+			mp3->SumDecodedSamples = mp3_old->mp3SumDecodedSamples;
+			mp3->Version = mp3_old->mp3Version;
+			mp3->MaxOutputSample = mp3_old->mp3MaxSamples;
+			mp3->readPos = mp3_old->readPosition;
+			mp3->AuBufAvailable = 0; // reset to read from file
+			mp3->writePos = 0; // reset to read from buffer 
+
+			mp3->audioType = PSP_CODEC_MP3;
+			mp3->decoder = new SimpleAudio(mp3->audioType);
+			mp3Map[id] = mp3;
+		}
+	}
 }
 
 int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
@@ -59,7 +145,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		return -1;
 	}
 
-	return ctx->sceAuDecode(outPcmPtr);
+	return ctx->AuDecode(outPcmPtr);
 }
 
 int sceMp3ResetPlayPosition(u32 mp3) {
@@ -71,7 +157,7 @@ int sceMp3ResetPlayPosition(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuResetPlayPosition();
+	return ctx->AuResetPlayPosition();
 }
 
 int sceMp3CheckStreamDataNeeded(u32 mp3) {
@@ -83,7 +169,7 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuCheckStreamDataNeeded();
+	return ctx->AuCheckStreamDataNeeded();
 }
 
 
@@ -271,7 +357,7 @@ int sceMp3GetLoopNum(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuGetLoopNum();
+	return ctx->AuGetLoopNum();
 }
 
 int sceMp3GetMaxOutputSample(u32 mp3)
@@ -283,7 +369,7 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 		return -1;
 	}
 
-	return ctx->sceAuGetMaxOutputSample();
+	return ctx->AuGetMaxOutputSample();
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
@@ -295,7 +381,7 @@ int sceMp3GetSumDecodedSample(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuGetSumDecodedSample();
+	return ctx->AuGetSumDecodedSample();
 }
 
 int sceMp3SetLoopNum(u32 mp3, int loop) {
@@ -307,7 +393,7 @@ int sceMp3SetLoopNum(u32 mp3, int loop) {
 		return -1;
 	}
 
-	return ctx->sceAuSetLoopNum(loop);
+	return ctx->AuSetLoopNum(loop);
 }
 int sceMp3GetMp3ChannelNum(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetMp3ChannelNum(%08X)", mp3);
@@ -318,7 +404,7 @@ int sceMp3GetMp3ChannelNum(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuGetChannelNum();
+	return ctx->AuGetChannelNum();
 }
 int sceMp3GetBitRate(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetBitRate(%08X)", mp3);
@@ -329,7 +415,7 @@ int sceMp3GetBitRate(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuGetBitRate();
+	return ctx->AuGetBitRate();
 }
 int sceMp3GetSamplingRate(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetSamplingRate(%08X)", mp3);
@@ -340,7 +426,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuGetSamplingRate();
+	return ctx->AuGetSamplingRate();
 }
 
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
@@ -352,7 +438,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 		return -1;
 	}
 
-	return ctx->sceAuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr);
+	return ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr);
 }
 
 int sceMp3NotifyAddStreamData(u32 mp3, int size) {
@@ -364,7 +450,7 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 		return -1;
 	}
 
-	return ctx->sceAuNotifyAddStreamData(size);
+	return ctx->AuNotifyAddStreamData(size);
 }
 
 int sceMp3ReleaseMp3Handle(u32 mp3) {
@@ -405,7 +491,7 @@ u32 sceMp3GetMPEGVersion(u32 mp3) {
 		return -1;
 	}
 
-	return ctx->sceAuGetVersion();
+	return ctx->AuGetVersion();
 }
 
 u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
@@ -416,7 +502,7 @@ u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 		return -1;
 	}
 
-	return ctx->sceAuResetPlayPositionByFrame(position);
+	return ctx->AuResetPlayPositionByFrame(position);
 }
 
 u32 sceMp3LowLevelInit() {

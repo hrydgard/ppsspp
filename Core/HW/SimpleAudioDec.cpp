@@ -204,13 +204,17 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	av_frame_unref(frame_);
 
 	*outbytes = 0;
-	srcPos = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
-	if (srcPos < 0) {
+	srcPos = 0;
+	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
+	if (len < 0) {
 		ERROR_LOG(ME, "Error decoding Audio frame");
 		// TODO: cleanup
 		return false;
 	}
 	av_free_packet(&packet);
+	
+	// get bytes consumed in source
+	srcPos = len;
 
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
@@ -290,7 +294,7 @@ bool isValidCodec(int codec){
 // sceAu module starts from here
 
 // return output pcm size, <0 error
-u32 AuCtx::sceAuDecode(u32 pcmAddr)
+u32 AuCtx::AuDecode(u32 pcmAddr)
 {
 	if (!Memory::IsValidAddress(pcmAddr)){
 		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
@@ -346,19 +350,19 @@ u32 AuCtx::sceAuDecode(u32 pcmAddr)
 	return outpcmbufsize;
 }
 
-u32 AuCtx::sceAuGetLoopNum()
+u32 AuCtx::AuGetLoopNum()
 {
 	return LoopNum;
 }
 
-u32 AuCtx::sceAuSetLoopNum(int loop)
+u32 AuCtx::AuSetLoopNum(int loop)
 {
 	LoopNum = loop;
 	return 0;
 }
 
 // return 1 to read more data stream, 0 don't read
-int AuCtx::sceAuCheckStreamDataNeeded()
+int AuCtx::AuCheckStreamDataNeeded()
 {
 	// if we have no available Au buffer, and the current read position in source file is not the end of stream, then we can read
 	if (AuBufAvailable == 0 && readPos < endPos){
@@ -368,7 +372,7 @@ int AuCtx::sceAuCheckStreamDataNeeded()
 }
 
 // check how many bytes we have read from source file
-u32 AuCtx::sceAuNotifyAddStreamData(int size)
+u32 AuCtx::AuNotifyAddStreamData(int size)
 {
 	readPos += size;
 	AuBufAvailable += size;
@@ -387,7 +391,7 @@ u32 AuCtx::sceAuNotifyAddStreamData(int size)
 }
 
 // read from stream position srcPos of size bytes into buff
-u32 AuCtx::sceAuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
+u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 {
 	// we can recharge AuBuf from its begining
 	if (Memory::IsValidAddress(buff))
@@ -400,39 +404,39 @@ u32 AuCtx::sceAuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 	return 0;
 }
 
-u32 AuCtx::sceAuGetMaxOutputSample()
+u32 AuCtx::AuGetMaxOutputSample()
 {
 	return MaxOutputSample;
 }
 
-u32 AuCtx::sceAuGetSumDecodedSample()
+u32 AuCtx::AuGetSumDecodedSample()
 {
 	return SumDecodedSamples;
 }
 
-u32 AuCtx::sceAuResetPlayPosition()
+u32 AuCtx::AuResetPlayPosition()
 {
 	readPos = startPos;
 	return 0;
 }
 
-int AuCtx::sceAuGetChannelNum(){
+int AuCtx::AuGetChannelNum(){
 	return Channels;
 }
 
-int AuCtx::sceAuGetBitRate(){
+int AuCtx::AuGetBitRate(){
 	return BitRate;
 }
 
-int AuCtx::sceAuGetSamplingRate(){
+int AuCtx::AuGetSamplingRate(){
 	return SamplingRate;
 }
 
-u32 AuCtx::sceAuResetPlayPositionByFrame(int position){
+u32 AuCtx::AuResetPlayPositionByFrame(int position){
 	readPos = position;
 	return 0;
 }
 
-int AuCtx::sceAuGetVersion(){
+int AuCtx::AuGetVersion(){
 	return Version;
 }
